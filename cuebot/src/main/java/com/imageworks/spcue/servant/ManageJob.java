@@ -26,6 +26,8 @@ import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.BuildableJob;
@@ -157,6 +159,8 @@ import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.FrameSet;
 
+import static com.imageworks.spcue.servant.ServantUtil.attemptChange;
+
 public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     private static final Logger logger = LogManager.getLogger(ManageJob.class);
     private Whiteboard whiteboard;
@@ -174,6 +178,9 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     private JobInterface job;
     private FrameSearchFactory frameSearchFactory;
     private JobSearchFactory jobSearchFactory;
+    private final String property = "frame.finished_jobs_readonly";
+    @Autowired
+    private Environment env;
 
     @Override
     public void findJob(JobFindJobRequest request, StreamObserver<JobFindJobResponse> responseObserver) {
@@ -358,9 +365,11 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void setMaxCores(JobSetMaxCoresRequest request, StreamObserver<JobSetMaxCoresResponse> responseObserver) {
         try{
             setupJobData(request.getJob());
-            jobDao.updateMaxCores(job, Convert.coresToWholeCoreUnits(request.getVal()));
-            responseObserver.onNext(JobSetMaxCoresResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                jobDao.updateMaxCores(job, Convert.coresToWholeCoreUnits(request.getVal()));
+                responseObserver.onNext(JobSetMaxCoresResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -418,9 +427,11 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void setPriority(JobSetPriorityRequest request, StreamObserver<JobSetPriorityResponse> responseObserver) {
         try{
             setupJobData(request.getJob());
-            jobDao.updatePriority(job, request.getVal());
-            responseObserver.onNext(JobSetPriorityResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                jobDao.updatePriority(job, request.getVal());
+                responseObserver.onNext(JobSetPriorityResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -450,13 +461,15 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void eatFrames(JobEatFramesRequest request, StreamObserver<JobEatFramesResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            manageQueue.execute(
-                    new DispatchEatFrames(
-                            frameSearchFactory.create(job, request.getReq()),
-                            new Source(request.toString()),
-                            jobManagerSupport));
-            responseObserver.onNext(JobEatFramesResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(
+                        new DispatchEatFrames(
+                                frameSearchFactory.create(job, request.getReq()),
+                                new Source(request.toString()),
+                                jobManagerSupport));
+                responseObserver.onNext(JobEatFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -469,13 +482,15 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void killFrames(JobKillFramesRequest request, StreamObserver<JobKillFramesResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            manageQueue.execute(
-                    new DispatchKillFrames(
-                            frameSearchFactory.create(job, request.getReq()),
-                            new Source(request.toString()),
-                            jobManagerSupport));
-            responseObserver.onNext(JobKillFramesResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(
+                        new DispatchKillFrames(
+                                frameSearchFactory.create(job, request.getReq()),
+                                new Source(request.toString()),
+                                jobManagerSupport));
+                responseObserver.onNext(JobKillFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -489,11 +504,13 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                                StreamObserver<JobMarkDoneFramesResponse> responseObserver) {
         try{
             setupJobData(request.getJob());
-            manageQueue.execute(
-                    new DispatchSatisfyDepends(
-                            frameSearchFactory.create(job, request.getReq()), jobManagerSupport));
-            responseObserver.onNext(JobMarkDoneFramesResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(
+                        new DispatchSatisfyDepends(
+                                frameSearchFactory.create(job, request.getReq()), jobManagerSupport));
+                responseObserver.onNext(JobMarkDoneFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -506,13 +523,15 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void retryFrames(JobRetryFramesRequest request, StreamObserver<JobRetryFramesResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            manageQueue.execute(
-                    new DispatchRetryFrames(
-                            frameSearchFactory.create(job, request.getReq()),
-                            new Source(request.toString()),
-                            jobManagerSupport));
-            responseObserver.onNext(JobRetryFramesResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(
+                        new DispatchRetryFrames(
+                                frameSearchFactory.create(job, request.getReq()),
+                                new Source(request.toString()),
+                                jobManagerSupport));
+                responseObserver.onNext(JobRetryFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -525,9 +544,11 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void setAutoEat(JobSetAutoEatRequest request, StreamObserver<JobSetAutoEatResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            jobDao.updateAutoEat(job, request.getValue());
-            responseObserver.onNext(JobSetAutoEatResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                jobDao.updateAutoEat(job, request.getValue());
+                responseObserver.onNext(JobSetAutoEatResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -541,13 +562,15 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                                         StreamObserver<JobCreateDependencyOnFrameResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            JobOnFrame depend = new JobOnFrame(job,
-                    jobManager.getFrameDetail(request.getFrame().getId()));
-            dependManager.createDepend(depend);
-            responseObserver.onNext(JobCreateDependencyOnFrameResponse.newBuilder()
-                    .setDepend(whiteboard.getDepend(depend))
-                    .build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                JobOnFrame depend = new JobOnFrame(job,
+                        jobManager.getFrameDetail(request.getFrame().getId()));
+                dependManager.createDepend(depend);
+                responseObserver.onNext(JobCreateDependencyOnFrameResponse.newBuilder()
+                        .setDepend(whiteboard.getDepend(depend))
+                        .build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -561,13 +584,15 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                                       StreamObserver<JobCreateDependencyOnJobResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            JobOnJob depend = new JobOnJob(job,
-                    jobManager.getJobDetail(request.getOnJob().getId()));
-            dependManager.createDepend(depend);
-            responseObserver.onNext(JobCreateDependencyOnJobResponse.newBuilder()
-                    .setDepend(whiteboard.getDepend(depend))
-                    .build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                JobOnJob depend = new JobOnJob(job,
+                        jobManager.getJobDetail(request.getOnJob().getId()));
+                dependManager.createDepend(depend);
+                responseObserver.onNext(JobCreateDependencyOnJobResponse.newBuilder()
+                        .setDepend(whiteboard.getDepend(depend))
+                        .build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -581,13 +606,15 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                                         StreamObserver<JobCreateDependencyOnLayerResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            JobOnLayer depend = new JobOnLayer(job,
-                    jobManager.getLayerDetail(request.getLayer().getId()));
-            dependManager.createDepend(depend);
-            responseObserver.onNext(JobCreateDependencyOnLayerResponse.newBuilder()
-                    .setDepend(whiteboard.getDepend(depend))
-                    .build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                JobOnLayer depend = new JobOnLayer(job,
+                        jobManager.getLayerDetail(request.getLayer().getId()));
+                dependManager.createDepend(depend);
+                responseObserver.onNext(JobCreateDependencyOnLayerResponse.newBuilder()
+                        .setDepend(whiteboard.getDepend(depend))
+                        .build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -672,9 +699,11 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void setMaxRetries(JobSetMaxRetriesRequest request, StreamObserver<JobSetMaxRetriesResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            jobDao.updateMaxFrameRetries(job, request.getMaxRetries());
-            responseObserver.onNext(JobSetMaxRetriesResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                jobDao.updateMaxFrameRetries(job, request.getMaxRetries());
+                responseObserver.onNext(JobSetMaxRetriesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -724,9 +753,11 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void dropDepends(JobDropDependsRequest request, StreamObserver<JobDropDependsResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            manageQueue.execute(new DispatchDropDepends(job, request.getTarget(), dependManager));
-            responseObserver.onNext(JobDropDependsResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(new DispatchDropDepends(job, request.getTarget(), dependManager));
+                responseObserver.onNext(JobDropDependsResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -739,9 +770,11 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void setGroup(JobSetGroupRequest request, StreamObserver<JobSetGroupResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            jobDao.updateParent(job, groupManager.getGroupDetail(request.getGroupId()));
-            responseObserver.onNext(JobSetGroupResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                jobDao.updateParent(job, groupManager.getGroupDetail(request.getGroupId()));
+                responseObserver.onNext(JobSetGroupResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -755,10 +788,12 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                               StreamObserver<JobMarkAsWaitingResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            jobManagerSupport.markFramesAsWaiting(
-                    frameSearchFactory.create(job, request.getReq()), new Source(request.toString()));
-            responseObserver.onNext(JobMarkAsWaitingResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                jobManagerSupport.markFramesAsWaiting(
+                        frameSearchFactory.create(job, request.getReq()), new Source(request.toString()));
+                responseObserver.onNext(JobMarkAsWaitingResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -772,10 +807,12 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                               StreamObserver<JobReorderFramesResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            manageQueue.execute(new DispatchReorderFrames(job,
-                    new FrameSet(request.getRange()), request.getOrder(), jobManagerSupport));
-            responseObserver.onNext(JobReorderFramesResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(new DispatchReorderFrames(job,
+                        new FrameSet(request.getRange()), request.getOrder(), jobManagerSupport));
+                responseObserver.onNext(JobReorderFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -805,10 +842,12 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                               StreamObserver<JobStaggerFramesResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            manageQueue.execute(
-                    new DispatchStaggerFrames(job, request.getRange(), request.getStagger(), jobManagerSupport));
-            responseObserver.onNext(JobStaggerFramesResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(
+                        new DispatchStaggerFrames(job, request.getRange(), request.getStagger(), jobManagerSupport));
+                responseObserver.onNext(JobStaggerFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
@@ -821,31 +860,33 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void addRenderPartition(JobAddRenderPartRequest request, StreamObserver<JobAddRenderPartResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            LocalHostAssignment lha = new LocalHostAssignment();
-            lha.setJobId(job.getId());
-            lha.setThreads(request.getThreads());
-            lha.setMaxCoreUnits(request.getMaxCores() * 100);
-            lha.setMaxMemory(request.getMaxMemory());
-            lha.setMaxGpuUnits(request.getMaxGpus());
-            lha.setMaxGpuMemory(request.getMaxGpuMemory());
-            lha.setType(RenderPartitionType.JOB_PARTITION);
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                LocalHostAssignment lha = new LocalHostAssignment();
+                lha.setJobId(job.getId());
+                lha.setThreads(request.getThreads());
+                lha.setMaxCoreUnits(request.getMaxCores() * 100);
+                lha.setMaxMemory(request.getMaxMemory());
+                lha.setMaxGpuUnits(request.getMaxGpus());
+                lha.setMaxGpuMemory(request.getMaxGpuMemory());
+                lha.setType(RenderPartitionType.JOB_PARTITION);
 
-            if (localBookingSupport.bookLocal(job, request.getHost(), request.getUsername(), lha)) {
-                try {
-                    RenderPartition renderPart = whiteboard.getRenderPartition(lha);
-                    responseObserver.onNext(JobAddRenderPartResponse.newBuilder()
-                            .setRenderPartition(renderPart)
-                            .build());
-                    responseObserver.onCompleted();
-                } catch (EmptyResultDataAccessException e) {
+                if (localBookingSupport.bookLocal(job, request.getHost(), request.getUsername(), lha)) {
+                    try {
+                        RenderPartition renderPart = whiteboard.getRenderPartition(lha);
+                        responseObserver.onNext(JobAddRenderPartResponse.newBuilder()
+                                .setRenderPartition(renderPart)
+                                .build());
+                        responseObserver.onCompleted();
+                    } catch (EmptyResultDataAccessException e) {
+                        responseObserver.onError(Status.INTERNAL
+                                .withDescription("Failed to allocate render partition to host.")
+                                .asRuntimeException());
+                    }
+                } else {
                     responseObserver.onError(Status.INTERNAL
-                            .withDescription("Failed to allocate render partition to host.")
+                            .withDescription("Failed to find suitable frames.")
                             .asRuntimeException());
                 }
-            } else {
-                responseObserver.onError(Status.INTERNAL
-                        .withDescription("Failed to find suitable frames.")
-                        .asRuntimeException());
             }
         }
         catch (EmptyResultDataAccessException e) {
@@ -859,10 +900,12 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void runFilters(JobRunFiltersRequest request, StreamObserver<JobRunFiltersResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            JobDetail jobDetail = jobManager.getJobDetail(job.getJobId());
-            filterManager.runFiltersOnJob(jobDetail);
-            responseObserver.onNext(JobRunFiltersResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                JobDetail jobDetail = jobManager.getJobDetail(job.getJobId());
+                filterManager.runFiltersOnJob(jobDetail);
+                responseObserver.onNext(JobRunFiltersResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL

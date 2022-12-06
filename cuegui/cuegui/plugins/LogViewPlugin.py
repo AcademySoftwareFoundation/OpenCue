@@ -300,9 +300,10 @@ class LogViewWidget(QtWidgets.QWidget):
         """
         Create the UI elements
         """
+        QtWidgets.QWidget.__init__(self, parent)
+        self.app = cuegui.app()
 
         # Main Widget
-        QtWidgets.QWidget.__init__(self, parent)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self._scrollArea = QtWidgets.QScrollArea()
@@ -428,9 +429,7 @@ class LogViewWidget(QtWidgets.QWidget):
         pos = QtCore.QPoint(0, 0)
         self._highlight_cursor = self._content_box.cursorForPosition(pos)
         # Signals are defined in code, so pylint thinks they don't exist.
-        # pylint: disable=no-member
-        QtGui.qApp.display_log_file_content.connect(self._set_log_files)
-        # pylint: enable=no-member
+        self.app.display_log_file_content.connect(self._set_log_files)
         self._log_scrollbar = self._content_box.verticalScrollBar()
         self._log_scrollbar.valueChanged.connect(self._set_scrollbar_value)
 
@@ -856,9 +855,7 @@ class LogViewWidget(QtWidgets.QWidget):
             else:
                 self._content_box.appendPlainText(new_text)
             self._content_timestamp = time.time()
-        # pylint: disable=no-member
-        QtGui.qApp.processEvents()
-        # pylint: enable=no-member
+        self.app.processEvents()
 
         # Adjust scrollbar value (if necessary)
         self._scrollbar_max = self._log_scrollbar.maximum()

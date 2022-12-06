@@ -132,6 +132,10 @@ public interface Dispatcher {
     // The default operating system assigned to host that don't report one.
     public static final String OS_DEFAULT = "rhel40";
 
+    // The default minimum memory increase for when jobs fail due to not enough
+    // memory
+    public static final long MINIMUM_MEMORY_INCREASE = CueUtil.GB2;
+
     /**
      * Dispatch a host to the facility.
      *

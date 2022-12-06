@@ -54,6 +54,12 @@ import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
 
+import com.imageworks.spcue.dao.WhiteboardDao;
+import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.dao.ServiceDao;
+import com.imageworks.spcue.grpc.service.Service;
+import com.imageworks.spcue.grpc.service.ServiceOverride;
+
 /**
  * The FrameCompleteHandler encapsulates all logic necessary for processing
  * FrameComplete reports from RQD.
@@ -75,6 +81,10 @@ public class FrameCompleteHandler {
     private JobManagerSupport jobManagerSupport;
     private DispatchSupport dispatchSupport;
     private JmsMover jsmMover;
+
+    private WhiteboardDao whiteboardDao;
+    private ServiceDao serviceDao;
+    private ShowDao showDao;
 
     /*
      * The last time a proc was unbooked for subscription or job balancing.
@@ -299,14 +309,45 @@ public class FrameCompleteHandler {
             /*
              * An exit status of 33 indicates that the frame was killed by the
              * application due to a memory issue and should be retried. In this
-             * case, disable the optimizer and raise the memory by 2GB.
+             * case, disable the optimizer and raise the memory by what is
+             * specified in the show's service override, service or 2GB.
              */
             if (report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
                     || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+                long increase = CueUtil.GB2;
+
+                // since there can be multiple services, just going for the
+                // first service (primary)
+                String serviceName = "";
+                try {
+                    serviceName = frame.services.split(",")[0];
+                    ServiceOverride showService = whiteboardDao.getServiceOverride(
+                            showDao.findShowDetail(frame.show), serviceName);
+                    // increase override is stored in Kb format so convert to Mb
+                    // for easier reading. Note: Kb->Mb conversion uses 1024 blocks
+                    increase = showService.getData().getMinMemoryIncrease();
+                    logger.info("Using " + serviceName + " service show " +
+                            "override for memory increase: " +
+                            Math.floor(increase / 1024) + "Mb.");
+                }
+                catch (NullPointerException e) {
+                    logger.info("Frame has no associated services");
+                }
+                catch (EmptyResultDataAccessException e) {
+                    logger.info(frame.show + " has no service override for " +
+                            serviceName + ".");
+                    Service service = whiteboardDao.findService(serviceName);
+                    increase = service.getMinMemoryIncrease();
+                    logger.info("Using service default for mem increase: " +
+                            Math.floor(increase / 1024) + "Mb.");
+                }
+
                 unbookProc = true;
                 jobManager.enableMemoryOptimizer(frame, false);
                 jobManager.increaseLayerMemoryRequirement(frame,
-                        proc.memoryReserved + CueUtil.GB2);
+                        proc.memoryReserved + increase);
+                logger.info("Increased mem usage to: " +
+                        (proc.memoryReserved + increase));
             }
 
             /*
@@ -502,7 +543,6 @@ public class FrameCompleteHandler {
                 dispatchSupport.unbookProc(proc, "frame state was "
                         + newFrameState.toString());
             }
-
         } catch (Exception e) {
             /*
              * At this point, the proc has no place to go. Since we've run into
@@ -693,5 +733,22 @@ public class FrameCompleteHandler {
     public void setJmsMover(JmsMover jsmMover) {
         this.jsmMover = jsmMover;
     }
+
+    public WhiteboardDao getWhiteboardDao() { return whiteboardDao; }
+
+    public void setWhiteboardDao(WhiteboardDao whiteboardDao) {
+        this.whiteboardDao = whiteboardDao; }
+
+    public ServiceDao getServiceDao() { return serviceDao; }
+
+    public void setServiceDao(ServiceDao serviceDao) {
+        this.serviceDao = serviceDao; }
+
+    public ShowDao getShowDao() { return showDao; }
+
+    public void setShowDao(ShowDao showDao) {
+        this.showDao = showDao; }
+
 }
+
 

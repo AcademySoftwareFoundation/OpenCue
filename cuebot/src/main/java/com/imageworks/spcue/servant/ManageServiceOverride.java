@@ -74,6 +74,7 @@ public class ManageServiceOverride extends ServiceOverrideInterfaceGrpc.ServiceO
         entity.threadable = service.getThreadable();
         entity.timeout = service.getTimeout();
         entity.timeout_llu = service.getTimeoutLlu();
+        entity.minMemoryIncrease = service.getMinMemoryIncrease();
         return entity;
     }
 }

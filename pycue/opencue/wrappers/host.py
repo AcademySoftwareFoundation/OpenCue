@@ -19,6 +19,7 @@ import os
 import time
 
 from opencue import Cuebot
+from opencue import util
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import host_pb2
 import opencue.wrappers.comment
@@ -149,6 +150,7 @@ class Host(object):
             host_pb2.HostRenameTagRequest(host=self.data, old_tag=oldTag, new_tag=newTag),
             timeout=Cuebot.Timeout)
 
+    @util.grpcExceptionParser
     def setAllocation(self, allocation):
         """Sets the host to the given allocation.
 
@@ -279,7 +281,7 @@ class Host(object):
         :rtype: float
         :return: number of cores reserved
         """
-        return self.data.cores - self.data.idle_ores
+        return self.data.cores - self.data.idle_cores
 
     def coresIdle(self):
         """Returns the number of cores the host currently has idel.

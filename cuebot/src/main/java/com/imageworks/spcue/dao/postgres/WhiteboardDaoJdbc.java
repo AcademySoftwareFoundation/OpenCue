@@ -1462,6 +1462,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                                     SqlUtil.getString(rs,"str_tags"))))
                             .setTimeout(rs.getInt("int_timeout"))
                             .setTimeoutLlu(rs.getInt("int_timeout_llu"))
+                            .setMinMemoryIncrease(rs.getInt("int_min_memory_increase"))
                             .build();
                 }
             };
@@ -1483,6 +1484,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                                     SqlUtil.getString(rs,"str_tags"))))
                             .setTimeout(rs.getInt("int_timeout"))
                             .setTimeoutLlu(rs.getInt("int_timeout_llu"))
+                            .setMinMemoryIncrease(rs.getInt("int_min_memory_increase"))
                             .build();
                     return ServiceOverride.newBuilder()
                             .setId(SqlUtil.getString(rs,"pk_show_service"))
@@ -2088,7 +2090,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "service.int_gpu_mem_min," +
             "service.str_tags," +
             "service.int_timeout," +
-            "service.int_timeout_llu " +
+            "service.int_timeout_llu," +
+            "service.int_min_memory_increase " +
         "FROM "+
             "service ";
 
@@ -2105,7 +2108,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "show_service.int_gpu_mem_min," +
             "show_service.str_tags," +
             "show_service.int_timeout," +
-            "show_service.int_timeout_llu " +
+            "show_service.int_timeout_llu," +
+            "show_service.int_min_memory_increase " +
         "FROM "+
             "show_service, " +
             "show " +
