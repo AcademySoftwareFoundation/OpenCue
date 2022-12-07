@@ -75,7 +75,7 @@ class ProcChildren(QtWidgets.QWidget):
 
         try:
             procs = opencue.api.getProcs(job=[self._job.name()],
-                                         layer=[self._layer.name()],
+                                         layer=[x.name() for x in self._job.getLayers()],
                                          host=self._hosts)
             for proc in procs:
                 data['children_processes'] =\

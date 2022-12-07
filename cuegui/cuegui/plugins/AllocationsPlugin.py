@@ -22,7 +22,7 @@ from __future__ import absolute_import
 
 from builtins import map
 
-from PySide2 import QtGui, QtWidgets
+from PySide2 import QtWidgets
 
 import opencue
 
@@ -104,10 +104,7 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.setDragEnabled(True)
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
 
-        # Signals are defined in code, so pylint thinks they don't exist.
-        # pylint: disable=no-member
-        QtGui.qApp.facility_changed.connect(self._update)
-        # pylint: enable=no-member
+        self.app.facility_changed.connect(self._update)
 
         self.setUpdateInterval(60)
 

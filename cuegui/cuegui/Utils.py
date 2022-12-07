@@ -459,17 +459,17 @@ def getLastLine(path):
     ansiEscape = r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]'
 
     try:
-        fp = open(path, 'r')
+        fp = open(path, 'rb')
         fp.seek(0, 2)
 
         backseek = min(4096, fp.tell())
         fp.seek(-backseek, 1)
         buf = fp.read(4096)
 
-        newline_pos = buf.rfind("\n",0,len(buf)-1)
+        newline_pos = buf.rfind(b'\n', 0, len(buf)-1)
         fp.close()
 
-        line = buf[newline_pos+1:].strip()
+        line = buf[newline_pos+1:].strip().decode("utf-8")
 
         return re.sub(ansiEscape, "", line)
     except IOError:
@@ -489,14 +489,13 @@ def popupView(file, facility=None):
     """Opens the given file in your editor."""
     if file and not popupWeb(file, facility):
         editor_from_env = os.getenv('EDITOR')
-        # pylint: disable=no-member
+        app = cuegui.app()
         if editor_from_env:
             job_log_cmd = editor_from_env.split()
-        elif QtGui.qApp.settings.contains('LogEditor'):
-            job_log_cmd = QtGui.qApp.settings.value("LogEditor")
+        elif app.settings.contains('LogEditor'):
+            job_log_cmd = app.settings.value("LogEditor")
         else:
             job_log_cmd = cuegui.Constants.DEFAULT_EDITOR.split()
-        # pylint: enable=no-member
         job_log_cmd.append(str(file))
         checkShellOut(job_log_cmd)
 

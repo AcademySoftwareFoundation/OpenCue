@@ -357,11 +357,13 @@ class ServiceTests(unittest.TestCase):
     testThreadable = False
     testMinCores = 1000
     testMaxCores = 2000
+    minMemoryIncrease = 2068378
 
     def setUp(self):
         self.service = service_pb2.Service(
                 name=self.testName, threadable=self.testThreadable, min_cores=self.testMinCores,
-                max_cores=self.testMaxCores, tags=self.testTags)
+                max_cores=self.testMaxCores, tags=self.testTags,
+                min_memory_increase=self.minMemoryIncrease)
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testCreate(self, getStubMock):

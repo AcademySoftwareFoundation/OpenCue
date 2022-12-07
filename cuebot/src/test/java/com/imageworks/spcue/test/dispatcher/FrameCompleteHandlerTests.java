@@ -22,6 +22,7 @@ package com.imageworks.spcue.test.dispatcher;
 import java.io.File;
 import java.util.List;
 import javax.annotation.Resource;
+import java.util.LinkedHashSet;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -36,6 +37,7 @@ import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
@@ -51,6 +53,7 @@ import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
+import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.test.TransactionalTest;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -88,10 +91,15 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     @Resource
     DispatchSupport dispatchSupport;
 
+    @Resource
+    ServiceManager serviceManager;
+
     private static final String HOSTNAME = "beta";
+    private static final String HOSTNAME2 = "zeta";
 
     @Before
     public void setTestMode() {
+
         dispatcher.setTestMode(true);
     }
 
@@ -127,10 +135,31 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
 
         hostManager.createHost(host,
                 adminManager.findAllocationDetail("spi", "general"));
+
+        RenderHost host2 = RenderHost.newBuilder()
+                .setName(HOSTNAME2)
+                .setBootTime(1192369572)
+                .setFreeMcp(76020)
+                .setFreeMem((int) CueUtil.GB4)
+                .setFreeSwap((int) CueUtil.GB4)
+                .setLoad(0)
+                .setTotalMcp(195430)
+                .setTotalMem((int) CueUtil.GB8)
+                .setTotalSwap((int) CueUtil.GB8)
+                .setNimbyEnabled(false)
+                .setNumProcs(8)
+                .setCoresPerProc(100)
+                .setState(HardwareState.UP)
+                .setFacility("spi")
+                .putAttributes("SP_OS", "Linux")
+                .build();
+
+        hostManager.createHost(host2,
+                adminManager.findAllocationDetail("spi", "general"));
     }
 
-    public DispatchHost getHost() {
-        return hostManager.findDispatchHost(HOSTNAME);
+    public DispatchHost getHost(String hostname) {
+        return hostManager.findDispatchHost(hostname);
     }
 
     @Test
@@ -141,7 +170,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         LayerDetail layer = layerDao.findLayerDetail(job, "layer0");
         jobManager.setJobPaused(job, false);
 
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(HOSTNAME);
         List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
@@ -177,7 +206,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         LayerDetail layer1_0 = layerDao.findLayerDetail(job1, "layer0");
         jobManager.setJobPaused(job1, false);
 
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(HOSTNAME);
         List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(2, procs.size());
 
@@ -216,7 +245,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         LayerDetail layer2_0 = layerDao.findLayerDetail(job2, "layer0");
         jobManager.setJobPaused(job2, false);
 
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(HOSTNAME);
         List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(1, procs.size());
 
@@ -258,7 +287,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
 
         jobManager.setJobPaused(job, false);
 
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(HOSTNAME);
         List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
@@ -327,5 +356,72 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         executeDepend(FrameState.EATEN, -1, 0, FrameState.WAITING);
         frameCompleteHandler.setSatisfyDependOnlyOnFrameSuccess(true);
     }
-}
 
+    private void executeMinMemIncrease(int expected, boolean override) {
+        if (override) {
+            ServiceOverrideEntity soe = new ServiceOverrideEntity();
+            soe.showId = "00000000-0000-0000-0000-000000000000";
+            soe.name = "apitest";
+            soe.threadable = false;
+            soe.minCores = 10;
+            soe.minMemory = (int) CueUtil.GB2;
+            soe.tags = new LinkedHashSet<>();
+            soe.tags.add("general");
+            soe.minMemoryIncrease = (int) CueUtil.GB8;
+
+            serviceManager.createService(soe);
+        }
+
+        String jobName = "pipe-default-testuser_min_mem_test";
+        JobDetail job = jobManager.findJobDetail(jobName);
+        LayerDetail layer = layerDao.findLayerDetail(job, "test_layer");
+        FrameDetail frame = frameDao.findFrameDetail(job, "0000-test_layer");
+        jobManager.setJobPaused(job, false);
+
+        DispatchHost host = getHost(HOSTNAME2);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+        assertEquals(job.getId(), proc.getJobId());
+        assertEquals(layer.getId(), proc.getLayerId());
+        assertEquals(frame.getId(), proc.getFrameId());
+
+        RunningFrameInfo info = RunningFrameInfo.newBuilder()
+                .setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId())
+                .setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId())
+                .build();
+        FrameCompleteReport report = FrameCompleteReport.newBuilder()
+                .setFrame(info)
+                .setExitStatus(Dispatcher.EXIT_STATUS_MEMORY_FAILURE)
+                .build();
+
+        DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
+        DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+        dispatchSupport.stopFrame(dispatchFrame, FrameState.DEAD, report.getExitStatus(),
+                report.getFrame().getMaxRss());
+        frameCompleteHandler.handlePostFrameCompleteOperations(proc,
+                report, dispatchJob, dispatchFrame, FrameState.WAITING);
+
+        assertFalse(jobManager.isLayerComplete(layer));
+
+        JobDetail ujob = jobManager.findJobDetail(jobName);
+        LayerDetail ulayer = layerDao.findLayerDetail(ujob, "test_layer");
+        assertEquals(expected, ulayer.getMinimumMemory());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMinMemIncrease() {
+        executeMinMemIncrease(6291456, false);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMinMemIncreaseShowOverride() {
+        executeMinMemIncrease(10485760, true);
+    }
+}
