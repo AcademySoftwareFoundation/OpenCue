@@ -388,6 +388,7 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
         service.minGpuMemory = requestService.getMinGpuMemory();
         service.tags = Sets.newLinkedHashSet(requestService.getTagsList());
         service.threadable = requestService.getThreadable();
+        service.minMemoryIncrease = requestService.getMinMemoryIncrease();
         serviceManager.createService(service);
         ServiceOverride serviceOverride = whiteboard.getServiceOverride(show, service.name);
         responseObserver.onNext(ShowCreateServiceOverrideResponse.newBuilder()

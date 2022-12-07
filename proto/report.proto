@@ -36,6 +36,13 @@ message CoreDetail {
     int32 idle_cores = 2;
     int32 locked_cores = 3;
     int32 booked_cores = 4;
+    //map <key: physid, value: coreid>
+    map<int64, CoreId> reserved_cores = 5;
+}
+
+message CoreId {
+    repeated int64 coreid = 1;
+
 }
 
 message FrameCompleteReport {

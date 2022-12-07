@@ -24,7 +24,6 @@ from builtins import map
 from builtins import str
 import time
 
-from PySide2 import QtGui
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
@@ -89,6 +88,8 @@ class Attributes(QtWidgets.QWidget):
     """
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
+        self.app = cuegui.app()
+
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -106,9 +107,7 @@ class Attributes(QtWidgets.QWidget):
         self.__scrollWidget.layout().addWidget(self.__stack)
         self.__scrollArea.setWidget(self.__scrollWidget)
         layout.addWidget(self.__scrollArea)
-        # pylint: disable=no-member
-        QtGui.qApp.single_click.connect(self.setWidget)
-        # pylint: enable=no-member
+        self.app.single_click.connect(self.setWidget)
 
         self.__load = None
 
@@ -138,13 +137,10 @@ class Attributes(QtWidgets.QWidget):
         # called in a worker thread prior to the creation of the widget.
         # Otherwise the widget will just be created now.
         if hasattr(function, "preload"):
-            if hasattr(QtGui.qApp, "threadpool"):
+            if self.app.threadpool is not None:
                 self.__load = {"item": item, "function": function}
-                # pylint: disable=no-member
-                QtGui.qApp.threadpool.queue(self.__getUpdate,
-                                            self.__processResults,
-                                            "getting data for %s" % self.__class__)
-                # pylint: enable=no-member
+                self.app.threadpool.queue(
+                    self.__getUpdate, self.__processResults, "getting data for %s" % self.__class__)
             else:
                 logger.warning("threadpool not found, doing work in gui thread")
                 return self.__createItemAttribute(item, function, function.preload(item))

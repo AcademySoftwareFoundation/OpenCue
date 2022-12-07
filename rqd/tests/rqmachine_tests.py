@@ -160,7 +160,6 @@ PROC_PID_STATM = '152510 14585 7032 9343 0 65453 0'
 
 PROC_PID_CMDLINE = ' sleep 20'
 
-
 @mock.patch.object(rqd.rqutil.Memoize, 'isCached', new=mock.MagicMock(return_value=False))
 @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
 @mock.patch('os.statvfs', new=mock.MagicMock())
@@ -447,18 +446,103 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(25699176, bootReport.host.free_mem)
 
     def test_reserveHT(self):
+        """
+        Total 2 physical(ph) processors with 4 cores each with 2 threads each
+        step1 - taskset1: Reserve 3 cores (ph1)
+        step2 - taskset0: Reserve 4 cores (ph0)
+        step3 - Release cores on taskset0
+        step4 - taskset3: Reserve 2 cores (ph0)
+        step5 - taskset4: 3 remaining, Reserve 3 cores (ph0+ph1)
+        step5 - taskset5: No more cores
+        """
         cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_8-4-2-2')
         self.fs.add_real_file(cpuInfo)
         self.machine.testInitMachineStats(cpuInfo)
 
-        self.machine.setupHT()
-        tasksets = self.machine.reserveHT(300)
+        self.machine.setupTaskset()
 
-        self.assertEqual('0,8,1,9,2,10', tasksets)
+        # ------------------------step1-------------------------
+        # phys_id 1
+        #   - core_id 0
+        #     - process_id 4
+        #     - process_id 12
+        #   - core_id 1
+        #     - process_id 5
+        #     - process_id 13
+        #   - core_id 3
+        #     - process_id 7
+        #     - process_id 15
+        tasksets1 = self.machine.reserveHT(300)
+        # pylint: disable=no-member
+        self.assertItemsEqual(['4', '5', '7', '12', '13', '15'], sorted(tasksets1.split(',')))
 
-        self.machine.releaseHT(tasksets)
+        # ------------------------step2-------------------------
+        # phys_id 0
+        #   - core_id 0
+        #     - process_id 0
+        #     - process_id 8
+        #   - core_id 1
+        #     - process_id 1
+        #     - process_id 9
+        #   - core_id 2
+        #     - process_id 2
+        #     - process_id 10
+        #   - core_id 3
+        #     - process_id 3
+        #     - process_id 11
+        tasksets0 = self.machine.reserveHT(400)
+        # pylint: disable=no-member
+        self.assertItemsEqual(['0', '1', '2', '3', '8', '9', '10', '11'],
+                              sorted(tasksets0.split(',')))
 
-        self.assertEqual({0, 1, 2, 3, 4, 5, 6, 7}, self.machine._Machine__tasksets)
+        # reserved cores got updated properly
+        # pylint: disable=no-member
+        self.assertItemsEqual([0, 1, 2, 3], self.coreDetail.reserved_cores[0].coreid)
+
+        # Make sure tastsets don't overlap
+        self.assertTrue(set(tasksets0.split(',')).isdisjoint(tasksets1.split(',')))
+
+        # ------------------------step3-------------------------
+        # Releasing a physcore shouldn't impact other physcores
+        self.machine.releaseHT(tasksets0)
+        # pylint: disable=no-member
+        self.assertTrue(1 in self.coreDetail.reserved_cores)
+        # pylint: disable=no-member
+        self.assertItemsEqual([0, 1, 3], self.coreDetail.reserved_cores[1].coreid)
+
+        # ------------------------step4-------------------------
+        # phys_id 0
+        #   - core_id 0
+        #     - process_id 0
+        #     - process_id 8
+        #   - core_id 1
+        #     - process_id 1
+        #     - process_id 9
+        tasksets3 = self.machine.reserveHT(200)
+        # pylint: disable=no-member
+        self.assertItemsEqual(['0', '1', '8', '9'], sorted(tasksets3.split(',')))
+
+        # ------------------------step5-------------------------
+        # phys_id 0
+        #   - core_id 2
+        #     - process_id 2
+        #     - process_id 10
+        #   - core_id 3
+        #     - process_id 3
+        #     - process_id 11
+        # phys_id 1
+        #   - core_id 2
+        #     - process_id 6
+        #     - process_id 14
+        tasksets4 = self.machine.reserveHT(300)
+        # pylint: disable=no-member
+        self.assertItemsEqual(['2', '10', '3', '11', '6', '14'], sorted(tasksets4.split(',')))
+
+        # ------------------------step6-------------------------
+        # No cores available
+        with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
+            self.machine.reserveHT(300)
+
 
     def test_tags(self):
         tags = ["test1", "test2", "test3"]

@@ -548,7 +548,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         r.filterByHost(host);
         r.sortByHostName();
         r.sortByDispatchedTime();
-        logger.info("!!!! INSIDE getProcs Whiteboard!!! called getProcs !!! line 551");
         return ProcSeq.newBuilder().addAllProcs(getProcs(r).getProcsList()).build();
     }
 
@@ -556,7 +555,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public ProcSeq getProcs(ProcSearchInterface p) {
         p.sortByHostName();
         p.sortByDispatchedTime();
-        logger.info("!!!! Inside getPROCS!!!!! line 559");
         List<Proc> procs = getJdbcTemplate().query(p.getFilteredQuery(GET_PROC),
                 PROC_MAPPER, p.getValuesArray());
         return ProcSeq.newBuilder().addAllProcs(procs).build();
@@ -976,7 +974,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .addAllServices(Arrays.asList(SqlUtil.getString(rs,"str_services").split(",")))
                             .build();
                 }
-//                logger.info("called ROW MAPPER!!! setChildProcesses!!!");
             };
 
     public static final RowMapper<Task> TASK_MAPPER =
@@ -1461,6 +1458,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                                     SqlUtil.getString(rs,"str_tags"))))
                             .setTimeout(rs.getInt("int_timeout"))
                             .setTimeoutLlu(rs.getInt("int_timeout_llu"))
+                            .setMinMemoryIncrease(rs.getInt("int_min_memory_increase"))
                             .build();
                 }
             };
@@ -1482,6 +1480,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                                     SqlUtil.getString(rs,"str_tags"))))
                             .setTimeout(rs.getInt("int_timeout"))
                             .setTimeoutLlu(rs.getInt("int_timeout_llu"))
+                            .setMinMemoryIncrease(rs.getInt("int_min_memory_increase"))
                             .build();
                     return ServiceOverride.newBuilder()
                             .setId(SqlUtil.getString(rs,"pk_show_service"))
@@ -2087,7 +2086,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "service.int_gpu_mem_min," +
             "service.str_tags," +
             "service.int_timeout," +
-            "service.int_timeout_llu " +
+            "service.int_timeout_llu," +
+            "service.int_min_memory_increase " +
         "FROM "+
             "service ";
 
@@ -2104,7 +2104,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "show_service.int_gpu_mem_min," +
             "show_service.str_tags," +
             "show_service.int_timeout," +
-            "show_service.int_timeout_llu " +
+            "show_service.int_timeout_llu," +
+            "show_service.int_min_memory_increase " +
         "FROM "+
             "show_service, " +
             "show " +

@@ -21,7 +21,6 @@ from __future__ import division
 from __future__ import print_function
 
 from PySide2 import QtCore
-from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
@@ -106,6 +105,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
 
     def __init__(self, layers, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
+        self.app = cuegui.app()
         self.__layers = [opencue.api.getLayer(opencue.id(layer)) for layer in layers]
 
         self.setWindowTitle("Layer Properties")
@@ -147,10 +147,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__max_cores.setSingleStep(1)
 
         # Disable this for everything except commander.
-        # pylint: disable=no-member
-        if QtGui.qApp.applicationName() != "CueCommander":
+        if self.app.applicationName() != "CueCommander":
             self.__core.setDisabled(True)
-        # pylint: enable=no-member
 
         # Threads
         self.__thread = QtWidgets.QCheckBox(self)
