@@ -118,7 +118,7 @@ public class LimitDaoJdbc extends JdbcDaoSupport implements LimitDao {
             "limit_record.pk_limit_record, " +
             "limit_record.str_name, " +
             "limit_record.int_max_value," +
-            "SUM(CAST(layer_stat.int_running_count AS numeric)) AS int_current_running " +
+            "SUM(layer_stat.int_running_count) AS int_current_running " +
         "FROM " +
             "limit_record " +
         "LEFT JOIN " +

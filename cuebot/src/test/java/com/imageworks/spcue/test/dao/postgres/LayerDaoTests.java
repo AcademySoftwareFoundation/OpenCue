@@ -19,15 +19,14 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import javax.annotation.Resource;
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Resource;
 
 import org.apache.commons.lang.StringUtils;
 import org.junit.Before;
@@ -45,6 +44,7 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LimitEntity;
+import com.imageworks.spcue.LimitInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
@@ -63,11 +63,9 @@ import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 import com.imageworks.spcue.util.JobLogUtil;
 
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 @Transactional
@@ -118,11 +116,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     }
 
     public LayerDetail getLayer() {
-        List<LayerDetail> layers = getLayers();
-        return layers.get(layers.size()-1);
-    }
 
-    public List<LayerDetail> getLayers() {
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
         JobDetail job =  spec.getJobs().get(0).detail;
         job.groupId = ROOT_FOLDER;
@@ -132,13 +126,14 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         job.facilityId = facilityDao.getDefaultFacility().getId();
         jobDao.insertJob(job, jobLogUtil);
 
-        List<LayerDetail> result = new ArrayList<>();
+        LayerDetail lastLayer= null;
         String limitId = limitDao.createLimit(LIMIT_NAME, LIMIT_MAX_VALUE);
         limitDao.createLimit(LIMIT_TEST_A, 1);
         limitDao.createLimit(LIMIT_TEST_B, 2);
         limitDao.createLimit(LIMIT_TEST_C, 3);
 
         for (BuildableLayer buildableLayer: spec.getJobs().get(0).getBuildableLayers()) {
+
             LayerDetail layer = buildableLayer.layerDetail;
             FrameSet frameSet = new FrameSet(layer.range);
             int num_frames = frameSet.size();
@@ -152,10 +147,10 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
             layerDao.insertLayerDetail(layer);
             layerDao.insertLayerEnvironment(layer, buildableLayer.env);
             layerDao.addLimit(layer, limitId);
-            result.add(layer);
+            lastLayer = layer;
         }
 
-        return result;
+        return lastLayer;
     }
 
     public JobDetail getJob() {
@@ -207,17 +202,16 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
 
         LayerDetail l2 = layerDao.getLayerDetail(layer);
         LayerDetail l3 = layerDao.getLayerDetail(layer.id);
-        assertEquals(layer, l2);
-        assertEquals(layer, l3);
+        assertEquals(l2, l3);
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testGetLayerDetails() {
-        List<LayerDetail> wantLayers = getLayers();
-        List<LayerDetail> gotLayers = layerDao.getLayerDetails(getJob());
-        assertThat(gotLayers, containsInAnyOrder(wantLayers.toArray()));
+        LayerDetail layer = getLayer();
+        List<LayerDetail> ld = layerDao.getLayerDetails(getJob());
+        assertEquals(ld.get(0).name, LAYER_NAME);
     }
 
     @Test

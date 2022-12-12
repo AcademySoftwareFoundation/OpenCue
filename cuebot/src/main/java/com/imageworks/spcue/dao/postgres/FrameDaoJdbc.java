@@ -186,7 +186,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 "LEFT JOIN (" +
                     "SELECT " +
                         "limit_record.pk_limit_record, " +
-                        "SUM(CAST(layer_stat.int_running_count AS numeric)) AS int_sum_running " +
+                        "SUM(layer_stat.int_running_count) AS int_sum_running " +
                     "FROM " +
                         "layer_limit " +
                     "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
