@@ -22,7 +22,8 @@ package com.imageworks.spcue.dispatcher;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 
 public class DispatchQueue {
@@ -33,7 +34,7 @@ public class DispatchQueue {
     private int corePoolSize;
     private int maxPoolSize;
 
-    private static final Logger logger = Logger.getLogger("HEALTH");
+    private static final Logger logger = LogManager.getLogger("HEALTH");
     private String name = "Default";
     private HealthyThreadPool healthyDispatchPool;
 

@@ -23,7 +23,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
@@ -36,7 +37,7 @@ import com.imageworks.spcue.util.FrameSet;
 
 public class FrameSearch extends Criteria implements FrameSearchInterface {
     private static final int MAX_RESULTS = 1000;
-    private static final Logger logger = Logger.getLogger(FrameSearch.class);
+    private static final Logger logger = LogManager.getLogger(FrameSearch.class);
     private static final Pattern PATTERN_SINGLE_FRAME = Pattern.compile("^([0-9]+)$");
     private static final Pattern PATTERN_RANGE = Pattern.compile("^([0-9]+)\\-([0-9]+)$");
     private static final Pattern PATTERN_FLOAT_RANGE = Pattern.compile("^([0-9\\.]+)\\-([0-9\\.]+)$");

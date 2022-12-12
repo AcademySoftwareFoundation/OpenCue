@@ -23,7 +23,8 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -34,7 +35,7 @@ public class CuebotApplication extends SpringApplication {
                 .filter(arg -> arg.startsWith("--log.frame-log-root=")).findFirst();
         if (deprecatedFlag.isPresent()) {
             // Log a deprecation warning.
-            Logger warning_logger = Logger.getLogger(CuebotApplication.class);
+            Logger warning_logger = LogManager.getLogger(CuebotApplication.class);
             warning_logger.warn("`--log.frame-log-root` is deprecated and will be removed in an " +
                     "upcoming release. It has been replaced with `--log.frame-log-root.default_os`. " +
                     "See opencue.properties for details on OpenCue's new OS-dependent root directories.");
