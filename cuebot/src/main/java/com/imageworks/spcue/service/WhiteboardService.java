@@ -21,7 +21,8 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -111,7 +112,7 @@ import com.imageworks.spcue.grpc.task.TaskSeq;
 public class WhiteboardService implements Whiteboard {
 
     @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(WhiteboardService.class);
+    private static final Logger logger = LogManager.getLogger(WhiteboardService.class);
 
     private WhiteboardDao whiteboardDao;
 

@@ -22,7 +22,8 @@ package com.imageworks.spcue.service;
 import java.util.List;
 
 import com.google.common.collect.Sets;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,7 +71,7 @@ import com.imageworks.spcue.util.Convert;
 @Transactional
 public class JobManagerService implements JobManager {
 
-    private static final Logger logger = Logger.getLogger(JobManagerService.class);
+    private static final Logger logger = LogManager.getLogger(JobManagerService.class);
 
     private JobDao jobDao;
     private ShowDao showDao;

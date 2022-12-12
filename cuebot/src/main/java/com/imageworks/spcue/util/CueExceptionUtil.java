@@ -23,7 +23,8 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * Utility class for handling and logging exceptions
@@ -52,7 +53,7 @@ public class CueExceptionUtil {
      * @return String
      */
     public static void logStackTrace(String msg, Throwable aThrowable) {
-        Logger error_logger = Logger.getLogger(CueExceptionUtil.class);
+        Logger error_logger = LogManager.getLogger(CueExceptionUtil.class);
         error_logger.info("Caught unexpected exception caused by: " + aThrowable);
         error_logger.info("StackTrace: \n" + getStackTrace(aThrowable));
         if (aThrowable.getCause() != null) {

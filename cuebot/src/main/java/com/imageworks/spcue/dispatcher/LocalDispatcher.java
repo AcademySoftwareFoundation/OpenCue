@@ -22,7 +22,8 @@ package com.imageworks.spcue.dispatcher;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -42,7 +43,7 @@ import com.imageworks.spcue.service.JobManager;
 public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
 
     private static final Logger logger =
-        Logger.getLogger(LocalDispatcher.class);
+        LogManager.getLogger(LocalDispatcher.class);
 
     private BookingManager bookingManager;
     private JobManager jobManager;
