@@ -200,6 +200,7 @@ class FrameMonitor(QtWidgets.QWidget):
         self._filterLayersUpdate()
         self._frameRangeSelectionFilterUpdate()
         self.frameMonitorTree.clearFilters()
+        self._updatePageButtonState()
 
     # ==============================================================================
     # Widgets to Load previous/next page
