@@ -476,6 +476,7 @@ class FrameMonitor(QtWidgets.QWidget):
         else:
             self.page = 1
             self.frameMonitorTree.frameSearch.page = self.page
+            self.frameMonitorTree.frameSearch.options['page'] = self.page
             __state = getattr(job_pb2, str(action.text()).upper())
             if action.isChecked():
                 states.append(__state)
