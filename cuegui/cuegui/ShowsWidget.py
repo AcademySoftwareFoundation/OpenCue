@@ -21,7 +21,6 @@ from __future__ import print_function
 from __future__ import division
 
 from PySide2 import QtCore
-from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
@@ -62,10 +61,8 @@ class ShowsWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
 
-        # pylint: disable=no-member
-        self.itemClicked.connect(self.__itemSingleClickedToDouble)
-        QtGui.qApp.facility_changed.connect(self.__facilityChanged)
-        # pylint: enable=no-member
+        self.itemClicked.connect(self.__itemSingleClickedToDouble)  # pylint: disable=no-member
+        self.app.facility_changed.connect(self.__facilityChanged)
 
         self.setUpdateInterval(60)
 

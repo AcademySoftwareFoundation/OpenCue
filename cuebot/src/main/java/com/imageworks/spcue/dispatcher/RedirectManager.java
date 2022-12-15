@@ -21,7 +21,8 @@ package com.imageworks.spcue.dispatcher;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
@@ -46,7 +47,7 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class RedirectManager {
 
-    private static final Logger logger = Logger.getLogger(RedirectManager.class);
+    private static final Logger logger = LogManager.getLogger(RedirectManager.class);
 
     private JobDao jobDao;
     private ProcDao procDao;

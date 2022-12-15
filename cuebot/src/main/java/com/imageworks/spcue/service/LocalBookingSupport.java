@@ -19,7 +19,8 @@
 
 package com.imageworks.spcue.service;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FrameInterface;
@@ -37,7 +38,7 @@ import com.imageworks.spcue.grpc.host.LockState;
  */
 public class LocalBookingSupport {
 
-    private static final Logger logger = Logger.getLogger(LocalBookingSupport.class);
+    private static final Logger logger = LogManager.getLogger(LocalBookingSupport.class);
 
     private HostManager hostManager;
     private LocalDispatcher localDispatcher;

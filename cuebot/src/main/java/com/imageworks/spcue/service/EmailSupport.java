@@ -33,7 +33,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
@@ -65,7 +66,7 @@ public class EmailSupport {
 
     private final Map<String, byte[]> imageMap;
 
-    private static final Logger logger = Logger.getLogger(EmailSupport.class);
+    private static final Logger logger = LogManager.getLogger(EmailSupport.class);
 
     public EmailSupport() {
 

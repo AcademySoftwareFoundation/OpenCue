@@ -27,7 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -64,7 +65,7 @@ import com.imageworks.spcue.util.CueUtil;
 
 public class HostReportHandler {
 
-    private static final Logger logger = Logger.getLogger(HostReportHandler.class);
+    private static final Logger logger = LogManager.getLogger(HostReportHandler.class);
 
     private BookingManager bookingManager;
     private HostManager hostManager;

@@ -46,8 +46,8 @@ class UnbookDialogTests(unittest.TestCase):
     @mock.patch('opencue.api.findShow')
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def setUp(self, get_stub_mock, find_show_mock):
-        test_utils.createApplication()
-        PySide2.QtGui.qApp.settings = PySide2.QtCore.QSettings()
+        app = test_utils.createApplication()
+        app.settings = PySide2.QtCore.QSettings()
         cuegui.Style.init()
 
         show_name = 'showname'
@@ -202,8 +202,8 @@ class UnbookDialogTests(unittest.TestCase):
 class SelectItemsWithSearchDialogTests(unittest.TestCase):
 
     def setUp(self):
-        test_utils.createApplication()
-        PySide2.QtGui.qApp.settings = PySide2.QtCore.QSettings()
+        app = test_utils.createApplication()
+        app.settings = PySide2.QtCore.QSettings()
         cuegui.Style.init()
 
     def test__should_display_all_items(self):
@@ -245,8 +245,8 @@ class SelectItemsWithSearchDialogTests(unittest.TestCase):
 class KillConfirmationDialogTests(unittest.TestCase):
 
     def setUp(self):
-        test_utils.createApplication()
-        PySide2.QtGui.qApp.settings = PySide2.QtCore.QSettings()
+        app = test_utils.createApplication()
+        app.settings = PySide2.QtCore.QSettings()
         cuegui.Style.init()
 
     @mock.patch('PySide2.QtWidgets.QMessageBox.information', new=mock.Mock())

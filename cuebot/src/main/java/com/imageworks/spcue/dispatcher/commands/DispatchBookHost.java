@@ -21,7 +21,8 @@ package com.imageworks.spcue.dispatcher.commands;
 
 import java.util.List;
 import java.util.ArrayList;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
@@ -37,7 +38,7 @@ import com.imageworks.spcue.VirtualProc;
  */
 public class DispatchBookHost extends KeyRunnable {
     private static final Logger logger =
-            Logger.getLogger(DispatchBookHost.class);
+            LogManager.getLogger(DispatchBookHost.class);
 
     private ShowInterface show = null;
     private GroupInterface group = null;

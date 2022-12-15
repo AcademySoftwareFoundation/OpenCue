@@ -13,7 +13,8 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 
 /***
@@ -24,7 +25,7 @@ import org.apache.log4j.Logger;
  */
 public class HealthyThreadPool extends ThreadPoolExecutor {
     // The service need s to be unhealthy for this period of time to report
-    private static final Logger logger = Logger.getLogger("HEALTH");
+    private static final Logger logger = LogManager.getLogger("HEALTH");
     // Threshold to consider healthy or unhealthy
     private final int healthThreshold;
     private final int poolSize;

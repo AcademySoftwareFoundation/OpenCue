@@ -20,8 +20,6 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from PySide2 import QtGui
-
 import cuegui.AbstractDockWidget
 import cuegui.ServiceDialog
 
@@ -41,6 +39,4 @@ class ServicesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.setWindowTitle("Facility Service Defaults")
         self.__serviceManager = cuegui.ServiceDialog.ServiceManager(None, self)
         self.layout().addWidget(self.__serviceManager)
-        # pylint: disable=no-member
-        QtGui.qApp.facility_changed.connect(self.__serviceManager.refresh)
-        # pylint: enable=no-member
+        self.app.facility_changed.connect(self.__serviceManager.refresh)
