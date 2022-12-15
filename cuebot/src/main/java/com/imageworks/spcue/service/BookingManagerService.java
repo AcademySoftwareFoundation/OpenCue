@@ -21,7 +21,8 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,7 +50,7 @@ public class BookingManagerService implements BookingManager {
 
     @SuppressWarnings("unused")
     private static final Logger logger =
-        Logger.getLogger(BookingManagerService.class);
+        LogManager.getLogger(BookingManagerService.class);
 
     private BookingQueue bookingQueue;
     private BookingDao bookingDao;
