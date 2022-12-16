@@ -77,7 +77,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Run Python Tests
-        run: ci/run_python_tests.sh
+        run: |
+          chown -R aswfuser:aswfgroup .
+          su -c "ci/run_python_tests.sh" aswfuser
 
   test_cuebot_2022:
     name: Build Cuebot and Run Unit Tests (CY2022)

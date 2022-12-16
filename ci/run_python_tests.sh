@@ -24,6 +24,6 @@ python rqd/setup.py test
 
 # Xvfb no longer supports Python 2.
 if [[ "$python_version" =~ "Python 3" ]]; then
-  xvfb-run --help
+  echo "DISPLAY: ${DISPLAY}"
   PYTHONPATH=pycue xvfb-run -d python cuegui/setup.py test
 fi
