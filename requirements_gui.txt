@@ -1,1 +1,2 @@
 PySide2==5.15.2
+sentry-sdk==0.14.4

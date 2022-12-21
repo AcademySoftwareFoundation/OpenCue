@@ -20,7 +20,10 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import getpass
+import os
 import signal
+import yaml
 
 from PySide2 import QtGui
 
@@ -53,6 +56,19 @@ def startup(app_name, app_version, argv):
     """Starts an application window."""
 
     app = cuegui.create_app(argv)
+
+    gui_config = {}
+    gui_config_path = os.path.join(
+        cuegui.Constants.DEFAULT_CUEGUI_CONFIG_PATH,
+        'cue_config.yaml')
+    if not os.path.exists(gui_config_path):
+        logger.warning('No cue config yaml file found here: %s', gui_config_path)
+    else:
+        with open(gui_config_path) as file_object:
+            gui_config = yaml.load(file_object, Loader=yaml.SafeLoader)
+
+    # Sentry setup
+    setup_sentry(gui_config.get('sentry_dsn_path', None))
 
     # Start splash screen
     splash = cuegui.SplashWindow.SplashWindow(
@@ -92,6 +108,23 @@ def startup(app_name, app_version, argv):
     app.aboutToQuit.connect(closingTime)  # pylint: disable=no-member
     app.exec_()
 
+def setup_sentry(sentry_dsn_path):
+    """Attempt to Import Sentry logging"""
+    if not sentry_dsn_path:
+        logger.warning('No Sentry DSN path found. '
+                       'Skipping Sentry setup')
+        return
+
+    try:
+        # pylint: disable=import-outside-toplevel
+        import sentry_sdk
+        sentry_sdk.init(sentry_dsn_path)
+        sentry_sdk.set_user({
+            'username': getpass.getuser()
+        })
+        # pylint: enable=import-outside-toplevel
+    except ImportError as e:
+        logger.warning('Failed to import Sentry %s', e)
 
 def closingTime():
     """Window close callback."""
