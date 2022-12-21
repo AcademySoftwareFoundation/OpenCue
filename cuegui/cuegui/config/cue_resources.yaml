@@ -26,3 +26,9 @@ max_proc_hour_cutoff: 30
 # cores is higher that this threshold. To disable this warning, set the 
 # threshold to -1
 redirect_wasted_cores_threshold: 100
+
+# These flags determine whether or not layers/frames will be readonly when job is finished.
+# If flags are set as true, layers/frames cannot be retried, eaten, edited dependency on, etc.
+# In order to toggle the same functionility on cuebot side, set flags in opencue.properties
+"frame.finished_jobs_readonly": False
+"layer.finished_jobs_readonly": False
