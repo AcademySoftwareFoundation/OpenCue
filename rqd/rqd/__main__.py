@@ -28,7 +28,7 @@ Initializes and starts RQD.
 
 Optional configuration file:
 ----------------------------
-in /etc/rqd3/rqd3.conf:
+In /etc/opencue/rqd.conf (on Linux) or %LOCALAPPDATA%/OpenCue/rqd.conf (on Windows):
 [Override]
 OVERRIDE_CORES = 2
 OVERRIDE_PROCS = 3
@@ -95,7 +95,8 @@ def usage():
     print("  -d | --daemon          => Run as daemon", file=s)
     print("       --nimbyoff        => Disables nimby activation", file=s)
     print("  -c                     => Provide an alternate config file", file=s)
-    print("                            Defaults to /etc/rqd3/rqd3.conf", file=s)
+    print("                            On Linux: defaults to /etc/opencue/rqd.conf", file=s)
+    print("                            On Windows: Defaults to %LOCALAPPDATA%/OpenCue/rqd.conf", file=s)
     print("                            Config file is optional", file=s)
 
 
