@@ -7,10 +7,12 @@ echo "#################"
 echo "Done with main test run"
 echo "#################"
 
-
-#ls -l ${test_log}
-#cat ${test_log}
-
 echo "grep"
 grep -Pz 'Ran \d+ tests in [0-9\.]+s\n\nOK' ${test_log}
-echo $?
+if [ $? -eq 0 ]; then
+  echo "Detected passing tests"
+  exit 0
+fi
+
+echo "Detected test failure"
+exit 1
