@@ -426,7 +426,7 @@ public class DispatchQuery {
             "AND " +
                 "(folder_resource.int_max_gpus = -1 OR folder_resource.int_gpus < folder_resource.int_max_gpus) " +
             "AND " +
-                "job_resource.int_priority > ?" +
+                "job_resource.int_priority > ? " +
             "AND " +
                 "job_resource.int_cores < job_resource.int_max_cores " +
             "AND " +
@@ -438,7 +438,7 @@ public class DispatchQuery {
             "AND " +
                 "job.pk_facility = ? " +
             "AND " +
-                "(job.str_os = ? OR job.str_os IS NULL)" +
+                "(job.str_os = ? OR job.str_os IS NULL) " +
             "AND " +
                 "job.pk_job IN ( " +
                     "SELECT /* index (h i_str_host_tag) */ " +

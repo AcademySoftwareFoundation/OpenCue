@@ -945,7 +945,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "AND " +
             "job.b_auto_book = true " +
         "AND " +
-            "job_stat.int_waiting_count != 0" +
+            "job_stat.int_waiting_count != 0 " +
         "AND " +
             "job_resource.int_cores < job_resource.int_max_cores " +
         "AND " +
