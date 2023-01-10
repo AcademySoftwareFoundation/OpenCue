@@ -49,7 +49,6 @@ class UtilsTests(unittest.TestCase):
         invalidJobId = 'arbitrary$String##With*Disallowed@Characters'
 
         self.assertIsNone(cuegui.Utils.findJob(invalidJobId))
-        self.assertTrue(False)
 
     @mock.patch('opencue.api.findJob')
     def test_shouldSearchForJobByName(self, findJobMock):
