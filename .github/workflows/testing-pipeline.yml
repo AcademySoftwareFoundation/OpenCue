@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2019
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -22,7 +22,7 @@ jobs:
     container:
       image: aswf/ci-opencue:2019
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Build with Gradle
       run: |
         chown -R aswfuser:aswfgroup .
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2020
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -43,7 +43,7 @@ jobs:
     container:
       image: aswf/ci-opencue:2020
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build with Gradle
         run: |
           chown -R aswfuser:aswfgroup .
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2021
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -64,7 +64,7 @@ jobs:
     container:
       image: aswf/ci-opencue:2021
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build with Gradle
         run: |
           chown -R aswfuser:aswfgroup .
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2022
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -85,7 +85,7 @@ jobs:
     container:
       image: aswf/ci-opencue:2022
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build with Gradle
         run: |
           chown -R aswfuser:aswfgroup .
@@ -96,7 +96,7 @@ jobs:
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2022
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Lint Python Code
         run: ci/run_python_lint.sh
 
@@ -106,7 +106,7 @@ jobs:
     container:
       image: aswf/ci-opencue:2020
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run Sphinx build
         run: ci/build_sphinx_docs.sh
 
@@ -114,7 +114,7 @@ jobs:
     name: Check Changed Files
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Get Changed Files
         id: get_changed_files
         uses: jitterbit/get-changed-files@v1
@@ -125,7 +125,7 @@ jobs:
     name: Check Database Migration Files
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Check Migration Files
         run: ci/check_database_migrations.py
 
@@ -133,7 +133,7 @@ jobs:
     name: Check for Version Bump
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Get Changed Files
         id: get_changed_files
         uses: jitterbit/get-changed-files@v1
