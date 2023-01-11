@@ -23,8 +23,8 @@ from __future__ import absolute_import
 import unittest
 
 import mock
-import PySide2.QtGui
-import PySide2.QtWidgets
+import qtpy.QtGui
+import qtpy.QtWidgets
 
 import opencue.compiled_proto.depend_pb2
 import opencue.compiled_proto.facility_pb2
@@ -101,7 +101,7 @@ class JobActionsTests(unittest.TestCase):
         emailDialogMock.assert_called_with(job, self.widgetMock)
         emailDialogMock.return_value.show.assert_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
     def test_setMinCores(self, getDoubleMock):
         highest_current_core_count = 20
         new_core_count = 50
@@ -123,7 +123,7 @@ class JobActionsTests(unittest.TestCase):
         job1.setMinCores.assert_called_with(new_core_count)
         job2.setMinCores.assert_called_with(new_core_count)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
     def test_setMinCoresCanceled(self, getDoubleMock):
         job1 = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(min_cores=0))
         job1.setMinCores = mock.Mock()
@@ -136,7 +136,7 @@ class JobActionsTests(unittest.TestCase):
         job1.setMinCores.assert_not_called()
         job2.setMinCores.assert_not_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
     def test_setMaxCores(self, getDoubleMock):
         highest_current_core_count = 20
         new_core_count = 50
@@ -158,7 +158,7 @@ class JobActionsTests(unittest.TestCase):
         job1.setMaxCores.assert_called_with(new_core_count)
         job2.setMaxCores.assert_called_with(new_core_count)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
     def test_setMaxCoresCanceled(self, getDoubleMock):
         job1 = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(max_cores=0))
         job1.setMaxCores = mock.Mock()
@@ -171,7 +171,7 @@ class JobActionsTests(unittest.TestCase):
         job1.setMaxCores.assert_not_called()
         job2.setMaxCores.assert_not_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getInt')
     def test_setPriority(self, getIntMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(priority=0))
         job.setPriority = mock.Mock()
@@ -182,7 +182,7 @@ class JobActionsTests(unittest.TestCase):
 
         job.setPriority.assert_called_with(new_priority)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getInt')
     def test_setPriorityCanceled(self, getIntMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(priority=0))
         job.setPriority = mock.Mock()
@@ -192,7 +192,7 @@ class JobActionsTests(unittest.TestCase):
 
         job.setPriority.assert_not_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getInt')
     def test_setMaxRetries(self, getIntMock):
         job = opencue.wrappers.job.Job()
         job.setMaxRetries = mock.Mock()
@@ -203,7 +203,7 @@ class JobActionsTests(unittest.TestCase):
 
         job.setMaxRetries.assert_called_with(new_retries)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getInt')
     def test_setMaxRetriesCanceled(self, getIntMock):
         job = opencue.wrappers.job.Job()
         job.setMaxRetries = mock.Mock()
@@ -356,8 +356,8 @@ class JobActionsTests(unittest.TestCase):
 
         dependWizardMock.assert_called_with(self.widgetMock, jobs)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_reorder(self, getTextMock, getItemMock):
         original_range = '1-10'
         new_order = 'REVERSE'
@@ -373,8 +373,8 @@ class JobActionsTests(unittest.TestCase):
 
         job.reorderFrames.assert_called_with(original_range, opencue.compiled_proto.job_pb2.REVERSE)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_reorderCanceled(self, getTextMock, getItemMock):
         original_range = '1-10'
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
@@ -397,8 +397,8 @@ class JobActionsTests(unittest.TestCase):
 
         job.reorderFrames.assert_not_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getInt')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_stagger(self, getTextMock, getIntMock):
         original_range = '1-10'
         new_step = 28
@@ -414,8 +414,8 @@ class JobActionsTests(unittest.TestCase):
 
         job.staggerFrames.assert_called_with(original_range, new_step)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getInt')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_staggerCanceled(self, getTextMock, getIntMock):
         original_range = '1-10'
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
@@ -507,7 +507,7 @@ class JobActionsTests(unittest.TestCase):
         localBookingDialogMock.assert_called_with(job, self.widgetMock)
         localBookingDialogMock.return_value.exec_.assert_called()
 
-    @mock.patch('PySide2.QtWidgets.QApplication.clipboard')
+    @mock.patch('qtpy.QtWidgets.QApplication.clipboard')
     def test_copyLogFileDir(self, clipboardMock):
         logDir1 = '/some/random/dir'
         logDir2 = '/a/different/random/dir'
@@ -571,7 +571,7 @@ class LayerActionsTests(unittest.TestCase):
         dependDialogMock.return_value.show.assert_called()
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'setMinCores', autospec=True)
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
     def test_setMinCores(self, getDoubleMock, setMinCoresMock):
         highest_current_core_count = 20
         new_core_count = 50
@@ -592,7 +592,7 @@ class LayerActionsTests(unittest.TestCase):
             mock.call(layer1, new_core_count), mock.call(layer2, new_core_count)])
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'setMinCores')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
     def test_setMinCoresCanceled(self, getDoubleMock, setMinCoresMock):
         layer1 = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(min_cores=0))
@@ -605,7 +605,7 @@ class LayerActionsTests(unittest.TestCase):
         setMinCoresMock.assert_not_called()
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'setMinMemory', autospec=True)
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
     def test_setMinMemoryKb(self, getDoubleMock, setMinMemoryMock):
         highest_current_mem_limit_gb = 20
         new_mem_limit_gb = 50
@@ -630,7 +630,7 @@ class LayerActionsTests(unittest.TestCase):
         ])
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'setMinMemory')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
     def test_setMinMemoryKbCanceled(self, getDoubleMock, setMinMemoryMock):
         layer1 = opencue.wrappers.layer.Layer(opencue.compiled_proto.job_pb2.Layer(min_memory=0))
         layer2 = opencue.wrappers.layer.Layer(opencue.compiled_proto.job_pb2.Layer(min_memory=0))
@@ -758,8 +758,8 @@ class LayerActionsTests(unittest.TestCase):
         dependWizardMock.assert_called_with(self.widgetMock, [self.job], layers=layers)
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'reorderFrames', autospec=True)
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_reorder(self, getTextMock, getItemMock, reorderFramesMock):
         original_range = '1-10'
         new_order = 'REVERSE'
@@ -775,8 +775,8 @@ class LayerActionsTests(unittest.TestCase):
             layer, original_range, opencue.compiled_proto.job_pb2.REVERSE)
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'staggerFrames', autospec=True)
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getInt')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_stagger(self, getTextMock, getIntMock, staggerFramesMock):
         original_range = '1-10'
         new_step = 28
@@ -998,7 +998,7 @@ class FrameActionsTests(unittest.TestCase):
         self.job.markdoneFrames.assert_called_with(name=[frame_name])
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'reorderFrames', autospec=True)
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     def test_reorder(self, getItemMock, reorderFramesMock):
         new_order = 'REVERSE'
         getItemMock.return_value = (new_order, True)
@@ -1015,7 +1015,7 @@ class FrameActionsTests(unittest.TestCase):
         reorderFramesMock.assert_called_with(
             layer, str(frame_num), opencue.compiled_proto.job_pb2.REVERSE)
 
-    @mock.patch('PySide2.QtWidgets.QApplication.clipboard')
+    @mock.patch('qtpy.QtWidgets.QApplication.clipboard')
     @mock.patch('cuegui.Utils.getFrameLogFile')
     def test_copyLogFileName(self, getFrameLogFileMock, clipboardMock):
         frame_log_path = '/some/path/to/job/logs/job-name.frame-name.rqlog'
@@ -1133,21 +1133,21 @@ class SubscriptionActionsTests(unittest.TestCase):
         self.subscription_actions = cuegui.MenuActions.SubscriptionActions(
             self.widgetMock, mock.Mock(), None, None)
 
-    @mock.patch('PySide2.QtWidgets.QMessageBox')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    @mock.patch('qtpy.QtWidgets.QMessageBox')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
     def test_editSize(self, getDoubleMock, qMessageBoxMock):
         sub = opencue.wrappers.subscription.Subscription(
             opencue.compiled_proto.subscription_pb2.Subscription(size=382))
         sub.setSize = mock.MagicMock()
         newSize = 8479
         getDoubleMock.return_value = (newSize, True)
-        qMessageBoxMock.return_value.exec_.return_value = PySide2.QtWidgets.QMessageBox.Yes
+        qMessageBoxMock.return_value.exec_.return_value = qtpy.QtWidgets.QMessageBox.Yes
 
         self.subscription_actions.editSize(rpcObjects=[sub])
 
         sub.setSize.assert_called_with(newSize*100.0)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
     def test_editBurst(self, getDoubleMock):
         sub = opencue.wrappers.subscription.Subscription(
             opencue.compiled_proto.subscription_pb2.Subscription(burst=922))
@@ -1249,7 +1249,7 @@ class HostActionsTests(unittest.TestCase):
 
         host.rebootWhenIdle.assert_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_addTags(self, getTextMock):
         host = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
@@ -1261,7 +1261,7 @@ class HostActionsTests(unittest.TestCase):
 
         host.addTags.assert_called_with(['firstTag', 'anotherTag', 'oneMoreTag'])
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_removeTags(self, getTextMock):
         host = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(
@@ -1273,8 +1273,8 @@ class HostActionsTests(unittest.TestCase):
 
         host.removeTags.assert_called_with(['firstTag', 'anotherTag', 'oneMoreTag'])
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     def test_renameTag(self, getItemMock, getTextMock):
         host = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
@@ -1288,7 +1288,7 @@ class HostActionsTests(unittest.TestCase):
 
         host.renameTag.assert_called_with(oldTagName, newTagName)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     @mock.patch('opencue.api.getAllocations')
     def test_changeAllocation(self, getAllocationsMock, getItemMock):
         host = opencue.wrappers.host.Host(
@@ -1427,7 +1427,7 @@ class FilterActionsTests(unittest.TestCase):
         self.filter_actions = cuegui.MenuActions.FilterActions(
             self.widgetMock, mock.Mock(), None, None)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_rename(self, getTextMock):
         filter_wrapper = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
         filter_wrapper.setName = mock.MagicMock()
@@ -1479,7 +1479,7 @@ class FilterActionsTests(unittest.TestCase):
 
         filter_wrapper.orderLast.assert_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getInt')
     def test_setOrder(self, getTextMock):
         filter_wrapper = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
         filter_wrapper.setOrder = mock.MagicMock()
@@ -1510,7 +1510,7 @@ class MatcherActionsTests(unittest.TestCase):
 
         matcher.delete.assert_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_setValue(self, getTextMock):
         matcher = opencue.wrappers.filter.Matcher(opencue.compiled_proto.filter_pb2.Matcher())
         matcher.setValue = mock.MagicMock()
@@ -1552,7 +1552,7 @@ class TaskActionsTests(unittest.TestCase):
         self.task_actions = cuegui.MenuActions.TaskActions(
             self.widgetMock, mock.Mock(), None, None)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
     def test_setMinCores(self, getDoubleMock):
         task = opencue.wrappers.task.Task(opencue.compiled_proto.task_pb2.Task(min_cores=10))
         task.setMinCores = mock.MagicMock()
@@ -1592,7 +1592,7 @@ class LimitActionsTests(unittest.TestCase):
             self.widgetMock, mock.Mock(), None, None)
 
     @mock.patch('opencue.api.createLimit')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_create(self, getTextMock, createLimitMock):
         limitName = 'newLimitName'
         getTextMock.return_value = ('%s \t ' % limitName, True)
@@ -1610,7 +1610,7 @@ class LimitActionsTests(unittest.TestCase):
 
         limit.delete.assert_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
     def test_editMaxValue(self, getDoubleMock):
         limit = opencue.wrappers.limit.Limit(opencue.compiled_proto.limit_pb2.Limit(max_value=920))
         limit.setMaxValue = mock.MagicMock()
@@ -1622,7 +1622,7 @@ class LimitActionsTests(unittest.TestCase):
 
         limit.setMaxValue.assert_called_with(newMaxValue)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_rename(self, getTextMock):
         limit = opencue.wrappers.limit.Limit(opencue.compiled_proto.limit_pb2.Limit())
         limit.rename = mock.MagicMock()

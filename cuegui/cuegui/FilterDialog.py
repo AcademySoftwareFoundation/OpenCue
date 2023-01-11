@@ -63,7 +63,7 @@ class FilterDialog(QtWidgets.QDialog):
 
         :type show: opencue.wrappers.show.Show
         :param show: the show to manage filters for
-        :type parent: PySide2.QtWidgets.QWidget.QWidget
+        :type parent: qtpy.QtWidgets.QWidget.QWidget
         :param parent: the parent widget
         """
         QtWidgets.QDialog.__init__(self, parent)
