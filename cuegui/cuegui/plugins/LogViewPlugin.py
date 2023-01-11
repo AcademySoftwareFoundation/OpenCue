@@ -27,9 +27,9 @@ import re
 import string
 import time
 
-from PySide2 import QtGui
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.Constants
 import cuegui.AbstractDockWidget

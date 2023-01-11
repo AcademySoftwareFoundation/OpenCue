@@ -25,9 +25,9 @@ from __future__ import absolute_import
 import os
 import platform
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import opencue
 

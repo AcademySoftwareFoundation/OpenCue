@@ -33,8 +33,8 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as Et
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.Logger
 import cuegui.Utils

@@ -23,8 +23,8 @@ from __future__ import division
 from builtins import map
 from builtins import str
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import opencue.exception
 
