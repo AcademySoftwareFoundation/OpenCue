@@ -156,8 +156,8 @@ jobs:
           commits_since_last_release=$(git log --reverse --pretty="* %H %s" ${last_tagged_version}..HEAD)
           # See https://github.community/t/set-output-truncates-multiline-strings/16852
           commits_since_last_release="${commits_since_last_release//$'\n'/'%0A'}"
-          echo "commits=${commits_since_last_release}" >> $GITHUB_OUTPUT
+          echo "commits=${commits_since_last_release}" >> ${GITHUB_OUTPUT}
 
       - name: List commits
         run: |
-          echo ${{ steps.release_notes.outputs.commits }}
+          echo "${{ steps.release_notes.outputs.commits }}"
