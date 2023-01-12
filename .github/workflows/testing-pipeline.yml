@@ -139,3 +139,25 @@ jobs:
         uses: tj-actions/changed-files@v35
       - name: Check for Version Change
         run: ci/check_version_bump.py ${{ steps.get_changed_files.outputs.all_changed_and_modified_files }}
+
+  test_escaping:
+    name: Test Multiline Escaping
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          last_tagged_version=$(git describe --tags --abbrev=0 $(git rev-list --tags --skip=1 --max-count=1))
+          commits_since_last_release=$(git log --reverse --pretty="* %H %s" ${last_tagged_version}..HEAD)
+          # See https://github.community/t/set-output-truncates-multiline-strings/16852
+          commits_since_last_release="${commits_since_last_release//$'\n'/'%0A'}"
+          echo "commits=${commits_since_last_release}" >> $GITHUB_OUTPUT
+
+      - name: List commits
+        run: |
+          echo ${{ steps.release_notes.outputs.commits }}

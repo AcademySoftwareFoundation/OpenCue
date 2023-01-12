@@ -103,7 +103,7 @@ jobs:
         run: |
           mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           aws s3 sync "s3://${S3_BUCKET}/opencue/${BUILD_ID}/" "${GITHUB_WORKSPACE}/artifacts/"
-          echo "::set-output name=filenames::$(ls "${GITHUB_WORKSPACE}/artifacts/" | xargs)"
+          echo "filenames=$(ls "${GITHUB_WORKSPACE}/artifacts/" | xargs)" >> $GITHUB_OUTPUT
 
       - name: List artifacts
         run: |
@@ -116,7 +116,7 @@ jobs:
           commits_since_last_release=$(git log --reverse --pretty="* %H %s" ${last_tagged_version}..HEAD)
           # See https://github.community/t/set-output-truncates-multiline-strings/16852
           commits_since_last_release="${commits_since_last_release//$'\n'/'%0A'}"
-          echo "::set-output name=commits::${commits_since_last_release}"
+          echo "commits=${commits_since_last_release}" >> $GITHUB_OUTPUT
 
       - name: Create release
         id: create_release
