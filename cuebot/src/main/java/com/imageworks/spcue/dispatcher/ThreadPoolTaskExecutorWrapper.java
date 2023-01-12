@@ -19,7 +19,8 @@
 
 package com.imageworks.spcue.dispatcher;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -31,7 +32,7 @@ import com.imageworks.spcue.util.CueUtil;
  */
 public class ThreadPoolTaskExecutorWrapper extends ThreadPoolTaskExecutor {
 
-    private static final Logger logger = Logger.getLogger(ThreadPoolTaskExecutorWrapper.class);
+    private static final Logger logger = LogManager.getLogger(ThreadPoolTaskExecutorWrapper.class);
     private static final long serialVersionUID = -2977068663355369141L;
 
     private int queueCapacity;

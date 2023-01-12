@@ -7,13 +7,14 @@ import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 
 public class CueServerInterceptor implements ServerInterceptor {
 
-    private static final Logger logger = Logger.getLogger(CueServerInterceptor.class);
-    private static final Logger accessLogger = Logger.getLogger("API");
+    private static final Logger logger = LogManager.getLogger(CueServerInterceptor.class);
+    private static final Logger accessLogger = LogManager.getLogger("API");
 
     @Override
     public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
