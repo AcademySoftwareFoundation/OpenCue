@@ -155,8 +155,12 @@ jobs:
           last_tagged_version=$(git describe --tags --abbrev=0 $(git rev-list --tags --skip=1 --max-count=1))
           commits_since_last_release=$(git log --reverse --pretty="* %H %s" ${last_tagged_version}..HEAD)
           # See https://github.community/t/set-output-truncates-multiline-strings/16852
-          commits_since_last_release="${commits_since_last_release//$'\n'/'%0A'}"
-          echo "commits=${commits_since_last_release}" >> ${GITHUB_OUTPUT}
+          #commits_since_last_release="${commits_since_last_release//$'\n'/'%0A'}"
+          #echo "commits=${commits_since_last_release}" >> ${GITHUB_OUTPUT}
+          delimiter="$(openssl rand -hex 8)"
+          echo "commits<<${delimiter}" >> ${GITHUB_OUTPUT}
+          echo "${commits_since_last_release}" >> ${GITHUB_OUTPUT}
+          echo "${delimiter}" >> ${GITHUB_OUTPUT}
 
       - name: List commits
         run: |
