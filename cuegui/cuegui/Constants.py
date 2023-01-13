@@ -175,6 +175,8 @@ LOG_HIGHLIGHT_ERROR = __config.get('render_logs.highlight.error')
 LOG_HIGHLIGHT_WARN = __config.get('render_logs.highlight.warning')
 LOG_HIGHLIGHT_INFO = __config.get('render_logs.highlight.info')
 
+RESOURCE_LIMITS = __config.get('resources')
+
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2
 TYPE_FRAME = QtWidgets.QTreeWidgetItem.UserType + 3

@@ -150,6 +150,14 @@ class ConstantsTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(['warning', 'not found'], result.LOG_HIGHLIGHT_WARN)
         self.assertEqual(['info:', 'rqd cmd:'], result.LOG_HIGHLIGHT_INFO)
         self.assertEqual(2147483647, result.QT_MAX_INT)
+        self.assertEqual({
+            'max_cores': 32,
+            'max_gpu_memory': 128,
+            'max_gpus': 8,
+            'max_memory': 128,
+            'max_proc_hour_cutoff': 30,
+            'redirect_wasted_cores_threshold': 100,
+        }, result.RESOURCE_LIMITS)
 
     @mock.patch('platform.system', new=mock.Mock(return_value='Darwin'))
     def test__should_use_mac_editor(self):
