@@ -522,7 +522,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 layer.getLayerId());
 
         jdbcTemplate.update(
-                "UPDATE layer_usage SET int_core_time_success = 3600 * 6" +
+                "UPDATE layer_usage SET int_core_time_success = 3600 * 6 " +
                 "WHERE pk_layer=?", layer.getLayerId());
 
         assertFalse(layerDao.isOptimizable(layer, 5, 3600));
@@ -532,7 +532,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
          * Assert True
          */
         jdbcTemplate.update(
-                "UPDATE layer_usage SET int_core_time_success = 3500 * 5" +
+                "UPDATE layer_usage SET int_core_time_success = 3500 * 5 " +
                 "WHERE pk_layer=?", layer.getLayerId());
 
         assertTrue(layerDao.isOptimizable(layer, 5, 3600));

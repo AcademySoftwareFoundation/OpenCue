@@ -147,7 +147,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
         "SELECT " +
             "COUNT(show.pk_show) " +
         "FROM " +
-            "show LEFT JOIN show_alias ON (show.pk_show = show_alias.pk_show )" +
+            "show LEFT JOIN show_alias ON (show.pk_show = show_alias.pk_show) " +
         "WHERE " +
             "(show.str_name = ? OR show_alias.str_name = ?) ";
     public boolean showExists(String name) {
