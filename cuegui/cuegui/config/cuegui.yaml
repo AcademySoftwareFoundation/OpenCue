@@ -1,0 +1,90 @@
+# Default CueGUI config file
+
+logger.format: '%(levelname)-9s %(module)-10s %(message)s'
+logger.level: 'WARNING'
+
+# Path for static resources like images/icons.
+paths.resources: './images'
+# Path for various config files.
+paths.config: './config'
+# Path for the default application layout .ini file. If users do not have a layout stored
+# in their local filesystem, the layout stored here will be copied. This value can also
+# be set via the CUEGUI_DEFAULT_INI_PATH environment variable.
+paths.default_ini_path: './config'
+# Paths for CueGUI plugins.
+paths.plugins: ['./plugins']
+
+# How often the UI will refresh its contents. All values in milliseconds.
+refresh.job_update_delay: 10000
+refresh.layer_update_delay: 10000
+refresh.frame_update_delay: 10000
+refresh.host_update_delay: 20000
+refresh.after_action_update_delay: 1000
+refresh.min_update_interval: 5000
+
+# Log roots used by various operating systems. Used for remapping paths so logs produced on
+# one platform will be accessible locally.
+render_logs.root:
+  windows: 'S:'
+  mac: '/Users/shots'
+  darwin: '/Users/shots'
+  linux: '/shots'
+  rhel7: '/shots'
+# Substrings which, when found in render logs, will cause that line to be highlighted.
+render_logs.highlight.error: [
+  'error', 'aborted', 'fatal', 'failed', 'killed', 'command not found',
+  'no licenses could be found', 'killMessage']
+render_logs.highlight.warning: ['warning', 'not found']
+render_logs.highlight.info: ['info:', 'rqd cmd:']
+
+# File should be stored in paths.config.
+style.style_sheet: 'darkpalette.qss'
+style.font.family: 'Luxi Sans'
+style.font.size: 10
+style.color_theme: 'plastique'
+# RGB values.
+style.colors.background: [
+  [50, 50, 100],
+  [100, 100, 50],
+  [0, 50, 0],
+  [50, 30, 0],
+]
+style.colors.frame_state:
+  DEAD: [255, 0, 0]
+  DEPEND: [160, 32, 240]
+  EATEN: [150, 0, 0]
+  RUNNING:  [200, 200, 55]
+  SETUP: [160, 32, 240]
+  SUCCEEDED: [55, 200, 55]
+  WAITING: [135, 207, 235]
+  CHECKPOINT: [61, 98, 247]
+
+# Default editor to use for viewing log files.
+editor.windows: 'notepad'
+editor.mac: 'open -t'
+editor.linux: 'gview -R -m -M -U {config_path}/gvimrc +'
+
+links.user_guide: 'https://www.opencue.io/docs/'
+links.issue.create: 'https://github.com/AcademySoftwareFoundation/OpenCue/issues/new'
+# Appended to `links.issue.create`.
+links.issue.suggestion: '?labels=enhancement&template=enhancement.md'
+# Appended to `links.issue.create`.
+links.issue.bug: '?labels=bug&template=bug_report.md'
+
+# List of tags to be used when viewing or editing tags.
+allowed_tags: ['general', 'desktop', 'playblast', 'util', 'preprocess', 'wan', 'cuda', 'splathw',
+               'naiad', 'massive']
+
+email.subject_prefix: 'cuemail: please check '
+email.body_prefix: 'Your PSTs request that you check '
+email.body_suffix: "\n\n"
+email.domain: ''
+
+# Unix epoch timestamp. If the user last viewed the startup notice before this time, the
+# notice will be shown.
+startup_notice.date: 0
+# Notice message.
+startup_notice.msg: ''
+
+# Memory usage above this level will be displayed in a different color.
+memory_warning_level: 5242880
