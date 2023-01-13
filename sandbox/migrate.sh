@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -e
 
 until nc --send-only $PGHOST $PGPORT < /dev/null
 do
@@ -13,7 +14,7 @@ do
     sleep 2
 done
 
-# Apply the flyway database migrations.
+echo "Applying database migrations..."
 ./flyway migrate -user=${PGUSER} -password=${PGPASSWORD} -url="jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}" -locations='filesystem:/opt/migrations'
 
 # Check if a show exists, if not apply demo data
