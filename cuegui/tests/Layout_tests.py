@@ -66,7 +66,7 @@ class LayoutTests(unittest.TestCase):
         with open(config_file_path, 'w') as fp:
             fp.write(CONFIG_INI)
 
-        settings = cuegui.Config.startup(app_name)
+        settings = cuegui.Layout.startup(app_name)
 
         self.assertEqual('0.14', settings.value('Version'))
         self.assertEqual('true', settings.value('CueCommander/Open'))
