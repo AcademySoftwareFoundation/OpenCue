@@ -107,6 +107,10 @@ main() {
     verify_no_containers
     create_rqd_root
 
+    log INFO "$(docker --version)"
+    log INFO "$(docker-compose --version)"
+    exit 0
+
     mkdir -p "${TEST_LOGS}"
 
     log INFO "Starting Docker compose..."

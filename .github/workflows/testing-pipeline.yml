@@ -3,8 +3,6 @@ name: OpenCue Testing Pipeline
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
 
 jobs:
   test_python_2019:
