@@ -1,0 +1,24 @@
+name: TEMP OpenCue Integration Test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  integration_test:
+    name: Run Integration Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Run test
+        run: ci/run_integration_test.sh
+
+      - name: Archive log files
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-logs
+          path: /tmp/opencue_test/*.log
