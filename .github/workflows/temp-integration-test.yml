@@ -16,8 +16,8 @@ jobs:
 
       - name: Update Docker compose
         run: |
-          apt-get update
-          apt-get install docker-compose-plugin
+          sudo apt-get update
+          sudo apt-get install docker-compose-plugin
 
       - name: Run test
         run: ci/run_integration_test.sh
