@@ -14,6 +14,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Update Docker compose
+        run: |
+          apt-get update
+          apt-get install docker-compose-plugin
+
       - name: Run test
         run: ci/run_integration_test.sh
 
