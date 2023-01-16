@@ -109,6 +109,7 @@ main() {
 
     log INFO "$(docker --version)"
     log INFO "$(docker-compose --version)"
+    log INFO "$(docker compose version)"
     exit 0
 
     mkdir -p "${TEST_LOGS}"
