@@ -39,7 +39,7 @@ verify_no_database() {
 }
 
 verify_no_containers() {
-    num_containers=$(docker-compose ps --format json | jq length)
+    num_containers=$(docker compose ps --format json | jq length)
     if [[ $num_containers -gt 0 ]]; then
        log ERROR "Found ${num_containers} Docker compose containers, clean these up with \`docker-compose rm\` before continuing"
        exit 1
