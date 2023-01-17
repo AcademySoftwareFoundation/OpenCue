@@ -59,9 +59,9 @@ create_rqd_root() {
 wait_for_service_state() {
     log INFO "Waiting for service \"$1\" to have state \"$2\"..."
     while true; do
-        docker compose ps
-        docker compose ps --format json
-        container=$(docker compose ps --format json | jq ".[] | select(.Service==\"$1\")")
+        docker compose ps -a
+        docker compose ps -a --format json
+        container=$(docker compose ps -a --format json | jq ".[] | select(.Service==\"$1\")")
         echo "${container}"
         if [[ ${container} = "" ]]; then
             log INFO "Service \"$1\": no container yet"
