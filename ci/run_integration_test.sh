@@ -3,9 +3,10 @@
 set -e
 
 RQD_ROOT="/tmp/rqd"
-TEST_LOGS="/tmp/opencue_test"
-DOCKER_COMPOSE_LOG="${TEST_LOGS}/docker_compose.log"
+TEST_LOGS="/tmp/opencue-test"
+DOCKER_COMPOSE_LOG="${TEST_LOGS}/docker-compose.log"
 DB_DATA_DIR="sandbox/db-data"
+VENV="/tmp/opencue-integration-venv"
 
 log() {
     echo "$(date "+%Y-%m-%d %H:%M:%S") $1 $2"
@@ -59,6 +60,11 @@ create_rqd_root() {
 wait_for_service_state() {
     log INFO "Waiting for service \"$1\" to have state \"$2\"..."
     while true; do
+        current_time=$(date +%s)
+        if [[ $current_time -gt $3 ]]; then
+            log ERROR "Timed out waiting for Docker compose to come up"
+            exit 1
+        fi
         container=$(docker compose ps --all --format json | jq ".[] | select(.Service==\"$1\")")
         if [[ ${container} = "" ]]; then
             log INFO "Service \"$1\": no container yet"
@@ -97,15 +103,82 @@ verify_migration_versions() {
     fi
 }
 
+create_and_activate_venv() {
+    if [[ -d "${VENV}" ]]; then
+        rm -rf "${VENV}"
+    fi
+    python3 -m venv "${VENV}"
+    source "${VENV}/bin/activate"
+}
+
+test_pycue() {
+    want_shows="['testing']"
+    got_shows=$(python -c 'import opencue; print([show.name() for show in opencue.api.getShows()])')
+    if [[ "${got_shows}" = "${want_shows}" ]]; then
+        log INFO "(pycue) Got expected show list (PASS)"
+    else
+        log ERROR "(pycue) Got unexpected show list (FAIL)"
+        log ERROR "got: ${got_shows}, want: ${want_shows}"
+        exit 1
+    fi
+
+    rqd_name=$(docker compose ps --format json | jq -r '.[] | select(.Service=="rqd") | .Name')
+    rqd_ip=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${rqd_name}")
+    want_hosts="['${rqd_ip}']"
+    got_hosts=$(python -c 'import opencue; print([host.name() for host in opencue.api.getHosts()])')
+    if [[ "${got_hosts}" = "${want_hosts}" ]]; then
+        log INFO "(pycue) Got expected host list (PASS)"
+    else
+        log ERROR "(pycue) Got unexpected host list (FAIL)"
+        log ERROR "got: ${got_hosts}, want: ${want_hosts}"
+        exit 1
+    fi
+}
+
+test_cueadmin() {
+    want_show="testing"
+    ls_response=$(cueadmin -ls)
+    got_show=$(echo "${ls_response}" | tail -n 1 | cut -d ' ' -f 1)
+    if [[ "${got_show}" = "${want_show}" ]]; then
+        log INFO "(cueadmin) Got expected -ls response (PASS)"
+    else
+        log ERROR "(cueadmin) Got unexpected -ls response (FAIL)"
+        log ERROR "got show: ${got_show}, want show: ${want_show}"
+        log ERROR "full response: ${ls_response}"
+        exit 1
+    fi
+
+    rqd_name=$(docker compose ps --format json | jq -r '.[] | select(.Service=="rqd") | .Name')
+    want_host=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${rqd_name}")
+    lh_response=$(cueadmin -lh)
+    got_host=$(echo "${lh_response}" | tail -n 1 | cut -d ' ' -f 1)
+    if [[ "${got_host}" = "${want_host}" ]]; then
+        log INFO "(cueadmin) Got expected -lh response (PASS)"
+    else
+        log ERROR "(cueadmin) Got unexpected -lh response (FAIL)"
+        log ERROR "got host: ${got_host}, want host: ${want_host}"
+        log ERROR "full response: ${lh_response}"
+        exit 1
+    fi
+}
+
 cleanup() {
     docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
-    rm -rf "${RQD_ROOT}"
+    rm -rf "${RQD_ROOT}" || true
     rm -rf "${DB_DATA_DIR}" || true
+    rm -rf "${VENV}" || true
 }
 
 main() {
     # Ensure all subshells in the background are terminated when the main script exits.
     trap "{ kill_descendant_processes $$; exit; }" SIGINT SIGTERM EXIT
+
+    mkdir -p "${TEST_LOGS}"
+    if [[ "${CI:-false}" == true ]]; then
+        log INFO "More logs can be found under the test-logs artifact attached to this workflow execution"
+    else
+        log INFO "More logs can be found at ${TEST_LOGS}"
+    fi
 
     CI_DIRECTORY=$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
     OPENCUE_ROOT=$(dirname "${CI_DIRECTORY}")
@@ -121,30 +194,36 @@ main() {
     log INFO "$(docker --version)"
     log INFO "$(docker compose version)"
 
-    mkdir -p "${TEST_LOGS}"
-    mkdir -p "${DB_DATA_DIR}"
+    log INFO "Building Docker images..."
+    docker build -t opencue/cuebot -f cuebot/Dockerfile .
+    docker build -t opencue/rqd -f rqd/Dockerfile .
 
     log INFO "Starting Docker compose..."
     docker compose up &>"${DOCKER_COMPOSE_LOG}" &
-
-    # TODO: Add a timeout.
-    wait_for_service_state "db" "running"
-    wait_for_service_state "flyway" "exited"
-    wait_for_service_state "cuebot" "running"
-    wait_for_service_state "rqd" "running"
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        docker_timeout=$(date -v +5M +%s)
+    else
+        docker_timeout=$(date -d '5 min' +%s)
+    fi
+    wait_for_service_state "db" "running" $docker_timeout
+    wait_for_service_state "flyway" "exited" $docker_timeout
+    wait_for_service_state "cuebot" "running" $docker_timeout
+    wait_for_service_state "rqd" "running" $docker_timeout
 
     verify_flyway_success
     verify_migration_versions
-
-    # TODO: Verify Cuebot process is running.
-    # TODO: Verify RQD process is running.
-    # TODO: Verify RQD host exists in the database.
-    # TODO: Install pycue.
-    # TODO: Verify fetching shows and hosts via pycue.
+    log INFO "Creating Python virtual environment..."
+    create_and_activate_venv
+    log INFO "Installing OpenCue Python libraries..."
+    install_log="${TEST_LOGS}/install-client-sources.log"
+    sandbox/install-client-sources.sh &> "${install_log}"
+    log INFO "Testing pycue library..."
+    test_pycue
+    test_cueadmin
 
     cleanup
 
-    log INFO "More logs can be found at ${TEST_LOGS}"
+    log INFO "Success"
 }
 
 main

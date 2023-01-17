@@ -34,4 +34,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: test-logs
-          path: /tmp/opencue_test/*.log
+          path: /tmp/opencue-test/*.log

@@ -1,6 +1,6 @@
-FROM almalinux:8.7
+FROM --platform=linux/amd64 almalinux:8.7
 
-ARG FLYWAY_VERSION=9.9.0
+ARG FLYWAY_VERSION=9.11.0
 
 # Get flyway
 RUN yum install -y tar java-1.8.0-openjdk postgresql-jdbc nc postgresql
