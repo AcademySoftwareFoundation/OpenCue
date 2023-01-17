@@ -75,7 +75,7 @@ wait_for_service_state() {
 }
 
 verify_flyway_success() {
-    container=$(docker compose ps --format json | jq '.[] | select(.Service=="flyway")')
+    container=$(docker compose ps --all --format json | jq '.[] | select(.Service=="flyway")')
     container_name=$(echo "$container" | jq -r '.Name')
     exit_code=$(echo "$container" | jq -r '.ExitCode')
     if [[ ${exit_code} = 0 ]]; then
