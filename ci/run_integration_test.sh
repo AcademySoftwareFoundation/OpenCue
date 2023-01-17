@@ -86,6 +86,17 @@ verify_flyway_success() {
     fi
 }
 
+verify_migration_versions() {
+    migrations_in_db=$(docker compose exec -e PGUSER=cuebot db psql -Aqtc "SELECT COUNT(*) FROM flyway_schema_history")
+    migrations_in_code=$(ls cuebot/src/main/resources/conf/ddl/postgres/migrations/ | wc -l | tr -d ' ')
+    if [[ ${migrations_in_db} = ${migrations_in_code} ]]; then
+        log INFO "Database and code both contain ${migrations_in_db} migrations (PASS)"
+    else
+        log ERROR "Database contains ${migrations_in_db} migrations, code contains ${migrations_in_code} (FAIL)"
+        exit 1
+    fi
+}
+
 cleanup() {
     docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
     rm -rf "${RQD_ROOT}"
@@ -112,23 +123,27 @@ main() {
 
     mkdir -p "${TEST_LOGS}"
     mkdir -p "${DB_DATA_DIR}"
+    ls -ld "${DB_DATA_DIR}"
 
     log INFO "Starting Docker compose..."
     docker compose up &>"${DOCKER_COMPOSE_LOG}" &
 
+    # TODO: Add a timeout.
     wait_for_service_state "db" "running"
     wait_for_service_state "flyway" "exited"
     wait_for_service_state "cuebot" "running"
     wait_for_service_state "rqd" "running"
 
     verify_flyway_success
-    # TODO: Verify database is at current migration version.
+    verify_migration_versions
+
     # TODO: Verify Cuebot process is running.
     # TODO: Verify RQD process is running.
     # TODO: Verify RQD host exists in the database.
     # TODO: Install pycue.
     # TODO: Verify fetching shows and hosts via pycue.
 
+    ls -ld "${DB_DATA_DIR}"
     cleanup
 
     log INFO "More logs can be found at ${TEST_LOGS}"
