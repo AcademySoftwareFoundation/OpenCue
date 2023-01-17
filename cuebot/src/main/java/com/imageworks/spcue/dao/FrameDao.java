@@ -33,6 +33,8 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverride;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverrideSeq;
 import com.imageworks.spcue.util.FrameSet;
 
 public interface FrameDao {
@@ -374,5 +376,22 @@ public interface FrameDao {
      * @return
      */
     List<FrameInterface> getStaleCheckpoints(int cutoffTimeMs);
+
+    /**
+     * Create a frame state display override.
+     *
+     * @param frameId String
+     * @param override FrameStateDisplayOverride
+     */
+    void setFrameStateDisplayOverride(String frameId,
+                                      FrameStateDisplayOverride override);
+
+    /**
+     * Get the frame overrides for a specific frame
+     *
+     * @param frameId
+     * @return List<FrameStateDisplayOverride>
+     */
+    FrameStateDisplayOverrideSeq getFrameStateDisplayOverrides(String frameId);
 }
 

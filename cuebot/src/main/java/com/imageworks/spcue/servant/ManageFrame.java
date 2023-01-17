@@ -71,6 +71,11 @@ import com.imageworks.spcue.grpc.job.FrameRetryRequest;
 import com.imageworks.spcue.grpc.job.FrameRetryResponse;
 import com.imageworks.spcue.grpc.job.FrameSetCheckpointStateRequest;
 import com.imageworks.spcue.grpc.job.FrameSetCheckpointStateResponse;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverride;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverrideRequest;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverrideResponse;
+import com.imageworks.spcue.grpc.job.GetFrameStateDisplayOverridesRequest;
+import com.imageworks.spcue.grpc.job.GetFrameStateDisplayOverridesResponse;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.service.DependManager;
@@ -295,6 +300,35 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
         jobManager.updateCheckpointState(frame, request.getState());
         responseObserver.onNext(FrameSetCheckpointStateResponse.newBuilder().build());
         responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setFrameStateDisplayOverride(FrameStateDisplayOverrideRequest request,
+                                             StreamObserver<FrameStateDisplayOverrideResponse> responseObserver){
+        updateManagers();
+        Frame frame = request.getFrame();
+        FrameStateDisplayOverride override = request.getOverride();
+        frameDao.setFrameStateDisplayOverride(frame.getId(), override);
+        responseObserver.onNext(FrameStateDisplayOverrideResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getFrameStateDisplayOverrides(GetFrameStateDisplayOverridesRequest request,
+                                            StreamObserver<GetFrameStateDisplayOverridesResponse> responseObserver){
+        try {
+            updateManagers();
+            Frame frame = request.getFrame();
+            responseObserver.onNext(GetFrameStateDisplayOverridesResponse.newBuilder()
+                    .setOverrides(frameDao.getFrameStateDisplayOverrides(frame.getId()))
+                    .build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("No Frame State display overrides found.")
+                    .asRuntimeException());
+        }
     }
 
     public JobManager getJobManager() {

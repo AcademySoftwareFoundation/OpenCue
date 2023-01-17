@@ -95,6 +95,7 @@ import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.Frame;
 import com.imageworks.spcue.grpc.job.FrameSeq;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverride;
 import com.imageworks.spcue.grpc.job.Group;
 import com.imageworks.spcue.grpc.job.GroupSeq;
 import com.imageworks.spcue.grpc.job.GroupStats;
@@ -1377,6 +1378,20 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                         builder.setStopTime(0);
                     }
 
+                    if (rs.getString("pk_frame_override") != null){
+                        FrameStateDisplayOverride override = FrameStateDisplayOverride.newBuilder()
+                            .setState(FrameState.valueOf(rs.getString("str_frame_state")))
+                            .setText(rs.getString("str_override_text"))
+                            .setColor(FrameStateDisplayOverride.RGB.newBuilder()
+                                .setRed(rs.getInt("int_red"))
+                                .setGreen(rs.getInt("int_green"))
+                                .setBlue(rs.getInt("int_blue"))
+                                .build()
+                            )
+                            .build();
+                        builder.setFrameStateDisplayOverride(override);
+                    }
+
                     return builder.build();
                 }
             };
@@ -1438,6 +1453,21 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                         builder.setTotalGpuTime(builder.getTotalGpuTime() +
                                 (int)(System.currentTimeMillis() / 1000 - builder.getStartTime()) * rs.getInt("int_gpus"));
                     }
+
+                    if (rs.getString("pk_frame_override") != null){
+                        FrameStateDisplayOverride override = FrameStateDisplayOverride.newBuilder()
+                            .setState(FrameState.valueOf(rs.getString("str_frame_state")))
+                            .setText(rs.getString("str_override_text"))
+                            .setColor(FrameStateDisplayOverride.RGB.newBuilder()
+                                .setRed(rs.getInt("int_red"))
+                                .setGreen(rs.getInt("int_green"))
+                                .setBlue(rs.getInt("int_blue"))
+                                .build()
+                            )
+                            .build();
+                        builder.setFrameStateDisplayOverride(override);
+                    }
+
                     return builder.build();
                 }
             };
@@ -1578,11 +1608,15 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "frame.int_total_past_core_time,"+
             "frame.int_total_past_gpu_time,"+
             "layer.str_name AS layer_name," +
-            "job.str_name AS job_name "+
+            "job.str_name AS job_name,"+
+            "frame_state_display_overrides.* " +
         "FROM "+
              "job, " +
              "layer, "+
              "frame " +
+        "LEFT JOIN frame_state_display_overrides ON " +
+             "(frame.pk_frame = frame_state_display_overrides.pk_frame AND " +
+             "frame.str_state = frame_state_display_overrides.str_frame_state) " +
         "WHERE " +
             "frame.pk_layer = layer.pk_layer "+
         "AND "+
@@ -1657,11 +1691,16 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "frame.int_gpus,"+
             "frame.ts_llu,"+
             "COALESCE(proc.int_mem_max_used, frame.int_mem_max_used) AS int_mem_max_used," +
-            "COALESCE(proc.int_mem_used, frame.int_mem_used) AS int_mem_used " +
+            "COALESCE(proc.int_mem_used, frame.int_mem_used) AS int_mem_used," +
+            "frame_state_display_overrides.* " +
         "FROM "+
              "job, " +
              "layer,"+
-             "frame LEFT JOIN proc ON (proc.pk_frame = frame.pk_frame) " +
+             "frame " +
+        "LEFT JOIN proc ON (proc.pk_frame = frame.pk_frame) " +
+        "LEFT JOIN frame_state_display_overrides ON " +
+            "(frame.pk_frame = frame_state_display_overrides.pk_frame AND " +
+            "frame.str_state = frame_state_display_overrides.str_frame_state) " +
         "WHERE " +
             "frame.pk_layer = layer.pk_layer "+
         "AND "+
@@ -2246,12 +2285,16 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "frame.int_total_past_gpu_time,"+
             "layer.str_name AS layer_name," +
             "job.str_name AS job_name, "+
+            "frame_state_display_overrides.*, "+
             "ROW_NUMBER() OVER " +
                 "(ORDER BY frame.int_dispatch_order ASC, layer.int_dispatch_order ASC) AS row_number " +
         "FROM "+
              "job, " +
              "layer,"+
              "frame " +
+        "LEFT JOIN frame_state_display_overrides ON " +
+            "(frame.pk_frame = frame_state_display_overrides.pk_frame AND " +
+            "frame.str_state = frame_state_display_overrides.str_frame_state) " +
         "WHERE " +
             "frame.pk_layer = layer.pk_layer "+
         "AND "+

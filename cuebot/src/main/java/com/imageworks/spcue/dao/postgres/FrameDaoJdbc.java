@@ -49,6 +49,8 @@ import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameExitStatus;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverride;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverrideSeq;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.CueUtil;
@@ -1100,6 +1102,60 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 FRAME_MAPPER,
                 JobState.PENDING.toString(),
                 FrameState.CHECKPOINT.toString());
+    }
+
+    private static final String CREATE_FRAME_STATE_OVERRIDE =
+        "INSERT INTO frame_state_display_overrides (" +
+            "pk_frame_override," +
+            "pk_frame," +
+            "str_frame_state," +
+            "str_override_text," +
+            "int_red," +
+            "int_green," +
+            "int_blue" +
+            ") " +
+            "VALUES (?,?,?,?,?,?,?)";
+
+    @Override
+    public void setFrameStateDisplayOverride(String frameId,
+                                             FrameStateDisplayOverride override) {
+        getJdbcTemplate().update(CREATE_FRAME_STATE_OVERRIDE,
+            SqlUtil.genKeyRandom(),
+            frameId,
+            override.getState().toString(),
+            override.getText(),
+            override.getColor().getRed(),
+            override.getColor().getGreen(),
+            override.getColor().getBlue()
+        );
+    }
+
+    private static final String GET_FRAME_STATE_OVERRIDE =
+        "SELECT * from frame_state_display_overrides WHERE pk_frame = ?";
+
+    private static final RowMapper<FrameStateDisplayOverride> OVERRIDE_MAPPER =
+        new RowMapper<FrameStateDisplayOverride>() {
+            public FrameStateDisplayOverride mapRow(ResultSet rs,
+                                                    int rowNum) throws SQLException {
+                return FrameStateDisplayOverride.newBuilder()
+                    .setState(FrameState.valueOf(rs.getString("str_frame_state")))
+                    .setText(rs.getString("str_override_text"))
+                    .setColor(FrameStateDisplayOverride.RGB.newBuilder()
+                        .setRed(rs.getInt("int_red"))
+                        .setGreen(rs.getInt("int_green"))
+                        .setBlue(rs.getInt("int_blue"))
+                        .build())
+                    .build();
+            }
+        };
+
+    @Override
+    public FrameStateDisplayOverrideSeq getFrameStateDisplayOverrides(String frameId) {
+        List<FrameStateDisplayOverride> overrides = getJdbcTemplate().query(
+                GET_FRAME_STATE_OVERRIDE, OVERRIDE_MAPPER, frameId);
+        return FrameStateDisplayOverrideSeq.newBuilder()
+                .addAllOverrides(overrides)
+                .build();
     }
 }
 

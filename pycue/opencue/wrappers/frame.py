@@ -179,6 +179,38 @@ class Frame(object):
         self.stub.SetCheckpointState(
             job_pb2.FrameSetCheckpointStateRequest(frame=self.data, state=checkPointState))
 
+    def setFrameStateDisplayOverride(self, status, override_text, override_red,
+                                     override_green, override_blue):
+        """
+        Override the displayed text of a frame status
+
+        :param status: the job_pb2.FrameState to override
+        :param override_text: the text to display
+        :param override_red: red value 0-255
+        :param override_green: green value 0-255
+        :param override_blue: blue value 0-255
+        :return:
+        """
+        override = job_pb2.FrameStateDisplayOverride(state=status,
+                                text=override_text,
+                                color=job_pb2.FrameStateDisplayOverride.RGB(
+                                    red=override_red,
+                                    green=override_green,
+                                    blue=override_blue))
+        self.stub.SetFrameStateDisplayOverride(
+            job_pb2.FrameStateDisplayOverrideRequest(frame=self.data,
+                                                     override=override))
+
+    def getFrameStateDisplayOverrides(self):
+        response = self.stub.GetFrameStateDisplayOverrides(
+            job_pb2.GetFrameStateDisplayOverridesRequest(frame=self.data))
+        return response.overrides.overrides
+
+    def hasFrameStateDisplayOverride(self):
+        if self.data.HasField("frame_state_display_override"):
+            return True
+        return False
+
     def id(self):
         """Returns the id of the frame.
 
@@ -312,3 +344,14 @@ class Frame(object):
         if self.data.stop_time == 0:
             return int(time.time() - self.data.start_time)
         return self.data.stop_time - self.data.start_time
+
+    def frameStateDisplayOverride(self):
+        """ Returns the frame state display override if there is one.
+            Meant to be used in conjunction with "hasFrameStateDisplayOverride"
+
+            :rtype: job_pb2.FrameStateDisplayOverride
+            :return: frame state display override or None
+        """
+        if self.hasFrameStateDisplayOverride():
+            return self.data.frame_state_display_override
+        return None
