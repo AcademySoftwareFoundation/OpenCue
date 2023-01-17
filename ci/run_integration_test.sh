@@ -5,6 +5,7 @@ set -e
 RQD_ROOT="/tmp/rqd"
 TEST_LOGS="/tmp/opencue_test"
 DOCKER_COMPOSE_LOG="${TEST_LOGS}/docker_compose.log"
+DB_DATA_DIR="sandbox/db-data"
 
 log() {
     echo "$(date "+%Y-%m-%d %H:%M:%S") $1 $2"
@@ -31,9 +32,8 @@ verify_command_exists() {
 }
 
 verify_no_database() {
-    db_data="sandbox/db-data"
-    if [ -e "${db_data}" ]; then
-        log ERROR "Postgres data directory ${db_data} already exists"
+    if [ -e "${DB_DATA_DIR}" ]; then
+        log ERROR "Postgres data directory ${DB_DATA_DIR} already exists"
         exit 1
     fi
 }
@@ -88,9 +88,8 @@ verify_flyway_success() {
 
 cleanup() {
     docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
-    #docker compose rm --stop --force
     rm -rf "${RQD_ROOT}"
-    rm -rf "sandbox/db-data"
+    rm -rf "${DB_DATA_DIR}"
 }
 
 main() {
@@ -112,10 +111,10 @@ main() {
     log INFO "$(docker compose version)"
 
     mkdir -p "${TEST_LOGS}"
+    mkdir -p "${DB_DATA_DIR}"
 
     log INFO "Starting Docker compose..."
     docker compose up &>"${DOCKER_COMPOSE_LOG}" &
-    #docker compose up &
 
     wait_for_service_state "db" "running"
     wait_for_service_state "flyway" "exited"
