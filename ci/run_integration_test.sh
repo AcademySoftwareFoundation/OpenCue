@@ -75,7 +75,7 @@ wait_for_service_state() {
 }
 
 verify_flyway_success() {
-    container=$(docker compose ps --all --format json | jq '.[] | select(.Service=="flyway")')
+    container=$(docker compose ps --format json | jq '.[] | select(.Service=="flyway")')
     container_name=$(echo "$container" | jq -r '.Name')
     exit_code=$(echo "$container" | jq -r '.ExitCode')
     if [[ ${exit_code} = 0 ]]; then
@@ -87,7 +87,8 @@ verify_flyway_success() {
 }
 
 cleanup() {
-    docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
+    #docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
+    docker compose rm --stop --force
     rm -rf "${RQD_ROOT}"
     rm -rf "sandbox/db-data"
 }
@@ -113,7 +114,8 @@ main() {
     mkdir -p "${TEST_LOGS}"
 
     log INFO "Starting Docker compose..."
-    docker compose up &>"${DOCKER_COMPOSE_LOG}" &
+    #docker compose up &>"${DOCKER_COMPOSE_LOG}" &
+    docker compose up &
 
     wait_for_service_state "db" "running"
     wait_for_service_state "flyway" "exited"
