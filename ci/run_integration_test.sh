@@ -41,7 +41,7 @@ verify_no_database() {
 verify_no_containers() {
     num_containers=$(docker compose ps --format json | jq length)
     if [[ $num_containers -gt 0 ]]; then
-       log ERROR "Found ${num_containers} Docker compose containers, clean these up with \`docker-compose rm\` before continuing"
+       log ERROR "Found ${num_containers} Docker compose containers, clean these up with \`docker compose rm\` before continuing"
        exit 1
     fi
 }
@@ -59,7 +59,7 @@ create_rqd_root() {
 wait_for_service_state() {
     log INFO "Waiting for service \"$1\" to have state \"$2\"..."
     while true; do
-        container=$(docker-compose ps --format json | jq ".[] | select(.Service==\"$1\")")
+        container=$(docker compose ps --format json | jq ".[] | select(.Service==\"$1\")")
         if [[ ${container} = "" ]]; then
             log INFO "Service \"$1\": no container yet"
         else
@@ -75,7 +75,7 @@ wait_for_service_state() {
 }
 
 verify_flyway_success() {
-    container=$(docker-compose ps --format json | jq '.[] | select(.Service=="flyway")')
+    container=$(docker compose ps --format json | jq '.[] | select(.Service=="flyway")')
     container_name=$(echo "$container" | jq -r '.Name')
     exit_code=$(echo "$container" | jq -r '.ExitCode')
     if [[ ${exit_code} = 0 ]]; then
@@ -87,7 +87,7 @@ verify_flyway_success() {
 }
 
 cleanup() {
-    docker-compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
+    docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
     rm -rf "${RQD_ROOT}"
     rm -rf "sandbox/db-data"
 }
@@ -102,20 +102,18 @@ main() {
     cd "${OPENCUE_ROOT}"
 
     verify_command_exists docker
-    verify_command_exists docker-compose
+    verify_command_exists "docker compose"
     verify_no_database
     verify_no_containers
     create_rqd_root
 
     log INFO "$(docker --version)"
-    log INFO "$(docker-compose --version)"
     log INFO "$(docker compose version)"
-    exit 0
 
     mkdir -p "${TEST_LOGS}"
 
     log INFO "Starting Docker compose..."
-    docker-compose up &>"${DOCKER_COMPOSE_LOG}" &
+    docker compose up &>"${DOCKER_COMPOSE_LOG}" &
 
     wait_for_service_state "db" "running"
     wait_for_service_state "flyway" "exited"
