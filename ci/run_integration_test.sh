@@ -194,9 +194,10 @@ main() {
     log INFO "$(docker --version)"
     log INFO "$(docker compose version)"
 
-    log INFO "Building Docker images..."
-    docker build -t opencue/cuebot -f cuebot/Dockerfile .
-    docker build -t opencue/rqd -f rqd/Dockerfile .
+    log INFO "Building Cuebot image..."
+    docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
+    log INFO "Building RQD image..."
+    docker build -t opencue/rqd -f rqd/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd.log"
 
     log INFO "Starting Docker compose..."
     docker compose up &>"${DOCKER_COMPOSE_LOG}" &
@@ -216,10 +217,13 @@ main() {
     create_and_activate_venv
     log INFO "Installing OpenCue Python libraries..."
     install_log="${TEST_LOGS}/install-client-sources.log"
-    sandbox/install-client-sources.sh &> "${install_log}"
+    sandbox/install-client-sources.sh &>"${install_log}"
     log INFO "Testing pycue library..."
     test_pycue
+    log INFO "Testing cueadmin..."
     test_cueadmin
+
+    # TODO Launch a job and verify it finishes.
 
     cleanup
 
