@@ -1,11 +1,11 @@
-FROM --platform=linux/amd64 almalinux:8.7
+FROM almalinux:8.7
 
 ARG FLYWAY_VERSION=9.11.0
 
 # Get flyway
 RUN yum install -y tar java-1.8.0-openjdk postgresql-jdbc nc postgresql
-RUN curl -O https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz
-RUN tar -xzf flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz
+RUN curl -O https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}.tar.gz
+RUN tar -xzf flyway-commandline-${FLYWAY_VERSION}.tar.gz
 
 WORKDIR flyway-${FLYWAY_VERSION}
 
