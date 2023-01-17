@@ -100,7 +100,7 @@ verify_migration_versions() {
 cleanup() {
     docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
     rm -rf "${RQD_ROOT}"
-    rm -rf "${DB_DATA_DIR}"
+    rm -rf "${DB_DATA_DIR}" || true
 }
 
 main() {
@@ -123,7 +123,6 @@ main() {
 
     mkdir -p "${TEST_LOGS}"
     mkdir -p "${DB_DATA_DIR}"
-    ls -ld "${DB_DATA_DIR}"
 
     log INFO "Starting Docker compose..."
     docker compose up &>"${DOCKER_COMPOSE_LOG}" &
@@ -143,7 +142,6 @@ main() {
     # TODO: Install pycue.
     # TODO: Verify fetching shows and hosts via pycue.
 
-    ls -ld "${DB_DATA_DIR}"
     cleanup
 
     log INFO "More logs can be found at ${TEST_LOGS}"
