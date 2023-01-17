@@ -187,6 +187,7 @@ main() {
 
     verify_command_exists docker
     verify_command_exists "docker compose"
+    verify_command_exists jq
     verify_no_database
     verify_no_containers
     create_rqd_root
