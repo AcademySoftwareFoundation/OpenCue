@@ -200,7 +200,7 @@ class FrameTests(unittest.TestCase):
     def testGetFrameStateDisplayOverrides(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.GetFrameStateDisplayOverrides.return_value = \
-            job_pb2.GetFrameStateDisplayOverrideResponse(
+            job_pb2.GetFrameStateDisplayOverridesResponse(
                 overrides = job_pb2.FrameStateDisplayOverrideSeq[
                     job_pb2.FrameStateDisplayOverride(state=job_pb2.FrameState.SUCCEEDED,
                                                       text='COMPLETE',
@@ -218,7 +218,7 @@ class FrameTests(unittest.TestCase):
         overrides = frame.getFrameStateDisplayOverrides()
 
         stubMock.GetFrameStateDisplayOverrides.assert_called_with(
-            job_pb2.GetFrameStateDisplayOverrideRequest(frame=frame.data), timeout=mock.ANY)
+            job_pb2.GetFrameStateDisplayOverridesRequest(frame=frame.data), timeout=mock.ANY)
         self.assertTrue(len(overrides), 2)
         self.assertEquals(overrides[0].state, job_pb2.FrameState.SUCCEEDED)
         self.assertEquals(overrides[1].state, job_pb2.FrameState.DEAD)

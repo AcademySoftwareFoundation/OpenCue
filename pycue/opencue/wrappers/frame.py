@@ -202,11 +202,23 @@ class Frame(object):
                                                      override=override))
 
     def getFrameStateDisplayOverrides(self):
+        """
+        Retrieve all frame state display overrides for the frame
+
+        :rtype: list
+        :return: overrides for the frame
+        """
         response = self.stub.GetFrameStateDisplayOverrides(
             job_pb2.GetFrameStateDisplayOverridesRequest(frame=self.data))
         return response.overrides.overrides
 
     def hasFrameStateDisplayOverride(self):
+        """
+        Check if frame has state override
+
+        :rtype: boolean
+        :return:  if a frame has any state overrides or not
+        """
         if self.data.HasField("frame_state_display_override"):
             return True
         return False
