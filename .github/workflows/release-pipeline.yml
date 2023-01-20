@@ -72,6 +72,7 @@ jobs:
         with:
           file: ${{ matrix.component }}/Dockerfile
           tags: opencue/${{ matrix.component }}:${{ env.BUILD_ID }},opencue/${{ matrix.component }}:latest
+          context: .
           push: true
 
   create_release:
