@@ -76,6 +76,7 @@ jobs:
         with:
           file: ${{ matrix.component }}/Dockerfile
           tags: opencuebuild/${{ matrix.component }}:${{ env.BUILD_ID }}
+          context: .
           push: true
 
       - name: Extract Artifacts
