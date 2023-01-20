@@ -6,8 +6,6 @@ python_version=$(python -V 2>&1)
 echo "Will run tests using ${python_version}"
 
 pip install --user -r requirements.txt -r requirements_gui.txt
-pip install pipdeptree
-pipdeptree
 
 # Protos need to have their Python code generated in order for tests to pass.
 python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto --grpc_python_out=pycue/opencue/compiled_proto proto/*.proto
