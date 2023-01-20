@@ -201,7 +201,7 @@ class FrameTests(unittest.TestCase):
         stubMock = mock.Mock()
         stubMock.GetFrameStateDisplayOverrides.return_value = \
             job_pb2.GetFrameStateDisplayOverridesResponse(
-                overrides = job_pb2.FrameStateDisplayOverrideSeq[
+                overrides = job_pb2.FrameStateDisplayOverrideSeq(overrides=[
                     job_pb2.FrameStateDisplayOverride(state=job_pb2.FrameState.SUCCEEDED,
                                                       text='COMPLETE',
                                                       color=job_pb2.FrameStateDisplayOverride.RGB(
@@ -211,17 +211,18 @@ class FrameTests(unittest.TestCase):
                                                       text='FAILED',
                                                       color=job_pb2.FrameStateDisplayOverride.RGB(
                                                           red=223, green=120, blue=10
-                                                      ))])
+                                                      ))]))
         getStubMock.return_value = stubMock
 
         frame = opencue.wrappers.frame.Frame(job_pb2.Frame(name='TEST_FRAME_A'))
         overrides = frame.getFrameStateDisplayOverrides()
 
         stubMock.GetFrameStateDisplayOverrides.assert_called_with(
-            job_pb2.GetFrameStateDisplayOverridesRequest(frame=frame.data), timeout=mock.ANY)
+            job_pb2.GetFrameStateDisplayOverridesRequest(frame=frame.data))
+
         self.assertTrue(len(overrides), 2)
-        self.assertEquals(overrides[0].state, job_pb2.FrameState.SUCCEEDED)
-        self.assertEquals(overrides[1].state, job_pb2.FrameState.DEAD)
+        self.assertEqual(overrides[0].state, job_pb2.FrameState.SUCCEEDED)
+        self.assertEqual(overrides[1].state, job_pb2.FrameState.DEAD)
 
 
 class FrameEnumTests(unittest.TestCase):
