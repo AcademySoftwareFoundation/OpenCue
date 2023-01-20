@@ -2064,6 +2064,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "show.b_paused," +
             "show.int_default_min_cores," +
             "show.int_default_max_cores," +
+            "show.int_default_min_gpus," +
+            "show.int_default_max_gpus," +
             "show.b_booking_enabled," +
             "show.b_dispatch_enabled," +
             "show.b_active," +
