@@ -2,7 +2,7 @@
 
 set -e
 
-python_version=$(python -V)
+python_version=$(python -V 2>&1)
 echo "Will run tests using ${python_version}"
 
 pip install --user -r requirements.txt -r requirements_gui.txt
