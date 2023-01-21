@@ -38,6 +38,7 @@ import rqd.compiled_proto.report_pb2
 import rqd.compiled_proto.report_pb2_grpc
 import rqd.compiled_proto.rqd_pb2_grpc
 import rqd.rqconstants
+import rqd.rqexceptions
 import rqd.rqdservicers
 import rqd.rqutil
 
@@ -278,12 +279,13 @@ class Network(object):
                 ),
             )
 
-            cuebots = rqd.rqconstants.CUEBOT_HOSTNAME.split()
+            cuebots = rqd.rqconstants.CUEBOT_HOSTNAME.strip().split()
+            if len(cuebots) == 0:
+                raise rqd.rqexceptions.RqdException("CUEBOT_HOSTNAME is empty")
             shuffle(cuebots)
-            if len(cuebots) > 0:
-                self.channel = grpc.insecure_channel('%s:%s' % (cuebots[0],
-                                                                rqd.rqconstants.CUEBOT_GRPC_PORT))
-                self.channel = grpc.intercept_channel(self.channel, *interceptors)
+            self.channel = grpc.insecure_channel('%s:%s' % (cuebots[0],
+                                                            rqd.rqconstants.CUEBOT_GRPC_PORT))
+            self.channel = grpc.intercept_channel(self.channel, *interceptors)
             atexit.register(self.closeChannel)
 
     def __getReportStub(self):
