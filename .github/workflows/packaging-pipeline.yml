@@ -6,8 +6,25 @@ on:
     branches: [ master ]
 
 jobs:
-  build_components:
+  integration_test:
+    name: Run Integration Test
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Run test
+        run: ci/run_integration_test.sh
+
+      - name: Archive log files
+        uses: actions/upload-artifact@v3
+        if: ${{ always() }}
+        with:
+          name: test-logs
+          path: /tmp/opencue-test/*.log
+
+  build_components:
+    needs: integration_test
     strategy:
       matrix:
         component: [cuebot, rqd]
@@ -41,6 +58,7 @@ jobs:
             ARTIFACTS: cueadmin-${BUILD_ID}-all.tar.gz
 
     name: Build ${{ matrix.NAME }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -101,9 +119,9 @@ jobs:
           done
 
   create_other_artifacts:
+    name: Create Other Build Artifacts
     needs: build_components
     runs-on: ubuntu-latest
-    name: Create Other Build Artifacts
     steps:
       - name: Checkout
         uses: actions/checkout@v3
