@@ -50,6 +50,17 @@ class Frame(object):
         EATEN = job_pb2.EATEN
         CHECKPOINT = job_pb2.CHECKPOINT
 
+    STATUS_COLOR = {
+        "RED": (255, 0, 0),
+        "GREEN": (0, 255, 0),
+        "BLUE": (0, 128, 255),
+        "YELLOW": (255, 255, 0),
+        "ORANGE": (255, 128, 0),
+        "PURPLE": (127, 0, 255),
+        "PINK": (255, 51, 255)
+    }
+
+
     def __init__(self, frame=None):
         self.data = frame
         self.stub = Cuebot.getStub('frame')
@@ -179,24 +190,21 @@ class Frame(object):
         self.stub.SetCheckpointState(
             job_pb2.FrameSetCheckpointStateRequest(frame=self.data, state=checkPointState))
 
-    def setFrameStateDisplayOverride(self, status, override_text, override_red,
-                                     override_green, override_blue):
+    def setFrameStateDisplayOverride(self, status, override_text, override_rgb):
         """
         Override the displayed text of a frame status
 
         :param status: the job_pb2.FrameState to override
         :param override_text: the text to display
-        :param override_red: red value 0-255
-        :param override_green: green value 0-255
-        :param override_blue: blue value 0-255
+        :param override_rgb: tuple containing the RGB int values e.g.(255, 0, 0)
         :return:
         """
         override = job_pb2.FrameStateDisplayOverride(state=status,
                                 text=override_text,
                                 color=job_pb2.FrameStateDisplayOverride.RGB(
-                                    red=override_red,
-                                    green=override_green,
-                                    blue=override_blue))
+                                    red=override_rgb[0],
+                                    green=override_rgb[1],
+                                    blue=override_rgb[2]))
         self.stub.SetFrameStateDisplayOverride(
             job_pb2.FrameStateDisplayOverrideRequest(frame=self.data,
                                                      override=override))

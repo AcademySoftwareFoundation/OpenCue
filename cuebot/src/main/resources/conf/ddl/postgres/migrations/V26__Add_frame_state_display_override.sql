@@ -6,9 +6,7 @@ CREATE TABLE frame_state_display_overrides (
     pk_frame VARCHAR(36) NOT NULL,
     str_frame_state VARCHAR(24) NOT NULL,
     str_override_text VARCHAR(24) NOT NULL,
-    int_red BIGINT NOT NULL,
-    int_green BIGINT NOT NULL,
-    int_blue BIGINT NOT NULL
+    str_rgb VARCHAR(24) NOT NULL
 );
 
 ALTER TABLE frame_state_display_overrides ADD CONSTRAINT c_frame_state_override UNIQUE

@@ -1379,13 +1379,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     }
 
                     if (rs.getString("pk_frame_override") != null){
+                        String[] rgb = rs.getString("str_rgb").split(",");
                         FrameStateDisplayOverride override = FrameStateDisplayOverride.newBuilder()
                             .setState(FrameState.valueOf(rs.getString("str_frame_state")))
                             .setText(rs.getString("str_override_text"))
                             .setColor(FrameStateDisplayOverride.RGB.newBuilder()
-                                .setRed(rs.getInt("int_red"))
-                                .setGreen(rs.getInt("int_green"))
-                                .setBlue(rs.getInt("int_blue"))
+                                .setRed(Integer.parseInt(rgb[0]))
+                                .setGreen(Integer.parseInt(rgb[1]))
+                                .setBlue(Integer.parseInt(rgb[2]))
                                 .build()
                             )
                             .build();
@@ -1455,13 +1456,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     }
 
                     if (rs.getString("pk_frame_override") != null){
+                        String[] rgb = rs.getString("str_rgb").split(",");
                         FrameStateDisplayOverride override = FrameStateDisplayOverride.newBuilder()
                             .setState(FrameState.valueOf(rs.getString("str_frame_state")))
                             .setText(rs.getString("str_override_text"))
                             .setColor(FrameStateDisplayOverride.RGB.newBuilder()
-                                .setRed(rs.getInt("int_red"))
-                                .setGreen(rs.getInt("int_green"))
-                                .setBlue(rs.getInt("int_blue"))
+                                .setRed(Integer.parseInt(rgb[0]))
+                                .setGreen(Integer.parseInt(rgb[1]))
+                                .setBlue(Integer.parseInt(rgb[2]))
                                 .build()
                             )
                             .build();

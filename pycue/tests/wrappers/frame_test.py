@@ -197,6 +197,26 @@ class FrameTests(unittest.TestCase):
             job_pb2.Frame(name=TEST_FRAME_NAME, start_time=startTime, stop_time=stopTime))
         self.assertEqual(runningFrame.runTime(), expected)
 
+    def testSetFrameStateDisplayOverride(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.SetFrameStateDisplayOverride.return_value = \
+            job_pb2.FrameStateDisplayOverrideResponse()
+        getStubMock.return_value = stubMock
+
+        frame = opencue.wrappers.frame.Frame(job_pb2.Frame(name='TEST_FRAME_A'))
+        frame.setFrameStateDisplayOverride(job_pb2.FrameState.SUCCEEDED,
+                                           'TIMED_OUT',
+                                           frame.STATUS_COLOR["BLUE"])
+
+        stubMock.SetFrameStateDisplayOverride.assert_called_with(
+            job_pb2.FrameStateDisplayOverrideRequest(frame=frame.data,
+                override=job_pb2.FrameStateDisplayOverride(
+                    state=job_pb2.FrameState.SUCCEEDED,
+                    text='TIMED_OUT',
+                    color=job_pb2.FrameStateDisplayOverride.RGB(red=0,
+                                                                green=128,
+                                                                blue=255))))
+
     def testGetFrameStateDisplayOverrides(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.GetFrameStateDisplayOverrides.return_value = \
