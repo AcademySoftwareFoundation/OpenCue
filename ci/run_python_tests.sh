@@ -2,7 +2,7 @@
 
 set -e
 
-python_version=$(python -V)
+python_version=$(python -V 2>&1)
 echo "Will run tests using ${python_version}"
 
 pip install --user -r requirements.txt -r requirements_gui.txt
@@ -24,5 +24,5 @@ python rqd/setup.py test
 
 # Xvfb no longer supports Python 2.
 if [[ "$python_version" =~ "Python 3" ]]; then
-  PYTHONPATH=pycue xvfb-run -d python cuegui/setup.py test
+  ci/run_gui_test.sh
 fi
