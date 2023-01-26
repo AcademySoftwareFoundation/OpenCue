@@ -12,7 +12,7 @@ jobs:
     name: Analyze Python Components
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           # Fetch all Git history, otherwise the current version number will
           # not be correctly calculated.
@@ -33,7 +33,7 @@ jobs:
     name: Analyze Cuebot
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           # Fetch all Git history, otherwise the current version number will
           # not be correctly calculated.

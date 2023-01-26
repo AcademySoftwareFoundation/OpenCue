@@ -65,7 +65,7 @@ class JobActionsTests(unittest.TestCase):
         self.job_actions = cuegui.MenuActions.JobActions(self.widgetMock, mock.Mock(), None, None)
 
     def test_jobs(self):
-        print(cuegui.MenuActions.MenuActions(self.widgetMock, None, None, None).jobs())
+        cuegui.MenuActions.MenuActions(self.widgetMock, None, None, None).jobs()
 
     def test_unmonitor(self):
         self.job_actions.unmonitor()
