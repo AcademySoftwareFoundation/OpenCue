@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-"""Functions for loading application state and settings from disk."""
+"""Functions for loading application layout and other state from disk."""
 
 from __future__ import print_function
 from __future__ import division
@@ -39,8 +39,7 @@ def startup(app_name):
     :return: settings object containing the loaded settings
     :rtype: QtCore.QSettings
     """
-    # read saved config from disk
-    # copy default config
+    # E.g. ~/.config/.cuecommander/config.ini
     config_path = "/.%s/config" % app_name.lower()
     settings = QtCore.QSettings(QtCore.QSettings.IniFormat, QtCore.QSettings.UserScope, config_path)
     logger.info('Reading config file from %s', settings.fileName())
