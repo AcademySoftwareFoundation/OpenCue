@@ -2082,7 +2082,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "COALESCE(vs_show_stat.int_job_count,0) AS int_job_count " +
         "FROM " +
             "show " +
-        "JOIN show_stats ON (show.pk_show = show_stats.pk_show) " +
+        "LEFT JOIN show_stats ON (show.pk_show = show_stats.pk_show) " +
         "LEFT JOIN vs_show_stat ON (vs_show_stat.pk_show = show.pk_show) " +
         "LEFT JOIN vs_show_resource ON (vs_show_resource.pk_show=show.pk_show) " +
         "WHERE " +
