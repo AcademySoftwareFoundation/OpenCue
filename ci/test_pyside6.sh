@@ -31,4 +31,4 @@ python3 -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto
 2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
 
 # Run tests.
-PYTHONPATH=pycue xvfb-run -d python3 cuegui/setup.py test
+ci/run_gui_test.sh
