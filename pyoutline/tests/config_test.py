@@ -60,7 +60,7 @@ class ConfigTest(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertIsNone(os.environ.get('OL_CONF'))
         self.assertIsNone(os.environ.get('OUTLINE_CONFIG_FILE'))
         self.fs.add_real_file(
-            os.path.join(os.path.dirname(os.path.dirname(outline.__file__)), 'etc', 'outline.cfg'),
+            os.path.join(os.path.dirname(outline.__file__), 'outline.cfg'),
             read_only=True)
 
         config = read_config_from_disk()
