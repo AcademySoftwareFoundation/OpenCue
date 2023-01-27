@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-"""Tests for cuegui.Config"""
+"""Tests for cuegui.Layout"""
 
 
 from __future__ import print_function
@@ -27,7 +27,7 @@ import unittest
 
 from qtpy import QtCore
 
-import cuegui.Config
+import cuegui.Layout
 
 
 CONFIG_INI = '''
@@ -50,7 +50,7 @@ OtherAttr=arbitrary-value
 '''
 
 
-class ConfigTests(unittest.TestCase):
+class LayoutTests(unittest.TestCase):
     def setUp(self):
         self.config_dir = tempfile.mkdtemp()
         QtCore.QSettings.setPath(
@@ -59,34 +59,34 @@ class ConfigTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.config_dir)
 
-    def test__should_load_user_config(self):
+    def test__should_load_user_layout(self):
         app_name = 'arbitraryapp'
         config_file_path = os.path.join(self.config_dir, '.%s' % app_name, 'config.ini')
         os.mkdir(os.path.dirname(config_file_path))
         with open(config_file_path, 'w') as fp:
             fp.write(CONFIG_INI)
 
-        settings = cuegui.Config.startup(app_name)
+        settings = cuegui.Layout.startup(app_name)
 
         self.assertEqual('0.14', settings.value('Version'))
         self.assertEqual('true', settings.value('CueCommander/Open'))
         self.assertEqual('CustomWindowTitle', settings.value('CueCommander/Title'))
         self.assertEqual('arbitrary-value', settings.value('CueCommander/OtherAttr'))
 
-    def test__should_load_default_config(self):
-        settings = cuegui.Config.startup('CueCommander')
+    def test__should_load_default_layout(self):
+        settings = cuegui.Layout.startup('CueCommander')
 
         self.assertEqual('false', settings.value('CueCommander/Open'))
         self.assertEqual('CueCommander', settings.value('CueCommander/Title'))
         self.assertFalse(settings.value('CueCommander/OtherAttr', False))
 
-    def test__should_restore_default_config(self):
+    def test__should_restore_default_layout(self):
         config_file_path = os.path.join(self.config_dir, '.cuecommander', 'config.ini')
         os.mkdir(os.path.dirname(config_file_path))
         with open(config_file_path, 'w') as fp:
             fp.write(CONFIG_WITH_RESTORE_FLAG)
 
-        settings = cuegui.Config.startup('CueCommander')
+        settings = cuegui.Layout.startup('CueCommander')
 
         self.assertEqual('false', settings.value('CueCommander/Open'))
         self.assertEqual('CueCommander', settings.value('CueCommander/Title'))
