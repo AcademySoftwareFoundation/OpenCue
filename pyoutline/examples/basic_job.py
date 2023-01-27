@@ -12,6 +12,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Basic job structure with a single layer and five frames.
+
+The frames just print out the current frame number."""
+
 
 import getpass
 
