@@ -14,8 +14,14 @@
 # > OK
 #
 
+py="$(command -v python3)"
+if [[ -z "$py" ]]; then
+  py="$(command -v python)"
+fi
+echo "Using Python binary ${py}"
+
 test_log="/tmp/cuegui_result.log"
-PYTHONPATH=pycue xvfb-run -d python cuegui/setup.py test | tee ${test_log}
+PYTHONPATH=pycue xvfb-run -d "${py}" cuegui/setup.py test | tee ${test_log}
 
 grep -Pz 'Ran \d+ tests in [0-9\.]+s\n\nOK' ${test_log}
 if [ $? -eq 0 ]; then
