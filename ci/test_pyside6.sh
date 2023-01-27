@@ -25,7 +25,7 @@ yum -y install \
 # Install Python requirements.
 python3 -m pip install --user -r requirements.txt -r requirements_gui.txt
 # Replace PySide2 with PySide6.
-python3 -m pip uninstall PySide2
+python3 -m pip uninstall -y PySide2
 python3 -m pip install --user PySide6==6.3.2
 
 # Fix compiled proto code for Python 3.
