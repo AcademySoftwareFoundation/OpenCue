@@ -1,7 +1,7 @@
 2to3==1.0
 enum34==1.1.6
 evdev==1.4.0;python_version<"3.0" and "linux" in sys_platform
-future==0.17.1
+future==0.18.3
 futures==3.2.0;python_version<"3.0"
 grpcio==1.26.0;python_version<"3.0"
 grpcio-tools==1.26.0;python_version<"3.0"
