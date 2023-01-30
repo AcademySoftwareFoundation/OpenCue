@@ -29,7 +29,8 @@ import javax.jms.Topic;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.jms.JmsException;
@@ -39,7 +40,7 @@ import org.springframework.jms.core.MessageCreator;
 import com.imageworks.spcue.util.CueExceptionUtil;
 
 public class JmsMover extends ThreadPoolExecutor {
-    private static final Logger logger = Logger.getLogger(JmsMover.class);
+    private static final Logger logger = LogManager.getLogger(JmsMover.class);
     private final Gson gson = new GsonBuilder().serializeNulls().create();
 
     @Autowired

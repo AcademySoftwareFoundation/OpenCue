@@ -29,8 +29,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.imageworks.spcue.dispatcher.AbstractDispatcher;
-import org.apache.log4j.Logger;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -264,30 +262,25 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                     "SELECT pk_frame FROM proc WHERE pk_frame=? FOR UPDATE",
                     String.class, f.getFrameId()).equals(f.getFrameId())) {
 
-                getJdbcTemplate().update(UPDATE_PROC_MEMORY_USAGE,
-                        rss, maxRss, vss, maxVss,
-                        usedGpuMemory, maxUsedGpuMemory, f.getFrameId());
-            }
                 getJdbcTemplate().update(new PreparedStatementCreator() {
-                            @Override
-                            public PreparedStatement createPreparedStatement(Connection conn)
-                                    throws SQLException {
-                                PreparedStatement updateProc = conn.prepareStatement(
-                                        UPDATE_PROC_MEMORY_USAGE);
-                                updateProc.setLong(1, rss);
-                                updateProc.setLong(2, maxRss);
-                                updateProc.setLong(3, vss);
-                                updateProc.setLong(4, maxVss);
-                                updateProc.setLong(5, usedGpuMemory);
-                                updateProc.setLong(6, maxUsedGpuMemory);
-                                updateProc.setBytes(7, children);
-                                updateProc.setString(8, f.getFrameId());
-                                return updateProc;
-                            }
-                        }
-                );
+                    @Override
+                    public PreparedStatement createPreparedStatement(Connection conn)
+                            throws SQLException {
+                        PreparedStatement updateProc = conn.prepareStatement(
+                                UPDATE_PROC_MEMORY_USAGE);
+                        updateProc.setLong(1, rss);
+                        updateProc.setLong(2, maxRss);
+                        updateProc.setLong(3, vss);
+                        updateProc.setLong(4, maxVss);
+                        updateProc.setLong(5, usedGpuMemory);
+                        updateProc.setLong(6, maxUsedGpuMemory);
+                        updateProc.setBytes(7, children);
+                        updateProc.setString(8, f.getFrameId());
+                        return updateProc;
+                    }
+                });
             }
-        catch (DataAccessException dae) {
+        } catch (DataAccessException dae) {
            logger.info("The proc for frame " + f +
                    " could not be updated with new memory stats: " + dae);
         }

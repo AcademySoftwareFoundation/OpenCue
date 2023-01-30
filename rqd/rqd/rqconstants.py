@@ -66,6 +66,10 @@ RQD_RETRY_STARTUP_CONNECT_DELAY = 30
 RQD_RETRY_CRITICAL_REPORT_DELAY = 30
 RQD_USE_IP_AS_HOSTNAME = True
 RQD_USE_IPV6_AS_HOSTNAME = False
+
+# Use the PATH environment variable from the RQD host.
+RQD_USE_PATH_ENV_VAR = False
+
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 RQD_TAGS = ''
@@ -115,7 +119,7 @@ if platform.system() == 'Linux':
     SYS_HERTZ = os.sysconf('SC_CLK_TCK')
 
 if platform.system() == 'Windows':
-    CONFIG_FILE = os.path.expandvars('$LOCALAPPDATA/OpenCue/rqd.conf')
+    CONFIG_FILE = os.path.expandvars('%LOCALAPPDATA%/OpenCue/rqd.conf')
 else:
     CONFIG_FILE = '/etc/opencue/rqd.conf'
 
@@ -181,6 +185,8 @@ try:
             RQD_USE_IP_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IP_AS_HOSTNAME")
         if config.has_option(__section, "RQD_USE_IPV6_AS_HOSTNAME"):
             RQD_USE_IPV6_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IPV6_AS_HOSTNAME")
+        if config.has_option(__section, "RQD_USE_PATH_ENV_VAR"):
+            RQD_USE_PATH_ENV_VAR = config.getboolean(__section, "RQD_USE_PATH_ENV_VAR")
         if config.has_option(__section, "RQD_BECOME_JOB_USER"):
             RQD_BECOME_JOB_USER = config.getboolean(__section, "RQD_BECOME_JOB_USER")
         if config.has_option(__section, "RQD_TAGS"):

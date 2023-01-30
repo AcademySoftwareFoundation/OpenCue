@@ -36,8 +36,6 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 import six
-import yaml
-from yaml.scanner import ScannerError
 
 import opencue
 import opencue.wrappers.group
@@ -389,26 +387,16 @@ def memoryToString(kmem, unit=None):
     return "%.01fG" % (float(kmem) / pow(k, 2))
 
 
-def getResourceConfig(path=None):
+def getResourceConfig():
     """Reads the given yaml file and returns the entries as a dictionary.
     If no config path is given, the default resources config will be read
     If the given path does not exist, a warning will be printed and an empty
     dictionary will be returned
 
-    @param path: The path for the yaml file to read
-    @type path: str
-    @return: The entries in the given yaml file
+    @return: Resource config settings
     @rtype: dict<str:str>
     """
-    config = {}
-    if not path:
-        path = '{}/cue_resources.yaml'.format(cuegui.Constants.DEFAULT_INI_PATH)
-    try:
-        with open(path, 'r') as fileObject:
-            config = yaml.load(fileObject, Loader=yaml.SafeLoader)
-    except (IOError, ScannerError) as e:
-        print('WARNING: Could not read config file %s: %s' % (path, e))
-    return config
+    return cuegui.Constants.RESOURCE_LIMITS
 
 
 ################################################################################

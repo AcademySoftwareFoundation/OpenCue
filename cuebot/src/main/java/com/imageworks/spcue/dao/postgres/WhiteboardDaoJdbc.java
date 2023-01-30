@@ -29,7 +29,8 @@ import java.util.Locale;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -129,7 +130,7 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(WhiteboardDaoJdbc.class);
+    private static final Logger logger = LogManager.getLogger(WhiteboardDaoJdbc.class);
 
     private FrameSearchFactory frameSearchFactory;
     private ProcSearchFactory procSearchFactory;
@@ -548,7 +549,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         r.filterByHost(host);
         r.sortByHostName();
         r.sortByDispatchedTime();
-        logger.info("!!!! INSIDE getProcs Whiteboard!!! called getProcs !!! line 551");
         return ProcSeq.newBuilder().addAllProcs(getProcs(r).getProcsList()).build();
     }
 
@@ -556,7 +556,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public ProcSeq getProcs(ProcSearchInterface p) {
         p.sortByHostName();
         p.sortByDispatchedTime();
-        logger.info("!!!! Inside getPROCS!!!!! line 559");
         List<Proc> procs = getJdbcTemplate().query(p.getFilteredQuery(GET_PROC),
                 PROC_MAPPER, p.getValuesArray());
         return ProcSeq.newBuilder().addAllProcs(procs).build();
@@ -976,7 +975,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .addAllServices(Arrays.asList(SqlUtil.getString(rs,"str_services").split(",")))
                             .build();
                 }
-//                logger.info("called ROW MAPPER!!! setChildProcesses!!!");
             };
 
     public static final RowMapper<Task> TASK_MAPPER =

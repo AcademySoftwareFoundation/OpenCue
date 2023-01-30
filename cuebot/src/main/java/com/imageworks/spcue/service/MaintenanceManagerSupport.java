@@ -21,7 +21,8 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
@@ -42,7 +43,7 @@ import com.imageworks.spcue.grpc.job.FrameState;
 
 public class MaintenanceManagerSupport {
 
-    private static final Logger logger = Logger.getLogger(MaintenanceManagerSupport.class);
+    private static final Logger logger = LogManager.getLogger(MaintenanceManagerSupport.class);
 
     @Autowired
     private Environment env;

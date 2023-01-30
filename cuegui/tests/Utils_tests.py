@@ -69,6 +69,18 @@ class UtilsTests(unittest.TestCase):
 
         self.assertIsNone(cuegui.Utils.findJob(jobName))
 
+    def test_shouldReturnResourceLimitsFromYaml(self):
+        result = cuegui.Utils.getResourceConfig()
+
+        self.assertEqual({
+            'max_cores': 32,
+            'max_gpu_memory': 128,
+            'max_gpus': 8,
+            'max_memory': 128,
+            'max_proc_hour_cutoff': 30,
+            'redirect_wasted_cores_threshold': 100,
+        }, result)
+
 
 if __name__ == '__main__':
     unittest.main()

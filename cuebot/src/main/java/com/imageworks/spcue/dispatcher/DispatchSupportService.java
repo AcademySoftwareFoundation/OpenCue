@@ -39,7 +39,8 @@ import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.StrandedCores;
 import com.imageworks.spcue.VirtualProc;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,7 +65,7 @@ import com.imageworks.spcue.util.FrameSet;
 
 @Transactional(propagation = Propagation.REQUIRED)
 public class DispatchSupportService implements DispatchSupport {
-    private static final Logger logger = Logger.getLogger(DispatchSupportService.class);
+    private static final Logger logger = LogManager.getLogger(DispatchSupportService.class);
 
     private JobDao jobDao;
     private FrameDao frameDao;
