@@ -69,6 +69,9 @@ RQD_USE_IPV6_AS_HOSTNAME = False
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 RQD_TAGS = ''
+# The default behaviour is to strip off the domain leaving just the hostname 
+# Setting this to True will cause rqd to report the fully qualified domain name 
+# of the host on which it is running to cuebot
 RQD_USE_FQDN = False
 
 KILL_SIGNAL = 9
