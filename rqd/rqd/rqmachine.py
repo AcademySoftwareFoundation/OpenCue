@@ -507,6 +507,8 @@ class Machine(object):
     @rqd.rqutil.Memoize
     def getPathEnv(self):
         """Returns the correct path environment for the given machine"""
+        if rqd.rqconstants.RQD_USE_PATH_ENV_VAR:
+            return os.getenv('PATH')
         if platform.system() == 'Linux':
             return '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
         if platform.system() == 'Windows':
