@@ -184,9 +184,9 @@ test_cueadmin() {
 }
 
 run_job() {
-    python pyoutline/examples/basic_job.py
+    samples/pyoutline/basic_job.py
     job_name="testing-shot01-${USER}_basic_job"
-    pycue/examples/wait_for_job.py "${job_name}" --timeout 300
+    samples/pycue/wait_for_job.py "${job_name}" --timeout 300
     log INFO "Job succeeded (PASS)"
 }
 

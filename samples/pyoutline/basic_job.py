@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 #  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,11 +13,21 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Basic job structure with a single layer and five frames.
 
-from outline import Outline, cuerun
-from outline.modules.tutorial import HelloModule
+The frames just print out the current frame number."""
 
-ol = Outline("my_job")
-ol.add_layer(HelloModule("my_layer"))
 
-cuerun.launch(ol, range="1-10", pause=True)
+import getpass
+
+import outline
+import outline.cuerun
+import outline.modules.shell
+
+
+ol = outline.Outline(
+    'basic_job', shot='shot01', show='testing', user=getpass.getuser())
+layer = outline.modules.shell.Shell(
+    'echo_frame', command=['echo', '#IFRAME#'], chunk=1, threads=1, range='1-5')
+ol.add_layer(layer)
+outline.cuerun.launch(ol, use_pycuerun=False)
