@@ -15,11 +15,11 @@ RUN yum -y install \
 
 # Download and install Blender 2.79
 RUN mkdir /usr/local/blender
-RUN curl -SL https://download.blender.org/release/Blender2.79/blender-2.79-linux-glibc219-x86_64.tar.bz2 \
-        -o blender.tar.bz2
+RUN curl -SL https://download.blender.org/release/Blender3.3/blender-3.3.3-linux-x64.tar.xz \
+        -o blender.tar.xz
 
-RUN tar -jxvf blender.tar.bz2 \
+RUN tar -xvf blender.tar.xz \
         -C /usr/local/blender \
         --strip-components=1
 
-RUN rm blender.tar.bz2
+RUN rm blender.tar.xz
