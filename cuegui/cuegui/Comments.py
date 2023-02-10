@@ -23,8 +23,8 @@ from __future__ import division
 from builtins import str
 import pickle
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.Utils
 

@@ -22,7 +22,7 @@ from __future__ import absolute_import
 
 from builtins import map
 
-from PySide2 import QtWidgets
+from qtpy import QtWidgets
 
 import opencue
 

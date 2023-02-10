@@ -19,9 +19,9 @@
 import unittest
 
 import mock
-import PySide2.QtCore
-import PySide2.QtGui
-import PySide2.QtWidgets
+import qtpy.QtCore
+import qtpy.QtGui
+import qtpy.QtWidgets
 
 import opencue.compiled_proto.job_pb2
 import opencue.compiled_proto.show_pb2
@@ -40,7 +40,7 @@ class CueJobMonitorTreeTests(unittest.TestCase):
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def setUp(self, get_stub_mock):
         app = test_utils.createApplication()
-        app.settings = PySide2.QtCore.QSettings()
+        app.settings = qtpy.QtCore.QSettings()
         cuegui.Style.init()
 
         self.show_name = 'arbitrary-show-name'
@@ -60,7 +60,7 @@ class CueJobMonitorTreeTests(unittest.TestCase):
                     name=self.show_name,
                     jobs=self.jobs))
 
-        self.main_window = PySide2.QtWidgets.QMainWindow()
+        self.main_window = qtpy.QtWidgets.QMainWindow()
         self.widget = cuegui.plugins.MonitorCuePlugin.MonitorCueDockWidget(self.main_window)
         self.cue_job_monitor_tree = cuegui.CueJobMonitorTree.CueJobMonitorTree(self.widget)
         self.cue_job_monitor_tree.addShow(self.show_name)

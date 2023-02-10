@@ -24,8 +24,8 @@ from builtins import map
 from builtins import str
 import time
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import opencue
 import opencue.compiled_proto.depend_pb2

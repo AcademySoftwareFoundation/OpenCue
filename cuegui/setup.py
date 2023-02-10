@@ -65,6 +65,7 @@ setup(
         'grpcio-tools',
         'PySide2',
         'PyYAML',
+        'QtPy',
     ]
 )
 
