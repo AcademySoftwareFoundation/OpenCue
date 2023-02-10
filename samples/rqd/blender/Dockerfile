@@ -13,16 +13,19 @@ RUN yum -y install \
         libXinerama-devel \
         libXrandr-devel
 
+# Set Blender install directory
+ARG BLENDER_INSTALL_DIR=/usr/local/blender
+
 # Download and install Blender
-RUN mkdir /usr/local/blender
+RUN mkdir ${BLENDER_INSTALL_DIR}
 RUN curl -SL https://download.blender.org/release/Blender3.3/blender-3.3.3-linux-x64.tar.xz \
         -o blender.tar.xz
 
 RUN tar -xvf blender.tar.xz \
-        -C /usr/local/blender \
+        -C ${BLENDER_INSTALL_DIR} \
         --strip-components=1
 
 RUN rm blender.tar.xz
 
 # Verify Blender installation
-RUN /usr/local/blender/blender --version
+RUN ${BLENDER_INSTALL_DIR}/blender --version
