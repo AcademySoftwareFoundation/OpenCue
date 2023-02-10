@@ -16,9 +16,12 @@ RUN yum -y install \
 # Set Blender install directory
 ARG BLENDER_INSTALL_DIR=/usr/local/blender
 
+# Set Blender download source
+ARG BLENDER_DOWNLOAD_SRC=https://download.blender.org/release/Blender3.3/blender-3.3.3-linux-x64.tar.xz
+
 # Download and install Blender
 RUN mkdir ${BLENDER_INSTALL_DIR}
-RUN curl -SL https://download.blender.org/release/Blender3.3/blender-3.3.3-linux-x64.tar.xz \
+RUN curl -SL ${BLENDER_DOWNLOAD_SRC} \
         -o blender.tar.xz
 
 RUN tar -xvf blender.tar.xz \
