@@ -224,6 +224,7 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         List<String> sortedJobs = new ArrayList<String>(jobs);
         Collections.sort(sortedJobs,
             Comparator.comparing(jobId -> jobManager.getJob(jobId).getName()));
+
         for (int i = 0; i < count; i++) {
             assertEquals("pipe-default-testuser_job" + i,
                 jobManager.getJob(sortedJobs.get(i)).getName());

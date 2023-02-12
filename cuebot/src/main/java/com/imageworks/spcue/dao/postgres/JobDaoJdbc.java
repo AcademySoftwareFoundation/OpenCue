@@ -437,7 +437,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "str_visible_name = NULL, " +
             "ts_stopped = current_timestamp "+
         "WHERE " +
-            "str_state = 'PENDING'" +
+            "str_state = 'PENDING' " +
         "AND " +
             "pk_job = ?";
 

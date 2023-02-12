@@ -6,8 +6,25 @@ on:
     branches: [ master ]
 
 jobs:
-  build_components:
+  integration_test:
+    name: Run Integration Test
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Run test
+        run: ci/run_integration_test.sh
+
+      - name: Archive log files
+        uses: actions/upload-artifact@v3
+        if: ${{ always() }}
+        with:
+          name: test-logs
+          path: /tmp/opencue-test/*.log
+
+  build_components:
+    needs: integration_test
     strategy:
       matrix:
         component: [cuebot, rqd]
@@ -41,9 +58,10 @@ jobs:
             ARTIFACTS: cueadmin-${BUILD_ID}-all.tar.gz
 
     name: Build ${{ matrix.NAME }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           # Fetch all Git history, otherwise the current version number will
           # not be correctly calculated.
@@ -58,6 +76,12 @@ jobs:
           role-to-assume: ${{ secrets.AWS_S3_ROLE }}
           role-duration-seconds: 1800
 
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+
       - name: Set build ID
         run: |
           set -e
@@ -66,13 +90,12 @@ jobs:
           echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
 
       - name: Build Docker image
-        uses: docker/build-push-action@v1
+        uses: docker/build-push-action@v3
         with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASS }}
-          dockerfile: ${{ matrix.component }}/Dockerfile
-          repository: opencuebuild/${{ matrix.component }}
-          tags: ${{ env.BUILD_ID }}
+          file: ${{ matrix.component }}/Dockerfile
+          tags: opencuebuild/${{ matrix.component }}:${{ env.BUILD_ID }}
+          context: .
+          push: true
 
       - name: Extract Artifacts
         run: |
@@ -96,12 +119,12 @@ jobs:
           done
 
   create_other_artifacts:
+    name: Create Other Build Artifacts
     needs: build_components
     runs-on: ubuntu-latest
-    name: Create Other Build Artifacts
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           # Fetch all Git history, otherwise the current version number will
           # not be correctly calculated.

@@ -54,7 +54,7 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
 
     private static final String GET_ACTIVE_FILTERS =
         "SELECT " +
-            "filter.*" +
+            "filter.* " +
         "FROM " +
             "filter " +
         "WHERE " +
@@ -66,7 +66,7 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
 
     private static final String GET_FILTERS =
         "SELECT " +
-            "filter.*" +
+            "filter.* " +
         "FROM " +
             "filter " +
         "WHERE " +
