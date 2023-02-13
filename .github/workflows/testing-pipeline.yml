@@ -91,6 +91,16 @@ jobs:
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
+  test_cuebot_windows:
+    name: Build Cuebot and Run Unit Tests (Windows)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build with Gradle
+        run: |
+          cd cuebot
+          gradlew.bat build --stacktrace --info
+
   test_pyside6:
     name: Run CueGUI Tests using PySide6
     runs-on: ubuntu-latest
