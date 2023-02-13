@@ -1,3 +1,4 @@
+import org.gradle.internal.os.OperatingSystem;
 
 buildscript {
     repositories {
@@ -26,6 +27,25 @@ targetCompatibility = 1.8
 ext {
     activemqVersion = '5.12.0'
     postgresVersion = '15.2.0'
+}
+if (OperatingSystem.current().isLinux()) {
+    new ByteArrayOutputStream().withStream { os ->
+        def result = exec {
+            executable = 'ldd'
+            args = ['--version']
+            standardOutput = os
+        }
+        def outputAsString = os.toString()
+        def matchGlibcVersion = outputAsString =~ /ldd \(.*\) ([\d.]+)/
+        List glibcVersion = matchGlibcVersion[0][1].tokenize('.')
+        def glibcMajorVersion = glibcVersion[0].toInteger()
+        def glibcMinorVersion = glibcVersion[1].toInteger()
+        // Need Glibc 2.25 to use the latest Postgres binaries.
+        if (glibcMajorVersion < 2 || (glibcMajorVersion == 2 && glibcMinorVersion < 25)) {
+            println "Glibc Version ${matchGlibcVersion[0][1]} is too low, downgrading Postgres dependency"
+            ext.postgresVersion = '15.1.0'
+        }
+    }
 }
 
 configurations {
@@ -168,19 +188,4 @@ sonarqube {
 tasks.withType(AbstractArchiveTask) {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
-}
-
-task setPostgresVersion {
-    doLast {
-        new ByteArrayOutputStream().withStream { os ->
-            def result = exec {
-                executable = 'ldd'
-                args = ['--version']
-                standardOutput = os
-            }
-            def outputAsString = os.toString()
-            def matchGlibcVersion = outputAsString =~ /ldd \(.*\) ([\d\.]+)/
-            println "Glibc Version: ${matchGlibcVersion[0][1]}"
-        }
-    }
 }
