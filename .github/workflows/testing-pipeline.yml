@@ -99,7 +99,8 @@ jobs:
       - name: Build with Gradle
         run: |
           cd cuebot
-          gradlew.bat build --stacktrace --info
+          ls
+          .\gradlew.bat build --stacktrace --info
 
   test_pyside6:
     name: Run CueGUI Tests using PySide6
