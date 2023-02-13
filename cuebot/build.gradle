@@ -65,7 +65,7 @@ dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
     testCompile group: 'org.springframework.boot', name: 'spring-boot-starter-test'
     testCompile group: 'org.assertj', name: 'assertj-core', version: '3.8.0'
-    testCompile group: 'io.zonky.test', name: 'embedded-postgres', version: '2.0.1'
+    testCompile group: 'io.zonky.test', name: 'embedded-postgres', version: '2.0.2'
     testCompile group: 'io.zonky.test.postgres', name: 'embedded-postgres-binaries-linux-arm64v8', version: postgresVersion
     testCompile group: 'org.flywaydb', name: 'flyway-core', version: '5.2.0'
 
@@ -168,4 +168,19 @@ sonarqube {
 tasks.withType(AbstractArchiveTask) {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
+}
+
+task setPostgresVersion {
+    doLast {
+        new ByteArrayOutputStream().withStream { os ->
+            def result = exec {
+                executable = 'ldd'
+                args = ['--version']
+                standardOutput = os
+            }
+            def outputAsString = os.toString()
+            def matchGlibcVersion = outputAsString =~ /ldd \(.*\) ([\d\.]+)/
+            println "Glibc Version: ${matchGlibcVersion[0][1]}"
+        }
+    }
 }
