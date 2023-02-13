@@ -100,11 +100,25 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '11'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          vsversion: '2013'
       - name: Build with Gradle
         run: |
           cd cuebot
           java -version
           .\gradlew.bat build --stacktrace --info
+
+  test_cuebot_mac:
+    name: Build Cuebot and Run Unit Tests (macOS)
+    runs-on: macos-12
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build with Gradle
+        run: |
+          cd cuebot
+          java -version
+          ./gradlew build --stacktrace --info
 
   test_pyside6:
     name: Run CueGUI Tests using PySide6
