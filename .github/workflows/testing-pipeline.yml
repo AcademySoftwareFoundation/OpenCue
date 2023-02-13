@@ -99,7 +99,7 @@ jobs:
       - name: Build with Gradle
         run: |
           cd cuebot
-          ls
+          java -version
           .\gradlew.bat build --stacktrace --info
 
   test_pyside6:
