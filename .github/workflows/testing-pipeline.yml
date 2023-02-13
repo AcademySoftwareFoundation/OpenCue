@@ -108,12 +108,15 @@ jobs:
       - name: List pg files
         if: ${{ always() }}
         run: |
-          ls C:/Users/runneradmin/AppData/Local/Temp
           ls C:/Users/runneradmin/AppData/Local/Temp/embedded-pg
       - name: Run initdb
         if: ${{ always() }}
         run: |
-          C:/Users/runneradmin/AppData/Local/Temp/embedded-pg/PG-*/bin/initdb.exe -A trust -U postgres -D C:/Users/runneradmin/AppData/Local/Temp/epg* -E UTF-8
+          C:/Users/runneradmin/AppData/Local/Temp/embedded-pg/PG-*/bin/initdb.exe -A trust -U postgres -D C:/Users/runneradmin/AppData/Local/Temp/epg-foo -E UTF-8
+      - name: List pg files 2
+        if: ${{ always() }}
+        run: |
+          ls C:/Users/runneradmin/AppData/Local/Temp/epg-foo
 
   test_cuebot_mac:
     name: Build Cuebot and Run Unit Tests (macOS)
