@@ -100,20 +100,30 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '11'
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          vsversion: '2013'
       - name: Build with Gradle
         run: |
           cd cuebot
           java -version
           .\gradlew.bat build --stacktrace --info
+      - name: List pg files
+        if: ${{ always() }}
+        run: |
+          ls C:/Users/runneradmin/AppData/Local/Temp
+          ls C:/Users/runneradmin/AppData/Local/Temp/embedded-pg
+      - name: Run initdb
+        if: ${{ always() }}
+        run: |
+          C:/Users/runneradmin/AppData/Local/Temp/embedded-pg/PG-*/bin/initdb.exe -A trust -U postgres -D C:/Users/runneradmin/AppData/Local/Temp/epg* -E UTF-8
 
   test_cuebot_mac:
     name: Build Cuebot and Run Unit Tests (macOS)
     runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
       - name: Build with Gradle
         run: |
           cd cuebot
