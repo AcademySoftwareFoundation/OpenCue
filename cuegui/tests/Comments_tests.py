@@ -72,4 +72,3 @@ class CommentsTests(unittest.TestCase):
         self.commentListDialog.refreshComments()
 
         self.job.getComments.assert_called()
-
