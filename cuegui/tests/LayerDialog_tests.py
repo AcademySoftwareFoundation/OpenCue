@@ -20,9 +20,9 @@ import unittest
 
 import mock
 
-import PySide2.QtCore
-import PySide2.QtGui
-import PySide2.QtWidgets
+import qtpy.QtCore
+import qtpy.QtGui
+import qtpy.QtWidgets
 
 import opencue.compiled_proto.show_pb2
 import opencue.compiled_proto.filter_pb2
@@ -48,7 +48,7 @@ class LayerPropertiesDialogTests(unittest.TestCase):
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def setUp(self, get_stub_mock, get_layer_mock, get_limits_mock):
         app = test_utils.createApplication()
-        app.settings = PySide2.QtCore.QSettings()
+        app.settings = qtpy.QtCore.QSettings()
         cuegui.Style.init()
 
         self.layers = {
@@ -80,7 +80,7 @@ class LayerPropertiesDialogTests(unittest.TestCase):
                 opencue.compiled_proto.limit_pb2.Limit(id='limit4Id', name='limit4Name')),
         ]
 
-        self.parent_widget = PySide2.QtWidgets.QWidget()
+        self.parent_widget = qtpy.QtWidgets.QWidget()
         self.layer_properties_dialog = cuegui.LayerDialog.LayerPropertiesDialog(
             ['layer1Id', 'layer2Id'], parent=self.parent_widget)
 

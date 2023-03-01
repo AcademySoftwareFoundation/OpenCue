@@ -21,8 +21,8 @@ from __future__ import print_function
 from __future__ import division
 
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import opencue
 

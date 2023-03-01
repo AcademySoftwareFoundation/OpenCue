@@ -23,7 +23,7 @@ from __future__ import division
 from builtins import str
 import re
 
-from PySide2 import QtWidgets
+from qtpy import QtWidgets
 
 import cuegui.AbstractDialog
 import cuegui.Constants

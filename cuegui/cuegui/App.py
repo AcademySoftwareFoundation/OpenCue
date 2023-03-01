@@ -14,8 +14,8 @@
 
 """Module for CueGUI's custom QApplication and associated helper functions."""
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.Exception
 

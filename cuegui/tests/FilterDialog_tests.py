@@ -20,10 +20,10 @@ import unittest
 
 import mock
 
-import PySide2.QtCore
-import PySide2.QtGui
-import PySide2.QtWidgets
-import PySide2.QtTest
+import qtpy.QtCore
+import qtpy.QtGui
+import qtpy.QtWidgets
+import qtpy.QtTest
 
 import opencue.compiled_proto.show_pb2
 import opencue.compiled_proto.filter_pb2
@@ -42,7 +42,7 @@ class FilterDialogTests(unittest.TestCase):
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def setUp(self, getStubMock):
         app = test_utils.createApplication()
-        app.settings = PySide2.QtCore.QSettings()
+        app.settings = qtpy.QtCore.QSettings()
         cuegui.Style.init()
 
         self.show = opencue.wrappers.show.Show(opencue.compiled_proto.show_pb2.Show(name='fooShow'))
@@ -54,7 +54,7 @@ class FilterDialogTests(unittest.TestCase):
             opencue.compiled_proto.show_pb2.ShowGetFiltersResponse(
                 filters=opencue.compiled_proto.filter_pb2.FilterSeq(filters=[filterProto]))
 
-        self.parentWidget = PySide2.QtWidgets.QWidget()
+        self.parentWidget = qtpy.QtWidgets.QWidget()
         self.filterDialog = cuegui.FilterDialog.FilterDialog(self.show, parent=self.parentWidget)
 
     def test_shouldTriggerRefresh(self):
@@ -64,7 +64,7 @@ class FilterDialogTests(unittest.TestCase):
 
         self.show.getFilters.assert_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_shouldAddFilter(self, getTextMock):
         newFilterId = 'new-filter-id'
         newFilterName = 'new-filter-name'
@@ -78,7 +78,7 @@ class FilterDialogTests(unittest.TestCase):
 
         self.show.createFilter.assert_called_with(newFilterName)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     def test_shouldCancelAddingFilter(self, getTextMock):
         self.show.createFilter = mock.Mock()
         getTextMock.return_value = (None, False)
@@ -142,11 +142,11 @@ class FilterDialogTests(unittest.TestCase):
         self.filterDialog._FilterDialog__actions.createAction.assert_called()
 
     def test_shouldCloseDialog(self):
-        self.assertEqual(PySide2.QtWidgets.QDialog.DialogCode.Rejected, self.filterDialog.result())
+        self.assertEqual(qtpy.QtWidgets.QDialog.DialogCode.Rejected, self.filterDialog.result())
 
         self.filterDialog._FilterDialog__btnDone.click()
 
-        self.assertEqual(PySide2.QtWidgets.QDialog.DialogCode.Accepted, self.filterDialog.result())
+        self.assertEqual(qtpy.QtWidgets.QDialog.DialogCode.Accepted, self.filterDialog.result())
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
@@ -155,7 +155,7 @@ class FilterMonitorTreeTests(unittest.TestCase):
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def setUp(self, getStubMock):
         app = test_utils.createApplication()
-        app.settings = PySide2.QtCore.QSettings()
+        app.settings = qtpy.QtCore.QSettings()
         cuegui.Style.init()
 
         show = opencue.wrappers.show.Show(opencue.compiled_proto.show_pb2.Show(name='fooShow'))
@@ -169,7 +169,7 @@ class FilterMonitorTreeTests(unittest.TestCase):
             opencue.compiled_proto.show_pb2.ShowGetFiltersResponse(
                 filters=opencue.compiled_proto.filter_pb2.FilterSeq(filters=filters))
 
-        self.parentWidget = PySide2.QtWidgets.QWidget()
+        self.parentWidget = qtpy.QtWidgets.QWidget()
         self.filterDialog = cuegui.FilterDialog.FilterDialog(show, parent=self.parentWidget)
         self.filterMonitorTree = self.filterDialog._FilterDialog__filters
 
@@ -182,13 +182,13 @@ class FilterMonitorTreeTests(unittest.TestCase):
         self.assertEqual('2', secondItem.text(0))
         self.assertEqual(False, self.filterMonitorTree.itemWidget(secondItem, 1).isChecked())
 
-    @mock.patch('PySide2.QtWidgets.QMenu')
+    @mock.patch('qtpy.QtWidgets.QMenu')
     def test_shouldRaiseContextMenu(self, qMenuMock):
         filterBeingSelected = self.filterMonitorTree.topLevelItem(0)
 
         self.filterMonitorTree.contextMenuEvent(
-            PySide2.QtGui.QContextMenuEvent(
-                PySide2.QtGui.QContextMenuEvent.Reason.Mouse,
+            qtpy.QtGui.QContextMenuEvent(
+                qtpy.QtGui.QContextMenuEvent.Reason.Mouse,
                 self.filterMonitorTree.visualItemRect(filterBeingSelected).center()))
 
         qMenuMock.return_value.exec_.assert_called()
@@ -200,7 +200,7 @@ class MatcherMonitorTreeTests(unittest.TestCase):
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def setUp(self, getStubMock):
         app = test_utils.createApplication()
-        app.settings = PySide2.QtCore.QSettings()
+        app.settings = qtpy.QtCore.QSettings()
         cuegui.Style.init()
 
         self.matchers = [
@@ -219,7 +219,7 @@ class MatcherMonitorTreeTests(unittest.TestCase):
             opencue.wrappers.filter.Matcher(matcher) for matcher in self.matchers]
         self.filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
 
-        self.parentWidget = PySide2.QtWidgets.QWidget()
+        self.parentWidget = qtpy.QtWidgets.QWidget()
         self.matcherMonitorTree = cuegui.FilterDialog.MatcherMonitorTree(None, self.parentWidget)
 
     def test_shouldPopulateMatchersList(self):
@@ -238,8 +238,8 @@ class MatcherMonitorTreeTests(unittest.TestCase):
         self.assertEqual('IS', self.matcherMonitorTree.itemWidget(secondItem, 1).currentText())
         self.assertEqual('showName', self.matcherMonitorTree.itemWidget(secondItem, 2).text())
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     def test_shouldAddMatcher(self, getItemMock, getTextMock):
         matcherSubject = opencue.compiled_proto.filter_pb2.FACILITY
         matcherType = opencue.compiled_proto.filter_pb2.CONTAINS
@@ -270,8 +270,8 @@ class MatcherMonitorTreeTests(unittest.TestCase):
             'CONTAINS', self.matcherMonitorTree.itemWidget(matcherWidget, 1).currentText())
         self.assertEqual(matcherText, self.matcherMonitorTree.itemWidget(matcherWidget, 2).text())
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     def test_shouldCancelMatcherAdditionAtFirstPrompt(self, getItemMock, getTextMock):
         self.filter.createMatcher = mock.Mock()
         getItemMock.side_effect = [
@@ -285,8 +285,8 @@ class MatcherMonitorTreeTests(unittest.TestCase):
 
         self.filter.createMatcher.assert_not_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     def test_shouldCancelMatcherAdditionAtSecondPrompt(self, getItemMock, getTextMock):
         self.filter.createMatcher = mock.Mock()
         getItemMock.side_effect = [
@@ -300,8 +300,8 @@ class MatcherMonitorTreeTests(unittest.TestCase):
 
         self.filter.createMatcher.assert_not_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     def test_shouldCancelMatcherAdditionAtThirdrompt(self, getItemMock, getTextMock):
         self.filter.createMatcher = mock.Mock()
         getItemMock.side_effect = [
@@ -316,8 +316,8 @@ class MatcherMonitorTreeTests(unittest.TestCase):
         self.filter.createMatcher.assert_not_called()
 
     @mock.patch(
-        'PySide2.QtWidgets.QMessageBox.question',
-        new=mock.Mock(return_value=PySide2.QtWidgets.QMessageBox.Yes))
+        'qtpy.QtWidgets.QMessageBox.question',
+        new=mock.Mock(return_value=qtpy.QtWidgets.QMessageBox.Yes))
     def test_shouldDeleteAllMatchers(self):
         self.filter.getMatchers = mock.Mock(return_value=self.matcherWrappers)
         for matcher in self.matcherWrappers:
@@ -330,8 +330,8 @@ class MatcherMonitorTreeTests(unittest.TestCase):
             matcher.delete.assert_called()
 
     @mock.patch(
-        'PySide2.QtWidgets.QMessageBox.question',
-        new=mock.Mock(return_value=PySide2.QtWidgets.QMessageBox.No))
+        'qtpy.QtWidgets.QMessageBox.question',
+        new=mock.Mock(return_value=qtpy.QtWidgets.QMessageBox.No))
     def test_shouldNotDeleteAnyMatchers(self):
         self.filter.getMatchers = mock.Mock(return_value=self.matcherWrappers)
         for matcher in self.matcherWrappers:
@@ -345,7 +345,7 @@ class MatcherMonitorTreeTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
     @mock.patch('cuegui.TextEditDialog.TextEditDialog')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     def test_shouldAddMultipleMatchers(self, getItemMock, textEditDialogMock):
         matcherSubject = opencue.compiled_proto.filter_pb2.SHOT
         matcherType = opencue.compiled_proto.filter_pb2.IS
@@ -382,7 +382,7 @@ class MatcherMonitorTreeTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
     @mock.patch('cuegui.TextEditDialog.TextEditDialog')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     def test_shouldReplaceAllMatchers(self, getItemMock, textEditDialogMock):
         matcherSubject = opencue.compiled_proto.filter_pb2.SHOT
         matcherType = opencue.compiled_proto.filter_pb2.IS

@@ -22,7 +22,7 @@ from __future__ import division
 
 import signal
 
-from PySide2 import QtGui
+from qtpy import QtGui
 
 import cuegui
 import cuegui.Layout
