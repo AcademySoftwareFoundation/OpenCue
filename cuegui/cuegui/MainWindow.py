@@ -25,6 +25,8 @@ from __future__ import division
 
 from builtins import str
 from builtins import range
+
+import os
 import sys
 import time
 
@@ -147,7 +149,7 @@ class MainWindow(QtWidgets.QMainWindow):
         menu.triggered.connect(self.__facilityMenuHandle)
 
         cue_config = opencue.Cuebot.getConfig()
-        self.facility_default = cue_config.get("cuebot.facility_default")
+        self.facility_default = os.getenv("CUEBOT_FACILITY", cue_config.get("cuebot.facility_default"))
         self.facility_dict = cue_config.get("cuebot.facility")
 
         for facility in self.facility_dict:
@@ -190,7 +192,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Menu bar
         self.fileMenu = self.menuBar().addMenu("&File")
-        self.facilityMenu = self.__facilityMenuSetup(self.menuBar().addMenu("&Cuebot"))
+        self.facilityMenu = self.__facilityMenuSetup(self.menuBar().addMenu("&Cuebot Facility"))
         self.PluginMenu = self.menuBar().addMenu("&Views/Plugins")
         self.windowMenu = self.menuBar().addMenu("&Window")
         self.helpMenu = self.menuBar().addMenu("&Help")
