@@ -5,7 +5,104 @@
 
 UI_NAME : "OPENCUESUBMIT"
 SUBMIT_APP_WINDOW_TITLE : "OpenCue Submit"
-MAYA_RENDER_CMD : "Render"
-NUKE_RENDER_CMD : "nuke"
-BLENDER_RENDER_CMD : "blender"
-FRAME_TOKEN : "#IFRAME#"
+
+Help: >
+  RENDER_CMDS section describes custom job types that will appear in the UI
+  There are 3 ways to declare a job:
+   - directly in the list
+   - from a separate config file (yaml)
+   - from a python script (containing an opencue_render() function)
+  You can use environment variables to define those paths
+  
+  1) To configure a job directly:
+    Command name:
+      command: "path/to/executable"
+      options:
+        "-strFlag": "default value"
+        "-strFlagB {Nice Name}": "default value"
+        "-boolFlag": false
+        "-intFlag": 10
+                    # Creates a slider from 0 to 999
+        "-intRange": [0, 5, 3]
+                    #[min, max, default]
+        "-floatRange": [0, 1, 0.5, 2]
+                      #[min, max, default, float_precision]
+        "-choiceList":
+          -choiceA
+          -choiceB
+        "-browsableFolder {Output Folder*}": ""
+        "-anyBrowsableFile {Any File*}": ""
+        "-filteredBrowsableFile {Maya File*}":
+          - Maya Ascii file (*.ma)
+          - Maya Binary file (*.mb)
+          - Maya file (*.ma *.mb)
+        "{No flag arguments}": #must be at the end
+    
+    Note:
+     - start with flagged arguments
+     - end with non flagged arguments
+     - "-flagName"
+        > command uses `-flagName`)
+        > UI displays `-flagName`)
+     - "-flagName {Nice Name}"
+        > command uses `-flagName`)
+        > UI displays `Nice Name`)
+     - "{Nice Name}"
+        > command uses blank space)
+        > UI displays `Nice Name`)
+     - To make string browsable, use:
+        "{Nice Name/}" for folders
+        "{Nice Name*}" for files
+     - "-f {Frame}": "#IFRAME#"
+        > The widget will be hidden (with any opencue token)
+     - "{Nice Name}": "\n"
+        > Creates a multiline widget
+  
+  2) To load a command from another config_file:
+    Command Name:
+      config_file: "path/to/command/config.yaml"
+    
+    Note: see example_solo_command.yaml
+ 
+  3) To load a command from a python script:
+    Command Name:
+      command: "$PYTHON_PATH path/to/render_script.py"
+      from_script: "path/to/render_script.py"
+    
+    Note: 
+     - PYTHON_PATH can point to hython for houdini
+     - example below use the Windows syntax for env variables, 
+        change %VAR% to $VAR for linux or replace with direct path to your files
+     - the script must have an opencue_render() function
+     - and be executable (if __name__ == "__main__":)
+     - see example_render.py for more info
+
+RENDER_CMDS:
+  Isolated Job Example:
+    config_file: "%MAYA_JOB_CONFIG_FILE%"
+
+  Scripted Job Example:
+    command: "python \"%RENDER_SCRIPT%\""
+    from_script: "%RENDER_SCRIPT%"
+
+  Maya Example:
+    command: "Render"
+    options:
+      "-cam {camera}": "persp"
+      "-s {startFrame}": "#FRAME_START#"
+      "-e {endFrame}": "#FRAME_END#"
+      "-log {logLevel}": [0, 5, 3]
+      "-renderer {engine}":
+          - arnold
+          - default
+          - hw2
+          - sw
+      "{mayaFile*}":
+          - Maya Ascii file (*.ma)
+          - Maya Binary file (*.mb)
+          - Maya file (*.ma *.mb)
+
+  Shell Example:
+    command: ""
+    options:
+      "{Command to run}": "\n"
