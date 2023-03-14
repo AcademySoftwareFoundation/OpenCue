@@ -69,6 +69,8 @@ RQD_USE_IPV6_AS_HOSTNAME = False
 
 # Use the PATH environment variable from the RQD host.
 RQD_USE_PATH_ENV_VAR = False
+# Copy specific environment variable from the submitter to the RQD host.
+RQD_HOST_ENV_VARS = []
 
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
