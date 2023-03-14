@@ -20,6 +20,8 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+import re
+
 from PySide2 import QtCore, QtWidgets
 
 from cuesubmit import Constants
@@ -248,3 +250,104 @@ class BaseBlenderSettings(BaseSettingsWidget):
             'outputPath': self.outputPath.text(),
             'outputFormat': self.outputSelector.text()
         }
+
+class BaseDynamicSettings(BaseSettingsWidget):
+    """Dynamic settings widget to be used with a custom script or the cuesubmit_config.yaml file.
+    """
+
+    def __init__(self, parent=None, tool_name=None, parameters=None, *args, **kwargs):
+        super(BaseDynamicSettings, self).__init__(parent=parent)
+        self.groupBox.setTitle(f'{tool_name} options')
+        self.widgets = buildDynamicWidgets(parameters)
+        self.setupUi()
+        self.setupConnections()
+
+    def setupUi(self):
+        """Creates the custom widget layout."""
+        for eachWidget in self.widgets:
+            self.groupLayout.addWidget(eachWidget)
+
+    def setupConnections(self):
+        """Sets up widget signals."""
+        for each_widget in self.widgets:
+            for each_signal in each_widget.signals:
+                if isinstance(each_widget, Command.CueCommandWidget):
+                    each_signal.connect(lambda: self.dataChanged.emit(None))
+                    continue
+                each_signal.connect(self.dataChanged.emit)
+
+    def setCommandData(self, commandData):
+        options, not_flagged = commandData
+        iter_not_flagged = iter(not_flagged)
+        for each_widget in self.widgets:
+            if each_widget.command_flag:
+                each_widget.setter(options.get(each_widget.command_flag))
+            else:
+                each_widget.setter(next(iter_not_flagged))
+
+    def getCommandData(self):
+        options = {}
+        not_flagged = []
+        for each_widget in self.widgets:
+            if each_widget.command_flag:
+                options[each_widget.command_flag] = each_widget.getter()
+            else:
+                not_flagged.append(each_widget.getter())
+        return options, not_flagged
+
+def buildDynamicWidgets(parameters):
+    """ Associates a widget by looking at each parameter type
+    :param parameters: list of parameters (see Util.convert_command_options() and Util.get_python_script_parameters())
+    :type parameters: list of dict
+    :returns: all newly created widgets
+    :rtype: list of QWidget
+    """
+    widgets = []
+    for option in parameters:
+        label = option.get('label') or option.get('command_flag')
+        if option['type'] in (range, int):
+            widget = Widgets.CueLabelSlider(label=f'{label}:',
+                                            default_value=option.get('value', 0),
+                                            min_value=option.get('min', 0),
+                                            max_value=option.get('max', 999),
+                                            float_precision=option.get('float_precision'))
+        elif option['type'] == bool:
+            widget = Widgets.CueLabelToggle(label=f'{label}:',
+                                            default_value=option.get('value', False))
+        elif option.get('browsable'):
+            default_text = option['value']
+            if isinstance(option['value'], (list, tuple)):
+                default_text = ''
+            widget = Widgets.CueLabelLineEdit(labelText=f'{label}:',
+                                              defaultText=default_text)
+            # Folder browser (ex: outputFolder/)
+            if option.get('browsable') == '/':
+                widget.setFolderBrowsable()
+            # File browser (ex: sceneFile*)
+            elif option.get('browsable') == '*':
+                widget.setFileBrowsable(fileFilter=option['value'])
+
+        elif option['type'] == str:
+            if option.get('value') == '\n':
+                widget = Command.CueCommandWidget()
+            else:
+                widget = Widgets.CueLabelLineEdit(labelText=f'{label}:',
+                                                  defaultText=option.get('value', ''))
+            # Hide widgets containing opencue tokens (#IFRAME#, etc..)
+            if re.match('^#.*#$', option['value']):
+                widget.setDisabled(True)
+                widget.setHidden(True)
+
+        elif option['type'] in (list, tuple):
+            _options = option.get('value', ['No options'])
+            widget = Widgets.CueSelectPulldown(labelText=f'{label}:',
+                                               options=_options,
+                                               multiselect=False)
+        else:
+            continue
+
+        widget.default_value = option['value']
+        widget.command_flag = option.get('command_flag') # can be None for non flagged options
+        widgets.append(widget)
+
+    return widgets
