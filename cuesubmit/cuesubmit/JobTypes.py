@@ -24,7 +24,8 @@ from __future__ import absolute_import
 
 from builtins import object
 from cuesubmit.ui import SettingsWidgets
-
+from cuesubmit import Constants
+from cuesubmit import Util
 
 class JobTypes(object):
     """Base Job Types available in the UI.
@@ -36,6 +37,7 @@ class JobTypes(object):
     MAYA = 'Maya'
     NUKE = 'Nuke'
     BLENDER = 'Blender'
+    CUSTOM = Constants.RENDER_CMDS.keys()
 
     SETTINGS_MAP = {
         SHELL: SettingsWidgets.ShellSettings,
@@ -43,6 +45,7 @@ class JobTypes(object):
         NUKE: SettingsWidgets.BaseNukeSettings,
         BLENDER: SettingsWidgets.BaseBlenderSettings,
     }
+    SETTINGS_MAP.update(Constants.RENDER_CMDS)
 
     def __init__(self):
         pass
