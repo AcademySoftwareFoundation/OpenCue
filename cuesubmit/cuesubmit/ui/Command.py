@@ -23,6 +23,7 @@ from __future__ import absolute_import
 from PySide2 import QtCore, QtWidgets
 
 from cuesubmit.ui import Widgets
+from cuesubmit import Constants
 
 
 class CueCommandWidget(Widgets.CueHelpWidget):
@@ -35,6 +36,9 @@ class CueCommandWidget(Widgets.CueHelpWidget):
         super(CueCommandWidget, self).__init__(parent)
         self.commandTextBox = CueCommandTextBox(None)
         self.contentLayout.addWidget(self.commandTextBox)
+        self.signals = [self.textChanged]
+        self.getter = self.text
+        self.setter = self.setText
         self.setupConnections()
 
     def setupConnections(self):
@@ -69,11 +73,9 @@ class CueCommandTextBox(QtWidgets.QWidget):
         self.commandBox.setAccessibleName('commandBox')
         self.horizontalLine = Widgets.CueHLine()
         self.setFixedHeight(120)
+        tokensToolTip = '\n'.join([f' {token} -- {info}' for token, info in Constants.COMMAND_TOKENS.items()])
         self.commandBox.setToolTip('Enter the command to be run. Valid replacement tokens are:\n'
-                                   ' #IFRAME# -- frame number\n'
-                                   ' #LAYER# -- layer name\n'
-                                   ' #JOB# -- job name\n'
-                                   ' #FRAME# -- frame name')
+                                   + tokensToolTip)
         self.setupUi()
 
     def setupUi(self):
