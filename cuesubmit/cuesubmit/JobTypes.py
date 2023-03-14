@@ -53,7 +53,17 @@ class JobTypes(object):
     @classmethod
     def build(cls, jobType, *args, **kwargs):
         """Factory method for creating a settings widget."""
-        return cls.SETTINGS_MAP[jobType](*args, **kwargs)
+        if jobType not in Constants.RENDER_CMDS.keys():
+            return cls.SETTINGS_MAP[jobType](*args, **kwargs)
+
+        _script_file = Constants.RENDER_CMDS[jobType].get('from_script')
+        if _script_file:
+            tool_name, parameters = Util.get_python_script_parameters(script_path=_script_file)
+        else:
+            _options = Constants.RENDER_CMDS[jobType].get('options')
+            tool_name, parameters = jobType, Util.convert_command_options(options=_options)
+        kwargs.update({'tool_name': tool_name, 'parameters': parameters})
+        return SettingsWidgets.BaseDynamicSettings(*args, **kwargs)
 
     @classmethod
     def types(cls):
