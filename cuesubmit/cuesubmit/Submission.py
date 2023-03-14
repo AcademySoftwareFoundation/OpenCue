@@ -78,6 +78,15 @@ def buildBlenderCmd(layerData, silent=False):
     renderCommand += ' -f {frameToken}'.format(frameToken=Constants.FRAME_TOKEN)
     return renderCommand
 
+def buildDynamicCmd(layerData):
+    """From a layer, builds a customized render command."""
+    (options, not_flagged) = layerData.cmd
+    renderCommand = Constants.RENDER_CMDS[layerData.layerType].get('command')
+    for flag, value in options.items():
+        renderCommand += f' {flag} {value}'
+    for value in not_flagged:
+        renderCommand += f' {value}'
+    return renderCommand
 
 def buildLayer(layerData, command, lastLayer=None):
     """Creates a PyOutline Layer for the given layerData.
