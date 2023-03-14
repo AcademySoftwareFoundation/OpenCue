@@ -114,11 +114,16 @@ PATH_PROC_PID_CMDLINE = "/proc/{0}/cmdline"
 if platform.system() == 'Linux':
     SYS_HERTZ = os.sysconf('SC_CLK_TCK')
 
+# First retrieve local configuration file
 if platform.system() == 'Windows':
     CONFIG_FILE = os.path.expandvars('%LOCALAPPDATA%/OpenCue/rqd.conf')
 else:
     CONFIG_FILE = '/etc/opencue/rqd.conf'
 
+# Then overwrites with an eventual shared configuration file
+CONFIG_FILE = os.environ.get('RQD_CONFIG_FILE', CONFIG_FILE)
+
+# Finally get the one passed as argument when launching rqd
 if '-c' in sys.argv:
     CONFIG_FILE = sys.argv[sys.argv.index('-c') + 1]
 
