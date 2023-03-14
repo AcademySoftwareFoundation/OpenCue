@@ -153,7 +153,8 @@ SP_OS = platform.system()
 try:
     if os.path.isfile(CONFIG_FILE):
         # Hostname can come from here: rqutil.getHostname()
-        __section = "Override"
+        __override_section = "Override"
+        __host_env_var_section = "UseHostEnvVar"
         import six
         from six.moves import configparser
         if six.PY2:
