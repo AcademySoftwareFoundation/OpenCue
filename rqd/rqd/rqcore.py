@@ -104,6 +104,9 @@ class FrameAttendantThread(threading.Thread):
             for variable in ["SYSTEMROOT", "APPDATA", "TMP", "COMMONPROGRAMFILES"]:
                 if variable in os.environ:
                     self.frameEnv[variable] = os.environ[variable]
+        for variable in rqd.rqconstants.RQD_HOST_ENV_VARS:
+            # Fallback to empty string, easy to spot what is missing in the log
+            self.frameEnv[variable] = os.environ.get(variable, '')
 
         for key, value in self.runFrame.environment.items():
             if key == 'PATH':
