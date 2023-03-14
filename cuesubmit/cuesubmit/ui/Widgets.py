@@ -216,23 +216,26 @@ class CueSelectPulldown(QtWidgets.QWidget):
         self.multiselect = multiselect
         self.emptyText = emptyText
         self.mainLayout = QtWidgets.QGridLayout()
-        self.setLayout(self.mainLayout)
         self.label = QtWidgets.QLabel(labelText)
         self.toolButton = QtWidgets.QToolButton(parent=self)
+        self.toolButton.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Fixed)
         self.optionsMenu = QtWidgets.QMenu(self)
         self.setOptions(options)
-        if self.multiselect:
-            self.toolButton.setText(self.emptyText)
-        else:
-            self.setChecked(options[0])
+        self.signals = [self.optionsMenu.triggered]
+        self.getter = self.text
+        self.setter = self.setText
         self.setupUi()
         self.setupConnections()
+        if options:
+            self.setChecked([options[0]])
+        self.setAutoFillBackground(True)
 
     def setupUi(self):
         """Creates the widget layout."""
-        self.mainLayout.setVerticalSpacing(1)
+        self.setLayout(self.mainLayout)
+        self.mainLayout.setVerticalSpacing(0)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
-        self.mainLayout.addWidget(self.toolButton, 1, 0, 1, 1)
+        self.mainLayout.addWidget(self.toolButton, 1, 0, 2, 1)
         self.toolButton.setMenu(self.optionsMenu)
         self.toolButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
 
@@ -285,6 +288,16 @@ class CueSelectPulldown(QtWidgets.QWidget):
         @return: string of the current text
         """
         return self.toolButton.text()
+
+    def setText(self, text):
+        """Return the tool button's current text value.
+        @rtype: str
+        @return: string of the current text
+        """
+        if self.multiselect:
+            self.setChecked(text.split(', '))
+        else:
+            self.toolButton.setText(text)
 
     def updateLabel(self, action):
         """Multiselect friendly wrapper for updating the tool button label."""
