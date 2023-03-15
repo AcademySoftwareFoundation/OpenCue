@@ -30,7 +30,7 @@ Help: >
         "-choiceList":
           -choiceA
           -choiceB
-        "-browsableFolder {Output Folder*}": ""
+        "-browsableFolder {Output Folder/}": ""
         "-anyBrowsableFile {Any File*}": ""
         "-filteredBrowsableFile {Maya File*}":
           - Maya Ascii file (*.ma)
