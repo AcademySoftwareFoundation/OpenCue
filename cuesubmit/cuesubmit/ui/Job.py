@@ -24,6 +24,7 @@ from builtins import range
 from PySide2 import QtCore, QtGui, QtWidgets
 
 from cuesubmit import Layer
+from cuesubmit.ui import Style
 
 
 class CueJobWidget(QtWidgets.QWidget):
@@ -309,6 +310,8 @@ class CueJobTree(QtWidgets.QTreeView):
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.setUniformRowHeights(True)
         self.setMinimumHeight(100)
+        self.header().setStyleSheet(Style.HEADER_VIEW)
+        self.setStyleSheet(Style.TREE_VIEW)
 
 
 class CueJobModel(QtGui.QStandardItemModel):
