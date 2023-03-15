@@ -42,14 +42,14 @@ Help: >
      - start with flagged arguments
      - end with non flagged arguments
      - "-flagName"
-        > command uses `-flagName`)
-        > UI displays `-flagName`)
+        > command uses `-flagName`
+        > UI displays `-flagName`
      - "-flagName {Nice Name}"
-        > command uses `-flagName`)
-        > UI displays `Nice Name`)
+        > command uses `-flagName`
+        > UI displays `Nice Name`
      - "{Nice Name}"
-        > command uses blank space)
-        > UI displays `Nice Name`)
+        > command uses blank space
+        > UI displays `Nice Name`
      - To make string browsable, use:
         "{Nice Name/}" for folders
         "{Nice Name*}" for files
