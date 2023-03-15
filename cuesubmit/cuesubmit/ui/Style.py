@@ -210,8 +210,7 @@ QTreeView {
 
 QTreeView::item {
     color: white;
-    font-size: 10pt;
-    height: 16px;
+    height: 20px;
 }
 
 QTreeView::item:hover {
