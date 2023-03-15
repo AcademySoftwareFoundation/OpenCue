@@ -333,6 +333,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.dependSelector.clearChecked()
         self.dependSelector.setChecked([layerObject.dependType])
         self.settingsWidget.setCommandData(layerObject.cmd)
+        self.updateFeedbackCommand(layerObject)
         self.skipDataChangedEvent = False
 
     def jobDataChanged(self):
@@ -355,7 +356,11 @@ class CueSubmitWidget(QtWidgets.QWidget):
             dependsOn=None
         )
         self.jobTreeWidget.updateJobData(self.jobNameInput.text())
-        command = Submission.buildLayerCommand(layerData=self.jobTreeWidget.currentLayerData,
+        self.updateFeedbackCommand(self.jobTreeWidget.currentLayerData)
+
+    def updateFeedbackCommand(self, layerData):
+        """ Builds the final command for this layer and displays it in the feedback widget """
+        command = Submission.buildLayerCommand(layerData=layerData,
                                                silent=True)
         self.commandFeedback.setText(text=command)
 
