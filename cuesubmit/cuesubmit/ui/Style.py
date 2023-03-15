@@ -190,6 +190,50 @@ QGroupBox {
 }
 """
 
+HEADER_VIEW = """
+QHeaderView::section {
+    background-color: rgb(31, 40, 48);
+    color: white;
+    padding-left: 4px;
+    border: 1px solid rgb(46, 56, 63);
+    border-bottom-color: rgb(25, 34, 42);
+    border-right-color: rgb(25, 34, 42);
+    font-size: 10pt;
+    height: 16px;
+}
+"""
+
+TREE_VIEW = """
+QTreeView {
+    show-decoration-selected: 1;
+}
+
+QTreeView::item {
+    color: white;
+    font-size: 10pt;
+    height: 16px;
+}
+
+QTreeView::item:hover {
+    background: rgb(32, 85, 123);
+}
+QTreeView::item:selected {
+    background: rgb(52, 139, 200);
+}
+QTreeView::branch:hover:!has-children:!selected {
+    background: rgb(32, 85, 123);
+}
+QTreeView::branch:selected {
+    background: rgb(52, 139, 200);
+}
+QTreeView::branch:open:has-children {
+    border-image: none;
+}
+QTreeView::branch:closed:has-children {
+    border-image: none;
+}
+"""
+
 SEPARATOR_LINE = 'border: 1px solid rgb(20, 30, 40)'
 
 TEXT = 'background-color: rgb(40, 50, 60); color: rgb(250, 250, 250); font-weight: regular;'
