@@ -62,7 +62,7 @@ Help: >
     Command Name:
       config_file: "path/to/command/config.yaml"
     
-    Note: see example_solo_command.yaml
+    Note: see cuesubmit_isolated_job_config.example.yaml
  
   3) To load a command from a python script:
     Command Name:
@@ -75,7 +75,7 @@ Help: >
         change %VAR% to $VAR for linux or replace with direct path to your files
      - the script must have an opencue_render() function
      - and be executable (if __name__ == "__main__":)
-     - see example_render.py for more info
+     - see cuesubmit_script.example.py for more info
 
 RENDER_CMDS:
   Isolated Job Example:
