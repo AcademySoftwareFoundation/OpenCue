@@ -21,10 +21,8 @@ from __future__ import division
 from __future__ import absolute_import
 
 import os
-import sys
 import importlib.util
 import inspect
-from collections import OrderedDict
 
 import opencue
 from cuesubmit import Constants
