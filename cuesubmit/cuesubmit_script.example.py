@@ -9,7 +9,7 @@ def opencue_render(
         int_arg_with_default: int=1,
         int_range: tuple=[0, 5, 2], #[min, max, default]
         float_arg: float=1.0,
-        float_range: tuple=[0, 5, 2, 2], #[min, max, default, float precision (decimals)],
+        float_range: tuple=[0, 1, 0.5, 2], #[min, max, default, float precision (decimals)],
         bool_arg: bool=True,
         opencue_token_arg: str="#FRAME_START#", #must be string, gets hidden in UI
         ):
