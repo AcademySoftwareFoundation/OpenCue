@@ -118,7 +118,7 @@ def buildLayerCommand(layerData, silent=False):
     if layerData.layerType == JobTypes.JobTypes.MAYA:
         command = buildMayaCmd(layerData, silent)
     elif layerData.layerType == JobTypes.JobTypes.SHELL:
-        command = layerData.cmd['commandTextBox']
+        command = layerData.cmd.get('commandTextBox') if silent else layerData.cmd['commandTextBox']
     elif layerData.layerType == JobTypes.JobTypes.NUKE:
         command = buildNukeCmd(layerData, silent)
     elif layerData.layerType == JobTypes.JobTypes.BLENDER:
