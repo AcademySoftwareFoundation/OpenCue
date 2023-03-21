@@ -1,4 +1,25 @@
 #!/bin/bash
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+# OpenCue integration test script
+#
+# Stands up a clean environment using Docker compose and verifies all
+# components are functioning as expected.
+#
+# Run with:
+#   ./run_integration_test.sh
 
 set -e
 
@@ -162,6 +183,13 @@ test_cueadmin() {
     fi
 }
 
+run_job() {
+    samples/pyoutline/basic_job.py
+    job_name="testing-shot01-${USER}_basic_job"
+    samples/pycue/wait_for_job.py "${job_name}" --timeout 300
+    log INFO "Job succeeded (PASS)"
+}
+
 cleanup() {
     docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
     rm -rf "${RQD_ROOT}" || true
@@ -224,7 +252,7 @@ main() {
     log INFO "Testing cueadmin..."
     test_cueadmin
 
-    # TODO Launch a job and verify it finishes.
+    run_job
 
     cleanup
 
