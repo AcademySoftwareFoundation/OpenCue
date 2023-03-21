@@ -41,7 +41,6 @@ RUN 2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
 COPY pyoutline/README.md ./pyoutline/
 COPY pyoutline/setup.py ./pyoutline/
 COPY pyoutline/bin ./pyoutline/bin
-COPY pyoutline/etc ./pyoutline/etc
 COPY pyoutline/wrappers ./pyoutline/wrappers
 COPY pyoutline/outline ./pyoutline/outline
 
