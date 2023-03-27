@@ -36,8 +36,10 @@ def buildMayaCmd(layerData):
     mayaFile = layerData.cmd.get('mayaFile')
     if not mayaFile:
         raise ValueError('No Maya File provided. Cannot submit job.')
-    renderCommand = '{renderCmd} -r file -s {frameToken} -e {frameToken}'.format(
-        renderCmd=Constants.MAYA_RENDER_CMD, frameToken=Constants.FRAME_TOKEN)
+    renderCommand = '{renderCmd} -r file -s {frameStart} -e {frameEnd}'.format(
+        renderCmd=Constants.MAYA_RENDER_CMD,
+        frameStart=Constants.FRAME_START,
+        frameEnd=Constants.FRAME_END)
     if camera:
         renderCommand += ' -cam {}'.format(camera)
     renderCommand += ' {}'.format(mayaFile)
