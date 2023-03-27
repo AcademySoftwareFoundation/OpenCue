@@ -53,6 +53,7 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         self.lineEdit = CueLineEdit(defaultText, completerStrings=completers)
         self.lineEdit.setToolTip(tooltip)
+        self.browseButton = QtWidgets.QPushButton(text='Browse')
         self.horizontalLine = CueHLine()
         self.validators = validators or []
         self.setupUi()
@@ -64,6 +65,7 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.setLayout(self.mainLayout)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
         self.mainLayout.addWidget(self.lineEdit, 1, 0, 1, 4)
+        self.browseButton.setVisible(False)
         self.mainLayout.addWidget(self.horizontalLine, 2, 0, 1, 4)
         self.label.setStyleSheet(Style.LABEL_TEXT)
 
