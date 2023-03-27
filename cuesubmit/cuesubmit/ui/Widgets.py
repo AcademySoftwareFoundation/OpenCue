@@ -468,6 +468,24 @@ def getFolder():
     folder = QtWidgets.QFileDialog.getExistingDirectory(caption='Select folder', dir='.', filter='')
     return folder
 
+def _setBrowseFileText(widget_setter, fileFilter, *args, **kwargs):
+    """ wrapper function to open a fileBrowser and set its result back in the widget
+    :param widget_setter: widget's function to set its text
+    :type widget_setter: function
+    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :type fileFilter: str
+    """
+    result = getFile(fileFilter)
+    widget_setter(result)
+
+def _setBrowseFolderText(widget_setter, *args, **kwargs):
+    """ wrapper function to open a folderBrowser and set its result back in the widget
+    :param widget_setter: widget's function to set its text
+    :type widget_setter: function
+    """
+    result = getFolder()
+    widget_setter(result)
+
 class CueMessageBox(QtWidgets.QMessageBox):
     """A QMessageBox with message and OK button."""
 
