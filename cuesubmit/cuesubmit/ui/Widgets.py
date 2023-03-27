@@ -306,9 +306,6 @@ class CueLabelSlider(QtWidgets.QWidget):
         self.slider.setMaximum(max_value*self.float_mult)
         self.setValue(default_value)
         self.slider.setSingleStep(1)
-        self.signals = [self.valueChanged]
-        self.getter = self.getValue
-        self.setter = self.setValue
         self.setupUi()
         self.setupConnections()
 
