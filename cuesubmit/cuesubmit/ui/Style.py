@@ -173,6 +173,14 @@ QLineEdit {
 }
 """
 
+GROUP_BOX = """
+QGroupBox {
+    border: 3px solid rgb(30, 40, 50);
+    border-radius: 6px;
+    font-size: 8pt;
+}
+"""
+
 SEPARATOR_LINE = 'border: 1px solid rgb(20, 30, 40)'
 
 TEXT = 'background-color: rgb(40, 50, 60); color: rgb(250, 250, 250); font-weight: regular;'
