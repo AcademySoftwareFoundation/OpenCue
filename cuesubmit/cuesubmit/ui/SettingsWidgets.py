@@ -122,17 +122,23 @@ class InNukeSettings(BaseSettingsWidget):
     def __init__(self, writeNodes=None, filename=None, parent=None, *args, **kwargs):
         super(InNukeSettings, self).__init__(parent=parent)
         self.fileInput = Widgets.CueLabelLineEdit('Nuke File:', filename)
+        self.fileFilters = ['Nuke script file (*.nk)']
         self.writeNodeSelector = Widgets.CueSelectPulldown('Write Nodes:', emptyText='[All]',
                                                            options=writeNodes)
         self.selectorLayout = QtWidgets.QHBoxLayout()
         self.setupUi()
+        self.setupConnections()
 
     def setupUi(self):
         """Creates the Nuke-specific widget layout."""
         self.mainLayout.addWidget(self.fileInput)
         self.selectorLayout.addWidget(self.writeNodeSelector)
         self.selectorLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
-        self.mainLayout.addLayout(self.selectorLayout)
+
+    def setupConnections(self):
+        """Sets up widget signals."""
+        self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)  # pylint: disable=no-member
+        self.fileInput.setFileBrowsable(fileFilter=self.fileFilters)
 
     def setCommandData(self, commandData):
         self.fileInput.setText(commandData.get('nukeFile', ''))
@@ -152,6 +158,7 @@ class BaseNukeSettings(BaseSettingsWidget):
     def __init__(self, parent=None, *args, **kwargs):
         super(BaseNukeSettings, self).__init__(parent=parent)
         self.fileInput = Widgets.CueLabelLineEdit('Nuke File:')
+        self.fileFilters = ['Nuke script file (*.nk)']
         self.setupUi()
         self.setupConnections()
 
@@ -162,6 +169,7 @@ class BaseNukeSettings(BaseSettingsWidget):
     def setupConnections(self):
         """Sets up widget signals."""
         self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)  # pylint: disable=no-member
+        self.fileInput.setFileBrowsable(fileFilter=self.fileFilters)
 
     def setCommandData(self, commandData):
         self.fileInput.setText(commandData.get('nukeFile', ''))
