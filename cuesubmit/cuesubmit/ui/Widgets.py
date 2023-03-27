@@ -450,6 +450,23 @@ def separatorLine():
     line.setStyleSheet(Style.SEPARATOR_LINE)
     return line
 
+def getFile(fileFilter=None):
+    """ Opens a file browser and returns the result
+    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :type fileFilter: str
+    :returns: Name of the file
+    :rtype: str
+    """
+    filename, _ = QtWidgets.QFileDialog.getOpenFileName(caption='Select file', dir='.', filter=fileFilter)
+    return filename
+
+def getFolder():
+    """ Opens a folder browser and returns the result
+    :returns: Name of the folder
+    :rtype: str
+    """
+    folder = QtWidgets.QFileDialog.getExistingDirectory(caption='Select folder', dir='.', filter='')
+    return folder
 
 class CueMessageBox(QtWidgets.QMessageBox):
     """A QMessageBox with message and OK button."""
