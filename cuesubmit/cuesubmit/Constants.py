@@ -46,7 +46,7 @@ COMMAND_TOKENS = {'#ZFRAME#': 'Current frame with a padding of 4',
                   '#FRAMESPEC#': 'Full frame range',
                   '#LAYER#': 'Name of the Layer',
                   '#JOB#': 'Name of the Job',
-                  '#FRAME#': 'name of the Frame'
+                  '#FRAME#': 'Name of the Frame'
                   }
 BLENDER_FORMATS = ['', 'AVIJPEG', 'AVIRAW', 'BMP', 'CINEON', 'DPX', 'EXR', 'HDR', 'IRIS', 'IRIZ',
                    'JP2', 'JPEG', 'MPEG', 'MULTILAYER', 'PNG', 'RAWTGA', 'TGA', 'TIFF']
