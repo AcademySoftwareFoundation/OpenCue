@@ -37,6 +37,7 @@ SUBMIT_APP_WINDOW_TITLE = config.get('SUBMIT_APP_WINDOW_TITLE', 'OpenCue Submit'
 MAYA_RENDER_CMD = config.get('MAYA_RENDER_CMD', 'Render')
 NUKE_RENDER_CMD = config.get('NUKE_RENDER_CMD', 'nuke')
 BLENDER_RENDER_CMD = config.get('BLENDER_RENDER_CMD', 'blender')
+FRAME_TOKEN = config.get('FRAME_TOKEN', '#IFRAME#')
 COMMAND_TOKENS = {'#ZFRAME#': 'Current frame with a padding of 4',
                   '#IFRAME#': 'Current frame',
                   '#FRAME_START#': 'First frame',
