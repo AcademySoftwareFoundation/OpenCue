@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import object
+from functools import partial
 from PySide2 import QtCore, QtGui, QtWidgets
 
 from cuesubmit import Constants
@@ -75,6 +76,32 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.lineEdit.textChanged.connect(self.validateText)
         self.lineEdit.focusChange.connect(self.textFocusChange)
         # pylint: enable=no-member
+
+    def setFileBrowsable(self, fileFilter=None):
+        """ Displays the Browse button and hook it to a fileBrowser with optional file filters
+
+        :param fileFilter: single or multiple file filters (ex: 'Maya Ascii File (*.ma)')
+        :type fileFilter: str or list
+        """
+        self._showBrowseButton()
+        if isinstance(fileFilter, (list, tuple)):
+            fileFilter = ';;'.join(fileFilter)
+        self.browseButton.clicked.connect(partial(_setBrowseFileText,
+                                                  widget_setter=self.setter,
+                                                  fileFilter=fileFilter))
+
+    def setFolderBrowsable(self):
+        """ Displays the Browse button and hook it to a folderBrowser """
+        self._showBrowseButton()
+        self.browseButton.clicked.connect(partial(_setBrowseFolderText,
+                                                  widget_setter=self.setter))
+
+    def _showBrowseButton(self):
+        """ Re-layout lineEdit and browse button and display it """
+        self.mainLayout.removeWidget(self.lineEdit)
+        self.mainLayout.addWidget(self.lineEdit, 1, 0, 1, 3)
+        self.mainLayout.addWidget(self.browseButton, 1, 3, 1, 1)
+        self.browseButton.setVisible(True)
 
     def setText(self, text):
         """Set the text to the given value.
