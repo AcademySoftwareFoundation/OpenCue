@@ -213,6 +213,7 @@ class BaseBlenderSettings(BaseSettingsWidget):
     # pylint: disable=keyword-arg-before-vararg,unused-argument
     def __init__(self, parent=None, *args, **kwargs):
         super(BaseBlenderSettings, self).__init__(parent=parent)
+        self.fileFilters = ['Blender file (*.blend)']
         self.fileInput = Widgets.CueLabelLineEdit('Blender File:')
         self.outputPath = Widgets.CueLabelLineEdit(
             'Output Path (Optional):',
@@ -237,6 +238,7 @@ class BaseBlenderSettings(BaseSettingsWidget):
         # pylint: disable=no-member
         self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)
         self.outputPath.lineEdit.textChanged.connect(self.dataChanged.emit)
+        self.fileInput.setFileBrowsable(fileFilter=self.fileFilters)
         # pylint: enable=no-member
 
     def setCommandData(self, commandData):
