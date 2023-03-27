@@ -173,6 +173,15 @@ QLineEdit {
 }
 """
 
+DISABLED_LINE_EDIT = """
+QLineEdit {
+    color: rgb(110, 110, 110);
+    border: 0px solid;
+    background-color: rgb(30, 35, 40);
+    border-radius: 4px;
+}
+"""
+
 SEPARATOR_LINE = 'border: 1px solid rgb(20, 30, 40)'
 
 TEXT = 'background-color: rgb(40, 50, 60); color: rgb(250, 250, 250); font-weight: regular;'
