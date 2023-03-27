@@ -54,16 +54,24 @@ class InMayaSettings(BaseSettingsWidget):
     def __init__(self, cameras=None, filename=None, parent=None, *args, **kwargs):
         super(InMayaSettings, self).__init__(parent=parent)
         self.mayaFileInput = Widgets.CueLabelLineEdit('Maya File:', filename)
+        self.fileFilters = ['Maya Ascii file (*.ma)',
+                            'Maya Binary file (*.mb)',
+                            'Maya file (*.ma *.mb)']
         self.cameraSelector = Widgets.CueSelectPulldown('Render Cameras', options=cameras)
         self.selectorLayout = QtWidgets.QHBoxLayout()
         self.setupUi()
+        self.setupConnections()
 
     def setupUi(self):
         """Creates the Maya-specific widget layout."""
         self.mainLayout.addWidget(self.mayaFileInput)
         self.selectorLayout.addWidget(self.cameraSelector)
         self.selectorLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
-        self.mainLayout.addLayout(self.selectorLayout)
+
+    def setupConnections(self):
+        """Sets up widget signals."""
+        self.mayaFileInput.lineEdit.textChanged.connect(self.dataChanged.emit)  # pylint: disable=no-member
+        self.mayaFileInput.setFileBrowsable(fileFilter=self.fileFilters)
 
     def setCommandData(self, commandData):
         self.mayaFileInput.setText(commandData.get('mayaFile', ''))
@@ -83,6 +91,9 @@ class BaseMayaSettings(BaseSettingsWidget):
     def __init__(self, parent=None, *args, **kwargs):
         super(BaseMayaSettings, self).__init__(parent=parent)
         self.mayaFileInput = Widgets.CueLabelLineEdit('Maya File:')
+        self.fileFilters = ['Maya Ascii file (*.ma)',
+                            'Maya Binary file (*.mb)',
+                            'Maya file (*.ma *.mb)']
         self.setupUi()
         self.setupConnections()
 
@@ -93,6 +104,7 @@ class BaseMayaSettings(BaseSettingsWidget):
     def setupConnections(self):
         """Sets up widget signals."""
         self.mayaFileInput.lineEdit.textChanged.connect(self.dataChanged.emit)  # pylint: disable=no-member
+        self.mayaFileInput.setFileBrowsable(fileFilter=self.fileFilters)
 
     def setCommandData(self, commandData):
         self.mayaFileInput.setText(commandData.get('mayaFile', ''))
