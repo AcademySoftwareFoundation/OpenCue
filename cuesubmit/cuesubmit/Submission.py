@@ -30,11 +30,11 @@ from cuesubmit import Constants
 from cuesubmit import JobTypes
 
 
-def buildMayaCmd(layerData):
+def buildMayaCmd(layerData, silent=False):
     """From a layer, builds a Maya Render command."""
     camera = layerData.cmd.get('camera')
     mayaFile = layerData.cmd.get('mayaFile')
-    if not mayaFile:
+    if not mayaFile and not silent:
         raise ValueError('No Maya File provided. Cannot submit job.')
     renderCommand = '{renderCmd} -r file -s {frameStart} -e {frameEnd}'.format(
         renderCmd=Constants.MAYA_RENDER_CMD,
@@ -46,11 +46,11 @@ def buildMayaCmd(layerData):
     return renderCommand
 
 
-def buildNukeCmd(layerData):
+def buildNukeCmd(layerData, silent=False):
     """From a layer, builds a Nuke Render command."""
     writeNodes = layerData.cmd.get('writeNodes')
     nukeFile = layerData.cmd.get('nukeFile')
-    if not nukeFile:
+    if not nukeFile and not silent:
         raise ValueError('No Nuke file provided. Cannot submit job.')
     renderCommand = '{renderCmd} -F {frameToken} '.format(
         renderCmd=Constants.NUKE_RENDER_CMD, frameToken=Constants.FRAME_TOKEN)
@@ -60,12 +60,12 @@ def buildNukeCmd(layerData):
     return renderCommand
 
 
-def buildBlenderCmd(layerData):
+def buildBlenderCmd(layerData, silent=False):
     """From a layer, builds a Blender render command."""
     blenderFile = layerData.cmd.get('blenderFile')
     outputPath = layerData.cmd.get('outputPath')
     outputFormat = layerData.cmd.get('outputFormat')
-    if not blenderFile:
+    if not blenderFile and not silent:
         raise ValueError('No Blender file provided. Cannot submit job.')
 
     renderCommand = '{renderCmd} -b -noaudio {blenderFile}'.format(
