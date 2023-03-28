@@ -35,9 +35,11 @@ CONFIG_FILE_ENV_VAR = 'CUESUBMIT_CONFIG_FILE'
 
 def getConfigValues():
     """Reads the config file from disk and returns the values it defines."""
-    configFile = os.environ.get(CONFIG_FILE_ENV_VAR)
+    configFile = os.environ.get(CONFIG_FILE_ENV_VAR)\
+                 or os.path.join(opencue.config.config_base_directory(),
+                                 'cuesubmit.yaml')
     if not configFile:
-        configFile = os.path.join(opencue.config.config_base_directory(), 'cuesubmit.yaml')
+        return {}
     configData = _loadYamlFile(yaml_file=configFile)
     if 'RENDER_CMDS' in configData:
         # look for any sub-config files and load them
