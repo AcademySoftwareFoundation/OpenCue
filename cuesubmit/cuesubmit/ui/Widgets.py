@@ -58,6 +58,9 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.browseButton = QtWidgets.QPushButton(text='Browse')
         self.horizontalLine = CueHLine()
         self.validators = validators or []
+        self.signals = [self.lineEdit.textChanged,
+                        self.lineEdit.focusChange]
+        self.getter = self.lineEdit.text
         self.setter = self.setText
         self.setupUi()
         self.setupConnections()
