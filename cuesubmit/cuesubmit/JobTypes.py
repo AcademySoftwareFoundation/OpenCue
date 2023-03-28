@@ -57,5 +57,5 @@ class JobTypes(object):
 
     @classmethod
     def types(cls):
-        """return a list of types available."""
-        return [cls.SHELL, cls.MAYA, cls.NUKE, cls.BLENDER]
+        """return a list of available types."""
+        return list(cls.SETTINGS_MAP.keys())
