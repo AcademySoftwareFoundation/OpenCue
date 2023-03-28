@@ -25,7 +25,7 @@ from __future__ import absolute_import
 from builtins import object
 from cuesubmit.ui import SettingsWidgets
 from cuesubmit import Constants
-
+from cuesubmit import Util
 
 class JobTypes(object):
     """Base Job Types available in the UI.
@@ -54,6 +54,11 @@ class JobTypes(object):
     @classmethod
     def build(cls, jobType, *args, **kwargs):
         """Factory method for creating a settings widget."""
+        if jobType in cls.FROM_CONFIG_FILE:
+            jobOptions = Constants.RENDER_CMDS[jobType].get('options')
+            parameters = Util.convertCommandOptions(options=jobOptions)
+            kwargs.update({'tool_name': jobType,
+                           'parameters': parameters})
         return cls.SETTINGS_MAP[jobType](*args, **kwargs)
 
     @classmethod
