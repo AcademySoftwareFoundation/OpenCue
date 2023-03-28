@@ -151,7 +151,9 @@ def buildLayer(layerData, command, lastLayer=None):
 
 def buildLayerCommand(layerData, silent=False):
     """Builds the command to be sent per jobType"""
-    if layerData.layerType == JobTypes.JobTypes.MAYA:
+    if layerData.layerType in JobTypes.JobTypes.FROM_CONFIG_FILE:
+        command = buildDynamicCmd(layerData)
+    elif layerData.layerType == JobTypes.JobTypes.MAYA:
         command = buildMayaCmd(layerData, silent)
     elif layerData.layerType == JobTypes.JobTypes.SHELL:
         command = layerData.cmd.get('commandTextBox') if silent else layerData.cmd['commandTextBox']
