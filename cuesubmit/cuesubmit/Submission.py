@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import str
+import re
 
 import outline
 import outline.cuerun
@@ -29,6 +30,43 @@ import outline.modules.shell
 from cuesubmit import Constants
 from cuesubmit import JobTypes
 
+
+def isSoloFlag(flag):
+    """ Check if the flag is solo, meaning it has no associated value
+     solo flags are marked with a ~ (ex: --background~)
+     """
+    return re.match('^-+\w+~$', flag)
+
+def isFlag(flag):
+    """ Check if the provided string is a flag (starts with a -)"""
+    return re.match('^-+\w+$', flag)
+
+def formatValue(flag, value, isPath, isMandatory):
+    """ Adds quotes around file/folder path variables
+     and provide an error value to display for missing mandatory values.
+    """
+    if isPath and value:
+        value = f'"{value}"'
+    if isMandatory and value in ('', None):
+        value = f'!!missing value for {flag}!!'
+    return value
+
+def buildDynamicCmd(layerData):
+    """From a layer, builds a customized render command."""
+    renderCommand = Constants.RENDER_CMDS[layerData.layerType].get('command')
+    for (flag, isPath, isMandatory), value in layerData.cmd.items():
+        if isSoloFlag(flag):
+            renderCommand += f' {flag[:-1]}'
+            continue
+        value = formatValue(flag, value, isPath, isMandatory)
+        if isFlag(flag):
+            # flag and value
+            renderCommand += f' {flag} {value}'
+            continue
+        # solo argument without flag
+        renderCommand += f' {value}'
+
+    return renderCommand
 
 def buildMayaCmd(layerData):
     """From a layer, builds a Maya Render command."""
