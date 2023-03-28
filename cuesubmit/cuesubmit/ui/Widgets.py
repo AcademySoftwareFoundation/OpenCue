@@ -62,6 +62,7 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.setupUi()
         self.setupConnections()
         self.setAutoFillBackground(True)
+        self.validateText()
 
     def setupUi(self):
         """Creates the widget layout."""
