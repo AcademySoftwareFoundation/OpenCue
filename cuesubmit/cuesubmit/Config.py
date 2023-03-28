@@ -54,7 +54,7 @@ def _loadYamlFile(yaml_file):
     """
     _yaml_file = os.path.expandvars(yaml_file)
     if not os.path.exists(_yaml_file):
-        raise FileExistsError(f'{_yaml_file=} not found')
+        raise FileNotFoundError(f'{_yaml_file=} not found')
     config_data = {}
     with open(_yaml_file, 'r') as data:
         try:
@@ -80,7 +80,7 @@ def _expandRenderConfigValues(RENDER_CMDS):
             continue
         try:
             RENDER_CMDS[job_type] = _loadYamlFile(yaml_file=_sub_config_file)
-        except FileExistsError as error:
+        except FileNotFoundError as error:
             RENDER_CMDS[job_type] = {
                 'command': 'error',
                 'options': {
