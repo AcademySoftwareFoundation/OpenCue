@@ -225,6 +225,9 @@ class CueSelectPulldown(QtWidgets.QWidget):
         self.optionsMenu = QtWidgets.QMenu(self)
         self.optionsMenu.setStyleSheet(Style.PULLDOWN_LIST)
         self.setOptions(options)
+        self.signals = [self.optionsMenu.triggered]
+        self.getter = self.text
+        self.setter = self.setText
         if self.multiselect:
             self.toolButton.setText(self.emptyText)
         else:
