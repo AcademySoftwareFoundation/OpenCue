@@ -422,13 +422,14 @@ class CueLabelToggle(QtWidgets.QWidget):
     actionTriggered = QtCore.Signal(int)
     rangeChanged = QtCore.Signal(int, int)
 
-    def __init__(self, label=None, parent=None):
+    def __init__(self, label=None, parent=None, default_value=False):
         super(CueLabelToggle, self).__init__(parent=parent)
         self.mainLayout = QtWidgets.QHBoxLayout()
         self.label = QtWidgets.QLabel(label, parent=self)
         self.label.setMinimumWidth(120)
         self.label.setAlignment(QtCore.Qt.AlignVCenter)
         self.toggle = CueToggle(parent=self)
+        self.toggle.setValue(default_value)
         self.signals = [self.toggle.valueChanged]
         self.getter = self.toggle.value
         self.setter = self.toggle.setValue
