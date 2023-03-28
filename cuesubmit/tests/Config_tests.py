@@ -124,6 +124,7 @@ class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
                          '"config_file" should be replaced by the sub_config values')
         self.assertTrue(isinstance(sub_job_config.get('options',{}).get('{ERROR}'),
                                    FileNotFoundError))
+        # note: it does not raise, just feed it to the UI for feedback
 
 
 
