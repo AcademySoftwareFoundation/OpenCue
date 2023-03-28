@@ -55,6 +55,10 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.lineEdit.setToolTip(tooltip)
         self.horizontalLine = CueHLine()
         self.validators = validators or []
+        self.signals = [self.lineEdit.textChanged,
+                        self.lineEdit.focusChange]
+        self.getter = self.lineEdit.text
+        self.setter = self.lineEdit.setText
         self.setupUi()
         self.setupConnections()
         self.setAutoFillBackground(True)
