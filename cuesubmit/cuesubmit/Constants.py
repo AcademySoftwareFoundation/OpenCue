@@ -36,6 +36,8 @@ SUBMIT_APP_WINDOW_TITLE = config.get('SUBMIT_APP_WINDOW_TITLE', 'OpenCue Submit'
 MAYA_RENDER_CMD = config.get('MAYA_RENDER_CMD', 'Render')
 NUKE_RENDER_CMD = config.get('NUKE_RENDER_CMD', 'nuke')
 BLENDER_RENDER_CMD = config.get('BLENDER_RENDER_CMD', 'blender')
+RENDER_CMDS = config.get('RENDER_CMDS', {})
+
 FRAME_TOKEN = config.get('FRAME_TOKEN', '#IFRAME#')
 FRAME_START_TOKEN = config.get('FRAME_START', '#FRAME_START#')
 FRAME_END_TOKEN = config.get('FRAME_END', '#FRAME_END#')
@@ -61,7 +63,6 @@ MAYA_FILE_FILTERS = [
 ]
 NUKE_FILE_FILTERS = ['Nuke script file (*.nk)']
 BLENDER_FILE_FILTERS = ['Blender file (*.blend)']
-
 
 BLENDER_FORMATS = ['', 'AVIJPEG', 'AVIRAW', 'BMP', 'CINEON', 'DPX', 'EXR', 'HDR', 'IRIS', 'IRIZ',
                    'JP2', 'JPEG', 'MPEG', 'MULTILAYER', 'PNG', 'RAWTGA', 'TGA', 'TIFF']
