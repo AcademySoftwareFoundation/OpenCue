@@ -189,7 +189,7 @@ class CueSelectPulldown(QtWidgets.QWidget):
         self.setOptions(options)
         self.signals = [self.optionsMenu.triggered]
         self.getter = self.text
-        self.setter = self.setText
+        self.setter = self.setCheckedFromText
         if self.multiselect:
             self.toolButton.setText(self.emptyText)
         else:
@@ -247,6 +247,16 @@ class CueSelectPulldown(QtWidgets.QWidget):
             if not self.multiselect:
                 self.optionsMenu.actions()[0].setChecked(True)
         self.updateLabelText()
+
+    def setCheckedFromText(self, actionsAstext):
+        """Set the given actionNames to be checked and update the label.
+        @type actionNames: str
+        @param actionNames: list of action names to set to checked separated by a comma and a space
+        """
+        if ', ' in text and self.multiselect:
+            self.setChecked(actionsAstext.split(', '))
+        else:
+            self.setChecked([actionsAstext])
 
     def text(self):
         """Return the tool button's current text value.
