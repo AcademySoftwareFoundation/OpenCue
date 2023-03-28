@@ -59,12 +59,13 @@ def buildDynamicCmd(layerData):
             renderCommand += f' {flag[:-1]}'
             continue
         value = formatValue(flag, value, isPath, isMandatory)
-        if isFlag(flag):
+        if isFlag(flag) and value not in ('', None):
             # flag and value
             renderCommand += f' {flag} {value}'
             continue
         # solo argument without flag
-        renderCommand += f' {value}'
+        if value not in ('', None):
+            renderCommand += f' {value}'
 
     return renderCommand
 
