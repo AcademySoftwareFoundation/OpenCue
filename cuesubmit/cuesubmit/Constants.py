@@ -69,6 +69,8 @@ BLENDER_FORMATS = ['', 'AVIJPEG', 'AVIRAW', 'BMP', 'CINEON', 'DPX', 'EXR', 'HDR'
 BLENDER_OUTPUT_OPTIONS_URL = \
     'https://docs.blender.org/manual/en/latest/advanced/command_line/arguments.html#render-options'
 
+REGEX_CUETOKEN = r'^#.*#$' #FRAME_START#
+
 DIR_PATH = os.path.dirname(__file__)
 
 # Dropdown label to specify the default Facility, i.e. let Cuebot decide.
