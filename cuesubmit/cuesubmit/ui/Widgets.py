@@ -429,6 +429,9 @@ class CueLabelToggle(QtWidgets.QWidget):
         self.label.setMinimumWidth(120)
         self.label.setAlignment(QtCore.Qt.AlignVCenter)
         self.toggle = CueToggle(parent=self)
+        self.signals = [self.toggle.valueChanged]
+        self.getter = self.toggle.value
+        self.setter = self.toggle.setValue
         self.setupUi()
         self.setupConnections()
 
