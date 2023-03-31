@@ -282,9 +282,8 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.coresLayout.addWidget(self.dependSelector)
         self.coresLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
         self.layerInfoLayout.addLayout(self.coresLayout)
-        self.scrollingLayout.addLayout(self.layerInfoLayout)
-
         self.layerInfoLayout.addWidget(self.commandFeedback)
+        self.scrollingLayout.addLayout(self.layerInfoLayout)
 
         self.scrollingLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
         self.scrollingLayout.addWidget(Widgets.CueLabelLine('Submission Details'))
