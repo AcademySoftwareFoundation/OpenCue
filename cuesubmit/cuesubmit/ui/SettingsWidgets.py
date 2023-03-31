@@ -217,6 +217,7 @@ class BaseBlenderSettings(BaseSettingsWidget):
         # pylint: disable=no-member
         self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)
         self.outputPath.lineEdit.textChanged.connect(self.dataChanged.emit)
+        self.outputSelector.optionsMenu.triggered.connect(self.dataChanged.emit)
         # pylint: enable=no-member
 
     def setCommandData(self, commandData):
