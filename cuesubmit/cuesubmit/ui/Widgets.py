@@ -292,7 +292,7 @@ class CueSelectPulldown(QtWidgets.QWidget):
         @type actionNames: str
         @param actionNames: list of action names to set to checked separated by a comma and a space
         """
-        if ', ' in text and self.multiselect:
+        if ', ' in actionsAstext and self.multiselect:
             self.setChecked(actionsAstext.split(', '))
         else:
             self.setChecked([actionsAstext])
