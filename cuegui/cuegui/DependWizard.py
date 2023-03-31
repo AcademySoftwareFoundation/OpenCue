@@ -25,8 +25,8 @@ from builtins import str
 from builtins import range
 import re
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import FileSequence
 import opencue

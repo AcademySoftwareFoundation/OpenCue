@@ -25,9 +25,9 @@ from builtins import map
 from builtins import range
 import math
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 
 class FrameRangeSelectionWidget(QtWidgets.QWidget):
@@ -303,7 +303,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         oldPen = painter.pen()
 
         # draw hatches for labelled frames
-        painter.setPen(self.palette().color(QtGui.QPalette.Foreground))
+        painter.setPen(self.palette().color(QtGui.QPalette.WindowText))
         for frame in frames:
             xPos = self.__getTickArea(frame).left()
             painter.drawLine(xPos, -labelHeight, xPos, 0)
@@ -313,7 +313,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         metric = QtGui.QFontMetrics(painter.font())
         yPos = metric.ascent() + 1
         rightEdge = -10000
-        width = metric.width(str(frames[-1]))
+        width = metric.horizontalAdvance(str(frames[-1]))
         farEdge = self.__getTickArea(frames[-1]).right() - width // 2
 
         farEdge -= 4
@@ -321,7 +321,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         for frame in frames:
             xPos = self.__getTickArea(frame).left()
             frameString = str(frame)
-            width = metric.width(frameString)
+            width = metric.horizontalAdvance(frameString)
             xPos = xPos - width // 2
             if (xPos > rightEdge and xPos + width < farEdge) or frame is frames[-1]:
                 painter.drawText(xPos, yPos, frameString)
@@ -337,7 +337,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
 
         metric = QtGui.QFontMetrics(painter.font())
         frameString = str(int(startFrame))
-        xPos = timeExtent.left() - metric.width(frameString) // 2
+        xPos = timeExtent.left() - metric.horizontalAdvance(frameString) // 2
         yPos =  metric.ascent() + 1
         painter.drawText(xPos, yPos, frameString)
         painter.setPen(oldPen)
@@ -351,7 +351,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
 
         metric = QtGui.QFontMetrics(painter.font())
         frameString = str(int(endFrame))
-        xPos = timeExtent.left() - metric.width(frameString) // 2
+        xPos = timeExtent.left() - metric.horizontalAdvance(frameString) // 2
         yPos = metric.ascent() + 1
         painter.drawText(xPos, yPos, frameString)
         painter.setPen(oldPen)
@@ -372,7 +372,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
             painter.setPen(QtGui.QColor(128, 128, 128))
         metric = QtGui.QFontMetrics(painter.font())
         frameString = str(self.__floatTime)
-        xPos = timeExtent.left() - metric.width(frameString) // 2
+        xPos = timeExtent.left() - metric.horizontalAdvance(frameString) // 2
         yPos = timeExtent.top() + metric.ascent()
         painter.drawText(xPos, yPos, frameString)
         painter.setPen(oldPen)

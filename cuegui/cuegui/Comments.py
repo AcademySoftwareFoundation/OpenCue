@@ -23,8 +23,8 @@ from __future__ import division
 from builtins import str
 import pickle
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.Utils
 
@@ -209,8 +209,11 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __macroLoad(self):
         """Loads the defined comment macros from settings"""
-        self.__macroList = pickle.loads(
-            str(self.app.settings.value("Comments", pickle.dumps({}))))
+        try:
+            self.__macroList = pickle.loads(self.app.settings.value("Comments", pickle.dumps({})))
+        except TypeError:
+            self.__macroList = pickle.loads(
+                str(self.app.settings.value("Comments", pickle.dumps({}))))
         self.__macroRefresh()
 
     def __macroRefresh(self):

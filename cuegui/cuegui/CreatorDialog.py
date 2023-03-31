@@ -23,7 +23,7 @@ from __future__ import absolute_import
 from builtins import str
 from builtins import zip
 
-from PySide2 import QtWidgets
+from qtpy import QtWidgets
 
 import opencue
 

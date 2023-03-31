@@ -31,9 +31,9 @@ import os
 import re
 import time
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import opencue
 
@@ -543,7 +543,7 @@ class RedirectWidget(QtWidgets.QWidget):
         burst target show burst and the number of cores being redirected. If
         there's a number of cores that may not be possible to pick up by the
         target show, that number should be lower than the threshold set in the
-        cue_resources config.
+        cuegui.yaml `resources` config.
 
         @param alloc: The name of the allocation for the cores
         @type alloc: str

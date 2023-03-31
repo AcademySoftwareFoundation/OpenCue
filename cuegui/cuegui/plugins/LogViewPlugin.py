@@ -27,9 +27,9 @@ import re
 import string
 import time
 
-from PySide2 import QtGui
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.Constants
 import cuegui.AbstractDockWidget
@@ -183,7 +183,7 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         while count >= 10:
             count /= 10
             digits += 1
-        space = 3 + self.fontMetrics().width('9') * digits
+        space = 3 + self.fontMetrics().horizontalAdvance('9') * digits
         return space
 
     def update_line_number_area_width(self):
