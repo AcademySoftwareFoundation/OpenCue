@@ -216,6 +216,26 @@ QTreeView::branch:closed:has-children {
 }
 """
 
+PULLDOWN_LIST = """
+QMenu {
+    color: rgb(200, 200, 200);
+    border: 0px solid  rgb(30, 40, 50);
+    border-bottom: 1px solid  rgb(30, 40, 50);
+    border-left: 1px solid qlineargradient(
+                                x1: 0, y1: 0,
+                                x2: 0, y2: 1,
+                                stop: 0 transparent, stop: 1 rgb(30, 40, 50));
+    border-right: 1px solid qlineargradient(
+                                x1: 0, y1: 0,
+                                x2: 0, y2: 1,
+                                stop: 0 transparent, stop: 1 rgb(30, 40, 50));
+}
+
+QMenu::item:selected {
+    background-color: rgb(30, 40, 50);
+}
+"""
+
 SEPARATOR_LINE = 'border: 1px solid rgb(20, 30, 40)'
 
 TEXT = 'background-color: rgb(40, 50, 60); color: rgb(250, 250, 250); font-weight: regular;'
