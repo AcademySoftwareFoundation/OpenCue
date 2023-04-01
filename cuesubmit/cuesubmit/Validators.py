@@ -70,6 +70,7 @@ def moreThan3Chars(value):
     if len(value) >= 3:
         return True
     return False
+
 def notEmptyString(value):
     """String must contain at least 1 character."""
     if len(value) == 0:
