@@ -102,7 +102,7 @@ QTextEdit[accessibleName="commandBox"] {
 QToolButton {
     background-color: rgb(60, 70, 80);
     border-radius: 3px;
-    border: 1px;
+    border: 2px solid transparent;
     font-size: 10px;
     padding: 5px 35px 5px 35px;
 }
@@ -112,8 +112,14 @@ QToolButton[accessibleName="editLayer"] {
     font-weight: bold;
 }
 
+QToolButton:hover, QToolButton:focus {
+    background-color: rgb(80, 90, 100);
+    border-color: rgb(30, 40, 50);
+}
+
 QToolButton:pressed {
-    background-color: rgb(120, 130, 140);
+    background-color: rgb(60, 70, 80);
+    border-color: rgb(30, 40, 50);
 }
 
 QToolButton::menu-indicator {
