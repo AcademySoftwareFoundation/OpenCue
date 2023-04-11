@@ -321,8 +321,8 @@ class FrameAttendantThread(threading.Thread):
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
                                                        stdin=subprocess.PIPE,
-                                                       stdout=self.rqlog,
-                                                       stderr=self.rqlog,
+                                                       stdout=subprocess.PIPE,
+                                                       stderr=subprocess.PIPE,
                                                        close_fds=True,
                                                        preexec_fn=os.setsid)
         finally:
@@ -335,6 +335,7 @@ class FrameAttendantThread(threading.Thread):
                                                            self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
 
+        pipe_to_file(frameInfo.forkedCommand.stdout, frameInfo.forkedCommand.stderr, self.rqlog)
         returncode = frameInfo.forkedCommand.wait()
 
         # Find exitStatus and exitSignal
@@ -535,7 +536,7 @@ class FrameAttendantThread(threading.Thread):
                         else:
                             raise RuntimeError(err)
                     try:
-                        self.rqlog = open(runFrame.log_dir_file, "w", 1)
+                        self.rqlog = open(runFrame.log_dir_file, "w+", 1)
                         self.waitForFile(runFrame.log_dir_file)
                     # pylint: disable=broad-except
                     except Exception as e:
@@ -1161,3 +1162,98 @@ class RqCore(object):
     def isWaitingForIdle(self):
         """Returns whether the host is waiting until idle to take some action."""
         return self.__whenIdle
+
+def pipe_to_file(stdout, stderr, outfile):
+    """
+    Prepend entries on stdout and stderr with a timestamp and write to outfile.
+
+    The logic to poll stdout/stderr is inspired by the Popen.communicate implementation.
+    This feature is linux specific
+    """
+    # Importing packages internally to avoid compatibility issues with Windows
+
+    if stdout is None or stderr is None:
+        return
+    outfile.flush()
+    os.fsync(outfile)
+
+    import select
+    import errno
+
+    fd2file = {}
+    fd2output = {}
+
+    poller = select.poll()
+
+    def register_and_append(file_ojb, eventmask):
+        poller.register(file_ojb, eventmask)
+        fd2file[file_ojb.fileno()] = file_ojb
+
+    def close_and_unregister_and_remove(fd, close=False):
+        poller.unregister(fd)
+        if close:
+            fd2file[fd].close()
+        fd2file.pop(fd)
+
+    def print_and_flush_ln(fd, last_timestamp):
+        txt = ''.join(fd2output[fd])
+        lines = txt.split('\n')
+        next_line_timestamp = None
+
+        # Save the timestamp of the first break
+        if last_timestamp is None:
+            curr_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        else:
+            curr_line_timestamp = last_timestamp
+
+        # There are no line breaks
+        if len(lines) < 2:
+            return curr_line_timestamp
+        else:
+            next_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+
+        remainder = lines[-1]
+        for line in lines[0:-1]:
+            print("[%s] %s" % (curr_line_timestamp, line), file=outfile)
+        outfile.flush()
+        os.fsync(outfile)
+        fd2output[fd] = [remainder]
+
+        if next_line_timestamp is None:
+            return curr_line_timestamp
+        else:
+            return next_line_timestamp
+
+    def translate_newlines(data):
+        data = data.decode("utf-8", "ignore")
+        return data.replace("\r\n", "\n").replace("\r", "\n")
+
+    select_POLLIN_POLLPRI = select.POLLIN | select.POLLPRI
+    # stdout
+    register_and_append(stdout, select_POLLIN_POLLPRI)
+    fd2output[stdout.fileno()] = []
+
+    # stderr
+    register_and_append(stderr, select_POLLIN_POLLPRI)
+    fd2output[stderr.fileno()] = []
+
+    while fd2file:
+        try:
+            ready = poller.poll()
+        except select.error as e:
+            if e.args[0] == errno.EINTR:
+                continue
+            raise
+
+        first_chunk_timestamp = None
+        for fd, mode in ready:
+            if mode & select_POLLIN_POLLPRI:
+                data = os.read(fd, 4096)
+                if not data:
+                    close_and_unregister_and_remove(fd)
+                if not isinstance(data, str):
+                    data = translate_newlines(data)
+                fd2output[fd].append(data)
+                first_chunk_timestamp = print_and_flush_ln(fd, first_chunk_timestamp)
+            else:
+                close_and_unregister_and_remove(fd)
