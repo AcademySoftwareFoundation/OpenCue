@@ -315,13 +315,16 @@ class FrameAttendantThread(threading.Thread):
             else:
                 tempCommand += [self._createCommandFile(runFrame.command)]
 
-            # Actual cwd is set by /shots/SHOW/home/perl/etc/qwrap.cuerun
+            if rqd.rqconstants.RQD_PREPEND_TIMESTAMP:
+                file_descriptor = subprocess.PIPE
+            else:
+                file_descriptor = self.rqlog
             # pylint: disable=subprocess-popen-preexec-fn
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
-                                                       stdin=subprocess.PIPE,
-                                                       stdout=subprocess.PIPE,
+                                                       stdin=file_descriptor,
+                                                       stdout=file_descriptor,
                                                        stderr=subprocess.PIPE,
                                                        close_fds=True,
                                                        preexec_fn=os.setsid)
@@ -335,7 +338,8 @@ class FrameAttendantThread(threading.Thread):
                                                            self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
 
-        pipe_to_file(frameInfo.forkedCommand.stdout, frameInfo.forkedCommand.stderr, self.rqlog)
+        if rqd.rqconstants.RQD_PREPEND_TIMESTAMP:
+            pipe_to_file(frameInfo.forkedCommand.stdout, frameInfo.forkedCommand.stderr, self.rqlog)
         returncode = frameInfo.forkedCommand.wait()
 
         # Find exitStatus and exitSignal
