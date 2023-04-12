@@ -323,9 +323,9 @@ class FrameAttendantThread(threading.Thread):
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
-                                                       stdin=file_descriptor,
+                                                       stdin=subprocess.PIPE,
                                                        stdout=file_descriptor,
-                                                       stderr=subprocess.PIPE,
+                                                       stderr=file_descriptor,
                                                        close_fds=True,
                                                        preexec_fn=os.setsid)
         finally:
