@@ -20,8 +20,8 @@ import unittest
 
 import mock
 
-import PySide2.QtCore
-import PySide2.QtGui
+import qtpy.QtCore
+import qtpy.QtGui
 
 import opencue.compiled_proto.criterion_pb2
 import opencue.compiled_proto.host_pb2
@@ -47,7 +47,7 @@ class UnbookDialogTests(unittest.TestCase):
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def setUp(self, get_stub_mock, find_show_mock):
         app = test_utils.createApplication()
-        app.settings = PySide2.QtCore.QSettings()
+        app.settings = qtpy.QtCore.QSettings()
         cuegui.Style.init()
 
         show_name = 'showname'
@@ -85,7 +85,7 @@ class UnbookDialogTests(unittest.TestCase):
         self.assertEqual(self.tag_names, subscriptions_shown)
         self.assertEqual(self.tag_names, subscriptions_checked)
 
-    @mock.patch('PySide2.QtWidgets.QMessageBox', new=mock.Mock())
+    @mock.patch('qtpy.QtWidgets.QMessageBox', new=mock.Mock())
     @mock.patch('opencue.api.getProcs')
     def test__should_unbook_procs(self, get_procs_mock):
         num_procs = 17
@@ -135,9 +135,9 @@ class UnbookDialogTests(unittest.TestCase):
 
         kill_dialog_mock.assert_called_with(expected_proc_search, mock.ANY)
 
-    @mock.patch('PySide2.QtWidgets.QMessageBox', new=mock.Mock())
+    @mock.patch('qtpy.QtWidgets.QMessageBox', new=mock.Mock())
     @mock.patch('opencue.api.getProcs')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     @mock.patch('opencue.api.getActiveShows')
     def test__should_redirect_proc_to_group(
             self, get_active_shows_mock, get_item_mock, get_procs_mock):
@@ -165,11 +165,11 @@ class UnbookDialogTests(unittest.TestCase):
         get_procs_mock.assert_called_with(**expected_proc_search.options)
         proc_to_redirect.redirectToGroup.assert_called_with(group, False)
 
-    @mock.patch('PySide2.QtWidgets.QMessageBox', new=mock.Mock())
+    @mock.patch('qtpy.QtWidgets.QMessageBox', new=mock.Mock())
     @mock.patch('opencue.api.getProcs')
     @mock.patch('cuegui.UnbookDialog.SelectItemsWithSearchDialog')
     @mock.patch('opencue.api.getJobs')
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     @mock.patch('opencue.api.getActiveShows')
     def test__should_redirect_proc_to_job(
             self, get_active_shows_mock, get_item_mock, get_jobs_mock, select_job_mock,
@@ -203,7 +203,7 @@ class SelectItemsWithSearchDialogTests(unittest.TestCase):
 
     def setUp(self):
         app = test_utils.createApplication()
-        app.settings = PySide2.QtCore.QSettings()
+        app.settings = qtpy.QtCore.QSettings()
         cuegui.Style.init()
 
     def test__should_display_all_items(self):
@@ -246,10 +246,10 @@ class KillConfirmationDialogTests(unittest.TestCase):
 
     def setUp(self):
         app = test_utils.createApplication()
-        app.settings = PySide2.QtCore.QSettings()
+        app.settings = qtpy.QtCore.QSettings()
         cuegui.Style.init()
 
-    @mock.patch('PySide2.QtWidgets.QMessageBox.information', new=mock.Mock())
+    @mock.patch('qtpy.QtWidgets.QMessageBox.information', new=mock.Mock())
     @mock.patch('opencue.api.getProcs')
     def test__should_kill_procs(self, get_procs_mock):
         proc_search = opencue.search.ProcSearch(
@@ -268,7 +268,7 @@ class KillConfirmationDialogTests(unittest.TestCase):
         proc1.kill.assert_called()
         proc2.kill.assert_called()
 
-    @mock.patch('PySide2.QtWidgets.QMessageBox.information', new=mock.Mock())
+    @mock.patch('qtpy.QtWidgets.QMessageBox.information', new=mock.Mock())
     @mock.patch('opencue.api.getProcs')
     def test__should_cancel_kill(self, get_procs_mock):
         proc_search = opencue.search.ProcSearch(

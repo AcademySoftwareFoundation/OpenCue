@@ -25,8 +25,8 @@ import logging
 import os
 import platform
 
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtWidgets
 import yaml
 
 import opencue

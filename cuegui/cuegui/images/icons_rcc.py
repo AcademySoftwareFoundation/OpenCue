@@ -28,7 +28,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from PySide2 import QtCore
+from qtpy import QtCore
 
 
 qt_resource_data = b"\

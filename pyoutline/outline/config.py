@@ -110,13 +110,10 @@ def read_config_from_disk():
             config_file = config_from_user_profile
 
     if not config_file:
-        default_config_paths = [__file_path__.parent.parent.parent / 'etc' / 'outline.cfg',
-                                __file_path__.parent.parent / 'etc' / 'outline.cfg']
-        for default_config_path in default_config_paths:
-            logger.info('Loading default outline config from %s', default_config_path)
-            if default_config_path.exists():
-                config_file = default_config_path
-                break
+        default_config_path = __file_path__.parent / 'outline.cfg'
+        logger.info('Loading default outline config from %s', default_config_path)
+        if default_config_path.exists():
+            config_file = default_config_path
 
     if not config_file:
         raise FileNotFoundError('outline config file was not found')

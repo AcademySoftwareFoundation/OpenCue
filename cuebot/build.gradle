@@ -1,4 +1,7 @@
 
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.api.tasks.testing.logging.TestLogEvent
+
 buildscript {
     repositories {
         mavenCentral()
@@ -166,4 +169,27 @@ sonarqube {
 tasks.withType(AbstractArchiveTask) {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
+}
+
+tasks.withType(Test) {
+    // Configure logging when running Gradle with --info or --debug.
+    testLogging {
+        info {
+            // Don't show STANDARD_OUT messages, these clutter up the output
+            // and make it hard to find actual failures.
+            events TestLogEvent.FAILED
+            exceptionFormat TestExceptionFormat.FULL
+            showStandardStreams false
+        }
+        debug {
+            // Show everything.
+            events TestLogEvent.STARTED,
+                   TestLogEvent.FAILED,
+                   TestLogEvent.PASSED,
+                   TestLogEvent.SKIPPED,
+                   TestLogEvent.STANDARD_ERROR,
+                   TestLogEvent.STANDARD_OUT
+            exceptionFormat TestExceptionFormat.FULL
+        }
+   }
 }

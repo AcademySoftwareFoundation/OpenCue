@@ -20,8 +20,8 @@ from builtins import str
 
 import opencue
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
