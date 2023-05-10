@@ -20,16 +20,20 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+
 from qtpy import QtCore
 from qtpy import QtWidgets
 
 from opencue.exception import EntityNotFoundException
+from opencue.api import job_pb2
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
 import cuegui.MenuActions
 import cuegui.Utils
+
+logger = cuegui.Logger.getLogger(__file__)
 
 
 def displayRange(layer):
@@ -217,6 +221,9 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
+        readonly = (self._cfg().get("layer.finished_jobs_readonly", False) and
+                    self.__job and self.__job.state() == job_pb2.FINISHED)
+
         __selectedObjects = self.selectedObjects()
 
         menu = QtWidgets.QMenu()
@@ -232,26 +239,37 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if len(__selectedObjects) == 1:
             menu.addSeparator()
             if bool(int(self.app.settings.value("AllowDeeding", 0))):
-                self.__menuActions.layers().addAction(menu, "useLocalCores")
+                self.__menuActions.layers().addAction(menu, "useLocalCores").setEnabled(not readonly)
             if len({layer.data.range for layer in __selectedObjects}) == 1:
-                self.__menuActions.layers().addAction(menu, "reorder")
-            self.__menuActions.layers().addAction(menu, "stagger")
+                self.__menuActions.layers().addAction(menu, "reorder").setEnabled(not readonly)
+            self.__menuActions.layers().addAction(menu, "stagger").setEnabled(not readonly)
 
         menu.addSeparator()
-        self.__menuActions.layers().addAction(menu, "setProperties")
+        self.__menuActions.layers().addAction(menu, "setProperties").setEnabled(not readonly)
         menu.addSeparator()
-        self.__menuActions.layers().addAction(menu, "kill")
-        self.__menuActions.layers().addAction(menu, "eat")
-        self.__menuActions.layers().addAction(menu, "retry")
+        self.__menuActions.layers().addAction(menu, "kill").setEnabled(not readonly)
+        self.__menuActions.layers().addAction(menu, "eat").setEnabled(not readonly)
+        self.__menuActions.layers().addAction(menu, "retry").setEnabled(not readonly)
         if [layer for layer in __selectedObjects if layer.data.layer_stats.dead_frames]:
             menu.addSeparator()
-            self.__menuActions.layers().addAction(menu, "retryDead")
+            self.__menuActions.layers().addAction(menu, "retryDead").setEnabled(not readonly)
 
         menu.exec_(e.globalPos())
 
     def __itemDoubleClickedFilterLayer(self, item, col):
         del col
         self.handle_filter_layers_byLayer.emit([item.rpcObject.data.name])
+
+    def _cfg(self):
+        """
+        Loads (if necessary) and returns the config values.
+        Warns and returns an empty dict if there's a problem reading the config
+        @return: The keys & values stored in the config file
+        @rtype: dict<str:str>
+        """
+        if not hasattr(self, '__config'):
+            self.__config = cuegui.Utils.getResourceConfig()
+        return self.__config
 
 
 class LayerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):

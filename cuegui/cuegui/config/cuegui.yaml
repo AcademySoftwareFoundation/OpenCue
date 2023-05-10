@@ -110,3 +110,9 @@ startup_notice.msg: ''
 
 # Memory usage above this level will be displayed in a different color.
 memory_warning_level: 5242880
+
+# These flags determine whether or not layers/frames will be readonly when job is finished.
+# If flags are set as true, layers/frames cannot be retried, eaten, edited dependency on, etc.
+# In order to toggle the same functionality on cuebot side, set flags in opencue.properties
+frame.finished_jobs_readonly: True
+layer.finished_jobs_readonly: True
