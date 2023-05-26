@@ -54,7 +54,7 @@ def _loadYamlFile(yaml_file):
     """
     _yaml_file = os.path.expandvars(yaml_file)
     if not os.path.exists(_yaml_file):
-        raise FileNotFoundError(f'{_yaml_file=} not found')
+        raise FileNotFoundError(f"yaml_file:{_yaml_file} not found")
     config_data = {}
     with open(_yaml_file, 'r') as data:
         try:
