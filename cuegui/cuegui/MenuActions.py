@@ -1942,7 +1942,7 @@ class LimitActions(AbstractActions):
             body = "Please enter the new Limit name:"
             (value, choice) = QtWidgets.QInputDialog.getText(self._caller, title, body)
             if choice:
-                self.cuebotCall(limits[0].rename, "Rename failed.", value)
+                self.cuebotCall(limits[0].rename, "Rename failed.", value.strip())
             self._update()
 
 
