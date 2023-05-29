@@ -63,4 +63,4 @@ class LimitSelectionWidget(QtWidgets.QWidget):
         @rtype: list<str>
         """
         limit_names = [str(limit.text()) for limit in self.limits.checkedBoxes()]
-        return [limit.strip() for limit in limit_names if limit.strip().isalnum()]
+        return limit_names
