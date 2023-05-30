@@ -134,7 +134,6 @@ class ServiceForm(QtWidgets.QWidget):
         self.timeout.setValue(service.data.timeout)
         self.timeout_llu.setValue(service.data.timeout_llu)
         self.min_memory_increase.setValue(service.data.min_memory_increase // 1024)
-        self.__service = service.data
 
     def new(self):
         """
