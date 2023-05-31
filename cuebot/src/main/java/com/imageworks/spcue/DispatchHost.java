@@ -81,14 +81,19 @@ public class DispatchHost extends Entity
         return facilityId;
     }
 
+    public int handleNegativeCoresRequirement(int cores) {
+        if (cores > 0) {
+            return cores;
+        }
+        int requestedCores = Math.max(idleCores + cores, 1);
+        logger.debug("Requested core number is " + cores + " <= 0, " +
+                     "matching up to max number with difference " + idleCores + " > " + requestedCores);
+        return requestedCores;
+    }
+
     @Override
     public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus, long minGpuMemory) {
-        if (minCores <= 0) {
-            int requestedCores = Math.max(idleCores + minCores, 1);
-            logger.info("Requested core number is " + minCores + " <= 0, " +
-             "matching up to max number with difference " + idleCores + " > " + requestedCores);
-             minCores = requestedCores;
-        }
+        minCores = handleNegativeCoresRequirement(minCores);
         if (idleCores < minCores) {
             return false;
         }
