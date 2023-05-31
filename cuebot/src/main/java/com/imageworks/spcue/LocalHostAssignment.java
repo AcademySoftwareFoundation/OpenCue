@@ -22,6 +22,9 @@ package com.imageworks.spcue;
 import com.imageworks.spcue.dispatcher.ResourceContainer;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 /**
  * Contains information about local desktop cores a user has
  * assigned to the given job.
@@ -32,6 +35,8 @@ import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
  */
 public class LocalHostAssignment extends Entity
     implements ResourceContainer {
+
+    private static final Logger logger = LogManager.getLogger(DispatchHost.class);
 
     private int idleCoreUnits;
     private long idleMemory;
@@ -62,9 +67,20 @@ public class LocalHostAssignment extends Entity
         this.maxGpuMemory = maxGpuMemory;
     }
 
+    public int handleNegativeCoresRequirement(int cores) {
+        if (cores > 0) {
+            return cores;
+        }
+        int requestedCores = Math.max(idleCoreUnits + cores, 1);
+        logger.debug("LocalHostAssignment");
+        logger.debug("Requested core number is " + cores + " <= 0, " +
+                     "matching up to max number with difference " + idleCoreUnits + " > " + requestedCores);
+        return requestedCores;
+    }
+
     @Override
     public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus, long minGpuMemory) {
-
+        minCores = handleNegativeCoresRequirement(minCores);
         if (idleCoreUnits < minCores) {
             return false;
         }
