@@ -87,7 +87,7 @@ public class DispatchHost extends Entity
             int requestedCores = Math.max(idleCores + minCores, 1);
             logger.info("Requested core number is " + minCores + " <= 0,
              matching up to max number with difference " + idleCores + " > " + requestedCores);
-             minCores = requestedCores
+             minCores = requestedCores;
         }
         if (idleCores < minCores) {
             return false;
