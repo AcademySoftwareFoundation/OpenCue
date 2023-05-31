@@ -262,7 +262,7 @@ public class CoreUnitDispatcher implements Dispatcher {
 
             VirtualProc proc =  VirtualProc.build(host, frame);
 
-            if (host.idleCores < frame.minCores ||
+            if (host.idleCores < host.handleNegativeCoresRequirement(frame.minCores) ||
                     host.idleMemory < frame.minMemory ||
                     host.idleGpus < frame.minGpus ||
                     host.idleGpuMemory < frame.minGpuMemory) {
