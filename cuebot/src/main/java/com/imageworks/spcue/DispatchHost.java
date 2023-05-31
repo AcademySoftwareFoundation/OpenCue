@@ -85,8 +85,8 @@ public class DispatchHost extends Entity
     public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus, long minGpuMemory) {
         if (minCores <= 0) {
             int requestedCores = Math.max(idleCores + minCores, 1);
-            logger.info("Requested core number is " + minCores + " <= 0,
-             matching up to max number with difference " + idleCores + " > " + requestedCores);
+            logger.info("Requested core number is " + minCores + " <= 0, " +
+             "matching up to max number with difference " + idleCores + " > " + requestedCores);
              minCores = requestedCores;
         }
         if (idleCores < minCores) {
