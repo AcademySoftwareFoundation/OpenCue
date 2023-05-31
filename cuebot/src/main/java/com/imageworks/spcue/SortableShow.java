@@ -58,8 +58,8 @@ public class SortableShow implements Comparable<SortableShow> {
                     logger.info("skipped due to not enough cores " + cores + " < " + mark[0]);
                     return true;
                 }
-                else if (memory <= mark[1]) {
-                    logger.info("skipped due to not enough memory " + memory + " <= " + mark[1]);
+                else if (memory < mark[1]) {
+                    logger.info("skipped due to not enough memory " + memory + " < " + mark[1]);
                     return true;
                 }
             }
