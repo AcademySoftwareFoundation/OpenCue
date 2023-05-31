@@ -85,7 +85,7 @@ public class DispatchHost extends Entity
         if (cores > 0) {
             return cores;
         }
-        int requestedCores = Math.max(idleCores + cores, 1);
+        int requestedCores = Math.max(idleCores + cores, 100);
         logger.debug("Requested core number is " + cores + " <= 0, " +
                      "matching up to max number with difference " + idleCores + " > " + requestedCores);
         return requestedCores;
