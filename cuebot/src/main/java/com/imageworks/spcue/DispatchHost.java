@@ -24,8 +24,13 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.util.CueUtil;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 public class DispatchHost extends Entity
     implements HostInterface, FacilityInterface, ResourceContainer {
+
+    private static final Logger logger = LogManager.getLogger(DispatchHost.class);
 
     public String facilityId;
     public String allocationId;
@@ -78,7 +83,12 @@ public class DispatchHost extends Entity
 
     @Override
     public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus, long minGpuMemory) {
-
+        if (minCores <= 0) {
+            int requestedCores = Math.max(idleCores + minCores, 1);
+            logger.info("Requested core number is " + minCores + " <= 0,
+             matching up to max number with difference " + idleCores + " > " + requestedCores);
+             minCores = requestedCores
+        }
         if (idleCores < minCores) {
             return false;
         }
