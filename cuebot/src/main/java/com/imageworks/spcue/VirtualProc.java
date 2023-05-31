@@ -94,7 +94,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.unbooked = false;
         proc.isLocalDispatch = host.isLocalDispatch;
 
-        proc.coresReserved = frame.minCores;
+        proc.coresReserved = host.handleNegativeCoresRequirement(frame.minCores);
         proc.memoryReserved = frame.minMemory;
         proc.gpusReserved = frame.minGpus;
         proc.gpuMemoryReserved = frame.minGpuMemory;
