@@ -54,8 +54,8 @@ public class SortableShow implements Comparable<SortableShow> {
         try {
             if (failed.containsKey(tags)) {
                 long [] mark = failed.get(tags);
-                if (cores <= mark[0]) {
-                    logger.info("skipped due to not enough cores " + cores + " <= " + mark[0]);
+                if (cores < mark[0]) {
+                    logger.info("skipped due to not enough cores " + cores + " < " + mark[0]);
                     return true;
                 }
                 else if (memory <= mark[1]) {
