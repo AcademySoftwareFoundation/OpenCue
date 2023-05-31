@@ -651,7 +651,7 @@ public class JobSpec {
      */
     private void determineThreadable(Element layerTag, LayerDetail layer) {
         // Must have at least 1 core to thread.
-        if (layer.minimumCores < 100) {
+        if (layer.minimumCores == 100) {
             layer.isThreadable = false;
         }
         else if (layerTag.getChildTextTrim("threadable") != null) {
