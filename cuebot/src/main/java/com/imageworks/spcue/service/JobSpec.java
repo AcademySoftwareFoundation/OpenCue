@@ -665,7 +665,7 @@ public class JobSpec {
         else if (layerTag.getChildTextTrim("threadable") != null) {
             layer.isThreadable = Convert.stringToBool(
                     layerTag.getChildTextTrim("threadable"));
-            logger.debug("layerTag.getChildTextTrim("threadable") : " + layerTag.getChildTextTrim("threadable"));
+            logger.debug("layerTag.getChildTextTrim('threadable') : " + layerTag.getChildTextTrim("threadable"));
         }
         logger.debug("layer.isThreadable : " + layer.isThreadable);
     }
