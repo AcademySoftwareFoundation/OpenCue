@@ -274,10 +274,8 @@ public class JobManagerService implements JobManager {
                     }
                 }
 
-                if (layer.minimumCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
-                    logger.debug("layer.minimumCores < Dispatcher.CORE_POINTS_RESERVED_MIN"
-                     + layer.minimumCores + " < " + Dispatcher.CORE_POINTS_RESERVED_MIN);
-                //    layer.minimumCores =  Dispatcher.CORE_POINTS_RESERVED_MIN;
+                if (layer.minimumCores > 0 && layer.minimumCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
+                    layer.minimumCores =  Dispatcher.CORE_POINTS_RESERVED_MIN;
                 }
 
                 logger.info("creating layer " + layer.name + " range: " + layer.range);
