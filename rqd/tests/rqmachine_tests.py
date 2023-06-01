@@ -540,6 +540,163 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
             self.machine.reserveHT(200)
 
+    def test_reserveHybridHT(self):
+        """
+        Total 1 physical(ph) processors with 8 P-cores(2 threads) and 8 E-cores(1 thread), total 24 threads.
+        note: reserving odd threads will result in even threads when there is no mono-thread cores,
+        which is not the case here. it should reserve E-cores to match the odd request.
+        step1 - taskset0: Reserve 4 threads (2P), 4 threads occupied
+        step2 - taskset1: Reserve 5 threads (2P, 1E), 9 threads occupied
+        step3 - taskset2: Reserve 6 threads (3P), 15 threads occupied
+        step4 - Release taskset0, 3P and 7E remaining, 11 threads occupied
+        step5 - taskset3: Reserve 12 threads (3P, 6E), 23 threads occupied
+        step6 - taskset4: Reserve 1 thread (1E), 24 threads occupied
+        step7 - Reserve 1 thread (1E), no more free cores
+        """
+        cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_i9_12900_hybrid_ht_24-24-1-1')
+        self.fs.add_real_file(cpuInfo)
+        self.machine.testInitMachineStats(cpuInfo)
+
+        self.machine.setupTaskset()
+
+        # ------------------------step1-------------------------
+        # phys_id 0
+        #   - P core_id 0
+        #     - process_id 0
+        #     - process_id 1
+        #   - P core_id 4
+        #     - process_id 2
+        #     - process_id 3
+        #   - P core_id 8
+        #     - process_id 4
+        #     - process_id 5
+        #   - P core_id 12
+        #     - process_id 6
+        #     - process_id 7
+        #   - P core_id 16
+        #     - process_id 8
+        #     - process_id 9
+        #   - P core_id 20
+        #     - process_id 10
+        #     - process_id 11
+        #   - P core_id 24
+        #     - process_id 12
+        #     - process_id 13
+        #   - P core_id 28
+        #     - process_id 14
+        #     - process_id 15
+
+        #   - E core_id 32
+        #     - process_id 16
+        #   - E core_id 33
+        #     - process_id 17
+        #   - E core_id 34
+        #     - process_id 18
+        #   - E core_id 35
+        #     - process_id 19
+        #   - E core_id 36
+        #     - process_id 20
+        #   - E core_id 37
+        #     - process_id 21
+        #   - E core_id 38
+        #     - process_id 22
+        #   - E core_id 39
+        #     - process_id 23
+        tasksets0 = self.machine.reserveHT(400)
+
+        # should reserve 2P (0,1, 2,3)
+        # pylint: disable=no-member
+        self.assertCountEqual(['0', '1', '2', '3'], tasksets0.split(','))
+
+        # should have 2 cores occupied
+        # pylint: disable=no-member
+        self.assertCountEqual([0, 4], self.coreDetail.reserved_cores[0].coreid)
+        # should have 4 threads occupied
+        self.assertEqual(len(tasksets0.split(',')), 4)
+
+
+        # ------------------------step2-------------------------
+        tasksets1 = self.machine.reserveHT(500)
+
+        # should reserve 2P + 1E (4,5, 6,7, 16)
+        # pylint: disable=no-member
+        self.assertCountEqual(['4', '5', '6', '7', '16'], tasksets1.split(','))
+
+        # should have 5 cores occupied
+        # pylint: disable=no-member
+        self.assertCountEqual([0, 4, 8, 12, 32], self.coreDetail.reserved_cores[0].coreid)
+        # should have 9 threads occupied
+        self.assertEqual(len(tasksets0.split(','))
+                         + len(tasksets1.split(',')),
+                         9)
+
+
+        # ------------------------step3-------------------------
+        tasksets2 = self.machine.reserveHT(600)
+
+        # should reserve 3P (8,9, 10,11, 12,13)
+        # pylint: disable=no-member
+        self.assertCountEqual(['8', '9', '10', '11', '12', '13'], tasksets2.split(','))
+
+        # should have 8 cores occupied
+        # pylint: disable=no-member
+        self.assertCountEqual([0, 4, 8, 12, 16, 20, 24, 32], self.coreDetail.reserved_cores[0].coreid)
+        # should have 15 threads occupied
+        self.assertEqual(len(tasksets0.split(','))
+                         + len(tasksets1.split(','))
+                         + len(tasksets2.split(',')),
+                         15)
+
+
+        # ------------------------step4-------------------------
+        self.machine.releaseHT(tasksets0)
+        # should release 2P (0,1, 2,3)
+        # should have 6 cores occupied
+        # pylint: disable=no-member
+        self.assertCountEqual([8, 12, 16, 20, 24, 32], self.coreDetail.reserved_cores[0].coreid)
+        # should have 11 threads occupied
+        self.assertEqual(len(tasksets1.split(','))
+                         + len(tasksets2.split(',')),
+                         11)
+
+
+        # ------------------------step5-------------------------
+        tasksets3 = self.machine.reserveHT(1200)
+
+        # should reserve 3P + 6E (0,1, 2,3, 14,15, 17, 18, 19, 20, 21, 22)
+        # pylint: disable=no-member
+        self.assertCountEqual(['0', '1', '2', '3', '14', '15', '17', '18', '19', '20', '21', '22'], tasksets3.split(','))
+
+        # should have 15 cores occupied, 1E free
+        # pylint: disable=no-member
+        self.assertCountEqual([0, 4, 8, 12, 16, 20, 24, 28, 32, 33, 34, 35, 36, 37, 38],
+                              self.coreDetail.reserved_cores[0].coreid)
+
+        # should have 23 threads occupied
+        self.assertEqual(len(tasksets1.split(','))
+                         + len(tasksets2.split(','))
+                         + len(tasksets3.split(',')),
+                         23)
+
+        # ------------------------step6-------------------------
+        tasksets4 = self.machine.reserveHT(100)
+
+        # should reserve 1E (23)
+        # pylint: disable=no-member
+        self.assertCountEqual(['23'], tasksets4.split(','))
+
+        # Make sure 24 threads are occupied
+        self.assertEqual(len(tasksets1.split(','))
+                         + len(tasksets2.split(','))
+                         + len(tasksets3.split(','))
+                         + len(tasksets4.split(',')),
+                         24)
+
+        # ------------------------step7-------------------------
+        # No cores available
+        with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
+            self.machine.reserveHT(100)
+
 
     def test_tags(self):
         tags = ["test1", "test2", "test3"]
@@ -586,7 +743,7 @@ class CpuinfoTests(unittest.TestCase):
         self.__cpuinfoTestHelper('_cpuinfo_srdsvr09_48-12-4')
 
     def test_i9_12900(self):
-        self.__cpuinfoTestHelper('_cpuinfo_i9_12900_hybrid_ht_24-12-2-1')
+        self.__cpuinfoTestHelper('_cpuinfo_i9_12900_hybrid_ht_24-24-1-1')
 
     def __cpuinfoTestHelper(self, pathCpuInfo):
         # File format: _cpuinfo_dub_x-x-x where x-x-x is totalCores-coresPerProc-numProcs
