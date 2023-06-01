@@ -618,7 +618,8 @@ public class JobSpec {
         }
 
         if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
-            corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
+            logger.debug("corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN")
+            //corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
         }
 
         layer.minimumCores = corePoints;
