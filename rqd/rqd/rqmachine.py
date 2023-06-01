@@ -825,7 +825,7 @@ class Machine(object):
         # Prefer to assign cores from the same physical cpu.
         # Spread different frames around on different physical cpus.
         avail_cores = {}
-        avail_cores_count = 0
+        avail_procs_count = 0
         reserved_cores = self.__coreInfo.reserved_cores
 
         for physid, cores in self.__procs_by_physid_and_coreid.items():
@@ -834,14 +834,14 @@ class Machine(object):
                         int(coreid) in reserved_cores[int(physid)].coreid:
                     continue
                 avail_cores.setdefault(physid, set()).add(coreid)
-                avail_cores_count += 1
+                avail_procs_count += len(cores[coreid])
 
-        remaining_cores = frameCores / 100
+        remaining_procs = frameCores / 100
 
-        if avail_cores_count < remaining_cores:
+        if avail_procs_count < remaining_procs:
             err = ('Not launching, insufficient hyperthreading cores to reserve '
                    'based on frameCores (%s < %s)')  \
-                  % (avail_cores_count, remaining_cores)
+                  % (avail_procs_count, remaining_procs)
             log.critical(err)
             raise rqd.rqexceptions.CoreReservationFailureException(err)
 
@@ -853,18 +853,22 @@ class Machine(object):
                 # the most idle cores first.
                 key=lambda tup: len(tup[1]),
                 reverse=True):
-
-            while remaining_cores > 0 and len(cores) > 0:
-                coreid = cores.pop()
-                # Give all the hyperthreads on this core.
-                # This counts as one core.
+            cores = sorted(list(cores), key=lambda _coreid: int(_coreid))
+            while remaining_procs > 0 and len(cores) > 0:
+                # Reserve cores with max threads first
+                # Avoid booking too much threads
+                # ex: if remaining_procs==2, get the next core with 2 threads
+                # ex: if remaining_procs==1, get the next core with 1 thread or any other core
+                coreid = next(iter([cid for cid in cores
+                                    if len(self.__procs_by_physid_and_coreid[physid][cid]) <= remaining_procs]),
+                              cores[0])
+                cores.remove(coreid)
+                procids = self.__procs_by_physid_and_coreid[physid][coreid]
                 reserved_cores[int(physid)].coreid.extend([int(coreid)])
-                remaining_cores -= 1
+                remaining_procs -= len(procids)
+                tasksets.extend(procids)
 
-                for procid in self.__procs_by_physid_and_coreid[physid][coreid]:
-                    tasksets.append(procid)
-
-            if remaining_cores == 0:
+            if remaining_procs == 0:
                 break
 
         log.warning('Taskset: Reserving procs - %s', ','.join(tasksets))
