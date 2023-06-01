@@ -274,6 +274,7 @@ class Machine(object):
                     #    - rss: inaccurate, similar to VmRss in /proc/[pid]/status
                     child_statm_fields = self._getStatFields(
                         rqd.rqconstants.PATH_PROC_PID_STATM.format(pid))
+                    child_statm_fields = map(child_statm_fields, str)
                     pids[pid]['statm_size'] = \
                         int(re.search(r"\d+", child_statm_fields[0]).group()) \
                         if re.search(r"\d+", child_statm_fields[0]) else -1
