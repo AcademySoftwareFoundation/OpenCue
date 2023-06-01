@@ -896,10 +896,21 @@ class RqCore(object):
             log.warning(err)
             raise rqd.rqexceptions.InvalidUserException(err)
 
+        # Handle zero/negative cores request
         if runFrame.num_cores <= 0:
-            err = "Not launching, numCores must be > 0"
-            log.warning(err)
-            raise rqd.rqexceptions.CoreReservationFailureException(err)
+            cores_to_reserve = self.cores.idle_cores + runFrame.num_cores
+            if cores_to_reserve <= 0:
+                err = "Not launching, numCores must be > 0, got {}".format(cores_to_reserve)
+                log.warning(err)
+                raise rqd.rqexceptions.CoreReservationFailureException(err)
+
+            log.info("Requested core number is negative {}, "
+                     "matching up to max number with difference {} > {}".format(
+                         runFrame.num_cores,
+                         self.cores.idle_cores,
+                         cores_to_reserve)
+                     )
+            runFrame.num_cores = cores_to_reserve
 
         # See if all requested cores are available
         self.__threadLock.acquire()
