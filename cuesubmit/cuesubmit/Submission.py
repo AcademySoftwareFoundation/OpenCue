@@ -87,7 +87,7 @@ def buildLayer(layerData, command, lastLayer=None):
     @type lastLayer: outline.layer.Layer
     @param lastLayer: layer that this new layer should be dependent on if dependType is set.
     """
-    threadable = float(layerData.cores) >= 2
+    threadable = float(layerData.cores) >= 2 or float(layerData.cores) <= 0
     layer = outline.modules.shell.Shell(
         layerData.name, command=command.split(), chunk=layerData.chunk,
         threads=float(layerData.cores), range=str(layerData.layerRange), threadable=threadable)
