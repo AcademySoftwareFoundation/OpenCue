@@ -220,11 +220,10 @@ public class HostReportHandler {
                     bookingManager.removeInactiveLocalHostAssignment(lca);
                 }
             }
-            // TODO: handle negative
             int cores_to_reserve = host.handleNegativeCoresRequirement(Dispatcher.CORE_POINTS_RESERVED_MIN);
-            if (host.idleCores < cores_to_reserve) {
+            if (cores_to_reserve <= 0 || host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
                 msg = String.format("%s doesn't have enough idle cores, %d needs %d",
-                    host.name,  host.idleCores, cores_to_reserve);
+                    host.name,  host.idleCores, Dispatcher.CORE_POINTS_RESERVED_MIN);
             }
             else if (host.idleMemory < Dispatcher.MEM_RESERVED_MIN) {
                 msg = String.format("%s doesn't have enough idle memory, %d needs %d",
