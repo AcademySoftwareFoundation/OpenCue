@@ -620,8 +620,8 @@ public class JobSpec {
         } else {
             corePoints = Integer.valueOf(cores);
         }
-        logger.debug("cores : " + cores)
-        logger.debug("corePoints : " + corePoints)
+        logger.debug("cores : " + cores);
+        logger.debug("corePoints : " + corePoints);
 
         if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
             logger.debug("corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN");
