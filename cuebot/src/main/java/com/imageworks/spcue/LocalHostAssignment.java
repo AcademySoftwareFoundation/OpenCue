@@ -71,8 +71,7 @@ public class LocalHostAssignment extends Entity
         if (cores > 0) {
             return cores;
         }
-        int requestedCores = Math.max(idleCoreUnits + cores, 1);
-        logger.debug("LocalHostAssignment");
+        int requestedCores = idleCoreUnits + cores;
         logger.debug("Requested core number is " + cores + " <= 0, " +
                      "matching up to max number with difference " + idleCoreUnits + " > " + requestedCores);
         return requestedCores;
@@ -82,6 +81,9 @@ public class LocalHostAssignment extends Entity
     public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus, long minGpuMemory) {
         minCores = handleNegativeCoresRequirement(minCores);
         if (idleCoreUnits < minCores) {
+            return false;
+        }
+        if (minCores <= 0) {
             return false;
         }
         else if (idleMemory <  minMemory) {
