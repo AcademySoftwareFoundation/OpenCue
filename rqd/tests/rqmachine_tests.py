@@ -371,6 +371,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(122701222, self.machine.getGpuMemoryFree())
 
     def test_getPathEnv(self):
+        rqd.rqconstants.RQD_USE_PATH_ENV_VAR = False
         self.assertEqual(
             '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
             self.machine.getPathEnv())
