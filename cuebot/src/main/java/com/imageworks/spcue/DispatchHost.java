@@ -85,7 +85,7 @@ public class DispatchHost extends Entity
         if (cores > 0) {
             return cores;
         }
-        int requestedCores = Math.max(idleCores + cores, 100);
+        int requestedCores = idleCores + cores;
         logger.debug("Requested core number is " + cores + " <= 0, " +
                      "matching up to max number with difference " + idleCores + " > " + requestedCores);
         return requestedCores;
@@ -95,6 +95,9 @@ public class DispatchHost extends Entity
     public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus, long minGpuMemory) {
         minCores = handleNegativeCoresRequirement(minCores);
         if (idleCores < minCores) {
+            return false;
+        }
+        if (minCores <= 0) {
             return false;
         }
         else if (idleMemory <  minMemory) {
