@@ -282,7 +282,7 @@ public interface LayerDao {
 
     /**
      * Update all layers of the set type in the specified job
-     * with the new min cores requirement.
+     * with the new max cores requirement.
      *
      * @param job
      * @param cores
