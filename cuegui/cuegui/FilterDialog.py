@@ -454,7 +454,7 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         "Create Action",
                         "What value should this property be set to?",
                         0,
-                        0,
+                        -8,
                         50000,
                         2)
                     value = float(value)
