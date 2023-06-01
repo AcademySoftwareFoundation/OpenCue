@@ -612,10 +612,16 @@ public class JobSpec {
         int corePoints = layer.minimumCores;
 
         if (cores.contains(".")) {
-            corePoints = (int) (Double.valueOf(cores) * 100 + .5);
+            if (cores.contains("-")) {
+                corePoints = (int) (Double.valueOf(cores) * 100 - .5);
+            } else {
+                corePoints = (int) (Double.valueOf(cores) * 100 + .5);
+            }
         } else {
             corePoints = Integer.valueOf(cores);
         }
+        logger.debug("cores : " + cores)
+        logger.debug("corePoints : " + corePoints)
 
         if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
             logger.debug("corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN");
