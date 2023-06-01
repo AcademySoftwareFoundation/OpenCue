@@ -620,12 +620,12 @@ public class JobSpec {
         } else {
             corePoints = Integer.valueOf(cores);
         }
-        logger.debug("cores : " + cores);
-        logger.debug("corePoints : " + corePoints);
 
-        if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
+        if (corePoints > 0 && corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
+            logger.debug("cores : " + cores);
+            logger.debug("corePoints : " + corePoints);
             logger.debug("corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN");
-            //corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
+            corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
         }
 
         layer.minimumCores = corePoints;
@@ -660,14 +660,11 @@ public class JobSpec {
         // Must have at least 1 core to thread.
         if (layer.minimumCores > 0 && layer.minimumCores < 100) {
             layer.isThreadable = false;
-            logger.debug("not threadable : " + layer.minimumCores);
         }
         else if (layerTag.getChildTextTrim("threadable") != null) {
             layer.isThreadable = Convert.stringToBool(
                     layerTag.getChildTextTrim("threadable"));
-            logger.debug("layerTag.getChildTextTrim('threadable') : " + layerTag.getChildTextTrim("threadable"));
         }
-        logger.debug("layer.isThreadable : " + layer.isThreadable);
     }
 
     private void determineResourceDefaults(Element layerTag,
