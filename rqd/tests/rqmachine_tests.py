@@ -585,6 +585,9 @@ class CpuinfoTests(unittest.TestCase):
     def test_srdsvr09(self):
         self.__cpuinfoTestHelper('_cpuinfo_srdsvr09_48-12-4')
 
+    def test_i9_12900(self):
+        self.__cpuinfoTestHelper('_cpuinfo_i9_12900_hybrid_ht_24-12-2-1')
+
     def __cpuinfoTestHelper(self, pathCpuInfo):
         # File format: _cpuinfo_dub_x-x-x where x-x-x is totalCores-coresPerProc-numProcs
         pathCpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', pathCpuInfo)
