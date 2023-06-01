@@ -660,11 +660,14 @@ public class JobSpec {
         // Must have at least 1 core to thread.
         if (layer.minimumCores > 0 && layer.minimumCores < 100) {
             layer.isThreadable = false;
+            logger.debug("not threadable : " + layer.minimumCores);
         }
         else if (layerTag.getChildTextTrim("threadable") != null) {
             layer.isThreadable = Convert.stringToBool(
                     layerTag.getChildTextTrim("threadable"));
+            logger.debug("layerTag.getChildTextTrim("threadable") : " + layerTag.getChildTextTrim("threadable"));
         }
+        logger.debug("layer.isThreadable : " + layer.isThreadable);
     }
 
     private void determineResourceDefaults(Element layerTag,
