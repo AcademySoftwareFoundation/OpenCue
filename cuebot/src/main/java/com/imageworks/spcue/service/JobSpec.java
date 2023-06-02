@@ -621,10 +621,12 @@ public class JobSpec {
             corePoints = Integer.valueOf(cores);
         }
 
+        logger.debug("submission cores : " + cores);
+        logger.debug("layer.minimumCores : " + layer.minimumCores);
+        logger.debug("corePoints : " + corePoints);
+        logger.debug("Dispatcher.CORE_POINTS_RESERVED_MIN : " + Dispatcher.CORE_POINTS_RESERVED_MIN);
+
         if (corePoints > 0 && corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
-            logger.debug("cores : " + cores);
-            logger.debug("corePoints : " + corePoints);
-            logger.debug("corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN");
             corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
         }
 
