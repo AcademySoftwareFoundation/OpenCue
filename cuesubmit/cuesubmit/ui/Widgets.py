@@ -304,7 +304,7 @@ class CueLabelToggle(QtWidgets.QWidget):
     actionTriggered = QtCore.Signal(int)
     rangeChanged = QtCore.Signal(int, int)
 
-    def __init__(self, label=None, parent=None, default_value=False):
+    def __init__(self, label=None, default_value=False, parent=None):
         super(CueLabelToggle, self).__init__(parent=parent)
         self.mainLayout = QtWidgets.QHBoxLayout()
         self.label = QtWidgets.QLabel(label, parent=self)
