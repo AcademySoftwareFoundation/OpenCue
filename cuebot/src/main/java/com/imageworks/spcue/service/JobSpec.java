@@ -607,7 +607,7 @@ public class JobSpec {
         String cores = layerTag.getChildTextTrim("cores");
         if (cores == null) {
            logger.debug("cores == null");
-            // return;
+            cores="0";
         }
 
         int corePoints = layer.minimumCores;
