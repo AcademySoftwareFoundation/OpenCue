@@ -81,12 +81,17 @@ public class DispatchHost extends Entity
         return facilityId;
     }
 
-    public int handleNegativeCoresRequirement(int cores) {
-        if (cores > 0) {
-            return cores;
+    public int handleNegativeCoresRequirement(int minCores) {
+        // Do not process positive requests
+        if (minCores > 0) {
+            return minCores;
         }
-        int requestedCores = idleCores + cores;
-        logger.debug("Requested core number is " + cores + " <= 0, " +
+        // If request is negative but cores are already used, return 0
+        if (minCores <=0 && idleCores < cores) {
+            return 0;
+        }
+        int requestedCores = idleCores + minCores;
+        logger.debug("Requested core number is " + minCores + " <= 0, " +
                      "matching up to max number with difference " + idleCores + " > " + requestedCores);
         return requestedCores;
     }
