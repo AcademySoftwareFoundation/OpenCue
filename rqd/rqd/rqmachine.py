@@ -274,13 +274,12 @@ class Machine(object):
                     #    - rss: inaccurate, similar to VmRss in /proc/[pid]/status
                     child_statm_fields = self._getStatFields(
                         rqd.rqconstants.PATH_PROC_PID_STATM.format(pid))
-                    child_statm_fields = list(map(str, child_statm_fields))
                     pids[pid]['statm_size'] = \
-                        int(re.search(r"\d+", child_statm_fields[0]).group()) \
-                        if re.search(r"\d+", child_statm_fields[0]) else -1
+                        int(re.search(r"\d+", child_statm_fields[2]).group()) \
+                        if re.search(r"\d+", child_statm_fields[2]) else -1
                     pids[pid]['statm_rss'] = \
-                        int(re.search(r"\d+", child_statm_fields[1]).group()) \
-                        if re.search(r"\d+", child_statm_fields[1]) else -1
+                        int(re.search(r"\d+", child_statm_fields[3]).group()) \
+                        if re.search(r"\d+", child_statm_fields[3]) else -1
 
                 # pylint: disable=broad-except
                 except (OSError, IOError):
