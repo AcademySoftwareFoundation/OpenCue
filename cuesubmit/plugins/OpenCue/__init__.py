@@ -15,21 +15,45 @@ bl_info = {
 }
 
 import bpy
-import pip
 
-import outline
-import outline.cuerun
+from . import Setup
+from . import Submission
 
 class SubmitJob(bpy.types.Operator):
     bl_idname = "object.submit_job"
     bl_label = "My Operator"
 
     def execute(self, context):
-        jobName = context.scene.job_name
-        usrName = context.scene.usr_name
-        layerName = context.scene.layer_name
-        self.report({'INFO'}, jobName)  # Custom method to run when button is clicked
-        return {'FINISHED'}
+        layerData = {
+            'name': context.scene.layer_name,
+            'layerType': 'Blender',
+            'cmd': {
+                'blenderFile': '/home/nuwan/Documents/Projects/OpenCue/blender-demos/test/test.blend',
+                'outputPath': '',
+                'outputFormat': 'PNG'
+            },
+            'layerRange': '1',
+            'chunk': '1',
+            'cores': '0',
+            'env': {},
+            'services': [],
+            'limits': [],
+            'dependType': '',
+            'dependsOne': None
+        }
+
+        jobData = {
+            'name': context.scene.job_name,
+            'username': context.scene.usr_name,
+            'show': "testing",
+            'shot': context.scene.shot_name,
+            'layers': layerData
+        }
+
+        # self.report({'INFO'}, jobName)  # Custom method to run when button is clicked
+        # return {'FINISHED'}
+
+        Submission.submit(jobData)
 
 
 class OpenCuePanel(bpy.types.Panel):
@@ -51,6 +75,9 @@ class OpenCuePanel(bpy.types.Panel):
 
         col = layout.column()
         col.prop(context.scene, "layer_name")
+
+        col = layout.column()
+        col.prop(context.scene, "shot_name")
 
         col = layout.column()
         col.operator("object.submit_job", text="Submit")
@@ -77,9 +104,17 @@ def register():
         default=""
     )
 
+    bpy.types.Scene.shot_name = bpy.props.StringProperty(
+        name="Shot name",
+        description="Enter some text",
+        default=""
+    )
+
     bpy.utils.register_class(OpenCuePanel)
     bpy.utils.register_class(SubmitJob)
 
+    # Setup.installModule("future==0.17.1")
+    # Setup.installModule("PyYAML==5.1")
 
 def unregister():
     bpy.utils.unregister_class(OpenCuePanel)
