@@ -300,6 +300,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 proc.layerId = rs.getString("pk_layer");
                 proc.frameId = rs.getString("pk_frame");
                 proc.hostName = rs.getString("host_name");
+                proc.hostFqdn = rs.getString("host_fqdn");
                 proc.allocationId = rs.getString("pk_alloc");
                 proc.facilityId = rs.getString("pk_facility");
                 proc.coresReserved =rs.getInt("int_cores_reserved");
@@ -343,6 +344,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "proc.int_virt_max_used,"+
             "proc.int_virt_used,"+
             "host.str_name AS host_name, " +
+            "host.str_fqdn AS host_fqdn," +
             "host_stat.str_os " +
         "FROM " +
             "proc," +
@@ -372,6 +374,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
           "SELECT " +
               "proc.*, " +
               "host.str_name AS host_name, " +
+              "host.str_fqdn AS host_fqdn, " +
               "host.pk_alloc, " +
               "host_stat.str_os, " +
               "alloc.pk_facility " +
@@ -514,6 +517,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
           "SELECT " +
               "proc.*, " +
               "host.str_name AS host_name, " +
+              "host.str_fqdn AS host_fqdn, " +
               "host_stat.str_os, " +
               "host.pk_alloc, " +
               "alloc.pk_facility " +
@@ -592,6 +596,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               "int_virt_max_used,"+
               "int_virt_used,"+
               "host_name, " +
+              "host_fqdn, " +
               "str_os, " +
               "bytea_children " +
           "FROM ("

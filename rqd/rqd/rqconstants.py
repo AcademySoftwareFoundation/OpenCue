@@ -73,6 +73,10 @@ RQD_USE_PATH_ENV_VAR = False
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 RQD_TAGS = ''
+# The default behaviour is to strip off the domain leaving just the hostname 
+# Setting this to True will cause rqd to report the fully qualified domain name 
+# of the host on which it is running to cuebot
+RQD_USE_FQDN = False
 
 KILL_SIGNAL = 9
 if platform.system() == 'Linux':
@@ -197,6 +201,8 @@ try:
         if config.has_option(__section, "FILE_LOG_LEVEL"):
             level = config.get(__section, "FILE_LOG_LEVEL")
             FILE_LOG_LEVEL = logging.getLevelName(level)
+        if config.has_option(__section, "RQD_USE_FQDN"):
+            RQD_USE_FQDN = config.get(__section, "RQD_USE_FQDN")
 # pylint: disable=broad-except
 except Exception as e:
     logging.warning(
