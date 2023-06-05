@@ -614,11 +614,14 @@ public class JobSpec {
 
         if (cores.contains(".")) {
             if (cores.contains("-")) {
+                logger.debug("cores is negative : " + cores);
                 corePoints = (int) (Double.valueOf(cores) * 100 - .5);
             } else {
+                logger.debug("cores is positive : " + cores);
                 corePoints = (int) (Double.valueOf(cores) * 100 + .5);
             }
         } else {
+            logger.debug("cores is an integer : " + cores);
             corePoints = Integer.valueOf(cores);
         }
 
@@ -628,7 +631,8 @@ public class JobSpec {
         logger.debug("Dispatcher.CORE_POINTS_RESERVED_MIN : " + Dispatcher.CORE_POINTS_RESERVED_MIN);
 
         if (corePoints > 0 && corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
-            corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
+            logger.debug("corePoints > 0 && corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN");
+            //corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
         }
         logger.debug("corePoints after : " + corePoints);
 
