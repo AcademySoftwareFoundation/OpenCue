@@ -83,6 +83,7 @@ public class DispatchHost extends Entity
 
     public int handleNegativeCoresRequirement(int minCores) {
         // Do not process positive requests
+        logger.debug("requested minCores:" + minCores);
         if (minCores > 0) {
             return minCores;
         }
