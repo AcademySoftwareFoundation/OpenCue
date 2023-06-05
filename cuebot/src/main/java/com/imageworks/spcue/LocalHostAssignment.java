@@ -36,7 +36,7 @@ import org.apache.logging.log4j.LogManager;
 public class LocalHostAssignment extends Entity
     implements ResourceContainer {
 
-    private static final Logger logger = LogManager.getLogger(DispatchHost.class);
+    private static final Logger logger = LogManager.getLogger(LocalHostAssignment.class);
 
     private int idleCoreUnits;
     private long idleMemory;
@@ -73,7 +73,7 @@ public class LocalHostAssignment extends Entity
             return minCores;
         }
         // If request is negative but cores are already used, return 0
-        if (minCores <=0 && idleCoreUnits < cores) {
+        if (minCores <=0 && idleCoreUnits < threads) {
             return 0;
         }
         int requestedCores = idleCoreUnits + minCores;
