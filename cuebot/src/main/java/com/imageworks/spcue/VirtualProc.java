@@ -100,7 +100,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.unbooked = false;
         proc.isLocalDispatch = host.isLocalDispatch;
 
-        // proc.coresReserved = host.handleNegativeCoresRequirement(frame.minCores);
+//         proc.canLaunch = host.canHandleNegativeCoresRequirement(frame.minCores);
         proc.coresReserved = frame.minCores;
         proc.memoryReserved = frame.minMemory;
         proc.gpusReserved = frame.minGpus;
@@ -119,7 +119,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
             proc.coresReserved = proc.coresReserved + host.strandedCores;
         }
 
-        proc.canLaunch = host.canHandleNegativeCoresRequirement(proc.coresReserved)
+        proc.canLaunch = host.canHandleNegativeCoresRequirement(proc.coresReserved);
 
         if (proc.coresReserved == 0) {
             logger.debug("Reserving all cores");
