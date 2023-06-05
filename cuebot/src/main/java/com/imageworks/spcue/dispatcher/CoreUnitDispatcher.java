@@ -264,9 +264,11 @@ public class CoreUnitDispatcher implements Dispatcher {
         }
         for (DispatchFrame frame: frames) {
 
-
             VirtualProc proc =  VirtualProc.build(host, frame);
-
+            if (frame.minCores <= 0 && !proc.canLaunch) {
+                logger.debug("Cannot dispatch job, host is busy.");
+                break;
+            }
             if (host.idleCores < host.handleNegativeCoresRequirement(frame.minCores) ||
                     host.idleMemory < frame.minMemory ||
                     host.idleGpus < frame.minGpus ||
