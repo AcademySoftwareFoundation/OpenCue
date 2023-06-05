@@ -80,6 +80,18 @@ public class DispatchHost extends Entity
     public String getFacilityId() {
         return facilityId;
     }
+    public bool canHandleNegativeCoresRequirement(int minCores) {
+        if (minCores > 0) {
+            logger.debug(host.name() + " can handle the job with " + minCores + " cores.");
+            return true;
+        }
+        if (host.cores == host.idleCores) {
+            logger.debug(host.name() + " can handle the job with " + minCores + " cores.");
+            return true;
+        }
+        logger.debug(host.name() + " cannot handle the job with " + minCores + " cores.");
+        return false;
+    }
 
     public int handleNegativeCoresRequirement(int minCores) {
         // Do not process positive requests
