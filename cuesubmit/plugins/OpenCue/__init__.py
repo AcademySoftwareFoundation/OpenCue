@@ -14,10 +14,12 @@ bl_info = {
     "category": "System",
 }
 
+import os
 import bpy
 
 from . import Setup
-from . import Submission
+# from . import Submission
+
 
 class SubmitJob(bpy.types.Operator):
     bl_idname = "object.submit_job"
@@ -53,7 +55,7 @@ class SubmitJob(bpy.types.Operator):
         # self.report({'INFO'}, jobName)  # Custom method to run when button is clicked
         # return {'FINISHED'}
 
-        Submission.submit(jobData)
+        # Submission.submit(jobData)
 
 
 class OpenCuePanel(bpy.types.Panel):
@@ -83,8 +85,22 @@ class OpenCuePanel(bpy.types.Panel):
         col.operator("object.submit_job", text="Submit")
 
 
+class OpenCueAddonPreferences(bpy.types.AddonPreferences):
+    bl_idname = __name__
+
+    is_dependency_install: bpy.props.BoolProperty(
+        name="Dependency Install",
+        default=False,
+        description="Flag to indicate if dependencies have been installed during first install",
+    )
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "is_dependency_install")
+
+
 def register():
-    # bpy.utils.register_class(OpenCuePanel)
+    bpy.utils.register_class(OpenCueAddonPreferences)
 
     bpy.types.Scene.job_name = bpy.props.StringProperty(
         name="Job name",
@@ -113,12 +129,16 @@ def register():
     bpy.utils.register_class(OpenCuePanel)
     bpy.utils.register_class(SubmitJob)
 
-    # Setup.installModule("future==0.17.1")
-    # Setup.installModule("PyYAML==5.1")
+    addon_pref = bpy.context.preferences.addons[__name__].preferences
+    if not addon_pref.is_dependency_install:
+        Setup.installModule()
+        bpy.context.preferences.addons[__name__].preferences.is_dependency_install = True
+
 
 def unregister():
     bpy.utils.unregister_class(OpenCuePanel)
     bpy.utils.unregister_class(SubmitJob)
+    bpy.utils.unregister_class(OpenCueAddonPreferences)
     del bpy.types.Scene.job_name
     del bpy.types.Scene.usr_name
     del bpy.types.Scene.layer_name
