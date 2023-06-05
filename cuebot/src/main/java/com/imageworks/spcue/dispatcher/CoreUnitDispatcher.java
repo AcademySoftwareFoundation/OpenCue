@@ -288,7 +288,7 @@ public class CoreUnitDispatcher implements Dispatcher {
 
             boolean success = new DispatchFrameTemplate(proc, job, frame, false) {
                 public void wrapDispatchFrame() {
-                    logger.debug("Dispatching frame with minCores: " + frame.minCores + " on proc with: " + proc.minCores);
+                    logger.debug("Dispatching frame with minCores: " + frame.minCores + " on proc with coresReserved= " + proc.coresReserved);
                     dispatch(frame, proc);
                     dispatchSummary(proc, frame, "Booking");
                     return;
