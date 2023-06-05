@@ -67,7 +67,7 @@ public class LocalHostAssignment extends Entity
         this.maxGpuMemory = maxGpuMemory;
     }
 
-    public int handleNegativeCoresRequirement(int cores) {
+    public int handleNegativeCoresRequirement(int minCores) {
         // Do not process positive requests
         if (minCores > 0) {
             return minCores;
