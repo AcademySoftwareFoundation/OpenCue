@@ -82,7 +82,7 @@ public class DispatchHost extends Entity
     }
     public boolean canHandleNegativeCoresRequirement(int minCores) {
         if (minCores > 0) {
-            logger.debug(host.getName() + " can handle the job with " + minCores + " cores.");
+            logger.debug(getName() + " can handle the job with " + minCores + " cores.");
             return true;
         }
         if (cores == idleCores) {
