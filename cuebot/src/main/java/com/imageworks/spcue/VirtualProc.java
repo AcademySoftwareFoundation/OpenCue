@@ -145,6 +145,8 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                     } else {
                         proc.coresReserved = getCoreSpan(host, frame.minMemory);
                         logger.debug("proc.coresReserved = getCoreSpan(host, frame.minMemory):" + proc.coresReserved);
+                        proc.coresReserved = originalCores;
+                        logger.debug("avoid getCoreSpan():" + proc.coresReserved);
                     }
 
                     if (host.threadMode == ThreadMode.VARIABLE_VALUE
@@ -253,14 +255,19 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
      */
     public static int getCoreSpan(DispatchHost host, long minMemory) {
         int totalCores = (int) (Math.floor(host.cores / 100.0));
+        logger.debug("getCoreSpan() -> totalCores = " + totalCores);
         int idleCores = (int) (Math.floor(host.idleCores / 100.0));
+        logger.debug("getCoreSpan() -> idleCores = " + idleCores);
         if (idleCores < 1) {
             return 100;
         }
 
         long memPerCore = host.idleMemory / totalCores;
+        logger.debug("getCoreSpan() -> memPerCore = " + memPerCore);
         double procs = minMemory / (double) memPerCore;
+        logger.debug("getCoreSpan() -> procs = " + procs);
         int reserveCores = (int) (Math.round(procs)) * 100;
+        logger.debug("getCoreSpan() -> reserveCores = " + reserveCores);
 
         return reserveCores;
     }
