@@ -99,7 +99,8 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.unbooked = false;
         proc.isLocalDispatch = host.isLocalDispatch;
 
-        proc.coresReserved = host.handleNegativeCoresRequirement(frame.minCores);
+        // proc.coresReserved = host.handleNegativeCoresRequirement(frame.minCores);
+        proc.coresReserved = frame.minCores;
         proc.memoryReserved = frame.minMemory;
         proc.gpusReserved = frame.minGpus;
         proc.gpuMemoryReserved = frame.minGpuMemory;
@@ -116,7 +117,11 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
             logger.debug("host.strandedCores > 0 : " + host.strandedCores);
             proc.coresReserved = proc.coresReserved + host.strandedCores;
         }
-
+        if (proc.coresReserved < 0) {
+            if (host.cores > host.idleCores){
+                throw new EntityException("Host has not enough resources to launch the frame");
+            }
+        }
         if (proc.coresReserved >= 100) {
 
             int originalCores = proc.coresReserved;
