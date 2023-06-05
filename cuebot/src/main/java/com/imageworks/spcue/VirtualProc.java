@@ -36,6 +36,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
     public String os;
     public byte[] childProcesses;
 
+    public boolean canLaunch;
     public int coresReserved;
     public long memoryReserved;
     public long memoryUsed;
@@ -117,17 +118,14 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
             logger.debug("host.strandedCores > 0 : " + host.strandedCores);
             proc.coresReserved = proc.coresReserved + host.strandedCores;
         }
+
+        proc.canLaunch = host.canHandleNegativeCoresRequirement(proc.coresReserved)
+
         if (proc.coresReserved == 0) {
-            if (host.cores > host.idleCores){
-                throw new EntityException("Host has not enough resources to launch the frame");
-            }
             logger.debug("Reserving all cores");
             proc.coresReserved = host.cores;
         }
         else if (proc.coresReserved < 0) {
-            if (host.cores > host.idleCores){
-                throw new EntityException("Host has not enough resources to launch the frame");
-            }
             logger.debug("Reserving all cores " + proc.coresReserved);
             proc.coresReserved = host.cores + proc.coresReserved;
         }
