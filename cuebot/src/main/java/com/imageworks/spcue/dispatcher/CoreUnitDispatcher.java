@@ -258,7 +258,12 @@ public class CoreUnitDispatcher implements Dispatcher {
                 host.getName() + " " + host.idleCores + "/" + host.idleMemory +
                 " on job " + job.getName());
 
+        logger.debug("Frames summary before dispatch:");
         for (DispatchFrame frame: frames) {
+            logger.debug("frame.minCores: " + frame.minCores + ", frame.command: " + frame.command);
+        }
+        for (DispatchFrame frame: frames) {
+
 
             VirtualProc proc =  VirtualProc.build(host, frame);
 
