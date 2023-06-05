@@ -22,7 +22,12 @@ package com.imageworks.spcue;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 public class VirtualProc extends FrameEntity implements ProcInterface {
+
+    private static final Logger logger = LogManager.getLogger(VirtualProc.class);
 
     public String hostId;
     public String allocationId;
@@ -108,6 +113,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
          */
 
         if (host.strandedCores > 0) {
+            logger.debug("host.strandedCores > 0 : " + host.strandedCores);
             proc.coresReserved = proc.coresReserved + host.strandedCores;
         }
 
@@ -130,6 +136,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
             // CueUtil.isDayTime()) {
             if (host.threadMode == ThreadMode.ALL_VALUE) {
                 proc.coresReserved = wholeCores * 100;
+                logger.debug("host.threadMode == ThreadMode.ALL_VALUE : proc.coresReserved=" + proc.coresReserved);
             } else {
                 if (frame.threadable) {
                     if (host.idleMemory - frame.minMemory
@@ -137,6 +144,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                         proc.coresReserved = wholeCores * 100;
                     } else {
                         proc.coresReserved = getCoreSpan(host, frame.minMemory);
+                        logger.debug("proc.coresReserved = getCoreSpan(host, frame.minMemory):" + proc.coresReserved);
                     }
 
                     if (host.threadMode == ThreadMode.VARIABLE_VALUE
@@ -163,6 +171,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
              * original.
              */
             if (proc.coresReserved < originalCores) {
+                logger.debug("proc.coresReserved < originalCores: " + proc.coresReserved + " < " + originalCores);
                 proc.coresReserved = originalCores;
             }
 
@@ -170,10 +179,12 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
              * Check to ensure we haven't exceeded max cores.
              */
             if (frame.maxCores > 0 && proc.coresReserved >= frame.maxCores) {
+                logger.debug("frame.maxCores > 0 && proc.coresReserved >= frame.maxCores");
                 proc.coresReserved = frame.maxCores;
             }
 
             if (proc.coresReserved > host.idleCores) {
+                logger.debug("proc.coresReserved > host.idleCores");
                 if (host.threadMode == ThreadMode.VARIABLE_VALUE
                         && frame.threadable && wholeCores == 1) {
                     throw new JobDispatchException(
@@ -181,6 +192,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                 }
                 proc.coresReserved = wholeCores * 100;
             }
+            logger.debug("finally, proc.coresReserved = " + proc.coresReserved);
         }
 
         /*
