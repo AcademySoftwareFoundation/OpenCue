@@ -145,8 +145,6 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                     } else {
                         proc.coresReserved = getCoreSpan(host, frame.minMemory);
                         logger.debug("proc.coresReserved = getCoreSpan(host, frame.minMemory):" + proc.coresReserved);
-                        proc.coresReserved = originalCores;
-                        logger.debug("avoid getCoreSpan():" + proc.coresReserved);
                     }
 
                     if (host.threadMode == ThreadMode.VARIABLE_VALUE
