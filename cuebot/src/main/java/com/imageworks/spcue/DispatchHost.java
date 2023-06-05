@@ -85,11 +85,11 @@ public class DispatchHost extends Entity
             logger.debug(host.getName() + " can handle the job with " + minCores + " cores.");
             return true;
         }
-        if (host.cores == host.idleCores) {
-            logger.debug(host.getName() + " can handle the job with " + minCores + " cores.");
+        if (cores == idleCores) {
+            logger.debug(getName() + " can handle the job with " + minCores + " cores.");
             return true;
         }
-        logger.debug(host.getName() + " cannot handle the job with " + minCores + " cores.");
+        logger.debug(getName() + " cannot handle the job with " + minCores + " cores.");
         return false;
     }
 
