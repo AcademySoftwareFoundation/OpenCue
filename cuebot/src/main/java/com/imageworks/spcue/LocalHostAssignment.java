@@ -68,11 +68,16 @@ public class LocalHostAssignment extends Entity
     }
 
     public int handleNegativeCoresRequirement(int cores) {
-        if (cores > 0) {
-            return cores;
+        // Do not process positive requests
+        if (minCores > 0) {
+            return minCores;
         }
-        int requestedCores = idleCoreUnits + cores;
-        logger.debug("Requested core number is " + cores + " <= 0, " +
+        // If request is negative but cores are already used, return 0
+        if (minCores <=0 && idleCoreUnits < cores) {
+            return 0;
+        }
+        int requestedCores = idleCoreUnits + minCores;
+        logger.debug("Requested core number is " + minCores + " <= 0, " +
                      "matching up to max number with difference " + idleCoreUnits + " > " + requestedCores);
         return requestedCores;
     }
