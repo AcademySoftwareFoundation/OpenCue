@@ -117,7 +117,7 @@ public class JobSpec {
     public JobSpec() {
     }
 
-    public static final String NAME_REGEX = "^([\\w\\.]{3,})$";
+    public static final String NAME_REGEX = "^([\\w\\.-]{3,})$";
 
     public static final Pattern NAME_PATTERN = Pattern.compile(NAME_REGEX);
 
