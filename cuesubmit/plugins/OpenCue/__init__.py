@@ -14,12 +14,9 @@ bl_info = {
     "category": "System",
 }
 
-import os
 import bpy
 
 from . import Setup
-# from . import Submission
-
 
 class SubmitJob(bpy.types.Operator):
     bl_idname = "object.submit_job"
@@ -55,7 +52,8 @@ class SubmitJob(bpy.types.Operator):
         # self.report({'INFO'}, jobName)  # Custom method to run when button is clicked
         # return {'FINISHED'}
 
-        # Submission.submit(jobData)
+        from . import Submission
+        Submission.submit(jobData)
 
 
 class OpenCuePanel(bpy.types.Panel):
@@ -127,12 +125,13 @@ def register():
     )
 
     bpy.utils.register_class(OpenCuePanel)
-    bpy.utils.register_class(SubmitJob)
 
     addon_pref = bpy.context.preferences.addons[__name__].preferences
     if not addon_pref.is_dependency_install:
         Setup.installModule()
         bpy.context.preferences.addons[__name__].preferences.is_dependency_install = True
+
+        bpy.utils.register_class(SubmitJob)
 
 
 def unregister():
