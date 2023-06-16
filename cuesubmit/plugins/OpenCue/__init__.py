@@ -142,6 +142,8 @@ def unregister():
     del bpy.types.Scene.usr_name
     del bpy.types.Scene.layer_name
 
+    Setup.removeModule()
+
 
 if __name__ == "__main__":
     register()
