@@ -73,6 +73,7 @@ RQD_USE_PATH_ENV_VAR = False
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 RQD_TAGS = ''
+RQD_PREPEND_TIMESTAMP = False
 
 KILL_SIGNAL = 9
 if platform.system() == 'Linux':
@@ -197,6 +198,8 @@ try:
         if config.has_option(__section, "FILE_LOG_LEVEL"):
             level = config.get(__section, "FILE_LOG_LEVEL")
             FILE_LOG_LEVEL = logging.getLevelName(level)
+        if config.has_option(__section, "RQD_PREPEND_TIMESTAMP"):
+            RQD_PREPEND_TIMESTAMP = config.getboolean(__section, "RQD_PREPEND_TIMESTAMP")
 # pylint: disable=broad-except
 except Exception as e:
     logging.warning(
