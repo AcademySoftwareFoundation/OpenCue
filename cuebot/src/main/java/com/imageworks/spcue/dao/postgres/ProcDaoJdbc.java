@@ -601,7 +601,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               "AND " +
                   "proc.int_mem_reserved != 0 " +
               "ORDER BY " +
-                  "proc.int_virt_used / proc.int_mem_pre_reserved DESC " +
+                  "CAST(proc.int_virt_used AS numeric) / proc.int_mem_pre_reserved DESC " +
           ") AS t1 LIMIT 1";
 
       @Override

@@ -1,3 +1,4 @@
+import org.gradle.internal.os.OperatingSystem;
 
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
@@ -28,6 +29,26 @@ targetCompatibility = 1.8
 
 ext {
     activemqVersion = '5.12.0'
+    postgresVersion = '15.2.0'
+}
+if (OperatingSystem.current().isLinux()) {
+    new ByteArrayOutputStream().withStream { os ->
+        def result = exec {
+            executable = 'ldd'
+            args = ['--version']
+            standardOutput = os
+        }
+        def outputAsString = os.toString()
+        def matchGlibcVersion = outputAsString =~ /ldd \(.*\) ([\d.]+)/
+        List glibcVersion = matchGlibcVersion[0][1].tokenize('.')
+        def glibcMajorVersion = glibcVersion[0].toInteger()
+        def glibcMinorVersion = glibcVersion[1].toInteger()
+        // Need Glibc 2.25 to use the latest Postgres binaries.
+        if (glibcMajorVersion < 2 || (glibcMajorVersion == 2 && glibcMinorVersion < 25)) {
+            println "Glibc Version ${matchGlibcVersion[0][1]} is too low, downgrading Postgres dependency"
+            ext.postgresVersion = '15.1.0'
+        }
+    }
 }
 
 configurations {
@@ -67,11 +88,12 @@ dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
     testCompile group: 'org.springframework.boot', name: 'spring-boot-starter-test'
     testCompile group: 'org.assertj', name: 'assertj-core', version: '3.8.0'
-    testCompile group: 'io.zonky.test', name: 'embedded-postgres', version: '1.3.1'
+    testCompile group: 'io.zonky.test', name: 'embedded-postgres', version: '2.0.2'
+    testCompile group: 'io.zonky.test.postgres', name: 'embedded-postgres-binaries-linux-arm64v8', version: postgresVersion
     testCompile group: 'org.flywaydb', name: 'flyway-core', version: '5.2.0'
 
     // Use newer version of Postgres for tests: https://github.com/zonkyio/embedded-postgres/issues/78
-    implementation enforcedPlatform('io.zonky.test.postgres:embedded-postgres-binaries-bom:11.13.0')
+    implementation enforcedPlatform('io.zonky.test.postgres:embedded-postgres-binaries-bom:' + postgresVersion)
 }
 
 compileJava {
