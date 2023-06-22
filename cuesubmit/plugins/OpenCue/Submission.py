@@ -1,13 +1,14 @@
 
 import outline
 import outline.cuerun
+import outline.modules.shell
 
 # from . import Constants
 
 def buildBlenderCmd(layerData):
-    blenderFile = layerData.cmd.get('blenderFile')
-    outputPath = layerData.cmd.get('outputPath')
-    outputFormat = layerData.cmd.get('outputFormat')
+    blenderFile = layerData.get('cmd').get('blenderFile')
+    outputPath = layerData.get('cmd').get('outputPath')
+    outputFormat = layerData.get('cmd').get('outputFormat')
 
     if not blenderFile:
         raise ValueError('No Blender file provided. Cannot submit job.')
@@ -32,15 +33,15 @@ def buildLayer(layerData, command, lastLayer=None):
     @type lastLayer: outline.layer.Layer
     @param lastLayer: layer that this new layer should be dependent on if dependType is set.
     """
-    threadable = float(layerData.cores) >= 2
+    threadable = float(layerData.get('cores')) >= 2
     layer = outline.modules.shell.Shell(
-        layerData.name, command=command.split(), chunk=layerData.chunk,
-        threads=float(layerData.cores), range=str(layerData.layerRange), threadable=threadable)
-    if layerData.services:
+        layerData.get('name'), command=command.split(), chunk=layerData.get('chunk'),
+        threads=float(layerData.get('cores')), range=str(layerData.get('layerRange')), threadable=threadable)
+    if layerData.get('services'):
         layer.set_service(layerData.services[0])
-    if layerData.limits:
+    if layerData.get('limits'):
         layer.set_limits(layerData.limits)
-    if layerData.dependType and lastLayer:
+    if layerData.get('dependType') and lastLayer:
         if layerData.dependType == 'Layer':
             layer.depend_all(lastLayer)
         else:
@@ -66,4 +67,4 @@ def submit(jobData):
     ol.add_layer(layer)
     lastLayer = layer
 
-    # return outline.cuerun.launch(ol, use_pycuerun=False)
+    return outline.cuerun.launch(ol, use_pycuerun=False)
