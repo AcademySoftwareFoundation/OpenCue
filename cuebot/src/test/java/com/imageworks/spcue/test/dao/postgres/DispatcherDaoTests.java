@@ -328,7 +328,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertTrue(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM job WHERE str_state='PENDING'", Integer.class) > 0);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(host, 10);
+        Set<String> jobs = dispatcherDao.findDispatchJobs(host, 10);
         assertTrue(jobs.size() > 0);
     }
 
@@ -342,7 +342,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertNotNull(job);
         assertNotNull(job.groupId);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(host,
+        Set<String> jobs = dispatcherDao.findDispatchJobs(host,
                 groupManager.getGroupDetail(job));
         assertTrue(jobs.size() > 0);
     }
@@ -355,7 +355,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         final JobDetail job = getJob1();
         assertNotNull(job);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(host,
+        Set<String> jobs = dispatcherDao.findDispatchJobs(host,
                 adminManager.findShowEntity("pipe"), 5);
         assertTrue(jobs.size() > 0);
     }

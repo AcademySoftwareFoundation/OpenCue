@@ -306,7 +306,7 @@ public interface DispatchSupport {
      * @param host
      * @return
      */
-    List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs);
+    Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs);
 
     /**
      * Returns the highest priority job that can utilize
@@ -315,7 +315,7 @@ public interface DispatchSupport {
      * @param host
      * @return
      */
-    List<String> findDispatchJobs(DispatchHost host, int numJobs);
+    Set<String> findDispatchJobs(DispatchHost host, int numJobs);
 
     /**
      * Returns the highest priority jobs that can utilize
@@ -324,7 +324,7 @@ public interface DispatchSupport {
      * @param host
      * @return  A set of unique job ids.
      */
-    List<String> findDispatchJobs(DispatchHost host, GroupInterface p);
+    Set<String> findDispatchJobs(DispatchHost host, GroupInterface p);
 
     /**
      *
@@ -532,14 +532,14 @@ public interface DispatchSupport {
     void determineIdleCores(DispatchHost host, int load);
 
     /**
-     * Return a list of job IDs that can take the given host.
+     * Return a set of job IDs that can take the given host.
      *
      * @param host
      * @param show
      * @param numJobs
      * @return
      */
-    List<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
+    Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
 
     /**
      * Return true of the job has pending frames.
