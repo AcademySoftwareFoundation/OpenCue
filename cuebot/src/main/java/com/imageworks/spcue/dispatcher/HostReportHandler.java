@@ -47,11 +47,11 @@ import com.imageworks.spcue.JobEntity;
 import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LocalHostAssignment;
+import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dispatcher.HostReportHandler.KillCause;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
@@ -66,12 +66,10 @@ import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.rqd.RqdClient;
-import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
 
 import static com.imageworks.spcue.dispatcher.Dispatcher.*;
@@ -96,6 +94,9 @@ public class HostReportHandler {
     private Environment env;
     @Autowired
     private CommentManager commentManager;
+    @Autowired
+    private PrometheusMetricsCollector prometheusMetrics;
+
     // Comment constants
     private static final String SUBJECT_COMMENT_FULL_TEMP_DIR = "Host set to REPAIR for not having enough storage " +
             "space on the temporary directory (mcp)";
@@ -605,11 +606,22 @@ public class HostReportHandler {
         }
         killRequestCounterCache.put(cacheKey, cachedCount);
         if (cachedCount > FRAME_KILL_RETRY_LIMIT) {
-            FrameInterface frame = jobManager.getFrame(frameId);
-            JobInterface job = jobManager.getJob(frame.getJobId());
-
-            logger.warn("KillRequest blocked for " + job.getName() + "." + frame.getName() +
-                    " blocked for host " + hostname + ". The kill retry limit has been reached.");
+            // If the kill retry limit has been reached, notify prometheus of the issue and
+            // give up
+            if (!dispatcher.isTestMode()) {
+                try {
+                    FrameInterface frame = jobManager.getFrame(frameId);
+                    JobInterface job = jobManager.getJob(frame.getJobId());
+                    prometheusMetrics.incrementFrameKillFailureCounter(
+                            hostname,
+                            job.getName(),
+                            frame.getName(),
+                            frameId);
+                } catch (EmptyResultDataAccessException e) {
+                    logger.info(
+                            "Trying to kill a frame that no longer exists: host=" + hostname + " frameId=" + frameId);
+                }
+            }
             return false;
         }
         return true;
@@ -629,6 +641,7 @@ public class HostReportHandler {
             try {
                 killQueue.execute(new DispatchRqdKillFrameMemory(hostname, frame, killCause.toString(), rqdClient,
                         dispatchSupport, dispatcher.isTestMode()));
+                prometheusMetrics.incrementFrameKilledCounter(hostname, killCause);
             } catch (TaskRejectedException e) {
                 logger.warn("Unable to add a DispatchRqdKillFrame request, task rejected, " + e);
                 return false;
@@ -652,6 +665,7 @@ public class HostReportHandler {
                         frameId,
                         killCause.toString(),
                         rqdClient));
+                prometheusMetrics.incrementFrameKilledCounter(hostname, killCause);
             } catch (TaskRejectedException e) {
                 logger.warn("Unable to add a DispatchRqdKillFrame request, task rejected, " + e);
             }

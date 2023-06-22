@@ -287,6 +287,13 @@
     <property name="groupManager" ref="groupManager"/>
   </bean>
 
+  <bean id="prometheusMetricsCollector" class="com.imageworks.spcue.PrometheusMetricsCollector">
+    <property name="bookingQueue" ref="bookingQueue" />
+    <property name="manageQueue" ref="manageQueue" />
+    <property name="dispatchQueue" ref="dispatchQueue" />
+    <property name="reportQueue" ref="reportQueue" />
+  </bean>
+
   <bean id="historicalManager" class="com.imageworks.spcue.service.HistoricalManagerService">
     <property name="historicalDao" ref="historicalDao" />
   </bean>
@@ -558,6 +565,19 @@
     <property name="repeatInterval" value="604800000" />
   </bean>
 
+  <bean id="collectPrometheusMetrics" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+    <property name="targetObject" ref="prometheusMetricsCollector" />
+    <property name="targetMethod" value="collectPrometheusMetrics" />
+  </bean>
+
+  <bean id="collectPrometheusMetricsTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail" ref="collectPrometheusMetrics" />
+    <!-- delay 60 seconds (1 minute) -->
+    <property name="startDelay" value="60000" />
+    <!-- repeat every 60 seconds (1 minute) -->
+    <property name="repeatInterval" value="60000" />
+  </bean>
+
   <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean" destroy-method="destroy">
    <property name="waitForJobsToCompleteOnShutdown"><value>false</value></property>
     <property name="triggers">
@@ -572,7 +592,8 @@
         <ref bean="dispatchQueueSchedule" />
         <ref bean="manageQueueSchedule" />
         <ref bean="killQueueSchedule" />
-        <ref bean="updateShowsStatusTrigger"/>
+        <ref bean="updateShowsStatusTrigger" />
+        <ref bean="collectPrometheusMetricsTrigger" />
       </list>
     </property>
   </bean>
