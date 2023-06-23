@@ -85,8 +85,11 @@ def removeModule():
     # remove installed opencue dependencies
     blender_dependencies_directory = "lib/python3.10/site-packages"
     pyoutline_directory = "outline"
+    opencue_imported_directory = "opencue"
     pyoutline_directory_path = os.path.join(sys.prefix, blender_dependencies_directory, pyoutline_directory)
+    opencue_directory_path = os.path.join(sys.prefix, blender_dependencies_directory, opencue_imported_directory)
 
     subprocess.call(["rm", "-rf", pyoutline_directory_path])
+    subprocess.call(["rm", "-rf", opencue_directory_path])
 
 
