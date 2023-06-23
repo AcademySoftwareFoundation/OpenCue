@@ -69,12 +69,17 @@ def installModule():
     # install OpenCue dependencies
     opencue_home = os.environ['OPENCUE_HOME']
     pyoutline_directory = "pyoutline/outline"
+    filesequence_directory = "pycue/FileSequence"
+    opencue_directory = "pycue/opencue"
+
     pyoutline_path = os.path.join(opencue_home, pyoutline_directory)
+    opencue_path = os.path.join(opencue_home, opencue_directory)
 
     blender_dependencies_directory = "lib/python3.10/site-packages"
     blender_dependencies_path = os.path.join(sys.prefix, blender_dependencies_directory)
 
     subprocess.call(["cp", "-r", pyoutline_path, blender_dependencies_path])
+    subprocess.call(["cp", "-r", opencue_path, blender_dependencies_path])
 
 def removeModule():
     # remove installed opencue dependencies
