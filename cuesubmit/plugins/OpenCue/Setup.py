@@ -60,11 +60,14 @@ def installModule():
     # identify for platform
     python_exe = python_exec()
 
+    blender_dependencies_directory = "lib/python3.10/site-packages"
+    blender_dependencies_path = os.path.join(sys.prefix, blender_dependencies_directory)
+
     # upgrade pip
     subprocess.call([python_exe, "-m", "ensurepip"])
     subprocess.call([python_exe, "-m", "pip", "install", "--upgrade", "pip"])
     # install required external packages
-    subprocess.call([python_exe, "-m", "pip", "install", "-r", requirements])
+    subprocess.call([python_exe, "-m", "pip", "install", "-r", requirements, "-t", blender_dependencies_path])
 
     # install OpenCue dependencies
     opencue_home = os.environ['OPENCUE_HOME']
@@ -74,9 +77,6 @@ def installModule():
 
     pyoutline_path = os.path.join(opencue_home, pyoutline_directory)
     opencue_path = os.path.join(opencue_home, opencue_directory)
-
-    blender_dependencies_directory = "lib/python3.10/site-packages"
-    blender_dependencies_path = os.path.join(sys.prefix, blender_dependencies_directory)
 
     subprocess.call(["cp", "-r", pyoutline_path, blender_dependencies_path])
     subprocess.call(["cp", "-r", opencue_path, blender_dependencies_path])
