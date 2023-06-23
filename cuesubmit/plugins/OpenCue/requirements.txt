@@ -1,2 +1,6 @@
-future==0.17.1
+future==0.18.3
 PyYAML==5.1
+packaging==20.9
+grpcio==1.47.0
+grpcio-tools==1.47.0
+google
