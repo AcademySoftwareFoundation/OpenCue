@@ -38,6 +38,7 @@ import cuegui.MenuActions
 import cuegui.TextEditDialog
 import cuegui.Utils
 
+from cuegui.Constants import DISABLED_ACTION_TYPES
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -51,6 +52,7 @@ PAUSETYPE = ["Pause", "Unpause"]
 MEMOPTTYPE = ["Enabled", "Disabled"]
 MAX_RENDER_MEM = 251.0
 
+allowed_action_types = list(filter(lambda x: (x not in DISABLED_ACTION_TYPES), ACTIONTYPE))
 
 class FilterDialog(QtWidgets.QDialog):
     """Dialog to display/modify a show's filters, matchers and actions."""
@@ -431,7 +433,7 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self,
                 "Create Action",
                 "Please select the type of action to add:",
-                ACTIONTYPE,
+                allowed_action_types,
                 0,
                 False)
             if choice:
