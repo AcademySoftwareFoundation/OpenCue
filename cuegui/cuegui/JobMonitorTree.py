@@ -66,6 +66,17 @@ def displayState(job):
         return "Dependency"
     return "In Progress"
 
+def appendDate(data, job_start_time):
+    """Appends the start_time to the data
+    @type  data: string or number
+    @param data: The data related to the job
+    @type  job_start_time: number
+    @param job_start_time: The job starting time
+    @rtype:  string or float
+    @return: the job_start_time appended to job data"""
+    if type(data) == int:
+        return float(str(data)+"."+str(job_start_time))
+    return str(data) + str(job_start_time)
 
 class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     """Tree widget to display a list of monitored jobs."""
@@ -80,6 +91,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.startColumnsForType(cuegui.Constants.TYPE_JOB)
         self.addColumn("Job", 470, id=1,
                        data=lambda job: job.data.name,
+                       sort=lambda job: appendDate(job.data.name, job.data.start_time),
                        tip="The name of the job: show-shot-user_uniqueName")
         self.addColumn("_Comment", 20, id=2,
                        sort=lambda job: job.data.has_comment,
@@ -93,6 +105,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # pylint: disable=unnecessary-lambda
         self.addColumn("State", 80, id=4,
                        data=lambda job: displayState(job),
+                       sort=lambda job: appendDate(displayState(job), job.data.start_time),
                        tip="The state of each job.\n"
                            "In Progress \t The job is on the queue\n"
                            "Failing \t The job has dead frames\n"
@@ -101,28 +114,28 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.addColumn("Done/Total", 90, id=5,
                        data=lambda job: "%d of %d" % (job.data.job_stats.succeeded_frames,
                                                       job.data.job_stats.total_frames),
-                       sort=lambda job: job.data.job_stats.succeeded_frames,
+                       sort=lambda job: appendDate(job.data.job_stats.succeeded_frames, job.data.start_time),
                        tip="The number of succeeded frames vs the total number\n"
                            "of frames in each job.")
         self.addColumn("Running", 60, id=6,
                        data=lambda job: job.data.job_stats.running_frames,
-                       sort=lambda job: job.data.job_stats.running_frames,
+                       sort=lambda job: appendDate(job.data.job_stats.running_frames, job.data.start_time),
                        tip="The number of running frames in each job,")
         self.addColumn("Dead", 50, id=7,
                        data=lambda job: job.data.job_stats.dead_frames,
-                       sort=lambda job: job.data.job_stats.dead_frames,
+                       sort=lambda job: appendDate(job.data.job_stats.dead_frames, job.data.start_time),
                        tip="Total number of dead frames in each job.")
         self.addColumn("Eaten", 50, id=8,
                        data=lambda job: job.data.job_stats.eaten_frames,
-                       sort=lambda job: job.data.job_stats.eaten_frames,
+                       sort=lambda job: appendDate(job.data.job_stats.eaten_frames, job.data.start_time),
                        tip="Total number of eaten frames in each job.")
         self.addColumn("Wait", 60, id=9,
                        data=lambda job: job.data.job_stats.waiting_frames,
-                       sort=lambda job: job.data.job_stats.waiting_frames,
+                       sort=lambda job: appendDate(job.data.job_stats.waiting_frames, job.data.start_time),
                        tip="The number of waiting frames in each job,")
         self.addColumn("MaxRss", 55, id=10,
                        data=lambda job: cuegui.Utils.memoryToString(job.data.job_stats.max_rss),
-                       sort=lambda job: job.data.job_stats.max_rss,
+                       sort=lambda job: appendDate(job.data.job_stats.max_rss, job.data.start_time),
                        tip="The maximum memory used any single frame in each job.")
         self.addColumn("Age", 50, id=11,
                        data=lambda job: (cuegui.Utils.secondsToHHHMM((job.data.stop_time or
