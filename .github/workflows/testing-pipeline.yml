@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Run Python Tests
-        run: ci/run_python_tests.sh --no-cuegui
+        run: ci/run_python_tests.sh --no-gui
 
   test_cuebot_2022:
     name: Build Cuebot and Run Unit Tests (CY2022)

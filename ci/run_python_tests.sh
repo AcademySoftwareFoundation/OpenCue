@@ -28,10 +28,7 @@ PYTHONPATH=pycue python cueadmin/setup.py test
 PYTHONPATH=pycue:pyoutline python cuesubmit/setup.py test
 python rqd/setup.py test
 
-# NOTE: Xvfb and PySide2 are no longer stable enough together for our CI pipelines.
-# To run CueGUI unit tests, use `run_python_tests_pyside6.sh`.
-
 # Xvfb no longer supports Python 2.
-if [[ "$python_version" =~ "Python 3" && ${args[0]} != "--no-cuegui" ]]; then
+if [[ "$python_version" =~ "Python 3" && ${args[0]} != "--no-gui" ]]; then
   ci/run_gui_test.sh
 fi
