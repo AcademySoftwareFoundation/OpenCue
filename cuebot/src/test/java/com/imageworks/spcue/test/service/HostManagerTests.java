@@ -101,7 +101,8 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOST_NAME)
                 .setBootTime(1192369572)
-                .setFreeMcp(7602)
+                // The minimum amount of free space in the /mcp directory to book a host.
+                .setFreeMcp(1048576)
                 .setFreeMem(15290520)
                 .setFreeSwap(2076)
                 .setLoad(1)

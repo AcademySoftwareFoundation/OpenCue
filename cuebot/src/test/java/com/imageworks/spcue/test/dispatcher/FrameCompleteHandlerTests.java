@@ -115,7 +115,8 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the /mcp directory to book a host.
+                .setFreeMcp(1048576)
                 .setFreeMem((int) CueUtil.GB8)
                 .setFreeSwap(20760)
                 .setLoad(0)
@@ -139,7 +140,8 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         RenderHost host2 = RenderHost.newBuilder()
                 .setName(HOSTNAME2)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the /mcp directory to book a host.
+                .setFreeMcp(1048576)
                 .setFreeMem((int) CueUtil.GB4)
                 .setFreeSwap((int) CueUtil.GB4)
                 .setLoad(0)

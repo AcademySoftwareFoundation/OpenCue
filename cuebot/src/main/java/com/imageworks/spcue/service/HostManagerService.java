@@ -94,6 +94,11 @@ public class HostManagerService implements HostManager {
     }
 
     @Override
+    public void setHostFreeMcp(HostInterface host, Long freeMcp) {
+        hostDao.updateHostFreeMcp(host, freeMcp);
+    }
+
+    @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public boolean isSwapping(HostInterface host) {
         return hostDao.isKillMode(host);

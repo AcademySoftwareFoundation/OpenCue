@@ -112,7 +112,8 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
         RenderHost host = RenderHost.newBuilder()
                 .setName("test_host")
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the /mcp directory to book a host.
+                .setFreeMcp(1048576)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)

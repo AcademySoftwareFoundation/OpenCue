@@ -266,7 +266,8 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOST)
                 .setBootTime(1192369572)
-                .setFreeMcp(7602)
+                // The minimum amount of free space in the /mcp directory to book a host.
+                .setFreeMcp(1048576)
                 .setFreeMem((int) Dispatcher.MEM_RESERVED_MIN * 4)
                 .setFreeSwap(2076)
                 .setLoad(1)

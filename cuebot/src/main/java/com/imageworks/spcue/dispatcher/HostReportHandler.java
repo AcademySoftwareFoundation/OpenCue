@@ -27,12 +27,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
+import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobEntity;
@@ -57,6 +59,7 @@ import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.service.BookingManager;
+import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
@@ -65,7 +68,7 @@ import com.imageworks.spcue.util.CueUtil;
 
 public class HostReportHandler {
 
-    private static final Logger logger = LogManager.getLogger(HostReportHandler.class);
+    private static final Logger logger = Logger.getLogger(HostReportHandler.class);
 
     private BookingManager bookingManager;
     private HostManager hostManager;
@@ -80,6 +83,14 @@ public class HostReportHandler {
     private JobManagerSupport jobManagerSupport;
     private JobDao jobDao;
     private LayerDao layerDao;
+    @Autowired
+    private Environment env;
+    @Autowired
+    private CommentManager commentManager;
+    // Comment constants
+    private static final String SUBJECT_COMMENT_FULL_MCP_DIR = "Host set to REPAIR for not having enough storage " +
+            "space on /mcp";
+    private static final String CUEBOT_COMMENT_USER = "cuebot";
 
     /**
      * Boolean to toggle if this class is accepting data or not.
@@ -146,6 +157,7 @@ public class HostReportHandler {
 
             DispatchHost host;
             RenderHost rhost = report.getHost();
+            Long minBookableFreeMCP = env.getRequiredProperty("dispatcher.min_bookable_free_mcp_gb", Long.class);
             try {
                 host = hostManager.findDispatchHost(rhost.getName());
                 hostManager.setHostStatistics(host,
@@ -156,7 +168,8 @@ public class HostReportHandler {
                         rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
                         rhost.getAttributesMap().get("SP_OS"));
 
-                changeHardwareState(host, report.getHost().getState(), isBoot);
+                changeHardwareState(host, report.getHost().getState(), isBoot, report.getHost().getFreeMcp(),
+                        minBookableFreeMCP);
                 changeNimbyState(host, report.getHost());
 
                 /**
@@ -232,6 +245,10 @@ public class HostReportHandler {
             else if (report.getHost().getFreeMem() < CueUtil.MB512) {
                 msg = String.format("%s doens't have enough free system mem, %d needs %d",
                         host.name, report.getHost().getFreeMem(),  Dispatcher.MEM_RESERVED_MIN);
+            }
+            else if (minBookableFreeMCP != -1 && report.getHost().getFreeMcp() < minBookableFreeMCP) {
+                msg = String.format("%s doens't have enough free space in the /mcp directory, %dMB needs %dMB",
+                        host.name, (report.getHost().getFreeMcp()/1024),  (minBookableFreeMCP/1024));
             }
             else if(!host.hardwareState.equals(HardwareState.UP)) {
                 msg = host + " is not in the Up state.";
@@ -309,13 +326,59 @@ public class HostReportHandler {
      * updated with a boot report.  If the state is Repair, then state is
      * never updated via RQD.
      *
+     *
+     * Prevent cue frames from booking on hosts with full MCP directories.
+     *
+     * Change host state to REPAIR or UP according the amount of free space
+     * in the /mcp directory:
+     * - Set the host state to REPAIR, when the amount of free space in the
+     * /mcp directory is less than the minimum required. Add a comment with
+     * subject: "Action required. Host status = Repair. Reason: Full /mcp directory".
+     * - Set the host state to UP, when the amount of free space in the /mcp directory
+     * is greater or equals to the minimum required and the host has a comment with
+     * subject: "Action required. Host status = Repair. Reason: Full /mcp directory".
+     *
      * @param host
      * @param reportState
      * @param isBoot
+     * @param freeMcp
+     * @param minBookableFreeMCP: The minimum amount of free space in the MCP directory to book a host
      */
-    private void changeHardwareState(DispatchHost host,
-            HardwareState reportState, boolean isBoot) {
+    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot, long freeMcp,
+                                     Long minBookableFreeMCP) {
 
+        // Prevent cue frames from booking on hosts with full MCP directories
+        if (minBookableFreeMCP != -1) {
+            if (host.hardwareState == HardwareState.UP && freeMcp < minBookableFreeMCP) {
+
+                // Set the host state to REPAIR
+                hostManager.setHostState(host, HardwareState.REPAIR);
+                host.hardwareState = HardwareState.REPAIR;
+
+                // Insert a comment indicating that the Host status = Repair with reason = Full /mcp directory
+                CommentDetail c = new CommentDetail();
+                c.subject = SUBJECT_COMMENT_FULL_MCP_DIR;
+                c.user = CUEBOT_COMMENT_USER;
+                c.timestamp = null;
+                c.message = "Host " + host.getName() + " marked as REPAIR. The current amount of free space in /mcp is " +
+                        (freeMcp/1024) + "MB. It must have at least " + (minBookableFreeMCP/1024) +
+                        "MB of free space in /mcp";
+                commentManager.addComment(host, c);
+
+                return;
+            } else if (host.hardwareState == HardwareState.REPAIR) {
+                // Check if the host with REPAIR status has comments with subject=SUBJECT_COMMENT_FULL_MCP_DIR and
+                // user=CUEBOT_COMMENT_USER and delete the comments, if they exists
+                boolean commentsDeleted = commentManager.deleteCommentByHostUserAndSubject(host,
+                        CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_MCP_DIR);
+
+                if (commentsDeleted) {
+                    // Set the host state to UP
+                    hostManager.setHostState(host, HardwareState.UP);
+                    host.hardwareState = HardwareState.UP;
+                }
+            }
+        }
 
         // If the states are the same there is no reason to do this update.
         if (host.hardwareState.equals(reportState)) {
@@ -374,7 +437,7 @@ public class HostReportHandler {
      * locked if all cores are locked.
      *
      * @param host DispatchHost
-     * @param renderHost RenderHost
+     * @param coreInfo CoreDetail
      */
     private void changeLockState(DispatchHost host, CoreDetail coreInfo) {
         if (host.lockState == LockState.LOCKED) {
