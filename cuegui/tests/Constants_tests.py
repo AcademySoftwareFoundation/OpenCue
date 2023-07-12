@@ -40,6 +40,7 @@ logger.level: INFO
 '''
 
 
+# pylint: disable=import-outside-toplevel,redefined-outer-name,reimported
 class ConstantsTests(pyfakefs.fake_filesystem_unittest.TestCase):
     def setUp(self):
         self.setUpPyfakefs()

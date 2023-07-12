@@ -2,28 +2,28 @@
 
 # Script for running OpenCue unit tests with PySide6.
 #
-# This script is written to be run within an almalinux environment in the OpenCue
-# GitHub Actions environment. See .github/workflows/testing-pipeline.yml.
+# This script is written to be run within the OpenCue GitHub Actions environment.
+# See `.github/workflows/testing-pipeline.yml`.
 
 set -e
 
 python_version=$(python -V 2>&1)
 echo "Will run tests using ${python_version}"
 
-# Install needed packages.
-#yum -y install \
-#  dbus-libs \
-#  fontconfig \
-#  gcc \
-#  libxkbcommon-x11 \
-#  mesa-libEGL-devel \
-#  python-devel \
-#  which \
-#  xcb-util-keysyms \
-#  xcb-util-image \
-#  xcb-util-renderutil \
-#  xcb-util-wm \
-#  Xvfb
+# NOTE: To run this in an almalinux environment, install these packages:
+# yum -y install \
+#   dbus-libs \
+#   fontconfig \
+#   gcc \
+#   libxkbcommon-x11 \
+#   mesa-libEGL-devel \
+#   python-devel \
+#   which \
+#   xcb-util-keysyms \
+#   xcb-util-image \
+#   xcb-util-renderutil \
+#   xcb-util-wm \
+#   Xvfb
 
 # Install Python requirements.
 python3 -m pip install --user -r requirements.txt -r requirements_gui.txt
@@ -45,5 +45,4 @@ PYTHONPATH=pycue python cueadmin/setup.py test
 PYTHONPATH=pycue:pyoutline python cuesubmit/setup.py test
 python rqd/setup.py test
 
-# Run tests.
 ci/run_gui_test.sh
