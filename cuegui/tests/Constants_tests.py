@@ -25,7 +25,7 @@ import os
 
 import mock
 import pyfakefs.fake_filesystem_unittest
-from PySide2 import QtGui
+from qtpy import QtGui
 
 import opencue
 import cuegui.Constants
