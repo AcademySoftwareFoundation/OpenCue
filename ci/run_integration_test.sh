@@ -116,9 +116,6 @@ verify_flyway_success() {
 verify_migration_versions() {
     migrations_in_db=$(docker compose exec -e PGUSER=cuebot db psql -Aqtc "SELECT COUNT(*) FROM flyway_schema_history")
     migrations_in_code=$(ls cuebot/src/main/resources/conf/ddl/postgres/migrations/ | wc -l | tr -d ' ')
-    echo $(ls cuebot/src/main/resources/conf/ddl/postgres/migrations/)
-    echo $(ls cuebot/src/main/resources/conf/ddl/postgres/migrations/ | wc -l)
-    echo $(ls cuebot/src/main/resources/conf/ddl/postgres/migrations/ | wc -l | tr -d ' ')
     if [[ ${migrations_in_db} = ${migrations_in_code} ]]; then
         log INFO "Database and code both contain ${migrations_in_db} migrations (PASS)"
     else

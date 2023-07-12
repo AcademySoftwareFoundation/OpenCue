@@ -53,6 +53,7 @@ class ConstantsTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.fs.create_file(config_file_path, contents=CONFIG_YAML)
         os.environ['CUEGUI_CONFIG_FILE'] = config_file_path
 
+        import cuegui.Constants
         result = importlib.reload(cuegui.Constants)
 
         self.assertEqual('98.707.68', result.VERSION)
@@ -65,6 +66,7 @@ class ConstantsTests(pyfakefs.fake_filesystem_unittest.TestCase):
         config_file_path = '/home/username/.config/opencue/cuegui.yaml'
         self.fs.create_file(config_file_path, contents=CONFIG_YAML)
 
+        import cuegui.Constants
         result = importlib.reload(cuegui.Constants)
 
         self.assertEqual('98.707.68', result.VERSION)
@@ -73,6 +75,7 @@ class ConstantsTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
     def test__should_use_default_values(self):
+        import cuegui.Constants
         result = importlib.reload(cuegui.Constants)
 
         self.assertNotEqual('98.707.68', result.VERSION)
@@ -161,6 +164,7 @@ class ConstantsTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     @mock.patch('platform.system', new=mock.Mock(return_value='Darwin'))
     def test__should_use_mac_editor(self):
+        import cuegui.Constants
         result = importlib.reload(cuegui.Constants)
 
         self.assertEqual('open -t', result.DEFAULT_EDITOR)
