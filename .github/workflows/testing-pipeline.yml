@@ -89,7 +89,7 @@ jobs:
     name: Test Documentation Build
     runs-on: ubuntu-latest
     container:
-      image: aswf/ci-opencue:2020
+      image: aswf/ci-opencue:2023
     steps:
       - uses: actions/checkout@v3
       - name: Run Sphinx build
