@@ -116,6 +116,9 @@ verify_flyway_success() {
 verify_migration_versions() {
     migrations_in_db=$(docker compose exec -e PGUSER=cuebot db psql -Aqtc "SELECT COUNT(*) FROM flyway_schema_history")
     migrations_in_code=$(ls cuebot/src/main/resources/conf/ddl/postgres/migrations/ | wc -l | tr -d ' ')
+    echo $(ls cuebot/src/main/resources/conf/ddl/postgres/migrations/)
+    echo $(ls cuebot/src/main/resources/conf/ddl/postgres/migrations/ | wc -l)
+    echo $(ls cuebot/src/main/resources/conf/ddl/postgres/migrations/ | wc -l | tr -d ' ')
     if [[ ${migrations_in_db} = ${migrations_in_code} ]]; then
         log INFO "Database and code both contain ${migrations_in_db} migrations (PASS)"
     else
@@ -223,10 +226,10 @@ main() {
     log INFO "$(docker --version)"
     log INFO "$(docker compose version)"
 
-    #log INFO "Building Cuebot image..."
-    #docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
-    #log INFO "Building RQD image..."
-    #docker build -t opencue/rqd -f rqd/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd.log"
+    log INFO "Building Cuebot image..."
+    docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
+    log INFO "Building RQD image..."
+    docker build -t opencue/rqd -f rqd/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd.log"
 
     log INFO "Starting Docker compose..."
     docker compose up &>"${DOCKER_COMPOSE_LOG}" &

@@ -7,48 +7,6 @@ on:
     branches: [ master ]
 
 jobs:
-  test_python_2019:
-    name: Run Python Unit Tests (CY2019)
-    runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2019
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run Python Tests
-        run: ci/run_python_tests.sh
-
-  test_cuebot_2019:
-    name: Build Cuebot and Run Unit Tests (CY2019)
-    runs-on: ubuntu-latest
-    container:
-      image: aswf/ci-opencue:2019
-    steps:
-    - uses: actions/checkout@v3
-    - name: Build with Gradle
-      run: |
-        chown -R aswfuser:aswfgroup .
-        su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
-
-  test_python_2020:
-    name: Run Python Unit Tests (CY2020)
-    runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2020
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run Python Tests
-        run: ci/run_python_tests.sh
-
-  test_cuebot_2020:
-    name: Build Cuebot and Run Unit Tests (CY2020)
-    runs-on: ubuntu-latest
-    container:
-      image: aswf/ci-opencue:2020
-    steps:
-      - uses: actions/checkout@v3
-      - name: Build with Gradle
-        run: |
-          chown -R aswfuser:aswfgroup .
-          su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
-
   test_python_2021:
     name: Run Python Unit Tests (CY2021)
     runs-on: ubuntu-latest
@@ -77,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Run Python Tests
-        run: ci/run_python_tests.sh
+        run: ci/run_python_tests_pyside6.sh
 
   test_cuebot_2022:
     name: Build Cuebot and Run Unit Tests (CY2022)
@@ -91,14 +49,23 @@ jobs:
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
-  test_pyside6:
-    name: Run CueGUI Tests using PySide6
+  test_python2:
+    name: Run Python Unit Tests using Python2
     runs-on: ubuntu-latest
-    container: almalinux:9
+    container: aswf/ci-opencue:2019
     steps:
-      - uses: actions/checkout@v2
-      - name: Run CueGUI Tests
-        run: ci/test_pyside6.sh
+      - uses: actions/checkout@v3
+      - name: Run Python Tests
+        run: ci/run_python_tests.sh
+
+  #test_pyside6:
+  #  name: Run CueGUI Tests using PySide6
+  #  runs-on: ubuntu-latest
+  #  container: almalinux:9
+  #  steps:
+  #    - uses: actions/checkout@v2
+  #    - name: Run CueGUI Tests
+  #      run: ci/run_python_tests_pyside6.sh
 
   lint_python:
     name: Lint Python Code

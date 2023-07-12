@@ -15,7 +15,10 @@ do
 done
 
 echo "Applying database migrations..."
-./flyway migrate -user=${PGUSER} -password=${PGPASSWORD} -url="jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}" -locations='filesystem:/opt/migrations'
+./flyway -X migrate -user=${PGUSER} -password=${PGPASSWORD} -url="jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}" -locations='filesystem:/opt/migrations'
+
+echo "Applying database migrations again..."
+./flyway -X migrate -user=${PGUSER} -password=${PGPASSWORD} -url="jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}" -locations='filesystem:/opt/migrations'
 
 # Check if a show exists, if not apply demo data
 if psql -c "select 1 from show"|grep "(0 rows)"; then
