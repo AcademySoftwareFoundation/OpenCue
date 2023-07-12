@@ -49,6 +49,15 @@ jobs:
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
+  test_python_2023:
+    name: Run Python Unit Tests (CY2023)
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2023
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Python Tests
+        run: ci/run_python_tests_pyside6.sh
+
   test_python2:
     name: Run Python Unit Tests using Python2
     runs-on: ubuntu-latest
