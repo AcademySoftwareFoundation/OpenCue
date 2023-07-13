@@ -277,7 +277,7 @@ public class HostReportHandlerTests extends TransactionalTest {
     @Test
     @Transactional
     @Rollback(true)
-    public void testHandleHostReportWithFullMCPdirectories() {
+    public void testHandleHostReportWithFullMCPDirectories() {
         // Create CoreDetail
         CoreDetail cores = getCoreDetail(200, 200, 0, 0);
 
@@ -286,7 +286,7 @@ public class HostReportHandlerTests extends TransactionalTest {
         *   Precondition:
         *     - HardwareState=UP
         *   Action:
-        *     - Receives a HostReport with freeMCP < Dispatcher.MIN_BOOKABLE_FREE_MCP_GB
+        *     - Receives a HostReport with freeMCP < dispatcher.min_bookable_free_mcp_kb (opencue.properties)
         *   Postcondition:
         *     - Host hardwareState changes to REPAIR
         *     - A comment is created with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER
@@ -328,7 +328,7 @@ public class HostReportHandlerTests extends TransactionalTest {
          *     - HardwareState=REPAIR
          *     - There is a comment for the host with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER
          *   Action:
-         *     - Receives a HostReport with freeMCP >= Dispatcher.MIN_BOOKABLE_FREE_MCP_GB
+         *     - Receives a HostReport with freeMCP >= dispatcher.min_bookable_free_mcp_kb (opencue.properties)
          *   Postcondition:
          *     - Host hardwareState changes to UP
          *     - Comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER gets deleted
@@ -365,7 +365,7 @@ public class HostReportHandlerTests extends TransactionalTest {
 
         /*
          * Test if host.hardwareState == HardwareState.REPAIR
-         * (Not related to freeMcp < Dispatcher.MIN_BOOKABLE_FREE_MCP_GB)
+         * (Not related to freeMcp < dispatcher.min_bookable_free_mcp_kb (opencue.properties))
          *
          * - There is no comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER associated with
          * the host

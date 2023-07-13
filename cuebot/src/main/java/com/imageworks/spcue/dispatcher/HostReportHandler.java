@@ -157,7 +157,7 @@ public class HostReportHandler {
 
             DispatchHost host;
             RenderHost rhost = report.getHost();
-            Long minBookableFreeMCP = env.getRequiredProperty("dispatcher.min_bookable_free_mcp_gb", Long.class);
+            Long minBookableFreeMCP = env.getRequiredProperty("dispatcher.min_bookable_free_mcp_kb", Long.class);
             try {
                 host = hostManager.findDispatchHost(rhost.getName());
                 hostManager.setHostStatistics(host,
