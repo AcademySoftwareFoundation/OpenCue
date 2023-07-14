@@ -116,10 +116,6 @@ public class HostReportHandlerTests extends TransactionalTest {
         return hostManager.findDispatchHost(HOSTNAME);
     }
 
-    private DispatchHost getHost(String hostname) {
-        return hostManager.findDispatchHost(hostname);
-    }
-
     private static RenderHost getRenderHost() {
         return RenderHost.newBuilder()
                 .setName(HOSTNAME)
@@ -160,7 +156,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setNumProcs(2)
                 .setCoresPerProc(100)
                 .addTags("test")
-                .setState(HardwareState.UP)
+                .setState(state)
                 .setFacility("spi")
                 .putAttributes("SP_OS", "Linux")
                 .setFreeGpuMem((int) CueUtil.MB512)
@@ -300,7 +296,7 @@ public class HostReportHandlerTests extends TransactionalTest {
         // hardwareState to REPAIR
         hostReportHandler.handleHostReport(report1, false);
         // Get host
-        DispatchHost host = getHost(hostname);
+        DispatchHost host = getHost();
         // Get list of comments by host, user, and subject
         List<CommentDetail> comments = commentManager.getCommentsByHostUserAndSubject(host, CUEBOT_COMMENT_USER,
                 SUBJECT_COMMENT_FULL_MCP_DIR);
@@ -324,7 +320,7 @@ public class HostReportHandlerTests extends TransactionalTest {
 
         /*
          * Test 2:
-         *   Precondition:
+         *   Precondition: 
          *     - HardwareState=REPAIR
          *     - There is a comment for the host with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER
          *   Action:
@@ -334,12 +330,15 @@ public class HostReportHandlerTests extends TransactionalTest {
          *     - Comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER gets deleted
          * */
         // Set the host freeMcp to the minimum size required = 1GB (1048576 KB)
-        hostManager.setHostFreeMcp(host, 1048576L);
+        HostReport report2 = HostReport.newBuilder()
+                .setHost(getRenderHost(hostname, HardwareState.UP, 1048576L))
+                .setCoreInfo(cores)
+                .build();
         // Call handleHostReport() => Delete the comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and change the host's
         // hardwareState to UP
-        hostReportHandler.handleHostReport(report1, false);
+        hostReportHandler.handleHostReport(report2, false);
         // Get host
-        host = getHost(hostname);
+        host = getHost();
         // Get list of comments by host, user, and subject
         comments = commentManager.getCommentsByHostUserAndSubject(host, CUEBOT_COMMENT_USER,
                 SUBJECT_COMMENT_FULL_MCP_DIR);
@@ -349,11 +348,8 @@ public class HostReportHandlerTests extends TransactionalTest {
         assertEquals(LockState.OPEN, host.lockState);
         // Check if host hardware state is UP
         assertEquals(HardwareState.UP, host.hardwareState);
-        // Test Queue thread handling
-        queue = hostReportHandler.getReportQueue();
         // Make sure jobs flow normally without any nullpointer exception
-        hostReportHandler.queueHostReport(report1); // HOSTNAME
-        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report1);
   }
 
     @Test
@@ -377,7 +373,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setCoreInfo(cores)
                 .build();
         // Get host
-        DispatchHost host = getHost(hostname);
+        DispatchHost host = getHost();
         // Host's HardwareState set to REPAIR
         hostManager.setHostState(host, HardwareState.REPAIR);
         host.hardwareState = HardwareState.REPAIR;
@@ -396,11 +392,8 @@ public class HostReportHandlerTests extends TransactionalTest {
         assertEquals(LockState.OPEN, host.lockState);
         // Check if host hardware state is REPAIR
         assertEquals(HardwareState.REPAIR, host.hardwareState);
-        // Test Queue thread handling
-        ThreadPoolExecutor queueThread = hostReportHandler.getReportQueue();
         // Make sure jobs flow normally without any nullpointer exception
-        hostReportHandler.queueHostReport(report); // HOSTNAME
-        hostReportHandler.queueHostReport(report); // HOSTNAME
+        hostReportHandler.queueHostReport(report);
     }
 
     @Test

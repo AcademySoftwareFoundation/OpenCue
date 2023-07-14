@@ -351,10 +351,6 @@ public class HostReportHandler {
         if (minBookableFreeMCP != -1) {
             if (host.hardwareState == HardwareState.UP && freeMcp < minBookableFreeMCP) {
 
-                // Set the host state to REPAIR
-                hostManager.setHostState(host, HardwareState.REPAIR);
-                host.hardwareState = HardwareState.REPAIR;
-
                 // Insert a comment indicating that the Host status = Repair with reason = Full /mcp directory
                 CommentDetail c = new CommentDetail();
                 c.subject = SUBJECT_COMMENT_FULL_MCP_DIR;
@@ -365,8 +361,12 @@ public class HostReportHandler {
                         "MB of free space in /mcp";
                 commentManager.addComment(host, c);
 
+                // Set the host state to REPAIR
+                hostManager.setHostState(host, HardwareState.REPAIR);
+                host.hardwareState = HardwareState.REPAIR;
+
                 return;
-            } else if (host.hardwareState == HardwareState.REPAIR) {
+            } else if (host.hardwareState == HardwareState.REPAIR && freeMcp >= minBookableFreeMCP) {
                 // Check if the host with REPAIR status has comments with subject=SUBJECT_COMMENT_FULL_MCP_DIR and
                 // user=CUEBOT_COMMENT_USER and delete the comments, if they exists
                 boolean commentsDeleted = commentManager.deleteCommentByHostUserAndSubject(host,
@@ -376,6 +376,7 @@ public class HostReportHandler {
                     // Set the host state to UP
                     hostManager.setHostState(host, HardwareState.UP);
                     host.hardwareState = HardwareState.UP;
+                    return;
                 }
             }
         }
