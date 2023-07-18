@@ -84,8 +84,6 @@ public class HostReportHandlerTests extends TransactionalTest {
 
     private static final String HOSTNAME = "beta";
     private static final String NEW_HOSTNAME = "gamma";
-    private String hostname;
-    private String hostname2;
     private static final String SUBJECT_COMMENT_FULL_MCP_DIR = "Host set to REPAIR for not having enough storage " +
             "space on /mcp";
     private static final String CUEBOT_COMMENT_USER = "cuebot";
@@ -97,8 +95,6 @@ public class HostReportHandlerTests extends TransactionalTest {
 
     @Before
     public void createHost() {
-        hostname = UUID.randomUUID().toString().substring(0, 8);
-        hostname2 = UUID.randomUUID().toString().substring(0, 8);
         hostManager.createHost(getRenderHost(),
                 adminManager.findAllocationDetail("spi","general"));
     }
@@ -289,7 +285,7 @@ public class HostReportHandlerTests extends TransactionalTest {
         * */
         // Create HostReport
         HostReport report1 = HostReport.newBuilder()
-                .setHost(getRenderHost(hostname, HardwareState.UP, 1024L))
+                .setHost(getRenderHost(HOSTNAME, HardwareState.UP, 1024L))
                 .setCoreInfo(cores)
                 .build();
         // Call handleHostReport() => Create the comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and change the host's
@@ -331,7 +327,7 @@ public class HostReportHandlerTests extends TransactionalTest {
          * */
         // Set the host freeMcp to the minimum size required = 1GB (1048576 KB)
         HostReport report2 = HostReport.newBuilder()
-                .setHost(getRenderHost(hostname, HardwareState.UP, 1048576L))
+                .setHost(getRenderHost(HOSTNAME, HardwareState.UP, 1048576L))
                 .setCoreInfo(cores)
                 .build();
         // Call handleHostReport() => Delete the comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and change the host's
@@ -369,7 +365,7 @@ public class HostReportHandlerTests extends TransactionalTest {
          * */
         // Create HostReport
         HostReport report = HostReport.newBuilder()
-                .setHost(getRenderHost(hostname, HardwareState.UP, 1048576L))
+                .setHost(getRenderHost(HOSTNAME, HardwareState.UP, 1048576L))
                 .setCoreInfo(cores)
                 .build();
         // Get host
