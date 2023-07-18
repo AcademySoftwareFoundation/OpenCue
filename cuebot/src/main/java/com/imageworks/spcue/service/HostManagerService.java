@@ -22,8 +22,7 @@ package com.imageworks.spcue.service;
 import java.sql.Timestamp;
 import java.util.List;
 
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
+import org.apache.log4j.Logger;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,7 +57,7 @@ import com.imageworks.spcue.rqd.RqdClientException;
 
 @Transactional
 public class HostManagerService implements HostManager {
-    private static final Logger logger = LogManager.getLogger(HostManagerService.class);
+    private static final Logger logger = Logger.getLogger(HostManagerService.class);
 
     private HostDao hostDao;
     private RqdClient rqdClient;

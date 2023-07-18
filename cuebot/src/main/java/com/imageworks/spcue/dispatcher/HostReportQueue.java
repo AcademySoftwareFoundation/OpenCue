@@ -26,17 +26,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.imageworks.spcue.grpc.report.HostReport;
+import org.apache.log4j.Logger;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
 
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
 import com.imageworks.spcue.util.CueUtil;
 
 public class HostReportQueue extends ThreadPoolExecutor {
 
-    private static final Logger logger = LogManager.getLogger(HostReportQueue.class);
+    private static final Logger logger = Logger.getLogger(HostReportQueue.class);
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
     private int queueCapacity;
