@@ -84,6 +84,8 @@ public class HostReportHandlerTests extends TransactionalTest {
 
     private static final String HOSTNAME = "beta";
     private static final String NEW_HOSTNAME = "gamma";
+    private String hostname;
+    private String hostname2;
     private static final String SUBJECT_COMMENT_FULL_MCP_DIR = "Host set to REPAIR for not having enough storage " +
             "space on /mcp";
     private static final String CUEBOT_COMMENT_USER = "cuebot";
@@ -95,7 +97,11 @@ public class HostReportHandlerTests extends TransactionalTest {
 
     @Before
     public void createHost() {
-        hostManager.createHost(getRenderHost(),
+        hostname = UUID.randomUUID().toString().substring(0, 8);
+        hostname2 = UUID.randomUUID().toString().substring(0, 8);
+        hostManager.createHost(getRenderHost(hostname, HardwareState.UP),
+                adminManager.findAllocationDetail("spi","general"));
+        hostManager.createHost(getRenderHost(hostname2, HardwareState.UP),
                 adminManager.findAllocationDetail("spi","general"));
     }
 
@@ -108,13 +114,13 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .build();
     }
 
-    private DispatchHost getHost() {
-        return hostManager.findDispatchHost(HOSTNAME);
+    private DispatchHost getHost(String hostname) {
+        return hostManager.findDispatchHost(hostname);
     }
 
-    private static RenderHost getRenderHost() {
+    private static RenderHost getRenderHost(String hostname, HardwareState state) {
         return RenderHost.newBuilder()
-                .setName(HOSTNAME)
+                .setName(hostname)
                 .setBootTime(1192369572)
                 // The minimum amount of free space in the /mcp directory to book a host.
                 .setFreeMcp(1048576)
@@ -128,7 +134,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setNumProcs(2)
                 .setCoresPerProc(100)
                 .addTags("test")
-                .setState(HardwareState.UP)
+                .setState(state)
                 .setFacility("spi")
                 .putAttributes("SP_OS", "Linux")
                 .setFreeGpuMem((int) CueUtil.MB512)
@@ -187,17 +193,40 @@ public class HostReportHandlerTests extends TransactionalTest {
     @Test
     @Transactional
     @Rollback(true)
-    public void testHandleHostReport() {
-        boolean isBoot = false;
+    public void testHandleHostReport() throws InterruptedException {
         CoreDetail cores = getCoreDetail(200, 200, 0, 0);
-        HostReport report = HostReport.newBuilder()
-                .setHost(getRenderHost())
+        HostReport report1 = HostReport.newBuilder()
+                .setHost(getRenderHost(hostname, HardwareState.UP))
                 .setCoreInfo(cores)
                 .build();
+        HostReport report2 = HostReport.newBuilder()
+                .setHost(getRenderHost(hostname2, HardwareState.UP))
+                .setCoreInfo(cores)
+                .build();
+        HostReport report1_2 = HostReport.newBuilder()
+                .setHost(getRenderHost(hostname, HardwareState.UP))
+                .setCoreInfo(getCoreDetail(200, 200, 100, 0))
+                .build();
 
-        hostReportHandler.handleHostReport(report, isBoot);
-        DispatchHost host = getHost();
-        assertEquals(host.lockState, LockState.OPEN);
+        hostReportHandler.handleHostReport(report1, false);
+        DispatchHost host = getHost(hostname);
+        assertEquals(LockState.OPEN, host.lockState);
+        assertEquals(HardwareState.UP, host.hardwareState);
+        hostReportHandler.handleHostReport(report1_2, false);
+        host = getHost(hostname);
+        assertEquals(HardwareState.UP, host.hardwareState);
+
+        // Test Queue thread handling
+        ThreadPoolExecutor queue = hostReportHandler.getReportQueue();
+        // Make sure jobs flow normally without any nullpointer exception
+        // Expecting results from a ThreadPool based class on JUnit is tricky
+        // A future test will be developed in the future to better address the behavior of
+        // this feature
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report2); // HOSTNAME2
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report1_2); // HOSTNAME
     }
 
     @Test
@@ -285,14 +314,14 @@ public class HostReportHandlerTests extends TransactionalTest {
         * */
         // Create HostReport
         HostReport report1 = HostReport.newBuilder()
-                .setHost(getRenderHost(HOSTNAME, HardwareState.UP, 1024L))
+                .setHost(getRenderHost(hostname, HardwareState.UP, 1024L))
                 .setCoreInfo(cores)
                 .build();
         // Call handleHostReport() => Create the comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and change the host's
         // hardwareState to REPAIR
         hostReportHandler.handleHostReport(report1, false);
         // Get host
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(hostname);
         // Get list of comments by host, user, and subject
         List<CommentDetail> comments = commentManager.getCommentsByHostUserAndSubject(host, CUEBOT_COMMENT_USER,
                 SUBJECT_COMMENT_FULL_MCP_DIR);
@@ -327,14 +356,14 @@ public class HostReportHandlerTests extends TransactionalTest {
          * */
         // Set the host freeMcp to the minimum size required = 1GB (1048576 KB)
         HostReport report2 = HostReport.newBuilder()
-                .setHost(getRenderHost(HOSTNAME, HardwareState.UP, 1048576L))
+                .setHost(getRenderHost(hostname, HardwareState.UP, 1048576L))
                 .setCoreInfo(cores)
                 .build();
         // Call handleHostReport() => Delete the comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and change the host's
         // hardwareState to UP
         hostReportHandler.handleHostReport(report2, false);
         // Get host
-        host = getHost();
+        host = getHost(hostname);
         // Get list of comments by host, user, and subject
         comments = commentManager.getCommentsByHostUserAndSubject(host, CUEBOT_COMMENT_USER,
                 SUBJECT_COMMENT_FULL_MCP_DIR);
@@ -344,8 +373,11 @@ public class HostReportHandlerTests extends TransactionalTest {
         assertEquals(LockState.OPEN, host.lockState);
         // Check if host hardware state is UP
         assertEquals(HardwareState.UP, host.hardwareState);
+        // Test Queue thread handling
+        queue = hostReportHandler.getReportQueue();
         // Make sure jobs flow normally without any nullpointer exception
-        hostReportHandler.queueHostReport(report1);
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
   }
 
     @Test
@@ -365,11 +397,11 @@ public class HostReportHandlerTests extends TransactionalTest {
          * */
         // Create HostReport
         HostReport report = HostReport.newBuilder()
-                .setHost(getRenderHost(HOSTNAME, HardwareState.UP, 1048576L))
+                .setHost(getRenderHost(hostname, HardwareState.UP, 1048576L))
                 .setCoreInfo(cores)
                 .build();
         // Get host
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(hostname);
         // Host's HardwareState set to REPAIR
         hostManager.setHostState(host, HardwareState.REPAIR);
         host.hardwareState = HardwareState.REPAIR;
@@ -388,8 +420,11 @@ public class HostReportHandlerTests extends TransactionalTest {
         assertEquals(LockState.OPEN, host.lockState);
         // Check if host hardware state is REPAIR
         assertEquals(HardwareState.REPAIR, host.hardwareState);
+        // Test Queue thread handling
+        ThreadPoolExecutor queueThread = hostReportHandler.getReportQueue();
         // Make sure jobs flow normally without any nullpointer exception
-        hostReportHandler.queueHostReport(report);
+        hostReportHandler.queueHostReport(report); // HOSTNAME
+        hostReportHandler.queueHostReport(report); // HOSTNAME
     }
 
     @Test
@@ -399,7 +434,7 @@ public class HostReportHandlerTests extends TransactionalTest {
         jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
 
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(hostname);
         List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
@@ -416,7 +451,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setMaxRss(420000)
                 .build();
         HostReport report = HostReport.newBuilder()
-                .setHost(getRenderHost())
+                .setHost(getRenderHost(hostname, HardwareState.UP))
                 .setCoreInfo(cores)
                 .addFrames(info)
                 .build();
