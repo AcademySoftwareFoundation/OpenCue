@@ -92,15 +92,9 @@ class OpenCueAddonPreferences(bpy.types.AddonPreferences):
         description="Flag to indicate if dependencies have been installed during first install",
     )
 
-    opencue_home: bpy.props.StringProperty(
-        name="OpenCue home path",
-        default="",
-    )
-
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "is_dependency_install")
-        layout.prop(self, "opencue_home")
 
 def get_opencue_home():
     return bpy.context.preferences.addons[__name__].preferences.opencue_home
