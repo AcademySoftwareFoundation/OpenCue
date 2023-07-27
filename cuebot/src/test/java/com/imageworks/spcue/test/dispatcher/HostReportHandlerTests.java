@@ -86,8 +86,8 @@ public class HostReportHandlerTests extends TransactionalTest {
     private static final String NEW_HOSTNAME = "gamma";
     private String hostname;
     private String hostname2;
-    private static final String SUBJECT_COMMENT_FULL_MCP_DIR = "Host set to REPAIR for not having enough storage " +
-            "space on /mcp";
+    private static final String SUBJECT_COMMENT_FULL_TEMP_DIR = "Host set to REPAIR for not having enough storage " +
+            "space on the temporary directory (mcp)";
     private static final String CUEBOT_COMMENT_USER = "cuebot";
 
     @Before
@@ -122,7 +122,7 @@ public class HostReportHandlerTests extends TransactionalTest {
         return RenderHost.newBuilder()
                 .setName(hostname)
                 .setBootTime(1192369572)
-                // The minimum amount of free space in the /mcp directory to book a host.
+                // The minimum amount of free space in the temporary directory to book a host.
                 .setFreeMcp(1048576)
                 .setFreeMem((int) CueUtil.GB8)
                 .setFreeSwap(20760)
@@ -142,12 +142,12 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .build();
     }
 
-    private static RenderHost getRenderHost(String hostname, HardwareState state, Long freeMcp) {
+    private static RenderHost getRenderHost(String hostname, HardwareState state, Long freeTempDir) {
         return RenderHost.newBuilder()
                 .setName(hostname)
                 .setBootTime(1192369572)
-                // The minimum amount of free space in the /mcp directory to book a host.
-                .setFreeMcp(freeMcp)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(freeTempDir)
                 .setFreeMem((int) CueUtil.GB8)
                 .setFreeSwap(20760)
                 .setLoad(0)
@@ -170,7 +170,7 @@ public class HostReportHandlerTests extends TransactionalTest {
         return RenderHost.newBuilder()
                 .setName(NEW_HOSTNAME)
                 .setBootTime(1192369572)
-                // The minimum amount of free space in the /mcp directory to book a host.
+                // The minimum amount of free space in the temporary directory to book a host.
                 .setFreeMcp(1048576)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
@@ -298,7 +298,7 @@ public class HostReportHandlerTests extends TransactionalTest {
     @Test
     @Transactional
     @Rollback(true)
-    public void testHandleHostReportWithFullMCPDirectories() {
+    public void testHandleHostReportWithFullTemporaryDirectories() {
         // Create CoreDetail
         CoreDetail cores = getCoreDetail(200, 200, 0, 0);
 
@@ -307,32 +307,32 @@ public class HostReportHandlerTests extends TransactionalTest {
         *   Precondition:
         *     - HardwareState=UP
         *   Action:
-        *     - Receives a HostReport with freeMCP < dispatcher.min_bookable_free_mcp_kb (opencue.properties)
+        *     - Receives a HostReport with freeTempDir < dispatcher.min_bookable_free_temp_dir_kb (opencue.properties)
         *   Postcondition:
         *     - Host hardwareState changes to REPAIR
-        *     - A comment is created with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER
+        *     - A comment is created with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and user=CUEBOT_COMMENT_USER
         * */
         // Create HostReport
         HostReport report1 = HostReport.newBuilder()
                 .setHost(getRenderHost(hostname, HardwareState.UP, 1024L))
                 .setCoreInfo(cores)
                 .build();
-        // Call handleHostReport() => Create the comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and change the host's
-        // hardwareState to REPAIR
+        // Call handleHostReport() => Create the comment with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and change the
+        // host's hardwareState to REPAIR
         hostReportHandler.handleHostReport(report1, false);
         // Get host
         DispatchHost host = getHost(hostname);
         // Get list of comments by host, user, and subject
         List<CommentDetail> comments = commentManager.getCommentsByHostUserAndSubject(host, CUEBOT_COMMENT_USER,
-                SUBJECT_COMMENT_FULL_MCP_DIR);
+                SUBJECT_COMMENT_FULL_TEMP_DIR);
         // Check if there is 1 comment
         assertEquals(comments.size(), 1);
         // Get host comment
         CommentDetail comment = comments.get(0);
         // Check if the comment has the user = CUEBOT_COMMENT_USER
         assertEquals(comment.user, CUEBOT_COMMENT_USER);
-        // Check if the comment has the subject = SUBJECT_COMMENT_FULL_MCP_DIR
-        assertEquals(comment.subject, SUBJECT_COMMENT_FULL_MCP_DIR);
+        // Check if the comment has the subject = SUBJECT_COMMENT_FULL_TEMP_DIR
+        assertEquals(comment.subject, SUBJECT_COMMENT_FULL_TEMP_DIR);
         // Check host lock state
         assertEquals(LockState.OPEN, host.lockState);
         // Check if host hardware state is REPAIR
@@ -347,26 +347,26 @@ public class HostReportHandlerTests extends TransactionalTest {
          * Test 2:
          *   Precondition: 
          *     - HardwareState=REPAIR
-         *     - There is a comment for the host with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER
+         *     - There is a comment for the host with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and user=CUEBOT_COMMENT_USER
          *   Action:
-         *     - Receives a HostReport with freeMCP >= dispatcher.min_bookable_free_mcp_kb (opencue.properties)
+         *     - Receives a HostReport with freeTempDir >= dispatcher.min_bookable_free_temp_dir_kb (opencue.properties)
          *   Postcondition:
          *     - Host hardwareState changes to UP
-         *     - Comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER gets deleted
+         *     - Comment with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and user=CUEBOT_COMMENT_USER gets deleted
          * */
-        // Set the host freeMcp to the minimum size required = 1GB (1048576 KB)
+        // Set the host freeTempDir to the minimum size required = 1GB (1048576 KB)
         HostReport report2 = HostReport.newBuilder()
                 .setHost(getRenderHost(hostname, HardwareState.UP, 1048576L))
                 .setCoreInfo(cores)
                 .build();
-        // Call handleHostReport() => Delete the comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and change the host's
-        // hardwareState to UP
+        // Call handleHostReport() => Delete the comment with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and change the
+        // host's hardwareState to UP
         hostReportHandler.handleHostReport(report2, false);
         // Get host
         host = getHost(hostname);
         // Get list of comments by host, user, and subject
         comments = commentManager.getCommentsByHostUserAndSubject(host, CUEBOT_COMMENT_USER,
-                SUBJECT_COMMENT_FULL_MCP_DIR);
+                SUBJECT_COMMENT_FULL_TEMP_DIR);
         // Check if there is no comment associated with the host
         assertEquals(comments.size(), 0);
         // Check host lock state
@@ -383,7 +383,7 @@ public class HostReportHandlerTests extends TransactionalTest {
     @Test
     @Transactional
     @Rollback(true)
-    public void testHandleHostReportWithHardwareStateRepairNotRelatedToFullMCPdirectories() {
+    public void testHandleHostReportWithHardwareStateRepairNotRelatedToFullTempDir() {
         // Create CoreDetail
         CoreDetail cores = getCoreDetail(200, 200, 0, 0);
 
@@ -407,12 +407,12 @@ public class HostReportHandlerTests extends TransactionalTest {
         host.hardwareState = HardwareState.REPAIR;
         // Get list of comments by host, user, and subject
         List<CommentDetail> hostComments = commentManager.getCommentsByHostUserAndSubject(host, CUEBOT_COMMENT_USER,
-                SUBJECT_COMMENT_FULL_MCP_DIR);
+                SUBJECT_COMMENT_FULL_TEMP_DIR);
         // Check if there is no comment
         assertEquals(hostComments.size(), 0);
         // There is no comment to delete
         boolean commentsDeleted = commentManager.deleteCommentByHostUserAndSubject(host,
-                CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_MCP_DIR);
+                CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_TEMP_DIR);
         assertFalse(commentsDeleted);
         // Call handleHostReport()
         hostReportHandler.handleHostReport(report, false);

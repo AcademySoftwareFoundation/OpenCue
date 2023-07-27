@@ -63,12 +63,12 @@ public interface HostManager {
     void setHostState(HostInterface host, HardwareState state);
 
     /**
-     * Updates the freeMcp of a host.
+     * Updates the free temporary directory (mcp) of a host.
      *
      * @param host HostInterface
-     * @param freeMcp Long
+     * @param freeTempDir Long
      */
-    void setHostFreeMcp(HostInterface host, Long freeMcp);
+    void setHostFreeTempDir(HostInterface host, Long freeTempDir);
 
     /**
      * Return true if the host is swapping hard enough

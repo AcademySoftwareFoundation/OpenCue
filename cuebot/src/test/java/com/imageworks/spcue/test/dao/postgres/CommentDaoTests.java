@@ -140,7 +140,7 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         RenderHost host = RenderHost.newBuilder()
                 .setName("boo")
                 .setBootTime(1192369572)
-                // The minimum amount of free space in the /mcp directory to book a host.
+                // The minimum amount of free space in the temporary directory to book a host.
                 .setFreeMcp(1048576)
                 .setFreeMem(15290520)
                 .setFreeSwap(2076)

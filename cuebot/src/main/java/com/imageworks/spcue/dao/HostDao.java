@@ -79,12 +79,12 @@ public interface HostDao {
     void updateHostState(HostInterface host, HardwareState state);
 
     /**
-     * updates a host with the passed free Mcp
+     * updates a host with the passed free temporary directory
      *
      * @param host
-     * @param freeMcp
+     * @param freeTempDir
      */
-    void updateHostFreeMcp(HostInterface host, Long freeMcp);
+    void updateHostFreeTempDir(HostInterface host, Long freeTempDir);
 
     /**
      * returns a full host detail

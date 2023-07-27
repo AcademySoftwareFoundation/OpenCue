@@ -89,8 +89,8 @@ public class HostReportHandler {
     @Autowired
     private CommentManager commentManager;
     // Comment constants
-    private static final String SUBJECT_COMMENT_FULL_MCP_DIR = "Host set to REPAIR for not having enough storage " +
-            "space on /mcp";
+    private static final String SUBJECT_COMMENT_FULL_TEMP_DIR = "Host set to REPAIR for not having enough storage " +
+            "space on the temporary directory (mcp)";
     private static final String CUEBOT_COMMENT_USER = "cuebot";
 
     /**
@@ -233,12 +233,12 @@ public class HostReportHandler {
                 }
             }
 
-            // The minimum amount of free space in the MCP directory to book a host
-            Long minBookableFreeMCP = env.getRequiredProperty("dispatcher.min_bookable_free_mcp_kb", Long.class);
+            // The minimum amount of free space in the temporary directory to book a host
+            Long minBookableFreeTempDir = env.getRequiredProperty("dispatcher.min_bookable_free_temp_dir_kb", Long.class);
 
-            if (minBookableFreeMCP != -1 && report.getHost().getFreeMcp() < minBookableFreeMCP) {
-                msg = String.format("%s doens't have enough free space in the /mcp directory, %dMB needs %dMB",
-                        host.name, (report.getHost().getFreeMcp()/1024),  (minBookableFreeMCP/1024));
+            if (minBookableFreeTempDir != -1 && report.getHost().getFreeMcp() < minBookableFreeTempDir) {
+                msg = String.format("%s doens't have enough free space in the temporary directory (mcp), %dMB needs %dMB",
+                        host.name, (report.getHost().getFreeMcp()/1024),  (minBookableFreeTempDir/1024));
             }
             else if (host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
                 msg = String.format("%s doesn't have enough idle cores, %d needs %d",
@@ -329,39 +329,39 @@ public class HostReportHandler {
      * never updated via RQD.
      *
      *
-     * Prevent cue frames from booking on hosts with full MCP directories.
+     * Prevent cue frames from booking on hosts with full temporary directories.
      *
      * Change host state to REPAIR or UP according the amount of free space
-     * in the /mcp directory:
+     * in the temporary directory:
      * - Set the host state to REPAIR, when the amount of free space in the
-     * /mcp directory is less than the minimum required. Add a comment with
-     * subject: "Action required. Host status = Repair. Reason: Full /mcp directory".
-     * - Set the host state to UP, when the amount of free space in the /mcp directory
+     * temporary directory is less than the minimum required. Add a comment with
+     * subject: SUBJECT_COMMENT_FULL_TEMP_DIR
+     * - Set the host state to UP, when the amount of free space in the temporary directory
      * is greater or equals to the minimum required and the host has a comment with
-     * subject: "Action required. Host status = Repair. Reason: Full /mcp directory".
+     * subject: SUBJECT_COMMENT_FULL_TEMP_DIR
      *
      * @param host
      * @param reportState
      * @param isBoot
-     * @param freeMcp
+     * @param freeTempDir
      */
-    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot, long freeMcp) {
+    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot, long freeTempDir) {
 
-        // The minimum amount of free space in the MCP directory to book a host
-        Long minBookableFreeMCP = env.getRequiredProperty("dispatcher.min_bookable_free_mcp_kb", Long.class);
+        // The minimum amount of free space in the temporary directory to book a host
+        Long minBookableFreeTempDir = env.getRequiredProperty("dispatcher.min_bookable_free_temp_dir_kb", Long.class);
 
-        // Prevent cue frames from booking on hosts with full MCP directories
-        if (minBookableFreeMCP != -1) {
-            if (host.hardwareState == HardwareState.UP && freeMcp < minBookableFreeMCP) {
+        // Prevent cue frames from booking on hosts with full temporary directories
+        if (minBookableFreeTempDir != -1) {
+            if (host.hardwareState == HardwareState.UP && freeTempDir < minBookableFreeTempDir) {
 
-                // Insert a comment indicating that the Host status = Repair with reason = Full /mcp directory
+                // Insert a comment indicating that the Host status = Repair with reason = Full temporary directory
                 CommentDetail c = new CommentDetail();
-                c.subject = SUBJECT_COMMENT_FULL_MCP_DIR;
+                c.subject = SUBJECT_COMMENT_FULL_TEMP_DIR;
                 c.user = CUEBOT_COMMENT_USER;
                 c.timestamp = null;
-                c.message = "Host " + host.getName() + " marked as REPAIR. The current amount of free space in /mcp is " +
-                        (freeMcp/1024) + "MB. It must have at least " + (minBookableFreeMCP/1024) +
-                        "MB of free space in /mcp";
+                c.message = "Host " + host.getName() + " marked as REPAIR. The current amount of free space in the " +
+                        "temporary directory (mcp) is " + (freeTempDir/1024) + "MB. It must have at least "
+                        + (minBookableFreeTempDir/1024) + "MB of free space in temporary directory";
                 commentManager.addComment(host, c);
 
                 // Set the host state to REPAIR
@@ -369,11 +369,11 @@ public class HostReportHandler {
                 host.hardwareState = HardwareState.REPAIR;
 
                 return;
-            } else if (host.hardwareState == HardwareState.REPAIR && freeMcp >= minBookableFreeMCP) {
-                // Check if the host with REPAIR status has comments with subject=SUBJECT_COMMENT_FULL_MCP_DIR and
+            } else if (host.hardwareState == HardwareState.REPAIR && freeTempDir >= minBookableFreeTempDir) {
+                // Check if the host with REPAIR status has comments with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and
                 // user=CUEBOT_COMMENT_USER and delete the comments, if they exists
                 boolean commentsDeleted = commentManager.deleteCommentByHostUserAndSubject(host,
-                        CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_MCP_DIR);
+                        CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_TEMP_DIR);
 
                 if (commentsDeleted) {
                     // Set the host state to UP

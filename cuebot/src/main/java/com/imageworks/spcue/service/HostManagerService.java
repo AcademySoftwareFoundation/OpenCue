@@ -94,8 +94,8 @@ public class HostManagerService implements HostManager {
     }
 
     @Override
-    public void setHostFreeMcp(HostInterface host, Long freeMcp) {
-        hostDao.updateHostFreeMcp(host, freeMcp);
+    public void setHostFreeTempDir(HostInterface host, Long freeTempDir) {
+        hostDao.updateHostFreeTempDir(host, freeTempDir);
     }
 
     @Override
