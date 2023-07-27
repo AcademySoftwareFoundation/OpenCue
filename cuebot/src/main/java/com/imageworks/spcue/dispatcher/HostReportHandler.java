@@ -158,7 +158,6 @@ public class HostReportHandler {
 
             DispatchHost host;
             RenderHost rhost = report.getHost();
-            Long minBookableFreeMCP = env.getRequiredProperty("dispatcher.min_bookable_free_mcp_kb", Long.class);
             try {
                 host = hostManager.findDispatchHost(rhost.getName());
                 hostManager.setHostStatistics(host,
@@ -169,8 +168,7 @@ public class HostReportHandler {
                         rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
                         rhost.getAttributesMap().get("SP_OS"));
 
-                changeHardwareState(host, report.getHost().getState(), isBoot, report.getHost().getFreeMcp(),
-                        minBookableFreeMCP);
+                changeHardwareState(host, report.getHost().getState(), isBoot, report.getHost().getFreeMcp());
                 changeNimbyState(host, report.getHost());
 
                 /**
@@ -235,7 +233,14 @@ public class HostReportHandler {
                 }
             }
 
-            if (host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
+            // The minimum amount of free space in the MCP directory to book a host
+            Long minBookableFreeMCP = env.getRequiredProperty("dispatcher.min_bookable_free_mcp_kb", Long.class);
+
+            if (minBookableFreeMCP != -1 && report.getHost().getFreeMcp() < minBookableFreeMCP) {
+                msg = String.format("%s doens't have enough free space in the /mcp directory, %dMB needs %dMB",
+                        host.name, (report.getHost().getFreeMcp()/1024),  (minBookableFreeMCP/1024));
+            }
+            else if (host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
                 msg = String.format("%s doesn't have enough idle cores, %d needs %d",
                     host.name,  host.idleCores, Dispatcher.CORE_POINTS_RESERVED_MIN);
             }
@@ -245,11 +250,7 @@ public class HostReportHandler {
             }
             else if (report.getHost().getFreeMem() < CueUtil.MB512) {
                 msg = String.format("%s doens't have enough free system mem, %d needs %d",
-                        host.name, report.getHost().getFreeMem(),  Dispatcher.MEM_RESERVED_MIN);
-            }
-            else if (minBookableFreeMCP != -1 && report.getHost().getFreeMcp() < minBookableFreeMCP) {
-                msg = String.format("%s doens't have enough free space in the /mcp directory, %dMB needs %dMB",
-                        host.name, (report.getHost().getFreeMcp()/1024),  (minBookableFreeMCP/1024));
+                        host.name, report.getHost().getFreeMem(), Dispatcher.MEM_RESERVED_MIN);
             }
             else if(!host.hardwareState.equals(HardwareState.UP)) {
                 msg = host + " is not in the Up state.";
@@ -343,10 +344,11 @@ public class HostReportHandler {
      * @param reportState
      * @param isBoot
      * @param freeMcp
-     * @param minBookableFreeMCP: The minimum amount of free space in the MCP directory to book a host
      */
-    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot, long freeMcp,
-                                     Long minBookableFreeMCP) {
+    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot, long freeMcp) {
+
+        // The minimum amount of free space in the MCP directory to book a host
+        Long minBookableFreeMCP = env.getRequiredProperty("dispatcher.min_bookable_free_mcp_kb", Long.class);
 
         // Prevent cue frames from booking on hosts with full MCP directories
         if (minBookableFreeMCP != -1) {
