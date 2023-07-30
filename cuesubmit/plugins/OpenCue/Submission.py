@@ -3,8 +3,6 @@ import outline
 import outline.cuerun
 import outline.modules.shell
 
-# from . import Constants
-
 def buildBlenderCmd(layerData):
     blenderFile = layerData.get('cmd').get('blenderFile')
     outputPath = layerData.get('cmd').get('outputPath')

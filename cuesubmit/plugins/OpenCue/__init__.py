@@ -2,8 +2,6 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from builtins import str
-
 bl_info = {
     "name": "OpenCue",
     "author": "Nuwan Jayawardene",
@@ -48,9 +46,6 @@ class SubmitJob(bpy.types.Operator):
             'shot': context.scene.shot_name,
             'layers': layerData
         }
-
-        # self.report({'INFO'}, jobName)  # Custom method to run when button is clicked
-        # return {'FINISHED'}
 
         from . import Submission
         Submission.submit(jobData)
