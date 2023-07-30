@@ -1181,8 +1181,10 @@ def pipe_to_file(stdout, stderr, outfile):
     outfile.flush()
     os.fsync(outfile)
 
+    # pylint: disable=import-outside-toplevel
     import select
     import errno
+    # pylint: enable=import-outside-toplevel
 
     fd2file = {}
     fd2output = {}
@@ -1213,8 +1215,7 @@ def pipe_to_file(stdout, stderr, outfile):
         # There are no line breaks
         if len(lines) < 2:
             return curr_line_timestamp
-        else:
-            next_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        next_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
 
         remainder = lines[-1]
         for line in lines[0:-1]:
@@ -1225,8 +1226,7 @@ def pipe_to_file(stdout, stderr, outfile):
 
         if next_line_timestamp is None:
             return curr_line_timestamp
-        else:
-            return next_line_timestamp
+        return next_line_timestamp
 
     def translate_newlines(data):
         data = data.decode("utf-8", "ignore")
