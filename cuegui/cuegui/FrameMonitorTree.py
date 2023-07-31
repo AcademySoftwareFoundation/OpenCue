@@ -570,22 +570,25 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         frameWidget = self._items.get('Frame.{}'.format(updatedFrame.id))
         if frameWidget:
             for field in list(job_pb2.UpdatedFrame.DESCRIPTOR.fields_by_name.keys()):
-                if field != "id":
-                    if field == "frame_state_display_override":
-                        # In proto, cannot assign values to embedded message field.
-                        # Instead, assigning values to any field within the child
-                        # message implies setting the message field in the parent.
-                        # The CopyFrom() handles that assignment for us.
-                        if updatedFrame.HasField('frame_state_display_override'):
-                            frameWidget.rpcObject.data.frame_state_display_override.CopyFrom(
-                                updatedFrame.frame_state_display_override)
-                        else:
-                            # If there's no override in the update but the current
-                            # state has one, we need to remove the current override
-                            if frameWidget.rpcObject.hasFrameStateDisplayOverride():
-                                frameWidget.rpcObject.data.ClearField("frame_state_display_override")
+                if field == "id":
+                    continue
+
+                if field == "frame_state_display_override":
+                    # In proto, cannot assign values to embedded message field.
+                    # Instead, assigning values to any field within the child
+                    # message implies setting the message field in the parent.
+                    # The CopyFrom() handles that assignment for us.
+                    if updatedFrame.HasField('frame_state_display_override'):
+                        frameWidget.rpcObject.data.frame_state_display_override.CopyFrom(
+                            updatedFrame.frame_state_display_override)
                     else:
-                        setattr(frameWidget.rpcObject.data, field, getattr(updatedFrame, field))
+                        # If there's no override in the update but the current
+                        # state has one, we need to remove the current override
+                        if frameWidget.rpcObject.hasFrameStateDisplayOverride():
+                            frameWidget.rpcObject.data.ClearField(
+                                "frame_state_display_override")
+                else:
+                    setattr(frameWidget.rpcObject.data, field, getattr(updatedFrame, field))
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
