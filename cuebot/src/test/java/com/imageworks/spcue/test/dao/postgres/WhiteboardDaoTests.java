@@ -1311,15 +1311,22 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testFramesWithDisplayOverride() {
+        // since current_timestamp does not update, we need to make sure the
+        // timestamp we use when retrieving updated frames is older than when
+        // the frame's ts_updated value is set to during insertion.
+        long timestamp = System.currentTimeMillis();
+
         JobDetail job = launchJob();
         FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+
+        // Create override
+        FrameStateDisplayOverride override = createFrameStateDisplayOverride(frame.getFrameId());
+        FrameStateDisplayOverrideSeq results = frameDao.getFrameStateDisplayOverrides(frame.getFrameId());
+        assertEquals(1, results.getOverridesCount());
+
         // Need to set the frame state to match the override we created so it is
         // included when we query for the frame
         frameDao.updateFrameState(frame, FrameState.SUCCEEDED);
-        FrameStateDisplayOverride override = createFrameStateDisplayOverride(frame.getFrameId());
-
-        FrameStateDisplayOverrideSeq results = frameDao.getFrameStateDisplayOverrides(frame.getFrameId());
-        assertEquals(1, results.getOverridesCount());
 
         // Test GET_FRAME
         Frame retrievedFrame = whiteboardDao.getFrame(frame.getFrameId());
@@ -1328,7 +1335,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
 
         // Test GET_UPDATED_FRAME
         UpdatedFrameCheckResult rs = whiteboardDao.getUpdatedFrames(job,
-                new ArrayList<LayerInterface>(), (int) (System.currentTimeMillis() / 1000));
+                new ArrayList<LayerInterface>(), (int) (timestamp / 1000));
         UpdatedFrameSeq uFrames = rs.getUpdatedFrames();
         UpdatedFrame uFrame = uFrames.getUpdatedFrames(0);
         assertTrue(uFrame.hasFrameStateDisplayOverride());
