@@ -1311,7 +1311,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testFramesWithDisplayOverride() {
-        // since current_timestamp does not update, we need to make sure the
+        // since current_timestamp does not update, we need to make sure the 
         // timestamp we use when retrieving updated frames is older than when
         // the frame's ts_updated value is set to during insertion.
         long timestamp = System.currentTimeMillis();
@@ -1323,9 +1323,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         FrameStateDisplayOverride override = createFrameStateDisplayOverride(frame.getFrameId());
         FrameStateDisplayOverrideSeq results = frameDao.getFrameStateDisplayOverrides(frame.getFrameId());
         assertEquals(1, results.getOverridesCount());
-
-        // Need to set the frame state to match the override we created so it is
-        // included when we query for the frame
+        
         frameDao.updateFrameState(frame, FrameState.SUCCEEDED);
 
         // Test GET_FRAME
@@ -1335,11 +1333,17 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
 
         // Test GET_UPDATED_FRAME
         UpdatedFrameCheckResult rs = whiteboardDao.getUpdatedFrames(job,
-                new ArrayList<LayerInterface>(), (int) (timestamp / 1000));
+                    new ArrayList<LayerInterface>(), (int) (timestamp / 1000));
         UpdatedFrameSeq uFrames = rs.getUpdatedFrames();
-        UpdatedFrame uFrame = uFrames.getUpdatedFrames(0);
-        assertTrue(uFrame.hasFrameStateDisplayOverride());
-        assertEquals(override, uFrame.getFrameStateDisplayOverride());
+        // We'll end up getting all the frames for the job so we need to find
+        // the one we want. 
+        for (UpdatedFrame uFrame: uFrames.getUpdatedFramesList()) {
+            if (uFrame.getId().equals(frame.getFrameId())) {
+                assertTrue(uFrame.hasFrameStateDisplayOverride());
+                assertEquals(override, uFrame.getFrameStateDisplayOverride());
+                break;
+            }
+        }
 
         // Test GET_FRAMES_CRITERIA
         FrameSearchInterface r = frameSearchFactory.create(job);
