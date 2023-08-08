@@ -219,20 +219,20 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testUpdateFrameCounters() {
         ShowEntity show = showDao.findShowDetail(SHOW_NAME);
         int frameSuccess =  jdbcTemplate.queryForObject(
-                "SELECT int_frame_success_count FROM show WHERE pk_show=?",
+                "SELECT int_frame_success_count FROM show_stats WHERE pk_show=?",
                 Integer.class, show.id);
         showDao.updateFrameCounters(show, 0);
         int frameSucces2 =  jdbcTemplate.queryForObject(
-                "SELECT int_frame_success_count FROM show WHERE pk_show=?",
+                "SELECT int_frame_success_count FROM show_stats WHERE pk_show=?",
                 Integer.class, show.id);
         assertEquals(frameSuccess + 1,frameSucces2);
 
         int frameFail=  jdbcTemplate.queryForObject(
-                "SELECT int_frame_fail_count FROM show WHERE pk_show=?",
+                "SELECT int_frame_fail_count FROM show_stats WHERE pk_show=?",
                 Integer.class, show.id);
         showDao.updateFrameCounters(show, 1);
         int frameFail2 =  jdbcTemplate.queryForObject(
-                "SELECT int_frame_fail_count FROM show WHERE pk_show=?",
+                "SELECT int_frame_fail_count FROM show_stats WHERE pk_show=?",
                 Integer.class, show.id);
         assertEquals(frameFail+ 1,frameFail2);
     }
