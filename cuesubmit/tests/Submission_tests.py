@@ -78,7 +78,7 @@ class SubmissionTests(unittest.TestCase):
         self.assertEqual(MAYA_LAYER_DATA['name'], layer.get_name())
         self.assertEqual(
             [
-                'Render', '-r', 'file', '-s', '#IFRAME#', '-e', '#IFRAME#', '-cam',
+                'Render', '-r', 'file', '-s', '#FRAME_START#', '-e', '#FRAME_END#', '-cam',
                 MAYA_LAYER_DATA['cmd']['camera'], MAYA_LAYER_DATA['cmd']['mayaFile']
             ],
             layer.get_arg('command')
@@ -128,7 +128,7 @@ class SubmissionTests(unittest.TestCase):
         self.assertEqual(MAYA_LAYER_DATA['name'], mayaLayer.get_name())
         self.assertEqual(
             [
-                'Render', '-r', 'file', '-s', '#IFRAME#', '-e', '#IFRAME#', '-cam',
+                'Render', '-r', 'file', '-s', '#FRAME_START#', '-e', '#FRAME_END#', '-cam',
                 MAYA_LAYER_DATA['cmd']['camera'], MAYA_LAYER_DATA['cmd']['mayaFile']
             ],
             mayaLayer.get_arg('command')
