@@ -138,9 +138,15 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
     private static final String INSERT_SHOW =
         "INSERT INTO show (pk_show,str_name) VALUES (?,?)";
 
+    private static final String INSERT_SHOW_STATS =
+        "INSERT INTO show_stats " +
+            "(pk_show, int_frame_insert_count, int_job_insert_count, int_frame_success_count, int_frame_fail_count) " +
+            "VALUES (?, 0, 0, 0, 0)";
+
     public void insertShow(ShowEntity show) {
         show.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_SHOW, show.id, show.name);
+        getJdbcTemplate().update(INSERT_SHOW_STATS, show.id);
     }
 
     private static final String SHOW_EXISTS =
@@ -168,6 +174,8 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
         getJdbcTemplate().update("DELETE FROM folder WHERE pk_show=?",
                 s.getShowId());
         getJdbcTemplate().update("DELETE FROM show_alias WHERE pk_show=?",
+                s.getShowId());
+        getJdbcTemplate().update("DELETE FROM show_stats WHERE pk_show=?",
                 s.getShowId());
         getJdbcTemplate().update("DELETE FROM show WHERE pk_show=?",
                 s.getShowId());
@@ -262,7 +270,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
             col = "int_frame_fail_count = int_frame_fail_count + 1";
         }
         getJdbcTemplate().update(
-                "UPDATE show SET " + col + " WHERE pk_show=?", s.getShowId());
+                "UPDATE show_stats SET " + col + " WHERE pk_show=?", s.getShowId());
     }
 }
 
