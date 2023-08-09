@@ -70,7 +70,8 @@ class CueCommandTextBox(QtWidgets.QWidget):
         self.commandBox.setAccessibleName('commandBox')
         self.horizontalLine = Widgets.CueHLine()
         self.setFixedHeight(120)
-        tokensToolTip = '\n'.join([f' {token} -- {info}' for token, info in Constants.COMMAND_TOKENS.items()])
+        tokensToolTip = '\n'.join([' {0} -- {1}'.format(token, info)
+                                   for token, info in Constants.COMMAND_TOKENS.items()])
         self.commandBox.setToolTip('Enter the command to be run. Valid replacement tokens are:\n'
                                    + tokensToolTip)
         self.setupUi()
