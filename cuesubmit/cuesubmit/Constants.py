@@ -44,8 +44,8 @@ FRAME_TOKEN = config.get('FRAME_TOKEN', '#IFRAME#')
 # Update this file when updating tokens in cuebot, they will appear in the cuesubmit tooltip popup.
 COMMAND_TOKENS = {'#ZFRAME#': 'Current frame with a padding of 4',
                   '#IFRAME#': 'Current frame',
-                  '#FRAME_START#': 'First frame',
-                  '#FRAME_END#': 'Last frame',
+                  '#FRAME_START#': 'First frame of chunk',
+                  '#FRAME_END#': 'Last frame of chunk',
                   '#FRAME_CHUNK#': 'Chunk size',
                   '#FRAMESPEC#': 'Full frame range',
                   '#LAYER#': 'Name of the Layer',
