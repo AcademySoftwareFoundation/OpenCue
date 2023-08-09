@@ -38,6 +38,10 @@ MAYA_RENDER_CMD = config.get('MAYA_RENDER_CMD', 'Render')
 NUKE_RENDER_CMD = config.get('NUKE_RENDER_CMD', 'nuke')
 BLENDER_RENDER_CMD = config.get('BLENDER_RENDER_CMD', 'blender')
 FRAME_TOKEN = config.get('FRAME_TOKEN', '#IFRAME#')
+
+# Tokens are replaced by cuebot during dispatch with their computed value.
+# see: cuebot/src/main/java/com/imageworks/spcue/dispatcher/DispatchSupportService.java
+# Update this file when updating tokens in cuebot, they will appear in the cuesubmit tooltip popup.
 COMMAND_TOKENS = {'#ZFRAME#': 'Current frame with a padding of 4',
                   '#IFRAME#': 'Current frame',
                   '#FRAME_START#': 'First frame',
