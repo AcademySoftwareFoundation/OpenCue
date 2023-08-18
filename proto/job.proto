@@ -67,6 +67,12 @@ service FrameInterface {
     // Updates the state of the frame's checkpoint status.  If the checkpoint status is complete, then the frame's
     // checkpointCoreSeconds is updated with the amount of render time that was checkpointed.
     rpc SetCheckpointState(FrameSetCheckpointStateRequest) returns (FrameSetCheckpointStateResponse);
+
+    // Set a frame's state display override
+    rpc SetFrameStateDisplayOverride(FrameStateDisplayOverrideRequest) returns (FrameStateDisplayOverrideResponse);
+
+    // Get a frame's state display overrides
+    rpc GetFrameStateDisplayOverrides(GetFrameStateDisplayOverridesRequest) returns (GetFrameStateDisplayOverridesResponse);
 }
 
 service GroupInterface {
@@ -466,6 +472,23 @@ enum Order {
 
 // -------- Primary Message Types --------]
 
+// Object to contain an override of the frame's display settings
+message FrameStateDisplayOverride {
+    FrameState state = 1;   // the FrameState to override
+    string text = 2;  // the text to use
+
+    message RGB {
+        int32 red = 1;
+        int32 green = 2;
+        int32 blue = 3;
+    }
+    RGB color = 3; // RGB color to use e.g. 255,0,0
+}
+
+message FrameStateDisplayOverrideSeq {
+    repeated FrameStateDisplayOverride overrides = 1;
+}
+
 // FRAME ----
 message Frame {
     string id = 1;
@@ -490,6 +513,7 @@ message Frame {
     int32 total_gpu_time = 20;
     int64 max_gpu_memory = 21;
     int64 used_gpu_memory = 22;
+    FrameStateDisplayOverride frame_state_display_override = 23;
 }
 
 // Object for frame searching
@@ -535,6 +559,7 @@ message UpdatedFrame {
     int32 llu_time = 10;
     int64 max_gpu_memory = 11;
     int64 used_gpu_memory = 12;
+    FrameStateDisplayOverride frame_state_display_override = 13;
 }
 
 message UpdatedFrameSeq {
@@ -1746,3 +1771,19 @@ message LayerStaggerFramesRequest {
 }
 
 message LayerStaggerFramesResponse {} // Empty
+
+
+message FrameStateDisplayOverrideRequest {
+  Frame frame = 1;
+  FrameStateDisplayOverride override = 2;
+}
+
+message FrameStateDisplayOverrideResponse {} //Empty
+
+message GetFrameStateDisplayOverridesRequest {
+  Frame frame = 1;
+}
+
+message GetFrameStateDisplayOverridesResponse {
+  FrameStateDisplayOverrideSeq overrides = 1;
+}
