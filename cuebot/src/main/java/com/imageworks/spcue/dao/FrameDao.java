@@ -393,5 +393,14 @@ public interface FrameDao {
      * @return List<FrameStateDisplayOverride>
      */
     FrameStateDisplayOverrideSeq getFrameStateDisplayOverrides(String frameId);
+
+    /**
+     * Update a frame override with new text/color
+     *
+     * @param frameId
+     * @param override FrameStateDisplayOverride
+     */
+    void updateFrameStateDisplayOverride(String frameId,
+                                          FrameStateDisplayOverride override);
 }
 

@@ -72,6 +72,7 @@ import com.imageworks.spcue.grpc.job.FrameRetryResponse;
 import com.imageworks.spcue.grpc.job.FrameSetCheckpointStateRequest;
 import com.imageworks.spcue.grpc.job.FrameSetCheckpointStateResponse;
 import com.imageworks.spcue.grpc.job.FrameStateDisplayOverride;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverrideSeq;
 import com.imageworks.spcue.grpc.job.FrameStateDisplayOverrideRequest;
 import com.imageworks.spcue.grpc.job.FrameStateDisplayOverrideResponse;
 import com.imageworks.spcue.grpc.job.GetFrameStateDisplayOverridesRequest;
@@ -308,7 +309,30 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
         updateManagers();
         Frame frame = request.getFrame();
         FrameStateDisplayOverride override = request.getOverride();
-        frameDao.setFrameStateDisplayOverride(frame.getId(), override);
+
+        FrameStateDisplayOverrideSeq existing_overrides = frameDao.getFrameStateDisplayOverrides(
+                frame.getId());
+        // if override already exists, do nothing
+        // if override is for a state that already has an override but diff color/text, update
+        // if override is new, add
+        boolean newOverride = true;
+        for (FrameStateDisplayOverride eo : existing_overrides.getOverridesList()) {
+            if (eo.equals(override)) {
+                newOverride = false;
+                break;
+            }
+            else if (eo.getState().equals(override.getState()) &&
+                    !(eo.getColor().equals(override.getColor()) &&
+                            eo.getText().equals(override.getText()))) {
+                newOverride = false;
+                frameDao.updateFrameStateDisplayOverride(frame.getId(), override);
+                break;
+            }
+        }
+
+        if (newOverride) {
+            frameDao.setFrameStateDisplayOverride(frame.getId(), override);
+        }
         responseObserver.onNext(FrameStateDisplayOverrideResponse.newBuilder().build());
         responseObserver.onCompleted();
     }

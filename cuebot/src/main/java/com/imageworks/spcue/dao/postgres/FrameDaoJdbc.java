@@ -218,7 +218,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         try {
             int result = getJdbcTemplate().update(UPDATE_FRAME_STARTED,
                     FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
-                    proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved, frame.getFrameId(),
+                proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved, frame.getFrameId(),
                     FrameState.WAITING.toString(), frame.getVersion());
             if (result == 0) {
                 String error_msg = "the frame " +
@@ -1156,5 +1156,27 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 .addAllOverrides(overrides)
                 .build();
     }
-}
 
+    private static final String UPDATE_FRAME_STATE_OVERRIDE =
+            "UPDATE " +
+                "frame_state_display_overrides " +
+            "SET " +
+                "str_override_text = ?," +
+                "str_rgb = ? " +
+            "WHERE " +
+                "pk_frame = ? " +
+            "AND " +
+                "str_frame_state = ?";
+
+    @Override
+    public void updateFrameStateDisplayOverride(String frameId,
+                                                 FrameStateDisplayOverride override) {
+        getJdbcTemplate().update(UPDATE_FRAME_STATE_OVERRIDE,
+                override.getText(),
+                Integer.toString(override.getColor().getRed()) + ","
+                        + Integer.toString(override.getColor().getGreen()) + ","
+                        + Integer.toString(override.getColor().getBlue()),
+                frameId,
+                override.getState().toString());
+    }
+}
