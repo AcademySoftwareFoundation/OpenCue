@@ -101,11 +101,11 @@ public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(1048576)
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem((int) CueUtil.GB8)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem((int) CueUtil.GB8)
                 .setTotalSwap((int) CueUtil.GB2)
                 .setNimbyEnabled(false)

@@ -267,11 +267,11 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
                 .setName(HOST)
                 .setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(1048576)
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem((int) Dispatcher.MEM_RESERVED_MIN * 4)
                 .setFreeSwap(2076)
                 .setLoad(1)
-                .setTotalMcp(19543)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem((int) Dispatcher.MEM_RESERVED_MIN * 4)
                 .setTotalSwap(2096)
                 .setNimbyEnabled(true)

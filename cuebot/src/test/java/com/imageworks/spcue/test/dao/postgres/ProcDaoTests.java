@@ -119,11 +119,11 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 .setName("beta")
                 .setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(1048576)
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem((int) CueUtil.GB32)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)

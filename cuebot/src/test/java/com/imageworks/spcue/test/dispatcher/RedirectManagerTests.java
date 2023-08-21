@@ -60,6 +60,7 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.RedirectService;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
+import com.imageworks.spcue.util.CueUtil;
 
 import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.is;
@@ -138,11 +139,11 @@ public class RedirectManagerTests
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(1048576)
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem(8173264)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)
