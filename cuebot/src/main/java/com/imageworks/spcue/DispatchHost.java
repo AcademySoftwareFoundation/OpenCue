@@ -80,33 +80,42 @@ public class DispatchHost extends Entity
     public String getFacilityId() {
         return facilityId;
     }
-    public boolean canHandleNegativeCoresRequirement(int minCores) {
-        if (minCores > 0) {
-            logger.debug(getName() + " can handle the job with " + minCores + " cores.");
+
+    public boolean canHandleNegativeCoresRequest(int requestedCores) {
+        // Request is positive, no need to test further.
+        if (requestedCores > 0) {
+            logger.debug(getName() + " can handle the job with " + requestedCores + " cores.");
             return true;
         }
+        // All cores are available, validate the request.
         if (cores == idleCores) {
-            logger.debug(getName() + " can handle the job with " + minCores + " cores.");
+            logger.debug(getName() + " can handle the job with " + requestedCores + " cores.");
             return true;
         }
-        logger.debug(getName() + " cannot handle the job with " + minCores + " cores.");
+        // Some or all cores are busy, avoid booking again.
+        logger.debug(getName() + " cannot handle the job with " + requestedCores + " cores.");
         return false;
     }
 
-    public int handleNegativeCoresRequirement(int minCores) {
-        // Do not process positive requests
-        logger.debug("requested minCores:" + minCores);
-        if (minCores > 0) {
-            return minCores;
+    public int handleNegativeCoresRequirement(int requestedCores) {
+        // If we request a <=0 amount of cores, return positive core count.
+
+        if (requestedCores > 0) {
+            // Do not process positive core requests.
+            logger.debug("Requested " + requestedCores + " cores.");
+            return requestedCores;
         }
-        // If request is negative but cores are already used, return 0
-        if (minCores <=0 && idleCores < cores) {
+        if (requestedCores <=0 && idleCores < cores) {
+            // If request is negative but cores are already used, return 0.
+            // We don't want to overbook the host.
+            logger.debug("Requested " + requestedCores + " cores, but the host is busy and cannot book more jobs.");
             return 0;
         }
-        int requestedCores = idleCores + minCores;
-        logger.debug("Requested core number is " + minCores + " <= 0, " +
-                     "matching up to max number with difference " + idleCores + " > " + requestedCores);
-        return requestedCores;
+        // Book all cores minus the request
+        int totalCores = idleCores + requestedCores;
+        logger.debug("Requested " + requestedCores + " cores  <= 0, " +
+                     idleCores + " cores are free, booking " + totalCores + " cores");
+        return totalCores;
     }
 
     @Override

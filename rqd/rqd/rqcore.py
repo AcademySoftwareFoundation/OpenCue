@@ -903,9 +903,7 @@ class RqCore(object):
                 err = "Not launching, numCores must be > 0, got {}".format(cores_to_reserve)
                 log.warning(err)
                 raise rqd.rqexceptions.CoreReservationFailureException(err)
-
-            log.info("Requested core number is negative {}, "
-                     "matching up to max number with difference {} > {}".format(
+            log.info("Requested {} cores <= 0, {} cores are free, booking {}} cores".format(
                          runFrame.num_cores,
                          self.cores.idle_cores,
                          cores_to_reserve)

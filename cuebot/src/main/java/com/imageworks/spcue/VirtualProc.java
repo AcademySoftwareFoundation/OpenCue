@@ -36,7 +36,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
     public String os;
     public byte[] childProcesses;
 
-    public boolean canLaunch;
+    public boolean canHandleNegativeCoresRequest;
     public int coresReserved;
     public long memoryReserved;
     public long memoryUsed;
@@ -100,7 +100,6 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.unbooked = false;
         proc.isLocalDispatch = host.isLocalDispatch;
 
-//         proc.canLaunch = host.canHandleNegativeCoresRequirement(frame.minCores);
         proc.coresReserved = frame.minCores;
         proc.memoryReserved = frame.minMemory;
         proc.gpusReserved = frame.minGpus;
@@ -115,18 +114,17 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
          */
 
         if (host.strandedCores > 0) {
-            logger.debug("host.strandedCores > 0 : " + host.strandedCores);
             proc.coresReserved = proc.coresReserved + host.strandedCores;
         }
 
-        proc.canLaunch = host.canHandleNegativeCoresRequirement(proc.coresReserved);
+        proc.canHandleNegativeCoresRequest = host.canHandleNegativeCoresRequest(proc.coresReserved);
 
         if (proc.coresReserved == 0) {
             logger.debug("Reserving all cores");
             proc.coresReserved = host.cores;
         }
         else if (proc.coresReserved < 0) {
-            logger.debug("Reserving all cores " + proc.coresReserved);
+            logger.debug("Reserving all cores minus " + proc.coresReserved);
             proc.coresReserved = host.cores + proc.coresReserved;
         }
         else if (proc.coresReserved >= 100) {
@@ -148,7 +146,6 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
             // CueUtil.isDayTime()) {
             if (host.threadMode == ThreadMode.ALL_VALUE) {
                 proc.coresReserved = wholeCores * 100;
-                logger.debug("host.threadMode == ThreadMode.ALL_VALUE : proc.coresReserved=" + proc.coresReserved);
             } else {
                 if (frame.threadable) {
                     if (host.idleMemory - frame.minMemory
@@ -156,7 +153,6 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                         proc.coresReserved = wholeCores * 100;
                     } else {
                         proc.coresReserved = getCoreSpan(host, frame.minMemory);
-                        logger.debug("proc.coresReserved = getCoreSpan(host, frame.minMemory):" + proc.coresReserved);
                     }
 
                     if (host.threadMode == ThreadMode.VARIABLE_VALUE
@@ -183,7 +179,6 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
              * original.
              */
             if (proc.coresReserved < originalCores) {
-                logger.debug("proc.coresReserved < originalCores: " + proc.coresReserved + " < " + originalCores);
                 proc.coresReserved = originalCores;
             }
 
@@ -191,12 +186,10 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
              * Check to ensure we haven't exceeded max cores.
              */
             if (frame.maxCores > 0 && proc.coresReserved >= frame.maxCores) {
-                logger.debug("frame.maxCores > 0 && proc.coresReserved >= frame.maxCores");
                 proc.coresReserved = frame.maxCores;
             }
 
             if (proc.coresReserved > host.idleCores) {
-                logger.debug("proc.coresReserved > host.idleCores");
                 if (host.threadMode == ThreadMode.VARIABLE_VALUE
                         && frame.threadable && wholeCores == 1) {
                     throw new JobDispatchException(
@@ -204,7 +197,6 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                 }
                 proc.coresReserved = wholeCores * 100;
             }
-            logger.debug("finally, proc.coresReserved = " + proc.coresReserved);
         }
 
         /*
@@ -265,19 +257,14 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
      */
     public static int getCoreSpan(DispatchHost host, long minMemory) {
         int totalCores = (int) (Math.floor(host.cores / 100.0));
-        logger.debug("getCoreSpan() -> totalCores = " + totalCores);
         int idleCores = (int) (Math.floor(host.idleCores / 100.0));
-        logger.debug("getCoreSpan() -> idleCores = " + idleCores);
         if (idleCores < 1) {
             return 100;
         }
 
         long memPerCore = host.idleMemory / totalCores;
-        logger.debug("getCoreSpan() -> memPerCore = " + memPerCore);
         double procs = minMemory / (double) memPerCore;
-        logger.debug("getCoreSpan() -> procs = " + procs);
         int reserveCores = (int) (Math.round(procs)) * 100;
-        logger.debug("getCoreSpan() -> reserveCores = " + reserveCores);
 
         return reserveCores;
     }

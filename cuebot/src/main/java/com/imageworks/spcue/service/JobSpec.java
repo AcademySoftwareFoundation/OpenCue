@@ -606,7 +606,6 @@ public class JobSpec {
 
         String cores = layerTag.getChildTextTrim("cores");
         if (cores == null) {
-            logger.debug("cores == null");
             return;
         }
 
@@ -614,27 +613,17 @@ public class JobSpec {
 
         if (cores.contains(".")) {
             if (cores.contains("-")) {
-                logger.debug("cores is negative : " + cores);
                 corePoints = (int) (Double.valueOf(cores) * 100 - .5);
             } else {
-                logger.debug("cores is positive : " + cores);
                 corePoints = (int) (Double.valueOf(cores) * 100 + .5);
             }
         } else {
-            logger.debug("cores is an integer : " + cores);
             corePoints = Integer.valueOf(cores);
         }
 
-        logger.debug("submission cores : " + cores);
-        logger.debug("layer.minimumCores : " + layer.minimumCores);
-        logger.debug("corePoints : " + corePoints);
-        logger.debug("Dispatcher.CORE_POINTS_RESERVED_MIN : " + Dispatcher.CORE_POINTS_RESERVED_MIN);
-
         if (corePoints > 0 && corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
-            logger.debug("corePoints > 0 && corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN");
-            //corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
+            corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
         }
-        logger.debug("corePoints after : " + corePoints);
 
         layer.minimumCores = corePoints;
     }
@@ -668,14 +657,11 @@ public class JobSpec {
         // Must have at least 1 core to thread.
         if (layer.minimumCores > 0 && layer.minimumCores < 100) {
             layer.isThreadable = false;
-            logger.debug("not threadable : " + layer.minimumCores);
         }
         else if (layerTag.getChildTextTrim("threadable") != null) {
             layer.isThreadable = Convert.stringToBool(
                     layerTag.getChildTextTrim("threadable"));
-            logger.debug("layerTag.getChildTextTrim('threadable') : " + layerTag.getChildTextTrim("threadable"));
         }
-        logger.debug("layer.isThreadable : " + layer.isThreadable);
     }
 
     private void determineResourceDefaults(Element layerTag,

@@ -258,14 +258,9 @@ public class CoreUnitDispatcher implements Dispatcher {
                 host.getName() + " " + host.idleCores + "/" + host.idleMemory +
                 " on job " + job.getName());
 
-        logger.debug("Frames summary before dispatch:");
         for (DispatchFrame frame: frames) {
-            logger.debug("frame.minCores: " + frame.minCores + ", frame.command: " + frame.command);
-        }
-        for (DispatchFrame frame: frames) {
-
             VirtualProc proc =  VirtualProc.build(host, frame);
-            if (frame.minCores <= 0 && !proc.canLaunch) {
+            if (frame.minCores <= 0 && !proc.canHandleNegativeCoresRequest) {
                 logger.debug("Cannot dispatch job, host is busy.");
                 break;
             }
@@ -273,8 +268,7 @@ public class CoreUnitDispatcher implements Dispatcher {
                     host.idleMemory < frame.minMemory ||
                     host.idleGpus < frame.minGpus ||
                     host.idleGpuMemory < frame.minGpuMemory) {
-                    logger.debug("Cannot dispatch, host.idleCores < host.handleNegativeCoresRequirement(frame.minCores)");
-                    logger.debug(host.idleCores + " < " + host.handleNegativeCoresRequirement(frame.minCores) + " : frame.minCores");
+                    logger.debug("Cannot dispatch, insufficient resources.");
                 break;
             }
 
@@ -290,7 +284,8 @@ public class CoreUnitDispatcher implements Dispatcher {
 
             boolean success = new DispatchFrameTemplate(proc, job, frame, false) {
                 public void wrapDispatchFrame() {
-                    logger.debug("Dispatching frame with minCores: " + frame.minCores + " on proc with coresReserved= " + proc.coresReserved);
+                    logger.debug("Dispatching frame with " + frame.minCores + " minCores on proc with " +
+                                 proc.coresReserved + " coresReserved");
                     dispatch(frame, proc);
                     dispatchSummary(proc, frame, "Booking");
                     return;

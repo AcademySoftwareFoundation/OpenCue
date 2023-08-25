@@ -67,19 +67,25 @@ public class LocalHostAssignment extends Entity
         this.maxGpuMemory = maxGpuMemory;
     }
 
-    public int handleNegativeCoresRequirement(int minCores) {
-        // Do not process positive requests
-        if (minCores > 0) {
-            return minCores;
+    public int handleNegativeCoresRequirement(int requestedCores) {
+        // If we request a <=0 amount of cores, return positive core count.
+
+        if (requestedCores > 0) {
+            // Do not process positive core requests.
+            logger.debug("Requested " + requestedCores + " cores.");
+            return requestedCores;
         }
-        // If request is negative but cores are already used, return 0
-        if (minCores <=0 && idleCoreUnits < threads) {
+        if (requestedCores <=0 && idleCoreUnits < threads) {
+            // If request is negative but cores are already used, return 0.
+            // We don't want to overbook the host.
+            logger.debug("Requested " + requestedCores + " cores, but the host is busy and cannot book more jobs.");
             return 0;
         }
-        int requestedCores = idleCoreUnits + minCores;
-        logger.debug("Requested core number is " + minCores + " <= 0, " +
-                     "matching up to max number with difference " + idleCoreUnits + " > " + requestedCores);
-        return requestedCores;
+        // Book all cores minus the request
+        int totalCores = idleCoreUnits + requestedCores;
+        logger.debug("Requested " + requestedCores + " cores  <= 0, " +
+                     idleCoreUnits + " cores are free, booking " + totalCores + " cores");
+        return totalCores;
     }
 
     @Override
