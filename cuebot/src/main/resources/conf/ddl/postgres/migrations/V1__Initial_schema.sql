@@ -2661,7 +2661,7 @@ EXECUTE PROCEDURE trigger__before_insert_folder();
 CREATE FUNCTION trigger__before_insert_proc()
 RETURNS TRIGGER AS $body$
 BEGIN
-    IF NEW.int_cores_reserved < 0 THEN
+    IF NEW.int_cores_reserved <= 0 THEN
         RAISE EXCEPTION 'failed to allocate proc, tried to allocate 0 cores';
     END IF;
     RETURN NEW;
