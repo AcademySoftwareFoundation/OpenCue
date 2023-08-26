@@ -454,7 +454,7 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         "Create Action",
                         "What value should this property be set to?",
                         0,
-                        -8,  # Allow minimum core value to be negative, booking all host cores minus this value.
+                        -8,  # Minimum core value can be <=0, booking all cores minus this value.
                         50000,
                         2)
                     value = float(value)
