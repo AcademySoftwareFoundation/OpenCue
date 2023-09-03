@@ -69,7 +69,7 @@ RQD_USE_IPV6_AS_HOSTNAME = False
 
 # Use the PATH environment variable from the RQD host.
 RQD_USE_PATH_ENV_VAR = False
-# Copy specific environment variable from the RQD host to the frame env (it is isolated from the system).
+# Copy specific environment variable from the RQD host to the frame env.
 RQD_HOST_ENV_VARS = []
 
 RQD_BECOME_JOB_USER = True
@@ -194,7 +194,8 @@ try:
         if config.has_option(__override_section, "RQD_USE_IP_AS_HOSTNAME"):
             RQD_USE_IP_AS_HOSTNAME = config.getboolean(__override_section, "RQD_USE_IP_AS_HOSTNAME")
         if config.has_option(__override_section, "RQD_USE_IPV6_AS_HOSTNAME"):
-            RQD_USE_IPV6_AS_HOSTNAME = config.getboolean(__override_section, "RQD_USE_IPV6_AS_HOSTNAME")
+            RQD_USE_IPV6_AS_HOSTNAME = config.getboolean(__override_section,
+                                                         "RQD_USE_IPV6_AS_HOSTNAME")
         if config.has_option(__override_section, "RQD_USE_PATH_ENV_VAR"):
             RQD_USE_PATH_ENV_VAR = config.getboolean(__override_section, "RQD_USE_PATH_ENV_VAR")
         if config.has_option(__override_section, "RQD_BECOME_JOB_USER"):
