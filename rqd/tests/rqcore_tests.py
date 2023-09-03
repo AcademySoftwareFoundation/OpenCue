@@ -567,6 +567,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
     @mock.patch('tempfile.gettempdir')
+    @mock.patch('rqd.rqcore.pipe_to_file', new=mock.MagicMock())
     def test_runLinux(self, getTempDirMock, permsUser, timeMock, popenMock): # mkdirMock, openMock,
         # given
         currentTime = 1568070634.3
@@ -632,8 +633,6 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertTrue(os.path.exists(logDir))
         self.assertTrue(os.path.isfile(logFile))
         _, kwargs = popenMock.call_args
-        self.assertEqual(logFile, kwargs['stdout'].name)
-        self.assertEqual(logFile, kwargs['stderr'].name)
 
         rqCore.network.reportRunningFrameCompletion.assert_called_with(
             rqd.compiled_proto.report_pb2.FrameCompleteReport(
