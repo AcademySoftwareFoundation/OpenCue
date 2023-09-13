@@ -346,7 +346,10 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.takeTopLevelItem(self.indexOfTopLevelItem(item))
         objectClass = item.rpcObject.__class__.__name__
         objectId = item.rpcObject.id()
-        del self._items['{}.{}'.format(objectClass, objectId)]
+
+        # Check if object ID exists before delete it
+        if objectId in self._items:
+            del self._items['{}.{}'.format(objectClass, objectId)]
 
     def removeAllItems(self):
         """Removes all items from the tree."""
