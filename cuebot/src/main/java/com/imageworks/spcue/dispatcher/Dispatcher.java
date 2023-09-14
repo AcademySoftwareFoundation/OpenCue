@@ -108,13 +108,11 @@ public interface Dispatcher {
     // without being penalized for it.
     public static final long VIRTUAL_MEM_THRESHHOLD = CueUtil.GB2;
 
-    // The amount of swap that must be used before a host can go
-    // into kill mode.
-    public static final long KILL_MODE_SWAP_THRESHOLD = CueUtil.MB128;
+    // Percentage of used memory to consider a risk for triggering oom-killer
+    public static final double OOM_MAX_SAFE_USED_MEMORY_THRESHOLD = 0.95;
 
-    // When the amount of free memory drops below this point, the
-    // host can go into kill mode.
-    public static final long KILL_MODE_MEM_THRESHOLD = CueUtil.MB512;
+    // How much can a frame exceed its reserved memory
+    public static final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD = 0.25;
 
     // A higher number gets more deep booking but less spread on the cue.
     public static final int DEFAULT_MAX_FRAMES_PER_PASS = 4;
