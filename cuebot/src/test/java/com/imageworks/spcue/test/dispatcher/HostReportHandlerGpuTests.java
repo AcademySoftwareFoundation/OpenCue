@@ -81,13 +81,14 @@ public class HostReportHandlerGpuTests extends TransactionalTest {
         return RenderHost.newBuilder()
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
-                .setFreeMem(53500)
-                .setFreeSwap(20760)
+                // The minimum amount of free space in the /mcp directory to book a host.
+                .setFreeMcp(CueUtil.GB)
+                .setFreeMem(CueUtil.GB8)
+                .setFreeSwap(CueUtil.GB2)
                 .setLoad(0)
-                .setTotalMcp(195430)
-                .setTotalMem(1048576L * 4096)
-                .setTotalSwap(20960)
+                .setTotalMcp(CueUtil.GB4)
+                .setTotalMem(CueUtil.GB8)
+                .setTotalSwap(CueUtil.GB2)
                 .setNimbyEnabled(false)
                 .setNumProcs(2)
                 .setCoresPerProc(100)
@@ -114,7 +115,7 @@ public class HostReportHandlerGpuTests extends TransactionalTest {
         hostReportHandler.handleHostReport(report, true);
         DispatchHost host = getHost();
         assertEquals(host.lockState, LockState.OPEN);
-        assertEquals(host.memory, 4294443008L);
+        assertEquals(host.memory, CueUtil.GB8 - 524288);
         assertEquals(host.gpus, 64);
         assertEquals(host.idleGpus, 64);
         assertEquals(host.gpuMemory, 1048576L * 2048);

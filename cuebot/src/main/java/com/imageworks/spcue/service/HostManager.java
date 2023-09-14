@@ -63,13 +63,12 @@ public interface HostManager {
     void setHostState(HostInterface host, HardwareState state);
 
     /**
-     * Return true if the host is swapping hard enough
-     * that killing frames will save the entire machine.
+     * Updates the freeMcp of a host.
      *
-     * @param host
-     * @return
+     * @param host HostInterface
+     * @param freeMcp Long
      */
-    boolean isSwapping(HostInterface host);
+    void setHostFreeMcp(HostInterface host, Long freeMcp);
 
     DispatchHost createHost(HostReport report);
     DispatchHost createHost(RenderHost host);

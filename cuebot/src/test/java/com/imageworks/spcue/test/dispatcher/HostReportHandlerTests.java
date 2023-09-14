@@ -21,9 +21,12 @@ package com.imageworks.spcue.test.dispatcher;
 
 import java.io.File;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Resource;
 
+import com.imageworks.spcue.dispatcher.DispatchSupport;
+import com.imageworks.spcue.dispatcher.HostReportQueue;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
@@ -31,6 +34,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.AllocationEntity;
+import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.HostReportHandler;
@@ -43,6 +47,7 @@ import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.service.AdminManager;
+import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
@@ -50,7 +55,10 @@ import com.imageworks.spcue.test.TransactionalTest;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.VirtualProc;
 
+import java.util.UUID;
+
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 @ContextConfiguration
 public class HostReportHandlerTests extends TransactionalTest {
@@ -73,8 +81,16 @@ public class HostReportHandlerTests extends TransactionalTest {
     @Resource
     JobManager jobManager;
 
+    @Resource
+    CommentManager commentManager;
+
     private static final String HOSTNAME = "beta";
     private static final String NEW_HOSTNAME = "gamma";
+    private String hostname;
+    private String hostname2;
+    private static final String SUBJECT_COMMENT_FULL_MCP_DIR = "Host set to REPAIR for not having enough storage " +
+            "space on /mcp";
+    private static final String CUEBOT_COMMENT_USER = "cuebot";
 
     @Before
     public void setTestMode() {
@@ -83,7 +99,11 @@ public class HostReportHandlerTests extends TransactionalTest {
 
     @Before
     public void createHost() {
-        hostManager.createHost(getRenderHost(),
+        hostname = UUID.randomUUID().toString().substring(0, 8);
+        hostname2 = UUID.randomUUID().toString().substring(0, 8);
+        hostManager.createHost(getRenderHost(hostname),
+                adminManager.findAllocationDetail("spi","general"));
+        hostManager.createHost(getRenderHost(hostname2),
                 adminManager.findAllocationDetail("spi","general"));
     }
 
@@ -96,44 +116,50 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .build();
     }
 
-    private DispatchHost getHost() {
-        return hostManager.findDispatchHost(HOSTNAME);
+    private DispatchHost getHost(String hostname) {
+        return hostManager.findDispatchHost(hostname);
     }
 
-    private static RenderHost getRenderHost() {
+    private static RenderHost.Builder getRenderHostBuilder(String hostname) {
         return RenderHost.newBuilder()
-                .setName(HOSTNAME)
+                .setName(hostname)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
-                .setFreeMem((int) CueUtil.GB8)
-                .setFreeSwap(20760)
+                // The minimum amount of free space in the /mcp directory to book a host.
+                .setFreeMcp(CueUtil.GB)
+                .setFreeMem(CueUtil.GB8)
+                .setFreeSwap(CueUtil.GB2)
                 .setLoad(0)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem(CueUtil.GB8)
                 .setTotalSwap(CueUtil.GB2)
                 .setNimbyEnabled(false)
-                .setNumProcs(2)
+                .setNumProcs(16)
                 .setCoresPerProc(100)
                 .addTags("test")
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .putAttributes("SP_OS", "Linux")
-                .setFreeGpuMem((int) CueUtil.MB512)
-                .setTotalGpuMem((int) CueUtil.MB512)
-                .build();
+                .setNumGpus(0)
+                .setFreeGpuMem(0)
+                .setTotalGpuMem(0);
+    }
+
+    private static RenderHost getRenderHost(String hostname) {
+        return getRenderHostBuilder(hostname).build();
     }
 
     private static RenderHost getNewRenderHost(String tags) {
         return RenderHost.newBuilder()
                 .setName(NEW_HOSTNAME)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
-                .setFreeMem(53500)
-                .setFreeSwap(20760)
+                // The minimum amount of free space in the /mcp directory to book a host.
+                .setFreeMcp(CueUtil.GB)
+                .setFreeMem(CueUtil.GB8)
+                .setFreeSwap(CueUtil.GB2)
                 .setLoad(0)
                 .setTotalMcp(195430)
-                .setTotalMem(8173264)
-                .setTotalSwap(20960)
+                .setTotalMem(CueUtil.GB8)
+                .setTotalSwap(CueUtil.GB2)
                 .setNimbyEnabled(false)
                 .setNumProcs(2)
                 .setCoresPerProc(100)
@@ -149,17 +175,40 @@ public class HostReportHandlerTests extends TransactionalTest {
     @Test
     @Transactional
     @Rollback(true)
-    public void testHandleHostReport() {
-        boolean isBoot = false;
+    public void testHandleHostReport() throws InterruptedException {
         CoreDetail cores = getCoreDetail(200, 200, 0, 0);
-        HostReport report = HostReport.newBuilder()
-                .setHost(getRenderHost())
+        HostReport report1 = HostReport.newBuilder()
+                .setHost(getRenderHost(hostname))
                 .setCoreInfo(cores)
                 .build();
+        HostReport report2 = HostReport.newBuilder()
+                .setHost(getRenderHost(hostname2))
+                .setCoreInfo(cores)
+                .build();
+        HostReport report1_2 = HostReport.newBuilder()
+                .setHost(getRenderHost(hostname))
+                .setCoreInfo(getCoreDetail(200, 200, 100, 0))
+                .build();
 
-        hostReportHandler.handleHostReport(report, isBoot);
-        DispatchHost host = getHost();
-        assertEquals(host.lockState, LockState.OPEN);
+        hostReportHandler.handleHostReport(report1, false, System.currentTimeMillis());
+        DispatchHost host = getHost(hostname);
+        assertEquals(LockState.OPEN, host.lockState);
+        assertEquals(HardwareState.UP, host.hardwareState);
+        hostReportHandler.handleHostReport(report1_2, false, System.currentTimeMillis());
+        host = getHost(hostname);
+        assertEquals(HardwareState.UP, host.hardwareState);
+
+        // Test Queue thread handling
+        HostReportQueue queue = hostReportHandler.getReportQueue();
+        // Make sure jobs flow normally without any nullpointer exception
+        // Expecting results from a ThreadPool based class on JUnit is tricky
+        // A future test will be developed in the future to better address the behavior of
+        // this feature
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report2); // HOSTNAME2
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report1_2); // HOSTNAME
     }
 
     @Test
@@ -183,7 +232,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setCoreInfo(cores)
                 .build();
 
-        hostReportHandler.handleHostReport(report, isBoot);
+        hostReportHandler.handleHostReport(report, isBoot, System.currentTimeMillis());
         DispatchHost host = hostManager.findDispatchHost(NEW_HOSTNAME);
         assertEquals(host.getAllocationId(), detail.id);
     }
@@ -203,7 +252,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setCoreInfo(cores)
                 .build();
 
-        hostReportHandler.handleHostReport(report, isBoot);
+        hostReportHandler.handleHostReport(report, isBoot, System.currentTimeMillis());
         DispatchHost host = hostManager.findDispatchHost(NEW_HOSTNAME);
         assertEquals(host.getAllocationId(), alloc.id);
     }
@@ -223,9 +272,141 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setCoreInfo(cores)
                 .build();
 
-        hostReportHandler.handleHostReport(report, isBoot);
+        hostReportHandler.handleHostReport(report, isBoot, System.currentTimeMillis());
         DispatchHost host = hostManager.findDispatchHost(NEW_HOSTNAME);
         assertEquals(host.getAllocationId(), alloc.id);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHandleHostReportWithFullMCPDirectories() {
+        // Create CoreDetail
+        CoreDetail cores = getCoreDetail(200, 200, 0, 0);
+
+        /*
+        * Test 1:
+        *   Precondition: 
+        *     - HardwareState=UP
+        *   Action:
+        *     - Receives a HostReport with freeMCP < dispatcher.min_bookable_free_mcp_kb (opencue.properties)
+        *   Postcondition:
+        *     - Host hardwareState changes to REPAIR
+        *     - A comment is created with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER
+        * */
+        // Create HostReport
+        HostReport report1 = HostReport.newBuilder()
+                .setHost(getRenderHostBuilder(hostname).setFreeMcp(1024L).build())
+                .setCoreInfo(cores)
+                .build();
+        // Call handleHostReport() => Create the comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and change the host's
+        // hardwareState to REPAIR
+        hostReportHandler.handleHostReport(report1, false, System.currentTimeMillis());
+        // Get host
+        DispatchHost host = getHost(hostname);
+        // Get list of comments by host, user, and subject
+        List<CommentDetail> comments = commentManager.getCommentsByHostUserAndSubject(host, CUEBOT_COMMENT_USER,
+                SUBJECT_COMMENT_FULL_MCP_DIR);
+        // Check if there is 1 comment
+        assertEquals(comments.size(), 1);
+        // Get host comment
+        CommentDetail comment = comments.get(0);
+        // Check if the comment has the user = CUEBOT_COMMENT_USER
+        assertEquals(comment.user, CUEBOT_COMMENT_USER);
+        // Check if the comment has the subject = SUBJECT_COMMENT_FULL_MCP_DIR
+        assertEquals(comment.subject, SUBJECT_COMMENT_FULL_MCP_DIR);
+        // Check host lock state
+        assertEquals(LockState.OPEN, host.lockState);
+        // Check if host hardware state is REPAIR
+        assertEquals(HardwareState.REPAIR, host.hardwareState);
+        // Test Queue thread handling
+        HostReportQueue queue = hostReportHandler.getReportQueue();
+        // Make sure jobs flow normally without any nullpointer exception
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+
+        /*
+         * Test 2:
+         *   Precondition: 
+         *     - HardwareState=REPAIR
+         *     - There is a comment for the host with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER
+         *   Action:
+         *     - Receives a HostReport with freeMCP >= dispatcher.min_bookable_free_mcp_kb (opencue.properties)
+         *   Postcondition:
+         *     - Host hardwareState changes to UP
+         *     - Comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER gets deleted
+         * */
+        // Set the host freeMcp to the minimum size required = 1GB (1048576 KB)
+        HostReport report2 = HostReport.newBuilder()
+                .setHost(getRenderHostBuilder(hostname).setFreeMcp(CueUtil.GB).build())
+                .setCoreInfo(cores)
+                .build();
+        // Call handleHostReport() => Delete the comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and change the host's
+        // hardwareState to UP
+        hostReportHandler.handleHostReport(report2, false, System.currentTimeMillis());
+        // Get host
+        host = getHost(hostname);
+        // Get list of comments by host, user, and subject
+        comments = commentManager.getCommentsByHostUserAndSubject(host, CUEBOT_COMMENT_USER,
+                SUBJECT_COMMENT_FULL_MCP_DIR);
+        // Check if there is no comment associated with the host
+        assertEquals(comments.size(), 0);
+        // Check host lock state
+        assertEquals(LockState.OPEN, host.lockState);
+        // Check if host hardware state is UP
+        assertEquals(HardwareState.UP, host.hardwareState);
+        // Test Queue thread handling
+        queue = hostReportHandler.getReportQueue();
+        // Make sure jobs flow normally without any nullpointer exception
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+  }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHandleHostReportWithHardwareStateRepairNotRelatedToFullMCPdirectories() {
+        // Create CoreDetail
+        CoreDetail cores = getCoreDetail(200, 200, 0, 0);
+
+        /*
+         * Test if host.hardwareState == HardwareState.REPAIR
+         * (Not related to freeMcp < dispatcher.min_bookable_free_mcp_kb (opencue.properties))
+         *
+         * - There is no comment with subject=SUBJECT_COMMENT_FULL_MCP_DIR and user=CUEBOT_COMMENT_USER associated with
+         * the host
+         * The host.hardwareState continue as HardwareState.REPAIR
+         * */
+        // Create HostReport
+        HostReport report = HostReport.newBuilder()
+                .setHost(getRenderHostBuilder(hostname).setFreeMcp(CueUtil.GB).build())
+                .setCoreInfo(cores)
+                .build();
+        // Get host
+        DispatchHost host = getHost(hostname);
+        // Host's HardwareState set to REPAIR
+        hostManager.setHostState(host, HardwareState.REPAIR);
+        host.hardwareState = HardwareState.REPAIR;
+        // Get list of comments by host, user, and subject
+        List<CommentDetail> hostComments = commentManager.getCommentsByHostUserAndSubject(host, CUEBOT_COMMENT_USER,
+                SUBJECT_COMMENT_FULL_MCP_DIR);
+        // Check if there is no comment
+        assertEquals(hostComments.size(), 0);
+        // There is no comment to delete
+        boolean commentsDeleted = commentManager.deleteCommentByHostUserAndSubject(host,
+                CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_MCP_DIR);
+        assertFalse(commentsDeleted);
+        // Call handleHostReport()
+        hostReportHandler.handleHostReport(report, false, System.currentTimeMillis());
+        // Check host lock state
+        assertEquals(LockState.OPEN, host.lockState);
+        // Check if host hardware state is REPAIR
+        assertEquals(HardwareState.REPAIR, host.hardwareState);
+        // Test Queue thread handling
+        HostReportQueue queueThread = hostReportHandler.getReportQueue();
+        // Make sure jobs flow normally without any nullpointer exception
+        hostReportHandler.queueHostReport(report); // HOSTNAME
+        hostReportHandler.queueHostReport(report); // HOSTNAME
     }
 
     @Test
@@ -235,7 +416,7 @@ public class HostReportHandlerTests extends TransactionalTest {
         jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
 
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(hostname);
         List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
@@ -252,16 +433,145 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setMaxRss(420000)
                 .build();
         HostReport report = HostReport.newBuilder()
-                .setHost(getRenderHost())
+                .setHost(getRenderHost(hostname))
                 .setCoreInfo(cores)
                 .addFrames(info)
                 .build();
 
-        hostReportHandler.handleHostReport(report, false);
+        hostReportHandler.handleHostReport(report, false, System.currentTimeMillis());
 
         FrameDetail frame = jobManager.getFrameDetail(proc.getFrameId());
         assertEquals(frame.dateLLU, new Timestamp(now / 1000 * 1000));
         assertEquals(420000, frame.maxRss);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMemoryAggressionRss() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+
+        long memoryOverboard = (long) Math.ceil((double) proc.memoryReserved *
+                (1.0 + Dispatcher.OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD));
+
+        // Test rss overboard
+        RunningFrameInfo info = RunningFrameInfo.newBuilder()
+                .setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId())
+                .setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId())
+                .setRss(memoryOverboard)
+                .setMaxRss(memoryOverboard)
+                .build();
+        HostReport report = HostReport.newBuilder()
+                .setHost(getRenderHost(hostname))
+                .setCoreInfo(getCoreDetail(200, 200, 0, 0))
+                .addFrames(info)
+                .build();
+
+        long killCount = DispatchSupport.killedOffenderProcs.get();
+        hostReportHandler.handleHostReport(report, false, System.currentTimeMillis());
+        assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMemoryAggressionMaxRss() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+
+        long memoryOverboard = (long) Math.ceil((double) proc.memoryReserved *
+                (1.0 + (2 * Dispatcher.OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD)));
+
+        // Test rss>90% and maxRss overboard
+        RunningFrameInfo info = RunningFrameInfo.newBuilder()
+                .setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId())
+                .setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId())
+                .setRss((long)Math.ceil(0.95 * proc.memoryReserved))
+                .setMaxRss(memoryOverboard)
+                .build();
+        HostReport report = HostReport.newBuilder()
+                .setHost(getRenderHost(hostname))
+                .setCoreInfo(getCoreDetail(200, 200, 0, 0))
+                .addFrames(info)
+                .build();
+
+        long killCount = DispatchSupport.killedOffenderProcs.get();
+        hostReportHandler.handleHostReport(report, false, System.currentTimeMillis());
+        assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMemoryAggressionMemoryWarning() {
+        jobLauncher.testMode = true;
+        dispatcher.setTestMode(true);
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_multiple_frames.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(3, procs.size());
+        VirtualProc proc1 = procs.get(0);
+        VirtualProc proc2 = procs.get(1);
+        VirtualProc proc3 = procs.get(2);
+
+        // Ok
+        RunningFrameInfo info1 = RunningFrameInfo.newBuilder()
+                .setJobId(proc1.getJobId())
+                .setLayerId(proc1.getLayerId())
+                .setFrameId(proc1.getFrameId())
+                .setResourceId(proc1.getProcId())
+                .setRss(CueUtil.GB2)
+                .setMaxRss(CueUtil.GB2)
+                .build();
+
+        // Overboard Rss
+        RunningFrameInfo info2 = RunningFrameInfo.newBuilder()
+                .setJobId(proc2.getJobId())
+                .setLayerId(proc2.getLayerId())
+                .setFrameId(proc2.getFrameId())
+                .setResourceId(proc2.getProcId())
+                .setRss(CueUtil.GB4)
+                .setMaxRss(CueUtil.GB4)
+                .build();
+
+        // Overboard Rss
+        RunningFrameInfo info3 = RunningFrameInfo.newBuilder()
+                .setJobId(proc3.getJobId())
+                .setLayerId(proc3.getLayerId())
+                .setFrameId(proc3.getFrameId())
+                .setResourceId(proc3.getProcId())
+                .setRss(CueUtil.GB4)
+                .setMaxRss(CueUtil.GB4)
+                .build();
+
+        RenderHost hostAfterUpdate = getRenderHostBuilder(hostname).setFreeMem(0).build();
+
+        HostReport report = HostReport.newBuilder()
+                .setHost(hostAfterUpdate)
+                .setCoreInfo(getCoreDetail(200, 200, 0, 0))
+                .addAllFrames(Arrays.asList(info1, info2, info3))
+                .build();
+
+        // In this case, killing one job should be enough to ge the machine to a safe state
+        long killCount = DispatchSupport.killedOffenderProcs.get();
+        hostReportHandler.handleHostReport(report, false, System.currentTimeMillis());
+        assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
     }
 }
 

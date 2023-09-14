@@ -21,26 +21,19 @@ package com.imageworks.spcue.dispatcher;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 
+import com.imageworks.spcue.*;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
-import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.FrameInterface;
-import com.imageworks.spcue.JobEntity;
-import com.imageworks.spcue.LayerEntity;
-import com.imageworks.spcue.LayerDetail;
-import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.Source;
-import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
@@ -62,6 +55,8 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
+
+import static com.imageworks.spcue.dispatcher.Dispatcher.*;
 
 public class HostReportHandler {
 
@@ -199,9 +194,9 @@ public class HostReportHandler {
             killTimedOutFrames(report);
 
             /*
-             * Increase/decreased reserved memory.
+             * Prevent OOM (Out-Of-Memory) issues on the host and manage frame reserved memory
              */
-            handleMemoryReservations(host, report);
+            handleMemoryUsage(host, report);
 
             /*
              * The checks are done in order of least CPU intensive to
@@ -389,103 +384,187 @@ public class HostReportHandler {
     }
 
     /**
-     * Handle memory reservations for the given host.  This will re-balance memory
-     * reservations on the machine and kill and frames that are out of control.
-     *
+     * Prevent host from entering an OOM state where oom-killer might start killing important OS processes.
+     * The kill logic will kick in one of the following conditions is met:
+     *   - Host has less than OOM_MEMORY_LEFT_THRESHOLD_PERCENT memory available
+     *   - A frame is taking more than OOM_FRAME_OVERBOARD_PERCENT of what it had reserved
+     * For frames that are using more than they had reserved but not above the threshold, negotiate expanding
+     * the reservations with other frames on the same host
      * @param host
      * @param report
      */
-    private void handleMemoryReservations(final DispatchHost host, final HostReport report) {
+    private void handleMemoryUsage(final DispatchHost host, final HostReport report) {
+        RenderHost renderHost = report.getHost();
+        List<RunningFrameInfo> runningFrames = report.getFramesList();
 
-        // TODO: GPU: Need to keep frames from growing into space reserved for GPU frames
-        // However all this is done in the database without a chance to edit the values here
+        boolean memoryWarning = renderHost.getTotalMem() > 0 &&
+                ((double)renderHost.getFreeMem()/renderHost.getTotalMem() <
+                        (1.0 - OOM_MAX_SAFE_USED_MEMORY_THRESHOLD));
 
-        /*
-         * Check to see if we enable kill mode to free up memory.
-         */
-        boolean killMode = hostManager.isSwapping(host);
+        if (memoryWarning) {
+            VirtualProc killedProc = killWorstMemoryOffender(host);
+            long memoryAvailable = renderHost.getFreeMem();
+            long minSafeMemoryAvailable = (long)(renderHost.getTotalMem() * (1.0 - OOM_MAX_SAFE_USED_MEMORY_THRESHOLD));
+            // Some extra protection for this possibly unbound loop
+            int unboundProtectionLimit = 10;
+            while (killedProc != null && unboundProtectionLimit > 0) {
+                memoryAvailable = memoryAvailable + killedProc.memoryUsed;
 
-        for (final RunningFrameInfo f: report.getFramesList()) {
-
-            VirtualProc proc = null;
-            try {
-                proc = hostManager.getVirtualProc(f.getResourceId());
-
-                // TODO: handle memory management for local dispatches
-                // Skip local dispatches for now.
-                if (proc.isLocalDispatch) {
-                    continue;
+                // If killing this proc solved the memory issue, stop the attack
+                if (memoryAvailable >= minSafeMemoryAvailable) {
+                    break;
                 }
-
-
-                if (f.getRss() > host.memory) {
-                    try{
-                        logger.info("Killing frame " + f.getJobName() + "/" + f.getFrameName() + ", "
-                                + proc.getName() + " was OOM");
-                        try {
-                            killQueue.execute(new DispatchRqdKillFrame(proc, "The frame required " +
-                                    CueUtil.KbToMb(f.getRss()) + " but the machine only has " +
-                                    CueUtil.KbToMb(host.memory), rqdClient));
-                        } catch (TaskRejectedException e) {
-                            logger.warn("Unable to queue RQD kill, task rejected, " + e);
-                        }
-                        DispatchSupport.killedOomProcs.incrementAndGet();
-                    } catch (Exception e) {
-                        logger.info("failed to kill frame on " + proc.getName() +
-                                "," + e);
+                killedProc = killWorstMemoryOffender(host);
+                unboundProtectionLimit -= 1;
+            }
+        } else {
+            // When no mass cleaning was required, check for frames going overboard
+            // if frames didn't go overboard, manage its reservations trying to increase
+            // them accordingly
+            for (final RunningFrameInfo frame: runningFrames) {
+                if (isFrameOverboard(frame)) {
+                    if (!killFrame(frame, host.getName())) {
+                        logger.warn("Frame " + frame.getJobName() + "." + frame.getFrameName() +
+                                " is overboard but could not be killed");
                     }
+                } else {
+                    handleMemoryReservations(frame);
                 }
+            }
+        }
+    }
 
-                if (dispatchSupport.increaseReservedMemory(proc, f.getRss())) {
-                    proc.memoryReserved = f.getRss();
-                    logger.info("frame " + f.getFrameName() + " on job " + f.getJobName()
-                            + " increased its reserved memory to " +
-                            CueUtil.KbToMb(f.getRss()));
-                }
+    private boolean killFrame(RunningFrameInfo frame, String hostName) {
+        try {
+            VirtualProc proc = hostManager.getVirtualProc(frame.getResourceId());
 
-            } catch (ResourceReservationFailureException e) {
+            // Don't mess with localDispatch procs
+            if (proc.isLocalDispatch) {
+                return false;
+            }
 
-                long memNeeded = f.getRss() - proc.memoryReserved;
+            logger.info("Killing frame on " + frame.getJobName() + "." + frame.getFrameName() +
+                    ", using too much memory.");
+            DispatchSupport.killedOffenderProcs.incrementAndGet();
 
-                logger.info("frame " + f.getFrameName() + " on job " + f.getJobName()
+            if (!dispatcher.isTestMode()) {
+                jobManagerSupport.kill(proc, new Source("This frame is using way more than it had reserved."));
+            }
+            return true;
+        } catch (EmptyResultDataAccessException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Kill proc with the worst user/reserved memory ratio.
+     *
+     * @param host
+     * @return killed proc, or null if none could be found
+     */
+    private VirtualProc killWorstMemoryOffender(final DispatchHost host) {
+        VirtualProc proc;
+        try {
+            proc = hostManager.getWorstMemoryOffender(host);
+        }
+        catch (EmptyResultDataAccessException e) {
+            logger.error(host.name + " is under OOM and no proc is running on it.");
+            return null;
+        }
+
+        logger.info("Killing frame on " + proc.getName() + ", host is under stress.");
+        DispatchSupport.killedOffenderProcs.incrementAndGet();
+
+        if (!dispatcher.isTestMode()) {
+            jobManagerSupport.kill(proc, new Source("The host was dangerously low on memory and swapping."));
+            prometheusMetrics.incrementFrameOomKilledCounter(host.getName());
+        }
+
+        return proc;
+    }
+
+    /**
+     * Check frame memory usage comparing the amount used with the amount it had reserved
+     * @param frame
+     * @return
+     */
+    private boolean isFrameOverboard(final RunningFrameInfo frame) {
+        double rss = (double)frame.getRss();
+        double maxRss = (double)frame.getMaxRss();
+        final double MAX_RSS_OVERBOARD_THRESHOLD = OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD * 2;
+        final double RSS_AVAILABLE_FOR_MAX_RSS_TRIGGER = 0.1;
+
+        try {
+            VirtualProc proc = hostManager.getVirtualProc(frame.getResourceId());
+            double reserved = (double)proc.memoryReserved;
+
+            // Last memory report is higher than the threshold
+            if (isOverboard(rss, reserved, OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD)) {
+                return true;
+            }
+            // If rss is not overboard, handle the situation where the frame might be going overboard from
+            // time to time but the last report wasn't during a spike. For this case, consider a combination
+            // of rss and maxRss. maxRss > 2 * threshold and rss > 0.9
+            else {
+                return isOverboard(maxRss, reserved, MAX_RSS_OVERBOARD_THRESHOLD) &&
+                        isOverboard(rss, reserved, -RSS_AVAILABLE_FOR_MAX_RSS_TRIGGER);
+            }
+        } catch (EmptyResultDataAccessException e) {
+            logger.info("HostReportHandler(isFrameOverboard): Virtual proc for frame " +
+                    frame.getFrameName() + " on job " + frame.getJobName() + " doesn't exist on the database");
+            // Not able to mark the frame overboard is it couldn't be found on the db.
+            // Proc accounting (verifyRunningProc) should take care of it
+            return false;
+        }
+    }
+
+    private boolean isOverboard(double value, double total, double threshold) {
+        return value/total >= (1 + threshold);
+    }
+
+    /**
+     * Handle memory reservations for the given frame
+     *
+     * @param frame
+     */
+    private void handleMemoryReservations(final RunningFrameInfo frame) {
+        VirtualProc proc = null;
+        try {
+            proc = hostManager.getVirtualProc(frame.getResourceId());
+
+            if (proc.isLocalDispatch) {
+                return;
+            }
+
+            if (dispatchSupport.increaseReservedMemory(proc, frame.getRss())) {
+                proc.memoryReserved = frame.getRss();
+                logger.info("frame " + frame.getFrameName() + " on job " + frame.getJobName()
+                        + " increased its reserved memory to " +
+                        CueUtil.KbToMb(frame.getRss()));
+            }
+        } catch (ResourceReservationFailureException e) {
+            if (proc != null) {
+                long memNeeded = frame.getRss() - proc.memoryReserved;
+                logger.info("frame " + frame.getFrameName() + " on job " + frame.getJobName()
                         + "was unable to reserve an additional " + CueUtil.KbToMb(memNeeded)
                         + "on proc " + proc.getName() + ", " + e);
-
                 try {
                     if (dispatchSupport.balanceReservedMemory(proc, memNeeded)) {
-                        proc.memoryReserved = f.getRss();
+                        proc.memoryReserved = frame.getRss();
                         logger.info("was able to balance host: " + proc.getName());
-                    }
-                    else {
+                    } else {
                         logger.info("failed to balance host: " + proc.getName());
                     }
                 } catch (Exception ex) {
                     logger.warn("failed to balance host: " + proc.getName() + ", " + e);
                 }
-            } catch (EmptyResultDataAccessException e) {
-                logger.info("HostReportHandler: frame " + f.getFrameName() +
-                        " on job " + f.getJobName() +
-                        " was unable be processed" +
-                        " because the proc could not be found");
+            } else {
+                logger.info("frame " + frame.getFrameName() + " on job " + frame.getJobName()
+                        + "was unable to reserve an additional memory. Proc could not be found");
             }
-        }
-
-        if (killMode) {
-            VirtualProc proc;
-            try {
-                proc = hostManager.getWorstMemoryOffender(host);
-            }
-            catch (EmptyResultDataAccessException e) {
-                logger.info(host.name + " is swapping and no proc is running on it.");
-                return;
-            }
-
-            logger.info("Killing frame on " +
-                    proc.getName() + ", host is distressed.");
-
-            DispatchSupport.killedOffenderProcs.incrementAndGet();
-            jobManagerSupport.kill(proc, new Source(
-                    "The host was dangerously low on memory and swapping."));
+        } catch (EmptyResultDataAccessException e) {
+            logger.info("HostReportHandler: Memory reservations for frame " + frame.getFrameName() +
+                    " on job " + frame.getJobName() + " proc could not be found");
         }
     }
 
