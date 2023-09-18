@@ -28,6 +28,8 @@ import javax.annotation.Resource;
 
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.HostReportQueue;
+import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
+import com.imageworks.spcue.grpc.job.FrameState;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
@@ -47,6 +49,7 @@ import com.imageworks.spcue.grpc.report.CoreDetail;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
+import com.imageworks.spcue.grpc.report.FrameCompleteReport;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
@@ -55,6 +58,7 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.TransactionalTest;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.LayerDetail;
 
 import java.util.UUID;
 
@@ -72,6 +76,9 @@ public class HostReportHandlerTests extends TransactionalTest {
 
     @Resource
     HostReportHandler hostReportHandler;
+
+    @Resource
+    FrameCompleteHandler frameCompleteHandler;
 
     @Resource
     Dispatcher dispatcher;
@@ -552,13 +559,14 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .build();
 
         // Overboard Rss
+        long memoryUsedProc3 = CueUtil.GB8;
         RunningFrameInfo info3 = RunningFrameInfo.newBuilder()
                 .setJobId(proc3.getJobId())
                 .setLayerId(proc3.getLayerId())
                 .setFrameId(proc3.getFrameId())
                 .setResourceId(proc3.getProcId())
-                .setRss(CueUtil.GB4)
-                .setMaxRss(CueUtil.GB4)
+                .setRss(memoryUsedProc3)
+                .setMaxRss(memoryUsedProc3)
                 .build();
 
         RenderHost hostAfterUpdate = getRenderHostBuilder(hostname).setFreeMem(0).build();
@@ -569,10 +577,41 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .addAllFrames(Arrays.asList(info1, info2, info3))
                 .build();
 
+        // Get layer state before report gets sent
+        LayerDetail layerBeforeIncrease = jobManager.getLayerDetail(proc3.getLayerId());
+
         // In this case, killing one job should be enough to ge the machine to a safe state
         long killCount = DispatchSupport.killedOffenderProcs.get();
         hostReportHandler.handleHostReport(report, false, System.currentTimeMillis());
         assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
+
+        // Confirm the frame will be set to retry after it's completion has been processed
+
+        RunningFrameInfo runningFrame = RunningFrameInfo.newBuilder()
+                .setFrameId(proc3.getFrameId())
+                .setFrameName("frame_name")
+                .setLayerId(proc3.getLayerId())
+                .setRss(memoryUsedProc3)
+                .setMaxRss(memoryUsedProc3)
+                .setResourceId(proc3.id)
+                .build();
+        FrameCompleteReport completeReport = FrameCompleteReport.newBuilder()
+                .setHost(hostAfterUpdate)
+                .setFrame(runningFrame)
+                .setExitSignal(9)
+                .setRunTime(1)
+                .setExitStatus(1)
+                .build();
+
+        frameCompleteHandler.handleFrameCompleteReport(completeReport);
+        FrameDetail killedFrame = jobManager.getFrameDetail(proc3.getFrameId());
+        LayerDetail layer = jobManager.getLayerDetail(proc3.getLayerId());
+        assertEquals(FrameState.WAITING, killedFrame.state);
+        // Memory increases are processed in two different places one will set the new value to proc.reserved + 2GB
+        // and the other will set to the maximum reported proc.maxRss the end value will be whoever is higher.
+        // In this case, proc.maxRss
+        assertEquals(Math.max(memoryUsedProc3, layerBeforeIncrease.getMinimumMemory() + CueUtil.GB2),
+                layer.getMinimumMemory());
     }
 }
 
