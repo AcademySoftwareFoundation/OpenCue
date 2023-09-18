@@ -343,6 +343,12 @@ public class DispatchSupportService implements DispatchSupport {
         frameDao.updateFrameCleared(frame);
     }
 
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updateFrameMemoryError(FrameInterface frame) {
+        frameDao.updateFrameMemoryError(frame);
+    }
+
     @Transactional(propagation = Propagation.SUPPORTS)
     public RunFrame prepareRqdRunFrame(VirtualProc proc, DispatchFrame frame) {
         int threads =  proc.coresReserved / 100;

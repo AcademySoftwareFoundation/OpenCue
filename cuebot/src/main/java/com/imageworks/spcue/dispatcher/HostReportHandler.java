@@ -30,6 +30,7 @@ import com.imageworks.spcue.*;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -50,9 +51,9 @@ import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.service.BookingManager;
+import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -72,7 +73,6 @@ public class HostReportHandler {
     private Dispatcher localDispatcher;
     private RqdClient rqdClient;
     private JobManager jobManager;
-    private JobManagerSupport jobManagerSupport;
     private JobDao jobDao;
     private LayerDao layerDao;
 
@@ -163,9 +163,8 @@ public class HostReportHandler {
                 }
 
                 dispatchSupport.determineIdleCores(host, report.getHost().getLoad());
-
             } catch (DataAccessException dae) {
-                logger.warn("Unable to find host " + rhost.getName() + ","
+                logger.info("Unable to find host " + rhost.getName() + ","
                         + dae + " , creating host.");
                 // TODO: Skip adding it if the host name is over 30 characters
 
@@ -281,8 +280,8 @@ public class HostReportHandler {
             }
 
         } finally {
-            if (reportQueue.getQueue().size() > 0 ||
-                    System.currentTimeMillis() - startTime > 100) {
+            long duration = System.currentTimeMillis() - startTime;
+            if (duration > 100) {
                 /*
                  * Write a log if the host report takes a long time to process.
                  */
@@ -423,7 +422,7 @@ public class HostReportHandler {
             // them accordingly
             for (final RunningFrameInfo frame: runningFrames) {
                 if (isFrameOverboard(frame)) {
-                    if (!killFrame(frame, host.getName())) {
+                    if (!killFrameOverusingMemory(frame, host.getName())) {
                         logger.warn("Frame " + frame.getJobName() + "." + frame.getFrameName() +
                                 " is overboard but could not be killed");
                     }
@@ -434,7 +433,7 @@ public class HostReportHandler {
         }
     }
 
-    private boolean killFrame(RunningFrameInfo frame, String hostName) {
+    private boolean killFrameOverusingMemory(RunningFrameInfo frame, String hostname) {
         try {
             VirtualProc proc = hostManager.getVirtualProc(frame.getResourceId());
 
@@ -445,13 +444,30 @@ public class HostReportHandler {
 
             logger.info("Killing frame on " + frame.getJobName() + "." + frame.getFrameName() +
                     ", using too much memory.");
-            DispatchSupport.killedOffenderProcs.incrementAndGet();
-
-            if (!dispatcher.isTestMode()) {
-                jobManagerSupport.kill(proc, new Source("This frame is using way more than it had reserved."));
-            }
-            return true;
+            return killProcForMemory(proc, hostname, "This frame is using way more than it had reserved.");
         } catch (EmptyResultDataAccessException e) {
+            return false;
+        }
+    }
+
+    private boolean killProcForMemory(VirtualProc proc, String hostname, String reason) {
+        try {
+            FrameInterface frame = jobManager.getFrame(proc.frameId);
+
+            if (dispatcher.isTestMode()) {
+                // For testing, don't run on a different threadpool, as different threads don't share
+                // the same database state
+                (new DispatchRqdKillFrameMemory(proc.hostName, frame, reason, rqdClient,
+                        dispatchSupport, dispatcher.isTestMode())).run();
+            } else {
+                killQueue.execute(new DispatchRqdKillFrameMemory(proc.hostName, frame, reason, rqdClient,
+                        dispatchSupport, dispatcher.isTestMode()));
+                prometheusMetrics.incrementFrameOomKilledCounter(hostname);
+            }
+            DispatchSupport.killedOffenderProcs.incrementAndGet();
+            return true;
+        } catch (TaskRejectedException e) {
+            logger.warn("Unable to queue RQD kill, task rejected, " + e);
             return false;
         }
     }
@@ -460,27 +476,23 @@ public class HostReportHandler {
      * Kill proc with the worst user/reserved memory ratio.
      *
      * @param host
-     * @return killed proc, or null if none could be found
+     * @return killed proc, or null if none could be found or failed to be killed
      */
     private VirtualProc killWorstMemoryOffender(final DispatchHost host) {
-        VirtualProc proc;
         try {
-            proc = hostManager.getWorstMemoryOffender(host);
+            VirtualProc proc = hostManager.getWorstMemoryOffender(host);
+            logger.info("Killing frame on " + proc.getName() + ", host is under stress.");
+
+            if (!killProcForMemory(proc, host.getName(), "The host was dangerously low on memory and swapping.")) {
+                // Returning null will prevent the caller from overflowing the kill queue with more messages
+                proc = null;
+            }
+            return proc;
         }
         catch (EmptyResultDataAccessException e) {
             logger.error(host.name + " is under OOM and no proc is running on it.");
             return null;
         }
-
-        logger.info("Killing frame on " + proc.getName() + ", host is under stress.");
-        DispatchSupport.killedOffenderProcs.incrementAndGet();
-
-        if (!dispatcher.isTestMode()) {
-            jobManagerSupport.kill(proc, new Source("The host was dangerously low on memory and swapping."));
-            prometheusMetrics.incrementFrameOomKilledCounter(host.getName());
-        }
-
-        return proc;
     }
 
     /**
@@ -556,7 +568,7 @@ public class HostReportHandler {
                         logger.info("failed to balance host: " + proc.getName());
                     }
                 } catch (Exception ex) {
-                    logger.warn("failed to balance host: " + proc.getName() + ", " + e);
+                    logger.info("failed to balance host: " + proc.getName() + ", " + e);
                 }
             } else {
                 logger.info("frame " + frame.getFrameName() + " on job " + frame.getJobName()
@@ -589,7 +601,7 @@ public class HostReportHandler {
                             "This frame has reached it timeout.",
                             rqdClient));
                     } catch (TaskRejectedException e) {
-                        logger.warn("Unable to queue  RQD kill, task rejected, " + e);
+                        logger.info("Unable to queue  RQD kill, task rejected, " + e);
                 }
             }
 
@@ -611,7 +623,7 @@ public class HostReportHandler {
                             "This frame has reached it LLU timeout.",
                             rqdClient));
                     } catch (TaskRejectedException e) {
-                        logger.warn("Unable to queue  RQD kill, task rejected, " + e);
+                        logger.info("Unable to queue  RQD kill, task rejected, " + e);
                 }
             }
         }
@@ -750,10 +762,11 @@ public class HostReportHandler {
 
                 String msg;
                 VirtualProc proc = null;
+                boolean procExists = true;
 
                 try {
                     proc = hostManager.getVirtualProc(runningFrame.getResourceId());
-                    msg = "Virutal proc " + proc.getProcId() +
+                    msg = "Virtual proc " + proc.getProcId() +
                         "is assigned to " + proc.getFrameId() +
                         " not " + runningFrame.getFrameId();
                 }
@@ -765,6 +778,7 @@ public class HostReportHandler {
                      * do however kill the proc.
                      */
                     msg = "Virtual proc did not exist.";
+                    procExists = false;
                 }
 
                 logger.info("warning, the proc " +
@@ -802,17 +816,17 @@ public class HostReportHandler {
 
                     if (rqd_kill) {
                         try {
-                        killQueue.execute(new DispatchRqdKillFrame(report.getHost().getName(),
+                            killQueue.execute(new DispatchRqdKillFrame(report.getHost().getName(),
                                 runningFrame.getFrameId(),
                                 "OpenCue could not verify this frame.",
                                 rqdClient));
                         } catch (TaskRejectedException e) {
-                            logger.warn("Unable to queue  RQD kill, task rejected, " + e);
+                            logger.info("Unable to queue  RQD kill, task rejected, " + e);
                         }
                     }
 
                 } catch (RqdClientException rqde) {
-                    logger.warn("failed to kill " +
+                    logger.info("failed to kill " +
                             runningFrame.getJobName() + "/" +
                             runningFrame.getFrameName() +
                             " when trying to clear a failed " +
@@ -820,7 +834,7 @@ public class HostReportHandler {
 
                 } catch (Exception e) {
                     CueExceptionUtil.logStackTrace("failed", e);
-                    logger.warn("failed to verify " +
+                    logger.info("failed to verify " +
                             runningFrame.getJobName() + "/" +
                             runningFrame.getFrameName() +
                             " was running but the frame was " +
@@ -887,14 +901,6 @@ public class HostReportHandler {
 
     public void setJobManager(JobManager jobManager) {
         this.jobManager = jobManager;
-    }
-
-    public JobManagerSupport getJobManagerSupport() {
-        return jobManagerSupport;
-    }
-
-    public void setJobManagerSupport(JobManagerSupport jobManagerSupport) {
-        this.jobManagerSupport = jobManagerSupport;
     }
 
     public JobDao getJobDao() {

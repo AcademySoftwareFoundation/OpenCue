@@ -384,7 +384,6 @@
     <property name="rqdClient" ref="rqdClient" />
     <property name="jobManager" ref="jobManager" />
     <property name="bookingManager" ref="bookingManager" />
-    <property name="jobManagerSupport" ref="jobManagerSupport" />
     <property name="jobDao" ref="jobDao" />
     <property name="layerDao" ref="layerDao" />
     <property name="killQueue" ref="killQueue"/>

@@ -143,49 +143,35 @@ public class FrameCompleteHandler {
         }
 
         try {
-
-            final VirtualProc proc;
-
-            try {
-
-                proc = hostManager.getVirtualProc(
-                        report.getFrame().getResourceId());
-            }
-            catch (EmptyResultDataAccessException e) {
-                /*
-                 * Do not propagate this exception to RQD.  This
-                 * usually means the cue lost connectivity to
-                 * the host and cleared out the record of the proc.
-                 * If this is propagated back to RQD, RQD will
-                 * keep retrying the operation forever.
-                 */
-                logger.info("failed to acquire data needed to " +
-                        "process completed frame: " +
-                        report.getFrame().getFrameName() + " in job " +
-                        report.getFrame().getJobName() + "," + e);
-                return;
-            }
-
+            final VirtualProc proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
             final DispatchJob job = jobManager.getDispatchJob(proc.getJobId());
             final LayerDetail layer = jobManager.getLayerDetail(report.getFrame().getLayerId());
+            final FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
             final DispatchFrame frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
             final FrameState newFrameState = determineFrameState(job, layer, frame, report);
             final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() +
                                "_" + report.getFrame().getFrameId();
+
             if (dispatchSupport.stopFrame(frame, newFrameState, report.getExitStatus(),
                     report.getFrame().getMaxRss())) {
-                dispatchQueue.execute(new KeyRunnable(key) {
-                    @Override
-                    public void run() {
-                        try {
-                            handlePostFrameCompleteOperations(proc, report, job, frame,
-                                    newFrameState);
-                        } catch (Exception e) {
-                            logger.warn("Exception during handlePostFrameCompleteOperations " +
-                                    "in handleFrameCompleteReport" + CueExceptionUtil.getStackTrace(e));
+                if (dispatcher.isTestMode()) {
+                    // Database modifications on a threadpool cannot be captured by the test thread
+                    handlePostFrameCompleteOperations(proc, report, job, frame,
+                            newFrameState, frameDetail);
+                } else {
+                    dispatchQueue.execute(new KeyRunnable(key) {
+                        @Override
+                        public void run() {
+                            try {
+                                handlePostFrameCompleteOperations(proc, report, job, frame,
+                                        newFrameState, frameDetail);
+                            } catch (Exception e) {
+                                logger.warn("Exception during handlePostFrameCompleteOperations " +
+                                        "in handleFrameCompleteReport" + CueExceptionUtil.getStackTrace(e));
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
             else {
                 /*
@@ -221,6 +207,19 @@ public class FrameCompleteHandler {
                     });
                 }
             }
+        }
+        catch (EmptyResultDataAccessException e) {
+            /*
+             * Do not propagate this exception to RQD.  This
+             * usually means the cue lost connectivity to
+             * the host and cleared out the record of the proc.
+             * If this is propagated back to RQD, RQD will
+             * keep retrying the operation forever.
+             */
+            logger.info("failed to acquire data needed to " +
+                    "process completed frame: " +
+                    report.getFrame().getFrameName() + " in job " +
+                    report.getFrame().getJobName() + "," + e);
         }
         catch (Exception e) {
 
@@ -259,7 +258,7 @@ public class FrameCompleteHandler {
      */
     public void handlePostFrameCompleteOperations(VirtualProc proc,
             FrameCompleteReport report, DispatchJob job, DispatchFrame frame,
-            FrameState newFrameState) {
+            FrameState newFrameState, FrameDetail frameDetail) {
         try {
 
             /*
@@ -313,7 +312,8 @@ public class FrameCompleteHandler {
              * specified in the show's service override, service or 2GB.
              */
             if (report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                    || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+                    || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
+                    || frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
                 long increase = CueUtil.GB2;
 
                 // since there can be multiple services, just going for the

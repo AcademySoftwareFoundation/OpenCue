@@ -19,37 +19,44 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
-
-import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdClientException;
+import org.apache.log4j.Logger;
 
-public class DispatchRqdKillFrame extends KeyRunnable {
+public class DispatchRqdKillFrameMemory extends KeyRunnable {
 
-    private static final Logger logger = LogManager.getLogger(DispatchRqdKillFrame.class);
+    private static final Logger logger = Logger.getLogger(DispatchRqdKillFrameMemory.class);
 
     private String message;
     private String hostname;
-    private String frameId;
-
+    private DispatchSupport dispatchSupport;
     private final RqdClient rqdClient;
+    private final boolean isTestMode;
 
-    public DispatchRqdKillFrame(String hostname, String frameId, String message, RqdClient rqdClient) {
-        super("disp_rqd_kill_frame_" +  hostname + "_" + frameId + "_" + rqdClient.toString());
+    private FrameInterface frame;
+
+    public DispatchRqdKillFrameMemory(String hostname, FrameInterface frame, String message, RqdClient rqdClient,
+                                      DispatchSupport dispatchSupport, boolean isTestMode) {
+        super("disp_rqd_kill_frame_" + frame.getFrameId() + "_" + rqdClient.toString());
+        this.frame = frame;
         this.hostname = hostname;
-        this.frameId = frameId;
         this.message = message;
         this.rqdClient = rqdClient;
+        this.dispatchSupport = dispatchSupport;
+        this.isTestMode = isTestMode;
     }
 
     @Override
     public void run() {
         long startTime = System.currentTimeMillis();
         try {
-            rqdClient.killFrame(hostname, frameId, message);
+            if (!isTestMode) {
+                rqdClient.killFrame(hostname, frame.getFrameId(), message);
+            }
+            dispatchSupport.updateFrameMemoryError(frame);
         } catch (RqdClientException e) {
             logger.info("Failed to contact host " + hostname + ", " + e);
         } finally {
