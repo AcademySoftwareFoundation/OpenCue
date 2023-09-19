@@ -1,4 +1,3 @@
-
 /*
  * Copyright Contributors to the OpenCue Project
  *
@@ -111,8 +110,10 @@ public interface Dispatcher {
     // Percentage of used memory to consider a risk for triggering oom-killer
     public static final double OOM_MAX_SAFE_USED_MEMORY_THRESHOLD = 0.95;
 
-    // How much can a frame exceed its reserved memory
-    public static final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD = 0.25;
+    // How much can a frame exceed its reserved memory.
+    //  - 0.5 means 50% above reserve
+    //  - -1.0 makes the feature inactive
+    public static final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD = 0.6;
 
     // A higher number gets more deep booking but less spread on the cue.
     public static final int DEFAULT_MAX_FRAMES_PER_PASS = 4;

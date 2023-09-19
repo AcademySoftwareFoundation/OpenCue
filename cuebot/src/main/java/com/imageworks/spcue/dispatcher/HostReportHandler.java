@@ -420,8 +420,8 @@ public class HostReportHandler {
             // When no mass cleaning was required, check for frames going overboard
             // if frames didn't go overboard, manage its reservations trying to increase
             // them accordingly
-            for (final RunningFrameInfo frame: runningFrames) {
-                if (isFrameOverboard(frame)) {
+            for (final RunningFrameInfo frame : runningFrames) {
+                if (OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD > 0 && isFrameOverboard(frame)) {
                     if (!killFrameOverusingMemory(frame, host.getName())) {
                         logger.warn("Frame " + frame.getJobName() + "." + frame.getFrameName() +
                                 " is overboard but could not be killed");
