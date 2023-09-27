@@ -59,7 +59,7 @@ public interface LayerDao {
     public List<LayerDetail> getLayerDetails(JobInterface job);
 
     /**
-     * Returns true if supplied layer is compelte.
+     * Returns true if supplied layer is complete.
      *
      * @param layer
      * @return boolean
@@ -82,7 +82,7 @@ public interface LayerDao {
     void insertLayerDetail(LayerDetail l);
 
     /**
-     * gets a layer detail from an object that implments layer
+     * gets a layer detail from an object that implements layer
      *
      * @param layer
      * @return LayerDetail
@@ -167,7 +167,7 @@ public interface LayerDao {
     void updateLayerTags(LayerInterface layer, Set<String> tags);
 
     /**
-     * Insert a key/valye pair into the layer environment
+     * Insert a key/value pair into the layer environment
      *
      * @param layer
      * @param key
@@ -292,7 +292,7 @@ public interface LayerDao {
 
     /**
      * Update all layers of the set type in the specified job
-     * with the new min cores requirement.
+     * with the new min gpu requirement.
      *
      * @param job
      * @param gpus
@@ -304,9 +304,8 @@ public interface LayerDao {
      * Update a layer's max cores value, which limits how
      * much threading can go on.
      *
-     * @param job
-     * @param cores
-     * @param type
+     * @param layer
+     * @param threadable
      */
     void updateThreadable(LayerInterface layer, boolean threadable);
 
@@ -314,7 +313,7 @@ public interface LayerDao {
      * Update a layer's timeout value, which limits how
      * much the frame can run on a host.
      *
-     * @param job
+     * @param layer
      * @param timeout
      */
     void updateTimeout(LayerInterface layer, int timeout);
@@ -323,8 +322,8 @@ public interface LayerDao {
      * Update a layer's LLU timeout value, which limits how
      * much the frame can run on a host without updates in the log file.
      *
-     * @param job
-     * @param timeout
+     * @param layer
+     * @param timeout_llu
      */
     void updateTimeoutLLU(LayerInterface layer, int timeout_llu);
 
@@ -341,7 +340,7 @@ public interface LayerDao {
 
     /**
      * Appends a tag to the current set of tags.  If the tag
-     * already exists than nothing happens.
+     * already exists then nothing happens.
      *
      * @param layer
      * @param val
@@ -363,8 +362,9 @@ public interface LayerDao {
      * Update layer usage with processor time usage.
      * This happens when the proc has completed or failed some work.
      *
-     * @param proc
+     * @param layer
      * @param newState
+     * @param exitStatus
      */
     void updateUsage(LayerInterface layer, ResourceUsage usage, int exitStatus);
 
@@ -387,6 +387,9 @@ public interface LayerDao {
 
     /**
      * Enable/disable memory optimizer.
+     *
+     * @param layer
+     * @param state
      */
     void enableMemoryOptimizer(LayerInterface layer, boolean state);
 

@@ -53,7 +53,7 @@ def matchNoSpaces(value):
 
 def matchNumbersOnly(value):
     """Matches strings with numbers and '.' only."""
-    if re.match(r'^[0-9.]+$', value):
+    if re.match(r'^-?[0-9.]+$', value):
         return True
     return False
 
