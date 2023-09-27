@@ -404,6 +404,10 @@ public class DispatchSupportService implements DispatchSupport {
                                 .replaceAll("#JOB#",  frame.jobName)
                                 .replaceAll("#FRAMESPEC#",  frameSpec)
                                 .replaceAll("#FRAME#",  frame.name));
+        /* The special command tokens above (#ZFRAME# and others) are provided to the user in cuesubmit.
+         * see: cuesubmit/cuesubmit/Constants.py
+         * Update the Constant.py file when updating tokens here, they will appear in the cuesubmit tooltip popup.
+         */
 
         frame.uid.ifPresent(builder::setUid);
 
