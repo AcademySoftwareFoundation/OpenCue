@@ -29,10 +29,13 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
+import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobEntity;
@@ -57,6 +60,7 @@ import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.service.BookingManager;
+import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
@@ -80,6 +84,14 @@ public class HostReportHandler {
     private JobManagerSupport jobManagerSupport;
     private JobDao jobDao;
     private LayerDao layerDao;
+    @Autowired
+    private Environment env;
+    @Autowired
+    private CommentManager commentManager;
+    // Comment constants
+    private static final String SUBJECT_COMMENT_FULL_TEMP_DIR = "Host set to REPAIR for not having enough storage " +
+            "space on the temporary directory (mcp)";
+    private static final String CUEBOT_COMMENT_USER = "cuebot";
 
     /**
      * Boolean to toggle if this class is accepting data or not.
@@ -156,7 +168,7 @@ public class HostReportHandler {
                         rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
                         rhost.getAttributesMap().get("SP_OS"));
 
-                changeHardwareState(host, report.getHost().getState(), isBoot);
+                changeHardwareState(host, report.getHost().getState(), isBoot, report.getHost().getFreeMcp());
                 changeNimbyState(host, report.getHost());
 
                 /**
@@ -221,7 +233,14 @@ public class HostReportHandler {
                 }
             }
 
-            if (host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
+            // The minimum amount of free space in the temporary directory to book a host
+            Long minBookableFreeTempDir = env.getRequiredProperty("dispatcher.min_bookable_free_temp_dir_kb", Long.class);
+
+            if (minBookableFreeTempDir != -1 && report.getHost().getFreeMcp() < minBookableFreeTempDir) {
+                msg = String.format("%s doens't have enough free space in the temporary directory (mcp), %dMB needs %dMB",
+                        host.name, (report.getHost().getFreeMcp()/1024),  (minBookableFreeTempDir/1024));
+            }
+            else if (host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
                 msg = String.format("%s doesn't have enough idle cores, %d needs %d",
                     host.name,  host.idleCores, Dispatcher.CORE_POINTS_RESERVED_MIN);
             }
@@ -231,7 +250,7 @@ public class HostReportHandler {
             }
             else if (report.getHost().getFreeMem() < CueUtil.MB512) {
                 msg = String.format("%s doens't have enough free system mem, %d needs %d",
-                        host.name, report.getHost().getFreeMem(),  Dispatcher.MEM_RESERVED_MIN);
+                        host.name, report.getHost().getFreeMem(), Dispatcher.MEM_RESERVED_MIN);
             }
             else if(!host.hardwareState.equals(HardwareState.UP)) {
                 msg = host + " is not in the Up state.";
@@ -309,13 +328,61 @@ public class HostReportHandler {
      * updated with a boot report.  If the state is Repair, then state is
      * never updated via RQD.
      *
+     *
+     * Prevent cue frames from booking on hosts with full temporary directories.
+     *
+     * Change host state to REPAIR or UP according the amount of free space
+     * in the temporary directory:
+     * - Set the host state to REPAIR, when the amount of free space in the
+     * temporary directory is less than the minimum required. Add a comment with
+     * subject: SUBJECT_COMMENT_FULL_TEMP_DIR
+     * - Set the host state to UP, when the amount of free space in the temporary directory
+     * is greater or equals to the minimum required and the host has a comment with
+     * subject: SUBJECT_COMMENT_FULL_TEMP_DIR
+     *
      * @param host
      * @param reportState
      * @param isBoot
+     * @param freeTempDir
      */
-    private void changeHardwareState(DispatchHost host,
-            HardwareState reportState, boolean isBoot) {
+    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot, long freeTempDir) {
 
+        // The minimum amount of free space in the temporary directory to book a host
+        Long minBookableFreeTempDir = env.getRequiredProperty("dispatcher.min_bookable_free_temp_dir_kb", Long.class);
+
+        // Prevent cue frames from booking on hosts with full temporary directories
+        if (minBookableFreeTempDir != -1) {
+            if (host.hardwareState == HardwareState.UP && freeTempDir < minBookableFreeTempDir) {
+
+                // Insert a comment indicating that the Host status = Repair with reason = Full temporary directory
+                CommentDetail c = new CommentDetail();
+                c.subject = SUBJECT_COMMENT_FULL_TEMP_DIR;
+                c.user = CUEBOT_COMMENT_USER;
+                c.timestamp = null;
+                c.message = "Host " + host.getName() + " marked as REPAIR. The current amount of free space in the " +
+                        "temporary directory (mcp) is " + (freeTempDir/1024) + "MB. It must have at least "
+                        + (minBookableFreeTempDir/1024) + "MB of free space in temporary directory";
+                commentManager.addComment(host, c);
+
+                // Set the host state to REPAIR
+                hostManager.setHostState(host, HardwareState.REPAIR);
+                host.hardwareState = HardwareState.REPAIR;
+
+                return;
+            } else if (host.hardwareState == HardwareState.REPAIR && freeTempDir >= minBookableFreeTempDir) {
+                // Check if the host with REPAIR status has comments with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and
+                // user=CUEBOT_COMMENT_USER and delete the comments, if they exists
+                boolean commentsDeleted = commentManager.deleteCommentByHostUserAndSubject(host,
+                        CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_TEMP_DIR);
+
+                if (commentsDeleted) {
+                    // Set the host state to UP
+                    hostManager.setHostState(host, HardwareState.UP);
+                    host.hardwareState = HardwareState.UP;
+                    return;
+                }
+            }
+        }
 
         // If the states are the same there is no reason to do this update.
         if (host.hardwareState.equals(reportState)) {
@@ -374,7 +441,7 @@ public class HostReportHandler {
      * locked if all cores are locked.
      *
      * @param host DispatchHost
-     * @param renderHost RenderHost
+     * @param coreInfo CoreDetail
      */
     private void changeLockState(DispatchHost host, CoreDetail coreInfo) {
         if (host.lockState == LockState.LOCKED) {

@@ -524,6 +524,13 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
+    public void updateHostFreeTempDir(HostInterface host, Long freeTempDir) {
+        getJdbcTemplate().update(
+                "UPDATE host_stat SET int_mcp_free=? WHERE pk_host=?",
+                freeTempDir, host.getHostId());
+    }
+
+    @Override
     public void updateHostSetAllocation(HostInterface host, AllocationInterface alloc) {
 
         String tag = getJdbcTemplate().queryForObject(
