@@ -30,5 +30,8 @@ RUN tar -xvf blender.tar.xz \
 
 RUN rm blender.tar.xz
 
+# Add Blender path as environment variable
+ENV PATH=$PATH:${BLENDER_INSTALL_DIR}
+
 # Verify Blender installation
-RUN ${BLENDER_INSTALL_DIR}/blender --version
+RUN blender --version
