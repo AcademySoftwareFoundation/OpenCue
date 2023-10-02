@@ -53,7 +53,7 @@ RUN versioned_name="rqd-$(cat ./VERSION)-all" \
   && ln -s $versioned_name rqd
 
 RUN mkdir -p /etc/opencue
-RUN echo "[Override]" >> /etc/opencue/rqd.conf
+RUN echo "[Override]" > /etc/opencue/rqd.conf
 RUN echo "USE_NIMBY_PYNPUT=false" >> /etc/opencue/rqd.conf
 
 # RQD gRPC server
