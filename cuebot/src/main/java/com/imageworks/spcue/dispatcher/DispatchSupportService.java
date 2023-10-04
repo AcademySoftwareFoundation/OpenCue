@@ -184,7 +184,11 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     public boolean clearVirtualProcAssignement(ProcInterface proc) {
-        return procDao.clearVirtualProcAssignment(proc);
+        try {
+            return procDao.clearVirtualProcAssignment(proc);
+        } catch (DataAccessException e) {
+            return false;
+        }
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
@@ -345,8 +349,8 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public void updateFrameMemoryError(FrameInterface frame) {
-        frameDao.updateFrameMemoryError(frame);
+    public boolean updateFrameMemoryError(FrameInterface frame) {
+        return frameDao.updateFrameMemoryError(frame);
     }
 
     @Transactional(propagation = Propagation.SUPPORTS)

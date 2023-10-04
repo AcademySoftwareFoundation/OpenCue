@@ -53,12 +53,14 @@ public class DispatchRqdKillFrameMemory extends KeyRunnable {
     public void run() {
         long startTime = System.currentTimeMillis();
         try {
-            if (!isTestMode) {
+            if (dispatchSupport.updateFrameMemoryError(frame) && !isTestMode) {
                 rqdClient.killFrame(hostname, frame.getFrameId(), message);
+            } else {
+                logger.warn("Could not update frame " + frame.getFrameId() +
+                        " status to EXIT_STATUS_MEMORY_FAILURE. Canceling kill request!");
             }
-            dispatchSupport.updateFrameMemoryError(frame);
         } catch (RqdClientException e) {
-            logger.info("Failed to contact host " + hostname + ", " + e);
+            logger.warn("Failed to contact host " + hostname + ", " + e);
         } finally {
             long elapsedTime =  System.currentTimeMillis() - startTime;
             logger.info("RQD communication with " + hostname +

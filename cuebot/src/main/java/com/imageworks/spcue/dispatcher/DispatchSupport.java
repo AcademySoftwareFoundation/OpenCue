@@ -420,7 +420,7 @@ public interface DispatchSupport {
      *
      * @param frame
      */
-    void updateFrameMemoryError(FrameInterface frame);
+    boolean updateFrameMemoryError(FrameInterface frame);
 
     /**
      * Update Memory usage data and LLU time for the given frame.

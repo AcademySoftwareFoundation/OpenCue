@@ -24,8 +24,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.imageworks.spcue.*;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -75,6 +79,10 @@ public class HostReportHandler {
     private JobManager jobManager;
     private JobDao jobDao;
     private LayerDao layerDao;
+
+    Cache<String, Long> killRequestCounterCache = CacheBuilder.newBuilder()
+            .expireAfterWrite(FRAME_KILL_CACHE_EXPIRE_AFTER_WRITE_MINUTES, TimeUnit.MINUTES)
+            .build();
 
     /**
      * Boolean to toggle if this class is accepting data or not.
@@ -393,6 +401,10 @@ public class HostReportHandler {
      * @param report
      */
     private void handleMemoryUsage(final DispatchHost host, final HostReport report) {
+        final double OOM_MAX_SAFE_USED_MEMORY_THRESHOLD =
+                env.getRequiredProperty("dispatcher.oom_max_safe_used_memory_threshold", Double.class);
+        final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD =
+                env.getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
         RenderHost renderHost = report.getHost();
         List<RunningFrameInfo> runningFrames = report.getFramesList();
 
@@ -401,21 +413,17 @@ public class HostReportHandler {
                         (1.0 - OOM_MAX_SAFE_USED_MEMORY_THRESHOLD));
 
         if (memoryWarning) {
-            VirtualProc killedProc = killWorstMemoryOffender(host);
             long memoryAvailable = renderHost.getFreeMem();
             long minSafeMemoryAvailable = (long)(renderHost.getTotalMem() * (1.0 - OOM_MAX_SAFE_USED_MEMORY_THRESHOLD));
-            // Some extra protection for this possibly unbound loop
-            int unboundProtectionLimit = 10;
-            while (killedProc != null && unboundProtectionLimit > 0) {
-                memoryAvailable = memoryAvailable + killedProc.memoryUsed;
-
-                // If killing this proc solved the memory issue, stop the attack
-                if (memoryAvailable >= minSafeMemoryAvailable) {
-                    break;
+            // Only allow killing up to 10 frames at a time
+            int killAttemptsRemaining = 10;
+            do {
+                VirtualProc killedProc = killWorstMemoryOffender(host);
+                killAttemptsRemaining -= 1;
+                if (killedProc != null) {
+                    memoryAvailable = memoryAvailable + killedProc.memoryUsed;
                 }
-                killedProc = killWorstMemoryOffender(host);
-                unboundProtectionLimit -= 1;
-            }
+            } while (killAttemptsRemaining > 0 && memoryAvailable < minSafeMemoryAvailable);
         } else {
             // When no mass cleaning was required, check for frames going overboard
             // if frames didn't go overboard, manage its reservations trying to increase
@@ -433,6 +441,23 @@ public class HostReportHandler {
         }
     }
 
+    public enum KillCause {
+        FrameOverboard("This frame is using way more than it had reserved."),
+        HostUnderOom("Frame killed by host under Oom pressure"),
+        FrameTimedOut("Frame timed out"),
+        FrameLluTimedOut("Frame LLU timed out"),
+        FrameVerificationFailure("Frame failed to be verified on the database");
+        private final String message;
+
+        private KillCause(String message) {
+            this.message = message;
+        }
+        @Override
+        public String toString() {
+            return message;
+        }
+    }
+
     private boolean killFrameOverusingMemory(RunningFrameInfo frame, String hostname) {
         try {
             VirtualProc proc = hostManager.getVirtualProc(frame.getResourceId());
@@ -444,32 +469,87 @@ public class HostReportHandler {
 
             logger.info("Killing frame on " + frame.getJobName() + "." + frame.getFrameName() +
                     ", using too much memory.");
-            return killProcForMemory(proc, hostname, "This frame is using way more than it had reserved.");
+            return killProcForMemory(proc, hostname, KillCause.FrameOverboard);
         } catch (EmptyResultDataAccessException e) {
             return false;
         }
     }
 
-    private boolean killProcForMemory(VirtualProc proc, String hostname, String reason) {
-        try {
-            FrameInterface frame = jobManager.getFrame(proc.frameId);
+    private boolean getKillClearance(String hostname, String frameId) {
+        String cacheKey = hostname + "-" + frameId;
+        final int FRAME_KILL_RETRY_LIMIT =
+                env.getRequiredProperty("dispatcher.frame_kill_retry_limit", Integer.class);
 
-            if (dispatcher.isTestMode()) {
-                // For testing, don't run on a different threadpool, as different threads don't share
-                // the same database state
-                (new DispatchRqdKillFrameMemory(proc.hostName, frame, reason, rqdClient,
-                        dispatchSupport, dispatcher.isTestMode())).run();
-            } else {
-                killQueue.execute(new DispatchRqdKillFrameMemory(proc.hostName, frame, reason, rqdClient,
-                        dispatchSupport, dispatcher.isTestMode()));
-                prometheusMetrics.incrementFrameOomKilledCounter(hostname);
-            }
-            DispatchSupport.killedOffenderProcs.incrementAndGet();
-            return true;
-        } catch (TaskRejectedException e) {
-            logger.warn("Unable to queue RQD kill, task rejected, " + e);
+        // Cache frame+host receiving a killRequest and count how many times the request is being retried
+        // meaning rqd is probably failing at attempting to kill the related proc
+        long cachedCount;
+        try {
+            cachedCount = 1 + killRequestCounterCache.get(cacheKey, () -> 0L);
+        } catch (ExecutionException e) {
             return false;
         }
+        killRequestCounterCache.put(cacheKey, cachedCount);
+        if (cachedCount > FRAME_KILL_RETRY_LIMIT) {
+            // If the kill retry limit has been reached, notify prometheus of the issue and give up
+            if (!dispatcher.isTestMode()) {
+                FrameInterface frame = jobManager.getFrame(frameId);
+                JobInterface job = jobManager.getJob(frame.getJobId());
+                prometheusMetrics.incrementFrameKillFailureCounter(
+                        hostname,
+                        job.getName(),
+                        frame.getName(),
+                        frameId);
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private boolean killProcForMemory(VirtualProc proc, String hostname, KillCause killCause) {
+        if (!getKillClearance(hostname, proc.frameId)) {
+            return false;
+        }
+
+        FrameInterface frame = jobManager.getFrame(proc.frameId);
+        if (dispatcher.isTestMode()) {
+            // Different threads don't share the same database state on the test environment
+            (new DispatchRqdKillFrameMemory(hostname, frame, killCause.toString(), rqdClient,
+                    dispatchSupport, dispatcher.isTestMode())).run();
+        } else {
+            try {
+                killQueue.execute(new DispatchRqdKillFrameMemory(hostname, frame, killCause.toString(), rqdClient,
+                        dispatchSupport, dispatcher.isTestMode()));
+                prometheusMetrics.incrementFrameKilledCounter(hostname, killCause);
+            } catch (TaskRejectedException e) {
+                logger.warn("Unable to add a DispatchRqdKillFrame request, task rejected, " + e);
+                return false;
+            }
+        }
+        DispatchSupport.killedOffenderProcs.incrementAndGet();
+        return true;
+    }
+
+    private boolean killFrame(String frameId, String hostname, KillCause killCause) {
+        if (!getKillClearance(hostname, frameId)) {
+            return false;
+        }
+
+        if (dispatcher.isTestMode()) {
+            // Different threads don't share the same database state on the test environment
+            (new DispatchRqdKillFrame(hostname, frameId, killCause.toString(), rqdClient)).run();
+        } else {
+            try {
+                killQueue.execute(new DispatchRqdKillFrame(hostname,
+                        frameId,
+                        killCause.toString(),
+                        rqdClient));
+                prometheusMetrics.incrementFrameKilledCounter(hostname, killCause);
+            } catch (TaskRejectedException e) {
+                logger.warn("Unable to add a DispatchRqdKillFrame request, task rejected, " + e);
+            }
+        }
+        DispatchSupport.killedOffenderProcs.incrementAndGet();
+        return true;
     }
 
     /**
@@ -483,8 +563,7 @@ public class HostReportHandler {
             VirtualProc proc = hostManager.getWorstMemoryOffender(host);
             logger.info("Killing frame on " + proc.getName() + ", host is under stress.");
 
-            if (!killProcForMemory(proc, host.getName(), "The host was dangerously low on memory and swapping.")) {
-                // Returning null will prevent the caller from overflowing the kill queue with more messages
+            if (!killProcForMemory(proc, host.getName(), KillCause.HostUnderOom)) {
                 proc = null;
             }
             return proc;
@@ -503,6 +582,8 @@ public class HostReportHandler {
     private boolean isFrameOverboard(final RunningFrameInfo frame) {
         double rss = (double)frame.getRss();
         double maxRss = (double)frame.getMaxRss();
+        final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD =
+                env.getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
         final double MAX_RSS_OVERBOARD_THRESHOLD = OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD * 2;
         final double RSS_AVAILABLE_FOR_MAX_RSS_TRIGGER = 0.1;
 
@@ -586,7 +667,6 @@ public class HostReportHandler {
      * @param rFrames
      */
     private void killTimedOutFrames(HostReport report) {
-
         final Map<String, LayerDetail> layers = new HashMap<String, LayerDetail>(5);
 
         for (RunningFrameInfo frame: report.getFramesList()) {
@@ -594,36 +674,16 @@ public class HostReportHandler {
             LayerDetail layer = layerDao.getLayerDetail(layerId);
             long runtimeMinutes = ((System.currentTimeMillis() - frame.getStartTime()) / 1000l) / 60;
 
+            String hostname = report.getHost().getName();
+
             if (layer.timeout != 0 && runtimeMinutes > layer.timeout){
-                try {
-                    killQueue.execute(new DispatchRqdKillFrame(report.getHost().getName(),
-                            frame.getFrameId(),
-                            "This frame has reached it timeout.",
-                            rqdClient));
-                    } catch (TaskRejectedException e) {
-                        logger.info("Unable to queue  RQD kill, task rejected, " + e);
-                }
-            }
+                killFrame(frame.getFrameId(), hostname, KillCause.FrameTimedOut);
+            } else if (layer.timeout_llu != 0 && frame.getLluTime() != 0) {
+                long r = System.currentTimeMillis() / 1000;
+                long lastUpdate = (r - frame.getLluTime()) / 60;
 
-            if (layer.timeout_llu == 0){
-                continue;
-            }
-
-            if (frame.getLluTime() == 0){
-                continue;
-            }
-
-            long r = System.currentTimeMillis() / 1000;
-            long lastUpdate = (r - frame.getLluTime()) / 60;
-
-            if (layer.timeout_llu != 0 && lastUpdate > (layer.timeout_llu -1)){
-                try {
-                    killQueue.execute(new DispatchRqdKillFrame(report.getHost().getName(),
-                            frame.getFrameId(),
-                            "This frame has reached it LLU timeout.",
-                            rqdClient));
-                    } catch (TaskRejectedException e) {
-                        logger.info("Unable to queue  RQD kill, task rejected, " + e);
+                if (layer.timeout_llu != 0 && lastUpdate > (layer.timeout_llu - 1)){
+                    killFrame(frame.getFrameId(), hostname, KillCause.FrameLluTimedOut);
                 }
             }
         }
@@ -749,100 +809,59 @@ public class HostReportHandler {
                 continue;
             }
 
+            if (hostManager.verifyRunningProc(runningFrame.getResourceId(), runningFrame.getFrameId())) {
+                runningFrames.add(runningFrame);
+                continue;
+            }
 
-            if (!hostManager.verifyRunningProc(runningFrame.getResourceId(),
-                    runningFrame.getFrameId())) {
+            /*
+             * The frame this proc is running is no longer
+             * assigned to this proc.   Don't ever touch
+             * the frame record.  If we make it here that means
+             * the proc has been running for over 2 min.
+             */
+            String msg;
+            VirtualProc proc = null;
 
-                /*
-                 * The frame this proc is running is no longer
-                 * assigned to this proc.   Don't ever touch
-                 * the frame record.  If we make it here that means
-                 * the proc has been running for over 2 min.
-                 */
-
-                String msg;
-                VirtualProc proc = null;
-                boolean procExists = true;
-
-                try {
-                    proc = hostManager.getVirtualProc(runningFrame.getResourceId());
-                    msg = "Virtual proc " + proc.getProcId() +
+            try {
+                proc = hostManager.getVirtualProc(runningFrame.getResourceId());
+                msg = "Virtual proc " + proc.getProcId() +
                         "is assigned to " + proc.getFrameId() +
                         " not " + runningFrame.getFrameId();
-                }
-                catch (Exception e) {
-                    /*
-                     * This will happen if the host goes off line and then
-                     * comes back.  In this case, we don't touch the frame
-                     * since it might already be running somewhere else.  We
-                     * do however kill the proc.
-                     */
-                    msg = "Virtual proc did not exist.";
-                    procExists = false;
-                }
-
-                logger.info("warning, the proc " +
-                        runningFrame.getResourceId() + " on host " +
-                        report.getHost().getName() + " was running for " +
-                        (runtimeSeconds / 60.0f) + " minutes " +
-                        runningFrame.getJobName() + "/" + runningFrame.getFrameName() +
-                        "but the DB did not " +
-                        "reflect this " +
-                        msg);
-
-                DispatchSupport.accountingErrors.incrementAndGet();
-
-                try {
-                    /*
-                     * If the proc did exist unbook it if we can't
-                     * verify its running something.
-                     */
-                    boolean rqd_kill = false;
-                    if (proc != null) {
-
-                        /*
-                         * Check to see if the proc is an orphan.
-                         */
-                        if (hostManager.isOprhan(proc)) {
-                            dispatchSupport.clearVirtualProcAssignement(proc);
-                            dispatchSupport.unbookProc(proc);
-                            rqd_kill = true;
-                        }
-                    }
-                    else {
-                        /* Proc doesn't exist so a kill won't hurt */
-                        rqd_kill = true;
-                    }
-
-                    if (rqd_kill) {
-                        try {
-                            killQueue.execute(new DispatchRqdKillFrame(report.getHost().getName(),
-                                runningFrame.getFrameId(),
-                                "OpenCue could not verify this frame.",
-                                rqdClient));
-                        } catch (TaskRejectedException e) {
-                            logger.info("Unable to queue  RQD kill, task rejected, " + e);
-                        }
-                    }
-
-                } catch (RqdClientException rqde) {
-                    logger.info("failed to kill " +
-                            runningFrame.getJobName() + "/" +
-                            runningFrame.getFrameName() +
-                            " when trying to clear a failed " +
-                            " frame verification, " + rqde);
-
-                } catch (Exception e) {
-                    CueExceptionUtil.logStackTrace("failed", e);
-                    logger.info("failed to verify " +
-                            runningFrame.getJobName() + "/" +
-                            runningFrame.getFrameName() +
-                            " was running but the frame was " +
-                            " unable to be killed, " + e);
-                }
             }
-            else {
-                runningFrames.add(runningFrame);
+            catch (Exception e) {
+                /*
+                 * This will happen if the host goes offline and then
+                 * comes back.  In this case, we don't touch the frame
+                 * since it might already be running somewhere else.  We
+                 * do however kill the proc.
+                 */
+                msg = "Virtual proc did not exist.";
+            }
+
+            DispatchSupport.accountingErrors.incrementAndGet();
+            if (proc != null && hostManager.isOprhan(proc)) {
+                dispatchSupport.clearVirtualProcAssignement(proc);
+                dispatchSupport.unbookProc(proc);
+                proc = null;
+            }
+            if (proc == null) {
+                if (killFrame(runningFrame.getFrameId(),
+                        report.getHost().getName(),
+                        KillCause.FrameVerificationFailure)) {
+                    logger.info("FrameVerificationError, the proc " +
+                            runningFrame.getResourceId() + " on host " +
+                            report.getHost().getName() + " was running for " +
+                            (runtimeSeconds / 60.0f) + " minutes " +
+                            runningFrame.getJobName() + "/" + runningFrame.getFrameName() +
+                            "but the DB did not " +
+                            "reflect this. " +
+                            msg);
+                } else {
+                    logger.warn("FrameStuckWarning: frameId=" + runningFrame.getFrameId() +
+                            " render_node=" + report.getHost().getName() + " - " +
+                            runningFrame.getJobName() + "/" + runningFrame.getFrameName());
+                }
             }
         }
     }
