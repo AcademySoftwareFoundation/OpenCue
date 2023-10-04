@@ -35,6 +35,7 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;

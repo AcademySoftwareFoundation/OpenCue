@@ -93,11 +93,6 @@ public class HostManagerService implements HostManager {
         hostDao.updateHostState(host, state);
     }
 
-    @Override
-    public void setHostFreeMcp(HostInterface host, Long freeMcp) {
-        hostDao.updateHostFreeMcp(host, freeMcp);
-    }
-
     public void rebootWhenIdle(HostInterface host) {
         try {
             hostDao.updateHostState(host, HardwareState.REBOOT_WHEN_IDLE);

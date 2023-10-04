@@ -62,14 +62,6 @@ public interface HostManager {
      */
     void setHostState(HostInterface host, HardwareState state);
 
-    /**
-     * Updates the freeMcp of a host.
-     *
-     * @param host HostInterface
-     * @param freeMcp Long
-     */
-    void setHostFreeMcp(HostInterface host, Long freeMcp);
-
     DispatchHost createHost(HostReport report);
     DispatchHost createHost(RenderHost host);
 

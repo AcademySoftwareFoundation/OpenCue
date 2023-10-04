@@ -45,6 +45,7 @@ import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
 import com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrame;
+import com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrameMemory;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.BootReport;
@@ -79,6 +80,8 @@ public class HostReportHandler {
     private JobManager jobManager;
     private JobDao jobDao;
     private LayerDao layerDao;
+    @Autowired
+    private Environment env;
 
     Cache<String, Long> killRequestCounterCache = CacheBuilder.newBuilder()
             .expireAfterWrite(FRAME_KILL_CACHE_EXPIRE_AFTER_WRITE_MINUTES, TimeUnit.MINUTES)
@@ -490,15 +493,10 @@ public class HostReportHandler {
         }
         killRequestCounterCache.put(cacheKey, cachedCount);
         if (cachedCount > FRAME_KILL_RETRY_LIMIT) {
-            // If the kill retry limit has been reached, notify prometheus of the issue and give up
+            // If the kill retry limit has been reached
             if (!dispatcher.isTestMode()) {
                 FrameInterface frame = jobManager.getFrame(frameId);
                 JobInterface job = jobManager.getJob(frame.getJobId());
-                prometheusMetrics.incrementFrameKillFailureCounter(
-                        hostname,
-                        job.getName(),
-                        frame.getName(),
-                        frameId);
             }
             return false;
         }
@@ -519,7 +517,6 @@ public class HostReportHandler {
             try {
                 killQueue.execute(new DispatchRqdKillFrameMemory(hostname, frame, killCause.toString(), rqdClient,
                         dispatchSupport, dispatcher.isTestMode()));
-                prometheusMetrics.incrementFrameKilledCounter(hostname, killCause);
             } catch (TaskRejectedException e) {
                 logger.warn("Unable to add a DispatchRqdKillFrame request, task rejected, " + e);
                 return false;
@@ -543,7 +540,6 @@ public class HostReportHandler {
                         frameId,
                         killCause.toString(),
                         rqdClient));
-                prometheusMetrics.incrementFrameKilledCounter(hostname, killCause);
             } catch (TaskRejectedException e) {
                 logger.warn("Unable to add a DispatchRqdKillFrame request, task rejected, " + e);
             }
