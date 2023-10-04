@@ -24,11 +24,13 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdClientException;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 
 public class DispatchRqdKillFrameMemory extends KeyRunnable {
 
-    private static final Logger logger = Logger.getLogger(DispatchRqdKillFrameMemory.class);
+    private static final Logger logger = LogManager.getLogger(DispatchRqdKillFrameMemory.class);
 
     private String message;
     private String hostname;

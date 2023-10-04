@@ -486,7 +486,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .build();
 
         long killCount = DispatchSupport.killedOffenderProcs.get();
-        hostReportHandler.handleHostReport(report, false, System.currentTimeMillis());
+        hostReportHandler.handleHostReport(report, false);
         assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
     }
 
@@ -523,7 +523,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .build();
 
         long killCount = DispatchSupport.killedOffenderProcs.get();
-        hostReportHandler.handleHostReport(report, false, System.currentTimeMillis());
+        hostReportHandler.handleHostReport(report, false);
         assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
     }
 
@@ -586,7 +586,7 @@ public class HostReportHandlerTests extends TransactionalTest {
 
         // In this case, killing one job should be enough to ge the machine to a safe state
         long killCount = DispatchSupport.killedOffenderProcs.get();
-        hostReportHandler.handleHostReport(report, false, System.currentTimeMillis());
+        hostReportHandler.handleHostReport(report, false);
         assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
 
         // Confirm the frame will be set to retry after it's completion has been processed
