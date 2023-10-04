@@ -79,6 +79,14 @@ public interface HostDao {
     void updateHostState(HostInterface host, HardwareState state);
 
     /**
+     * updates a host with the passed free temporary directory
+     *
+     * @param host
+     * @param freeTempDir
+     */
+    void updateHostFreeTempDir(HostInterface host, Long freeTempDir);
+
+    /**
      * returns a full host detail
      *
      * @param host  HostInterface

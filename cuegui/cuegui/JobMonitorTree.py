@@ -285,6 +285,14 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         dep = self.__menuActions.jobs(
                         ).getRecursiveDependentJobs([newJobObj],
                                                     active_only=active_only)
+
+                        # Remove dependent if it has the same name as the job
+                        # - This avoids missing jobs on MonitorJobs
+                        # - Remove the parent job is necessary to avoid remove
+                        # the parent job and all the dependents
+                        # in the step 2 below
+                        dep = [j for j in dep if j.data.name != newJobObj.data.name]
+
                         self.__dependentJobs[jobKey] = dep
                         # we'll also store a reversed dictionary for
                         # dependencies with the dependent as key and the main
