@@ -107,13 +107,8 @@ public interface Dispatcher {
     // without being penalized for it.
     public static final long VIRTUAL_MEM_THRESHHOLD = CueUtil.GB2;
 
-    // Percentage of used memory to consider a risk for triggering oom-killer
-    public static final double OOM_MAX_SAFE_USED_MEMORY_THRESHOLD = 0.95;
-
-    // How much can a frame exceed its reserved memory.
-    //  - 0.5 means 50% above reserve
-    //  - -1.0 makes the feature inactive
-    public static final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD = 0.6;
+    // How long to keep track of a frame kill request
+    public static final int FRAME_KILL_CACHE_EXPIRE_AFTER_WRITE_MINUTES = 3;
 
     // A higher number gets more deep booking but less spread on the cue.
     public static final int DEFAULT_MAX_FRAMES_PER_PASS = 4;

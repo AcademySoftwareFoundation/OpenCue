@@ -458,6 +458,8 @@ public class HostReportHandlerTests extends TransactionalTest {
     @Rollback(true)
     public void testMemoryAggressionRss() {
         jobLauncher.testMode = true;
+        dispatcher.setTestMode(true);
+
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
 
         DispatchHost host = getHost(hostname);
@@ -465,8 +467,8 @@ public class HostReportHandlerTests extends TransactionalTest {
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
-        long memoryOverboard = (long) Math.ceil((double) proc.memoryReserved *
-                (1.0 + Dispatcher.OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD));
+        // 1.6 = 1 + dispatcher.oom_frame_overboard_allowed_threshold
+        long memoryOverboard = (long) Math.ceil((double) proc.memoryReserved * 1.6);
 
         // Test rss overboard
         RunningFrameInfo info = RunningFrameInfo.newBuilder()
@@ -493,6 +495,7 @@ public class HostReportHandlerTests extends TransactionalTest {
     @Rollback(true)
     public void testMemoryAggressionMaxRss() {
         jobLauncher.testMode = true;
+        dispatcher.setTestMode(true);
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
 
         DispatchHost host = getHost(hostname);
@@ -500,8 +503,9 @@ public class HostReportHandlerTests extends TransactionalTest {
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
+        // 0.6 = dispatcher.oom_frame_overboard_allowed_threshold
         long memoryOverboard = (long) Math.ceil((double) proc.memoryReserved *
-                (1.0 + (2 * Dispatcher.OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD)));
+                (1.0 + (2 * 0.6)));
 
         // Test rss>90% and maxRss overboard
         RunningFrameInfo info = RunningFrameInfo.newBuilder()

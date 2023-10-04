@@ -42,6 +42,7 @@ import com.imageworks.spcue.VirtualProc;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -184,7 +185,11 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     public boolean clearVirtualProcAssignement(ProcInterface proc) {
-        return procDao.clearVirtualProcAssignment(proc);
+        try {
+            return procDao.clearVirtualProcAssignment(proc);
+        } catch (DataAccessException e) {
+            return false;
+        }
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
@@ -345,8 +350,8 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public void updateFrameMemoryError(FrameInterface frame) {
-        frameDao.updateFrameMemoryError(frame);
+    public boolean updateFrameMemoryError(FrameInterface frame) {
+        return frameDao.updateFrameMemoryError(frame);
     }
 
     @Transactional(propagation = Propagation.SUPPORTS)
