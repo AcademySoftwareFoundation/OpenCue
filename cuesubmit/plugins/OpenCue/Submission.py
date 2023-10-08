@@ -11,7 +11,7 @@ def buildBlenderCmd(layerData):
     if not blenderFile:
         raise ValueError('No Blender file provided. Cannot submit job.')
 
-    renderCommand = '{renderCmd} -b -noaudio {blenderFile}'.format(
+    renderCommand = '{renderCmd} -b -noaudio {blenderFile} -E CYCLES'.format(
         renderCmd="blender", blenderFile=blenderFile)
     if outputPath:
         renderCommand += ' -o {}'.format(outputPath)
