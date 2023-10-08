@@ -25,7 +25,7 @@ class SubmitJob(bpy.types.Operator):
             'name': context.scene.layer_name,
             'layerType': 'Blender',
             'cmd': {
-                'blenderFile': '/home/nuwan/Documents/Projects/OpenCue/blender-demos/test/test.blend',
+                'blenderFile': bpy.data.filepath,
                 'outputPath': '',
                 'outputFormat': 'PNG'
             },
