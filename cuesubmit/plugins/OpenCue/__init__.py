@@ -86,7 +86,6 @@ class OpenCueAddonPreferences(bpy.types.AddonPreferences):
         default=False,
         description="Flag to indicate if dependencies have been installed during first install",
     )
-
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "is_dependency_install")

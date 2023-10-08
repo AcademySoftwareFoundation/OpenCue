@@ -51,16 +51,12 @@ def buildBlenderLayer(layerData, lastLayer):
     blenderCmd = buildBlenderCmd(layerData)
     return buildLayer(layerData, blenderCmd, lastLayer)
 
-
 def submit(jobData):
     """Submits the job using the PyOutline API."""
     ol = outline.Outline(
         jobData['name'], shot=jobData['shot'], show=jobData['show'], user=jobData['username'])
     lastLayer = None
-
     layerData = jobData['layers']
-    # print (layerData.cmd.get({}))
-    # for layerData in jobData['layers']:
     layer = buildBlenderLayer(layerData, lastLayer)
     ol.add_layer(layer)
     lastLayer = layer

@@ -16,7 +16,6 @@ import sys
 import subprocess
 import os
 import platform
-# import cp
 import bpy
 
 
