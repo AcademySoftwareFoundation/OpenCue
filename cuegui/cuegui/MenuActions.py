@@ -232,7 +232,7 @@ class JobActions(AbstractActions):
     def viewOutputInItview(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
-            cuegui.Utils.viewOutputInItview(jobs[0], None, self._caller)
+            cuegui.Utils.viewOutputInItview(jobs)
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
 
@@ -850,7 +850,7 @@ class LayerActions(AbstractActions):
     def viewOutputInItview(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
-            cuegui.Utils.viewOutputInItview(self._getSource(), layers, self._caller)
+            cuegui.Utils.viewOutputInItview(layers)
 
     reorder_info = ["Reorder Frames...", None, "configure"]
 
@@ -1046,7 +1046,7 @@ class FrameActions(AbstractActions):
     def viewOutputInItview(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         if frames:
-            cuegui.Utils.viewOutputInItview(self._getSource(), frames, self._caller)
+            cuegui.Utils.viewFramesOutputInItview(self._getSource(), frames)
 
     getWhatDependsOnThis_info = ["print getWhatDependsOnThis", None, "log"]
 

@@ -534,27 +534,53 @@ def popupFrameXdiff(job, frame1, frame2, frame3 = None):
 # View output in itview functions
 ################################################################################
 
-def viewOutputInItview(job, items, parent):
-    """Views the output of a job, layers or frames in itview
-    @type  job: Job
-    @param job: The job with the output to view
-    @type  items: list<Layer> or list<Frame> or None
-    @param items: Either a list of layers or a list of frames or None to view
-                  the entire job's outputs
-    @type  parent: QWidget
-    @param parent: The calling parent"""
-    paths = []
-    if not items:
-        paths = getOutputFromLayers(job, job.getLayers())
-    elif isLayer(items[0]):
-        paths = getOutputFromLayers(job, items)
-    elif isFrame(items[0]):
+def viewOutputInItview(items):
+    """Views the output of a list of jobs or list of layers in itview
+    @type  items: list<Job> or list<Layer>
+    @param items: List of jobs or list of layers to view the entire job's outputs"""
+    if items and len(items) >= 1:
+        paths = []
+
+        if isJob(items[0]):
+            for job in items:
+                path_list = getOutputFromLayers(job.getLayers())
+                paths.extend(path_list)
+
+        elif isLayer(items[0]):
+            paths = getOutputFromLayers(items)
+
+        else:
+            raise Exception("The function viewOutputInItview(items) "
+                            "expects a list of jobs or a list of layers")
+
+        # Launch Itview using paths if paths exists and are valid
+        launchItviewUsingPaths(paths)
+
+
+def viewFramesOutputInItview(job, frames):
+    """Views the output of a list of frames in Itview using the job's layer
+    associated with the frames
+    @type  job: Job or None
+    @param job: The job with the output to view.
+    @type  frames: list<Frame>
+    @param frames: List of frames to view the entire job's outputs"""
+
+    if frames and len(frames) >= 1:
+        paths = []
+
         all_layers = dict([(layer.data.name, layer)
                            for layer in job.getLayers()])
-        for frame in items:
-            paths.extend(getOutputFromFrame(job,
-                                            all_layers[frame.data.layer_name],
+        for frame in frames:
+            paths.extend(getOutputFromFrame(all_layers[frame.data.layer_name],
                                             frame))
+        # Launch Itview using paths if paths exists and are valid
+        launchItviewUsingPaths(paths)
+
+
+def launchItviewUsingPaths(paths):
+    """Launch Itview using paths if paths exists and are valid
+    @type  paths: list<String>
+    @param paths: List of paths"""
 
     # Only load a stereo output once, itview will load the other
     if len(paths) == 2:
@@ -580,6 +606,89 @@ def viewOutputInItview(job, items, parent):
         showErrorMessageBox("Sorry, unable to find any completed frames with known output paths",
                             title="Unable to find completed frames")
 
+
+def findMainOutputPath(outputs):
+    """Returns the main output layer from list of output paths
+    @type  outputs: list<str>
+    @param outputs: A list of output paths"""
+    if not outputs:
+        return ''
+    try:
+        # Try to find the bty layer from the list of output paths
+        # The bty layers are named with this convention:
+        # <res>_<colorspace>_<format>
+        # Example: 2kdcs_lnf_exr, misc_vd8_jpg
+        for output in outputs:
+            layer_name = output.split('/')[-2]
+            if len(layer_name.split('_')) == 3:
+                return output
+    except:
+        pass
+    return outputs[0]
+
+
+def getOutputFromLayers(layers):
+    """Returns the output paths from the frame logs
+    @type  layers: list<Layer>
+    @param layers: A list of at least one layer
+    @rtype:  list
+    @return: The path to the proxy SVI or the primary output."""
+    paths = []
+    for layer in layers:
+        svi_found = False
+        outputs = layer.getOutputPaths()
+        if outputs:
+            for path in outputs:
+                if path.find("_svi") != -1:
+                    paths.append(path)
+                    svi_found = True
+                    break
+            if not svi_found:
+                output = findMainOutputPath(outputs)
+                paths.append(output)
+    return paths
+
+
+def getOutputFromFrame(layer, frame):
+    """Returns the output paths from a single frame
+    @type  layer: Layer
+    @param layer: The frames' layer
+    @type  frame: Frame
+    @param frame: This frame's log is checked for known output paths
+    @rtype:  list
+    @return: A list of output paths"""
+    try:
+        outputs = layer.getOutputPaths()
+        if not outputs:
+            return []
+        main_output = findMainOutputPath(outputs)
+        main_output = main_output.replace("#", "%04d" % frame.data.number)
+        return [main_output]
+    except IndexError:
+        return []
+
+
+__REGEX_AOV = re.compile("aov\\_", re.IGNORECASE)
+
+
+def reorganizeOrder(paths):
+    """ Returns the output paths with aov passes appended to the end of the list
+     so itview doesn't load it first
+    @param  paths: list
+    @rtype: list
+    @return: A list of reorganized output paths"""
+    aov_layer = []
+    render_layer = []
+    if paths:
+        for path in paths:
+            render_pass_name = path.split("/")[-1]
+            if re.search(__REGEX_AOV, render_pass_name):
+                aov_layer.append(path)
+            else:
+                render_layer.append(path)
+        paths = render_layer + aov_layer
+
+    return paths
 
 ################################################################################
 # Drag and drop functions
