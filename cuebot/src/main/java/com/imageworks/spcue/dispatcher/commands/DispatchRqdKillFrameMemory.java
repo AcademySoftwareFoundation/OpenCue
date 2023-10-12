@@ -27,7 +27,12 @@ import com.imageworks.spcue.rqd.RqdClientException;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
-
+/**
+ * A runnable to communicate with rqd requesting for a frame to be killed due to memory issues.
+ * <p>
+ * Before killing a frame, the database is updated to mark the frame status as EXIT_STATUS_MEMORY_FAILURE,
+ * this allows the FrameCompleteHandler to possibly retry the frame after increasing its memory requirements
+ */
 public class DispatchRqdKillFrameMemory extends KeyRunnable {
 
     private static final Logger logger = LogManager.getLogger(DispatchRqdKillFrameMemory.class);

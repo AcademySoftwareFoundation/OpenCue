@@ -98,6 +98,9 @@ public class HostReportHandler {
             "space on the temporary directory (mcp)";
     private static final String CUEBOT_COMMENT_USER = "cuebot";
 
+    // A cache <hostname_frameId, count> to store kill requests and count the number of occurrences.
+    // The cache expires after write to avoid growing unbounded. If a request for a host-frame doesn't appear
+    // for a period of time, the entry will be removed.
     Cache<String, Long> killRequestCounterCache = CacheBuilder.newBuilder()
             .expireAfterWrite(FRAME_KILL_CACHE_EXPIRE_AFTER_WRITE_MINUTES, TimeUnit.MINUTES)
             .build();
@@ -477,8 +480,7 @@ public class HostReportHandler {
     private void handleMemoryUsage(final DispatchHost host, final HostReport report) {
         final double OOM_MAX_SAFE_USED_MEMORY_THRESHOLD =
                 env.getRequiredProperty("dispatcher.oom_max_safe_used_memory_threshold", Double.class);
-        final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD =
-                env.getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
+
         RenderHost renderHost = report.getHost();
         List<RunningFrameInfo> runningFrames = report.getFramesList();
 
@@ -503,7 +505,7 @@ public class HostReportHandler {
             // if frames didn't go overboard, manage its reservations trying to increase
             // them accordingly
             for (final RunningFrameInfo frame : runningFrames) {
-                if (OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD > 0 && isFrameOverboard(frame)) {
+                if (isFrameOverboard(frame)) {
                     if (!killFrameOverusingMemory(frame, host.getName())) {
                         logger.warn("Frame " + frame.getJobName() + "." + frame.getFrameName() +
                                 " is overboard but could not be killed");
@@ -516,8 +518,8 @@ public class HostReportHandler {
     }
 
     public enum KillCause {
-        FrameOverboard("This frame is using way more than it had reserved."),
-        HostUnderOom("Frame killed by host under Oom pressure"),
+        FrameOverboard("This frame is using more memory than it had reserved."),
+        HostUnderOom("Frame killed by host under OOM pressure"),
         FrameTimedOut("Frame timed out"),
         FrameLluTimedOut("Frame LLU timed out"),
         FrameVerificationFailure("Frame failed to be verified on the database");
@@ -564,11 +566,11 @@ public class HostReportHandler {
         }
         killRequestCounterCache.put(cacheKey, cachedCount);
         if (cachedCount > FRAME_KILL_RETRY_LIMIT) {
-            // If the kill retry limit has been reached, notify prometheus of the issue and give up
-            if (!dispatcher.isTestMode()) {
-                FrameInterface frame = jobManager.getFrame(frameId);
-                JobInterface job = jobManager.getJob(frame.getJobId());
-            }
+            FrameInterface frame = jobManager.getFrame(frameId);
+            JobInterface job = jobManager.getJob(frame.getJobId());
+
+            logger.warn("KillRequest blocked for " + job.getName() + "." + frame.getName() +
+                    " blocked for host " + hostname + ". The kill retry limit has been reached.");
             return false;
         }
         return true;
@@ -647,10 +649,15 @@ public class HostReportHandler {
      * @return
      */
     private boolean isFrameOverboard(final RunningFrameInfo frame) {
-        double rss = (double)frame.getRss();
-        double maxRss = (double)frame.getMaxRss();
         final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD =
                 env.getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
+
+        if (OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD < 0) {
+            return false;
+        }
+
+        double rss = (double)frame.getRss();
+        double maxRss = (double)frame.getMaxRss();
         final double MAX_RSS_OVERBOARD_THRESHOLD = OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD * 2;
         final double RSS_AVAILABLE_FOR_MAX_RSS_TRIGGER = 0.1;
 

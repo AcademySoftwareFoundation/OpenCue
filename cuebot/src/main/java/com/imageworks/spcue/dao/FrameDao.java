@@ -206,7 +206,7 @@ public interface FrameDao {
      * Sets a frame exitStatus to EXIT_STATUS_MEMORY_FAILURE
      *
      * @param frame
-     * @return
+     * @return whether the frame has been updated
      */
     boolean updateFrameMemoryError(FrameInterface frame);
 

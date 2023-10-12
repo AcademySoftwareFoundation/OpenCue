@@ -419,6 +419,7 @@ public interface DispatchSupport {
      * Sets the frame state exitStatus to EXIT_STATUS_MEMORY_FAILURE
      *
      * @param frame
+     * @return whether the frame has been updated
      */
     boolean updateFrameMemoryError(FrameInterface frame);
 
