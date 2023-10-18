@@ -381,4 +381,8 @@ def _setOptions(criteria, options):
             criteria.first_result = int(v)
         elif k == "include_finished":
             criteria.include_finished = v
+        elif len(k) == 0:
+            return criteria
+        else:
+            raise Exception("Criteria for search does not exist")
     return criteria
