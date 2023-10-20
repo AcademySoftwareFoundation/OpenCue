@@ -124,11 +124,18 @@ class FrameAttendantThread(threading.Thread):
 
     def _createCommandFile(self, command):
         """Creates a file that subprocess. Popen then executes.
+
+        Environment variables are expanded before writing the file.
+
         @type  command: string
         @param command: The command specified in the runFrame request
         @rtype:  string
         @return: Command file location"""
         # TODO: this should use tempfile to create the files and clean them up afterwards
+        
+        # Expand environment variables
+        command = os.path.expandvars(command)
+
         try:
             if platform.system() == "Windows":
                 rqd_tmp_dir = os.path.join(tempfile.gettempdir(), 'rqd')
