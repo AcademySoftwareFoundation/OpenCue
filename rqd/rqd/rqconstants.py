@@ -70,6 +70,9 @@ RQD_USE_IPV6_AS_HOSTNAME = False
 # Use the PATH environment variable from the RQD host.
 RQD_USE_PATH_ENV_VAR = False
 
+# Use the environment variables from the RQD host.
+RQD_USE_HOST_ENV_VARS = False
+
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 RQD_TAGS = ''
@@ -184,6 +187,8 @@ try:
             RQD_USE_IPV6_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IPV6_AS_HOSTNAME")
         if config.has_option(__section, "RQD_USE_PATH_ENV_VAR"):
             RQD_USE_PATH_ENV_VAR = config.getboolean(__section, "RQD_USE_PATH_ENV_VAR")
+        if config.has_option(__section, "RQD_USE_HOST_ENV_VARS"):
+            RQD_USE_HOST_ENV_VARS = config.getboolean(__section, "RQD_USE_HOST_ENV_VARS")
         if config.has_option(__section, "RQD_BECOME_JOB_USER"):
             RQD_BECOME_JOB_USER = config.getboolean(__section, "RQD_BECOME_JOB_USER")
         if config.has_option(__section, "RQD_TAGS"):

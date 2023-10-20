@@ -122,13 +122,22 @@ class FrameAttendantThread(threading.Thread):
         if 'GPU_LIST' in self.runFrame.attributes:
             self.frameEnv['CUE_GPU_CORES'] = self.runFrame.attributes['GPU_LIST']
 
+        # Add host environment variables
+        if rqd.rqconstants.RQD_USE_HOST_ENV_VARS:
+            for key, value in os.environ.items():
+                if "PATH" in key and key in self.frameEnv:
+                    self.frameEnv[key] += os.pathsep + value
+
+                self.frameEnv[key] = value
+
+
     def _createCommandFile(self, command):
         """Creates a file that subprocess. Popen then executes.
         @type  command: string
         @param command: The command specified in the runFrame request
         @rtype:  string
         @return: Command file location"""
-        # TODO: this should use tempfile to create the files and clean them up afterwards
+        # TODO: this should use tempfile to create the files and clean them up afterwards        
         try:
             if platform.system() == "Windows":
                 rqd_tmp_dir = os.path.join(tempfile.gettempdir(), 'rqd')
