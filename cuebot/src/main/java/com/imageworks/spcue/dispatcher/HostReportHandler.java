@@ -649,7 +649,7 @@ public class HostReportHandler {
             return proc;
         }
         catch (EmptyResultDataAccessException e) {
-            logger.error(host.name + " is under OOM and no proc is running on it.");
+            logger.error(host.name + " is under OOM and no proc is memory overboard.");
             return null;
         }
     }
