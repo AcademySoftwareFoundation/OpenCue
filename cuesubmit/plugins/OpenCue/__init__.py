@@ -86,12 +86,22 @@ class OpenCueAddonPreferences(bpy.types.AddonPreferences):
         default=False,
         description="Flag to indicate if dependencies have been installed during first install",
     )
+
+    use_gpu: bpy.props.BoolProperty(
+        name="Use GPU for rendering",
+        default=False,
+        description="Enable to utilize GPU rendering for jobs",
+    )
+
+    output_path: bpy.props.StringProperty(
+        name="OpenCue output path",
+        default="",
+    )
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "is_dependency_install")
-
-def get_opencue_home():
-    return bpy.context.preferences.addons[__name__].preferences.opencue_home
+        layout.prop(self, "use_gpu")
+        layout.prop(self, "output_path")
 
 def register():
     bpy.utils.register_class(OpenCueAddonPreferences)
