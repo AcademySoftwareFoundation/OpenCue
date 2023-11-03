@@ -3,16 +3,26 @@ import outline
 import outline.cuerun
 import outline.modules.shell
 
+import bpy
+
 def buildBlenderCmd(layerData):
     blenderFile = layerData.get('cmd').get('blenderFile')
     outputPath = layerData.get('cmd').get('outputPath')
     outputFormat = layerData.get('cmd').get('outputFormat')
 
+    # Hardware use for rendering
+    addon_prefs = bpy.context.preferences.addons['OpenCue'].preferences
+    use_gpu = addon_prefs.use_gpu
+    if use_gpu:
+        renderHW = "GPU"
+    else:
+        renderHW = "CPU"
+
     if not blenderFile:
         raise ValueError('No Blender file provided. Cannot submit job.')
 
-    renderCommand = '{renderCmd} -b -noaudio {blenderFile} -E CYCLES'.format(
-        renderCmd="blender", blenderFile=blenderFile)
+    renderCommand = '{renderCmd} -b -noaudio {blenderFile} -E CYCLES -- --cycles-device {renderHW}'.format(
+        renderCmd="blender", blenderFile=blenderFile, renderHW=renderHW)
     if outputPath:
         renderCommand += ' -o {}'.format(outputPath)
     if outputFormat:
