@@ -14,7 +14,7 @@ def buildBlenderCmd(layerData):
     addon_prefs = bpy.context.preferences.addons['OpenCue'].preferences
     use_gpu = addon_prefs.use_gpu
     if use_gpu:
-        renderHW = "GPU"
+        renderHW = "CUDA"
     else:
         renderHW = "CPU"
 
