@@ -21,14 +21,15 @@ def buildBlenderCmd(layerData):
     if not blenderFile:
         raise ValueError('No Blender file provided. Cannot submit job.')
 
-    renderCommand = '{renderCmd} -b -noaudio {blenderFile} -E CYCLES -- --cycles-device {renderHW}'.format(
-        renderCmd="blender", blenderFile=blenderFile, renderHW=renderHW)
+    renderCommand = '{renderCmd} -b -noaudio {blenderFile} -E CYCLES'.format(
+        renderCmd="blender", blenderFile=blenderFile)
     if outputPath:
         renderCommand += ' -o {}'.format(outputPath)
     if outputFormat:
         renderCommand += ' -F {}'.format(outputFormat)
     # The render frame must come after the scene and output
-    renderCommand += ' -f {frameToken}'.format(frameToken="#IFRAME#")
+    # renderCommand += ' -f {frameToken}'.format(frameToken="#IFRAME#")
+    renderCommand += ' -f 1 -- --cycles-device {renderHW}'.format(renderHW=renderHW)
     return renderCommand
 
 def buildLayer(layerData, command, lastLayer=None):
