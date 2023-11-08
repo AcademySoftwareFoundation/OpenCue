@@ -564,7 +564,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                     value, p.getProcId(), value) == 1;
         } catch (Exception e) {
             // check by trigger erify_host_resources
-            throw new ResourceReservationFailureException("failed to increase memory reserveration for proc "
+            throw new ResourceReservationFailureException("failed to increase memory reservation for proc "
                     + p.getProcId() + " to " + value + ", proc does not have that much memory to spare.");
         }
       }

@@ -98,12 +98,6 @@ public class HostManagerService implements HostManager {
         hostDao.updateHostFreeTempDir(host, freeTempDir);
     }
 
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isSwapping(HostInterface host) {
-        return hostDao.isKillMode(host);
-    }
-
     public void rebootWhenIdle(HostInterface host) {
         try {
             hostDao.updateHostState(host, HardwareState.REBOOT_WHEN_IDLE);

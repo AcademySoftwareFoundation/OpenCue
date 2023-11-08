@@ -310,10 +310,11 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
 
         DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
         DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+        FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
         dispatchSupport.stopFrame(dispatchFrame, frameState, report.getExitStatus(),
             report.getFrame().getMaxRss());
         frameCompleteHandler.handlePostFrameCompleteOperations(proc,
-            report, dispatchJob, dispatchFrame, frameState);
+            report, dispatchJob, dispatchFrame, frameState, frameDetail);
 
         assertTrue(jobManager.isLayerComplete(layerFirst));
         assertFalse(jobManager.isLayerComplete(layerSecond));
@@ -401,10 +402,11 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
 
         DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
         DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+        FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
         dispatchSupport.stopFrame(dispatchFrame, FrameState.DEAD, report.getExitStatus(),
                 report.getFrame().getMaxRss());
         frameCompleteHandler.handlePostFrameCompleteOperations(proc,
-                report, dispatchJob, dispatchFrame, FrameState.WAITING);
+                report, dispatchJob, dispatchFrame, FrameState.WAITING, frameDetail);
 
         assertFalse(jobManager.isLayerComplete(layer));
 

@@ -334,24 +334,6 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
-    public void testIsKillMode() {
-        hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail(),
-                false);
-
-        HostEntity host = hostDao.findHostDetail(TEST_HOST);
-        assertFalse(hostDao.isKillMode(host));
-
-        jdbcTemplate.update(
-                "UPDATE host_stat SET int_swap_free = ?, int_mem_free = ? WHERE pk_host = ?",
-                CueUtil.MB256, CueUtil.MB256, host.getHostId());
-
-        assertTrue(hostDao.isKillMode(host));
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
     public void testIsHostUp() {
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
                 hostManager.getDefaultAllocationDetail(),
