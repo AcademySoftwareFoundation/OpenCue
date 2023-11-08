@@ -1,7 +1,6 @@
 
 --Performance issue, Created new index on column int_gpus_min
 
--- DROP INDEX IF EXISTS public.i_layer_int_gpu_mem_min;
 
 CREATE INDEX IF NOT EXISTS i_layer_int_gpu_mem_min
     ON public.layer USING btree
