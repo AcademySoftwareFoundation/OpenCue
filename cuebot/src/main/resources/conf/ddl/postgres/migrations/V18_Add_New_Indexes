@@ -7,7 +7,6 @@ CREATE INDEX IF NOT EXISTS i_layer_int_gpu_mem_min
     (int_gpus_min ASC NULLS LAST)
     TABLESPACE pg_default;
     
--- DROP INDEX IF EXISTS public.i_layer_int_gpu_mem_min_1;
 
 CREATE INDEX IF NOT EXISTS i_layer_int_gpu_mem_min_1
     ON public.layer USING btree
