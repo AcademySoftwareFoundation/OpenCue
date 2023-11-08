@@ -155,7 +155,6 @@ public class HostReportHandler {
         reportQueue.execute(new DispatchHandleHostReport(report, this));
     }
 
-
     public void handleHostReport(HostReport report, boolean isBoot) {
         long startTime = System.currentTimeMillis();
         try {
@@ -478,9 +477,15 @@ public class HostReportHandler {
      * @param report
      */
     private void handleMemoryUsage(final DispatchHost host, final HostReport report) {
+        // Don't keep memory balances on nimby hosts
+        if (host.isNimby) {
+            return;
+        }
+
         final double OOM_MAX_SAFE_USED_MEMORY_THRESHOLD =
                 env.getRequiredProperty("dispatcher.oom_max_safe_used_memory_threshold", Double.class);
-
+        final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD =
+                env.getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
         RenderHost renderHost = report.getHost();
         List<RunningFrameInfo> runningFrames = report.getFramesList();
 
@@ -493,19 +498,22 @@ public class HostReportHandler {
             long minSafeMemoryAvailable = (long)(renderHost.getTotalMem() * (1.0 - OOM_MAX_SAFE_USED_MEMORY_THRESHOLD));
             // Only allow killing up to 10 frames at a time
             int killAttemptsRemaining = 10;
+            VirtualProc killedProc = null;
             do {
-                VirtualProc killedProc = killWorstMemoryOffender(host);
+                killedProc = killWorstMemoryOffender(host);
                 killAttemptsRemaining -= 1;
                 if (killedProc != null) {
                     memoryAvailable = memoryAvailable + killedProc.memoryUsed;
                 }
-            } while (killAttemptsRemaining > 0 && memoryAvailable < minSafeMemoryAvailable);
+            } while (killAttemptsRemaining > 0 &&
+                    memoryAvailable < minSafeMemoryAvailable &&
+                    killedProc != null);
         } else {
             // When no mass cleaning was required, check for frames going overboard
             // if frames didn't go overboard, manage its reservations trying to increase
             // them accordingly
             for (final RunningFrameInfo frame : runningFrames) {
-                if (isFrameOverboard(frame)) {
+                if (OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD > 0 && isFrameOverboard(frame)) {
                     if (!killFrameOverusingMemory(frame, host.getName())) {
                         logger.warn("Frame " + frame.getJobName() + "." + frame.getFrameName() +
                                 " is overboard but could not be killed");
