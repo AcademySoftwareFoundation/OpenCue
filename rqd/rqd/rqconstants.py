@@ -183,6 +183,8 @@ try:
             CUEBOT_HOSTNAME = config.get(__override_section, "OVERRIDE_CUEBOT")
         if config.has_option(__override_section, "OVERRIDE_NIMBY"):
             OVERRIDE_NIMBY = config.getboolean(__override_section, "OVERRIDE_NIMBY")
+        if config.has_option(__override_section, "USE_NIMBY_PYNPUT"):
+            USE_NIMBY_PYNPUT = config.getboolean(__override_section, "USE_NIMBY_PYNPUT")
         if config.has_option(__override_section, "OVERRIDE_IS_DESKTOP"):
             OVERRIDE_IS_DESKTOP = config.getboolean(__override_section, "OVERRIDE_IS_DESKTOP")
         if config.has_option(__override_section, "OVERRIDE_HOSTNAME"):
