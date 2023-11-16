@@ -70,15 +70,6 @@ public interface HostManager {
      */
     void setHostFreeTempDir(HostInterface host, Long freeTempDir);
 
-    /**
-     * Return true if the host is swapping hard enough
-     * that killing frames will save the entire machine.
-     *
-     * @param host
-     * @return
-     */
-    boolean isSwapping(HostInterface host);
-
     DispatchHost createHost(HostReport report);
     DispatchHost createHost(RenderHost host);
 

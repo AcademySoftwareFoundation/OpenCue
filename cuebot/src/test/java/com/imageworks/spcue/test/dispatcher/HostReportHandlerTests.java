@@ -21,10 +21,15 @@ package com.imageworks.spcue.test.dispatcher;
 
 import java.io.File;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadPoolExecutor;
 import javax.annotation.Resource;
 
+import com.imageworks.spcue.dispatcher.DispatchSupport;
+import com.imageworks.spcue.dispatcher.HostReportQueue;
+import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
+import com.imageworks.spcue.grpc.job.FrameState;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
@@ -44,6 +49,7 @@ import com.imageworks.spcue.grpc.report.CoreDetail;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
+import com.imageworks.spcue.grpc.report.FrameCompleteReport;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
@@ -52,6 +58,7 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.TransactionalTest;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.LayerDetail;
 
 import java.util.UUID;
 
@@ -69,6 +76,9 @@ public class HostReportHandlerTests extends TransactionalTest {
 
     @Resource
     HostReportHandler hostReportHandler;
+
+    @Resource
+    FrameCompleteHandler frameCompleteHandler;
 
     @Resource
     Dispatcher dispatcher;
@@ -99,9 +109,9 @@ public class HostReportHandlerTests extends TransactionalTest {
     public void createHost() {
         hostname = UUID.randomUUID().toString().substring(0, 8);
         hostname2 = UUID.randomUUID().toString().substring(0, 8);
-        hostManager.createHost(getRenderHost(hostname, HardwareState.UP),
+        hostManager.createHost(getRenderHost(hostname),
                 adminManager.findAllocationDetail("spi","general"));
-        hostManager.createHost(getRenderHost(hostname2, HardwareState.UP),
+        hostManager.createHost(getRenderHost(hostname2),
                 adminManager.findAllocationDetail("spi","general"));
     }
 
@@ -118,52 +128,32 @@ public class HostReportHandlerTests extends TransactionalTest {
         return hostManager.findDispatchHost(hostname);
     }
 
-    private static RenderHost getRenderHost(String hostname, HardwareState state) {
+    private static RenderHost.Builder getRenderHostBuilder(String hostname) {
         return RenderHost.newBuilder()
                 .setName(hostname)
                 .setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
                 .setFreeMcp(CueUtil.GB)
-                .setFreeMem((int) CueUtil.GB8)
-                .setFreeSwap(20760)
+                .setFreeMem(CueUtil.GB8)
+                .setFreeSwap(CueUtil.GB2)
                 .setLoad(0)
                 .setTotalMcp(CueUtil.GB4)
                 .setTotalMem(CueUtil.GB8)
                 .setTotalSwap(CueUtil.GB2)
                 .setNimbyEnabled(false)
-                .setNumProcs(2)
+                .setNumProcs(16)
                 .setCoresPerProc(100)
                 .addTags("test")
-                .setState(state)
+                .setState(HardwareState.UP)
                 .setFacility("spi")
                 .putAttributes("SP_OS", "Linux")
-                .setFreeGpuMem((int) CueUtil.MB512)
-                .setTotalGpuMem((int) CueUtil.MB512)
-                .build();
+                .setNumGpus(0)
+                .setFreeGpuMem(0)
+                .setTotalGpuMem(0);
     }
 
-    private static RenderHost getRenderHost(String hostname, HardwareState state, Long freeTempDir) {
-        return RenderHost.newBuilder()
-                .setName(hostname)
-                .setBootTime(1192369572)
-                // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(freeTempDir)
-                .setFreeMem((int) CueUtil.GB8)
-                .setFreeSwap(20760)
-                .setLoad(0)
-                .setTotalMcp(freeTempDir * 4)
-                .setTotalMem(CueUtil.GB8)
-                .setTotalSwap(CueUtil.GB2)
-                .setNimbyEnabled(false)
-                .setNumProcs(2)
-                .setCoresPerProc(100)
-                .addTags("test")
-                .setState(state)
-                .setFacility("spi")
-                .putAttributes("SP_OS", "Linux")
-                .setFreeGpuMem((int) CueUtil.MB512)
-                .setTotalGpuMem((int) CueUtil.MB512)
-                .build();
+    private static RenderHost getRenderHost(String hostname) {
+        return getRenderHostBuilder(hostname).build();
     }
 
     private static RenderHost getNewRenderHost(String tags) {
@@ -172,12 +162,12 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
                 .setFreeMcp(CueUtil.GB)
-                .setFreeMem(53500)
-                .setFreeSwap(20760)
+                .setFreeMem(CueUtil.GB8)
+                .setFreeSwap(CueUtil.GB2)
                 .setLoad(0)
-                .setTotalMcp(CueUtil.GB4)
-                .setTotalMem(8173264)
-                .setTotalSwap(20960)
+                .setTotalMcp(195430)
+                .setTotalMem(CueUtil.GB8)
+                .setTotalSwap(CueUtil.GB2)
                 .setNimbyEnabled(false)
                 .setNumProcs(2)
                 .setCoresPerProc(100)
@@ -196,15 +186,15 @@ public class HostReportHandlerTests extends TransactionalTest {
     public void testHandleHostReport() throws InterruptedException {
         CoreDetail cores = getCoreDetail(200, 200, 0, 0);
         HostReport report1 = HostReport.newBuilder()
-                .setHost(getRenderHost(hostname, HardwareState.UP))
+                .setHost(getRenderHost(hostname))
                 .setCoreInfo(cores)
                 .build();
         HostReport report2 = HostReport.newBuilder()
-                .setHost(getRenderHost(hostname2, HardwareState.UP))
+                .setHost(getRenderHost(hostname2))
                 .setCoreInfo(cores)
                 .build();
         HostReport report1_2 = HostReport.newBuilder()
-                .setHost(getRenderHost(hostname, HardwareState.UP))
+                .setHost(getRenderHost(hostname))
                 .setCoreInfo(getCoreDetail(200, 200, 100, 0))
                 .build();
 
@@ -314,7 +304,7 @@ public class HostReportHandlerTests extends TransactionalTest {
         * */
         // Create HostReport
         HostReport report1 = HostReport.newBuilder()
-                .setHost(getRenderHost(hostname, HardwareState.UP, 1024L))
+                .setHost(getRenderHostBuilder(hostname).setFreeMcp(1024L).build())
                 .setCoreInfo(cores)
                 .build();
         // Call handleHostReport() => Create the comment with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and change the
@@ -356,7 +346,7 @@ public class HostReportHandlerTests extends TransactionalTest {
          * */
         // Set the host freeTempDir to the minimum size required = 1GB (1048576 KB)
         HostReport report2 = HostReport.newBuilder()
-                .setHost(getRenderHost(hostname, HardwareState.UP, 1048576L))
+                .setHost(getRenderHostBuilder(hostname).setFreeMcp(CueUtil.GB).build())
                 .setCoreInfo(cores)
                 .build();
         // Call handleHostReport() => Delete the comment with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and change the
@@ -397,7 +387,7 @@ public class HostReportHandlerTests extends TransactionalTest {
          * */
         // Create HostReport
         HostReport report = HostReport.newBuilder()
-                .setHost(getRenderHost(hostname, HardwareState.UP, 1048576L))
+                .setHost(getRenderHostBuilder(hostname).setFreeMcp(CueUtil.GB).build())
                 .setCoreInfo(cores)
                 .build();
         // Get host
@@ -451,7 +441,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setMaxRss(420000)
                 .build();
         HostReport report = HostReport.newBuilder()
-                .setHost(getRenderHost(hostname, HardwareState.UP))
+                .setHost(getRenderHost(hostname))
                 .setCoreInfo(cores)
                 .addFrames(info)
                 .build();
@@ -461,6 +451,171 @@ public class HostReportHandlerTests extends TransactionalTest {
         FrameDetail frame = jobManager.getFrameDetail(proc.getFrameId());
         assertEquals(frame.dateLLU, new Timestamp(now / 1000 * 1000));
         assertEquals(420000, frame.maxRss);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMemoryAggressionRss() {
+        jobLauncher.testMode = true;
+        dispatcher.setTestMode(true);
+
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+
+        // 1.6 = 1 + dispatcher.oom_frame_overboard_allowed_threshold
+        long memoryOverboard = (long) Math.ceil((double) proc.memoryReserved * 1.6);
+
+        // Test rss overboard
+        RunningFrameInfo info = RunningFrameInfo.newBuilder()
+                .setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId())
+                .setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId())
+                .setRss(memoryOverboard)
+                .setMaxRss(memoryOverboard)
+                .build();
+        HostReport report = HostReport.newBuilder()
+                .setHost(getRenderHost(hostname))
+                .setCoreInfo(getCoreDetail(200, 200, 0, 0))
+                .addFrames(info)
+                .build();
+
+        long killCount = DispatchSupport.killedOffenderProcs.get();
+        hostReportHandler.handleHostReport(report, false);
+        assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMemoryAggressionMaxRss() {
+        jobLauncher.testMode = true;
+        dispatcher.setTestMode(true);
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+
+        // 0.6 = dispatcher.oom_frame_overboard_allowed_threshold
+        long memoryOverboard = (long) Math.ceil((double) proc.memoryReserved *
+                (1.0 + (2 * 0.6)));
+
+        // Test rss>90% and maxRss overboard
+        RunningFrameInfo info = RunningFrameInfo.newBuilder()
+                .setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId())
+                .setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId())
+                .setRss((long)Math.ceil(0.95 * proc.memoryReserved))
+                .setMaxRss(memoryOverboard)
+                .build();
+        HostReport report = HostReport.newBuilder()
+                .setHost(getRenderHost(hostname))
+                .setCoreInfo(getCoreDetail(200, 200, 0, 0))
+                .addFrames(info)
+                .build();
+
+        long killCount = DispatchSupport.killedOffenderProcs.get();
+        hostReportHandler.handleHostReport(report, false);
+        assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMemoryAggressionMemoryWarning() {
+        jobLauncher.testMode = true;
+        dispatcher.setTestMode(true);
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_multiple_frames.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(3, procs.size());
+        VirtualProc proc1 = procs.get(0);
+        VirtualProc proc2 = procs.get(1);
+        VirtualProc proc3 = procs.get(2);
+
+        // Ok
+        RunningFrameInfo info1 = RunningFrameInfo.newBuilder()
+                .setJobId(proc1.getJobId())
+                .setLayerId(proc1.getLayerId())
+                .setFrameId(proc1.getFrameId())
+                .setResourceId(proc1.getProcId())
+                .setRss(CueUtil.GB2)
+                .setMaxRss(CueUtil.GB2)
+                .build();
+
+        // Overboard Rss
+        RunningFrameInfo info2 = RunningFrameInfo.newBuilder()
+                .setJobId(proc2.getJobId())
+                .setLayerId(proc2.getLayerId())
+                .setFrameId(proc2.getFrameId())
+                .setResourceId(proc2.getProcId())
+                .setRss(CueUtil.GB4)
+                .setMaxRss(CueUtil.GB4)
+                .build();
+
+        // Overboard Rss
+        long memoryUsedProc3 = CueUtil.GB8;
+        RunningFrameInfo info3 = RunningFrameInfo.newBuilder()
+                .setJobId(proc3.getJobId())
+                .setLayerId(proc3.getLayerId())
+                .setFrameId(proc3.getFrameId())
+                .setResourceId(proc3.getProcId())
+                .setRss(memoryUsedProc3)
+                .setMaxRss(memoryUsedProc3)
+                .build();
+
+        RenderHost hostAfterUpdate = getRenderHostBuilder(hostname).setFreeMem(0).build();
+
+        HostReport report = HostReport.newBuilder()
+                .setHost(hostAfterUpdate)
+                .setCoreInfo(getCoreDetail(200, 200, 0, 0))
+                .addAllFrames(Arrays.asList(info1, info2, info3))
+                .build();
+
+        // Get layer state before report gets sent
+        LayerDetail layerBeforeIncrease = jobManager.getLayerDetail(proc3.getLayerId());
+
+        // In this case, killing one job should be enough to ge the machine to a safe state
+        long killCount = DispatchSupport.killedOffenderProcs.get();
+        hostReportHandler.handleHostReport(report, false);
+        assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
+
+        // Confirm the frame will be set to retry after it's completion has been processed
+
+        RunningFrameInfo runningFrame = RunningFrameInfo.newBuilder()
+                .setFrameId(proc3.getFrameId())
+                .setFrameName("frame_name")
+                .setLayerId(proc3.getLayerId())
+                .setRss(memoryUsedProc3)
+                .setMaxRss(memoryUsedProc3)
+                .setResourceId(proc3.id)
+                .build();
+        FrameCompleteReport completeReport = FrameCompleteReport.newBuilder()
+                .setHost(hostAfterUpdate)
+                .setFrame(runningFrame)
+                .setExitSignal(9)
+                .setRunTime(1)
+                .setExitStatus(1)
+                .build();
+
+        frameCompleteHandler.handleFrameCompleteReport(completeReport);
+        FrameDetail killedFrame = jobManager.getFrameDetail(proc3.getFrameId());
+        LayerDetail layer = jobManager.getLayerDetail(proc3.getLayerId());
+        assertEquals(FrameState.WAITING, killedFrame.state);
+        // Memory increases are processed in two different places one will set the new value to proc.reserved + 2GB
+        // and the other will set to the maximum reported proc.maxRss the end value will be whoever is higher.
+        // In this case, proc.maxRss
+        assertEquals(Math.max(memoryUsedProc3, layerBeforeIncrease.getMinimumMemory() + CueUtil.GB2),
+                layer.getMinimumMemory());
     }
 }
 
