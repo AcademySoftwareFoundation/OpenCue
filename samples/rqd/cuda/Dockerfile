@@ -28,16 +28,14 @@ RUN python3.6 -m pip install -r requirements.txt
 
 RUN python3.6 -m grpc_tools.protoc \
   -I=./proto \
-  --python_out=./rqd/rqd/compiled_proto \
-  --grpc_python_out=./rqd/rqd/compiled_proto \
+  --python_out=./rqd/compiled_proto \
+  --grpc_python_out=./rqd/compiled_proto \
   ./proto/*.proto
 
-RUN 2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
+RUN 2to3 -wn -f import rqd/compiled_proto/*_pb2*.py
 
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
-
-RUN cd rqd && python3.6 setup.py test
-RUN cd rqd && python3.6 setup.py install
+RUN python3.6 setup.py test
+RUN python3.6 setup.py install
 
 # RQD gRPC server
 EXPOSE 8444
