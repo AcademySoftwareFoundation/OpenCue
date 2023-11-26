@@ -75,9 +75,11 @@ def installModule():
     opencue_directory = "pycue/opencue"
 
     pyoutline_path = os.path.join(opencue_home, pyoutline_directory)
+    filesequence_path = os.path.join(opencue_home, filesequence_directory)
     opencue_path = os.path.join(opencue_home, opencue_directory)
 
     subprocess.call(["cp", "-r", pyoutline_path, blender_dependencies_path])
+    subprocess.call(["cp", "-r", filesequence_path, blender_dependencies_path])
     subprocess.call(["cp", "-r", opencue_path, blender_dependencies_path])
 
 def removeModule():
