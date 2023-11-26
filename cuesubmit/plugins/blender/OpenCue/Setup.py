@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+import shutil
 import sys
 import subprocess
 import os
@@ -83,16 +83,15 @@ def installModule():
     # install required external packages
     subprocess.call([python_exe, "-m", "pip", "install", "-r", requirements, "-t", blender_dependencies_path])
 
-    subprocess.call(["cp", "-r", pyoutline_path, blender_dependencies_path])
-    subprocess.call(["cp", "-r", filesequence_path, blender_dependencies_path])
-    subprocess.call(["cp", "-r", opencue_path, blender_dependencies_path])
+    shutil.copytree(pyoutline_path, pyoutline_directory_path)
+    shutil.copytree(opencue_path, opencue_directory_path)
+    shutil.copytree(pyoutline_path, filesequence_directory_path)
 
 def removeModule():
     # remove installed opencue dependencies
-
-    subprocess.call(["rm", "-rf", pyoutline_directory_path])
-    subprocess.call(["rm", "-rf", opencue_directory_path])
-    subprocess.call(["rm", "-rf", filesequence_directory_path])
+    shutil.rmtree(pyoutline_directory_path)
+    shutil.rmtree(opencue_directory_path)
+    shutil.rmtree(filesequence_directory_path)
 
 
 
