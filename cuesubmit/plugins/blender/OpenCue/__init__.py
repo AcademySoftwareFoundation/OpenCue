@@ -108,25 +108,25 @@ def register():
 
     bpy.types.Scene.job_name = bpy.props.StringProperty(
         name="Job name",
-        description="Enter some text",
+        description="Name of job submission",
         default=""
     )
 
     bpy.types.Scene.usr_name = bpy.props.StringProperty(
         name="User name",
-        description="Enter some text",
+        description="Name of user performing job submission",
         default=""
     )
 
     bpy.types.Scene.layer_name = bpy.props.StringProperty(
         name="Layer name",
-        description="Enter some text",
+        description="Job submission layer name",
         default=""
     )
 
     bpy.types.Scene.shot_name = bpy.props.StringProperty(
         name="Shot name",
-        description="Enter some text",
+        description="Shot name",
         default=""
     )
 
