@@ -68,6 +68,21 @@ def python_exec():
 
 
 def installModule():
+    # Install OpenCue dependencies
+    installOpencueModules()
+
+    # installs External modules from requirements.txt file
+    installExternalModules()
+
+    print("----- OpenCue-Blender Installed Successfully -----")
+
+def removeOpencueModules():
+    # remove installed opencue dependencies
+    shutil.rmtree(pyoutline_directory_path)
+    shutil.rmtree(opencue_directory_path)
+    shutil.rmtree(filesequence_directory_path)
+
+def installExternalModules():
     # Get path of requirements file
     script_file = os.path.realpath(__file__)
     directory = os.path.dirname(script_file)
@@ -78,20 +93,18 @@ def installModule():
     python_exe = python_exec()
 
     # upgrade pip
+    print ("----- Installing External Dependencies -----")
     subprocess.call([python_exe, "-m", "ensurepip"])
     subprocess.call([python_exe, "-m", "pip", "install", "--upgrade", "pip"])
     # install required external packages
     subprocess.call([python_exe, "-m", "pip", "install", "-r", requirements, "-t", blender_dependencies_path])
+    print ("----- External Dependencies Installed Successfully -----")
 
+def installOpencueModules():
+    print ("----- Installing OpenCue Dependencies -----")
     shutil.copytree(pyoutline_path, pyoutline_directory_path)
     shutil.copytree(opencue_path, opencue_directory_path)
     shutil.copytree(pyoutline_path, filesequence_directory_path)
-
-def removeModule():
-    # remove installed opencue dependencies
-    shutil.rmtree(pyoutline_directory_path)
-    shutil.rmtree(opencue_directory_path)
-    shutil.rmtree(filesequence_directory_path)
-
+    print ("----- OpenCue Dependencies Installed Successfully -----")
 
 

@@ -132,11 +132,14 @@ def register():
 
     bpy.utils.register_class(OpenCuePanel)
 
+    # Check if dependencies are not installed
     addon_pref = bpy.context.preferences.addons[__name__].preferences
     if not addon_pref.is_dependency_install:
         Setup.installModule()
         bpy.context.preferences.addons[__name__].preferences.is_dependency_install = True
-
+        bpy.utils.register_class(SubmitJob)
+    else:
+        Setup.installOpencueModules()
         bpy.utils.register_class(SubmitJob)
 
 
@@ -148,7 +151,7 @@ def unregister():
     del bpy.types.Scene.usr_name
     del bpy.types.Scene.layer_name
 
-    Setup.removeModule()
+    Setup.removeOpencueModules()
 
 
 if __name__ == "__main__":
