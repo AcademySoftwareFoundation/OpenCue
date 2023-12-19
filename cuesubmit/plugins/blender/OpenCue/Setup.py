@@ -74,7 +74,7 @@ def installModule():
     # installs External modules from requirements.txt file
     installExternalModules()
 
-    print("----- OpenCue-Blender Installed Successfully -----")
+    print("\n----- OpenCue-Blender Installed Successfully -----")
 
 def removeOpencueModules():
     # remove installed opencue dependencies
@@ -93,18 +93,18 @@ def installExternalModules():
     python_exe = python_exec()
 
     # upgrade pip
-    print ("----- Installing External Dependencies -----")
+    print ("\n----- Installing External Dependencies -----")
     subprocess.call([python_exe, "-m", "ensurepip"])
     subprocess.call([python_exe, "-m", "pip", "install", "--upgrade", "pip"])
     # install required external packages
     subprocess.call([python_exe, "-m", "pip", "install", "-r", requirements, "-t", blender_dependencies_path])
-    print ("----- External Dependencies Installed Successfully -----")
+    print ("\n----- External Dependencies Installed Successfully -----")
 
 def installOpencueModules():
     print ("----- Installing OpenCue Dependencies -----")
     shutil.copytree(pyoutline_path, pyoutline_directory_path)
     shutil.copytree(opencue_path, opencue_directory_path)
     shutil.copytree(pyoutline_path, filesequence_directory_path)
-    print ("----- OpenCue Dependencies Installed Successfully -----")
+    print ("\n----- OpenCue Dependencies Installed Successfully -----")
 
 
