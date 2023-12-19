@@ -99,7 +99,6 @@ class OpenCueAddonPreferences(bpy.types.AddonPreferences):
     )
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, "is_dependency_install")
         layout.prop(self, "use_gpu")
         layout.prop(self, "output_path")
 
