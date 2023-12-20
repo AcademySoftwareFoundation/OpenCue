@@ -32,10 +32,10 @@ opencue_path = os.path.join(opencue_home, opencue_directory)
 
 pyoutline_directory = "outline"
 opencue_imported_directory = "opencue"
-filesequence_directory = "FileSequence"
+filesequence_imported_directory = "FileSequence"
 pyoutline_directory_path = os.path.join(sys.prefix, blender_dependencies_directory, pyoutline_directory)
 opencue_directory_path = os.path.join(sys.prefix, blender_dependencies_directory, opencue_imported_directory)
-filesequence_directory_path = os.path.join(sys.prefix, blender_dependencies_directory, filesequence_directory)
+filesequence_directory_path = os.path.join(sys.prefix, blender_dependencies_directory, filesequence_imported_directory)
 
 def isWindows():
     return os.name == 'nt'
@@ -104,7 +104,7 @@ def installOpencueModules():
     print ("----- Installing OpenCue Dependencies -----")
     shutil.copytree(pyoutline_path, pyoutline_directory_path)
     shutil.copytree(opencue_path, opencue_directory_path)
-    shutil.copytree(pyoutline_path, filesequence_directory_path)
+    shutil.copytree(filesequence_path, filesequence_directory_path)
     print ("\n----- OpenCue Dependencies Installed Successfully -----")
 
 
