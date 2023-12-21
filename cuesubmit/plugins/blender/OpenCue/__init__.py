@@ -21,12 +21,13 @@ class SubmitJob(bpy.types.Operator):
     bl_label = "My Operator"
 
     def execute(self, context):
+        retrieved_output_path = bpy.context.preferences.addons[__name__].preferences.output_path
         layerData = {
             'name': context.scene.layer_name,
             'layerType': 'Blender',
             'cmd': {
                 'blenderFile': bpy.data.filepath,
-                'outputPath': '',
+                'outputPath': retrieved_output_path,
                 'outputFormat': 'PNG'
             },
             'layerRange': '1',
