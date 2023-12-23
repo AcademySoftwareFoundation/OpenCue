@@ -38,6 +38,7 @@ pyoutline_directory_path = os.path.join(sys.prefix, blender_dependencies_directo
 opencue_directory_path = os.path.join(sys.prefix, blender_dependencies_directory, opencue_imported_directory)
 filesequence_directory_path = os.path.join(sys.prefix, blender_dependencies_directory, filesequence_imported_directory)
 
+
 def isWindows():
     """Checks if host OS is Windows"""
     return os.name == 'nt'
@@ -82,6 +83,7 @@ def installModule():
 
     print("\n----- OpenCue-Blender Installed Successfully -----")
 
+
 def installExternalModules():
     """Installs externals dependencies onto Blender python environment with pip"""
     # Get path of requirements file
@@ -94,20 +96,22 @@ def installExternalModules():
     python_exe = python_exec()
 
     # upgrade pip
-    print ("\n----- Installing External Dependencies -----")
+    print("\n----- Installing External Dependencies -----")
     subprocess.call([python_exe, "-m", "ensurepip"])
     subprocess.call([python_exe, "-m", "pip", "install", "--upgrade", "pip"])
     # install required external packages
     subprocess.call([python_exe, "-m", "pip", "install", "-r", requirements, "-t", blender_dependencies_path])
-    print ("\n----- External Dependencies Installed Successfully -----")
+    print("\n----- External Dependencies Installed Successfully -----")
+
 
 def installOpencueModules():
     """Installs OpenCue dependencies onto Blender python environment"""
-    print ("----- Installing OpenCue Dependencies -----")
+    print("----- Installing OpenCue Dependencies -----")
     shutil.copytree(pyoutline_path, pyoutline_directory_path)
     shutil.copytree(opencue_path, opencue_directory_path)
     shutil.copytree(filesequence_path, filesequence_directory_path)
-    print ("\n----- OpenCue Dependencies Installed Successfully -----")
+    print("\n----- OpenCue Dependencies Installed Successfully -----")
+
 
 def removeOpencueModules():
     """Removes OpenCue dependencies from Blender python environment"""
@@ -115,4 +119,3 @@ def removeOpencueModules():
     shutil.rmtree(pyoutline_directory_path)
     shutil.rmtree(opencue_directory_path)
     shutil.rmtree(filesequence_directory_path)
-

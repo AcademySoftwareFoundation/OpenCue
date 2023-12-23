@@ -18,6 +18,7 @@ import outline.modules.shell
 
 import bpy
 
+
 def buildBlenderCmd(layerData):
     """Builds the Blender command from layerdata
 
@@ -49,6 +50,7 @@ def buildBlenderCmd(layerData):
     renderCommand += ' -f 1 -- --cycles-device {renderHW}'.format(renderHW=renderHW)
     return renderCommand
 
+
 def buildLayer(layerData, command, lastLayer=None):
     """Creates a PyOutline Layer for the given layerData.
 
@@ -74,10 +76,12 @@ def buildLayer(layerData, command, lastLayer=None):
             layer.depend_on(lastLayer)
     return layer
 
+
 def buildBlenderLayer(layerData, lastLayer):
     """Builds a PyOutline layer running a Blender command."""
     blenderCmd = buildBlenderCmd(layerData)
     return buildLayer(layerData, blenderCmd, lastLayer)
+
 
 def submit(jobData):
     """Submits the job using the PyOutline API."""

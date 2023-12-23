@@ -30,6 +30,7 @@ import bpy
 
 from . import Setup
 
+
 class SubmitJob(bpy.types.Operator):
     """Compiles and submits job on button press"""
     bl_idname = "object.submit_job"
@@ -114,10 +115,12 @@ class OpenCueAddonPreferences(bpy.types.AddonPreferences):
         name="OpenCue output path",
         default="",
     )
+
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "use_gpu")
         layout.prop(self, "output_path")
+
 
 def register():
     """Registers addon to Blender"""
