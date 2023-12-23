@@ -6,6 +6,10 @@ import outline.modules.shell
 import bpy
 
 def buildBlenderCmd(layerData):
+    """Builds the Blender command from layerdata
+
+    @param layerData: layer data from the ui
+    """
     blenderFile = layerData.get('cmd').get('blenderFile')
     outputPath = layerData.get('cmd').get('outputPath')
     outputFormat = layerData.get('cmd').get('outputFormat')

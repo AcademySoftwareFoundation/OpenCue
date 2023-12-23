@@ -17,6 +17,7 @@ import bpy
 from . import Setup
 
 class SubmitJob(bpy.types.Operator):
+    """Compiles and submits job on button press"""
     bl_idname = "object.submit_job"
     bl_label = "My Operator"
 
@@ -80,6 +81,7 @@ class OpenCuePanel(bpy.types.Panel):
 
 
 class OpenCueAddonPreferences(bpy.types.AddonPreferences):
+    """Generates addon settings in preferences view"""
     bl_idname = __name__
 
     is_dependency_install: bpy.props.BoolProperty(
@@ -104,6 +106,7 @@ class OpenCueAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "output_path")
 
 def register():
+    """Registers addon to Blender"""
     bpy.utils.register_class(OpenCueAddonPreferences)
 
     bpy.types.Scene.job_name = bpy.props.StringProperty(
@@ -144,6 +147,7 @@ def register():
 
 
 def unregister():
+    """Unregisters addon from Blender"""
     bpy.utils.unregister_class(OpenCuePanel)
     bpy.utils.unregister_class(SubmitJob)
     bpy.utils.unregister_class(OpenCueAddonPreferences)

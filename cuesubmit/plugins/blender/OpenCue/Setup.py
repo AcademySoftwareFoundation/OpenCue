@@ -38,18 +38,22 @@ opencue_directory_path = os.path.join(sys.prefix, blender_dependencies_directory
 filesequence_directory_path = os.path.join(sys.prefix, blender_dependencies_directory, filesequence_imported_directory)
 
 def isWindows():
+    """Checks if host OS is Windows"""
     return os.name == 'nt'
 
 
 def isMacOS():
+    """Checks if host OS is macOS"""
     return os.name == 'posix' and platform.system() == "Darwin"
 
 
 def isLinux():
+    """Checks if host OS is Linux"""
     return os.name == 'posix' and platform.system() == "Linux"
 
 
 def python_exec():
+    """Sets Blender local python based on host OS"""
     if isWindows():
         return os.path.join(sys.prefix, 'bin', 'python.exe')
     elif isMacOS():
@@ -68,6 +72,7 @@ def python_exec():
 
 
 def installModule():
+    """Installs all addon dependencies during registration"""
     # Install OpenCue dependencies
     installOpencueModules()
 
@@ -76,13 +81,8 @@ def installModule():
 
     print("\n----- OpenCue-Blender Installed Successfully -----")
 
-def removeOpencueModules():
-    # remove installed opencue dependencies
-    shutil.rmtree(pyoutline_directory_path)
-    shutil.rmtree(opencue_directory_path)
-    shutil.rmtree(filesequence_directory_path)
-
 def installExternalModules():
+    """Installs externals dependencies onto Blender python environment with pip"""
     # Get path of requirements file
     script_file = os.path.realpath(__file__)
     directory = os.path.dirname(script_file)
@@ -101,10 +101,17 @@ def installExternalModules():
     print ("\n----- External Dependencies Installed Successfully -----")
 
 def installOpencueModules():
+    """Installs OpenCue dependencies onto Blender python environment"""
     print ("----- Installing OpenCue Dependencies -----")
     shutil.copytree(pyoutline_path, pyoutline_directory_path)
     shutil.copytree(opencue_path, opencue_directory_path)
     shutil.copytree(filesequence_path, filesequence_directory_path)
     print ("\n----- OpenCue Dependencies Installed Successfully -----")
 
+def removeOpencueModules():
+    """Removes OpenCue dependencies from Blender python environment"""
+    # remove installed opencue dependencies
+    shutil.rmtree(pyoutline_directory_path)
+    shutil.rmtree(opencue_directory_path)
+    shutil.rmtree(filesequence_directory_path)
 
