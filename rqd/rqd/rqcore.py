@@ -1219,6 +1219,8 @@ def pipe_to_file(stdout, stderr, outfile):
 
         remainder = lines[-1]
         for line in lines[0:-1]:
+            # Convert to ASCII while discarding characters that can not be encoded
+            line = line.encode('ascii', 'ignore')
             print("[%s] %s" % (curr_line_timestamp, line), file=outfile)
         outfile.flush()
         os.fsync(outfile)
