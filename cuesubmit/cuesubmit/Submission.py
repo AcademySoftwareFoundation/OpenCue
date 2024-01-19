@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import str
+import re
 
 import outline
 import outline.cuerun
@@ -63,6 +64,7 @@ def buildBlenderCmd(layerData):
     blenderFile = layerData.cmd.get('blenderFile')
     outputPath = layerData.cmd.get('outputPath')
     outputFormat = layerData.cmd.get('outputFormat')
+    frameRange = layerData.layerRange
     if not blenderFile:
         raise ValueError('No Blender file provided. Cannot submit job.')
 
@@ -72,8 +74,18 @@ def buildBlenderCmd(layerData):
         renderCommand += ' -o {}'.format(outputPath)
     if outputFormat:
         renderCommand += ' -F {}'.format(outputFormat)
-    # The render frame must come after the scene and output
-    renderCommand += ' -f {frameToken}'.format(frameToken=Constants.FRAME_TOKEN)
+    if frameRange:
+        # Checks if frame range is in the correct format
+        if re.match(r'^\d+$', frameRange):
+            renderCommand += ' -f {}'.format(frameRange)
+        elif re.match(r'^\d+-\d+$', frameRange):
+            startFrame, endFrame = map(int, frameRange.split("-"))
+            renderCommand += ' -s {startFrame} -e {endFrame} -a'.format(startFrame=startFrame, endFrame=endFrame)
+        else:
+            raise ValueError('Invalid frameRange format: {}'.format(frameRange))
+    else:
+        # The render frame must come after the scene and output
+        renderCommand += ' -f {frameToken}'.format(frameToken=Constants.FRAME_TOKEN)
     return renderCommand
 
 
