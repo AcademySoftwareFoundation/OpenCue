@@ -80,7 +80,8 @@ def buildBlenderCmd(layerData):
             renderCommand += ' -f {}'.format(frameRange)
         elif re.match(r'^\d+-\d+$', frameRange):
             startFrame, endFrame = map(int, frameRange.split("-"))
-            renderCommand += ' -s {startFrame} -e {endFrame} -a'.format(startFrame=startFrame, endFrame=endFrame)
+            renderCommand += (' -s {startFrame} -e {endFrame} -a'
+                              .format(startFrame=startFrame, endFrame=endFrame))
         else:
             raise ValueError('Invalid frameRange format: {}'.format(frameRange))
     else:
