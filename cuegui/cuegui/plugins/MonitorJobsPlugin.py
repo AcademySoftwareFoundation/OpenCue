@@ -199,7 +199,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         self.jobMonitor.removeAllItems()
 
-        if len(substring) > 0:
+        if substring:
             if cuegui.Utils.isStringId(substring):
                 # If a uuid is provided, load it
                 self.jobMonitor.addJob(substring)
@@ -210,9 +210,8 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                         self.jobMonitor.addJob(job)
             else:
                 # Otherwise, just load current matching jobs (except for the empty string)
-                if substring:
-                    for job in opencue.api.getJobs(regex=[substring]):
-                        self.jobMonitor.addJob(job)
+                for job in opencue.api.getJobs(regex=[substring]):
+                    self.jobMonitor.addJob(job)
 
     def getGrpDependent(self):
         """Is group dependent checked"""
