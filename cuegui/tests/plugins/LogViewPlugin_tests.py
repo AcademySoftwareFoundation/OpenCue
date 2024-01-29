@@ -85,7 +85,7 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_shouldHighlightAllSearchResults(self):
         self.logViewPlugin.logview_widget._receive_log_results(_LOG_TEXT_1, 0)
-        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(PySide2.QtCore.Qt.CheckState.Unchecked)
+        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(qtpy.QtCore.Qt.CheckState.Unchecked)
 
         self.logViewPlugin.logview_widget._search_box.setText('lorem')
         self.logViewPlugin.logview_widget._search_button.click()
@@ -101,7 +101,8 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_shouldMoveCursorToSecondSearchResult(self):
         self.logViewPlugin.logview_widget._receive_log_results(_LOG_TEXT_1, 0)
-        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(PySide2.QtCore.Qt.CheckState.Unchecked)
+        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
+            qtpy.QtCore.Qt.CheckState.Unchecked)
 
         self.logViewPlugin.logview_widget._search_box.setText('lorem')
         self.logViewPlugin.logview_widget._search_button.click()
@@ -114,7 +115,8 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_shouldMoveCursorLastSearchResult(self):
         self.logViewPlugin.logview_widget._receive_log_results(_LOG_TEXT_1, 0)
-        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(PySide2.QtCore.Qt.CheckState.Unchecked)
+        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
+            qtpy.QtCore.Qt.CheckState.Unchecked)
 
         self.logViewPlugin.logview_widget._search_box.setText('lorem')
         self.logViewPlugin.logview_widget._search_button.click()
@@ -127,7 +129,8 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_shouldPerformCaseInsensitiveSearch(self):
         self.logViewPlugin.logview_widget._receive_log_results(_LOG_TEXT_1, 0)
-        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(PySide2.QtCore.Qt.CheckState.Checked)
+        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
+            qtpy.QtCore.Qt.CheckState.Checked)
         self.logViewPlugin.logview_widget._search_box.setText('lorem')
         self.logViewPlugin.logview_widget._search_button.click()
         matches = self.logViewPlugin.logview_widget._matches
