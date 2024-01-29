@@ -204,10 +204,10 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                 # If a uuid is provided, load it
                 self.jobMonitor.addJob(substring)
             elif load_finished_jobs or re.search(
-                    r"^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
-                # If show and shot is provided, or if "load finished" checkbox is checked, load all jobs
+                r"^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
+                # Load all ff show and shot is provided or if "load finished" checkbox is checked
                 for job in opencue.api.getJobs(regex=[substring], include_finished=True):
-                        self.jobMonitor.addJob(job)
+                    self.jobMonitor.addJob(job)
             else:
                 # Otherwise, just load current matching jobs (except for the empty string)
                 for job in opencue.api.getJobs(regex=[substring]):
