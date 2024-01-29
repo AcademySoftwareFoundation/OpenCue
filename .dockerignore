@@ -1,0 +1,7 @@
+ci
+cuebot/src/compiled_protobuf
+images
+samples
+sandbox/db-data
+tsc
+venv

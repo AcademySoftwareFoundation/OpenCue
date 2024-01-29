@@ -23,7 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,7 +63,7 @@ import com.imageworks.spcue.util.Convert;
 @Transactional
 public class FilterManagerService implements FilterManager {
 
-    private static final Logger logger = Logger.getLogger(FilterManagerService.class);
+    private static final Logger logger = LogManager.getLogger(FilterManagerService.class);
 
     private ActionDao actionDao;
     private MatcherDao matcherDao;
@@ -396,8 +397,12 @@ public class FilterManagerService implements FilterManager {
                 layerDao.updateMinMemory(job, (int) action.intValue, LayerType.RENDER);
                 break;
 
-            case SET_ALL_RENDER_LAYER_CORES:
+            case SET_ALL_RENDER_LAYER_MIN_CORES:
                 layerDao.updateMinCores(job, Convert.coresToCoreUnits(action.floatValue), LayerType.RENDER);
+                break;
+
+            case SET_ALL_RENDER_LAYER_MAX_CORES:
+                layerDao.updateMaxCores(job, Convert.coresToCoreUnits(action.floatValue), LayerType.RENDER);
                 break;
 
             case SET_MEMORY_OPTIMIZER:

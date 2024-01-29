@@ -22,7 +22,9 @@ package com.imageworks.spcue.service;
 import java.sql.Timestamp;
 import java.util.List;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,7 +58,7 @@ import com.imageworks.spcue.rqd.RqdClientException;
 
 @Transactional
 public class HostManagerService implements HostManager {
-    private static final Logger logger = Logger.getLogger(HostManagerService.class);
+    private static final Logger logger = LogManager.getLogger(HostManagerService.class);
 
     private HostDao hostDao;
     private RqdClient rqdClient;
@@ -92,9 +94,8 @@ public class HostManagerService implements HostManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isSwapping(HostInterface host) {
-        return hostDao.isKillMode(host);
+    public void setHostFreeTempDir(HostInterface host, Long freeTempDir) {
+        hostDao.updateHostFreeTempDir(host, freeTempDir);
     }
 
     public void rebootWhenIdle(HostInterface host) {
@@ -123,7 +124,7 @@ public class HostManagerService implements HostManager {
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
             long totalMcp, long freeMcp,
-            long totalGpu, long freeGpu,
+            long totalGpuMemory, long freeGpuMemory,
             int load, Timestamp bootTime,
             String os) {
 
@@ -131,7 +132,7 @@ public class HostManagerService implements HostManager {
                 totalMemory, freeMemory,
                 totalSwap, freeSwap,
                 totalMcp, freeMcp,
-                totalGpu, freeGpu,
+                totalGpuMemory, freeGpuMemory,
                 load, bootTime, os);
     }
 
@@ -152,7 +153,28 @@ public class HostManagerService implements HostManager {
 
     @Transactional(propagation = Propagation.REQUIRED)
     public DispatchHost createHost(RenderHost rhost) {
-        return createHost(rhost, getDefaultAllocationDetail());
+        // Find suitable allocation with facility and tags.
+        AllocationEntity alloc = null;
+        if (rhost.getTagsCount() > 0) {
+            String facility = rhost.getFacility();
+            for (String tag : rhost.getTagsList()) {
+                try {
+                    alloc = allocationDao.findAllocationEntity(facility, tag);
+                    logger.info("set " + rhost.getName() +
+                            " to the given allocation " + alloc.getName());
+                    break;
+                }
+                catch (EmptyResultDataAccessException e) {
+                    // Allocation doesn't exist. ignore.
+                }
+            }
+        }
+        if (alloc == null) {
+            alloc = getDefaultAllocationDetail();
+            logger.info("set " + rhost.getName() +
+                    " to the default allocation " + alloc.getName());
+        }
+        return createHost(rhost, alloc);
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
@@ -244,6 +266,12 @@ public class HostManagerService implements HostManager {
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public int getStrandedCoreUnits(HostInterface h) {
         return hostDao.getStrandedCoreUnits(h);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    public int getStrandedGpuUnits(HostInterface h) {
+        return hostDao.getStrandedGpus(h);
     }
 
     @Override

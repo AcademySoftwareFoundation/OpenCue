@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for viewing logs."""
+
+
 from __future__ import division
 from __future__ import print_function
 from __future__ import absolute_import
@@ -26,10 +29,11 @@ import sys
 import time
 import traceback
 
-from PySide2 import QtGui
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtCore
+from qtpy import QtWidgets
 
+import cuegui.Constants
 import cuegui.AbstractDockWidget
 
 
@@ -87,8 +91,9 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         @param parent: The parent widget
         @type parent: QtWidgets.QWidget
         """
-
         super(LogTextEdit, self).__init__(parent)
+
+        self._context_menu = None
 
         # Use a Fixed-Width font for easier debugging
         self.font = self.document().defaultFont()
@@ -96,21 +101,23 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         self.document().setDefaultFont(self.font)
 
         self._line_num_area = LineNumberArea(self)
+        # pylint: disable=no-member
         self.blockCountChanged.connect(self.update_line_number_area_width)
         self.updateRequest.connect(self.update_line_number_area)
         self.cursorPositionChanged.connect(self.highlight_current_line)
+        # pylint: enable=no-member
 
         self.update_line_number_area_width()
         self.setReadOnly(True)
         self.setMaximumBlockCount(20000)
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.context_menu)
+        self.customContextMenuRequested.connect(self.context_menu)  # pylint: disable=no-member
 
         self.copy_action = QtWidgets.QAction('Copy', self)
         self.copy_action.setStatusTip('Copy Selection')
         self.copy_action.setShortcut('Ctrl+C')
-        self.copy_action.triggered.connect(lambda triggered, i=0:
-                                           self.copy_selection(0))
+        self.copy_action.triggered[bool].connect(lambda triggered:  # pylint: disable=unsubscriptable-object
+            self.copy_selection(QtGui.QClipboard.Clipboard))
         self.addAction(self.copy_action)
 
     def context_menu(self):
@@ -118,7 +125,6 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         A custom context menu to pop up when the user Right-Clicks in the
         Log View. Triggered by the customContextMenuRequested signal
         """
-
         self._context_menu = QtWidgets.QMenu(self)
         self._context_menu.addAction(self.copy_action)
         self._context_menu.exec_(QtGui.QCursor.pos())
@@ -156,11 +162,11 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         Copy (Ctrl + C) action. Stores the currently selected text in the
         clipboard.
 
-        @param mode: The QClipboard mode value (QtGui.QClipboard.Clipboard = GLOBAL
-                                                QtGui.QClipboard.Selection = Selection (middle-mouse))
+        @param mode: The QClipboard mode value
+            (QtGui.QClipboard.Clipboard = GLOBAL
+             QtGui.QClipboard.Selection = Selection (middle-mouse))
         @type mode: int
         """
-
         selection = self.textCursor().selection()
         QtWidgets.QApplication.clipboard().setText('', mode)
         QtWidgets.QApplication.clipboard().setText(selection.toPlainText(), mode)
@@ -179,7 +185,7 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         while count >= 10:
             count /= 10
             digits += 1
-        space = 3 + self.fontMetrics().width('9') * digits
+        space = 3 + self.fontMetrics().horizontalAdvance('9') * digits
         return space
 
     def update_line_number_area_width(self):
@@ -229,9 +235,11 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
 
         crnt_selection = QtWidgets.QTextEdit.ExtraSelection()
         line_color = QtGui.QColor(QtCore.Qt.red).lighter(12)
+        # pylint: disable=no-member
         crnt_selection.format.setBackground(line_color)
         crnt_selection.format.setProperty(QtGui.QTextFormat.FullWidthSelection,
                                           True)
+        # pylint: enable=no-member
         crnt_selection.cursor = self.textCursor()
         crnt_selection.cursor.clearSelection()
         self.setExtraSelections([crnt_selection])
@@ -321,9 +329,10 @@ class LogViewWidget(QtWidgets.QWidget):
         """
         Create the UI elements
         """
+        QtWidgets.QWidget.__init__(self, parent)
+        self.app = cuegui.app()
 
         # Main Widget
-        QtWidgets.QWidget.__init__(self, parent)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self._scrollArea = QtWidgets.QScrollArea()
@@ -339,23 +348,23 @@ class LogViewWidget(QtWidgets.QWidget):
         path_layout = QtWidgets.QHBoxLayout(path_widget)
         path_layout.setContentsMargins(0, 0, 0, 0)
         self._first_log_button = QtWidgets.QPushButton('<<', self)
-        self._first_log_button.clicked.connect(
+        self._first_log_button.clicked.connect(  # pylint: disable=no-member
                                 lambda: self._load_other_log(float('inf')))
         self._first_log_button.setEnabled(False)
         self._first_log_button.setToolTip('Load First Log')
         path_layout.addWidget(self._first_log_button)
         self._prev_log_button = QtWidgets.QPushButton('<', self)
-        self._prev_log_button.clicked.connect(lambda: self._load_other_log(1))
+        self._prev_log_button.clicked.connect(lambda: self._load_other_log(1))  # pylint: disable=no-member
         self._prev_log_button.setEnabled(False)
         self._prev_log_button.setToolTip('Load Previous Log')
         path_layout.addWidget(self._prev_log_button)
         self._next_log_button = QtWidgets.QPushButton('>', self)
-        self._next_log_button.clicked.connect(lambda: self._load_other_log(-1))
+        self._next_log_button.clicked.connect(lambda: self._load_other_log(-1))  # pylint: disable=no-member
         self._next_log_button.setEnabled(False)
         self._next_log_button.setToolTip('Load Next Log')
         path_layout.addWidget(self._next_log_button)
         self._last_log_button = QtWidgets.QPushButton('>>', self)
-        self._last_log_button.clicked.connect(
+        self._last_log_button.clicked.connect(  # pylint: disable=no-member
                                 lambda: self._load_other_log(-float('inf')))
         self._last_log_button.setEnabled(False)
         self._last_log_button.setToolTip('Load Current Log')
@@ -378,7 +387,7 @@ class LogViewWidget(QtWidgets.QWidget):
         self._word_wrap_checkbox.setFont(font)
         path_layout.addWidget(self._word_wrap_checkbox)
         self._word_wrap_checkbox.setCheckState(QtCore.Qt.Checked)
-        self._word_wrap_checkbox.stateChanged.connect(self._set_word_wrap)
+        self._word_wrap_checkbox.stateChanged.connect(self._set_word_wrap)  # pylint: disable=no-member
 
         # Content
         content_widget = QtWidgets.QWidget(self)
@@ -388,6 +397,8 @@ class LogViewWidget(QtWidgets.QWidget):
         self._scrollWidget.layout().addWidget(content_widget)
         self._content_box.moveCursor(QtGui.QTextCursor.End)
         self._content_box.ensureCursorVisible()
+
+        self.highlighter = Highlighter(self._content_box.document())
 
         # Search
         search_top_widget = QtWidgets.QWidget(self)
@@ -400,28 +411,30 @@ class LogViewWidget(QtWidgets.QWidget):
         search_layout = QtWidgets.QHBoxLayout(search_widget)
         self._case_stv_checkbox = QtWidgets.QCheckBox('Aa')
         search_layout.addWidget(self._case_stv_checkbox)
-        self._case_stv_checkbox.stateChanged.connect(self._move_to_search_box)
+        self._case_stv_checkbox.stateChanged.connect(self._move_to_search_box)  # pylint: disable=no-member
 
         self._search_box = QtWidgets.QLineEdit('', self)
+        self._search_box.setClearButtonEnabled(True)
+        self._search_box.setPlaceholderText('Search log...')
         search_layout.addWidget(self._search_box)
         self._search_box.show()
-        self._search_box.editingFinished.connect(self._find_text)
+        self._search_box.editingFinished.connect(self._find_text)  # pylint: disable=no-member
         self._search_button = QtWidgets.QPushButton('Find', self)
         search_layout.addWidget(self._search_button)
         self._prev_button = QtWidgets.QPushButton('Prev')
-        self._prev_button.clicked.connect(self._move_to_prev_match)
+        self._prev_button.clicked.connect(self._move_to_prev_match)  # pylint: disable=no-member
         self._next_button = QtWidgets.QPushButton('Next')
-        self._next_button.clicked.connect(self._move_to_next_match)
+        self._next_button.clicked.connect(self._move_to_next_match)  # pylint: disable=no-member
         search_layout.addWidget(self._next_button)
         search_layout.addWidget(self._prev_button)
         search_refresh_button = QtWidgets.QPushButton('Refresh', self)
         search_layout.addWidget(search_refresh_button)
-        search_refresh_button.clicked.connect(self._move_to_search_box)
+        search_refresh_button.clicked.connect(self._move_to_search_box)  # pylint: disable=no-member
 
         clear_search_button = QtWidgets.QPushButton('Clr', self)
         search_layout.addWidget(clear_search_button)
-        clear_search_button.clicked.connect(self._clear_search_text)
-        self._search_button.clicked.connect(self._find_text)
+        clear_search_button.clicked.connect(self._clear_search_text)  # pylint: disable=no-member
+        self._search_button.clicked.connect(self._find_text)  # pylint: disable=no-member
 
         matches_widget = QtWidgets.QWidget(self)
         matches_layout = QtWidgets.QHBoxLayout(matches_widget)
@@ -444,7 +457,8 @@ class LogViewWidget(QtWidgets.QWidget):
         self._cursor = self._content_box.textCursor()
         pos = QtCore.QPoint(0, 0)
         self._highlight_cursor = self._content_box.cursorForPosition(pos)
-        QtGui.qApp.display_log_file_content.connect(self._set_log_files)
+        # Signals are defined in code, so pylint thinks they don't exist.
+        self.app.display_log_file_content.connect(self._set_log_files)
         self._log_scrollbar = self._content_box.verticalScrollBar()
         self._log_scrollbar.valueChanged.connect(self._set_scrollbar_value)
 
@@ -537,7 +551,7 @@ class LogViewWidget(QtWidgets.QWidget):
         log_index_txt = ('Log %s of %s%s'
                          % (str(self._current_log_index+1),
                             len(self._log_files),
-                            (' (current)' if self._current_log_index == 0 
+                            (' (current)' if self._current_log_index == 0
                              else '')))
         self._log_index_label.setText(log_index_txt)
 
@@ -720,7 +734,6 @@ class LogViewWidget(QtWidgets.QWidget):
                                                 QtGui.QTextCursor.KeepAnchor,
                                                 match[-1])
             self._highlight_cursor.setCharFormat(self._format)
-            self._matches_to_highlight.discard(match)
 
     def _clear_search_text(self):
         """
@@ -742,18 +755,27 @@ class LogViewWidget(QtWidgets.QWidget):
                         are also removed.
         """
 
+        if not self._log_file:
+            return
+
+        # find matched text to "unhighlight" red by resetting the char format
+        highlight = self._matches[max(self._current_match - 300, 0):
+                                  min(self._current_match + 300, len(self._matches))]
+        matches = list(set(highlight).intersection(self._matches_to_highlight))
+
+        for match in matches:
+            self._highlight_cursor.setPosition(match[0])
+            self._highlight_cursor.movePosition(QtGui.QTextCursor.Right,
+                                                QtGui.QTextCursor.KeepAnchor,
+                                                match[-1])
+            self._highlight_cursor.setCharFormat(QtGui.QTextCharFormat())
+            self._highlight_cursor.clearSelection()
+
+        # reset text matches
         self._matches = []
         self._matches_to_highlight = set()
         self._search_timestamp = 0
         self._matches_label.setText('')
-        if not self._log_file:
-            return
-
-        format = QtGui.QTextCharFormat()
-        self._highlight_cursor.setPosition(QtGui.QTextCursor.Start)
-        self._highlight_cursor.movePosition(QtGui.QTextCursor.End, mode=QtGui.QTextCursor.KeepAnchor)
-        self._highlight_cursor.setCharFormat(format)
-        self._highlight_cursor.clearSelection()
 
     def _set_scrollbar_value(self, val):
         """
@@ -868,7 +890,7 @@ class LogViewWidget(QtWidgets.QWidget):
 
         self._log_mtime = log_mtime
 
-        QtGui.qApp.processEvents()
+        self.app.processEvents()
 
         # Update the content in the gui (if necessary)
         if self._new_log:
@@ -895,7 +917,7 @@ class LogViewWidget(QtWidgets.QWidget):
 class LogViewPlugin(cuegui.AbstractDockWidget.AbstractDockWidget):
     """
     Plugin for displaying the log file content for the selected frame with
-    the ability to perform regex-based search
+    the ability to perform regex-based search.
     """
 
     def __init__(self, parent=None):
@@ -909,3 +931,73 @@ class LogViewPlugin(cuegui.AbstractDockWidget.AbstractDockWidget):
             self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
         self.logview_widget = LogViewWidget(self)
         self.layout().addWidget(self.logview_widget)
+
+
+class Highlighter(QtGui.QSyntaxHighlighter):
+    """Color-codes log text according to log content."""
+
+    def __init__(self, parent=None):
+        super(Highlighter, self).__init__(parent)
+
+        self.on = True
+
+        self.timeFormat = QtGui.QTextCharFormat()
+        self.timeFormat.setFontWeight(QtGui.QFont.Bold)
+        self.timeFormat.setForeground(cuegui.Style.ColorTheme.LOG_TIME)
+
+        self.errorFormat = QtGui.QTextCharFormat()
+        self.errorFormat.setFontWeight(QtGui.QFont.Bold)
+        self.errorFormat.setForeground(cuegui.Style.ColorTheme.LOG_ERROR)
+
+        self.warnFormat = QtGui.QTextCharFormat()
+        self.warnFormat.setFontWeight(QtGui.QFont.Bold)
+        self.warnFormat.setForeground(cuegui.Style.ColorTheme.LOG_WARNING)
+
+        self.infoFormat = QtGui.QTextCharFormat()
+        self.infoFormat.setFontWeight(QtGui.QFont.Bold)
+        self.infoFormat.setForeground(cuegui.Style.ColorTheme.LOG_INFO)
+
+        self.completeFormat = QtGui.QTextCharFormat()
+        self.completeFormat.setFontWeight(QtGui.QFont.Bold)
+        self.completeFormat.setForeground(cuegui.Style.ColorTheme.LOG_COMPLETE)
+
+    def highlightBlock(self, text):
+        if not self.on:
+            return
+
+        line = text.lower()
+        done = False
+
+        for error in cuegui.Constants.LOG_HIGHLIGHT_ERROR:
+            if error in line:
+                self.setFormat(0, len(text), self.errorFormat)
+                done = True
+                break
+
+        if not done:
+            for warn in cuegui.Constants.LOG_HIGHLIGHT_WARN:
+                if warn in line:
+                    self.setFormat(0, len(text), self.warnFormat)
+                    done = True
+                    break
+
+        if not done:
+            for info in cuegui.Constants.LOG_HIGHLIGHT_INFO:
+                if info in line:
+                    self.setFormat(0, len(text), self.infoFormat)
+                    done = True
+                    break
+
+        if 'alf_progress' in line:
+            sidx = line.index('alf_progress')
+            eidx = line.index('%')
+            self.setFormat(sidx, eidx + 1, self.infoFormat)
+
+        if ' | ' in line:
+            idx = line.index(' | ')
+            self.setFormat(0, idx, self.timeFormat)
+
+        if 'render job complete' in line:
+            self.setFormat(0, len(text), self.completeFormat)
+
+        self.setCurrentBlockState(0)

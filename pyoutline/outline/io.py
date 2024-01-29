@@ -40,7 +40,7 @@ from .exception import ShellCommandFailureException
 logger = logging.getLogger("outline.io")
 
 # Used to match version number in paths
-VERSION_REGEX = re.compile("_v([\d+])")
+VERSION_REGEX = re.compile(r'_v([\d+])')
 
 
 def prep_shell_command(cmd, frame=None):
@@ -65,6 +65,7 @@ def prep_shell_command(cmd, frame=None):
         new_cmd.append(word)
     return new_cmd
 
+
 def system(cmd, ignore_error=False, frame=None):
     """
     Shell out to the given command and wait for it to finish.
@@ -79,7 +80,7 @@ def system(cmd, ignore_error=False, frame=None):
     str_cmd = " ".join(map(str, cmd))
 
     try:
-        logger.info("About to run: %s" % str_cmd)
+        logger.info("About to run: %s", str_cmd)
         retcode = subprocess.call(cmd, shell=False)
         if retcode != 0 and not ignore_error:
             msg = "shell out to '%s' failed, exit status %d" % (str_cmd, retcode)
@@ -91,6 +92,7 @@ def system(cmd, ignore_error=False, frame=None):
                                                              oserr.errno)
         logger.critical(msg)
         raise ShellCommandFailureException(msg, 16)
+
 
 def resolve(path):
     """
@@ -120,7 +122,7 @@ class Path(object):
         object.__init__(self)
         self.__path = resolve(str(path))
 
-        self.__attributes = { }
+        self.__attributes = {}
         self.__attributes["checked"] = False
         self.__attributes["mkdir"] = False
         self.__attributes.update(args)
@@ -156,6 +158,10 @@ class Path(object):
         :rtype: boolean
         :return: true if path exists.
         """
+        # frame_set isn't used here, but child classes need it, so we keep it here to keep
+        # args consistent
+        del frame_set
+
         return os.path.exists(self.__path)
 
     def get_basename(self):
@@ -177,8 +183,7 @@ class Path(object):
         """
         if os.path.isdir(self.__path):
             return self.__path
-        else:
-            return os.path.dirname(self.__path)
+        return os.path.dirname(self.__path)
 
     def get_ext(self):
         """
@@ -197,11 +202,15 @@ class Path(object):
         :return: full path to this file
         """
         return self.__path
-    
-    def get_size(self):
+
+    def get_size(self, frame_set=None):
         """
         Return the size of the file or path.
         """
+        # frame_set isn't used here, but child classes need it, so we keep it here to keep
+        # args consistent
+        del frame_set
+
         return os.path.getsize(self.__path)
 
     def __str__(self):
@@ -210,18 +219,20 @@ class Path(object):
     def __eq__(self, other):
         return str(self) == str(other)
 
+
 class FileSpec(Path):
     """
     A path to an image or sequence of images.  Path must be a
     standard image path.
     """
 
+    # pylint: disable=no-member
     def __init__(self, path, **args):
         Path.__init__(self, path, **args)
         try:
             self.__fs = FileSequence.FileSequence(self.get_path())
         except ValueError as e:
-            logger.critical("Failed to parse spec: %s." % self.get_path())
+            logger.critical("Failed to parse spec: %s.", self.get_path())
             raise e
 
         if "mkdir" not in args:
@@ -236,13 +247,13 @@ class FileSpec(Path):
         :return: true if image(s) exist
         """
         def exists(path):
-            logger.info("checking for existance of path: %s" % path)
+            logger.info("checking for existance of path: %s", path)
             if not os.path.exists(path):
                 return False
             if os.path.getsize(path) == 0:
                 return False
             return True
-        
+
         if frame_set:
             for f in frame_set:
                 path = self.get_frame_path(f)
@@ -275,14 +286,14 @@ class FileSpec(Path):
                 try:
                     size += os.path.getsize(path)
                 except OSError as e:
-                    logger.warn("Failed to find the size of: %s, %s" % (path, e))
+                    logger.warning("Failed to find the size of: %s, %s", path, e)
         else:
             for path in self.__fs:
                 try:
                     size += os.path.getsize(path)
                 except OSError as e:
-                    logger.warn("Failed to find the size of: %s, %s" % (path, e))
-                    
+                    logger.warning("Failed to find the size of: %s, %s", path, e)
+
         return size
 
     def get_basename(self):
@@ -350,11 +361,11 @@ class FileSpec(Path):
 
     def get_rep(self):
         """
-        Return the repesentation.  The repesentation is
+        Return the representation.  The representation is
         the oav_resolution_colorspace.
 
         :rtype:  string
-        :return: the repesentation.
+        :return: the representation.
         """
         return self.__fs.getDirname().rsplit("/", 2)[1]
 

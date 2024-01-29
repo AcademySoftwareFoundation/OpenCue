@@ -14,6 +14,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `FileSequence`."""
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -155,7 +157,9 @@ class FrameSetTests(unittest.TestCase):
     def testMultipleSegments(self):
         result = FrameSet('57,1-3,4-2,12-15x2,76-70x-3,5-12y3,1-7:5')
 
-        self.assertEqual([57, 1, 2, 3, 4, 3, 2, 12, 14, 76, 73, 70, 6, 7, 9, 10, 12, 1, 6, 2, 4, 3, 5, 7], result.getAll())
+        self.assertEqual(
+            [57, 1, 2, 3, 4, 3, 2, 12, 14, 76, 73, 70, 6, 7, 9, 10, 12, 1, 6, 2, 4, 3, 5, 7],
+            result.getAll())
 
     def testSize(self):
         result = FrameSet('1-7')

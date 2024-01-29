@@ -23,7 +23,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DataRetrievalFailureException;
 import org.springframework.transaction.annotation.Propagation;
@@ -63,7 +64,7 @@ import com.imageworks.spcue.util.FrameSet;
 @Transactional
 public class DependManagerService implements DependManager {
 
-    private static final Logger logger = Logger.getLogger(DependManagerService.class);
+    private static final Logger logger = LogManager.getLogger(DependManagerService.class);
 
     private DependDao dependDao;
     private JobDao jobDao;
@@ -495,7 +496,6 @@ public class DependManagerService implements DependManager {
         }
     }
 
-    @Transactional(propagation=Propagation.SUPPORTS)
     private void updateDependCount(LayerInterface layer) {
         FrameSearchInterface r = frameSearchFactory.create(layer);
         for (FrameInterface f: frameDao.findFrames(r)) {
@@ -503,7 +503,6 @@ public class DependManagerService implements DependManager {
         }
     }
 
-    @Transactional(propagation=Propagation.SUPPORTS)
     private void updateDependCount(JobInterface job) {
         FrameSearchInterface r = frameSearchFactory.create(job);
         for (FrameInterface f: frameDao.findFrames(r)) {
@@ -511,7 +510,6 @@ public class DependManagerService implements DependManager {
         }
     }
 
-    @Transactional(propagation = Propagation.SUPPORTS)
     private void updateDependCounts(FrameInterface f) {
         dependDao.incrementDependCount(f);
     }

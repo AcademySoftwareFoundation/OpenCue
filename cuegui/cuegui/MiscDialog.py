@@ -13,16 +13,21 @@
 #  limitations under the License.
 
 
+"""Miscellaneous dialogs."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-from PySide2 import QtWidgets
+from qtpy import QtWidgets
 
 import cuegui.AbstractDialog
 
 
 class RunLocalDialog(cuegui.AbstractDialog.AbstractDialog):
+    """Dialog for running a job on the user's local desktop cores."""
+
     def __init__(self, job, parent=None):
         cuegui.AbstractDialog.AbstractDialog.__init__(self, parent)
         layout = QtWidgets.QVBoxLayout(self)
@@ -46,7 +51,8 @@ class RunLocalDialog(cuegui.AbstractDialog.AbstractDialog):
         self.__localOnlyLabel = QtWidgets.QLabel("Only use local cores for this job?", self)
         self.__localOnlyCheckBox = QtWidgets.QCheckBox(self)
 
-        self.__buttons = self._newDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        self.__buttons = self._newDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
 
         layout.addWidget(self.__descriptionLabel)
         self._addWidgetRow(self.__amountLabel, self.__amountSpinBox)
@@ -55,4 +61,5 @@ class RunLocalDialog(cuegui.AbstractDialog.AbstractDialog):
         layout.addWidget(self.__buttons)
 
     def results(self):
+        """Gets the user input results."""
         return self.__amountSpinBox.value(), self.__localOnlyCheckBox.isChecked()

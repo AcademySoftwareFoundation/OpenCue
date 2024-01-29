@@ -13,13 +13,11 @@
 #  limitations under the License.
 
 
-import cuegui.Main
+"""Common utility functions for CueGUI test code."""
 
 
-__QAPPLICATION_SINGLETON = None
+import cuegui
 
 
 def createApplication():
-    global __QAPPLICATION_SINGLETON
-    if __QAPPLICATION_SINGLETON is None:
-        __QAPPLICATION_SINGLETON = cuegui.Main.CueGuiApplication()
+    return cuegui.create_app([])

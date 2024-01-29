@@ -25,9 +25,9 @@ copyright = u'2020, Contributors to the OpenCue Project'
 author = u'Academy Software Foundation'
 
 # The short X.Y version
-version = u'0.3.6'
+version = u'built from source'
 # The full version, including alpha/beta/rc tags
-release = u'0.3.6'
+release = u'built from source'
 
 
 # -- General configuration ---------------------------------------------------
@@ -67,7 +67,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -87,14 +87,13 @@ pygments_style = None
 html_theme = 'sphinx_rtd_theme'
 # Logo (optional)
 html_logo = "images/opencue_logo_navbar.png"
-
+html_baseurl = 'https://www.opencue.io/'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
 html_theme_options = {
-    'canonical_url': 'https://www.opencue.io/',
     'logo_only': True,
     'display_version': True,
     'prev_next_buttons_location': 'bottom',

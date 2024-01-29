@@ -12,12 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-"""
-Project: opencue Library
-Module: util.py
-"""
-
+"""Utility methods used throughout the opencue module."""
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -26,11 +21,12 @@ from __future__ import division
 from builtins import str
 import functools
 import future.utils
-import grpc
 import logging
 import os
-import six
 import time
+
+import six
+import grpc
 
 import opencue
 
@@ -47,8 +43,10 @@ def grpcExceptionParser(grpcFunc):
             try:
                 return grpcFunc(*args, **kwargs)
             except grpc.RpcError as exc:
+                # pylint: disable=no-member
                 code = exc.code()
                 details = exc.details() or "No details found. Check server logs."
+                # pylint: enable=no-member
                 exception = opencue.exception.EXCEPTION_MAP.get(code)
                 if exception:
                     if exception.retryable and triesRemaining >= 1:
@@ -65,6 +63,7 @@ def grpcExceptionParser(grpcFunc):
     return functools.wraps(grpcFunc)(_decorator)
 
 
+# pylint: disable=redefined-builtin
 def id(value):
     """extract(entity)
     extracts a string unique ID from a opencue entity or
@@ -73,14 +72,14 @@ def id(value):
     def _extract(item):
         try:
             return item.id()
+        # pylint: disable=bare-except
         except:
             pass
         return item
 
     if isinstance(value, (tuple, list, set)):
         return [_extract(v) for v in value]
-    else:
-        return _extract(value)
+    return _extract(value)
 
 
 @grpcExceptionParser
@@ -99,8 +98,7 @@ def proxy(idOrObject, cls):
             requestor = getattr(proto, "{cls}Get{cls}Request".format(cls=cls))
             getMethod = getattr(opencue.Cuebot.getStub(cls.lower()), "Get{}".format(cls))
             return getMethod(requestor(id=idString))
-        else:
-            raise AttributeError('Could not find a proto for {}'.format(cls))
+        raise AttributeError('Could not find a proto for {}'.format(cls))
 
     def _proxies(entities):
         messages = []
@@ -113,17 +111,17 @@ def proxy(idOrObject, cls):
 
     if hasattr(idOrObject, 'id'):
         return _proxy(idOrObject.id)
-    elif isinstance(idOrObject, six.string_types):
+    if isinstance(idOrObject, six.string_types):
         return _proxy(idOrObject)
-    else:
-        return _proxies(idOrObject)
+    return _proxies(idOrObject)
 
 
 def rep(entity):
     """rep(entity)
-    Extracts a string repesentation of a opencue entity"""
+    Extracts a string representation of a opencue entity"""
     try:
         return entity.name
+    # pylint: disable=bare-except
     except:
         return str(entity)
 
@@ -134,5 +132,4 @@ def logPath(job, frame=None):
     """
     if frame:
         return os.path.join(job.data.log_dir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
-    else:
-        return job.data.log_dir
+    return job.data.log_dir

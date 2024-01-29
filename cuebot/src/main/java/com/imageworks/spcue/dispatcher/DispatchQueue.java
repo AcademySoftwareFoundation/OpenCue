@@ -22,93 +22,86 @@ package com.imageworks.spcue.dispatcher;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.log4j.Logger;
-import org.springframework.core.task.TaskExecutor;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 
 public class DispatchQueue {
 
-    private TaskExecutor dispatchPool;
-    private ThreadPoolTaskExecutor _dispatchPool;
+    private int healthThreshold;
+    private int minUnhealthyPeriodMin;
+    private int queueCapacity;
+    private int corePoolSize;
+    private int maxPoolSize;
+
+    private static final Logger logger = LogManager.getLogger("HEALTH");
     private String name = "Default";
-    private AtomicBoolean isShutdown = new AtomicBoolean(false);
+    private HealthyThreadPool healthyDispatchPool;
 
-    private final AtomicLong tasksRun = new AtomicLong(0);
-    private final AtomicLong tasksRejected = new AtomicLong(0);
-
-    private static final Logger logger = Logger.getLogger(DispatchQueue.class);
-
-    public DispatchQueue() {}
-
-    public DispatchQueue(String name) {
+    public DispatchQueue(String name, int healthThreshold, int minUnhealthyPeriodMin, int queueCapacity,
+                         int corePoolSize, int maxPoolSize) {
         this.name = name;
+        this.healthThreshold = healthThreshold;
+        this.minUnhealthyPeriodMin = minUnhealthyPeriodMin;
+        this.queueCapacity = queueCapacity;
+        this.corePoolSize = corePoolSize;
+        this.maxPoolSize = maxPoolSize;
+        initThreadPool();
     }
 
-    public void execute(Runnable r) {
+    public void initThreadPool() {
+        healthyDispatchPool = new HealthyThreadPool(
+                name,
+                healthThreshold,
+                minUnhealthyPeriodMin,
+                queueCapacity,
+                corePoolSize,
+                maxPoolSize);
+    }
+
+    public boolean isHealthy() {
         try {
-            if (!isShutdown.get()) {
-                this.dispatchPool.execute(r);
-                tasksRun.addAndGet(1);
+            if (!healthyDispatchPool.isHealthyOrShutdown()) {
+                logger.warn("DispatchQueue_" + name + ": Unhealthy queue terminated, starting a new one");
+                initThreadPool();
             }
-        } catch (Exception e) {
-            long rejection = tasksRejected.addAndGet(1);
-            logger.warn("Warning, dispatch queue - [" + name + "] rejected,  " + e);
-            throw new DispatchQueueTaskRejectionException(
-                    "Warning, dispatch queue [" + name + " rejected task #"
-                            + rejection);
+        } catch (InterruptedException e) {
+            // TODO: evaluate crashing the whole springbook context here
+            //  to force a container restart cycle
+            logger.error("DispatchQueue_" + name + ":Failed to restart DispatchThreadPool", e);
+            return false;
         }
+
+        return true;
     }
 
-    public int getMaxPoolSize() {
-        return _dispatchPool.getMaxPoolSize();
+    public void execute(KeyRunnable r) {
+        healthyDispatchPool.execute(r);
     }
 
-    public int getActiveThreadCount() {
-        return _dispatchPool.getActiveCount();
-    }
-
-    public int getWaitingCount() {
-        return _dispatchPool.getThreadPoolExecutor().getQueue().size();
-    }
-
-    public int getRemainingCapacity() {
-        return _dispatchPool.getThreadPoolExecutor().getQueue().remainingCapacity();
-    }
-
-    public long getTotalDispatched() {
-        return tasksRun.get();
-    }
-
-    public long getTotalRejected() {
-        return tasksRejected.get();
-    }
-
-    public TaskExecutor getDispatchPool() {
-        return dispatchPool;
-    }
-
-    public void setDispatchPool(TaskExecutor dispatchPool) {
-        this.dispatchPool = dispatchPool;
-        this._dispatchPool = (ThreadPoolTaskExecutor) dispatchPool;
+    public long getRejectedTaskCount() {
+        return healthyDispatchPool.getRejectedTaskCount();
     }
 
     public void shutdown() {
-        if (!isShutdown.getAndSet(true)) {
-            logger.info("Shutting down thread pool " + name + ", currently "
-                    + getActiveThreadCount() + " active threads.");
-            final long startTime = System.currentTimeMillis();
-            while (getWaitingCount() != 0 && getActiveThreadCount() != 0) {
-                try {
-                    if (System.currentTimeMillis() - startTime > 10000) {
-                        throw new InterruptedException(name
-                                + " thread pool failed to shutdown properly");
-                    }
-                    Thread.sleep(250);
-                } catch (InterruptedException e) {
-                    break;
-                }
-            }
-        }
+        healthyDispatchPool.shutdown();
     }
+
+    public int getSize() {
+        return healthyDispatchPool.getQueue().size();
+    }
+
+    public int getRemainingCapacity() {
+        return healthyDispatchPool.getQueue().remainingCapacity();
+    }
+
+    public int getActiveCount() {
+        return healthyDispatchPool.getActiveCount();
+    }
+
+    public long getCompletedTaskCount() {
+        return healthyDispatchPool.getCompletedTaskCount();
+    }
+
 }
 

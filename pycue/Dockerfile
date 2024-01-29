@@ -1,35 +1,14 @@
-# -----------------
-# BUILD
-# -----------------
-FROM centos:7 as build
-
-# First line after FROM should be unique to avoid --cache-from weirdness.
-RUN echo "PyCue build stage"
+FROM python:3.9.14
 
 WORKDIR /src
 
-RUN yum -y install \
-  epel-release \
-  gcc \
-  python-devel
-
-RUN yum -y install \
-  python-pip \
-  python36 \
-  python36-devel \
-  python36-pip
-
-RUN python -m pip install --upgrade pip
-RUN python3.6 -m pip install --upgrade pip
-
-RUN python -m pip install --upgrade setuptools
-RUN python3.6 -m pip install --upgrade setuptools
+RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install --upgrade setuptools
 
 COPY LICENSE ./
 COPY requirements.txt ./
 
-RUN python -m pip install -r requirements.txt
-RUN python3.6 -m pip install -r requirements.txt
+RUN python3 -m pip install -r requirements.txt
 
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
@@ -38,7 +17,7 @@ COPY pycue/FileSequence ./pycue/FileSequence
 COPY pycue/tests/ ./pycue/tests
 COPY pycue/opencue ./pycue/opencue
 
-RUN python -m grpc_tools.protoc \
+RUN python3 -m grpc_tools.protoc \
   -I=./proto \
   --python_out=./pycue/opencue/compiled_proto \
   --grpc_python_out=./pycue/opencue/compiled_proto \
@@ -48,30 +27,15 @@ RUN python -m grpc_tools.protoc \
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
 RUN 2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
 
-# TODO(bcipriano) Lint the code here. (Issue #78)
-
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
-RUN cd pycue && python setup.py test
-
-RUN cd pycue && python3.6 setup.py test
+RUN cd pycue && python3 setup.py test
 
 RUN cp LICENSE requirements.txt VERSION pycue/
 
 RUN versioned_name="pycue-$(cat ./VERSION)-all" \
-  && mv pycue $versioned_name \
-  && tar -cvzf $versioned_name.tar.gz $versioned_name/*
-
-
-# -----------------
-# RUN
-# -----------------
-FROM centos:7
-
-# First line after FROM should be unique to avoid --cache-from weirdness.
-RUN echo "PyCue runtime stage"
-
-WORKDIR /opt/opencue
-
-COPY --from=build /src/pycue-*-all.tar.gz ./
+  && mv pycue "${versioned_name}" \
+  && tar -cvzf "${versioned_name}.tar.gz" ${versioned_name}/* \
+  && mkdir /opt/opencue \
+  && cp "${versioned_name}.tar.gz" /opt/opencue/

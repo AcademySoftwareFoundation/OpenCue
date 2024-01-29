@@ -16,7 +16,7 @@
 
 
 """
-Initializes and starts rqd.
+Initializes and starts RQD.
 
 - RQD allows the cuebot to launch frames on a remote host.
 - RQD monitors the resources on a machine.
@@ -28,7 +28,7 @@ Initializes and starts rqd.
 
 Optional configuration file:
 ----------------------------
-in /etc/rqd3/rqd3.conf:
+In /etc/opencue/rqd.conf (on Linux) or %LOCALAPPDATA%/OpenCue/rqd.conf (on Windows):
 [Override]
 OVERRIDE_CORES = 2
 OVERRIDE_PROCS = 3
@@ -62,13 +62,12 @@ import rqd.rqutil
 def setupLogging():
     """Sets up the logging for RQD.
        Logs to /var/log/messages"""
-    # TODO(bcipriano) These should be config based. (Issue #72)
-    consoleFormat = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    consoleLevel  = logging.DEBUG
-    fileFormat    = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    fileLevel     = logging.WARNING # Equal to or greater than the consoleLevel
 
-    logging.basicConfig(level=consoleLevel, format=consoleFormat)
+    consolehandler = logging.StreamHandler()
+    consolehandler.setLevel(rqd.rqconstants.CONSOLE_LOG_LEVEL)
+    consolehandler.setFormatter(logging.Formatter(rqd.rqconstants.LOG_FORMAT))
+    logging.getLogger('').addHandler(consolehandler)
+
     if platform.system() in ('Linux', 'Darwin'):
         if platform.system() == 'Linux':
             syslogAddress = '/dev/log'
@@ -82,60 +81,60 @@ def setupLogging():
         logfile = logging.FileHandler(os.path.expandvars('%TEMP%/openrqd.log'))
     else:
         logfile = logging.handlers.SysLogHandler()
-    logfile.setLevel(fileLevel)
-    logfile.setFormatter(logging.Formatter(fileFormat))
+    logfile.setLevel(rqd.rqconstants.FILE_LOG_LEVEL)
+    logfile.setFormatter(logging.Formatter(rqd.rqconstants.LOG_FORMAT))
     logging.getLogger('').addHandler(logfile)
+    logging.getLogger('').setLevel(logging.DEBUG)
 
 
 def usage():
     """Prints command line syntax"""
-    s = sys.stderr
-    print("SYNOPSIS", file=s)
-    print("  ", sys.argv[0], "[options]\n", file=s)
-    print("  -d | --daemon          => Run as daemon", file=s)
-    print("       --nimbyoff        => Disables nimby activation", file=s)
-    print("  -c                     => Provide an alternate config file", file=s)
-    print("                            Defaults to /etc/rqd3/rqd3.conf", file=s)
-    print("                            Config file is optional", file=s)
+    usage_msg = f"""SYNOPSIS
+  {sys.argv[0]} [options]
+
+  -d | --daemon          => Run as daemon
+       --nimbyoff        => Disables nimby activation
+  -c                     => Provide an alternate config file
+                            On Linux: defaults to /etc/opencue/rqd.conf
+                            On Windows: Defaults to %LOCALAPPDATA%/OpenCue/rqd.conf
+                            Config file is optional
+"""
+    print(usage_msg, file=sys.stderr)
+
 
 def main():
+    """Entrypoint for RQD."""
     setupLogging()
 
-    if platform.system() == 'Linux' and os.getuid() != 0:
+    if platform.system() == 'Linux' and os.getuid() != 0 and \
+       rqd.rqconstants.RQD_BECOME_JOB_USER:
         logging.critical("Please run launch as root")
         sys.exit(1)
 
     try:
-        opts, argv = getopt.getopt(sys.argv[1:], 'hdc:', ['help',
-                                                          'daemon',
-                                                          'nimbyoff',
-                                                          'update'])
+        opts, _ = getopt.getopt(sys.argv[1:], 'hdc:', ['help', 'daemon', 'nimbyoff', 'update'])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
 
     optNimbyOff = False
-    for o, a in opts:
-        if o in ["-h", "--help"]:
+    for option, _ in opts:
+        if option in ["-h", "--help"]:
             usage()
             sys.exit(0)
-        if o in ["-d", "--daemon"]:
+        if option in ["-d", "--daemon"]:
             # TODO(bcipriano) Background the process. (Issue #153)
             pass
-        if o in ["--nimbyoff"]:
+        if option in ["--nimbyoff"]:
             optNimbyOff = True
 
     rqd.rqutil.permissionsLow()
 
     logging.warning('RQD Starting Up')
 
-    if rqd.rqconstants.FACILITY == 'abq':
-        os.environ['TZ'] = 'PST8PDT'
-
     rqCore = rqd.rqcore.RqCore(optNimbyOff)
     rqCore.start()
 
 
 if __name__ == "__main__":
-  main()
-
+    main()

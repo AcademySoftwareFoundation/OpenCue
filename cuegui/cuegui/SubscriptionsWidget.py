@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Widget for listing and managing subscriptions."""
+
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -21,9 +24,8 @@ from builtins import str
 
 import opencue
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -34,10 +36,14 @@ import cuegui.Utils
 
 
 class SubscriptionsWidget(QtWidgets.QWidget):
+    """Widget for listing and managing subscriptions."""
+
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
+        self.app = cuegui.app()
 
         self.__show = None
+        self.__shows = None
 
         self.__comboShows = QtWidgets.QComboBox(self)
         self.__comboShows.setFocusPolicy(QtCore.Qt.NoFocus)
@@ -58,11 +64,13 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         layout.addWidget(self.__btnAddSubscription, 0, 3)
         layout.addWidget(self.__monitorSubscriptions, 2, 0, 3, 4)
 
+        # pylint: disable=no-member
         self.__btnShowProperties.clicked.connect(self.__showProperties)
         self.__btnAddSubscription.clicked.connect(self.__addSubscription)
         self.__comboShows.currentIndexChanged.connect(self.setShow)
-        QtGui.qApp.view_object.connect(self.setShow)
-        QtGui.qApp.facility_changed.connect(self.changeFacility)
+        # pylint: enable=no-member
+        self.app.view_object.connect(self.setShow)
+        self.app.facility_changed.connect(self.changeFacility)
 
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
@@ -70,17 +78,18 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         self.changeFacility()
 
     def changeFacility(self):
+        """Changes the active facility."""
         try:
-            self.__shows = dict([(show.name(), show) for show in opencue.api.getActiveShows()])
-        except Exception:
+            self.__shows = {show.name(): show for show in opencue.api.getActiveShows()}
+        except opencue.exception.CueException:
             self.__shows = {}
         self.__comboShows.clear()
-        self.__comboShows.addItems(["Select Show:"] +
-                                   sorted(self.__shows.keys()))
+        self.__comboShows.addItems(["Select Show:"] + sorted(self.__shows.keys()))
         self.setShow()
 
     def setShow(self, show=""):
-        """Sets the show for the subscription list and combo box
+        """Sets the active show.
+
         @type  show: str or Show
         @param show: The show to monitor"""
         if isinstance(show, int):
@@ -110,17 +119,22 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         self.__monitorSubscriptions.setShow(self.__show)
 
     def getShow(self):
+        """Gets the active show."""
         return self.__show
 
     def getShowName(self):
+        """Gets the active show name."""
         if self.__show:
             return self.__show.data.name
         return None
 
     def updateSoon(self):
+        """Requests an update of the subscriptions list."""
+        # pylint: disable=protected-access
         self.__monitorSubscriptions._update()
 
     def selectedObjects(self):
+        """Gets a list of the active show(s)."""
         return [opencue.api.findShow(self.__show.name())]
 
     def __showProperties(self):
@@ -136,28 +150,34 @@ class SubscriptionsWidget(QtWidgets.QWidget):
             self.updateSoon()
 
     def getColumnVisibility(self):
+        """Gets the table column visibility."""
         return self.__monitorSubscriptions.getColumnVisibility()
 
     def setColumnVisibility(self, settings):
+        """Sets the table column visibility."""
         self.__monitorSubscriptions.setColumnVisibility(settings)
 
     def getColumnOrder(self):
+        """Gets the table column order."""
         return self.__monitorSubscriptions.getColumnOrder()
 
     def setColumnOrder(self, settings):
+        """Sets the table column order."""
         self.__monitorSubscriptions.setColumnOrder(settings)
 
 
 class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
-    def __init__(self, parent):
+    """Tree widget for displaying a list of subscriptions."""
 
+    def __init__(self, parent):
         self.startColumnsForType(cuegui.Constants.TYPE_SUB)
         self.addColumn("Alloc", 160, id=1,
                        data=lambda sub: sub.data.allocation_name)
         self.addColumn("Usage", 70, id=2,
-                       data=lambda sub: (sub.data.size and
-                                         ("%.2f%%" % (sub.data.reserved_cores / sub.data.size * 100))
-                                         or 0),
+                       data=lambda sub: (
+                               sub.data.size and
+                               ("%.2f%%" % (sub.data.reserved_cores / sub.data.size * 100))
+                               or 0),
                        sort=lambda sub: (sub.data.size and
                                          sub.data.reserved_cores / sub.data.size or 0))
         self.addColumn("Size", 70, id=3,
@@ -181,6 +201,7 @@ class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.setUpdateInterval(30)
 
     def setShow(self, show=None):
+        """Sets the active show."""
         self._itemsLock.lockForWrite()
         try:
             if not show:
@@ -190,18 +211,19 @@ class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             elif isinstance(show, str):
                 try:
                     self.__show = opencue.api.findShow(show)
-                except:
+                except opencue.exception.CueException:
                     pass
             self._update()
         finally:
             self._itemsLock.unlock()
 
     def getShow(self):
+        """Gets the active show."""
         return self.__show
 
-    def _createItem(self, object):
+    def _createItem(self, rpcObject):
         """Creates and returns the proper item"""
-        return SubscriptionWidgetItem(object, self)
+        return SubscriptionWidgetItem(rpcObject, self)
 
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
@@ -223,8 +245,13 @@ class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.subscriptions().addAction(menu, "delete")
         menu.exec_(QtCore.QPoint(e.globalX(),e.globalY()))
 
+    def tick(self):
+        pass
+
 
 class SubscriptionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
-    def __init__(self, object, parent):
+    """Widget item representing a single subscription."""
+
+    def __init__(self, rpcObject, parent):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_SUB, object, parent)
+            self, cuegui.Constants.TYPE_SUB, rpcObject, parent)

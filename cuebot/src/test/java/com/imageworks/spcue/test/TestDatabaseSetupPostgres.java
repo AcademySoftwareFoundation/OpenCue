@@ -18,7 +18,7 @@ package com.imageworks.spcue.test;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
-import com.opentable.db.postgres.embedded.EmbeddedPostgres;
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.flywaydb.core.Flyway;
 
 import java.net.URL;

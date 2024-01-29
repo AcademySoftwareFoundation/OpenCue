@@ -13,11 +13,17 @@
 #  limitations under the License.
 
 
+"""Plugin for listing shows and performing administrative tasks."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+from qtpy import QtWidgets
+
 import cuegui.AbstractDockWidget
+import cuegui.CreateShowDialog
 import cuegui.ShowsWidget
 
 
@@ -29,12 +35,17 @@ PLUGIN_PROVIDES = "ShowsDockWidget"
 
 
 class ShowsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """This builds what is displayed on the dock widget"""
+    """Plugin for listing shows and performing administrative tasks."""
+
     def __init__(self, parent):
         super(ShowsDockWidget, self).__init__(parent, PLUGIN_NAME)
 
         self.__showsWidget = cuegui.ShowsWidget.ShowsWidget(self)
+        self.__createShowButton = QtWidgets.QPushButton("Create Show")
+        self.__createShowButton.setFixedWidth(150)
+        self.__createShowButton.clicked.connect(self.onCreateShowClicked)  # pylint: disable=no-member
 
+        self.layout().addWidget(self.__createShowButton)
         self.layout().addWidget(self.__showsWidget)
 
         self.pluginRegisterSettings([("columnVisibility",
@@ -43,3 +54,8 @@ class ShowsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                       ("columnOrder",
                                       self.__showsWidget.getColumnOrder,
                                       self.__showsWidget.setColumnOrder)])
+
+    def onCreateShowClicked(self):
+        """Show the dialog for creating new shows"""
+        d = cuegui.CreateShowDialog.CreateShowDialog(self)
+        d.exec_()

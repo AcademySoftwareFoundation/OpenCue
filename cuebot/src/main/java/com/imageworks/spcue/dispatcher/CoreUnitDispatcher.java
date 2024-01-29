@@ -21,12 +21,12 @@ package com.imageworks.spcue.dispatcher;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 
@@ -86,7 +86,7 @@ import com.imageworks.spcue.util.CueUtil;
  */
 public class CoreUnitDispatcher implements Dispatcher {
     private static final Logger logger =
-        Logger.getLogger(CoreUnitDispatcher.class);
+        LogManager.getLogger(CoreUnitDispatcher.class);
 
     private DispatchSupport dispatchSupport;
 
@@ -126,7 +126,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     }
 
 
-    private List<VirtualProc> dispatchJobs(DispatchHost host, Set<String> jobs) {
+    private List<VirtualProc> dispatchJobs(DispatchHost host, List<String> jobs) {
         List<VirtualProc> procs = new ArrayList<VirtualProc>();
 
         try {
@@ -135,7 +135,8 @@ public class CoreUnitDispatcher implements Dispatcher {
                 if (!host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
                         Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_RESERVED_MIN)) {
+                        Dispatcher.GPU_UNITS_RESERVED_MIN,
+                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
                     return procs;
                 }
 
@@ -169,8 +170,8 @@ public class CoreUnitDispatcher implements Dispatcher {
         return procs;
     }
 
-    private Set<String> getGpuJobs(DispatchHost host, ShowInterface show) {
-        Set<String> jobs = null;
+    private List<String> getGpuJobs(DispatchHost host, ShowInterface show) {
+        List<String> jobs = null;
 
         // TODO: GPU: make index with the 4 components instead of just 3, replace the just 3
 
@@ -179,7 +180,8 @@ public class CoreUnitDispatcher implements Dispatcher {
         if (host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_DEFAULT,
                         Dispatcher.MEM_RESERVED_MIN,
-                        1)) {
+                        Dispatcher.GPU_UNITS_RESERVED_DEFAULT,
+                        Dispatcher.MEM_GPU_RESERVED_DEFAULT)) {
             if (show == null)
                 jobs = dispatchSupport.findDispatchJobs(host,
                         getIntProperty("dispatcher.job_query_max"));
@@ -198,7 +200,7 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     @Override
     public List<VirtualProc> dispatchHostToAllShows(DispatchHost host) {
-        Set<String> jobs = dispatchSupport.findDispatchJobsForAllShows(
+        List<String> jobs = dispatchSupport.findDispatchJobsForAllShows(
                 host,
                 getIntProperty("dispatcher.job_query_max"));
 
@@ -208,7 +210,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host) {
 
-        Set<String> jobs = getGpuJobs(host, null);
+        List<String> jobs = getGpuJobs(host, null);
 
         if (jobs == null)
             jobs = dispatchSupport.findDispatchJobs(host, getIntProperty("dispatcher.job_query_max"));
@@ -219,7 +221,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host, ShowInterface show) {
 
-        Set<String> jobs = getGpuJobs(host, show);
+        List<String> jobs = getGpuJobs(host, show);
 
         if (jobs == null)
             jobs = dispatchSupport.findDispatchJobs(host, show,
@@ -231,7 +233,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host, GroupInterface group) {
 
-        Set<String> jobs = getGpuJobs(host, null);
+        List<String> jobs = getGpuJobs(host, null);
 
         if (jobs == null)
             jobs = dispatchSupport.findDispatchJobs(host, group);
@@ -262,11 +264,12 @@ public class CoreUnitDispatcher implements Dispatcher {
 
             if (host.idleCores < frame.minCores ||
                     host.idleMemory < frame.minMemory ||
-                    host.idleGpu < frame.minGpu) {
+                    host.idleGpus < frame.minGpus ||
+                    host.idleGpuMemory < frame.minGpuMemory) {
                 break;
             }
 
-            if (!dispatchSupport.isJobBookable(job, proc.coresReserved)) {
+            if (!dispatchSupport.isJobBookable(job, proc.coresReserved, proc.gpusReserved)) {
                 break;
             }
 
@@ -289,17 +292,19 @@ public class CoreUnitDispatcher implements Dispatcher {
 
                 DispatchSupport.bookedProcs.getAndIncrement();
                 DispatchSupport.bookedCores.addAndGet(proc.coresReserved);
+                DispatchSupport.bookedGpus.addAndGet(proc.gpusReserved);
 
                 if (host.strandedCores > 0) {
                     dispatchSupport.pickupStrandedCores(host);
                     break;
                 }
 
-                host.useResources(proc.coresReserved, proc.memoryReserved, proc.gpuReserved);
+                host.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved);
                 if (!host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
                         Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_RESERVED_MIN)) {
+                        Dispatcher.GPU_UNITS_RESERVED_MIN,
+                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
                     break;
                 }
                 else if (procs.size() >= getIntProperty("dispatcher.job_frame_dispatch_max")) {
@@ -383,6 +388,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     @Override
     public void setTestMode(boolean enabled) {
         testMode = enabled;
+        dispatchSupport.clearCache();
     }
 
     /**
@@ -398,8 +404,10 @@ public class CoreUnitDispatcher implements Dispatcher {
             " cores / " +
             CueUtil.KbToMb(p.memoryReserved) +
             " memory / " +
-            p.gpuReserved +
-            " gpu on " +
+            p.gpusReserved +
+            " gpus / " +
+            CueUtil.KbToMb(p.gpuMemoryReserved) +
+            " gpu memory " +
             p.getName() +
             " to " + f.show + "/" + f.shot;
         logger.trace(msg);
@@ -538,4 +546,3 @@ public class CoreUnitDispatcher implements Dispatcher {
         }
     }
 }
-

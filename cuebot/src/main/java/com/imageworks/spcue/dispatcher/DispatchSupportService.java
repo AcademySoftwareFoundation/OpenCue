@@ -23,15 +23,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.log4j.Logger;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FacilityInterface;
+import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.HostInterface;
@@ -43,6 +39,13 @@ import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.StrandedCores;
 import com.imageworks.spcue.VirtualProc;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FrameDao;
@@ -63,7 +66,7 @@ import com.imageworks.spcue.util.FrameSet;
 
 @Transactional(propagation = Propagation.REQUIRED)
 public class DispatchSupportService implements DispatchSupport {
-    private static final Logger logger = Logger.getLogger(DispatchSupportService.class);
+    private static final Logger logger = LogManager.getLogger(DispatchSupportService.class);
 
     private JobDao jobDao;
     private FrameDao frameDao;
@@ -148,17 +151,17 @@ public class DispatchSupportService implements DispatchSupport {
     }
 
     @Transactional(readOnly = true)
-    public Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
+    public List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
         return dispatcherDao.findDispatchJobsForAllShows(host, numJobs);
     }
 
     @Transactional(readOnly = true)
-    public Set<String> findDispatchJobs(DispatchHost host, int numJobs) {
+    public List<String> findDispatchJobs(DispatchHost host, int numJobs) {
         return dispatcherDao.findDispatchJobs(host, numJobs);
     }
 
     @Transactional(readOnly = true)
-    public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
+    public List<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
         return dispatcherDao.findDispatchJobs(host, g);
     }
 
@@ -170,7 +173,7 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(readOnly = true)
-    public Set<String> findDispatchJobs(DispatchHost host, ShowInterface show,
+    public List<String> findDispatchJobs(DispatchHost host, ShowInterface show,
             int numJobs) {
         return dispatcherDao.findDispatchJobs(host, show, numJobs);
     }
@@ -182,7 +185,11 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     public boolean clearVirtualProcAssignement(ProcInterface proc) {
-        return procDao.clearVirtualProcAssignment(proc);
+        try {
+            return procDao.clearVirtualProcAssignment(proc);
+        } catch (DataAccessException e) {
+            return false;
+        }
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
@@ -245,13 +252,17 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isJobBookable(JobInterface job, int coreUnits) {
+    public boolean isJobBookable(JobInterface job, int coreUnits, int gpuUnits) {
 
         if (!jobDao.hasPendingFrames(job)) {
             return false;
         }
 
         if (jobDao.isOverMaxCores(job, coreUnits)) {
+            return false;
+        }
+
+        if (jobDao.isOverMaxGpus(job, gpuUnits)) {
             return false;
         }
 
@@ -337,6 +348,12 @@ public class DispatchSupportService implements DispatchSupport {
         frameDao.updateFrameCleared(frame);
     }
 
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public boolean updateFrameMemoryError(FrameInterface frame) {
+        return frameDao.updateFrameMemoryError(frame);
+    }
+
     @Transactional(propagation = Propagation.SUPPORTS)
     public RunFrame prepareRqdRunFrame(VirtualProc proc, DispatchFrame frame) {
         int threads =  proc.coresReserved / 100;
@@ -363,6 +380,7 @@ public class DispatchSupportService implements DispatchSupport {
                 .setLayerId(frame.getLayerId())
                 .setResourceId(proc.getProcId())
                 .setNumCores(proc.coresReserved)
+                .setNumGpus(proc.gpusReserved)
                 .setStartTime(System.currentTimeMillis())
                 .setIgnoreNimby(proc.isLocalDispatch)
                 .putAllEnvironment(jobDao.getEnvironment(frame))
@@ -370,6 +388,8 @@ public class DispatchSupportService implements DispatchSupport {
                 .putEnvironment("CUE3", "1")
                 .putEnvironment("CUE_THREADS", String.valueOf(threads))
                 .putEnvironment("CUE_MEMORY", String.valueOf(proc.memoryReserved))
+                .putEnvironment("CUE_GPUS", String.valueOf(proc.gpusReserved))
+                .putEnvironment("CUE_GPU_MEMORY", String.valueOf(proc.gpuMemoryReserved))
                 .putEnvironment("CUE_LOG_PATH", frame.logDir)
                 .putEnvironment("CUE_RANGE", frame.range)
                 .putEnvironment("CUE_CHUNK", String.valueOf(frame.chunkSize))
@@ -395,6 +415,10 @@ public class DispatchSupportService implements DispatchSupport {
                                 .replaceAll("#JOB#",  frame.jobName)
                                 .replaceAll("#FRAMESPEC#",  frameSpec)
                                 .replaceAll("#FRAME#",  frame.name));
+        /* The special command tokens above (#ZFRAME# and others) are provided to the user in cuesubmit.
+         * see: cuesubmit/cuesubmit/Constants.py
+         * Update the Constant.py file when updating tokens here, they will appear in the cuesubmit tooltip popup.
+         */
 
         frame.uid.ifPresent(builder::setUid);
 
@@ -515,36 +539,55 @@ public class DispatchSupportService implements DispatchSupport {
             frameDao.updateFrameCheckpointState(f, CheckpointState.DISABLED);
             /*
              * If the proc has a frame, stop the frame.  Frames
-             * can only be stopped that are running, so if the frame
-             * is not running it will remain untouched.
+             * can only be stopped that are running.
              */
             if (frameDao.updateFrameStopped(f,
                     FrameState.WAITING, exitStatus)) {
                 updateUsageCounters(proc, exitStatus);
             }
+            /*
+             * If the frame is not running, check if frame is in dead state,
+             * frames that died due to host going down should be put back
+             * into WAITING status.
+             */
+            else {
+                FrameDetail frameDetail = frameDao.getFrameDetail(f);
+                if ((frameDetail.state == FrameState.DEAD) &&
+                        (Dispatcher.EXIT_STATUS_DOWN_HOST == exitStatus)) {
+                        if (frameDao.updateFrameHostDown(f)) {
+                            logger.info("update frame " + f.getFrameId() +
+                                    "to WAITING status for down host");
+                        }
+                    }
+                }
+        } else {
+            logger.info("Frame ID is NULL, not updating Frame state");
         }
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
     public void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss,
-                                      long vsize, long maxVsize) {
-        procDao.updateProcMemoryUsage(frame, rss, maxRss, vsize, maxVsize);
+                                      long vsize, long maxVsize, long usedGpuMemory,
+                                      long maxUsedGpuMemory, byte[] children) {
+        procDao.updateProcMemoryUsage(frame, rss, maxRss, vsize, maxVsize,
+                                      usedGpuMemory, maxUsedGpuMemory, children);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public void updateFrameMemoryUsage(FrameInterface frame, long rss, long maxRss) {
+    public void updateFrameMemoryUsageAndLluTime(FrameInterface frame, long rss, long maxRss,
+            long lluTime) {
 
         try {
-            frameDao.updateFrameMemoryUsage(frame, maxRss, rss);
+            frameDao.updateFrameMemoryUsageAndLluTime(frame, maxRss, rss, lluTime);
         }
         catch (FrameReservationException ex) {
             // Eat this, the frame was not in the correct state or
             // was locked by another thread. The only reason it would
             // be locked by another thread would be if the state is
             // changing.
-            logger.warn("failed to update memory stats for frame: " + frame);
+            logger.warn("failed to update memory usage and LLU time for frame: " + frame);
         }
     }
 
@@ -661,6 +704,11 @@ public class DispatchSupportService implements DispatchSupport {
 
     public void setBookingDao(BookingDao bookingDao) {
         this.bookingDao = bookingDao;
+    }
+
+    @Override
+    public void clearCache() {
+        dispatcherDao.clearCache();
     }
 }
 

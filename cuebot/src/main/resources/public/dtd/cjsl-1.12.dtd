@@ -1,0 +1,97 @@
+<!-- ================================================================= -->
+<!-- SpiCue Job Spec DTD ver 1.12                                       -->
+<!-- middle-tier@imageworks.com                                        -->
+<!-- ================================================================= -->
+
+<!ELEMENT spec              (facility?,dept?,show,shot,user,email?,uid?,job*,depends*)>
+<!ELEMENT facility          (#PCDATA)*>
+<!ELEMENT dept              (#PCDATA)*>
+<!ELEMENT show              (#PCDATA)*>
+<!ELEMENT shot              (#PCDATA)*>
+<!ELEMENT user              (#PCDATA)*>
+<!ELEMENT email             (#PCDATA)*>
+<!ELEMENT uid               (#PCDATA)*>
+
+<!-- ================================================================= -->
+<!-- Jobs                                                              -->
+<!-- ================================================================= -->
+<!ELEMENT job               (paused?,priority?,maxretries?,autoeat?,localbook?,os?,env*,layers?)>
+<!ATTLIST job
+    name                    NMTOKEN                 	#REQUIRED
+>
+<!ELEMENT paused            (#PCDATA)*>
+<!ELEMENT priority          (#PCDATA)*>
+<!ELEMENT maxretries        (#PCDATA)*>
+<!ELEMENT autoeat           (#PCDATA)*>
+<!ELEMENT os                (#PCDATA)*>
+<!ELEMENT localbook         (#PCDATA)*>
+<!ATTLIST localbook
+    host                    NMTOKEN                     #REQUIRED
+    cores                   NMTOKEN                     #REQUIRED
+    memory                  NMTOKEN                     #REQUIRED
+    threads                 NMTOKEN                     #REQUIRED
+    gpu                     NMTOKEN                     #REQUIRED
+>
+
+<!-- ================================================================= -->
+<!-- Layers                                                            -->
+<!-- ================================================================= -->
+
+<!ELEMENT layers            (layer+)>
+<!ELEMENT layer             (cmd,range,chunk,cores?,threadable?,memory?,gpus?,gpu?,gpu_memory?,timeout?,timeout_llu?,tags?,limits?,env*,services?)>
+<!ATTLIST layer
+    name                    NMTOKEN                #REQUIRED
+    type                    (Render | Util | Post) #REQUIRED
+>
+<!ELEMENT cmd               (#PCDATA)*>
+<!ELEMENT range             (#PCDATA)*>
+<!ELEMENT chunk             (#PCDATA)*>
+<!ELEMENT cores             (#PCDATA)*>
+<!ELEMENT threadable        (#PCDATA)*>
+<!ELEMENT memory            (#PCDATA)*>
+<!ELEMENT gpus              (#PCDATA)*>
+<!ELEMENT gpu               (#PCDATA)*>  <!-- deprecated: use gpu_memory -->
+<!ELEMENT gpu_memory        (#PCDATA)*>
+<!ELEMENT timeout           (#PCDATA)*>
+<!ELEMENT timeout_llu       (#PCDATA)*>
+<!ELEMENT tags              (#PCDATA)*>
+<!ELEMENT limits            (limit+)>
+<!ELEMENT services          (service+)>
+<!ELEMENT env               (key*)>
+
+
+<!-- ================================================================= -->
+<!-- Layer Services                                                    -->
+<!-- ================================================================= -->
+<!ELEMENT service           (#PCDATA)*>
+
+<!-- ================================================================= -->
+<!-- Layer Limits                                                    -->
+<!-- ================================================================= -->
+<!ELEMENT limit           (#PCDATA)*>
+
+<!-- ================================================================= -->
+<!-- Environment Variables -->
+<!-- ================================================================= -->
+
+<!ELEMENT key              (#PCDATA)*>
+<!ATTLIST key
+    name                    NMTOKEN                 #REQUIRED
+>
+
+<!-- ================================================================= -->
+<!-- Dependencies                                                      -->
+<!-- ================================================================= -->
+
+<!ELEMENT depends           (depend*)>
+<!ELEMENT depend            (depjob,deplayer?,depframe?,onjob,onlayer?,onframe?)>
+<!ATTLIST depend
+    anyframe               NMTOKEN                  #IMPLIED
+    type                   (LAYER_ON_SIM_FRAME|PREVIOUS_FRAME|JOB_ON_JOB|JOB_ON_LAYER|JOB_ON_FRAME|LAYER_ON_JOB|LAYER_ON_FRAME|LAYER_ON_LAYER|FRAME_ON_JOB|FRAME_ON_LAYER|FRAME_ON_FRAME|FRAME_BY_FRAME)   #REQUIRED
+>
+<!ELEMENT depjob           (#PCDATA)*>
+<!ELEMENT onjob            (#PCDATA)*>
+<!ELEMENT deplayer         (#PCDATA)*>
+<!ELEMENT onlayer          (#PCDATA)*>
+<!ELEMENT depframe         (#PCDATA)*>
+<!ELEMENT onframe          (#PCDATA)*>

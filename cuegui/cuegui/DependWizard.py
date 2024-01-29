@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-Wizard interface to setting up dependencies.
-"""
+"""Wizard interface for setting up dependencies."""
 
 
 from __future__ import absolute_import
@@ -27,8 +25,8 @@ from builtins import str
 from builtins import range
 import re
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import FileSequence
 import opencue
@@ -84,17 +82,27 @@ PROGRESS_TITLE = "Cancel setting up dependencies?"
 PROGRESS_TEXT = "Are you sure you want to cancel setting up these dependencies?\n\n" + \
                 "The dependencies that are already partially setup will still remain."
 
+
 class DependWizard(QtWidgets.QWizard):
-    def __init__(self, parent, jobs, layers = [], frames = []):
+    """Wizard interface for setting up dependencies."""
+
+    def __init__(self, parent, jobs, layers=None, frames=None):
         QtWidgets.QWizard.__init__(self, parent)
 
         # Only allow jobs from one show
         jobs = [job for job in jobs if job.data.show == jobs[0].data.show]
 
         self.jobs = jobs
-        self.layers = [layer.data.name for layer in layers]
-        self.layerOptions = layers
-        self.frames = [frame.data.name for frame in frames]
+        if layers is None:
+            self.layers = []
+            self.layerOptions = []
+        else:
+            self.layers = [layer.data.name for layer in layers]
+            self.layerOptions = layers
+        if frames is None:
+            self.frames = []
+        else:
+            self.frames = [frame.data.name for frame in frames]
 
         self.dependType = None
         self.onJobOptions = []
@@ -104,14 +112,14 @@ class DependWizard(QtWidgets.QWizard):
         self.onFrame = []
 
         # Create the pages
-        self.__pages  = {}
-        self.__pages [PAGE_SELECT_DEPEND_TYPE] = PageDependType(self, jobs, layers, frames)
-        self.__pages [PAGE_SELECT_JOB_LAYER] = PageSelectLayer(self)
-        self.__pages [PAGE_SELECT_JOB_FRAME] = PageSelectFrame(self)
-        self.__pages [PAGE_SELECT_ONJOB] = PageSelectOnJob(self)
-        self.__pages [PAGE_SELECT_ONLAYER] = PageSelectOnLayer(self)
-        self.__pages [PAGE_SELECT_ONFRAME] = PageSelectOnFrame(self)
-        self.__pages [PAGE_CONFIRMATION] = PageConfirmation(self, jobs, layers, frames)
+        self.__pages = {}
+        self.__pages[PAGE_SELECT_DEPEND_TYPE] = PageDependType(self, jobs, layers, frames)
+        self.__pages[PAGE_SELECT_JOB_LAYER] = PageSelectLayer(self)
+        self.__pages[PAGE_SELECT_JOB_FRAME] = PageSelectFrame(self)
+        self.__pages[PAGE_SELECT_ONJOB] = PageSelectOnJob(self)
+        self.__pages[PAGE_SELECT_ONLAYER] = PageSelectOnLayer(self)
+        self.__pages[PAGE_SELECT_ONFRAME] = PageSelectOnFrame(self)
+        self.__pages[PAGE_CONFIRMATION] = PageConfirmation(self, jobs, layers, frames)
 
         # Add the pages to the wizard
         for key in self.__pages :
@@ -128,27 +136,27 @@ class DependWizard(QtWidgets.QWizard):
         self.show()
 
     def _onJobOptionsPopulate(self):
-        """Populates self.onJobOptions to contain a list of job names for the
-        given jobs show"""
+        """Populates self.onJobOptions to contain a list of job names for the given job's show."""
         self.onJobOptions = []
         try:
             show = self.jobs[0].data.name.split('-')[0]
             self.onJobOptions = [name for name in sorted(opencue.api.getJobNames())
                                  if name.startswith(show)]
-        except Exception as e:
+        except opencue.exception.CueException as e:
             logger.critical("Failed getting list of jobs")
             list(map(logger.critical, cuegui.Utils.exceptionOutput(e)))
 
-################################################################################
 
 class AbstractWizardPage(QtWidgets.QWizardPage):
+    """Base class for the depend wizard pages."""
+
     def __init__(self, parent):
         QtWidgets.QWizardPage.__init__(self, parent)
         self.setLayout(QtWidgets.QGridLayout(self))
 
         self._widgets = []
 
-    def _addLabel(self, text, row, col, rowSpan = 1, columnSpan = 1, align = QtCore.Qt.AlignLeft):
+    def _addLabel(self, text, row, col, rowSpan=1, columnSpan=1, align=QtCore.Qt.AlignLeft):
         """Adds a QLabel to the current WizardPage
         @type  text: str
         @param text: The text to display in the edit box
@@ -170,7 +178,7 @@ class AbstractWizardPage(QtWidgets.QWizardPage):
         self._widgets.append(label)
         return label
 
-    def _addTextEdit(self, row, col, text, height = None):
+    def _addTextEdit(self, row, col, text, height=None):
         """Adds a QTextEdit to the current WizardPage
         @type  row: int
         @param row: The row to place the widget
@@ -205,22 +213,22 @@ class AbstractWizardPage(QtWidgets.QWizardPage):
         self._widgets.append(edit)
         return edit
 
-    def _addSpinBox(self, row, col, min, max, value):
+    def _addSpinBox(self, row, col, min_val, max_val, value):
         """Adds a line edit box to the current WizardPage
         @type  row: int
         @param row: The row to place the widget
         @type  col: int
         @param col: The column to place the widget
-        @type  min: int
-        @param min: The minimum number to allow
-        @type  max: int
-        @param max: The maximum number to allow
+        @type  min_val: int
+        @param min_val: The minimum number to allow
+        @type  max_val: int
+        @param max_val: The maximum number to allow
         @type  value: int
         @param value: The value to display initially
         @rtype:  QLineEdit
         @return: A reference to the new widget"""
         spin = QtWidgets.QSpinBox(self)
-        spin.setRange(min, max)
+        spin.setRange(min_val, max_val)
         spin.setValue(value)
         self.layout().addWidget(spin, row, col)
         self._widgets.append(spin)
@@ -239,7 +247,7 @@ class AbstractWizardPage(QtWidgets.QWizardPage):
         self._widgets.append(combo)
         return combo
 
-    def _addListWidget(self, row, col, selection = None):
+    def _addListWidget(self, row, col, selection=None):
         """Adds a QListWidget to the current WizardPage.
         @type  row: int
         @param row: The row to place the widget
@@ -249,14 +257,15 @@ class AbstractWizardPage(QtWidgets.QWizardPage):
         @param selection: Allowed selection type
         @rtype:  QListWidget
         @return: A reference to the new widget"""
-        list = QtWidgets.QListWidget(self)
+        list_widget = QtWidgets.QListWidget(self)
         if selection:
-            list.setSelectionMode(selection)
-        self.layout().addWidget(list, row, col)
-        self._widgets.append(list)
-        return list
+            list_widget.setSelectionMode(selection)
+        self.layout().addWidget(list_widget, row, col)
+        self._widgets.append(list_widget)
+        return list_widget
 
-    def _getNames(self, items):
+    @staticmethod
+    def _getNames(items):
         """Returns a list of names for all items provided.
         @type  items: str, list<job>, list<layer>, list<frame> or list<str>
         @param items: Any items to return the names of
@@ -266,9 +275,13 @@ class AbstractWizardPage(QtWidgets.QWizardPage):
             return []
         if isinstance(items, str):
             return [items]
-        return [item.data.name for item in items if hasattr(item, "data") and hasattr(item.data, "name")] + \
-               [str(item) for item in items if not hasattr(item, "data")]
+        names_of_items_with_data = [
+            item.data.name for item in items
+            if hasattr(item, "data") and hasattr(item.data, "name")]
+        names_of_items_without_data = [str(item) for item in items if not hasattr(item, "data")]
+        return names_of_items_with_data + names_of_items_without_data
 
+    # pylint: disable=inconsistent-return-statements
     def _displayItems(self, name, items, row):
         """Displays a label description and a list of items.
         If more than one item is given
@@ -309,20 +322,26 @@ class AbstractWizardPage(QtWidgets.QWizardPage):
             self._widgets.remove(widget)
             widget.hide()
 
-################################################################################
 
 class PageDependType(AbstractWizardPage):
-    """This page asks the user for the type of dependency to setup
+    """This page asks the user for the type of dependency to create.
+
     PAGE_SELECT_DEPEND_TYPE"""
-    def __init__(self, parent, jobs, layers = [], frames = []):
+
+    def __init__(self, parent, jobs, layers=None, frames=None):
         AbstractWizardPage.__init__(self, parent)
 
         self.setTitle("Select Dependency Type")
 
-        # this should come from a field
         self.jobs = jobs
-        self.layers = layers
-        self.frames = frames
+        if layers is None:
+            self.layers = []
+        else:
+            self.layers = layers
+        if frames is None:
+            self.frames = []
+        else:
+            self.frames = frames
 
         self._displayItems("Job", jobs, 0)
         self._displayItems("Layer", layers, 1)
@@ -353,13 +372,14 @@ class PageDependType(AbstractWizardPage):
 
         self.layout().addWidget(self.__groupBox, 3, 0, 1, -1)
 
+    # pylint: disable=inconsistent-return-statements
     def __msg(self):
         for item in [("frame", self.wizard().frames),
                      ("layer", self.wizard().layers),
                      ("job", self.wizard().jobs)]:
             if len(item[1]) > 1:
                 return "these %ss" % item[0]
-            elif item[1]:
+            if item[1]:
                 return "this %s" % item[0]
 
     def initializePage(self):
@@ -381,27 +401,29 @@ class PageDependType(AbstractWizardPage):
         @rtype:  int"""
         if not self.wizard().dependType:
             return PAGE_SELECT_DEPEND_TYPE
-        elif self.frames:
+        if self.frames:
             return PAGE_SELECT_ONJOB
-        elif len(self.layers) == 1 and \
+        if len(self.layers) == 1 and \
              self.wizard().dependType in (FOJ, FOL, FOF):
             return PAGE_SELECT_JOB_FRAME
-        elif self.layers:
+        if self.layers:
             return PAGE_SELECT_ONJOB
-        elif len(self.jobs) == 1 and \
-             self.wizard().dependType in (LOJ, LOL, LOF, FOJ, FOL, FOF, FBF, LOS):
+        if len(self.jobs) == 1 and \
+            self.wizard().dependType in (LOJ, LOL, LOF, FOJ, FOL, FOF, FBF, LOS):
             return PAGE_SELECT_JOB_LAYER
-        elif self.jobs:
+        if self.jobs:
             return PAGE_SELECT_ONJOB
-        else:
-            logger.critical("error, no place to go: jobs:%s layers:%s frames:%s type:%s" % (len(self.jobs), len(self.layers), len(self.frames), self.wizard().dependType))
-            raise RuntimeError()
+        logger.critical(
+            "error, no place to go: jobs:%s layers:%s frames:%s type:%s",
+            len(self.jobs), len(self.layers), len(self.frames), self.wizard().dependType)
+        raise RuntimeError()
 
-################################################################################
 
 class PageSelectLayer(AbstractWizardPage):
-    """This page asks the user for the layer that should depend on something
+    """This page asks the user for the layer that should depend on something.
+
     PAGE_SELECT_JOB_LAYER"""
+
     def __init__(self, parent):
         AbstractWizardPage.__init__(self, parent)
 
@@ -418,10 +440,11 @@ class PageSelectLayer(AbstractWizardPage):
         QtWidgets.QWizardPage.initializePage(self)
 
         self.__layerList.clear()
-        self.__layerList.addItems([layer for layer in self._getNames(self.wizard().layerOptions)])
+        self.__layerList.addItems(self._getNames(self.wizard().layerOptions))
 
         for num in range(self.__layerList.count()):
-            self.__layerList.item(num).setSelected(str(self.__layerList.item(num).text()) in self._getNames(self.wizard().onLayer))
+            self.__layerList.item(num).setSelected(
+                str(self.__layerList.item(num).text()) in self._getNames(self.wizard().onLayer))
 
     def validatePage(self):
         self.wizard().layers = []
@@ -431,11 +454,10 @@ class PageSelectLayer(AbstractWizardPage):
 
         if self.wizard().layers:
             return True
-        QtWidgets.QMessageBox.warning(self,
-                                      "Warning",
-                                      "Please select one or more layers or go back "
-                                      "and change the dependency type",
-                                      QtWidgets.QMessageBox.Ok)
+        QtWidgets.QMessageBox.warning(
+            self, "Warning",
+            "Please select one or more layers or go back and change the dependency type",
+            QtWidgets.QMessageBox.Ok)
         return False
 
     def nextId(self):
@@ -444,14 +466,14 @@ class PageSelectLayer(AbstractWizardPage):
         @rtype:  int"""
         if self.wizard().dependType in (FOJ, FOL, FOF):
             return PAGE_SELECT_JOB_FRAME
-        else:
-            return PAGE_SELECT_ONJOB
+        return PAGE_SELECT_ONJOB
 
-################################################################################
 
 class PageSelectFrame(AbstractWizardPage):
-    """This page asks the user for the frames that should depend on something
+    """This page asks the user for the frames that should depend on something.
+
     PAGE_SELECT_JOB_FRAME"""
+
     def __init__(self, parent):
         AbstractWizardPage.__init__(self, parent)
 
@@ -468,6 +490,7 @@ class PageSelectFrame(AbstractWizardPage):
     def validatePage(self):
         frames = str(self.field("frame"))
         if frames:
+            # pylint: disable=broad-except
             try:
                 fs = FileSequence.FrameSet(frames)
                 fs.normalize()
@@ -483,11 +506,12 @@ class PageSelectFrame(AbstractWizardPage):
         @rtype:  int"""
         return PAGE_SELECT_ONJOB
 
-################################################################################
 
 class PageSelectOnJob(AbstractWizardPage):
-    """This page asks the user for the job should be depended on
+    """This page asks the user for the job that should be depended on.
+
     PAGE_SELECT_ONJOB"""
+
     def __init__(self, parent):
         AbstractWizardPage.__init__(self, parent)
 
@@ -497,19 +521,23 @@ class PageSelectOnJob(AbstractWizardPage):
         self._addLabel("Depend on Job:", 0, 0)
 
         self.__jobFilterLineEdit = self._addLineEdit(2, 0, "")
-        self.__jobFilterLineEdit.textChanged.connect(self.filterJobs)
+        self.__jobFilterLineEdit.textChanged.connect(self.filterJobs)  # pylint: disable=no-member
 
         self.__jobList = self._addListWidget(3, 0)
 
     def filterJobs(self, text):
-        # Exlcude job names that would cause a job to depend on itself
+        """Pre-filters the list of possible jobs.
+
+        Excludes job names that would cause a job to depend on itself."""
         exclude = []
         if self.wizard().dependType in (JOJ, LOJ, FOJ, JFBF):
             for job in self.wizard().jobs:
                 exclude.append(job.data.name)
 
         self.__jobList.clear()
-        self.__jobList.addItems([job for job in self.wizard().onJobOptions if re.search(str(text), job, re.IGNORECASE) and not job in exclude])
+        self.__jobList.addItems(
+            [job for job in self.wizard().onJobOptions
+             if re.search(str(text), job, re.IGNORECASE) and job not in exclude])
 
     def initializePage(self):
         # If the filter edit box is empty, populate it with SHOW-SHOT-USER_
@@ -523,7 +551,8 @@ class PageSelectOnJob(AbstractWizardPage):
             self.__jobList.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
 
         for num in range(self.__jobList.count()):
-            self.__jobList.item(num).setSelected(str(self.__jobList.item(num).text()) in self.wizard().onJob)
+            self.__jobList.item(num).setSelected(
+                str(self.__jobList.item(num).text()) in self.wizard().onJob)
 
         QtWidgets.QWizardPage.initializePage(self)
 
@@ -548,14 +577,14 @@ class PageSelectOnJob(AbstractWizardPage):
         @rtype:  int"""
         if self.wizard().dependType in (JOL, JOF, LOL, LOF, FOL, FOF, FBF, LOS):
             return PAGE_SELECT_ONLAYER
-        else:
-            return PAGE_CONFIRMATION
+        return PAGE_CONFIRMATION
 
-################################################################################
 
 class PageSelectOnLayer(AbstractWizardPage):
-    """This page asks the user for the layer should be depended on:
+    """This page asks the user for the layer that should be depended on.
+
     PAGE_SELECT_ONLAYER"""
+
     def __init__(self, parent):
         AbstractWizardPage.__init__(self, parent)
 
@@ -571,7 +600,11 @@ class PageSelectOnLayer(AbstractWizardPage):
         self.wizard().onLayerOptions = opencue.api.findJob(self.wizard().onJob[0]).getLayers()
 
         if self.wizard().dependType in (LOS,):
-            self.wizard().onLayerOptions = [layer for layer in self.wizard().onLayerOptions if 'simulation' in layer.data.services or 'simulationhi' in layer.data.services or 'houdini' in layer.data.services]
+            self.wizard().onLayerOptions = [
+                layer for layer in self.wizard().onLayerOptions
+                if 'simulation' in layer.data.services or
+                   'simulationhi' in layer.data.services or
+                   'houdini' in layer.data.services]
 
         if self.wizard().dependType in (JOL, LOL, FOL, FBF, JOF, LOF, FOF):
             self.__onLayerList.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
@@ -579,10 +612,11 @@ class PageSelectOnLayer(AbstractWizardPage):
             self.__onLayerList.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
 
         self.__onLayerList.clear()
-        self.__onLayerList.addItems([layer for layer in self._getNames(self.wizard().onLayerOptions)])
+        self.__onLayerList.addItems(self._getNames(self.wizard().onLayerOptions))
 
         for num in range(self.__onLayerList.count()):
-            self.__onLayerList.item(num).setSelected(str(self.__onLayerList.item(num).text()) in self._getNames(self.wizard().onLayer))
+            self.__onLayerList.item(num).setSelected(
+                str(self.__onLayerList.item(num).text()) in self._getNames(self.wizard().onLayer))
 
     def validatePage(self):
         self.wizard().onLayer = []
@@ -592,11 +626,10 @@ class PageSelectOnLayer(AbstractWizardPage):
 
         if self.wizard().onLayer:
             return True
-        QtWidgets.QMessageBox.warning(self,
-                                      "Warning",
-                                      "Please select one or more layers or go back "
-                                      "and change the dependency type",
-                                      QtWidgets.QMessageBox.Ok)
+        QtWidgets.QMessageBox.warning(
+            self, "Warning",
+            "Please select one or more layers or go back and change the dependency type",
+            QtWidgets.QMessageBox.Ok)
         return False
 
     def nextId(self):
@@ -605,14 +638,14 @@ class PageSelectOnLayer(AbstractWizardPage):
         @rtype:  int"""
         if self.wizard().dependType in (JOF, LOF, FOF, LOS):
             return PAGE_SELECT_ONFRAME
-        else:
-            return PAGE_CONFIRMATION
+        return PAGE_CONFIRMATION
 
-################################################################################
 
 class PageSelectOnFrame(AbstractWizardPage):
-    """This page asks the user for the frame should be depended on:
+    """This page asks the user for the frame that should be depended on.
+
     PAGE_SELECT_ONFRAME"""
+
     def __init__(self, parent):
         AbstractWizardPage.__init__(self, parent)
 
@@ -631,6 +664,7 @@ class PageSelectOnFrame(AbstractWizardPage):
     def validatePage(self):
         frames = str(self.field("onFrame"))
         if frames:
+            # pylint: disable=broad-except
             try:
                 fs = FileSequence.FrameSet(frames)
                 fs.normalize()
@@ -646,13 +680,20 @@ class PageSelectOnFrame(AbstractWizardPage):
         @rtype:  int"""
         return PAGE_CONFIRMATION
 
-################################################################################
 
 class PageConfirmation(AbstractWizardPage):
-    """
+    """Page to collect final confirmation of depend details before creating it.
+
     PAGE_CONFIRMATION"""
+
     def __init__(self, parent, jobs, layers, frames):
+        del jobs
+        del layers
+        del frames
+
         AbstractWizardPage.__init__(self, parent)
+
+        self.work = []
 
         self.setTitle("Confirmation")
         self.setSubTitle("Are you sure?")
@@ -680,6 +721,7 @@ class PageConfirmation(AbstractWizardPage):
         if self.wizard().dependType in (JOF, LOF, FOF, LOS):
             self._displayItems("Frame", self.wizard().onFrame, 9)
 
+    # pylint: disable=too-many-nested-blocks
     def validatePage(self):
         # Just names:
         jobs = self._getNames(self.wizard().jobs)
@@ -702,16 +744,11 @@ class PageConfirmation(AbstractWizardPage):
                                 self.__addDependWork(layer, onLayer)
 
             cuegui.ProgressDialog.ProgressDialog(
-                "Setting up Hard Depend",
-                self.__createFrameByFrameDepend,
-                self.work,
-                2,
-                PROGRESS_TITLE,
-                PROGRESS_TEXT,
-                self.parent())
+                "Setting up Hard Depend", self.__createFrameByFrameDepend, self.work, 2,
+                PROGRESS_TITLE, PROGRESS_TEXT, self.parent())
             return True
 
-        elif frames:
+        if frames:
             for onJob in onJobs:
                 for onLayer in onLayers:
                     for framelayer in frames:
@@ -721,41 +758,44 @@ class PageConfirmation(AbstractWizardPage):
                             frame = framelayer
                             layer = layers[0]
                         for onFrame in onFrames:
-                            self.__addDependWork(self.wizard().dependType, jobs[0], layer, int(frame), onJob, onLayer, onFrame)
+                            self.__addDependWork(
+                                self.wizard().dependType, jobs[0], layer, int(frame),
+                                onJob, onLayer, onFrame)
 
         elif layers:
             for onJob in onJobs:
                 for onLayer in onLayers:
                     for layer in layers:
                         for onFrame in onFrames:
-                            self.__addDependWork(self.wizard().dependType, jobs[0], layer, None, onJob, onLayer, onFrame)
+                            self.__addDependWork(
+                                self.wizard().dependType, jobs[0], layer, None,
+                                onJob, onLayer, onFrame)
 
         elif jobs:
             for onJob in onJobs:
                 for onLayer in onLayers:
                     for job in jobs:
                         for onFrame in onFrames:
-                            self.__addDependWork(self.wizard().dependType, job, None, None, onJob, onLayer, onFrame)
+                            self.__addDependWork(
+                                self.wizard().dependType, job, None, None, onJob, onLayer, onFrame)
 
         cuegui.ProgressDialog.ProgressDialog(
-            "Setting up dependencies",
-            cuegui.Cuedepend.createDepend,
-            self.work,
-            2,
-            PROGRESS_TITLE,
-            PROGRESS_TEXT,
-            self.parent())
+            "Setting up dependencies", cuegui.Cuedepend.createDepend, self.work, 2, PROGRESS_TITLE,
+            PROGRESS_TEXT, self.parent())
         return True
 
     def __addDependWork(self, *args):
-        """Adds arguements for a call to Cuedepend.createDepend to a list
+        """Adds arguments for a call to Cuedepend.createDepend to a list.
+
         @type  args: string, string, string, int, string, string, int
         @param args: The arguements required by Cuedepend.createDepend"""
         self.work.append(args)
 
-    def __createFrameByFrameDepend(self, layer, onLayer):
+    @staticmethod
+    def __createFrameByFrameDepend(layer, onLayer):
         """A function callback provided to the ProgressDialog that sets up a
-        frame by frame dependency
+        frame by frame dependency.
+
         @type  layer: opencue.wrappers.layer.Layer
         @param layer: The layer that contains the frames that will have the dependency
         @type  onLayer: opencue.wrappers.layer.Layer

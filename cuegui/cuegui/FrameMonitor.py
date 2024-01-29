@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Widget for displaying a list of frames with controls at the top."""
+
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -21,13 +24,15 @@ from builtins import str
 from copy import deepcopy
 import math
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import FileSequence
 from opencue.compiled_proto import job_pb2
 
 import cuegui.FrameMonitorTree
+import cuegui.FrameRangeSelection
 import cuegui.Logger
 
 
@@ -35,7 +40,7 @@ log = cuegui.Logger.getLogger(__file__)
 
 
 class FrameMonitor(QtWidgets.QWidget):
-    """This contains the frame list table with controls at the top"""
+    """Widget for displaying a list of frames with controls at the top."""
 
     handle_filter_layers_byLayer = QtCore.Signal(list)
 
@@ -60,7 +65,6 @@ class FrameMonitor(QtWidgets.QWidget):
         self._selectStatusSetup(hlayout)  # Menu to select frames by status
         self._filterLayersSetup(hlayout)  # Menu to filter layers
         self._filterStatusSetup(hlayout)  # Menu to filter frames by status
-        #For the filter range setup: self._filterRangeSetup(hlayout)
         hlayout.addStretch()
         hlayout.addWidget(QtWidgets.QLabel("(Limited to 1000 frames)"))
         hlayout.addStretch()
@@ -72,41 +76,50 @@ class FrameMonitor(QtWidgets.QWidget):
         self._frameRangeSelectionFilterSetup(self.layout())
 
     def updateRequest(self):
+        """Requests an update of the frame list."""
         self.frameMonitorTree.updateRequest()
 
     def updateChangedRequest(self):
+        """Updates the frame list if sufficient time has passed since last updated."""
         self.frameMonitorTree.updateChangedRequest()
 
     def setJob(self, job):
+        """Sets the current job."""
         self.frameMonitorTree.setJob(job)
 
     def getColumnWidths(self):
+        """Gets the table column widths."""
         return self.frameMonitorTree.getColumnWidths()
 
     def setColumnWidths(self, widths):
+        """Sets the table column widths."""
         self.frameMonitorTree.setColumnWidths(widths)
 
     def getColumnVisibility(self):
+        """Gets the table column visibility."""
         return self.frameMonitorTree.getColumnVisibility()
 
     def setColumnVisibility(self, settings):
+        """Sets the table column visibility."""
         self.frameMonitorTree.setColumnVisibility(settings)
 
     def getColumnOrder(self):
+        """Gets the table column order."""
         return self.frameMonitorTree.getColumnOrder()
 
     def setColumnOrder(self, settings):
+        """Sets the table column order."""
         self.frameMonitorTree.setColumnOrder(settings)
 
     def filterLayersFromDoubleClick(self, layerNames):
+        """Event handler for filtering layers."""
         self._filterLayersHandleByLayer(layerNames)
 
-# ==============================================================================
-# Frame range bar to filter by frame range
-# ==============================================================================
+    # ==============================================================================
+    # Frame range bar to filter by frame range
+    # ==============================================================================
     def _frameRangeSelectionFilterSetup(self, layout):
-        from .FrameRangeSelection import FrameRangeSelectionWidget
-        widget = FrameRangeSelectionWidget(self)
+        widget = cuegui.FrameRangeSelection.FrameRangeSelectionWidget(self)
         layout.addWidget(widget)
         widget.selectionChanged.connect(self._frameRangeSelectionFilterHandle)
         self.frameRangeSelection = widget
@@ -146,33 +159,9 @@ class FrameMonitor(QtWidgets.QWidget):
         self.frameMonitorTree.frameSearch.options['range'] = "%s-%s" % (start, end)
         self.frameMonitorTree.updateRequest()
 
-# ==============================================================================
-# Widgets to filter by frame range
-# ==============================================================================
-    def _filterRangeSetup(self, layout):
-        btn = QtWidgets.QSpinBox(self)
-        btn.setValue(1)
-        layout.addWidget(btn)
-        self.filter_range_start_box = btn
-
-        btn = QtWidgets.QSpinBox(self)
-        btn.setValue(1000)
-        layout.addWidget(btn)
-        self.filter_range_end_box = btn
-
-        btn = QtWidgets.QPushButton("Set Frame Range")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        layout.addWidget(btn)
-        self.filter_range_btn = btn
-        btn.clicked.connect(self._filterRangeHandle)
-
-    def _filterRangeHandle(self):
-        value = "%s-%s" % (self.filter_range_start_box.value(), self.filter_range_end_box.value())
-        self.frameMonitorTree.frameSearch.setOptions(range=value)
-
-# ==============================================================================
-# Button to refresh
-# ==============================================================================
+    # ==============================================================================
+    # Button to refresh
+    # ==============================================================================
     def _refreshButtonSetup(self, layout):
         """Sets up the refresh button, adds it to the given layout
         @param layout: The layout to add the button to
@@ -180,7 +169,7 @@ class FrameMonitor(QtWidgets.QWidget):
         self.btn_refresh = QtWidgets.QPushButton("Refresh")
         self.btn_refresh.setFocusPolicy(QtCore.Qt.NoFocus)
         layout.addWidget(self.btn_refresh)
-        self.btn_refresh.clicked.connect(self.frameMonitorTree.updateRequest)
+        self.btn_refresh.clicked.connect(self.frameMonitorTree.updateRequest)  # pylint: disable=no-member
         self.frameMonitorTree.updated.connect(self._refreshButtonDisableHandle)
 
     def _refreshButtonEnableHandle(self):
@@ -192,9 +181,9 @@ class FrameMonitor(QtWidgets.QWidget):
         self.btn_refresh.setEnabled(False)
         QtCore.QTimer.singleShot(5000, self._refreshButtonEnableHandle)
 
-# ==============================================================================
-# Button to clear all filters
-# ==============================================================================
+    # ==============================================================================
+    # Button to clear all filters
+    # ==============================================================================
     def _clearButtonSetup(self, layout):
         """Sets up the clear button, adds it to the given layout
         @param layout: The layout to add the button to
@@ -203,7 +192,7 @@ class FrameMonitor(QtWidgets.QWidget):
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setContentsMargins(0,0,0,0)
         layout.addWidget(btn)
-        btn.clicked.connect(self._clearButtonHandle)
+        btn.clicked.connect(self._clearButtonHandle)  # pylint: disable=no-member
 
     def _clearButtonHandle(self):
         """Called when the clear button is clicked"""
@@ -212,9 +201,9 @@ class FrameMonitor(QtWidgets.QWidget):
         self._frameRangeSelectionFilterUpdate()
         self.frameMonitorTree.clearFilters()
 
-# ==============================================================================
-# Widgets to Load previous/next page
-# ==============================================================================
+    # ==============================================================================
+    # Widgets to Load previous/next page
+    # ==============================================================================
     def _pageButtonSetup(self, layout):
         '''Sets up the page flipping buttons and the page # label
         @param layout: The layout to add the buttons & label to
@@ -225,14 +214,14 @@ class FrameMonitor(QtWidgets.QWidget):
         self.prev_page_btn.setFocusPolicy(QtCore.Qt.NoFocus)
         self.prev_page_btn.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.prev_page_btn)
-        self.prev_page_btn.clicked.connect(lambda: self._pageButtonsHandle(-1))
+        self.prev_page_btn.clicked.connect(lambda: self._pageButtonsHandle(-1))  # pylint: disable=no-member
 
         # Next page button
         self.next_page_btn = QtWidgets.QPushButton(">")
         self.next_page_btn.setFocusPolicy(QtCore.Qt.NoFocus)
         self.next_page_btn.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.next_page_btn)
-        self.next_page_btn.clicked.connect(lambda: self._pageButtonsHandle(1))
+        self.next_page_btn.clicked.connect(lambda: self._pageButtonsHandle(1))  # pylint: disable=no-member
         self.frameMonitorTree.job_changed.connect(self._updatePageButtonState)
 
         # Page number label
@@ -250,7 +239,7 @@ class FrameMonitor(QtWidgets.QWidget):
                        frameSearch
         @type offset: int'''
         self.page += offset
-        self.frameMonitorTree.frameSearch.page = self.page
+        self.frameMonitorTree.frameSearch.options['page'] = self.page
         self.frameMonitorTree.updateRequest()
         self._updatePageButtonState()
 
@@ -294,9 +283,9 @@ class FrameMonitor(QtWidgets.QWidget):
         self.page_label.setText('<font color="gray">{0}</font>'
                                 .format(page_label_text))
 
-# ==============================================================================
-# Menu to select frames by status
-# ==============================================================================
+    # ==============================================================================
+    # Menu to select frames by status
+    # ==============================================================================
     def _selectStatusSetup(self, layout):
         """Sets up the select status menu, adds it to the given layout
         @param layout: The layout to add the menu to
@@ -311,7 +300,7 @@ class FrameMonitor(QtWidgets.QWidget):
 
         menu = QtWidgets.QMenu(self)
         btn.setMenu(menu)
-        menu.triggered.connect(self._selectStatusHandle)
+        menu.triggered.connect(self._selectStatusHandle)  # pylint: disable=no-member
 
         for item in ["Clear", None, "Succeeded", "Running", "Waiting", "Depend", "Dead", "Eaten"]:
             if item:
@@ -328,9 +317,9 @@ class FrameMonitor(QtWidgets.QWidget):
         else:
             self.frameMonitorTree.selectByStatus(action.text())
 
-# ==============================================================================
-# Menu to filter frames by layers
-# ==============================================================================
+    # ==============================================================================
+    # Menu to filter frames by layers
+    # ==============================================================================
     def _filterLayersSetup(self, layout):
         """Sets up the filter layers menu, adds it to the given layout
         @param layout: The layout to add the menu to
@@ -359,7 +348,7 @@ class FrameMonitor(QtWidgets.QWidget):
         else:
             menu = QtWidgets.QMenu(self)
             btn.setMenu(menu)
-            menu.triggered[QtWidgets.QAction].connect(self._filterLayersHandle)
+            menu.triggered[QtWidgets.QAction].connect(self._filterLayersHandle)  # pylint: disable=unsubscriptable-object
 
         if self.frameMonitorTree.getJob():
             layers = [x.data.name for x in self.frameMonitorTree.getJob().getLayers()]
@@ -423,9 +412,9 @@ class FrameMonitor(QtWidgets.QWidget):
         self.frameMonitorTree.updateRequest()
         self._updatePageButtonState()
 
-# ==============================================================================
-# Menu to filter frames by status
-# ==============================================================================
+    # ==============================================================================
+    # Menu to filter frames by status
+    # ==============================================================================
     def _filterStatusSetup(self, layout):
         """Sets up the filter status menu, adds it to the given layout
         @param layout: The layout to add the menu to
@@ -437,7 +426,7 @@ class FrameMonitor(QtWidgets.QWidget):
 
         menu = QtWidgets.QMenu(self)
         btn.setMenu(menu)
-        menu.triggered.connect(self._filterStatusHandle)
+        menu.triggered.connect(self._filterStatusHandle)  # pylint: disable=no-member
 
         for item in [("Clear", QtCore.Qt.ALT + QtCore.Qt.Key_QuoteLeft),
                      None,
@@ -452,7 +441,7 @@ class FrameMonitor(QtWidgets.QWidget):
                 if item[0] != "Clear":
                     a.setCheckable(True)
                 if item[1]:
-                    a.setShortcut(item[1])
+                    a.setShortcut(QtGui.QKeySequence(item[1]))
                 menu.addAction(a)
             else:
                 menu.addSeparator()
@@ -496,9 +485,9 @@ class FrameMonitor(QtWidgets.QWidget):
         self._updatePageButtonState()
         self.frameMonitorTree.updateRequest()
 
-# ==============================================================================
-# QLabel that displays the job name
-# ==============================================================================
+    # ==============================================================================
+    # QLabel that displays the job name
+    # ==============================================================================
     def _displayJobNameSetup(self, layout):
         """Sets up the displaying the name of the currently job.
         @param layout: The layout to add the label to
@@ -512,6 +501,7 @@ class FrameMonitor(QtWidgets.QWidget):
     def _displayJobNameUpdate(self):
         """Updates the display job name label with the name of the current job."""
         if self.frameMonitorTree.getJob():
-            self._displayJobNameLabel.setText("   <font color=\"green\">%s</font>   " % self.frameMonitorTree.getJob().data.name)
+            self._displayJobNameLabel.setText(
+                "   <font color=\"green\">%s</font>   " % self.frameMonitorTree.getJob().data.name)
         else:
             self._displayJobNameLabel.clear()

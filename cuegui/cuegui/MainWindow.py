@@ -13,9 +13,9 @@
 #  limitations under the License.
 
 
-"""
-All windows are an instance of this MainWindow.
-"""
+"""The main window of the application. Multiple windows may exist.
+
+All CueGUI windows are an instance of this MainWindow."""
 
 
 from __future__ import absolute_import
@@ -26,10 +26,11 @@ from __future__ import division
 from builtins import str
 from builtins import range
 import sys
+import time
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import opencue
 
@@ -44,6 +45,7 @@ logger = cuegui.Logger.getLogger(__file__)
 
 class MainWindow(QtWidgets.QMainWindow):
     """The main window of the application. Multiple windows may exist."""
+
     windows = []
     windows_names = []
     windows_titles = {}
@@ -51,10 +53,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, app_name, app_version, window_name, parent = None):
         QtWidgets.QMainWindow.__init__(self, parent)
+        self.app = cuegui.app()
 
-        # Setup variables
-        self.qApp = QtGui.qApp
-        self.settings = QtGui.qApp.settings
+        self.__actions_facility = {}
+        self.facility_default = None
+        self.facility_dict = None
+        self.windowMenu = None
+
+        self.settings = self.app.settings
         self.windows_names = [app_name] + ["%s_%s" % (app_name, num) for num in range(2, 5)]
         self.app_name = app_name
         self.app_version = app_version
@@ -80,18 +86,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.__createMenus()
 
         # Setup plugins
+        # pylint: disable=no-member
         self.__plugins = cuegui.Plugins.Plugins(self, self.name)
+        # pylint: enable=no-member
         self.__plugins.setupPluginMenu(self.PluginMenu)
 
         # Restore saved settings
         self.__restoreSettings()
 
-        QtGui.qApp.status.connect(self.showStatusBarMessage)
-
+        self.app.status.connect(self.showStatusBarMessage)
         self.showStatusBarMessage("Ready")
 
     def displayStartupNotice(self):
-        import time
+        """Displays the application startup notice."""
         now = int(time.time())
         lastView = int(self.settings.value("LastNotice", 0))
         if lastView < cuegui.Constants.STARTUP_NOTICE_DATE:
@@ -100,26 +107,35 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings.setValue("LastNotice", now)
 
     def showStatusBarMessage(self, message, delay=5000):
+        """Shows a message on the status bar."""
         self.statusBar().showMessage(str(message), delay)
 
     def displayAbout(self):
+        """Displays about text."""
         msg = self.app_name + "\n\nA opencue tool\n\n"
         msg += "Qt:\n%s\n\n" % QtCore.qVersion()
         msg += "Python:\n%s\n\n" % sys.version
         QtWidgets.QMessageBox.about(self, "About", msg)
 
-    def openSuggestionPage(self):
+    @staticmethod
+    def openSuggestionPage():
+        """Opens the suggestion page URL."""
         cuegui.Utils.openURL(cuegui.Constants.URL_SUGGESTION)
 
-    def openBugPage(self):
+    @staticmethod
+    def openBugPage():
+        """Opens the bug report page."""
         cuegui.Utils.openURL(cuegui.Constants.URL_BUG)
 
-    def openUserGuide(self):
+    @staticmethod
+    def openUserGuide():
+        """Opens the user guide page."""
         cuegui.Utils.openURL(cuegui.Constants.URL_USERGUIDE)
 
-################################################################################
-# Handles facility menu
-################################################################################
+    ################################################################################
+    # Handles facility menu
+    ################################################################################
+
     def __facilityMenuSetup(self, menu):
         """Creates the facility menu actions
         @param menu: The QMenu that the actions should be added to
@@ -163,10 +179,10 @@ class MainWindow(QtWidgets.QMainWindow):
         for facility in list(self.__actions_facility.values()):
             if facility.isChecked():
                 opencue.Cuebot.setFacility(str(facility.text()))
-                QtGui.qApp.facility_changed.emit()
+                self.app.facility_changed.emit()
                 return
 
-################################################################################
+    ################################################################################
 
     def __createMenus(self):
         """Creates the menus at the top of the window"""
@@ -182,15 +198,15 @@ class MainWindow(QtWidgets.QMainWindow):
         # Menu Bar: File -> Close Window
         close = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), '&Close Window', self)
         close.setStatusTip('Close Window')
-        close.triggered.connect(self.__windowCloseWindow)
+        close.triggered.connect(self.__windowCloseWindow)  # pylint: disable=no-member
         self.fileMenu.addAction(close)
 
         # Menu Bar: File -> Exit Application
-        exit = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), 'E&xit Application', self)
-        exit.setShortcut('Ctrl+Q')
-        exit.setStatusTip('Exit application')
-        exit.triggered.connect(self.__windowCloseApplication)
-        self.fileMenu.addAction(exit)
+        exitAction = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), 'E&xit Application', self)
+        exitAction.setShortcut('Ctrl+Q')
+        exitAction.setStatusTip('Exit application')
+        exitAction.triggered.connect(self.__windowCloseApplication)  # pylint: disable=no-member
+        self.fileMenu.addAction(exitAction)
 
         self.__windowMenuSetup(self.windowMenu)
 
@@ -200,17 +216,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Menu Bar: Help -> Online User Guide.
         action = QtWidgets.QAction('Online User Guide', self)
-        action.triggered.connect(self.openUserGuide)
+        action.triggered.connect(self.openUserGuide)  # pylint: disable=no-member
         self.helpMenu.addAction(action)
 
         # Menu Bar: Help -> Make a Suggestion
         action = QtWidgets.QAction('Make a Suggestion', self)
-        action.triggered.connect(self.openSuggestionPage)
+        action.triggered.connect(self.openSuggestionPage)  # pylint: disable=no-member
         self.helpMenu.addAction(action)
 
         # Menu Bar: Help -> Report a Bug
         action = QtWidgets.QAction('Report a Bug', self)
-        action.triggered.connect(self.openBugPage)
+        action.triggered.connect(self.openBugPage)  # pylint: disable=no-member
         self.helpMenu.addAction(action)
 
         self.helpMenu.addSeparator()
@@ -219,12 +235,12 @@ class MainWindow(QtWidgets.QMainWindow):
         about = QtWidgets.QAction(QtGui.QIcon('icons/about.png'), 'About', self)
         about.setShortcut('F1')
         about.setStatusTip('About')
-        about.triggered.connect(self.displayAbout)
+        about.triggered.connect(self.displayAbout)  # pylint: disable=no-member
         self.helpMenu.addAction(about)
 
-################################################################################
-# Handles adding windows
-################################################################################
+    ################################################################################
+    # Handles adding windows
+    ################################################################################
 
     def __windowMenuSetup(self, menu):
         """Creates the menu items for dealing with multiple main windows"""
@@ -232,13 +248,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Menu Bar: Window -> Change Window Title
         changeTitle = QtWidgets.QAction("Change Window Title", self)
-        changeTitle.triggered.connect(self.__windowMenuHandleChangeTitle)
+        changeTitle.triggered.connect(self.__windowMenuHandleChangeTitle)  # pylint: disable=no-member
         menu.addAction(changeTitle)
 
         # Menu Bar: Window -> Save Window Settings
         saveWindowSettings = QtWidgets.QAction("Save Window Settings", self)
-        saveWindowSettings.triggered.connect(self.__saveSettings)
+        saveWindowSettings.triggered.connect(self.__saveSettings)  # pylint: disable=no-member
         menu.addAction(saveWindowSettings)
+
+        # Menu Bar: Window -> Revert To Default Window Layout
+        revertWindowSettings = QtWidgets.QAction("Revert To Default Window Layout", self)
+        revertWindowSettings.triggered.connect(self.__revertLayout)  # pylint: disable=no-member
+        menu.addAction(revertWindowSettings)
 
         menu.addSeparator()
 
@@ -331,19 +352,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __windowOpened(self):
         """Called from __init__ on window creation"""
-        self.qApp.quit.connect(self.close)
+        self.app.quit.connect(self.close)
         self.windows.append(self)
-        self.qApp.closingApp = False
+        self.app.closingApp = False
 
     def __windowClosed(self):
         """Called from closeEvent on window close"""
 
         # Disconnect to avoid multiple attempts to close a window
-        self.qApp.quit.connect(self.close)
+        self.app.quit.connect(self.close)
 
         # Save the fact that this window is open or not when the app closed
-        self.settings.setValue("%s/Open" % self.name, self.qApp.closingApp)
+        self.settings.setValue("%s/Open" % self.name, self.app.closingApp)
 
+        # pylint: disable=bare-except
         try:
             self.windows.remove(self)
         except:
@@ -357,17 +379,18 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowCloseApplication(self):
         """Called when the entire application should exit. Signals other windows
         to exit."""
-        self.qApp.closingApp = True
-        self.qApp.quit.emit()
+        self.app.closingApp = True
+        self.app.quit.emit()
 
-################################################################################
+    ################################################################################
 
     def __toggleFullscreenSetup(self, menu):
         # Menu Bar: Window -> Toggle Full-Screen
-        fullscreen = QtWidgets.QAction(QtGui.QIcon('icons/fullscreen.png'), 'Toggle Full-Screen', self)
+        fullscreen = QtWidgets.QAction(
+            QtGui.QIcon('icons/fullscreen.png'), 'Toggle Full-Screen', self)
         fullscreen.setShortcut('Ctrl+F')
         fullscreen.setStatusTip('Toggle Full-Screen')
-        fullscreen.triggered.connect(self.__toggleFullscreen)
+        fullscreen.triggered.connect(self.__toggleFullscreen)  # pylint: disable=no-member
         menu.addAction(fullscreen)
 
     def __toggleFullscreen(self):
@@ -378,16 +401,18 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.showFullScreen()
 
-################################################################################
+    ################################################################################
+
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key_Space:
-            QtGui.qApp.request_update.emit()
+            self.app.request_update.emit()
             event.accept()
 
     def closeEvent(self, event):
         """Called when the window is closed
         @type  event: QEvent
         @param event: The close event"""
+        del event
         self.__saveSettings()
         self.__windowClosed()
 
@@ -406,7 +431,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __saveSettings(self):
         """Saves the windows settings"""
-        logger.info('Saving: %s' % self.settings.fileName())
+        logger.info('Saving: %s', self.settings.fileName())
 
         self.__plugins.saveState()
 
@@ -422,3 +447,15 @@ class MainWindow(QtWidgets.QMainWindow):
                                self.size())
         self.settings.setValue("%s/Position" % self.name,
                                self.pos())
+
+    def __revertLayout(self):
+        """Revert back to default window layout"""
+        result = QtWidgets.QMessageBox.question(
+                    self,
+                    "Restart required ",
+                    "You must restart for this action to take effect, close window?: ",
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+
+        if result == QtWidgets.QMessageBox.Yes:
+            self.settings.setValue("RevertLayout", True)
+            self.__windowCloseApplication()

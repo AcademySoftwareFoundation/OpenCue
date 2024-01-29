@@ -20,6 +20,8 @@
 package com.imageworks.spcue.service;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -31,11 +33,15 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.input.SAXBuilder;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.xml.sax.EntityResolver;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 import com.imageworks.spcue.BuildableDependency;
 import com.imageworks.spcue.BuildableJob;
@@ -52,7 +58,7 @@ import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 
 public class JobSpec {
-    private static final Logger logger = Logger.getLogger(JobSpec.class);
+    private static final Logger logger = LogManager.getLogger(JobSpec.class);
 
     private String facility;
 
@@ -102,6 +108,8 @@ public class JobSpec {
 
     public static final String DEFAULT_SERVICE = "default";
 
+    public static final String SPCUE_DTD_URL = "http://localhost:8080/spcue/dtd/";
+
     private List<BuildableJob> jobs = new ArrayList<BuildableJob>();
 
     private List<BuildableDependency> depends = new ArrayList<BuildableDependency>();
@@ -150,11 +158,13 @@ public class JobSpec {
         return String.format("%s_%s", prefix, suffix).toLowerCase();
     }
 
-    public String conformLayerName(String name) {
+    public static String conformName(String type, String name) {
+
+         String lowerType = type.toLowerCase();
 
         if (name.length() < 3) {
             throw new SpecBuilderException(
-                    "The layer name must be at least 3 characters.");
+                    "The " + lowerType + " name must be at least 3 characters.");
         }
 
         String newName = name;
@@ -163,12 +173,24 @@ public class JobSpec {
 
         Matcher matcher = NAME_PATTERN.matcher(newName);
         if (!matcher.matches()) {
-            throw new SpecBuilderException("The layer name: " + newName
-                    + " is not in the proper format.  Layer names must be "
+            throw new SpecBuilderException("The " + lowerType + " name: " + newName
+                    + " is not in the proper format.  " + type + " names must be "
                     + "alpha numeric, no dashes or punctuation.");
         }
 
         return newName;
+    }
+
+    public static String conformShowName(String name) {
+        return conformName("Show", name);
+    }
+
+    public static String conformShotName(String name) {
+        return conformName("Shot", name);
+    }
+
+    public static String conformLayerName(String name) {
+        return conformName("Layer", name);
     }
 
     public static final String FRAME_NAME_REGEX = "^([\\d]{4,6})-([\\w]+)$";
@@ -197,12 +219,12 @@ public class JobSpec {
         }
 
         show = rootElement.getChildTextTrim("show");
-        shot = rootElement.getChildTextTrim("shot");
+        shot = conformShotName(rootElement.getChildTextTrim("shot"));
         user = rootElement.getChildTextTrim("user");
         uid = Optional.ofNullable(rootElement.getChildTextTrim("uid")).map(Integer::parseInt);
         email = rootElement.getChildTextTrim("email");
 
-        if (user == "root" || uid.equals(Optional.of(0))) {
+        if (user.equals("root") || uid.equals(Optional.of(0))) {
             throw new SpecBuilderException("Cannot launch jobs as root.");
         }
     }
@@ -265,11 +287,17 @@ public class JobSpec {
             if (local.getAttributeValue("cores") != null)
                 job.localMaxCores = Integer.parseInt(local.getAttributeValue("cores"));
             if (local.getAttributeValue("memory") != null)
-                job.localMaxMemory = Integer.parseInt(local.getAttributeValue("memory"));
+                job.localMaxMemory = Long.parseLong(local.getAttributeValue("memory"));
             if (local.getAttributeValue("threads") != null)
                 job.localThreadNumber = Integer.parseInt(local.getAttributeValue("threads"));
-            if (local.getAttributeValue("gpu") != null)
-                job.localMaxGpu = Integer.parseInt(local.getAttributeValue("gpu"));
+            if (local.getAttributeValue("gpus") != null)
+                job.localMaxGpus = Integer.parseInt(local.getAttributeValue("gpus"));
+            if (local.getAttributeValue("gpu") != null) {
+                logger.warn(job.name + " localbook has the deprecated gpu. Use gpu_memory.");
+                job.localMaxGpuMemory = Long.parseLong(local.getAttributeValue("gpu"));
+            }
+            if (local.getAttributeValue("gpu_memory") != null)
+                job.localMaxGpuMemory = Long.parseLong(local.getAttributeValue("gpu_memory"));
         }
 
         job.maxCoreUnits = 20000;
@@ -300,6 +328,26 @@ public class JobSpec {
                 job.maxRetries = FRAME_RETRIES_MIN;
             }
         }
+
+        if (jobTag.getChildTextTrim("maxcores") != null) {
+            buildableJob.maxCoresOverride = Integer.valueOf(jobTag
+                    .getChildTextTrim("maxcores"));
+        }
+        if (jobTag.getChildTextTrim("maxgpus") != null) {
+            buildableJob.maxGpusOverride = Integer.valueOf(jobTag
+                    .getChildTextTrim("maxgpus"));
+        }
+
+        if (jobTag.getChildTextTrim("priority") != null) {
+            job.priority = Integer.valueOf(jobTag.getChildTextTrim("priority"));
+        }
+
+
+        Element envTag = jobTag.getChild("env");
+        if (envTag != null) {
+            handleEnvironmentTag(envTag, buildableJob.env);
+        }
+
         handleLayerTags(buildableJob, jobTag);
 
         if (buildableJob.getBuildableLayers().size() > MAX_LAYERS) {
@@ -310,11 +358,6 @@ public class JobSpec {
         if (buildableJob.getBuildableLayers().size() < 1) {
             throw new SpecBuilderException("The job " + job.name
                     + " has no layers");
-        }
-
-        Element envTag = jobTag.getChild("env");
-        if (envTag != null) {
-            handleEnvironmentTag(envTag, buildableJob.env);
         }
 
         return buildableJob;
@@ -397,11 +440,21 @@ public class JobSpec {
             determineResourceDefaults(layerTag, buildableJob, layer);
             determineChunkSize(layerTag, layer);
             determineMinimumCores(layerTag, layer);
+            determineMinimumGpus(layerTag, layer);
             determineThreadable(layerTag, layer);
             determineTags(buildableJob, layer, layerTag);
             determineMinimumMemory(buildableJob, layerTag, layer,
                     buildableLayer);
-            determineMinimumGpu(buildableJob, layerTag, layer);
+            determineMinimumGpuMemory(buildableJob, layerTag, layer);
+
+            // set a timeout value on the layer
+            if (layerTag.getChildTextTrim("timeout") != null) {
+                layer.timeout = Integer.parseInt(layerTag.getChildTextTrim("timeout"));
+            }
+
+            if (layerTag.getChildTextTrim("timeout_llu") != null) {
+                layer.timeout_llu = Integer.parseInt(layerTag.getChildTextTrim("timeout_llu"));
+            }
 
             /*
              * Handle the layer environment
@@ -486,44 +539,53 @@ public class JobSpec {
     }
 
     /**
-     * If the gpu option is set, set minimumGpu to that supplied value
+     * If the gpu_memory option is set, set minimumGpuMemory to that supplied value
      *
      * @param layerTag
      * @param layer
      */
-    private void determineMinimumGpu(BuildableJob buildableJob, Element layerTag,
+    private void determineMinimumGpuMemory(BuildableJob buildableJob, Element layerTag,
     		LayerDetail layer) {
 
-        if (layerTag.getChildTextTrim("gpu") == null) {
+        String gpu = layerTag.getChildTextTrim("gpu");
+        String gpuMemory = layerTag.getChildTextTrim("gpu_memory");
+        if (gpu == null && gpuMemory == null) {
             return;
         }
 
-        long minGpu;
-        String memory = layerTag.getChildTextTrim("gpu").toLowerCase();
+        String memory = null;
+        if (gpu != null) {
+            logger.warn(buildableJob.detail.name + "/" + layer.name +
+                    " has the deprecated gpu. Use gpu_memory.");
+            memory = gpu.toLowerCase();
+        }
+        if (gpuMemory != null)
+            memory = gpuMemory.toLowerCase();
 
+        long minGpuMemory;
         try {
-            minGpu = convertMemoryInput(memory);
+            minGpuMemory = convertMemoryInput(memory);
 
             // Some quick sanity checks to make sure gpu memory hasn't gone
             // over or under reasonable defaults.
-            if (minGpu> Dispatcher.GPU_RESERVED_MAX) {
+            if (minGpuMemory > Dispatcher.MEM_GPU_RESERVED_MAX) {
                 throw new SpecBuilderException("Gpu memory requirements exceed " +
                         "maximum. Are you specifying the correct units?");
             }
-            else if (minGpu < Dispatcher.GPU_RESERVED_MIN) {
+            else if (minGpuMemory < Dispatcher.MEM_GPU_RESERVED_MIN) {
                 logger.warn(buildableJob.detail.name + "/" + layer.name +
                         "Specified too little gpu memory, defaulting to: " +
-                        Dispatcher.GPU_RESERVED_MIN);
-                minGpu = Dispatcher.GPU_RESERVED_MIN;
+                        Dispatcher.MEM_GPU_RESERVED_MIN);
+                minGpuMemory = Dispatcher.MEM_GPU_RESERVED_MIN;
             }
 
-            layer.minimumGpu = minGpu;
+            layer.minimumGpuMemory = minGpuMemory;
 
         } catch (Exception e) {
             logger.info("Error setting gpu memory for " +
                     buildableJob.detail.name + "/" + layer.name +
                     " failed, reason: " + e + ". Using default.");
-            layer.minimumGpu = Dispatcher.GPU_RESERVED_DEFAULT;
+            layer.minimumGpuMemory = Dispatcher.MEM_GPU_RESERVED_DEFAULT;
         }
     }
 
@@ -555,12 +617,25 @@ public class JobSpec {
             corePoints = Integer.valueOf(cores);
         }
 
-        if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN
-                || corePoints > Dispatcher.CORE_POINTS_RESERVED_MAX) {
+        if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
             corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
         }
 
         layer.minimumCores = corePoints;
+    }
+
+    /**
+     * Gpu is a int.
+     *
+     * If no gpu value is specified, we default to the value of
+     * Dispatcher.GPU_RESERVED_DEFAULT
+     */
+    private void determineMinimumGpus(Element layerTag, LayerDetail layer) {
+
+        String gpus = layerTag.getChildTextTrim("gpus");
+        if (gpus != null) {
+            layer.minimumGpus = Integer.valueOf(gpus);
+        }
     }
 
     private void determineChunkSize(Element layerTag, LayerDetail layer) {
@@ -667,10 +742,14 @@ public class JobSpec {
         layer.maximumCores = primaryService.maxCores;
         layer.minimumCores = primaryService.minCores;
         layer.minimumMemory = primaryService.minMemory;
-        layer.minimumGpu = primaryService.minGpu;
+        layer.maximumGpus = primaryService.maxGpus;
+        layer.minimumGpus = primaryService.minGpus;
+        layer.minimumGpuMemory = primaryService.minGpuMemory;
         layer.tags.addAll(primaryService.tags);
         layer.services.addAll(services);
         layer.limits.addAll(limits);
+        layer.timeout = primaryService.timeout;
+        layer.timeout_llu = primaryService.timeout_llu;
     }
 
     /**
@@ -825,9 +904,30 @@ public class JobSpec {
         handleDependsTags();
     }
 
+    private class DTDRedirector implements EntityResolver {
+        public InputSource resolveEntity(String publicId,
+                String systemId) throws SAXException, IOException {
+            if (systemId.startsWith(SPCUE_DTD_URL)) {
+                // Redirect to resource file.
+                try {
+                    String filename = systemId.substring(SPCUE_DTD_URL.length());
+                    InputStream dtd = getClass().getResourceAsStream("/public/dtd/" + filename);
+                    return new InputSource(dtd);
+                } catch (Exception e) {
+                    throw new SpecBuilderException("Failed to redirect DTD " + systemId + ", " + e);
+                }
+            } else {
+                // Use default resolver.
+                return null;
+            }
+        }
+    }
+
     public void parse(String cjsl) {
         try {
-            doc = new SAXBuilder(true).build(new StringReader(cjsl));
+            SAXBuilder builder = new SAXBuilder(true);
+            builder.setEntityResolver(new DTDRedirector());
+            doc = builder.build(new StringReader(cjsl));
 
         } catch (Exception e) {
             throw new SpecBuilderException("Failed to parse job spec XML, " + e);
@@ -860,6 +960,11 @@ public class JobSpec {
         job.deptName = parent.detail.deptName;
 
         BuildableJob postJob = new BuildableJob(job);
+
+        for (String key : parent.env.keySet()) {
+            postJob.env.put(key, parent.env.get(key));
+        }
+
         return postJob;
     }
 

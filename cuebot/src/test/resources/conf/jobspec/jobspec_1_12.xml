@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<!--
+   Copyright Contributors to the OpenCue Project
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+
+
+
+
+<!DOCTYPE spec PUBLIC "SPI Cue Specification Language" "http://localhost:8080/spcue/dtd/cjsl-1.12.dtd">
+<spec>
+    <facility>local</facility>
+    <show>testing</show>
+    <shot>default</shot>
+    <user>testuser</user>
+    <uid>9860</uid>
+
+    <job name="test">
+        <paused>False</paused>
+        <maxretries>2</maxretries>
+        <autoeat>False</autoeat>
+        <env/>
+        <layers>
+            <layer name="shell_layer" type="Render">
+                <cmd>echo $CUE_GPU_CORES</cmd>
+                <range>1-10</range>
+                <chunk>1</chunk>
+                <gpus>1</gpus>
+                <gpu_memory>1</gpu_memory>
+                <env/>
+                <services>
+                    <service>shell</service>
+                </services>
+            </layer>
+        </layers>
+    </job>
+    <depends/>
+</spec>

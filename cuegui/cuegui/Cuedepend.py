@@ -13,7 +13,8 @@
 #  limitations under the License.
 
 
-"""
+"""Utility functions for creating depends.
+
 Dependency Types:
     The long and short version of dependency types are valid. In most cases its not required
     to actually specify a dependency type.
@@ -21,26 +22,7 @@ Dependency Types:
     JobOnJob / joj       JobOnLayer / jol       JobOnFrame / jof
     LayerOnJob / loj     LayerOnLayer / lol     LayerOnFrame / lof
     FrameOnJob / foj     FrameOnLayer / fol     FrameOnFrame / fof
-    FrameByFRame / fbf   HardDepend / hd
-
-Examples:
-  Create a hard depend between two jobs (all layers)
-      cuedepend -c -t hd -job pipe-dev.cue-chambers_shell_v1 -on-job pipe-dev.cue-chambers_shell_v2
-
-  Create a frame by frame dependency between two layers in the same job
-      cuedepend -t fbf -c pipe-dev.cue-chambers_shell_v1 -layer pass_1 -on-layer pass_2
-
-  Create a frame by frame dependency between two layers in different jobs
-      cuedepend -c -t fbf -job pipe-dev.cue-chambers_comp_v1 -layer comp -on-job pipe-dev.cue-chambers_render_v1 -on-layer bty_pass
-
-  Create a depependency between a layer and a frame
-      cuedepend -c -job pipe-dev.cue-chambers_j1 -layer render -on-layer setup -on-frame 1
-
-  Drop a dependency using the unique id:
-      cuedepend -d baafaadc-498c-4100-a74d-42abd2b8e6b9
-
-  Drop all dependencies a job is waiting for
-      cuedepend -drop-all -j pipe-dev.cue-chambers_comp_v1
+    FrameByFrame / fbf   HardDepend / hd
 """
 
 
@@ -54,29 +36,35 @@ import opencue
 from opencue.compiled_proto import depend_pb2
 
 
-logger = logging.getLogger("opencue.tools.cuedepend")
+logger = logging.getLogger(__file__)
 
-ERR_INVALID_ON_JOB = "Error, a dependency of this type requires a valid job name to depend on.  See -on-job."
-ERR_INVALID_ON_LAYER = "Error, a dependency of this type requires a valid layer name to depend on. See -on-layer."
-ERR_INVALID_ON_FRAME = "Error, a dependency of this type requries a valid frame name to depend on. See -on-frame."
-ERR_INVALID_ER_JOB = "Error, a dependency of this type requires a valid job name to depend on.  See -job."
-ERR_INVALID_ER_LAYER = "Error, a dependency of this type requires a valid layer name to depend on. See -layer."
-ERR_INVALID_ER_FRAME = "Error, a dependency of this type requries a valid frame name to depend on. See -frame."
+
+ERR_INVALID_ON_JOB = (
+    "Error, a dependency of this type requires a valid job name to depend on.  See -on-job.")
+ERR_INVALID_ON_LAYER = (
+    "Error, a dependency of this type requires a valid layer name to depend on. See -on-layer.")
+ERR_INVALID_ON_FRAME = (
+    "Error, a dependency of this type requires a valid frame name to depend on. See -on-frame.")
+ERR_INVALID_ER_JOB = (
+    "Error, a dependency of this type requires a valid job name to depend on.  See -job.")
+ERR_INVALID_ER_LAYER = (
+    "Error, a dependency of this type requires a valid layer name to depend on. See -layer.")
+ERR_INVALID_ER_FRAME = (
+    "Error, a dependency of this type requires a valid frame name to depend on. See -frame.")
 
 
 def __is_valid(value, error):
-    """A couple sanity checks before.  The gRpc library takes
-    care of everything else"""
+    """Minor depend validation. The gRPC library takes care of everything else."""
     if not value:
         raise ValueError(error)
     if isinstance(value, str) and len(value) < 1:
-         raise ValueError(error)
+        raise ValueError(error)
 
 
-def createDepend(type, job, layer, frame, onjob, onlayer, onframe):
+def createDepend(depend_type, job, layer, frame, onjob, onlayer, onframe):
     """Creates a new dependency of the specified type.
-    @type  type: string
-    @param type: The type of dependency
+    @type  depend_type: string
+    @param depend_type: The type of dependency
     @type  job: string
     @param job: The name of the dependant job
     @type  layer: string
@@ -93,13 +81,14 @@ def createDepend(type, job, layer, frame, onjob, onlayer, onframe):
     @return: The newly created dependency"""
 
     if not onjob and not onlayer and not onframe:
-            raise ValueError("You must specify something to depend on, see -on-job, -on-layer, -on-frame")
+        raise ValueError(
+            "You must specify something to depend on, see -on-job, -on-layer, -on-frame")
 
     if not onjob:
         logger.debug("assuming internal depend")
         onjob = job
 
-    typeName = depend_pb2.DependType.Name(type)
+    typeName = depend_pb2.DependType.Name(depend_type)
     if typeName in ("HARD_DEPEND", "hd"):
         depend = createHardDepend(job, onjob)
     elif typeName in ("JOB_ON_JOB", "joj"):
@@ -125,9 +114,10 @@ def createDepend(type, job, layer, frame, onjob, onlayer, onframe):
     elif typeName in ("LAYER_ON_SIM_FRAME", "los"):
         depend = createLayerOnSimFrameDepend(job, layer, onjob, onlayer, onframe)
     else:
-        raise Exception("invalid dependency type: %s" % (type))
+        raise Exception("invalid dependency type: %s" % depend_type)
 
     return depend
+
 
 def createHardDepend(job, onjob):
     """Creates a frame by frame dependency for all non-preprocess/refshow layers
@@ -144,14 +134,14 @@ def createHardDepend(job, onjob):
 
     depends = []
 
-    logger.debug("creating hard depend from %s to %s" % (job, onjob))
+    logger.debug("creating hard depend from %s to %s", job, onjob)
     onLayers = opencue.api.findJob(onjob).getLayers()
     for depend_er_layer in opencue.api.findJob(job).getLayers():
-            for depend_on_layer in onLayers:
-                if depend_er_layer.data.type == depend_on_layer.data.type:
-                    depends.append(depend_er_layer.createFrameByFrameDependency(depend_on_layer,
-                                                                                False))
+        for depend_on_layer in onLayers:
+            if depend_er_layer.data.type == depend_on_layer.data.type:
+                depends.append(depend_er_layer.createFrameByFrameDependency(depend_on_layer, False))
     return depends
+
 
 def createJobOnJobDepend(job, onjob):
     """Creates a job on job dependency.
@@ -165,9 +155,10 @@ def createJobOnJobDepend(job, onjob):
     __is_valid(job, ERR_INVALID_ER_JOB)
     __is_valid(onjob, ERR_INVALID_ON_JOB)
 
-    logger.debug("creating joj depend from %s to %s" % (job, onjob))
+    logger.debug("creating joj depend from %s to %s", job, onjob)
     depend_er_job = opencue.api.findJob(job)
     return depend_er_job.createDependencyOnJob(opencue.api.findJob(onjob))
+
 
 def createJobOnLayerDepend(job, onjob, onlayer):
     """Creates a job on layer dependency
@@ -183,10 +174,11 @@ def createJobOnLayerDepend(job, onjob, onlayer):
     __is_valid(onjob, ERR_INVALID_ON_JOB)
     __is_valid(onlayer, ERR_INVALID_ON_LAYER)
 
-    logger.debug("creating jol depend from %s to %s/%s" % (job, onjob, onlayer))
+    logger.debug("creating jol depend from %s to %s/%s", job, onjob, onlayer)
     depend_er_job = opencue.api.findJob(job)
     depend_on_layer = opencue.api.findLayer(onjob, onlayer)
     return depend_er_job.createDependencyOnLayer(depend_on_layer)
+
 
 def createJobOnFrameDepend(job, onjob, onlayer, onframe):
     """Creates a job on frame dependency
@@ -205,11 +197,11 @@ def createJobOnFrameDepend(job, onjob, onlayer, onframe):
     __is_valid(onlayer, ERR_INVALID_ON_LAYER)
     __is_valid(onframe, ERR_INVALID_ON_FRAME)
 
-    logger.debug("creating jof depend from %s to %s/%s-%04d"
-                 % (job, onjob, onlayer, onframe))
+    logger.debug("creating jof depend from %s to %s/%s-%04d", job, onjob, onlayer, onframe)
     depend_er_job = opencue.api.findJob(job)
     depend_on_frame = opencue.api.findFrame(onjob, onlayer, onframe)
     return depend_er_job.createDependencyOnFrame(depend_on_frame)
+
 
 def createLayerOnJobDepend(job, layer, onjob):
     """Creates a layer on job dependency
@@ -226,9 +218,10 @@ def createLayerOnJobDepend(job, layer, onjob):
     __is_valid(layer, ERR_INVALID_ER_LAYER)
     __is_valid(onjob, ERR_INVALID_ON_JOB)
 
-    logger.debug("creating loj depend from %s/%s to %s" % (job, layer, onjob))
+    logger.debug("creating loj depend from %s/%s to %s", job, layer, onjob)
     depend_er_layer = opencue.api.findLayer(job, layer)
     return depend_er_layer.createDependencyOnJob(opencue.api.findJob(onjob))
+
 
 def createLayerOnLayerDepend(job, layer, onjob, onlayer):
     """Creates a layer on layer dependency
@@ -248,11 +241,11 @@ def createLayerOnLayerDepend(job, layer, onjob, onlayer):
     __is_valid(onjob, ERR_INVALID_ON_JOB)
     __is_valid(onlayer, ERR_INVALID_ON_LAYER)
 
-    logger.debug("creating lol depend from %s/%s to %s/%s"
-                 % (job, layer, onjob, onlayer))
+    logger.debug("creating lol depend from %s/%s to %s/%s", job, layer, onjob, onlayer)
     depend_er_layer = opencue.api.findLayer(job,layer)
     depend_on_layer = opencue.api.findLayer(onjob, onlayer)
     return depend_er_layer.createDependencyOnLayer(depend_on_layer)
+
 
 def createLayerOnFrameDepend(job, layer, onjob, onlayer, onframe):
     """Creates a layer on frame dependency
@@ -275,11 +268,12 @@ def createLayerOnFrameDepend(job, layer, onjob, onlayer, onframe):
     __is_valid(onlayer, ERR_INVALID_ON_LAYER)
     __is_valid(onframe, ERR_INVALID_ON_FRAME)
 
-    logger.debug("creating lof depend from %s/%s to %s/%s-%04d"
-                 % (job, layer, onjob, onlayer, onframe))
+    logger.debug(
+        "creating lof depend from %s/%s to %s/%s-%04d", job, layer, onjob, onlayer, onframe)
     depend_er_layer = opencue.api.findLayer(job,layer)
     depend_on_frame = opencue.api.findFrame(onjob, onlayer, onframe)
     return depend_er_layer.createDependencyOnFrame(depend_on_frame)
+
 
 def createFrameOnJobDepend(job, layer, frame, onjob):
     """Creates a frame on job dependency
@@ -299,10 +293,10 @@ def createFrameOnJobDepend(job, layer, frame, onjob):
     __is_valid(frame, ERR_INVALID_ER_FRAME)
     __is_valid(onjob, ERR_INVALID_ON_JOB)
 
-    logger.debug("creating foj depend from %s/%s-%04d to %s"
-                 % (job, layer, frame, onjob))
+    logger.debug("creating foj depend from %s/%s-%04d to %s", job, layer, frame, onjob)
     depend_er_frame = opencue.api.findFrame(job, layer, frame)
     return depend_er_frame.createDependencyOnJob(opencue.api.findJob(onjob))
+
 
 def createFrameOnLayerDepend(job, layer, frame, onjob, onlayer):
     """Creates a frame on layer dependency
@@ -324,11 +318,11 @@ def createFrameOnLayerDepend(job, layer, frame, onjob, onlayer):
     __is_valid(onjob, ERR_INVALID_ON_JOB)
     __is_valid(onlayer, ERR_INVALID_ON_LAYER)
 
-    logger.debug("creating fol depend from %s/%s-%04d to %s/%s"
-                 % (job, layer, frame, onjob, onlayer))
+    logger.debug("creating fol depend from %s/%s-%04d to %s/%s", job, layer, frame, onjob, onlayer)
     depend_er_frame = opencue.api.findFrame(job, layer, frame)
     depend_on_layer = opencue.api.findLayer(onjob, onlayer)
     return depend_er_frame.createDependencyOnLayer(depend_on_layer)
+
 
 def createFrameOnFrameDepend(job, layer, frame, onjob, onlayer, onframe):
     """Creates a frame on frame dependency
@@ -354,11 +348,13 @@ def createFrameOnFrameDepend(job, layer, frame, onjob, onlayer, onframe):
     __is_valid(onlayer, ERR_INVALID_ON_LAYER)
     __is_valid(onframe, ERR_INVALID_ON_FRAME)
 
-    logger.debug("creating fof depend from %s/%s-%04d to %s/%s-%04d"
-                 % (job, layer, frame, onjob, onlayer,onframe))
+    logger.debug(
+        "creating fof depend from %s/%s-%04d to %s/%s-%04d",
+        job, layer, frame, onjob, onlayer, onframe)
     depend_er_frame = opencue.api.findFrame(job, layer, frame)
     depend_on_frame = opencue.api.findFrame(onjob, onlayer, onframe)
     return depend_er_frame.createDependencyOnFrame(depend_on_frame)
+
 
 def createFrameByFrameDepend(job, layer, onjob, onlayer):
     """Creates a frame by frame dependency
@@ -378,12 +374,12 @@ def createFrameByFrameDepend(job, layer, onjob, onlayer):
     __is_valid(onjob, ERR_INVALID_ON_JOB)
     __is_valid(onlayer, ERR_INVALID_ON_LAYER)
 
-    logger.debug("creating fbf depend from %s/%s to %s/%s"
-                 % (job, layer, onjob, onlayer))
+    logger.debug("creating fbf depend from %s/%s to %s/%s", job, layer, onjob, onlayer)
 
     depend_er_layer = opencue.api.findLayer(job, layer)
     depend_on_layer = opencue.api.findLayer(onjob, onlayer)
     return depend_er_layer.createFrameByFrameDependency(depend_on_layer, False)
+
 
 def createLayerOnSimFrameDepend(job, layer, onjob, onlayer, onframe):
     """Creates a layer on sim frame dependency
@@ -406,22 +402,19 @@ def createLayerOnSimFrameDepend(job, layer, onjob, onlayer, onframe):
     __is_valid(onlayer, ERR_INVALID_ON_LAYER)
     __is_valid(onframe, ERR_INVALID_ON_FRAME)
 
-    logger.debug("creating los depend from %s/%s to %s/%s-%04d"
-                 % (job, layer, onjob, onlayer, onframe))
+    logger.debug(
+        "creating los depend from %s/%s to %s/%s-%04d", job, layer, onjob, onlayer, onframe)
     depend_er_layer = opencue.api.findLayer(job,layer)
     depend_on_frame = opencue.api.findFrame(onjob, onlayer, onframe)
-
-    # if createSimDependencyOnFrame existed, we would use it here:
-    #return depend_er_layer.createSimDependencyOnFrame(depend_on_frame)
 
     depends = []
     for depend_er_frame in depend_er_layer.getFrames():
         depends.append(depend_er_frame.createDependencyOnFrame(depend_on_frame))
     return depends
 
-def dropDepend(id):
-    """deactivates a dependency by GUID
-    @type id: string
-    @param id: the GUID of the dependency"""
-    opencue.api.getDepend(id).satisfy()
 
+def dropDepend(depend_id):
+    """deactivates a dependency by GUID
+    @type depend_id: string
+    @param depend_id: the GUID of the dependency"""
+    opencue.api.getDepend(depend_id).satisfy()

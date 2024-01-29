@@ -13,21 +13,28 @@
 #  limitations under the License.
 
 
+"""Widget for displaying a preview of a frame in an image viewer."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
+
+# pylint: disable=wrong-import-position
 from future import standard_library
 standard_library.install_aliases()
+# pylint: enable=wrong-import-position
 
 import os
-import time
-import urllib.request, urllib.error, urllib.parse
 import tempfile
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 import xml.etree.ElementTree as Et
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.Logger
 import cuegui.Utils
@@ -47,10 +54,12 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         :param frame: frame to display
         :type  aovs: bool
         :param aovs: whether to display AOVs or just the main image
-        :type  parent: PySide2.QtWidgets.QWidget
+        :type  parent: qtpy.QtWidgets.QWidget
         :param parent: the parent widget
         """
         QtWidgets.QDialog.__init__(self, parent)
+        self.app = cuegui.app()
+
         self.__job = job
         self.__frame = frame
         self.__aovs = aovs
@@ -59,7 +68,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         self.__itvFile = None
 
         layout = QtWidgets.QVBoxLayout(self)
-        
+
         self.__msg = QtWidgets.QLabel("Waiting for preview images...", self)
         self.__progbar = QtWidgets.QProgressBar(self)
 
@@ -67,14 +76,15 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         layout.addWidget(self.__progbar)
 
     def process(self):
+        """Opens the image viewer."""
         items = []
         http_host = self.__frame.resource().split("/")[0]
         http_port = self.__findHttpPort()
-    
+
         aovs = ""
         if self.__aovs:
             aovs = "/aovs"
- 
+
         playlist = urllib.request.urlopen("http://%s:%d%s" % (http_host, http_port, aovs)).read()
         for element in Et.fromstring(playlist).findall("page/edit/element"):
             items.append(element.text)
@@ -84,25 +94,30 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
 
         self.__itvFile = self.__writePlaylist(playlist)
         self.__previewThread = PreviewProcessorWatchThread(items, self)
-        QtGui.qApp.threads.append(self.__previewThread)
+        self.app.threads.append(self.__previewThread)
         self.__previewThread.start()
         self.__progbar.setRange(0, len(items))
 
         self.__previewThread.existCountChanged.connect(self.updateProgressDialog)
         self.__previewThread.timeout.connect(self.processTimedOut)
 
-    def updateProgressDialog(self, current, max):
-        if max != current:
+    def updateProgressDialog(self, current, max_progress):
+        """Updates the progress dialog."""
+        if max_progress != current:
             self.__progbar.setValue(current)
         else:
             self.close()
-    
-    def processTimedOut(self):
-        self.close()
-        QtWidgets.QMessageBox.critical(self, "Preview Timeout", "Unable to preview images, " +
-                                   "timed out while waiting for images to be copied.")
 
-    def __writePlaylist(self, data):
+    def processTimedOut(self):
+        """Event handler when the process has timed out."""
+        self.close()
+        QtWidgets.QMessageBox.critical(
+            self,
+            "Preview Timeout",
+            "Unable to preview images, timed out while waiting for images to be copied.")
+
+    @staticmethod
+    def __writePlaylist(data):
         (fh, name) = tempfile.mkstemp(suffix=".itv", prefix="playlist")
         os.close(fh)
         fp = open(name, "w")
@@ -140,7 +155,7 @@ class PreviewProcessorWatchThread(QtCore.QThread):
     def __init__(self, items, parent=None):
         QtCore.QThread.__init__(self, parent)
         self.__items = items
-        self.__timeout = 60 + (30 * len(items)) 
+        self.__timeout = 60 + (30 * len(items))
 
     def run(self):
         """

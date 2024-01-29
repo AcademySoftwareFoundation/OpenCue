@@ -14,15 +14,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.wrappers.deed`."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-import mock
 import unittest
 
-import opencue
+import mock
+
 from opencue.compiled_proto import host_pb2
+import opencue.wrappers.deed
 
 
 TEST_DEED_ID = 'ddd-dd-dddd'
@@ -69,36 +71,6 @@ class DeedTests(unittest.TestCase):
         stubMock.GetOwner.assert_called_with(
             host_pb2.DeedGetOwnerRequest(deed=deed.data), timeout=mock.ANY)
         self.assertEqual(owner.name(), TEST_DEED_OWNER)
-
-    def testSetBlackoutTime(self, getStubMock):
-        stubMock = mock.Mock()
-        stubMock.SetBlackoutTime.return_value = host_pb2.DeedSetBlackoutTimeResponse()
-        getStubMock.return_value = stubMock
-
-        testStartTime = 100
-        testStopTime = 200
-        deed = opencue.wrappers.deed.Deed(host_pb2.Deed(id=TEST_DEED_ID))
-        deed.setBlackoutTime(testStartTime, testStopTime)
-
-        stubMock.SetBlackoutTime.assert_called_with(
-            host_pb2.DeedSetBlackoutTimeRequest(deed=deed.data,
-                                                start_time=testStartTime,
-                                                stop_time=testStopTime),
-            timeout=mock.ANY)
-
-    def testSetBlackoutTimeEnabled(self, getStubMock):
-        stubMock = mock.Mock()
-        stubMock.SetBlackoutTimeEnabled.return_value = host_pb2.DeedSetBlackoutTimeEnabledResponse()
-        getStubMock.return_value = stubMock
-
-        testBlackoutEnabled = True
-        deed = opencue.wrappers.deed.Deed(host_pb2.Deed(id=TEST_DEED_ID))
-        deed.setBlackoutTimeEnabled(testBlackoutEnabled)
-
-        stubMock.SetBlackoutTimeEnabled.assert_called_with(
-            host_pb2.DeedSetBlackoutTimeEnabledRequest(deed=deed.data,
-                                                       enabled=testBlackoutEnabled),
-            timeout=mock.ANY)
 
 
 if __name__ == '__main__':

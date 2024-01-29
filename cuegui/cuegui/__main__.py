@@ -15,6 +15,9 @@
 #  limitations under the License.
 
 
+"""Entrypoint for the CueGUI application."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -25,9 +28,9 @@ import cuegui.Main
 
 
 def main():
-  cuegui.Main.cuecommander(sys.argv)
+    """Entrypoint for the CueGUI application."""
+    cuegui.Main.cuecommander(sys.argv)
 
 
 if __name__ == '__main__':
-  main()
-
+    main()

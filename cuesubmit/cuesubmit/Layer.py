@@ -13,13 +13,17 @@
 #  limitations under the License.
 
 
+"""Data object for storing settings about a Layer."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-
 from builtins import str
 from builtins import object
+
+
 class DependType(object):
     """Types of Dependencies available in the UI."""
 

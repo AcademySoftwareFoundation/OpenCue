@@ -140,11 +140,12 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         RenderHost host = RenderHost.newBuilder()
                 .setName("boo")
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(15290520)
                 .setFreeSwap(2076)
                 .setLoad(1)
-                .setTotalMcp(19543)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem(15290520)
                 .setTotalSwap(2096)
                 .setNimbyEnabled(false)
@@ -153,8 +154,8 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 .addTags("linux")
                 .setState(HardwareState.UP)
                 .setFacility("spi")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         CommentDetail d = new CommentDetail();

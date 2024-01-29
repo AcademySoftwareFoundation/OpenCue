@@ -124,12 +124,21 @@ public interface LayerDao {
     LayerInterface findLayer(JobInterface job, String name);
 
     /**
-     * update the number of cores the layer requires
+     * update the number of min cores the layer requires
      *
      * @param layer
      * @param val
      */
     void updateLayerMinCores(LayerInterface layer, int val);
+
+
+    /**
+     * update the number of gpus the layer requires
+     *
+     * @param layer
+     * @param val
+     */
+    void updateLayerMinGpus(LayerInterface layer, int val);
 
     /**
      * update the amount of memory required by all subsequent
@@ -147,7 +156,7 @@ public interface LayerDao {
      * @param layer
      * @param val
      */
-    void updateLayerMinGpu(LayerInterface layer, long gpu);
+    void updateLayerMinGpuMemory(LayerInterface layer, long val);
 
     /**
      * Update a layer with new host tags.
@@ -167,7 +176,7 @@ public interface LayerDao {
     void insertLayerEnvironment(LayerInterface layer, String key, String value);
 
     /**
-     * Insert a map key/value pairs into the layer environement
+     * Insert a map key/value pairs into the layer environment
      *
      * @param layer
      * @param env
@@ -207,9 +216,9 @@ public interface LayerDao {
      * value is larger than the current value
      *
      * @param layer
-     * @param gpu
+     * @param val
      */
-    void increaseLayerMinGpu(LayerInterface layer, long gpu);
+    void increaseLayerMinGpuMemory(LayerInterface layer, long val);
 
     /**
      * Tries to find a max RSS value for layer in the specified job. The
@@ -256,10 +265,20 @@ public interface LayerDao {
      * job with the new gpu requirement.
      *
      * @param job
-     * @param gpu
+     * @param mem
      * @param type
      */
-    void updateMinGpu(JobInterface job, long gpu, LayerType type);
+    void updateMinGpuMemory(JobInterface job, long mem, LayerType type);
+
+    /**
+     * Update all layers of the set type in the specified job
+     * with the new max cores requirement.
+     *
+     * @param job
+     * @param cores
+     * @param type
+     */
+    void updateMaxCores(JobInterface job, int cores, LayerType type);
 
     /**
      * Update all layers of the set type in the specified job
@@ -272,6 +291,16 @@ public interface LayerDao {
     void updateMinCores(JobInterface job, int cores, LayerType type);
 
     /**
+     * Update all layers of the set type in the specified job
+     * with the new min cores requirement.
+     *
+     * @param job
+     * @param gpus
+     * @param type
+     */
+    void updateMinGpus(JobInterface job, int gpus, LayerType type);
+
+    /**
      * Update a layer's max cores value, which limits how
      * much threading can go on.
      *
@@ -280,6 +309,24 @@ public interface LayerDao {
      * @param type
      */
     void updateThreadable(LayerInterface layer, boolean threadable);
+
+    /**
+     * Update a layer's timeout value, which limits how
+     * much the frame can run on a host.
+     *
+     * @param job
+     * @param timeout
+     */
+    void updateTimeout(LayerInterface layer, int timeout);
+
+    /**
+     * Update a layer's LLU timeout value, which limits how
+     * much the frame can run on a host without updates in the log file.
+     *
+     * @param job
+     * @param timeout
+     */
+    void updateTimeoutLLU(LayerInterface layer, int timeout_llu);
 
     /**
      * Lowers the minimum memory on a layer if the layer
@@ -376,6 +423,16 @@ public interface LayerDao {
      * @param val
      */
     void updateLayerMaxCores(LayerInterface layer, int val);
+
+    /**
+     * Set the layer's max gpus value to the given int.  The
+     * max gpu value will not allow the dispatcher to
+     * book over the given number of gpu.
+     *
+     * @param layer
+     * @param val
+     */
+    void updateLayerMaxGpus(LayerInterface layer, int val);
 
     /**
      * Add a limit to the given layer.

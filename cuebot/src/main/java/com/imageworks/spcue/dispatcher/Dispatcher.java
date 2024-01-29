@@ -1,4 +1,3 @@
-
 /*
  * Copyright Contributors to the OpenCue Project
  *
@@ -18,7 +17,6 @@
 
 
 package com.imageworks.spcue.dispatcher;
-
 import java.util.List;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -43,6 +41,10 @@ public interface Dispatcher {
 
     // The minimum amount of core points you can assign to a frame.
     public static final int CORE_POINTS_RESERVED_MIN = 10;
+
+    // The minimum amount of gpu points you can assign to a frame.
+    public static final int GPU_UNITS_RESERVED_DEFAULT = 0;
+    public static final int GPU_UNITS_RESERVED_MIN = 0;
 
     // Amount of load per core a host can have before the perceived
     // number of idle cores is modified to reflect load conditions
@@ -69,13 +71,13 @@ public interface Dispatcher {
 
     // The default amount of gpu memory reserved for a frame if no gpu memory
     // reservation settings are specified
-    public static final long GPU_RESERVED_DEFAULT = 0;
+    public static final long MEM_GPU_RESERVED_DEFAULT = 0;
 
     // The minimum amount of gpu memory that can be assigned to a frame.
-    public static final long GPU_RESERVED_MIN = 0;
+    public static final long MEM_GPU_RESERVED_MIN = 0;
 
     // The maximum amount of gpu memory that can be assigned to a frame.
-    public static final long GPU_RESERVED_MAX = CueUtil.GB4;
+    public static final long MEM_GPU_RESERVED_MAX = CueUtil.GB * 1024;
 
     // Return value for cleared frame
     public static final int EXIT_STATUS_FRAME_CLEARED = 299;
@@ -105,13 +107,8 @@ public interface Dispatcher {
     // without being penalized for it.
     public static final long VIRTUAL_MEM_THRESHHOLD = CueUtil.GB2;
 
-    // The amount of swap that must be used before a host can go
-    // into kill mode.
-    public static final long KILL_MODE_SWAP_THRESHOLD = CueUtil.MB128;
-
-    // When the amount of free memory drops below this point, the
-    // host can go into kill mode.
-    public static final long KILL_MODE_MEM_THRESHOLD = CueUtil.MB512;
+    // How long to keep track of a frame kill request
+    public static final int FRAME_KILL_CACHE_EXPIRE_AFTER_WRITE_MINUTES = 3;
 
     // A higher number gets more deep booking but less spread on the cue.
     public static final int DEFAULT_MAX_FRAMES_PER_PASS = 4;
@@ -128,6 +125,10 @@ public interface Dispatcher {
 
     // The default operating system assigned to host that don't report one.
     public static final String OS_DEFAULT = "rhel40";
+
+    // The default minimum memory increase for when jobs fail due to not enough
+    // memory
+    public static final long MINIMUM_MEMORY_INCREASE = CueUtil.GB2;
 
     /**
      * Dispatch a host to the facility.

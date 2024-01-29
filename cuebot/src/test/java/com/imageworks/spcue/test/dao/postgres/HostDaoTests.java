@@ -86,12 +86,13 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         RenderHost host = RenderHost.newBuilder()
                 .setName(name)
                 .setBootTime(1192369572)
-                .setFreeMcp(7602)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(15290520)
                 .setFreeSwap((int) CueUtil.MB512)
                 .setLoad(1)
                 .setNimbyEnabled(false)
-                .setTotalMcp(19543)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem((int) CueUtil.GB16)
                 .setTotalSwap((int) CueUtil.GB2)
                 .setNimbyEnabled(false)
@@ -100,8 +101,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 .addAllTags(ImmutableList.of("linux", "64bit"))
                 .setState(HardwareState.UP)
                 .setFacility("spi")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         return host;
@@ -206,6 +207,45 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
+    public void testInsertHostIPv61() {
+        String TEST_HOST_NEW = "::1";
+        hostDao.insertRenderHost(buildRenderHost(TEST_HOST_NEW),
+                hostManager.getDefaultAllocationDetail(),
+                false);
+
+        HostEntity hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
+        assertEquals(TEST_HOST_NEW, hostDetail.name);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testInsertHostIPv62() {
+        String TEST_HOST_NEW = "ABCD:ABCD:ABCD:ABCD:ABCD:ABCD:ABCD:ABCD";
+        hostDao.insertRenderHost(buildRenderHost(TEST_HOST_NEW),
+                hostManager.getDefaultAllocationDetail(),
+                false);
+
+        HostEntity hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
+        assertEquals(TEST_HOST_NEW, hostDetail.name);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testInsertHostIPv63() {
+        String TEST_HOST_NEW = "ABCD:ABCD:ABCD:ABCD:ABCD:ABCD:192.168.100.180";
+        hostDao.insertRenderHost(buildRenderHost(TEST_HOST_NEW),
+                hostManager.getDefaultAllocationDetail(),
+                false);
+
+        HostEntity hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
+        assertEquals(TEST_HOST_NEW, hostDetail.name);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testInsertHostAlternateOS() {
 
         RenderHost host = buildRenderHost(TEST_HOST).toBuilder()
@@ -294,24 +334,6 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
-    public void testIsKillMode() {
-        hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail(),
-                false);
-
-        HostEntity host = hostDao.findHostDetail(TEST_HOST);
-        assertFalse(hostDao.isKillMode(host));
-
-        jdbcTemplate.update(
-                "UPDATE host_stat SET int_swap_free = ?, int_mem_free = ? WHERE pk_host = ?",
-                CueUtil.MB256, CueUtil.MB256, host.getHostId());
-
-        assertTrue(hostDao.isKillMode(host));
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
     public void testIsHostUp() {
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
                 hostManager.getDefaultAllocationDetail(),
@@ -348,6 +370,30 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertEquals(hostDao.hostExists(TEST_HOST),true);
         hostDao.deleteHost(host);
         assertEquals(hostDao.hostExists(TEST_HOST),false);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDeleteDownHosts() {
+        for (int i = 0; i < 3; i++) {
+            String name = TEST_HOST + i;
+            hostDao.insertRenderHost(buildRenderHost(name),
+                    hostManager.getDefaultAllocationDetail(),
+                    false);
+            if (i != 1) {
+                HostEntity host = hostDao.findHostDetail(name);
+                assertEquals(name, host.name);
+                hostDao.updateHostState(host, HardwareState.DOWN);
+            }
+        }
+
+        hostDao.deleteDownHosts();
+
+        for (int i = 0; i < 3; i++) {
+            String name = TEST_HOST + i;
+            assertEquals(hostDao.hostExists(name), i == 1);
+        }
     }
 
     @Test

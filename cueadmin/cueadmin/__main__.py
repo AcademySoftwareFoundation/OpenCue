@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Entrypoint for CueAdmin tool."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -25,7 +28,10 @@ import cueadmin.common
 logger = logging.getLogger("opencue.tools.cueadmin")
 
 
+# pylint: disable=broad-except
 def main():
+    """Starts the CueAdmin tool."""
+
     parser = cueadmin.common.getParser()
     args = parser.parse_args()
 

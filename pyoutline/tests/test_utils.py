@@ -12,6 +12,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Common classes and functions used throughout the outline module test code.
+"""
 
 from __future__ import print_function
 from __future__ import division
@@ -25,6 +28,9 @@ import outline
 
 
 class TemporarySessionDirectory(object):
+    def __init__(self):
+        self.originalSessionDir = None
+        self.tempSessionDir = None
 
     def __enter__(self):
         self.originalSessionDir = outline.config.get('outline', 'session_dir')

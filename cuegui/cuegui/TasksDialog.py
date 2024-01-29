@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-Handles the dialog to display/modify a show's tasks
-"""
+"""Dialog to display/modify a show's tasks."""
 
 
 from __future__ import absolute_import
@@ -25,8 +23,10 @@ from __future__ import division
 from builtins import map
 from builtins import str
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
+
+import opencue.exception
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -42,7 +42,9 @@ MANAGED_CORES_PREFIX = "Minimum Cores: "
 
 
 class TasksDialog(QtWidgets.QDialog):
-    def __init__(self, show, parent = None):
+    """Dialog to display/modify a show's tasks."""
+
+    def __init__(self, show, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
 
         self.__show = show
@@ -74,16 +76,19 @@ class TasksDialog(QtWidgets.QDialog):
         glayout.addWidget(self.__btnRefresh, 4, 1)
         glayout.addWidget(self.__btnDone, 4, 2)
 
+        # pylint: disable=no-member
         self.__btnMinCores.clicked.connect(self.setMinCores)
         self.__checkManaged.clicked.connect(self.setManaged)
         self.__btnAddTask.clicked.connect(self.__tasks.createTask)
         self.__btnRefresh.clicked.connect(self.refresh)
         self.__comboDepartments.currentIndexChanged.connect(self.setDepartment)
         self.__btnDone.clicked.connect(self.accept)
+        # pylint: enable=no-member
 
         self.getDepartments()
 
     def getDepartments(self):
+        """Gets a list of deparments."""
         selected = self.__comboDepartments.currentText()
 
         self.__departments = self.__show.getDepartments()
@@ -94,15 +99,18 @@ class TasksDialog(QtWidgets.QDialog):
             self.__comboDepartments.setCurrentIndex(departmentNames.index(selected))
 
     def setDepartment(self, departmentName):
+        """Sets the department."""
         for department in self.__departments:
             if department.data.name == departmentName:
                 self.__tasks.setDepartment(department)
                 self.__btnAddTask.setEnabled(not department.data.tiManaged)
                 self.__checkManaged.setChecked(department.data.tiManaged)
-                self.__btnMinCores.setText(MANAGED_CORES_PREFIX  + "%.02f" % department.data.minCores)
+                self.__btnMinCores.setText(
+                    MANAGED_CORES_PREFIX  + "%.02f" % department.data.minCores)
                 return
 
     def setMinCores(self):
+        """Sets the department's min cores."""
         __department = self.__tasks.department()
         if __department:
             (managedCores, choice) = self.__askManagedCores(__department)
@@ -112,10 +120,12 @@ class TasksDialog(QtWidgets.QDialog):
                 self.getDepartments()
 
     def setManaged(self, checked):
+        """Sets the departments management."""
         __department = self.__tasks.department()
         if not __department.data.tiManaged and checked:
             title = "Manage Department"
-            body = "What tiTask should be used to manage the %s department?" % __department.data.name
+            body = ("What tiTask should be used to manage the %s department?" %
+                    __department.data.name)
             (tiTask, choice) = QtWidgets.QInputDialog.getText(self,
                                                           title, body,
                                                           QtWidgets.QLineEdit.Normal,
@@ -126,9 +136,9 @@ class TasksDialog(QtWidgets.QDialog):
                     __department.enableTiManaged(str(tiTask), managedCores)
 
         if __department.data.tiManaged and not checked:
-            if cuegui.Utils.questionBoxYesNo(self,
-                                      "Confirm",
-                                      "Disable management of the %s department?" % __department.data.name):
+            if cuegui.Utils.questionBoxYesNo(
+                    self, "Confirm",
+                    "Disable management of the %s department?" % __department.data.name):
                 __department.disableTiManaged()
 
         self.getDepartments()
@@ -143,9 +153,13 @@ class TasksDialog(QtWidgets.QDialog):
         return (managedCores, choice)
 
     def refresh(self):
+        """Requests a refresh of the tasks list."""
         self.__tasks.updateRequest()
 
+
 class TaskMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
+    """Tree widget for displaying a list of tasks."""
+
     def __init__(self, department, parent):
         self.startColumnsForType(cuegui.Constants.TYPE_TASK)
         self.addColumn("Shot", 100, id=1,
@@ -165,18 +179,22 @@ class TaskMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
         self._timer.stop()
+
+        self.__department = None
         self.setDepartment(department)
 
     def department(self):
+        """Gets the department."""
         return self.__department
 
     def setDepartment(self, department):
+        """Sets the department."""
         self.__department = department
         self._update()
 
-    def _createItem(self, object):
+    def _createItem(self, rpcObject):
         """Creates and returns the proper item"""
-        return TaskWidgetItem(object, self)
+        return TaskWidgetItem(rpcObject, self)
 
     def _update(self):
         """Adds the feature of forcing the items to be sorted by the first
@@ -189,9 +207,8 @@ class TaskMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             if self.__department:
                 return self.__department.getTasks()
-            else:
-                return []
-        except Exception as e:
+            return []
+        except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
 
@@ -211,6 +228,7 @@ class TaskMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu.exec_(e.globalPos())
 
     def createTask(self):
+        """Creates a task."""
         if self.__department:
             title = "Create Task"
             body = "What shot is this task for? "
@@ -227,7 +245,13 @@ class TaskMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     self.__department.addTask(str(shot), float(minCores))
                     self._update()
 
+    def tick(self):
+        pass
+
+
 class TaskWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
-    def __init__(self, object, parent):
+    """Widget item for displaying a single task."""
+
+    def __init__(self, rpcObject, parent):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_TASK, object, parent)
+            self, cuegui.Constants.TYPE_TASK, rpcObject, parent)

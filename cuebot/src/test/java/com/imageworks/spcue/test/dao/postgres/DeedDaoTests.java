@@ -73,11 +73,12 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
         RenderHost host = RenderHost.newBuilder()
                 .setName("test_host")
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(15290520)
                 .setFreeSwap(2076)
                 .setLoad(1)
-                .setTotalMcp(19543)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem((int) CueUtil.GB16)
                 .setTotalSwap((int) CueUtil.GB16)
                 .setNimbyEnabled(false)
@@ -86,8 +87,8 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
                 .addTags("general")
                 .setState(HardwareState.UP)
                 .setFacility("spi")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         DispatchHost dh = hostManager.createHost(host);
@@ -164,49 +165,6 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
 
         assertEquals(1, deedDao.getDeeds(o).size());
         assertEquals(d, deedDao.getDeeds(o).get(0));
-    }
-
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testEnableDisableBlackoutTime() {
-
-        DispatchHost host = createHost();
-        ShowInterface s = adminManager.findShowEntity("pipe");
-        OwnerEntity o = ownerManager.createOwner("squarepants", s);
-        DeedEntity d = deedDao.insertDeed(o, host);
-
-        deedDao.updateBlackoutTimeEnabled(d, true);
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_blackout FROM deed WHERE pk_deed=?",
-                Boolean.class, d.getId()));
-
-        deedDao.updateBlackoutTimeEnabled(d, false);
-        assertFalse(jdbcTemplate.queryForObject(
-                "SELECT b_blackout FROM deed WHERE pk_deed=?",
-                Boolean.class, d.getId()));
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testSetBlackOutTimes() {
-
-        DispatchHost host = createHost();
-        ShowInterface s = adminManager.findShowEntity("pipe");
-        OwnerEntity o = ownerManager.createOwner("squarepants", s);
-        DeedEntity d = deedDao.insertDeed(o, host);
-
-        deedDao.setBlackoutTime(d, 3600, 7200);
-
-        assertEquals(Integer.valueOf(3600), jdbcTemplate.queryForObject(
-                "SELECT int_blackout_start FROM deed WHERE pk_deed=?",
-                Integer.class, d.getId()));
-
-        assertEquals(Integer.valueOf(7200), jdbcTemplate.queryForObject(
-                "SELECT int_blackout_stop FROM deed WHERE pk_deed=?",
-                Integer.class, d.getId()));
     }
 }
 

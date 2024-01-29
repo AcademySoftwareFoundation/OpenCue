@@ -62,7 +62,7 @@ public class FrameRange {
      * set of frames unique from the first set. This process is repeated until interleaveSize
      * reaches 1.
      *
-     * Example: 1-10:5 == 1, 6, 2, 4, 8, 10, 3, 5, 7, 9.
+     * Example: 1-10:5 == 1, 6, 3, 5 ,7 ,9, 2, 4, 8, 10.
      */
     public FrameRange(String frameRange) {
         frameList = parseFrameRange(frameRange);
@@ -166,10 +166,9 @@ public class FrameRange {
     private static ImmutableList<Integer> getInterleavedRange(Integer start, Integer end, Integer step) {
         validateStepSign(start, end, step);
         Set<Integer> interleavedFrames = new LinkedHashSet<>();
-        int incrValue = step / abs(step);
+
         while (abs(step) > 0) {
             interleavedFrames.addAll(getIntRange(start, end, step));
-            start += incrValue;
             step /= 2;
         }
         return ImmutableList.copyOf(interleavedFrames);

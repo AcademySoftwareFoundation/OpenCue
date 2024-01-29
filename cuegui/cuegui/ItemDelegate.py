@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Custom delegate classes for drawing items in a tree widget."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -21,13 +24,14 @@ from builtins import str
 from builtins import range
 from math import ceil
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import opencue
 
 import cuegui.Constants
+import cuegui.Style
 
 
 RGB_FRAME_STATE = {opencue.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
@@ -50,14 +54,17 @@ NO_BRUSH = QtGui.QBrush(QtCore.Qt.NoBrush)
 
 
 class AbstractDelegate(QtWidgets.QItemDelegate):
-    """Handles drawing of items for the TreeWidget. Provides special handling
+    """Base delegate class.
+
+    Handles drawing of items for the TreeWidget. Provides special handling
     for selected jobs in order to still display background color."""
+
     __colorInvalid = QtGui.QColor()
     __brushSelected = QtGui.QBrush(QtCore.Qt.Dense4Pattern)
     __colorUsed = QtGui.QColor(255, 0, 0)
     __colorFree = QtGui.QColor(0, 255, 0)
 
-    def __init__(self, parent, jobProgressBarColumn = None, *args):
+    def __init__(self, parent, *args):
         QtWidgets.QItemDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
@@ -89,7 +96,8 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
             painter.restore()
             del painter
 
-    def _drawProgressBar(self, painter, rect, frameStateTotals):
+    @staticmethod
+    def _drawProgressBar(painter, rect, frameStateTotals):
         """Returns the list that defines the column.
         @type  painter: QPainter
         @param painter: The painter to draw with
@@ -131,7 +139,8 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
             painter.restore()
             del painter
 
-    def _drawBackground(self, painter, option, index):
+    @staticmethod
+    def _drawBackground(painter, option, index):
         # Draw the background color
         painter.setPen(NO_PEN)
         role = index.data(QtCore.Qt.BackgroundRole)
@@ -152,6 +161,8 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
 
 
 class JobBookingBarDelegate(AbstractDelegate):
+    """Delegate for the job booking bar."""
+
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
 
@@ -159,57 +170,113 @@ class JobBookingBarDelegate(AbstractDelegate):
         # Only if job
         if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_JOB and \
            option.rect.width() > 30:
-                # This itemFromIndex could cause problems
-                # I need: minCores, maxCores, totalRunning, totalWaiting
-                job = self.parent().itemFromIndex(index).rpcObject
+            # This itemFromIndex could cause problems
+            # I need: minCores, maxCores, totalRunning, totalWaiting
+            job = self.parent().itemFromIndex(index).rpcObject
 
-                rect = option.rect.adjusted(12, 6, -12, -6)
+            rect = option.rect.adjusted(12, 6, -12, -6)
 
-                jobMin = int(job.data.minCores * 100)
-                jobMax = int(job.data.maxCores * 100)
-                jobRunning = job.data.runningFrames
-                jobWaiting = job.data.waitingFrames
+            painter.save()
+            try:
+                self._drawBackground(painter, option, index)
 
-                painter.save()
                 try:
-                    self._drawBackground(painter, option, index)
-
+                    jobRunning = job.data.job_stats.running_frames
+                    jobWaiting = job.data.job_stats.waiting_frames
+                    # pylint: disable=broad-except
                     try:
-                        ratio = rect.width() / float(jobRunning + jobWaiting)
+                        cores_per_frame = float(job.data.job_stats.reserved_cores / jobRunning)
+                    except Exception:
+                        cores_per_frame = float(6 / 1)
+                    jobMin = int(job.data.min_cores / cores_per_frame)
+                    jobMax = int(job.data.max_cores / cores_per_frame)
+                    ratio = rect.width() / float(jobRunning + jobWaiting)
 
-                        if jobWaiting:
-                            painter.fillRect(
-                                rect.adjusted(0, 2, 0, -2),
-                                RGB_FRAME_STATE[opencue.api.job_pb2.FrameState.Waiting])
+                    if jobWaiting:
+                        painter.fillRect(
+                            rect.adjusted(0, 2, 0, -2),
+                            RGB_FRAME_STATE[opencue.api.job_pb2.WAITING])
 
-                        if jobRunning:
-                            painter.fillRect(
-                                rect.adjusted(0, 0, -int(ceil(ratio * jobWaiting)), 0),
-                                RGB_FRAME_STATE[opencue.api.job_pb2.FrameState.Running])
+                    if jobRunning:
+                        painter.fillRect(
+                            rect.adjusted(0, 0, -int(ceil(ratio * jobWaiting)), 0),
+                            RGB_FRAME_STATE[opencue.api.job_pb2.RUNNING])
 
-                        painter.setPen(QtCore.Qt.blue)
-                        x = min(rect.x() + ratio * jobMin, option.rect.right() - 9)
-                        painter.drawLine(x, option.rect.y(), x,
-                                         option.rect.y() + option.rect.height())
+                    painter.setPen(cuegui.Style.ColorTheme.PAUSE_ICON_COLOUR)
+                    x = min(rect.x() + ratio * jobMin, option.rect.right() - 9)
+                    painter.drawLine(x, option.rect.y(), x,
+                                     option.rect.y() + option.rect.height())
 
-                        painter.setPen(QtCore.Qt.red)
-                        x = min(rect.x() + ratio * jobMax, option.rect.right() - 6)
-                        painter.drawLine(x, option.rect.y(), x,
-                                         option.rect.y() + option.rect.height())
+                    painter.setPen(cuegui.Style.ColorTheme.KILL_ICON_COLOUR)
+                    x = min(rect.x() + ratio * jobMax, option.rect.right() - 6)
+                    painter.drawLine(x, option.rect.y(), x,
+                                     option.rect.y() + option.rect.height())
 
-                    except ZeroDivisionError:
-                        pass
+                except ZeroDivisionError:
+                    pass
 
-                    if option.state & QtWidgets.QStyle.State_Selected:
-                        self._drawSelectionOverlay(painter, option)
-                finally:
-                    painter.restore()
-                    del painter
+            finally:
+                painter.restore()
+                del painter
         else:
             AbstractDelegate.paint(self, painter, option, index)
 
 
+class SubBookingBarDelegate(AbstractDelegate):
+    """Delegate for the subscription booking bar."""
+
+    def __init__(self, parent, *args):
+        AbstractDelegate.__init__(self, parent, *args)
+
+    def paint(self, painter, option, index):
+        # This itemFromIndex could cause problems
+        sub = self.parent().itemFromIndex(index).rpcObject
+
+        # The total allocation core count x 100 to match sub value
+        alloc_obj = index.data(QtCore.Qt.DisplayRole)
+        alloc_size = (alloc_obj.data.stats.cores) * 100
+
+        rect = option.rect.adjusted(12, 6, -12, -6)
+        painter.save()
+        try:
+            self._drawBackground(painter, option, index)
+            try:
+                subRunning = sub.data.reserved_cores
+                subMin = int(sub.data.size)
+                subMax = int(sub.data.burst)
+                ratio = rect.width() / alloc_size
+
+                if alloc_size:
+                    painter.fillRect(
+                        rect.adjusted(0, 2, 0, -2),
+                        RGB_FRAME_STATE[opencue.api.job_pb2.WAITING])
+
+                if subRunning:
+                    painter.fillRect(
+                        rect.adjusted(0, 0, -int(ceil(ratio * (alloc_size - subRunning))), 0),
+                        RGB_FRAME_STATE[opencue.api.job_pb2.RUNNING])
+
+                painter.setPen(cuegui.Style.ColorTheme.PAUSE_ICON_COLOUR)
+                x = min(rect.x() + ratio * subMin, option.rect.right() - 9)
+                painter.drawLine(x, option.rect.y(), x,
+                                    option.rect.y() + option.rect.height())
+
+                painter.setPen(cuegui.Style.ColorTheme.KILL_ICON_COLOUR)
+                x = min(rect.x() + ratio * subMax, option.rect.right() - 6)
+                painter.drawLine(x, option.rect.y(), x,
+                                    option.rect.y() + option.rect.height())
+
+            except ZeroDivisionError:
+                pass
+
+        finally:
+            painter.restore()
+            del painter
+
+
 class JobThinProgressBarDelegate(AbstractDelegate):
+    """Delegate for a small job progress bar."""
+
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
 
@@ -235,6 +302,8 @@ class JobThinProgressBarDelegate(AbstractDelegate):
 
 
 class JobProgressBarDelegate(AbstractDelegate):
+    """Delegate for the fullsize job progress bar."""
+
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
 
@@ -242,24 +311,24 @@ class JobProgressBarDelegate(AbstractDelegate):
         if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_JOB:
             # This is a lot of data calls to build this one item
             frameStateTotals = index.data(QtCore.Qt.UserRole + 1)
-            state = index.data(QtCore.Qt.UserRole + 2)
-            paused = index.data(QtCore.Qt.UserRole + 3)
+
+            complete_tasks = frameStateTotals[opencue.api.job_pb2.SUCCEEDED]
+            total_tasks = sum(frameStateTotals.values())
+            proc = float(complete_tasks) * 100 / float(total_tasks)
+            line = "{0:d} % ({1:d}/{2:d})".format(int(proc), int(complete_tasks), int(total_tasks))
 
             painter.save()
             try:
+                # pylint: disable=broad-except
                 try:
                     self._drawProgressBar(painter,
                                           option.rect.adjusted(0, 2, 0, -2),
                                           frameStateTotals)
-                    if state == opencue.api.job_pb2.FINISHED:
-                        painter.setPen(QtCore.Qt.black)
-                        painter.drawText(option.rect, 0, "Finished")
-                    elif paused:
-                        painter.setPen(QtCore.Qt.blue)
-                        painter.drawText(option.rect, 0, "Paused")
-                except Exception as e:
+                    painter.setPen(QtCore.Qt.black)
+                    painter.drawText(option.rect, QtCore.Qt.AlignCenter, line)
+                except Exception:
                     painter.setPen(QtCore.Qt.red)
-                    painter.drawText(option.rect, 0, "Gui Error")
+                    painter.drawText(option.rect, QtCore.Qt.AlignCenter, "Gui Error")
             finally:
                 painter.restore()
                 del painter
@@ -268,6 +337,8 @@ class JobProgressBarDelegate(AbstractDelegate):
 
 
 class HostSwapBarDelegate(AbstractDelegate):
+    """Delegate for the host swap field."""
+
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
 
@@ -280,6 +351,8 @@ class HostSwapBarDelegate(AbstractDelegate):
 
 
 class HostMemBarDelegate(AbstractDelegate):
+    """Delegate for the host memory field."""
+
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
 
@@ -292,6 +365,8 @@ class HostMemBarDelegate(AbstractDelegate):
 
 
 class HostGpuBarDelegate(AbstractDelegate):
+    """Delegate for the host GPU field."""
+
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
 
@@ -304,15 +379,17 @@ class HostGpuBarDelegate(AbstractDelegate):
 
 
 class HostHistoryDelegate(AbstractDelegate):
-#To use this delegate, the host item must have this:
-#in __init__:
-#        self.coresHistory = [object.coresReserved()]
-#    def update(self, object = None, parent = None):
-#        if object:
-#            self.coresHistory.append(object.coresReserved())
-#            if len(self.coresHistory) > 40:
-#                self.coresHistory.pop(0)
-#        AbstractWidgetItem.update(self, object, parent)
+    """Delegate for the host history field."""
+
+    # To use this delegate, the host item must have this:
+    #   in __init__:
+    #        self.coresHistory = [object.coresReserved()]
+    #    def update(self, object = None, parent = None):
+    #        if object:
+    #            self.coresHistory.append(object.coresReserved())
+    #            if len(self.coresHistory) > 40:
+    #                self.coresHistory.pop(0)
+    #        AbstractWidgetItem.update(self, object, parent)
 
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
@@ -343,7 +420,9 @@ class HostHistoryDelegate(AbstractDelegate):
                     points.setPoint(0, option.rect.bottomLeft())
                     num = 1
                     for i in range(len(hostItem.coresHistory)):
-                        points.setPoint(num, option.rect.x() + stepWidth * i, option.rect.bottom() - ratioHeight * hostItem.coresHistory[i])
+                        points.setPoint(
+                            num, option.rect.x() + stepWidth * i,
+                            option.rect.bottom() - ratioHeight * hostItem.coresHistory[i])
                         num += 1
                     points.setPoint(num, option.rect.bottomRight())
 
@@ -361,6 +440,8 @@ class HostHistoryDelegate(AbstractDelegate):
 
 
 class ItemDelegate(AbstractDelegate):
+    """Generic item delegate class."""
+
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
 
@@ -369,33 +450,13 @@ class ItemDelegate(AbstractDelegate):
 
 
 class ProgressDelegate(AbstractDelegate):
+    """Delegate for displaying layer progress."""
 
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
-        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_FRAME:
-            frame = self.parent().itemFromIndex(index).rpcObject
-            opts = QtWidgets.QStyleOptionProgressBar()
-            opts.rect = option.rect
-            opts.minimum = 1
-            opts.maximum = 100
-            opts.textVisible = True
-
-            if frame.data.state == opencue.api.job_pb2.SUCCEEDED:
-                progress = 100
-            elif frame.data.state == opencue.api.job_pb2.RUNNING:
-                progress = int(cuegui.Progress.progress(frame.id()))
-            else:
-                progress = 0
-
-            opts.progress = progress
-            opts.text = "{0:d} %".format(progress)
-            opts.textVisible = True
-
-            QtWidgets.QApplication.style().drawControl(QtWidgets.QStyle.CE_ProgressBar, opts, painter)
-
-        elif index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_LAYER:
+        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_LAYER:
             layer = self.parent().itemFromIndex(index).rpcObject
             opts = QtWidgets.QStyleOptionProgressBar()
             opts.rect = option.rect
@@ -408,9 +469,12 @@ class ProgressDelegate(AbstractDelegate):
             opts.text = "{0:d} %".format(progress)
             opts.textVisible = True
 
-            QtWidgets.QApplication.style().drawControl(QtWidgets.QStyle.CE_ProgressBar, opts, painter)
+            QtWidgets.QApplication.style().drawControl(
+                QtWidgets.QStyle.CE_ProgressBar, opts, painter)
         else:
             AbstractDelegate.paint(self, painter, option, index)
 
     def sizeHint(self, option, index):
+        del option
+        del index
         return QtCore.QSize(12, 12)

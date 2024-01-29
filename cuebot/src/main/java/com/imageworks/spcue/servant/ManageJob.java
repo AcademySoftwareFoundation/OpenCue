@@ -24,7 +24,10 @@ import java.util.List;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.BuildableJob;
@@ -49,6 +52,7 @@ import com.imageworks.spcue.dispatcher.commands.DispatchKillFrames;
 import com.imageworks.spcue.dispatcher.commands.DispatchReorderFrames;
 import com.imageworks.spcue.dispatcher.commands.DispatchRetryFrames;
 import com.imageworks.spcue.dispatcher.commands.DispatchSatisfyDepends;
+import com.imageworks.spcue.dispatcher.commands.DispatchShutdownJobIfCompleted;
 import com.imageworks.spcue.dispatcher.commands.DispatchStaggerFrames;
 import com.imageworks.spcue.grpc.comment.Comment;
 import com.imageworks.spcue.grpc.job.FrameSeq;
@@ -124,12 +128,18 @@ import com.imageworks.spcue.grpc.job.JobSetGroupRequest;
 import com.imageworks.spcue.grpc.job.JobSetGroupResponse;
 import com.imageworks.spcue.grpc.job.JobSetMaxCoresRequest;
 import com.imageworks.spcue.grpc.job.JobSetMaxCoresResponse;
+import com.imageworks.spcue.grpc.job.JobSetMaxGpusRequest;
+import com.imageworks.spcue.grpc.job.JobSetMaxGpusResponse;
 import com.imageworks.spcue.grpc.job.JobSetMaxRetriesRequest;
 import com.imageworks.spcue.grpc.job.JobSetMaxRetriesResponse;
 import com.imageworks.spcue.grpc.job.JobSetMinCoresRequest;
 import com.imageworks.spcue.grpc.job.JobSetMinCoresResponse;
+import com.imageworks.spcue.grpc.job.JobSetMinGpusRequest;
+import com.imageworks.spcue.grpc.job.JobSetMinGpusResponse;
 import com.imageworks.spcue.grpc.job.JobSetPriorityRequest;
 import com.imageworks.spcue.grpc.job.JobSetPriorityResponse;
+import com.imageworks.spcue.grpc.job.JobShutdownIfCompletedRequest;
+import com.imageworks.spcue.grpc.job.JobShutdownIfCompletedResponse;
 import com.imageworks.spcue.grpc.job.JobStaggerFramesRequest;
 import com.imageworks.spcue.grpc.job.JobStaggerFramesResponse;
 import com.imageworks.spcue.grpc.job.LayerSeq;
@@ -149,8 +159,10 @@ import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.FrameSet;
 
+import static com.imageworks.spcue.servant.ServantUtil.attemptChange;
+
 public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
-    private static final Logger logger = Logger.getLogger(ManageJob.class);
+    private static final Logger logger = LogManager.getLogger(ManageJob.class);
     private Whiteboard whiteboard;
     private JobManager jobManager;
     private GroupManager groupManager;
@@ -166,6 +178,9 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     private JobInterface job;
     private FrameSearchFactory frameSearchFactory;
     private JobSearchFactory jobSearchFactory;
+    private final String property = "frame.finished_jobs_readonly";
+    @Autowired
+    private Environment env;
 
     @Override
     public void findJob(JobFindJobRequest request, StreamObserver<JobFindJobResponse> responseObserver) {
@@ -223,31 +238,52 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
 
     @Override
     public void getFrames(JobGetFramesRequest request, StreamObserver<JobGetFramesResponse> responseObserver) {
-        setupJobData(request.getJob());
-        FrameSeq frameSeq = whiteboard.getFrames(frameSearchFactory.create(job, request.getReq()));
-        responseObserver.onNext(JobGetFramesResponse.newBuilder()
-                .setFrames(frameSeq)
-                .build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            FrameSeq frameSeq = whiteboard.getFrames(frameSearchFactory.create(job, request.getReq()));
+            responseObserver.onNext(JobGetFramesResponse.newBuilder()
+                    .setFrames(frameSeq)
+                    .build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void getLayers(JobGetLayersRequest request, StreamObserver<JobGetLayersResponse> responseObserver) {
-        setupJobData(request.getJob());
-        LayerSeq layerSeq = whiteboard.getLayers(job);
-        responseObserver.onNext(JobGetLayersResponse.newBuilder()
-                .setLayers(layerSeq)
-                .build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            LayerSeq layerSeq = whiteboard.getLayers(job);
+            responseObserver.onNext(JobGetLayersResponse.newBuilder()
+                    .setLayers(layerSeq)
+                    .build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void kill(JobKillRequest request, StreamObserver<JobKillResponse> responseObserver) {
-        setupJobData(request.getJob());
-        manageQueue.execute(new DispatchJobComplete(job,
-                new Source(request.toString()), true, jobManagerSupport));
-        responseObserver.onNext(JobKillResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            manageQueue.execute(new DispatchJobComplete(job,
+                    new Source(request.toString()), true, jobManagerSupport));
+            responseObserver.onNext(JobKillResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
@@ -297,303 +333,585 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
 
     @Override
     public void pause(JobPauseRequest request, StreamObserver<JobPauseResponse> responseObserver) {
-        setupJobData(request.getJob());
-        jobManager.setJobPaused(job, true);
-        responseObserver.onNext(JobPauseResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try{
+            setupJobData(request.getJob());
+            jobManager.setJobPaused(job, true);
+            responseObserver.onNext(JobPauseResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void resume(JobResumeRequest request, StreamObserver<JobResumeResponse> responseObserver) {
-        setupJobData(request.getJob());
-        jobManager.setJobPaused(job, false);
-        responseObserver.onNext(JobResumeResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try{
+            setupJobData(request.getJob());
+            jobManager.setJobPaused(job, false);
+            responseObserver.onNext(JobResumeResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void setMaxCores(JobSetMaxCoresRequest request, StreamObserver<JobSetMaxCoresResponse> responseObserver) {
-        setupJobData(request.getJob());
-        jobDao.updateMaxCores(job, Convert.coresToWholeCoreUnits(request.getVal()));
-        responseObserver.onNext(JobSetMaxCoresResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try{
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                jobDao.updateMaxCores(job, Convert.coresToWholeCoreUnits(request.getVal()));
+                responseObserver.onNext(JobSetMaxCoresResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void setMinCores(JobSetMinCoresRequest request, StreamObserver<JobSetMinCoresResponse> responseObserver) {
-        setupJobData(request.getJob());
-        jobDao.updateMinCores(job, Convert.coresToWholeCoreUnits(request.getVal()));
-        responseObserver.onNext(JobSetMinCoresResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try{
+            setupJobData(request.getJob());
+            jobDao.updateMinCores(job, Convert.coresToWholeCoreUnits(request.getVal()));
+            responseObserver.onNext(JobSetMinCoresResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
+    }
+
+    @Override
+    public void setMaxGpus(JobSetMaxGpusRequest request, StreamObserver<JobSetMaxGpusResponse> responseObserver) {
+        try{
+            setupJobData(request.getJob());
+            jobDao.updateMaxGpus(job, request.getVal());
+            responseObserver.onNext(JobSetMaxGpusResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
+    }
+
+    @Override
+    public void setMinGpus(JobSetMinGpusRequest request, StreamObserver<JobSetMinGpusResponse> responseObserver) {
+        try{
+            setupJobData(request.getJob());
+            jobDao.updateMinGpus(job, request.getVal());
+            responseObserver.onNext(JobSetMinGpusResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void setPriority(JobSetPriorityRequest request, StreamObserver<JobSetPriorityResponse> responseObserver) {
-        setupJobData(request.getJob());
-        jobDao.updatePriority(job, request.getVal());
-        responseObserver.onNext(JobSetPriorityResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try{
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                jobDao.updatePriority(job, request.getVal());
+                responseObserver.onNext(JobSetPriorityResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void getCurrent(JobGetCurrentRequest request, StreamObserver<JobGetCurrentResponse> responseObserver) {
-        setupJobData(request.getJob());
-        Job currentJob = whiteboard.getJob(job.getId());
-        responseObserver.onNext(JobGetCurrentResponse.newBuilder()
-                .setJob(currentJob)
-                .build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            Job currentJob = whiteboard.getJob(job.getId());
+            responseObserver.onNext(JobGetCurrentResponse.newBuilder()
+                    .setJob(currentJob)
+                    .build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void eatFrames(JobEatFramesRequest request, StreamObserver<JobEatFramesResponse> responseObserver) {
-        setupJobData(request.getJob());
-        manageQueue.execute(
-                new DispatchEatFrames(
-                        frameSearchFactory.create(job, request.getReq()),
-                        new Source(request.toString()),
-                        jobManagerSupport));
-        responseObserver.onNext(JobEatFramesResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(
+                        new DispatchEatFrames(
+                                frameSearchFactory.create(job, request.getReq()),
+                                new Source(request.toString()),
+                                jobManagerSupport));
+                responseObserver.onNext(JobEatFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void killFrames(JobKillFramesRequest request, StreamObserver<JobKillFramesResponse> responseObserver) {
-        setupJobData(request.getJob());
-        manageQueue.execute(
-                new DispatchKillFrames(
-                        frameSearchFactory.create(job, request.getReq()),
-                        new Source(request.toString()),
-                        jobManagerSupport));
-        responseObserver.onNext(JobKillFramesResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(
+                        new DispatchKillFrames(
+                                frameSearchFactory.create(job, request.getReq()),
+                                new Source(request.toString()),
+                                jobManagerSupport));
+                responseObserver.onNext(JobKillFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void markDoneFrames(JobMarkDoneFramesRequest request,
                                StreamObserver<JobMarkDoneFramesResponse> responseObserver) {
-        setupJobData(request.getJob());
-        manageQueue.execute(
-                new DispatchSatisfyDepends(
-                        frameSearchFactory.create(job, request.getReq()), jobManagerSupport));
-        responseObserver.onNext(JobMarkDoneFramesResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try{
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(
+                        new DispatchSatisfyDepends(
+                                frameSearchFactory.create(job, request.getReq()), jobManagerSupport));
+                responseObserver.onNext(JobMarkDoneFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void retryFrames(JobRetryFramesRequest request, StreamObserver<JobRetryFramesResponse> responseObserver) {
-        setupJobData(request.getJob());
-        manageQueue.execute(
-                new DispatchRetryFrames(
-                        frameSearchFactory.create(job, request.getReq()),
-                        new Source(request.toString()),
-                        jobManagerSupport));
-        responseObserver.onNext(JobRetryFramesResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(
+                        new DispatchRetryFrames(
+                                frameSearchFactory.create(job, request.getReq()),
+                                new Source(request.toString()),
+                                jobManagerSupport));
+                responseObserver.onNext(JobRetryFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void setAutoEat(JobSetAutoEatRequest request, StreamObserver<JobSetAutoEatResponse> responseObserver) {
-        setupJobData(request.getJob());
-        jobDao.updateAutoEat(job, request.getValue());
-        responseObserver.onNext(JobSetAutoEatResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                jobDao.updateAutoEat(job, request.getValue());
+                responseObserver.onNext(JobSetAutoEatResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void createDependencyOnFrame(JobCreateDependencyOnFrameRequest request,
                                         StreamObserver<JobCreateDependencyOnFrameResponse> responseObserver) {
-        setupJobData(request.getJob());
-        JobOnFrame depend = new JobOnFrame(job,
-                jobManager.getFrameDetail(request.getFrame().getId()));
-        dependManager.createDepend(depend);
-        responseObserver.onNext(JobCreateDependencyOnFrameResponse.newBuilder()
-                .setDepend(whiteboard.getDepend(depend))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                JobOnFrame depend = new JobOnFrame(job,
+                        jobManager.getFrameDetail(request.getFrame().getId()));
+                dependManager.createDepend(depend);
+                responseObserver.onNext(JobCreateDependencyOnFrameResponse.newBuilder()
+                        .setDepend(whiteboard.getDepend(depend))
+                        .build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void createDependencyOnJob(JobCreateDependencyOnJobRequest request,
                                       StreamObserver<JobCreateDependencyOnJobResponse> responseObserver) {
-        setupJobData(request.getJob());
-        JobOnJob depend = new JobOnJob(job,
-                jobManager.getJobDetail(request.getOnJob().getId()));
-        dependManager.createDepend(depend);
-        responseObserver.onNext(JobCreateDependencyOnJobResponse.newBuilder()
-                .setDepend(whiteboard.getDepend(depend))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                JobOnJob depend = new JobOnJob(job,
+                        jobManager.getJobDetail(request.getOnJob().getId()));
+                dependManager.createDepend(depend);
+                responseObserver.onNext(JobCreateDependencyOnJobResponse.newBuilder()
+                        .setDepend(whiteboard.getDepend(depend))
+                        .build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void createDependencyOnLayer(JobCreateDependencyOnLayerRequest request,
                                         StreamObserver<JobCreateDependencyOnLayerResponse> responseObserver) {
-        setupJobData(request.getJob());
-        JobOnLayer depend = new JobOnLayer(job,
-                jobManager.getLayerDetail(request.getLayer().getId()));
-        dependManager.createDepend(depend);
-        responseObserver.onNext(JobCreateDependencyOnLayerResponse.newBuilder()
-                .setDepend(whiteboard.getDepend(depend))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                JobOnLayer depend = new JobOnLayer(job,
+                        jobManager.getLayerDetail(request.getLayer().getId()));
+                dependManager.createDepend(depend);
+                responseObserver.onNext(JobCreateDependencyOnLayerResponse.newBuilder()
+                        .setDepend(whiteboard.getDepend(depend))
+                        .build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void getWhatDependsOnThis(JobGetWhatDependsOnThisRequest request, StreamObserver<JobGetWhatDependsOnThisResponse> responseObserver) {
-        setupJobData(request.getJob());
-        responseObserver.onNext(JobGetWhatDependsOnThisResponse.newBuilder()
-                .setDepends(whiteboard.getWhatDependsOnThis(job))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            responseObserver.onNext(JobGetWhatDependsOnThisResponse.newBuilder()
+                    .setDepends(whiteboard.getWhatDependsOnThis(job))
+                    .build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void getWhatThisDependsOn(JobGetWhatThisDependsOnRequest request,
                                      StreamObserver<JobGetWhatThisDependsOnResponse> responseObserver) {
-        setupJobData(request.getJob());
-        responseObserver.onNext(JobGetWhatThisDependsOnResponse.newBuilder()
-                .setDepends(whiteboard.getWhatThisDependsOn(job))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            responseObserver.onNext(JobGetWhatThisDependsOnResponse.newBuilder()
+                    .setDepends(whiteboard.getWhatThisDependsOn(job))
+                    .build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void getDepends(JobGetDependsRequest request, StreamObserver<JobGetDependsResponse> responseObserver) {
-        setupJobData(request.getJob());
-        responseObserver.onNext(JobGetDependsResponse.newBuilder()
-                .setDepends(whiteboard.getDepends(job))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            responseObserver.onNext(JobGetDependsResponse.newBuilder()
+                    .setDepends(whiteboard.getDepends(job))
+                    .build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void getUpdatedFrames(JobGetUpdatedFramesRequest request, StreamObserver<JobGetUpdatedFramesResponse> responseObserver) {
-        setupJobData(request.getJob());
-        UpdatedFrameCheckResult result = whiteboard.getUpdatedFrames(job,
-                ServantUtil.convertLayerFilterList(request.getLayerFilter()), request.getLastCheck());
-        responseObserver.onNext(JobGetUpdatedFramesResponse.newBuilder()
-                .setUpdatedFrames(result.getUpdatedFrames())
-                .setServerTime(result.getServerTime())
-                .setState(result.getState())
-                .build());
-        responseObserver.onCompleted();
+        try{
+            setupJobData(request.getJob());
+            UpdatedFrameCheckResult result = whiteboard.getUpdatedFrames(job,
+                    ServantUtil.convertLayerFilterList(request.getLayerFilter()), request.getLastCheck());
+            responseObserver.onNext(JobGetUpdatedFramesResponse.newBuilder()
+                    .setUpdatedFrames(result.getUpdatedFrames())
+                    .setServerTime(result.getServerTime())
+                    .setState(result.getState())
+                    .build());
+            responseObserver.onCompleted();
+
+        } catch (java.lang.IllegalArgumentException e) {
+            System.out.println(e);
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void setMaxRetries(JobSetMaxRetriesRequest request, StreamObserver<JobSetMaxRetriesResponse> responseObserver) {
-        setupJobData(request.getJob());
-        jobDao.updateMaxFrameRetries(job, request.getMaxRetries());
-        responseObserver.onNext(JobSetMaxRetriesResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                jobDao.updateMaxFrameRetries(job, request.getMaxRetries());
+                responseObserver.onNext(JobSetMaxRetriesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void addComment(JobAddCommentRequest request, StreamObserver<JobAddCommentResponse> responseObserver) {
-        setupJobData(request.getJob());
-        Comment newComment = request.getNewComment();
-        CommentDetail c = new CommentDetail();
-        c.message = newComment.getMessage();
-        c.subject = newComment.getSubject();
-        c.user = newComment.getUser();
-        c.timestamp = null;
-        commentManager.addComment(job, c);
-        responseObserver.onNext(JobAddCommentResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            Comment newComment = request.getNewComment();
+            CommentDetail c = new CommentDetail();
+            c.message = newComment.getMessage();
+            c.subject = newComment.getSubject();
+            c.user = newComment.getUser();
+            c.timestamp = null;
+            commentManager.addComment(job, c);
+            responseObserver.onNext(JobAddCommentResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void getComments(JobGetCommentsRequest request, StreamObserver<JobGetCommentsResponse> responseObserver) {
-        setupJobData(request.getJob());
-        responseObserver.onNext(JobGetCommentsResponse.newBuilder()
-                .setComments(whiteboard.getComments(job))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            responseObserver.onNext(JobGetCommentsResponse.newBuilder()
+                    .setComments(whiteboard.getComments(job))
+                    .build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void dropDepends(JobDropDependsRequest request, StreamObserver<JobDropDependsResponse> responseObserver) {
-        setupJobData(request.getJob());
-        manageQueue.execute(new DispatchDropDepends(job, request.getTarget(), dependManager));
-        responseObserver.onNext(JobDropDependsResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(new DispatchDropDepends(job, request.getTarget(), dependManager));
+                responseObserver.onNext(JobDropDependsResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void setGroup(JobSetGroupRequest request, StreamObserver<JobSetGroupResponse> responseObserver) {
-        setupJobData(request.getJob());
-        jobDao.updateParent(job, groupManager.getGroupDetail(request.getGroupId()));
-        responseObserver.onNext(JobSetGroupResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                jobDao.updateParent(job, groupManager.getGroupDetail(request.getGroupId()));
+                responseObserver.onNext(JobSetGroupResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void markAsWaiting(JobMarkAsWaitingRequest request,
                               StreamObserver<JobMarkAsWaitingResponse> responseObserver) {
-        setupJobData(request.getJob());
-        jobManagerSupport.markFramesAsWaiting(
-                frameSearchFactory.create(job, request.getReq()), new Source(request.toString()));
-        responseObserver.onNext(JobMarkAsWaitingResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                jobManagerSupport.markFramesAsWaiting(
+                        frameSearchFactory.create(job, request.getReq()), new Source(request.toString()));
+                responseObserver.onNext(JobMarkAsWaitingResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void reorderFrames(JobReorderFramesRequest request,
                               StreamObserver<JobReorderFramesResponse> responseObserver) {
-        setupJobData(request.getJob());
-        manageQueue.execute(new DispatchReorderFrames(job,
-                new FrameSet(request.getRange()), request.getOrder(), jobManagerSupport));
-        responseObserver.onNext(JobReorderFramesResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(new DispatchReorderFrames(job,
+                        new FrameSet(request.getRange()), request.getOrder(), jobManagerSupport));
+                responseObserver.onNext(JobReorderFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
+    }
+
+    @Override
+    public void shutdownIfCompleted(JobShutdownIfCompletedRequest request,
+                                    StreamObserver<JobShutdownIfCompletedResponse> responseObserver) {
+        try {
+            setupJobData(request.getJob());
+            manageQueue.execute(new DispatchShutdownJobIfCompleted(job, jobManagerSupport));
+            responseObserver.onNext(JobShutdownIfCompletedResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void staggerFrames(JobStaggerFramesRequest request,
                               StreamObserver<JobStaggerFramesResponse> responseObserver) {
-        setupJobData(request.getJob());
-        manageQueue.execute(
-                new DispatchStaggerFrames(job, request.getRange(), request.getStagger(), jobManagerSupport));
-        responseObserver.onNext(JobStaggerFramesResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(
+                        new DispatchStaggerFrames(job, request.getRange(), request.getStagger(), jobManagerSupport));
+                responseObserver.onNext(JobStaggerFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void addRenderPartition(JobAddRenderPartRequest request, StreamObserver<JobAddRenderPartResponse> responseObserver) {
-        setupJobData(request.getJob());
-        LocalHostAssignment lha = new LocalHostAssignment();
-        lha.setJobId(job.getId());
-        lha.setThreads(request.getThreads());
-        lha.setMaxCoreUnits(request.getMaxCores() * 100);
-        lha.setMaxMemory(request.getMaxMemory());
-        lha.setMaxGpu(request.getMaxGpu());
-        lha.setType(RenderPartitionType.JOB_PARTITION);
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                LocalHostAssignment lha = new LocalHostAssignment();
+                lha.setJobId(job.getId());
+                lha.setThreads(request.getThreads());
+                lha.setMaxCoreUnits(request.getMaxCores() * 100);
+                lha.setMaxMemory(request.getMaxMemory());
+                lha.setMaxGpuUnits(request.getMaxGpus());
+                lha.setMaxGpuMemory(request.getMaxGpuMemory());
+                lha.setType(RenderPartitionType.JOB_PARTITION);
 
-        if (localBookingSupport.bookLocal(job, request.getHost(), request.getUsername(), lha)) {
-            try {
-                RenderPartition renderPart = whiteboard.getRenderPartition(lha);
-                responseObserver.onNext(JobAddRenderPartResponse.newBuilder()
-                        .setRenderPartition(renderPart)
-                        .build());
-                responseObserver.onCompleted();
-            } catch (EmptyResultDataAccessException e) {
-                responseObserver.onError(Status.INTERNAL
-                        .withDescription("Failed to allocate render partition to host.")
-                        .asRuntimeException());
+                if (localBookingSupport.bookLocal(job, request.getHost(), request.getUsername(), lha)) {
+                    try {
+                        RenderPartition renderPart = whiteboard.getRenderPartition(lha);
+                        responseObserver.onNext(JobAddRenderPartResponse.newBuilder()
+                                .setRenderPartition(renderPart)
+                                .build());
+                        responseObserver.onCompleted();
+                    } catch (EmptyResultDataAccessException e) {
+                        responseObserver.onError(Status.INTERNAL
+                                .withDescription("Failed to allocate render partition to host.")
+                                .asRuntimeException());
+                    }
+                } else {
+                    responseObserver.onError(Status.INTERNAL
+                            .withDescription("Failed to find suitable frames.")
+                            .asRuntimeException());
+                }
             }
-        } else {
+        }
+        catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
-                    .withDescription("Failed to find suitable frames.")
+                    .withDescription("Failed to find job data")
                     .asRuntimeException());
         }
     }
 
     @Override
     public void runFilters(JobRunFiltersRequest request, StreamObserver<JobRunFiltersResponse> responseObserver) {
-        setupJobData(request.getJob());
-        JobDetail jobDetail = jobManager.getJobDetail(job.getJobId());
-        filterManager.runFiltersOnJob(jobDetail);
-        responseObserver.onNext(JobRunFiltersResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        try {
+            setupJobData(request.getJob());
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                JobDetail jobDetail = jobManager.getJobDetail(job.getJobId());
+                filterManager.runFiltersOnJob(jobDetail);
+                responseObserver.onNext(JobRunFiltersResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
     }
 
     public JobManager getJobManager() {

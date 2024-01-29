@@ -96,11 +96,12 @@ public class DispatchSupportTests extends TransactionalTest {
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(0)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem(8173264)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)
@@ -110,8 +111,8 @@ public class DispatchSupportTests extends TransactionalTest {
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .putAttributes("SP_OS", "Linux")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         hostManager.createHost(host,
