@@ -295,11 +295,13 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
             block_number += 1
 
 class LogLoadSignals(QtCore.QObject):
+    """Signals for the LoadLog action"""
     SIG_LOG_LOAD_ERROR = QtCore.Signal(tuple)
     SIG_LOG_LOAD_RESULT = QtCore.Signal(str, str)
     SIG_LOG_LOAD_FINISHED = QtCore.Signal()
 
 class LogLoader(QtCore.QRunnable):
+    """A thread to load logs"""
     def __init__(self, fn, *args, **kwargs):
         super(LogLoader, self).__init__()
         self.fn = fn
@@ -309,6 +311,7 @@ class LogLoader(QtCore.QRunnable):
 
     @QtCore.Slot()
     def run(self):
+        # pylint: disable=bare-except
         try:
             content, log_mtime = self.fn(*self.args, **self.kwargs)
         except:
@@ -839,6 +842,7 @@ class LogViewWidget(QtWidgets.QWidget):
         finally:
             QtCore.QTimer.singleShot(5000, self._display_log_content)
 
+    # pylint: disable=no-self-use
     @QtCore.Slot()
     def _load_log(self, log_file, new_log, curr_log_mtime):
         content = None
@@ -898,7 +902,6 @@ class LogViewWidget(QtWidgets.QWidget):
         else:
             current_text = (self._content_box.toPlainText() or '')
             new_text = content.lstrip(str(current_text))
-            [x for x in new_text if x in PRINTABLE]
             if new_text:
                 self._content_box.appendPlainText(new_text)
         self._content_timestamp = time.time()
