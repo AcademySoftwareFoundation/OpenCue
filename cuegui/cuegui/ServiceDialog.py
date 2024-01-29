@@ -109,13 +109,13 @@ class ServiceForm(QtWidgets.QWidget):
         Update the form with data from the given service.
         """
         self.__buttons.setDisabled(False)
-        self.name.setText(service.data.name)
-        self.threadable.setChecked(service.data.threadable)
-        self.min_cores.setValue(service.data.min_cores)
-        self.max_cores.setValue(service.data.max_cores)
-        self.min_memory.setValue(service.data.min_memory // 1024)
-        self.min_gpu.setValue(service.data.min_gpu // 1024)
-        self._tags_w.set_tags(service.data.tags)
+        self.name.setText(service.name())
+        self.threadable.setChecked(service.threadable())
+        self.min_cores.setValue(service.minCores())
+        self.max_cores.setValue(service.maxCores())
+        self.min_memory.setValue(service.minMemory() // 1024)
+        self.min_gpu.setValue(service.minGpu() // 1024)
+        self._tags_w.set_tags(service.tags())
         self.__service = service.data
 
     def new(self):

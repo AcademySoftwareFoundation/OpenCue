@@ -192,6 +192,7 @@ class ServiceOverride(object):
             timeout=Cuebot.Timeout)
     
     def update(self):
+        """Commit a ServiceOverride change to the database"""
         self.stub.Update(
             service_pb2.ServiceOverrideUpdateRequest(service=self.data),
             timeout=Cuebot.Timeout)
