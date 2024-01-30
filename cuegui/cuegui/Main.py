@@ -92,7 +92,6 @@ def startup(app_name, app_version, argv):
     app.aboutToQuit.connect(closingTime)  # pylint: disable=no-member
     app.exec_()
 
-
 def closingTime():
     """Window close callback."""
     logger.info("Closing all threads...")

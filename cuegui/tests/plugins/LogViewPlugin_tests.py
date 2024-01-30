@@ -71,21 +71,22 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_shouldDisplayFirstLogFile(self):
         cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
-
+        self.logViewPlugin.logview_widget._receive_log_results(_LOG_TEXT_1, 0)
         self.assertEqual(_LOG_TEXT_1, self.logViewPlugin.logview_widget._content_box.toPlainText())
 
     def test_shouldUpdateLogFile(self):
         cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
+        self.logViewPlugin.logview_widget._receive_log_results(_LOG_TEXT_1, 0)
         new_contents = _LOG_TEXT_1 + '\nanother line at the end'
         self.log1.set_contents(new_contents)
         cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
-
+        self.logViewPlugin.logview_widget._receive_log_results(new_contents, 0)
         self.assertEqual(new_contents, self.logViewPlugin.logview_widget._content_box.toPlainText())
 
     def test_shouldHighlightAllSearchResults(self):
-        cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
+        self.logViewPlugin.logview_widget._receive_log_results(_LOG_TEXT_1, 0)
         self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
-            qtpy.QtCore.Qt.CheckState.Unchecked)
+              qtpy.QtCore.Qt.CheckState.Unchecked)
 
         self.logViewPlugin.logview_widget._search_box.setText('lorem')
         self.logViewPlugin.logview_widget._search_button.click()
@@ -100,7 +101,7 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
                 self.logViewPlugin.logview_widget._content_box, matches[1][0], matches[1][1]))
 
     def test_shouldMoveCursorToSecondSearchResult(self):
-        cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
+        self.logViewPlugin.logview_widget._receive_log_results(_LOG_TEXT_1, 0)
         self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
             qtpy.QtCore.Qt.CheckState.Unchecked)
 
@@ -114,7 +115,7 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(132, self.logViewPlugin.logview_widget._cursor.position())
 
     def test_shouldMoveCursorLastSearchResult(self):
-        cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
+        self.logViewPlugin.logview_widget._receive_log_results(_LOG_TEXT_1, 0)
         self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
             qtpy.QtCore.Qt.CheckState.Unchecked)
 
@@ -128,10 +129,9 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(132, self.logViewPlugin.logview_widget._cursor.position())
 
     def test_shouldPerformCaseInsensitiveSearch(self):
-        cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
+        self.logViewPlugin.logview_widget._receive_log_results(_LOG_TEXT_1, 0)
         self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
             qtpy.QtCore.Qt.CheckState.Checked)
-
         self.logViewPlugin.logview_widget._search_box.setText('lorem')
         self.logViewPlugin.logview_widget._search_button.click()
         matches = self.logViewPlugin.logview_widget._matches
