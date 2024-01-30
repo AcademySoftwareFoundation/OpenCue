@@ -362,14 +362,7 @@ public class CoreUnitDispatcher implements Dispatcher {
          * The frame is reserved, the proc is created, now update
          * the frame to the running state.
          */
-        dispatchSupport.startFrame(proc, frame);
-
-        /*
-         * Creates a proc to run on the specified frame.  Throws
-         * a ResourceReservationFailureException if the proc
-         * cannot be created due to lack of resources.
-         */
-        dispatchSupport.reserveProc(proc, frame);
+        dispatchSupport.startFrameAndProc(proc, frame);
 
         /*
          * Communicate with RQD to run the frame.
