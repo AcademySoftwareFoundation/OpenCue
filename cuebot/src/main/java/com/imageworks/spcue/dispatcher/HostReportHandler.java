@@ -50,6 +50,7 @@ import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dispatcher.HostReportHandler.KillCause;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
@@ -57,6 +58,7 @@ import com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrame;
 import com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrameMemory;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.LockState;
+import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.report.BootReport;
 import com.imageworks.spcue.grpc.report.CoreDetail;
 import com.imageworks.spcue.grpc.report.HostReport;
@@ -208,23 +210,23 @@ public class HostReportHandler {
              * Verify all the frames in the report are valid.
              * Frames that are not valid are removed.
              */
-            verifyRunningFrameInfo(report);
+            List<RunningFrameInfo> runningFrames = verifyRunningFrameInfo(report);
 
             /*
              * Updates memory usage for the proc, frames,
              * jobs, and layers. And LLU time for the frames.
              */
-            updateMemoryUsageAndLluTime(report.getFramesList());
+            updateMemoryUsageAndLluTime(runningFrames);
 
             /*
              * kill frames that have over run.
              */
-            killTimedOutFrames(report);
+            killTimedOutFrames(runningFrames, report.getHost().getName());
 
             /*
              * Prevent OOM (Out-Of-Memory) issues on the host and manage frame reserved memory
              */
-            handleMemoryUsage(host, report);
+            handleMemoryUsage(host, report.getHost(), runningFrames);
 
             /*
              * The checks are done in order of least CPU intensive to
@@ -473,21 +475,21 @@ public class HostReportHandler {
      *   - A frame is taking more than OOM_FRAME_OVERBOARD_PERCENT of what it had reserved
      * For frames that are using more than they had reserved but not above the threshold, negotiate expanding
      * the reservations with other frames on the same host
-     * @param host
+     * 
+     * @param dispatchHost
      * @param report
      */
-    private void handleMemoryUsage(final DispatchHost host, final HostReport report) {
+    private void handleMemoryUsage(final DispatchHost dispatchHost, RenderHost renderHost,
+            List<RunningFrameInfo> runningFrames) {
         // Don't keep memory balances on nimby hosts
-        if (host.isNimby) {
+        if (dispatchHost.isNimby) {
             return;
         }
 
-        final double OOM_MAX_SAFE_USED_MEMORY_THRESHOLD =
-                env.getRequiredProperty("dispatcher.oom_max_safe_used_memory_threshold", Double.class);
-        final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD =
-                env.getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
-        RenderHost renderHost = report.getHost();
-        List<RunningFrameInfo> runningFrames = report.getFramesList();
+        final double OOM_MAX_SAFE_USED_MEMORY_THRESHOLD = env
+                .getRequiredProperty("dispatcher.oom_max_safe_used_memory_threshold", Double.class);
+        final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD = env
+                .getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
 
         boolean memoryWarning = renderHost.getTotalMem() > 0 &&
                 ((double)renderHost.getFreeMem()/renderHost.getTotalMem() <
@@ -500,7 +502,7 @@ public class HostReportHandler {
             int killAttemptsRemaining = 10;
             VirtualProc killedProc = null;
             do {
-                killedProc = killWorstMemoryOffender(host);
+                killedProc = killWorstMemoryOffender(dispatchHost);
                 killAttemptsRemaining -= 1;
                 if (killedProc != null) {
                     memoryAvailable = memoryAvailable + killedProc.memoryUsed;
@@ -514,7 +516,7 @@ public class HostReportHandler {
             // them accordingly
             for (final RunningFrameInfo frame : runningFrames) {
                 if (OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD > 0 && isFrameOverboard(frame)) {
-                    if (!killFrameOverusingMemory(frame, host.getName())) {
+                    if (!killFrameOverusingMemory(frame, dispatchHost.getName())) {
                         logger.warn("Frame " + frame.getJobName() + "." + frame.getFrameName() +
                                 " is overboard but could not be killed");
                     }
@@ -748,25 +750,26 @@ public class HostReportHandler {
      *
      * @param rFrames
      */
-    private void killTimedOutFrames(HostReport report) {
-        final Map<String, LayerDetail> layers = new HashMap<String, LayerDetail>(5);
-
-        for (RunningFrameInfo frame: report.getFramesList()) {
+    private void killTimedOutFrames(List<RunningFrameInfo> runningFrames, String hostname) {
+        for (RunningFrameInfo frame : runningFrames) {
             String layerId = frame.getLayerId();
-            LayerDetail layer = layerDao.getLayerDetail(layerId);
-            long runtimeMinutes = ((System.currentTimeMillis() - frame.getStartTime()) / 1000l) / 60;
 
-            String hostname = report.getHost().getName();
+            try {
+                LayerDetail layer = layerDao.getLayerDetail(layerId);
+                long runtimeMinutes = ((System.currentTimeMillis() - frame.getStartTime()) / 1000l) / 60;
 
-            if (layer.timeout != 0 && runtimeMinutes > layer.timeout){
-                killFrame(frame.getFrameId(), hostname, KillCause.FrameTimedOut);
-            } else if (layer.timeout_llu != 0 && frame.getLluTime() != 0) {
-                long r = System.currentTimeMillis() / 1000;
-                long lastUpdate = (r - frame.getLluTime()) / 60;
+                if (layer.timeout != 0 && runtimeMinutes > layer.timeout) {
+                    killFrame(frame.getFrameId(), hostname, KillCause.FrameTimedOut);
+                } else if (layer.timeout_llu != 0 && frame.getLluTime() != 0) {
+                    long r = System.currentTimeMillis() / 1000;
+                    long lastUpdate = (r - frame.getLluTime()) / 60;
 
-                if (layer.timeout_llu != 0 && lastUpdate > (layer.timeout_llu - 1)){
-                    killFrame(frame.getFrameId(), hostname, KillCause.FrameLluTimedOut);
+                    if (layer.timeout_llu != 0 && lastUpdate > (layer.timeout_llu - 1)) {
+                        killFrame(frame.getFrameId(), hostname, KillCause.FrameLluTimedOut);
+                    }
                 }
+            } catch (EmptyResultDataAccessException e) {
+                logger.info("Unable to get layer with id=" + layerId);
             }
         }
     }
@@ -871,10 +874,8 @@ public class HostReportHandler {
      *
      * @param report
      */
-    public void verifyRunningFrameInfo(HostReport report) {
-
-        List<RunningFrameInfo> runningFrames = new
-            ArrayList<RunningFrameInfo>(report.getFramesCount());
+    public List<RunningFrameInfo> verifyRunningFrameInfo(HostReport report) {
+        List<RunningFrameInfo> runningFrames = new ArrayList<RunningFrameInfo>(report.getFramesCount());
 
         for (RunningFrameInfo runningFrame: report.getFramesList()) {
 
@@ -928,7 +929,15 @@ public class HostReportHandler {
                 proc = null;
             }
             if (proc == null) {
-                if (killFrame(runningFrame.getFrameId(),
+                // A frameCompleteReport might have been delivered before this report was
+                // processed
+                FrameDetail frameLatestVersion = jobManager.getFrameDetail(runningFrame.getFrameId());
+                if (frameLatestVersion.state != FrameState.RUNNING) {
+                    logger.info("DelayedVerification, the proc " +
+                            runningFrame.getResourceId() + " on host " +
+                            report.getHost().getName() + " has already Completed " +
+                            runningFrame.getJobName() + "/" + runningFrame.getFrameName());
+                } else if (killFrame(runningFrame.getFrameId(),
                         report.getHost().getName(),
                         KillCause.FrameVerificationFailure)) {
                     logger.info("FrameVerificationError, the proc " +
@@ -936,7 +945,7 @@ public class HostReportHandler {
                             report.getHost().getName() + " was running for " +
                             (runtimeSeconds / 60.0f) + " minutes " +
                             runningFrame.getJobName() + "/" + runningFrame.getFrameName() +
-                            "but the DB did not " +
+                            " but the DB did not " +
                             "reflect this. " +
                             msg);
                 } else {
@@ -946,6 +955,7 @@ public class HostReportHandler {
                 }
             }
         }
+        return runningFrames;
     }
 
     public HostManager getHostManager() {
