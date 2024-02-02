@@ -75,15 +75,10 @@ def buildBlenderCmd(layerData):
     if outputFormat:
         renderCommand += ' -F {}'.format(outputFormat)
     if frameRange:
-        # Checks if frame range is in the correct format
-        if re.match(r'^\d+$', frameRange):
-            renderCommand += ' -f {}'.format(frameRange)
-        elif re.match(r'^\d+-\d+$', frameRange):
-            startFrame, endFrame = map(int, frameRange.split("-"))
-            renderCommand += (' -s {startFrame} -e {endFrame} -a'
-                              .format(startFrame=startFrame, endFrame=endFrame))
-        else:
-            raise ValueError('Invalid frameRange format: {}'.format(frameRange))
+        # Renders animation within frame range
+        renderCommand += (' -s {startFrame} -e {endFrame} -a'
+                          .format(startFrame=Constants.FRAME_START,
+                                  endFrame=Constants.FRAME_END))
     else:
         # The render frame must come after the scene and output
         renderCommand += ' -f {frameToken}'.format(frameToken=Constants.FRAME_TOKEN)
