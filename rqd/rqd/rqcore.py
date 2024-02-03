@@ -101,7 +101,7 @@ class FrameAttendantThread(threading.Thread):
             self.frameEnv["MAIL"] = "/usr/mail/%s" % self.runFrame.user_name
             self.frameEnv["HOME"] = "/net/homedirs/%s" % self.runFrame.user_name
         elif platform.system() == "Windows":
-            for variable in ["SYSTEMROOT", "APPDATA", "TMP", "COMMONPROGRAMFILES"]:
+            for variable in ["SYSTEMROOT", "APPDATA", "TMP", "COMMONPROGRAMFILES", "SYSTEMDRIVE"]:
                 if variable in os.environ:
                     self.frameEnv[variable] = os.environ[variable]
 
