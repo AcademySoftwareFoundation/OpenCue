@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-From katana
-"""
+"""Widget for displaying and selecting within a frame range."""
 
 
 from __future__ import division
@@ -27,25 +25,26 @@ from builtins import map
 from builtins import range
 import math
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 
 class FrameRangeSelectionWidget(QtWidgets.QWidget):
-    """The Timeline Widget is a rectangular area with ticks to represent units
-        of frames. A frame range may be selected.
-        This widget emits the following signals:
-        * startFrameChanged(int) - user clicks new time or program changes time
-        * endFrameChanged(int) - user clicks new time or program changes time
-        * frameRangeChanged(int,int) - program changes viewed frame range
-        * selectionChanged(int,int) - user releases a drag that selects a frame range
-        """
+    """Widget for displaying and selecting within a frame range.
+
+    A rectangular area with ticks to represent units of frames.
+
+    This widget emits the following signals:
+    * startFrameChanged(int) - user clicks new time or program changes time
+    * endFrameChanged(int) - user clicks new time or program changes time
+    * frameRangeChanged(int,int) - program changes viewed frame range
+    * selectionChanged(int,int) - user releases a drag that selects a frame range
+    """
     endFrameChanged = QtCore.Signal(int)
     startFrameChanged = QtCore.Signal(int)
     frameRangeChanged = QtCore.Signal(int, int)
     selectionChanged = QtCore.Signal(int, int)
-
 
     def __init__(self, parent, *args):
         QtWidgets.QWidget.__init__(self, parent, *args)
@@ -54,12 +53,11 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         self.__layout.addStretch(100)
 
         self.__right_margin = 25
-        self.__layout.setContentsMargins(0,0,0,0)
+        self.__layout.setContentsMargins(0, 0, 0, 0)
         toolButton = QtWidgets.QToolButton()
         toolButton.setArrowType(QtCore.Qt.UpArrow)
         toolButton.setFocusPolicy(QtCore.Qt.NoFocus)
-        toolButton.setFixedSize(20,20)
-        #toolButton.setContentsMargins(0,0,0,0)
+        toolButton.setFixedSize(20, 20)
         self.__layout.addWidget(toolButton)
 
         self.setLayout(self.__layout)
@@ -93,42 +91,47 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         self.default_select_size = 1000
 
     def endFrame(self):
+        """Returns the current end frame displayed in the timeline."""
         return self.__endFrame
 
     def setEndTime(self, t, final = True):
-        if (self.__endFrame == t and self.__endFrameFinal == final): return
+        """Sets the current end frame displayed in the timeline."""
+        if self.__endFrame == t and self.__endFrameFinal == final:
+            return
         self.__endFrame = int(t)
         self.__endFrameFinal = final
 
-        #mine
         self.__selectionRange = (self.__startFrame, self.__endFrame)
 
         self.update()
         self.endFrameChanged.emit(int(t))
 
-    # The current time displayed in the timeline.
     def startFrame(self):
+        """Returns the current start frame displayed in the timeline."""
         return self.__startFrame
 
     def setStartTime(self, t, final = True):
+        """Sets the current start frame displayed in the timeline."""
         if self.__startFrame == t and self.__startFrameFinal == final:
             return
         self.__startFrame = int(t)
         self.__startFrameFinal = final
 
         if self.__endFrame == self.__startFrame:
-            self.setEndTime(min(self.__startFrame + self.default_select_size - 1, self.__frameRange[1]), True)
+            self.setEndTime(
+                min(self.__startFrame + self.default_select_size - 1, self.__frameRange[1]), True)
 
         self.__selectionRange = (self.__startFrame, self.__endFrame)
 
         self.update()
         self.startFrameChanged.emit(int(t))
 
-    # The viewed range of time in the timeline.
     def frameRange(self):
+        """Returns the viewed range of time in the timeline."""
         return self.__frameRange
 
     def setFrameRange(self, frameRange):
+        """Sets the viewed frame range in the timeline."""
         frameRange = tuple(sorted(map(int, frameRange)))
 
         self.__floatTime = None
@@ -140,11 +143,12 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         self.frameRangeChanged.emit(self.__frameRange[0], self.__frameRange[1])
         self.update()
 
-    # The selected (highlighted) range of time in the timeline.
     def selectedFrameRange(self):
+        """Returns the selected (highlighted) range of time in the timeline."""
         return self.__selectionRange
 
     def setSelectedFrameRange(self, selectedRange):
+        """Sets the selected (highlighted) range of time in the timeline."""
         if selectedRange != self.__selectionRange:
             self.__selectionRange = selectedRange
 
@@ -186,15 +190,19 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
             self.setEndTime(max(hitTime, self.startFrame()), True)
             self.setStartTime(min(hitTime, self.startFrame()), True)
 
-        self.__selectionRange = (min(self.__selectionRange[0], self.__selectionRange[1]), max(self.__selectionRange[0], self.__selectionRange[1]))
+        self.__selectionRange = (
+            min(self.__selectionRange[0], self.__selectionRange[1]),
+            max(self.__selectionRange[0], self.__selectionRange[1]))
         self.setSelectedFrameRange(self.__selectionRange)
 
         self.update()
 
     def mouseDoubleClickEvent(self, mouseEvent):
+        del mouseEvent
         self.__double = True
 
     def paintEvent(self, paintEvent):
+        del paintEvent
         painter = QtGui.QPainter(self)
         self.__paintBackground(painter)
 
@@ -209,20 +217,26 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         self.__paintEndTime(painter)
 
     def leaveEvent(self, event):
+        del event
         self.__floatTime = None
         self.update()
 
     def __getTickAreaExtent(self):
-        return QtCore.QRect(10, -self.height() // 2, self.width() - self.__right_margin - 20, self.height())
+        return QtCore.QRect(
+            10, -self.height() // 2, self.width() - self.__right_margin - 20, self.height())
 
     def __getTickArea(self, time):
         tickArea = self.__getTickAreaExtent()
-        tickSpacing = float(self.__getTickAreaExtent().width()) / max(1,(self.__frameRange[1] - self.__frameRange[0]))
+        tickSpacing = (
+                float(self.__getTickAreaExtent().width()) /
+                max(1, (self.__frameRange[1] - self.__frameRange[0])))
         return QtCore.QRect(tickArea.left() + tickSpacing * (time - self.__frameRange[0]),
                         tickArea.top(), tickSpacing, tickArea.height())
 
     def __getTimeFromLocalPoint(self, x):
-        tickSpacing = float(self.__getTickAreaExtent().width()) / max(1,(self.__frameRange[1] - self.__frameRange[0]))
+        tickSpacing = (
+                float(self.__getTickAreaExtent().width()) /
+                max(1, (self.__frameRange[1] - self.__frameRange[0])))
         deltaX = x - self.__getTickAreaExtent().left()
         hitTime = int(deltaX / tickSpacing + 0.5) + self.__frameRange[0]
         hitTime = int(max(self.__frameRange[0], min(hitTime, self.__frameRange[1])))
@@ -230,9 +244,9 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
 
     def __getLabelPeriod(self):
         delta = self.__frameRange[1] - self.__frameRange[0]
-        if (delta < 20):
+        if delta < 20:
             return 2
-        if (delta < 10000):
+        if delta < 10000:
             base = 5
             offset = 2
         else:
@@ -245,7 +259,12 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         bgBrush = self.palette().window()
         painter.fillRect(0, 0, self.width() - self.__right_margin, self.height(), bgBrush)
         highlightBrush = QtGui.QBrush(QtGui.QColor(75, 75, 75))
-        painter.fillRect(0, self.height() // 2, self.width() - self.__right_margin+5, self.height() // 2,  highlightBrush)
+        painter.fillRect(
+            0,
+            self.height() // 2,
+            self.width() - self.__right_margin + 5,
+            self.height() // 2,
+            highlightBrush)
 
     def __paintTickmarks(self, painter):
         tickExtent = self.__getTickAreaExtent()
@@ -267,7 +286,8 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         tickExtent = self.__getTickAreaExtent()
         labelHeight = tickExtent.height() // 3
         labelPeriod = self.__getLabelPeriod()
-        if labelPeriod == 0: return
+        if labelPeriod == 0:
+            return
 
         firstLabel = self.__frameRange[0] + labelPeriod - 1
         firstLabel = firstLabel - (firstLabel % labelPeriod)
@@ -283,7 +303,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         oldPen = painter.pen()
 
         # draw hatches for labelled frames
-        painter.setPen(self.palette().color(QtGui.QPalette.Foreground))
+        painter.setPen(self.palette().color(QtGui.QPalette.WindowText))
         for frame in frames:
             xPos = self.__getTickArea(frame).left()
             painter.drawLine(xPos, -labelHeight, xPos, 0)
@@ -293,7 +313,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         metric = QtGui.QFontMetrics(painter.font())
         yPos = metric.ascent() + 1
         rightEdge = -10000
-        width = metric.width(str(frames[-1]))
+        width = metric.horizontalAdvance(str(frames[-1]))
         farEdge = self.__getTickArea(frames[-1]).right() - width // 2
 
         farEdge -= 4
@@ -301,7 +321,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         for frame in frames:
             xPos = self.__getTickArea(frame).left()
             frameString = str(frame)
-            width = metric.width(frameString)
+            width = metric.horizontalAdvance(frameString)
             xPos = xPos - width // 2
             if (xPos > rightEdge and xPos + width < farEdge) or frame is frames[-1]:
                 painter.drawText(xPos, yPos, frameString)
@@ -317,7 +337,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
 
         metric = QtGui.QFontMetrics(painter.font())
         frameString = str(int(startFrame))
-        xPos = timeExtent.left() - metric.width(frameString) // 2
+        xPos = timeExtent.left() - metric.horizontalAdvance(frameString) // 2
         yPos =  metric.ascent() + 1
         painter.drawText(xPos, yPos, frameString)
         painter.setPen(oldPen)
@@ -331,18 +351,20 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
 
         metric = QtGui.QFontMetrics(painter.font())
         frameString = str(int(endFrame))
-        xPos = timeExtent.left() - metric.width(frameString) // 2
-        yPos =  metric.ascent() + 1
+        xPos = timeExtent.left() - metric.horizontalAdvance(frameString) // 2
+        yPos = metric.ascent() + 1
         painter.drawText(xPos, yPos, frameString)
         painter.setPen(oldPen)
 
     def __paintFloatTime(self, painter):
-        if self.__floatTime == None: return
+        if self.__floatTime is None:
+            return
 
         timeExtent = self.__getTickArea(self.__floatTime)
         oldPen = painter.pen()
         painter.setPen(QtGui.QColor(90, 90, 90))
-        painter.drawLine(timeExtent.left(), timeExtent.top(), timeExtent.left(), timeExtent.bottom())
+        painter.drawLine(
+            timeExtent.left(), timeExtent.top(), timeExtent.left(), timeExtent.bottom())
 
         if self.__selectionRange:
             painter.setPen(QtGui.QColor(255,255,255))
@@ -350,14 +372,17 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
             painter.setPen(QtGui.QColor(128, 128, 128))
         metric = QtGui.QFontMetrics(painter.font())
         frameString = str(self.__floatTime)
-        xPos = timeExtent.left() - metric.width(frameString) // 2
-        yPos =  timeExtent.top() + metric.ascent()
+        xPos = timeExtent.left() - metric.horizontalAdvance(frameString) // 2
+        yPos = timeExtent.top() + metric.ascent()
         painter.drawText(xPos, yPos, frameString)
         painter.setPen(oldPen)
 
     def __paintSelection(self, painter):
-        if self.__selectionRange == None: return
-        selection = (min(self.__selectionRange[0], self.__selectionRange[1]), max(self.__selectionRange[0], self.__selectionRange[1]))
+        if self.__selectionRange is None:
+            return
+        selection = (
+            min(self.__selectionRange[0], self.__selectionRange[1]),
+            max(self.__selectionRange[0], self.__selectionRange[1]))
 
         leftExtent = self.__getTickArea(selection[0])
         rightExtent = self.__getTickArea(selection[1] - 1)

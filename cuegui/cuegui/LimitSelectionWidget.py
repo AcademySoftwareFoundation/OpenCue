@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-A Widget for displaying and editing Limits
-"""
+"""A widget for displaying and editing limits."""
 
 
 from __future__ import absolute_import
@@ -24,38 +22,34 @@ from __future__ import division
 
 from builtins import str
 
-from PySide2 import QtWidgets
+from qtpy import QtWidgets
 
 import cuegui.AbstractDialog
 
 
 class LimitSelectionWidget(QtWidgets.QWidget):
-    """
-    A Widget for displaying and editing Limits. Includes checkboxes for the given
-    list of limit options.
-    """
+    """A widget for displaying and editing limits.
+
+    Includes checkboxes for the given list of limit options."""
+
     def __init__(self, limits=None, parent=None):
         """
-        A Widget for displaying and editing Limits
-    
         @param limits: The list of limits to include as checkboxes.
         @type limits: list<str>
         @param parent: The parent widget for this LimitSelectionWidget. Default is None
         @type parent: QtWidgets.QWidget
         """
-        
         QtWidgets.QWidget.__init__(self, parent)
         layout = QtWidgets.QGridLayout(self)
-        
+
         self.limits = cuegui.AbstractDialog.CheckBoxSelectionMatrix(
             'Limits', limits, [], self)
         layout.addWidget(self.limits, 0, 0, 1, 2)
         layout.setContentsMargins(0, 0, 0, 0)
-    
+
     def enable_limits(self, limits_to_enable=None):
-        """
-        Set the limit value based on the given list of limits.
-    
+        """Sets the limit value based on the given list of limits.
+
         @param limits_to_enable: The list of limits to enable
         @type limits_to_enable: iter<str>
         """
@@ -63,9 +57,8 @@ class LimitSelectionWidget(QtWidgets.QWidget):
         self.limits.checkBoxes(limits_to_enable)
 
     def get_selected_limits(self):
-        """
-        Returns the list of selected limits.
-    
+        """Returns the list of selected limits.
+
         @return: The list of selected limits
         @rtype: list<str>
         """

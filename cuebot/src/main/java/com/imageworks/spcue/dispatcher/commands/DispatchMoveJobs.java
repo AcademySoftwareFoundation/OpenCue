@@ -26,13 +26,15 @@ import com.imageworks.spcue.Inherit;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.service.GroupManager;
 
-public class DispatchMoveJobs implements Runnable {
+public class DispatchMoveJobs extends KeyRunnable {
 
     private GroupDetail group;
     private List<JobInterface> jobs;
     private GroupManager groupManager;
 
     public DispatchMoveJobs(GroupDetail group, List<JobInterface> jobs, GroupManager groupManager) {
+        super("disp_move_jobs_" + group.getGroupId() + "_dept_" + group.getDepartmentId() +
+                "_show_" + group.getShowId());
         this.group = group;
         this.jobs = jobs;
         this.groupManager = groupManager;

@@ -1,3 +1,21 @@
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""Widgets for cancel and submit buttons."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -39,14 +57,19 @@ class CueSubmitButtons(QtWidgets.QWidget):
         self.setupConnections()
 
     def setupConnections(self):
+        """Sets up widget signals."""
+        # pylint: disable=no-member
         self.submitButton.pressed.connect(self.submitPressed)
         self.cancelButton.pressed.connect(self.cancelPressed)
+        # pylint: enable=no-member
 
     def submitPressed(self):
+        """Handler for when submit button has been pressed."""
         self.state = "submitted"
         self.submitted.emit()
 
     def cancelPressed(self):
+        """Handler for when cancel button has been pressed."""
         self.state = "cancelled"
         self.cancelled.emit()
 
@@ -54,7 +77,9 @@ class CueSubmitButtons(QtWidgets.QWidget):
 class CueSubmitWidget(QtWidgets.QWidget):
     """Central widget for submission."""
 
-    def __init__(self, settingsWidgetType, jobTypes=JobTypes.JobTypes, parent=None, *args, **kwargs):
+    # pylint: disable=keyword-arg-before-vararg
+    def __init__(
+            self, settingsWidgetType, jobTypes=JobTypes.JobTypes, parent=None, *args, **kwargs):
         super(CueSubmitWidget, self).__init__(parent)
         self.startupErrors = list()
         self.skipDataChangedEvent = False
@@ -107,8 +132,9 @@ class CueSubmitWidget(QtWidgets.QWidget):
         )
         shows = Util.getShows()
         if not shows:
-            self.startupErrors.append("No shows exist yet. Please create some or contact your OpenCue administrator to create one!\n" +\
-                      "You won't be able to submit job for non-existent show!\n")
+            self.startupErrors.append(
+                "No shows exist yet. Please create some or contact your OpenCue administrator "
+                "to create one!\nYou won't be able to submit a job for a non-existent show!\n")
             shows = ['']  # to allow building UI
         self.showSelector = Widgets.CueSelectPulldown(
             'Show:', shows[0],
@@ -183,17 +209,22 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.jobDataChanged()
 
     def showEvent(self, event):
+        del event
+
         if self.startupErrors:
             for startupError in self.startupErrors:
                 msgBox = Widgets.CueMessageBox(startupError, title="No Shows Exist", parent=self)
                 msgBox.show()
-                msgBox.centerOnScreen() #  explicitly center on desktop center as parent is not shown yet
+                # Explicitly center on desktop center as parent is not shown yet.
+                msgBox.centerOnScreen()
 
-            # Raise at least one of the errors so the user gets feedback in the event the GUI wasn't built
-            # or shown properly.
+            # Raise at least one of the errors so the user gets feedback in the event the GUI
+            # wasn't built or shown properly.
             raise opencue.exception.CueException(self.startupErrors[0])
 
     def setupConnections(self):
+        """Sets up widget signals."""
+        # pylint: disable=no-member
         self.submitButtons.cancelled.connect(self.cancel)
         self.submitButtons.submitted.connect(self.submit)
         self.jobTreeWidget.selectionChanged.connect(self.jobLayerSelectionChanged)
@@ -207,8 +238,10 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.coresInput.lineEdit.textChanged.connect(self.jobDataChanged)
         self.chunkInput.lineEdit.textChanged.connect(self.jobDataChanged)
         self.dependSelector.optionsMenu.triggered.connect(self.dependencyChanged)
+        # pylint: enable=no-member
 
     def setupUi(self):
+        """Creates the widget layout."""
         self.setLayout(self.mainLayout)
         self.scrollingLayout.addWidget(self.titleLogo)
 
@@ -275,7 +308,8 @@ class CueSubmitWidget(QtWidgets.QWidget):
             'layers': self.jobTreeWidget.getAllLayers()
         }
         facility = self.facilitySelector.text()
-        jobData['facility'] = facility if facility and facility != Constants.DEFAULT_FACILITY_TEXT else None
+        jobData['facility'] = (
+            facility if facility and facility != Constants.DEFAULT_FACILITY_TEXT else None)
         return jobData
 
     def jobLayerSelectionChanged(self, layerObject):
@@ -345,10 +379,12 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.settingsLayout.addWidget(self.settingsWidget)
 
     def errorInJobData(self, message):
+        """Displays an error box about invalid job data."""
         Widgets.CueMessageBox(message, title="Error in Job Data", parent=self).show()
         return False
 
     def validate(self, jobData):
+        """Validates job data."""
         errMessage = 'ERROR: Job not submitted!\n'
         if not self.jobNameInput.validateText():
             return self.errorInJobData(errMessage + 'Invalid job name.')
@@ -379,10 +415,12 @@ class CueSubmitWidget(QtWidgets.QWidget):
 
     def updateCompleters(self):
         """Update the line edit completers after submission."""
-        self.jobNameInput.lineEdit.completerStrings = self.getFilteredHistorySetting('submit/jobName')
-        self.shotInput.lineEdit.completerStrings = self.getFilteredHistorySetting('submit/shotName')
-        self.layerNameInput.lineEdit.completerStrings = self.getFilteredHistorySetting('submit/layerName')
-
+        self.jobNameInput.lineEdit.completerStrings = self.getFilteredHistorySetting(
+            'submit/jobName')
+        self.shotInput.lineEdit.completerStrings = self.getFilteredHistorySetting(
+            'submit/shotName')
+        self.layerNameInput.lineEdit.completerStrings = self.getFilteredHistorySetting(
+            'submit/layerName')
 
     def getFilteredHistorySetting(self, setting):
         """Return a list of strings for the provided setting.
@@ -392,6 +430,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         @rtype: list<str>
         @return: A list of strings of setting values.
         """
+        # pylint: disable=broad-except
         try:
             return [str(value) for value in self.getHistorySetting(setting) if value is not None]
         except Exception:
@@ -447,6 +486,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         @type maxSettings: int
         @param maxSettings: maximum number of items to keep a history of
         """
+        # pylint: disable=broad-except
         try:
             if not value:
                 return

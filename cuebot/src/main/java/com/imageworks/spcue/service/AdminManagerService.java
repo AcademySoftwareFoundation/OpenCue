@@ -19,7 +19,8 @@
 
 package com.imageworks.spcue.service;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,12 +41,13 @@ import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.LimitDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
+import com.imageworks.spcue.service.JobSpec;
 
 @Transactional
 public class AdminManagerService implements AdminManager {
 
     @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(AdminManagerService.class);
+    private static final Logger logger = LogManager.getLogger(AdminManagerService.class);
 
     private ShowDao showDao;
 
@@ -70,6 +72,8 @@ public class AdminManagerService implements AdminManager {
     }
 
     public void createShow(ShowEntity show) {
+
+        show.name = JobSpec.conformShowName(show.name);
 
         DepartmentInterface dept = getDefaultDepartment();
         showDao.insertShow(show);
@@ -105,6 +109,17 @@ public class AdminManagerService implements AdminManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    public AllocationEntity getDefaultAllocation() {
+        return allocationDao.getDefaultAllocationEntity();
+    }
+
+    @Override
+    public void setDefaultAllocation(AllocationInterface a) {
+        allocationDao.setDefaultAllocation(a);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public ShowEntity findShowEntity(String name) {
         return showDao.findShowDetail(name);
     }
@@ -119,6 +134,11 @@ public class AdminManagerService implements AdminManager {
     @Transactional(propagation = Propagation.REQUIRED)
     public void updateShowCommentEmail(ShowInterface s, String[] emails) {
         showDao.updateShowCommentEmail(s, emails);
+    }
+
+    @Override
+    public void updateShowsStatus() {
+        showDao.updateShowsStatus();
     }
 
     public SubscriptionInterface createSubscription(SubscriptionEntity sub) {

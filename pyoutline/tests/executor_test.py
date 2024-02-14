@@ -14,6 +14,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Tests for the outline.executor module.
+"""
 
 from __future__ import print_function
 from __future__ import division
@@ -22,13 +25,13 @@ from __future__ import absolute_import
 import time
 import unittest
 
-from outline import TaskExecutor
+import outline
 
 
 class TaskExecutorTest(unittest.TestCase):
 
     def test_simple_threading(self):
-        e = TaskExecutor(5)
+        e = outline.TaskExecutor(5)
         e.execute(self.print_, "hello thread 1")
         e.execute(self.print_, "hello thread 2")
         e.execute(self.print_, "hello thread 3")
@@ -36,11 +39,11 @@ class TaskExecutorTest(unittest.TestCase):
         e.execute(self.print_, "hello thread 5")
         e.wait()
 
-    def print_(self, msg):
+    @staticmethod
+    def print_(msg):
         print("Test Message: %s" % msg)
         time.sleep(1)
 
 
 if __name__ == '__main__':
     unittest.main()
-

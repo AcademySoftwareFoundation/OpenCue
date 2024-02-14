@@ -5,6 +5,7 @@
     {
       "name": "shell_layer",
       "module": "outline.modules.shell.Shell",
+      "env": {"LAYER_KEY": "LAYER_VALUE"},
       "command": ["/bin/ls"]
     }
   ]

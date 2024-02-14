@@ -46,12 +46,18 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
     packages=find_packages(exclude=['tests']),
     data_files=[
         ('bin', ['bin/cuerunbase.py', 'bin/pycuerun', 'bin/util_qc_job_layer.py']),
-        ('etc', ['etc/outline.cfg']),
-        ('wrappers', ['wrappers/opencue_wrap_frame', 'wrappers/opencue_wrap_frame_no_ss', 'wrappers/local_wrap_frame']),
+        ('wrappers', [
+            'wrappers/opencue_wrap_frame', 'wrappers/opencue_wrap_frame_no_ss',
+            'wrappers/local_wrap_frame']),
     ],
+    package_data={
+        'outline': ['outline.cfg'],
+    },
     test_suite='tests',
 )

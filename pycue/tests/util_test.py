@@ -14,18 +14,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.util`."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 from builtins import range
-import grpc
-import mock
 import unittest
 import uuid
 
-import opencue
+import grpc
+import mock
+
 from opencue.compiled_proto import job_pb2
+import opencue.exception
 from opencue.wrappers.job import Job
 
 
@@ -96,15 +98,16 @@ class ProxyTests(unittest.TestCase):
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testProxyUniqueId(self, getStubMock):
         """convert a string and class name to proxy"""
-        id = 'A0000000-0000-0000-0000-000000000000'
+        objectId = 'A0000000-0000-0000-0000-000000000000'
         stubMock = mock.Mock()
-        stubMock.GetGroup.return_value = job_pb2.GroupGetGroupResponse(group=job_pb2.Group(id=id))
+        stubMock.GetGroup.return_value = job_pb2.GroupGetGroupResponse(
+            group=job_pb2.Group(id=objectId))
         getStubMock.return_value = stubMock
 
-        proxy = opencue.proxy(id, 'Group')
+        proxy = opencue.proxy(objectId, 'Group')
 
-        stubMock.GetGroup.assert_called_with(job_pb2.GroupGetGroupRequest(id=id))
-        self.assertEqual(id, proxy.group.id)
+        stubMock.GetGroup.assert_called_with(job_pb2.GroupGetGroupRequest(id=objectId))
+        self.assertEqual(objectId, proxy.group.id)
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testProxyUniqueIdArray(self, getStubMock):

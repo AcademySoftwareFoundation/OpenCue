@@ -1,1 +1,3 @@
-PySide2==5.11.2
+PySide2==5.15.2.1
+QtPy==1.11.3;python_version<"3.7"
+QtPy==2.3.0;python_version>="3.7"

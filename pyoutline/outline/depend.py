@@ -46,24 +46,26 @@ class DependType(object):
     PreviousFrame = "PREVIOUS_FRAME"
     LayerOnSimFrame = "LAYER_ON_SIM_FRAME"
     LayerOnAny = "LAYER_ON_ANY"
-    
+
     # Short depend types used in require strings.
     all = LayerOnLayer
     any = LayerOnAny
     sim = LayerOnSimFrame
     prev = PreviousFrame
 
+
 def parse_require_str(require):
     """
-    Parse a require string and returns its components. 
-    A require string is short hand for defining dependencies
-    which contains the layer_name:depend_type.
+    Parse a require string and returns its components.
+
+    A require string is short hand for defining dependencies which contains the
+    layer_name:depend_type.
     """
     parts = str(require).split(":")
     if len(parts) == 1:
         return (parts[0], DependType.FrameByFrame)
-    else:
-        return (parts[0], getattr(DependType, parts[1]))
+    return (parts[0], getattr(DependType, parts[1]))
+
 
 class Depend(object):
     """A dependency"""
@@ -78,7 +80,7 @@ class Depend(object):
         self.__type = depend_type
         self.__propigate = propigate
         self.__any_frame = any_frame
-                
+
     def get_dependant_layer(self):
         """
         Return the dependant layer.
@@ -106,18 +108,18 @@ class Depend(object):
         """
         return self.__type
 
-    def is_propigated(self):
+    def is_propagated(self):
         """
-        A propigated dependency is propigated to to others layers
+        A propagated dependency is propagated to to others layers
         automatically.  For example when a L{Layer} A depends on L{Layer} B through
-        a propigated dependency, then setting up a dependency from L{Layer} C to
+        a propagated dependency, then setting up a dependency from L{Layer} C to
         L{Layer} A would automatically create a depend from L{Layer} C to L{Layer} B.
 
         Depends that are automatically setup between L{LayerPreProcess} and
-        a L{Layer} are propigated dependencies.
+        a L{Layer} are propagated dependencies.
 
         :rtype: boolean
-        :return: True if he depend is propigated, false if it is not.
+        :return: True if he depend is propagated, false if it is not.
 
         """
         return self.__propigate

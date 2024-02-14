@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-Provides actions and functions for right click menu items.
-"""
+"""Provides actions and functions for right click menu items."""
 
 
 from __future__ import absolute_import
@@ -30,19 +28,21 @@ import glob
 import subprocess
 import time
 
-import pexpect
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtWidgets
 import six
 
 import FileSequence
 import opencue
 import opencue.compiled_proto.job_pb2
+import opencue.wrappers.depend
 
+# pylint: disable=cyclic-import
 import cuegui.Action
 import cuegui.Comments
 import cuegui.Constants
 import cuegui.CreatorDialog
+import cuegui.CueJobMonitorTree
 import cuegui.DependDialog
 import cuegui.DependWizard
 import cuegui.EmailDialog
@@ -52,6 +52,7 @@ import cuegui.LayerDialog
 import cuegui.LocalBooking
 import cuegui.Logger
 import cuegui.PreviewWidget
+import cuegui.ProcChildren
 import cuegui.ServiceDialog
 import cuegui.ShowDialog
 import cuegui.TasksDialog
@@ -65,16 +66,21 @@ TITLE = 0
 TOOLTIP = 1
 ICON = 2
 
-# New icons are here: /usr/share/icons/crystalsvg/16x16
+
+# pylint: disable=missing-function-docstring,no-self-use,unused-argument
 
 
 class AbstractActions(object):
+    """Parent class for all job-specific actions classes."""
+
     __iconCache = {}
+
     def __init__(self, caller, updateCallable, selectedRpcObjectsCallable, sourceCallable):
         self._caller = caller
         self.__selectedRpcObjects = selectedRpcObjectsCallable
         self._getSource = sourceCallable
         self._update = updateCallable
+        self.app = cuegui.app()
 
         self.__actionCache = {}
 
@@ -110,13 +116,15 @@ class AbstractActions(object):
     def _getOnlyTaskObjects(self, rpcObjects):
         return list(filter(cuegui.Utils.isTask, self._getSelected(rpcObjects)))
 
-    def createAction(self, menu, title, tip = None, callback = None, icon = None):
+    def createAction(self, menu, title, tip=None, callback=None, icon=None):
+        """Creates a context menu action."""
         if not tip:
             tip = title
         menu.addAction(cuegui.Action.create(menu, title, tip, callback, icon))
 
     def addAction(self, menu, actionName, callback = None):
-        """Adds the requested menu item to the menu
+        """Adds the requested menu item to the menu.
+
         @param menu: The menu that the action will be added to
         @type  menu: QMenu
         @param actionName: The name of the action to add to the menu
@@ -140,6 +148,7 @@ class AbstractActions(object):
             else:
                 icon_key = info[ICON]
             if icon_key not in self.__iconCache:
+                # pylint: disable=unidiomatic-typecheck
                 if type(info[ICON]) is QtGui.QColor:
                     pixmap = QtGui.QPixmap(100, 100)
                     pixmap.fill(info[ICON])
@@ -154,35 +163,36 @@ class AbstractActions(object):
             if isinstance(callback, six.string_types):
                 callback = getattr(self, callback)
 
-            action.triggered.connect(callback)
+            action.triggered.connect(callback)  # pylint: disable=no-member
             self.__actionCache[key] = action
 
         menu.addAction(self.__actionCache[key])
 
-    def cuebotCall(self, callable, errorMessageTitle, *args):
-        """Makes the given call to the cuebot and if an exception occurs display
-        a critical message box.
-        @type  callable: function
-        @param callable: The cuebot function to call.
+    def cuebotCall(self, functionToCall, errorMessageTitle, *args):
+        """Makes the given call to the Cuebot, displaying exception info if needed.
+
+        @type  functionToCall: function
+        @param functionToCall: The cuebot function to call.
         @type  errorMessageTitle: string
         @param errorMessageTitle: The text to display in the title of the error
                                   message box.
-        @type  callable: Variable arguments
-        @param callable: The arguments to pass to the callable
+        @type  args: list
+        @param args: The arguments to pass to the callable
         @rtype:  callable return type
         @return: Returns any results from the callable or None on exception"""
         try:
-            return callable(*args)
-        except Exception as e:
+            return functionToCall(*args)
+        except opencue.exception.CueException as e:
             logger.exception('Failed Cuebot call')
             QtWidgets.QMessageBox.critical(self._caller,
                                            errorMessageTitle,
-                                           e.details(),
+                                           str(e),
                                            QtWidgets.QMessageBox.Ok)
             return None
 
     def getText(self, title, body, default):
         """Prompts the user for text input.
+
         @type  title: string
         @param title: The title to display in the input dialog
         @type  body: string
@@ -191,40 +201,44 @@ class AbstractActions(object):
         @param default: The default text to provide in the input dialog
         @rtype: tuple(str, bool)
         @return: (input, choice)"""
-        (input, choice) = QtWidgets.QInputDialog.getText(self._caller,
-                                                         title,
-                                                         body,
-                                                         QtWidgets.QLineEdit.Normal,
-                                                         default)
-        return str(input), choice
+        (user_input, choice) = QtWidgets.QInputDialog.getText(
+            self._caller, title, body, QtWidgets.QLineEdit.Normal, default)
+        return str(user_input), choice
 
 
 class JobActions(AbstractActions):
+    """Actions for jobs."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
     unmonitor_info = ["Unmonitor", "Unmonitor selected jobs", "eject"]
+
     def unmonitor(self, rpcObjects=None):
         self._caller.actionRemoveSelectedItems()
 
     view_info = ["View Job", None, "view"]
+
     def view(self, rpcObjects=None):
         for job in self._getOnlyJobObjects(rpcObjects):
-            QtGui.qApp.view_object.emit(job)
+            self.app.view_object.emit(job)
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
+
     def viewDepends(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
 
         cuegui.DependDialog.DependDialog(jobs[0], self._caller).show()
 
     emailArtist_info = ["Email Artist...", None, "mail"]
+
     def emailArtist(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
-            cuegui.EmailDialog.EmailDialog(jobs[0], [], self._caller).show()
+            cuegui.EmailDialog.EmailDialog(jobs[0], self._caller).show()
 
     setMinCores_info = ["Set Minimum Cores...", "Set Job(s) Minimum Cores", "configure"]
+
     def setMinCores(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
@@ -241,6 +255,7 @@ class JobActions(AbstractActions):
                 self._update()
 
     setMaxCores_info = ["Set Maximum Cores...", "Set Job(s) Maximum Cores", "configure"]
+
     def setMaxCores(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
@@ -256,7 +271,40 @@ class JobActions(AbstractActions):
                     job.setMaxCores(float(value))
                 self._update()
 
+    setMinGpus_info = ["Set Minimum Gpus...", "Set Job(s) Minimum Gpus", "configure"]
+    def setMinGpus(self, rpcObjects=None):
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs:
+            current = max([job.data.min_gpus for job in jobs])
+            title = "Set Minimum Gpus"
+            body = "Please enter the new minimum gpus value:"
+            (value, choice) = QtWidgets.QInputDialog.getInt(self._caller,
+                                                               title, body,
+                                                               current,
+                                                               0, 500, 0)
+            if choice:
+                for job in jobs:
+                    job.setMinGpus(int(value))
+                self._update()
+
+    setMaxGpus_info = ["Set Maximum Gpus...", "Set Job(s) Maximum Gpus", "configure"]
+    def setMaxGpus(self, rpcObjects=None):
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs:
+            current = max([job.data.max_gpus for job in jobs])
+            title = "Set Maximum Gpus"
+            body = "Please enter the new maximum gpus value:"
+            (value, choice) = QtWidgets.QInputDialog.getInt(self._caller,
+                                                               title, body,
+                                                               current,
+                                                               0, 500, 0)
+            if choice:
+                for job in jobs:
+                    job.setMaxGpus(int(value))
+                self._update()
+
     setPriority_info = ["Set Priority...", None, "configure"]
+
     def setPriority(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
@@ -273,11 +321,13 @@ class JobActions(AbstractActions):
                 self._update()
 
     setMaxRetries_info = ["Set Max Retries...", None, "configure"]
+
     def setMaxRetries(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             title = "Set Max Retries"
-            body = "Please enter the number of retries that a frame should be allowed before it becomes dead:"
+            body = ('Please enter the number of retries that a frame should be '
+                    'allowed before it becomes dead:')
             (value, choice) = QtWidgets.QInputDialog.getInt(self._caller,
                                                             title, body,
                                                             0, 0, 10, 1)
@@ -287,6 +337,7 @@ class JobActions(AbstractActions):
                 self._update()
 
     pause_info = ["&Pause", None, "pause"]
+
     def pause(self, rpcObjects=None):
         """pause selected jobs"""
         jobs = self._getOnlyJobObjects(rpcObjects)
@@ -296,6 +347,7 @@ class JobActions(AbstractActions):
             self._update()
 
     resume_info = ["&Unpause", None, "unpause"]
+
     def resume(self, rpcObjects=None):
         """resume selected jobs"""
         jobs = self._getOnlyJobObjects(rpcObjects)
@@ -305,17 +357,82 @@ class JobActions(AbstractActions):
             self._update()
 
     kill_info = ["&Kill", None, "kill"]
+
     def kill(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
-            if cuegui.Utils.questionBoxYesNo(self._caller, "Kill jobs?",
-                                             "Are you sure you want to kill these jobs?",
+            msg = ("Are you sure you want to kill these jobs?\n\n"
+                   "** Note: This will stop all running frames and "
+                   "permanently remove the jobs from the cue. "
+                   "The jobs will NOT be able to return once killed.")
+            if cuegui.Utils.questionBoxYesNo(self._caller, "Kill jobs?", msg,
                                              [job.data.name for job in jobs]):
                 for job in jobs:
                     job.kill()
+                self.killDependents(jobs)
                 self._update()
 
+    def killDependents(self, jobs):
+        dependents = self.getRecursiveDependentJobs(jobs)
+        if not dependents:
+            return
+        if cuegui.Utils.questionBoxYesNo(self._caller,
+                                  "Kill depending jobs?",
+                                  "The jobs have been killed. "
+                                  "Do you want to kill %s jobs that depend on it?" %
+                                  len(dependents),
+                                  sorted([dep.name() for dep in dependents])):
+            for depJob in dependents:
+                try:
+                    depJob.kill()
+                except opencue.exception.CueException as e:
+                    errMsg = "Failed to kill depending job: %s - %s" % (depJob.name(), e)
+                    logger.warning(errMsg)
+        else:
+            # Drop only direct dependents.
+            for job in dependents:
+                try:
+                    self.dropJobsDependingOnThis(job)
+                except opencue.exception.CueException as e:
+                    logger.warning("Failed to drop dependencies: %s", e)
+
+    def getRecursiveDependentJobs(self, jobs, seen=None, active_only=True):
+        seen = set() if seen is None else seen
+        dependents = []
+        if not jobs:
+            return dependents
+        for job in jobs:
+            for dep in self.getExternalDependentNames(job, active_only):
+                if dep.data.name not in seen:
+                    dependents.append(dep)
+                    seen.add(dep.data.name)
+        return dependents + self.getRecursiveDependentJobs(dependents,
+                                                           seen,
+                                                           active_only)
+
+    def getExternalDependentNames(self, job, active_only=True):
+        # pylint: disable=consider-using-set-comprehension
+        job_names = set([dep.dependErJob()
+                         for dep in job.getWhatDependsOnThis()
+                         if (not dep.isInternal())
+                         and (dep.isActive() if active_only else True)])
+
+        return [self.getJobByName(job_name) for job_name in job_names]
+
+    def getJobByName(self, job_name):
+        jobs = opencue.api.getJobs(substr=[job_name], include_finished=True)
+        if not jobs:
+            raise Exception("Job %s not found" % job_name)
+        return jobs[0]
+
+    def dropJobsDependingOnThis(self, job):
+        for dep in job.getWhatDependsOnThis():
+            if not dep.isInternal():
+                job = self.getJobByName(dep.dependOnJob())
+                job.dropDepends(opencue.wrappers.depend.Depend.DependTarget.EXTERNAL)
+
     eatDead_info = ["Eat dead frames", None, "eat"]
+
     def eatDead(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
@@ -327,6 +444,7 @@ class JobActions(AbstractActions):
                 self._update()
 
     autoEatOn_info = ["Enable auto eating", None, "eat"]
+
     def autoEatOn(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
@@ -336,6 +454,7 @@ class JobActions(AbstractActions):
             self._update()
 
     autoEatOff_info = ["Disable auto eating", None, "eat"]
+
     def autoEatOff(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
@@ -344,6 +463,7 @@ class JobActions(AbstractActions):
             self._update()
 
     retryDead_info = ["Retry dead frames", None, "retry"]
+
     def retryDead(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
@@ -356,6 +476,7 @@ class JobActions(AbstractActions):
                 self._update()
 
     dropExternalDependencies_info = ["Drop External Dependencies", None, "kill"]
+
     def dropExternalDependencies(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
@@ -367,6 +488,7 @@ class JobActions(AbstractActions):
                 self._update()
 
     dropInternalDependencies_info = ["Drop Internal Dependencies", None, "kill"]
+
     def dropInternalDependencies(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
@@ -378,12 +500,14 @@ class JobActions(AbstractActions):
                 self._update()
 
     viewComments_info = ["Comments...", None, "comment"]
+
     def viewComments(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             cuegui.Comments.CommentListDialog(jobs[0], self._caller).show()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
+
     def dependWizard(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
@@ -400,58 +524,60 @@ class JobActions(AbstractActions):
         return (min(__minRange), max(__maxRange))
 
     reorder_info = ["Reorder Frames...", None, "configure"]
+
     def reorder(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
-        if not jobs: return
+        if not jobs:
+            return
 
         __job = jobs[0]
         (__minRange, __maxRange) = self.__getJobRange(__job)
 
         title = "Reorder %s" % __job.data.name
         body = "What frame range should be reordered?"
-        (range, choice) = self.getText(title, body, "%s-%s" % (__minRange, __maxRange))
-        if not choice: return
+        (frame_range, choice) = self.getText(title, body, "%s-%s" % (__minRange, __maxRange))
+        if not choice:
+            return
 
-        body = "What order should the range %s take?" % range
+        body = "What order should the range %s take?" % frame_range
         items = list(opencue.compiled_proto.job_pb2.Order.keys())
-        (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
-                                                         title,
-                                                         body,
-                                                         sorted(items),
-                                                         0,
-                                                         False)
+        (order, choice) = QtWidgets.QInputDialog.getItem(
+            self._caller, title, body, sorted(items), 0, False)
         if not choice:
             return
 
         self.cuebotCall(
             __job.reorderFrames, "Reorder Frames Failed",
-            range, getattr(opencue.compiled_proto.job_pb2, str(order)))
+            frame_range, getattr(opencue.compiled_proto.job_pb2, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
+
     def stagger(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
-        if not jobs: return
+        if not jobs:
+            return
 
         __job = jobs[0]
         (__minRange, __maxRange) = self.__getJobRange(__job)
 
         title = "Stagger %s" % __job.data.name
         body = "What frame range should be staggered?"
-        (range, choice) = self.getText(title, body, "%s-%s" % (__minRange, __maxRange))
-        if not choice: return
+        (frameRange, choice) = self.getText(title, body, "%s-%s" % (__minRange, __maxRange))
+        if not choice:
+            return
 
-        body = "What increment should the range %s be staggered?" % range
-        (increment, choice) = QtWidgets.QInputDialog.getInt(self._caller,
-                                                            title, body,
-                                                            1,
-                                                            1, 100000, 1)
+        body = "What increment should the range %s be staggered?" % frameRange
+        (increment, choice) = QtWidgets.QInputDialog.getInt(
+            self._caller, title, body, 1, 1, 100000, 1)
 
-        if not choice: return
+        if not choice:
+            return
 
         self.cuebotCall(__job.staggerFrames, "Stagger Frames Failed",
-                        range, int(increment))
+                        frameRange, int(increment))
 
     unbook_info = ["Unbook Frames...", None, "kill"]
+
     def unbook(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
@@ -460,33 +586,32 @@ class JobActions(AbstractActions):
             self._update()
 
     sendToGroup_info = ["Send To Group...", None, "configure"]
+
     def sendToGroup(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if not jobs:
             return
 
         title = "Send jobs to group"
-        groups = dict([(group.data.name, group) for group in opencue.api.findShow(
-            jobs[0].data.show).getGroups()])
-        body = "What group should these jobs move to?\n" + \
-               "\n".join([job.data.name for job in jobs])
+        groups = {group.data.name: group for group in opencue.api.findShow(
+                                                      jobs[0].data.show).getGroups()}
 
-        (group, choice) = QtWidgets.QInputDialog.getItem(self._caller,
-                                                         title,
-                                                         body,
-                                                         sorted(groups.keys()),
-                                                         0,
-                                                         False)
-        if not choice:
-            return
+        body_content = cuegui.CueJobMonitorTree.Body(group_names=[],
+                                                     group_ids=[],
+                                                     job_names=[job.name() for job in jobs],
+                                                     job_ids=jobs)
 
-        groups[str(group)].reparentJobs(jobs)
+        dialog = cuegui.CueJobMonitorTree.MoveDialog(title=title,
+                                                     text="What group should these jobs move to?",
+                                                     event_item=None,
+                                                     items=body_content,
+                                                     dst_groups=groups,
+                                                     send_to_groups=True)
+        dialog.exec_()
         self._update()
 
-
-    useLocalCores_info = ["Use local cores...",
-                          "Set a single job to use the local desktop cores",
-                          "configure"]
+    useLocalCores_info = [
+        "Use local cores...", "Set a single job to use the local desktop cores", "configure"]
 
     def useLocalCores(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
@@ -496,56 +621,73 @@ class JobActions(AbstractActions):
             dialog.exec_()
 
     copyLogFileDir_info = ["Copy log file directory", None, "configure"]
+
     def copyLogFileDir(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             paths = [job.data.log_dir for job in jobs]
-            QtWidgets.QApplication.clipboard().setText(" ".join(paths),
-                                                       QtGui.QClipboard.Clipboard)
+            QtWidgets.QApplication.clipboard().setText(
+                " ".join(paths), QtGui.QClipboard.Clipboard)
 
-    setUserColor1_info = ["Set Color 1", "Set user defined background color", cuegui.Constants.COLOR_USER_1]
+    setUserColor1_info = [
+        "Set Color 1", "Set user defined background color", cuegui.Constants.COLOR_USER_1]
+
     def setUserColor1(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_1)
 
-    setUserColor2_info = ["Set Color 2", "Set user defined background color", cuegui.Constants.COLOR_USER_2]
+    setUserColor2_info = [
+        "Set Color 2", "Set user defined background color", cuegui.Constants.COLOR_USER_2]
+
     def setUserColor2(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_2)
 
-    setUserColor3_info = ["Set Color 3", "Set user defined background color", cuegui.Constants.COLOR_USER_3]
+    setUserColor3_info = [
+        "Set Color 3", "Set user defined background color", cuegui.Constants.COLOR_USER_3]
+
     def setUserColor3(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_3)
 
-    setUserColor4_info = ["Set Color 4", "Set user defined background color", cuegui.Constants.COLOR_USER_4]
+    setUserColor4_info = [
+        "Set Color 4", "Set user defined background color", cuegui.Constants.COLOR_USER_4]
+
     def setUserColor4(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_4)
 
     clearUserColor_info = ["Clear", "Clear user defined background color", None]
+
     def clearUserColor(self, rpcObjects=None):
         self._caller.actionSetUserColor(None)
 
 
 class LayerActions(AbstractActions):
+    """Actions for layers."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
     view_info = ["View Layer", None, "view"]
+
     def view(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
             self._caller.handle_filter_layers_byLayer.emit([layer.data.name for layer in layers])
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
+
     def viewDepends(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         cuegui.DependDialog.DependDialog(layers[0], self._caller).show()
 
-    setMinCores_info = ["Set Minimum Cores", "Set the number of cores required for this layer", "configure"]
+    setMinCores_info = [
+        "Set Minimum Cores", "Set the number of cores required for this layer", "configure"]
+
     def setMinCores(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
             current = max([layer.data.min_cores for layer in layers])
             title = "Set minimum number of cores required"
-            body = "Please enter the new minimum number of cores that frames in the selected layer(s) should require:"
+            body = ('Please enter the new minimum number of cores that frames in the '
+                    'selected layer(s) should require:')
             (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
@@ -555,13 +697,16 @@ class LayerActions(AbstractActions):
                     layer.setMinCores(float(value))
                 self._update()
 
-    setMinMemoryKb_info = ["Set Minimum Memory", "Set the amount of memory required for this layer", "configure"]
+    setMinMemoryKb_info = [
+        "Set Minimum Memory", "Set the amount of memory required for this layer", "configure"]
+
     def setMinMemoryKb(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
             current = max([layer.data.min_memory / 1048576 for layer in layers])
             title = "Set minimum amount of memory required"
-            body = "Please enter the new minimum amount of memory in GB that frames in the selected layer(s) should require:"
+            body = ('Please enter the new minimum amount of memory in GB that frames '
+                    'in the selected layer(s) should require:')
             (value, choice) = QtWidgets.QInputDialog.getDouble(
                 self._caller, title, body, current, 0.01, 64.0, 1)
             if choice:
@@ -569,9 +714,26 @@ class LayerActions(AbstractActions):
                     layer.setMinMemory(int(value * 1048576))
                 self._update()
 
-    useLocalCores_info = ["Use local cores...",
-                          "Set a single layer to use the local desktop cores.",
-                          "configure"]
+    setMinGpuMemoryKb_info = [
+        "Set Minimum Gpu Memory",
+        "Set the amount of Gpu memory required for this layer", "configure"]
+
+    def setMinGpuMemoryKb(self, rpcObjects=None):
+        layers = self._getOnlyLayerObjects(rpcObjects)
+        if layers:
+            current = max([layer.data.min_gpu_memory / 1048576 for layer in layers])
+            title = "Set minimum amount of Gpu memory required"
+            body = ('Please enter the new minimum amount of Gpu memory in GB that frames '
+                    'in the selected layer(s) should require:')
+            (value, choice) = QtWidgets.QInputDialog.getDouble(
+                self._caller, title, body, current, 0.01, 64.0, 1)
+            if choice:
+                for layer in layers:
+                    layer.setMinGpuMemory(int(value * 1048576))
+                self._update()
+
+    useLocalCores_info = [
+        "Use local cores...", "Set a single layer to use the local desktop cores.", "configure"]
 
     def useLocalCores(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
@@ -580,8 +742,8 @@ class LayerActions(AbstractActions):
             dialog = cuegui.LocalBooking.LocalBookingDialog(layer, self._caller)
             dialog.exec_()
 
-
     setProperties_info = ["Properties", None, "configure"]
+
     def setProperties(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
@@ -590,6 +752,7 @@ class LayerActions(AbstractActions):
             self._update()
 
     setTags_info = ["Set Tags", None, "configure"]
+
     def setTags(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
@@ -598,6 +761,7 @@ class LayerActions(AbstractActions):
             self._update()
 
     kill_info = ["&Kill", None, "kill"]
+
     def kill(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
@@ -609,6 +773,7 @@ class LayerActions(AbstractActions):
                 self._update()
 
     eat_info = ["&Eat", None, "eat"]
+
     def eat(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
@@ -620,6 +785,7 @@ class LayerActions(AbstractActions):
                 self._update()
 
     retry_info = ["&Retry", None, "retry"]
+
     def retry(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
@@ -631,6 +797,7 @@ class LayerActions(AbstractActions):
                 self._update()
 
     retryDead_info = ["Retry dead frames", None, "retry"]
+
     def retryDead(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
@@ -642,6 +809,7 @@ class LayerActions(AbstractActions):
                 self._update()
 
     markdone_info = ["Mark done", None, "markdone"]
+
     def markdone(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
@@ -653,18 +821,22 @@ class LayerActions(AbstractActions):
                 self._update()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
+
     def dependWizard(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
-            cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], layers)
+            cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], layers=layers)
 
     reorder_info = ["Reorder Frames...", None, "configure"]
+
     def reorder(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
-        if not layers: return
+        if not layers:
+            return
 
         # Only allow multiple layers with the same range
-        if len(set([layer.data.range for layer in layers])) != 1: return
+        if len({layer.data.range for layer in layers}) != 1:
+            return
 
         __layer = layers[0]
         fs = FileSequence.FrameSet(__layer.data.range)
@@ -680,29 +852,27 @@ class LayerActions(AbstractActions):
         else:
             title = "Reorder layer %s" % __layer.data.name
 
-        (range, choice) = self.getText(title, body, "%s-%s" % (__minRange, __maxRange))
+        (frameRange, choice) = self.getText(title, body, "%s-%s" % (__minRange, __maxRange))
         if not choice:
             return
 
-        body = "What order should the range %s take?" % range
+        body = "What order should the range %s take?" % frameRange
         items = list(opencue.compiled_proto.job_pb2.Order.keys())
-        (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
-                                                         title,
-                                                         body,
-                                                         sorted(items),
-                                                         0,
-                                                         False)
+        (order, choice) = QtWidgets.QInputDialog.getItem(
+            self._caller, title, body, sorted(items), 0, False)
         if not choice:
             return
 
         for layer in layers:
             self.cuebotCall(layer.reorderFrames, "Reorder Frames Failed",
-                            range, getattr(opencue.compiled_proto.job_pb2, str(order)))
+                            frameRange, getattr(opencue.compiled_proto.job_pb2, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
+
     def stagger(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
-        if not layers: return
+        if not layers:
+            return
 
         __layer = layers[0]
         fs = FileSequence.FrameSet(__layer.data.range)
@@ -712,26 +882,28 @@ class LayerActions(AbstractActions):
 
         title = "Stagger %s" % __layer.data.name
         body = "What frame range should be staggered?"
-        (range, choice) = self.getText(title, body, "%s-%s" % (__minRange, __maxRange))
-        if not choice: return
+        (frameRange, choice) = self.getText(title, body, "%s-%s" % (__minRange, __maxRange))
+        if not choice:
+            return
 
-        body = "What increment should the range %s be staggered?" % range
-        (increment, choice) = QtWidgets.QInputDialog.getInt(self._caller,
-                                                            title, body,
-                                                            1,
-                                                            1, 100000, 1)
-
-        if not choice: return
+        body = "What increment should the range %s be staggered?" % frameRange
+        (increment, choice) = QtWidgets.QInputDialog.getInt(
+            self._caller, title, body, 1, 1, 100000, 1)
+        if not choice:
+            return
 
         self.cuebotCall(__layer.staggerFrames, "Stagger Frames Failed",
-                        range, int(increment))
+                        frameRange, int(increment))
 
 
 class FrameActions(AbstractActions):
+    """Actions for frames."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
     view_info = ["&View Log", None, "log"]
+
     def view(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         if frames:
@@ -743,6 +915,7 @@ class FrameActions(AbstractActions):
                     cuegui.Utils.popupFrameView(job, frame)
 
     tail_info = ["&Tail Log", None, "log"]
+
     def tail(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         if frames:
@@ -754,16 +927,40 @@ class FrameActions(AbstractActions):
                     cuegui.Utils.popupFrameTail(job, frame)
 
     viewLastLog_info = ["View Last Log", None, "loglast"]
+
     def viewLastLog(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         if frames:
             job = self._getSource()
             path = cuegui.Utils.getFrameLogFile(job, frames[0])
-            files = dict((int(j.split(".")[-1]), j) for j in glob.glob("%s.*" % path) if j[-1].isdigit())
+            files = dict(
+                (int(j.split(".")[-1]), j) for j in glob.glob("%s.*" % path) if j[-1].isdigit())
             if files:
                 cuegui.Utils.popupView(files[sorted(files.keys())[-1]])
             else:
                 cuegui.Utils.popupView(path)
+
+    viewProcesses_info = ["View Processes", None, "viewProcesses"]
+
+    def viewProcesses(self, rpcObjects=None):
+        """ Display a Proc's child processes Host statistics."""
+        frames = self._getOnlyFrameObjects(rpcObjects)
+        hosts = list({frame.data.last_resource.split("/")[0]
+                      for frame in frames if frame.data.last_resource})
+        if hosts:
+            layers = self._getSource().getLayers()
+            layer = [l for l in layers if l.data.name == frames[0].data.layer_name]
+
+            if len(layer) > 0:
+                job = self._getSource()
+                text = "Displaying host stats for each child process for job:\n%s" % job.name()
+                title = "View Running Child Proc Host Stats"
+                procDialog = cuegui.ProcChildren.ProcChildrenDialog(job=job,
+                                                                    layer=layer[0],
+                                                                    hosts=hosts,
+                                                                    text=text,
+                                                                    title=title)
+                procDialog.exec_()
 
     useLocalCores_info = ["Use local cores...",
                           "Set a single frame to use the local desktop cores.",
@@ -777,57 +974,69 @@ class FrameActions(AbstractActions):
             dialog.exec_()
 
     xdiff2_info = ["View xdiff of 2 logs", None, "log"]
+
     def xdiff2(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         if len(frames) >= 2:
             cuegui.Utils.popupFrameXdiff(self._getSource(), frames[0], frames[1])
 
     xdiff3_info = ["View xdiff of 3 logs", None, "log"]
+
     def xdiff3(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         if len(frames) >= 3:
             cuegui.Utils.popupFrameXdiff(self._getSource(), frames[0], frames[1],  frames[2])
 
     viewHost_info = ["View Host", None, "log"]
+
     def viewHost(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
-        hosts = list(set([frame.data.last_resource.split("/")[0] for frame in frames if frame.data.last_resource]))
+        hosts = list({frame.data.last_resource.split("/")[0]
+                      for frame in frames if frame.data.last_resource})
         if hosts:
-            QtGui.qApp.view_hosts.emit(hosts)
-            QtGui.qApp.single_click.emit(opencue.api.findHost(hosts[0]))
+            self.app.view_hosts.emit(hosts)
+            self.app.single_click.emit(opencue.api.findHost(hosts[0]))
 
     getWhatThisDependsOn_info = ["print getWhatThisDependsOn", None, "log"]
+
     def getWhatThisDependsOn(self, rpcObjects=None):
         frame = self._getOnlyFrameObjects(rpcObjects)[0]
 
-        logger.info("type", "target", "anyFrame", "active", "dependErJob", "dependErLayer", "dependErFrame", "dependOnJob", "dependOnLayer", "dependOnFrame")
         for item in frame.getWhatThisDependsOn():
             logger.info(item.data.type, item.data.target, item.data.any_frame, item.data.active)
-            logger.info("This:", item.data.depend_er_job, item.data.depend_er_layer, item.data.depend_er_frame,
-                        "On:", item.data.depend_on_job, item.data.depend_on_layer, item.data.depend_on_frame)
+            logger.info(
+                "This: %s %s %s", item.data.depend_er_job, item.data.depend_er_layer,
+                item.data.depend_er_frame)
+            logger.info(
+                "On: %s %s %s", item.data.depend_on_job, item.data.depend_on_layer,
+                item.data.depend_on_frame)
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
+
     def viewDepends(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         cuegui.DependDialog.DependDialog(frames[0], self._caller).show()
 
     getWhatDependsOnThis_info = ["print getWhatDependsOnThis", None, "log"]
+
     def getWhatDependsOnThis(self, rpcObjects=None):
         frame = self._getOnlyFrameObjects(rpcObjects)[0]
         logger.info(frame.getWhatDependsOnThis())
 
     retry_info = ["&Retry", None, "retry"]
+
     def retry(self, rpcObjects=None):
         names = [frame.data.name for frame in self._getOnlyFrameObjects(rpcObjects)]
         if names:
             job = self._getSource()
-            if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
-                                      "Retry selected frames?",
-                                      names):
+            if cuegui.Utils.questionBoxYesNo(
+                    self._caller, "Confirm", "Retry selected frames?", names):
                 job.retryFrames(name=names)
                 self._update()
 
     previewMain_info = ["Preview Main", None, "previewMain"]
+
+    # pylint: disable=broad-except
     def previewMain(self, rpcObjects=None):
         try:
             job = self._getSource()
@@ -840,6 +1049,8 @@ class FrameActions(AbstractActions):
                                            "Error displaying preview frames, %s" % e)
 
     previewAovs_info = ["Preview All", None, "previewAovs"]
+
+    # pylint: disable=broad-except
     def previewAovs(self, rpcObjects=None):
         try:
             job = self._getSource()
@@ -851,6 +1062,7 @@ class FrameActions(AbstractActions):
             QtWidgets.QMessageBox.critical(None, "Preview Error",
                                            "Error displaying preview frames, %s" % e)
     eat_info = ["&Eat", None, "eat"]
+
     def eat(self, rpcObjects=None):
         names = [frame.data.name for frame in self._getOnlyFrameObjects(rpcObjects)]
         if names:
@@ -861,6 +1073,7 @@ class FrameActions(AbstractActions):
                 self._update()
 
     kill_info = ["&Kill", None, "kill"]
+
     def kill(self, rpcObjects=None):
         names = [frame.data.name for frame in self._getOnlyFrameObjects(rpcObjects)]
         if names:
@@ -871,6 +1084,7 @@ class FrameActions(AbstractActions):
                 self._update()
 
     markAsWaiting_info = ["Mark as &waiting", None, "configure"]
+
     def markAsWaiting(self, rpcObjects=None):
         names = [frame.data.name for frame in self._getOnlyFrameObjects(rpcObjects)]
         if names:
@@ -882,6 +1096,7 @@ class FrameActions(AbstractActions):
                 self._update()
 
     dropDepends_info = ["D&rop depends", None, "configure"]
+
     def dropDepends(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         names = [frame.data.name for frame in frames]
@@ -895,43 +1110,44 @@ class FrameActions(AbstractActions):
                 self._update()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
+
     def dependWizard(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         if frames:
-            cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], [], frames)
+            cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], frames=frames)
 
     markdone_info = ["Mark done", None, "markdone"]
+
     def markdone(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         if frames:
             frameNames = [frame.data.name for frame in frames]
-            if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
-                                             "Mark done all selected frames?\n"
-                                             "(Drops any dependencies that are waiting on these frames)",
-                                             frameNames):
+            if cuegui.Utils.questionBoxYesNo(
+                    self._caller, "Confirm",
+                    'Mark done all selected frames?\n'
+                    '(Drops any dependencies that are waiting on these frames)', frameNames):
                 self._getSource().markdoneFrames(name=frameNames)
                 self._update()
 
     reorder_info = ["Reorder...", None, "configure"]
+
     def reorder(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
-        if not frames: return
+        if not frames:
+            return
 
         __job = self._getSource()
 
         title = "Reorder %s" % __job.data.name
         body = "How should these frames be reordered?"
         items = list(opencue.compiled_proto.job_pb2.Order.keys())
-        (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
-                                                         title,
-                                                         body,
-                                                         sorted(items),
-                                                         0,
-                                                         False)
-        if not choice: return
+        (order, choice) = QtWidgets.QInputDialog.getItem(
+            self._caller, title, body, sorted(items), 0, False)
+        if not choice:
+            return
 
         # Store the proxy and a place for the frame numbers keyed to the layer name
-        __layersDict = dict([(layer.data.name, (layer, [])) for layer in __job.getLayers()])
+        __layersDict = {layer.data.name: (layer, []) for layer in __job.getLayers()}
 
         # For each frame, store the number in the list for that layer
         for frame in frames:
@@ -949,27 +1165,31 @@ class FrameActions(AbstractActions):
                                 getattr(opencue.compiled_proto.job_pb2, str(order)))
 
     copyLogFileName_info = ["Copy log file name", None, "configure"]
+
     def copyLogFileName(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
-        if not frames: return
+        if not frames:
+            return
         job = self._getSource()
         paths = [cuegui.Utils.getFrameLogFile(job, frame) for frame in frames]
         QtWidgets.QApplication.clipboard().setText(paths,
                                                    QtGui.QClipboard.Clipboard)
 
     eatandmarkdone_info = ["Eat and Mark done", None, "eatandmarkdone"]
+
     def eatandmarkdone(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         if frames:
             frameNames = [frame.data.name for frame in frames]
 
-            if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
-                                      "Eat and Mark done all selected frames?\n"
-                                      "(Drops any dependencies that are waiting on these frames)\n\n"
-                                      "If a frame is part of a layer that will now only contain\n"
-                                      "eaten or succeeded frames, any dependencies on the\n"
-                                      "layer will be dropped as well.",
-                                      frameNames):
+            if cuegui.Utils.questionBoxYesNo(
+                    self._caller, "Confirm",
+                    "Eat and Mark done all selected frames?\n"
+                    "(Drops any dependencies that are waiting on these frames)\n\n"
+                    "If a frame is part of a layer that will now only contain\n"
+                    "eaten or succeeded frames, any dependencies on the\n"
+                    "layer will be dropped as well.",
+                    frameNames):
 
                 # Mark done the layers to drop their dependencies if the layer is done
 
@@ -990,17 +1210,23 @@ class FrameActions(AbstractActions):
 
                 # Warning: The below assumes that eaten frames are desired to be markdone
 
-                # Wait for the markDoneFrames to be processed, then drop the dependencies on the layer if all frames are done
+                # Wait for the markDoneFrames to be processed, then drop the dependencies on
+                # the layer if all frames are done.
                 layerNames = [frame.data.layer_name for frame in frames]
                 time.sleep(1)
                 for layer in self._getSource().getLayers():
                     if layer.data.name in layerNames:
-                        if layer.data.layer_stats.eaten_frames + layer.data.layer_stats.succeeded_frames == layer.data.layer_stats.total_frames:
+                        if (
+                                layer.data.layer_stats.eaten_frames +
+                                layer.data.layer_stats.succeeded_frames ==
+                                layer.data.layer_stats.total_frames):
                             layer.markdone()
                 self._update()
 
 
 class ShowActions(AbstractActions):
+    """Actions for shows."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
@@ -1012,7 +1238,8 @@ class ShowActions(AbstractActions):
 
     createSubscription_info = ["Create Subscription...", None, "configure"]
     def createSubscription(self, rpcObjects=None):
-        d = cuegui.CreatorDialog.SubscriptionCreatorDialog(show=self._getOnlyShowObjects(rpcObjects)[0])
+        d = cuegui.CreatorDialog.SubscriptionCreatorDialog(
+            show=self._getOnlyShowObjects(rpcObjects)[0])
         d.exec_()
 
     viewTasks_info = ["View Tasks...", None, "view"]
@@ -1023,6 +1250,8 @@ class ShowActions(AbstractActions):
 
 
 class RootGroupActions(AbstractActions):
+    """"Actions for root groups."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
@@ -1030,7 +1259,8 @@ class RootGroupActions(AbstractActions):
     def properties(self, rpcObjects=None):
         rootgroups = self._getOnlyRootGroupObjects(rpcObjects)
         if rootgroups:
-            cuegui.ShowDialog.ShowDialog(opencue.api.findShow(rootgroups[0].data.name), self._caller).show()
+            cuegui.ShowDialog.ShowDialog(
+                opencue.api.findShow(rootgroups[0].data.name), self._caller).show()
 
     groupProperties_info  = ["Group Properties...", None, "view"]
     def groupProperties(self, rpcObjects=None):
@@ -1049,7 +1279,8 @@ class RootGroupActions(AbstractActions):
             (name, choice) = self.getText(title, body, cuegui.Utils.getUsername())
             if choice:
                 for rootgroup in rootgroups:
-                    logger.info(subprocess.check_output("cuewho -s %s -who %s" % (rootgroup.data.name, name)))
+                    logger.info(subprocess.check_output(
+                        "cuewho -s %s -who %s" % (rootgroup.data.name, name)))
 
     showCuewho_info = ["Display Cuewho", None, "configure"]
     def showCuewho(self, rpcObjects=None):
@@ -1059,11 +1290,9 @@ class RootGroupActions(AbstractActions):
             for rootgroup in rootgroups:
                 cuewho = cuegui.Utils.getCuewho(rootgroup.data.name)
                 extension = cuegui.Utils.getExtension(cuewho)
-                message.append("Cuewho for %s is: %s %s" % (rootgroup.data.name, cuewho, extension ))
-            QtWidgets.QMessageBox.information(self._caller,
-                                          "Show Cuewho",
-                                          '\n'.join(message),
-                                          QtWidgets.QMessageBox.Ok)
+                message.append("Cuewho for %s is: %s %s" % (rootgroup.data.name, cuewho, extension))
+            QtWidgets.QMessageBox.information(
+                self._caller, "Show Cuewho", '\n'.join(message), QtWidgets.QMessageBox.Ok)
 
     createGroup_info = ["Create Group...", None, "configure"]
     def createGroup(self, rpcObjects=None):
@@ -1085,7 +1314,7 @@ class RootGroupActions(AbstractActions):
                 opencue.api.findShow(rootgroup.data.name), self._caller).show()
 
 
-    serviceProperties_info = ["Service Properies...", None, "view"]
+    serviceProperties_info = ["Service Properties...", None, "view"]
     def serviceProperties(self, rpcObjects=None):
         for rootgroup in self._getOnlyRootGroupObjects(rpcObjects):
             cuegui.ServiceDialog.ServiceDialog(
@@ -1093,6 +1322,8 @@ class RootGroupActions(AbstractActions):
 
 
 class GroupActions(AbstractActions):
+    """Actions for groups."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
@@ -1124,6 +1355,8 @@ class GroupActions(AbstractActions):
 
 
 class SubscriptionActions(AbstractActions):
+    """Actions for subscriptions."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
@@ -1138,9 +1371,9 @@ class SubscriptionActions(AbstractActions):
                    "contact the resource department."
             minSize = 0
             decimalPlaces = 0
-            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller, title, body, current/100.0,
-                                                               minSize, cuegui.Constants.QT_MAX_INT,
-                                                               decimalPlaces)
+            (value, choice) = QtWidgets.QInputDialog.getDouble(
+                self._caller, title, body, current/100.0, minSize, cuegui.Constants.QT_MAX_INT,
+                decimalPlaces)
             if choice:
                 msg = QtWidgets.QMessageBox()
                 msg.setText(
@@ -1167,9 +1400,9 @@ class SubscriptionActions(AbstractActions):
                    "subscription should be allowed to reach:"
             minSize = 0
             decimalPlaces = 0
-            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller, title, body, current/100.0,
-                                                               minSize, cuegui.Constants.QT_MAX_INT,
-                                                               decimalPlaces)
+            (value, choice) = QtWidgets.QInputDialog.getDouble(
+                self._caller, title, body, current/100.0, minSize, cuegui.Constants.QT_MAX_INT,
+                decimalPlaces)
             if choice:
                 for sub in subs:
                     self.cuebotCall(sub.setBurst,
@@ -1191,41 +1424,35 @@ class SubscriptionActions(AbstractActions):
 
 
 class AllocationActions(AbstractActions):
+    """Actions for allocations."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
 
 class HostActions(AbstractActions):
+    """Actions for hosts."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
     viewComments_info = ["Comments...", None, "comment"]
+
     def viewComments(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         if hosts:
             cuegui.Comments.CommentListDialog(hosts[0], self._caller).show()
 
     viewProc_info = ["View Procs", None, "log"]
+
     def viewProc(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
-        hosts = list(set([host.data.name for host in hosts]))
+        hosts = list({host.data.name for host in hosts})
         if hosts:
-            QtGui.qApp.view_procs.emit(hosts)
-
-    hinv_info = ["View Host Information (hinv)", None, "view"]
-    def hinv(self, rpcObjects=None):
-        hosts = self._getOnlyHostObjects(rpcObjects)
-        for host in hosts:
-            try:
-                lines = pexpect.run("rsh %s hinv" % host.data.name, timeout=10).splitlines()
-                QtWidgets.QMessageBox.information(self._caller,
-                                                  "%s hinv" % host.data.name,
-                                                  "\n".join(lines),
-                                                  QtWidgets.QMessageBox.Ok)
-            except Exception as e:
-                logger.warning("Failed to get host's hinv: %s" % e)
+            self.app.view_procs.emit(hosts)
 
     lock_info = ["Lock Host", None, "lock"]
+
     def lock(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         for host in hosts:
@@ -1233,6 +1460,7 @@ class HostActions(AbstractActions):
         self._update()
 
     unlock_info = ["Unlock Host", None, "lock"]
+
     def unlock(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         for host in hosts:
@@ -1240,6 +1468,7 @@ class HostActions(AbstractActions):
         self._update()
 
     delete_info = ["Delete Host", "Delete host from cuebot", "kill"]
+
     def delete(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         title = "Confirm"
@@ -1249,7 +1478,6 @@ class HostActions(AbstractActions):
                                          body,
                                          [host.data.name for host in hosts]):
             for host in hosts:
-                # Delete current render partitions to avoid oracle exception
                 for rp in host.getRenderPartitions():
                     rp.delete()
 
@@ -1258,6 +1486,7 @@ class HostActions(AbstractActions):
             self._update()
 
     rebootWhenIdle_info = ["Reboot when idle", None, "retry"]
+
     def rebootWhenIdle(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         title = "Confirm"
@@ -1274,6 +1503,7 @@ class HostActions(AbstractActions):
             self._update()
 
     addTags_info = ["Add Tags...", None, "configure"]
+
     def addTags(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         if hosts:
@@ -1289,6 +1519,7 @@ class HostActions(AbstractActions):
                 self._update()
 
     removeTags_info = ["Remove Tags...", None, "configure"]
+
     def removeTags(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         if hosts:
@@ -1304,49 +1535,67 @@ class HostActions(AbstractActions):
                 self._update()
 
     renameTag_info = ["Rename Tag...", None, "configure"]
+
     def renameTag(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         if hosts:
             title = "Rename tag"
             body = "What tag should be renamed?"
-            (oldTag, choice) = QtWidgets.QInputDialog.getItem(self._caller,
-                                                          title, body,
-                                                          hosts[0].data.tags,
-                                                          0, False)
-            if not choice: return
+            (oldTag, choice) = QtWidgets.QInputDialog.getItem(
+                self._caller, title, body, hosts[0].data.tags, 0, False)
+            if not choice:
+                return
 
             oldTag = str(oldTag)
             title = "Rename tag"
             body = "What is the new name for the tag?"
             (newTag, choice) = self.getText(title, body, oldTag)
-            if not choice: return
+            if not choice:
+                return
 
             for host in hosts:
-                self.cuebotCall(host.renameTag,
-                                "Rename Tags on %s Failed" % host.data.name,
-                                oldTag, newTag)
+                self.cuebotCall(
+                    host.renameTag, "Rename Tags on %s Failed" % host.data.name, oldTag, newTag)
             self._update()
 
     changeAllocation_info = ["Change Allocation...", None, "configure"]
+
     def changeAllocation(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         if hosts:
-            allocations = dict([(alloc.data.name, alloc) for alloc in opencue.api.getAllocations()])
+            allocations = {alloc.data.name: alloc for alloc in opencue.api.getAllocations()}
             title = "Move host to allocation"
             body = "What allocation should the host(s) be moved to?"
-            (allocationName, choice) = QtWidgets.QInputDialog.getItem(self._caller,
-                                                                  title, body,
-                                                                  sorted(allocations.keys()),
-                                                                  0, False)
+            (allocationName, choice) = QtWidgets.QInputDialog.getItem(
+                self._caller, title, body, sorted(allocations.keys()), 0, False)
             if choice:
                 allocation = allocations[str(allocationName)]
+                error_hosts = []
                 for host in hosts:
-                    self.cuebotCall(host.setAllocation,
-                                    "Set Allocation on %s Failed" % host.data.name,
-                                    allocation)
+                    # pylint: disable=broad-except
+                    try:
+                        self.cuebotCall(host.setAllocation,
+                            "Set Allocation on %s Failed" % host.data.name,
+                            allocation)
+                    except Exception as e:
+                        # Handle allocation modification errors separately
+                        # pylint: disable=no-member
+                        if (hasattr(e, "details") and
+                            "EntityModificationError" in str(e.details())):
+                            error_hosts.append(host.name())
+                        else:
+                            raise
+                if error_hosts:
+                    error_msg = "{hosts} not moved.\nHosts with reserved cores " \
+                                "cannot be moved between allocations."
+                    QtWidgets.QMessageBox.warning(self._caller,
+                                "Warning",
+                                error_msg.format(hosts=", ".join(error_hosts)),
+                                QtWidgets.QMessageBox.Ok)
                 self._update()
 
     setRepair_info = ["Set Repair State", None, "configure"]
+
     def setRepair(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         repair = opencue.api.host_pb2.REPAIR
@@ -1356,6 +1605,7 @@ class HostActions(AbstractActions):
         self._update()
 
     clearRepair_info = ["Clear Repair State", None, "configure"]
+
     def clearRepair(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         repair = opencue.api.host_pb2.REPAIR
@@ -1365,38 +1615,63 @@ class HostActions(AbstractActions):
                 host.setHardwareState(down)
         self._update()
 
+    setThreadModeAuto_info = ["Thread Mode Auto", None, "configure"]
+    def setThreadModeAuto(self, rpcObjects=None):
+        for host in self._getOnlyHostObjects(rpcObjects):
+            host.setThreadMode("AUTO")
+        self._update()
+
+    setThreadModeAll_info = ["Thread Mode All", None, "configure"]
+    def setThreadModeAll(self, rpcObjects=None):
+        for host in self._getOnlyHostObjects(rpcObjects):
+            host.setThreadMode("ALL")
+        self._update()
+
+    setThreadModeVariable_info = ["Thread Mode Variable", None, "configure"]
+    def setThreadModeVariable(self, rpcObjects=None):
+        for host in self._getOnlyHostObjects(rpcObjects):
+            host.setThreadMode("VARIABLE")
+        self._update()
+
 
 class ProcActions(AbstractActions):
+    """Actions for procs."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
     view_info = ["&View Job", None, "view"]
+
     def view(self, rpcObjects=None):
-        for job in list(set([proc.data.job_name for proc in self._getOnlyProcObjects(rpcObjects)])):
+        for job in list({proc.data.job_name for proc in self._getOnlyProcObjects(rpcObjects)}):
             try:
-                QtGui.qApp.view_object.emit(opencue.api.findJob(job))
-            except Exception:
-                logger.warning("Unable to load: %s" % job)
+                self.app.view_object.emit(opencue.api.findJob(job))
+            except opencue.exception.CueException:
+                logger.warning("Unable to load: %s", job)
 
     kill_info = ["&Kill", None, "kill"]
+
     def kill(self, rpcObjects=None):
         procs = self._getOnlyProcObjects(rpcObjects)
         if procs:
-            if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
-                                      "Kill selected frames?",
-                                      ["%s -> %s @ %s" % (proc.data.job_name, proc.data.frame_name, proc.data.name) for proc in procs]):
+            if cuegui.Utils.questionBoxYesNo(
+                    self._caller, "Confirm", "Kill selected frames?",
+                    ["%s -> %s @ %s" % (proc.data.job_name, proc.data.frame_name, proc.data.name)
+                     for proc in procs]):
                 for proc in procs:
                     self.cuebotCall(proc.kill,
                                     "Kill Proc %s Failed" % proc.data.name)
                 self._update()
 
     unbook_info = ["Unbook", None, "eject"]
+
     def unbook(self, rpcObjects=None):
         procs = self._getOnlyProcObjects(rpcObjects)
         if procs:
-            if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
-                                      "Unbook selected frames?",
-                                      ["%s -> %s @ %s" % (proc.data.job_name, proc.data.frame_name, proc.data.name) for proc in procs]):
+            if cuegui.Utils.questionBoxYesNo(
+                    self._caller, "Confirm", "Unbook selected frames?",
+                    ["%s -> %s @ %s" % (proc.data.job_name, proc.data.frame_name, proc.data.name)
+                     for proc in procs]):
                 for proc in procs:
                     self.cuebotCall(proc.unbook,
                                     "Unbook Proc %s Failed" % proc.data.name,
@@ -1404,12 +1679,14 @@ class ProcActions(AbstractActions):
                 self._update()
 
     unbookKill_info = ["Unbook and Kill", None, "unbookkill"]
+
     def unbookKill(self, rpcObjects=None):
         procs = self._getOnlyProcObjects(rpcObjects)
         if procs:
-            if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
-                                      "Unbook and Kill selected frames?",
-                                      ["%s -> %s @ %s" % (proc.data.job_name, proc.data.frame_name, proc.data.name) for proc in procs]):
+            if cuegui.Utils.questionBoxYesNo(
+                    self._caller, "Confirm", "Unbook and Kill selected frames?",
+                    ["%s -> %s @ %s" % (proc.data.job_name, proc.data.frame_name, proc.data.name)
+                     for proc in procs]):
                 for proc in procs:
                     self.cuebotCall(proc.unbook,
                                     "Unbook and Kill Proc %s Failed" % proc.data.name,
@@ -1418,10 +1695,13 @@ class ProcActions(AbstractActions):
 
 
 class DependenciesActions(AbstractActions):
+    """Actions for depends."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
     satisfy_info = ["Satisfy Dependency", None, "kill"]
+
     def satisfy(self, rpcObjects=None):
         dependencies = self._getSelected(rpcObjects)
         for dependency in dependencies:
@@ -1429,6 +1709,7 @@ class DependenciesActions(AbstractActions):
         self._update()
 
     unsatisfy_info = ["Unsatisfy Dependency", None, "retry"]
+
     def unsatisfy(self, rpcObjects=None):
         dependencies = self._getSelected(rpcObjects)
         for dependency in dependencies:
@@ -1437,10 +1718,13 @@ class DependenciesActions(AbstractActions):
 
 
 class FilterActions(AbstractActions):
+    """Actions for filters."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
     rename_info = ["Rename...", None, ""]
+
     def rename(self, rpcObjects=None):
         filters = self._getSelected(rpcObjects)
         if filters:
@@ -1453,45 +1737,51 @@ class FilterActions(AbstractActions):
                 self._update()
 
     delete_info = ["Delete", None, "kill"]
+
     def delete(self, rpcObjects=None):
         filters = self._getSelected(rpcObjects)
         if filters:
-            if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
-                                      "Delete selected filters?",
-                                      [filter.data.name for filter in filters]):
-                for filter in filters:
-                    filter.delete()
+            if cuegui.Utils.questionBoxYesNo(
+                    self._caller, "Confirm", "Delete selected filters?",
+                    [selectedFilter.data.name for selectedFilter in filters]):
+                for filterToDelete in filters:
+                    filterToDelete.delete()
                 self._update()
 
     raiseOrder_info = ["Raise Order", None, ""]
+
     def raiseOrder(self, rpcObjects=None):
         filters = self._getSelected(rpcObjects)
-        for filter in filters:
-            filter.raiseOrder()
+        for selectedFilter in filters:
+            selectedFilter.raiseOrder()
         self._update()
 
     lowerOrder_info = ["Lower Order", None, ""]
+
     def lowerOrder(self, rpcObjects=None):
         filters = self._getSelected(rpcObjects)
-        for filter in filters:
-            filter.lowerOrder()
+        for selectedFilter in filters:
+            selectedFilter.lowerOrder()
         self._update()
 
     orderFirst_info = ["Order First", None, ""]
+
     def orderFirst(self, rpcObjects=None):
         filters = self._getSelected(rpcObjects)
-        for filter in filters:
-            filter.orderFirst()
+        for selectedFilter in filters:
+            selectedFilter.orderFirst()
         self._update()
 
     orderLast_info = ["Order Last", None, ""]
+
     def orderLast(self, rpcObjects=None):
         filters = self._getSelected(rpcObjects)
-        for filter in filters:
-            filter.orderLast()
+        for selectedFilter in filters:
+            selectedFilter.orderLast()
         self._update()
 
     setOrder_info = ["Set Order...", None, ""]
+
     def setOrder(self, rpcObjects=None):
         filters = self._getSelected(rpcObjects)
         if filters:
@@ -1507,6 +1797,8 @@ class FilterActions(AbstractActions):
 
 
 class MatcherActions(AbstractActions):
+    """Actions for matchers."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
@@ -1535,6 +1827,8 @@ class MatcherActions(AbstractActions):
 
 
 class ActionActions(AbstractActions):
+    """Actions for filter actions."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
@@ -1551,6 +1845,8 @@ class ActionActions(AbstractActions):
 
 
 class TaskActions(AbstractActions):
+    """Actions for tasks."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
@@ -1570,7 +1866,8 @@ class TaskActions(AbstractActions):
                     task.setMinCores(float(value))
                 self._update()
 
-    clearAdjustment_info = ["Clear Minimum Core Adjustment", "Clear Task(s) Minimum Core Adjustment", "configure"]
+    clearAdjustment_info = [
+        "Clear Minimum Core Adjustment", "Clear Task(s) Minimum Core Adjustment", "configure"]
     def clearAdjustment(self, rpcObjects=None):
         tasks = self._getSelected(rpcObjects)
         for task in tasks:
@@ -1587,17 +1884,19 @@ class TaskActions(AbstractActions):
                 for task in tasks:
                     task.delete()
                 self._update()
-          
+
 
 class LimitActions(AbstractActions):
+    """Actions for limits."""
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
-    create_info = ["Creaet Limit", None, "configure"]
+    create_info = ["Create Limit", None, "configure"]
     def create(self, rpcObjects=None):
         title = "Add Limit"
         body = "Enter a name for the new limit."
-        
+
         (limit, choice) = self.getText(title, body, "")
         if choice:
             limit = limit.strip()
@@ -1634,7 +1933,7 @@ class LimitActions(AbstractActions):
                                     "Set Max Value on Limit %s Failed" % limit.data.name,
                                     int(value))
                 self._update()
-        
+
     rename_info = ["Rename", None, "configure"]
     def rename(self, rpcObjects=None):
         limits = self._getSelected(rpcObjects)
@@ -1647,9 +1946,12 @@ class LimitActions(AbstractActions):
             self._update()
 
 
+# pylint: disable=attribute-defined-outside-init
 class MenuActions(object):
+    """Provides access to common right click actions."""
+
     def __init__(self, caller, updateCallable, selectedRpcObjectsCallable, sourceCallable = None):
-        """This object provides access to common right click actions
+        """
         @param caller: The Widget that is creating the menu
         @type  caller: QWidget
         @param updateCallable: A callable that will update the display
@@ -1745,7 +2047,7 @@ class MenuActions(object):
         if not hasattr(self, "_tasks"):
             self._tasks = TaskActions(*self.__getArgs())
         return self._tasks
-    
+
     def limits(self):
         if not hasattr(self, "_limits"):
             self._limits = LimitActions(*self.__getArgs())

@@ -12,9 +12,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-"""Outline launching and frame execution utlities."""
-
+"""
+Outline launching and frame execution utilities.
+"""
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -24,6 +24,7 @@ from builtins import object
 import logging
 import os
 import re
+# pylint: disable=deprecated-module
 from optparse import OptionParser, OptionGroup
 
 import FileSequence
@@ -54,7 +55,7 @@ def import_backend_module(name):
     """
     Imports the specified backend queuing system module,
     """
-    logger.info("importing [%s] backend module." % name)
+    logger.info("importing [%s] backend module.", name)
     return __import__("outline.backend.%s" % name,
                       globals(), locals(), [name])
 
@@ -73,7 +74,7 @@ def get_launch_facility():
 
 def launch(ol, use_pycuerun=True, **args):
     """
-    A simple convinience method for launching an outline script with
+    A simple convenience method for launching an outline script with
     the most common options.  If you need additional options,
     use the OutlineLauncher class.
 
@@ -118,6 +119,7 @@ class OutlineLauncher(object):
     def __init__(self, outline, **args):
         self.__outline = outline
         self.__flags = {"pause": False,
+                        "priority": 1,
                         "wait": False,
                         "test": False,
                         "server": False,
@@ -179,10 +181,10 @@ class OutlineLauncher(object):
             if self.get("range_default"):
                 fully_baked = True
                 for layer in self.__outline.get_layers():
-                    # Frames dont' have a range by default.
+                    # Frames don't have a range by default.
                     if isinstance(layer, Frame):
                         continue
-                    elif not layer.get_arg("range"):
+                    if not layer.get_arg("range"):
                         fully_baked = False
                         break
                 if not fully_baked:
@@ -225,11 +227,10 @@ class OutlineLauncher(object):
             self.setup()
         if use_pycuerun:
             return self.__get_backend_module().serialize(self)
-        else:
-            return self.__get_backend_module().serialize_simple(self)
+        return self.__get_backend_module().serialize_simple(self)
 
     def __get_backend_module(self):
-        if self.__backend == None:
+        if self.__backend is None:
             self.__backend = import_backend_module(self.get("backend"))
         return self.__backend
 
@@ -315,18 +316,20 @@ class CuerunOptionParser(OptionParser):
         """
         Handle standard options common to all cuerun based scripts.
         """
-        logger.debug("Options: %s" % options)
-        logger.debug("Args: %s" % args)
+        logger.debug("Options: %s", options)
+        logger.debug("Args: %s", args)
 
         self.setup_frame_range(options, options.range)
 
-    def setup_frame_range(self, options, frange=None):
+    @staticmethod
+    def setup_frame_range(options, frange=None):
         """
         Setup the frame range for the given job.
         """
         range_default = False
         if not frange:
             if os.environ.get("FR"):
+                # pylint: disable=no-member
                 if FileSequence.FrameSet.isSequence(os.environ.get("FR")):
                     frange = os.environ.get("FR")
                     range_default = True
@@ -343,7 +346,8 @@ class CuerunOptionParser(OptionParser):
             self.add_option_group(self.__plugin_grp)
         self.__plugin_grp.add_option(*args, **kwargs)
 
-    def options_to_args(self, options):
+    @staticmethod
+    def options_to_args(options):
         """
         Convert an OptionParser namespace into a dictionary.
         """
@@ -352,6 +356,7 @@ class CuerunOptionParser(OptionParser):
                 "basename": options.basename,
                 "server": options.server,
                 "pause": options.pause,
+                "priority": options.priority,
                 "wait": options.wait,
                 "test": options.test,
                 "range": options.range,

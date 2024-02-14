@@ -20,11 +20,13 @@
 package com.imageworks.spcue.servlet;
 
 import java.io.IOException;
+import java.util.Objects;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.web.servlet.FrameworkServlet;
 
 import com.imageworks.spcue.BuildableJob;
@@ -38,14 +40,14 @@ import com.imageworks.spcue.service.JobSpec;
 @SuppressWarnings("serial")
 public class JobLaunchServlet extends FrameworkServlet {
 
-    private static final Logger logger = Logger.getLogger(JobLaunchServlet.class);
+    private static final Logger logger = LogManager.getLogger(JobLaunchServlet.class);
 
     private JobLauncher jobLauncher;
 
     @Override
     public void initFrameworkServlet() throws ServletException {
         jobLauncher = (JobLauncher)
-            this.getWebApplicationContext().getBean("jobLauncher");
+            Objects.requireNonNull(this.getWebApplicationContext()).getBean("jobLauncher");
     }
 
     @Override

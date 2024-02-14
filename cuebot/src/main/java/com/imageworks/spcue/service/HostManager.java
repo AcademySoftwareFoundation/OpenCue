@@ -63,13 +63,12 @@ public interface HostManager {
     void setHostState(HostInterface host, HardwareState state);
 
     /**
-     * Return true if the host is swapping hard enough
-     * that killing frames will save the entire machine.
+     * Updates the free temporary directory (mcp) of a host.
      *
-     * @param host
-     * @return
+     * @param host HostInterface
+     * @param freeTempDir Long
      */
-    boolean isSwapping(HostInterface host);
+    void setHostFreeTempDir(HostInterface host, Long freeTempDir);
 
     DispatchHost createHost(HostReport report);
     DispatchHost createHost(RenderHost host);
@@ -112,8 +111,8 @@ public interface HostManager {
      * @param freeSwap
      * @param totalMcp
      * @param freeMcp
-     * @param totalGpu
-     * @param freeGpu
+     * @param totalGpuMemory
+     * @param freeGpuMemory
      * @param load
      * @param bootTime
      * @param os
@@ -122,7 +121,7 @@ public interface HostManager {
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
             long totalMcp, long freeMcp,
-            long totalGpu, long freeGpu,
+            long totalGpuMemory, long freeGpuMemory,
             int load, Timestamp bootTime, String os);
 
 
@@ -211,6 +210,11 @@ public interface HostManager {
      * Return the number of stranded cores on the host.
      */
     int getStrandedCoreUnits(HostInterface h);
+
+    /**
+     * Return the number of stranded cores on the host.
+     */
+    int getStrandedGpuUnits(HostInterface h);
 
     /**
      * Return true of the host prefers a particular show.

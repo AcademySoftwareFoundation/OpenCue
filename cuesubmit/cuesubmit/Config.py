@@ -13,25 +13,33 @@
 #  limitations under the License.
 
 
+"""Provides custom configuration to override default CueSubmit functionality.
+
+Uses a YAML config file to override Constant.py values. Path is specified using the
+"CUESUBMIT_CONFIG_FILE" environment variable. An example config file is contained in the
+top level cuesubmit folder."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
+
 import os
 import yaml
 
-"""
-Overwrite Constant.py values with a yaml config file, with it's path specified with the
-"CUESUBMIT_CONFIG_FILE" environment variable. An example config file is contained in the
-top level cuesubmit folder.
-"""
+import opencue.config
+
 
 CONFIG_FILE_ENV_VAR = 'CUESUBMIT_CONFIG_FILE'
 
 
 def getConfigValues():
+    """Reads the config file from disk and returns the values it defines."""
     configData = {}
     configFile = os.environ.get(CONFIG_FILE_ENV_VAR)
-    if configFile and os.path.exists(configFile):
+    if not configFile:
+        configFile = os.path.join(opencue.config.config_base_directory(), 'cuesubmit.yaml')
+    if os.path.exists(configFile):
         with open(configFile, 'r') as data:
             try:
                 configData = yaml.load(data, Loader=yaml.SafeLoader)
@@ -43,4 +51,3 @@ def getConfigValues():
 
 class CuesubmitConfigError(Exception):
     """Thrown when an error occurs reading the config file."""
-    pass

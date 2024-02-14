@@ -13,33 +13,34 @@
 #  limitations under the License.
 
 
+"""Base class for dialog windows."""
+
+
 from __future__ import division
 from __future__ import print_function
 from __future__ import absolute_import
 from builtins import str
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 
 class AbstractDialog(QtWidgets.QDialog):
+    """Base class for dialog windows."""
+
     def __init__(self, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
 
-    def _newCheckBoxSelectionMatrix(self,
-                                    title,
-                                    allowedOptions,
-                                    checkedOptions,
-                                    parent=None):
-        return CheckBoxSelectionMatrix(title,
-                                       allowedOptions,
-                                       checkedOptions,
-                                       parent)
+    @staticmethod
+    def _newCheckBoxSelectionMatrix(title, allowedOptions, checkedOptions, parent=None):
+        return CheckBoxSelectionMatrix(title, allowedOptions, checkedOptions, parent)
 
     def _newDialogButtonBox(self, buttons, orientation=QtCore.Qt.Horizontal):
         buttonBox = QtWidgets.QDialogButtonBox(buttons, orientation, self)
+        # pylint: disable=no-member
         buttonBox.accepted.connect(self.accept)
         buttonBox.rejected.connect(self.reject)
+        # pylint: enable=no-member
         return buttonBox
 
     def _addWidgetRow(self, *widgets):
@@ -50,6 +51,8 @@ class AbstractDialog(QtWidgets.QDialog):
 
 
 class CheckBoxSelectionMatrix(QtWidgets.QWidget):
+    """Widget for displaying a matrix of checkboxes."""
+
     def __init__(self, title, allowedOptions, checkedOptions, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
         layout = QtWidgets.QVBoxLayout(self)
@@ -70,11 +73,14 @@ class CheckBoxSelectionMatrix(QtWidgets.QWidget):
         layout.addStretch()
 
     def checkedBoxes(self):
+        """Gets all checked boxes."""
         return [cb for cb in self.__checkBoxes if cb.isChecked()]
 
     def checkedOptions(self):
+        """Gets text value of all checked boxes."""
         return [str(cb.text()) for cb in self.__checkBoxes if cb.isChecked()]
 
     def checkBoxes(self, names):
+        """Sets checked state for checkboxes representing the named values."""
         for box in self.__checkBoxes:
             box.setChecked(str(box.text()) in names)

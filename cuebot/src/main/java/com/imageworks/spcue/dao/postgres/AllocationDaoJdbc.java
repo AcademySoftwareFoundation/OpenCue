@@ -109,7 +109,7 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
                  Integer.class, new_alloc_name) > 0) {
 
              getJdbcTemplate().update(
-                     "UPDATE alloc SET b_enabled=1 WHERE str_name=?",
+                     "UPDATE alloc SET b_enabled = true WHERE str_name=?",
                      new_alloc_name);
          }
          else {
@@ -196,8 +196,8 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
      }
 
      public void setDefaultAllocation(AllocationInterface a) {
-         getJdbcTemplate().update("UPDATE alloc SET b_default = 0 WHERE b_default = 1");
-         getJdbcTemplate().update("UPDATE alloc SET b_default = 1 WHERe pk_alloc=?",
+         getJdbcTemplate().update("UPDATE alloc SET b_default = false WHERE b_default = true");
+         getJdbcTemplate().update("UPDATE alloc SET b_default = true WHERE pk_alloc=?",
                  a.getAllocationId());
      }
 

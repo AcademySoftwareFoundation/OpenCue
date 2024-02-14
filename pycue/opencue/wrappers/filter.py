@@ -12,15 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-
-"""
-Project: opencue Library
-
-Module: filter.py - opencue Library implementation of spank filter
-
-"""
-
+"""Classes for working with filters."""
 
 import enum
 
@@ -48,11 +40,12 @@ class Filter(object):
     """This class contains the grpc implementation related to a Filter."""
 
     class FilterType(enum.IntEnum):
+        """The type of match used to determine if objects pass the filter."""
         MATCH_ANY = filter_pb2.MATCH_ANY
         MATCH_ALL = filter_pb2.MATCH_ALL
 
+    # pylint: disable=redefined-builtin
     def __init__(self, filter=None):
-        """_Filter class initialization"""
         self.data = filter
         self.stub = Cuebot.getStub('filter')
 
@@ -62,20 +55,21 @@ class Filter(object):
         return self.data == other.data
 
     def delete(self):
-        """Deletes the filter"""
+        """Deletes the filter."""
         self.stub.Delete(filter_pb2.FilterDeleteRequest(filter=self.data), timeout=Cuebot.Timeout)
 
     def createMatcher(self, subject, matchType, query):
-        """Creates a matcher for this filter
+        """Creates a matcher for the filter.
 
         :type  subject: filter_pb2.MatchSubject.*
-        :param subject: The job attribute to match
+        :param subject: the job attribute to match
         :type  matchType: filter_pb2.MatchType.*
-        :param matchType: The type of match to perform
+        :param matchType: the type of match to perform
         :type  query: string
-        :param query: The value to match
+        :param query: the value to match
         :rtype:  Matcher
-        :return: The new matcher object"""
+        :return: the new matcher object
+        """
         matcher = MatcherData(
             subject=subject,
             type=matchType,
@@ -86,14 +80,15 @@ class Filter(object):
             timeout=Cuebot.Timeout).matcher)
 
     def createAction(self, actionType, value):
-        """Creates an action for this filter.
+        """Creates an action for the filter.
 
         :type  actionType: filter_pb2.ActionType.*
-        :param actionType: The action to perform
-        :type  value: Group or str, or int or bool
-        :param value: Value relevant to the type selected
-        :rtype:  Action
-        :return: The new Action object"""
+        :param actionType: the action to perform
+        :type  value: opencue.wrapper.group.Group / str / int / bool
+        :param value: value relevant to the type selected
+        :rtype:  opencue.wrappers.filter.Action
+        :return: the new action
+        """
         action = ActionData(
             type=actionType,
             group_value=None,
@@ -126,48 +121,51 @@ class Filter(object):
             timeout=Cuebot.Timeout).action)
 
     def getActions(self):
-        """Returns the actions in this filter.
+        """Returns the filter actions.
 
-        :rtype: list<Action>
-        :return: A list of the actions in this filter"""
+        :rtype:  list<opencue.wrappers.filter.Action>
+        :return: list of the filter actions
+        """
         response = self.stub.GetActions(filter_pb2.FilterGetActionsRequest(filter=self.data),
                                         timeout=Cuebot.Timeout)
         return [Action(action) for action in response.actions.actions]
 
     def getMatchers(self):
-        """Returns the matchers in this filter.
+        """Returns the filter matchers.
 
-        :rtype:  list<Matcher>
-        :return: A list of the matchers in this filter"""
+        :rtype:  list<opencue.wrapper.filter.Matcher>
+        :return: list of the filter matchers
+        """
         response = self.stub.GetMatchers(filter_pb2.FilterGetMatchersRequest(filter=self.data),
                                          timeout=Cuebot.Timeout)
         return [Matcher(matcher) for matcher in response.matchers.matchers]
 
     def lowerOrder(self):
-        """Lowers the order of this filter relative to the other filters"""
+        """Lowers the order of the filter relative to other filters."""
         self.stub.LowerOrder(filter_pb2.FilterLowerOrderRequest(filter=self.data),
                              timeout=Cuebot.Timeout)
 
     def raiseOrder(self):
-        """Raises the order of this filter relative to the other filters"""
+        """Raises the order of the filter relative to other filters."""
         self.stub.RaiseOrder(filter_pb2.FilterRaiseOrderRequest(filter=self.data),
                              timeout=Cuebot.Timeout)
 
     def orderFirst(self):
-        """Orders this filter above all the other filters"""
+        """Orders the filter above all other filters."""
         self.stub.OrderFirst(filter_pb2.FilterOrderFirstRequest(filter=self.data),
                              timeout=Cuebot.Timeout)
 
     def orderLast(self):
-        """Orders this filter below all the other filters"""
+        """Orders the filter below all other filters."""
         self.stub.OrderLast(filter_pb2.FilterOrderLastRequest(filter=self.data),
                             timeout=Cuebot.Timeout)
 
     def runFilterOnGroup(self, group):
         """Runs the filter on the group provided.
 
-        :type  group: list<opencue.wrapper.group.Group>
-        :param group: The group to run the filter on"""
+        :type  group: opencue.wrapper.group.Group
+        :param group: group to run the filter on
+        """
         self.stub.RunFilterOnGroup(
             filter_pb2.FilterRunFilterOnGroupRequest(filter=self.data, group=group.data),
             timeout=Cuebot.Timeout)
@@ -176,7 +174,8 @@ class Filter(object):
         """Runs the filter on the list of jobs provided.
 
         :type  jobs: list<opencue.wrapper.job.Job>
-        :param jobs: The jobs to run the filter on"""
+        :param jobs: jobs to run the filter on
+        """
         jobSeq = job_pb2.JobSeq(jobs=[job.data for job in jobs])
         self.stub.RunFilterOnJobs(
             filter_pb2.FilterRunFilterOnJobsRequest(filter=self.data, jobs=jobSeq),
@@ -186,47 +185,75 @@ class Filter(object):
         """Enables or disables the filter.
 
         :type  value: bool
-        :param value: True to enable the filter and false to disable it"""
+        :param value: true to enable the filter and false to disable it
+        """
         self.stub.SetEnabled(filter_pb2.FilterSetEnabledRequest(filter=self.data, enabled=value),
                              timeout=Cuebot.Timeout)
 
     def setName(self, name):
-        """Sets the name of this filter.
+        """Sets the name of the filter.
 
         :type  name: str
-        :param name: The new name for this filter"""
+        :param name: new filter name
+        """
         self.stub.SetName(filter_pb2.FilterSetNameRequest(filter=self.data, name=name),
                           timeout=Cuebot.Timeout)
 
     def setType(self, filterType):
         """Changes the filter type.
 
-        :type  filterType: filter_pb2.FilterType
-        :param filterType: The new filter type"""
+        :type  filterType: opencue.compiled_proto.filter_pb2.FilterType
+        :param filterType: the new filter type
+        """
         self.stub.SetType(filter_pb2.FilterSetTypeRequest(filter=self.data, type=filterType),
                           timeout=Cuebot.Timeout)
 
     def setOrder(self, order):
+        """Directly sets the order of the filter.
+
+        :type  order: int
+        :param order: the new filter order
+        """
         self.stub.SetOrder(filter_pb2.FilterSetOrderRequest(filter=self.data, order=order),
                            timeout=Cuebot.Timeout)
 
     def name(self):
+        """Returns the filter name.
+
+        :rtype:  str
+        :return: the filter name
+        """
         return self.data.name
 
     def type(self):
+        """Returns the filter type.
+
+        :rtype:  opencue.compiled_proto.filter_pb2.FilterType
+        :return: the filter type
+        """
         return self.data.type
 
     def order(self):
+        """Returns the current position of the filter.
+
+        :rtype:  float
+        :return: the current position of the filter"""
         return self.data.order
 
     def isEnabled(self):
+        """Returns whether the filter is enabled.
+
+        :rtype:  bool
+        :return: whether the filter is enabled
+        """
         return self.data.enabled
 
     def id(self):
         """Returns the id of the filter.
 
         :rtype:  str
-        :return: Filter uuid"""
+        :return: id of the filter
+        """
         return self.data.id
 
 
@@ -234,6 +261,7 @@ class Action(object):
     """This class contains the grpc implementation related to an Action."""
 
     class ActionType(enum.IntEnum):
+        """Enum representing the type of Action to be performed."""
         MOVE_JOB_TO_GROUP = filter_pb2.MOVE_JOB_TO_GROUP
         PAUSE_JOB = filter_pb2.PAUSE_JOB
         SET_JOB_MIN_CORES = filter_pb2.SET_JOB_MIN_CORES
@@ -242,10 +270,12 @@ class Action(object):
         SET_JOB_PRIORITY = filter_pb2.SET_JOB_PRIORITY
         SET_ALL_RENDER_LAYER_TAGS = filter_pb2.SET_ALL_RENDER_LAYER_TAGS
         SET_ALL_RENDER_LAYER_MEMORY = filter_pb2.SET_ALL_RENDER_LAYER_MEMORY
-        SET_ALL_RENDER_LAYER_CORES = filter_pb2.SET_ALL_RENDER_LAYER_CORES
+        SET_ALL_RENDER_LAYER_MIN_CORES = filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES
+        SET_ALL_RENDER_LAYER_MAX_CORES = filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES
         SET_MEMORY_OPTIMIZER = filter_pb2.SET_MEMORY_OPTIMIZER
 
     class ActionValueType(enum.IntEnum):
+        """Enum representing the type of the action's object."""
         GROUP_TYPE = filter_pb2.GROUP_TYPE
         STRING_TYPE = filter_pb2.STRING_TYPE
         INTEGER_TYPE = filter_pb2.INTEGER_TYPE
@@ -258,49 +288,89 @@ class Action(object):
         self.stub = Cuebot.getStub('action')
 
     def getParentFilter(self):
+        """Returns the filter the action belongs to.
+
+        :rtype: opencue.wrappers.filter.Filter
+        :return: the filter the action belongs to
+        """
         response = self.stub.GetParentFilter(
             filter_pb2.ActionGetParentFilterRequest(action=self.data),
-            timeout=Cuebot.Timeout
-        )
+            timeout=Cuebot.Timeout)
         return Filter(response.filter)
 
     def delete(self):
+        """Deletes the action."""
         self.stub.Delete(filter_pb2.ActionDeleteRequest(action=self.data), timeout=Cuebot.Timeout)
 
     def commit(self):
+        """Commits any changes to the action to the database."""
         if self.isNew():
             raise Exception(
                 "unable to commit action that has not been created, proxy does not exist")
         self.stub.Commit(filter_pb2.ActionCommitRequest(action=self.data), timeout=Cuebot.Timeout)
 
     def isNew(self):
+        """Returns whether the action has been initialized yet.
+
+        :rtype: bool
+        :return: True if the action has been initialized with data from the database
+        """
         return self.data is None
 
     def name(self):
+        """Returns the name of the action.
+
+        :rtype: str
+        :return: name of the action
+        """
         if self.value() is None:
             return "%s" % ActionType.Name(self.type())
-        else:
-            return "%s %s" % (ActionType.Name(self.type()), self.value())
+        return "%s %s" % (ActionType.Name(self.type()), self.value())
 
     def value(self):
+        """Returns the value of the action; what will happen if the filter is matched.
+
+        Type of value returned depends on the action's value_type.
+
+        :rtype: str/int/float/bool
+        :return: value of the action
+        """
         valueType = self.data.value_type
         if valueType == filter_pb2.GROUP_TYPE:
             return self.data.group_value
-        elif valueType == filter_pb2.STRING_TYPE:
+        if valueType == filter_pb2.STRING_TYPE:
             return self.data.string_value
-        elif valueType == filter_pb2.INTEGER_TYPE:
+        if valueType == filter_pb2.INTEGER_TYPE:
             return self.data.integer_value
-        elif valueType == filter_pb2.FLOAT_TYPE:
+        if valueType == filter_pb2.FLOAT_TYPE:
             return self.data.float_value
-        elif valueType == filter_pb2.BOOLEAN_TYPE:
+        if valueType == filter_pb2.BOOLEAN_TYPE:
             return self.data.boolean_value
-        else:
-            return None
+        return None
 
     def type(self):
+        """Returns the type of the action.
+
+        An action's type determines what will happen if the action is triggered by its filter.
+        For example, if the type is GROUP_TYPE, the object which has triggered the filter will
+        be assigned to the group specified by the action's value.
+
+        :rtype: filter_pb2.ActionValueType
+        :return: the type of the action
+        """
         return self.data.type
 
     def setTypeAndValue(self, actionType, value):
+        """Sets a new type and value for the action.
+
+        These fields should be set together as the value can be only be properly validated and
+        stored in the correct database field if the type is also known.
+
+        :type  actionType: filter_pb2.ActionValueType
+        :param actionType: the new type of the action
+        :type  value: str/int/float/bool
+        :param value: the new value of the action
+        """
         self.data.type = actionType
         if actionType == filter_pb2.MOVE_JOB_TO_GROUP:
             if not isinstance(value, job_pb2.Group):
@@ -321,7 +391,8 @@ class Action(object):
 
         elif actionType in (filter_pb2.SET_JOB_MIN_CORES,
                             filter_pb2.SET_JOB_MAX_CORES,
-                            filter_pb2.SET_ALL_RENDER_LAYER_CORES):
+                            filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,
+                            filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES):
             self.data.float_value = float(value)
             self.data.value_type = filter_pb2.FLOAT_TYPE
 
@@ -333,7 +404,7 @@ class Action(object):
             self.data.value_type = filter_pb2.NONE_TYPE
 
         else:
-           raise Exception("invalid action type: %s" % actionType)
+            raise Exception("invalid action type: %s" % actionType)
 
         self.commit()
 
@@ -341,14 +412,20 @@ class Action(object):
         """Returns the id of the action.
 
         :rtype:  str
-        :return: Action uuid"""
+        :return: id of the action
+        """
         return self.data.id
 
 
 class Matcher(object):
-    """This class contains the grpc implementation related to a Matcher."""
+    """This class contains the grpc implementation related to a Matcher.
+
+    Matchers belong to a single filter, and indicate the conditions where a given object will
+    satisfy that filter, i.e. if it will trigger the actions in that filter.
+    """
 
     class MatchSubject(enum.IntEnum):
+        """Enum representing the type of the subject; the thing being matched."""
         JOB_NAME = filter_pb2.JOB_NAME
         SHOW = filter_pb2.SHOW
         SHOT = filter_pb2.SHOT
@@ -359,6 +436,7 @@ class Matcher(object):
         LAYER_NAME = filter_pb2.LAYER_NAME
 
     class MatchType(enum.IntEnum):
+        """Enum representing the type of matching that will occur."""
         CONTAINS = filter_pb2.CONTAINS
         DOES_NOT_CONTAIN = filter_pb2.DOES_NOT_CONTAIN
         IS = filter_pb2.IS
@@ -372,16 +450,22 @@ class Matcher(object):
         self.stub = Cuebot.getStub('matcher')
 
     def getParentFilter(self):
+        """Returns the filter the matcher belongs to.
+
+        :rtype: opencue.wrappers.filter.Filter
+        :return: the filter the matcher belongs to
+        """
         response = self.stub.GetParentFilter(
             filter_pb2.MatcherGetParentFilterRequest(matcher=self.data),
-            timeout=Cuebot.Timeout
-        )
+            timeout=Cuebot.Timeout)
         return Filter(response.filter)
 
     def delete(self):
+        """Deletes the matcher."""
         self.stub.Delete(filter_pb2.MatcherDeleteRequest(matcher=self.data), timeout=Cuebot.Timeout)
 
     def commit(self):
+        """Commits any changes to the matcher to the database."""
         if self.isNew():
             raise Exception(
                 "unable to commit matcher that has not been created, proxy does not exist")
@@ -389,36 +473,78 @@ class Matcher(object):
         self.stub.Commit(filter_pb2.MatcherCommitRequest(matcher=self.data), timeout=Cuebot.Timeout)
 
     def isNew(self):
+        """Returns whether the matcher has been initialized yet with data from the database.
+
+        :rtype: bool
+        :return: True if the matcher has been initialized
+        """
         return self.data is None
 
     def name(self):
-        return "%s %s %s" % (MatchSubject.Name(self.data.subject), MatchType.Name(self.data.type), self.data.input)
+        """Returns the name of the matcher.
+
+        :rtype: str
+        :return: the name of the matcher
+        """
+        return "%s %s %s" % (
+            MatchSubject.Name(self.data.subject), MatchType.Name(self.data.type), self.data.input)
 
     def subject(self):
+        """Returns the subject of the matcher; the type of object to be matched.
+
+        :rtype: filter_pb2.MatchSubject
+        :return: the subject of the matcher
+        """
         return self.data.subject
 
     def type(self):
+        """Returns the type of the matcher; the kind of comparison used to determine a match.
+
+        :rtype: filter_pb2.MatchType
+        :return: the type of the matcher
+        """
         return self.data.type
 
     def input(self):
+        """Returns the input data of the matcher; the value to be matched against.
+
+        :rtype: str
+        :return: input data of the matcher
+        """
         return self.data.input
 
     def id(self):
         """Returns the id of the matcher.
 
         :rtype:  str
-        :return: Matcher uuid"""
+        :return: id of the matcher
+        """
         return self.data.id
 
     def setSubject(self, value):
+        """Sets a new subject for the matcher.
+
+        :type  value: str
+        :param value: new subject for the matcher
+        """
         self.data.subject = value
         self.commit()
 
     def setType(self, value):
+        """Sets a new type for the matcher.
+
+        :type  value: filter_pb2.MatchType
+        :param value: new type for the matcher
+        """
         self.data.type = value
         self.commit()
 
     def setInput(self, value):
+        """Set new input data for the matcher.
+
+        :type  value: str
+        :param value: new input data for the matcher
+        """
         value = value.replace(" ", "")
         self.data.input = str(value)
         self.commit()

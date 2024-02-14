@@ -12,19 +12,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""The OpenCue static API."""
 
-
-"""
-The opencue Static API.  This is exported into the package namespace.
-
-Project: opencue Library
-"""
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-from . import search
-from . import util
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import criterion_pb2
 from opencue.compiled_proto import cue_pb2
@@ -42,6 +35,7 @@ from opencue.compiled_proto import show_pb2
 from opencue.compiled_proto import subscription_pb2
 from opencue.compiled_proto import task_pb2
 from .cuebot import Cuebot
+# pylint: disable=cyclic-import
 from .wrappers.allocation import Allocation
 from .wrappers.comment import Comment
 from .wrappers.depend import Depend
@@ -60,11 +54,13 @@ from .wrappers.service import Service
 from .wrappers.show import Show
 from .wrappers.subscription import Subscription
 from .wrappers.task import Task
+from . import search
+from . import util
 
 
 __protobufs = [comment_pb2, criterion_pb2, cue_pb2, department_pb2, depend_pb2, facility_pb2,
-               filter_pb2, host_pb2, job_pb2, renderPartition_pb2, report_pb2, service_pb2, show_pb2,
-               subscription_pb2, task_pb2]
+               filter_pb2, host_pb2, job_pb2, renderPartition_pb2, report_pb2, service_pb2,
+               show_pb2, subscription_pb2, task_pb2]
 
 __wrappers = [Action, Allocation, Comment, Depend, Filter, Frame, Group, Host, Job, Layer, Matcher,
               NestedHost, Proc, Show, Subscription, Task]
@@ -319,7 +315,7 @@ def getJobs(**options):
     For example::
 
         # returns only pipe jobs.
-        getJobs(show=["pipe"]) 
+        getJobs(show=["pipe"])
 
     Possible args:
         - job: job names - list
@@ -329,6 +325,7 @@ def getJobs(**options):
         - show: show names - list
         - shot: shot names - list
         - user: user names - list
+        - include_finished - bool
 
     :rtype:  list
     :return: a list of Job objects
@@ -391,8 +388,6 @@ def getJobNames(**options):
     """Returns a list of job names that match the search parameters.
     See getJobs for the job query options.
 
-    :type  options: dict
-    :param options: a variable list of search criteria
     :rtype:  list
     :return: List of matching str job names"""
     criteria = search.JobSearch.criteriaFromOptions(**options)
@@ -463,7 +458,7 @@ def getFrame(uniq):
 
 @util.grpcExceptionParser
 def getFrames(job, **options):
-    """Finds frames in a job that match the search critieria.
+    """Finds frames in a job that match the search criteria.
 
     :type job: str
     :param job: the job name
@@ -557,15 +552,15 @@ def getHost(uniq):
 # Owners
 #
 @util.grpcExceptionParser
-def getOwner(id):
+def getOwner(owner_id):
     """Return an Owner object from the ID or name.
 
-    :type  id: str
-    :param id: a unique owner identifier or name
+    :type  owner_id: str
+    :param owner_id: a unique owner identifier or name
     :rtype:  Owner
     :return: An Owner object"""
     return Owner(Cuebot.getStub('owner').GetOwner(
-        host_pb2.OwnerGetOwnerRequest(name=id), timeout=Cuebot.Timeout).owner)
+        host_pb2.OwnerGetOwnerRequest(name=owner_id), timeout=Cuebot.Timeout).owner)
 
 #
 # Filters
@@ -640,12 +635,49 @@ def getAllocation(allocId):
 
 @util.grpcExceptionParser
 def deleteAllocation(alloc):
+    """Deletes an allocation.
+
+    :type  alloc: facility_pb2.Allocation
+    :param alloc: allocation to delete
+    :rtype:  facility_pb2.AllocDeleteResponse
+    :return: empty response"""
     return Cuebot.getStub('allocation').Delete(
         facility_pb2.AllocDeleteRequest(allocation=alloc), timeout=Cuebot.Timeout)
 
 
 @util.grpcExceptionParser
+def getDefaultAllocation():
+    """Get the default allocation.
+
+    :rtype:  Allocation
+    :return: an Allocation object"""
+    return Allocation(Cuebot.getStub('allocation').GetDefault(
+        facility_pb2.AllocGetDefaultRequest(), timeout=Cuebot.Timeout).allocation)
+
+
+@util.grpcExceptionParser
+def setDefaultAllocation(alloc):
+    """Set the default allocation.
+
+    :type  alloc: facility_pb2.Allocation
+    :param alloc: allocation to set default
+    :rtype:  facility_pb2.AllocSetDefaultResponse
+    :return: empty response"""
+    return Cuebot.getStub('allocation').SetDefault(
+        facility_pb2.AllocSetDefaultRequest(allocation=alloc), timeout=Cuebot.Timeout)
+
+
+@util.grpcExceptionParser
 def allocSetBillable(alloc, is_billable):
+    """Sets an allocation billable or not.
+
+    :type  alloc: facility_pb2.Allocation
+    :param alloc: allocation to set
+    :type  is_billable: bool
+    :param is_billable: whether alloc should be billable or not
+    :rtype:  facility_pb2.AllocSetBillableResponse
+    :return: empty response
+    """
     return Cuebot.getStub('allocation').SetBillable(
         facility_pb2.AllocSetBillableRequest(allocation=alloc, value=is_billable),
         timeout=Cuebot.Timeout)
@@ -653,12 +685,28 @@ def allocSetBillable(alloc, is_billable):
 
 @util.grpcExceptionParser
 def allocSetName(alloc, name):
+    """Sets an allocation name.
+
+    :type  alloc: facility_pb2.Allocation
+    :param alloc: allocation to set
+    :type  name: str
+    :param name: new name for the allocation
+    :rtype:  facility_pb2.AllocSetNameResponse
+    :return: empty response"""
     return Cuebot.getStub('allocation').SetName(
         facility_pb2.AllocSetNameRequest(allocation=alloc, name=name), timeout=Cuebot.Timeout)
 
 
 @util.grpcExceptionParser
 def allocSetTag(alloc, tag):
+    """Sets an allocation tag.
+
+    :type  alloc: facility_pb2.Allocation
+    :param alloc: allocation to tag
+    :type  tag: str
+    :param tag: new tag
+    :rtype:  facility_pb2.AllocSetTagResponse
+    :return: empty response"""
     return Cuebot.getStub('allocation').SetTag(
         facility_pb2.AllocSetTagRequest(allocation=alloc, tag=tag), timeout=Cuebot.Timeout)
 
@@ -717,7 +765,7 @@ def getProcs(**options):
          - "lt5" is less than 5 hours
          - "5-10" is range of 5 to 10 hours
 
-    :rtype:  list
+    :rtype:  list[opencue.wrapper.proc.Proc]
     :return: a list of Proc objects"""
     procSeq = search.ProcSearch.byOptions(**options).procs
     return [Proc(p) for p in procSeq.procs]
@@ -747,3 +795,14 @@ def getLimits():
     :return: a list of Limit objects"""
     return [Limit(limit) for limit in Cuebot.getStub('limit').GetAll(
         limit_pb2.LimitGetAllRequest(), timeout=Cuebot.Timeout).limits]
+
+@util.grpcExceptionParser
+def findLimit(name):
+    """Returns the Limit object that matches the name.
+
+    :type  name: str
+    :param name: a string that represents a limit to return
+    :rtype:  Limit
+    :return: the matching Limit object"""
+    return Limit(Cuebot.getStub('limit').Find(
+        limit_pb2.LimitFindRequest(name=name), timeout=Cuebot.Timeout).limit)

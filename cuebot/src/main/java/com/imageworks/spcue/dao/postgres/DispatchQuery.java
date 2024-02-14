@@ -21,8 +21,8 @@ package com.imageworks.spcue.dao.postgres;
 
 public class DispatchQuery {
 
-    public static final String FIND_JOBS_BY_SHOW =
-        "/* FIND_JOBS_BY_SHOW */ " +
+    public static final String FIND_JOBS_BY_SHOW_PRIORITY_MODE =
+        "/* FIND_JOBS_BY_SHOW_PRIORITY_MODE */ " +
         "SELECT pk_job, int_priority, rank FROM ( " +
             "SELECT " +
                 "ROW_NUMBER() OVER (ORDER BY job_resource.int_priority DESC) AS rank, " +
@@ -52,6 +52,12 @@ public class DispatchQuery {
                     "OR " +
                         "folder_resource.int_cores < folder_resource.int_max_cores " +
                     ") " +
+                "AND " +
+                    "(" +
+                        "folder_resource.int_max_gpus = -1 " +
+                        "OR " +
+                        "folder_resource.int_gpus < folder_resource.int_max_gpus " +
+                    ") " +
                 "AND job.str_state                  = 'PENDING' " +
                 "AND job.b_paused                   = false " +
                 "AND job.pk_show                    = ? " +
@@ -66,9 +72,11 @@ public class DispatchQuery {
                 "AND layer.int_cores_min            <= ? " +
                 "AND layer.int_mem_min              <= ? " +
                 "AND (CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? " +
-                "AND layer.int_gpu_min              BETWEEN ? AND ? " +
+                "AND layer.int_gpus_min             <= ? " +
+                "AND layer.int_gpu_mem_min          BETWEEN ? AND ? " +
                 "AND job_resource.int_cores + layer.int_cores_min < job_resource.int_max_cores " +
-                "AND host.str_tags ~* ('(?x)' || layer.str_tags) " +
+                "AND job_resource.int_gpus + layer.int_gpus_min < job_resource.int_max_gpus " +
+                "AND host.str_tags ~* ('(?x)' || layer.str_tags || '\\y') " +
                 "AND host.str_name = ? " +
                 "AND layer.pk_layer IN (" +
                     "SELECT " +
@@ -93,9 +101,76 @@ public class DispatchQuery {
                 ") " +
         ") AS t1 WHERE rank < ?";
 
+    // sort = priority + (100 * (1 - (job.cores/job.int_min_cores))) + (age in days) */
+    public static final String FIND_JOBS_BY_SHOW_BALANCED_MODE =
+            "/* FIND_JOBS_BY_SHOW_BALANCED_MODE */ " +
+            "SELECT pk_job, int_priority, rank FROM ( " +
+            "SELECT " +
+                "ROW_NUMBER() OVER (ORDER BY int_priority DESC) AS rank, " +
+                "pk_job, " +
+                "int_priority " +
+            "FROM ( " +
+            "SELECT DISTINCT " +
+                "job.pk_job as pk_job, " +
+                "CAST( " +
+                        "job_resource.int_priority + ( " +
+                            "100 * (CASE WHEN job_resource.int_min_cores <= 0 THEN 0 " +
+                        "ELSE " +
+                            "CASE WHEN job_resource.int_cores > job_resource.int_min_cores THEN 0 " +
+                            "ELSE 1 - job_resource.int_cores/job_resource.int_min_cores " +
+                            "END " +
+                        "END) " +
+				") + ( " +
+                "(DATE_PART('days', NOW()) - DATE_PART('days', job.ts_updated)) " +
+            ") as INT) as int_priority " +
+            "FROM " +
+                "job            , " +
+                "job_resource   , " +
+                "folder         , " +
+                "folder_resource, " +
+                "point          , " +
+                "layer          , " +
+                "layer_stat     , " +
+                "host             " +
+            "WHERE " +
+                "job.pk_job                 = job_resource.pk_job " +
+                "AND job.pk_folder          = folder.pk_folder " +
+                "AND folder.pk_folder       = folder_resource.pk_folder " +
+                "AND folder.pk_dept         = point.pk_dept " +
+                "AND folder.pk_show         = point.pk_show " +
+                "AND job.pk_job             = layer.pk_job " +
+                "AND job_resource.pk_job    = job.pk_job " +
+                "AND (CASE WHEN layer_stat.int_waiting_count > 0 THEN layer_stat.pk_layer ELSE NULL END) = layer.pk_layer " +
+                "AND " +
+                    "(" +
+                        "folder_resource.int_max_cores = -1 " +
+                    "OR " +
+                        "folder_resource.int_cores + layer.int_cores_min < folder_resource.int_max_cores " +
+                    ") " +
+                "AND job.str_state                  = 'PENDING' " +
+                "AND job.b_paused                   = false " +
+                "AND job.pk_show                    = ? " +
+                "AND job.pk_facility                = ? " +
+                "AND " +
+                    "(" +
+                        "job.str_os IS NULL OR job.str_os = '' " +
+                    "OR " +
+                        "job.str_os = ? " +
+                    ") " +
+                "AND (CASE WHEN layer_stat.int_waiting_count > 0 THEN 1 ELSE NULL END) = 1 " +
+                "AND layer.int_cores_min            <= ? " +
+                "AND layer.int_mem_min              <= ? " +
+                "AND (CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? " +
+                "AND layer.int_gpus_min             <= ? " +
+                "AND layer.int_gpu_mem_min          BETWEEN ? AND ? " +
+                "AND job_resource.int_cores + layer.int_cores_min <= job_resource.int_max_cores " +
+                "AND host.str_tags ~* ('(?x)' || layer.str_tags || '\\y') " +
+                "AND host.str_name = ? " +
+        ") AS t1 ) AS t2 WHERE rank < ?";
 
-    public static final String FIND_JOBS_BY_GROUP =
-        FIND_JOBS_BY_SHOW
+
+    public static final String FIND_JOBS_BY_GROUP_PRIORITY_MODE =
+        FIND_JOBS_BY_SHOW_PRIORITY_MODE
             .replace(
                 "FIND_JOBS_BY_SHOW",
                 "FIND_JOBS_BY_GROUP")
@@ -103,6 +178,30 @@ public class DispatchQuery {
                 "AND job.pk_show                    = ? ",
                 "AND job.pk_folder                  = ? ");
 
+    public static final String FIND_JOBS_BY_GROUP_BALANCED_MODE =
+        FIND_JOBS_BY_SHOW_BALANCED_MODE
+            .replace(
+                "FIND_JOBS_BY_SHOW",
+                "FIND_JOBS_BY_GROUP")
+            .replace(
+                "AND job.pk_show                    = ? ",
+                "AND job.pk_folder                  = ? ");
+
+    private static final String replaceQueryForFifo(String query) {
+        return query
+            .replace(
+                "JOBS_BY",
+                "JOBS_FIFO_BY")
+            .replace(
+                "ORDER BY job_resource.int_priority DESC",
+                "ORDER BY job_resource.int_priority DESC, job.ts_started ASC")
+            .replace(
+                "WHERE rank < ?",
+                "WHERE rank < ? ORDER BY rank");
+    }
+
+    public static final String FIND_JOBS_BY_SHOW_FIFO_MODE = replaceQueryForFifo(FIND_JOBS_BY_SHOW_PRIORITY_MODE);
+    public static final String FIND_JOBS_BY_GROUP_FIFO_MODE = replaceQueryForFifo(FIND_JOBS_BY_GROUP_PRIORITY_MODE);
 
     /**
      * Dispatch a host in local booking mode.
@@ -131,7 +230,7 @@ public class DispatchQuery {
             "AND " +
                 "job.pk_facility =  ? " +
             "AND " +
-                "(job.str_os = ? OR job.str_os IS NULL)" +
+                "(job.str_os = ? OR job.str_os IS NULL) " +
             "AND " +
                 "job.pk_job IN ( " +
                     "SELECT " +
@@ -157,7 +256,7 @@ public class DispatchQuery {
                     "AND " +
                         "j.pk_facility = ? " +
                     "AND " +
-                        "(j.str_os = ? OR j.str_os IS NULL)" +
+                        "(j.str_os = ? OR j.str_os IS NULL) " +
                     "AND " +
                         "(CASE WHEN lst.int_waiting_count > 0 THEN lst.pk_layer ELSE NULL END) = l.pk_layer " +
                     "AND " +
@@ -165,7 +264,7 @@ public class DispatchQuery {
                     "AND " +
                         "l.int_mem_min <= host_local.int_mem_idle " +
                     "AND " +
-                        "l.int_gpu_min <= host_local.int_gpu_idle " +
+                        "l.int_gpu_mem_min <= host_local.int_gpu_mem_idle " +
                     "AND " +
                         "l.pk_layer IN (" +
                             "SELECT " +
@@ -220,6 +319,8 @@ public class DispatchQuery {
         "AND " +
             "(folder_resource.int_max_cores = -1 OR folder_resource.int_cores < folder_resource.int_max_cores) " +
         "AND " +
+            "(folder_resource.int_max_gpus = -1 OR folder_resource.int_gpus < folder_resource.int_max_gpus) " +
+        "AND " +
             "job_resource.float_tier < 1.00 " +
         "AND " +
             "job_resource.int_cores < job_resource.int_min_cores " +
@@ -232,7 +333,7 @@ public class DispatchQuery {
         "AND " +
             "job.pk_facility = ? " +
         "AND " +
-            "(job.str_os = ? OR job.str_os IS NULL)" +
+            "(job.str_os = ? OR job.str_os IS NULL) " +
         "AND " +
             "job.pk_job IN ( " +
                 "SELECT /* index (h i_str_host_tag) */ " +
@@ -253,7 +354,7 @@ public class DispatchQuery {
                 "AND " +
                     "j.pk_facility = ? " +
                 "AND " +
-                    "(j.str_os = ? OR j.str_os IS NULL)" +
+                    "(j.str_os = ? OR j.str_os IS NULL) " +
                 "AND " +
                     "(CASE WHEN lst.int_waiting_count > 0 THEN lst.pk_layer ELSE NULL END) = l.pk_layer " +
                 "AND " +
@@ -263,9 +364,11 @@ public class DispatchQuery {
                 "AND " +
                     "l.int_mem_min <= ? " +
                 "AND " +
-                    "l.int_gpu_min = ? " +
+                    "l.int_gpus_min <= ? " +
                 "AND " +
-                    "h.str_tags ~* ('(?x)' || l.str_tags) " +
+                    "l.int_gpu_mem_min = ? " +
+                "AND " +
+                    "h.str_tags ~* ('(?x)' || l.str_tags || '\\y') " +
                 "AND " +
                     "h.str_name = ? " +
                 "AND " +
@@ -321,9 +424,13 @@ public class DispatchQuery {
             "AND " +
                 "(folder_resource.int_max_cores = -1 OR folder_resource.int_cores < folder_resource.int_max_cores) " +
             "AND " +
-                "job_resource.int_priority > ?" +
+                "(folder_resource.int_max_gpus = -1 OR folder_resource.int_gpus < folder_resource.int_max_gpus) " +
+            "AND " +
+                "job_resource.int_priority > ? " +
             "AND " +
                 "job_resource.int_cores < job_resource.int_max_cores " +
+            "AND " +
+                "job_resource.int_gpus < job_resource.int_max_gpus " +
             "AND " +
                 "job.str_state = 'PENDING' " +
             "AND " +
@@ -331,7 +438,7 @@ public class DispatchQuery {
             "AND " +
                 "job.pk_facility = ? " +
             "AND " +
-                "(job.str_os = ? OR job.str_os IS NULL)" +
+                "(job.str_os = ? OR job.str_os IS NULL) " +
             "AND " +
                 "job.pk_job IN ( " +
                     "SELECT /* index (h i_str_host_tag) */ " +
@@ -350,7 +457,7 @@ public class DispatchQuery {
                     "AND " +
                         "j.pk_facility = ? " +
                     "AND " +
-                        "(j.str_os = ? OR j.str_os IS NULL)" +
+                        "(j.str_os = ? OR j.str_os IS NULL) " +
                     "AND " +
                         "(CASE WHEN lst.int_waiting_count > 0 THEN lst.pk_layer ELSE NULL END) = l.pk_layer " +
                     "AND " +
@@ -360,9 +467,11 @@ public class DispatchQuery {
                     "AND " +
                         "l.int_mem_min <= ? " +
                     "AND " +
-                        "l.int_gpu_min = ? " +
+                        "l.int_gpus_min <= ? " +
                     "AND " +
-                        "h.str_tags ~* ('(?x)' || l.str_tags) " +
+                        "l.int_gpu_mem_min = ? " +
+                    "AND " +
+                        "h.str_tags ~* ('(?x)' || l.str_tags || '\\y') " +
                     "AND " +
                         "h.str_name = ? " +
                     "AND " +
@@ -417,7 +526,9 @@ public class DispatchQuery {
             "int_cores_min, " +
             "int_cores_max, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpus_min, " +
+            "int_gpus_max, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -450,7 +561,9 @@ public class DispatchQuery {
                 "layer.int_cores_min, " +
                 "layer.int_cores_max, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpus_min, " +
+                "layer.int_gpus_max, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -468,7 +581,9 @@ public class DispatchQuery {
             "AND " +
                 "layer.int_mem_min <= ? " +
             "AND " +
-                "layer.int_gpu_min BETWEEN ? AND ? " +
+                "layer.int_gpus_min <= ? " +
+            "AND " +
+                "layer.int_gpu_mem_min BETWEEN ? AND ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -478,7 +593,7 @@ public class DispatchQuery {
                     "l.pk_layer " +
                 "FROM " +
                     "layer l " +
-                "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags) AND h.str_name = ?) " +
+                "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags || '\\y') AND h.str_name = ?) " +
                 "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer " +
                 "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
                 "LEFT JOIN (" +
@@ -524,9 +639,11 @@ public class DispatchQuery {
             "layer_type, " +
             "int_cores_min, " +
             "int_cores_max, " +
+            "int_gpus_min, " +
+            "int_gpus_max, " +
             "b_threadable, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -557,9 +674,11 @@ public class DispatchQuery {
                 "layer.str_type AS layer_type, " +
                 "layer.int_cores_min, " +
                 "layer.int_cores_max, " +
+                "layer.int_gpus_min, " +
+                "layer.int_gpus_max, " +
                 "layer.b_threadable, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -579,7 +698,9 @@ public class DispatchQuery {
             "AND " +
                 "(CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? " +
             "AND " +
-                "layer.int_gpu_min BETWEEN ? AND ? " +
+                "layer.int_gpus_min <= ? " +
+            "AND " +
+                "layer.int_gpu_mem_min BETWEEN ? AND ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -590,7 +711,7 @@ public class DispatchQuery {
                         "l.pk_layer " +
                     "FROM " +
                         "layer l " +
-                    "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags) AND h.str_name = ?) " +
+                    "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags || '\\y') AND h.str_name = ?) " +
                     "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer " +
                     "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
                     "LEFT JOIN (" +
@@ -636,7 +757,9 @@ public class DispatchQuery {
             "int_cores_min, " +
             "int_cores_max, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpus_min, " +
+            "int_gpus_max, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -669,7 +792,9 @@ public class DispatchQuery {
                 "layer.int_cores_min, " +
                 "layer.int_cores_max, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpus_min, " +
+                "layer.int_gpus_max, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -685,7 +810,7 @@ public class DispatchQuery {
             "AND " +
                 "layer.int_mem_min <= ? " +
             "AND " +
-                "layer.int_gpu_min <= ? " +
+                "layer.int_gpu_mem_min <= ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -739,9 +864,11 @@ public class DispatchQuery {
             "layer_type, " +
             "int_cores_min, " +
             "int_cores_max, " +
+            "int_gpus_min, " +
+            "int_gpus_max, " +
             "b_threadable, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -774,7 +901,9 @@ public class DispatchQuery {
                 "layer.int_cores_max, " +
                 "layer.b_threadable, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpus_min, " +
+                "layer.int_gpus_max, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -790,7 +919,7 @@ public class DispatchQuery {
             "AND " +
                 "layer.int_mem_min <= ? " +
             "AND " +
-                "layer.int_gpu_min <= ? " +
+                "layer.int_gpu_mem_min <= ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -849,7 +978,9 @@ public class DispatchQuery {
             "int_cores_min, " +
             "int_cores_max, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpus_min, " +
+            "int_gpus_max, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -882,7 +1013,9 @@ public class DispatchQuery {
                 "layer.int_cores_min, " +
                 "layer.int_cores_max, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpus_min, " +
+                "layer.int_gpus_max, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -900,7 +1033,9 @@ public class DispatchQuery {
             "AND " +
                 "layer.int_mem_min <= ? " +
             "AND " +
-                "layer.int_gpu_min = ? " +
+                "layer.int_gpus_min <= ? " +
+            "AND " +
+                "layer.int_gpu_mem_min <= ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -910,7 +1045,7 @@ public class DispatchQuery {
                     "l.pk_layer " +
                 "FROM " +
                     "layer l " +
-                "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags) AND h.str_name = ?) " +
+                "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags || '\\y') AND h.str_name = ?) " +
                 "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer " +
                 "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
                 "LEFT JOIN (" +
@@ -958,7 +1093,9 @@ public class DispatchQuery {
             "int_cores_max, " +
             "b_threadable, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpus_min, " +
+            "int_gpus_max, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -991,7 +1128,9 @@ public class DispatchQuery {
                 "layer.int_cores_max, " +
                 "layer.b_threadable, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpus_min, " +
+                "layer.int_gpus_max, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -1011,7 +1150,9 @@ public class DispatchQuery {
             "AND " +
                 "(CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? " +
             "AND " +
-                "layer.int_gpu_min <= ? " +
+                "layer.int_gpus_min <= ? " +
+            "AND " +
+                "layer.int_gpu_mem_min <= ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -1022,7 +1163,7 @@ public class DispatchQuery {
                         "l.pk_layer " +
                     "FROM " +
                         "layer l " +
-                    "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags) AND h.str_name = ?) " +
+                    "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags  || '\\y') AND h.str_name = ?) " +
                     "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer " +
                     "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
                     "LEFT JOIN (" +
@@ -1068,7 +1209,9 @@ public class DispatchQuery {
             "int_cores_min, " +
             "int_cores_max, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpus_min, " +
+            "int_gpus_max, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -1100,7 +1243,9 @@ public class DispatchQuery {
                 "layer.b_threadable, " +
                 "layer.int_cores_min, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpus_min, " +
+                "layer.int_gpus_max, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.int_cores_max, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
@@ -1117,7 +1262,7 @@ public class DispatchQuery {
             "AND " +
                 "layer.int_mem_min <= ? " +
             "AND " +
-                "layer.int_gpu_min <= ? " +
+                "layer.int_gpu_mem_min <= ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -1173,7 +1318,9 @@ public class DispatchQuery {
             "int_cores_max, " +
             "b_threadable, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpus_min, " +
+            "int_gpus_max, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -1206,7 +1353,9 @@ public class DispatchQuery {
                 "layer.int_cores_max, " +
                 "layer.b_threadable, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpus_min, " +
+                "layer.int_gpus_max, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -1222,7 +1371,7 @@ public class DispatchQuery {
             "AND " +
                 "layer.int_mem_min <= ? " +
             "AND " +
-                "layer.int_gpu_min <= ? " +
+                "layer.int_gpu_mem_min <= ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +

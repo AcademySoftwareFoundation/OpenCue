@@ -20,6 +20,9 @@
 package com.imageworks.spcue.test.dao.postgres;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -42,7 +45,6 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LimitEntity;
-import com.imageworks.spcue.LimitInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
@@ -61,9 +63,11 @@ import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 import com.imageworks.spcue.util.JobLogUtil;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 @Transactional
@@ -114,7 +118,11 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     }
 
     public LayerDetail getLayer() {
+        List<LayerDetail> layers = getLayers();
+        return layers.get(layers.size()-1);
+    }
 
+    public List<LayerDetail> getLayers() {
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
         JobDetail job =  spec.getJobs().get(0).detail;
         job.groupId = ROOT_FOLDER;
@@ -124,14 +132,13 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         job.facilityId = facilityDao.getDefaultFacility().getId();
         jobDao.insertJob(job, jobLogUtil);
 
-        LayerDetail lastLayer= null;
+        List<LayerDetail> result = new ArrayList<>();
         String limitId = limitDao.createLimit(LIMIT_NAME, LIMIT_MAX_VALUE);
         limitDao.createLimit(LIMIT_TEST_A, 1);
         limitDao.createLimit(LIMIT_TEST_B, 2);
         limitDao.createLimit(LIMIT_TEST_C, 3);
 
         for (BuildableLayer buildableLayer: spec.getJobs().get(0).getBuildableLayers()) {
-
             LayerDetail layer = buildableLayer.layerDetail;
             FrameSet frameSet = new FrameSet(layer.range);
             int num_frames = frameSet.size();
@@ -145,10 +152,10 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
             layerDao.insertLayerDetail(layer);
             layerDao.insertLayerEnvironment(layer, buildableLayer.env);
             layerDao.addLimit(layer, limitId);
-            lastLayer = layer;
+            result.add(layer);
         }
 
-        return lastLayer;
+        return result;
     }
 
     public JobDetail getJob() {
@@ -200,16 +207,17 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
 
         LayerDetail l2 = layerDao.getLayerDetail(layer);
         LayerDetail l3 = layerDao.getLayerDetail(layer.id);
-        assertEquals(l2, l3);
+        assertEquals(layer, l2);
+        assertEquals(layer, l3);
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testGetLayerDetails() {
-        LayerDetail layer = getLayer();
-        List<LayerDetail> ld = layerDao.getLayerDetails(getJob());
-        assertEquals(ld.get(0).name, LAYER_NAME);
+        List<LayerDetail> wantLayers = getLayers();
+        List<LayerDetail> gotLayers = layerDao.getLayerDetails(getJob());
+        assertThat(gotLayers, containsInAnyOrder(wantLayers.toArray()));
     }
 
     @Test
@@ -471,12 +479,12 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Test
     @Transactional
     @Rollback(true)
-    public void updateMinGpu() {
-        long gpu = CueUtil.GB;
+    public void updateMinGpuMemory() {
+        long mem = CueUtil.GB;
         LayerDetail layer = getLayer();
-        layerDao.updateMinGpu(layer, gpu, LayerType.RENDER);
-        assertEquals(Long.valueOf(gpu),jdbcTemplate.queryForObject(
-                "SELECT int_gpu_min FROM layer WHERE pk_layer=?",
+        layerDao.updateMinGpuMemory(layer, mem, LayerType.RENDER);
+        assertEquals(Long.valueOf(mem),jdbcTemplate.queryForObject(
+                "SELECT int_gpu_mem_min FROM layer WHERE pk_layer=?",
                 Long.class, layer.getLayerId()));
     }
 
@@ -520,7 +528,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 layer.getLayerId());
 
         jdbcTemplate.update(
-                "UPDATE layer_usage SET int_core_time_success = 3600 * 6" +
+                "UPDATE layer_usage SET int_core_time_success = 3600 * 6 " +
                 "WHERE pk_layer=?", layer.getLayerId());
 
         assertFalse(layerDao.isOptimizable(layer, 5, 3600));
@@ -530,7 +538,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
          * Assert True
          */
         jdbcTemplate.update(
-                "UPDATE layer_usage SET int_core_time_success = 3500 * 5" +
+                "UPDATE layer_usage SET int_core_time_success = 3500 * 5 " +
                 "WHERE pk_layer=?", layer.getLayerId());
 
         assertTrue(layerDao.isOptimizable(layer, 5, 3600));
@@ -590,7 +598,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 Integer.class, layer.getId()));
 
         /** 60 seconds of 100 core units **/
-        ResourceUsage usage = new ResourceUsage(60, 33);
+        ResourceUsage usage = new ResourceUsage(60, 33, 0);
 
         assertTrue(usage.getClockTimeSeconds() > 0);
         assertTrue(usage.getCoreTimeSeconds() > 0);
@@ -715,10 +723,21 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         LayerInterface layerResult = layerDao.getLayer(layer.getLayerId());
         List<LimitEntity> limits = layerDao.getLimits(layerResult);
         assertEquals(limits.size(), 4);
-        assertEquals(limits.get(0).id, getTestLimitId(LIMIT_NAME));
-        assertEquals(limits.get(1).id, getTestLimitId(LIMIT_TEST_A));
-        assertEquals(limits.get(2).id, getTestLimitId(LIMIT_TEST_B));
-        assertEquals(limits.get(3).id, getTestLimitId(LIMIT_TEST_C));
+        List<String> sourceIds = Arrays.asList(
+            getTestLimitId(LIMIT_NAME),
+            getTestLimitId(LIMIT_TEST_A),
+            getTestLimitId(LIMIT_TEST_B),
+            getTestLimitId(LIMIT_TEST_C)
+        );
+        List<String> resultIds = Arrays.asList(
+            limits.get(0).id,
+            limits.get(1).id,
+            limits.get(2).id,
+            limits.get(3).id
+        );
+        Collections.sort(sourceIds);
+        Collections.sort(resultIds);
+        assertEquals(sourceIds, resultIds);
     }
 
     @Test

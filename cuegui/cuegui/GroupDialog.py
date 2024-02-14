@@ -14,19 +14,24 @@
 #  limitations under the License.
 
 
+"""Dialog for creating or modifying a group."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
 from builtins import str
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import opencue
 
 
 class GroupDialog(QtWidgets.QDialog):
+    """Base class for group dialogs."""
+
     def __init__(self, parentGroup, modifyGroup, defaults, parent):
         QtWidgets.QDialog.__init__(self, parent)
         layout = QtWidgets.QGridLayout(self)
@@ -38,7 +43,7 @@ class GroupDialog(QtWidgets.QDialog):
         self._departments = opencue.api.getDepartmentNames()
         try:
             self._departments = opencue.api.getDepartmentNames()
-        except Exception as e:
+        except opencue.exception.CueException:
             self._departments = ["Unknown"]
 
         __title = defaults["title"]
@@ -50,6 +55,11 @@ class GroupDialog(QtWidgets.QDialog):
         __defaultJobMaxCores = defaults["defaultJobMaxCores"]
         __minCores = defaults["minCores"]
         __maxCores = defaults["maxCores"]
+
+        __defaultJobMinGpus = defaults["defaultJobMinGpus"]
+        __defaultJobMaxGpus = defaults["defaultJobMaxGpus"]
+        __minGpus = defaults["minGpus"]
+        __maxGpus = defaults["maxGpus"]
 
         self.setWindowTitle(__title)
         layout.addWidget(QtWidgets.QLabel(__message, self), 0, 1, 1, 3)
@@ -85,10 +95,28 @@ class GroupDialog(QtWidgets.QDialog):
                                              __modify and __maxCores != -1.0,
                                              __maxCores, 1)
 
-        self.__createButtons(
-            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel, 8, 3)
+        (self._defaultJobMinGpusCheck, self._defaultJobMinGpusValue) = \
+            self.__createToggleSpinBox("Job Default Minimum Gpus", 8,
+                                             __modify and __defaultJobMinGpus != -1,
+                                             __defaultJobMinGpus, 1)
+        (self._defaultJobMaxGpusCheck, self._defaultJobMaxGpusValue) = \
+            self.__createToggleSpinBox("Job Default Maximum Gpus", 9,
+                                             __modify and __defaultJobMaxGpus != -1,
+                                             __defaultJobMaxGpus, 1)
+        (self._minGpusCheck, self._minGpusValue) = \
+            self.__createToggleSpinBox("Group Minimum Gpus", 10,
+                                             __modify and __minGpus != 0,
+                                             __minGpus)
+        (self._maxGpusCheck, self._maxGpusValue) = \
+            self.__createToggleSpinBox("Group Maximum Gpus", 11,
+                                             __modify and __maxGpus != -1,
+                                             __maxGpus, 1)
 
-    def __createToggleDoubleSpinBox(self, text, row, startEnabled = False, currentValue = 0, minValue = 0):
+        self.__createButtons(
+            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel, 12, 3)
+
+    def __createToggleDoubleSpinBox(
+            self, text, row, startEnabled = False, currentValue = 0, minValue = 0):
         inputWidget = QtWidgets.QDoubleSpinBox(self)
         inputWidget.setEnabled(startEnabled)
         inputWidget.setRange(minValue, 30000)
@@ -96,7 +124,8 @@ class GroupDialog(QtWidgets.QDialog):
         inputWidget.setValue(currentValue)
         return self.__createToggleInput(text, row, inputWidget, startEnabled)
 
-    def __createToggleSpinBox(self, text, row, startEnabled = False, currentValue = 0, minValue = 0):
+    def __createToggleSpinBox(
+            self, text, row, startEnabled = False, currentValue = 0, minValue = 0):
         inputWidget = QtWidgets.QSpinBox(self)
         inputWidget.setEnabled(startEnabled)
         inputWidget.setRange(minValue, 30000)
@@ -111,15 +140,19 @@ class GroupDialog(QtWidgets.QDialog):
         self.layout().addWidget(check, row, 0)
         self.layout().addWidget(label, row, 1)
         self.layout().addWidget(inputWidget, row, 2)
+        # pylint: disable=no-member
         check.stateChanged.connect(inputWidget.setEnabled)
         check.stateChanged.connect(label.setEnabled)
+        # pylint: enable=no-member
         return (check, inputWidget)
 
     def __createButtons(self, buttons, row, width):
         self.__buttons = QtWidgets.QDialogButtonBox(buttons, QtCore.Qt.Horizontal, self)
         self.layout().addWidget(self.__buttons, row, 1, 1, width)
+        # pylint: disable=no-member
         self.__buttons.accepted.connect(self.accept)
         self.__buttons.rejected.connect(self.reject)
+        # pylint: enable=no-member
 
     def accept(self):
         __name = str(self._nameValue.text())
@@ -162,10 +195,30 @@ class GroupDialog(QtWidgets.QDialog):
                         float(self._maxCoresValue.value()),
                         __group.data.max_cores, float(-1))
 
+        self.__setValue(self._defaultJobMinGpusCheck,
+                        __group.setDefaultJobMinGpus,
+                        float(self._defaultJobMinGpusValue.value()),
+                        __group.data.default_job_min_gpus, -1)
+
+        self.__setValue(self._defaultJobMaxGpusCheck,
+                        __group.setDefaultJobMaxGpus,
+                        float(self._defaultJobMaxGpusValue.value()),
+                        __group.data.default_job_max_gpus, -1)
+
+        self.__setValue(self._minGpusCheck,
+                        __group.setMinGpus,
+                        float(self._minGpusValue.value()),
+                        __group.data.min_gpus, 0)
+
+        self.__setValue(self._maxGpusCheck,
+                        __group.setMaxGpus,
+                        float(self._maxGpusValue.value()),
+                        __group.data.max_gpus, -1)
+
         self.close()
 
-    def __setValue(self, checkBox, setter, newValue, currentValue, disableValue):
-        result = None
+    @staticmethod
+    def __setValue(checkBox, setter, newValue, currentValue, disableValue):
         if checkBox.isChecked():
             result = newValue
         else:
@@ -173,29 +226,45 @@ class GroupDialog(QtWidgets.QDialog):
         if result is not None and result != currentValue:
             setter(result)
 
+
 class ModifyGroupDialog(GroupDialog):
+    """Dialog for modifying an existing group."""
+
     def __init__(self, modifyGroup, parent=None):
         modifyGroup = opencue.api.getGroup(modifyGroup.id())
-        defaults = {"title": "Modify Group: %s" % modifyGroup.data.name,
-                    "message": "Modifying the group %s" % modifyGroup.data.name,
-                    "name": modifyGroup.data.name,
-                    "department": modifyGroup.data.department,
-                    "defaultJobPriority": modifyGroup.data.default_job_priority,
-                    "defaultJobMinCores": modifyGroup.data.default_job_min_cores,
-                    "defaultJobMaxCores": modifyGroup.data.default_job_max_cores,
-                    "minCores": modifyGroup.data.min_cores,
-                    "maxCores": modifyGroup.data.max_cores}
+        defaults = {
+            "title": "Modify Group: %s" % modifyGroup.data.name,
+            "message": "Modifying the group %s" % modifyGroup.data.name,
+            "name": modifyGroup.data.name,
+            "department": modifyGroup.data.department,
+            "defaultJobPriority": modifyGroup.data.default_job_priority,
+            "defaultJobMinCores": modifyGroup.data.default_job_min_cores,
+            "defaultJobMaxCores": modifyGroup.data.default_job_max_cores,
+            "minCores": modifyGroup.data.min_cores,
+            "maxCores": modifyGroup.data.max_cores,
+            "defaultJobMinGpus": modifyGroup.data.default_job_min_gpus,
+            "defaultJobMaxGpus": modifyGroup.data.default_job_max_gpus,
+            "minGpus": modifyGroup.data.min_gpus,
+            "maxGpus": modifyGroup.data.max_gpus}
         GroupDialog.__init__(self, None, modifyGroup, defaults, parent)
 
+
 class NewGroupDialog(GroupDialog):
+    """Dialog for creating a new group."""
+
     def __init__(self, parentGroup, parent=None):
-        defaults = {"title": "Create New Group",
-                    "message": "Group to be created as a child of the group %s" % parentGroup.name(),
-                    "name": "",
-                    "department": "Unknown",
-                    "defaultJobPriority": 0,
-                    "defaultJobMinCores": 1.0,
-                    "defaultJobMaxCores": 1.0,
-                    "minCores": 0.0,
-                    "maxCores": 1.0}
+        defaults = {
+            "title": "Create New Group",
+            "message": "Group to be created as a child of the group %s" % parentGroup.name(),
+            "name": "",
+            "department": "Unknown",
+            "defaultJobPriority": 0,
+            "defaultJobMinCores": 1.0,
+            "defaultJobMaxCores": 1.0,
+            "minCores": 0.0,
+            "maxCores": 1.0,
+            "defaultJobMinGpus": 0,
+            "defaultJobMaxGpus": 0,
+            "minGpus": 0,
+            "maxGpus": 0}
         GroupDialog.__init__(self, parentGroup, None, defaults, parent)

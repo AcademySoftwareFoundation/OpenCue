@@ -7,54 +7,111 @@ on:
     branches: [ master ]
 
 jobs:
-  test_python_2019:
-    name: Run Python Unit Tests (CY2019)
+  test_python_2022:
+    name: Run Python Unit Tests (CY2022)
     runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2019
+    container: aswf/ci-opencue:2022
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run Python Tests
-        run: ci/run_python_tests.sh
+        run: ci/run_python_tests.sh --no-gui
 
-  test_cuebot_2019:
-    name: Build Cuebot and Run Unit Tests (CY2019)
+  test_cuebot_2022:
+    name: Build Cuebot and Run Unit Tests (CY2022)
     runs-on: ubuntu-latest
     container:
-      image: aswf/ci-opencue:2019
+      image: aswf/ci-opencue:2022
     steps:
-    - uses: actions/checkout@v2
-    - name: Build with Gradle
-      run: |
-        chown -R aswfuser:aswfgroup .
-        su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
-
-  test_python_2020:
-    name: Run Python Unit Tests (CY2020)
-    runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2020
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run Python Tests
-        run: ci/run_python_tests.sh
-
-  test_cuebot_2020:
-    name: Build Cuebot and Run Unit Tests (CY2020)
-    runs-on: ubuntu-latest
-    container:
-      image: aswf/ci-opencue:2020
-    steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build with Gradle
         run: |
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
+  test_python_2023:
+    name: Run Python Unit Tests (CY2023)
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2023
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Python Tests
+        run: ci/run_python_tests.sh
+
+  test_cuebot_2023:
+    name: Build Cuebot and Run Unit Tests (CY2023)
+    runs-on: ubuntu-latest
+    container:
+      image: aswf/ci-opencue:2023
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build with Gradle
+        run: |
+          chown -R aswfuser:aswfgroup .
+          su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
+
+  test_python2:
+    name: Run Python Unit Tests using Python2
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2019
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Python Tests
+        run: ci/run_python_tests.sh
+
+  test_pyside6:
+    name: Run CueGUI Tests using PySide6
+    runs-on: ubuntu-latest
+    container: almalinux:9
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run CueGUI Tests
+        run: ci/test_pyside6.sh
+
+  lint_python:
+    name: Lint Python Code
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2022
+    steps:
+      - uses: actions/checkout@v3
+      - name: Lint Python Code
+        run: ci/run_python_lint.sh
+
   test_sphinx:
     name: Test Documentation Build
     runs-on: ubuntu-latest
     container:
-      image: aswf/ci-opencue:2020
+      image: aswf/ci-opencue:2023
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run Sphinx build
         run: ci/build_sphinx_docs.sh
+
+  check_changed_files:
+    name: Check Changed Files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Get Changed Files
+        id: get_changed_files
+        uses: tj-actions/changed-files@v35
+      - name: Check for Version Change
+        run: ci/check_changed_files.py ${{ steps.get_changed_files.outputs.modified_files }} ${{ steps.get_changed_files.outputs.deleted_files }}
+
+  check_migration_files:
+    name: Check Database Migration Files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check Migration Files
+        run: ci/check_database_migrations.py
+
+  check_for_version_bump:
+    name: Check for Version Bump
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Get Changed Files
+        id: get_changed_files
+        uses: tj-actions/changed-files@v35
+      - name: Check for Version Change
+        run: ci/check_version_bump.py ${{ steps.get_changed_files.outputs.all_changed_and_modified_files }}

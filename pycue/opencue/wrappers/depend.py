@@ -12,14 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-
-"""
-Project: opencue Library
-
-Module: depend.py - opencue Library implementation of a Depend
-"""
-
+"""Module for classes related to dependencies."""
 
 import enum
 
@@ -31,6 +24,7 @@ class Depend(object):
     """This class contains the grpc implementation related to a Depend."""
 
     class DependType(enum.IntEnum):
+        """Enum representing the type of dependency between subject and object."""
         JOB_ON_JOB = depend_pb2.JOB_ON_JOB
         JOB_ON_LAYER = depend_pb2.JOB_ON_LAYER
         JOB_ON_FRAME = depend_pb2.JOB_ON_FRAME
@@ -45,6 +39,7 @@ class Depend(object):
         LAYER_ON_SIM_FRAME = depend_pb2.LAYER_ON_SIM_FRAME
 
     class DependTarget(enum.IntEnum):
+        """The type of target represented by this dependency."""
         INTERNAL = depend_pb2.INTERNAL
         EXTERNAL = depend_pb2.EXTERNAL
         ANY_TARGET = depend_pb2.ANY_TARGET
@@ -54,60 +49,116 @@ class Depend(object):
         self.stub = Cuebot.getStub('depend')
 
     def satisfy(self):
+        """Satisfies the dependency.
+
+        This sets any frames waiting on this dependency to the WAITING state.
+        """
         self.stub.Satisfy(
             depend_pb2.DependSatisfyRequest(depend=self.data), timeout=Cuebot.Timeout)
 
     def unsatisfy(self):
+        """Unsatisfies the dependency.
+
+        This makes the dependency active again and sets matching frames to DEPEND.
+        """
         self.stub.Unsatisfy(
             depend_pb2.DependUnsatisfyRequest(depend=self.data), timeout=Cuebot.Timeout)
 
     def id(self):
-        """Returns the depdendency's unique id.  Dependencies are one of the only
-        entities without a unique name so the unique ID is exposed to act
-        as the name.  This is mainly to make command line tools easier to use.
+        """Returns the dependency's unique id.
 
-        :rtype: str
-        :return: the dependencies unique id"""
+        Dependencies are one of the only entities without a unique name so the unique ID is
+        exposed to act as the name. This is mainly to make command line tools easier to use.
+
+        :rtype:  str
+        :return: the dependency's unique id"""
         return self.data.id
 
     def isInternal(self):
-        """Returns true if the dependency is internal to the depender job, false if not.
+        """Returns whether the dependency is contained within a single job.
 
-        :rtype: bool
-        :returns: true"""
+        :rtype:  bool
+        :return: whether the dependency is contained within a single job
+        """
         if self.data.depend_er_job == self.data.depend_on_job:
             return True
         return False
 
     def type(self):
+        """Returns the type of dependency.
+
+        :rtype: opencue.compiled_proto.depend_pb2.DependType
+        :return: dependency type
+        """
         return self.data.type
 
     def target(self):
+        """Returns the target of the dependency, either internal or external.
+
+        :rtype: opencue.compiled_proto.depend_pb2.DependTarget
+        :return: dependency target type
+        """
         return self.data.target
 
-    def chunkSize(self):
-        return self.data.chunk_size
-
     def anyFrame(self):
+        """Returns whether the depend is an any-frame depend.
+
+        :rtype:  bool
+        :return: whether the depend is an any-frame depend
+        """
         return self.data.any_frame
 
     def isActive(self):
+        """Returns whether the depend is active.
+
+        :rtype:  bool
+        :return: whether the depend is active
+        """
         return self.data.active
 
     def dependErJob(self):
+        """Returns the name of the job that is depending.
+
+        :rtype:  str
+        :return: name of the job that is depending"""
         return self.data.depend_er_job
 
     def dependErLayer(self):
+        """Returns the name of the layer that is depending.
+
+        :rtype:  str
+        :return: name of the layer that is depending
+        """
         return self.data.depend_er_layer
 
     def dependErFrame(self):
+        """Returns the name of the frame that is depending.
+
+        :rtype:  str
+        :return: name of the frame that is depending
+        """
         return self.data.depend_er_frame
 
     def dependOnJob(self):
+        """Returns the name of the job to depend on.
+
+        :rtype:  str
+        :return: name of the job to depend on
+        """
         return self.data.depend_on_job
 
     def dependOnLayer(self):
+        """Returns the name of the layer to depend on.
+
+        :rtype:  str
+        :return: name of the layer to depend on
+        """
         return self.data.depend_on_layer
 
     def dependOnFrame(self):
+        """Returns the name of the frame to depend on.
+
+        :rtype:  str
+        :return: name of the frame to depend on
+        """
         return self.data.depend_on_frame

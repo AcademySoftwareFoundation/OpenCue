@@ -1,0 +1,79 @@
+version: '3'
+
+services:
+  db:
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: job=db
+
+  db-exporter:
+    image: wrouesnel/postgres_exporter
+    environment:
+      - DATA_SOURCE_URI=db:5432/postgres?sslmode=disable
+      - DATA_SOURCE_USER=cuebot
+      - DATA_SOURCE_PASS=cuebot_password
+      - PG_EXPORTER_AUTO_DISCOVER_DATABASES=true
+    ports:
+      - 9187:9187
+    depends_on:
+      - db
+
+  cuebot:
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: job=cuebot
+
+  rqd:
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: job=rqd
+
+  metrics:
+    restart: always
+    build:
+      context: ./
+      dockerfile: ./connectors/prometheus_metrics/Dockerfile
+    environment:
+      - CUEBOT_HOSTS=cuebot
+    depends_on:
+      - cuebot
+    links:
+      - cuebot
+    ports:
+      - "8302:8302"
+
+  prometheus:
+    image: prom/prometheus:v2.21.0
+    ports:
+      - 9000:9090
+    volumes:
+      - ./sandbox/config/prometheus:/etc/prometheus/
+      - prometheus-data:/prometheus
+    command: --web.enable-lifecycle  --config.file=/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana:7.1.1
+    volumes:
+    - ./sandbox/config/grafana/provisioning:/etc/grafana/provisioning
+    - ./sandbox/config/grafana/dashboards:/etc/grafana/dashboards
+    ports:
+    - "3000:3000"
+
+  loki:
+   image: grafana/loki:v1.3.0
+   volumes:
+     - ./sandbox/config/loki:/etc/config
+   entrypoint:
+     - /usr/bin/loki
+     - -config.file=/etc/config/loki.yaml
+   ports:
+     - "3100:3100"
+
+volumes:
+  prometheus-data:

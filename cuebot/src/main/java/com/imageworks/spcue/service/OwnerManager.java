@@ -83,25 +83,10 @@ public interface OwnerManager {
 
     /**
      *
-     * @param deed
-     * @param value
-     */
-    void setBlackoutTimeEnabled(DeedEntity deed, boolean value);
-
-    /**
-     *
      * @param id
      * @return
      */
     DeedEntity getDeed(String id);
-
-    /**
-     *
-     * @param deed
-     * @param startSeconds
-     * @param stopSeconds
-     */
-    void setBlackoutTime(DeedEntity deed, int startSeconds, int stopSeconds);
 
     /**
      * Deletes a deed for the specified host.

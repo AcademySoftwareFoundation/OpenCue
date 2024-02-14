@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Module for `FileSequence.FrameSet`."""
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -23,7 +24,7 @@ from .FrameRange import FrameRange
 
 
 class FrameSet(object):
-    """Represents a sequence of FrameRanges."""
+    """Represents a sequence of `FileSequence.FrameRange`."""
 
     def __init__(self, frameRange):
         """Construct a FrameSet object by parsing a spec.
@@ -67,11 +68,20 @@ class FrameSet(object):
         return self.frameList
 
     def normalize(self):
+        """Sorts and dedeuplicates the sequence."""
         self.frameList = list(set(self.frameList))
         self.frameList.sort()
 
     @staticmethod
     def parseFrameRange(frameRange):
+        """
+        Parses a string representation of a frame range into a FrameSet.
+
+        :type frameRange: str
+        :param frameRange: String representation of the frame range.
+        :rtype: FrameSet
+        :return: The FrameSet representing the same sequence.
+        """
         frameList = list()
         for frameRangeSection in frameRange.split(','):
             frameList.extend(FrameRange.parseFrameRange(frameRangeSection))

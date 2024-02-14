@@ -20,7 +20,8 @@ package com.imageworks.spcue.service;
 
 import javax.annotation.Resource;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.CannotSerializeTransactionException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -37,7 +38,7 @@ import com.imageworks.spcue.dao.RedirectDao;
 public class RedirectService   {
 
     private static final Logger logger =
-        Logger.getLogger(RedirectService.class);
+        LogManager.getLogger(RedirectService.class);
 
     @Resource
     private PlatformTransactionManager txManager;
@@ -105,7 +106,7 @@ public class RedirectService   {
                 continue;
             }
             catch (DuplicateKeyException e) {
-                if (e.getMessage().contains("C_REDIRECT_PK")) {
+                if (e.getMessage() != null && e.getMessage().contains("C_REDIRECT_PK")) {
                     // MERGE statement race lost; try again.
                     txManager.rollback(status);
                     continue;

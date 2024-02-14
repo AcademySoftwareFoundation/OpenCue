@@ -14,6 +14,8 @@
 
 # -*- coding: utf-8 -*-
 
+# pylint: disable=missing-function-docstring,missing-module-docstring
+
 # Resource object code
 #
 # Created: Tue Jul 15 11:26:55 2008
@@ -26,7 +28,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from PySide2 import QtCore
+from qtpy import QtCore
 
 
 qt_resource_data = b"\

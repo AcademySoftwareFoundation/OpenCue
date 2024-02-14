@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-"""Service related widgets."""
+"""Dialog for displaying and editing services."""
 
 
 from __future__ import absolute_import
@@ -23,8 +23,8 @@ from __future__ import print_function
 from builtins import str
 from builtins import range
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import opencue
 
@@ -35,16 +35,17 @@ from opencue.wrappers.service import ServiceOverride
 
 
 class ServiceForm(QtWidgets.QWidget):
-    """
-    An Widget for displaying and editing a service.
-    """
+    """Widget for displaying and editing a service."""
+
     saved = QtCore.Signal(object)
 
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
         self.__service = None
 
-        self.gpu_max_mb = 2 * 1024
+        # NOTE: As min_gpu value will be passed on later in KB, its max value in
+        # *KiloBytes* should not be higher than Int32(2147483647).
+        self.gpu_max_mb = int(2147483647 / 1024)
         self.gpu_min_mb = 0
         self.gpu_tick_mb = 256
 
@@ -61,11 +62,20 @@ class ServiceForm(QtWidgets.QWidget):
         self.min_memory = QtWidgets.QSpinBox(self)
         self.min_memory.setRange(512, int(self._cfg().get('max_memory', 48)) * 1024)
         self.min_memory.setValue(3276)
-        self.min_gpu = QtWidgets.QSpinBox(self)
-        self.min_gpu.setRange(self.gpu_min_mb, self.gpu_max_mb)
-        self.min_gpu.setValue(0)
-        self.min_gpu.setSingleStep(self.gpu_tick_mb)
-        self.min_gpu.setSuffix(" MB")
+        self.min_gpu_memory = QtWidgets.QSpinBox(self)
+        self.min_gpu_memory.setRange(self.gpu_min_mb, self.gpu_max_mb)
+        self.min_gpu_memory.setValue(self.gpu_min_mb)
+        self.min_gpu_memory.setSingleStep(self.gpu_tick_mb)
+        self.min_gpu_memory.setSuffix(" MB")
+        self.timeout = QtWidgets.QSpinBox(self)
+        self.timeout.setRange(0, 4320)
+        self.timeout.setValue(0)
+        self.timeout_llu = QtWidgets.QSpinBox(self)
+        self.timeout_llu.setRange(0, 4320)
+        self.timeout_llu.setValue(0)
+        self.min_memory_increase = QtWidgets.QSpinBox(self)
+        self.min_memory_increase.setRange(0, int(self._cfg().get('max_memory', 48)) * 1024)
+        self.min_memory_increase.setValue(0)
         layout = QtWidgets.QGridLayout(self)
         layout.addWidget(QtWidgets.QLabel("Name:", self), 0, 0)
         layout.addWidget(self.name, 0, 1)
@@ -78,19 +88,24 @@ class ServiceForm(QtWidgets.QWidget):
         layout.addWidget(QtWidgets.QLabel("Min Memory MB:", self), 4, 0)
         layout.addWidget(self.min_memory, 4, 1)
         layout.addWidget(QtWidgets.QLabel("Min Gpu Memory MB:", self), 5, 0)
-        layout.addWidget(self.min_gpu, 5, 1)
+        layout.addWidget(self.min_gpu_memory, 5, 1)
+        layout.addWidget(QtWidgets.QLabel("Timeout (in minutes):", self), 6, 0)
+        layout.addWidget(self.timeout, 6, 1)
+        layout.addWidget(QtWidgets.QLabel("Timeout LLU (in minutes):", self), 7, 0)
+        layout.addWidget(self.timeout_llu, 7, 1)
+        layout.addWidget(QtWidgets.QLabel("OOM Increase MB:", self), 8, 0)
+        layout.addWidget(self.min_memory_increase, 8, 1)
+        self._tags_w = cuegui.TagsWidget.TagsWidget(allowed_tags=cuegui.Constants.ALLOWED_TAGS)
+        layout.addWidget(self._tags_w, 9, 0, 1, 2)
 
         self.__buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save,
                                                 QtCore.Qt.Horizontal,
                                                 self)
         self.__buttons.setDisabled(True)
 
-        layout.addWidget(self.__buttons, 8, 1)
+        layout.addWidget(self.__buttons, 10, 1)
 
-        self.__buttons.accepted.connect(self.save)
-
-        self._tags_w = cuegui.TagsWidget.TagsWidget(allowed_tags=cuegui.Constants.ALLOWED_TAGS)
-        layout.addWidget(self._tags_w, 6, 0, 1, 2)
+        self.__buttons.accepted.connect(self.save)  # pylint: disable=no-member
 
     def _cfg(self):
         """
@@ -108,14 +123,18 @@ class ServiceForm(QtWidgets.QWidget):
         """
         Update the form with data from the given service.
         """
+        self.__service = service
         self.__buttons.setDisabled(False)
         self.name.setText(service.name())
         self.threadable.setChecked(service.threadable())
         self.min_cores.setValue(service.minCores())
         self.max_cores.setValue(service.maxCores())
+        self.min_gpu_memory.setValue(service.data.min_gpu_memory // 1024)
         self.min_memory.setValue(service.minMemory() // 1024)
-        self.min_gpu.setValue(service.minGpu() // 1024)
         self._tags_w.set_tags(service.tags())
+        self.timeout.setValue(service.data.timeout)
+        self.timeout_llu.setValue(service.data.timeout_llu)
+        self.min_memory_increase.setValue(service.data.min_memory_increase // 1024)
         self.__service = service.data
 
     def new(self):
@@ -130,7 +149,10 @@ class ServiceForm(QtWidgets.QWidget):
         self.min_cores.setValue(100)
         self.max_cores.setValue(100)
         self.min_memory.setValue(3276)
-        self.min_gpu.setValue(0)
+        self.min_gpu_memory.setValue(self.gpu_min_mb)
+        self.timeout.setValue(0)
+        self.timeout_llu.setValue(0)
+        self.min_memory_increase.setValue(2048)
         self._tags_w.set_tags(['general'])
 
     def save(self):
@@ -147,15 +169,23 @@ class ServiceForm(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(self, "Error", "The service name must alphanumeric.")
             return
 
+        if self.min_memory_increase.value() <= 0:
+            QtWidgets.QMessageBox.critical(self, "Error",
+                                            "The minimum memory increase must be more than 0 MB")
+            return
+
         service = opencue.wrappers.service.Service()
         if self.__service:
-            service.data.id = self.__service.id
+            service.data.id = self.__service.data.id
         service.setName(str(self.name.text()))
         service.setThreadable(self.threadable.isChecked())
         service.setMinCores(self.min_cores.value())
         service.setMaxCores(self.max_cores.value())
         service.setMinMemory(self.min_memory.value() * 1024)
-        service.setMinGpu(self.min_gpu.value() * 1024)
+        service.setMinGpuMemory(self.min_gpu_memory.value() * 1024)
+        service.setTimeout(self.timeout.value())
+        service.setTimeoutLLU(self.timeout_llu.value())
+        service.setMinMemoryIncrease(self.min_memory_increase.value() * 1024)
         service.setTags(self._tags_w.get_tags())
 
         self.saved.emit(service)
@@ -164,7 +194,7 @@ class ServiceForm(QtWidgets.QWidget):
 class ServiceManager(QtWidgets.QWidget):
     """
     Wraps the ServiceForm widget with the logic and controls needed
-    to add, update, and detete services.
+    to add, update, and delete services.
     """
     def __init__(self, show, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
@@ -192,10 +222,12 @@ class ServiceManager(QtWidgets.QWidget):
         self.__btn_layout.addStretch()
         layout.addLayout(self.__btn_layout)
 
+        # pylint: disable=no-member
         self.__btn_new.clicked.connect(self.newService)
         self.__btn_del.clicked.connect(self.delService)
         self.__form.saved.connect(self.saved)
         self.__service_list.currentItemChanged.connect(self.selected)
+        # pylint: enable=no-member
 
         self.refresh()
         self.__service_list.setCurrentRow(0, QtCore.QItemSelectionModel.Select)
@@ -204,6 +236,8 @@ class ServiceManager(QtWidgets.QWidget):
         """
         Executes if an item is selected
         """
+        del old_item
+
         self.__new_service = False
 
         if not item:
@@ -261,17 +295,15 @@ class ServiceManager(QtWidgets.QWidget):
                         self.__service_list.selectedItems()]
 
         self.__service_list.clear()
-        try:
-            if not self.__show:
-                self.__services = opencue.api.getDefaultServices()
-            else:
-                self.__services = self.__show.getServiceOverrides()
-        except Exception:
-            return
+        if not self.__show:
+            self.__services = opencue.api.getDefaultServices()
+        else:
+            self.__services = self.__show.getServiceOverrides()
 
         for service in self.__services:
             item = QtWidgets.QListWidgetItem(service.name())
             self.__service_list.addItem(item)
+
             if service.name() in selected:
                 item.setSelected(True)
 
@@ -318,4 +350,4 @@ class ServiceDialog(QtWidgets.QDialog):
         self.setWindowTitle("Services")
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setSizeGripEnabled(True)
-        self.resize(620, 420)
+        self.resize(700, 700)

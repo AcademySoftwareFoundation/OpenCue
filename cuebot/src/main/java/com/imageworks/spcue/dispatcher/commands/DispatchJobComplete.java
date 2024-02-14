@@ -28,13 +28,15 @@ import com.imageworks.spcue.service.JobManagerSupport;
  *
  * @category command
  */
-public class DispatchJobComplete implements Runnable {
+public class DispatchJobComplete extends KeyRunnable {
     private JobInterface job;
     private Source source;
     private boolean isManualKill;
 
     private JobManagerSupport jobManagerSupport;
-    public DispatchJobComplete(JobInterface job, Source source, boolean isManualKill, JobManagerSupport jobManagerSupport) {
+    public DispatchJobComplete(JobInterface job, Source source, boolean isManualKill,
+                               JobManagerSupport jobManagerSupport) {
+        super("disp_job_complete_" + job.getJobId() + "_" + source.toString());
         this.job = job;
         this.source = source;
         this.isManualKill = isManualKill;

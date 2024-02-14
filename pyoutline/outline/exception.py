@@ -31,7 +31,6 @@ __all__ = ["OutlineException",
 
 class OutlineException(Exception):
     """A General outline base exception."""
-    pass
 
 
 class LayerException(OutlineException):
@@ -40,7 +39,6 @@ class LayerException(OutlineException):
     This exception is raised when there is a problem
     setting up or executing a layer entity.
     """
-    pass
 
 
 class ShellCommandFailureException(OutlineException):
@@ -61,7 +59,6 @@ class SessionException(OutlineException):
     This exception is raised when there is a problem
     reading/writing/finding the job session.
     """
-    pass
 
 
 class FailImmediately(OutlineException):
@@ -69,11 +66,9 @@ class FailImmediately(OutlineException):
     Throwing this exception will fail the frame immediately,
     even from within a plugin
     """
-    pass
 
 
 class FileSpecException(Exception):
     """
     An exception to describe issues with the io.FileSpec class.
     """
-    pass

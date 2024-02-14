@@ -1,3 +1,21 @@
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""Collection of utility widgets used throughout the main widget code."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -42,6 +60,7 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.setAutoFillBackground(True)
 
     def setupUi(self):
+        """Creates the widget layout."""
         self.setLayout(self.mainLayout)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
         self.mainLayout.addWidget(self.lineEdit, 1, 0, 1, 4)
@@ -49,8 +68,11 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.label.setStyleSheet(Style.LABEL_TEXT)
 
     def setupConnections(self):
+        """Sets up widget signals."""
+        # pylint: disable=no-member
         self.lineEdit.textChanged.connect(self.validateText)
         self.lineEdit.focusChange.connect(self.textFocusChange)
+        # pylint: enable=no-member
 
     def setText(self, text):
         """Set the text to the given value.
@@ -72,9 +94,8 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         if all(results):
             self.label.setStyleSheet(Style.LABEL_TEXT)
             return True
-        else:
-            self.label.setStyleSheet(Style.INVALID_TEXT)
-            return False
+        self.label.setStyleSheet(Style.INVALID_TEXT)
+        return False
 
     def text(self):
         """Return the current text.
@@ -95,6 +116,7 @@ class CueLineEdit(QtWidgets.QLineEdit):
         self.index = -1
         self.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Fixed)
         self.completer = QtWidgets.QCompleter()
+        # pylint: disable=c-extension-no-member
         try:
             self.completerModel = QtCore.QStringListModel()
         except AttributeError:
@@ -150,7 +172,8 @@ class CueLineEdit(QtWidgets.QLineEdit):
 class CueSelectPulldown(QtWidgets.QWidget):
     """A button that acts like a dropdown and supports multiselect."""
 
-    def __init__(self, labelText=None, emptyText='[None]', options=None, multiselect=True, parent=None):
+    def __init__(
+            self, labelText=None, emptyText='[None]', options=None, multiselect=True, parent=None):
         super(CueSelectPulldown, self).__init__(parent=parent)
         self.multiselect = multiselect
         self.emptyText = emptyText
@@ -168,6 +191,7 @@ class CueSelectPulldown(QtWidgets.QWidget):
         self.setupConnections()
 
     def setupUi(self):
+        """Creates the widget layout."""
         self.mainLayout.setVerticalSpacing(1)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
         self.mainLayout.addWidget(self.toolButton, 1, 0, 1, 1)
@@ -175,7 +199,8 @@ class CueSelectPulldown(QtWidgets.QWidget):
         self.toolButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
 
     def setupConnections(self):
-        self.optionsMenu.triggered.connect(self.updateLabel)
+        """Sets up widget signals."""
+        self.optionsMenu.triggered.connect(self.updateLabel)  # pylint: disable=no-member
 
     def setOptions(self, options):
         """Add options to the menu options.
@@ -272,18 +297,22 @@ class CueLabelToggle(QtWidgets.QWidget):
         self.setupConnections()
 
     def setupUi(self):
+        """Creates the widget layout."""
         self.setLayout(self.mainLayout)
         self.mainLayout.addWidget(self.label)
         self.mainLayout.addWidget(self.toggle)
         self.mainLayout.addSpacerItem(CueSpacerItem(SpacerTypes.HORIZONTAL))
 
     def setupConnections(self):
+        """Sets up widget signals."""
+        # pylint: disable=no-member
         self.toggle.valueChanged.connect(self.valueChanged.emit)
         self.toggle.sliderPressed.connect(self.sliderPressed.emit)
         self.toggle.sliderMoved.connect(self.sliderMoved.emit)
         self.toggle.sliderReleased.connect(self.sliderReleased.emit)
         self.toggle.actionTriggered.connect(self.actionTriggered.emit)
         self.toggle.rangeChanged.connect(self.rangeChanged.emit)
+        # pylint: enable=no-member
 
 
 class CueToggle(QtWidgets.QSlider):
@@ -300,8 +329,11 @@ class CueToggle(QtWidgets.QSlider):
         self.setStyleSheet(Style.TOGGLE_DEFAULT)
 
     def setupConnections(self):
+        """Sets up widget signals."""
+        # pylint: disable=no-member
         self.valueChanged.connect(self.change)
         self.sliderPressed.connect(self.toggle)
+        # pylint: enable=no-member
 
     def change(self):
         """Action when the toggle is dragged."""
@@ -350,7 +382,8 @@ class CueHelpWidget(QtWidgets.QWidget):
         self.setupHelpConnections()
 
     def setupHelpConnections(self):
-        self.helpButton.clicked.connect(self.toggleHelp)
+        """Sets up widget signal for the help button."""
+        self.helpButton.clicked.connect(self.toggleHelp)  # pylint: disable=no-member
 
     def setHelpText(self):
         """Set the help text to the widget."""
@@ -417,18 +450,16 @@ def separatorLine():
 
 
 class CueMessageBox(QtWidgets.QMessageBox):
-    ''' Display QMessageBox with message and OK button.
+    """A QMessageBox with message and OK button."""
+
+    def __init__(self, message, title=None, parent=None):
+        """
         @type message: str
         @param message: error message
         @type title: str
         @param title: box title
         @type parent: QWidget
-        @param parent: parent object, used for centering, deleting
-        @type centerOnScreen: bool
-        @param centerOnScreen: useful mainly for rare cases that parent is not shown yet for centering on desktop
-                              If parent is shown,  QMessageBox gets centered into it properly.
-    '''
-    def __init__(self, message, title=None, parent=None):
+        @param parent: parent object"""
         super(CueMessageBox, self).__init__(parent)
 
         self.setIcon(QtWidgets.QMessageBox.Information)
@@ -437,8 +468,10 @@ class CueMessageBox(QtWidgets.QMessageBox):
         self.setStandardButtons(QtWidgets.QMessageBox.Ok)
 
     def centerOnScreen(self):
-        ''' Useful mainly for rare cases that parent is not shown yet for centering on desktop
-                              If parent is shown,  QMessageBox gets centered into it properly.'''
+        """Centers the message box on screen.
+
+        Useful mainly for rare cases that parent is not shown yet for centering on desktop.
+        If parent is shown, QMessageBox gets centered into it properly."""
         size = self.size()
         desktopSize = QtWidgets.QDesktopWidget().screenGeometry()
         top = (desktopSize.height() / 2) - (size.height() / 2)

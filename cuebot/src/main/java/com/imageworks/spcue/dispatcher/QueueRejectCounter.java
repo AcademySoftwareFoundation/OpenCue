@@ -36,5 +36,9 @@ public class QueueRejectCounter implements RejectedExecutionHandler {
         return rejectCounter.get();
     }
 
+    public void clear() {
+        rejectCounter.set(0);
+    }
+
 }
 

@@ -82,7 +82,7 @@ public interface DispatcherDao {
      * @param numJobs
      * @return
      */
-    Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs);
+    List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs);
 
     /**
      * Return a list of jobs which could use resources of the specified
@@ -92,7 +92,7 @@ public interface DispatcherDao {
      * @param numJobs
      * @return
      */
-    Set<String> findDispatchJobs(DispatchHost host, int numJobs);
+    List<String> findDispatchJobs(DispatchHost host, int numJobs);
 
     /**
     * Return a list of jobs which could use resources of the specified
@@ -102,7 +102,7 @@ public interface DispatcherDao {
     * @param numJobs
     * @return
     */
-    Set<String> findDispatchJobs(DispatchHost host, GroupInterface g);
+    List<String> findDispatchJobs(DispatchHost host, GroupInterface g);
 
     /**
      * Finds an under proced job if one exists and returns it,
@@ -131,7 +131,7 @@ public interface DispatcherDao {
     * @param numJobs
     * @return
     */
-   Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
+   List<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
 
    /**
     * Find a list of local dispatch jobs.
@@ -162,6 +162,40 @@ public interface DispatcherDao {
     */
    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host,
                                               int limit);
+
+   /**
+    * Return Scheduling Mode selected
+    *
+    * @return
+    */
+   SchedulingMode getSchedulingMode();
+
+   /**
+    * Set Scheduling Mode.
+    *
+    * @param schedulingMode
+    */
+   void setSchedulingMode(SchedulingMode schedulingMode);
+
+    /**
+     *  - PRIORITY_ONLY: Sort by priority only
+     *  - FIFO: Whether or not to enable FIFO scheduling in the same priority.
+     *  - BALANCED: Use a rank formula that takes into account time waiting, and number
+     *      of cores required: rank = priority + (100 * (1 - (job.cores/job.int_min_cores))) + age in days
+     */
+    enum SchedulingMode {
+        PRIORITY_ONLY,
+        FIFO,
+        BALANCED
+    }
+
+    /**
+     * Clear bookableShows cache
+     *
+     * @return
+     */
+    void clearCache();
 }
+
 
 

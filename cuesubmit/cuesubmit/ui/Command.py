@@ -1,3 +1,21 @@
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""Help Widget that contains a text box for entering a shell command."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -5,12 +23,11 @@ from __future__ import absolute_import
 from PySide2 import QtCore, QtWidgets
 
 from cuesubmit.ui import Widgets
+from cuesubmit import Constants
 
 
 class CueCommandWidget(Widgets.CueHelpWidget):
-    """Help Widget that contains a text box for entering a
-    shell command.
-    """
+    """Help Widget that contains a text box for entering a shell command."""
 
     helpText = 'Enter a shell command to run'
     textChanged = QtCore.Signal()
@@ -22,7 +39,8 @@ class CueCommandWidget(Widgets.CueHelpWidget):
         self.setupConnections()
 
     def setupConnections(self):
-        self.commandTextBox.commandBox.textChanged.connect(self.textChanged.emit)
+        """Sets up widget signals."""
+        self.commandTextBox.commandBox.textChanged.connect(self.textChanged.emit)  # pylint: disable=no-member
 
     def setText(self, text):
         """Set the given text to the command box
@@ -52,14 +70,14 @@ class CueCommandTextBox(QtWidgets.QWidget):
         self.commandBox.setAccessibleName('commandBox')
         self.horizontalLine = Widgets.CueHLine()
         self.setFixedHeight(120)
+        tokensToolTip = '\n'.join([' {0} -- {1}'.format(token, info)
+                                   for token, info in Constants.COMMAND_TOKENS.items()])
         self.commandBox.setToolTip('Enter the command to be run. Valid replacement tokens are:\n'
-                                   ' #IFRAME# -- frame number\n'
-                                   ' #LAYER# -- layer name\n'
-                                   ' #JOB# -- job name\n'
-                                   ' #FRAME# -- frame name')
+                                   + tokensToolTip)
         self.setupUi()
 
     def setupUi(self):
+        """Creates the widget layout."""
         self.setLayout(self.mainLayout)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
         self.mainLayout.addWidget(self.commandBox, 1, 0, 1, 4)

@@ -24,8 +24,10 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.sql.Timestamp;
 import java.util.Optional;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -65,7 +67,9 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "ts_updated = current_timestamp,  " +
             "int_version = int_version + 1, " +
             "int_total_past_core_time = int_total_past_core_time + " +
-                "round(INTERVAL_TO_SECONDS(current_timestamp - ts_started) * int_cores / 100) " +
+                "round(INTERVAL_TO_SECONDS(current_timestamp - ts_started) * int_cores / 100)," +
+            "int_total_past_gpu_time = int_total_past_gpu_time + " +
+                "round(INTERVAL_TO_SECONDS(current_timestamp - ts_started) * int_gpus) " +
         "WHERE " +
             "frame.pk_frame = ? " +
         "AND " +
@@ -92,7 +96,9 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_mem_max_used = ?, " +
             "int_version = int_version + 1, " +
             "int_total_past_core_time = int_total_past_core_time + " +
-                "round(INTERVAL_TO_SECONDS(current_timestamp + interval '1' second - ts_started) * int_cores / 100) " +
+                "round(INTERVAL_TO_SECONDS(current_timestamp + interval '1' second - ts_started) * int_cores / 100), " +
+            "int_total_past_gpu_time = int_total_past_gpu_time + " +
+                "round(INTERVAL_TO_SECONDS(current_timestamp + interval '1' second - ts_started) * int_gpus) " +
         "WHERE " +
             "frame.pk_frame = ? " +
         "AND " +
@@ -111,7 +117,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 frame.getVersion()) == 1;
     }
 
-    private static final String UPDATE_FRAME_CLEARED =
+    private static final String UPDATE_FRAME_REASON =
         "UPDATE "+
             "frame "+
         "SET " +
@@ -127,15 +133,42 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 "(SELECT proc.pk_frame FROM " +
                     "proc WHERE proc.pk_frame=?)";
 
-    @Override
-    public boolean updateFrameCleared(FrameInterface frame) {
+    private int updateFrame(FrameInterface frame, int exitStatus) {
 
         int result =  getJdbcTemplate().update(
-               UPDATE_FRAME_CLEARED,
-               FrameState.WAITING.toString(),
-               Dispatcher.EXIT_STATUS_FRAME_CLEARED,
-               frame.getFrameId(),
-               frame.getFrameId());
+                UPDATE_FRAME_REASON,
+                FrameState.WAITING.toString(),
+                exitStatus,
+                frame.getFrameId(),
+                frame.getFrameId());
+
+        return result;
+    }
+
+    @Override
+    public boolean updateFrameHostDown(FrameInterface frame) {
+        return updateFrame(frame, Dispatcher.EXIT_STATUS_DOWN_HOST) > 0;
+    }
+
+    @Override
+    public boolean updateFrameCleared(FrameInterface frame) {
+        return updateFrame(frame, Dispatcher.EXIT_STATUS_FRAME_CLEARED) > 0;
+    }
+
+    private static final String UPDATE_FRAME_MEMORY_ERROR =
+            "UPDATE "+
+                "frame "+
+            "SET " +
+                 "int_exit_status = ?, " +
+                 "int_version = int_version + 1 " +
+                 "WHERE " +
+                 "frame.pk_frame = ? ";
+    @Override
+    public boolean updateFrameMemoryError(FrameInterface frame) {
+        int result =  getJdbcTemplate().update(
+                UPDATE_FRAME_MEMORY_ERROR,
+                Dispatcher.EXIT_STATUS_MEMORY_FAILURE,
+                frame.getFrameId());
 
         return result > 0;
     }
@@ -148,7 +181,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "str_host = ?, " +
             "int_cores = ?, " +
             "int_mem_reserved = ?, " +
-            "int_gpu_reserved = ?, " +
+            "int_gpus = ?, " +
+            "int_gpu_mem_reserved = ?, " +
             "ts_updated = current_timestamp, " +
             "ts_started = current_timestamp, " +
             "ts_stopped = null, " +
@@ -190,31 +224,45 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "WHERE " +
             "pk_frame = ? " +
         "AND " +
-            "int_exit_status NOT IN (?,?,?) ";
+            "int_exit_status NOT IN (?,?,?,?,?,?,?) ";
 
     @Override
     public void updateFrameStarted(VirtualProc proc, FrameInterface frame) {
 
         lockFrameForUpdate(frame, FrameState.WAITING);
 
-        int result = getJdbcTemplate().update(UPDATE_FRAME_STARTED,
-                FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
-                proc.memoryReserved, proc.gpuReserved, frame.getFrameId(),
-                FrameState.WAITING.toString(), frame.getVersion());
-
-        if (result == 0) {
-            String error_msg = "the frame " +
-                frame + " was updated by another thread.";
-            throw new FrameReservationException(error_msg);
+        try {
+            int result = getJdbcTemplate().update(UPDATE_FRAME_STARTED,
+                    FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
+                    proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved, frame.getFrameId(),
+                    FrameState.WAITING.toString(), frame.getVersion());
+            if (result == 0) {
+                String error_msg = "the frame " +
+                        frame + " was updated by another thread.";
+                throw new FrameReservationException(error_msg);
+            }
+        } catch (DataAccessException e) {
+            /*
+             * This usually happens when the folder's max cores
+             * limit has exceeded
+             */
+            throw new FrameReservationException(e.getCause());
         }
 
         /*
          * Frames that were killed via nimby or hardware errors not attributed to
-         * the software do not increment the retry counter.
+         * the software do not increment the retry counter. Like failed launch,
+         * orphaned frame, failed kill or down host.
          */
-        getJdbcTemplate().update(UPDATE_FRAME_RETRIES,
-                frame.getFrameId(), -1, FrameExitStatus.SKIP_RETRY_VALUE,
-                Dispatcher.EXIT_STATUS_FRAME_CLEARED);
+        try {
+            getJdbcTemplate().update(UPDATE_FRAME_RETRIES,
+                    frame.getFrameId(), -1, FrameExitStatus.SKIP_RETRY_VALUE,
+                    FrameExitStatus.FAILED_LAUNCH_VALUE, Dispatcher.EXIT_STATUS_FRAME_CLEARED,
+                    Dispatcher.EXIT_STATUS_FRAME_ORPHAN, Dispatcher.EXIT_STATUS_FAILED_KILL,
+                    Dispatcher.EXIT_STATUS_DOWN_HOST);
+        } catch (DataAccessException e) {
+            throw new FrameReservationException(e.getCause());
+        }
     }
 
     private static final String UPDATE_FRAME_FIXED =
@@ -225,7 +273,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "str_host=?, " +
             "int_cores=?, "+
             "int_mem_reserved = ?, " +
-            "int_gpu_reserved = ?, " +
+            "int_gpus = ?, " +
+            "int_gpu_mem_reserved = ?, " +
             "ts_updated = current_timestamp, " +
             "ts_started = current_timestamp, " +
             "ts_stopped = null, "+
@@ -239,7 +288,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     public boolean updateFrameFixed(VirtualProc proc, FrameInterface frame) {
         return getJdbcTemplate().update(UPDATE_FRAME_FIXED,
                 FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
-                proc.memoryReserved, proc.gpuReserved, frame.getFrameId()) == 1;
+                proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved, frame.getFrameId()) == 1;
     }
 
     @Override
@@ -275,7 +324,9 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.maxCores = rs.getInt("int_cores_max");
             frame.threadable = rs.getBoolean("b_threadable");
             frame.minMemory = rs.getLong("int_mem_min");
-            frame.minGpu = rs.getLong("int_gpu_min");
+            frame.minGpus = rs.getInt("int_gpus_min");
+            frame.maxGpus = rs.getInt("int_gpus_max");
+            frame.minGpuMemory = rs.getLong("int_gpu_mem_min");
             frame.version = rs.getInt("int_version");
             frame.services = rs.getString("str_services");
             return frame;
@@ -307,7 +358,9 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "layer.int_cores_max,"+
             "layer.b_threadable,"+
             "layer.int_mem_min, "+
-            "layer.int_gpu_min, "+
+            "layer.int_gpus_min,"+
+            "layer.int_gpus_max,"+
+            "layer.int_gpu_mem_min, "+
             "layer.str_range, "+
             "layer.int_chunk_size, " +
             "layer.str_services " +
@@ -389,7 +442,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.jobId = rs.getString("pk_job");
             frame.layerId = rs.getString("pk_layer");
             frame.showId = rs.getString("pk_show");
-            frame.maxRss = rs.getInt("int_mem_max_used");
+            frame.maxRss = rs.getLong("int_mem_max_used");
             frame.name = rs.getString("str_name");
             frame.number = rs.getInt("int_number");
             frame.dispatchOrder = rs.getInt("int_dispatch_order");
@@ -397,10 +450,11 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.dateStarted = rs.getTimestamp("ts_started");
             frame.dateStopped = rs.getTimestamp("ts_stopped");
             frame.dateUpdated = rs.getTimestamp("ts_updated");
+            frame.dateLLU = rs.getTimestamp("ts_llu");
             frame.version = rs.getInt("int_version");
 
             if (rs.getString("str_host") != null) {
-                frame.lastResource = String.format("%s/%d",rs.getString("str_host"),rs.getInt("int_cores"));
+                frame.lastResource = String.format("%s/%d/%d",rs.getString("str_host"),rs.getInt("int_cores"),rs.getInt("int_gpus"));
             }
             else {
                 frame.lastResource = "";
@@ -472,9 +526,10 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_number, " +
             "int_dispatch_order, " +
             "int_layer_order, "+
-            "ts_updated "+
+            "ts_updated, "+
+            "ts_llu "+
         ") " +
-        "VALUES (?,?,?,?,?,?,?,?,current_timestamp)";
+        "VALUES (?,?,?,?,?,?,?,?,current_timestamp,current_timestamp)";
 
     @Override
     public void insertFrames(LayerDetail layer, List<Integer> frames) {
@@ -692,6 +747,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "SET " +
             "str_state=?, " +
             "ts_updated = current_timestamp, " +
+            "ts_llu = current_timestamp, " +
             "int_depend_count = 0, " +
             "int_version = int_version + 1 " +
         "WHERE " +
@@ -942,7 +998,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 int rowNum) throws SQLException {
             return new ResourceUsage(
                     rs.getLong("int_clock_time"),
-                    rs.getInt("int_cores"));
+                    rs.getInt("int_cores"),
+                    rs.getInt("int_gpus"));
         }
 
     };
@@ -958,27 +1015,30 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 "SELECT " +
                     "COALESCE(interval_to_seconds(current_timestamp - ts_started), 1) " +
                         "AS int_clock_time, " +
-                    "COALESCE(int_cores, 100) AS int_cores " +
+                    "COALESCE(int_cores, 100) AS int_cores," +
+                    "int_gpus " +
                 "FROM " +
                     "frame " +
                 "WHERE " +
                     "pk_frame = ?", RESOURCE_USAGE_MAPPER, f.getFrameId());
     }
 
-    private static final String UPDATE_FRAME_MEMORY_USAGE =
+    private static final String UPDATE_FRAME_MEMORY_USAGE_AND_LLU_TIME =
         "UPDATE " +
             "frame " +
         "SET " +
             "ts_updated = current_timestamp," +
             "int_mem_max_used = ?," +
-            "int_mem_used = ? " +
+            "int_mem_used = ?," +
+            "ts_llu = ? " +
         "WHERE " +
             "pk_frame = ? ";
 
     @Override
-    public void updateFrameMemoryUsage(FrameInterface f, long maxRss, long rss) {
-        getJdbcTemplate().update(UPDATE_FRAME_MEMORY_USAGE,
-                maxRss, rss, f.getFrameId());
+    public void updateFrameMemoryUsageAndLluTime(FrameInterface f, long maxRss, long rss,
+            long lluTime) {
+        getJdbcTemplate().update(UPDATE_FRAME_MEMORY_USAGE_AND_LLU_TIME,
+                maxRss, rss, new Timestamp(lluTime * 1000l), f.getFrameId());
     }
 
     /**

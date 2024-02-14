@@ -12,6 +12,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Helper class for representing a frame range.
+
+It supports a complex syntax implementing features such as comma-separated frame ranges,
+stepped frame ranges and more. See the FrameRange class for more detail.
+"""
 
 from __future__ import division
 from __future__ import print_function
@@ -25,11 +31,12 @@ from collections import OrderedDict
 
 
 class FrameRange(object):
-    """Represents a sequence of image frames."""
+    """Represents a sequence of frame numbers."""
 
     SINGLE_FRAME_PATTERN = re.compile(r'^(-?)\d+$')
     SIMPLE_FRAME_RANGE_PATTERN = re.compile(r'^(?P<sf>(-?)\d+)-(?P<ef>(-?)\d+)$')
-    STEP_PATTERN = re.compile(r'^(?P<sf>(-?)\d+)-(?P<ef>(-?)\d+)(?P<stepSep>[xy])(?P<step>(-?)\d+)$')
+    STEP_PATTERN = re.compile(
+        r'^(?P<sf>(-?)\d+)-(?P<ef>(-?)\d+)(?P<stepSep>[xy])(?P<step>(-?)\d+)$')
     INTERLEAVE_PATTERN = re.compile(r'^(?P<sf>(-?)\d+)-(?P<ef>(-?)\d+):(?P<step>(-?)\d+)$')
 
     def __init__(self, frameRange):
@@ -103,11 +110,20 @@ class FrameRange(object):
         return self.frameList
 
     def normalize(self):
+        """Sorts and deduplicates the sequence."""
         self.frameList = list(set(self.frameList))
         self.frameList.sort()
 
     @classmethod
     def parseFrameRange(cls, frameRange):
+        """
+        Parse a string representation into a numerical sequence.
+
+        :type frameRange: str
+        :param frameRange: String representation of the frame range.
+        :rtype: FrameRange
+        :return: FrameRange representing the numerical sequence.
+        """
         singleFrameMatcher = re.match(cls.SINGLE_FRAME_PATTERN, frameRange)
         if singleFrameMatcher:
             return [int(frameRange)]
@@ -116,7 +132,7 @@ class FrameRange(object):
         if simpleRangeMatcher:
             startFrame = int(simpleRangeMatcher.group('sf'))
             endFrame = int(simpleRangeMatcher.group('ef'))
-            return cls.getIntRange(startFrame, endFrame, (1 if endFrame >= startFrame else -1))
+            return cls.__getIntRange(startFrame, endFrame, (1 if endFrame >= startFrame else -1))
 
         rangeWithStepMatcher = re.match(cls.STEP_PATTERN, frameRange)
         if rangeWithStepMatcher:
@@ -124,48 +140,49 @@ class FrameRange(object):
             endFrame = int(rangeWithStepMatcher.group('ef'))
             step = int(rangeWithStepMatcher.group('step'))
             stepSep = rangeWithStepMatcher.group('stepSep')
-            return cls.getSteppedRange(startFrame, endFrame, step, stepSep == 'y')
+            return cls.__getSteppedRange(startFrame, endFrame, step, stepSep == 'y')
 
         rangeWithInterleaveMatcher = re.match(cls.INTERLEAVE_PATTERN, frameRange)
         if rangeWithInterleaveMatcher:
             startFrame = int(rangeWithInterleaveMatcher.group('sf'))
             endFrame = int(rangeWithInterleaveMatcher.group('ef'))
             step = int(rangeWithInterleaveMatcher.group('step'))
-            return cls.getInterleavedRange(startFrame, endFrame, step)
+            return cls.__getInterleavedRange(startFrame, endFrame, step)
 
         raise ValueError('unrecognized frame range syntax ' + frameRange)
 
     @staticmethod
-    def getIntRange(start, end, step):
+    def __getIntRange(start, end, step):
         return list(range(start, end+(step // abs(step)), step))
 
     @classmethod
-    def getSteppedRange(cls, start, end, step, inverseStep):
-        cls.validateStepSign(start, end, step)
-        steppedRange = cls.getIntRange(start, end, step)
+    def __getSteppedRange(cls, start, end, step, inverseStep):
+        cls.__validateStepSign(start, end, step)
+        steppedRange = cls.__getIntRange(start, end, step)
         if inverseStep:
-            fullRange = cls.getIntRange(start, end, (-1 if step < 0 else 1))
+            fullRange = cls.__getIntRange(start, end, (-1 if step < 0 else 1))
             return [frame for frame in fullRange if frame not in steppedRange]
         return steppedRange
 
     @classmethod
-    def getInterleavedRange(cls, start, end, step):
-        cls.validateStepSign(start, end, step)
+    def __getInterleavedRange(cls, start, end, step):
+        cls.__validateStepSign(start, end, step)
         interleavedFrames = OrderedDict()
         incrValue = step // abs(step)
         while abs(step) > 0:
-            interleavedFrames.update([(frame, None) for frame in cls.getIntRange(start, end, step)])
+            interleavedFrames.update(
+                [(frame, None) for frame in cls.__getIntRange(start, end, step)])
             start += incrValue
             step = int(step / 2.0)
         return list(interleavedFrames.keys())
 
     @staticmethod
-    def validateStepSign(start, end, step):
+    def __validateStepSign(start, end, step):
         if step > 1 and end < start:
             raise ValueError(
                 'end frame may not be less than start frame when using a positive step')
-        elif step == 0:
+        if step == 0:
             raise ValueError('step cannot be zero')
-        elif step < 0 and end >= start:
+        if step < 0 and end >= start:
             raise ValueError(
                 'end frame may not be greater than start frame when using a negative step')

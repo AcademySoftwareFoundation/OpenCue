@@ -233,6 +233,39 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     }
 
     @Override
+    public void updateDefaultJobMaxGpus(GroupInterface group, int value) {
+        if (value <= 0) { value = CueUtil.FEATURE_DISABLED; }
+        getJdbcTemplate().update(
+                "UPDATE folder SET int_job_max_gpus=? WHERE pk_folder=?",
+                value, group.getId());
+    }
+
+    @Override
+    public void updateDefaultJobMinGpus(GroupInterface group, int value) {
+        if (value <= 0) { value = CueUtil.FEATURE_DISABLED; }
+        getJdbcTemplate().update(
+                "UPDATE folder SET int_job_min_gpus=? WHERE pk_folder=?",
+                value, group.getId());
+    }
+
+    @Override
+    public void updateMaxGpus(GroupInterface group, int value) {
+        if (value < 0) { value = CueUtil.FEATURE_DISABLED; }
+
+        getJdbcTemplate().update(
+                "UPDATE folder_resource SET int_max_gpus=? WHERE pk_folder=?",
+                value, group.getId());
+    }
+
+    @Override
+    public void updateMinGpus(GroupInterface group, int value) {
+        if (value < 0) { value = 0; }
+        getJdbcTemplate().update(
+                "UPDATE folder_resource SET int_min_gpus=? WHERE pk_folder=?",
+                value, group.getId());
+    }
+
+    @Override
     public void updateDefaultJobPriority(GroupInterface group, int value) {
         if (value < 0) { value = CueUtil.FEATURE_DISABLED; }
         getJdbcTemplate().update(
@@ -251,6 +284,8 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
             "folder.pk_folder, " +
             "folder.int_job_max_cores,"+
             "folder.int_job_min_cores,"+
+            "folder.int_job_max_gpus,"+
+            "folder.int_job_min_gpus,"+
             "folder.int_job_priority,"+
             "folder.str_name,"+
             "folder.pk_parent_folder,"+
@@ -258,7 +293,9 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
             "folder.pk_dept,"+
             "folder_level.int_level, " +
             "folder_resource.int_min_cores,"+
-            "folder_resource.int_max_cores " +
+            "folder_resource.int_max_cores," +
+            "folder_resource.int_min_gpus,"+
+            "folder_resource.int_max_gpus " +
         "FROM " +
             "folder, "+
             "folder_level, " +
@@ -273,6 +310,8 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
             "folder.pk_folder, " +
             "folder.int_job_max_cores,"+
             "folder.int_job_min_cores,"+
+            "folder.int_job_max_gpus,"+
+            "folder.int_job_min_gpus,"+
             "folder.int_job_priority,"+
             "folder.str_name,"+
             "folder.pk_parent_folder,"+
@@ -280,7 +319,9 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
             "folder.pk_dept,"+
             "folder_level.int_level, " +
             "folder_resource.int_min_cores,"+
-            "folder_resource.int_max_cores " +
+            "folder_resource.int_max_cores," +
+            "folder_resource.int_min_gpus,"+
+            "folder_resource.int_max_gpus " +
         "FROM " +
             "folder, "+
             "folder_level, " +
@@ -393,7 +434,13 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
                 group.id = rs.getString("pk_folder");
                 group.jobMaxCores = rs.getInt("int_job_max_cores");
                 group.jobMinCores = rs.getInt("int_job_min_cores");
+                group.jobMaxGpus = rs.getInt("int_job_max_gpus");
+                group.jobMinGpus = rs.getInt("int_job_min_gpus");
                 group.jobPriority = rs.getInt("int_job_priority");
+                group.minCores = rs.getInt("int_min_cores");
+                group.maxCores = rs.getInt("int_max_cores");
+                group.minGpus = rs.getInt("int_min_gpus");
+                group.maxGpus = rs.getInt("int_max_gpus");
                 group.name = rs.getString("str_name");
                 group.parentId = rs.getString("pk_parent_folder");
                 group.showId = rs.getString("pk_show");

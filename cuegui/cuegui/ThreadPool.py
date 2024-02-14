@@ -49,8 +49,7 @@ from __future__ import division
 from builtins import range
 import os
 
-from PySide2 import QtCore
-from PySide2 import QtGui
+from qtpy import QtCore
 
 import cuegui.Logger
 
@@ -62,6 +61,7 @@ def systemCpuCount():
     """systemCpuCount()->int
         returns the # of procs on the system, linux only
     """
+    # pylint: disable=bare-except
     try:
         return len([p for p in os.listdir("/sys/devices/system/cpu") if p.startswith("cpu")])
     except:
@@ -69,13 +69,11 @@ def systemCpuCount():
 
 
 class ThreadPool(QtCore.QObject):
-    """ThreadPool(QtCore.QObject)
-
-        ThreadPool is a general purpose work queue class
-    """
+    """A general purpose work queue class."""
 
     def __init__(self, num_threads, max_queue=20, parent=None):
         QtCore.QObject.__init__(self, parent=parent)
+        self.app = cuegui.app()
         self.__threads = []
         self.__started = False
         self.__max_queue = max_queue
@@ -86,33 +84,33 @@ class ThreadPool(QtCore.QObject):
         self._q_queue = []
 
     def start(self):
+        """Initializes the thread pool and starts running work."""
         if self.__started:
             return
         self.__started = True
         for i in range(0, self.__num_threads):
             thread = ThreadPool.WorkerThread(i, self)
-            QtGui.qApp.threads.append(thread)
+            self.app.threads.append(thread)
             self.__threads.append(thread)
             self.__threads[i].start()
             self.__threads[i].workComplete.connect(self.runCallback,
                                                    QtCore.Qt.BlockingQueuedConnection)
 
-    def queue(self, callable, callback, comment, *args):
-        """queue(callable work, callable callback, str comment, * args)
-            queue up a callable to be run from within a separate thread of execution
-        """
+    def queue(self, callable_to_queue, callback, comment, *args):
+        """Queues up a callable to be run from within a separate thread of execution."""
         self._q_mutex.lock()
         if not self.__started:
             self.start()
         if len(self._q_queue) <= self.__max_queue:
-            self._q_queue.append((callable,callback,comment,args))
+            self._q_queue.append((callable_to_queue, callback, comment, args))
         else:
-            logger.warning("Queue length exceeds %s" % self.__max_queue)
+            logger.warning("Queue length exceeds %s", self.__max_queue)
         self._q_mutex.unlock()
         self._q_empty.wakeAll()
 
-    def local(self, callable, callback, comment, *args):
-        work = (callable, callback, comment, args)
+    def local(self, callable_to_queue, callback, comment, *args):
+        """Executes a callable then immediately executes a callback, if given."""
+        work = (callable_to_queue, callback, comment, args)
         if work[3]:
             result = work[0](*work[3])
         else:
@@ -120,19 +118,17 @@ class ThreadPool(QtCore.QObject):
         if work[1]:
             self.runCallback(work, result)
 
+    # pylint: disable=no-self-use
     def runCallback(self, work, result):
-        """runCallback(tuple work, object result)
-            runs the callback function
-        """
+        """Runs the callback function."""
         if work[1]:
             work[1](work, result)
 
     class WorkerThread(QtCore.QThread):
-        """WorkerThread
+        """A thread for parsing job log files.
 
-            A thread for parsing job log files.  The log file is parsed
-            using SpiCue.cueprofile and emits a "parsingComplete" signal
-            when complete.
+        The log file is parsed using SpiCue.cueprofile and emits a "parsingComplete" signal
+        when complete.
         """
 
         workComplete = QtCore.Signal(object, object)
@@ -141,23 +137,28 @@ class ThreadPool(QtCore.QObject):
             QtCore.QThread.__init__(self, parent)
             self.__parent = parent
             self.__name = name
+            self.__running = False
 
+        # pylint: disable=protected-access
         def run(self):
             self.__running = True
             while self.__running:
 
                 work = None
                 self.__parent._q_mutex.lock()
+                # pylint: disable=bare-except
                 try:
                     work = self.__parent._q_queue.pop(0)
                 except:
                     self.__parent._q_empty.wait(self.__parent._q_mutex)
+                # pylint: enable=bare-except
 
                 self.__parent._q_mutex.unlock()
 
                 if not work:
                     continue
 
+                # pylint: disable=broad-except
                 try:
                     if work[3]:
                         result = work[0](*work[3])
@@ -167,10 +168,12 @@ class ThreadPool(QtCore.QObject):
                         self.workComplete.emit(work, result)
                         del result
                 except Exception as e:
-                    logger.info("Error processing work:' %s ', %s" % (work[2], e))
-                logger.info("Done:' %s '" % work[2])
+                    logger.info("Error processing work:' %s ', %s" , work[2], e)
+                # pylint: enable=broad-except
+                logger.info("Done:' %s '", work[2])
             logger.debug("Thread Stopping")
 
         def stop(self):
+            """Stops the worker thread."""
             self.__running = False
             self.__parent._q_empty.wakeAll()

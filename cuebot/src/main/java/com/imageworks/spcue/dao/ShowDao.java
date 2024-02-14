@@ -82,6 +82,21 @@ public interface ShowDao {
     void updateShowDefaultMaxCores(ShowInterface s, int val);
 
     /**
+     *
+     * @param s
+     * @param val
+     */
+    void updateShowDefaultMinGpus(ShowInterface s, int val);
+
+    /**
+     *
+     * @param s
+     * @param val
+     */
+    void updateShowDefaultMaxGpus(ShowInterface s, int val);
+
+
+    /**
      * Disabling this would stop new proc assignement. The show would get no new
      * procs, but any procs already assigned to a job would continue to
      * dispatch.
@@ -131,5 +146,11 @@ public interface ShowDao {
      * @param emails
      */
     void updateShowCommentEmail(ShowInterface s, String[] emails);
+
+    /**
+     * Scheduled task to update shows. Set show as inactive if it has at
+     * least 1 job in job_history service th
+     */
+    void updateShowsStatus();
 }
 

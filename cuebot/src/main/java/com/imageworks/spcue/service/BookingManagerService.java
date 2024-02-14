@@ -21,7 +21,8 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,7 +50,7 @@ public class BookingManagerService implements BookingManager {
 
     @SuppressWarnings("unused")
     private static final Logger logger =
-        Logger.getLogger(BookingManagerService.class);
+        LogManager.getLogger(BookingManagerService.class);
 
     private BookingQueue bookingQueue;
     private BookingDao bookingDao;
@@ -72,7 +73,7 @@ public class BookingManagerService implements BookingManager {
 
     @Override
     public void setMaxResources(LocalHostAssignment l, int maxCoreUnits,
-            long maxMemory, long maxGpu) {
+            long maxMemory, int maxGpuUnits, long maxGpuMemory) {
 
         HostInterface host = hostDao.getHost(l.getHostId());
 
@@ -84,8 +85,12 @@ public class BookingManagerService implements BookingManager {
             bookingDao.updateMaxMemory(l, maxMemory);
         }
 
-        if (maxGpu > 0) {
-            bookingDao.updateMaxGpu(l, maxGpu);
+        if (maxGpuUnits > 0) {
+            bookingDao.updateMaxGpus(l, maxGpuUnits);
+        }
+
+        if (maxGpuMemory > 0) {
+            bookingDao.updateMaxGpuMemory(l, maxGpuMemory);
         }
     }
 
@@ -170,12 +175,6 @@ public class BookingManagerService implements BookingManager {
     public void createLocalHostAssignment(DispatchHost host, FrameInterface frame,
             LocalHostAssignment lja) {
         bookingDao.insertLocalHostAssignment(host, frame, lja);
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isBlackOutTime(HostInterface host) {
-        return bookingDao.isBlackoutTime(host);
     }
 
     @Override

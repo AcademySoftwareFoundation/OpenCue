@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Widget that graphically displays the state of all jobs displayed."""
+
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -21,9 +24,9 @@ import threading
 import time
 import weakref
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import cuegui.Logger
 
@@ -32,27 +35,33 @@ logger = cuegui.Logger.getLogger(__file__)
 
 
 class CueStateBarWidget(QtWidgets.QWidget):
-    """Creates a bar that graphically displays the state of all jobs displayed"""
+    """Widget that graphically displays the state of all jobs displayed."""
+
     __colorInvalid = QtGui.QColor()
     __brushPattern = QtGui.QBrush(QtCore.Qt.Dense4Pattern)
-    def __init__(self, sourceTree, parent = None):
+
+    def __init__(self, sourceTree, parent=None):
         """CueStateBar init
         @type  sourceTree: QTreeWidget
         @param sourceTree: The tree to get the jobs from
         @type  parent: QWidget
         @param parent: The parent widget"""
         QtWidgets.QWidget.__init__(self, parent)
+        self.app = cuegui.app()
+
+        self.__background = None
+
         self.setContentsMargins(8, 1, 1, 1)
         self.setFixedWidth(22)
 
         self.__sourceTree = weakref.proxy(sourceTree)
         self.__colors = []
-        self.__baseColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+        self.__baseColor = self.app.palette().color(QtGui.QPalette.Base)
         self.__colorsLock = QtCore.QReadWriteLock()
         self.__timer = QtCore.QTimer(self)
         self.__lastUpdate = 0
 
-        self.__timer.timeout.connect(self.updateColors)
+        self.__timer.timeout.connect(self.updateColors)  # pylint: disable=no-member
         self.__sourceTree.verticalScrollBar().valueChanged.connect(self.update)
         self.__sourceTree.verticalScrollBar().rangeChanged.connect(self.__updateColors)
 
@@ -84,6 +93,7 @@ class CueStateBarWidget(QtWidgets.QWidget):
         """Called when the widget is being redrawn
         @type  event: QEvent
         @param event: The draw event"""
+        del event
         assert threading.currentThread().getName() == "MainThread"
         self.__colorsLock.lockForWrite()
         try:

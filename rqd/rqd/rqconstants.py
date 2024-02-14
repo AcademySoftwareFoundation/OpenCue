@@ -13,22 +13,21 @@
 #  limitations under the License.
 
 
-"""
-Constants.
-"""
+"""Constants used throughout RQD."""
 
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+# pylint: disable=wrong-import-position
 from future import standard_library
 standard_library.install_aliases()
-import subprocess
+# pylint: enable=wrong-import-position
+
 import logging
 import os
 import platform
-import re
 import subprocess
 import sys
 import traceback
@@ -41,9 +40,9 @@ if platform.system() == 'Linux':
 VERSION = 'dev'
 
 if 'CUEBOT_HOSTNAME' in os.environ:
-  CUEBOT_HOSTNAME = os.environ['CUEBOT_HOSTNAME']
+    CUEBOT_HOSTNAME = os.environ['CUEBOT_HOSTNAME']
 else:
-  CUEBOT_HOSTNAME = 'localhost'
+    CUEBOT_HOSTNAME = 'localhost'
 
 RQD_TIMEOUT = 10000
 DEFAULT_FACILITY = 'cloud'
@@ -66,7 +65,15 @@ LAUNCH_FRAME_USER_GID = 20
 RQD_RETRY_STARTUP_CONNECT_DELAY = 30
 RQD_RETRY_CRITICAL_REPORT_DELAY = 30
 RQD_USE_IP_AS_HOSTNAME = True
+RQD_USE_IPV6_AS_HOSTNAME = False
+
+# Use the PATH environment variable from the RQD host.
+RQD_USE_PATH_ENV_VAR = False
+
+RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
+RQD_TAGS = ''
+RQD_PREPEND_TIMESTAMP = False
 
 KILL_SIGNAL = 9
 if platform.system() == 'Linux':
@@ -76,16 +83,17 @@ else:
     RQD_UID = 0
     RQD_GID = 0
 
-# ptree reporting is not actually used, and could be slow
-ENABLE_PTREE = False
-
 # Nimby behavior:
-CHECK_INTERVAL_LOCKED = 60  # = seconds to wait before checking if the user has become idle
-MINIMUM_IDLE = 900          # seconds of idle time required before nimby unlocks
-MINIMUM_MEM = 524288        # If available memory drops below this amount, lock nimby (need to take into account cache)
+# Number of seconds to wait before checking if the user has become idle.
+CHECK_INTERVAL_LOCKED = 60
+# Seconds of idle time required before nimby unlocks.
+MINIMUM_IDLE = 900
+# If available memory drops below this amount, lock nimby (need to take into account cache).
+MINIMUM_MEM = 524288
 MINIMUM_SWAP = 1048576
-MAXIMUM_LOAD = 75           # If (machine load * 100 / cores) goes over this amount, don't unlock nimby
-                            # 1.5 would mean a max load of 1.5 per core
+# If (machine load * 100 / cores) goes over this amount, don't unlock nimby.
+# 1.5 would mean a max load of 1.5 per core
+MAXIMUM_LOAD = 75
 
 EXITSTATUS_FOR_FAILED_LAUNCH = 256
 EXITSTATUS_FOR_NIMBY_KILL = 286
@@ -96,12 +104,19 @@ PATH_INIT_TARGET = '/lib/systemd/system/default.target' # rhel7
 PATH_LOADAVG = "/proc/loadavg"
 PATH_STAT = "/proc/stat"
 PATH_MEMINFO = "/proc/meminfo"
+# stat and statm are inaccurate because of kernel internal scability optimation
+# stat/statm/status are inaccurate values, true values are in smaps
+# but RQD user can't read smaps get:
+# [Errno 13] Permission denied: '/proc/166289/smaps'
+PATH_PROC_PID_STAT = "/proc/{0}/stat"
+PATH_PROC_PID_STATM = "/proc/{0}/statm"
+PATH_PROC_PID_CMDLINE = "/proc/{0}/cmdline"
 
 if platform.system() == 'Linux':
     SYS_HERTZ = os.sysconf('SC_CLK_TCK')
 
 if platform.system() == 'Windows':
-    CONFIG_FILE = os.path.expandvars('$LOCALAPPDATA/OpenCue/rqd.conf')
+    CONFIG_FILE = os.path.expandvars('%LOCALAPPDATA%/OpenCue/rqd.conf')
 else:
     CONFIG_FILE = '/etc/opencue/rqd.conf'
 
@@ -113,57 +128,40 @@ OVERRIDE_IS_DESKTOP = None # Force rqd to run in 'desktop' mode
 OVERRIDE_PROCS = None # number of physical cpus. ex: None or 2
 OVERRIDE_MEMORY = None # in Kb
 OVERRIDE_NIMBY = None # True to turn on, False to turn off
+USE_NIMBY_PYNPUT = True # True pynput, False select
+OVERRIDE_HOSTNAME = None # Force to use this hostname
 ALLOW_GPU = False
-ALLOW_PLAYBLAST = False
 LOAD_MODIFIER = 0 # amount to add/subtract from load
 
+LOG_FORMAT = '%(asctime)s %(levelname)-9s openrqd-%(module)-10s %(message)s'
+CONSOLE_LOG_LEVEL = logging.DEBUG
+FILE_LOG_LEVEL = logging.WARNING  # Equal to or greater than the consoleLevel
+
 if subprocess.getoutput('/bin/su --help').find('session-command') != -1:
-    SU_ARGUEMENT = '--session-command'
+    SU_ARGUMENT = '--session-command'
 else:
-    SU_ARGUEMENT = '-c'
+    SU_ARGUMENT = '-c'
 
-SP_OS = FACILITY = ''
-proc = None
-# Try to read facility and os from studio environment
-if os.path.isfile('/usr/local/stdenv/.cshrc'):
-    proc = subprocess.Popen(
-        "csh -c 'unsetenv SP_PATH ; setenv CONSOLE 1 ; setenv HOME / ;"
-        " source /usr/local/stdenv/.cshrc ; echo $SP_OS $FACILITY'",
-        shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-elif os.path.isfile('/etc/csh.cshrc'):
-    # For maa on centos
-    proc = subprocess.Popen("csh -c 'source /etc/csh.cshrc ; echo $SP_OS $FACILITY'",
-                            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-# If we have a popen process and it has successfully been run,
-# get os and facility from result.
-if proc:
-    out, err = proc.communicate()
-    if proc.returncode == 0:
-        SP_OS, FACILITY = out.split()[-2:]
-
-if not 3 <= len(SP_OS) <= 10 or not re.match('^[A-Za-z0-9]*$', SP_OS):
-    if SP_OS:
-        logging.warning('SP_OS value of %s is out of allowed range' % SP_OS)
-    SP_OS = platform.system()
-
-if len(FACILITY) != 3 or not re.match('^[A-Za-z0-9]*$', FACILITY):
-    if FACILITY:
-        logging.warning('FACILITY value of %s is out of allowed range' % FACILITY)
-    FACILITY = DEFAULT_FACILITY
-
-# maa is small so decrease the ping in interval
-if FACILITY == 'maa':
-    RQD_MAX_PING_INTERVAL_SEC = 30
+SP_OS = platform.system()
 
 try:
     if os.path.isfile(CONFIG_FILE):
         # Hostname can come from here: rqutil.getHostname()
         __section = "Override"
-        import configparser
-        config = configparser.RawConfigParser()
-        logging.info('Loading config {}'.format(CONFIG_FILE))
+        import six
+        from six.moves import configparser
+        if six.PY2:
+            ConfigParser = configparser.SafeConfigParser
+        else:
+            ConfigParser = configparser.RawConfigParser
+        config = ConfigParser()
         config.read(CONFIG_FILE)
+        logging.warning('Loading config %s', CONFIG_FILE)
+
+        if config.has_option(__section, "RQD_GRPC_PORT"):
+            RQD_GRPC_PORT = config.getint(__section, "RQD_GRPC_PORT")
+        if config.has_option(__section, "CUEBOT_GRPC_PORT"):
+            CUEBOT_GRPC_PORT = config.getint(__section, "CUEBOT_GRPC_PORT")
         if config.has_option(__section, "OVERRIDE_CORES"):
             OVERRIDE_CORES = config.getint(__section, "OVERRIDE_CORES")
         if config.has_option(__section, "OVERRIDE_PROCS"):
@@ -174,18 +172,40 @@ try:
             CUEBOT_HOSTNAME = config.get(__section, "OVERRIDE_CUEBOT")
         if config.has_option(__section, "OVERRIDE_NIMBY"):
             OVERRIDE_NIMBY = config.getboolean(__section, "OVERRIDE_NIMBY")
+        if config.has_option(__section, "USE_NIMBY_PYNPUT"):
+            USE_NIMBY_PYNPUT = config.getboolean(__section, "USE_NIMBY_PYNPUT")
+        if config.has_option(__section, "OVERRIDE_HOSTNAME"):
+            OVERRIDE_HOSTNAME = config.get(__section, "OVERRIDE_HOSTNAME")
         if config.has_option(__section, "GPU"):
             ALLOW_GPU = config.getboolean(__section, "GPU")
-        if config.has_option(__section, "PLAYBLAST"):
-            ALLOW_PLAYBLAST = config.getboolean(__section, "PLAYBLAST")
         if config.has_option(__section, "LOAD_MODIFIER"):
             LOAD_MODIFIER = config.getint(__section, "LOAD_MODIFIER")
         if config.has_option(__section, "RQD_USE_IP_AS_HOSTNAME"):
             RQD_USE_IP_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IP_AS_HOSTNAME")
+        if config.has_option(__section, "RQD_USE_IPV6_AS_HOSTNAME"):
+            RQD_USE_IPV6_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IPV6_AS_HOSTNAME")
+        if config.has_option(__section, "RQD_USE_PATH_ENV_VAR"):
+            RQD_USE_PATH_ENV_VAR = config.getboolean(__section, "RQD_USE_PATH_ENV_VAR")
+        if config.has_option(__section, "RQD_BECOME_JOB_USER"):
+            RQD_BECOME_JOB_USER = config.getboolean(__section, "RQD_BECOME_JOB_USER")
+        if config.has_option(__section, "RQD_TAGS"):
+            RQD_TAGS = config.get(__section, "RQD_TAGS")
         if config.has_option(__section, "DEFAULT_FACILITY"):
             DEFAULT_FACILITY = config.get(__section, "DEFAULT_FACILITY")
         if config.has_option(__section, "LAUNCH_FRAME_USER_GID"):
             LAUNCH_FRAME_USER_GID = config.getint(__section, "LAUNCH_FRAME_USER_GID")
+        if config.has_option(__section, "CONSOLE_LOG_LEVEL"):
+            level = config.get(__section, "CONSOLE_LOG_LEVEL")
+            CONSOLE_LOG_LEVEL = logging.getLevelName(level)
+        if config.has_option(__section, "FILE_LOG_LEVEL"):
+            level = config.get(__section, "FILE_LOG_LEVEL")
+            FILE_LOG_LEVEL = logging.getLevelName(level)
+        if config.has_option(__section, "RQD_PREPEND_TIMESTAMP"):
+            RQD_PREPEND_TIMESTAMP = config.getboolean(__section, "RQD_PREPEND_TIMESTAMP")
+# pylint: disable=broad-except
 except Exception as e:
-    logging.warning("Failed to read values from config file %s due to %s at %s" % (CONFIG_FILE, e, traceback.extract_tb(sys.exc_info()[2])))
+    logging.warning(
+        "Failed to read values from config file %s due to %s at %s",
+        CONFIG_FILE, e, traceback.extract_tb(sys.exc_info()[2]))
 
+logging.warning("CUEBOT_HOSTNAME: %s", CUEBOT_HOSTNAME)

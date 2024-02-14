@@ -101,11 +101,12 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOST_NAME)
                 .setBootTime(1192369572)
-                .setFreeMcp(7602)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(15290520)
                 .setFreeSwap(2076)
                 .setLoad(1)
-                .setTotalMcp(19543)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem((int) CueUtil.GB16)
                 .setTotalSwap(2076)
                 .setNimbyEnabled(true)
@@ -114,8 +115,8 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addAllTags(ImmutableList.of("linux", "64bit"))
-                .putAttributes("freeGpu", "512")
-                .putAttributes("totalGpu", "512")
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         hostDao.insertRenderHost(host,

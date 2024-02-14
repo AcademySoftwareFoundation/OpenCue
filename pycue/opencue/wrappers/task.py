@@ -12,13 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-"""
-Project: opencue Library
-
-Module: task.py - opencue Library implementation of a task
-
-"""
+"""Module for classes related to tasks."""
 
 from opencue.compiled_proto import task_pb2
 from opencue.cuebot import Cuebot
@@ -32,18 +26,23 @@ class Task(object):
         self.stub = Cuebot.getStub('task')
 
     def id(self):
-        """Returns the task's unique id"""
+        """Returns the unique id of the task.
+
+        :rtype: str
+        :return: task id
+        """
         return self.data.id
 
     def setMinCores(self, minCores):
         """Sets the minimum amount of cores for the task.
 
         :type  minCores: int
-        :param minCores: the minimum number of cores the task needs"""
+        :param minCores: the minimum number of cores the task needs
+        """
         self.stub.SetMinCores(
             task_pb2.TaskSetMinCoresRequest(task=self.data, new_min_cores=minCores),
             timeout=Cuebot.Timeout)
 
     def delete(self):
-        """Deletes this task"""
+        """Deletes the task."""
         self.stub.Delete(task_pb2.TaskDeleteRequest(task=self.data), timeout=Cuebot.Timeout)

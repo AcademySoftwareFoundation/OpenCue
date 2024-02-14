@@ -19,18 +19,26 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
+import java.util.List;
+import java.util.ArrayList;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.VirtualProc;
 
 /**
  * A command for booking a host.
  *
  * @category command
  */
-public class DispatchBookHost implements Runnable  {
+public class DispatchBookHost extends KeyRunnable {
+    private static final Logger logger =
+            LogManager.getLogger(DispatchBookHost.class);
 
     private ShowInterface show = null;
     private GroupInterface group = null;
@@ -39,27 +47,32 @@ public class DispatchBookHost implements Runnable  {
     private Dispatcher dispatcher;
 
     public DispatchHost getDispatchHost() {
+        this.setKey(host.getId());
         return host;
     }
 
     public DispatchBookHost(DispatchHost host, Dispatcher d) {
+        super(host.getId());
         this.host = host;
         this.dispatcher = d;
     }
 
     public DispatchBookHost(DispatchHost host, JobInterface job, Dispatcher d) {
+        super(host.getId() + "_job_" + job.getJobId());
         this.host = host;
         this.job = job;
         this.dispatcher = d;
     }
 
     public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d) {
+        super(host.getId() + "_group_" + group.getGroupId());
         this.host = host;
         this.group = group;
         this.dispatcher = d;
     }
 
     public DispatchBookHost(DispatchHost host, ShowInterface show, Dispatcher d) {
+        super(host.getId() + "_name_" + show.getName());
         this.host = host;
         this.show = show;
         this.dispatcher = d;
@@ -82,14 +95,16 @@ public class DispatchBookHost implements Runnable  {
                 if (host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
                         Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_RESERVED_MIN)) {
+                        Dispatcher.GPU_UNITS_RESERVED_MIN,
+                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
                     dispatcher.dispatchHost(host);
                 }
 
                 if (host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
                         Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_RESERVED_MIN)) {
+                        Dispatcher.GPU_UNITS_RESERVED_MIN,
+                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
                     dispatcher.dispatchHostToAllShows(host);
                 }
             }
@@ -103,13 +118,14 @@ public class DispatchBookHost implements Runnable  {
 
     @Override
     public boolean equals(Object other) {
-       try {
-         DispatchBookHost that = (DispatchBookHost) other;
-         return that.host.name.equals(host.name);
-       }
-       catch (ClassCastException e) {
-         return false;
-       }
+        if (other == null) {
+            return false;
+        }
+        if (this.getClass() != other.getClass()) {
+            return false;
+        }
+        DispatchBookHost that = (DispatchBookHost) other;
+        return that.host.name.equals(host.name);
     };
 }
 

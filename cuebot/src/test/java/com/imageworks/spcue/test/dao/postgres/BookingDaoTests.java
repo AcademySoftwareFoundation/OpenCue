@@ -96,11 +96,12 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         RenderHost host = RenderHost.newBuilder()
                 .setName("test_host")
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem((int) CueUtil.GB16)
                 .setTotalSwap((int) CueUtil.GB16)
                 .setNimbyEnabled(false)
@@ -109,8 +110,8 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addTags("general")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
         DispatchHost dh = hostManager.createHost(host);
         hostManager.setAllocation(dh,
@@ -138,7 +139,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         LocalHostAssignment lja = new LocalHostAssignment();
         lja.setMaxCoreUnits(200);
         lja.setMaxMemory(CueUtil.GB4);
-        lja.setMaxGpu(1);
+        lja.setMaxGpuMemory(1);
         lja.setThreads(2);
 
         bookingDao.insertLocalHostAssignment(h, j, lja);
@@ -149,7 +150,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 Integer.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_max FROM host_local WHERE pk_job=?",
+                "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
                 Integer.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
@@ -161,7 +162,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 Long.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_max FROM host_local WHERE pk_job=?",
+                "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
                 Integer.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
@@ -185,7 +186,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         LocalHostAssignment lja = new LocalHostAssignment();
         lja.setMaxCoreUnits(200);
         lja.setMaxMemory(CueUtil.GB4);
-        lja.setMaxGpu(1);
+        lja.setMaxGpuMemory(1);
         lja.setThreads(2);
 
         bookingDao.insertLocalHostAssignment(h, layer, lja);
@@ -212,7 +213,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 Long.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_max FROM host_local WHERE pk_job=?",
+                "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
                 Integer.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
@@ -237,7 +238,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         LocalHostAssignment lja = new LocalHostAssignment();
         lja.setMaxCoreUnits(200);
         lja.setMaxMemory(CueUtil.GB4);
-        lja.setMaxGpu(1);
+        lja.setMaxGpuMemory(1);
         lja.setThreads(2);
 
         bookingDao.insertLocalHostAssignment(h, frame, lja);
@@ -264,7 +265,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 Long.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_max FROM host_local WHERE pk_job=?",
+                "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
                 Integer.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
@@ -288,7 +289,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         lja.setMaxCoreUnits(200);
         lja.setMaxMemory(CueUtil.GB4);
         lja.setThreads(2);
-        lja.setMaxGpu(1);
+        lja.setMaxGpuMemory(1);
 
         bookingDao.insertLocalHostAssignment(h, j, lja);
 
@@ -297,7 +298,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         assertEquals(lja.getMaxCoreUnits(), lja2.getMaxCoreUnits());
         assertEquals(lja.getMaxMemory(), lja2.getMaxMemory());
-        assertEquals(lja.getMaxGpu(), lja2.getMaxGpu());
+        assertEquals(lja.getMaxGpuMemory(), lja2.getMaxGpuMemory());
         assertEquals(lja.getThreads(), lja2.getThreads());
 
     }
@@ -314,7 +315,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         lja.setMaxCoreUnits(200);
         lja.setMaxMemory(CueUtil.GB4);
         lja.setThreads(2);
-        lja.setMaxGpu(1);
+        lja.setMaxGpuMemory(1);
 
         bookingDao.insertLocalHostAssignment(h, j, lja);
 
@@ -324,7 +325,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         assertEquals(lja.getMaxCoreUnits(), lja2.getMaxCoreUnits());
         assertEquals(lja.getMaxMemory(), lja2.getMaxMemory());
         assertEquals(lja.getThreads(), lja2.getThreads());
-        assertEquals(lja.getMaxGpu(), lja2.getMaxGpu());
+        assertEquals(lja.getMaxGpuMemory(), lja2.getMaxGpuMemory());
 
         RenderPartition rp = whiteboard.getRenderPartition(lja2);
 
@@ -332,9 +333,9 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         assertEquals(lja2.getMaxMemory(), rp.getMaxMemory());
         assertEquals(lja2.getThreads(), rp.getThreads());
         logger.info("--------------------");
-        logger.info(lja2.getMaxGpu());
-        logger.info(rp.getMaxGpu());
-        assertEquals(lja2.getMaxGpu(), rp.getMaxGpu());
+        logger.info(lja2.getMaxGpuMemory());
+        logger.info(rp.getMaxGpuMemory());
+        assertEquals(lja2.getMaxGpuMemory(), rp.getMaxGpuMemory());
         assertEquals(h.getName(), rp.getHost());
         assertEquals(j.getName(), rp.getJob());
     }
@@ -351,7 +352,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         lja.setMaxCoreUnits(200);
         lja.setMaxMemory(CueUtil.GB4);
         lja.setThreads(2);
-        lja.setMaxGpu(1);
+        lja.setMaxGpuMemory(1);
 
         bookingDao.insertLocalHostAssignment(h, j, lja);
 
@@ -370,7 +371,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         lja.setMaxCoreUnits(200);
         lja.setMaxMemory(CueUtil.GB4);
         lja.setThreads(2);
-        lja.setMaxGpu(1);
+        lja.setMaxGpuMemory(1);
 
         bookingDao.insertLocalHostAssignment(h, j, lja);
         assertTrue(bookingDao.updateMaxCores(lja, 100));
@@ -403,7 +404,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         lja.setMaxCoreUnits(200);
         lja.setMaxMemory(CueUtil.GB4);
         lja.setThreads(2);
-        lja.setMaxGpu(1);
+        lja.setMaxGpuMemory(1);
 
         bookingDao.insertLocalHostAssignment(h, j, lja);
         bookingDao.updateMaxMemory(lja, CueUtil.GB2);
@@ -424,7 +425,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
     @Test
     @Transactional
     @Rollback(true)
-    public void updateMaxGpu() {
+    public void updateMaxGpuMemory() {
 
         DispatchHost h = createHost();
         JobDetail j = launchJob();
@@ -433,7 +434,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         lja.setMaxCoreUnits(200);
         lja.setMaxMemory(CueUtil.GB4);
         lja.setThreads(2);
-        lja.setMaxGpu(1);
+        lja.setMaxGpuMemory(1);
 
         bookingDao.insertLocalHostAssignment(h, j, lja);
         bookingDao.updateMaxMemory(lja, CueUtil.GB2);
@@ -442,15 +443,15 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         assertEquals(CueUtil.GB2, lj2.getIdleMemory());
         assertEquals(CueUtil.GB2, lj2.getMaxMemory());
-        assertEquals(1, lj2.getMaxGpu());
+        assertEquals(1, lj2.getMaxGpuMemory());
 
-        bookingDao.updateMaxGpu(lja, 2);
+        bookingDao.updateMaxGpuMemory(lja, 2);
 
         lj2 = bookingDao.getLocalJobAssignment(lja.id);
 
         assertEquals(CueUtil.GB2, lj2.getIdleMemory());
         assertEquals(CueUtil.GB2, lj2.getMaxMemory());
-        assertEquals(2, lj2.getMaxGpu());
+        assertEquals(2, lj2.getMaxGpuMemory());
     }
 }
 

@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
+import javax.annotation.PostConstruct;
 import javax.mail.BodyPart;
 import javax.mail.Message;
 import javax.mail.Session;
@@ -45,18 +46,27 @@ import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.util.ByteArrayDataSource;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.springframework.core.env.Environment;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.SpcueRuntimeException;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 
+
 /**
  * CueUtil is set of common methods used throughout the application.
  */
+@Component
 public final class CueUtil {
 
-    private static final Logger logger = Logger.getLogger(CueUtil.class);
+    private static final Logger logger = LogManager.getLogger(CueUtil.class);
+    private static String smtpHost = "";
+    @Autowired
+    private Environment env;
 
     /**
      * Commonly used macros for gigabyte values in KB.
@@ -65,11 +75,11 @@ public final class CueUtil {
     public static final long MB256 = 262144;
     public static final long MB512 = 524288;
     public static final long GB = 1048576;
-    public static final long GB2 = 1048576 * 2;
-    public static final long GB4 = 1048576 * 4;
-    public static final long GB8 = 1048576 * 8;
-    public static final long GB16 = 1048576 * 16;
-    public static final long GB32 = 1048576 * 32;
+    public static final long GB2 = 1048576L * 2;
+    public static final long GB4 = 1048576L * 4;
+    public static final long GB8 = 1048576L * 8;
+    public static final long GB16 = 1048576L * 16;
+    public static final long GB32 = 1048576L * 32;
 
     /**
      * Features that relay on an integer greated than 0 to work
@@ -86,6 +96,11 @@ public final class CueUtil {
      * One hour of time in seconds.
      */
     public static final int ONE_HOUR = 3600;
+
+    @PostConstruct
+    public void init() {
+        CueUtil.smtpHost = this.env.getRequiredProperty("smtp_host", String.class);
+    }
 
     /**
      * Return true if the given name is formatted as a valid
@@ -156,7 +171,7 @@ public final class CueUtil {
     public static void sendmail(String to, String from, String subject, StringBuilder body, Map<String, byte[]> images) {
         try {
             Properties props = System.getProperties();
-            props.put("mail.smtp.host", "smtp");
+            props.put("mail.smtp.host", CueUtil.smtpHost);
             Session session = Session.getDefaultInstance(props, null);
             Message msg = new MimeMessage(session);
             msg.setFrom(new InternetAddress(from));
@@ -188,6 +203,8 @@ public final class CueUtil {
             msg.setContent(mimeMultipart);
             msg.setHeader("X-Mailer", "OpenCueMailer");
             msg.setSentDate(new Date());
+            Transport transport = session.getTransport("smtp");
+            transport.connect(CueUtil.smtpHost, null, null);
             Transport.send(msg);
         }
         catch (Exception e) {
@@ -207,11 +224,11 @@ public final class CueUtil {
         return String.format("%dMB", kb / 1024);
     }
 
-    public static final long convertKbToFakeKb64bit(int Kb) {
+    public static final long convertKbToFakeKb64bit(long Kb) {
         return (long) (Math.ceil((Kb * 0.0009765625) * 0.0009765625) * 1048576) - Dispatcher.MEM_RESERVED_SYSTEM;
     }
 
-    public static final long convertKbToFakeKb32bit(int Kb) {
+    public static final long convertKbToFakeKb32bit(long Kb) {
         return (long) (Math.floor((Kb * 0.0009765625) * 0.0009765625) * 1048576) - Dispatcher.MEM_RESERVED_SYSTEM;
     }
 
@@ -235,10 +252,10 @@ public final class CueUtil {
         return String.format("%04d-%s", num, layer.getName());
     }
 
-    public final static String buildProcName(String host, int cores) {
-        return String.format(Locale.ROOT, "%s/%4.2f", host, Convert.coreUnitsToCores(cores));
-
+    public final static String buildProcName(String host, int cores, int gpus) {
+        return String.format(Locale.ROOT, "%s/%4.2f/%d", host, Convert.coreUnitsToCores(cores), gpus);
     }
+
     /**
      * for logging how long an operation took
      *
@@ -351,5 +368,17 @@ public final class CueUtil {
         return Collections.unmodifiableList(
                 new ArrayList<Integer>(result));
     }
-}
 
+    /**
+     * Get "{prefix}.{key}" property int value
+     *
+     * @param env
+     * @param prefix  Example "dispatcher.report_queue"
+     * @param key     Example "core_pool_size"
+     */
+    public static int getIntProperty(Environment env, String prefix, String key)
+            throws IllegalStateException {
+        Integer value = env.getRequiredProperty(prefix + "." + key, Integer.class);
+        return value.intValue();
+    }
+}

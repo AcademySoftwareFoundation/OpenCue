@@ -1,0 +1,224 @@
+#!/usr/bin/env python
+import time
+
+import opencue
+
+from prometheus_client import start_http_server
+from prometheus_client import Gauge
+
+
+WEB_SERVICE_PORT = 8302
+REPORT_INTERVAL_SECONDS = 30
+
+
+CLUE_HOSTS_HARDWARE = Gauge('cue_hosts_hardware_total', 'hosts hardware status', ['status'])
+CLUE_HOSTS_LOCK = Gauge('cue_hosts_lock_total', 'hosts lock status', ['status'])
+CLUE_PROCS = Gauge('cue_procs_total', 'number of Procs')
+CLUE_PROCS_USABLE = Gauge('cue_procs_usable_total', 'number of usable Procs')
+CLUE_PROCS_USED = Gauge('cue_procs_used_total', 'number of Procs currently in use')
+
+CLUE_FRAMES_PER_SHOW = Gauge('cue_frames', 'number of frames ', ['status', 'show'])
+CLUE_FRAMES_LIMIT_PER_SHOW = Gauge('cue_frames_limit', 'number of limits', ['limit', 'status', 'show'])
+CLUE_REMAIN_FRAME_PER_SHOW = Gauge('cue_remain', 'remaining core seconds (estimated) ', ['show'])
+
+CLUE_LIMITS = Gauge('cue_limits', 'limit stats ', ['name', 'value'])
+CLUE_LIMITS_CAPACITY = Gauge('cue_limits_capacity', 'limits capacity ', ['name'])
+
+MANAGE_WAITING = Gauge('cue_manage_waiting_total', '')
+MANAGE_REMAINING_CAPACITY = Gauge('cue_manage_remaining_capacity_total', '')
+MANAGE_THREADS = Gauge('cue_manage_threads_total', '')
+MANAGE_EXECUTED = Gauge('cue_manage_executed_total', '')
+MANAGE_REJECTED = Gauge('cue_manage_rejected_total', '')
+DISPATCH_WAITING = Gauge('cue_dispatch_waiting_total', '')
+DISPATCH_REMAINING_CAPACITY = Gauge('cue_dispatch_remaining_capacity_total', '')
+DISPATCH_THREADS = Gauge('cue_dispatch_threads_total', '')
+DISPATCH_EXECUTED = Gauge('cue_dispatch_executed_total', '')
+DISPATCH_REJECTED = Gauge('cue_dispatch_rejected_total', '')
+REPORT_WAITING = Gauge('cue_report_waiting_total', '')
+REPORT_REMAINING_CAPACITY  = Gauge('cue_report_remaining_capacity_total', '')
+REPORT_THREADS  = Gauge('cue_report_threads_total', '')
+REPORT_EXECUTED = Gauge('cue_report_executed_total', '')
+REPORT_REJECTED = Gauge('cue_report_rejected_total', '')
+BOOKING_WAITING = Gauge('cue_booking_waiting_total', '')
+BOOKING_REMAINING_CAPACITY  = Gauge('cue_booking_remaining_capacity_total', '')
+BOOKING_THREADS = Gauge('cue_booking_threads_total', '')
+BOOKING_SLEEP_MILLIS = Gauge('cue_booking_sleep_millis_total', '')
+BOOKING_EXECUTED = Gauge('cue_booking_executed_total', '')
+BOOKING_REJECTED = Gauge('cue_booking_rejected_total', '')
+HOST_BALANCE_SUCCESS = Gauge('cue_host_balance_success_total', '')
+HOST_BALANCE_FAILED = Gauge('cue_host_balance_failed_total', '')
+KILLED_OFFENDER_PROCS = Gauge('cue_killed_offender_procs_total', '')
+KILLED_OOM_PROCS = Gauge('cue_killed_oom_procs_total', '')
+CLEARED_PROCS = Gauge('cue_cleared_procs_total', '')
+BOOKING_ERRORS = Gauge('cue_booking_errors_total', '')
+BOOKING_RETRIES = Gauge('cue_booking_retries_total', '')
+BOOKED_PROCS = Gauge('cue_booked_procs_total', '')
+REQ_FOR_DATA = Gauge('cue_req_for_data_total', '')
+REQ_FOR_FUNCTION = Gauge('cue_req_for_function_total', '')
+REQ_ERRORS = Gauge('cue_req_errors_total', '')
+UNBOOKED_PROCS = Gauge('cue_unbooked_procs_total', '')
+PICKED_UP_CORES = Gauge('cue_picked_up_cores_total', '')
+STRANDED_CORES = Gauge('cue_stranded_cores_total', '')
+
+
+def main():
+    default_frame_stats = {
+        'pending': 0,
+        'dead': 0,
+        'eaten': 0,
+        'succeeded': 0,
+        'running': 0
+        }
+
+    while True:
+        jobs = opencue.api.getJobs()
+        shows = {}
+        shows_remaining = {}
+        limits = {}
+
+        for job in jobs:
+            show = job.show()
+            if show not in shows:
+                shows[show] = default_frame_stats.copy()
+
+            if show not in shows_remaining:
+                shows_remaining[show] = 0
+
+            if show not in limits:
+                limits[show] = {}
+
+            shows[show]['pending'] += job.pendingFrames()
+            shows[show]['dead'] += job.deadFrames()
+            shows[show]['eaten'] += job.eatenFrames()
+            shows[show]['succeeded'] += job.succeededFrames()
+            shows[show]['running'] += job.runningFrames()
+
+            shows_remaining[show] += job.coreSecondsRemaining()
+
+            show_limits = limits[show]
+            for layer in job.getLayers():
+                for limit in layer.limits():
+                    if limit not in show_limits:
+                        show_limits[limit] = default_frame_stats.copy()
+
+                    show_limits[limit]['pending'] += layer.pendingFrames()
+                    show_limits[limit]['dead'] += layer.deadFrames()
+                    show_limits[limit]['eaten'] += layer.eatenFrames()
+                    show_limits[limit]['succeeded'] += layer.succeededFrames()
+                    show_limits[limit]['running'] += layer.runningFrames()
+
+        for show in shows:
+            for frame_status, frame_count in shows[show].items():
+                CLUE_FRAMES_PER_SHOW.labels(status=frame_status, show=show).set(frame_count)
+
+            for limit, frame_stats in limits[show].items():
+                for status, frame_count in frame_stats.items():
+                    CLUE_FRAMES_LIMIT_PER_SHOW.labels(limit=limit, status=status, show=show).set(frame_count)
+
+        for show in shows_remaining:
+            CLUE_REMAIN_FRAME_PER_SHOW.labels(show=show).set(shows_remaining[show])
+
+        for limit in opencue.api.getLimits():
+            limit_name = limit.name()
+            current_running = limit.currentRunning()
+            max_value = limit.maxValue()
+            CLUE_LIMITS.labels(name=limit_name, value='current_running').set(current_running)
+            CLUE_LIMITS.labels(name=limit_name, value='max').set(max_value)
+            CLUE_LIMITS_CAPACITY.labels(name=limit_name).set(current_running/(max_value or 1) * 100.)
+
+        # Handle the Host information
+        hosts = opencue.api.getHosts()
+        down_hosts = up_hosts = 0
+        open_hosts = locked_hosts = nimby_locked_hosts = 0
+        repair_hosts = rebooting_hosts = reboot_when_idle_hosts = shutdown_when_idle_hosts = 0
+        total_procs = used_procs = usable_procs = 0
+
+        for host in hosts:
+            lstate = host.lockState()
+            if lstate == 0:
+                open_hosts += 1
+            elif lstate == 1:
+                locked_hosts += 1
+            elif lstate == 2:
+                nimby_locked_hosts += 1
+
+            state = host.state()
+            if state == 5:
+                repair_hosts += 1
+            elif state == 4:
+                shutdown_when_idle_hosts += 1
+            elif state == 3:
+                reboot_when_idle_hosts += 1
+            elif state == 2:
+                rebooting_hosts += 1
+
+            if host.isUp():
+                up_hosts += 1
+                if not host.isLocked():
+                    usable_procs += host.cores()
+                    used_procs += host.cores() - host.coresIdle()
+            else:
+                down_hosts += 1
+
+            total_procs += host.cores()
+
+        CLUE_HOSTS_LOCK.labels(status='open').set(open_hosts)
+        CLUE_HOSTS_LOCK.labels(status='locked').set(locked_hosts)
+        CLUE_HOSTS_LOCK.labels(status='nimby_locked').set(nimby_locked_hosts)
+
+        CLUE_HOSTS_HARDWARE.labels(status='up').set(up_hosts)
+        CLUE_HOSTS_HARDWARE.labels(status='down').set(down_hosts)
+        CLUE_HOSTS_HARDWARE.labels(status='repair').set(repair_hosts)
+        CLUE_HOSTS_HARDWARE.labels(status='rebooting').set(rebooting_hosts)
+        CLUE_HOSTS_HARDWARE.labels(status='reboot_when_idle').set(reboot_when_idle_hosts)
+        CLUE_HOSTS_HARDWARE.labels(status='shutdown_when_idle').set(shutdown_when_idle_hosts)
+
+        CLUE_PROCS_USABLE.set(usable_procs)
+        CLUE_PROCS_USED.set(used_procs)
+        CLUE_PROCS.set(total_procs)
+
+        # Apply the scheduler system stats.
+        system_stats = opencue.api.getSystemStats()
+
+        MANAGE_WAITING.set(system_stats.manage_waiting)
+        MANAGE_REMAINING_CAPACITY.set(system_stats.manage_remaining_capacity)
+        MANAGE_THREADS.set(system_stats.manage_threads)
+        MANAGE_EXECUTED.set(system_stats.manage_executed)
+        MANAGE_REJECTED.set(system_stats.manage_rejected)
+        DISPATCH_WAITING.set(system_stats.dispatch_waiting)
+        DISPATCH_REMAINING_CAPACITY.set(system_stats.dispatch_remaining_capacity)
+        DISPATCH_THREADS.set(system_stats.dispatch_threads)
+        DISPATCH_EXECUTED.set(system_stats.dispatch_executed)
+        DISPATCH_REJECTED.set(system_stats.dispatch_rejected)
+        REPORT_WAITING.set(system_stats.report_waiting)
+        REPORT_REMAINING_CAPACITY.set(system_stats.report_remaining_capacity)
+        REPORT_THREADS.set(system_stats.report_threads)
+        REPORT_EXECUTED.set(system_stats.report_executed)
+        REPORT_REJECTED.set(system_stats.report_rejected)
+        BOOKING_WAITING.set(system_stats.booking_waiting)
+        BOOKING_REMAINING_CAPACITY.set(system_stats.booking_remaining_capacity)
+        BOOKING_THREADS.set(system_stats.booking_threads)
+        BOOKING_SLEEP_MILLIS.set(system_stats.booking_sleep_millis)
+        BOOKING_EXECUTED.set(system_stats.booking_executed)
+        BOOKING_REJECTED.set(system_stats.booking_rejected)
+        HOST_BALANCE_SUCCESS.set(system_stats.host_balance_success)
+        HOST_BALANCE_FAILED.set(system_stats.host_balance_failed)
+        KILLED_OFFENDER_PROCS.set(system_stats.killed_offender_procs)
+        KILLED_OOM_PROCS.set(system_stats.killed_oom_procs)
+        CLEARED_PROCS.set(system_stats.cleared_procs)
+        BOOKING_ERRORS.set(system_stats.booking_errors)
+        BOOKING_RETRIES.set(system_stats.booking_retries)
+        BOOKED_PROCS.set(system_stats.booked_procs)
+        REQ_FOR_DATA.set(system_stats.req_for_data)
+        REQ_FOR_FUNCTION.set(system_stats.req_for_function)
+        REQ_ERRORS.set(system_stats.req_errors)
+        UNBOOKED_PROCS.set(system_stats.unbooked_procs)
+        PICKED_UP_CORES.set(system_stats.picked_up_cores)
+        STRANDED_CORES.set(system_stats.stranded_cores)
+
+        time.sleep(REPORT_INTERVAL_SECONDS)
+
+
+if __name__ == '__main__':
+    start_http_server(WEB_SERVICE_PORT)
+    main()

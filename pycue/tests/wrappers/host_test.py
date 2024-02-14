@@ -14,19 +14,22 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.wrappers.host`."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 import os
-import mock
 import unittest
 
-import opencue
+import mock
+
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import facility_pb2
 from opencue.compiled_proto import host_pb2
 from opencue.compiled_proto import renderPartition_pb2
+import opencue.wrappers.allocation
+import opencue.wrappers.host
 
 
 TEST_HOST_NAME = 'testHost'

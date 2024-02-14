@@ -14,15 +14,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.wrappers.owner`."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-import mock
 import unittest
 
-import opencue
+import mock
+
 from opencue.compiled_proto import host_pb2
+import opencue.wrappers.owner
 
 
 TEST_DEED_ID = 'ddd-dd-dddd'
@@ -30,7 +32,6 @@ TEST_HOST_ID = 'hhh-hh-hhhh'
 TEST_OWNER_ID = 'ooo-oo-oooo'
 TEST_OWNER_NAME = 'testOwner'
 TEST_SHOW_NAME = 'testShow'
-
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub')

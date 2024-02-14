@@ -78,6 +78,11 @@ public interface DispatchSupport {
     static final AtomicLong bookedCores = new AtomicLong(0);
 
     /**
+     * Long for counting how many gpus have been booked
+     */
+    static final AtomicLong bookedGpus = new AtomicLong(0);
+
+    /**
      * Long for counting how many procs have been booked
      */
     static final AtomicLong bookedProcs = new AtomicLong(0);
@@ -121,6 +126,16 @@ public interface DispatchSupport {
      * Count number of stranded cores.
      */
     static final AtomicLong strandedCoresCount = new AtomicLong(0);
+
+    /**
+     * Count number of picked up gpus.
+     */
+    static final AtomicLong pickedUpGpusCount = new AtomicLong(0);
+
+    /**
+     * Count number of stranded gpus.
+     */
+    static final AtomicLong strandedGpusCount = new AtomicLong(0);
 
     /**
      * Set the proc's frame assignment to null;
@@ -291,7 +306,7 @@ public interface DispatchSupport {
      * @param host
      * @return
      */
-    Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs);
+    List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs);
 
     /**
      * Returns the highest priority job that can utilize
@@ -300,7 +315,7 @@ public interface DispatchSupport {
      * @param host
      * @return
      */
-    Set<String> findDispatchJobs(DispatchHost host, int numJobs);
+    List<String> findDispatchJobs(DispatchHost host, int numJobs);
 
     /**
      * Returns the highest priority jobs that can utilize
@@ -309,7 +324,7 @@ public interface DispatchSupport {
      * @param host
      * @return  A set of unique job ids.
      */
-    Set<String> findDispatchJobs(DispatchHost host, GroupInterface p);
+    List<String> findDispatchJobs(DispatchHost host, GroupInterface p);
 
     /**
      *
@@ -401,13 +416,23 @@ public interface DispatchSupport {
     void clearFrame(DispatchFrame frame);
 
     /**
-     * Update memory usage data for the given frame.
+     * Sets the frame state exitStatus to EXIT_STATUS_MEMORY_FAILURE
+     *
+     * @param frame
+     * @return whether the frame has been updated
+     */
+    boolean updateFrameMemoryError(FrameInterface frame);
+
+    /**
+     * Update Memory usage data and LLU time for the given frame.
      *
      * @param frame
      * @param rss
      * @param maxRss
+     * @param lluTime
      */
-    void updateFrameMemoryUsage(FrameInterface frame, long rss, long maxRss);
+    void updateFrameMemoryUsageAndLluTime(FrameInterface frame, long rss, long maxRss,
+                                          long lluTime);
 
     /**
      * Update memory usage data for a given frame's proc record.  The
@@ -419,9 +444,12 @@ public interface DispatchSupport {
      * @param maxRss
      * @param vsize
      * @param maxVsize
+     * @param usedGpuMemory
+     * @param maxUsedGpuMemory
      */
-    void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss, long vsize,
-                               long maxVsize);
+    void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss,
+                               long vsize, long maxVsize, long usedGpuMemory,
+                               long maxUsedGpuMemory, byte[] children);
 
     /**
      * Return true if adding the given core units would put the show
@@ -448,7 +476,7 @@ public interface DispatchSupport {
      * @param job
      * @return
      */
-    boolean isJobBookable(JobInterface job, int coreUnits);
+    boolean isJobBookable(JobInterface job, int coreUnits, int gpuUnits);
 
     /**
      * Return true if the specified show is at or over its
@@ -504,14 +532,14 @@ public interface DispatchSupport {
     void determineIdleCores(DispatchHost host, int load);
 
     /**
-     * Return a set of job IDs that can take the given host.
+     * Return a list of job IDs that can take the given host.
      *
      * @param host
      * @param show
      * @param numJobs
      * @return
      */
-    Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
+    List<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
 
     /**
      * Return true of the job has pending frames.
@@ -528,6 +556,13 @@ public interface DispatchSupport {
      * @return
      */
     boolean hasPendingFrames(LayerInterface layer);
+
+    /**
+     * Clear bookableShows cache
+     *
+     * @return
+     */
+    void clearCache();
 
 }
 

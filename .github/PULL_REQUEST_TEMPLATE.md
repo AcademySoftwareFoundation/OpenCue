@@ -12,4 +12,8 @@ It's also helpful to describe **why** you're making this change.
 <!--
 For a step-by-step list to walk you through the pull request process, see
 https://www.opencue.io/contributing/.
+
+Please add unit tests for any new code. This helps our project maintain code quality and ensure
+future changes don't break anything. If you're stuck on this or not sure how to proceed, feel
+free to create a Draft Pull Request and ask one of the OpenCue committers for advice.
 -->

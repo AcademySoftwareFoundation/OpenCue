@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-A Widget for displaying and editing Tags
-"""
+"""A Widget for displaying and editing tags."""
 
 
 from __future__ import absolute_import
@@ -25,18 +23,18 @@ from __future__ import division
 from builtins import str
 import re
 
-from PySide2 import QtWidgets
+from qtpy import QtWidgets
 
 import cuegui.AbstractDialog
 import cuegui.Constants
 
 
 class TagsWidget(QtWidgets.QWidget):
-    """
-    A Widget for displaying and editing Tags.Includes checkboxes for the given
-    list of standard tag options, and a textfield for the user to enter one or
-    more custom tags
-    """
+    """A Widget for displaying and editing tags.
+
+    Includes checkboxes for the given list of standard tag options, and a textfield for the
+    user to enter one or more custom tags."""
+
     def __init__(self, allowed_tags=None, parent=None):
         """
         A Widget for displaying and editing Tags
@@ -63,7 +61,7 @@ class TagsWidget(QtWidgets.QWidget):
         self.__enable_custom = QtWidgets.QCheckBox('Custom Tags', self)
         self.__custom = QtWidgets.QLineEdit(self)
         self.__custom.setDisabled(True)
-        self.__enable_custom.toggled.connect(self.toggleCustom)
+        self.__enable_custom.toggled.connect(self.toggleCustom)  # pylint: disable=no-member
         layout.addWidget(self.__enable_custom)
         layout.addWidget(self.__custom)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -127,7 +125,7 @@ class TagsWidget(QtWidgets.QWidget):
 
         if self.__enable_custom.isChecked():
             tags = str(self.__custom.text())
-            tags = re.split('[\s,|]+', tags)
+            tags = re.split(r'[\s,|]+', tags)
         else:
             tags = [str(t.text()) for t in self.standard_tags.checkedBoxes()]
         return [tag.strip() for tag in tags if tag.strip().isalnum()]

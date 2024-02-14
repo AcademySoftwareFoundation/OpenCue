@@ -14,17 +14,21 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.wrappers.frame`."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-import mock
 import time
 import unittest
 
-import opencue
+import mock
+
 from opencue.compiled_proto import depend_pb2
 from opencue.compiled_proto import job_pb2
+import opencue.wrappers.frame
+import opencue.wrappers.job
+import opencue.wrappers.layer
 
 
 TEST_FRAME_NAME = 'testFrame'
@@ -202,9 +206,9 @@ class FrameEnumTests(unittest.TestCase):
         self.assertEqual(opencue.api.Frame.CheckpointState.DISABLED, 0)
 
     def testFrameExitStatus(self):
-        self.assertEqual(opencue.api.Frame.FrameExitStatus.NO_RETRY,
-                         opencue.compiled_proto.job_pb2.NO_RETRY)
-        self.assertEqual(opencue.api.Frame.FrameExitStatus.NO_RETRY, 256)
+        self.assertEqual(opencue.api.Frame.FrameExitStatus.FAILED_LAUNCH,
+                         opencue.compiled_proto.job_pb2.FAILED_LAUNCH)
+        self.assertEqual(opencue.api.Frame.FrameExitStatus.FAILED_LAUNCH, 256)
 
     def testFrameState(self):
         self.assertEqual(opencue.api.Frame.FrameState.RUNNING,

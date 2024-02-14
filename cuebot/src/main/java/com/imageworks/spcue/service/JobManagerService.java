@@ -22,7 +22,8 @@ package com.imageworks.spcue.service;
 import java.util.List;
 
 import com.google.common.collect.Sets;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,11 +66,12 @@ import com.imageworks.spcue.grpc.limit.Limit;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 import com.imageworks.spcue.util.JobLogUtil;
+import com.imageworks.spcue.util.Convert;
 
 @Transactional
 public class JobManagerService implements JobManager {
 
-    private static final Logger logger = Logger.getLogger(JobManagerService.class);
+    private static final Logger logger = LogManager.getLogger(JobManagerService.class);
 
     private JobDao jobDao;
     private ShowDao showDao;
@@ -173,6 +175,13 @@ public class JobManagerService implements JobManager {
         for (BuildableJob job: spec.getJobs()) {
 
             JobDetail d = createJob(job);
+            if (job.maxCoresOverride != null) {
+                jobDao.updateMaxCores(d,
+                    Convert.coresToWholeCoreUnits(job.maxCoresOverride.intValue()));
+            }
+            if (job.maxGpusOverride != null) {
+                jobDao.updateMaxGpus(d, job.maxGpusOverride.intValue());
+            }
             if (job.getPostJob() != null) {
                 BuildableJob postJob = job.getPostJob();
                 postJob.env.put("CUE_PARENT_JOB_ID", d.id);
@@ -276,6 +285,10 @@ public class JobManagerService implements JobManager {
                         .forEach(ln -> addLayerLimit(layer, limitDao.findLimit(ln).getLimitId()));
                 frameDao.insertFrames(layer, frames);
             }
+
+            // The priority of a job is set on it's resource entry.
+            // To update it we set the priority after it's been inserted.
+            jobDao.updatePriority(job, job.priority);
 
             /*
              * Finally, run any filters on the job which may set the job's
@@ -444,6 +457,16 @@ public class JobManagerService implements JobManager {
     @Override
     public void setLayerMaxCores(LayerInterface layer, int coreUnits) {
         layerDao.updateLayerMaxCores(layer, coreUnits);
+    }
+
+    @Override
+    public void setLayerMinGpus(LayerInterface layer, int gpu) {
+        layerDao.updateLayerMinGpus(layer, gpu);
+    }
+
+    @Override
+    public void setLayerMaxGpus(LayerInterface layer, int gpu) {
+        layerDao.updateLayerMaxGpus(layer, gpu);
     }
 
     @Override

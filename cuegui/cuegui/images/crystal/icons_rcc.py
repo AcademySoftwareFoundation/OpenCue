@@ -15,13 +15,15 @@
 
 # -*- coding: utf-8 -*-
 
+# pylint: disable=missing-function-docstring,missing-module-docstring
+
 # Resource object code
 #
 # Created by: The Resource Compiler for PyQt (Qt v4.6.2)
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide2 import QtCore
+from qtpy import QtCore
 
 qt_resource_data = b"\
 \x00\x00\x02\xfc\

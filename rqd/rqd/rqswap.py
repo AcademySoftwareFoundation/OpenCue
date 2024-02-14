@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-Utility classes and functions to get virtual memory page out number.
-"""
+"""Utility classes and functions to get virtual memory page out number."""
 
 
 from __future__ import with_statement
@@ -26,33 +24,27 @@ from __future__ import absolute_import
 from builtins import str
 from builtins import range
 from builtins import object
-import logging as log
+import logging
 import re
 import threading
 import time
 
 
+log = logging.getLogger(__name__)
 PGPGOUT_RE = re.compile(r"^pgpgout (\d+)")
 
 
 class VmStatException(Exception):
-    """
-    Something for clients to catch if something
-    goes wrong in here.
-    """
-    pass
+    """Something for clients to catch if something goes wrong in here."""
 
 
 class SampleData(object):
-    """
-    Sample data container.
-    """
+    """Sample data container."""
 
     def __init__(self, epochTime, pgoutNum):
         """
         Constructor.
         """
-
         self.__epochTimeInSecond = epochTime
         self.__pgpgout = pgoutNum
 
@@ -60,9 +52,7 @@ class SampleData(object):
         """
         Return string representation.
         """
-
-        return "(" + str(self.__epochTimeInSecond) + ", " + \
-            str(self.__pgpgout) + ")"
+        return "(" + str(self.__epochTimeInSecond) + ", " + str(self.__pgpgout) + ")"
 
     def get_epoch_time(self):
         """
@@ -100,6 +90,7 @@ class RepeatedTimer(threading.Thread):
                                         self.__kwargs)
                 timer.start()
                 timer.join()
+            # pylint: disable=broad-except
             except Exception:
                 # Catch all exceptions here.
                 pass
@@ -147,7 +138,7 @@ class VmStat(object):
                         pgpgoutNum = int(matchObj.group(1))
                         break
         except IOError:
-            log.warn("Failed to open /proc/vmstat file.")
+            log.warning("Failed to open /proc/vmstat file.")
 
         if foundPgpgout:
             with self.__lock:
@@ -155,9 +146,10 @@ class VmStat(object):
                                                      pgpgoutNum))
                 del self.__sampleData[:-self.__sampleSize]
         else:
-            log.warn("Could not get pgpgout number.")
+            log.warning("Could not get pgpgout number.")
 
     def getPgoutRate(self):
+        """Gets the pgout rate."""
         currentSampleData = self.__getSampleDataCopy()
         currentTime = time.time()
         sampleDataLen = len(currentSampleData)
@@ -171,15 +163,18 @@ class VmStat(object):
             if (currentSampleData[i].get_epoch_time() <
                     currentTime - self.__sampleSize * self.__interval - 2):
                 continue
-            weightedSum += \
-                   weight * (currentSampleData[i].getPgoutNumber() - currentSampleData[i - 1].getPgoutNumber()) / \
-                   (currentSampleData[i].getEpochTime() - currentSampleData[i - 1].getEpochTime())
+            weightedSum += (weight *
+                            (currentSampleData[i].getPgoutNumber() -
+                             currentSampleData[i - 1].getPgoutNumber()) /
+                            (currentSampleData[i].getEpochTime() -
+                             currentSampleData[i - 1].getEpochTime()))
             totalWeight += weight
             weight += 1
 
         return weightedSum / (totalWeight * self.__interval)
 
     def getRecentPgoutRate(self):
+        """Gets the recent pgout rate."""
         currentSampleData = self.__getSampleDataCopy()
         sampleDataLen = len(currentSampleData)
         if sampleDataLen < 2:

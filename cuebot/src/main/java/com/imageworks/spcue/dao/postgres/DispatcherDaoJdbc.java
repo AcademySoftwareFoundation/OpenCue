@@ -20,6 +20,7 @@ package com.imageworks.spcue.dao.postgres;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -27,7 +28,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -45,20 +49,7 @@ import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.util.CueUtil;
 
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_JOB_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_JOB_AND_PROC;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_GROUP;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_LOCAL;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_SHOW;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_SHOWS;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_UNDER_PROCED_JOB_BY_FACILITY;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.*;
 
 
 /**
@@ -68,7 +59,7 @@ import static com.imageworks.spcue.dao.postgres.DispatchQuery.HIGHER_PRIORITY_JO
  */
 public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
 
-    private static final Logger logger = Logger.getLogger(DispatcherDaoJdbc.class);
+    private static final Logger logger = LogManager.getLogger(DispatcherDaoJdbc.class);
 
     public static final RowMapper<String> PKJOB_MAPPER =
         new RowMapper<String>() {
@@ -124,6 +115,29 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     private final ConcurrentHashMap<String, ShowCache> bookableShows =
         new ConcurrentHashMap<String, ShowCache>();
 
+    public boolean testMode = false;
+
+    /**
+     * Choose between different scheduling strategies
+     */
+    private SchedulingMode schedulingMode;
+
+    @Autowired
+    public DispatcherDaoJdbc(Environment env) {
+        this.schedulingMode = SchedulingMode.valueOf(env.getProperty(
+            "dispatcher.scheduling_mode", String.class, "PRIORITY_ONLY"));
+    }
+
+    @Override
+    public SchedulingMode getSchedulingMode() {
+        return schedulingMode;
+    }
+
+    @Override
+    public void setSchedulingMode(SchedulingMode schedulingMode) {
+        this.schedulingMode = schedulingMode;
+    }
+
     /**
      * Returns a sorted list of shows that have pending jobs
      * which could benefit from the specified allocation.
@@ -149,8 +163,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         return bookableShows.get(key).shows;
     }
 
-    private Set<String> findDispatchJobs(DispatchHost host, int numJobs, boolean shuffleShows) {
-        LinkedHashSet<String> result = new LinkedHashSet<String>();
+    private List<String> findDispatchJobs(DispatchHost host, int numJobs, boolean shuffleShows) {
+        ArrayList<String> result = new ArrayList<String>();
         List<SortableShow> shows = new LinkedList<SortableShow>(getBookableShows(host));
         // shows were sorted. If we want it in random sequence, we need to shuffle it.
         if (shuffleShows) {
@@ -185,16 +199,17 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             }
 
             result.addAll(getJdbcTemplate().query(
-                    FIND_JOBS_BY_SHOW,
+                    findByShowQuery(),
                     PKJOB_MAPPER,
                     s.getShowId(), host.getFacilityId(), host.os,
                     host.idleCores, host.idleMemory,
                     threadMode(host.threadMode),
-                    (host.idleGpu > 0) ? 1: 0, host.idleGpu,
+                    host.idleGpus,
+                    (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
                     host.getName(), numJobs * 10));
 
             if (result.size() < 1) {
-                if (host.gpu == 0) {
+                if (host.gpuMemory == 0) {
                     s.skip(host.tags, host.idleCores, host.idleMemory);
                 }
             }
@@ -206,27 +221,45 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
 
     }
 
+    private String findByShowQuery() {
+        switch (schedulingMode) {
+            case PRIORITY_ONLY: return FIND_JOBS_BY_SHOW_PRIORITY_MODE;
+            case FIFO: return FIND_JOBS_BY_SHOW_FIFO_MODE;
+            case BALANCED: return FIND_JOBS_BY_SHOW_BALANCED_MODE;
+            default: return FIND_JOBS_BY_SHOW_PRIORITY_MODE;
+        }
+    }
+
+    private String findByGroupQuery() {
+        switch (schedulingMode) {
+            case PRIORITY_ONLY: return FIND_JOBS_BY_GROUP_PRIORITY_MODE;
+            case FIFO: return FIND_JOBS_BY_GROUP_FIFO_MODE;
+            case BALANCED: return FIND_JOBS_BY_GROUP_BALANCED_MODE;
+            default: return FIND_JOBS_BY_GROUP_PRIORITY_MODE;
+        }
+    }
+
     @Override
-    public Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
+    public List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
         return findDispatchJobs(host, numJobs, true);
     }
 
     @Override
-    public Set<String> findDispatchJobs(DispatchHost host, int numJobs) {
+    public List<String> findDispatchJobs(DispatchHost host, int numJobs) {
         return findDispatchJobs(host, numJobs, false);
     }
 
     @Override
-    public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
-        LinkedHashSet<String> result = new LinkedHashSet<String>(5);
-        result.addAll(getJdbcTemplate().query(
-                FIND_JOBS_BY_GROUP,
+    public List<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
+        List<String> result = getJdbcTemplate().query(
+                findByGroupQuery(),
                 PKJOB_MAPPER,
                 g.getGroupId(),host.getFacilityId(), host.os,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
-                (host.idleGpu > 0) ? 1: 0, host.idleGpu,
-                host.getName(), 50));
+                host.idleGpus,
+                (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
+                host.getName(), 50);
 
         return result;
     }
@@ -240,7 +273,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.memoryReserved,
-                    proc.gpuReserved,
+                    proc.gpuMemoryReserved,
                     job.getJobId(),
                     limit);
         }
@@ -250,7 +283,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.coresReserved,
                     proc.memoryReserved,
-                    (proc.gpuReserved > 0) ? 1: 0, proc.gpuReserved,
+                    proc.gpusReserved,
+                    (proc.gpuMemoryReserved > 0) ? 1 : 0, proc.gpuMemoryReserved,
                     job.getJobId(), proc.hostName,
                     job.getJobId(), limit);
         }
@@ -264,7 +298,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             return getJdbcTemplate().query(
                     FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                    host.idleMemory,  host.idleGpu, job.getJobId(),
+                    host.idleMemory, host.idleGpuMemory, job.getJobId(),
                     limit);
 
         } else {
@@ -273,7 +307,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
-                (host.idleGpu > 0) ? 1: 0, host.idleGpu,
+                host.idleGpus,
+                (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
                 job.getJobId(), host.getName(),
                 job.getJobId(), limit);
         }
@@ -288,7 +323,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             return getJdbcTemplate().query(
                     FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                    proc.memoryReserved, proc.gpuReserved,
+                    proc.memoryReserved, proc.gpuMemoryReserved,
                     layer.getLayerId(),
                     limit);
         }
@@ -297,7 +332,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.coresReserved, proc.memoryReserved,
-                    proc.gpuReserved,
+                    proc.gpusReserved, proc.gpuMemoryReserved,
                     layer.getLayerId(), layer.getLayerId(),
                     proc.hostName, limit);
         }
@@ -311,7 +346,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             return getJdbcTemplate().query(
                     FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                    host.idleMemory, host.idleGpu, layer.getLayerId(),
+                    host.idleMemory, host.idleGpuMemory, layer.getLayerId(),
                     limit);
 
         } else {
@@ -320,7 +355,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
-                host.idleGpu, layer.getLayerId(), layer.getLayerId(),
+                host.idleGpus, host.idleGpuMemory, layer.getLayerId(), layer.getLayerId(),
                 host.getName(), limit);
         }
     }
@@ -345,7 +380,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     Integer.class, excludeJob.getShowId(), proc.getFacilityId(),
                     proc.os, excludeJob.getShowId(),
                     proc.getFacilityId(), proc.os,
-                    proc.coresReserved, proc.memoryReserved, proc.gpuReserved,
+                    proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved,
                     proc.hostName) > 0;
          } catch (org.springframework.dao.EmptyResultDataAccessException e) {
              return false;
@@ -363,7 +398,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS,
                     Boolean.class, baseJob.priority, proc.getFacilityId(),
                     proc.os, proc.getFacilityId(), proc.os,
-                    proc.coresReserved, proc.memoryReserved, proc.gpuReserved,
+                    proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved,
                     proc.hostName);
         } catch (org.springframework.dao.EmptyResultDataAccessException e) {
             return false;
@@ -374,18 +409,17 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public Set<String> findDispatchJobs(DispatchHost host,
+    public List<String> findDispatchJobs(DispatchHost host,
             ShowInterface show, int numJobs) {
-        LinkedHashSet<String> result = new LinkedHashSet<String>(numJobs);
-
-        result.addAll(getJdbcTemplate().query(
-                FIND_JOBS_BY_SHOW,
+        List<String> result = getJdbcTemplate().query(
+                findByShowQuery(),
                 PKJOB_MAPPER,
                 show.getShowId(), host.getFacilityId(), host.os,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
-                (host.idleGpu > 0) ? 1: 0, host.idleGpu,
-                host.getName(), numJobs * 10));
+                host.idleGpus,
+                (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
+                host.getName(), numJobs * 10);
 
         return result;
     }
@@ -400,6 +434,11 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     host.os, host.getHostId(), host.getFacilityId(), host.os));
 
         return result;
+    }
+
+    @Override
+    public void clearCache() {
+        bookableShows.clear();
     }
 }
 

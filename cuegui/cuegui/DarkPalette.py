@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-The dark widget color scheme used by image viewing applications.
-"""
+"""The dark widget color scheme used by image viewing applications."""
 
 
 from __future__ import absolute_import
@@ -24,8 +22,8 @@ from __future__ import division
 
 import platform
 
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import cuegui.Constants
 
@@ -34,23 +32,23 @@ def init():
     """Convenience function that takes the QApplication object for the
     application and configures the palette and style for the Plastique
     color scheme"""
-    QtGui.qApp.setPalette(DarkPalette())
+    app = cuegui.app()
+    app.setPalette(DarkPalette())
     if platform.system() in ['Darwin', 'Linux']:
         setDarkStyleSheet()
     elif platform.system() == 'Windows':
-        QtGui.qApp.setStyle('Fusion')
+        app.setStyle('Fusion')
     else:
-        QtGui.qApp.setStyle(QtWidgets.QStyleFactory.create(cuegui.Constants.COLOR_THEME))
+        app.setStyle(QtWidgets.QStyleFactory.create(cuegui.Constants.COLOR_THEME))
 
 
 def setDarkStyleSheet():
-    QtGui.qApp.setStyleSheet(open(cuegui.Constants.DARK_STYLE_SHEET).read())
+    """Sets the stylesheet."""
+    cuegui.app().setStyleSheet(open(cuegui.Constants.DARK_STYLE_SHEET).read())
 
 
 def DarkPalette():
-    """The dark widget color scheme used by image viewing applications
-    at Imageworks.
-    """
+    """The dark widget color scheme used by image viewing applications."""
     p = QtGui.QPalette()
 
     c = GreyF(0.175)
@@ -103,12 +101,14 @@ def DarkPalette():
 
 
 def GreyF(value):
+    """Creates a grey color."""
     c = QtGui.QColor()
     c.setRgbF(value, value, value)
     return c
 
 
 def ColorF(r, g, b):
+    """Creates an RGB color."""
     c = QtGui.QColor()
     c.setRgbF(r, g, b)
     return c
@@ -126,3 +126,13 @@ COLOR_GROUP_FOREGROUND = GreyF(0.79)
 COLOR_SHOW_BACKGROUND = GreyF(0.13)
 COLOR_SHOW_FOREGROUND = GreyF(0.79)
 COLOR_JOB_FOREGROUND = GreyF(0.79)
+
+#Log file Colors
+LOG_TIME = QtGui.QColor(170, 149, 171)
+LOG_ERROR = QtGui.QColor(224, 52, 52)
+LOG_WARNING = QtGui.QColor(255, 201, 25)
+LOG_INFO = QtGui.QColor(111, 140, 255)
+LOG_COMPLETE = QtGui.QColor(132, 201, 12)
+
+KILL_ICON_COLOUR = QtGui.QColor(224, 52, 52)
+PAUSE_ICON_COLOUR = QtGui.QColor(88, 163, 209)

@@ -13,23 +13,24 @@
 #  limitations under the License.
 
 
-"""
-A confirmation dialog
-"""
+"""Confirmation dialog."""
 
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 
 class ConfirmationDialog(QtWidgets.QDialog):
-    def __init__(self, title, text, items = [], parent = None):
-        """A confirmation dialog
+    """Confirmation dialog."""
+
+    # pylint: disable=dangerous-default-value
+    def __init__(self, title, text, items=[], parent=None):
+        """
         @type  title: string
         @param title: The title for the confirmation dialog
         @type  text: string
@@ -73,5 +74,7 @@ class ConfirmationDialog(QtWidgets.QDialog):
         self.setMaximumSize(400,300)
         self.setWindowTitle(title)
 
+        # pylint: disable=no-member
         __btn_accept.clicked.connect(self.accept)
         __btn_cancel.clicked.connect(self.reject)
+        # pylint: enable=no-member

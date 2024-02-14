@@ -23,10 +23,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -73,8 +73,12 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             "folder.int_job_priority as int_def_job_priority, " +
             "folder.int_job_min_cores as int_def_job_min_cores, " +
             "folder.int_job_max_cores as int_def_job_max_cores, " +
+            "folder.int_job_min_gpus as int_def_job_min_gpus, " +
+            "folder.int_job_max_gpus as int_def_job_max_gpus, " +
             "folder_resource.int_min_cores AS folder_min_cores, " +
             "folder_resource.int_max_cores AS folder_max_cores, " +
+            "folder_resource.int_min_gpus AS folder_min_gpus, " +
+            "folder_resource.int_max_gpus AS folder_max_gpus, " +
             "folder_level.int_level, " +
             "job.pk_job, " +
             "job.str_name, " +
@@ -101,13 +105,18 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             "job_stat.int_succeeded_count, " +
             "job_usage.int_core_time_success, " +
             "job_usage.int_core_time_fail, " +
+            "job_usage.int_gpu_time_success, " +
+            "job_usage.int_gpu_time_fail, " +
             "job_usage.int_frame_success_count, " +
             "job_usage.int_frame_fail_count, " +
             "job_usage.int_clock_time_high, " +
             "job_usage.int_clock_time_success, " +
             "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores, " +
+            "(job_resource.int_gpus + job_resource.int_local_gpus) AS int_gpus, " +
             "job_resource.int_min_cores, " +
+            "job_resource.int_min_gpus, " +
             "job_resource.int_max_cores, " +
+            "job_resource.int_max_gpus, " +
             "job_mem.int_max_rss " +
         "FROM " +
             "show, " +
@@ -148,10 +157,56 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         "AND " +
             "folder.pk_dept = dept.pk_dept ";
 
-    class NestedJobWhiteboardMapper implements RowMapper<NestedGroup> {
+    private class ChildrenEntry {
+        String key;
+        int level;
+        List<String> children;
+        String name;
 
-        public Map<String, NestedGroup> groups = new HashMap<String,NestedGroup>(50);
-        public Map<String, List<String>> childrenMap = new HashMap<String, List<String>>();
+        public ChildrenEntry(String key, int level, String name) {
+            this.key = key;
+            this.level = level;
+            this.children = new ArrayList<>();
+            this.name = name;
+        }
+
+        public List<String> getChildren() {
+            return children;
+        }
+
+        public void addChild(String child) {
+            children.add(child);
+        }
+
+        public String getKey() {
+            return key;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public int compareTo(ChildrenEntry o) {
+            // Invert order
+            return Integer.compare(o.level, this.level);
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder out = new StringBuilder();
+            String spacing = " ".repeat(Math.max(0, this.level + 1));
+            out.append(spacing);
+            out.append(key + "(c " + name + ")");
+            for (String id : children) {
+                out.append("\n " + spacing + id.substring(0, 4));
+            }
+            return out.toString();
+        }
+    }
+
+    class NestedJobWhiteboardMapper implements RowMapper<NestedGroup> {
+        public Map<String, NestedGroup> groups = new HashMap<String, NestedGroup>(50);
+        public Map<String, ChildrenEntry> childrenMap = new HashMap<String, ChildrenEntry>();
         public String rootGroupID;
 
         @Override
@@ -165,20 +220,28 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                         .setDefaultJobPriority(rs.getInt("int_def_job_priority"))
                         .setDefaultJobMinCores(Convert.coreUnitsToCores(rs.getInt("int_def_job_min_cores")))
                         .setDefaultJobMaxCores(Convert.coreUnitsToCores(rs.getInt("int_def_job_max_cores")))
+                        .setDefaultJobMinGpus(rs.getInt("int_def_job_min_gpus"))
+                        .setDefaultJobMaxGpus(rs.getInt("int_def_job_max_gpus"))
                         .setMaxCores(Convert.coreUnitsToCores(rs.getInt("folder_max_cores")))
                         .setMinCores(Convert.coreUnitsToCores(rs.getInt("folder_min_cores")))
+                        .setMaxGpus(rs.getInt("folder_max_gpus"))
+                        .setMinGpus(rs.getInt("folder_min_gpus"))
                         .setLevel(rs.getInt("int_level"))
                         .setDepartment(rs.getString("dept_name"))
                         .build();
 
                 String parentGroupId = rs.getString("pk_parent_folder");
                 if (parentGroupId != null) {
-                    List<String> children = childrenMap.get(parentGroupId);
-                    if (children == null) {
-                        children = new ArrayList<>();
-                        childrenMap.put(parentGroupId, children);
+                    ChildrenEntry childrenEntry = childrenMap.get(parentGroupId);
+                    if (childrenEntry == null) {
+                        childrenEntry = new ChildrenEntry(
+                                parentGroupId, group.getLevel() - 1, rs.getString("group_name"));
+                        childrenEntry.addChild(groupId);
+                        childrenMap.put(parentGroupId, childrenEntry);
                     }
-                    children.add(groupId);
+                    else {
+                        childrenEntry.addChild(groupId);
+                    }
                 }
                 else {
                     rootGroupID = rs.getString("pk_folder");
@@ -210,19 +273,22 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
     }
 
     private NestedJobWhiteboardMapper updateConnections(NestedJobWhiteboardMapper mapper) {
-        for (Map.Entry<String, List<String>> entry : mapper.childrenMap.entrySet()) {
-            NestedGroup group = mapper.groups.get(entry.getKey());
-            NestedGroupSeq.Builder childrenBuilder = NestedGroupSeq.newBuilder();
-            for (String childId : entry.getValue()) {
-                NestedGroup child = mapper.groups.get(childId);
-                child = child.toBuilder().setParent(group).build();
-                childrenBuilder.addNestedGroups(child);
-                mapper.groups.put(childId, child);
-            }
-            group = group.toBuilder()
-                    .setGroups(childrenBuilder.build())
-                    .build();
-            mapper.groups.put(entry.getKey(), group);
+        ArrayList<ChildrenEntry> orderedChildren = new ArrayList<>(mapper.childrenMap.values());
+        orderedChildren.sort(ChildrenEntry::compareTo);
+
+        for (ChildrenEntry entry : orderedChildren) {
+           NestedGroup group = mapper.groups.get(entry.getKey());
+           NestedGroupSeq.Builder childrenBuilder = NestedGroupSeq.newBuilder();
+           for (String childId : entry.getChildren()) {
+               NestedGroup child = mapper.groups.get(childId);
+               child = child.toBuilder().setParent(group).build();
+               childrenBuilder.addNestedGroups(child);
+               mapper.groups.put(childId, child);
+           }
+           group = group.toBuilder()
+                   .setGroups(childrenBuilder.build())
+                   .build();
+           mapper.groups.put(entry.getKey(), group);
         }
         return mapper;
     }
@@ -254,6 +320,8 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                 .setLogDir(rs.getString("str_log_dir"))
                 .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
                 .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
+                .setMaxGpus(rs.getInt("int_max_cores"))
+                .setMinGpus(rs.getInt("int_min_cores"))
                 .setName(rs.getString("str_name"))
                 .setPriority(rs.getInt("int_priority"))
                 .setShot(rs.getString("str_shot"))
@@ -295,8 +363,10 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             "host_stat.ts_ping, " +
             "host.int_cores, " +
             "host.int_cores_idle, " +
-            "host.int_gpu, " +
-            "host.int_gpu_idle, " +
+            "host.int_gpus, " +
+            "host.int_gpus_idle, " +
+            "host.int_gpu_mem, " +
+            "host.int_gpu_mem_idle, " +
             "host.int_mem, " +
             "host.int_mem_idle, " +
             "host.str_lock_state, " +
@@ -310,15 +380,16 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             "host_stat.int_swap_free, " +
             "host_stat.int_mcp_total, " +
             "host_stat.int_mcp_free, " +
-            "host_stat.int_gpu_total, " +
-            "host_stat.int_gpu_free, " +
+            "host_stat.int_gpu_mem_total, " +
+            "host_stat.int_gpu_mem_free, " +
             "host_stat.int_load, " +
             "proc.pk_proc, " +
             "proc.int_cores_reserved AS proc_cores, " +
+            "proc.int_gpus_reserved AS proc_gpus, " +
             "proc.int_mem_reserved AS proc_memory, " +
             "proc.int_mem_used AS used_memory, " +
             "proc.int_mem_max_used AS max_memory, " +
-            "proc.int_gpu_reserved AS proc_gpu, " +
+            "proc.int_gpu_mem_reserved AS proc_gpu_memory, " +
             "proc.ts_ping, " +
             "proc.ts_booked, " +
             "proc.ts_dispatched, " +
@@ -445,10 +516,13 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                                     proc = NestedProc.newBuilder()
                                             .setId(pid)
                                             .setName(CueUtil.buildProcName(host.getName(),
-                                                    rs.getInt("proc_cores")))
+                                                    rs.getInt("proc_cores"),
+                                                    rs.getInt("proc_gpus")))
                                             .setReservedCores(Convert.coreUnitsToCores(
                                                     rs.getInt("proc_cores")))
+                                            .setReservedGpus(rs.getInt("proc_gpus"))
                                             .setReservedMemory(rs.getLong("proc_memory"))
+                                            .setReservedGpuMemory(rs.getLong("proc_gpu_memory"))
                                             .setUsedMemory(rs.getLong("used_memory"))
                                             .setFrameName(rs.getString("frame_name"))
                                             .setJobName(rs.getString("job_name"))

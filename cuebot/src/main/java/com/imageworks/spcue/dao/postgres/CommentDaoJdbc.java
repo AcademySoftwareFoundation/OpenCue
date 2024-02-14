@@ -21,6 +21,7 @@ package com.imageworks.spcue.dao.postgres;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.jdbc.core.RowMapper;
@@ -70,6 +71,18 @@ public class CommentDaoJdbc extends JdbcDaoSupport implements CommentDao {
             return d;
         }
     };
+
+    public boolean deleteCommentByHostUserAndSubject(HostInterface host, String user, String subject) {
+        return getJdbcTemplate().update(
+                "DELETE FROM comments WHERE pk_host=? AND str_user=? AND str_subject=?",
+                host.getHostId(), user, subject) > 0;
+    }
+
+    public List<CommentDetail> getCommentsByHostUserAndSubject(HostInterface host, String user, String subject) {
+        return getJdbcTemplate().query(
+                "SELECT * FROM comments WHERE pk_host=? AND str_user=? AND str_subject=?",
+                COMMENT_DETAIL_MAPPER, host.getHostId(), user, subject);
+    }
 
     public CommentDetail getCommentDetail(String id) {
         return getJdbcTemplate().queryForObject(

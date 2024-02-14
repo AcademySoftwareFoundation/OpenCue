@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Splash screen displayed on initial application launch."""
+
+
 from __future__ import division
 from __future__ import print_function
 from __future__ import absolute_import
@@ -21,15 +24,17 @@ from builtins import object
 import os
 import time
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 
 __all__ = ["SplashWindow"]
 
 
 class SplashWindow(object):
+    """Splash screen displayed on initial application launch."""
+
     def __init__(self, app, app_name, version, resource_path):
         self.app = app
 
@@ -64,19 +69,23 @@ class SplashWindow(object):
                 break
 
         if image is None:
+            # pylint: disable=broad-except
             try:
                 image = self._GenerateMissingSplash(app_name)
             except Exception:
                 return None
 
+        # pylint: disable=broad-except
         try:
             self._StampVersion(image, version)
         except Exception:
             pass
         return image
 
-    def _generateSplashFromImage(self, imagePath):
+    @staticmethod
+    def _generateSplashFromImage(imagePath):
         if os.path.isfile(imagePath):
+            # pylint: disable=broad-except
             try:
                 return imagePath and QtGui.QImage(imagePath)
             except Exception:

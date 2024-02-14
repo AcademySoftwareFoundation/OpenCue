@@ -14,9 +14,7 @@
 #  limitations under the License.
 
 
-"""
-Utility functions.
-"""
+"""Utility functions."""
 
 
 from __future__ import absolute_import
@@ -26,10 +24,9 @@ from __future__ import division
 from builtins import str
 from builtins import object
 import functools
-import logging as log
+import logging
 import os
 import platform
-import random
 import socket
 import subprocess
 import threading
@@ -43,9 +40,12 @@ if platform.system() != 'Windows':
 
     PERMISSIONS = threading.Lock()
     HIGH_PERMISSION_GROUPS = os.getgroups()
+log = logging.getLogger(__name__)
 
 
 class Memoize(object):
+    """Decorator used to cache the results of functions that only need to be run once."""
+
     def __init__(self, func):
         self.func = func
         self.memoized = {}
@@ -59,13 +59,17 @@ class Memoize(object):
         return self.cacheGet(
             self.methodCache, obj, lambda: self.__class__(functools.partial(self.func, obj)))
 
-    def isCached(self, cache, key):
-        """Mocked in tests to disable caching as needed."""
+    @staticmethod
+    def isCached(cache, key):
+        """Returns whether a given function has been cached already.
+
+        Mocked in tests to disable caching as needed."""
         if key in cache:
             return True
         return False
 
     def cacheGet(self, cache, key, func):
+        """Gets the cached result of a function."""
         if not self.isCached(cache, key):
             cache[key] = func()
         return cache[key]
@@ -73,13 +77,14 @@ class Memoize(object):
 
 def permissionsHigh():
     """Sets the effective gid/uid to processes original values (root)"""
-    if platform.system() == "Windows":
+    if platform.system() == "Windows" or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
     PERMISSIONS.acquire()
     os.setegid(os.getgid())
     os.seteuid(os.getuid())
     try:
         os.setgroups(HIGH_PERMISSION_GROUPS)
+    # pylint: disable=broad-except
     except Exception:
         pass
 
@@ -87,7 +92,7 @@ def permissionsHigh():
 def permissionsLow():
     """Sets the effective gid/uid to one with less permissions:
        RQD_GID and RQD_UID"""
-    if platform.system() in ('Windows', 'Darwin'):
+    if platform.system() in ('Windows', 'Darwin') or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
     if os.getegid() != rqd.rqconstants.RQD_GID or os.geteuid() != rqd.rqconstants.RQD_UID:
         __becomeRoot()
@@ -100,7 +105,7 @@ def permissionsLow():
 
 def permissionsUser(uid, gid):
     """Sets the effective gid/uid to supplied values"""
-    if platform.system() in ('Windows', 'Darwin'):
+    if platform.system() in ('Windows', 'Darwin') or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
     PERMISSIONS.acquire()
     __becomeRoot()
@@ -108,6 +113,7 @@ def permissionsUser(uid, gid):
         username = pwd.getpwuid(uid).pw_name
         groups = [20] + [g.gr_gid for g in grp.getgrall() if username in g.gr_mem]
         os.setgroups(groups)
+    # pylint: disable=broad-except
     except Exception:
         pass
     os.setegid(gid)
@@ -121,6 +127,7 @@ def __becomeRoot():
         os.seteuid(os.getuid())
         try:
             os.setgroups(HIGH_PERMISSION_GROUPS)
+        # pylint: disable=broad-except
         except Exception:
             pass
 
@@ -128,29 +135,34 @@ def __becomeRoot():
 def checkAndCreateUser(username):
     """Check to see if the provided user exists, if not attempt to create it."""
     # TODO(gregdenton): Add Windows and Mac support here. (Issue #61)
+    if not rqd.rqconstants.RQD_BECOME_JOB_USER:
+        return
     try:
         pwd.getpwnam(username)
         return
     except KeyError:
         subprocess.check_call([
             'useradd',
-            '-p', str(uuid.uuid4()), # generate a random password
+            '-p', str(uuid.uuid4()),  # generate a random password
             username
         ])
 
 
 def getHostIp():
     """Returns the machine's local ip address"""
+    if rqd.rqconstants.RQD_USE_IPV6_AS_HOSTNAME:
+        return socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET6)[0][4][0]
     return socket.gethostbyname(socket.gethostname())
 
 
 def getHostname():
     """Returns the machine's fully qualified domain name"""
     try:
-        if rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME:
+        if rqd.rqconstants.OVERRIDE_HOSTNAME:
+            return rqd.rqconstants.OVERRIDE_HOSTNAME
+        if rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME or rqd.rqconstants.RQD_USE_IPV6_AS_HOSTNAME:
             return getHostIp()
-        else:
-            return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
+        return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
     except (socket.herror, socket.gaierror):
         log.warning("Failed to resolve hostname to IP, falling back to local hostname")
         return socket.gethostname()

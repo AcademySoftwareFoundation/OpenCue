@@ -28,7 +28,9 @@ import java.util.Locale;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import org.apache.log4j.Logger;
+import com.google.protobuf.ByteString;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -128,7 +130,7 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(WhiteboardDaoJdbc.class);
+    private static final Logger logger = LogManager.getLogger(WhiteboardDaoJdbc.class);
 
     private FrameSearchFactory frameSearchFactory;
     private ProcSearchFactory procSearchFactory;
@@ -577,8 +579,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public UpdatedFrameCheckResult getUpdatedFrames(JobInterface job,
             List<LayerInterface> layers, int epochSeconds) {
 
-        if ((System.currentTimeMillis() / 1000) - epochSeconds > 60) {
-            long timeDiff = System.currentTimeMillis() - epochSeconds;
+        long timeDiff = (System.currentTimeMillis() / 1000) - epochSeconds;
+        if (timeDiff > 60) {
             throw new IllegalArgumentException("the last update timestamp cannot be over " +
                     "a minute off the current time, difference was: " + timeDiff);
         }
@@ -880,9 +882,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setId(SqlUtil.getString(rs,"pk_deed"))
                             .setHost(SqlUtil.getString(rs,"str_host"))
                             .setOwner(SqlUtil.getString(rs,"str_username"))
-                            .setBlackout(rs.getBoolean("b_blackout"))
-                            .setBlackoutStartTime(rs.getInt("int_blackout_start"))
-                            .setBlackoutStopTime(rs.getInt("int_blackout_stop"))
                             .build();
                 }
             };
@@ -898,7 +897,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .setThreads(rs.getInt("int_threads"))
                     .setMaxMemory(rs.getLong("int_mem_max"))
                     .setMemory( rs.getLong("int_mem_max") - rs.getLong("int_mem_idle"))
-                    .setMaxGpu(rs.getLong("int_gpu_max"))
+                    .setGpus(rs.getInt("int_gpus_max") - rs.getInt("int_gpus_idle"))
+                    .setMaxGpus(rs.getInt("int_gpus_max"))
+                    .setGpuMemory(rs.getLong("int_gpu_mem_max") - rs.getLong("int_gpu_mem_idle"))
+                    .setMaxGpuMemory(rs.getLong("int_gpu_mem_max"))
                     .setHost(SqlUtil.getString(rs,"str_host_name"))
                     .setJob(SqlUtil.getString(rs,"str_job_name"))
                     .setRenderPartType(RenderPartitionType.valueOf(SqlUtil.getString(rs,"str_type")))
@@ -950,11 +952,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     return Proc.newBuilder()
                             .setId(SqlUtil.getString(rs,"pk_proc"))
                             .setName(CueUtil.buildProcName(SqlUtil.getString(rs,"host_name"),
-                                    rs.getInt("int_cores_reserved")))
+                                    rs.getInt("int_cores_reserved"), rs.getInt("int_gpus_reserved")))
                             .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores_reserved")))
                             .setReservedMemory(rs.getLong("int_mem_reserved"))
-                            .setReservedGpu(rs.getLong("int_gpu_reserved"))
+                            .setReservedGpus(rs.getInt("int_gpus_reserved"))
+                            .setReservedGpuMemory(rs.getLong("int_gpu_mem_reserved"))
                             .setUsedMemory(rs.getLong("int_mem_used"))
+                            .setUsedGpuMemory(rs.getLong("int_gpu_mem_used"))
                             .setFrameName(SqlUtil.getString(rs, "frame_name"))
                             .setJobName(SqlUtil.getString(rs,"job_name"))
                             .setGroupName(SqlUtil.getString(rs,"folder_name"))
@@ -967,6 +971,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                                     SqlUtil.getString(rs,"str_log_dir"), SqlUtil.getString(rs,"job_name"),
                                     SqlUtil.getString(rs,"frame_name")))
                             .setRedirectTarget(SqlUtil.getString(rs, "str_redirect"))
+                            .setChildProcesses(SqlUtil.getByteString(rs, "bytea_children"))
                             .addAllServices(Arrays.asList(SqlUtil.getString(rs,"str_services").split(",")))
                             .build();
                 }
@@ -1009,20 +1014,22 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 .setFreeMcp(rs.getLong("int_mcp_free"))
                 .setFreeMemory(rs.getLong("int_mem_free"))
                 .setFreeSwap(rs.getLong("int_swap_free"))
-                .setFreeGpu(rs.getLong("int_gpu_free"))
+                .setFreeGpuMemory(rs.getLong("int_gpu_mem_free"))
                 .setLoad(rs.getInt("int_load"))
                 .setNimbyEnabled(rs.getBoolean("b_nimby"))
                 .setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
                 .setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_cores_idle")))
                 .setMemory(rs.getLong("int_mem"))
                 .setIdleMemory(rs.getLong("int_mem_idle"))
-                .setGpu(rs.getLong("int_gpu"))
-                .setIdleGpu(rs.getLong("int_gpu_idle"))
+                .setGpus(rs.getInt("int_gpus"))
+                .setIdleGpus(rs.getInt("int_gpus_idle"))
+                .setGpuMemory(rs.getLong("int_gpu_mem"))
+                .setIdleGpuMemory(rs.getLong("int_gpu_mem_idle"))
                 .setState(HardwareState.valueOf(SqlUtil.getString(rs,"host_state")))
                 .setTotalMcp(rs.getLong("int_mcp_total"))
                 .setTotalMemory(rs.getLong("int_mem_total"))
                 .setTotalSwap(rs.getLong("int_swap_total"))
-                .setTotalGpu(rs.getLong("int_gpu_total"))
+                .setTotalGpuMemory(rs.getLong("int_gpu_mem_total"))
                 .setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000))
                 .setLockState(LockState.valueOf(SqlUtil.getString(rs,"str_lock_state")))
                 .setHasComment(rs.getBoolean("b_comment"))
@@ -1044,20 +1051,22 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         builder.setFreeMcp(rs.getLong("int_mcp_free"));
         builder.setFreeMemory(rs.getLong("int_mem_free"));
         builder.setFreeSwap(rs.getLong("int_swap_free"));
-        builder.setFreeGpu(rs.getLong("int_gpu_free"));
+        builder.setFreeGpuMemory(rs.getLong("int_gpu_mem_free"));
         builder.setLoad(rs.getInt("int_load"));
         builder.setNimbyEnabled(rs.getBoolean("b_nimby"));
         builder.setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")));
         builder.setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_cores_idle")));
         builder.setMemory(rs.getLong("int_mem"));
         builder.setIdleMemory(rs.getLong("int_mem_idle"));
-        builder.setGpu(rs.getLong("int_gpu"));
-        builder.setIdleGpu(rs.getLong("int_gpu_idle"));
+        builder.setGpus(rs.getInt("int_gpus"));
+        builder.setIdleGpus(rs.getInt("int_gpus_idle"));
+        builder.setGpuMemory(rs.getLong("int_gpu_mem"));
+        builder.setIdleGpuMemory(rs.getLong("int_gpu_mem_idle"));
         builder.setState(HardwareState.valueOf(SqlUtil.getString(rs,"host_state")));
         builder.setTotalMcp(rs.getLong("int_mcp_total"));
         builder.setTotalMemory(rs.getLong("int_mem_total"));
         builder.setTotalSwap(rs.getLong("int_swap_total"));
-        builder.setTotalGpu(rs.getLong("int_gpu_total"));
+        builder.setTotalGpuMemory(rs.getLong("int_gpu_mem_total"));
         builder.setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000));
         builder.setLockState(LockState.valueOf(SqlUtil.getString(rs,"str_lock_state")));
         builder.setHasComment(rs.getBoolean("b_comment"));
@@ -1112,6 +1121,11 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                                 .setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_idle_cores")))
                                 .setRunningCores(Convert.coreUnitsToCores(rs.getInt("int_running_cores")))
                                 .setLockedCores(Convert.coreUnitsToCores(rs.getInt("int_locked_cores")))
+                                .setGpus(rs.getInt("int_gpus"))
+                                .setAvailableGpus(rs.getInt("int_available_gpus"))
+                                .setIdleGpus(rs.getInt("int_idle_gpus"))
+                                .setRunningGpus(rs.getInt("int_running_gpus"))
+                                .setLockedGpus(rs.getInt("int_locked_gpus"))
                                 .setHosts(rs.getInt("int_hosts"))
                                 .setDownHosts(rs.getInt("int_down_hosts"))
                                 .setLockedHosts(rs.getInt("int_locked_hosts"))
@@ -1131,6 +1145,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setDependFrames(rs.getInt("int_depend_count"))
                             .setPendingJobs(rs.getInt("int_job_count"))
                             .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                            .setReservedGpus(rs.getInt("int_gpus"))
                             .build();
                     return Group.newBuilder()
                             .setId(SqlUtil.getString(rs,"pk_folder"))
@@ -1139,8 +1154,12 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setDefaultJobPriority(rs.getInt("int_job_priority"))
                             .setDefaultJobMinCores(Convert.coreUnitsToCores(rs.getInt("int_job_min_cores")))
                             .setDefaultJobMaxCores(Convert.coreUnitsToCores(rs.getInt("int_job_max_cores")))
+                            .setDefaultJobMinGpus(rs.getInt("int_job_min_gpus"))
+                            .setDefaultJobMaxGpus(rs.getInt("int_job_max_gpus"))
                             .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
                             .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
+                            .setMaxGpus(rs.getInt("int_max_gpus"))
+                            .setMinGpus(rs.getInt("int_min_gpus"))
                             .setLevel(rs.getInt("int_level"))
                             .setParentId(SqlUtil.getString(rs, "pk_parent_folder"))
                             .setGroupStats(stats)
@@ -1156,6 +1175,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setLogDir(SqlUtil.getString(rs, "str_log_dir"))
                             .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
                             .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
+                            .setMaxGpus(rs.getInt("int_max_gpus"))
+                            .setMinGpus(rs.getInt("int_min_gpus"))
                             .setName(SqlUtil.getString(rs,"str_name"))
                             .setPriority(rs.getInt("int_priority"))
                             .setShot(SqlUtil.getString(rs,"str_shot"))
@@ -1192,6 +1213,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
         JobStats.Builder statsBuilder = JobStats.newBuilder()
                 .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                .setReservedGpus(rs.getInt("int_gpus"))
                 .setMaxRss(rs.getLong("int_max_rss"))
                 .setTotalFrames(rs.getInt("int_frame_count"))
                 .setTotalLayers(rs.getInt("int_layer_count"))
@@ -1205,6 +1227,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 .setFailedCoreSec(rs.getLong("int_core_time_fail"))
                 .setRenderedCoreSec(rs.getLong("int_core_time_success"))
                 .setTotalCoreSec( rs.getLong("int_core_time_fail") + rs.getLong("int_core_time_success"))
+                .setFailedGpuSec(rs.getLong("int_gpu_time_fail"))
+                .setRenderedGpuSec(rs.getLong("int_gpu_time_success"))
+                .setTotalGpuSec(rs.getLong("int_gpu_time_fail") + rs.getLong("int_gpu_time_success"))
                 .setRenderedFrameCount( rs.getLong("int_frame_success_count"))
                 .setFailedFrameCount(rs.getLong("int_frame_fail_count"))
                 .setHighFrameSec(rs.getInt("int_clock_time_high"));
@@ -1214,7 +1239,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     (int) (rs.getLong("int_clock_time_success") / statsBuilder.getRenderedFrameCount()));
             statsBuilder.setAvgCoreSec(
                     (int) (statsBuilder.getRenderedCoreSec() / statsBuilder.getRenderedFrameCount()));
-            statsBuilder.setRemainingCoreSec(statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
+            statsBuilder.setRemainingCoreSec(
+                    (long) statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
         }
         else {
             statsBuilder.setAvgFrameSec(0);
@@ -1238,17 +1264,22 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_cores_max")))
                             .setIsThreadable(rs.getBoolean("b_threadable"))
                             .setMinMemory(rs.getLong("int_mem_min"))
-                            .setMinGpu(rs.getLong("int_gpu_min"))
+                            .setMinGpus(rs.getInt("int_gpus_min"))
+                            .setMaxGpus(rs.getInt("int_gpus_max"))
+                            .setMinGpuMemory(rs.getLong("int_gpu_mem_min"))
                             .setType(LayerType.valueOf(SqlUtil.getString(rs,"str_type")))
                             .addAllTags(Sets.newHashSet(
                                     SqlUtil.getString(rs,"str_tags").
                                             replaceAll(" ","").split("\\|")))
                             .addAllServices(Arrays.asList(SqlUtil.getString(rs,"str_services").split(",")))
                             .addAllLimits(Arrays.asList(SqlUtil.getString(rs,"str_limit_names").split(",")))
-                            .setMemoryOptimizerEnabled(rs.getBoolean("b_optimize"));
+                            .setMemoryOptimizerEnabled(rs.getBoolean("b_optimize"))
+                            .setTimeout(rs.getInt("int_timeout"))
+                            .setTimeoutLlu(rs.getInt("int_timeout_llu"));
 
                     LayerStats.Builder statsBuilder = LayerStats.newBuilder()
                             .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                            .setReservedGpus(rs.getInt("int_gpus"))
                             .setMaxRss(rs.getLong("int_max_rss"))
                             .setTotalFrames(rs.getInt("int_total_count"))
                             .setWaitingFrames(rs.getInt("int_waiting_count"))
@@ -1263,6 +1294,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setRenderedCoreSec(rs.getLong("int_core_time_success"))
                             .setTotalCoreSec(
                                     rs.getLong("int_core_time_fail") + rs.getLong("int_core_time_success"))
+                            .setFailedGpuSec(rs.getLong("int_gpu_time_fail"))
+                            .setRenderedGpuSec(rs.getLong("int_gpu_time_success"))
+                            .setTotalGpuSec(rs.getLong("int_gpu_time_fail") + rs.getLong("int_gpu_time_success"))
                             .setRenderedFrameCount( rs.getLong("int_frame_success_count"))
                             .setFailedFrameCount(rs.getLong("int_frame_fail_count"))
                             .setHighFrameSec(rs.getInt("int_clock_time_high"))
@@ -1274,7 +1308,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                         statsBuilder.setAvgCoreSec(
                                 (int) (statsBuilder.getRenderedCoreSec() / statsBuilder.getRenderedFrameCount()));
                         statsBuilder.setRemainingCoreSec(
-                                statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
+                                (long) statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
                     }
                     else {
                         statsBuilder.setAvgFrameSec(0);
@@ -1301,6 +1335,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                         .setBurst(rs.getInt("int_burst"))
                         .setName(rs.getString("name"))
                         .setReservedCores(rs.getInt("int_cores"))
+                        .setReservedGpus(rs.getInt("int_gpus"))
                         .setSize(rs.getInt("int_size"))
                         .setAllocationName(rs.getString("alloc_name"))
                         .setShowName(rs.getString("show_name"))
@@ -1321,9 +1356,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setUsedMemory(rs.getInt("int_mem_used"));
 
                     if (SqlUtil.getString(rs, "str_host") != null) {
-                        builder.setLastResource(String.format(Locale.ROOT, "%s/%2.2f",
+                        builder.setLastResource(String.format(Locale.ROOT, "%s/%2.2f/%d",
                                 SqlUtil.getString(rs, "str_host"),
-                                Convert.coreUnitsToCores(rs.getInt("int_cores"))));
+                                Convert.coreUnitsToCores(rs.getInt("int_cores")),
+                                rs.getInt("int_gpus")));
                     } else {
                         builder.setLastResource("");
                     }
@@ -1360,14 +1396,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setLayerName(SqlUtil.getString(rs,"layer_name"))
                             .setUsedMemory(rs.getLong("int_mem_used"))
                             .setReservedMemory(rs.getLong("int_mem_reserved"))
-                            .setReservedGpu(rs.getLong("int_gpu_reserved"))
+                            .setReservedGpuMemory(rs.getLong("int_gpu_mem_reserved"))
                             .setCheckpointState(CheckpointState.valueOf(
                                     SqlUtil.getString(rs,"str_checkpoint_state")))
                             .setCheckpointCount(rs.getInt("int_checkpoint_count"));
 
                     if (SqlUtil.getString(rs,"str_host") != null) {
                         builder.setLastResource(CueUtil.buildProcName(SqlUtil.getString(rs,"str_host"),
-                                rs.getInt("int_cores")));
+                                rs.getInt("int_cores"), rs.getInt("int_gpus")));
                     } else {
                         builder.setLastResource("");
                     }
@@ -1386,11 +1422,21 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     else {
                         builder.setStopTime(0);
                     }
+                    java.sql.Timestamp ts_llu = rs.getTimestamp("ts_llu");
+                    if (ts_llu!= null) {
+                        builder.setLluTime((int) (ts_llu.getTime() / 1000));
+                    }
+                    else {
+                        builder.setLluTime(0);
+                    }
 
                     builder.setTotalCoreTime(rs.getInt("int_total_past_core_time"));
+                    builder.setTotalGpuTime(rs.getInt("int_total_past_gpu_time"));
                     if (builder.getState() == FrameState.RUNNING) {
                         builder.setTotalCoreTime(builder.getTotalCoreTime() +
                                 (int)(System.currentTimeMillis() / 1000 - builder.getStartTime()) * rs.getInt("int_cores") / 100);
+                        builder.setTotalGpuTime(builder.getTotalGpuTime() +
+                                (int)(System.currentTimeMillis() / 1000 - builder.getStartTime()) * rs.getInt("int_gpus"));
                     }
                     return builder.build();
                 }
@@ -1406,9 +1452,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setMinCores(rs.getInt("int_cores_min"))
                             .setMaxCores(rs.getInt("int_cores_max"))
                             .setMinMemory(rs.getInt("int_mem_min"))
-                            .setMinGpu(rs.getInt("int_gpu_min"))
+                            .setMinGpus(rs.getInt("int_gpus_min"))
+                            .setMaxGpus(rs.getInt("int_gpus_max"))
+                            .setMinGpuMemory(rs.getInt("int_gpu_mem_min"))
                             .addAllTags(Lists.newArrayList(ServiceDaoJdbc.splitTags(
                                     SqlUtil.getString(rs,"str_tags"))))
+                            .setTimeout(rs.getInt("int_timeout"))
+                            .setTimeoutLlu(rs.getInt("int_timeout_llu"))
+                            .setMinMemoryIncrease(rs.getInt("int_min_memory_increase"))
                             .build();
                 }
             };
@@ -1423,9 +1474,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setMinCores(rs.getInt("int_cores_min"))
                             .setMaxCores(rs.getInt("int_cores_max"))
                             .setMinMemory(rs.getInt("int_mem_min"))
-                            .setMinGpu(rs.getInt("int_gpu_min"))
+                            .setMinGpus(rs.getInt("int_gpus_min"))
+                            .setMaxGpus(rs.getInt("int_gpus_max"))
+                            .setMinGpuMemory(rs.getInt("int_gpu_mem_min"))
                             .addAllTags(Lists.newArrayList(ServiceDaoJdbc.splitTags(
                                     SqlUtil.getString(rs,"str_tags"))))
+                            .setTimeout(rs.getInt("int_timeout"))
+                            .setTimeoutLlu(rs.getInt("int_timeout_llu"))
+                            .setMinMemoryIncrease(rs.getInt("int_min_memory_increase"))
                             .build();
                     return ServiceOverride.newBuilder()
                             .setId(SqlUtil.getString(rs,"pk_show_service"))
@@ -1446,6 +1502,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setRenderedFrameCount(rs.getLong("int_frame_success_count"))
                             .setFailedFrameCount(rs.getLong("int_frame_fail_count"))
                             .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                            .setReservedGpus(rs.getInt("int_gpus"))
                             .setPendingJobs(rs.getInt("int_job_count"))
                             .build();
                     return Show.newBuilder()
@@ -1454,6 +1511,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setActive(rs.getBoolean("b_active"))
                             .setDefaultMaxCores(Convert.coreUnitsToCores(rs.getInt("int_default_max_cores")))
                             .setDefaultMinCores(Convert.coreUnitsToCores(rs.getInt("int_default_min_cores")))
+                            .setDefaultMaxGpus(rs.getInt("int_default_max_gpus"))
+                            .setDefaultMinGpus(rs.getInt("int_default_min_gpus"))
                             .setBookingEnabled(rs.getBoolean("b_booking_enabled"))
                             .setDispatchEnabled(rs.getBoolean("b_dispatch_enabled"))
                             .setCommentEmail(SqlUtil.getString(rs,"str_comment_email"))
@@ -1504,17 +1563,20 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "frame.int_dispatch_order,"+
             "frame.ts_started,"+
             "frame.ts_stopped,"+
+            "frame.ts_llu,"+
             "frame.int_retries,"+
             "frame.str_state,"+
             "frame.str_host,"+
             "frame.int_cores,"+
+            "frame.int_gpus,"+
             "frame.int_mem_max_used," +
             "frame.int_mem_used, " +
             "frame.int_mem_reserved, " +
-            "frame.int_gpu_reserved, " +
+            "frame.int_gpu_mem_reserved, " +
             "frame.str_checkpoint_state,"+
             "frame.int_checkpoint_count,"+
             "frame.int_total_past_core_time,"+
+            "frame.int_total_past_gpu_time,"+
             "layer.str_name AS layer_name," +
             "job.str_name AS job_name "+
         "FROM "+
@@ -1551,11 +1613,15 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "proc.int_mem_reserved, " +
             "proc.int_mem_used, " +
             "proc.int_mem_max_used, " +
-            "proc.int_gpu_reserved, " +
+            "proc.int_gpus_reserved, " +
+            "proc.int_gpu_mem_reserved, " +
+            "proc.int_gpu_mem_used, " +
+            "proc.int_gpu_mem_max_used, " +
             "proc.ts_ping, " +
             "proc.ts_booked, " +
             "proc.ts_dispatched, " +
             "proc.b_unbooked, " +
+            "proc.bytea_children, " +
             "redirect.str_name AS str_redirect " +
         "FROM proc " +
         "JOIN host ON proc.pk_host = host.pk_host " +
@@ -1588,6 +1654,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "frame.str_state,"+
             "frame.str_host,"+
             "frame.int_cores,"+
+            "frame.int_gpus,"+
+            "frame.ts_llu,"+
             "COALESCE(proc.int_mem_max_used, frame.int_mem_max_used) AS int_mem_max_used," +
             "COALESCE(proc.int_mem_used, frame.int_mem_used) AS int_mem_used " +
         "FROM "+
@@ -1611,6 +1679,11 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "vs_alloc_usage.int_running_cores,"+
             "vs_alloc_usage.int_available_cores,"+
             "vs_alloc_usage.int_locked_cores,"+
+            "vs_alloc_usage.int_gpus,"+
+            "vs_alloc_usage.int_idle_gpus,"+
+            "vs_alloc_usage.int_running_gpus,"+
+            "vs_alloc_usage.int_available_gpus,"+
+            "vs_alloc_usage.int_locked_gpus,"+
             "vs_alloc_usage.int_hosts,"+
             "vs_alloc_usage.int_locked_hosts,"+
             "vs_alloc_usage.int_down_hosts "+
@@ -1644,6 +1717,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "str_ti_task,"+
             "int_cores,"+
             "int_min_cores,"+
+            "int_gpus,"+
+            "int_min_gpus,"+
             "b_managed " +
         "FROM " +
             "point," +
@@ -1666,6 +1741,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "str_ti_task,"+
             "int_cores,"+
             "int_min_cores,"+
+            "int_gpus,"+
+            "int_min_gpus,"+
             "b_managed " +
         "FROM " +
             "point," +
@@ -1696,11 +1773,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "host_local.pk_host_local,"+
             "host_local.int_cores_idle,"+
             "host_local.int_cores_max,"+
+            "host_local.int_gpus_idle,"+
+            "host_local.int_gpus_max,"+
             "host_local.int_threads,"+
             "host_local.int_mem_idle,"+
             "host_local.int_mem_max,"+
-            "host_local.int_gpu_idle,"+
-            "host_local.int_gpu_max,"+
+            "host_local.int_gpu_mem_idle,"+
+            "host_local.int_gpu_mem_max,"+
             "host_local.str_type,"+
             "(SELECT str_name FROM host WHERE host.pk_host = host_local.pk_host) " +
                 "AS str_host_name,"+
@@ -1769,6 +1848,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "folder.int_job_max_cores," +
             "folder_resource.int_min_cores,"+
             "folder_resource.int_max_cores,"+
+            "folder.int_job_min_gpus," +
+            "folder.int_job_max_gpus," +
+            "folder_resource.int_min_gpus,"+
+            "folder_resource.int_max_gpus,"+
             "folder.b_default, " +
             "folder_level.int_level, " +
             "c.int_waiting_count, " +
@@ -1776,7 +1859,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "c.int_running_count,"+
             "c.int_dead_count,"+
             "c.int_job_count,"+
-            "c.int_cores " +
+            "c.int_cores," +
+            "c.int_gpus " +
         "FROM " +
             "folder, " +
             "folder_level," +
@@ -1811,6 +1895,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "job.str_log_dir," +
             "job_resource.int_max_cores," +
             "job_resource.int_min_cores," +
+            "job_resource.int_max_gpus," +
+            "job_resource.int_min_gpus," +
             "job.str_name," +
             "job.str_shot,"+
             "job.str_state,"+
@@ -1837,12 +1923,15 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "job_stat.int_succeeded_count, "+
             "job_usage.int_core_time_success, "+
             "job_usage.int_core_time_fail, " +
+            "job_usage.int_gpu_time_success, "+
+            "job_usage.int_gpu_time_fail, " +
             "job_usage.int_frame_success_count, "+
             "job_usage.int_frame_fail_count, "+
             "job_usage.int_clock_time_high,"+
             "job_usage.int_clock_time_success,"+
             "job_mem.int_max_rss,"+
-            "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores " +
+            "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores," +
+            "(job_resource.int_gpus + job_resource.int_local_gpus) AS int_gpus " +
         "FROM " +
             "job,"+
             "folder,"+
@@ -1879,6 +1968,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "layer_stat.int_succeeded_count," +
             "layer_usage.int_core_time_success," +
             "layer_usage.int_core_time_fail, "+
+            "layer_usage.int_gpu_time_success," +
+            "layer_usage.int_gpu_time_fail, "+
             "layer_usage.int_frame_success_count, "+
             "layer_usage.int_frame_fail_count, "+
             "layer_usage.int_clock_time_low, "+
@@ -1886,7 +1977,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "layer_usage.int_clock_time_success," +
             "layer_usage.int_clock_time_fail," +
             "layer_mem.int_max_rss,"+
-            "layer_resource.int_cores " +
+            "layer_resource.int_cores," +
+            "layer_resource.int_gpus " +
         "FROM " +
             "layer, " +
             "job," +
@@ -1917,6 +2009,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 "layer_stat.int_succeeded_count, " +
                 "layer_usage.int_core_time_success, " +
                 "layer_usage.int_core_time_fail, " +
+                "layer_usage.int_gpu_time_success, " +
+                "layer_usage.int_gpu_time_fail, " +
                 "layer_usage.int_frame_success_count, " +
                 "layer_usage.int_frame_fail_count, " +
                 "layer_usage.int_clock_time_low, " +
@@ -1925,6 +2019,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 "layer_usage.int_clock_time_fail, " +
                 "layer_mem.int_max_rss, " +
                 "layer_resource.int_cores, " +
+                "layer_resource.int_gpus, " +
                 "limit_names.str_limit_names " +
             "FROM " +
                 "layer " +
@@ -1965,14 +2060,30 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     private static final String GET_SHOW =
         "SELECT " +
-            "show.*," +
+            "show.pk_show," +
+            "show.str_name," +
+            "show.b_paused," +
+            "show.int_default_min_cores," +
+            "show.int_default_max_cores," +
+            "show.int_default_min_gpus," +
+            "show.int_default_max_gpus," +
+            "show.b_booking_enabled," +
+            "show.b_dispatch_enabled," +
+            "show.b_active," +
+            "show.str_comment_email," +
+            "show_stats.int_frame_insert_count," +
+            "show_stats.int_job_insert_count," +
+            "show_stats.int_frame_success_count," +
+            "show_stats.int_frame_fail_count," +
             "COALESCE(vs_show_stat.int_pending_count,0) AS int_pending_count," +
             "COALESCE(vs_show_stat.int_running_count,0) AS int_running_count," +
             "COALESCE(vs_show_stat.int_dead_count,0) AS int_dead_count," +
             "COALESCE(vs_show_resource.int_cores,0) AS int_cores, " +
+            "COALESCE(vs_show_resource.int_gpus,0) AS int_gpus, " +
             "COALESCE(vs_show_stat.int_job_count,0) AS int_job_count " +
         "FROM " +
             "show " +
+        "JOIN show_stats ON (show.pk_show = show_stats.pk_show) " +
         "LEFT JOIN vs_show_stat ON (vs_show_stat.pk_show = show.pk_show) " +
         "LEFT JOIN vs_show_resource ON (vs_show_resource.pk_show=show.pk_show) " +
         "WHERE " +
@@ -1986,8 +2097,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "service.int_cores_min," +
             "service.int_cores_max," +
             "service.int_mem_min," +
-            "service.int_gpu_min," +
-            "service.str_tags " +
+            "service.int_gpus_min," +
+            "service.int_gpus_max," +
+            "service.int_gpu_mem_min," +
+            "service.str_tags," +
+            "service.int_timeout," +
+            "service.int_timeout_llu," +
+            "service.int_min_memory_increase " +
         "FROM "+
             "service ";
 
@@ -1999,8 +2115,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "show_service.int_cores_min," +
             "show_service.int_cores_max," +
             "show_service.int_mem_min," +
-            "show_service.int_gpu_min," +
-            "show_service.str_tags " +
+            "show_service.int_gpus_min," +
+            "show_service.int_gpus_max," +
+            "show_service.int_gpu_mem_min," +
+            "show_service.str_tags," +
+            "show_service.int_timeout," +
+            "show_service.int_timeout_llu," +
+            "show_service.int_min_memory_increase " +
         "FROM "+
             "show_service, " +
             "show " +
@@ -2013,6 +2134,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "task.str_shot,"+
             "task.int_min_cores + task.int_adjust_cores AS int_min_cores, "+
             "task.int_adjust_cores, " +
+            "task.int_min_gpus + task.int_adjust_gpus AS int_min_gpus, "+
+            "task.int_adjust_gpus, " +
             "dept.str_name AS str_dept "+
         "FROM " +
             "task,"+
@@ -2035,8 +2158,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "host.int_cores_idle,"+
             "host.int_mem,"+
             "host.int_mem_idle,"+
-            "host.int_gpu,"+
-            "host.int_gpu_idle,"+
+            "host.int_gpus,"+
+            "host.int_gpus_idle,"+
+            "host.int_gpu_mem,"+
+            "host.int_gpu_mem_idle,"+
             "host.str_tags,"+
             "host.str_lock_state,"+
             "host.b_comment,"+
@@ -2048,8 +2173,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "host_stat.int_swap_free,"+
             "host_stat.int_mcp_total,"+
             "host_stat.int_mcp_free,"+
-            "host_stat.int_gpu_total,"+
-            "host_stat.int_gpu_free,"+
+            "host_stat.int_gpu_mem_total,"+
+            "host_stat.int_gpu_mem_free,"+
             "host_stat.int_load, " +
             "alloc.str_name AS alloc_name " +
         "FROM " +
@@ -2087,6 +2212,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "subscription.int_burst, " +
             "subscription.int_size, " +
             "subscription.int_cores, " +
+            "subscription.int_gpus, " +
             "show.str_name AS show_name, " +
             "alloc.str_name AS alloc_name, " +
             "facility.str_name AS facility_name " +
@@ -2117,6 +2243,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "frame.int_dispatch_order,"+
             "frame.ts_started,"+
             "frame.ts_stopped,"+
+            "frame.ts_llu,"+
             "frame.int_retries,"+
             "frame.str_state,"+
             "frame.str_host,"+
@@ -2124,10 +2251,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "frame.int_mem_max_used," +
             "frame.int_mem_used, " +
             "frame.int_mem_reserved, " +
-            "frame.int_gpu_reserved, " +
+            "frame.int_gpus,"+
+            "frame.int_gpu_mem_max_used, " +
+            "frame.int_gpu_mem_used, " +
+            "frame.int_gpu_mem_reserved, " +
             "frame.str_checkpoint_state,"+
             "frame.int_checkpoint_count,"+
             "frame.int_total_past_core_time,"+
+            "frame.int_total_past_gpu_time,"+
             "layer.str_name AS layer_name," +
             "job.str_name AS job_name, "+
             "ROW_NUMBER() OVER " +
@@ -2146,9 +2277,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "host.str_name AS str_host,"+
             "show.str_name AS str_show,"+
             "owner.str_username," +
-            "deed.b_blackout,"+
-            "deed.int_blackout_start,"+
-            "deed.int_blackout_stop,"+
             "deed.pk_deed " +
         "FROM " +
             "deed,"+

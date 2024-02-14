@@ -96,10 +96,15 @@ enum ActionType {
     SET_ALL_RENDER_LAYER_TAGS = 6;
     // Sets all layer minimum memory for any layer with the type "Render"
     SET_ALL_RENDER_LAYER_MEMORY = 7;
-    // Sets all min cores for any layer with the type "Render"
-    SET_ALL_RENDER_LAYER_CORES = 8;
+    // This field is deprecated, use SET_ALL_RENDER_LAYER_MIN_CORES and
+    // SET_ALL_RENDER_LAYER_MAX_CORES instead.
+    SET_ALL_RENDER_LAYER_CORES = 8 [deprecated = true];
     // Set memory optimizer
     SET_MEMORY_OPTIMIZER = 9;
+    // Sets all min cores for any layer with the type "Render"
+    SET_ALL_RENDER_LAYER_MIN_CORES = 10;
+    // Sets all max cores for any layer with the type "Render"
+    SET_ALL_RENDER_LAYER_MAX_CORES = 11;
 };
 
 enum ActionValueType {

@@ -13,6 +13,11 @@
 #  limitations under the License.
 
 
+"""Base Job Types available in the UI.
+
+Plugin apps can subclass this to change out the mapping to enable customized settings widgets."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -23,9 +28,9 @@ from cuesubmit.ui import SettingsWidgets
 
 class JobTypes(object):
     """Base Job Types available in the UI.
-    Plugin apps can subclass this to change out the mapping
-    to enable customized settings widgets.
-    """
+
+    Plugin apps can subclass this to change out the mapping to enable customized
+    settings widgets."""
 
     SHELL = 'Shell'
     MAYA = 'Maya'
