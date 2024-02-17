@@ -37,8 +37,8 @@ MAYA_RENDER_CMD = config.get('MAYA_RENDER_CMD', 'Render')
 NUKE_RENDER_CMD = config.get('NUKE_RENDER_CMD', 'nuke')
 BLENDER_RENDER_CMD = config.get('BLENDER_RENDER_CMD', 'blender')
 FRAME_TOKEN = config.get('FRAME_TOKEN', '#IFRAME#')
-FRAME_START = config.get('FRAME_START', '#FRAME_START#')
-FRAME_END = config.get('FRAME_END', '#FRAME_END#')
+FRAME_START_TOKEN = config.get('FRAME_START', '#FRAME_START#')
+FRAME_END_TOKEN = config.get('FRAME_END', '#FRAME_END#')
 
 # Tokens are replaced by cuebot during dispatch with their computed value.
 # see: cuebot/src/main/java/com/imageworks/spcue/dispatcher/DispatchSupportService.java

@@ -76,8 +76,8 @@ def buildBlenderCmd(layerData):
     if frameRange:
         # Renders animation within frame range
         renderCommand += (' -s {startFrame} -e {endFrame} -a'
-                          .format(startFrame=Constants.FRAME_START,
-                                  endFrame=Constants.FRAME_END))
+                          .format(startFrame=Constants.FRAME_START_TOKEN,
+                                  endFrame=Constants.FRAME_END_TOKEN))
     else:
         # The render frame must come after the scene and output
         renderCommand += ' -f {frameToken}'.format(frameToken=Constants.FRAME_TOKEN)
