@@ -74,7 +74,7 @@ def buildBlenderCmd(layerData):
     if outputFormat:
         renderCommand += ' -F {}'.format(outputFormat)
     if frameRange:
-        # Renders animation within frame range
+        # Render frames from start to end (inclusive) via '-a' command argument
         renderCommand += (' -s {startFrame} -e {endFrame} -a'
                           .format(startFrame=Constants.FRAME_START_TOKEN,
                                   endFrame=Constants.FRAME_END_TOKEN))
