@@ -42,6 +42,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.JobEntity;
 import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LayerDetail;
