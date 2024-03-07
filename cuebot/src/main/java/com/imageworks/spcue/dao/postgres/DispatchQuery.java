@@ -44,7 +44,6 @@ public class DispatchQuery {
                 "AND folder.pk_dept         = point.pk_dept " +
                 "AND folder.pk_show         = point.pk_show " +
                 "AND job.pk_job             = layer.pk_job " +
-                "AND job_resource.pk_job    = job.pk_job " +
                 "AND (CASE WHEN layer_stat.int_waiting_count > 0 THEN layer_stat.pk_layer ELSE NULL END) = layer.pk_layer " +
                 "AND " +
                     "(" +
@@ -139,7 +138,6 @@ public class DispatchQuery {
                 "AND folder.pk_dept         = point.pk_dept " +
                 "AND folder.pk_show         = point.pk_show " +
                 "AND job.pk_job             = layer.pk_job " +
-                "AND job_resource.pk_job    = job.pk_job " +
                 "AND (CASE WHEN layer_stat.int_waiting_count > 0 THEN layer_stat.pk_layer ELSE NULL END) = layer.pk_layer " +
                 "AND " +
                     "(" +
