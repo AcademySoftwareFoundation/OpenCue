@@ -63,6 +63,7 @@ def buildBlenderCmd(layerData):
     blenderFile = layerData.cmd.get('blenderFile')
     outputPath = layerData.cmd.get('outputPath')
     outputFormat = layerData.cmd.get('outputFormat')
+    frameRange = layerData.layerRange
     if not blenderFile:
         raise ValueError('No Blender file provided. Cannot submit job.')
 
@@ -72,8 +73,14 @@ def buildBlenderCmd(layerData):
         renderCommand += ' -o {}'.format(outputPath)
     if outputFormat:
         renderCommand += ' -F {}'.format(outputFormat)
-    # The render frame must come after the scene and output
-    renderCommand += ' -f {frameToken}'.format(frameToken=Constants.FRAME_TOKEN)
+    if frameRange:
+        # Render frames from start to end (inclusive) via '-a' command argument
+        renderCommand += (' -s {startFrame} -e {endFrame} -a'
+                          .format(startFrame=Constants.FRAME_START_TOKEN,
+                                  endFrame=Constants.FRAME_END_TOKEN))
+    else:
+        # The render frame must come after the scene and output
+        renderCommand += ' -f {frameToken}'.format(frameToken=Constants.FRAME_TOKEN)
     return renderCommand
 
 

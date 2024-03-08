@@ -49,6 +49,25 @@ NUKE_LAYER_DATA = {
     'services': ['nuke'],
 }
 
+BLENDER_MULTI_LAYER_DATA = {
+    'name': 'arbitraryBlenderLayer_name',
+    'layerType': cuesubmit.JobTypes.JobTypes.BLENDER,
+    'cmd': {'outputPath': '/path/to/output',
+            'blenderFile': '/path/to/scene.blend',
+            'outputFormat': 'PNG'},
+    'layerRange': '3-9',
+    'cores': '2'
+}
+
+BLENDER_SINGLE_LAYER_DATA = {
+    'name': 'arbitraryBlenderLayer_name',
+    'layerType': cuesubmit.JobTypes.JobTypes.BLENDER,
+    'cmd': {'outputPath': '/path/to/output',
+            'blenderFile': '/path/to/scene.blend',
+            'outputFormat': 'PNG'},
+    'cores': '2'
+}
+
 SHELL_LAYER_DATA = {
     'name': 'arbitraryShellLayer_name',
     'layerType': cuesubmit.JobTypes.JobTypes.SHELL,
@@ -108,6 +127,55 @@ class SubmissionTests(unittest.TestCase):
         )
         self.assertEqual(NUKE_LAYER_DATA['layerRange'], layer.get_frame_range())
         self.assertEqual('nuke', layer.get_service())
+
+    def testSubmitSingleFrameBlenderJob(self, launchMock):
+        cuesubmit.Submission.submitJob({
+            'name': 'arbitrary-blender-job',
+            'shot': 'arbitrary-shot-name',
+            'show': 'arbitrary-show-name',
+            'username': 'arbitrary-user',
+            'layers': [cuesubmit.Layer.LayerData.buildFactory(**BLENDER_SINGLE_LAYER_DATA)],
+        })
+
+        ol = launchMock.call_args[0][0]
+        self.assertEqual(1, len(ol.get_layers()))
+        layer = ol.get_layer(BLENDER_SINGLE_LAYER_DATA['name'])
+        self.assertEqual(BLENDER_SINGLE_LAYER_DATA['name'], layer.get_name())
+        self.assertEqual(
+            [
+                'blender', '-b', '-noaudio', BLENDER_SINGLE_LAYER_DATA['cmd']['blenderFile'],
+                '-o', BLENDER_SINGLE_LAYER_DATA['cmd']['outputPath'],
+                '-F', BLENDER_SINGLE_LAYER_DATA['cmd']['outputFormat'],
+                '-f', '#IFRAME#'
+            ],
+            layer.get_arg('command')
+        )
+        self.assertEqual('blender', layer.get_service())
+
+    def testSubmitMultiFrameBlenderJob(self, launchMock):
+        cuesubmit.Submission.submitJob({
+            'name': 'arbitrary-blender-job',
+            'shot': 'arbitrary-shot-name',
+            'show': 'arbitrary-show-name',
+            'username': 'arbitrary-user',
+            'layers': [cuesubmit.Layer.LayerData.buildFactory(**BLENDER_MULTI_LAYER_DATA)],
+        })
+
+        ol = launchMock.call_args[0][0]
+        self.assertEqual(1, len(ol.get_layers()))
+        layer = ol.get_layer(BLENDER_MULTI_LAYER_DATA['name'])
+        self.assertEqual(BLENDER_MULTI_LAYER_DATA['name'], layer.get_name())
+        self.assertEqual(
+            [
+                'blender', '-b', '-noaudio', BLENDER_MULTI_LAYER_DATA['cmd']['blenderFile'],
+                '-o', BLENDER_MULTI_LAYER_DATA['cmd']['outputPath'],
+                '-F', BLENDER_MULTI_LAYER_DATA['cmd']['outputFormat'],
+                '-s', '#FRAME_START#', '-e', '#FRAME_END#', '-a'
+            ],
+            layer.get_arg('command')
+        )
+        self.assertEqual(BLENDER_MULTI_LAYER_DATA['layerRange'], layer.get_frame_range())
+        self.assertEqual('blender', layer.get_service())
 
     def testSubmitMayaAndShellJob(self, launchMock):
         cuesubmit.Submission.submitJob({
