@@ -16,23 +16,15 @@ RUN yum -y install \
 RUN python3.6 -m pip install --upgrade pip
 RUN python3.6 -m pip install --upgrade setuptools
 
-COPY --from=opencue/rqd /opt/opencue/rqd-0.22-custom-all.tar.gz /opt/opencue/rqd-0.22-custom-all.tar.gz
+COPY --from=opencue/rqd /opt/opencue/rqd-*-all.tar.gz /opt/opencue/
 COPY --from=opencue/rqd /opt/opencue/proto/ /opt/opencue/proto/
 
 RUN mkdir -p /etc/opencue
 COPY --from=opencue/rqd /etc/opencue/rqd.conf /etc/opencue/rqd.conf
 
-RUN tar -xvf /opt/opencue/rqd-0.22-custom-all.tar.gz --strip-components=1
+RUN tar -xvf /opt/opencue/rqd-*-all.tar.gz --strip-components=1
 
 RUN python3.6 -m pip install -r requirements.txt
-
-RUN python3.6 -m grpc_tools.protoc \
-  -I=./proto \
-  --python_out=./rqd/compiled_proto \
-  --grpc_python_out=./rqd/compiled_proto \
-  ./proto/*.proto
-
-RUN 2to3 -wn -f import rqd/compiled_proto/*_pb2*.py
 
 RUN python3.6 setup.py test
 RUN python3.6 setup.py install
