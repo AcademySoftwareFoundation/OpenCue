@@ -60,3 +60,39 @@ def getFacilities(allocations):
     default_facilities = [Constants.DEFAULT_FACILITY_TEXT]
     facilities = set(alloc.data.facility for alloc in allocations)
     return default_facilities + list(facilities)
+
+def convertCommandOptions(options):
+    """ Parse command options from the config file and return parameters to feed the UI (name, type, value)
+
+    :param options: All options for a given command (ex:{"-flag {Nice Name}": "default_value"})
+    :type options: dict
+    :return: list of dict of parameters
+    """
+    import re
+    parameters = []
+    for option_line, value in options.items():
+        parse_option = re.search(Constants.REGEX_COMMAND_OPTIONS,
+                                 option_line)
+        options = {
+            'option_line': option_line,
+            'label': parse_option.group('label'),
+            'command_flag': parse_option.group('command_flag'),
+            'value': value,
+            'type': type(value),
+            'hidden': bool(parse_option.group('hidden'))
+                      or re.match(Constants.REGEX_CUETOKEN, str(value)),
+            'mandatory': bool(parse_option.group('mandatory')),
+            'browsable': parse_option.group('browsable'),
+            }
+        if isinstance(value, (tuple, list))\
+                and len(value) in (3, 4)\
+                and isinstance(value[0], (int, float)):
+            options.update({
+                'type': range,
+                'min': value[0],
+                'max': value[1],
+                'value': value[2],
+                'float_precision': value[3] if len(value)==4 else None
+                })
+        parameters.append(options)
+    return parameters

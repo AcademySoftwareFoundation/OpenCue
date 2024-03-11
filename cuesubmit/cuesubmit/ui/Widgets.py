@@ -55,9 +55,14 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.lineEdit.setToolTip(tooltip)
         self.horizontalLine = CueHLine()
         self.validators = validators or []
+        self.signals = [self.lineEdit.textChanged,
+                        self.lineEdit.focusChange]
+        self.getter = self.lineEdit.text
+        self.setter = self.lineEdit.setText
         self.setupUi()
         self.setupConnections()
         self.setAutoFillBackground(True)
+        self.validateText()
 
     def setupUi(self):
         """Creates the widget layout."""
@@ -183,10 +188,13 @@ class CueSelectPulldown(QtWidgets.QWidget):
         self.toolButton = QtWidgets.QToolButton(parent=self)
         self.optionsMenu = QtWidgets.QMenu(self)
         self.setOptions(options)
+        self.signals = [self.optionsMenu.triggered]
+        self.getter = self.text
+        self.setter = self.setCheckedFromText
         if self.multiselect:
             self.toolButton.setText(self.emptyText)
         else:
-            self.setChecked(options[0])
+            self.setChecked([options[0]])
         self.setupUi()
         self.setupConnections()
 
@@ -241,6 +249,16 @@ class CueSelectPulldown(QtWidgets.QWidget):
                 self.optionsMenu.actions()[0].setChecked(True)
         self.updateLabelText()
 
+    def setCheckedFromText(self, actionsAstext):
+        """Set the given actionNames to be checked and update the label.
+        @type actionNames: str
+        @param actionNames: list of action names to set to checked separated by a comma and a space
+        """
+        if ', ' in actionsAstext and self.multiselect:
+            self.setChecked(actionsAstext.split(', '))
+        else:
+            self.setChecked([actionsAstext])
+
     def text(self):
         """Return the tool button's current text value.
         @rtype: str
@@ -286,13 +304,17 @@ class CueLabelToggle(QtWidgets.QWidget):
     actionTriggered = QtCore.Signal(int)
     rangeChanged = QtCore.Signal(int, int)
 
-    def __init__(self, label=None, parent=None):
+    def __init__(self, label=None, default_value=False, parent=None):
         super(CueLabelToggle, self).__init__(parent=parent)
         self.mainLayout = QtWidgets.QHBoxLayout()
         self.label = QtWidgets.QLabel(label, parent=self)
         self.label.setMinimumWidth(120)
         self.label.setAlignment(QtCore.Qt.AlignVCenter)
         self.toggle = CueToggle(parent=self)
+        self.toggle.setValue(default_value)
+        self.signals = [self.toggle.valueChanged]
+        self.getter = self.toggle.value
+        self.setter = self.toggle.setValue
         self.setupUi()
         self.setupConnections()
 
