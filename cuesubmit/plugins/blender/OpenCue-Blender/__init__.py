@@ -37,13 +37,12 @@ class SubmitJob(bpy.types.Operator):
     bl_label = "My Operator"
 
     def execute(self, context):
-        retrieved_output_path = bpy.context.preferences.addons[__name__].preferences.output_path
         layerData = {
             'name': context.scene.layer_name,
             'layerType': 'Blender',
             'cmd': {
                 'blenderFile': bpy.data.filepath,
-                'outputPath': retrieved_output_path,
+                'outputPath': context.scene.output_path,
                 'outputFormat': 'PNG'
             },
             'layerRange': '1',
@@ -92,6 +91,9 @@ class OpenCuePanel(bpy.types.Panel):
         col.prop(context.scene, "shot_name")
 
         col = layout.column()
+        col.prop(context.scene, "output_path")
+
+        col = layout.column()
         col.operator("object.submit_job", text="Submit")
 
 
@@ -111,15 +113,9 @@ class OpenCueAddonPreferences(bpy.types.AddonPreferences):
         description="Enable to utilize GPU rendering for jobs",
     )
 
-    output_path: bpy.props.StringProperty(
-        name="OpenCue output path",
-        default="",
-    )
-
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "use_gpu")
-        layout.prop(self, "output_path")
 
 
 def register():
@@ -147,6 +143,12 @@ def register():
     bpy.types.Scene.shot_name = bpy.props.StringProperty(
         name="Shot name",
         description="Shot name",
+        default=""
+    )
+
+    bpy.types.Scene.output_path = bpy.props.StringProperty(
+        name="Output path",
+        description="Enter output path for rendered frames",
         default=""
     )
 
