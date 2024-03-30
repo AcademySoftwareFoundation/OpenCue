@@ -29,7 +29,7 @@ def buildBlenderCmd(layerData):
     outputFormat = layerData.get('cmd').get('outputFormat')
 
     # Hardware use for rendering
-    addon_prefs = bpy.context.preferences.addons['OpenCue'].preferences
+    addon_prefs = bpy.context.preferences.addons['OpenCue-Blender'].preferences
     use_gpu = addon_prefs.use_gpu
     if use_gpu:
         renderHW = "CUDA"
