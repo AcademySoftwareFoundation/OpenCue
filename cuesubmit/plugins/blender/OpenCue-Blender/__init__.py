@@ -73,7 +73,7 @@ class OpenCuePanel(bpy.types.Panel):
     bl_idname = "SCENE_PT_layout"  # VIEW_3D_opencue_panel
     bl_space_type = 'PROPERTIES'  # VIEW_3D
     bl_region_type = 'WINDOW'  # UI
-    bl_category = "render"  # Properties
+    bl_context = "output"  # Properties
 
     def draw(self, context):
         layout = self.layout
