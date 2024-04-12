@@ -8,7 +8,11 @@ This is a go serviced based on the official [grpc-gateway project](https://githu
 that compiles opencue's proto files into a go service that provides a REST interface and redirect calls to the  
 grpc endpoint.
 
-The service is available at http://opencue-gateway.apps.com
+## Running the service
+
+Running the service is very simple:
+ * Read and modify the rest_gateway/Dockerfile according to your environment and build the gateway image using docker.
+ * Run the image providing the environment variable `CUEBOT_ENDPOINT=your.cuebot.server:8443`
 
 ## REST interface
 

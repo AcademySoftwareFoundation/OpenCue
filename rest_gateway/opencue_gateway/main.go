@@ -21,7 +21,7 @@ func getEnv(key, fallback string) string {
 }
 
 func run() error {
-	grpcServerEndpoint := getEnv("CUEBOT_ENDPOINT", "opencuetest01.spimageworks.com:8443")
+	grpcServerEndpoint := getEnv("CUEBOT_ENDPOINT", "opencuetest01.your.test.server:8443")
 	port := getEnv("REST_PORT", "8448")
 
 	ctx := context.Background()
@@ -32,11 +32,49 @@ func run() error {
 	// Note: Make sure the gRPC server is running properly and accessible
 	mux := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-	err := gw.RegisterShowInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
-	if err != nil {
-		return err
+	
+	// show.proto
+	errShow := gw.RegisterShowInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
+	if errShow != nil {
+		return errShow
 	}
 
+	errFrame := gw.RegisterFrameInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
+	if errFrame != nil {
+		return errFrame
+	}
+	errGroup := gw.RegisterGroupInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
+	if errGroup != nil {
+		return errGroup
+	}
+	errJob := gw.RegisterJobInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
+	if errJob != nil {
+		return errJob
+	}
+	errLayer := gw.RegisterLayerInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
+	if errLayer != nil {
+		return errLayer
+	}
+
+	// host.proto
+	errDeed := gw.RegisterDeedInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
+	if errDeed != nil {
+		return errDeed
+	}
+	errHost := gw.RegisterHostInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
+	if errHost != nil {
+		return errHost
+	}
+	errOwner := gw.RegisterOwnerInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
+	if errOwner != nil {
+		return errOwner
+	}
+	errProc := gw.RegisterProcInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
+	if errProc != nil {
+		return errProc
+	}
+	
+	
 	// Start HTTP server (and proxy calls to gRPC server endpoint)
 	return http.ListenAndServe(":" + port, mux)
 }
