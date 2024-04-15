@@ -45,8 +45,8 @@ class SubmitJob(bpy.types.Operator):
                 'outputPath': context.scene.output_path,
                 'outputFormat': 'PNG'
             },
-            'layerRange': '1',
-            'chunk': '1',
+            'layerRange': context.scene.frame_spec,
+            'chunk': context.scene.chunk_size,
             'cores': '0',
             'env': {},
             'services': [],
@@ -92,6 +92,12 @@ class OpenCuePanel(bpy.types.Panel):
 
         col = layout.column()
         col.prop(context.scene, "output_path")
+
+        col = layout.column()
+        col.prop(context.scene, "frame_spec")
+
+        col = layout.column()
+        col.prop(context.scene, "chunk_size")
 
         col = layout.column()
         col.operator("object.submit_job", text="Submit")
@@ -143,6 +149,18 @@ def register():
     bpy.types.Scene.shot_name = bpy.props.StringProperty(
         name="Shot name",
         description="Shot name",
+        default=""
+    )
+
+    bpy.types.Scene.frame_spec = bpy.props.StringProperty(
+        name="Frame spec",
+        description="Enter frame spec",
+        default=""
+    )
+
+    bpy.types.Scene.chunk_size = bpy.props.StringProperty(
+        name="Chunk size",
+        description="Enter chunk size",
         default=""
     )
 

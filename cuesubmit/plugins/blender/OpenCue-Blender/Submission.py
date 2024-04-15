@@ -27,6 +27,7 @@ def buildBlenderCmd(layerData):
     blenderFile = layerData.get('cmd').get('blenderFile')
     outputPath = layerData.get('cmd').get('outputPath')
     outputFormat = layerData.get('cmd').get('outputFormat')
+    frameRange = layerData.get('layerRange')
 
     # Hardware use for rendering
     addon_prefs = bpy.context.preferences.addons['OpenCue-Blender'].preferences
@@ -39,15 +40,21 @@ def buildBlenderCmd(layerData):
     if not blenderFile:
         raise ValueError('No Blender file provided. Cannot submit job.')
 
-    renderCommand = '{renderCmd} -b -noaudio {blenderFile} -E CYCLES'.format(
+    renderCommand = '{renderCmd} -b -noaudio {blenderFile}'.format(
         renderCmd="blender", blenderFile=blenderFile)
     if outputPath:
         renderCommand += ' -o {}'.format(outputPath)
     if outputFormat:
         renderCommand += ' -F {}'.format(outputFormat)
-    # The render frame must come after the scene and output
-    # renderCommand += ' -f {frameToken}'.format(frameToken="#IFRAME#")
-    renderCommand += ' -f 1 -- --cycles-device {renderHW}'.format(renderHW=renderHW)
+    # Option to render still frame or animation must come after the scene and output
+    if frameRange:
+        renderCommand += ' -s {frameStart} -e {frameEnd} -a'.format(
+            frameStart="#FRAME_START#",
+            frameEnd="#FRAME_END#")
+    else:
+        renderCommand += ' -f {frameToken}'.format(frameToken="#IFRAME#")
+    renderCommand += ' -E CYCLES -- --cycles-device {renderHW}'.format(
+        renderHW=renderHW)
     return renderCommand
 
 
