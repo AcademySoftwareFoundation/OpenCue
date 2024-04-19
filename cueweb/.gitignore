@@ -1,0 +1,4 @@
+
+# Sentry Config File
+.sentryclirc
+.env.local
