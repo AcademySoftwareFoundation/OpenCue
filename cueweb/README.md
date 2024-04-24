@@ -82,11 +82,9 @@ Go back to [Contents](#contents).
     - Authentication environment variables
         - Depending on which provider you use for authentication, you may have to set certain environment variables. 
         - For example, for authentication (see file `cueweb/lib/auth.ts`), the following environment variables must be set:
-          - NEXT_PUBLIC_OPENCUE_ENDPOINT
-            - Example: 
-              - `NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google` will show the three authentication buttons (Okta, Google, GitHub).
-              - `NEXT_PUBLIC_AUTH_PROVIDER=github,google` will show the two authentication buttons (GitHub and Google).
-              - `NEXT_PUBLIC_AUTH_PROVIDER=google` will show only the Google (Gmail) authentication button.
+            - `NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google` will show the three authentication buttons (Okta, Google, GitHub).
+            - `NEXT_PUBLIC_AUTH_PROVIDER=github,google` will show the two authentication buttons (GitHub and Google).
+            - `NEXT_PUBLIC_AUTH_PROVIDER=google` will show only the Google (Gmail) authentication button.
 
           - [Okta](https://www.okta.com/)
               - NEXT_AUTH_OKTA_CLIENT_ID
@@ -110,9 +108,9 @@ Go back to [Contents](#contents).
 Example of `.env` file (`cueweb/.env.example`):
 
 ```env
-NEXT_PUBLIC_OPENCUE_ENDPOINT=http://company.com/job.JobInterface/GetJobs
+NEXT_PUBLIC_OPENCUE_ENDPOINT=http://your-rest-gateway-url.com
 
-SENTRY_ENVIRONMENT_CUEWEB='development'
+SENTRY_ENVIRONMENT='development'
 
 
 # Authentication Configuration:

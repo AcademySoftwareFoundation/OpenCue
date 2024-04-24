@@ -42,6 +42,8 @@ EXPOSE 3000
 
 # for production builds using Openshift (comment out all the following lines when testing locally):
 # this is required to build Next.js or else it will throw errors. Actual env variables will be passed by Openshift
+# change NEXT_PUBLIC_AUTH_PROVIDER to add the authentication providers used in the CueWeb application
+ENV NEXT_PUBLIC_AUTH_PROVIDER=google,okta,github
 ENV NEXTAUTH_SECRET=tobeoverriden
 ENV NEXT_AUTH_OKTA_CLIENT_ID=tobeoverriden
 ENV NEXT_AUTH_OKTA_ISSUER=tobeoverriden
