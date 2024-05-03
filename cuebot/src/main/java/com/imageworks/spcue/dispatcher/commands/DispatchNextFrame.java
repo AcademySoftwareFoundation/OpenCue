@@ -28,13 +28,14 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
  *
  * @category command
  */
-public class DispatchNextFrame implements Runnable {
+public class DispatchNextFrame extends KeyRunnable {
 
     private VirtualProc proc;
     private DispatchJob job;
     private Dispatcher dispatcher;
 
     public DispatchNextFrame(DispatchJob j, VirtualProc p, Dispatcher d) {
+        super("disp_next_frame_" + j.getJobId() + "_" + p.getProcId());
         this.job = j;
         this.proc = p;
         this.dispatcher = d;

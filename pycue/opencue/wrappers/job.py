@@ -126,6 +126,20 @@ class Job(object):
         self.stub.SetMaxCores(job_pb2.JobSetMaxCoresRequest(job=self.data, val=maxCores),
                               timeout=Cuebot.Timeout)
 
+    def setMinGpus(self, minGpus):
+        """Sets the minimum procs value
+        :type  minGpus: int
+        :param minGpus: New minimum cores value"""
+        self.stub.SetMinGpus(job_pb2.JobSetMinGpusRequest(job=self.data, val=minGpus),
+                             timeout=Cuebot.Timeout)
+
+    def setMaxGpus(self, maxGpus):
+        """Sets the maximum procs value
+        :type  maxGpus: int
+        :param maxGpus: New maximum cores value"""
+        self.stub.SetMaxGpus(job_pb2.JobSetMaxGpusRequest(job=self.data, val=maxGpus),
+                             timeout=Cuebot.Timeout)
+
     def setPriority(self, priority):
         """Sets the job priority.
 
@@ -211,7 +225,7 @@ class Job(object):
         self.stub.SetAutoEat(job_pb2.JobSetAutoEatRequest(job=self.data, value=value),
                              timeout=Cuebot.Timeout)
 
-    def addRenderPartition(self, hostname, threads, max_cores, num_mem, max_gpu):
+    def addRenderPartition(self, hostname, threads, max_cores, num_mem, max_gpus, max_gpu_memory):
         """Adds a render partition to the job.
 
         :type  hostname: str
@@ -222,8 +236,10 @@ class Job(object):
         :param max_cores: max cores enabled for the partition
         :type  num_mem: int
         :param num_mem: amount of memory reserved for the partition
-        :type  max_gpu: int
-        :param max_gpu: max gpu cores enabled for the partition
+        :type  max_gpus: int
+        :param max_gpus: max gpu cores enabled for the partition
+        :type  max_gpu_memory: int
+        :param max_gpu_memory: amount of gpu memory reserved for the partition
         """
         self.stub.AddRenderPartition(
             job_pb2.JobAddRenderPartRequest(job=self.data,
@@ -231,7 +247,8 @@ class Job(object):
                                             threads=threads,
                                             max_cores=max_cores,
                                             max_memory=num_mem,
-                                            max_gpu=max_gpu,
+                                            max_gpus=max_gpus,
+                                            max_gpu_memory=max_gpu_memory,
                                             username=os.getenv("USER", "unknown")))
 
     def getWhatDependsOnThis(self):
@@ -492,6 +509,20 @@ class Job(object):
         """
         return self.data.max_cores
 
+    def minGpus(self):
+        """Returns the minimum number of gpus the job needs.
+        :rtype:  int
+        :return: job's min gpus
+        """
+        return self.data.min_gpus
+
+    def maxGpus(self):
+        """Returns the maximum number of gpus the job will use.
+        :rtype:  int
+        :return: job's max gpus
+        """
+        return self.data.max_gpus
+
     def os(self):
         """Returns the job's operating system.
 
@@ -742,6 +773,11 @@ class Job(object):
         :return: most memory used by any frame in kB"""
         return self.data.job_stats.max_rss
 
+    def shutdownIfCompleted(self):
+        """Shutdown the job if it is completed."""
+        self.stub.ShutdownIfCompleted(job_pb2.JobShutdownIfCompletedRequest(job=self.data),
+                                      timeout=Cuebot.Timeout)
+
 
 class NestedJob(Job):
     """This class contains information and actions related to a nested job."""
@@ -822,6 +858,18 @@ class NestedJob(Job):
         :param maxCores: new maximum cores value
         """
         self.asJob().setMaxCores(maxCores)
+
+    def setMinGpus(self, minGpus):
+        """Sets the minimum gpus value
+        :type  minGpus: int
+        :param minGpus: New minimum gpus value"""
+        self.asJob().setMinGpus(minGpus)
+
+    def setMaxGpus(self, maxGpus):
+        """Sets the maximum gpus value
+        :type  maxGpus: int
+        :param maxGpus: New maximum gpus value"""
+        self.asJob().setMaxGpus(maxGpus)
 
     def setPriority(self, priority):
         """Sets the job priority.

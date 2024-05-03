@@ -22,12 +22,14 @@ package com.imageworks.spcue.dispatcher.commands;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 
-public class DispatchBookHostLocal implements Runnable {
+public class DispatchBookHostLocal extends KeyRunnable {
 
     private DispatchHost host;
     private Dispatcher dispatcher;
 
     public DispatchBookHostLocal(DispatchHost host, Dispatcher d) {
+        super(host.getId());
+
         this.host = host;
         this.dispatcher = d;
     }

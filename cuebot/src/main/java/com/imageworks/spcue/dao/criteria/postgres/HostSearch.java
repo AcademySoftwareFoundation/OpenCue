@@ -44,7 +44,7 @@ public class HostSearch extends Criteria implements HostSearchInterface {
     public void buildWhereClause() {
         addPhrase("host.pk_host", criteria.getIdsList());
         addPhrase("host.str_name", criteria.getHostsList());
-        addPhrase("host.str_name", new HashSet<>(criteria.getSubstrList()));
+        addLikePhrase("host.str_name", new HashSet<>(criteria.getSubstrList()));
         addRegexPhrase("host.str_name", new HashSet<>(criteria.getRegexList()));
         addPhrase("alloc.str_name", criteria.getAllocsList());
         Set<String> items = new HashSet<>(criteria.getStates().getStateCount());

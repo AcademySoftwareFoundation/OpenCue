@@ -66,9 +66,14 @@ RQD_RETRY_STARTUP_CONNECT_DELAY = 30
 RQD_RETRY_CRITICAL_REPORT_DELAY = 30
 RQD_USE_IP_AS_HOSTNAME = True
 RQD_USE_IPV6_AS_HOSTNAME = False
+
+# Use the PATH environment variable from the RQD host.
+RQD_USE_PATH_ENV_VAR = False
+
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 RQD_TAGS = ''
+RQD_PREPEND_TIMESTAMP = False
 
 KILL_SIGNAL = 9
 if platform.system() == 'Linux':
@@ -99,12 +104,19 @@ PATH_INIT_TARGET = '/lib/systemd/system/default.target' # rhel7
 PATH_LOADAVG = "/proc/loadavg"
 PATH_STAT = "/proc/stat"
 PATH_MEMINFO = "/proc/meminfo"
+# stat and statm are inaccurate because of kernel internal scability optimation
+# stat/statm/status are inaccurate values, true values are in smaps
+# but RQD user can't read smaps get:
+# [Errno 13] Permission denied: '/proc/166289/smaps'
+PATH_PROC_PID_STAT = "/proc/{0}/stat"
+PATH_PROC_PID_STATM = "/proc/{0}/statm"
+PATH_PROC_PID_CMDLINE = "/proc/{0}/cmdline"
 
 if platform.system() == 'Linux':
     SYS_HERTZ = os.sysconf('SC_CLK_TCK')
 
 if platform.system() == 'Windows':
-    CONFIG_FILE = os.path.expandvars('$LOCALAPPDATA/OpenCue/rqd.conf')
+    CONFIG_FILE = os.path.expandvars('%LOCALAPPDATA%/OpenCue/rqd.conf')
 else:
     CONFIG_FILE = '/etc/opencue/rqd.conf'
 
@@ -116,9 +128,14 @@ OVERRIDE_IS_DESKTOP = None # Force rqd to run in 'desktop' mode
 OVERRIDE_PROCS = None # number of physical cpus. ex: None or 2
 OVERRIDE_MEMORY = None # in Kb
 OVERRIDE_NIMBY = None # True to turn on, False to turn off
+USE_NIMBY_PYNPUT = True # True pynput, False select
 OVERRIDE_HOSTNAME = None # Force to use this hostname
 ALLOW_GPU = False
 LOAD_MODIFIER = 0 # amount to add/subtract from load
+
+LOG_FORMAT = '%(asctime)s %(levelname)-9s openrqd-%(module)-10s %(message)s'
+CONSOLE_LOG_LEVEL = logging.DEBUG
+FILE_LOG_LEVEL = logging.WARNING  # Equal to or greater than the consoleLevel
 
 if subprocess.getoutput('/bin/su --help').find('session-command') != -1:
     SU_ARGUMENT = '--session-command'
@@ -138,8 +155,8 @@ try:
         else:
             ConfigParser = configparser.RawConfigParser
         config = ConfigParser()
-        logging.info('Loading config %s', CONFIG_FILE)
         config.read(CONFIG_FILE)
+        logging.warning('Loading config %s', CONFIG_FILE)
 
         if config.has_option(__section, "RQD_GRPC_PORT"):
             RQD_GRPC_PORT = config.getint(__section, "RQD_GRPC_PORT")
@@ -155,6 +172,8 @@ try:
             CUEBOT_HOSTNAME = config.get(__section, "OVERRIDE_CUEBOT")
         if config.has_option(__section, "OVERRIDE_NIMBY"):
             OVERRIDE_NIMBY = config.getboolean(__section, "OVERRIDE_NIMBY")
+        if config.has_option(__section, "USE_NIMBY_PYNPUT"):
+            USE_NIMBY_PYNPUT = config.getboolean(__section, "USE_NIMBY_PYNPUT")
         if config.has_option(__section, "OVERRIDE_HOSTNAME"):
             OVERRIDE_HOSTNAME = config.get(__section, "OVERRIDE_HOSTNAME")
         if config.has_option(__section, "GPU"):
@@ -165,6 +184,8 @@ try:
             RQD_USE_IP_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IP_AS_HOSTNAME")
         if config.has_option(__section, "RQD_USE_IPV6_AS_HOSTNAME"):
             RQD_USE_IPV6_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IPV6_AS_HOSTNAME")
+        if config.has_option(__section, "RQD_USE_PATH_ENV_VAR"):
+            RQD_USE_PATH_ENV_VAR = config.getboolean(__section, "RQD_USE_PATH_ENV_VAR")
         if config.has_option(__section, "RQD_BECOME_JOB_USER"):
             RQD_BECOME_JOB_USER = config.getboolean(__section, "RQD_BECOME_JOB_USER")
         if config.has_option(__section, "RQD_TAGS"):
@@ -173,8 +194,18 @@ try:
             DEFAULT_FACILITY = config.get(__section, "DEFAULT_FACILITY")
         if config.has_option(__section, "LAUNCH_FRAME_USER_GID"):
             LAUNCH_FRAME_USER_GID = config.getint(__section, "LAUNCH_FRAME_USER_GID")
+        if config.has_option(__section, "CONSOLE_LOG_LEVEL"):
+            level = config.get(__section, "CONSOLE_LOG_LEVEL")
+            CONSOLE_LOG_LEVEL = logging.getLevelName(level)
+        if config.has_option(__section, "FILE_LOG_LEVEL"):
+            level = config.get(__section, "FILE_LOG_LEVEL")
+            FILE_LOG_LEVEL = logging.getLevelName(level)
+        if config.has_option(__section, "RQD_PREPEND_TIMESTAMP"):
+            RQD_PREPEND_TIMESTAMP = config.getboolean(__section, "RQD_PREPEND_TIMESTAMP")
 # pylint: disable=broad-except
 except Exception as e:
     logging.warning(
         "Failed to read values from config file %s due to %s at %s",
         CONFIG_FILE, e, traceback.extract_tb(sys.exc_info()[2]))
+
+logging.warning("CUEBOT_HOSTNAME: %s", CUEBOT_HOSTNAME)

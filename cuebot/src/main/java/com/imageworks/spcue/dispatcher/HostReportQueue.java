@@ -19,45 +19,102 @@
 
 package com.imageworks.spcue.dispatcher;
 
+import java.lang.ref.WeakReference;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.log4j.Logger;
+import com.imageworks.spcue.grpc.report.HostReport;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
+import com.imageworks.spcue.util.CueUtil;
 
 public class HostReportQueue extends ThreadPoolExecutor {
 
-    private static final Logger logger = Logger.getLogger(HostReportQueue.class);
-
-    private static final int THREAD_POOL_SIZE_INITIAL = 6;
-    private static final int THREAD_POOL_SIZE_MAX = 8;
-    private static final int QUEUE_SIZE_INITIAL = 1000;
-
+    private static final Logger logger = LogManager.getLogger(HostReportQueue.class);
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
+    private int queueCapacity;
 
-    public HostReportQueue() {
-        super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10 , TimeUnit.SECONDS,
-                new LinkedBlockingQueue<Runnable>(QUEUE_SIZE_INITIAL));
-        this.setRejectedExecutionHandler(rejectCounter);
+    private Cache<String, HostReportWrapper> hostMap = CacheBuilder.newBuilder()
+            .expireAfterWrite(1, TimeUnit.HOURS)
+            .build();
 
+    /**
+     * Wrapper around protobuf object HostReport to add reportTi
+     */
+    private class HostReportWrapper{
+        private final HostReport hostReport;
+        private final WeakReference<DispatchHandleHostReport> reportTaskRef;
+        public long taskTime = System.currentTimeMillis();
+
+        public HostReportWrapper(HostReport hostReport, DispatchHandleHostReport reportTask) {
+            this.hostReport = hostReport;
+            this.reportTaskRef = new WeakReference<>(reportTask);
+        }
+
+        public HostReport getHostReport() {
+            return hostReport;
+        }
+
+        public DispatchHandleHostReport getReportTask() {
+            return reportTaskRef.get();
+        }
+
+        public long getTaskTime() {
+            return taskTime;
+        }
     }
 
-    public void execute(DispatchHandleHostReport r) {
+    public HostReportQueue(int threadPoolSizeInitial, int threadPoolSizeMax, int queueSize) {
+        super(threadPoolSizeInitial, threadPoolSizeMax, 10 , TimeUnit.SECONDS,
+                new LinkedBlockingQueue<Runnable>(queueSize));
+        this.setRejectedExecutionHandler(rejectCounter);
+    }
+
+    public void execute(DispatchHandleHostReport newReport) {
         if (isShutdown.get()) {
             return;
         }
-        if (getQueue().contains(r)) {
-            getQueue().remove(r);
+        HostReportWrapper oldWrappedReport = hostMap.getIfPresent(newReport.getKey());
+        // If hostReport exists on the cache and there's also a task waiting to be executed
+        // replace the old report by the new on, but refrain from creating another task
+        if (oldWrappedReport != null) {
+            DispatchHandleHostReport oldReport = oldWrappedReport.getReportTask();
+            if(oldReport != null) {
+                // Replace report, but keep the reference of the existing task
+                hostMap.put(newReport.getKey(),
+                        new HostReportWrapper(newReport.getHostReport(), oldReport));
+                return;
+            }
         }
-        super.execute(r);
+        hostMap.put(newReport.getKey(),
+                new HostReportWrapper(newReport.getHostReport(), newReport));
+        super.execute(newReport);
+    }
+
+    public HostReport removePendingHostReport(String key) {
+        if (key != null) {
+            HostReportWrapper r = hostMap.getIfPresent(key);
+            if (r != null) {
+                hostMap.asMap().remove(key, r);
+                return r.getHostReport();
+            }
+        }
+        return null;
     }
 
     public long getRejectedTaskCount() {
         return rejectCounter.getRejectCount();
+    }
+
+    public int getQueueCapacity() {
+        return queueCapacity;
     }
 
     public void shutdown() {
@@ -78,6 +135,10 @@ public class HostReportQueue extends ThreadPoolExecutor {
                 }
             }
         }
+    }
+
+    public boolean isHealthy() {
+        return getQueue().remainingCapacity() > 0;
     }
 }
 

@@ -38,6 +38,12 @@ public class BuildableJob {
     public JobDetail detail;
 
     /**
+     * Maximum CPU cores and GPU units overrides.
+     */
+    public Integer maxCoresOverride = null;
+    public Integer maxGpusOverride = null;
+
+    /**
      * List of layers
      */
     private List<BuildableLayer> layers = new ArrayList<BuildableLayer>();
@@ -70,12 +76,12 @@ public class BuildableJob {
     }
 
     /**
-     * Add a key/value pair environement var to job
+     * Add a key/value pair environment var to job
      *
      * @param key
      * @param value
      */
-    public void addEnvironementVariable(String key, String value) {
+    public void addEnvironmentVariable(String key, String value) {
         env.put(key, value);
     }
 

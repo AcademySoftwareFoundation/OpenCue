@@ -357,11 +357,13 @@ class ServiceTests(unittest.TestCase):
     testThreadable = False
     testMinCores = 1000
     testMaxCores = 2000
+    minMemoryIncrease = 2068378
 
     def setUp(self):
         self.service = service_pb2.Service(
                 name=self.testName, threadable=self.testThreadable, min_cores=self.testMinCores,
-                max_cores=self.testMaxCores, tags=self.testTags)
+                max_cores=self.testMaxCores, tags=self.testTags,
+                min_memory_increase=self.minMemoryIncrease)
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testCreate(self, getStubMock):
@@ -720,6 +722,32 @@ class AllocTests(unittest.TestCase):
             facility_pb2.AllocDeleteRequest(allocation=allocToDelete), timeout=mock.ANY)
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetDefaultAlloc(self, getStubMock):
+        arbitraryId = '00000000-0000-0000-0000-012345678980'
+        stubMock = mock.Mock()
+        stubMock.GetDefault.return_value = facility_pb2.AllocGetDefaultResponse(
+            allocation=facility_pb2.Allocation(id=arbitraryId))
+        getStubMock.return_value = stubMock
+
+        alloc = opencue.api.getDefaultAllocation()
+
+        stubMock.GetDefault.assert_called_with(
+            facility_pb2.AllocGetDefaultRequest(), timeout=mock.ANY)
+        self.assertEqual(arbitraryId, alloc.id())
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testSetDefaultAlloc(self, getStubMock):
+        alloc = facility_pb2.Allocation(name=TEST_ALLOC_NAME)
+        stubMock = mock.Mock()
+        stubMock.SetDefault.return_value = facility_pb2.AllocSetDefaultResponse()
+        getStubMock.return_value = stubMock
+
+        opencue.api.setDefaultAllocation(alloc)
+
+        stubMock.SetDefault.assert_called_with(
+            facility_pb2.AllocSetDefaultRequest(allocation=alloc), timeout=mock.ANY)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testAllocSetBillable(self, getStubMock):
         alloc = facility_pb2.Allocation(name=TEST_ALLOC_NAME)
         isBillable = True
@@ -805,6 +833,21 @@ class LimitTests(unittest.TestCase):
         stubMock.GetAll.assert_called_with(limit_pb2.LimitGetAllRequest(), timeout=mock.ANY)
         self.assertEqual(len(limits), 1)
         self.assertEqual(limits[0].name(), TEST_LIMIT_NAME)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testFindLimit(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.Find.return_value = limit_pb2.LimitFindResponse(
+            limit=limit_pb2.Limit(name=TEST_LIMIT_NAME, max_value=42))
+        getStubMock.return_value = stubMock
+
+        limit = opencue.api.findLimit(TEST_LIMIT_NAME)
+        self.assertEqual(TEST_LIMIT_NAME, limit.name())
+        self.assertEqual(42, limit.maxValue())
+
+        stubMock.Find.assert_called_with(
+            limit_pb2.LimitFindRequest(name=TEST_LIMIT_NAME),
+            timeout=mock.ANY)
 
 
 if __name__ == '__main__':

@@ -24,12 +24,16 @@ import java.util.EnumSet;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.DispatchJob;
+import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerInterface;
@@ -37,6 +41,7 @@ import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchNextFrame;
+import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.job.FrameExitStatus;
 import com.imageworks.spcue.grpc.job.FrameState;
@@ -50,13 +55,19 @@ import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
 
+import com.imageworks.spcue.dao.WhiteboardDao;
+import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.dao.ServiceDao;
+import com.imageworks.spcue.grpc.service.Service;
+import com.imageworks.spcue.grpc.service.ServiceOverride;
+
 /**
  * The FrameCompleteHandler encapsulates all logic necessary for processing
  * FrameComplete reports from RQD.
  */
 public class FrameCompleteHandler {
 
-    private static final Logger logger = Logger.getLogger(FrameCompleteHandler.class);
+    private static final Logger logger = LogManager.getLogger(FrameCompleteHandler.class);
 
     private static final Random randomNumber = new Random();
 
@@ -71,6 +82,10 @@ public class FrameCompleteHandler {
     private JobManagerSupport jobManagerSupport;
     private DispatchSupport dispatchSupport;
     private JmsMover jsmMover;
+
+    private WhiteboardDao whiteboardDao;
+    private ServiceDao serviceDao;
+    private ShowDao showDao;
 
     /*
      * The last time a proc was unbooked for subscription or job balancing.
@@ -93,6 +108,25 @@ public class FrameCompleteHandler {
     private boolean shutdown = false;
 
     /**
+     * Whether or not to satisfy dependents (*_ON_FRAME and *_ON_LAYER) only on Frame success
+     */
+    private boolean satisfyDependOnlyOnFrameSuccess;
+
+    public boolean getSatisfyDependOnlyOnFrameSuccess() {
+        return satisfyDependOnlyOnFrameSuccess;
+    }
+
+    public void setSatisfyDependOnlyOnFrameSuccess(boolean satisfyDependOnlyOnFrameSuccess) {
+        this.satisfyDependOnlyOnFrameSuccess = satisfyDependOnlyOnFrameSuccess;
+    }
+
+    @Autowired
+    public FrameCompleteHandler(Environment env) {
+        satisfyDependOnlyOnFrameSuccess = env.getProperty(
+            "depend.satisfy_only_on_frame_success", Boolean.class, true);
+    }
+
+    /**
      * Handle the given FrameCompleteReport from RQD.
      *
      * @param report
@@ -110,48 +144,35 @@ public class FrameCompleteHandler {
         }
 
         try {
-
-            final VirtualProc proc;
-
-            try {
-
-                proc = hostManager.getVirtualProc(
-                        report.getFrame().getResourceId());
-            }
-            catch (EmptyResultDataAccessException e) {
-                /*
-                 * Do not propagate this exception to RQD.  This
-                 * usually means the cue lost connectivity to
-                 * the host and cleared out the record of the proc.
-                 * If this is propagated back to RQD, RQD will
-                 * keep retrying the operation forever.
-                 */
-                logger.info("failed to acquire data needed to " +
-                        "process completed frame: " +
-                        report.getFrame().getFrameName() + " in job " +
-                        report.getFrame().getJobName() + "," + e);
-                return;
-            }
-
+            final VirtualProc proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
             final DispatchJob job = jobManager.getDispatchJob(proc.getJobId());
             final LayerDetail layer = jobManager.getLayerDetail(report.getFrame().getLayerId());
+            final FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
             final DispatchFrame frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
             final FrameState newFrameState = determineFrameState(job, layer, frame, report);
+            final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() +
+                               "_" + report.getFrame().getFrameId();
 
             if (dispatchSupport.stopFrame(frame, newFrameState, report.getExitStatus(),
                     report.getFrame().getMaxRss())) {
-                dispatchQueue.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            handlePostFrameCompleteOperations(proc, report, job, frame,
-                                    newFrameState);
-                        } catch (Exception e) {
-                            logger.warn("Exception during handlePostFrameCompleteOperations " +
-                                    "in handleFrameCompleteReport" + CueExceptionUtil.getStackTrace(e));
+                if (dispatcher.isTestMode()) {
+                    // Database modifications on a threadpool cannot be captured by the test thread
+                    handlePostFrameCompleteOperations(proc, report, job, frame,
+                            newFrameState, frameDetail);
+                } else {
+                    dispatchQueue.execute(new KeyRunnable(key) {
+                        @Override
+                        public void run() {
+                            try {
+                                handlePostFrameCompleteOperations(proc, report, job, frame,
+                                        newFrameState, frameDetail);
+                            } catch (Exception e) {
+                                logger.warn("Exception during handlePostFrameCompleteOperations " +
+                                        "in handleFrameCompleteReport" + CueExceptionUtil.getStackTrace(e));
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
             else {
                 /*
@@ -161,7 +182,7 @@ public class FrameCompleteHandler {
                  * properties.
                  */
                 if (redirectManager.hasRedirect(proc)) {
-                    dispatchQueue.execute(new Runnable() {
+                    dispatchQueue.execute(new KeyRunnable(key) {
                         @Override
                         public void run() {
                             try {
@@ -174,7 +195,7 @@ public class FrameCompleteHandler {
                     });
                 }
                 else {
-                    dispatchQueue.execute(new Runnable() {
+                    dispatchQueue.execute(new KeyRunnable(key) {
                         @Override
                         public void run() {
                             try {
@@ -187,6 +208,19 @@ public class FrameCompleteHandler {
                     });
                 }
             }
+        }
+        catch (EmptyResultDataAccessException e) {
+            /*
+             * Do not propagate this exception to RQD.  This
+             * usually means the cue lost connectivity to
+             * the host and cleared out the record of the proc.
+             * If this is propagated back to RQD, RQD will
+             * keep retrying the operation forever.
+             */
+            logger.info("failed to acquire data needed to " +
+                    "process completed frame: " +
+                    report.getFrame().getFrameName() + " in job " +
+                    report.getFrame().getJobName() + "," + e);
         }
         catch (Exception e) {
 
@@ -225,7 +259,7 @@ public class FrameCompleteHandler {
      */
     public void handlePostFrameCompleteOperations(VirtualProc proc,
             FrameCompleteReport report, DispatchJob job, DispatchFrame frame,
-            FrameState newFrameState) {
+            FrameState newFrameState, FrameDetail frameDetail) {
         try {
 
             /*
@@ -235,19 +269,26 @@ public class FrameCompleteHandler {
 
             dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
 
-            if (newFrameState.equals(FrameState.SUCCEEDED)) {
+            boolean isLayerComplete = false;
+
+            if (newFrameState.equals(FrameState.SUCCEEDED)
+                    || (!satisfyDependOnlyOnFrameSuccess
+                        && newFrameState.equals(FrameState.EATEN))) {
                 jobManagerSupport.satisfyWhatDependsOn(frame);
-                if (jobManager.isLayerComplete(frame)) {
+                isLayerComplete = jobManager.isLayerComplete(frame);
+                if (isLayerComplete) {
                     jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame);
-                } else {
-                    /*
-                     * If the layer meets some specific criteria then try to
-                     * update the minimum memory and tags so it can run on a
-                     * wider variety of cores, namely older hardware.
-                     */
-                    jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
-                            report.getFrame().getMaxRss(), report.getRunTime());
                 }
+            }
+
+            if (newFrameState.equals(FrameState.SUCCEEDED) && !isLayerComplete) {
+                /*
+                 * If the layer meets some specific criteria then try to
+                 * update the minimum memory and tags so it can run on a
+                 * wider variety of cores, namely older hardware.
+                 */
+                jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
+                        report.getFrame().getMaxRss(), report.getRunTime());
             }
 
             /*
@@ -268,14 +309,46 @@ public class FrameCompleteHandler {
             /*
              * An exit status of 33 indicates that the frame was killed by the
              * application due to a memory issue and should be retried. In this
-             * case, disable the optimizer and raise the memory by 2GB.
+             * case, disable the optimizer and raise the memory by what is
+             * specified in the show's service override, service or 2GB.
              */
             if (report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                    || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+                    || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
+                    || frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+                long increase = CueUtil.GB2;
+
+                // since there can be multiple services, just going for the
+                // first service (primary)
+                String serviceName = "";
+                try {
+                    serviceName = frame.services.split(",")[0];
+                    ServiceOverride showService = whiteboardDao.getServiceOverride(
+                            showDao.findShowDetail(frame.show), serviceName);
+                    // increase override is stored in Kb format so convert to Mb
+                    // for easier reading. Note: Kb->Mb conversion uses 1024 blocks
+                    increase = showService.getData().getMinMemoryIncrease();
+                    logger.info("Using " + serviceName + " service show " +
+                            "override for memory increase: " +
+                            Math.floor(increase / 1024) + "Mb.");
+                }
+                catch (NullPointerException e) {
+                    logger.info("Frame has no associated services");
+                }
+                catch (EmptyResultDataAccessException e) {
+                    logger.info(frame.show + " has no service override for " +
+                            serviceName + ".");
+                    Service service = whiteboardDao.findService(serviceName);
+                    increase = service.getMinMemoryIncrease();
+                    logger.info("Using service default for mem increase: " +
+                            Math.floor(increase / 1024) + "Mb.");
+                }
+
                 unbookProc = true;
                 jobManager.enableMemoryOptimizer(frame, false);
                 jobManager.increaseLayerMemoryRequirement(frame,
-                        proc.memoryReserved + CueUtil.GB2);
+                        proc.memoryReserved + increase);
+                logger.info("Increased mem usage to: " +
+                        (proc.memoryReserved + increase));
             }
 
             /*
@@ -291,17 +364,17 @@ public class FrameCompleteHandler {
             }
 
             /*
-             * An exit status of NO_RETRY (256) indicates that the frame could
+             * An exit status of FAILED_LAUNCH (256) indicates that the frame could
              * not be launched due to some unforeseen unrecoverable error that
              * is not checked when the launch command is given. The most common
              * cause of this is when the job log directory is removed before the
              * job is complete.
              *
-             * Frames that return a 256 are not automatically retried.
+             * Frames that return a 256 are put Frame back into WAITING status
              */
 
-            else if (report.getExitStatus() == FrameExitStatus.NO_RETRY_VALUE) {
-                logger.info("unbooking " + proc + " frame status was no-retry.");
+            else if (report.getExitStatus() == FrameExitStatus.FAILED_LAUNCH_VALUE) {
+                logger.info("unbooking " + proc + " frame status was failed frame launch.");
                 unbookProc = true;
             }
 
@@ -471,7 +544,6 @@ public class FrameCompleteHandler {
                 dispatchSupport.unbookProc(proc, "frame state was "
                         + newFrameState.toString());
             }
-
         } catch (Exception e) {
             /*
              * At this point, the proc has no place to go. Since we've run into
@@ -514,7 +586,8 @@ public class FrameCompleteHandler {
      * @param report
      * @return
      */
-    public static final FrameState determineFrameState(DispatchJob job, LayerDetail layer, DispatchFrame frame, FrameCompleteReport report) {
+    public static final FrameState determineFrameState(DispatchJob job, LayerDetail layer,
+                                                       DispatchFrame frame, FrameCompleteReport report) {
 
         if (EnumSet.of(FrameState.WAITING, FrameState.EATEN).contains(
                 frame.state)) {
@@ -537,17 +610,25 @@ public class FrameCompleteHandler {
                     || (job.maxRetries != 0 && report.getExitSignal() == 119)) {
                 report = FrameCompleteReport.newBuilder(report).setExitStatus(FrameExitStatus.SKIP_RETRY_VALUE).build();
                 newState = FrameState.WAITING;
+            // exemption code 256
+            } else if ((report.getExitStatus() == FrameExitStatus.FAILED_LAUNCH_VALUE ||
+                    report.getExitSignal() == FrameExitStatus.FAILED_LAUNCH_VALUE) &&
+                    (frame.retries < job.maxRetries)) {
+                report = FrameCompleteReport.newBuilder(report).setExitStatus(report.getExitStatus()).build();
+                newState = FrameState.WAITING;
             } else if (job.autoEat) {
                 newState = FrameState.EATEN;
             // ETC Time out and LLU timeout
-            } else if (layer.timeout_llu != 0 && report.getFrame().getLluTime() != 0 && lastUpdate > (layer.timeout_llu -1)) {
+            } else if (layer.timeout_llu != 0 && report.getFrame().getLluTime() != 0
+                        && lastUpdate > (layer.timeout_llu -1)) {
                 newState = FrameState.DEAD;
             } else if (layer.timeout != 0 && report.getRunTime() > layer.timeout * 60) {
                 newState = FrameState.DEAD;
             } else if (report.getRunTime() > Dispatcher.FRAME_TIME_NO_RETRY) {
                 newState = FrameState.DEAD;
             } else if (frame.retries >= job.maxRetries) {
-                if (!(report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE))
+                if (!(report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
+                        || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE))
                     newState = FrameState.DEAD;
             }
 
@@ -653,5 +734,22 @@ public class FrameCompleteHandler {
     public void setJmsMover(JmsMover jsmMover) {
         this.jsmMover = jsmMover;
     }
+
+    public WhiteboardDao getWhiteboardDao() { return whiteboardDao; }
+
+    public void setWhiteboardDao(WhiteboardDao whiteboardDao) {
+        this.whiteboardDao = whiteboardDao; }
+
+    public ServiceDao getServiceDao() { return serviceDao; }
+
+    public void setServiceDao(ServiceDao serviceDao) {
+        this.serviceDao = serviceDao; }
+
+    public ShowDao getShowDao() { return showDao; }
+
+    public void setShowDao(ShowDao showDao) {
+        this.showDao = showDao; }
+
 }
+
 

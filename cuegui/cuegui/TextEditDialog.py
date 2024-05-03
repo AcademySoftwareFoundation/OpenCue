@@ -20,8 +20,8 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 
 class TextEditDialog(QtWidgets.QDialog):
@@ -57,8 +57,10 @@ class TextEditDialog(QtWidgets.QDialog):
         self.setMaximumSize(400,300)
         self.setWindowTitle(title)
 
+        # pylint: disable=no-member
         __btn_accept.clicked.connect(self.accept)
         __btn_cancel.clicked.connect(self.reject)
+        # pylint: enable=no-member
 
         self.__textEdit.setText(default)
         self.__textEdit.setFocus(QtCore.Qt.OtherFocusReason)

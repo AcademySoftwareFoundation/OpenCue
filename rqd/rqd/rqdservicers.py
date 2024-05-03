@@ -20,12 +20,15 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import logging as log
+import logging
 
 import grpc
 
 import rqd.compiled_proto.rqd_pb2
 import rqd.compiled_proto.rqd_pb2_grpc
+
+
+log = logging.getLogger(__name__)
 
 
 class RqdInterfaceServicer(rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceServicer):
@@ -64,6 +67,8 @@ class RqdInterfaceServicer(rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceServicer)
         frame = self.rqCore.getRunningFrame(request.frame_id)
         if frame:
             frame.kill(message=request.message)
+        else:
+            log.warning("Wasn't able to find frame(%s) to kill", request.frame_id)
         return rqd.compiled_proto.rqd_pb2.RqdStaticKillRunningFrameResponse()
 
     def ShutdownRqdNow(self, request, context):

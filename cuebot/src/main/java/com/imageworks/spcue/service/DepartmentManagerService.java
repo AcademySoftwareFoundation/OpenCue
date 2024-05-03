@@ -37,12 +37,10 @@ import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.TaskEntity;
 import com.imageworks.spcue.TaskInterface;
-import com.imageworks.spcue.TrackitTaskDetail;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.TaskDao;
-import com.imageworks.spcue.dao.TrackitDao;
 import com.imageworks.spcue.util.CueUtil;
 
 
@@ -56,7 +54,6 @@ public class DepartmentManagerService implements DepartmentManager {
     private TaskDao taskDao;
     private ShowDao showDao;
     private JobDao jobDao;
-    private TrackitDao trackitDao;
 
     @Override
     public void createDepartmentConfig(PointDetail renderPoint) {
@@ -176,61 +173,6 @@ public class DepartmentManagerService implements DepartmentManager {
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void updateManagedTasks(PointInterface pd) {
-        if (env.getRequiredProperty("cue.trackit.enabled", Boolean.class)) {
-
-            ShowInterface show = showDao.getShowDetail(pd.getShowId());
-            PointDetail p = pointDao.getPointConfDetail(pd.getPointId());
-            pointDao.updatePointConfUpdateTime(p);
-
-            /*
-             * First calculate raw point ratios, which will be used to calculate
-             * the normalized proc point values
-             */
-            float totalRawPoints = 0f;
-            float rawPoints = 0f;
-
-            List<TrackitTaskDetail> tasks = trackitDao.getTasks(show.getName(), p.tiTask);
-            HashMap<String, Float> rawCache = new HashMap<String, Float>(tasks.size());
-
-            for (TrackitTaskDetail task : tasks) {
-                if (!IN_PROGRESS_TASK_STATUS.contains(task.status)) {
-                    continue;
-                }
-                rawPoints = ((task.frameCount / 10f) / task.weeks);
-                rawCache.put(task.shot, rawPoints);
-                totalRawPoints = totalRawPoints + rawPoints;
-            }
-
-            /*
-             * Now create TaskDetail objects which will be merged into
-             * the current data set.  Tasks with a 0 minCores value will
-             * be deleted.
-             */
-            float normalizedRawPoints = 0f;
-            if (totalRawPoints != 0) {
-                normalizedRawPoints = p.cores / totalRawPoints;
-            }
-
-            for (TrackitTaskDetail task : tasks) {
-
-                TaskEntity td = new TaskEntity();
-                td.pointId = p.getPointId();
-                td.deptId = p.getDepartmentId();
-                td.showId = p.getShowId();
-                td.shot = task.shot;
-
-                if (!IN_PROGRESS_TASK_STATUS.contains(task.status)) {
-                    td.minCoreUnits = 0;
-                } else {
-                    td.minCoreUnits = (int) ((rawCache.get(task.shot) * normalizedRawPoints) + 0.5f);
-                    if (td.minCoreUnits < CueUtil.ONE_CORE) {
-                        td.minCoreUnits = CueUtil.ONE_CORE;
-                    }
-                }
-                taskDao.mergeTask(td);
-                syncJobsWithTask(td);
-            }
-        }
     }
 
     @Override
@@ -321,14 +263,6 @@ public class DepartmentManagerService implements DepartmentManager {
 
     public void setTaskDao(TaskDao taskDao) {
         this.taskDao = taskDao;
-    }
-
-    public TrackitDao getTrackitDao() {
-        return trackitDao;
-    }
-
-    public void setTrackitDao(TrackitDao trackitDao) {
-        this.trackitDao = trackitDao;
     }
 
     public ShowDao getShowDao() {

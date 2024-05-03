@@ -23,8 +23,8 @@ from __future__ import division
 from builtins import map
 from builtins import str
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import opencue.exception
 
@@ -76,12 +76,14 @@ class TasksDialog(QtWidgets.QDialog):
         glayout.addWidget(self.__btnRefresh, 4, 1)
         glayout.addWidget(self.__btnDone, 4, 2)
 
+        # pylint: disable=no-member
         self.__btnMinCores.clicked.connect(self.setMinCores)
         self.__checkManaged.clicked.connect(self.setManaged)
         self.__btnAddTask.clicked.connect(self.__tasks.createTask)
         self.__btnRefresh.clicked.connect(self.refresh)
         self.__comboDepartments.currentIndexChanged.connect(self.setDepartment)
         self.__btnDone.clicked.connect(self.accept)
+        # pylint: enable=no-member
 
         self.getDepartments()
 

@@ -29,6 +29,10 @@ class Service(object):
 
     def create(self):
         """Creates a service in the database using the current instance data."""
+        # min_memory_increase has to be greater than 0.
+        if self.data.min_memory_increase <= 0:
+            raise ValueError("Minimum memory increase must be > 0")
+
         response = self.stub.CreateService(
             service_pb2.ServiceCreateServiceRequest(data=self.data),
             timeout=Cuebot.Timeout)
@@ -69,6 +73,10 @@ class Service(object):
 
     def update(self):
         """Updates the service database record with the current instance data."""
+        # min_memory_increase has to be greater than 0.
+        if self.data.min_memory_increase <= 0:
+            raise ValueError("Minimum memory increase must be > 0")
+
         return self.stub.Update(
             service_pb2.ServiceUpdateRequest(service=self.data),
             timeout=Cuebot.Timeout)
@@ -161,21 +169,53 @@ class Service(object):
         """
         self.data.min_memory = minMemory
 
-    def minGpu(self):
-        """Returns the minimum gpu of the service.
+    def minGpus(self):
+        """Returns the minimum gpus of the service.
 
         :rtype:  int
-        :return: min gpu
+        :return: min gpus
         """
-        return self.data.min_gpu
+        return self.data.min_gpus
 
-    def setMinGpu(self, minGpu):
-        """Sets the minimum gpu of the service.
+    def setMinGpus(self, minGpus):
+        """Sets the minimum gpus of the service.
 
         :type: int
-        :param: new min gpu
+        :param: new min gpus
         """
-        self.data.min_gpu = minGpu
+        self.data.min_gpus = minGpus
+
+    def maxGpus(self):
+        """Returns the maximum gpus of the service.
+
+        :rtype:  int
+        :return: max gpus
+        """
+        return self.data.max_gpus
+
+    def setMaxGpus(self, maxGpus):
+        """Sets the maximum gpus of the service.
+
+        :type: int
+        :param: new max gpus
+        """
+        self.data.max_gpus = maxGpus
+
+    def minGpuMemory(self):
+        """Returns the minimum gpu memory of the service.
+
+        :rtype:  int
+        :return: min gpu memory
+        """
+        return self.data.min_gpu_memory
+
+    def setMinGpuMemory(self, minGpuMemory):
+        """Sets the minimum gpu memory of the service.
+
+        :type: int
+        :param: new min gpu memory
+        """
+        self.data.min_gpu_memory = minGpuMemory
 
     def tags(self):
         """Returns the list of tags for the service.
@@ -208,3 +248,37 @@ class Service(object):
     def setTimeoutLLU(self, timeout_llu):
         """Sets the default service LLU timeout."""
         self.data.timeout_llu = timeout_llu
+
+    def minMemoryIncrease(self):
+        """Gets the default service minimum memory increment"""
+        return self.data.min_memory_increase
+
+    def setMinMemoryIncrease(self, min_memory_increase):
+        """Sets the default service minimum memory increment"""
+        if min_memory_increase > 0:
+            self.data.min_memory_increase = min_memory_increase
+        else:
+            raise ValueError("Minimum memory increase must be > 0")
+
+class ServiceOverride(object):
+    def __init__(self, serviceOverride=None):
+        if serviceOverride:
+            self.id = serviceOverride.id
+            self.data = serviceOverride.data or service_pb2.Service().data
+        else:
+            defaultServiceOverride = service_pb2.ServiceOverride()
+            self.id = defaultServiceOverride.id
+            self.data = defaultServiceOverride.data
+        
+        self.stub = Cuebot.getStub("serviceOverride")
+
+    def delete(self):
+        self.stub.Delete(
+            service_pb2.ServiceOverrideDeleteRequest(service=self.data),
+            timeout=Cuebot.Timeout)
+    
+    def update(self):
+        """Commit a ServiceOverride change to the database"""
+        self.stub.Update(
+            service_pb2.ServiceOverrideUpdateRequest(service=self.data),
+            timeout=Cuebot.Timeout)

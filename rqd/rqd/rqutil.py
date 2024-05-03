@@ -24,7 +24,7 @@ from __future__ import division
 from builtins import str
 from builtins import object
 import functools
-import logging as log
+import logging
 import os
 import platform
 import socket
@@ -40,6 +40,7 @@ if platform.system() != 'Windows':
 
     PERMISSIONS = threading.Lock()
     HIGH_PERMISSION_GROUPS = os.getgroups()
+log = logging.getLogger(__name__)
 
 
 class Memoize(object):

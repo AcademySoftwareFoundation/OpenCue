@@ -28,7 +28,7 @@ Initializes and starts RQD.
 
 Optional configuration file:
 ----------------------------
-in /etc/rqd3/rqd3.conf:
+In /etc/opencue/rqd.conf (on Linux) or %LOCALAPPDATA%/OpenCue/rqd.conf (on Windows):
 [Override]
 OVERRIDE_CORES = 2
 OVERRIDE_PROCS = 3
@@ -61,15 +61,13 @@ import rqd.rqutil
 
 def setupLogging():
     """Sets up the logging for RQD.
+       Logs to /var/log/messages"""
 
-    Logs to /var/log/messages"""
-    # TODO(bcipriano) These should be config based. (Issue #72)
-    consoleFormat = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    consoleLevel = logging.DEBUG
-    fileFormat = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    fileLevel = logging.WARNING  # Equal to or greater than the consoleLevel
+    consolehandler = logging.StreamHandler()
+    consolehandler.setLevel(rqd.rqconstants.CONSOLE_LOG_LEVEL)
+    consolehandler.setFormatter(logging.Formatter(rqd.rqconstants.LOG_FORMAT))
+    logging.getLogger('').addHandler(consolehandler)
 
-    logging.basicConfig(level=consoleLevel, format=consoleFormat)
     if platform.system() in ('Linux', 'Darwin'):
         if platform.system() == 'Linux':
             syslogAddress = '/dev/log'
@@ -83,21 +81,25 @@ def setupLogging():
         logfile = logging.FileHandler(os.path.expandvars('%TEMP%/openrqd.log'))
     else:
         logfile = logging.handlers.SysLogHandler()
-    logfile.setLevel(fileLevel)
-    logfile.setFormatter(logging.Formatter(fileFormat))
+    logfile.setLevel(rqd.rqconstants.FILE_LOG_LEVEL)
+    logfile.setFormatter(logging.Formatter(rqd.rqconstants.LOG_FORMAT))
     logging.getLogger('').addHandler(logfile)
+    logging.getLogger('').setLevel(logging.DEBUG)
 
 
 def usage():
     """Prints command line syntax"""
-    s = sys.stderr
-    print("SYNOPSIS", file=s)
-    print("  ", sys.argv[0], "[options]\n", file=s)
-    print("  -d | --daemon          => Run as daemon", file=s)
-    print("       --nimbyoff        => Disables nimby activation", file=s)
-    print("  -c                     => Provide an alternate config file", file=s)
-    print("                            Defaults to /etc/rqd3/rqd3.conf", file=s)
-    print("                            Config file is optional", file=s)
+    usage_msg = f"""SYNOPSIS
+  {sys.argv[0]} [options]
+
+  -d | --daemon          => Run as daemon
+       --nimbyoff        => Disables nimby activation
+  -c                     => Provide an alternate config file
+                            On Linux: defaults to /etc/opencue/rqd.conf
+                            On Windows: Defaults to %LOCALAPPDATA%/OpenCue/rqd.conf
+                            Config file is optional
+"""
+    print(usage_msg, file=sys.stderr)
 
 
 def main():

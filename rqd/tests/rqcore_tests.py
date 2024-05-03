@@ -40,7 +40,7 @@ import rqd.rqnimby
 
 class RqCoreTests(unittest.TestCase):
 
-    @mock.patch('rqd.rqnimby.Nimby', autospec=True)
+    @mock.patch('rqd.rqnimby.NimbySelect', autospec=True)
     @mock.patch('rqd.rqnetwork.Network', autospec=True)
     @mock.patch('rqd.rqmachine.Machine', autospec=True)
     def setUp(self, machineMock, networkMock, nimbyMock):
@@ -206,7 +206,7 @@ class RqCoreTests(unittest.TestCase):
 
     def test_killAllFrame(self):
         frameAttendantThread = mock.MagicMock()
-        frameAttendantThread.isAlive.return_value = False
+        frameAttendantThread.is_alive.return_value = False
         frame1Id = 'frame1'
         frame2Id = 'frame2'
         frame3Id = 'frame3'
@@ -230,7 +230,7 @@ class RqCoreTests(unittest.TestCase):
 
     def test_killAllFrameIgnoreNimby(self):
         frameAttendantThread = mock.MagicMock()
-        frameAttendantThread.isAlive.return_value = False
+        frameAttendantThread.is_alive.return_value = False
         frame1Id = 'frame1'
         frame2Id = 'frame2'
         frame1 = rqd.rqnetwork.RunningFrame(
@@ -286,6 +286,7 @@ class RqCoreTests(unittest.TestCase):
         self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.locked = False
         frame = rqd.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
+        rqd.rqconstants.OVERRIDE_NIMBY = None
 
         self.rqcore.launchFrame(frame)
 
@@ -314,7 +315,7 @@ class RqCoreTests(unittest.TestCase):
         frame = rqd.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
         frameIgnoreNimby = rqd.compiled_proto.rqd_pb2.RunFrame(
             uid=22, num_cores=10, ignore_nimby=True)
-        self.rqcore.nimby = mock.create_autospec(rqd.rqnimby.Nimby)
+        self.rqcore.nimby = mock.create_autospec(rqd.rqnimby.NimbySelect)
         self.rqcore.nimby.locked = True
 
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
@@ -331,6 +332,7 @@ class RqCoreTests(unittest.TestCase):
         frameId = 'arbitrary-frame-id'
         self.rqcore.storeFrame(frameId, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frameId))
         frameToLaunch = rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frameId)
+        rqd.rqconstants.OVERRIDE_NIMBY = None
 
         with self.assertRaises(rqd.rqexceptions.DuplicateFrameViolationException):
             self.rqcore.launchFrame(frameToLaunch)
@@ -565,6 +567,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
     @mock.patch('tempfile.gettempdir')
+    @mock.patch('rqd.rqcore.pipe_to_file', new=mock.MagicMock())
     def test_runLinux(self, getTempDirMock, permsUser, timeMock, popenMock): # mkdirMock, openMock,
         # given
         currentTime = 1568070634.3
@@ -593,6 +596,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
+        children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
             frame_id=frameId,
@@ -600,7 +604,8 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             frame_name=frameName,
             uid=frameUid,
             user_name=frameUsername,
-            log_dir=logDir)
+            log_dir=logDir,
+            children=children)
         frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
 
         # when
@@ -628,14 +633,12 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertTrue(os.path.exists(logDir))
         self.assertTrue(os.path.isfile(logFile))
         _, kwargs = popenMock.call_args
-        self.assertEqual(logFile, kwargs['stdout'].name)
-        self.assertEqual(logFile, kwargs['stderr'].name)
 
         rqCore.network.reportRunningFrameCompletion.assert_called_with(
             rqd.compiled_proto.report_pb2.FrameCompleteReport(
                 host=renderHost,
                 frame=rqd.compiled_proto.report_pb2.RunningFrameInfo(
-                    job_name=jobName, frame_id=frameId, frame_name=frameName),
+                    job_name=jobName, frame_id=frameId, frame_name=frameName, children=children),
                 exit_status=returnCode))
 
     # TODO(bcipriano) Re-enable this test once Windows is supported. The main sticking point here
@@ -665,6 +668,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
+        children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
             frame_id=frameId,
@@ -674,6 +678,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             uid=frameUid,
             user_name=frameUsername,
             log_dir=logDir,
+            children=children,
             environment={'CUE_IFRAME': '2000'})
         frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
 
@@ -693,7 +698,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             rqd.compiled_proto.report_pb2.FrameCompleteReport(
                 host=renderHost,
                 frame=rqd.compiled_proto.report_pb2.RunningFrameInfo(
-                    job_name=jobName, frame_id=frameId, frame_name=frameName),
+                    job_name=jobName, frame_id=frameId, frame_name=frameName, children=children),
                 exit_status=returnCode))
 
     @mock.patch('platform.system', new=mock.Mock(return_value='Darwin'))
@@ -726,6 +731,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
+        children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
             frame_id=frameId,
@@ -733,7 +739,8 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             frame_name=frameName,
             uid=frameUid,
             user_name=frameUsername,
-            log_dir=logDir)
+            log_dir=logDir,
+            children=children)
         frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
 
         # when
@@ -765,7 +772,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             rqd.compiled_proto.report_pb2.FrameCompleteReport(
                 host=renderHost,
                 frame=rqd.compiled_proto.report_pb2.RunningFrameInfo(
-                    job_name=jobName, frame_id=frameId, frame_name=frameName),
+                    job_name=jobName, frame_id=frameId, frame_name=frameName, children=children),
                 exit_status=returnCode))
 
 

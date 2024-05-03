@@ -22,9 +22,8 @@ from __future__ import division
 
 from builtins import str
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import opencue
 
@@ -43,6 +42,7 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
+        self.app = cuegui.app()
 
         self.__filterByHostNameLastInput = None
         self.hostMonitorTree = cuegui.HostMonitorTree.HostMonitorTree(self)
@@ -70,10 +70,8 @@ class HostMonitor(QtWidgets.QWidget):
 
         self.__viewHostsSetup()
 
-        # pylint: disable=no-member
-        if bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1))):
+        if bool(int(self.app.settings.value("AutoRefreshMonitorHost", 1))):
             self.updateRequest()
-        # pylint: enable=no-member
 
     def updateRequest(self):
         """Requests an update of the displayed information."""
@@ -108,7 +106,7 @@ class HostMonitor(QtWidgets.QWidget):
 
         self.__filterByHostNameLastInput = None
 
-        self.__filterByHostName.editingFinished.connect(self.__filterByHostNameHandle)
+        self.__filterByHostName.editingFinished.connect(self.__filterByHostNameHandle)  # pylint: disable=no-member
 
         btn = QtWidgets.QPushButton("Clr")
         btn.setMaximumHeight(FILTER_HEIGHT)
@@ -279,9 +277,7 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.hostMonitorTree.enableRefresh = bool(state)
-        # pylint: disable=no-member
-        QtGui.qApp.settings.setValue("AutoRefreshMonitorHost", int(bool(state)))
-        # pylint: enable=no-member
+        self.app.settings.setValue("AutoRefreshMonitorHost", int(bool(state)))
 
     # ==============================================================================
     # Button to refresh
@@ -294,7 +290,7 @@ class HostMonitor(QtWidgets.QWidget):
         self.btn_refresh.setMaximumHeight(FILTER_HEIGHT)
         self.btn_refresh.setFocusPolicy(QtCore.Qt.NoFocus)
         layout.addWidget(self.btn_refresh)
-        self.btn_refresh.clicked.connect(self.hostMonitorTree.updateRequest)
+        self.btn_refresh.clicked.connect(self.hostMonitorTree.updateRequest)  # pylint: disable=no-member
         self.hostMonitorTree.updated.connect(self.__refreshButtonDisableHandle)
 
     def __refreshButtonEnableHandle(self):
@@ -318,7 +314,7 @@ class HostMonitor(QtWidgets.QWidget):
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setContentsMargins(0,0,0,0)
         layout.addWidget(btn)
-        btn.clicked.connect(self.__clearButtonHandle)
+        btn.clicked.connect(self.__clearButtonHandle)  # pylint: disable=no-member
 
     def __clearButtonHandle(self):
         """Called when the clear button is clicked"""
@@ -332,9 +328,7 @@ class HostMonitor(QtWidgets.QWidget):
     # Monitors and handles the view_hosts signal
     # ==============================================================================
     def __viewHostsSetup(self):
-        # pylint: disable=no-member
-        QtGui.qApp.view_hosts.connect(self.__viewHostsHandle)
-        # pylint: enable=no-member
+        self.app.view_hosts.connect(self.__viewHostsHandle)
 
     def __viewHostsHandle(self, hosts):
         self.__clearButtonHandle()

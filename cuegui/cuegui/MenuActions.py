@@ -28,19 +28,21 @@ import glob
 import subprocess
 import time
 
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtWidgets
 import six
 
 import FileSequence
 import opencue
 import opencue.compiled_proto.job_pb2
+import opencue.wrappers.depend
 
 # pylint: disable=cyclic-import
 import cuegui.Action
 import cuegui.Comments
 import cuegui.Constants
 import cuegui.CreatorDialog
+import cuegui.CueJobMonitorTree
 import cuegui.DependDialog
 import cuegui.DependWizard
 import cuegui.EmailDialog
@@ -50,6 +52,7 @@ import cuegui.LayerDialog
 import cuegui.LocalBooking
 import cuegui.Logger
 import cuegui.PreviewWidget
+import cuegui.ProcChildren
 import cuegui.ServiceDialog
 import cuegui.ShowDialog
 import cuegui.TasksDialog
@@ -77,6 +80,7 @@ class AbstractActions(object):
         self.__selectedRpcObjects = selectedRpcObjectsCallable
         self._getSource = sourceCallable
         self._update = updateCallable
+        self.app = cuegui.app()
 
         self.__actionCache = {}
 
@@ -159,7 +163,7 @@ class AbstractActions(object):
             if isinstance(callback, six.string_types):
                 callback = getattr(self, callback)
 
-            action.triggered.connect(callback)
+            action.triggered.connect(callback)  # pylint: disable=no-member
             self.__actionCache[key] = action
 
         menu.addAction(self.__actionCache[key])
@@ -217,9 +221,7 @@ class JobActions(AbstractActions):
 
     def view(self, rpcObjects=None):
         for job in self._getOnlyJobObjects(rpcObjects):
-            # pylint: disable=no-member
-            QtGui.qApp.view_object.emit(job)
-            # pylint: enable=no-member
+            self.app.view_object.emit(job)
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
 
@@ -267,6 +269,38 @@ class JobActions(AbstractActions):
             if choice:
                 for job in jobs:
                     job.setMaxCores(float(value))
+                self._update()
+
+    setMinGpus_info = ["Set Minimum Gpus...", "Set Job(s) Minimum Gpus", "configure"]
+    def setMinGpus(self, rpcObjects=None):
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs:
+            current = max([job.data.min_gpus for job in jobs])
+            title = "Set Minimum Gpus"
+            body = "Please enter the new minimum gpus value:"
+            (value, choice) = QtWidgets.QInputDialog.getInt(self._caller,
+                                                               title, body,
+                                                               current,
+                                                               0, 500, 0)
+            if choice:
+                for job in jobs:
+                    job.setMinGpus(int(value))
+                self._update()
+
+    setMaxGpus_info = ["Set Maximum Gpus...", "Set Job(s) Maximum Gpus", "configure"]
+    def setMaxGpus(self, rpcObjects=None):
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs:
+            current = max([job.data.max_gpus for job in jobs])
+            title = "Set Maximum Gpus"
+            body = "Please enter the new maximum gpus value:"
+            (value, choice) = QtWidgets.QInputDialog.getInt(self._caller,
+                                                               title, body,
+                                                               current,
+                                                               0, 500, 0)
+            if choice:
+                for job in jobs:
+                    job.setMaxGpus(int(value))
                 self._update()
 
     setPriority_info = ["Set Priority...", None, "configure"]
@@ -327,12 +361,75 @@ class JobActions(AbstractActions):
     def kill(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
-            if cuegui.Utils.questionBoxYesNo(self._caller, "Kill jobs?",
-                                             "Are you sure you want to kill these jobs?",
+            msg = ("Are you sure you want to kill these jobs?\n\n"
+                   "** Note: This will stop all running frames and "
+                   "permanently remove the jobs from the cue. "
+                   "The jobs will NOT be able to return once killed.")
+            if cuegui.Utils.questionBoxYesNo(self._caller, "Kill jobs?", msg,
                                              [job.data.name for job in jobs]):
                 for job in jobs:
                     job.kill()
+                self.killDependents(jobs)
                 self._update()
+
+    def killDependents(self, jobs):
+        dependents = self.getRecursiveDependentJobs(jobs)
+        if not dependents:
+            return
+        if cuegui.Utils.questionBoxYesNo(self._caller,
+                                  "Kill depending jobs?",
+                                  "The jobs have been killed. "
+                                  "Do you want to kill %s jobs that depend on it?" %
+                                  len(dependents),
+                                  sorted([dep.name() for dep in dependents])):
+            for depJob in dependents:
+                try:
+                    depJob.kill()
+                except opencue.exception.CueException as e:
+                    errMsg = "Failed to kill depending job: %s - %s" % (depJob.name(), e)
+                    logger.warning(errMsg)
+        else:
+            # Drop only direct dependents.
+            for job in dependents:
+                try:
+                    self.dropJobsDependingOnThis(job)
+                except opencue.exception.CueException as e:
+                    logger.warning("Failed to drop dependencies: %s", e)
+
+    def getRecursiveDependentJobs(self, jobs, seen=None, active_only=True):
+        seen = set() if seen is None else seen
+        dependents = []
+        if not jobs:
+            return dependents
+        for job in jobs:
+            for dep in self.getExternalDependentNames(job, active_only):
+                if dep.data.name not in seen:
+                    dependents.append(dep)
+                    seen.add(dep.data.name)
+        return dependents + self.getRecursiveDependentJobs(dependents,
+                                                           seen,
+                                                           active_only)
+
+    def getExternalDependentNames(self, job, active_only=True):
+        # pylint: disable=consider-using-set-comprehension
+        job_names = set([dep.dependErJob()
+                         for dep in job.getWhatDependsOnThis()
+                         if (not dep.isInternal())
+                         and (dep.isActive() if active_only else True)])
+
+        return [self.getJobByName(job_name) for job_name in job_names]
+
+    def getJobByName(self, job_name):
+        jobs = opencue.api.getJobs(substr=[job_name], include_finished=True)
+        if not jobs:
+            raise Exception("Job %s not found" % job_name)
+        return jobs[0]
+
+    def dropJobsDependingOnThis(self, job):
+        for dep in job.getWhatDependsOnThis():
+            if not dep.isInternal():
+                job = self.getJobByName(dep.dependOnJob())
+                job.dropDepends(opencue.wrappers.depend.Depend.DependTarget.EXTERNAL)
 
     eatDead_info = ["Eat dead frames", None, "eat"]
 
@@ -496,17 +593,21 @@ class JobActions(AbstractActions):
             return
 
         title = "Send jobs to group"
-        groups = {
-            group.data.name: group for group in opencue.api.findShow(jobs[0].data.show).getGroups()}
-        body = "What group should these jobs move to?\n" + \
-               "\n".join([job.data.name for job in jobs])
+        groups = {group.data.name: group for group in opencue.api.findShow(
+                                                      jobs[0].data.show).getGroups()}
 
-        (group, choice) = QtWidgets.QInputDialog.getItem(
-            self._caller, title, body, sorted(groups.keys()), 0, False)
-        if not choice:
-            return
+        body_content = cuegui.CueJobMonitorTree.Body(group_names=[],
+                                                     group_ids=[],
+                                                     job_names=[job.name() for job in jobs],
+                                                     job_ids=jobs)
 
-        groups[str(group)].reparentJobs(jobs)
+        dialog = cuegui.CueJobMonitorTree.MoveDialog(title=title,
+                                                     text="What group should these jobs move to?",
+                                                     event_item=None,
+                                                     items=body_content,
+                                                     dst_groups=groups,
+                                                     send_to_groups=True)
+        dialog.exec_()
         self._update()
 
     useLocalCores_info = [
@@ -611,6 +712,24 @@ class LayerActions(AbstractActions):
             if choice:
                 for layer in layers:
                     layer.setMinMemory(int(value * 1048576))
+                self._update()
+
+    setMinGpuMemoryKb_info = [
+        "Set Minimum Gpu Memory",
+        "Set the amount of Gpu memory required for this layer", "configure"]
+
+    def setMinGpuMemoryKb(self, rpcObjects=None):
+        layers = self._getOnlyLayerObjects(rpcObjects)
+        if layers:
+            current = max([layer.data.min_gpu_memory / 1048576 for layer in layers])
+            title = "Set minimum amount of Gpu memory required"
+            body = ('Please enter the new minimum amount of Gpu memory in GB that frames '
+                    'in the selected layer(s) should require:')
+            (value, choice) = QtWidgets.QInputDialog.getDouble(
+                self._caller, title, body, current, 0.01, 64.0, 1)
+            if choice:
+                for layer in layers:
+                    layer.setMinGpuMemory(int(value * 1048576))
                 self._update()
 
     useLocalCores_info = [
@@ -821,6 +940,28 @@ class FrameActions(AbstractActions):
             else:
                 cuegui.Utils.popupView(path)
 
+    viewProcesses_info = ["View Processes", None, "viewProcesses"]
+
+    def viewProcesses(self, rpcObjects=None):
+        """ Display a Proc's child processes Host statistics."""
+        frames = self._getOnlyFrameObjects(rpcObjects)
+        hosts = list({frame.data.last_resource.split("/")[0]
+                      for frame in frames if frame.data.last_resource})
+        if hosts:
+            layers = self._getSource().getLayers()
+            layer = [l for l in layers if l.data.name == frames[0].data.layer_name]
+
+            if len(layer) > 0:
+                job = self._getSource()
+                text = "Displaying host stats for each child process for job:\n%s" % job.name()
+                title = "View Running Child Proc Host Stats"
+                procDialog = cuegui.ProcChildren.ProcChildrenDialog(job=job,
+                                                                    layer=layer[0],
+                                                                    hosts=hosts,
+                                                                    text=text,
+                                                                    title=title)
+                procDialog.exec_()
+
     useLocalCores_info = ["Use local cores...",
                           "Set a single frame to use the local desktop cores.",
                           "configure"]
@@ -853,10 +994,8 @@ class FrameActions(AbstractActions):
         hosts = list({frame.data.last_resource.split("/")[0]
                       for frame in frames if frame.data.last_resource})
         if hosts:
-            # pylint: disable=no-member
-            QtGui.qApp.view_hosts.emit(hosts)
-            QtGui.qApp.single_click.emit(opencue.api.findHost(hosts[0]))
-            # pylint: enable=no-member
+            self.app.view_hosts.emit(hosts)
+            self.app.single_click.emit(opencue.api.findHost(hosts[0]))
 
     getWhatThisDependsOn_info = ["print getWhatThisDependsOn", None, "log"]
 
@@ -1310,9 +1449,7 @@ class HostActions(AbstractActions):
         hosts = self._getOnlyHostObjects(rpcObjects)
         hosts = list({host.data.name for host in hosts})
         if hosts:
-            # pylint: disable=no-member
-            QtGui.qApp.view_procs.emit(hosts)
-            # pylint: enable=no-member
+            self.app.view_procs.emit(hosts)
 
     lock_info = ["Lock Host", None, "lock"]
 
@@ -1341,7 +1478,6 @@ class HostActions(AbstractActions):
                                          body,
                                          [host.data.name for host in hosts]):
             for host in hosts:
-                # Delete current render partitions to avoid oracle exception
                 for rp in host.getRenderPartitions():
                     rp.delete()
 
@@ -1434,10 +1570,28 @@ class HostActions(AbstractActions):
                 self._caller, title, body, sorted(allocations.keys()), 0, False)
             if choice:
                 allocation = allocations[str(allocationName)]
+                error_hosts = []
                 for host in hosts:
-                    self.cuebotCall(host.setAllocation,
-                                    "Set Allocation on %s Failed" % host.data.name,
-                                    allocation)
+                    # pylint: disable=broad-except
+                    try:
+                        self.cuebotCall(host.setAllocation,
+                            "Set Allocation on %s Failed" % host.data.name,
+                            allocation)
+                    except Exception as e:
+                        # Handle allocation modification errors separately
+                        # pylint: disable=no-member
+                        if (hasattr(e, "details") and
+                            "EntityModificationError" in str(e.details())):
+                            error_hosts.append(host.name())
+                        else:
+                            raise
+                if error_hosts:
+                    error_msg = "{hosts} not moved.\nHosts with reserved cores " \
+                                "cannot be moved between allocations."
+                    QtWidgets.QMessageBox.warning(self._caller,
+                                "Warning",
+                                error_msg.format(hosts=", ".join(error_hosts)),
+                                QtWidgets.QMessageBox.Ok)
                 self._update()
 
     setRepair_info = ["Set Repair State", None, "configure"]
@@ -1461,6 +1615,24 @@ class HostActions(AbstractActions):
                 host.setHardwareState(down)
         self._update()
 
+    setThreadModeAuto_info = ["Thread Mode Auto", None, "configure"]
+    def setThreadModeAuto(self, rpcObjects=None):
+        for host in self._getOnlyHostObjects(rpcObjects):
+            host.setThreadMode("AUTO")
+        self._update()
+
+    setThreadModeAll_info = ["Thread Mode All", None, "configure"]
+    def setThreadModeAll(self, rpcObjects=None):
+        for host in self._getOnlyHostObjects(rpcObjects):
+            host.setThreadMode("ALL")
+        self._update()
+
+    setThreadModeVariable_info = ["Thread Mode Variable", None, "configure"]
+    def setThreadModeVariable(self, rpcObjects=None):
+        for host in self._getOnlyHostObjects(rpcObjects):
+            host.setThreadMode("VARIABLE")
+        self._update()
+
 
 class ProcActions(AbstractActions):
     """Actions for procs."""
@@ -1473,9 +1645,7 @@ class ProcActions(AbstractActions):
     def view(self, rpcObjects=None):
         for job in list({proc.data.job_name for proc in self._getOnlyProcObjects(rpcObjects)}):
             try:
-                # pylint: disable=no-member
-                QtGui.qApp.view_object.emit(opencue.api.findJob(job))
-                # pylint: enable=no-member
+                self.app.view_object.emit(opencue.api.findJob(job))
             except opencue.exception.CueException:
                 logger.warning("Unable to load: %s", job)
 

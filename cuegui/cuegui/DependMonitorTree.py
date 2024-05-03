@@ -22,7 +22,7 @@ from __future__ import division
 
 from builtins import map
 
-from PySide2 import QtWidgets
+from qtpy import QtWidgets
 
 from opencue.compiled_proto import depend_pb2
 import opencue.exception

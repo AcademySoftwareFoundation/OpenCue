@@ -24,6 +24,8 @@ import com.imageworks.spcue.grpc.facility.AllocFindRequest;
 import com.imageworks.spcue.grpc.facility.AllocFindResponse;
 import com.imageworks.spcue.grpc.facility.AllocGetAllRequest;
 import com.imageworks.spcue.grpc.facility.AllocGetAllResponse;
+import com.imageworks.spcue.grpc.facility.AllocGetDefaultRequest;
+import com.imageworks.spcue.grpc.facility.AllocGetDefaultResponse;
 import com.imageworks.spcue.grpc.facility.AllocGetHostsRequest;
 import com.imageworks.spcue.grpc.facility.AllocGetHostsResponse;
 import com.imageworks.spcue.grpc.facility.AllocGetRequest;
@@ -34,6 +36,8 @@ import com.imageworks.spcue.grpc.facility.AllocReparentHostsRequest;
 import com.imageworks.spcue.grpc.facility.AllocReparentHostsResponse;
 import com.imageworks.spcue.grpc.facility.AllocSetBillableRequest;
 import com.imageworks.spcue.grpc.facility.AllocSetBillableResponse;
+import com.imageworks.spcue.grpc.facility.AllocSetDefaultRequest;
+import com.imageworks.spcue.grpc.facility.AllocSetDefaultResponse;
 import com.imageworks.spcue.grpc.facility.AllocSetNameRequest;
 import com.imageworks.spcue.grpc.facility.AllocSetNameResponse;
 import com.imageworks.spcue.grpc.facility.AllocSetTagRequest;
@@ -122,10 +126,18 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
         }
     }
 
+    private AllocationEntity findAllocationDetail(String facility, String name) {
+        // If they pass name in the format <facility>.<name>, just remove the facility.
+        if (CueUtil.verifyAllocationNameFormat(name)) {
+            name = CueUtil.splitAllocationName(name)[1];
+        }
+        return adminManager.findAllocationDetail(facility, name);
+    }
+
     @Override
     public void delete(
             AllocDeleteRequest request, StreamObserver<AllocDeleteResponse> responseObserver) {
-        AllocationEntity alloc = adminManager.findAllocationDetail(
+        AllocationEntity alloc = findAllocationDetail(
                 request.getAllocation().getFacility(), request.getAllocation().getName());
         adminManager.deleteAllocation(alloc);
         responseObserver.onNext(AllocDeleteResponse.newBuilder().build());
@@ -186,7 +198,7 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     public void setBillable(
             AllocSetBillableRequest request,
             StreamObserver<AllocSetBillableResponse> responseObserver) {
-        AllocationEntity alloc = adminManager.findAllocationDetail(
+        AllocationEntity alloc = findAllocationDetail(
                 request.getAllocation().getFacility(), request.getAllocation().getName());
         adminManager.setAllocationBillable(alloc, request.getValue());
         responseObserver.onNext(AllocSetBillableResponse.newBuilder().build());
@@ -196,7 +208,7 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     @Override
     public void setName(
             AllocSetNameRequest request, StreamObserver<AllocSetNameResponse> responseObserver) {
-        AllocationEntity alloc = adminManager.findAllocationDetail(
+        AllocationEntity alloc = findAllocationDetail(
                 request.getAllocation().getFacility(), request.getAllocation().getName());
         adminManager.setAllocationName(alloc, request.getName());
         responseObserver.onNext(AllocSetNameResponse.newBuilder().build());
@@ -206,10 +218,32 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     @Override
     public void setTag(
             AllocSetTagRequest request, StreamObserver<AllocSetTagResponse> responseObserver) {
-        AllocationEntity alloc = adminManager.findAllocationDetail(
+        AllocationEntity alloc = findAllocationDetail(
                 request.getAllocation().getFacility(), request.getAllocation().getName());
         adminManager.setAllocationTag(alloc, request.getTag());
         responseObserver.onNext(AllocSetTagResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getDefault(
+            AllocGetDefaultRequest request,
+            StreamObserver<AllocGetDefaultResponse> responseObserver) {
+        AllocationEntity alloc = adminManager.getDefaultAllocation();
+        responseObserver.onNext(AllocGetDefaultResponse.newBuilder()
+                .setAllocation(whiteboard.getAllocation(alloc.id))
+                .build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setDefault(
+            AllocSetDefaultRequest request,
+            StreamObserver<AllocSetDefaultResponse> responseObserver) {
+        AllocationEntity alloc = findAllocationDetail(
+                request.getAllocation().getFacility(), request.getAllocation().getName());
+        adminManager.setDefaultAllocation(alloc);
+        responseObserver.onNext(AllocSetDefaultResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 

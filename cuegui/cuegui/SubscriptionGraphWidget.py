@@ -20,8 +20,8 @@ from builtins import str
 
 import opencue
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -43,7 +43,7 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
         self.__showMenuActions = {}
         self.__subBars = []
         self.__timer = QtCore.QTimer(self)
-        self.__timer.timeout.connect(self.update_data)
+        self.__timer.timeout.connect(self.update_data)  # pylint: disable=no-member
         self.__timer.setInterval(1000 * 5)
 
         widget = QtWidgets.QWidget()
@@ -57,7 +57,7 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
 
         showMenuBtn = QtWidgets.QPushButton(" Shows")
         showMenuBtn.setFixedWidth(100)
-        showMenuBtn.pressed.connect(self.__showMenuCheck)
+        showMenuBtn.pressed.connect(self.__showMenuCheck)  # pylint: disable=no-member
 
         self.__showMenu = QtWidgets.QMenu(self)
         showMenuBtn.setMenu(self.__showMenu)
@@ -65,7 +65,7 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
 
         showMenuBtn.setFocusPolicy(QtCore.Qt.NoFocus)
         self.__showMenu.setFont(cuegui.Constants.STANDARD_FONT)
-        self.__showMenu.triggered.connect(self.__showMenuHandle)
+        self.__showMenu.triggered.connect(self.__showMenuHandle)  # pylint: disable=no-member
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(showMenuBtn)
@@ -228,7 +228,7 @@ class SubGraphTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu.addSeparator()
         if self.__show:
             new_action = QtWidgets.QAction('Add new subscription', self)
-            new_action.triggered.connect(self.createSubscription)
+            new_action.triggered.connect(self.createSubscription)  # pylint: disable=no-member
             menu.addAction(new_action)
         menu.exec_(QtCore.QPoint(e.globalX(),e.globalY()))
 

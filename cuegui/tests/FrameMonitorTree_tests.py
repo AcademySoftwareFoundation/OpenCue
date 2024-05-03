@@ -19,10 +19,10 @@
 import unittest
 
 import mock
-import PySide2.QtCore
-import PySide2.QtGui
-import PySide2.QtTest
-import PySide2.QtWidgets
+import qtpy.QtCore
+import qtpy.QtGui
+import qtpy.QtTest
+import qtpy.QtWidgets
 
 import opencue.compiled_proto.job_pb2
 import opencue.wrappers.frame
@@ -43,11 +43,10 @@ class FrameMonitorTreeTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
-        test_utils.createApplication()
-
-        PySide2.QtGui.qApp.settings = PySide2.QtCore.QSettings()
+        app = test_utils.createApplication()
+        app.settings = qtpy.QtCore.QSettings()
         cuegui.Style.init()
-        self.parentWidget = PySide2.QtWidgets.QWidget()
+        self.parentWidget = qtpy.QtWidgets.QWidget()
         self.frameMonitorTree = cuegui.FrameMonitorTree.FrameMonitorTree(self.parentWidget)
         self.job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(id='foo'))
         self.frameMonitorTree.setJob(self.job)
@@ -120,18 +119,18 @@ class FrameMonitorTreeTests(unittest.TestCase):
 
     def test_getCores(self):
         frame = opencue.wrappers.frame.Frame(
-            opencue.compiled_proto.job_pb2.Frame(last_resource='foo/125.82723'))
+            opencue.compiled_proto.job_pb2.Frame(last_resource='foo/125.82723/0'))
 
         self.assertEqual(125.82723, self.frameMonitorTree.getCores(frame))
         self.assertEqual('125.83', self.frameMonitorTree.getCores(frame, format_as_string=True))
 
     @mock.patch.object(cuegui.FrameMonitorTree.FrameContextMenu, 'exec_')
     def test_rightClickItem(self, execMock):
-        mouse_position = PySide2.QtCore.QPoint()
+        mouse_position = qtpy.QtCore.QPoint()
 
         self.frameMonitorTree.contextMenuEvent(
-            PySide2.QtGui.QContextMenuEvent(
-                PySide2.QtGui.QContextMenuEvent.Reason.Mouse, mouse_position, mouse_position))
+            qtpy.QtGui.QContextMenuEvent(
+                qtpy.QtGui.QContextMenuEvent.Reason.Mouse, mouse_position, mouse_position))
 
         execMock.assert_called_with(mouse_position)
 
@@ -153,7 +152,7 @@ class FrameWidgetItemTests(unittest.TestCase):
                 checkpoint_state=opencue.compiled_proto.job_pb2.ENABLED))
 
         # The widget needs a var, otherwise it gets garbage-collected before tests can run.
-        parentWidget = PySide2.QtWidgets.QWidget()
+        parentWidget = qtpy.QtWidgets.QWidget()
 
         self.frameWidgetItem = cuegui.FrameMonitorTree.FrameWidgetItem(
             self.frame,
@@ -166,46 +165,46 @@ class FrameWidgetItemTests(unittest.TestCase):
 
         self.assertEqual(
             self.dispatch_order,
-            self.frameWidgetItem.data(dispatch_order_col, PySide2.QtCore.Qt.DisplayRole))
+            self.frameWidgetItem.data(dispatch_order_col, qtpy.QtCore.Qt.DisplayRole))
 
         self.assertEqual(
             cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND,
-            self.frameWidgetItem.data(dispatch_order_col, PySide2.QtCore.Qt.ForegroundRole))
+            self.frameWidgetItem.data(dispatch_order_col, qtpy.QtCore.Qt.ForegroundRole))
 
         self.assertEqual(
             cuegui.FrameMonitorTree.QCOLOR_BLACK,
             self.frameWidgetItem.data(
-                cuegui.FrameMonitorTree.STATUS_COLUMN, PySide2.QtCore.Qt.ForegroundRole))
+                cuegui.FrameMonitorTree.STATUS_COLUMN, qtpy.QtCore.Qt.ForegroundRole))
 
         self.assertEqual(
             cuegui.FrameMonitorTree.QCOLOR_GREEN,
             self.frameWidgetItem.data(
-                cuegui.FrameMonitorTree.PROC_COLUMN, PySide2.QtCore.Qt.ForegroundRole))
+                cuegui.FrameMonitorTree.PROC_COLUMN, qtpy.QtCore.Qt.ForegroundRole))
 
         self.assertEqual(
             cuegui.Constants.RGB_FRAME_STATE[self.state],
             self.frameWidgetItem.data(
-                cuegui.FrameMonitorTree.STATUS_COLUMN, PySide2.QtCore.Qt.BackgroundRole))
+                cuegui.FrameMonitorTree.STATUS_COLUMN, qtpy.QtCore.Qt.BackgroundRole))
 
         self.assertEqual(
-            PySide2.QtGui.QIcon,
+            qtpy.QtGui.QIcon,
             self.frameWidgetItem.data(
                 cuegui.FrameMonitorTree.CHECKPOINT_COLUMN,
-                PySide2.QtCore.Qt.DecorationRole).__class__)
+                qtpy.QtCore.Qt.DecorationRole).__class__)
 
         self.assertEqual(
-            PySide2.QtCore.Qt.AlignCenter,
+            qtpy.QtCore.Qt.AlignCenter,
             self.frameWidgetItem.data(
-                cuegui.FrameMonitorTree.STATUS_COLUMN, PySide2.QtCore.Qt.TextAlignmentRole))
+                cuegui.FrameMonitorTree.STATUS_COLUMN, qtpy.QtCore.Qt.TextAlignmentRole))
 
         self.assertEqual(
-            PySide2.QtCore.Qt.AlignRight,
+            qtpy.QtCore.Qt.AlignRight,
             self.frameWidgetItem.data(
-                cuegui.FrameMonitorTree.PROC_COLUMN, PySide2.QtCore.Qt.TextAlignmentRole))
+                cuegui.FrameMonitorTree.PROC_COLUMN, qtpy.QtCore.Qt.TextAlignmentRole))
 
         self.assertEqual(
             cuegui.Constants.TYPE_FRAME,
-            self.frameWidgetItem.data(dispatch_order_col, PySide2.QtCore.Qt.UserRole))
+            self.frameWidgetItem.data(dispatch_order_col, qtpy.QtCore.Qt.UserRole))
 
 
 if __name__ == '__main__':

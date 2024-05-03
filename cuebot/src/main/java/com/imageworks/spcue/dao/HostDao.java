@@ -66,12 +66,25 @@ public interface HostDao {
     void deleteHost(HostInterface host);
 
     /**
+     * deletes the down state hosts
+     */
+    void deleteDownHosts();
+
+    /**
      * updates a host with the passed hardware state
      *
      * @param host  HostInterface
      * @param state HardwareState
      */
     void updateHostState(HostInterface host, HardwareState state);
+
+    /**
+     * updates a host with the passed free temporary directory
+     *
+     * @param host
+     * @param freeTempDir
+     */
+    void updateHostFreeTempDir(HostInterface host, Long freeTempDir);
 
     /**
      * returns a full host detail
@@ -240,15 +253,6 @@ public interface HostDao {
     void updateThreadMode(HostInterface host, ThreadMode mode);
 
     /**
-     * When a host is in kill mode that means its 256MB+ into the swap and the
-     * the worst memory offender is killed.
-     *
-     * @param h HostInterface
-     * @return boolean
-     */
-    boolean isKillMode(HostInterface h);
-
-    /**
      * Update the specified host's hardware information.
      *
      * @param host        HostInterface
@@ -258,8 +262,8 @@ public interface HostDao {
      * @param freeSwap    long
      * @param totalMcp    long
      * @param freeMcp     long
-     * @param totalGpu    long
-     * @param freeGpu     long
+     * @param totalGpuMemory long
+     * @param freeGpuMemory  long
      * @param load        int
      * @param os          String
      */
@@ -267,7 +271,7 @@ public interface HostDao {
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
             long totalMcp, long freeMcp,
-            long totalGpu, long freeGpu,
+            long totalGpuMemory, long freeGpuMemory,
             int load, Timestamp bootTime, String os);
 
     /**
@@ -287,6 +291,16 @@ public interface HostDao {
      * @return int
      */
     int getStrandedCoreUnits(HostInterface h);
+
+    /**
+     * Return the number of whole stranded gpus on this host. The must have
+     * less than Dispacher.MEM_STRANDED_THRESHHOLD for the gpus to be
+     * considered stranded.
+     *
+     * @param h HostInterface
+     * @return int
+     */
+    int getStrandedGpus(HostInterface h);
 
     /**
      * Return true if the host is preferring a particular show.

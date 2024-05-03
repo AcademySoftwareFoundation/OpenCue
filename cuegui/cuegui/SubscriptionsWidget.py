@@ -24,9 +24,8 @@ from builtins import str
 
 import opencue
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -41,6 +40,7 @@ class SubscriptionsWidget(QtWidgets.QWidget):
 
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
+        self.app = cuegui.app()
 
         self.__show = None
         self.__shows = None
@@ -64,13 +64,13 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         layout.addWidget(self.__btnAddSubscription, 0, 3)
         layout.addWidget(self.__monitorSubscriptions, 2, 0, 3, 4)
 
+        # pylint: disable=no-member
         self.__btnShowProperties.clicked.connect(self.__showProperties)
         self.__btnAddSubscription.clicked.connect(self.__addSubscription)
         self.__comboShows.currentIndexChanged.connect(self.setShow)
-        # pylint: disable=no-member
-        QtGui.qApp.view_object.connect(self.setShow)
-        QtGui.qApp.facility_changed.connect(self.changeFacility)
         # pylint: enable=no-member
+        self.app.view_object.connect(self.setShow)
+        self.app.facility_changed.connect(self.changeFacility)
 
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)

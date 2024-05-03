@@ -22,11 +22,12 @@ from __future__ import print_function
 
 from builtins import str
 from builtins import map
+from collections import namedtuple
 import time
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import opencue
 import opencue.compiled_proto.job_pb2
@@ -43,6 +44,7 @@ import cuegui.Utils
 
 
 logger = cuegui.Logger.getLogger(__file__)
+Body = namedtuple("Body", "group_names, group_ids, job_names, job_ids")
 
 COLUMN_COMMENT = 1
 COLUMN_EAT = 2
@@ -98,53 +100,72 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda job: "%.02f" % job.data.job_stats.reserved_cores,
                        sort=lambda job: job.data.job_stats.reserved_cores,
                        tip="The number of reserved cores.")
-        self.addColumn("Wait", 45, id=6,
+        self.addColumn("Gpus", 55, id=6,
+                       data=lambda job: "%d" % job.data.job_stats.reserved_gpus,
+                       sort=lambda job: job.data.job_stats.reserved_gpus,
+                       tip="The number of reserved gpus.")
+        self.addColumn("Wait", 45, id=7,
                        data=lambda job: job.data.job_stats.waiting_frames,
                        sort=lambda job: job.data.job_stats.waiting_frames,
                        tip="The number of waiting frames.")
-        self.addColumn("Depend", 55, id=7,
+        self.addColumn("Depend", 55, id=8,
                        data=lambda job: job.data.job_stats.depend_frames,
                        sort=lambda job: job.data.job_stats.depend_frames,
                        tip="The number of dependent frames.")
-        self.addColumn("Total", 50, id=8,
+        self.addColumn("Total", 50, id=9,
                        data=lambda job: job.data.job_stats.total_frames,
                        sort=lambda job: job.data.job_stats.total_frames,
                        tip="The total number of frames.")
-        self.addColumn("_Booking Bar", 150, id=9,
+        self.addColumn("_Booking Bar", 150, id=10,
                        delegate=cuegui.ItemDelegate.JobBookingBarDelegate)
-        self.addColumn("Min", 38, id=10,
+        self.addColumn("Min", 38, id=11,
                        data=lambda job: "%.0f" % job.data.min_cores,
                        sort=lambda job: job.data.min_cores,
                        tip="The minimum number of running cores that the cuebot\n"
                            "will try to maintain.")
-        self.addColumn("Max", 38, id=11,
+        self.addColumn("Max", 38, id=12,
                        data=lambda job: "%.0f" % job.data.max_cores,
                        sort=lambda job: job.data.max_cores,
                        tip="The maximum number of running cores that the cuebot\n"
                            "will allow.")
+        self.addColumn("Min Gpus", 38, id=13,
+                       data=lambda job: "%d" % job.data.min_gpus,
+                       sort=lambda job: job.data.min_gpus,
+                       tip="The minimum number of running gpus that the cuebot\n"
+                           "will try to maintain.")
+        self.addColumn("Max Gpus", 38, id=14,
+                       data=lambda job: "%d" % job.data.max_gpus,
+                       sort=lambda job: job.data.max_gpus,
+                       tip="The maximum number of running gpus that the cuebot\n"
+                           "will allow.")
         self.addColumn(
-            "Age", 50, id=12,
+            "Age", 50, id=15,
             data=lambda job: cuegui.Utils.secondsToHHHMM(self.currtime - job.data.start_time),
             sort=lambda job: self.currtime - job.data.start_time,
             tip="The HOURS:MINUTES since the job was launched.")
-        self.addColumn("Pri", 30, id=13,
+        self.addColumn("Pri", 30, id=16,
                        data=lambda job: job.data.priority,
                        sort=lambda job: job.data.priority,
                        tip="The job priority. The cuebot uses this as a suggestion\n"
                            "to determine what job needs the next available matching\n"
                            "resource.")
-        self.addColumn("ETA", 65, id=14,
+        self.addColumn("ETA", 65, id=17,
                        data=lambda job: "",
                        tip="(Inacurate and disabled until a better solution exists)\n"
                            "A very rough estimate of the number of HOURS:MINUTES\n"
                            "it will be before the entire job is done.")
-        self.addColumn("MaxRss", 60, id=15,
+        self.addColumn("MaxRss", 60, id=18,
                        data=lambda job: cuegui.Utils.memoryToString(job.data.job_stats.max_rss),
                        sort=lambda job: job.data.job_stats.max_rss,
                        tip="The most memory used at one time by any single frame.")
-        self.addColumn("_Blank", 20, id=16,
+        self.addColumn("MaxGpuMem", 60, id=19,
+                       data=lambda job: cuegui.Utils.memoryToString(
+                           job.data.job_stats.max_gpu_memory),
+                       sort=lambda job: job.data.job_stats.max_gpu_memory,
+                       tip="The most gpu memory used at one time by any single frame.")
+        self.addColumn("_Blank", 20, id=20,
                        tip="Spacer")
-        self.addColumn("Progress", 0, id=17,
+        self.addColumn("Progress", 0, id=21,
                        delegate=cuegui.ItemDelegate.JobThinProgressBarDelegate,
                        tip="A visual overview of the job progress.\n"
                            "Green \t is succeeded\n"
@@ -164,23 +185,31 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.addColumn("", 0, id=5,
                            data=lambda group: "%.2f" % group.data.stats.reserved_cores)
             self.addColumn("", 0, id=6,
+                           data=lambda group: "%d" % group.data.stats.reserved_gpus)
+            self.addColumn("", 0, id=7,
                            data=lambda group: group.data.stats.waiting_frames)
-            self.addColumn("", 0, id=7)
             self.addColumn("", 0, id=8)
-            self.addColumn("", 0, id=9,
-                           data=lambda group: (group.data.min_cores or ""))
+            self.addColumn("", 0, id=9)
             self.addColumn("", 0, id=10,
+                           data=lambda group: (group.data.min_cores or ""))
+            self.addColumn("", 0, id=11,
                            data=lambda group: (
                                    group.data.max_cores > 0 and group.data.max_cores or ""))
-            self.addColumn("", 0, id=11)
-            self.addColumn("", 0, id=12)
-            self.addColumn("", 0, id=13)
+            self.addColumn("", 0, id=12,
+                           data=lambda group: (group.data.min_gpus or ""))
+            self.addColumn("", 0, id=13,
+                           data=lambda group: (
+                                   group.data.max_gpus > 0 and group.data.max_gpus or ""))
             self.addColumn("", 0, id=14)
             self.addColumn("", 0, id=15)
-            self.addColumn("", 0, id=16,
+            self.addColumn("", 0, id=16)
+            self.addColumn("", 0, id=17)
+            self.addColumn("", 0, id=18)
+            self.addColumn("", 0, id=19)
+            self.addColumn("", 0, id=20,
                            data=lambda group: (group.data.department != "Unknown" and
                                                group.data.department or ""))
-            self.addColumn("", 0, id=17)
+            self.addColumn("", 0, id=21)
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
@@ -194,11 +223,11 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
 
+        self.app.facility_changed.connect(self.removeAllShows)
         # pylint: disable=no-member
-        QtGui.qApp.facility_changed.connect(self.removeAllShows)
-        # pylint: enable=no-member
         self.itemClicked.connect(self.__itemSingleClickedCopy)
         self.itemClicked.connect(self.__itemSingleClickedComment)
+        # pylint: enable=no-member
 
         # Skip updates if the user is scrolling
         self._limitUpdatesDuringScrollSetup()
@@ -264,35 +293,23 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if item and item.type() in (cuegui.Constants.TYPE_ROOTGROUP, cuegui.Constants.TYPE_GROUP):
             job_ids = cuegui.Utils.dropEvent(event, "application/x-job-ids")
             group_ids = cuegui.Utils.dropEvent(event, "application/x-group-ids")
+            job_names = cuegui.Utils.dropEvent(event, "application/x-job-names")
+            group_names = cuegui.Utils.dropEvent(event, "application/x-group-names")
 
             if job_ids or group_ids:
-                body = ""
-                if group_ids:
-                    body += "Groups:\n" + "\n".join(
-                        cuegui.Utils.dropEvent(event, "application/x-group-names"))
-                if group_ids and job_ids:
-                    body += "\n\n"
-                if job_ids:
-                    body += "Jobs:\n" + "\n".join(
-                        cuegui.Utils.dropEvent(event, "application/x-job-names"))
+                body_content = Body(group_names=group_names,
+                                    group_ids=group_ids,
+                                    job_names=job_names,
+                                    job_ids=job_ids)
 
-                result = QtWidgets.QMessageBox.question(
-                    self,
-                    "Move groups/jobs?",
-                    "Move the following into the group: " +
-                    "\"%s\"?\n\n%s" % (
-                        item.rpcObject.data.name, body),
-                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-
-                if result == QtWidgets.QMessageBox.Yes:
-                    if job_ids:
-                        jobs = [opencue.api.getJob(id_) for id_ in job_ids]
-                        item.rpcObject.asGroup().reparentJobs(jobs)
-
-                    if group_ids:
-                        item.rpcObject.asGroup().reparentGroupIds(group_ids)
-
-                    self.updateRequest()
+                dialog = MoveDialog(title="Move Groups/Jobs",
+                                    text="Move the following into the group: %s?" \
+                                          % item.rpcObject.data.name,
+                                    event_item=item,
+                                    items=body_content,
+                                    dist_groups={},
+                                    parent=self)
+                dialog.exec_()
 
     def addShow(self, show, update=True):
         """Adds a show to the list of monitored shows
@@ -342,7 +359,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         return list(self.__shows.keys())
 
     def __getCollapsed(self):
-        return [item.rpcObject for item in list(self._items.values()) if not item.isExpanded()]
+        return [item.rpcObject.id() for item in list(self._items.values()) if not item.isExpanded()]
 
     def __setCollapsed(self, collapsed):
         self.expandAll()
@@ -356,13 +373,19 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @return: List that contains updated nested groups and a set of all
         updated item ideas"""
         self.currtime = time.time()
+        allIds = []
         try:
             groups = [show.getJobWhiteboard() for show in self.getShows()]
             nestedGroups = []
             allIds = []
             for group in groups:
+                # add jobs and parent group to match self._items
+                allIds.append(group.id)
+                allIds.extend(group.jobs)
                 nestedGroups.append(opencue.wrappers.group.NestedGroup(group))
-                allIds.extend(self.__getNestedIds(group))
+                # pylint: disable=no-value-for-parameter
+                allIds.extend(self.__getNestedIds(group, updated=[]))
+                # pylint: enable=no-value-for-parameter
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return None
@@ -383,8 +406,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             current = set(self._items.keys())
             if current == set(rpcObjects[1]):
-                # Only updates
-                self.__processUpdateHandleNested(self.invisibleRootItem(), rpcObjects[0])
+                # Only updates if return rpcObjects doesn't equal current _items
+                collapsed = self.__getCollapsed()
+                self.__setCollapsed(collapsed)
                 self.redraw()
             else:
                 # (Something removed) or (Something added)
@@ -403,25 +427,20 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         finally:
             self._itemsLock.unlock()
 
-    def __getNestedIds(self, group):
-        """Returns all the ids founds in the nested list
+    def __getNestedIds(self, group, updated):
+        """Returns all the ids founds in the nested list including
+           group and job ids.
         @type  group: job_pb2.Group
-        @param group: A group that can contain groups and/or jobs
+        @param group: A group that can contain groups and their associated jobs
         @rtype:  list
         @return: The list of all child ids"""
-        updated = []
-        for innerGroup in group.groups.nested_groups:
-            updated.append(innerGroup.id)
-
-            # If group has groups, recursively call this function
-            for g in innerGroup.groups.nested_groups:
-                updated_g = self.__getNestedIds(g)
-                if updated_g:
-                    updated.extend(updated_g)
-
-            # If group has jobs, update them
-            for jobId in innerGroup.jobs:
-                updated.append(jobId)
+        updated = updated if updated else []
+        if group.groups.nested_groups:
+            for g in group.groups.nested_groups:
+                updated.append(g.id)
+                if g.jobs:
+                    updated.extend(g.jobs)
+                self.__getNestedIds(g, updated)
 
         return updated
 
@@ -449,16 +468,18 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 for nestedGroup in group.data.groups.nested_groups]
             self.__processUpdateHandleNested(groupItem, nestedGroups)
 
-            for jobId in group.data.jobs:
-                job = opencue.api.getJob(jobId)
-                try:
-                    if job.id() in self._items:
-                        self._items[job.id()].update(job, groupItem)
-                    else:
-                        self._items[job.id()] = JobWidgetItem(job, groupItem)
-                except RuntimeError:
-                    logger.warning(
-                        "Failed to create tree item. RootView might be closed", exc_info=True)
+            if group.data.jobs:
+                jobsObject = opencue.api.getJobs(id=list(group.data.jobs))
+
+                for job in jobsObject:
+                    try:
+                        if job.id() in self._items:
+                            self._items[job.id()].update(job, groupItem)
+                        else:
+                            self._items[job.id()] = JobWidgetItem(job, groupItem)
+                    except RuntimeError:
+                        logger.warning(
+                            "Failed to create tree item. RootView might be closed", exc_info=True)
 
     def mouseDoubleClickEvent(self, event):
         del event
@@ -528,6 +549,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             menu.addSeparator()
             self.__menuActions.jobs().addAction(menu, "setMinCores")
             self.__menuActions.jobs().addAction(menu, "setMaxCores")
+            self.__menuActions.jobs().addAction(menu, "setMinGpus")
+            self.__menuActions.jobs().addAction(menu, "setMaxGpus")
             self.__menuActions.jobs().addAction(menu, "setPriority")
             self.__menuActions.jobs().addAction(menu, "setMaxRetries")
             if counts["job"] == 1:
@@ -703,9 +726,7 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
             self.__class__.__eatIcon = QtGui.QIcon(":eat.png")
-            # pylint: disable=no-member
-            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
-            # pylint: enable=no-member
+            self.__class__.__backgroundColor = cuegui.app().palette().color(QtGui.QPalette.Base)
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
             self.__class__.__finishedColor = cuegui.Style.ColorTheme.COLOR_JOB_FINISHED_BACKGROUND
@@ -779,3 +800,84 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             return self._cache.get("FST", cuegui.Constants.QVARIANT_NULL)
 
         return cuegui.Constants.QVARIANT_NULL
+
+
+class MoveDialog(QtWidgets.QDialog):
+    """
+    A dialog for moving selected Jobs/Groups into another Group
+    """
+    def __init__(self, title, text, event_item, items, dst_groups,
+                 send_to_groups=False, parent=None):
+        """
+        Initializes the list of jobs/groups to move
+        @type  title: str
+        @param title: Window Title
+        @type  text: str
+        @param text: Confirmation question to the user
+        @type  event_item: rpcObject
+        @param event_item: the rpcObject to act on
+        @type  items: namedtuple
+        @param items: object that holds job_ids, group_ids, group_names, job_names to act on
+        @type dst_groups: dict
+        @param dst_groups: dict of destination groups to move jobs/groups to
+        @type  parent: AbstractTreeWidget
+        @param parent: The dialog's parent
+        """
+        QtWidgets.QDialog.__init__(self, parent)
+        self.parent = parent
+        self.items = items
+        self.event_item = event_item
+        self.send_to_groups = send_to_groups
+        self.dst_groups = dst_groups
+        _btn_accept = QtWidgets.QPushButton("Ok", self)
+        _btn_cancel = QtWidgets.QPushButton("Cancel", self)
+        _label_text = QtWidgets.QLabel(text, self)
+        _label_text.setWordWrap(True)
+
+        _vlayout = QtWidgets.QVBoxLayout(self)
+        _vlayout.addWidget(_label_text)
+
+        self._listView = QtWidgets.QListView(self)
+        _vlayout.addWidget(self._listView)
+        _model = QtGui.QStandardItemModel(self._listView)
+        self.setWindowTitle(title)
+        for item in self.items.job_names:
+            standard_item = QtGui.QStandardItem(item)
+            _model.appendRow(standard_item)
+        for item in self.items.group_names:
+            _standard_item = QtGui.QStandardItem(item)
+            _model.appendRow(_standard_item)
+        self._listView.setModel(_model)
+
+        if self.send_to_groups:
+            self.combo = QtWidgets.QComboBox(self)
+            self.combo.addItems(sorted(self.dst_groups.keys()))
+            self.layout().addWidget(self.combo)
+
+        _hlayout = QtWidgets.QHBoxLayout()
+        _hlayout.addWidget(_btn_accept)
+        _hlayout.addWidget(_btn_cancel)
+        _vlayout.addLayout(_hlayout)
+
+        self.connect(_btn_accept,
+                     QtCore.SIGNAL("clicked()"),
+                     self.move_items)
+        self.connect(_btn_cancel,
+                     QtCore.SIGNAL("clicked()"),
+                     self.reject)
+
+    def move_items(self):
+        """Reparent jobs to new group"""
+
+        if not self.send_to_groups:
+            if self.items.job_ids:
+                jobs = [opencue.api.getJob(id_) for id_ in self.items.job_ids]
+                self.event_item.rpcObject.asGroup().reparentJobs(jobs)
+
+            if self.items.group_ids:
+                self.event_item.rpcObject.asGroup().reparentGroupIds(self.items.group_ids)
+            self.parent.updateRequest()
+        else:
+            selected_group = self.combo.currentText()
+            self.dst_groups[str(selected_group)].reparentJobs(self.items.job_ids)
+        self.accept()

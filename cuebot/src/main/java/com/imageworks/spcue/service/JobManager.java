@@ -454,6 +454,22 @@ public interface JobManager {
     void setLayerMinCores(LayerInterface layer, int coreUnits);
 
     /**
+     * Update the max gpu value for the given layer.
+     *
+     * @param layer
+     * @param gpuUnits
+     */
+    void setLayerMaxGpus(LayerInterface layer, int gpuUnits);
+
+    /**
+     * Update the min gpu value for the given layer.
+     *
+     * @param layer
+     * @param gpuUnits
+     */
+    void setLayerMinGpus(LayerInterface layer, int gpuUnits);
+
+    /**
      * Add a limit to the given layer.
      *
      * @param layer

@@ -29,9 +29,9 @@ import os
 import re
 import time
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import opencue
 from opencue.compiled_proto import job_pb2
@@ -100,25 +100,29 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda job, frame: (self.getCores(frame, format_as_string=True) or ""),
                        sort=lambda job, frame: (self.getCores(frame)),
                        tip="The number of cores a frame is using")
-        self.addColumn("Host", 120, id=6,
+        self.addColumn("GPUs", 55, id=6,
+                       data=lambda job, frame: (self.getGpus(frame, format_as_string=True) or ""),
+                       sort=lambda job, frame: (self.getGpus(frame)),
+                       tip="The number of gpus a frame is using")
+        self.addColumn("Host", 120, id=7,
                        data=lambda job, frame: frame.data.last_resource,
                        sort=lambda job, frame: frame.data.last_resource,
                        tip="The last or current resource that the frame used or is using.")
-        self.addColumn("Retries", 55, id=7,
+        self.addColumn("Retries", 55, id=8,
                        data=lambda job, frame: frame.data.retry_count,
                        sort=lambda job, frame: frame.data.retry_count,
                        tip="The number of times that each frame has had to retry.")
-        self.addColumn("_CheckpointEnabled", 20, id=8,
+        self.addColumn("_CheckpointEnabled", 20, id=9,
                        data=lambda job, frame: "",
                        sort=lambda job, frame: (
                                frame.data.checkpoint_state == opencue.api.job_pb2.ENABLED),
                        tip="A green check mark here indicates the frame has written out at least "
                            "1 checkpoint segment.")
-        self.addColumn("CheckP", 55, id=9,
+        self.addColumn("CheckP", 55, id=10,
                        data=lambda job, frame: frame.data.checkpoint_count,
                        sort=lambda job, frame: frame.data.checkpoint_count,
                        tip="The number of times a frame has been checkpointed.")
-        self.addColumn("Runtime", 70, id=10,
+        self.addColumn("Runtime", 70, id=11,
                        data=lambda job, frame: (cuegui.Utils.secondsToHMMSS(
                            frame.data.start_time and
                            frame.data.stop_time and
@@ -138,7 +142,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="The amount of HOURS:MINUTES:SECONDS that the frame\n"
                            "has run for or last ran for.\n")
 
-        self.addColumn("LLU", 70, id=11,
+        self.addColumn("LLU", 70, id=12,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameLogDataBuffer.getLastLineData(
                                                     job, frame)[FrameLogDataBuffer.LLU] or ""),
@@ -150,7 +154,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "time without an update is an indication of a stuck\n"
                            "frame for most types of jobs")
 
-        self.addColumn("Memory", 60, id=12,
+        self.addColumn("Memory", 60, id=13,
                        data=lambda job, frame: (
                                frame.data.state == opencue.api.job_pb2.RUNNING and
                                cuegui.Utils.memoryToString(frame.data.used_memory) or
@@ -162,7 +166,20 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "If a frame is not running:\n"
                            "\t The most memory this frame has used at one time.")
 
-        self.addColumn("Remain", 70, id=13,
+        self.addColumn("GPU Memory", 60, id=14,
+                       data=lambda job, frame: (
+                               frame.data.state == opencue.api.job_pb2.RUNNING and
+                               cuegui.Utils.memoryToString(frame.data.used_gpu_memory) or
+                               cuegui.Utils.memoryToString(frame.data.max_gpu_memory)),
+                       sort=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
+                                                frame.data.used_gpu_memory or
+                                                frame.data.max_gpu_memory),
+                       tip="If a frame is running:\n"
+                           "\t The amount of GPU memory currently used by the frame.\n"
+                           "If a frame is not running:\n"
+                           "\t The most GPU memory this frame has used at one time.")
+
+        self.addColumn("Remain", 70, id=15,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameEtaDataBuffer.getEtaFormatted(job, frame)
                                                 or ""),
@@ -170,16 +187,16 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                                 self.frameEtaDataBuffer.getEta(job, frame) or -1),
                        tip="Hours:Minutes:Seconds remaining.")
 
-        self.addColumn("Start Time", 100, id=14,
+        self.addColumn("Start Time", 100, id=16,
                        data=lambda job, frame: (self.getTimeString(frame.data.start_time) or ""),
                        sort=lambda job, frame: (self.getTimeString(frame.data.start_time) or ""),
                        tip="The time the frame was started or retried.")
-        self.addColumn("Stop Time", 100, id=15,
+        self.addColumn("Stop Time", 100, id=17,
                        data=lambda job, frame: (self.getTimeString(frame.data.stop_time) or ""),
                        sort=lambda job, frame: (self.getTimeString(frame.data.stop_time) or ""),
                        tip="The time that the frame finished or died.")
 
-        self.addColumn("Last Line", 0, id=16,
+        self.addColumn("Last Line", 0, id=18,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameLogDataBuffer.getLastLineData(
                                                     job, frame)[FrameLogDataBuffer.LASTLINE] or ""),
@@ -195,12 +212,15 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
+        # Used to build right click context menus
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects, self.getJob)
         self.__sortByColumnCache = {}
         self.ticksWithoutUpdate = 999
         self.__lastUpdateTime = None
 
-        self.itemClicked.connect(self.__itemSingleClickedCopy)
-        self.itemClicked.connect(self.__itemSingleClickedViewLog)
+        self.itemClicked.connect(self.__itemSingleClickedCopy)  # pylint: disable=no-member
+        self.itemClicked.connect(self.__itemSingleClickedViewLog)  # pylint: disable=no-member
         self.itemDoubleClicked.connect(self.__itemDoubleClickedViewLog)
         self.header().sortIndicatorChanged.connect(self.__sortByColumnSave)
 
@@ -240,7 +260,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Gets the number of cores a frame is using."""
         cores = None
 
-        m = re.search(r".*\/(\d+\.?\d*)", frame.data.last_resource)
+        m = re.search(r".*\/(\d+\.?\d*)\/.*", frame.data.last_resource)
         if m:
             cores = float(m.group(1))
 
@@ -248,6 +268,20 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 cores = "{:.2f}".format(cores)
 
         return cores
+
+    @staticmethod
+    def getGpus(frame, format_as_string=False):
+        """Gets the number of gpus a frame is using."""
+        gpus = None
+
+        m = re.search(r".*\/.*\/(\d+)", frame.data.last_resource)
+        if m:
+            gpus = m.group(1)
+
+            if not format_as_string:
+                gpus = int(gpus)
+
+        return gpus
 
     @staticmethod
     def getTimeString(timestamp):
@@ -299,7 +333,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         selected = [
             frame.data.name for frame in self.selectedObjects() if cuegui.Utils.isFrame(frame)]
         if selected:
-            QtWidgets.QApplication.clipboard().setText(" ".join(selected))
+            QtWidgets.QApplication.clipboard().setText(" ".join(selected),
+                                                       QtGui.QClipboard.Selection)
 
     def __itemSingleClickedViewLog(self, item, col):
         """Called when an item is clicked on. Views the log file contents
@@ -314,10 +349,9 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                    key=lambda l: int(l.split('rqlog.')[-1]),
                                    reverse=True)
         except ValueError:
-            pass
-        # pylint: disable=no-member
-        QtGui.qApp.display_log_file_content.emit([current_log_file] + old_log_files)
-        # pylint: enable=no-member
+            old_log_files = []
+
+        self.app.display_log_file_content.emit([current_log_file] + old_log_files)
 
     def __itemDoubleClickedViewLog(self, item, col):
         """Called when a frame is double clicked, views the frame log in a popup
@@ -411,11 +445,9 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         updated"""
         logger.info("_update")
         self._lastUpdate = time.time()
-        if hasattr(QtGui.qApp, "threadpool"):
-            # pylint: disable=no-member
-            QtGui.qApp.threadpool.queue(
+        if self.app.threadpool is not None:
+            self.app.threadpool.queue(
                 self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
-            # pylint: enable=no-member
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             self._processUpdate(None, self._getUpdate())
@@ -425,12 +457,10 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         updated"""
         logger.info("_updateChanged")
         self._lastUpdate = time.time()
-        if hasattr(QtGui.qApp, "threadpool"):
-            # pylint: disable=no-member
-            QtGui.qApp.threadpool.queue(
+        if self.app.threadpool is not None:
+            self.app.threadpool.queue(
                 self._getUpdateChanged, self._processUpdateChanged,
                 "getting data for %s" % self.__class__)
-            # pylint: enable=no-member
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             self._processUpdateChanged(None, self._getUpdateChanged())
@@ -560,9 +590,7 @@ class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, rpcObject, parent, job):
         if not self.__initialized:
             self.__class__.__initialized = True
-            # pylint: disable=no-member
-            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
-            # pylint: enable=no-member
+            self.__class__.__backgroundColor = cuegui.app().palette().color(QtGui.QPalette.Base)
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__foregroundColorBlack = QCOLOR_BLACK
             self.__class__.__foregroundColorGreen = QCOLOR_GREEN
@@ -826,6 +854,7 @@ class FrameContextMenu(QtWidgets.QMenu):
 
     def __init__(self, widget, filterSelectedLayersCallback):
         super(FrameContextMenu, self).__init__()
+        self.app = cuegui.app()
 
         self.__menuActions = cuegui.MenuActions.MenuActions(
             widget, widget.updateSoon, widget.selectedObjects, widget.getJob)
@@ -844,12 +873,11 @@ class FrameContextMenu(QtWidgets.QMenu):
         elif count == 2:
             self.__menuActions.frames().addAction(self, "xdiff2")
 
-        self.__menuActions.frames().addAction(self, "useLocalCores")
+        if bool(int(self.app.settings.value("AllowDeeding", 0))):
+            self.__menuActions.frames().addAction(self, "useLocalCores")
 
-        # pylint: disable=no-member
-        if QtGui.qApp.applicationName() == "CueCommander":
+        if self.app.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(self, "viewHost")
-        # pylint: enable=no-member
 
         depend_menu = QtWidgets.QMenu("&Dependencies", self)
         self.__menuActions.frames().addAction(depend_menu, "viewDepends")
@@ -875,3 +903,4 @@ class FrameContextMenu(QtWidgets.QMenu):
         self.__menuActions.frames().addAction(self, "eat")
         self.__menuActions.frames().addAction(self, "kill")
         self.__menuActions.frames().addAction(self, "eatandmarkdone")
+        self.__menuActions.frames().addAction(self, "viewProcesses")

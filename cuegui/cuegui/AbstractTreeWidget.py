@@ -26,9 +26,9 @@ from builtins import map
 from builtins import range
 import time
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
@@ -75,6 +75,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @type  parent: QWidget
         @param parent: The widget to set as the parent"""
         QtWidgets.QTreeWidget.__init__(self, parent)
+        self.app = cuegui.app()
 
         self._items = {}
         self._lastUpdate = 0
@@ -100,12 +101,12 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
 
         self.__setupColumnMenu()
 
+        # pylint: disable=no-member
         self.itemClicked.connect(self.__itemSingleClickedEmitToApp)
         self.itemDoubleClicked.connect(self.__itemDoubleClickedEmitToApp)
         self._timer.timeout.connect(self.updateRequest)
-        # pylint: disable=no-member
-        QtGui.qApp.request_update.connect(self.updateRequest)
         # pylint: enable=no-member
+        self.app.request_update.connect(self.updateRequest)
 
         self.updateRequest()
         self.setUpdateInterval(10)
@@ -215,7 +216,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
 
         self.ticksLock = QtCore.QMutex()
         self.__ticksTimer = QtCore.QTimer(self)
-        self.__ticksTimer.timeout.connect(self.__tick)
+        self.__ticksTimer.timeout.connect(self.__tick)  # pylint: disable=no-member
         self.__ticksTimer.start(1000)
         self.ticksWithoutUpdate = 999
 
@@ -279,9 +280,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @type  col: int
         @param col: Column number single clicked on"""
         del col
-        # pylint: disable=no-member
-        QtGui.qApp.single_click.emit(item.rpcObject)
-        # pylint: enable=no-member
+        cuegui.app().single_click.emit(item.rpcObject)
 
     @staticmethod
     def __itemDoubleClickedEmitToApp(item, col):
@@ -293,10 +292,8 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @type  col: int
         @param col: Column number double clicked on"""
         del col
-        # pylint: disable=no-member
-        QtGui.qApp.view_object.emit(item.rpcObject)
-        QtGui.qApp.double_click.emit(item.rpcObject)
-        # pylint: enable=no-member
+        cuegui.app().view_object.emit(item.rpcObject)
+        cuegui.app().double_click.emit(item.rpcObject)
 
     def addObject(self, rpcObject):
         """Adds or updates an rpcObject in the list using the _createItem function
@@ -385,11 +382,9 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         """Updates the items in the TreeWidget without checking when it was last
         updated"""
         self._lastUpdate = time.time()
-        if hasattr(QtGui.qApp, "threadpool"):
-            # pylint: disable=no-member
-            QtGui.qApp.threadpool.queue(
+        if self.app.threadpool is not None:
+            self.app.threadpool.queue(
                 self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
-            # pylint: enable=no-member
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             self._processUpdate(None, self._getUpdate())
@@ -509,7 +504,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.__dropdown.setFixedHeight(self.header().height() - 10)
         self.__dropdown.setToolTip("Click to select columns to display")
         self.__dropdown.setIcon(QtGui.QIcon(":column_popdown.png"))
-        self.__dropdown.clicked.connect(self.__displayColumnMenu)
+        self.__dropdown.clicked.connect(self.__displayColumnMenu)  # pylint: disable=no-member
 
         layout = QtWidgets.QHBoxLayout(self.header())
         layout.setContentsMargins(0, 0, 0, 0)
@@ -521,7 +516,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
                                                           self.__dropdown.height()))
 
         menu = QtWidgets.QMenu(self)
-        menu.triggered.connect(self.__handleColumnMenu)
+        menu.triggered.connect(self.__handleColumnMenu)  # pylint: disable=no-member
         for col in range(self.columnCount()):
             if self.columnWidth(col) or self.isColumnHidden(col):
                 name = self.__columnInfoByType[self.__columnPrimaryType][col][COLUMN_NAME]

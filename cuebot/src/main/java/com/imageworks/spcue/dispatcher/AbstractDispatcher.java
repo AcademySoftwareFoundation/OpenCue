@@ -19,7 +19,8 @@
 
 package com.imageworks.spcue.dispatcher;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.VirtualProc;
@@ -33,7 +34,7 @@ import com.imageworks.spcue.util.CueUtil;
  */
 public abstract class AbstractDispatcher {
 
-    private static final Logger logger = Logger.getLogger(AbstractDispatcher.class);
+    private static final Logger logger = LogManager.getLogger(AbstractDispatcher.class);
 
     public DispatchSupport dispatchSupport;
     public RqdClient rqdClient;
@@ -129,6 +130,7 @@ public abstract class AbstractDispatcher {
             dispatchSummary(proc, frame, "Booking");
             DispatchSupport.bookedProcs.getAndIncrement();
             DispatchSupport.bookedCores.addAndGet(proc.coresReserved);
+            DispatchSupport.bookedGpus.addAndGet(proc.gpusReserved);
             return true;
         } catch (FrameReservationException fre) {
             /*
@@ -222,8 +224,10 @@ public abstract class AbstractDispatcher {
             " cores / " +
             CueUtil.KbToMb(p.memoryReserved) +
             " memory / " +
-            p.gpuReserved +
-            " gpu on " +
+            p.gpusReserved +
+            " gpus / " +
+            CueUtil.KbToMb(p.gpuMemoryReserved) +
+            " gpu memory " +
             p.getName() +
             " to " + f.show + "/" + f.shot;
         logger.info(msg);

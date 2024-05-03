@@ -22,12 +22,6 @@ service DeedInterface {
 
     // Returns the owner for these settings.
     rpc GetOwner(DeedGetOwnerRequest) returns (DeedGetOwnerResponse);
-
-    // Sets a blackout time for the host.
-    rpc SetBlackoutTime(DeedSetBlackoutTimeRequest) returns (DeedSetBlackoutTimeResponse);
-
-    // Enable/Disable blackout time without changing the times.
-    rpc SetBlackoutTimeEnabled(DeedSetBlackoutTimeEnabledRequest) returns (DeedSetBlackoutTimeEnabledResponse);
 }
 
 service HostInterface {
@@ -235,9 +229,6 @@ message Deed {
     string host = 2;
     string owner = 3;
     string show = 4;
-    bool blackout = 5;
-    int32 blackout_start_time = 6;
-    int32 blackout_stop_time = 7;
 }
 
 message DeedSeq {
@@ -258,16 +249,16 @@ message Host {
     float idle_cores = 7;
     int64 memory = 8;
     int64 idle_memory = 9;
-    int64 gpu = 10;
-    int64 idle_gpu = 11;
+    int64 gpu_memory = 10;
+    int64 idle_gpu_memory = 11;
     int64 total_swap = 12;
     int64 total_memory = 13;
-    int64 total_gpu = 14;
+    int64 total_gpu_memory = 14;
     int64 total_mcp = 15;
     int64 free_swap = 16;
     int64 free_memory = 17;
     int64 free_mcp = 18;
-    int64 free_gpu = 19;
+    int64 free_gpu_memory = 19;
     int32 load = 20;
     int32 boot_time = 21;
     int32 ping_time = 22;
@@ -276,6 +267,8 @@ message Host {
     HardwareState state = 25;
     LockState lock_state = 26;
     ThreadMode thread_mode = 27;
+    float gpus = 28;
+    float idle_gpus = 29;
 }
 
 message HostSearchCriteria {
@@ -301,16 +294,16 @@ message NestedHost {
     float idle_cores = 7;
     int64 memory = 8;
     int64 idle_memory = 9;
-    int64 gpu = 10;
-    int64 idle_gpu = 11;
+    int64 gpu_memory = 10;
+    int64 idle_gpu_memory = 11;
     int64 total_swap = 12;
     int64 total_memory = 13;
-    int64 total_gpu = 14;
+    int64 total_gpu_memory = 14;
     int64 total_mcp = 15;
     int64 free_swap = 16;
     int64 free_memory = 17;
     int64 free_mcp = 18;
-    int64 free_gpu = 19;
+    int64 free_gpu_memory = 19;
     int32 load = 20;
     int32 boot_time = 21;
     int32 ping_time = 22;
@@ -320,6 +313,8 @@ message NestedHost {
     LockState lock_state = 26;
     ThreadMode thread_mode = 27;
     NestedProcSeq procs = 28;
+    float gpus = 29;
+    float idle_gpus = 30;
 }
 
 message NestedHostSeq {
@@ -337,7 +332,7 @@ message NestedProc {
     int32 bookedTime = 8;
     int32 dispatch_time = 9;
     int64 reserved_memory = 10;
-    int64 reserverd_gpu = 11;
+    int64 reserved_gpu_memory = 11;
     int64 used_memory = 12;
     float reserved_cores = 13;
     bool unbooked = 14;
@@ -345,6 +340,8 @@ message NestedProc {
     string redirect_target = 16;
     repeated string services = 17;
     NestedHost parent = 18;
+    int64 used_gpu_memory = 19;
+    float reserved_gpus = 20;
 }
 
 message NestedProcSeq {
@@ -369,13 +366,16 @@ message Proc {
     int32 bookedTime = 8;
     int32 dispatch_time = 9;
     int64 reserved_memory = 10;
-    int64 reserved_gpu = 11;
+    int64 reserved_gpu_memory = 11;
     int64 used_memory = 12;
     float reserved_cores = 13;
     bool unbooked = 14;
     string log_path = 15;
     string redirect_target = 16;
     repeated string services = 17;
+    int64 used_gpu_memory = 18;
+    float reserved_gpus = 19;
+    bytes child_processes = 20;
 }
 
 message ProcSearchCriteria {
@@ -385,7 +385,7 @@ message ProcSearchCriteria {
     // An array of job names to match.
     repeated string jobs = 2;
 
-    // An arra of layer names to match.
+    // An array of layer names to match.
     repeated string layers = 3;
 
     // An array of show names to match.
@@ -439,23 +439,6 @@ message DeedGetOwnerRequest {
 message DeedGetOwnerResponse {
     Owner owner = 1;
 }
-
-// SetBlackoutTimeEnabled
-message DeedSetBlackoutTimeEnabledRequest {
-    Deed deed = 1;
-    bool enabled = 2;
-}
-
-message DeedSetBlackoutTimeEnabledResponse {} // Empty
-
-// SetBlackoutTime
-message DeedSetBlackoutTimeRequest {
-    Deed deed = 1;
-    int32 start_time = 2;
-    int32 stop_time = 3;
-}
-
-message DeedSetBlackoutTimeResponse {} // Empty
 
 // HOST ----
 // AddComment

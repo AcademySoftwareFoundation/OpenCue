@@ -22,8 +22,8 @@ from __future__ import division
 
 import platform
 
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import cuegui.Constants
 
@@ -32,20 +32,19 @@ def init():
     """Convenience function that takes the QApplication object for the
     application and configures the palette and style for the Plastique
     color scheme"""
-    # pylint: disable=no-member
-    QtGui.qApp.setPalette(DarkPalette())
+    app = cuegui.app()
+    app.setPalette(DarkPalette())
     if platform.system() in ['Darwin', 'Linux']:
         setDarkStyleSheet()
     elif platform.system() == 'Windows':
-        QtGui.qApp.setStyle('Fusion')
+        app.setStyle('Fusion')
     else:
-        QtGui.qApp.setStyle(QtWidgets.QStyleFactory.create(cuegui.Constants.COLOR_THEME))
+        app.setStyle(QtWidgets.QStyleFactory.create(cuegui.Constants.COLOR_THEME))
 
 
 def setDarkStyleSheet():
     """Sets the stylesheet."""
-    # pylint: disable=no-member
-    QtGui.qApp.setStyleSheet(open(cuegui.Constants.DARK_STYLE_SHEET).read())
+    cuegui.app().setStyleSheet(open(cuegui.Constants.DARK_STYLE_SHEET).read())
 
 
 def DarkPalette():

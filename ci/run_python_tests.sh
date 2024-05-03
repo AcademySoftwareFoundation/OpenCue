@@ -1,6 +1,15 @@
 #!/bin/bash
 
+# Script for running OpenCue unit tests with PySide2.
+#
+# This script is written to be run within the OpenCue GitHub Actions environment.
+# See `.github/workflows/testing-pipeline.yml`.
+
 set -e
+
+args=("$@")
+python_version=$(python -V 2>&1)
+echo "Will run tests using ${python_version}"
 
 pip install --user -r requirements.txt -r requirements_gui.txt
 
@@ -16,29 +25,10 @@ python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc
 python pycue/setup.py test
 PYTHONPATH=pycue python pyoutline/setup.py test
 PYTHONPATH=pycue python cueadmin/setup.py test
-PYTHONPATH=pycue xvfb-run -d python cuegui/setup.py test
 PYTHONPATH=pycue:pyoutline python cuesubmit/setup.py test
 python rqd/setup.py test
 
-# Some environments don't have pylint available, for ones that do they should pass this flag.
-if [[ "$1" == "--lint" ]]; then
-  cd pycue && python -m pylint --rcfile=../ci/pylintrc_main FileSequence && cd ..
-  cd pycue && python -m pylint --rcfile=../ci/pylintrc_main opencue --ignore=opencue/compiled_proto && cd ..
-  cd pycue && python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
-
-  cd pyoutline && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main outline && cd ..
-  cd pyoutline && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
-
-  cd cueadmin && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cueadmin && cd ..
-  cd cueadmin && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
-
-  cd cuegui && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cuegui --ignore=cuegui/images,cuegui/images/crystal && cd ..
-  cd cuegui && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
-
-  cd cuesubmit && PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_main cuesubmit && cd ..
-  cd cuesubmit && PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
-
-  cd rqd && python -m pylint --rcfile=../ci/pylintrc_main rqd --ignore=rqd/compiled_proto && cd ..
-  cd rqd && python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
+# Xvfb no longer supports Python 2.
+if [[ "$python_version" =~ "Python 3" && ${args[0]} != "--no-gui" ]]; then
+  ci/run_gui_test.sh
 fi
-

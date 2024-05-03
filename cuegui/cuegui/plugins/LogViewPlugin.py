@@ -25,11 +25,13 @@ from builtins import range
 import os
 import re
 import string
+import sys
 import time
+import traceback
 
-from PySide2 import QtGui
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.Constants
 import cuegui.AbstractDockWidget
@@ -99,20 +101,22 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         self.document().setDefaultFont(self.font)
 
         self._line_num_area = LineNumberArea(self)
+        # pylint: disable=no-member
         self.blockCountChanged.connect(self.update_line_number_area_width)
         self.updateRequest.connect(self.update_line_number_area)
         self.cursorPositionChanged.connect(self.highlight_current_line)
+        # pylint: enable=no-member
 
         self.update_line_number_area_width()
         self.setReadOnly(True)
         self.setMaximumBlockCount(20000)
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.context_menu)
+        self.customContextMenuRequested.connect(self.context_menu)  # pylint: disable=no-member
 
         self.copy_action = QtWidgets.QAction('Copy', self)
         self.copy_action.setStatusTip('Copy Selection')
         self.copy_action.setShortcut('Ctrl+C')
-        self.copy_action.triggered[bool].connect(lambda triggered:
+        self.copy_action.triggered[bool].connect(lambda triggered:  # pylint: disable=unsubscriptable-object
             self.copy_selection(QtGui.QClipboard.Clipboard))
         self.addAction(self.copy_action)
 
@@ -181,7 +185,7 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         while count >= 10:
             count /= 10
             digits += 1
-        space = 3 + self.fontMetrics().width('9') * digits
+        space = 3 + self.fontMetrics().horizontalAdvance('9') * digits
         return space
 
     def update_line_number_area_width(self):
@@ -231,9 +235,11 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
 
         crnt_selection = QtWidgets.QTextEdit.ExtraSelection()
         line_color = QtGui.QColor(QtCore.Qt.red).lighter(12)
+        # pylint: disable=no-member
         crnt_selection.format.setBackground(line_color)
         crnt_selection.format.setProperty(QtGui.QTextFormat.FullWidthSelection,
                                           True)
+        # pylint: enable=no-member
         crnt_selection.cursor = self.textCursor()
         crnt_selection.cursor.clearSelection()
         self.setExtraSelections([crnt_selection])
@@ -288,17 +294,48 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
             bottom = top + self.blockBoundingRect(block).height()
             block_number += 1
 
+class LogLoadSignals(QtCore.QObject):
+    """Signals for the LoadLog action"""
+    SIG_LOG_LOAD_ERROR = QtCore.Signal(tuple)
+    SIG_LOG_LOAD_RESULT = QtCore.Signal(str, str)
+    SIG_LOG_LOAD_FINISHED = QtCore.Signal()
+
+class LogLoader(QtCore.QRunnable):
+    """A thread to load logs"""
+    def __init__(self, fn, *args, **kwargs):
+        super(LogLoader, self).__init__()
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = LogLoadSignals()
+
+    @QtCore.Slot()
+    def run(self):
+        # pylint: disable=bare-except
+        try:
+            content, log_mtime = self.fn(*self.args, **self.kwargs)
+        except:
+            exctype, value = sys.exc_info()[:2]
+            self.signals.SIG_LOG_LOAD_ERROR.emit(
+                (exctype, value, traceback.format_exc()))
+        else:
+            self.signals.SIG_LOG_LOAD_RESULT.emit(content, log_mtime)
+        finally:
+            self.signals.SIG_LOG_LOAD_FINISHED.emit()
 
 class LogViewWidget(QtWidgets.QWidget):
-    """Displays the log file for the selected frame."""
-
+    """
+    Displays the log file for the selected frame
+    """
+    SIG_CONTENT_UPDATED = QtCore.Signal(str, str)
     def __init__(self, parent=None):
         """
         Create the UI elements
         """
+        QtWidgets.QWidget.__init__(self, parent)
+        self.app = cuegui.app()
 
         # Main Widget
-        QtWidgets.QWidget.__init__(self, parent)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self._scrollArea = QtWidgets.QScrollArea()
@@ -314,23 +351,23 @@ class LogViewWidget(QtWidgets.QWidget):
         path_layout = QtWidgets.QHBoxLayout(path_widget)
         path_layout.setContentsMargins(0, 0, 0, 0)
         self._first_log_button = QtWidgets.QPushButton('<<', self)
-        self._first_log_button.clicked.connect(
+        self._first_log_button.clicked.connect(  # pylint: disable=no-member
                                 lambda: self._load_other_log(float('inf')))
         self._first_log_button.setEnabled(False)
         self._first_log_button.setToolTip('Load First Log')
         path_layout.addWidget(self._first_log_button)
         self._prev_log_button = QtWidgets.QPushButton('<', self)
-        self._prev_log_button.clicked.connect(lambda: self._load_other_log(1))
+        self._prev_log_button.clicked.connect(lambda: self._load_other_log(1))  # pylint: disable=no-member
         self._prev_log_button.setEnabled(False)
         self._prev_log_button.setToolTip('Load Previous Log')
         path_layout.addWidget(self._prev_log_button)
         self._next_log_button = QtWidgets.QPushButton('>', self)
-        self._next_log_button.clicked.connect(lambda: self._load_other_log(-1))
+        self._next_log_button.clicked.connect(lambda: self._load_other_log(-1))  # pylint: disable=no-member
         self._next_log_button.setEnabled(False)
         self._next_log_button.setToolTip('Load Next Log')
         path_layout.addWidget(self._next_log_button)
         self._last_log_button = QtWidgets.QPushButton('>>', self)
-        self._last_log_button.clicked.connect(
+        self._last_log_button.clicked.connect(  # pylint: disable=no-member
                                 lambda: self._load_other_log(-float('inf')))
         self._last_log_button.setEnabled(False)
         self._last_log_button.setToolTip('Load Current Log')
@@ -353,7 +390,7 @@ class LogViewWidget(QtWidgets.QWidget):
         self._word_wrap_checkbox.setFont(font)
         path_layout.addWidget(self._word_wrap_checkbox)
         self._word_wrap_checkbox.setCheckState(QtCore.Qt.Checked)
-        self._word_wrap_checkbox.stateChanged.connect(self._set_word_wrap)
+        self._word_wrap_checkbox.stateChanged.connect(self._set_word_wrap)  # pylint: disable=no-member
 
         # Content
         content_widget = QtWidgets.QWidget(self)
@@ -377,30 +414,30 @@ class LogViewWidget(QtWidgets.QWidget):
         search_layout = QtWidgets.QHBoxLayout(search_widget)
         self._case_stv_checkbox = QtWidgets.QCheckBox('Aa')
         search_layout.addWidget(self._case_stv_checkbox)
-        self._case_stv_checkbox.stateChanged.connect(self._move_to_search_box)
+        self._case_stv_checkbox.stateChanged.connect(self._move_to_search_box)  # pylint: disable=no-member
 
         self._search_box = QtWidgets.QLineEdit('', self)
         self._search_box.setClearButtonEnabled(True)
         self._search_box.setPlaceholderText('Search log...')
         search_layout.addWidget(self._search_box)
         self._search_box.show()
-        self._search_box.editingFinished.connect(self._find_text)
+        self._search_box.editingFinished.connect(self._find_text)  # pylint: disable=no-member
         self._search_button = QtWidgets.QPushButton('Find', self)
         search_layout.addWidget(self._search_button)
         self._prev_button = QtWidgets.QPushButton('Prev')
-        self._prev_button.clicked.connect(self._move_to_prev_match)
+        self._prev_button.clicked.connect(self._move_to_prev_match)  # pylint: disable=no-member
         self._next_button = QtWidgets.QPushButton('Next')
-        self._next_button.clicked.connect(self._move_to_next_match)
+        self._next_button.clicked.connect(self._move_to_next_match)  # pylint: disable=no-member
         search_layout.addWidget(self._next_button)
         search_layout.addWidget(self._prev_button)
         search_refresh_button = QtWidgets.QPushButton('Refresh', self)
         search_layout.addWidget(search_refresh_button)
-        search_refresh_button.clicked.connect(self._move_to_search_box)
+        search_refresh_button.clicked.connect(self._move_to_search_box)  # pylint: disable=no-member
 
         clear_search_button = QtWidgets.QPushButton('Clr', self)
         search_layout.addWidget(clear_search_button)
-        clear_search_button.clicked.connect(self._clear_search_text)
-        self._search_button.clicked.connect(self._find_text)
+        clear_search_button.clicked.connect(self._clear_search_text)  # pylint: disable=no-member
+        self._search_button.clicked.connect(self._find_text)  # pylint: disable=no-member
 
         matches_widget = QtWidgets.QWidget(self)
         matches_layout = QtWidgets.QHBoxLayout(matches_widget)
@@ -424,9 +461,7 @@ class LogViewWidget(QtWidgets.QWidget):
         pos = QtCore.QPoint(0, 0)
         self._highlight_cursor = self._content_box.cursorForPosition(pos)
         # Signals are defined in code, so pylint thinks they don't exist.
-        # pylint: disable=no-member
-        QtGui.qApp.display_log_file_content.connect(self._set_log_files)
-        # pylint: enable=no-member
+        self.app.display_log_file_content.connect(self._set_log_files)
         self._log_scrollbar = self._content_box.verticalScrollBar()
         self._log_scrollbar.valueChanged.connect(self._set_scrollbar_value)
 
@@ -449,6 +484,9 @@ class LogViewWidget(QtWidgets.QWidget):
         self._format.setBackground(QtCore.Qt.red)
         self._current_match = 0
         self._content_box.mousePressedSignal.connect(self._on_mouse_pressed)
+
+        self.SIG_CONTENT_UPDATED.connect(self._update_log_content)
+        self.log_thread_pool = QtCore.QThreadPool()
 
     def _on_mouse_pressed(self, pos):
         """
@@ -699,7 +737,6 @@ class LogViewWidget(QtWidgets.QWidget):
                                                 QtGui.QTextCursor.KeepAnchor,
                                                 match[-1])
             self._highlight_cursor.setCharFormat(self._format)
-            self._matches_to_highlight.discard(match)
 
     def _clear_search_text(self):
         """
@@ -721,19 +758,27 @@ class LogViewWidget(QtWidgets.QWidget):
                         are also removed.
         """
 
+        if not self._log_file:
+            return
+
+        # find matched text to "unhighlight" red by resetting the char format
+        highlight = self._matches[max(self._current_match - 300, 0):
+                                  min(self._current_match + 300, len(self._matches))]
+        matches = list(set(highlight).intersection(self._matches_to_highlight))
+
+        for match in matches:
+            self._highlight_cursor.setPosition(match[0])
+            self._highlight_cursor.movePosition(QtGui.QTextCursor.Right,
+                                                QtGui.QTextCursor.KeepAnchor,
+                                                match[-1])
+            self._highlight_cursor.setCharFormat(QtGui.QTextCharFormat())
+            self._highlight_cursor.clearSelection()
+
+        # reset text matches
         self._matches = []
         self._matches_to_highlight = set()
         self._search_timestamp = 0
         self._matches_label.setText('')
-        if not self._log_file:
-            return
-
-        charFormat = QtGui.QTextCharFormat()
-        self._highlight_cursor.setPosition(QtGui.QTextCursor.Start)
-        self._highlight_cursor.movePosition(
-            QtGui.QTextCursor.End, mode=QtGui.QTextCursor.KeepAnchor)
-        self._highlight_cursor.setCharFormat(charFormat)
-        self._highlight_cursor.clearSelection()
 
     def _set_scrollbar_value(self, val):
         """
@@ -778,12 +823,56 @@ class LogViewWidget(QtWidgets.QWidget):
         """
 
         try:
-            self._update_log()
-            self._new_log = False
+            if not os.path.exists(self._log_file):
+                self._log_file_exists = False
+                content = 'Log file does not exist: %s' % self._log_file
+                self._content_timestamp = time.time()
+                self._update_log_content(content, self._log_mtime)
+            else:
+                # Creating the load logs process as qrunnables so
+                # that they don't block the ui while loading
+                log_loader = LogLoader(self._load_log, self._log_file,
+                    self._new_log, self._log_mtime)
+                log_loader.signals.SIG_LOG_LOAD_RESULT.connect(
+                    self._receive_log_results)
+                log_loader.setAutoDelete(True)
+                self.log_thread_pool.start(log_loader)
+                self.log_thread_pool.waitForDone()
+                self._new_log = False
         finally:
             QtCore.QTimer.singleShot(5000, self._display_log_content)
 
-    def _update_log(self):
+    # pylint: disable=no-self-use
+    @QtCore.Slot()
+    def _load_log(self, log_file, new_log, curr_log_mtime):
+        content = None
+        log_size = int(os.stat(log_file).st_size)
+        if log_size > 1 * 1e6:
+            content = ('Log file size (%0.1f MB) exceeds the size '
+                        'threshold (1.0 MB).'
+                        % float(log_size / (1024 * 1024)))
+        elif not new_log and os.path.exists(log_file):
+            log_mtime = os.path.getmtime(log_file)
+            if log_mtime > curr_log_mtime:
+                curr_log_mtime = log_mtime  # no new updates
+                content = ''
+
+        if content is None:
+            content = ''
+            try:
+                with open(log_file, 'r') as f:
+                    content = f.read()
+            except IOError:
+                content = 'Can not access log file: %s' % log_file
+
+        return content, curr_log_mtime
+
+    @QtCore.Slot()
+    def _receive_log_results(self, content, log_mtime):
+        self.SIG_CONTENT_UPDATED.emit(content, log_mtime)
+
+    @QtCore.Slot(str, str)
+    def _update_log_content(self, content, log_mtime):
         """
         Updates the content of the content box with the content of the log
         file, if necessary. The full path to the log file will be populated in
@@ -803,51 +892,23 @@ class LogViewWidget(QtWidgets.QWidget):
                         (if necessary)
         """
 
-        # Get the content of the log file
-        if not self._log_file:
-            return  # There's no log file, nothing to do here!
-        self._path.setText(self._log_file)
-        content = None
-        if not os.path.exists(self._log_file):
-            self._log_file_exists = False
-            content = 'Log file does not exist: %s' % self._log_file
-            self._content_timestamp = time.time()
-        else:
-            log_size = int(os.stat(self._log_file).st_size)
-            if log_size > 5 * 1e6:
-                content = ('Log file size (%0.1f MB) exceeds the size '
-                           'threshold (5.0 MB).'
-                           % float(log_size / (1024 * 1024)))
-            elif not self._new_log and os.path.exists(self._log_file):
-                log_mtime = os.path.getmtime(self._log_file)
-                if log_mtime > self._log_mtime:
-                    self._log_mtime = log_mtime  # no new updates
-                    content = ''
+        self._log_mtime = log_mtime
 
-        if content is None:
-            content = ''
-            try:
-                with open(self._log_file, 'r') as f:
-                    content = f.read()
-            except IOError:
-                content = 'Can not access log file: %s' % self._log_file
-
-        # Do we need to scroll to the end?
-        scroll_to_end = (self._scrollbar_max == self._scrollbar_value
-                         or self._new_log)
+        self.app.processEvents()
 
         # Update the content in the gui (if necessary)
-        current_text = (self._content_box.toPlainText() or '')
-        new_text = content.lstrip(str(current_text))
-        if new_text:
-            if self._new_log:
-                self._content_box.setPlainText(content)
-            else:
+        if self._new_log:
+            self._content_box.setPlainText(content)
+        else:
+            current_text = (self._content_box.toPlainText() or '')
+            new_text = content.lstrip(str(current_text))
+            if new_text:
                 self._content_box.appendPlainText(new_text)
-            self._content_timestamp = time.time()
-        # pylint: disable=no-member
-        QtGui.qApp.processEvents()
-        # pylint: enable=no-member
+        self._content_timestamp = time.time()
+        self._path.setText(self._log_file)
+
+        scroll_to_end = (self._scrollbar_max == self._scrollbar_value
+                         or self._new_log)
 
         # Adjust scrollbar value (if necessary)
         self._scrollbar_max = self._log_scrollbar.maximum()

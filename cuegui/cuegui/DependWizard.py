@@ -25,8 +25,8 @@ from builtins import str
 from builtins import range
 import re
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import FileSequence
 import opencue
@@ -521,7 +521,7 @@ class PageSelectOnJob(AbstractWizardPage):
         self._addLabel("Depend on Job:", 0, 0)
 
         self.__jobFilterLineEdit = self._addLineEdit(2, 0, "")
-        self.__jobFilterLineEdit.textChanged.connect(self.filterJobs)
+        self.__jobFilterLineEdit.textChanged.connect(self.filterJobs)  # pylint: disable=no-member
 
         self.__jobList = self._addListWidget(3, 0)
 

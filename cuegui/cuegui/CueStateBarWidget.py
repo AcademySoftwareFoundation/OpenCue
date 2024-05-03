@@ -24,9 +24,9 @@ import threading
 import time
 import weakref
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import cuegui.Logger
 
@@ -47,6 +47,7 @@ class CueStateBarWidget(QtWidgets.QWidget):
         @type  parent: QWidget
         @param parent: The parent widget"""
         QtWidgets.QWidget.__init__(self, parent)
+        self.app = cuegui.app()
 
         self.__background = None
 
@@ -55,14 +56,12 @@ class CueStateBarWidget(QtWidgets.QWidget):
 
         self.__sourceTree = weakref.proxy(sourceTree)
         self.__colors = []
-        # pylint: disable=no-member
-        self.__baseColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
-        # pylint: enable=no-member
+        self.__baseColor = self.app.palette().color(QtGui.QPalette.Base)
         self.__colorsLock = QtCore.QReadWriteLock()
         self.__timer = QtCore.QTimer(self)
         self.__lastUpdate = 0
 
-        self.__timer.timeout.connect(self.updateColors)
+        self.__timer.timeout.connect(self.updateColors)  # pylint: disable=no-member
         self.__sourceTree.verticalScrollBar().valueChanged.connect(self.update)
         self.__sourceTree.verticalScrollBar().rangeChanged.connect(self.__updateColors)
 

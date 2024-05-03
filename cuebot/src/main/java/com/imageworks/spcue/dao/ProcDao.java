@@ -54,7 +54,7 @@ public interface ProcDao {
      * @return
      */
 
-    long getReservedGpu(ProcInterface proc);
+    long getReservedGpuMemory(ProcInterface proc);
 
     /**
      * Return the proc that has exceeded its reserved memory by the largest factor.
@@ -150,7 +150,8 @@ public interface ProcDao {
      * @param maxKb
      */
     void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss,
-                               long vsize, long maxVsize);
+                               long vsize, long maxVsize, long usedGpuMemory,
+                               long maxUsedGpuMemory, byte[] children);
 
     /**
      * get aq virual proc from its unique id

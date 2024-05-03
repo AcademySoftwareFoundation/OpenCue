@@ -92,6 +92,42 @@ class SerializeTest(unittest.TestCase):
         self.assertEqual(0, len(list(outlineXml.find('depends'))))
 
 
+class CoresTest(unittest.TestCase):
+    def setUp(self):
+        # Ensure to reset current
+        outline.Outline.current = None
+
+    def create(self):
+        ol = outline.Outline()
+        layer = outline.Layer("test")
+        ol.add_layer(layer)
+        return ol, layer
+
+    def assertCores(self, ol, v):
+        launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
+        outlineXml = ET.fromstring(outline.backend.cue.serialize(launcher))
+        job = outlineXml.find('job')
+        layer = job.find('layers').find('layer')
+        self.assertEqual(v, layer.find('cores').text)
+
+    def testCores(self):
+        ol, layer = self.create()
+        layer.set_arg("cores", 42)
+        self.assertCores(ol, "42.0")
+
+    def testThreads(self):
+        ol, layer = self.create()
+        layer.set_arg("threads", 4)
+        self.assertCores(ol, "4.0")
+
+    def testCoresAndThreads(self):
+        ol, layer = self.create()
+        layer.set_arg("cores", 8)
+        layer.set_arg("threads", 4)
+        # cores overrides threads
+        self.assertCores(ol, "8.0")
+
+
 class BuildCommandTest(unittest.TestCase):
     def setUp(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')

@@ -74,7 +74,7 @@ def get_launch_facility():
 
 def launch(ol, use_pycuerun=True, **args):
     """
-    A simple convinience method for launching an outline script with
+    A simple convenience method for launching an outline script with
     the most common options.  If you need additional options,
     use the OutlineLauncher class.
 
@@ -181,7 +181,7 @@ class OutlineLauncher(object):
             if self.get("range_default"):
                 fully_baked = True
                 for layer in self.__outline.get_layers():
-                    # Frames dont' have a range by default.
+                    # Frames don't have a range by default.
                     if isinstance(layer, Frame):
                         continue
                     if not layer.get_arg("range"):

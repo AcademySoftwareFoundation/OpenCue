@@ -122,9 +122,10 @@ public interface BookingManager {
      * @param l
      * @param maxCoreUnits
      * @param maxMemory
-     * @param maxGpu
+     * @param maxGpuUnits
+     * @param maxGpuMemory
      */
-    void setMaxResources(LocalHostAssignment l, int maxCoreUnits, long maxMemory, long maxGpu);
+    void setMaxResources(LocalHostAssignment l, int maxCoreUnits, long maxMemory, int maxGpuUnits, long maxGpuMemory);
 
     /**
      * Remove a LocalHostAssignment if there are no procs assigned to it.
@@ -132,13 +133,6 @@ public interface BookingManager {
      * @param lha
      */
     void removeInactiveLocalHostAssignment(LocalHostAssignment lha);
-
-    /**
-     *
-     * @param host
-     * @return
-     */
-    boolean isBlackOutTime(HostInterface host);
 
     /**
      * Return true if the host is running more cores than the maximum allowed.

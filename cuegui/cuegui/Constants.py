@@ -17,91 +17,165 @@
 Application constants.
 """
 
-
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+import logging
 import os
 import platform
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtWidgets
+import yaml
 
 import opencue
+import opencue.config
 
 
-possible_version_path = os.path.join(
-    os.path.abspath(os.path.join(__file__ , "../../..")), 'VERSION.in')
-if os.path.exists(possible_version_path):
-    with open(possible_version_path) as fp:
-        VERSION = fp.read().strip()
+__CONFIG_FILE_ENV_VAR = 'CUEGUI_CONFIG_FILE'
+__DEFAULT_INI_PATH_ENV_VAR = 'CUEGUI_DEFAULT_INI_PATH'
+__DEFAULT_CONFIG_FILE_NAME = 'cuegui.yaml'
+__DEFAULT_CONFIG_FILE = os.path.join(
+    os.path.dirname(__file__), 'config', __DEFAULT_CONFIG_FILE_NAME)
+
+
+def __getLogger():
+    """Other code should use cuegui.Logger to get a logger; we avoid using that module here
+    to avoid creating a circular dependency."""
+    logger_format = logging.Formatter("%(levelname)-9s %(module)-10s %(message)s")
+    logger_stream = logging.StreamHandler()
+    logger_stream.setLevel(logging.INFO)
+    logger_stream.setFormatter(logger_format)
+    logger = logging.getLogger(__file__)
+    logger.addHandler(logger_stream)
+    return logger
+
+
+def __loadConfigFromFile():
+    logger = __getLogger()
+    with open(__DEFAULT_CONFIG_FILE) as fp:
+        config = yaml.load(fp, Loader=yaml.SafeLoader)
+
+    user_config_file = None
+
+    logger.debug('Checking for cuegui config file path in %s', __CONFIG_FILE_ENV_VAR)
+    config_file_from_env = os.environ.get(__CONFIG_FILE_ENV_VAR)
+    if config_file_from_env and os.path.exists(config_file_from_env):
+        user_config_file = config_file_from_env
+
+    if not user_config_file:
+        config_file_from_user_profile = os.path.join(
+            opencue.config.config_base_directory(), __DEFAULT_CONFIG_FILE_NAME)
+        logger.debug('Checking for cuegui config at %s', config_file_from_user_profile)
+        if os.path.exists(config_file_from_user_profile):
+            user_config_file = config_file_from_user_profile
+
+    if user_config_file:
+        logger.info('Loading cuegui config from %s', user_config_file)
+        with open(user_config_file, 'r') as fp:
+            config.update(yaml.load(fp, Loader=yaml.SafeLoader))
+
+    return config
+
+
+def __packaged_version():
+    possible_version_path = os.path.join(
+        os.path.abspath(os.path.join(__file__, "../../..")), 'VERSION.in')
+    if os.path.exists(possible_version_path):
+        with open(possible_version_path) as fp:
+            default_version = fp.read().strip()
+        return default_version
+    return "1.3.0"
+
+
+__config = __loadConfigFromFile()
+
+VERSION = __config.get('version', __packaged_version())
+
+STARTUP_NOTICE_DATE = __config.get('startup_notice.date')
+STARTUP_NOTICE_MSG = __config.get('startup_notice.msg')
+
+JOB_UPDATE_DELAY = __config.get('refresh.job_update_delay')
+LAYER_UPDATE_DELAY = __config.get('refresh.layer_update_delay')
+FRAME_UPDATE_DELAY = __config.get('refresh.frame_update_delay')
+HOST_UPDATE_DELAY = __config.get('refresh.host_update_delay')
+AFTER_ACTION_UPDATE_DELAY = __config.get('refresh.after_action_update_delay')
+MINIMUM_UPDATE_INTERVAL = __config.get('refresh.min_update_interval') // 1000
+
+FONT_FAMILY = __config.get('style.font.family')
+FONT_SIZE = __config.get('style.font.size')
+STANDARD_FONT = QtGui.QFont(FONT_FAMILY, FONT_SIZE)
+
+RESOURCE_PATH = __config.get('paths.resources')
+if not os.path.isabs(RESOURCE_PATH):
+    RESOURCE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), RESOURCE_PATH))
+
+CONFIG_PATH = __config.get('paths.config')
+if not os.path.isabs(CONFIG_PATH):
+    CONFIG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), CONFIG_PATH))
+
+DEFAULT_INI_PATH = os.getenv('CUEGUI_DEFAULT_INI_PATH', __config.get('paths.default_ini_path'))
+if not os.path.isabs(DEFAULT_INI_PATH):
+    DEFAULT_INI_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), DEFAULT_INI_PATH))
+
+DEFAULT_PLUGIN_PATHS = __config.get('paths.plugins')
+for i, path in enumerate(DEFAULT_PLUGIN_PATHS):
+    if not os.path.isabs(path):
+        DEFAULT_PLUGIN_PATHS[i] = os.path.abspath(os.path.join(os.path.dirname(__file__), path))
+
+LOGGER_FORMAT = __config.get('logger.format')
+LOGGER_LEVEL = __config.get('logger.level')
+
+EMAIL_SUBJECT_PREFIX = __config.get('email.subject_prefix')
+EMAIL_BODY_PREFIX = __config.get('email.body_prefix')
+EMAIL_BODY_SUFFIX = __config.get('email.body_suffix')
+EMAIL_DOMAIN = __config.get('email.domain')
+
+GITHUB_CREATE_ISSUE_URL = __config.get('links.issue.create')
+URL_USERGUIDE = __config.get('links.user_guide')
+URL_SUGGESTION = GITHUB_CREATE_ISSUE_URL + __config.get('links.issue.suggestion')
+URL_BUG = GITHUB_CREATE_ISSUE_URL + __config.get('links.issue.bug')
+
+if platform.system() == 'Windows':
+    DEFAULT_EDITOR = __config.get('editor.windows')
+elif platform.system() == 'Darwin':
+    DEFAULT_EDITOR = __config.get('editor.mac')
 else:
-    VERSION = "1.3.0"
+    DEFAULT_EDITOR = __config.get('editor.linux')
+DEFAULT_EDITOR = DEFAULT_EDITOR.format(config_path=CONFIG_PATH)
 
-STARTUP_NOTICE_DATE = 0
-STARTUP_NOTICE_MSG = ""
+LOG_ROOT_OS = __config.get('render_logs.root')
 
-JOB_UPDATE_DELAY = 10000  # msec
-LAYER_UPDATE_DELAY = 10000  # msec
-FRAME_UPDATE_DELAY = 10000  # msec
-HOST_UPDATE_DELAY = 20000  # msec
-AFTER_ACTION_UPDATE_DELAY = 1000  # msec
+ALLOWED_TAGS = tuple(__config.get('allowed_tags'))
 
-MAX_LOG_POPUPS = 5
-MINIMUM_UPDATE_INTERVAL = 5  # sec
+DARK_STYLE_SHEET = os.path.join(CONFIG_PATH, __config.get('style.style_sheet'))
+COLOR_THEME = __config.get('style.color_theme')
+__bg_colors = __config.get('style.colors.background')
+COLOR_USER_1 = QtGui.QColor(*__bg_colors[0])
+COLOR_USER_2 = QtGui.QColor(*__bg_colors[1])
+COLOR_USER_3 = QtGui.QColor(*__bg_colors[2])
+COLOR_USER_4 = QtGui.QColor(*__bg_colors[3])
 
-FONT_SIZE = 10  # 8
-STANDARD_FONT = QtGui.QFont("Luxi Sans", FONT_SIZE)
-STANDARD_ROW_HEIGHT = 16  # 14
+__frame_colors = __config.get('style.colors.frame_state')
+RGB_FRAME_STATE = {
+    opencue.api.job_pb2.DEAD: QtGui.QColor(*__frame_colors.get('DEAD')),
+    opencue.api.job_pb2.DEPEND: QtGui.QColor(*__frame_colors.get('DEPEND')),
+    opencue.api.job_pb2.EATEN: QtGui.QColor(*__frame_colors.get('EATEN')),
+    opencue.api.job_pb2.RUNNING:  QtGui.QColor(*__frame_colors.get('RUNNING')),
+    opencue.api.job_pb2.SETUP: QtGui.QColor(*__frame_colors.get('SETUP')),
+    opencue.api.job_pb2.SUCCEEDED: QtGui.QColor(*__frame_colors.get('SUCCEEDED')),
+    opencue.api.job_pb2.WAITING: QtGui.QColor(*__frame_colors.get('WAITING')),
+    opencue.api.job_pb2.CHECKPOINT: QtGui.QColor(*__frame_colors.get('CHECKPOINT')),
+}
 
-MEMORY_WARNING_LEVEL = 5242880
+MEMORY_WARNING_LEVEL = __config.get('memory_warning_level')
 
-RESOURCE_PATH = os.path.dirname(__file__) + "/images"
-DEFAULT_INI_PATH = os.getenv('CUEGUI_DEFAULT_INI_PATH', os.path.dirname(__file__) + '/config')
+LOG_HIGHLIGHT_ERROR = __config.get('render_logs.highlight.error')
+LOG_HIGHLIGHT_WARN = __config.get('render_logs.highlight.warning')
+LOG_HIGHLIGHT_INFO = __config.get('render_logs.highlight.info')
 
-DEFAULT_PLUGIN_PATHS = [os.path.dirname(__file__) + "/plugins"]
-
-LOGGER_FORMAT = "%(levelname)-9s %(module)-10s %(message)s"
-LOGGER_LEVEL = "WARNING"
-
-EMAIL_SUBJECT_PREFIX = "cuemail: please check "
-EMAIL_BODY_PREFIX = "Your PSTs request that you check "
-EMAIL_BODY_SUFFIX = "\n\n"
-EMAIL_DOMAIN = ""
-
-GITHUB_CREATE_ISSUE_URL = 'https://github.com/AcademySoftwareFoundation/OpenCue/issues/new'
-URL_USERGUIDE = "https://www.opencue.io/docs/"
-URL_SUGGESTION = "%s?labels=enhancement&template=enhancement.md" % GITHUB_CREATE_ISSUE_URL
-URL_BUG = "%s?labels=bug&template=bug_report.md" % GITHUB_CREATE_ISSUE_URL
-
-if platform.system() == "Windows":
-    DEFAULT_EDITOR = "notepad"
-else:
-    DEFAULT_EDITOR = "gview -R -m -M -U %s/gvimrc +" % DEFAULT_INI_PATH
-
-EMPTY_INDEX = QtCore.QModelIndex()
-
-QVARIANT_CENTER = QtCore.Qt.AlignCenter
-QVARIANT_RIGHT = QtCore.Qt.AlignRight
-QVARIANT_NULL = None
-QVARIANT_BLACK = QtGui.QColor(QtCore.Qt.black)
-QVARIANT_GREY = QtGui.QColor(QtCore.Qt.gray)
-
-ALLOWED_TAGS = ("general", "desktop", "playblast", "util", "preprocess", "wan", "cuda", "splathw",
-                'naiad', 'massive')
-
-RGB_FRAME_STATE = {opencue.api.job_pb2.DEAD: QtGui.QColor(255, 0, 0),
-                   opencue.api.job_pb2.DEPEND: QtGui.QColor(160, 32, 240),
-                   opencue.api.job_pb2.EATEN: QtGui.QColor(150, 0, 0),
-                   opencue.api.job_pb2.RUNNING:  QtGui.QColor(200, 200, 55),
-                   opencue.api.job_pb2.SETUP: QtGui.QColor(160, 32, 240),
-                   opencue.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
-                   opencue.api.job_pb2.WAITING: QtGui.QColor(135, 207, 235),
-                   opencue.api.job_pb2.CHECKPOINT: QtGui.QColor(61, 98, 247)}
-QVARIANT_FRAME_STATE = \
-    dict((key, RGB_FRAME_STATE[key]) for key in list(RGB_FRAME_STATE.keys()))
+RESOURCE_LIMITS = __config.get('resources')
 
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2
@@ -120,19 +194,7 @@ TYPE_SUB = QtWidgets.QTreeWidgetItem.UserType + 14
 TYPE_TASK = QtWidgets.QTreeWidgetItem.UserType + 15
 TYPE_LIMIT = QtWidgets.QTreeWidgetItem.UserType + 16
 
-COLUMN_INFO_DISPLAY = 2
-
-DARK_STYLE_SHEET = os.path.join(DEFAULT_INI_PATH, "darkpalette.qss")
-COLOR_THEME = "plastique"
-COLOR_USER_1 = QtGui.QColor(50, 50, 100)
-COLOR_USER_2 = QtGui.QColor(100, 100, 50)
-COLOR_USER_3 = QtGui.QColor(0, 50, 0)
-COLOR_USER_4 = QtGui.QColor(50, 30, 0)
-
+QVARIANT_NULL = None
 QT_MAX_INT = 2147483647
 
-LOG_HIGHLIGHT_ERROR = [
-    'error', 'aborted', 'fatal', 'failed', 'killed', 'command not found',
-    'no licenses could be found', 'killMessage']
-LOG_HIGHLIGHT_WARN = ['warning', 'not found']
-LOG_HIGHLIGHT_INFO = ['info:', 'rqd cmd:']
+COLUMN_INFO_DISPLAY = 2

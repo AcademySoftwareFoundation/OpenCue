@@ -23,9 +23,8 @@ from __future__ import division
 from builtins import map
 from builtins import range
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.Logger
 import cuegui.Utils
@@ -57,6 +56,7 @@ class ProgressDialog(QtWidgets.QDialog):
         @type  parent: QObject
         @param parent: The parent for this object"""
         QtWidgets.QDialog.__init__(self, parent)
+        self.app = cuegui.app()
 
         self.__work = work
         self.__function = function
@@ -83,7 +83,7 @@ class ProgressDialog(QtWidgets.QDialog):
         self.setFixedSize(300, 100)
         self.setWindowTitle(title)
 
-        self.__btn_cancel.clicked.connect(self.cancel)
+        self.__btn_cancel.clicked.connect(self.cancel)  # pylint: disable=no-member
 
         self.show()
 
@@ -161,12 +161,9 @@ class ProgressDialog(QtWidgets.QDialog):
         """Submits a new unit of work to threadpool"""
         self.__count += 1
 
-        if hasattr(QtGui.qApp, "threadpool"):
-            # pylint: disable=no-member
-            QtGui.qApp.threadpool.queue(self.__doWork,
-                                        self.__doneWork,
-                                        "getting data for %s" % self.__class__)
-            # pylint: enable=no-member
+        if self.app.threadpool is not None:
+            self.app.threadpool.queue(
+                self.__doWork, self.__doneWork, "getting data for %s" % self.__class__)
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             self.__doneWork(None, self.__doWork())

@@ -20,9 +20,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import opencue
 
@@ -51,7 +50,7 @@ class EnableableItem(QtWidgets.QWidget):
         if enable:
             self.__widget.setDisabled(True)
             layout.addWidget(self.__checkbox)
-            self.__checkbox.toggled.connect(self.enable)
+            self.__checkbox.toggled.connect(self.enable)  # pylint: disable=no-member
         layout.addWidget(self.__widget)
 
     def getWidget(self):
@@ -106,6 +105,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
 
     def __init__(self, layers, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
+        self.app = cuegui.app()
         self.__layers = [opencue.api.getLayer(opencue.id(layer)) for layer in layers]
 
         self.setWindowTitle("Layer Properties")
@@ -117,12 +117,12 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.mem_max_kb = int(self.mem_max_gb * 1024 * 1024)
         self.mem_min_kb = int(self.mem_min_gb * 1024 * 1024)
 
-        self.gpu_max_kb = 2 * 1024 * 1024
-        self.gpu_min_kb = 0
-        self.gpu_tick_kb = 256 * 1024
-        self.gpu_max_gb = 2.0
-        self.gpu_min_gb = 0.0
-        self.gpu_tick_gb = .25
+        self.gpu_mem_max_kb = 256 * 1024 * 1024
+        self.gpu_mem_min_kb = 0
+        self.gpu_mem_tick_kb = 256 * 1024
+        self.gpu_mem_max_gb = 256.0
+        self.gpu_mem_min_gb = 0.0
+        self.gpu_mem_tick_gb = .25
 
         self.__group = QtWidgets.QGroupBox("Resource Options", self)
 
@@ -147,10 +147,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__max_cores.setSingleStep(1)
 
         # Disable this for everything except commander.
-        # pylint: disable=no-member
-        if QtGui.qApp.applicationName() != "CueCommander":
+        if self.app.applicationName() != "CueCommander":
             self.__core.setDisabled(True)
-        # pylint: enable=no-member
 
         # Threads
         self.__thread = QtWidgets.QCheckBox(self)
@@ -180,16 +178,28 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         # Limits
         self.__limits = LayerLimitsWidget(self.__layers, self)
 
+        # Min gpus
+        self.__min_gpus = QtWidgets.QSpinBox(self)
+        self.__min_gpus.setValue(0)
+        self.__min_gpus.setRange(0, int(self._cfg().get('max_gpus', 16)))
+        self.__min_gpus.setSingleStep(1)
+
+        # Max gpus
+        self.__max_gpus = QtWidgets.QSpinBox(self)
+        self.__max_gpus.setRange(0, int(self._cfg().get('max_gpus', 16)))
+        self.__max_gpus.setSingleStep(1)
+
         # GPU Memory
-        self.__gpu = SlideSpinner(self)
-        self.__gpu.slider.setMinimumWidth(200)
-        self.__gpu.slider.setRange(self.gpu_min_kb, self.gpu_max_kb // self.gpu_tick_kb)
-        self.__gpu.slider.setTickInterval(1)
-        self.__gpu.slider.setSingleStep(1)
-        self.__gpu.slider.setPageStep(1)
-        self.__gpu.spinner.setSuffix(' GB')
-        self.__gpu.spinner.setRange(self.gpu_min_gb, self.gpu_max_gb)
-        self.__gpu.spinner.setSingleStep(self.gpu_tick_gb)
+        self.__gpu_mem = SlideSpinner(self)
+        self.__gpu_mem.slider.setMinimumWidth(200)
+        self.__gpu_mem.slider.setRange(self.gpu_mem_min_kb,
+                                       self.gpu_mem_max_kb // self.gpu_mem_tick_kb)
+        self.__gpu_mem.slider.setTickInterval(1)
+        self.__gpu_mem.slider.setSingleStep(1)
+        self.__gpu_mem.slider.setPageStep(1)
+        self.__gpu_mem.spinner.setSuffix(' GB')
+        self.__gpu_mem.spinner.setRange(self.gpu_mem_min_gb, self.gpu_mem_max_gb)
+        self.__gpu_mem.spinner.setSingleStep(self.gpu_mem_tick_gb)
 
         # Our dialog buttons.
         self.__buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save |
@@ -198,22 +208,33 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                                                     self)
 
         # Setup signals
+        # pylint: disable=no-member
         self.__mem.slider.valueChanged.connect(self.__translateToMemSpinbox)
         self.__mem.spinner.valueChanged.connect(self.__translateToMemSlider)
-        self.__gpu.slider.valueChanged.connect(self.__translateToGpuSpinbox)
-        self.__gpu.spinner.valueChanged.connect(self.__translateToGpuSlider)
+        self.__gpu_mem.slider.valueChanged.connect(self.__translateToGpuMemSpinbox)
+        self.__gpu_mem.spinner.valueChanged.connect(self.__translateToGpuMemSlider)
         self.__buttons.accepted.connect(self.verify)
         self.__buttons.rejected.connect(self.reject)
+        # pylint: enable=no-member
 
         # Set actual values once signals are setup
         self.__mem.slider.setValue(self.getMaxMemory())
-        self.__gpu.slider.setValue(self.getMaxGpu())
+        self.__gpu_mem.slider.setValue(self.getMaxGpuMemory())
         self.__core.setValue(self.getMinCores())
         self.__max_cores.setValue(self.getMaxCores())
+        self.__min_gpus.setValue(self.getMinGpus())
+        self.__max_gpus.setValue(self.getMaxGpus())
         self.__timeout.setValue(self.getTimeout())
         self.__timeout_llu.setValue(self.getTimeoutLLU())
 
+        topLayout = QtWidgets.QVBoxLayout()
+        topWidget = QtWidgets.QWidget()
+        topWidget.setLayout(topLayout)
+        scrollArea = QtWidgets.QScrollArea(widgetResizable=True)
+        scrollArea.setWidget(topWidget)
+
         QtWidgets.QVBoxLayout(self)
+        self.layout().addWidget(scrollArea)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(EnableableItem(LayerPropertiesItem("Minimum Memory:",
@@ -236,8 +257,16 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                                                             self.__thread,
                                                             True),
                                                             multiSelect))
+        layout.addWidget(EnableableItem(LayerPropertiesItem("Min GPUs:",
+                                                            self.__min_gpus,
+                                                            False),
+                                                            multiSelect))
+        layout.addWidget(EnableableItem(LayerPropertiesItem("Max GPUs:",
+                                                            self.__max_gpus,
+                                                            False),
+                                                            multiSelect))
         layout.addWidget(EnableableItem(LayerPropertiesItem("Minimum Gpu Memory:",
-                                                            self.__gpu,
+                                                            self.__gpu_mem,
                                                             False),
                                                             multiSelect))
         layout.addWidget(EnableableItem(LayerPropertiesItem("Timeout:",
@@ -251,10 +280,10 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         layout.addStretch()
         self.__group.setLayout(layout)
 
-        self.layout().addWidget(EnableableItem(self.__tags, multiSelect))
-        self.layout().addWidget(EnableableItem(self.__limits, multiSelect))
-        self.layout().addWidget(self.__group)
-        self.layout().addWidget(self.__buttons)
+        topLayout.addWidget(EnableableItem(self.__tags, multiSelect))
+        topLayout.addWidget(EnableableItem(self.__limits, multiSelect))
+        topLayout.addWidget(self.__group)
+        topLayout.addWidget(self.__buttons)
 
     def _cfg(self):
         """
@@ -280,8 +309,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         if mem_value < self.mem_min_kb or mem_value > self.mem_max_kb:
             warning("The memory setting is too high.")
             return False
-        gpu_value = self.__gpu.slider.value()
-        if gpu_value < self.gpu_min_kb or gpu_value > self.gpu_max_kb:
+        gpu_mem_value = self.__gpu_mem.slider.value()
+        if gpu_mem_value < self.gpu_mem_min_kb or gpu_mem_value > self.gpu_mem_max_kb:
             warning("The gpu memory setting is too high.")
             return False
 
@@ -302,8 +331,12 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                 layer.setMaxCores(self.__max_cores.value() * 100.0)
             if self.__thread.isEnabled():
                 layer.setThreadable(self.__thread.isChecked())
-            if self.__gpu.isEnabled():
-                layer.setMinGpu(self.__gpu.slider.value() * self.gpu_tick_kb)
+            if self.__min_gpus.isEnabled():
+                layer.setMinGpus(self.__min_gpus.value())
+            if self.__max_gpus.isEnabled():
+                layer.setMaxGpus(self.__max_cores.value())
+            if self.__gpu_mem.isEnabled():
+                layer.setMinGpuMemory(self.__gpu_mem.slider.value() * self.gpu_mem_tick_kb)
             if self.__timeout.isEnabled():
                 layer.setTimeout(self.__timeout.value())
             if self.__timeout_llu.isEnabled():
@@ -322,9 +355,9 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                 result = layer.data.min_memory
         return result
 
-    def getMaxGpu(self):
-        """Gets the layer max GPU."""
-        return max([layer.data.min_gpu // self.gpu_tick_kb for layer in self.__layers])
+    def getMaxGpuMemory(self):
+        """Gets the layer max GPU memory."""
+        return max([layer.data.min_gpu_memory // self.gpu_mem_tick_kb for layer in self.__layers])
 
     def getMinCores(self):
         """Gets the layer min cores."""
@@ -340,6 +373,22 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         for layer in self.__layers:
             if layer.data.max_cores > result:
                 result = layer.data.max_cores
+        return result
+
+    def getMinGpus(self):
+        """Gets the layer min gpus."""
+        result = 0
+        for layer in self.__layers:
+            if layer.data.min_gpus > result:
+                result = layer.data.min_gpus
+        return result
+
+    def getMaxGpus(self):
+        """Gets the layer max gpus."""
+        result = 0
+        for layer in self.__layers:
+            if layer.data.max_gpus > result:
+                result = layer.data.max_gpus
         return result
 
     def getThreading(self):
@@ -382,12 +431,11 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
     def __translateToMemSlider(self, value):
         self.__mem.slider.setValue(int(value * 1048576.0))
 
-    def __translateToGpuSpinbox(self, value):
-        self.__gpu.spinner.setValue(float(value * self.gpu_tick_kb) / 1024.0 / 1024.0)
+    def __translateToGpuMemSpinbox(self, value):
+        self.__gpu_mem.spinner.setValue(float(value * self.gpu_mem_tick_kb) / 1024.0 / 1024.0)
 
-    def __translateToGpuSlider(self, value):
-        self.__gpu.slider.setValue(int(value * 1024.0 * 1024.0) // self.gpu_tick_kb)
-
+    def __translateToGpuMemSlider(self, value):
+        self.__gpu_mem.slider.setValue(int(value * 1024.0 * 1024.0) // self.gpu_mem_tick_kb)
 
 class LayerTagsWidget(QtWidgets.QWidget):
     """
@@ -483,8 +531,10 @@ class LayerTagsDialog(QtWidgets.QDialog):
             QtCore.Qt.Horizontal,
             self)
 
+        # pylint: disable=no-member
         self.__buttons.accepted.connect(self.accept)
         self.__buttons.rejected.connect(self.reject)
+        # pylint: enable=no-member
 
     def accept(self):
         self._tags_widget.apply()

@@ -20,8 +20,8 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import cuegui.Constants
 
@@ -103,4 +103,4 @@ class Refresh(QtWidgets.QAction):
         self.setText("Refresh")
         self.setIcon(QtGui.QIcon(":/images/stock-refresh.png"))
         if callback:
-            self.triggered.connect(callback)
+            self.triggered.connect(callback)  # pylint: disable=no-member

@@ -233,6 +233,39 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Test
     @Transactional
     @Rollback(true)
+    public void testUpdateDefaultJobMaxGpus() {
+        GroupDetail group =  createGroup();
+        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
+                "SELECT int_job_max_gpus FROM folder WHERE pk_folder=?",
+                Integer.class, group.getGroupId()));
+        groupDao.updateDefaultJobMaxGpus(group, 100);
+        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
+                "SELECT int_job_max_gpus FROM folder WHERE pk_folder=?",
+                Integer.class, group.getGroupId()));
+        groupDao.updateDefaultJobMaxGpus(group, -1);
+        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
+                "SELECT int_job_max_gpus FROM folder WHERE pk_folder=?",
+                Integer.class, group.getGroupId()));
+
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateDefaultJobMinGpus() {
+        GroupDetail group =  createGroup();
+        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
+                "SELECT int_job_min_gpus FROM folder WHERE pk_folder=?",
+                Integer.class, group.getGroupId()));
+        groupDao.updateDefaultJobMinGpus(group, 100);
+        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
+                "SELECT int_job_min_gpus FROM folder WHERE pk_folder=?",
+                Integer.class, group.getGroupId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testUpdateDefaultJobPriority() {
         GroupDetail group =  createGroup();
         assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
@@ -273,6 +306,38 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         groupDao.updateMaxCores(group, -5);
         assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
                 "SELECT int_max_cores FROM folder_resource WHERE pk_folder=?",
+                Integer.class, group.getGroupId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateMinGpus() {
+        GroupDetail group =  createGroup();
+        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+                "SELECT int_min_gpus FROM folder_resource WHERE pk_folder=?",
+                Integer.class, group.getGroupId()));
+        groupDao.updateMinGpus(group, 10);
+        assertEquals(Integer.valueOf(10), jdbcTemplate.queryForObject(
+                "SELECT int_min_gpus FROM folder_resource WHERE pk_folder=?",
+                Integer.class, group.getGroupId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateMaxGpus() {
+        GroupDetail group =  createGroup();
+        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
+                "SELECT int_max_gpus FROM folder_resource WHERE pk_folder=?",
+                Integer.class, group.getGroupId()));
+        groupDao.updateMaxGpus(group, 100);
+        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
+                "SELECT int_max_gpus FROM folder_resource WHERE pk_folder=?",
+                Integer.class, group.getGroupId()));
+        groupDao.updateMaxGpus(group, -5);
+        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
+                "SELECT int_max_gpus FROM folder_resource WHERE pk_folder=?",
                 Integer.class, group.getGroupId()));
     }
 

@@ -67,6 +67,24 @@ class Group(object):
         self.stub.SetMinCores(job_pb2.GroupSetMinCoresRequest(group=self.data, min_cores=value),
                               timeout=Cuebot.Timeout)
 
+    def setMaxGpus(self, value):
+        """Sets the maximum gpus of everything in the group.
+
+        :type  value: int
+        :param value: new maximum number of gpus
+        """
+        self.stub.SetMaxGpus(job_pb2.GroupSetMaxGpusRequest(group=self.data, max_gpus=value),
+                             timeout=Cuebot.Timeout)
+
+    def setMinGpus(self, value):
+        """Sets the minimum gpus of everything the group.
+
+        :type  value: int
+        :param value: new minimum number of gpus
+        """
+        self.stub.SetMinGpus(job_pb2.GroupSetMinGpusRequest(group=self.data, min_gpus=value),
+                             timeout=Cuebot.Timeout)
+
     def setDefaultJobPriority(self, value):
         """Sets the default job priority for everything in the group.
 
@@ -95,6 +113,26 @@ class Group(object):
         """
         self.stub.SetDefaultJobMaxCores(
             job_pb2.GroupSetDefJobMaxCoresRequest(group=self.data, max_cores=value),
+            timeout=Cuebot.Timeout)
+
+    def setDefaultJobMinGpus(self, value):
+        """Sets the default job minimum gpus for everything in the group.
+
+        :type  value: int
+        :param value: new default job minimum gpus
+        """
+        self.stub.SetDefaultJobMinGpus(
+            job_pb2.GroupSetDefJobMinGpusRequest(group=self.data, min_gpus=value),
+            timeout=Cuebot.Timeout)
+
+    def setDefaultJobMaxGpus(self, value):
+        """Sets the default job maximum gpus for everything in the group.
+
+        :type  value: int
+        :param value: new default job maximum gpus
+        """
+        self.stub.SetDefaultJobMaxGpus(
+            job_pb2.GroupSetDefJobMaxGpusRequest(group=self.data, max_gpus=value),
             timeout=Cuebot.Timeout)
 
     def getGroups(self):

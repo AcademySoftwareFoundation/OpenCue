@@ -21,11 +21,13 @@ package com.imageworks.spcue.servant;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
+import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.grpc.depend.DependGetDependRequest;
 import com.imageworks.spcue.grpc.depend.DependGetDependResponse;
 import com.imageworks.spcue.grpc.depend.DependInterfaceGrpc;
@@ -38,7 +40,7 @@ import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
 
-    private static final Logger logger = Logger.getLogger(ManageDepend.class);
+    private static final Logger logger = LogManager.getLogger(ManageDepend.class);
 
     private DependManager dependManager;
     private DispatchQueue manageQueue;
@@ -62,7 +64,8 @@ public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
     public void satisfy(DependSatisfyRequest request, StreamObserver<DependSatisfyResponse> responseObserver) {
 
         LightweightDependency depend = dependManager.getDepend(request.getDepend().getId());
-        manageQueue.execute(new Runnable() {
+        String key = "manage_dep_sat_req_" + request.getDepend().getId();
+        manageQueue.execute(new KeyRunnable(key) {
             public void run() {
                 try {
                     logger.info("dropping dependency: " + depend.id);

@@ -22,7 +22,9 @@ from __future__ import absolute_import
 
 import importlib
 
-from PySide2 import QtGui
+from qtpy import QtGui
+
+import cuegui
 
 
 DEFAULT_COLOR = "DarkPalette"
@@ -56,16 +58,12 @@ def setFont(font):
     """Sets the application font."""
     global Font
     Font = font
-    # pylint: disable=no-member
-    QtGui.qApp.setFont(font)
-    # pylint: enable=no-member
+    cuegui.app().setFont(font)
 
 
 def init():
     """Initializes the global style settings."""
-    # pylint: disable=no-member
-    settings = QtGui.qApp.settings
-    # pylint: enable=no-member
+    settings = cuegui.app().settings
     loadColorTheme(settings.value("Style/colorTheme", DEFAULT_COLOR))
     setIconTheme(settings.value("Style/iconTheme", DEFAULT_ICON))
 

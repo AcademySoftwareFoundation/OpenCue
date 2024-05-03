@@ -32,12 +32,10 @@ import time
 import traceback
 import webbrowser
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 import six
-import yaml
-from yaml.scanner import ScannerError
 
 import opencue
 import opencue.wrappers.group
@@ -285,7 +283,7 @@ def checkShellOut(cmdList, lockGui=False):
     if not lockGui and platform.system() != "Windows":
         cmdList.append('&')
     try:
-        subprocess.check_call(cmdList)
+        subprocess.check_call(" ".join(cmdList), shell=True)
     except subprocess.CalledProcessError as e:
         text = 'Command {cmd} failed with returncode {code}. {msg}.\n' \
                'Please check your EDITOR environment variable and the ' \
@@ -389,26 +387,16 @@ def memoryToString(kmem, unit=None):
     return "%.01fG" % (float(kmem) / pow(k, 2))
 
 
-def getResourceConfig(path=None):
+def getResourceConfig():
     """Reads the given yaml file and returns the entries as a dictionary.
     If no config path is given, the default resources config will be read
     If the given path does not exist, a warning will be printed and an empty
     dictionary will be returned
 
-    @param path: The path for the yaml file to read
-    @type path: str
-    @return: The entries in the given yaml file
+    @return: Resource config settings
     @rtype: dict<str:str>
     """
-    config = {}
-    if not path:
-        path = '{}/cue_resources.yaml'.format(cuegui.Constants.DEFAULT_INI_PATH)
-    try:
-        with open(path, 'r') as fileObject:
-            config = yaml.load(fileObject, Loader=yaml.SafeLoader)
-    except (IOError, ScannerError) as e:
-        print('WARNING: Could not read config file %s: %s' % (path, e))
-    return config
+    return cuegui.Constants.RESOURCE_LIMITS
 
 
 ################################################################################
@@ -416,8 +404,19 @@ def getResourceConfig(path=None):
 ################################################################################
 
 def getFrameLogFile(job, frame):
-    """Get the log file associated with a frame."""
-    return os.path.join(job.data.log_dir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
+    """Get the log file associated with a frame. Return path based on the
+    current OS path using Constants.LOG_ROOT_OS to translate paths."""
+    my_os = platform.system().lower()
+    job_os = job.data.os.lower()
+
+    log_dir = job.data.log_dir
+    if my_os != job_os and \
+            my_os in cuegui.Constants.LOG_ROOT_OS and \
+            job_os in cuegui.Constants.LOG_ROOT_OS:
+        log_dir = log_dir.replace(cuegui.Constants.LOG_ROOT_OS[job_os],
+                                  cuegui.Constants.LOG_ROOT_OS[my_os], 1)
+
+    return os.path.join(log_dir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
 
 
 def getFrameLLU(job, frame):
@@ -448,17 +447,17 @@ def getLastLine(path):
     ansiEscape = r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]'
 
     try:
-        fp = open(path, 'r')
+        fp = open(path, 'rb')
         fp.seek(0, 2)
 
         backseek = min(4096, fp.tell())
         fp.seek(-backseek, 1)
         buf = fp.read(4096)
 
-        newline_pos = buf.rfind("\n",0,len(buf)-1)
+        newline_pos = buf.rfind(b'\n', 0, len(buf)-1)
         fp.close()
 
-        line = buf[newline_pos+1:].strip()
+        line = buf[newline_pos+1:].strip().decode("utf-8")
 
         return re.sub(ansiEscape, "", line)
     except IOError:
@@ -478,14 +477,13 @@ def popupView(file, facility=None):
     """Opens the given file in your editor."""
     if file and not popupWeb(file, facility):
         editor_from_env = os.getenv('EDITOR')
-        # pylint: disable=no-member
+        app = cuegui.app()
         if editor_from_env:
             job_log_cmd = editor_from_env.split()
-        elif QtGui.qApp.settings.contains('LogEditor'):
-            job_log_cmd = QtGui.qApp.settings.value("LogEditor")
+        elif app.settings.contains('LogEditor'):
+            job_log_cmd = app.settings.value("LogEditor")
         else:
             job_log_cmd = cuegui.Constants.DEFAULT_EDITOR.split()
-        # pylint: enable=no-member
         job_log_cmd.append(str(file))
         checkShellOut(job_log_cmd)
 
@@ -625,3 +623,50 @@ def shutdownThread(thread):
     """Shuts down a WorkerThread."""
     thread.stop()
     return thread.wait(1500)
+
+def getLLU(item):
+    """ LLU time from log_path """
+    if isProc(item):
+        logFile = item.data.log_path
+    elif isFrame(item):
+        logFile = item.log_path
+    else:
+        return ""
+    try:
+        statInfo = os.path.getmtime(logFile)
+    except Exception as e:
+        logger.info("not able to extract LLU: %s", e)
+        return None
+
+    lluTime = time.time() - statInfo
+
+    return lluTime
+
+def numFormat(num, _type):
+    """ format LLU time """
+    if num == "" or num < .001 or num is None:
+        return ""
+    if _type == "t":
+        return secondsToHHMMSS(int(num))
+    if _type == "f":
+        return "%.2f" % float(num)
+
+def byteConversion(amount, btype):
+    """ convert unit of memory size into bytes for comparing different
+        unit measures
+
+    :param amount: unit of memory size
+    :ptype amount: float
+    :param btype: unit type
+    :ptype btype: string
+    :return: unit in bytes
+    :rtype: float
+    """
+    n = 1
+    conversionMap = {"KB": 1, "TB": 4, "GB": 3, "MB": 2}
+    _bytes = amount
+    if btype.upper() in conversionMap:
+        n = conversionMap[btype.upper()]
+    for _ in range(n):
+        _bytes *= 1024
+    return _bytes

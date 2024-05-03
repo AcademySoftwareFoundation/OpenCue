@@ -23,7 +23,7 @@ from __future__ import absolute_import
 from builtins import str
 from builtins import zip
 
-from PySide2 import QtWidgets
+from qtpy import QtWidgets
 
 import opencue
 
@@ -97,8 +97,10 @@ class SubscriptionCreatorDialog(QtWidgets.QDialog):
         layout.addWidget(self.__buttons)
 
         self.resize(400, 0)
+        # pylint: disable=no-member
         self.__buttons.accepted.connect(self.create)
         self.__buttons.rejected.connect(self.close)
+        # pylint: enable=no-member
 
     def create(self):
         self.__creator.create()

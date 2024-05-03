@@ -33,7 +33,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.input.SAXBuilder;
@@ -57,7 +58,7 @@ import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 
 public class JobSpec {
-    private static final Logger logger = Logger.getLogger(JobSpec.class);
+    private static final Logger logger = LogManager.getLogger(JobSpec.class);
 
     private String facility;
 
@@ -286,11 +287,17 @@ public class JobSpec {
             if (local.getAttributeValue("cores") != null)
                 job.localMaxCores = Integer.parseInt(local.getAttributeValue("cores"));
             if (local.getAttributeValue("memory") != null)
-                job.localMaxMemory = Integer.parseInt(local.getAttributeValue("memory"));
+                job.localMaxMemory = Long.parseLong(local.getAttributeValue("memory"));
             if (local.getAttributeValue("threads") != null)
                 job.localThreadNumber = Integer.parseInt(local.getAttributeValue("threads"));
-            if (local.getAttributeValue("gpu") != null)
-                job.localMaxGpu = Integer.parseInt(local.getAttributeValue("gpu"));
+            if (local.getAttributeValue("gpus") != null)
+                job.localMaxGpus = Integer.parseInt(local.getAttributeValue("gpus"));
+            if (local.getAttributeValue("gpu") != null) {
+                logger.warn(job.name + " localbook has the deprecated gpu. Use gpu_memory.");
+                job.localMaxGpuMemory = Long.parseLong(local.getAttributeValue("gpu"));
+            }
+            if (local.getAttributeValue("gpu_memory") != null)
+                job.localMaxGpuMemory = Long.parseLong(local.getAttributeValue("gpu_memory"));
         }
 
         job.maxCoreUnits = 20000;
@@ -322,8 +329,23 @@ public class JobSpec {
             }
         }
 
+        if (jobTag.getChildTextTrim("maxcores") != null) {
+            buildableJob.maxCoresOverride = Integer.valueOf(jobTag
+                    .getChildTextTrim("maxcores"));
+        }
+        if (jobTag.getChildTextTrim("maxgpus") != null) {
+            buildableJob.maxGpusOverride = Integer.valueOf(jobTag
+                    .getChildTextTrim("maxgpus"));
+        }
+
         if (jobTag.getChildTextTrim("priority") != null) {
             job.priority = Integer.valueOf(jobTag.getChildTextTrim("priority"));
+        }
+
+
+        Element envTag = jobTag.getChild("env");
+        if (envTag != null) {
+            handleEnvironmentTag(envTag, buildableJob.env);
         }
 
         handleLayerTags(buildableJob, jobTag);
@@ -336,11 +358,6 @@ public class JobSpec {
         if (buildableJob.getBuildableLayers().size() < 1) {
             throw new SpecBuilderException("The job " + job.name
                     + " has no layers");
-        }
-
-        Element envTag = jobTag.getChild("env");
-        if (envTag != null) {
-            handleEnvironmentTag(envTag, buildableJob.env);
         }
 
         return buildableJob;
@@ -423,11 +440,12 @@ public class JobSpec {
             determineResourceDefaults(layerTag, buildableJob, layer);
             determineChunkSize(layerTag, layer);
             determineMinimumCores(layerTag, layer);
+            determineMinimumGpus(layerTag, layer);
             determineThreadable(layerTag, layer);
             determineTags(buildableJob, layer, layerTag);
             determineMinimumMemory(buildableJob, layerTag, layer,
                     buildableLayer);
-            determineMinimumGpu(buildableJob, layerTag, layer);
+            determineMinimumGpuMemory(buildableJob, layerTag, layer);
 
             // set a timeout value on the layer
             if (layerTag.getChildTextTrim("timeout") != null) {
@@ -521,44 +539,53 @@ public class JobSpec {
     }
 
     /**
-     * If the gpu option is set, set minimumGpu to that supplied value
+     * If the gpu_memory option is set, set minimumGpuMemory to that supplied value
      *
      * @param layerTag
      * @param layer
      */
-    private void determineMinimumGpu(BuildableJob buildableJob, Element layerTag,
+    private void determineMinimumGpuMemory(BuildableJob buildableJob, Element layerTag,
     		LayerDetail layer) {
 
-        if (layerTag.getChildTextTrim("gpu") == null) {
+        String gpu = layerTag.getChildTextTrim("gpu");
+        String gpuMemory = layerTag.getChildTextTrim("gpu_memory");
+        if (gpu == null && gpuMemory == null) {
             return;
         }
 
-        long minGpu;
-        String memory = layerTag.getChildTextTrim("gpu").toLowerCase();
+        String memory = null;
+        if (gpu != null) {
+            logger.warn(buildableJob.detail.name + "/" + layer.name +
+                    " has the deprecated gpu. Use gpu_memory.");
+            memory = gpu.toLowerCase();
+        }
+        if (gpuMemory != null)
+            memory = gpuMemory.toLowerCase();
 
+        long minGpuMemory;
         try {
-            minGpu = convertMemoryInput(memory);
+            minGpuMemory = convertMemoryInput(memory);
 
             // Some quick sanity checks to make sure gpu memory hasn't gone
             // over or under reasonable defaults.
-            if (minGpu> Dispatcher.GPU_RESERVED_MAX) {
+            if (minGpuMemory > Dispatcher.MEM_GPU_RESERVED_MAX) {
                 throw new SpecBuilderException("Gpu memory requirements exceed " +
                         "maximum. Are you specifying the correct units?");
             }
-            else if (minGpu < Dispatcher.GPU_RESERVED_MIN) {
+            else if (minGpuMemory < Dispatcher.MEM_GPU_RESERVED_MIN) {
                 logger.warn(buildableJob.detail.name + "/" + layer.name +
                         "Specified too little gpu memory, defaulting to: " +
-                        Dispatcher.GPU_RESERVED_MIN);
-                minGpu = Dispatcher.GPU_RESERVED_MIN;
+                        Dispatcher.MEM_GPU_RESERVED_MIN);
+                minGpuMemory = Dispatcher.MEM_GPU_RESERVED_MIN;
             }
 
-            layer.minimumGpu = minGpu;
+            layer.minimumGpuMemory = minGpuMemory;
 
         } catch (Exception e) {
             logger.info("Error setting gpu memory for " +
                     buildableJob.detail.name + "/" + layer.name +
                     " failed, reason: " + e + ". Using default.");
-            layer.minimumGpu = Dispatcher.GPU_RESERVED_DEFAULT;
+            layer.minimumGpuMemory = Dispatcher.MEM_GPU_RESERVED_DEFAULT;
         }
     }
 
@@ -590,12 +617,25 @@ public class JobSpec {
             corePoints = Integer.valueOf(cores);
         }
 
-        if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN
-                || corePoints > Dispatcher.CORE_POINTS_RESERVED_MAX) {
+        if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
             corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
         }
 
         layer.minimumCores = corePoints;
+    }
+
+    /**
+     * Gpu is a int.
+     *
+     * If no gpu value is specified, we default to the value of
+     * Dispatcher.GPU_RESERVED_DEFAULT
+     */
+    private void determineMinimumGpus(Element layerTag, LayerDetail layer) {
+
+        String gpus = layerTag.getChildTextTrim("gpus");
+        if (gpus != null) {
+            layer.minimumGpus = Integer.valueOf(gpus);
+        }
     }
 
     private void determineChunkSize(Element layerTag, LayerDetail layer) {
@@ -702,7 +742,9 @@ public class JobSpec {
         layer.maximumCores = primaryService.maxCores;
         layer.minimumCores = primaryService.minCores;
         layer.minimumMemory = primaryService.minMemory;
-        layer.minimumGpu = primaryService.minGpu;
+        layer.maximumGpus = primaryService.maxGpus;
+        layer.minimumGpus = primaryService.minGpus;
+        layer.minimumGpuMemory = primaryService.minGpuMemory;
         layer.tags.addAll(primaryService.tags);
         layer.services.addAll(services);
         layer.limits.addAll(limits);
@@ -918,6 +960,11 @@ public class JobSpec {
         job.deptName = parent.detail.deptName;
 
         BuildableJob postJob = new BuildableJob(job);
+
+        for (String key : parent.env.keySet()) {
+            postJob.env.put(key, parent.env.get(key));
+        }
+
         return postJob;
     }
 

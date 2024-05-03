@@ -25,7 +25,6 @@ from builtins import object
 import os
 import logging
 import json
-from past.builtins import execfile
 import time
 import uuid
 import yaml
@@ -97,7 +96,7 @@ def load_outline(path):
 
 def load_json(json_str):
     """
-    Parse a json repesentation of an outline file.
+    Parse a json representation of an outline file.
 
     :type  json_str: str
     :param json_str: A json string.
@@ -124,6 +123,12 @@ def load_json(json_str):
 
     if "name" in data:
         ol.set_name(data["name"])
+    if "facility" in data:
+        ol.set_facility(data["facility"])
+    if "maxcores" in data:
+        ol.set_maxcores(data["maxcores"])
+    if "maxgpus" in data:
+        ol.set_maxgpus(data["maxgpus"])
     if "range" in data:
         ol.set_frame_range(data["range"])
 
@@ -167,7 +172,9 @@ def parse_outline_script(path):
     """
     try:
         logger.info("parsing outline file %s", path)
-        execfile(path, {})
+        with open(path) as fp:
+            code = compile(fp.read(), path, 'exec')
+            exec(code)  # pylint: disable=exec-used
     except Exception as exp:
         logger.warning("failed to parse as python file, %s", exp)
         raise outline.exception.OutlineException(
@@ -217,7 +224,8 @@ class Outline(object):
 
     def __init__(self, name=None, frame_range=None, path=None,
                  serialize=True, name_unique=False, current=False,
-                 shot=None, show=None, user=None, facility=None):
+                 shot=None, show=None, user=None, facility=None,
+                 maxcores=None, maxgpus=None):
         """
         :type  name: string
         :param name: A name for the outline instance.  This will become
@@ -252,6 +260,11 @@ class Outline(object):
         :param facility: The launch facility to be used. If not specified
                      the RENDER_TO and FACILITY environment variables
                      will be checked.
+        :type  maxcores: int
+        :param maxcores: The maximum number of CPU cores for the job.
+
+        :type  maxgpus: int
+        :param maxgpus: The maximum number of GPU units for the job.
         """
         object.__init__(self)
 
@@ -296,7 +309,7 @@ class Outline(object):
         self.__args = {}
 
         #
-        # See contsants for the description of outline modes
+        # See constants for the description of outline modes
         #
         self.__mode = outline.constants.OUTLINE_MODE_INIT
 
@@ -307,7 +320,7 @@ class Outline(object):
         self.__layers = []
 
         #
-        # A hash of environement variables that are passed up
+        # A hash of environment variables that are passed up
         # to opencue and then set before each frame is run.
         # These are set "pre" setshot, so they can be used
         # to modify setshot behavior.
@@ -318,6 +331,16 @@ class Outline(object):
         # The launch facility to use, or None.
         #
         self.__facility = facility
+
+        #
+        # The maximum number of CPU cores to use, or None.
+        #
+        self.__maxcores = maxcores
+
+        #
+        # The maximum number of CPU cores to use, or None.
+        #
+        self.__maxgpus = maxgpus
 
         #
         # The outline session.  The session is setup during the setup
@@ -628,6 +651,30 @@ class Outline(object):
         """
         self.__facility = facility
 
+    def get_maxcores(self):
+        """Return the maximum number of CPU cores fot this outline."""
+        return self.__maxcores
+
+    def set_maxcores(self, maxcores):
+        """Set the maximum number of CPU cores for this outline instance.
+
+        :type maxcores: int
+        :param maxcores: The maximum number of CPU cores to set.
+        """
+        self.__maxcores = maxcores
+
+    def get_maxgpus(self):
+        """Return the maximum number of GPU units fot this outline."""
+        return self.__maxgpus
+
+    def set_maxgpus(self, maxgpus):
+        """Set the maximum number of GPU units for this outline instance.
+
+        :type maxcores: int
+        :param maxcores: The maximum number of GPU units to set.
+        """
+        self.__maxgpus = maxgpus
+
     def get_mode(self):
         """Return the current mode of this outline object.
 
@@ -680,11 +727,11 @@ class Outline(object):
 
     def set_env(self, key, value):
         """
-        Set an environment variable that is propigated to
+        Set an environment variable that is propagated to
         every frame.
 
         :type  key:  str
-        :param key: Name of environement variable.
+        :param key: Name of environment variable.
 
         :type value: str
         :param value: Value to associate with the name.
@@ -705,11 +752,11 @@ class Outline(object):
 
     def get_env(self, key=None):
         """
-        Return the environement hash setup using set_env.
+        Return the environment hash setup using set_env.
 
         :rtype: dict
-        :return: the dictionary of values that will be propigated into
-                 every frame's environement on the cue.
+        :return: the dictionary of values that will be propagated into
+                 every frame's environment on the cue.
         """
         if key:
             return self.__env[key][0]
@@ -742,7 +789,7 @@ class Outline(object):
 
     def get_arg(self, key, default=None):
         """
-        Return the value assoiciated with the given key.  Throw an
+        Return the value associated with the given key.  Throw an
         OutlineException if the key does not exist.  If a default value
         is provided then that value is returned instead of throwing
         an OutlineException.
@@ -782,7 +829,7 @@ class Outline(object):
 
     def get_file(self, name, check=True, new=False):
         """
-        Retrieve the sesion path path to the given file.  The
+        Retrieve the session path path to the given file.  The
         file does not have to exist.
 
         :type name: str

@@ -54,6 +54,9 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
     @Resource
     HostManager hostManager;
 
+    @Resource
+    BookingQueue bookingQueue;
+
     private static final String HOSTNAME = "beta";
 
     @Before
@@ -61,11 +64,12 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem(8173264)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)
@@ -74,8 +78,8 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addAllTags(ImmutableList.of("mcore", "4core", "8g"))
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         hostManager.createHost(host);
@@ -86,15 +90,21 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
     @Rollback(true)
     public void testBookingQueue() {
 
+        int healthThreshold = 10;
+        int minUnhealthyPeriodMin = 3;
+        int queueCapacity = 2000;
+        int corePoolSize = 10;
+        int maxPoolSize = 14;
+
         DispatchHost host1 = hostDao.findDispatchHost(HOSTNAME);
         host1.idleCores = 500;
         DispatchHost host2 = hostDao.findDispatchHost(HOSTNAME);
         DispatchHost host3 = hostDao.findDispatchHost(HOSTNAME);
-        BookingQueue queue = new BookingQueue(1000);
-
-        queue.execute(new DispatchBookHost(host2,dispatcher));
-        queue.execute(new DispatchBookHost(host3,dispatcher));
-        queue.execute(new DispatchBookHost(host1,dispatcher));
+        BookingQueue queue = new BookingQueue(healthThreshold, minUnhealthyPeriodMin, queueCapacity,
+                corePoolSize, maxPoolSize);
+        bookingQueue.execute(new DispatchBookHost(host2,dispatcher));
+        bookingQueue.execute(new DispatchBookHost(host3,dispatcher));
+        bookingQueue.execute(new DispatchBookHost(host1,dispatcher));
         try {
             Thread.sleep(10000);
         } catch (InterruptedException e) {

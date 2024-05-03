@@ -38,9 +38,9 @@ except ImportError:
     pass
 import smtplib
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import opencue
 
@@ -130,8 +130,10 @@ class LogViewWidget(QtWidgets.QWidget):
         ly.addWidget(self.__txt_find)
         ly.addWidget(self.__txt_log)
 
+        # pylint: disable=no-member
         self.__sel_frames.activated.connect(self.switchLogEvent)
         self.__txt_find.returnPressed.connect(self.findEvent)
+        # pylint: enable=no-member
 
     # pylint: disable=inconsistent-return-statements
     def __getFrame(self, name):
@@ -247,8 +249,10 @@ class EmailWidget(QtWidgets.QWidget):
         hlayout.addWidget(self.__btnCancel)
         vlayout.addLayout(hlayout)
 
+        # pylint: disable=no-member
         self.__btnSend.clicked.connect(self.sendEmail)
         self.__btnCancel.clicked.connect(self.cancel.emit)
+        # pylint: enable=no-member
 
     def giveFocus(self):
         """Initializes widget state when the widget gains focus."""
@@ -281,7 +285,7 @@ class EmailWidget(QtWidgets.QWidget):
 
     def email_body(self):
         """Get the email body text."""
-        return "%s" % self.__email_body.toPlainText().toAscii()
+        return "%s" % self.__email_body.toPlainText()
 
     def appendToBody(self, txt):
         """Appends text to the email body."""
@@ -295,8 +299,8 @@ class EmailWidget(QtWidgets.QWidget):
         """Sends the email."""
         self.send.emit()
 
-        msg = MIMEText(self.email_body())
-        msg["Subject"] = Header(self.email_subject(), continuation_ws=' ')
+        msg = MIMEText(self.email_body(), 'plain', 'utf-8')
+        msg["Subject"] = Header(self.email_subject(), 'utf-8', continuation_ws=' ')
         msg["To"] = self.email_to()
         msg["From"] = self.email_from()
         msg["Cc"] = self.email_cc()

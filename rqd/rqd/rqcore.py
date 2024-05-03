@@ -22,7 +22,8 @@ from __future__ import division
 
 from builtins import str
 from builtins import object
-import logging as log
+import datetime
+import logging
 import os
 import platform
 import random
@@ -42,6 +43,11 @@ import rqd.rqmachine
 import rqd.rqnetwork
 import rqd.rqnimby
 import rqd.rqutil
+
+
+INT32_MAX = 2147483647
+INT32_MIN = -2147483648
+log = logging.getLogger(__name__)
 
 
 class FrameAttendantThread(threading.Thread):
@@ -77,8 +83,6 @@ class FrameAttendantThread(threading.Thread):
         self.frameEnv["TZ"] = self.rqCore.machine.getTimezone()
         self.frameEnv["USER"] = self.runFrame.user_name
         self.frameEnv["LOGNAME"] = self.runFrame.user_name
-        self.frameEnv["MAIL"] = "/usr/mail/%s" % self.runFrame.user_name
-        self.frameEnv["HOME"] = "/net/homedirs/%s" % self.runFrame.user_name
         self.frameEnv["mcp"] = "1"
         self.frameEnv["show"] = self.runFrame.show
         self.frameEnv["shot"] = self.runFrame.shot
@@ -90,11 +94,22 @@ class FrameAttendantThread(threading.Thread):
         self.frameEnv["maxframetime"] = "0"
         self.frameEnv["minspace"] = "200"
         self.frameEnv["CUE3"] = "True"
-        self.frameEnv["CUE_GPU_MEMORY"] = str(self.rqCore.machine.getGpuMemory())
+        self.frameEnv["CUE_GPU_MEMORY"] = str(self.rqCore.machine.getGpuMemoryFree())
         self.frameEnv["SP_NOMYCSHRC"] = "1"
 
-        for key in self.runFrame.environment:
-            self.frameEnv[key] = self.runFrame.environment[key]
+        if platform.system() in ("Linux", "Darwin"):
+            self.frameEnv["MAIL"] = "/usr/mail/%s" % self.runFrame.user_name
+            self.frameEnv["HOME"] = "/net/homedirs/%s" % self.runFrame.user_name
+        elif platform.system() == "Windows":
+            for variable in ["SYSTEMROOT", "APPDATA", "TMP", "COMMONPROGRAMFILES", "SYSTEMDRIVE"]:
+                if variable in os.environ:
+                    self.frameEnv[variable] = os.environ[variable]
+
+        for key, value in self.runFrame.environment.items():
+            if key == 'PATH':
+                self.frameEnv[key] += os.pathsep + value
+            else:
+                self.frameEnv[key] = value
 
         # Add threads to use all assigned hyper-threading cores
         if 'CPU_LIST' in self.runFrame.attributes and 'CUE_THREADS' in self.frameEnv:
@@ -102,6 +117,10 @@ class FrameAttendantThread(threading.Thread):
                 int(self.frameEnv['CUE_THREADS']),
                 len(self.runFrame.attributes['CPU_LIST'].split(','))))
             self.frameEnv['CUE_HT'] = "True"
+
+        # Add GPU's to use all assigned GPU cores
+        if 'GPU_LIST' in self.runFrame.attributes:
+            self.frameEnv['CUE_GPU_CORES'] = self.runFrame.attributes['GPU_LIST']
 
     def _createCommandFile(self, command):
         """Creates a file that subprocess. Popen then executes.
@@ -117,6 +136,11 @@ class FrameAttendantThread(threading.Thread):
                     os.mkdir(rqd_tmp_dir)
                 except OSError:
                     pass  # okay, already exists
+
+                # Windows Batch needs some characters escaped:
+                command = command.replace('%', '%%')
+                for char in '^&<>|':
+                    command = command.replace(char, '^' + char)
 
                 commandFile = os.path.join(
                     rqd_tmp_dir,
@@ -176,7 +200,8 @@ class FrameAttendantThread(threading.Thread):
         self.endTime = time.time()
         self.frameInfo.runTime = int(self.endTime - self.startTime)
         try:
-            print("\n", "="*59, file=self.rqlog)
+            print("", file=self.rqlog)
+            print("="*59, file=self.rqlog)
             print("RenderQ Job Complete\n", file=self.rqlog)
             print("%-20s%s" % ("exitStatus", self.frameInfo.exitStatus), file=self.rqlog)
             print("%-20s%s" % ("exitSignal", self.frameInfo.exitSignal), file=self.rqlog)
@@ -187,9 +212,21 @@ class FrameAttendantThread(threading.Thread):
             print("%-20s%s" % ("endTime",
                                          time.ctime(self.endTime)), file=self.rqlog)
             print("%-20s%s" % ("maxrss", self.frameInfo.maxRss), file=self.rqlog)
+            print("%-20s%s" % ("maxUsedGpuMemory",
+                                         self.frameInfo.maxUsedGpuMemory), file=self.rqlog)
             print("%-20s%s" % ("utime", self.frameInfo.utime), file=self.rqlog)
             print("%-20s%s" % ("stime", self.frameInfo.stime), file=self.rqlog)
             print("%-20s%s" % ("renderhost", self.rqCore.machine.getHostname()), file=self.rqlog)
+
+            print("%-20s%s" % ("maxrss (KB)", self.frameInfo.maxRss), file=self.rqlog)
+            for child in sorted(self.frameInfo.childrenProcs.items(),
+                                key=lambda item: item[1]['start_time']):
+                print("\t%-20s%s" % (child[1]['name'], child[1]['rss']), file=self.rqlog)
+                print("\t%-20s%s" % ("start_time",
+                                      datetime.timedelta(seconds=child[1]["start_time"])),
+                                      file=self.rqlog)
+                print("\t%-20s%s" % ("cmdline", " ".join(child[1]["cmd_line"])), file=self.rqlog)
+
             print("="*59, file=self.rqlog)
 
         # pylint: disable=broad-except
@@ -278,14 +315,17 @@ class FrameAttendantThread(threading.Thread):
             else:
                 tempCommand += [self._createCommandFile(runFrame.command)]
 
-            # Actual cwd is set by /shots/SHOW/home/perl/etc/qwrap.cuerun
+            if rqd.rqconstants.RQD_PREPEND_TIMESTAMP:
+                file_descriptor = subprocess.PIPE
+            else:
+                file_descriptor = self.rqlog
             # pylint: disable=subprocess-popen-preexec-fn
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
                                                        stdin=subprocess.PIPE,
-                                                       stdout=self.rqlog,
-                                                       stderr=self.rqlog,
+                                                       stdout=file_descriptor,
+                                                       stderr=file_descriptor,
                                                        close_fds=True,
                                                        preexec_fn=os.setsid)
         finally:
@@ -293,11 +333,13 @@ class FrameAttendantThread(threading.Thread):
 
         frameInfo.pid = frameInfo.forkedCommand.pid
 
-        if not self.rqCore.updateRssThread.isAlive():
+        if not self.rqCore.updateRssThread.is_alive():
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                            self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
 
+        if rqd.rqconstants.RQD_PREPEND_TIMESTAMP:
+            pipe_to_file(frameInfo.forkedCommand.stdout, frameInfo.forkedCommand.stderr, self.rqlog)
         returncode = frameInfo.forkedCommand.wait()
 
         # Find exitStatus and exitSignal
@@ -335,6 +377,7 @@ class FrameAttendantThread(threading.Thread):
             tempCommand = [self._createCommandFile(runFrame.command)]
 
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
+                                                       env=self.frameEnv,
                                                        stdin=subprocess.PIPE,
                                                        stdout=self.rqlog,
                                                        stderr=self.rqlog)
@@ -346,7 +389,7 @@ class FrameAttendantThread(threading.Thread):
 
         frameInfo.pid = frameInfo.forkedCommand.pid
 
-        if not self.rqCore.updateRssThread.isAlive():
+        if not self.rqCore.updateRssThread.is_alive():
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                           self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
@@ -355,6 +398,10 @@ class FrameAttendantThread(threading.Thread):
 
         # Find exitStatus and exitSignal
         returncode = frameInfo.forkedCommand.returncode
+        if returncode < INT32_MIN:
+            returncode = 303
+        if returncode > INT32_MAX:
+            returncode = 304
         frameInfo.exitStatus = returncode
         frameInfo.exitSignal = returncode
 
@@ -390,7 +437,7 @@ class FrameAttendantThread(threading.Thread):
 
         frameInfo.pid = frameInfo.forkedCommand.pid
 
-        if not self.rqCore.updateRssThread.isAlive():
+        if not self.rqCore.updateRssThread.is_alive():
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                           self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
@@ -493,7 +540,7 @@ class FrameAttendantThread(threading.Thread):
                         else:
                             raise RuntimeError(err)
                     try:
-                        self.rqlog = open(runFrame.log_dir_file, "w", 1)
+                        self.rqlog = open(runFrame.log_dir_file, "w+", 1)
                         self.waitForFile(runFrame.log_dir_file)
                     # pylint: disable=broad-except
                     except Exception as e:
@@ -531,7 +578,9 @@ class FrameAttendantThread(threading.Thread):
                 # Delay keeps the cuebot from spamming failing booking requests
                 time.sleep(10)
         finally:
-            self.rqCore.releaseCores(self.runFrame.num_cores, runFrame.attributes.get('CPU_LIST'))
+            self.rqCore.releaseCores(self.runFrame.num_cores, runFrame.attributes.get('CPU_LIST'),
+                runFrame.attributes.get('GPU_LIST')
+                if 'GPU_LIST' in self.runFrame.attributes else None)
 
             self.rqCore.deleteFrame(self.runFrame.frame_id)
 
@@ -564,9 +613,10 @@ class RqCore(object):
             idle_cores=0,
             locked_cores=0,
             booked_cores=0,
+            reserved_cores=[],
         )
 
-        self.nimby = rqd.rqnimby.Nimby(self)
+        self.nimby = rqd.rqnimby.NimbyFactory.getNimby(self)
 
         self.machine = rqd.rqmachine.Machine(self, self.cores)
 
@@ -598,6 +648,7 @@ class RqCore(object):
                     log.warning('OVERRIDE_NIMBY is False, Nimby startup has been disabled')
             else:
                 self.nimbyOn()
+                self.onNimbyLock()
         elif rqd.rqconstants.OVERRIDE_NIMBY:
             log.warning('Nimby startup has been triggered by OVERRIDE_NIMBY')
             self.nimbyOn()
@@ -702,6 +753,14 @@ class RqCore(object):
         try:
             if frameId in self.__cache:
                 del self.__cache[frameId]
+                # pylint: disable=no-member
+                if not self.__cache and self.cores.reserved_cores:
+                    # pylint: disable=no-member
+                    log.error(
+                        'No running frames but reserved_cores is not empty: %s',
+                        self.cores.reserved_cores)
+                    # pylint: disable=no-member
+                    self.cores.reserved_cores.clear()
         finally:
             self.__threadLock.release()
 
@@ -733,7 +792,7 @@ class RqCore(object):
                     pass
             time.sleep(1)
 
-    def releaseCores(self, reqRelease, releaseHT=None):
+    def releaseCores(self, reqRelease, releaseHT=None, releaseGpus=None):
         """The requested number of cores are released
         @type  reqRelease: int
         @param reqRelease: Number of cores to release, 100 = 1 physical core"""
@@ -752,6 +811,9 @@ class RqCore(object):
 
             if releaseHT:
                 self.machine.releaseHT(releaseHT)
+
+            if releaseGpus:
+                self.machine.releaseGpus(releaseGpus)
 
         finally:
             self.__threadLock.release()
@@ -784,15 +846,18 @@ class RqCore(object):
             log.warning("Rebooting machine by request")
             self.machine.reboot()
         else:
-            log.warning("Shutting down RQD by request")
+            log.warning("Shutting down RQD by request. pid(%s)", os.getpid())
+        self.network.stopGrpc()
+        # Using sys.exit would raise SystemExit, giving exception handlers a chance
+        # to block this
+        # pylint: disable=protected-access
+        os._exit(0)
 
     def handleExit(self, signalnum, flag):
         """Shutdown threads and exit RQD."""
         del signalnum
         del flag
         self.shutdown()
-        self.network.stopGrpc()
-        sys.exit()
 
     def launchFrame(self, runFrame):
         """This will setup for the launch the frame specified in the arguments.
@@ -817,7 +882,12 @@ class RqCore(object):
             raise rqd.rqexceptions.CoreReservationFailureException(err)
 
         if self.nimby.locked and not runFrame.ignore_nimby:
-            err = "Not launching, rqd is lockNimby"
+            err = "Not launching, rqd is lockNimby and not Ignore Nimby"
+            log.info(err)
+            raise rqd.rqexceptions.CoreReservationFailureException(err)
+
+        if rqd.rqconstants.OVERRIDE_NIMBY and self.nimby.isNimbyActive():
+            err = "Not launching, rqd is lockNimby and User is Active"
             log.info(err)
             raise rqd.rqexceptions.CoreReservationFailureException(err)
 
@@ -851,6 +921,11 @@ class RqCore(object):
                 if reserveHT:
                     runFrame.attributes['CPU_LIST'] = reserveHT
 
+            if runFrame.num_gpus:
+                reserveGpus = self.machine.reserveGpus(runFrame.num_gpus)
+                if reserveGpus:
+                    runFrame.attributes['GPU_LIST'] = reserveGpus
+
             # They must be available at this point, reserve them
             # pylint: disable=no-member
             self.cores.idle_cores -= runFrame.num_cores
@@ -882,13 +957,18 @@ class RqCore(object):
     def shutdownRqdNow(self):
         """Kill all running frames and shutdown RQD"""
         self.machine.state = rqd.compiled_proto.host_pb2.DOWN
-        self.lockAll()
-        self.killAllFrame("shutdownRqdNow Command")
+        try:
+            self.lockAll()
+            self.killAllFrame("shutdownRqdNow Command")
+        # pylint: disable=broad-except
+        except Exception:
+            log.exception("Failed to kill frames, stopping service anyways")
         if not self.__cache:
             self.shutdown()
 
     def shutdownRqdIdle(self):
         """When machine is idle, shutdown RQD"""
+        log.info("shutdownRqdIdle")
         self.lockAll()
         self.__whenIdle = True
         self.sendStatusReport()
@@ -897,11 +977,13 @@ class RqCore(object):
 
     def restartRqdNow(self):
         """Kill all running frames and restart RQD"""
+        log.info("RestartRqdNow")
         self.__respawn = True
         self.shutdownRqdNow()
 
     def restartRqdIdle(self):
         """When machine is idle, restart RQD"""
+        log.info("RestartRqdIdle")
         self.lockAll()
         self.__whenIdle = True
         self.__respawn = True
@@ -934,14 +1016,12 @@ class RqCore(object):
     def nimbyOn(self):
         """Activates nimby, does not kill any running frames until next nimby
            event. Also does not unlock until sufficient idle time is reached."""
-        if platform.system() != "Windows" and os.getuid() != 0:
-            log.warning("Not starting nimby, not running as root")
-            return
-        if not self.nimby.active:
+        if self.nimby and not self.nimby.active:
             try:
                 self.nimby.run()
-                log.info("Nimby has been activated")
-            except:
+                log.warning("Nimby has been activated")
+            # pylint: disable=broad-except
+            except Exception:
                 self.nimby.locked = False
                 err = "Nimby is in the process of shutting down"
                 log.exception(err)
@@ -961,7 +1041,7 @@ class RqCore(object):
         self.sendStatusReport()
 
     def onNimbyUnlock(self, asOf=None):
-        """This is called by nimby when it unlocks the machine due to sufficent
+        """This is called by nimby when it unlocks the machine due to sufficient
            idle. A new report is sent to the cuebot.
         @param asOf: Time when idle state began, if known."""
         del asOf
@@ -1086,3 +1166,98 @@ class RqCore(object):
     def isWaitingForIdle(self):
         """Returns whether the host is waiting until idle to take some action."""
         return self.__whenIdle
+
+def pipe_to_file(stdout, stderr, outfile):
+    """
+    Prepend entries on stdout and stderr with a timestamp and write to outfile.
+
+    The logic to poll stdout/stderr is inspired by the Popen.communicate implementation.
+    This feature is linux specific
+    """
+    # Importing packages internally to avoid compatibility issues with Windows
+
+    if stdout is None or stderr is None:
+        return
+    outfile.flush()
+    os.fsync(outfile)
+
+    # pylint: disable=import-outside-toplevel
+    import select
+    import errno
+    # pylint: enable=import-outside-toplevel
+
+    fd2file = {}
+    fd2output = {}
+
+    poller = select.poll()
+
+    def register_and_append(file_ojb, eventmask):
+        poller.register(file_ojb, eventmask)
+        fd2file[file_ojb.fileno()] = file_ojb
+
+    def close_and_unregister_and_remove(fd, close=False):
+        poller.unregister(fd)
+        if close:
+            fd2file[fd].close()
+        fd2file.pop(fd)
+
+    def print_and_flush_ln(fd, last_timestamp):
+        txt = ''.join(fd2output[fd])
+        lines = txt.split('\n')
+        next_line_timestamp = None
+
+        # Save the timestamp of the first break
+        if last_timestamp is None:
+            curr_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        else:
+            curr_line_timestamp = last_timestamp
+
+        # There are no line breaks
+        if len(lines) < 2:
+            return curr_line_timestamp
+        next_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+
+        remainder = lines[-1]
+        for line in lines[0:-1]:
+            print("[%s] %s" % (curr_line_timestamp, line), file=outfile)
+        outfile.flush()
+        os.fsync(outfile)
+        fd2output[fd] = [remainder]
+
+        if next_line_timestamp is None:
+            return curr_line_timestamp
+        return next_line_timestamp
+
+    def translate_newlines(data):
+        data = data.decode("utf-8", "ignore")
+        return data.replace("\r\n", "\n").replace("\r", "\n")
+
+    select_POLLIN_POLLPRI = select.POLLIN | select.POLLPRI
+    # stdout
+    register_and_append(stdout, select_POLLIN_POLLPRI)
+    fd2output[stdout.fileno()] = []
+
+    # stderr
+    register_and_append(stderr, select_POLLIN_POLLPRI)
+    fd2output[stderr.fileno()] = []
+
+    while fd2file:
+        try:
+            ready = poller.poll()
+        except select.error as e:
+            if e.args[0] == errno.EINTR:
+                continue
+            raise
+
+        first_chunk_timestamp = None
+        for fd, mode in ready:
+            if mode & select_POLLIN_POLLPRI:
+                data = os.read(fd, 4096)
+                if not data:
+                    close_and_unregister_and_remove(fd)
+                if not isinstance(data, str):
+                    data = translate_newlines(data)
+                fd2output[fd].append(data)
+                first_chunk_timestamp = print_and_flush_ln(fd, first_chunk_timestamp)
+            else:
+                close_and_unregister_and_remove(fd)

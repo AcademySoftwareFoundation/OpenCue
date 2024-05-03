@@ -100,11 +100,12 @@ public class CoreUnitDispatcherGpuTests extends TransactionalTest {
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem((int) CueUtil.GB8)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem((int) CueUtil.GB8)
                 .setTotalSwap((int) CueUtil.GB2)
                 .setNimbyEnabled(false)
@@ -114,8 +115,8 @@ public class CoreUnitDispatcherGpuTests extends TransactionalTest {
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .putAttributes("SP_OS", "Linux")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         hostManager.createHost(host,
@@ -153,7 +154,7 @@ public class CoreUnitDispatcherGpuTests extends TransactionalTest {
 
         host.idleMemory = host.idleMemory - Math.min(CueUtil.GB4, host.idleMemory);
         host.idleCores = host.idleCores - Math.min(100, host.idleCores);
-        host.idleGpu = 0;
+        host.idleGpuMemory = 0;
         List<VirtualProc> procs =  dispatcher.dispatchHost(host, job);
         assertEquals(1, procs.size());
     }
@@ -202,17 +203,20 @@ public class CoreUnitDispatcherGpuTests extends TransactionalTest {
 
         long idleMemoryOrig = host.idleMemory;
         int idleCoresOrig = host.idleCores;
-        long idleGpuOrig = host.idleGpu;
+        long idleGpuMemoryOrig = host.idleGpuMemory;
+        int idleGpusOrig = host.idleGpus;
 
         host.removeGpu();
-        assertEquals(0, host.idleGpu);
+        assertEquals(0, host.idleGpuMemory);
+        assertEquals(0, host.idleGpus);
         assertEquals(idleMemoryOrig - CueUtil.GB4, host.idleMemory);
         assertEquals(idleCoresOrig - 100, host.idleCores);
 
         host.restoreGpu();
         assertEquals(idleMemoryOrig, host.idleMemory);
         assertEquals(idleCoresOrig, host.idleCores);
-        assertEquals(idleGpuOrig, host.idleGpu);
+        assertEquals(idleGpuMemoryOrig, host.idleGpuMemory);
+        assertEquals(idleGpusOrig, host.idleGpus);
     }
 
     @Test
@@ -222,7 +226,7 @@ public class CoreUnitDispatcherGpuTests extends TransactionalTest {
         DispatchHost host = getHost();
         JobDetail job = getJob();
 
-        host.idleGpu = 0;
+        host.idleGpuMemory = 0;
         List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
         VirtualProc proc = procs.get(0);
         dispatcher.dispatchProcToJob(proc, job);

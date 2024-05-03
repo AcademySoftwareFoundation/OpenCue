@@ -23,9 +23,8 @@ from __future__ import division
 from builtins import str
 import pickle
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.Utils
 
@@ -50,6 +49,8 @@ class CommentListDialog(QtWidgets.QDialog):
         @type  parent: QWidget
         @param parent: The dialog's parent"""
         QtWidgets.QDialog.__init__(self, parent)
+        self.app = cuegui.app()
+
         self.__source = source
 
         self.__labelTitle = QtWidgets.QLabel(self.__source.data.name, self)
@@ -94,6 +95,7 @@ class CommentListDialog(QtWidgets.QDialog):
         btnLayout.addWidget(self.__btnClose)
         layout.addLayout(btnLayout)
 
+        # pylint: disable=no-member
         self.__treeSubjects.itemSelectionChanged.connect(self.__itemChanged)
         self.__comboMacro.currentTextChanged.connect(self.__macroHandle)
         self.__btnSave.pressed.connect(self.__saveComment)
@@ -102,6 +104,7 @@ class CommentListDialog(QtWidgets.QDialog):
         self.__btnClose.pressed.connect(self.__close)
         self.__textSubject.textEdited.connect(self.__textEdited)
         self.__textMessage.textChanged.connect(self.__textEdited)
+        # pylint: enable=no-member
 
         self.refreshComments()
         self.__macroLoad()
@@ -109,6 +112,8 @@ class CommentListDialog(QtWidgets.QDialog):
     def __textEdited(self, text=None):
         """Called when the text boxes are modified, enables the save button"""
         del text
+        self.__textSubject.setReadOnly(False)
+        self.__textMessage.setReadOnly(False)
         self.__btnSave.setEnabled(True)
 
     def __close(self):
@@ -204,10 +209,11 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __macroLoad(self):
         """Loads the defined comment macros from settings"""
-        # pylint: disable=no-member
-        self.__macroList = pickle.loads(
-            str(QtGui.qApp.settings.value("Comments", pickle.dumps({}))))
-        # pylint: enable=no-member
+        try:
+            self.__macroList = pickle.loads(self.app.settings.value("Comments", pickle.dumps({})))
+        except TypeError:
+            self.__macroList = pickle.loads(
+                str(self.app.settings.value("Comments", pickle.dumps({}))))
         self.__macroRefresh()
 
     def __macroRefresh(self):
@@ -221,9 +227,7 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __macroSave(self):
         """Saves the current comment macros to settings"""
-        # pylint: disable=no-member
-        QtGui.qApp.settings.setValue("Comments", pickle.dumps(self.__macroList))
-        # pylint: enable=no-member
+        self.app.settings.setValue("Comments", pickle.dumps(self.__macroList))
 
     def __macroHandle(self, selection):
         """Called when the comment macro combo box is selected
@@ -331,8 +335,10 @@ class CommentMacroDialog(QtWidgets.QDialog):
         layout.addWidget(self.__textMessage)
         layout.addLayout(btnLayout)
 
+        # pylint: disable=no-member
         self.__btnSave.pressed.connect(self.__save)
         self.__btnCancel.pressed.connect(self.reject)
+        # pylint: enable=no-member
 
     def __save(self):
         """Validates and then exits from the dialog in success"""

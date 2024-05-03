@@ -137,6 +137,40 @@ public interface GroupDao {
      */
 
     public void updateMinCores(GroupInterface group, int value);
+
+    /**
+     * Sets the maximum number of gpus the group should be running.
+     *
+     * @param group
+     * @param value
+     */
+    void updateDefaultJobMaxGpus(GroupInterface group, int value);
+
+    /**
+     * Sets the minimum number of gpus the group should be running.
+     *
+     * @param group
+     * @param value
+     */
+    void updateDefaultJobMinGpus(GroupInterface group, int value);
+
+    /**
+     * Sets the maximum number of gpus for this group
+     *
+     * @param group
+     * @param value
+     */
+    public void updateMaxGpus(GroupInterface group, int value);
+
+    /**
+     * Set the minimum number of gpus for this group
+     *
+     * @param group
+     * @param value
+     */
+
+    public void updateMinGpus(GroupInterface group, int value);
+
     /**
      * Renames the group
      *

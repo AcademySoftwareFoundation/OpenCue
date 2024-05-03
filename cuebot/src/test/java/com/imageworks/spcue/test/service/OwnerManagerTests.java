@@ -69,11 +69,12 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
         RenderHost host = RenderHost.newBuilder()
                 .setName("test_host")
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem((int) CueUtil.GB16)
                 .setTotalSwap((int) CueUtil.GB16)
                 .setNimbyEnabled(true)
@@ -82,8 +83,8 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addTags("general")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         DispatchHost dh = hostManager.createHost(host);
@@ -173,41 +174,6 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
         DeedEntity d = ownerManager.takeOwnership(o, host);
 
         assertEquals(d, ownerManager.getDeed(d.id));
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testSetBlackoutTimes() {
-        OwnerEntity o = ownerManager.createOwner("spongebob",
-                adminManager.findShowEntity("pipe"));
-
-        DispatchHost host = createHost();
-        DeedEntity d = ownerManager.takeOwnership(o, host);
-
-        ownerManager.setBlackoutTime(d, 0, 3600);
-
-        assertEquals(0, deedDao.getDeed(d.id).blackoutStart);
-        assertEquals(3600, deedDao.getDeed(d.id).blackoutStop);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testEnableDisableBlackout() {
-        OwnerEntity o = ownerManager.createOwner("spongebob",
-                adminManager.findShowEntity("pipe"));
-
-        DispatchHost host = createHost();
-        DeedEntity d = ownerManager.takeOwnership(o, host);
-
-        ownerManager.setBlackoutTimeEnabled(d, true);
-
-        assertTrue(deedDao.getDeed(d.id).isBlackoutEnabled);
-
-        ownerManager.setBlackoutTimeEnabled(d, false);
-
-        assertFalse(deedDao.getDeed(d.id).isBlackoutEnabled);
     }
 
     @Test

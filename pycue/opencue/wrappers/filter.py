@@ -270,7 +270,8 @@ class Action(object):
         SET_JOB_PRIORITY = filter_pb2.SET_JOB_PRIORITY
         SET_ALL_RENDER_LAYER_TAGS = filter_pb2.SET_ALL_RENDER_LAYER_TAGS
         SET_ALL_RENDER_LAYER_MEMORY = filter_pb2.SET_ALL_RENDER_LAYER_MEMORY
-        SET_ALL_RENDER_LAYER_CORES = filter_pb2.SET_ALL_RENDER_LAYER_CORES
+        SET_ALL_RENDER_LAYER_MIN_CORES = filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES
+        SET_ALL_RENDER_LAYER_MAX_CORES = filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES
         SET_MEMORY_OPTIMIZER = filter_pb2.SET_MEMORY_OPTIMIZER
 
     class ActionValueType(enum.IntEnum):
@@ -390,7 +391,8 @@ class Action(object):
 
         elif actionType in (filter_pb2.SET_JOB_MIN_CORES,
                             filter_pb2.SET_JOB_MAX_CORES,
-                            filter_pb2.SET_ALL_RENDER_LAYER_CORES):
+                            filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,
+                            filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES):
             self.data.float_value = float(value)
             self.data.value_type = filter_pb2.FLOAT_TYPE
 

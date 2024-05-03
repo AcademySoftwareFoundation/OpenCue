@@ -40,6 +40,7 @@ public interface AdminManager {
     ShowEntity getShowEntity(String id);
     void setShowActive(ShowInterface show, boolean value);
     void updateShowCommentEmail(ShowInterface s, String[] emails);
+    void updateShowsStatus();
 
     /*
      * Facilities
@@ -56,6 +57,8 @@ public interface AdminManager {
     void deleteAllocation(AllocationInterface alloc);
     void setAllocationName(AllocationInterface a, String name);
     void setAllocationTag(AllocationInterface a, String tag);
+    AllocationEntity getDefaultAllocation();
+    void setDefaultAllocation(AllocationInterface a);
     AllocationEntity findAllocationDetail(String facility, String name);
     AllocationEntity getAllocationDetail(String id);
     void setAllocationBillable(AllocationInterface alloc, boolean value);

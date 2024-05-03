@@ -19,6 +19,7 @@ from opencue.cuebot import Cuebot
 import opencue.wrappers.filter
 import opencue.wrappers.group
 import opencue.wrappers.subscription
+from opencue.wrappers.service import ServiceOverride
 
 
 class Show(object):
@@ -66,25 +67,29 @@ class Show(object):
 
     def createServiceOverride(self, data):
         """Creates a Service Override at the show level.
-
-        :type  data: service_pb2.Service
-        :param data: service data, typically from opencue.wrappers.service.Service.data
+        :type data: opencue.wrapper.service.Service
+        :param data: Service.data object
         """
-        self.stub.CreateServiceOverride(
-            show_pb2.ShowCreateServiceOverrideRequest(show=self.data, service=data),
-            timeout=Cuebot.Timeout)
+
+        # min_memory_increase has to be greater than 0.
+        if data.min_memory_increase <= 0:
+            raise ValueError("Minimum memory increase must be > 0")
+        
+        self.stub.CreateServiceOverride(show_pb2.ShowCreateServiceOverrideRequest(
+                                        show=self.data, service=data),
+                                        timeout=Cuebot.Timeout)
 
     def getServiceOverride(self, serviceName):
-        """Returns a service override for a show.
+        """
+        Returns a service override for a show
 
-        :type  serviceName: str
         :param serviceName: name of the service for the show
-        :rtype:  service_pb2.ServiceOverride
         :return: service override object
         """
-        return self.stub.GetServiceOverride(
-            show_pb2.ShowGetServiceOverrideRequest(show=self.data, name=serviceName),
-            timeout=Cuebot.Timeout).service_override
+        serviceOverride = self.stub.GetServiceOverride(show_pb2.ShowGetServiceOverrideRequest(
+                                                       show=self.data, name=serviceName),
+                                                       timeout=Cuebot.Timeout).service_override
+        return ServiceOverride(serviceOverride)
 
     def getServiceOverrides(self):
         """Returns a list of service overrides on the show.
@@ -95,7 +100,7 @@ class Show(object):
         serviceOverrideSeq = self.stub.GetServiceOverrides(
             show_pb2.ShowGetServiceOverridesRequest(show=self.data),
             timeout=Cuebot.Timeout).service_overrides
-        return serviceOverrideSeq.service_overrides
+        return [ServiceOverride(override) for override in serviceOverrideSeq.service_overrides]
 
     def getSubscriptions(self):
         """Returns a list of all subscriptions the show has.
@@ -164,6 +169,32 @@ class Show(object):
         """
         response = self.stub.SetDefaultMinCores(show_pb2.ShowSetDefaultMinCoresRequest(
             show=self.data, min_cores=mincores),
+            timeout=Cuebot.Timeout)
+        return response
+
+    def setDefaultMaxGpus(self, maxgpus):
+        """Sets the default maximum number of gpus
+        that new jobs are launched with.
+        :type: float
+        :param: value to set maxGpu to
+        :rtype: show_pb2.ShowSetDefaultMaxGpuResponse
+        :return: response is empty
+        """
+        response = self.stub.SetDefaultMaxGpus(show_pb2.ShowSetDefaultMaxGpusRequest(
+            show=self.data, max_gpus=maxgpus),
+            timeout=Cuebot.Timeout)
+        return response
+
+    def setDefaultMinGpus(self, mingpus):
+        """Sets the default minimum number of gpus
+        all new jobs are launched with.
+        :type: float
+        :param: value to set minGpus to
+        :rtype: show_pb2.ShowSetDefaultMinGpusResponse
+        :return: response is empty
+        """
+        response = self.stub.SetDefaultMinGpus(show_pb2.ShowSetDefaultMinGpusRequest(
+            show=self.data, min_gpus=mingpus),
             timeout=Cuebot.Timeout)
         return response
 

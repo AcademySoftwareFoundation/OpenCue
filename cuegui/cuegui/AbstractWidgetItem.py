@@ -24,11 +24,8 @@ from __future__ import division
 
 from builtins import str
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
-
-import opencue
-import opencue.wrappers.job
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import cuegui.Constants
 import cuegui.Logger
@@ -50,6 +47,7 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
 
     def __init__(self, itemType, rpcObject, parent, source=None):
         QtWidgets.QTreeWidgetItem.__init__(self, parent, itemType)
+        self.app = cuegui.app()
         self.column_info = self.treeWidget().getColumnInfo(itemType)
         self._cache = {}
         self._source = source
@@ -92,14 +90,15 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
         return cuegui.Constants.QVARIANT_NULL
 
     def __lt__(self, other):
-        """Custom sorting for columns that have a function defined for sorting"""
+        """Custom sorting for columns that have a function defined for sorting
+           (uses the sort lambda function defined in the subclasses' addColumn definition)."""
         sortLambda = self.column_info[self.treeWidget().sortColumn()][SORT_LAMBDA]
         column = self.treeWidget().sortColumn()
 
-        if sortLambda and isinstance(other.rpcObject, opencue.wrappers.job.Job):
+        if sortLambda:
             # pylint: disable=broad-except
             try:
                 return sortLambda(self.rpcObject) < sortLambda(other.rpcObject)
             except Exception:
-                logger.warning("Sort failed on column %s, using text sort.", column)
+                logger.info("Sort failed on column %s, using text sort.", column)
         return str(self.text(column)) < str(other.text(column))

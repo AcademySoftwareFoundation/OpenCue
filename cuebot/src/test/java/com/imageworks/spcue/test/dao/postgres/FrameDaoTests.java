@@ -60,6 +60,7 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
+import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -113,11 +114,12 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOST)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem(8173264)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)
@@ -126,8 +128,8 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 .addAllTags(ImmutableList.of("mcore", "4core", "8g"))
                 .setState(HardwareState.UP)
                 .setFacility("spi")
-                .putAttributes("freeGpu", "512")
-                .putAttributes("totalGpu", "512")
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         hostManager.createHost(host);
@@ -143,15 +145,6 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
         return jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testCheckRetries() {
-        JobDetail job = launchJob();
-        frameDao.checkRetries(frameDao.findFrame(job,"0001-pass_1"));
-        // TODO: check to see if it actually works
     }
 
     @Test

@@ -23,6 +23,7 @@ from __future__ import division
 from __future__ import absolute_import
 import sys
 
+from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 from cuesubmit import Constants
@@ -65,6 +66,7 @@ class CueSubmitMainWindow(QtWidgets.QMainWindow):
 def main():
     """Entrypoint for the CueSubmit application."""
     app = CueSubmitApp(sys.argv)
+    QtGui.qApp = app
     app.startup()
     app.exec_()
 

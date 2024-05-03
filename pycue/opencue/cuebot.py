@@ -20,13 +20,16 @@ from __future__ import absolute_import
 
 from builtins import object
 from random import shuffle
+import abc
+import time
 import atexit
 import logging
 import os
-import yaml
+import platform
 
 import grpc
 
+import opencue.config
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import comment_pb2_grpc
 from opencue.compiled_proto import criterion_pb2
@@ -64,18 +67,13 @@ __all__ = ["Cuebot"]
 
 logger = logging.getLogger("opencue")
 
-default_config = os.path.join(os.path.dirname(__file__), 'default.yaml')
-with open(default_config) as file_object:
-    config = yaml.load(file_object, Loader=yaml.SafeLoader)
-
-# check for facility specific configurations.
-fcnf = os.environ.get('OPENCUE_CONF', '')
-if os.path.exists(fcnf):
-    with open(fcnf) as file_object:
-        config.update(yaml.load(file_object, Loader=yaml.SafeLoader))
 
 DEFAULT_MAX_MESSAGE_BYTES = 1024 ** 2 * 10
 DEFAULT_GRPC_PORT = 8443
+
+if platform.system() != 'Darwin':
+    # Avoid spamming users with epoll fork warning messages
+    os.environ["GRPC_POLL_STRATEGY"] = "epoll1"
 
 class Cuebot(object):
     """Used to manage the connection to the Cuebot.  Normally the connection
@@ -89,7 +87,8 @@ class Cuebot(object):
     RpcChannel = None
     Hosts = []
     Stubs = {}
-    Timeout = config.get('cuebot.timeout', 10000)
+    Config = opencue.config.load_config_from_file()
+    Timeout = Config.get('cuebot.timeout', 10000)
 
     PROTO_MAP = {
         'action': filter_pb2,
@@ -137,19 +136,27 @@ class Cuebot(object):
         'proc': host_pb2_grpc.ProcInterfaceStub,
         'renderPartition': renderPartition_pb2_grpc.RenderPartitionInterfaceStub,
         'service': service_pb2_grpc.ServiceInterfaceStub,
+        'serviceOverride': service_pb2_grpc.ServiceOverrideInterfaceStub,
         'show': show_pb2_grpc.ShowInterfaceStub,
         'subscription': subscription_pb2_grpc.SubscriptionInterfaceStub,
         'task': task_pb2_grpc.TaskInterfaceStub
     }
 
     @staticmethod
-    def init():
+    def init(config=None):
         """Main init method for setting up the Cuebot object.
-        Sets the communication channel and hosts."""
+        Sets the communication channel and hosts.
+
+        :type config: dict
+        :param config: config dictionary, this will override the config read from disk
+        """
+        if config:
+            Cuebot.Config = config
+            Cuebot.Timeout = config.get('cuebot.timeout', Cuebot.Timeout)
         if os.getenv("CUEBOT_HOSTS"):
             Cuebot.setHosts(os.getenv("CUEBOT_HOSTS").split(","))
         else:
-            facility_default = config.get("cuebot.facility_default")
+            facility_default = Cuebot.Config.get("cuebot.facility_default")
             Cuebot.setFacility(facility_default)
         if Cuebot.Hosts is None:
             raise CueException('Cuebot host not set. Please ensure CUEBOT_HOSTS is set ' +
@@ -162,18 +169,35 @@ class Cuebot(object):
         # gRPC must specify a single host. Randomize host list to balance load across cuebots.
         hosts = list(Cuebot.Hosts)
         shuffle(hosts)
-        maxMessageBytes = config.get('cuebot.max_message_bytes', DEFAULT_MAX_MESSAGE_BYTES)
+        maxMessageBytes = Cuebot.Config.get('cuebot.max_message_bytes', DEFAULT_MAX_MESSAGE_BYTES)
+
+        # create interceptors
+        interceptors = (
+            RetryOnRpcErrorClientInterceptor(
+                max_attempts=4,
+                sleeping_policy=ExponentialBackoff(init_backoff_ms=100,
+                                                   max_backoff_ms=1600,
+                                                   multiplier=2),
+                status_for_retry=(grpc.StatusCode.UNAVAILABLE,),
+            ),
+        )
+
         for host in hosts:
             if ':' in host:
                 connectStr = host
             else:
-                connectStr = '%s:%s' % (host, config.get('cuebot.grpc_port', DEFAULT_GRPC_PORT))
-            logger.debug('connecting to gRPC at %s', connectStr)
+                connectStr = '%s:%s' % (
+                    host, Cuebot.Config.get('cuebot.grpc_port', DEFAULT_GRPC_PORT))
+            # pylint: disable=logging-not-lazy
+            logger.debug('connecting to gRPC at %s' % connectStr)
+            # pylint: enable=logging-not-lazy
             # TODO(bcipriano) Configure gRPC TLS. (Issue #150)
             try:
-                Cuebot.RpcChannel = grpc.insecure_channel(connectStr, options=[
-                    ('grpc.max_send_message_length', maxMessageBytes),
-                    ('grpc.max_receive_message_length', maxMessageBytes)])
+                Cuebot.RpcChannel = grpc.intercept_channel(
+                    grpc.insecure_channel(connectStr, options=[
+                        ('grpc.max_send_message_length', maxMessageBytes),
+                        ('grpc.max_receive_message_length', maxMessageBytes)]),
+                    *interceptors)
                 # Test the connection
                 Cuebot.getStub('cue').GetSystemStats(
                     cue_pb2.CueGetSystemStatsRequest(), timeout=Cuebot.Timeout)
@@ -207,12 +231,12 @@ class Cuebot(object):
 
         :type  facility: str
         :param facility: a facility named in the config file"""
-        if facility not in list(config.get("cuebot.facility").keys()):
-            default = config.get("cuebot.facility_default")
+        if facility not in list(Cuebot.Config.get("cuebot.facility").keys()):
+            default = Cuebot.Config.get("cuebot.facility_default")
             logger.warning("The facility '%s' does not exist, defaulting to %s", facility, default)
             facility = default
         logger.debug("setting facility to: %s", facility)
-        hosts = config.get("cuebot.facility")[facility]
+        hosts = Cuebot.Config.get("cuebot.facility")[facility]
         Cuebot.setHosts(hosts)
 
     @staticmethod
@@ -269,4 +293,95 @@ class Cuebot(object):
     @staticmethod
     def getConfig():
         """Gets the Cuebot config object, originally read in from the config file on disk."""
-        return config
+        return Cuebot.Config
+
+
+# Python 2/3 compatible implementation of ABC
+ABC = abc.ABCMeta('ABC', (object,), {'__slots__': ()})
+
+
+class SleepingPolicy(ABC):
+    """
+    Implement policy for sleeping between API retries
+    """
+    @abc.abstractmethod
+    def sleep(self, attempt):
+        """
+        How long to sleep in milliseconds.
+        :param attempt: the number of attempt (starting from zero)
+        """
+        assert attempt >= 0
+
+
+class ExponentialBackoff(SleepingPolicy):
+    """
+    Implement policy that will increase retry period by exponentially in every try
+    """
+    def __init__(self,
+                 init_backoff_ms,
+                 max_backoff_ms,
+                 multiplier=2):
+        """
+        inputs in ms
+        """
+        self._init_backoff = init_backoff_ms
+        self._max_backoff = max_backoff_ms
+        self._multiplier = multiplier
+
+    def sleep(self, attempt):
+        sleep_time_ms = min(
+            self._init_backoff * self._multiplier ** attempt,
+            self._max_backoff
+        )
+        time.sleep(sleep_time_ms / 1000.0)
+
+
+class RetryOnRpcErrorClientInterceptor(
+    grpc.UnaryUnaryClientInterceptor,
+    grpc.StreamUnaryClientInterceptor
+):
+    """
+    Implement Client/Stream interceptors for GRPC channels to retry
+    calls that failed with retry-able states. This is required for
+    handling server interruptions that are not automatically handled
+    by grpc.insecure_channel
+    """
+    def __init__(self,
+                 max_attempts,
+                 sleeping_policy,
+                 status_for_retry=None):
+        self._max_attempts = max_attempts
+        self._sleeping_policy = sleeping_policy
+        self._retry_statuses = status_for_retry
+
+    def _intercept_call(self, continuation, client_call_details,
+                        request_or_iterator):
+        for attempt in range(self._max_attempts):
+            try:
+                return continuation(client_call_details,
+                                    request_or_iterator)
+            except grpc.RpcError as response:
+                # Return if it was last attempt
+                if attempt == (self._max_attempts - 1):
+                    return response
+
+                # If status code is not in retryable status codes
+                # pylint: disable=no-member
+                if self._retry_statuses \
+                        and hasattr(response, 'code') \
+                        and response.code() \
+                        not in self._retry_statuses:
+                    return response
+
+                self._sleeping_policy.sleep(attempt)
+
+    def intercept_unary_unary(self, continuation, client_call_details,
+                              request):
+        return self._intercept_call(continuation, client_call_details,
+                                    request)
+
+    def intercept_stream_unary(
+            self, continuation, client_call_details, request_iterator
+    ):
+        return self._intercept_call(continuation, client_call_details,
+                                    request_iterator)

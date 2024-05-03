@@ -148,22 +148,24 @@ procs_blocked 0
 softirq 10802040 0 3958368 410 1972314 394501 0 1 3631586 0 844860
 '''
 
-PROC_PID_STAT = ('105 (time) S 7 105 105 0 -1 4210688 317 0 1 0 31 13 0 0 20 0 1 0 17385159 '
-                 '4460544 154 18446744073709551615 4194304 4204692 140725890735264 0 0 0 0 '
-                 '16781318 0 0 0 0 17 4 0 0 0 0 0 6303248 6304296 23932928 140725890743234 '
-                 '140725890743420 140725890743420 140725890744298 0')
+PROC_STAT_SUFFIX = (' S 7 105 105 0 -1 4210688 317 0 1 0 31 13 0 0 20 0 1 0 17385159 '
+                   '4460544 154 18446744073709551615 4194304 4204692 140725890735264 0 0 0 0 '
+                   '16781318 0 0 0 0 17 4 0 0 0 0 0 6303248 6304296 23932928 140725890743234 '
+                   '140725890743420 140725890743420 140725890744298 0')
+PROC_PID_STAT = '105 (time)' + PROC_STAT_SUFFIX
+PROC_PID_STAT_WITH_SPACES = '105 (test space)' + PROC_STAT_SUFFIX
+PROC_PID_STAT_WITH_BRACKETS = '105 (test) (brackets)' + PROC_STAT_SUFFIX
 
-CUDAINFO = ' TotalMem 1023 Mb  FreeMem 968 Mb'
+PROC_PID_STATM = '152510 14585 7032 9343 0 65453 0'
 
+PROC_PID_CMDLINE = ' sleep 20'
 
-@mock.patch('subprocess.getoutput', new=mock.MagicMock(return_value=CUDAINFO))
 @mock.patch.object(rqd.rqutil.Memoize, 'isCached', new=mock.MagicMock(return_value=False))
 @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
 @mock.patch('os.statvfs', new=mock.MagicMock())
 @mock.patch('rqd.rqutil.getHostname', new=mock.MagicMock(return_value='arbitrary-hostname'))
 class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
-    @mock.patch('subprocess.getoutput', new=mock.MagicMock(return_value=CUDAINFO))
     @mock.patch('os.statvfs', new=mock.MagicMock())
     @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
     def setUp(self):
@@ -174,7 +176,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.meminfo = self.fs.create_file('/proc/meminfo', contents=MEMINFO_MODERATE_USAGE)
 
         self.rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
-        self.nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
+        self.nimby = mock.MagicMock(spec=rqd.rqnimby.NimbySelect)
         self.rqCore.nimby = self.nimby
         self.nimby.active = False
         self.nimby.locked = False
@@ -278,12 +280,13 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         self.assertFalse(self.machine.isUserLoggedIn())
 
-    @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
-    def test_rssUpdate(self):
+    def _test_rssUpdate(self, proc_stat):
         rqd.rqconstants.SYS_HERTZ = 100
         pid = 105
         frameId = 'unused-frame-id'
-        self.fs.create_file('/proc/%d/stat' % pid, contents=PROC_PID_STAT)
+        self.fs.create_file('/proc/%d/stat' % pid, contents=proc_stat)
+        self.fs.create_file('/proc/%s/cmdline'  % pid, contents=PROC_PID_CMDLINE)
+        self.fs.create_file('/proc/%s/statm'  % pid, contents=PROC_PID_STATM)
         runningFrame = rqd.rqnetwork.RunningFrame(self.rqCore,
                                                   rqd.compiled_proto.rqd_pb2.RunFrame())
         runningFrame.pid = pid
@@ -299,6 +302,18 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(4356, updatedFrameInfo.vsize)
         self.assertAlmostEqual(0.034444696691, float(updatedFrameInfo.attributes['pcpu']))
 
+    @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
+    def test_rssUpdate(self):
+        self._test_rssUpdate(PROC_PID_STAT)
+
+    @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
+    def test_rssUpdateWithSpaces(self):
+        self._test_rssUpdate(PROC_PID_STAT_WITH_SPACES)
+
+    @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
+    def test_rssUpdateWithBrackets(self):
+        self._test_rssUpdate(PROC_PID_STAT_WITH_BRACKETS)
+
     @mock.patch.object(
         rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=False))
     def test_getLoadAvg(self):
@@ -308,6 +323,9 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     @mock.patch.object(
         rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=True))
+    @mock.patch.object(
+        rqd.rqmachine.Machine, '_Machine__getHyperthreadingMultiplier',
+        new=mock.MagicMock(return_value=2))
     def test_getLoadAvgHT(self):
         self.loadavg.set_contents(LOADAVG_HIGH_USAGE)
 
@@ -318,29 +336,39 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         self.assertEqual(1569882758, self.machine.getBootTime())
 
-    @mock.patch(
-        'subprocess.getoutput',
-        new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
-    def test_getGpuMemoryTotal(self):
+    def _resetGpuStat(self):
         if hasattr(self.machine, 'gpuNotSupported'):
             delattr(self.machine, 'gpuNotSupported')
         if hasattr(self.machine, 'gpuResults'):
             delattr(self.machine, 'gpuResults')
-        rqd.rqconstants.ALLOW_GPU = True
 
-        self.assertEqual(1048576, self.machine.getGpuMemoryTotal())
+    @mock.patch.object(
+        rqd.rqconstants, 'ALLOW_GPU', new=mock.MagicMock(return_value=True))
+    @mock.patch('subprocess.getoutput',
+        new=mock.MagicMock(return_value='16130 MiB, 16119 MiB, 1'))
+    def test_getGpuStat(self):
+        self._resetGpuStat()
+        self.assertEqual(1, self.machine.getGpuCount())
+        self.assertEqual(16913531, self.machine.getGpuMemoryTotal())
+        self.assertEqual(16901997, self.machine.getGpuMemoryFree())
 
-    @mock.patch(
-        'subprocess.getoutput',
-        new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
-    def test_getGpuMemory(self):
-        if hasattr(self.machine, 'gpuNotSupported'):
-            delattr(self.machine, 'gpuNotSupported')
-        if hasattr(self.machine, 'gpuResults'):
-            delattr(self.machine, 'gpuResults')
-        rqd.rqconstants.ALLOW_GPU = True
-
-        self.assertEqual(991232, self.machine.getGpuMemory())
+    @mock.patch.object(
+        rqd.rqconstants, 'ALLOW_GPU', new=mock.MagicMock(return_value=True))
+    @mock.patch('subprocess.getoutput',
+        new=mock.MagicMock(return_value="""\
+16130 MiB, 16103 MiB, 8
+16130 MiB, 16119 MiB, 8
+16130 MiB, 16119 MiB, 8
+16130 MiB, 16119 MiB, 8
+16130 MiB, 4200 MiB, 8
+16130 MiB, 16119 MiB, 8
+16130 MiB, 16119 MiB, 8
+16130 MiB, 16119 MiB, 8"""))
+    def test_multipleGpus(self):
+        self._resetGpuStat()
+        self.assertEqual(8, self.machine.getGpuCount())
+        self.assertEqual(135308248, self.machine.getGpuMemoryTotal())
+        self.assertEqual(122701222, self.machine.getGpuMemoryFree())
 
     def test_getPathEnv(self):
         self.assertEqual(
@@ -365,16 +393,12 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         popenMock.assert_called_with(['/usr/bin/sudo', '/sbin/reboot', '-f'])
 
-    @mock.patch(
-        'subprocess.getoutput',
-        new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
     def test_getHostInfo(self):
         # pylint: disable=no-member
         hostInfo = self.machine.getHostInfo()
 
         self.assertEqual(4105212, hostInfo.free_swap)
         self.assertEqual(25699176, hostInfo.free_mem)
-        self.assertEqual('991232', hostInfo.attributes['freeGpu'])
         self.assertEqual('0', hostInfo.attributes['swapout'])
         self.assertEqual(25, hostInfo.load)
         self.assertEqual(False, hostInfo.nimby_enabled)
@@ -422,18 +446,103 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(25699176, bootReport.host.free_mem)
 
     def test_reserveHT(self):
+        """
+        Total 2 physical(ph) processors with 4 cores each with 2 threads each
+        step1 - taskset1: Reserve 3 cores (ph1)
+        step2 - taskset0: Reserve 4 cores (ph0)
+        step3 - Release cores on taskset0
+        step4 - taskset3: Reserve 2 cores (ph0)
+        step5 - taskset4: 3 remaining, Reserve 3 cores (ph0+ph1)
+        step5 - taskset5: No more cores
+        """
         cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_8-4-2-2')
         self.fs.add_real_file(cpuInfo)
         self.machine.testInitMachineStats(cpuInfo)
 
-        self.machine.setupHT()
-        tasksets = self.machine.reserveHT(300)
+        self.machine.setupTaskset()
 
-        self.assertEqual('0,8,1,9,2,10', tasksets)
+        # ------------------------step1-------------------------
+        # phys_id 1
+        #   - core_id 0
+        #     - process_id 4
+        #     - process_id 12
+        #   - core_id 1
+        #     - process_id 5
+        #     - process_id 13
+        #   - core_id 3
+        #     - process_id 7
+        #     - process_id 15
+        tasksets1 = self.machine.reserveHT(300)
+        # pylint: disable=no-member
+        self.assertItemsEqual(['4', '5', '7', '12', '13', '15'], sorted(tasksets1.split(',')))
 
-        self.machine.releaseHT(tasksets)
+        # ------------------------step2-------------------------
+        # phys_id 0
+        #   - core_id 0
+        #     - process_id 0
+        #     - process_id 8
+        #   - core_id 1
+        #     - process_id 1
+        #     - process_id 9
+        #   - core_id 2
+        #     - process_id 2
+        #     - process_id 10
+        #   - core_id 3
+        #     - process_id 3
+        #     - process_id 11
+        tasksets0 = self.machine.reserveHT(400)
+        # pylint: disable=no-member
+        self.assertItemsEqual(['0', '1', '2', '3', '8', '9', '10', '11'],
+                              sorted(tasksets0.split(',')))
 
-        self.assertEqual({0, 1, 2, 3, 4, 5, 6, 7}, self.machine._Machine__tasksets)
+        # reserved cores got updated properly
+        # pylint: disable=no-member
+        self.assertItemsEqual([0, 1, 2, 3], self.coreDetail.reserved_cores[0].coreid)
+
+        # Make sure tastsets don't overlap
+        self.assertTrue(set(tasksets0.split(',')).isdisjoint(tasksets1.split(',')))
+
+        # ------------------------step3-------------------------
+        # Releasing a physcore shouldn't impact other physcores
+        self.machine.releaseHT(tasksets0)
+        # pylint: disable=no-member
+        self.assertTrue(1 in self.coreDetail.reserved_cores)
+        # pylint: disable=no-member
+        self.assertItemsEqual([0, 1, 3], self.coreDetail.reserved_cores[1].coreid)
+
+        # ------------------------step4-------------------------
+        # phys_id 0
+        #   - core_id 0
+        #     - process_id 0
+        #     - process_id 8
+        #   - core_id 1
+        #     - process_id 1
+        #     - process_id 9
+        tasksets3 = self.machine.reserveHT(200)
+        # pylint: disable=no-member
+        self.assertItemsEqual(['0', '1', '8', '9'], sorted(tasksets3.split(',')))
+
+        # ------------------------step5-------------------------
+        # phys_id 0
+        #   - core_id 2
+        #     - process_id 2
+        #     - process_id 10
+        #   - core_id 3
+        #     - process_id 3
+        #     - process_id 11
+        # phys_id 1
+        #   - core_id 2
+        #     - process_id 6
+        #     - process_id 14
+        tasksets4 = self.machine.reserveHT(300)
+        # pylint: disable=no-member
+        self.assertItemsEqual(['2', '10', '3', '11', '6', '14'], sorted(tasksets4.split(',')))
+
+        # ------------------------step6-------------------------
+        # No cores available
+        with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
+            self.machine.reserveHT(300)
+
 
     def test_tags(self):
         tags = ["test1", "test2", "test3"]

@@ -20,14 +20,12 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import os
-import shutil
 import signal
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtGui
 
+import cuegui
+import cuegui.Layout
 import cuegui.Constants
 import cuegui.Logger
 import cuegui.MainWindow
@@ -39,23 +37,6 @@ import cuegui.GarbageCollector
 
 
 logger = cuegui.Logger.getLogger(__file__)
-
-
-class CueGuiApplication(QtWidgets.QApplication):
-    """The CueGUI application."""
-
-    # Global signals
-    display_log_file_content = QtCore.Signal(object)
-    double_click = QtCore.Signal(object)
-    facility_changed = QtCore.Signal()
-    single_click = QtCore.Signal(object)
-    unmonitor = QtCore.Signal(object)
-    view_hosts = QtCore.Signal(object)
-    view_object = QtCore.Signal(object)
-    view_procs = QtCore.Signal(object)
-    request_update = QtCore.Signal()
-    status = QtCore.Signal()
-    quit = QtCore.Signal()
 
 
 def cuetopia(argv):
@@ -71,7 +52,7 @@ def cuecommander(argv):
 def startup(app_name, app_version, argv):
     """Starts an application window."""
 
-    app = CueGuiApplication(argv)
+    app = cuegui.create_app(argv)
 
     # Start splash screen
     splash = cuegui.SplashWindow.SplashWindow(
@@ -84,37 +65,14 @@ def startup(app_name, app_version, argv):
     app.setWindowIcon(QtGui.QIcon('%s/windowIcon.png' % cuegui.Constants.RESOURCE_PATH))
 
     app.setApplicationName(app_name)
-    app.lastWindowClosed.connect(app.quit)
+    app.lastWindowClosed.connect(app.quit)  # pylint: disable=no-member
 
-    QtGui.qApp.threadpool = cuegui.ThreadPool.ThreadPool(3, parent=app)
-    QtGui.qApp.threads = []
+    app.threadpool = cuegui.ThreadPool.ThreadPool(3, parent=app)
 
-    config_path = "/.%s/config" % app_name.lower()
-    settings = QtCore.QSettings(QtCore.QSettings.IniFormat, QtCore.QSettings.UserScope, config_path)
-    local = settings.fileName()
-    # If the user has chose to revert the layout. delete the file and copy the default back.
-    if settings.value('RevertLayout'):
-        os.remove(local)
-
-    QtGui.qApp.settings = settings
+    settings = cuegui.Layout.startup(app_name)
+    app.settings = settings
 
     cuegui.Style.init()
-
-    # If the config file does not exist, copy over the default
-    # pylint: disable=broad-except
-    if not os.path.exists(local):
-        default = os.path.join(cuegui.Constants.DEFAULT_INI_PATH, "%s.ini" % app_name.lower())
-        logger.warning('Not found: %s\nCopying:   %s', local, default)
-        try:
-            os.mkdir(os.path.dirname(local))
-        except Exception as e:
-            logger.debug(e)
-        try:
-            shutil.copy2(default, local)
-        except Exception as e:
-            logger.debug(e)
-        settings.sync()
-    # pylint: enable=broad-except
 
     mainWindow = cuegui.MainWindow.MainWindow(app_name, app_version,  None)
     mainWindow.displayStartupNotice()
@@ -130,18 +88,13 @@ def startup(app_name, app_version, argv):
 
     # TODO(#609) Refactor the CueGUI classes to make this garbage collector
     #   replacement unnecessary.
-    # pylint: disable=unused-variable
-    gc = cuegui.GarbageCollector.GarbageCollector(parent=app, debug=False)
-    # pylint: enable=unused-variable
-    app.aboutToQuit.connect(closingTime)
+    gc = cuegui.GarbageCollector.GarbageCollector(parent=app, debug=False)  # pylint: disable=unused-variable
+    app.aboutToQuit.connect(closingTime)  # pylint: disable=no-member
     app.exec_()
-
 
 def closingTime():
     """Window close callback."""
     logger.info("Closing all threads...")
-    # pylint: disable=no-member
-    threads = QtGui.qApp.threads
-    # pylint: enable=no-member
+    threads = cuegui.app().threads
     for thread in threads:
         cuegui.Utils.shutdownThread(thread)
