@@ -10,6 +10,7 @@ import "criterion.proto";
 import "job.proto";
 import "renderPartition.proto";
 
+option go_package = "opencue_gateway/gen/go";
 
 // -------- Services --------]
 
