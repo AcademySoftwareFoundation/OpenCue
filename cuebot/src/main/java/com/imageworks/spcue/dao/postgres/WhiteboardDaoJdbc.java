@@ -29,7 +29,8 @@ import java.util.Locale;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -129,7 +130,7 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(WhiteboardDaoJdbc.class);
+    private static final Logger logger = LogManager.getLogger(WhiteboardDaoJdbc.class);
 
     private FrameSearchFactory frameSearchFactory;
     private ProcSearchFactory procSearchFactory;
@@ -2059,7 +2060,21 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     private static final String GET_SHOW =
         "SELECT " +
-            "show.*," +
+            "show.pk_show," +
+            "show.str_name," +
+            "show.b_paused," +
+            "show.int_default_min_cores," +
+            "show.int_default_max_cores," +
+            "show.int_default_min_gpus," +
+            "show.int_default_max_gpus," +
+            "show.b_booking_enabled," +
+            "show.b_dispatch_enabled," +
+            "show.b_active," +
+            "show.str_comment_email," +
+            "show_stats.int_frame_insert_count," +
+            "show_stats.int_job_insert_count," +
+            "show_stats.int_frame_success_count," +
+            "show_stats.int_frame_fail_count," +
             "COALESCE(vs_show_stat.int_pending_count,0) AS int_pending_count," +
             "COALESCE(vs_show_stat.int_running_count,0) AS int_running_count," +
             "COALESCE(vs_show_stat.int_dead_count,0) AS int_dead_count," +
@@ -2068,6 +2083,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "COALESCE(vs_show_stat.int_job_count,0) AS int_job_count " +
         "FROM " +
             "show " +
+        "JOIN show_stats ON (show.pk_show = show_stats.pk_show) " +
         "LEFT JOIN vs_show_stat ON (vs_show_stat.pk_show = show.pk_show) " +
         "LEFT JOIN vs_show_resource ON (vs_show_resource.pk_show=show.pk_show) " +
         "WHERE " +

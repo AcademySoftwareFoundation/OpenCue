@@ -1,8 +1,14 @@
 #!/bin/bash
 
+# Script for running OpenCue unit tests with PySide2.
+#
+# This script is written to be run within the OpenCue GitHub Actions environment.
+# See `.github/workflows/testing-pipeline.yml`.
+
 set -e
 
-python_version=$(python -V)
+args=("$@")
+python_version=$(python -V 2>&1)
 echo "Will run tests using ${python_version}"
 
 pip install --user -r requirements.txt -r requirements_gui.txt
@@ -23,6 +29,6 @@ PYTHONPATH=pycue:pyoutline python cuesubmit/setup.py test
 python rqd/setup.py test
 
 # Xvfb no longer supports Python 2.
-if [[ "$python_version" =~ "Python 3" ]]; then
-  PYTHONPATH=pycue xvfb-run -d python cuegui/setup.py test
+if [[ "$python_version" =~ "Python 3" && ${args[0]} != "--no-gui" ]]; then
+  ci/run_gui_test.sh
 fi

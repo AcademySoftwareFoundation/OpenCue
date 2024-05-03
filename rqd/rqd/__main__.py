@@ -28,7 +28,7 @@ Initializes and starts RQD.
 
 Optional configuration file:
 ----------------------------
-in /etc/rqd3/rqd3.conf:
+In /etc/opencue/rqd.conf (on Linux) or %LOCALAPPDATA%/OpenCue/rqd.conf (on Windows):
 [Override]
 OVERRIDE_CORES = 2
 OVERRIDE_PROCS = 3
@@ -89,14 +89,17 @@ def setupLogging():
 
 def usage():
     """Prints command line syntax"""
-    s = sys.stderr
-    print("SYNOPSIS", file=s)
-    print("  ", sys.argv[0], "[options]\n", file=s)
-    print("  -d | --daemon          => Run as daemon", file=s)
-    print("       --nimbyoff        => Disables nimby activation", file=s)
-    print("  -c                     => Provide an alternate config file", file=s)
-    print("                            Defaults to /etc/rqd3/rqd3.conf", file=s)
-    print("                            Config file is optional", file=s)
+    usage_msg = f"""SYNOPSIS
+  {sys.argv[0]} [options]
+
+  -d | --daemon          => Run as daemon
+       --nimbyoff        => Disables nimby activation
+  -c                     => Provide an alternate config file
+                            On Linux: defaults to /etc/opencue/rqd.conf
+                            On Windows: Defaults to %LOCALAPPDATA%/OpenCue/rqd.conf
+                            Config file is optional
+"""
+    print(usage_msg, file=sys.stderr)
 
 
 def main():

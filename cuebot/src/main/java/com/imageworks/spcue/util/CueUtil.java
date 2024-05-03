@@ -46,7 +46,8 @@ import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.util.ByteArrayDataSource;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.core.env.Environment;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -62,7 +63,7 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
 @Component
 public final class CueUtil {
 
-    private static final Logger logger = Logger.getLogger(CueUtil.class);
+    private static final Logger logger = LogManager.getLogger(CueUtil.class);
     private static String smtpHost = "";
     @Autowired
     private Environment env;

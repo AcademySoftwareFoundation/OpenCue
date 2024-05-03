@@ -216,7 +216,9 @@ class Machine(object):
 
     def _getStatFields(self, pidFilePath):
         with open(pidFilePath, "r") as statFile:
-            return [None, None] + statFile.read().rsplit(")", 1)[-1].split()
+            stats = statFile.read().split()
+            stats[1] = stats[1].strip('()')
+            return stats
 
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
@@ -507,6 +509,8 @@ class Machine(object):
     @rqd.rqutil.Memoize
     def getPathEnv(self):
         """Returns the correct path environment for the given machine"""
+        if rqd.rqconstants.RQD_USE_PATH_ENV_VAR:
+            return os.getenv('PATH')
         if platform.system() == 'Linux':
             return '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
         if platform.system() == 'Windows':

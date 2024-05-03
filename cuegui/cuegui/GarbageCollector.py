@@ -23,7 +23,7 @@ can crash."""
 
 import gc
 
-from PySide2 import QtCore
+from qtpy import QtCore
 
 
 class GarbageCollector(QtCore.QObject):

@@ -1,4 +1,7 @@
 
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.api.tasks.testing.logging.TestLogEvent
+
 buildscript {
     repositories {
         mavenCentral()
@@ -55,8 +58,9 @@ dependencies {
     compile group: 'org.quartz-scheduler', name: 'quartz', version: '2.2.1', { exclude group: 'c3p0', module: 'c3p0' }
     compile group: 'org.postgresql', name: 'postgresql', version: '42.2.2'
     compile group: 'com.google.protobuf', name: 'protobuf-java', version: '3.21.2'
-    compile group: 'log4j', name: 'log4j', version: '1.2.17'
-    compile group: 'org.slf4j', name: 'slf4j-log4j12', version: '1.7.26'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.16.0'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.16.0'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.16.0'
 
     protobuf fileTree("../proto/")
 
@@ -165,4 +169,27 @@ sonarqube {
 tasks.withType(AbstractArchiveTask) {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
+}
+
+tasks.withType(Test) {
+    // Configure logging when running Gradle with --info or --debug.
+    testLogging {
+        info {
+            // Don't show STANDARD_OUT messages, these clutter up the output
+            // and make it hard to find actual failures.
+            events TestLogEvent.FAILED
+            exceptionFormat TestExceptionFormat.FULL
+            showStandardStreams false
+        }
+        debug {
+            // Show everything.
+            events TestLogEvent.STARTED,
+                   TestLogEvent.FAILED,
+                   TestLogEvent.PASSED,
+                   TestLogEvent.SKIPPED,
+                   TestLogEvent.STANDARD_ERROR,
+                   TestLogEvent.STANDARD_OUT
+            exceptionFormat TestExceptionFormat.FULL
+        }
+   }
 }

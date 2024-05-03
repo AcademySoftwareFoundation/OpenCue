@@ -28,6 +28,8 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.dao.CommentDao;
 
+import java.util.List;
+
 @Transactional
 public class CommentManagerService implements CommentManager {
 
@@ -53,6 +55,16 @@ public class CommentManagerService implements CommentManager {
     @Transactional(propagation = Propagation.REQUIRED)
     public void deleteComment(String id) {
         commentDao.deleteComment(id);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public boolean deleteCommentByHostUserAndSubject(HostInterface host, String user, String subject) {
+        return commentDao.deleteCommentByHostUserAndSubject(host, user, subject);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public List<CommentDetail> getCommentsByHostUserAndSubject(HostInterface host, String user, String subject) {
+        return commentDao.getCommentsByHostUserAndSubject(host, user, subject);
     }
 
     @Transactional(propagation = Propagation.REQUIRED)

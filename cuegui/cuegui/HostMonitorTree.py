@@ -23,9 +23,9 @@ from __future__ import print_function
 from builtins import map
 import time
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import opencue
 from opencue.compiled_proto.host_pb2 import HardwareState

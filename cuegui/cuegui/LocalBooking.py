@@ -27,8 +27,8 @@ import time
 import os
 from socket import gethostname
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import opencue
 

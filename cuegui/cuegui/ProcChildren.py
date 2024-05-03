@@ -27,8 +27,8 @@ from __future__ import division
 
 from builtins import str
 
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import opencue
 

@@ -19,7 +19,8 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.VirtualProc;
@@ -28,11 +29,9 @@ import com.imageworks.spcue.rqd.RqdClientException;
 
 public class DispatchRqdKillFrame extends KeyRunnable {
 
-    private static final Logger logger = Logger.getLogger(DispatchRqdKillFrame.class);
+    private static final Logger logger = LogManager.getLogger(DispatchRqdKillFrame.class);
 
-    private VirtualProc proc = null;
     private String message;
-
     private String hostname;
     private String frameId;
 
@@ -46,28 +45,14 @@ public class DispatchRqdKillFrame extends KeyRunnable {
         this.rqdClient = rqdClient;
     }
 
-    public DispatchRqdKillFrame(VirtualProc proc, String message, RqdClient rqdClient) {
-        super("disp_rqd_kill_frame_" + proc.getProcId() + "_" + rqdClient.toString());
-        this.proc = proc;
-        this.hostname = proc.hostName;
-        this.message = message;
-        this.rqdClient = rqdClient;
-    }
-
     @Override
     public void run() {
         long startTime = System.currentTimeMillis();
         try {
-            if (proc != null) {
-                rqdClient.killFrame(proc, message);
-            }
-            else {
-                rqdClient.killFrame(hostname, frameId, message);
-            }
+            rqdClient.killFrame(hostname, frameId, message);
         } catch (RqdClientException e) {
             logger.info("Failed to contact host " + hostname + ", " + e);
-        }
-        finally {
+        } finally {
             long elapsedTime =  System.currentTimeMillis() - startTime;
             logger.info("RQD communication with " + hostname +
                     " took " + elapsedTime + "ms");

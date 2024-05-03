@@ -23,7 +23,8 @@ import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -43,7 +44,7 @@ import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
  * Job launching functions.
  */
 public class JobLauncher implements ApplicationContextAware {
-    private static final Logger logger = Logger.getLogger(JobLauncher.class);
+    private static final Logger logger = LogManager.getLogger(JobLauncher.class);
     private ApplicationContext context;
 
     private JobManager jobManager;

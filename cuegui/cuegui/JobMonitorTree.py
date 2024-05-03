@@ -24,9 +24,9 @@ from future.utils import iteritems
 from builtins import map
 import time
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 import opencue
 
@@ -285,6 +285,14 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         dep = self.__menuActions.jobs(
                         ).getRecursiveDependentJobs([newJobObj],
                                                     active_only=active_only)
+
+                        # Remove dependent if it has the same name as the job
+                        # - This avoids missing jobs on MonitorJobs
+                        # - Remove the parent job is necessary to avoid remove
+                        # the parent job and all the dependents
+                        # in the step 2 below
+                        dep = [j for j in dep if j.data.name != newJobObj.data.name]
+
                         self.__dependentJobs[jobKey] = dep
                         # we'll also store a reversed dictionary for
                         # dependencies with the dependent as key and the main
@@ -486,7 +494,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 # an empty list for the id argument!
                 if not ids:
                     continue
-                tmp = opencue.api.getJobs(id=ids, all=True)
+                tmp = opencue.api.getJobs(id=ids, include_finished=True)
                 self.__dependentJobs[job] = tmp
 
             if self.__loadMine:

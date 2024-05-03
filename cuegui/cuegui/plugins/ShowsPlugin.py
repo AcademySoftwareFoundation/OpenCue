@@ -20,7 +20,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from PySide2 import QtWidgets
+from qtpy import QtWidgets
 
 import cuegui.AbstractDockWidget
 import cuegui.CreateShowDialog

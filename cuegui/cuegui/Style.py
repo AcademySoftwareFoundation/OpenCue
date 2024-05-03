@@ -22,7 +22,7 @@ from __future__ import absolute_import
 
 import importlib
 
-from PySide2 import QtGui
+from qtpy import QtGui
 
 import cuegui
 

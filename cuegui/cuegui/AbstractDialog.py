@@ -21,8 +21,8 @@ from __future__ import print_function
 from __future__ import absolute_import
 from builtins import str
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 
 class AbstractDialog(QtWidgets.QDialog):

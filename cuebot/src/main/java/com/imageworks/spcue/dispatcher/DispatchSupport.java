@@ -416,6 +416,14 @@ public interface DispatchSupport {
     void clearFrame(DispatchFrame frame);
 
     /**
+     * Sets the frame state exitStatus to EXIT_STATUS_MEMORY_FAILURE
+     *
+     * @param frame
+     * @return whether the frame has been updated
+     */
+    boolean updateFrameMemoryError(FrameInterface frame);
+
+    /**
      * Update Memory usage data and LLU time for the given frame.
      *
      * @param frame

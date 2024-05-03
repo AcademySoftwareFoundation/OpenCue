@@ -1,6 +1,0 @@
-#!/usr/bin/env python
-
-from outline.modules.shell import Shell
-
-Shell("hello",
-      command="echo 'Hello World!'")

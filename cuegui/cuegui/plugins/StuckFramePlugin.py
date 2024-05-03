@@ -31,9 +31,9 @@ import socket
 import signal
 import yaml
 
-from PySide2 import QtGui
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtCore
+from qtpy import QtWidgets
 
 import opencue.wrappers.frame
 

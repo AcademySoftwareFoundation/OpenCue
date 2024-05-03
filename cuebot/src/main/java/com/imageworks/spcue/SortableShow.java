@@ -24,11 +24,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 public class SortableShow implements Comparable<SortableShow> {
 
-    private static final Logger logger = Logger.getLogger(SortableShow.class);
+    private static final Logger logger = LogManager.getLogger(SortableShow.class);
 
     private String show;
     private float tier;

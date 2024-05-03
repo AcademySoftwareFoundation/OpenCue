@@ -22,10 +22,10 @@ from __future__ import division
 
 import signal
 
-from PySide2 import QtGui
+from qtpy import QtGui
 
 import cuegui
-import cuegui.Config
+import cuegui.Layout
 import cuegui.Constants
 import cuegui.Logger
 import cuegui.MainWindow
@@ -69,7 +69,7 @@ def startup(app_name, app_version, argv):
 
     app.threadpool = cuegui.ThreadPool.ThreadPool(3, parent=app)
 
-    settings = cuegui.Config.startup(app_name)
+    settings = cuegui.Layout.startup(app_name)
     app.settings = settings
 
     cuegui.Style.init()
@@ -91,7 +91,6 @@ def startup(app_name, app_version, argv):
     gc = cuegui.GarbageCollector.GarbageCollector(parent=app, debug=False)  # pylint: disable=unused-variable
     app.aboutToQuit.connect(closingTime)  # pylint: disable=no-member
     app.exec_()
-
 
 def closingTime():
     """Window close callback."""

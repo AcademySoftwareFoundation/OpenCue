@@ -44,7 +44,6 @@ public class DispatchQuery {
                 "AND folder.pk_dept         = point.pk_dept " +
                 "AND folder.pk_show         = point.pk_show " +
                 "AND job.pk_job             = layer.pk_job " +
-                "AND job_resource.pk_job    = job.pk_job " +
                 "AND (CASE WHEN layer_stat.int_waiting_count > 0 THEN layer_stat.pk_layer ELSE NULL END) = layer.pk_layer " +
                 "AND " +
                     "(" +
@@ -139,7 +138,6 @@ public class DispatchQuery {
                 "AND folder.pk_dept         = point.pk_dept " +
                 "AND folder.pk_show         = point.pk_show " +
                 "AND job.pk_job             = layer.pk_job " +
-                "AND job_resource.pk_job    = job.pk_job " +
                 "AND (CASE WHEN layer_stat.int_waiting_count > 0 THEN layer_stat.pk_layer ELSE NULL END) = layer.pk_layer " +
                 "AND " +
                     "(" +
@@ -230,7 +228,7 @@ public class DispatchQuery {
             "AND " +
                 "job.pk_facility =  ? " +
             "AND " +
-                "(job.str_os = ? OR job.str_os IS NULL)" +
+                "(job.str_os = ? OR job.str_os IS NULL) " +
             "AND " +
                 "job.pk_job IN ( " +
                     "SELECT " +
@@ -256,7 +254,7 @@ public class DispatchQuery {
                     "AND " +
                         "j.pk_facility = ? " +
                     "AND " +
-                        "(j.str_os = ? OR j.str_os IS NULL)" +
+                        "(j.str_os = ? OR j.str_os IS NULL) " +
                     "AND " +
                         "(CASE WHEN lst.int_waiting_count > 0 THEN lst.pk_layer ELSE NULL END) = l.pk_layer " +
                     "AND " +
@@ -333,7 +331,7 @@ public class DispatchQuery {
         "AND " +
             "job.pk_facility = ? " +
         "AND " +
-            "(job.str_os = ? OR job.str_os IS NULL)" +
+            "(job.str_os = ? OR job.str_os IS NULL) " +
         "AND " +
             "job.pk_job IN ( " +
                 "SELECT /* index (h i_str_host_tag) */ " +
@@ -354,7 +352,7 @@ public class DispatchQuery {
                 "AND " +
                     "j.pk_facility = ? " +
                 "AND " +
-                    "(j.str_os = ? OR j.str_os IS NULL)" +
+                    "(j.str_os = ? OR j.str_os IS NULL) " +
                 "AND " +
                     "(CASE WHEN lst.int_waiting_count > 0 THEN lst.pk_layer ELSE NULL END) = l.pk_layer " +
                 "AND " +
@@ -426,7 +424,7 @@ public class DispatchQuery {
             "AND " +
                 "(folder_resource.int_max_gpus = -1 OR folder_resource.int_gpus < folder_resource.int_max_gpus) " +
             "AND " +
-                "job_resource.int_priority > ?" +
+                "job_resource.int_priority > ? " +
             "AND " +
                 "job_resource.int_cores < job_resource.int_max_cores " +
             "AND " +
@@ -438,7 +436,7 @@ public class DispatchQuery {
             "AND " +
                 "job.pk_facility = ? " +
             "AND " +
-                "(job.str_os = ? OR job.str_os IS NULL)" +
+                "(job.str_os = ? OR job.str_os IS NULL) " +
             "AND " +
                 "job.pk_job IN ( " +
                     "SELECT /* index (h i_str_host_tag) */ " +
@@ -457,7 +455,7 @@ public class DispatchQuery {
                     "AND " +
                         "j.pk_facility = ? " +
                     "AND " +
-                        "(j.str_os = ? OR j.str_os IS NULL)" +
+                        "(j.str_os = ? OR j.str_os IS NULL) " +
                     "AND " +
                         "(CASE WHEN lst.int_waiting_count > 0 THEN lst.pk_layer ELSE NULL END) = l.pk_layer " +
                     "AND " +

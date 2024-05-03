@@ -437,7 +437,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "str_visible_name = NULL, " +
             "ts_stopped = current_timestamp "+
         "WHERE " +
-            "str_state = 'PENDING'" +
+            "str_state = 'PENDING' " +
         "AND " +
             "pk_job = ?";
 
@@ -574,7 +574,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 jobTotals[0] + jobTotals[1], layers.size(), job.getJobId());
 
         getJdbcTemplate().update(
-                "UPDATE show SET int_frame_insert_count=int_frame_insert_count+?, int_job_insert_count=int_job_insert_count+1 WHERE pk_show=?",
+                "UPDATE show_stats SET int_frame_insert_count=int_frame_insert_count+?, int_job_insert_count=int_job_insert_count+1 WHERE pk_show=?",
                 jobTotals[0] + jobTotals[1], job.getShowId());
 
         updateState(job, jobState);
@@ -945,7 +945,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "AND " +
             "job.b_auto_book = true " +
         "AND " +
-            "job_stat.int_waiting_count != 0" +
+            "job_stat.int_waiting_count != 0 " +
         "AND " +
             "job_resource.int_cores < job_resource.int_max_cores " +
         "AND " +

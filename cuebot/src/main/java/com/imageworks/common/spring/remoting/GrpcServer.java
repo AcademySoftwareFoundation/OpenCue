@@ -6,7 +6,8 @@ import java.util.Properties;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -40,7 +41,7 @@ import com.imageworks.spcue.servant.RqdReportStatic;
 
 public class GrpcServer implements ApplicationContextAware {
 
-    private static final Logger logger = Logger.getLogger(GrpcServer.class);
+    private static final Logger logger = LogManager.getLogger(GrpcServer.class);
 
     private static final String DEFAULT_NAME = "CueGrpcServer";
     private static final String DEFAULT_PORT = "8443";
