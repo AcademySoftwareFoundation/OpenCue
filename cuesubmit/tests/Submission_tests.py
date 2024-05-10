@@ -56,7 +56,8 @@ BLENDER_MULTI_LAYER_DATA = {
             'blenderFile': '/path/to/scene.blend',
             'outputFormat': 'PNG'},
     'layerRange': '3-9',
-    'cores': '2'
+    'cores': '2',
+    'services': ['blender']
 }
 
 BLENDER_SINGLE_LAYER_DATA = {
@@ -65,7 +66,8 @@ BLENDER_SINGLE_LAYER_DATA = {
     'cmd': {'outputPath': '/path/to/output',
             'blenderFile': '/path/to/scene.blend',
             'outputFormat': 'PNG'},
-    'cores': '2'
+    'cores': '2',
+    'services': ['blender']
 }
 
 SHELL_LAYER_DATA = {
