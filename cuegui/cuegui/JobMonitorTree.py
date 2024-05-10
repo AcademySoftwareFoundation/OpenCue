@@ -494,7 +494,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 # an empty list for the id argument!
                 if not ids:
                     continue
-                tmp = opencue.api.getJobs(id=ids, all=True)
+                tmp = opencue.api.getJobs(id=ids, include_finished=True)
                 self.__dependentJobs[job] = tmp
 
             if self.__loadMine:

@@ -115,6 +115,12 @@ CONFIG_PATH = __config.get('paths.config')
 if not os.path.isabs(CONFIG_PATH):
     CONFIG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), CONFIG_PATH))
 
+
+EMAIL_SUBJECT_PREFIX = "cuemail: please check "
+EMAIL_BODY_PREFIX = "Your PSTs request that you check:\n"
+EMAIL_BODY_SUFFIX = "\n\n"
+EMAIL_DOMAIN = ""
+
 DEFAULT_INI_PATH = os.getenv('CUEGUI_DEFAULT_INI_PATH', __config.get('paths.default_ini_path'))
 if not os.path.isabs(DEFAULT_INI_PATH):
     DEFAULT_INI_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), DEFAULT_INI_PATH))
