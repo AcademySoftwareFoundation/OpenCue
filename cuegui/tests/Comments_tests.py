@@ -54,7 +54,7 @@ class CommentsTests(unittest.TestCase):
         self.job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='fooJob'))
         self.parentWidget = QtWidgets.QWidget()
         self.commentListDialog = cuegui.Comments.CommentListDialog(
-            self.job, parent=self.parentWidget)
+            [self.job], parent=self.parentWidget)
 
     def test_shouldDisplayComment(self):
         self.assertEqual(
