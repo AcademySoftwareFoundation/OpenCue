@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import str
+import re
 
 import outline
 import outline.cuerun
@@ -29,6 +30,44 @@ import outline.modules.shell
 from cuesubmit import Constants
 from cuesubmit import JobTypes
 
+
+def isSoloFlag(flag):
+    """ Check if the flag is solo, meaning it has no associated value
+     solo flags are marked with a ~ (ex: --background~)
+     """
+    return re.match('^-+\w+~$', flag)
+
+def isFlag(flag):
+    """ Check if the provided string is a flag (starts with a -)"""
+    return re.match('^-+\w+$', flag)
+
+def formatValue(flag, value, isPath, isMandatory):
+    """ Adds quotes around file/folder path variables
+     and provide an error value to display for missing mandatory values.
+    """
+    if isPath and value:
+        value = f'"{value}"'
+    if isMandatory and value in ('', None):
+        value = f'!!missing value for {flag}!!'
+    return value
+
+def buildDynamicCmd(layerData):
+    """From a layer, builds a customized render command."""
+    renderCommand = Constants.RENDER_CMDS[layerData.layerType].get('command')
+    for (flag, isPath, isMandatory), value in layerData.cmd.items():
+        if isSoloFlag(flag):
+            renderCommand += f' {flag[:-1]}'
+            continue
+        value = formatValue(flag, value, isPath, isMandatory)
+        if isFlag(flag) and value not in ('', None):
+            # flag and value
+            renderCommand += f' {flag} {value}'
+            continue
+        # solo argument without flag
+        if value not in ('', None):
+            renderCommand += f' {value}'
+
+    return renderCommand
 
 def buildMayaCmd(layerData):
     """From a layer, builds a Maya Render command."""
@@ -102,29 +141,24 @@ def buildLayer(layerData, command, lastLayer=None):
             layer.depend_on(lastLayer)
     return layer
 
+def buildLayerCommand(layerData, silent=False):
+    """Builds the command to be sent per jobType"""
+    if layerData.layerType in JobTypes.JobTypes.FROM_CONFIG_FILE:
+        command = buildDynamicCmd(layerData)
+    elif layerData.layerType == JobTypes.JobTypes.MAYA:
+        command = buildMayaCmd(layerData, silent)
+    elif layerData.layerType == JobTypes.JobTypes.SHELL:
+        command = layerData.cmd.get('commandTextBox') if silent else layerData.cmd['commandTextBox']
+    elif layerData.layerType == JobTypes.JobTypes.NUKE:
+        command = buildNukeCmd(layerData, silent)
+    elif layerData.layerType == JobTypes.JobTypes.BLENDER:
+        command = buildBlenderCmd(layerData, silent)
+    elif silent:
+        command = 'Error: unrecognized layer type {}'.format(layerData.layerType)
+    else:
+        raise ValueError('unrecognized layer type {}'.format(layerData.layerType))
 
-def buildMayaLayer(layerData, lastLayer):
-    """Builds a PyOutline layer running a Maya command."""
-    mayaCmd = buildMayaCmd(layerData)
-    return buildLayer(layerData, mayaCmd, lastLayer)
-
-
-def buildNukeLayer(layerData, lastLayer):
-    """Builds a PyOutline layer running a Nuke command."""
-    nukeCmd = buildNukeCmd(layerData)
-    return buildLayer(layerData, nukeCmd, lastLayer)
-
-
-def buildBlenderLayer(layerData, lastLayer):
-    """Builds a PyOutline layer running a Blender command."""
-    blenderCmd = buildBlenderCmd(layerData)
-    return buildLayer(layerData, blenderCmd, lastLayer)
-
-
-def buildShellLayer(layerData, lastLayer):
-    """Builds a PyOutline layer running a shell command."""
-    return buildLayer(layerData, layerData.cmd['commandTextBox'], lastLayer)
-
+    return command
 
 def submitJob(jobData):
     """Submits the job using the PyOutline API."""
@@ -132,16 +166,8 @@ def submitJob(jobData):
         jobData['name'], shot=jobData['shot'], show=jobData['show'], user=jobData['username'])
     lastLayer = None
     for layerData in jobData['layers']:
-        if layerData.layerType == JobTypes.JobTypes.MAYA:
-            layer = buildMayaLayer(layerData, lastLayer)
-        elif layerData.layerType == JobTypes.JobTypes.SHELL:
-            layer = buildShellLayer(layerData, lastLayer)
-        elif layerData.layerType == JobTypes.JobTypes.NUKE:
-            layer = buildNukeLayer(layerData, lastLayer)
-        elif layerData.layerType == JobTypes.JobTypes.BLENDER:
-            layer = buildBlenderLayer(layerData, lastLayer)
-        else:
-            raise ValueError('unrecognized layer type %s' % layerData.layerType)
+        command = buildLayerCommand(layerData)
+        layer = buildLayer(layerData, command, lastLayer)
         ol.add_layer(layer)
         lastLayer = layer
 
