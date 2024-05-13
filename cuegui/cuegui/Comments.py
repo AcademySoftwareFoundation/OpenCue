@@ -260,9 +260,10 @@ class CommentListDialog(QtWidgets.QDialog):
     def __macroLoad(self):
         """Loads the defined comment macros from settings"""
         comments_macro = self.app.settings.value("Comments", pickle.dumps({}))
-        try:          
-          self.__macroList = pickle.loads(
-            comments_macro if isinstance(comments_macro, bytes) else comments_macro.encode('UTF-8'))
+        try:
+            self.__macroList = pickle.loads(
+                comments_macro if isinstance(comments_macro, bytes) \
+                    else comments_macro.encode('UTF-8'))
         except TypeError:
             self.__macroList = pickle.loads(str(comments_macro))
         self.__macroRefresh()
@@ -349,6 +350,7 @@ class CommentListDialog(QtWidgets.QDialog):
             source.addComment(str(subject), str(message) or " ")
 
     def getComments(self):
+        """Get Comments"""
         comments = {}
         for source in self.__source:
             comments[source.data.name] = source.getComments()

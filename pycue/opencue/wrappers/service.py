@@ -261,22 +261,24 @@ class Service(object):
             raise ValueError("Minimum memory increase must be > 0")
 
 class ServiceOverride(object):
+    """Represents a display override of a service assigned to a show"""
     def __init__(self, serviceOverride=None):
+        defaultServiceOverride = service_pb2.ServiceOverride()
+        # pylint: disable=no-member
+        self.id = defaultServiceOverride.id
+        self.data = defaultServiceOverride.data
         if serviceOverride:
             self.id = serviceOverride.id
             self.data = serviceOverride.data or service_pb2.Service().data
-        else:
-            defaultServiceOverride = service_pb2.ServiceOverride()
-            self.id = defaultServiceOverride.id
-            self.data = defaultServiceOverride.data
-        
         self.stub = Cuebot.getStub("serviceOverride")
+        # pylint: enable=no-member
 
     def delete(self):
+        """Remove service override"""
         self.stub.Delete(
             service_pb2.ServiceOverrideDeleteRequest(service=self.data),
             timeout=Cuebot.Timeout)
-    
+
     def update(self):
         """Commit a ServiceOverride change to the database"""
         self.stub.Update(

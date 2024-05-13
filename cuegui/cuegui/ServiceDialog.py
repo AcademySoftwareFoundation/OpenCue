@@ -27,11 +27,11 @@ from qtpy import QtCore
 from qtpy import QtWidgets
 
 import opencue
+from opencue.wrappers.service import ServiceOverride
 
 import cuegui.Constants
 import cuegui.TagsWidget
 import cuegui.Utils
-from opencue.wrappers.service import ServiceOverride
 
 
 class ServiceForm(QtWidgets.QWidget):

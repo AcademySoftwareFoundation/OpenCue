@@ -322,11 +322,13 @@ class CueLabelSlider(QtWidgets.QWidget):
     def setupConnections(self):
         """Sets up widget signals."""
         self.valueChanged.connect(self.updateLabelValue)
+        # pylint: disable=no-member
         self.slider.valueChanged.connect(self.valueChanged.emit)
         self.slider.sliderMoved.connect(self.sliderMoved.emit)
         self.slider.sliderReleased.connect(self.sliderReleased.emit)
         self.slider.actionTriggered.connect(self.actionTriggered.emit)
         self.slider.rangeChanged.connect(self.rangeChanged.emit)
+        # pylint: enable=no-member
 
     def updateLabelValue(self, value):
         """ Updates the label with the slider's value at the end
