@@ -230,7 +230,13 @@ class CommentListDialog(QtWidgets.QDialog):
         last_items = []
         for i in range(self.__treeSubjects.topLevelItemCount()):
             comment_source = self.__treeSubjects.topLevelItem(i)
-            last_items.append(comment_source.child(comment_source.childCount()-1))
+            comment = comment_source.child(comment_source.childCount()-1)
+            if comment:
+                last_items.append(comment)
+        if not last_items:
+            self.__createNewComment()
+            return
+
         identical = all(item.getInstance().message() == last_items[0].getInstance().message() and
                         item.getInstance().subject() == last_items[0].getInstance().subject()
                         for item in last_items)
@@ -341,6 +347,12 @@ class CommentListDialog(QtWidgets.QDialog):
     def __addComment(self, subject, message):
         for source in self.__source:
             source.addComment(str(subject), str(message) or " ")
+
+    def getComments(self):
+        comments = {}
+        for source in self.__source:
+            comments[source.data.name] = source.getComments()
+        return comments
 
 
 class CommentMacroDialog(QtWidgets.QDialog):
