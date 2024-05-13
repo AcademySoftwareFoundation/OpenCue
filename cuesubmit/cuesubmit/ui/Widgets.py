@@ -293,7 +293,7 @@ class CueLabelSlider(QtWidgets.QWidget):
                  max_value=999,
                  float_precision=None):
         super(CueLabelSlider, self).__init__(parent=parent)
-        self._labelValue = f'{label} ({{value}})'
+        self._labelValue = "%s ({value})" % label
         self.float_mult = 1
         if float_precision:
             self.float_mult = 10**float_precision
