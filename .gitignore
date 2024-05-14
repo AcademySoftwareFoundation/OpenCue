@@ -11,3 +11,5 @@ coverage.xml
 htmlcov/
 /.env
 .envrc
+.vscode
+.venv/

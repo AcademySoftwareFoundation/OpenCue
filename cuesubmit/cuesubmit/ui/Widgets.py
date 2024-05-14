@@ -182,6 +182,7 @@ class CueSelectPulldown(QtWidgets.QWidget):
         self.label = QtWidgets.QLabel(labelText)
         self.toolButton = QtWidgets.QToolButton(parent=self)
         self.optionsMenu = QtWidgets.QMenu(self)
+        self.optionsMenu.setStyleSheet(Style.PULLDOWN_LIST)
         self.setOptions(options)
         if self.multiselect:
             self.toolButton.setText(self.emptyText)
@@ -275,6 +276,86 @@ class CueSpacerItem(QtWidgets.QSpacerItem):
         """
         super(CueSpacerItem, self).__init__(width, height, spacerType[0], spacerType[1])
 
+class CueLabelSlider(QtWidgets.QWidget):
+    """Container widget that holds a label and an int or float slider.
+    Behaves as a float slider when providing a float_precision
+    """
+
+    valueChanged = QtCore.Signal(int)
+    sliderMoved = QtCore.Signal(int)
+    sliderReleased = QtCore.Signal()
+    actionTriggered = QtCore.Signal(int)
+    rangeChanged = QtCore.Signal(int, int)
+
+    def __init__(self, label=None, parent=None,
+                 default_value=0,
+                 min_value=0,
+                 max_value=999,
+                 float_precision=None):
+        super(CueLabelSlider, self).__init__(parent=parent)
+        self._labelValue = "%s ({value})" % label
+        self.float_mult = 1
+        if float_precision:
+            self.float_mult = 10**float_precision
+        self.mainLayout = QtWidgets.QHBoxLayout()
+        self.label = QtWidgets.QLabel(self._labelValue.format(value=default_value), parent=self)
+        self.label.setMinimumWidth(120)
+        self.label.setAlignment(QtCore.Qt.AlignVCenter)
+        self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, parent=self)
+        self.slider.setMinimumWidth(120)
+        self.slider.setMinimum(min_value*self.float_mult)
+        self.slider.setMaximum(max_value*self.float_mult)
+        self.setValue(default_value)
+        self.slider.setSingleStep(1)
+        self.signals = [self.valueChanged]
+        self.getter = self.getValue
+        self.setter = self.setValue
+        self.setupUi()
+        self.setupConnections()
+
+    def setupUi(self):
+        """Creates the widget layout."""
+        self.setLayout(self.mainLayout)
+        self.mainLayout.addWidget(self.label)
+        self.mainLayout.addWidget(self.slider)
+
+    def setupConnections(self):
+        """Sets up widget signals."""
+        self.valueChanged.connect(self.updateLabelValue)
+        # pylint: disable=no-member
+        self.slider.valueChanged.connect(self.valueChanged.emit)
+        self.slider.sliderMoved.connect(self.sliderMoved.emit)
+        self.slider.sliderReleased.connect(self.sliderReleased.emit)
+        self.slider.actionTriggered.connect(self.actionTriggered.emit)
+        self.slider.rangeChanged.connect(self.rangeChanged.emit)
+        # pylint: enable=no-member
+
+    def updateLabelValue(self, value):
+        """ Updates the label with the slider's value at the end
+
+        :param value: current slider integer value
+        :type value: int
+        """
+        if self.float_mult!=1:
+            value = value*1./self.float_mult
+        self.label.setText(self._labelValue.format(value=value))
+
+    def getValue(self):
+        """ Query the slider's value
+        :returns: slider's value
+        :rtype: int or float
+        """
+        if self.float_mult!=1:
+            return self.slider.value()*1./self.float_mult
+        return self.slider.value()
+
+    def setValue(self, value):
+        """ Set the slider's value (consider the float multiplier)
+
+        :param value: current slider integer value
+        :type value: int
+        """
+        self.slider.setValue(value*self.float_mult)
 
 class CueLabelToggle(QtWidgets.QWidget):
     """Container widget that holds a label and a toggle."""
