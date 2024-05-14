@@ -293,7 +293,7 @@ class CueLabelSlider(QtWidgets.QWidget):
                  max_value=999,
                  float_precision=None):
         super(CueLabelSlider, self).__init__(parent=parent)
-        self._labelValue = f'{label} ({{value}})'
+        self._labelValue = "%s ({value})" % label
         self.float_mult = 1
         if float_precision:
             self.float_mult = 10**float_precision
@@ -322,11 +322,13 @@ class CueLabelSlider(QtWidgets.QWidget):
     def setupConnections(self):
         """Sets up widget signals."""
         self.valueChanged.connect(self.updateLabelValue)
+        # pylint: disable=no-member
         self.slider.valueChanged.connect(self.valueChanged.emit)
         self.slider.sliderMoved.connect(self.sliderMoved.emit)
         self.slider.sliderReleased.connect(self.sliderReleased.emit)
         self.slider.actionTriggered.connect(self.actionTriggered.emit)
         self.slider.rangeChanged.connect(self.rangeChanged.emit)
+        # pylint: enable=no-member
 
     def updateLabelValue(self, value):
         """ Updates the label with the slider's value at the end
