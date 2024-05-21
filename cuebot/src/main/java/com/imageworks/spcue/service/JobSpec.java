@@ -773,7 +773,6 @@ public class JobSpec {
                 if (outputs.contains(output_path)) {
                     continue;
                 }
-                logger.warn("TEST: " + output_path);
                 outputs.add(output_path);
             }
         }
