@@ -415,7 +415,7 @@ public class DispatchSupportService implements DispatchSupport {
                                 .replaceAll("#ZFRAME#", zFrameNumber)
                                 .replaceAll("#IFRAME#",  String.valueOf(frameNumber))
                                 .replaceAll("#FRAME_START#",  String.valueOf(frameNumber))
-                                .replaceAll("#FRAME_END#",  String.valueOf(endChunkIndex)
+                                .replaceAll("#FRAME_END#",  String.valueOf(endChunkIndex))
                                 .replaceAll("#FRAME_CHUNK#",  String.valueOf(frame.chunkSize))
                                 .replaceAll("#LAYER#", frame.layerName)
                                 .replaceAll("#JOB#",  frame.jobName)
