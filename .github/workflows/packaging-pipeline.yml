@@ -57,6 +57,10 @@ jobs:
             NAME: CueAdmin
             ARTIFACTS: cueadmin-${BUILD_ID}-all.tar.gz
 
+          - component: OpenCue_Blender
+            NAME: OpenCue-Blender
+            ARTIFACTS: OpenCue-Blender-${BUILD_ID}-all.zip
+
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-latest
     steps:
@@ -93,6 +97,15 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           file: ${{ matrix.component }}/Dockerfile
+          tags: opencuebuild/${{ matrix.component }}:${{ env.BUILD_ID }}
+          context: .
+          push: true
+
+      - name: Build Blender addon Docker image
+        if: matrix.component == 'OpenCue_Blender'
+        uses: docker/build-push-action@v3
+        with:
+          file: cuesubmit/plugins/blender/${{ matrix.component }}/Dockerfile
           tags: opencuebuild/${{ matrix.component }}:${{ env.BUILD_ID }}
           context: .
           push: true
