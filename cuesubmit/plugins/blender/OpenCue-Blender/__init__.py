@@ -65,7 +65,8 @@ class SubmitJob(bpy.types.Operator):
 
         from . import Submission
         Submission.submit(jobData)
-
+        self.report({"INFO"}, "Job %s submitted" % layerData.get('name'))
+        return {'FINISHED'}
 
 class OpenCuePanel(bpy.types.Panel):
     """A custom panel in the 3D View Properties region"""
