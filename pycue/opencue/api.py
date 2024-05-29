@@ -325,6 +325,7 @@ def getJobs(**options):
         - show: show names - list
         - shot: shot names - list
         - user: user names - list
+        - include_finished - bool
 
     :rtype:  list
     :return: a list of Job objects

@@ -613,15 +613,6 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
-    public boolean isKillMode(HostInterface h) {
-        return getJdbcTemplate().queryForObject(
-                "SELECT COUNT(1) FROM host_stat WHERE pk_host = ? " +
-                "AND int_swap_total - int_swap_free > ? AND int_mem_free < ?",
-                Integer.class, h.getHostId(), Dispatcher.KILL_MODE_SWAP_THRESHOLD,
-                Dispatcher.KILL_MODE_MEM_THRESHOLD) > 0;
-    }
-
-    @Override
     public int getStrandedCoreUnits(HostInterface h) {
         try {
             int idle_cores =  getJdbcTemplate().queryForObject(

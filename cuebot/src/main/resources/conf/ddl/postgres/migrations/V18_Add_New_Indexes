@@ -1,0 +1,29 @@
+
+--Performance issue, Created new index on column int_gpus_min
+
+
+CREATE INDEX IF NOT EXISTS i_layer_int_gpu_mem_min
+    ON public.layer USING btree
+    (int_gpus_min ASC NULLS LAST)
+    TABLESPACE pg_default;
+    
+
+CREATE INDEX IF NOT EXISTS i_layer_int_gpu_mem_min_1
+    ON public.layer USING btree
+    (int_gpu_min ASC NULLS LAST)
+    TABLESPACE pg_default;
+
+
+create index concurrently i_layer_int_cores_max on layer(int_cores_max);
+
+create index concurrently i_job_resource_int_priority on job_resource(int_priority);
+
+create index concurrently i_job_int_min_cores on job(int_min_cores);
+
+create index concurrently  i_layer_limit_pk_layer on layer_limit(pk_layer);
+
+create index concurrently i_folder_resource_int_cores on folder_resource(int_cores);
+
+create index concurrently  i_job_ts_updated on job(ts_updated);
+
+create index concurrently i_layer_str_tags on layer(str_tags);
