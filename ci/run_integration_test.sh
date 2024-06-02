@@ -227,6 +227,8 @@ main() {
     docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
     log INFO "Building RQD image..."
     docker build -t opencue/rqd -f rqd/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd.log"
+    log INFO "Building RQD Blender image..."
+    docker build -t opencue/blender -f samples/rqd/blender/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd-blender.log"
 
     log INFO "Starting Docker compose..."
     docker compose up &>"${DOCKER_COMPOSE_LOG}" &
@@ -253,6 +255,11 @@ main() {
     test_cueadmin
 
     run_job
+
+    docker compose down rqd
+    log INFO "Starting RQD Blender..."
+    RQD_IMAGE=opencue/blender docker-compose up rqd
+    wait_for_service_state "rqd" "running" $docker_timeout
 
     cleanup
 
