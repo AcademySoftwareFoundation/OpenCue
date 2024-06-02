@@ -43,7 +43,7 @@ services:
     command: --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot --datasource.cue-data-source.username=cuebot --datasource.cue-data-source.password=cuebot_password
 
   rqd:
-    image: opencue/rqd
+    image: ${RQD_IMAGE:-opencue/rqd}
     environment:
       - CUEBOT_HOSTNAME=cuebot
     depends_on:
