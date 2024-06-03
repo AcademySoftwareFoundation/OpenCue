@@ -190,6 +190,14 @@ run_job() {
     log INFO "Job succeeded (PASS)"
 }
 
+run_blender_job() {
+    cp samples/pyoutline/sample.blend $RQD_ROOT
+    samples/pyoutline/blender_job.py --blendfile "${RQD_ROOT}/sample.blend" --output "${RQD_ROOT}"
+    job_name="testing-shot01-${USER}_blender_job"
+    samples/pycue/wait_for_job.py "${job_name}" --timeout 300
+    log INFO "Blender job succeeded (PASS)"
+}
+
 cleanup() {
     docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
     rm -rf "${RQD_ROOT}" || true
@@ -260,6 +268,9 @@ main() {
     log INFO "Starting RQD Blender..."
     RQD_IMAGE=opencue/blender docker-compose up rqd
     wait_for_service_state "rqd" "running" $docker_timeout
+
+    log INFO "Testing Blender job..."
+    run_blender_job
 
     cleanup
 
