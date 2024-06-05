@@ -367,6 +367,12 @@ public class DispatchSupportService implements DispatchSupport {
         FrameSet fs = new FrameSet(frame.range);
         int startFrameIndex = fs.index(frameNumber);
         String frameSpec = fs.getChunk(startFrameIndex, frame.chunkSize);
+        int lastFrameIndex = fs.size() - 1;
+        int endChunkIndex = startFrameIndex + frame.chunkSize - 1;
+        if (endChunkIndex > lastFrameIndex) {
+            endChunkIndex = lastFrameIndex;
+        }
+
 
         RunFrame.Builder builder = RunFrame.newBuilder()
                 .setShot(frame.shot)
@@ -409,7 +415,7 @@ public class DispatchSupportService implements DispatchSupport {
                                 .replaceAll("#ZFRAME#", zFrameNumber)
                                 .replaceAll("#IFRAME#",  String.valueOf(frameNumber))
                                 .replaceAll("#FRAME_START#",  String.valueOf(frameNumber))
-                                .replaceAll("#FRAME_END#",  String.valueOf(frameNumber+frame.chunkSize-1))
+                                .replaceAll("#FRAME_END#",  String.valueOf(endChunkIndex))
                                 .replaceAll("#FRAME_CHUNK#",  String.valueOf(frame.chunkSize))
                                 .replaceAll("#LAYER#", frame.layerName)
                                 .replaceAll("#JOB#",  frame.jobName)
