@@ -283,6 +283,7 @@ public class JobManagerService implements JobManager {
                 layerDao.insertLayerEnvironment(layer, buildableLayer.env);
                 layer.limits.stream()
                         .forEach(ln -> addLayerLimit(layer, limitDao.findLimit(ln).getLimitId()));
+                layer.outputs.stream().forEach(ln -> registerLayerOutput(layer, ln));
                 frameDao.insertFrames(layer, frames);
             }
 

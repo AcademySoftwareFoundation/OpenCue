@@ -752,6 +752,33 @@ public class JobSpec {
         layer.timeout_llu = primaryService.timeout_llu;
     }
 
+    private void determineOutputs(Element layerTag,
+            BuildableJob job, LayerDetail layer) {
+
+        Element t_outputs = layerTag.getChild("outputs");
+        List<String> outputs = new ArrayList<String>();
+        /*
+         * Build a list of outputs from the XML.  Filter
+         * out duplicates and empty outputs.
+         */
+        if (t_outputs != null) {
+            for (Object tmp : t_outputs.getChildren()) {
+                Element t_output = (Element) tmp;
+                String output_path = t_output.getTextTrim();
+
+                if (output_path.length() == 0) {
+                    continue;
+                }
+
+                if (outputs.contains(output_path)) {
+                    continue;
+                }
+                outputs.add(output_path);
+            }
+        }
+        layer.outputs.addAll(outputs);
+    }
+
     /**
      * Converts the job space tagging format into a set of strings. Also
      * verifies each tag.
