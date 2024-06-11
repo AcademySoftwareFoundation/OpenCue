@@ -808,9 +808,9 @@ class NestedJob(Job):
         """Returns all job children."""
         return self.__children
 
-    def kill(self):
+    def kill(self, username=None, pid=None, host_kill=None, reason=None):
         """Kills the job."""
-        self.asJob().kill()
+        self.asJob().kill(username, pid, host_kill, reason)
 
     def pause(self):
         """Pauses the job."""
@@ -820,13 +820,13 @@ class NestedJob(Job):
         """Resumes the job."""
         self.asJob().resume()
 
-    def killFrames(self, **request):
+    def killFrames(self, username=None, pid=None, host_kill=None, reason=None, **request):
         """Kills all frames that match the FrameSearch.
 
         :type  request: Dict
         :param request: FrameSearch parameters
         """
-        self.asJob().killFrames(**request)
+        self.asJob().killFrames(username, pid, host_kill, reason, **request)
 
     def eatFrames(self, **request):
         """Eats all frames that match the FrameSearch.

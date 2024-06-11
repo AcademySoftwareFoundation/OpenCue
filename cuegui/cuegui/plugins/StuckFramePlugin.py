@@ -28,15 +28,8 @@ import os
 import re
 import signal
 import socket
-import subprocess
-import sys
 import time
-import weakref
 import yaml
-
-from datetime import datetime, date, time
-from subprocess import Popen
-from subprocess import PIPE
 
 from qtpy import QtGui
 from qtpy import QtCore

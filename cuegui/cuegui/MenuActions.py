@@ -387,8 +387,9 @@ class JobActions(AbstractActions):
             for depJob in dependents:
                 try:
                     depJob.kill(reason=DEFAULT_JOB_KILL_REASON)
-                except Exception as e:
-                    logger.warning("Failed to kill depending job: %s - %s" % (depJob.name(), e))
+                except opencue.exception.CueException as e:
+                    errMsg = "Failed to kill depending job: %s - %s" % (depJob.name(), e)
+                    logger.warning(errMsg)
         else:
             # Drop only direct dependents.
             for job in dependents:
