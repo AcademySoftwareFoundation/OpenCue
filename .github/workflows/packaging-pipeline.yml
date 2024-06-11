@@ -4,6 +4,8 @@ name: OpenCue Packaging Pipeline
 on:
   push:
     branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   integration_test:
