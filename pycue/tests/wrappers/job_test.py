@@ -19,6 +19,7 @@
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
+import getpass
 import os
 import unittest
 
@@ -92,10 +93,23 @@ class JobTests(unittest.TestCase):
         criteria = opencue.search.FrameSearch.criteriaFromOptions(range=frameRange)
         job = opencue.wrappers.job.Job(
             job_pb2.Job(name=TEST_JOB_NAME))
-        job.killFrames(range=frameRange)
+        username = getpass.getuser()
+        pid = os.getpid()
+        host_kill = os.uname()[1]
+        reason = "Job Kill Request"
+        job.killFrames(range=frameRange,
+                       username=username,
+                       pid=str(pid),
+                       host_kill=host_kill,
+                       reason=reason,)
 
         stubMock.KillFrames.assert_called_with(
-            job_pb2.JobKillFramesRequest(job=job.data, req=criteria), timeout=mock.ANY)
+            job_pb2.JobKillFramesRequest(job=job.data,
+                                         username=username,
+                                         pid=str(pid),
+                                         host_kill=host_kill,
+                                         reason=reason,
+                                         req=criteria), timeout=mock.ANY)
 
     def testEatFrames(self, getStubMock):
         stubMock = mock.Mock()
