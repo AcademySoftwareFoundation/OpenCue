@@ -64,6 +64,7 @@ class SubscribeToJobDialog(QtWidgets.QDialog):
         self.refreshJobList()
 
     def refreshJobList(self):
+        """Refresh the list of jobs"""
         jobs = self.__jobs
         self.__treeSubjects.clear()
         for job in jobs:
@@ -117,8 +118,10 @@ class EmailInfoWidget(QtWidgets.QWidget):
         hlayout.addWidget(self.__btnCancel)
         vlayout.addLayout(hlayout)
 
+        # pylint: disable=no-member
         self.__btnSave.clicked.connect(self.addSubscriber)
         self.__btnCancel.clicked.connect(self.cancel.emit)
+        # pylint: enable=no-member
 
     def email_to(self):
         """Gets the email recipient."""
@@ -126,16 +129,6 @@ class EmailInfoWidget(QtWidgets.QWidget):
 
     def addSubscriber(self):
         """Adds subscriber to jobs."""
-        users_csv = []
-        try:
-            users_csv = cuegui.Utils.getUsers()
-        except IOError as e:
-            pass
-        user_name = self.email_to().split('@')[0]
-        # If users_csv is not found, proceed without validation
-        if users_csv and cuegui.Utils.isValidateUser(user_name, users_csv) != self.email_to():
-            cuegui.Utils.showErrorMessageBox("Email does not exist. Please check it before proceeding")
-            return
         for job in self.__jobs:
             job.addSubscriber(self.email_to())
         self.save.emit()

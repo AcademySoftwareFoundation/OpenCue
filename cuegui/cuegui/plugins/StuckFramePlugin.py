@@ -1185,7 +1185,8 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__menuActions.jobs().addAction(menu, "viewComments")
             self.__menuActions.jobs().addAction(menu, "emailArtist")
             self.__menuActions.jobs().addAction(menu, "subscribeToJob")
-            menu.addAction(cuegui.Action.create(self, "Email and Comment", "Email and Comment", self.emailComment, "mail"))
+            menu.addAction(cuegui.Action.create(self, "Email and Comment", "Email and Comment",
+                                                self.emailComment, "mail"))
             menu.addSeparator()
             menu.addAction(cuegui.Action.create(self, "Job Not Stuck", "Job Not Stuck",
                                                 self.RemoveJob, "warning"))

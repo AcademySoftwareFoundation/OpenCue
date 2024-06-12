@@ -412,7 +412,8 @@ class Job(object):
         :type subscriber: string
         :param subscriber: email address to send update when the job finishes
         """
-        self.stub.AddSubscriber(job_pb2.JobAddSubscriberRequest(job=self.data, subscriber=subscriber))
+        self.stub.AddSubscriber(job_pb2.JobAddSubscriberRequest(job=self.data,
+                                                                subscriber=subscriber))
 
     def facility(self):
         """Returns the facility that the job must run in.
