@@ -151,17 +151,17 @@ public class DispatchSupportService implements DispatchSupport {
     }
 
     @Transactional(readOnly = true)
-    public List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
+    public Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
         return dispatcherDao.findDispatchJobsForAllShows(host, numJobs);
     }
 
     @Transactional(readOnly = true)
-    public List<String> findDispatchJobs(DispatchHost host, int numJobs) {
+    public Set<String> findDispatchJobs(DispatchHost host, int numJobs) {
         return dispatcherDao.findDispatchJobs(host, numJobs);
     }
 
     @Transactional(readOnly = true)
-    public List<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
+    public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
         return dispatcherDao.findDispatchJobs(host, g);
     }
 
@@ -173,7 +173,7 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(readOnly = true)
-    public List<String> findDispatchJobs(DispatchHost host, ShowInterface show,
+    public Set<String> findDispatchJobs(DispatchHost host, ShowInterface show,
             int numJobs) {
         return dispatcherDao.findDispatchJobs(host, show, numJobs);
     }
