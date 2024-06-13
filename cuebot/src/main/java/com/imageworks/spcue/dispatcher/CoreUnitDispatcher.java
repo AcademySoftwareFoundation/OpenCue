@@ -21,6 +21,7 @@ package com.imageworks.spcue.dispatcher;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.cache.Cache;
@@ -126,7 +127,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     }
 
 
-    private List<VirtualProc> dispatchJobs(DispatchHost host, List<String> jobs) {
+    private List<VirtualProc> dispatchJobs(DispatchHost host, Set<String> jobs) {
         List<VirtualProc> procs = new ArrayList<VirtualProc>();
 
         try {
@@ -162,7 +163,7 @@ public class CoreUnitDispatcher implements Dispatcher {
             }
 
         } catch (DispatcherException e) {
-            logger.warn("dispatcher exception," + e);
+            logger.info(host.name + " dispatcher exception," + e);
         }
 
         host.restoreGpu();
@@ -170,8 +171,8 @@ public class CoreUnitDispatcher implements Dispatcher {
         return procs;
     }
 
-    private List<String> getGpuJobs(DispatchHost host, ShowInterface show) {
-        List<String> jobs = null;
+    private Set<String> getGpuJobs(DispatchHost host, ShowInterface show) {
+        Set<String> jobs = null;
 
         // TODO: GPU: make index with the 4 components instead of just 3, replace the just 3
 
@@ -200,7 +201,7 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     @Override
     public List<VirtualProc> dispatchHostToAllShows(DispatchHost host) {
-        List<String> jobs = dispatchSupport.findDispatchJobsForAllShows(
+        Set<String> jobs = dispatchSupport.findDispatchJobsForAllShows(
                 host,
                 getIntProperty("dispatcher.job_query_max"));
 
@@ -210,7 +211,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host) {
 
-        List<String> jobs = getGpuJobs(host, null);
+        Set<String> jobs = getGpuJobs(host, null);
 
         if (jobs == null)
             jobs = dispatchSupport.findDispatchJobs(host, getIntProperty("dispatcher.job_query_max"));
@@ -221,7 +222,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host, ShowInterface show) {
 
-        List<String> jobs = getGpuJobs(host, show);
+        Set<String> jobs = getGpuJobs(host, show);
 
         if (jobs == null)
             jobs = dispatchSupport.findDispatchJobs(host, show,
@@ -233,7 +234,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host, GroupInterface group) {
 
-        List<String> jobs = getGpuJobs(host, null);
+        Set<String> jobs = getGpuJobs(host, null);
 
         if (jobs == null)
             jobs = dispatchSupport.findDispatchJobs(host, group);
@@ -362,14 +363,7 @@ public class CoreUnitDispatcher implements Dispatcher {
          * The frame is reserved, the proc is created, now update
          * the frame to the running state.
          */
-        dispatchSupport.startFrame(proc, frame);
-
-        /*
-         * Creates a proc to run on the specified frame.  Throws
-         * a ResourceReservationFailureException if the proc
-         * cannot be created due to lack of resources.
-         */
-        dispatchSupport.reserveProc(proc, frame);
+        dispatchSupport.startFrameAndProc(proc, frame);
 
         /*
          * Communicate with RQD to run the frame.
@@ -475,7 +469,7 @@ public class CoreUnitDispatcher implements Dispatcher {
                 DispatchSupport.bookingRetries.incrementAndGet();
                 String msg = "frame reservation error, " +
                     "dispatchProcToJob failed to book next frame, " + fre;
-                logger.warn(msg);
+                logger.info(msg);
                 return false;
             }
             catch (ResourceDuplicationFailureException rrfe) {
@@ -492,7 +486,7 @@ public class CoreUnitDispatcher implements Dispatcher {
                     "to assign proc to job " + job + ", " + proc +
                     " already assigned to another frame." + rrfe;
 
-                logger.warn(msg);
+                logger.info(msg);
                 return false;
             }
             catch (ResourceReservationFailureException rrfe) {
@@ -505,7 +499,7 @@ public class CoreUnitDispatcher implements Dispatcher {
                 String msg = "proc update error, " +
                     "dispatchProcToJob failed to assign proc to job " +
                     job + ", " + rrfe;
-                logger.warn(msg);
+                logger.info(msg);
                 if (procIndb) {
                     dispatchSupport.unbookProc(proc);
                 }
@@ -524,7 +518,7 @@ public class CoreUnitDispatcher implements Dispatcher {
                 DispatchSupport.bookingErrors.incrementAndGet();
                 String msg = "dispatchProcToJob failed booking proc " +
                     proc + " on job " + job;
-                logger.warn(msg, e);
+                logger.info(msg, e);
                 dispatchSupport.unbookProc(proc);
                 dispatchSupport.clearFrame(frame);
 

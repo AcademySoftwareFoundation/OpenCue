@@ -20,6 +20,7 @@
 package com.imageworks.spcue.config;
 
 import com.imageworks.spcue.servlet.JobLaunchServlet;
+import com.imageworks.spcue.servlet.HealthCheckServlet;
 
 import javax.sql.DataSource;
 import org.springframework.boot.jdbc.DataSourceBuilder;
@@ -63,6 +64,15 @@ public class AppConfig {
         b.addUrlMappings("/launch");
         b.addInitParameter("contextConfigLocation", "classpath:conf/spring/jobLaunchServlet-servlet.xml");
         b.setServlet(new JobLaunchServlet());
+        return b;
+    }
+
+    @Bean
+    public ServletRegistrationBean<HealthCheckServlet> healthCheckServlet() {
+        ServletRegistrationBean<HealthCheckServlet> b = new ServletRegistrationBean<>();
+        b.addUrlMappings("/health");
+        b.addInitParameter("contextConfigLocation", "classpath:conf/spring/healthCheckServlet-servlet.xml");
+        b.setServlet(new HealthCheckServlet());
         return b;
     }
 }

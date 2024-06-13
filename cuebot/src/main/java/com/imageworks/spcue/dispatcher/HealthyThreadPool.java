@@ -116,7 +116,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
      * caller is responsible for starting a new instance after the lock on
      * awaitTermination is released.
      */
-    protected boolean isHealthyOrShutdown() throws InterruptedException {
+    protected boolean shutdownUnhealthy() throws InterruptedException {
         Date now = new Date();
         if (diffInMinutes(lastCheck, now) > minUnhealthyPeriodMin){
             this.wasHealthy = healthCheck();
@@ -186,6 +186,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
         }
     }
 
+    @Override
     protected void beforeExecute(Thread t, Runnable r) {
         super.beforeExecute(t, r);
         if (isShutdown()) {
@@ -201,6 +202,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
         }
     }
 
+    @Override
     protected void afterExecute(Runnable r, Throwable t) {
         super.afterExecute(r, t);
 
