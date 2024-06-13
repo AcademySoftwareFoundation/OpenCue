@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-
-
 package com.imageworks.spcue.dispatcher;
 
 import com.google.common.cache.Cache;
@@ -41,7 +39,7 @@ public class BookingQueue implements QueueHealthCheck {
     private HealthyThreadPool healthyThreadPool;
 
     public BookingQueue(int healthThreshold, int minUnhealthyPeriodMin, int queueCapacity,
-                        int corePoolSize, int maxPoolSize) {
+            int corePoolSize, int maxPoolSize) {
         this.healthThreshold = healthThreshold;
         this.minUnhealthyPeriodMin = minUnhealthyPeriodMin;
         this.queueCapacity = queueCapacity;
@@ -119,4 +117,3 @@ public class BookingQueue implements QueueHealthCheck {
     }
 
 }
-

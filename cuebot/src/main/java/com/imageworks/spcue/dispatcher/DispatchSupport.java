@@ -156,18 +156,6 @@ public interface DispatchSupport {
     boolean stopFrame(FrameInterface frame, FrameState state, int exitStatus);
 
     /**
-     * Updates the frame to the Running state.  This should
-     * be done after RQD has accepted the frame.  Setting
-     * the frame's state to running will result in a
-     * new entry in the frame_history table for the
-     * running frame.
-     *
-     * @param proc
-     * @param frame
-     */
-    void startFrame(VirtualProc proc, DispatchFrame frame);
-
-    /**
      * Updates a frame with completed stats.
      *
      * @param frame
@@ -180,6 +168,12 @@ public interface DispatchSupport {
                       int exitStatus, long maxrss);
 
     /**
+     * Updates the frame to the Running state.  This should
+     * be done after RQD has accepted the frame.  Setting
+     * the frame's state to running will result in a
+     * new entry in the frame_history table for the
+     * running frame.
+     * 
      * Reserve the resources in the specified proc for the
      * specified frame.  If the proc does not exist, its
      * inserted, otherwise its updated.
@@ -191,7 +185,7 @@ public interface DispatchSupport {
      * @param proc
      * @param frame
      */
-    public void reserveProc(VirtualProc proc, DispatchFrame frame);
+    public void startFrameAndProc(VirtualProc proc, DispatchFrame frame);
 
     /**
      * This method clears out a proc that was lost track of.
