@@ -88,7 +88,7 @@ wait_for_service_state() {
         fi
         container=$(docker compose ps --all --format json | jq -s ".[] | select(.Service==\"$1\")")
         if [[ ${container} = "" ]]; then
-            log INFO "Service \"$1\": no container yet"packaging-pipeline workflow
+            log INFO "Service \"$1\": no container yet" packaging-pipeline workflow
         else
             container_name=$(echo "$container" | jq -r '.Name')
             current_state=$(echo "$container" | jq -r '.State')
