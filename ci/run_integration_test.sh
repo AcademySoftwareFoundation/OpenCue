@@ -86,7 +86,7 @@ wait_for_service_state() {
             log ERROR "Timed out waiting for Docker compose to come up"
             exit 1
         fi
-        container=$(docker compose ps --all --format json | jq "-s .[] | select(.Service==\"$1\")")
+        container=$(docker compose ps --all --format json | jq -s ".[] | select(.Service==\"$1\")")
         if [[ ${container} = "" ]]; then
             log INFO "Service \"$1\": no container yet"packaging-pipeline workflow
         else
