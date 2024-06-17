@@ -20,7 +20,6 @@ package com.imageworks.spcue.dao.postgres;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -163,8 +162,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         return bookableShows.get(key).shows;
     }
 
-    private List<String> findDispatchJobs(DispatchHost host, int numJobs, boolean shuffleShows) {
-        ArrayList<String> result = new ArrayList<String>();
+    private Set<String> findDispatchJobs(DispatchHost host, int numJobs, boolean shuffleShows) {
+        LinkedHashSet<String> result = new LinkedHashSet<String>();
         List<SortableShow> shows = new LinkedList<SortableShow>(getBookableShows(host));
         // shows were sorted. If we want it in random sequence, we need to shuffle it.
         if (shuffleShows) {
@@ -240,18 +239,19 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
+    public Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
         return findDispatchJobs(host, numJobs, true);
     }
 
     @Override
-    public List<String> findDispatchJobs(DispatchHost host, int numJobs) {
+    public Set<String> findDispatchJobs(DispatchHost host, int numJobs) {
         return findDispatchJobs(host, numJobs, false);
     }
 
     @Override
-    public List<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
-        List<String> result = getJdbcTemplate().query(
+    public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
+        LinkedHashSet<String> result = new LinkedHashSet<String>(5);
+        result.addAll(getJdbcTemplate().query(
                 findByGroupQuery(),
                 PKJOB_MAPPER,
                 g.getGroupId(),host.getFacilityId(), host.os,
@@ -259,7 +259,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 threadMode(host.threadMode),
                 host.idleGpus,
                 (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
-                host.getName(), 50);
+                host.getName(), 50));
 
         return result;
     }
@@ -409,9 +409,11 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public List<String> findDispatchJobs(DispatchHost host,
+    public Set<String> findDispatchJobs(DispatchHost host,
             ShowInterface show, int numJobs) {
-        List<String> result = getJdbcTemplate().query(
+        LinkedHashSet<String> result = new LinkedHashSet<String>(numJobs);
+
+        result.addAll(getJdbcTemplate().query(
                 findByShowQuery(),
                 PKJOB_MAPPER,
                 show.getShowId(), host.getFacilityId(), host.os,
@@ -419,7 +421,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 threadMode(host.threadMode),
                 host.idleGpus,
                 (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
-                host.getName(), numJobs * 10);
+                host.getName(), numJobs * 10));
 
         return result;
     }

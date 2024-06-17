@@ -20,7 +20,7 @@ message GreaterThanFloatSearchCriterion {
 }
 
 message GreaterThanIntegerSearchCriterion {
-    int32 value = 1;
+    sint64 value = 1;
 }
 
 message InRangeFloatSearchCriterion {
@@ -29,8 +29,8 @@ message InRangeFloatSearchCriterion {
 }
 
 message InRangeIntegerSearchCriterion {
-    int32 min = 1;
-    int32 max = 2;
+    sint64 min = 1;
+    sint64 max = 2;
 }
 
 message LessThanFloatSearchCriterion {
@@ -38,5 +38,5 @@ message LessThanFloatSearchCriterion {
 }
 
 message LessThanIntegerSearchCriterion {
-    int32 value = 1;
+    sint64 value = 1;
 }

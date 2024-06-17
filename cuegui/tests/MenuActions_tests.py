@@ -958,7 +958,9 @@ class FrameActionsTests(unittest.TestCase):
 
         self.frame_actions.kill(rpcObjects=[frame])
 
-        self.job.killFrames.assert_called_with(name=[frame_name])
+        self.job.killFrames.assert_called_with(
+            name=[frame_name],
+            reason="Manual Frame(s) Kill Request in Cuegui by root")
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_markAsWaiting(self, yesNoMock):

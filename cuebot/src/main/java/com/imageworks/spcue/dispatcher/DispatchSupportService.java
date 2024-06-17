@@ -151,17 +151,17 @@ public class DispatchSupportService implements DispatchSupport {
     }
 
     @Transactional(readOnly = true)
-    public List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
+    public Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
         return dispatcherDao.findDispatchJobsForAllShows(host, numJobs);
     }
 
     @Transactional(readOnly = true)
-    public List<String> findDispatchJobs(DispatchHost host, int numJobs) {
+    public Set<String> findDispatchJobs(DispatchHost host, int numJobs) {
         return dispatcherDao.findDispatchJobs(host, numJobs);
     }
 
     @Transactional(readOnly = true)
-    public List<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
+    public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
         return dispatcherDao.findDispatchJobs(host, g);
     }
 
@@ -173,7 +173,7 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(readOnly = true)
-    public List<String> findDispatchJobs(DispatchHost host, ShowInterface show,
+    public Set<String> findDispatchJobs(DispatchHost host, ShowInterface show,
             int numJobs) {
         return dispatcherDao.findDispatchJobs(host, show, numJobs);
     }
@@ -209,11 +209,20 @@ public class DispatchSupportService implements DispatchSupport {
         try {
             rqdClient.launchFrame(prepareRqdRunFrame(proc, frame), proc);
             dispatchedProcs.getAndIncrement();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new DispatcherException(proc.getName() +
                     " could not be booked on " + frame.getName() + ", " + e);
         }
+    }
+    
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void startFrameAndProc(VirtualProc proc, DispatchFrame frame) {
+        logger.trace("starting frame: " + frame);
+        
+        frameDao.updateFrameStarted(proc, frame);
+
+        reserveProc(proc, frame);
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
@@ -431,14 +440,6 @@ public class DispatchSupportService implements DispatchSupport {
         return builder.build();
     }
 
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED)
-    public void startFrame(VirtualProc proc, DispatchFrame frame) {
-        logger.trace("starting frame: " + frame);
-        frameDao.updateFrameStarted(proc, frame);
-    }
-
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void fixFrame(DispatchFrame frame) {
@@ -477,9 +478,7 @@ public class DispatchSupportService implements DispatchSupport {
         }
     }
 
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED)
-    public void reserveProc(VirtualProc proc, DispatchFrame frame) {
+    private void reserveProc(VirtualProc proc, DispatchFrame frame) {
 
         proc.jobId = frame.getJobId();
         proc.frameId = frame.getFrameId();
