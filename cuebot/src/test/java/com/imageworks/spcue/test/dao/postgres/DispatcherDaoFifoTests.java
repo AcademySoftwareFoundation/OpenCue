@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Resource;
 
 import org.jdom.Document;
@@ -187,12 +188,8 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         int count = 10;
         launchJobs(count);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(getHost(), count);
+        Set<String> jobs = dispatcherDao.findDispatchJobs(getHost(), count);
         assertEquals(count, jobs.size());
-        for (int i = 0; i < count; i++) {
-            assertEquals("pipe-default-testuser_job" + i,
-                jobManager.getJob(jobs.get(i)).getName());
-        }
     }
 
     @Test
@@ -203,12 +200,8 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         launchJobs(count);
 
         int portion = 19;
-        List<String> jobs = dispatcherDao.findDispatchJobs(getHost(), (portion + 1) / 10);
+        Set<String> jobs = dispatcherDao.findDispatchJobs(getHost(), (portion + 1) / 10);
         assertEquals(portion, jobs.size());
-        for (int i = 0; i < portion; i++) {
-            assertEquals("pipe-default-testuser_job" + i,
-                jobManager.getJob(jobs.get(i)).getName());
-        }
     }
 
     @Test
@@ -220,7 +213,7 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         int count = 10;
         launchJobs(count);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(getHost(), count);
+        Set<String> jobs = dispatcherDao.findDispatchJobs(getHost(), count);
         assertEquals(count, jobs.size());
 
         List<String> sortedJobs = new ArrayList<String>(jobs);
@@ -243,12 +236,8 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         JobDetail job = jobManager.findJobDetail("pipe-default-testuser_job0");
         assertNotNull(job);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(getHost(),
+        Set<String> jobs = dispatcherDao.findDispatchJobs(getHost(),
                 groupManager.getGroupDetail(job));
         assertEquals(count, jobs.size());
-        for (int i = 0; i < count; i++) {
-            assertEquals("pipe-default-testuser_job" + i,
-                jobManager.getJob(jobs.get(i)).getName());
-        }
     }
 }
