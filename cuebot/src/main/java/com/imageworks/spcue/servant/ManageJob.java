@@ -484,14 +484,16 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void killFrames(JobKillFramesRequest request, StreamObserver<JobKillFramesResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
-            manageQueue.execute(
-                    new DispatchKillFrames(
-                            frameSearchFactory.create(job, request.getReq()),
-                            new Source(request.toString(), request.getUsername(), request.getPid(),
-                                       request.getHostKill(), request.getReason()),
-                            jobManagerSupport));
-            responseObserver.onNext(JobKillFramesResponse.newBuilder().build());
-            responseObserver.onCompleted();
+            if (attemptChange(env, property, jobManager, job, responseObserver)) {
+                manageQueue.execute(
+                        new DispatchKillFrames(
+                                frameSearchFactory.create(job, request.getReq()),
+                                new Source(request.toString(), request.getUsername(), request.getPid(),
+                                           request.getHostKill(), request.getReason()),
+                                jobManagerSupport));
+                responseObserver.onNext(JobKillFramesResponse.newBuilder().build());
+                responseObserver.onCompleted();
+            }
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
