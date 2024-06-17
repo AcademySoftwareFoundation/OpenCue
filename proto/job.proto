@@ -889,6 +889,10 @@ message FrameGetWhatThisDependsOnResponse {
 // Kill
 message FrameKillRequest {
     Frame frame = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
 }
 
 message FrameKillResponse {} // Empty
@@ -1295,6 +1299,10 @@ message JobIsJobPendingResponse {
 // Kill
 message JobKillRequest {
     Job job = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
 }
 
 message JobKillResponse {} // Empty
@@ -1303,6 +1311,10 @@ message JobKillResponse {} // Empty
 message JobKillFramesRequest {
     Job job = 1;
     FrameSearchCriteria req = 2;
+    string username = 3;
+    string pid = 4;
+    string host_kill = 5;
+    string reason = 6;
 }
 
 message JobKillFramesResponse {} // Empty
@@ -1625,6 +1637,10 @@ message LayerGetWhatThisDependsOnResponse {
 // KillFrames
 message LayerKillFramesRequest {
     Layer layer = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
 }
 
 message LayerKillFramesResponse {} // Empty

@@ -24,6 +24,7 @@ from __future__ import print_function
 from builtins import filter
 from builtins import str
 from builtins import object
+import getpass
 import glob
 import subprocess
 import time
@@ -66,7 +67,8 @@ logger = cuegui.Logger.getLogger(__file__)
 TITLE = 0
 TOOLTIP = 1
 ICON = 2
-
+DEFAULT_JOB_KILL_REASON = "Manual Job Kill Request in Cuegui by " + getpass.getuser()
+DEFAULT_FRAME_KILL_REASON = "Manual Frame(s) Kill Request in Cuegui by " + getpass.getuser()
 
 # pylint: disable=missing-function-docstring,no-self-use,unused-argument
 
@@ -377,7 +379,7 @@ class JobActions(AbstractActions):
             if cuegui.Utils.questionBoxYesNo(self._caller, "Kill jobs?", msg,
                                              [job.data.name for job in jobs]):
                 for job in jobs:
-                    job.kill()
+                    job.kill(reason=DEFAULT_JOB_KILL_REASON)
                 self.killDependents(jobs)
                 self._update()
 
@@ -393,7 +395,7 @@ class JobActions(AbstractActions):
                                   sorted([dep.name() for dep in dependents])):
             for depJob in dependents:
                 try:
-                    depJob.kill()
+                    depJob.kill(reason=DEFAULT_JOB_KILL_REASON)
                 except opencue.exception.CueException as e:
                     errMsg = "Failed to kill depending job: %s - %s" % (depJob.name(), e)
                     logger.warning(errMsg)
@@ -778,7 +780,7 @@ class LayerActions(AbstractActions):
                                              "Kill ALL frames in selected layers?",
                                              [layer.data.name for layer in layers]):
                 for layer in layers:
-                    layer.kill()
+                    layer.kill(reason=DEFAULT_FRAME_KILL_REASON)
                 self._update()
 
     eat_info = ["&Eat", None, "eat"]
@@ -1089,7 +1091,8 @@ class FrameActions(AbstractActions):
             if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
                                              "Kill selected frames?",
                                              names):
-                self._getSource().killFrames(name=names)
+                self._getSource().killFrames(reason=DEFAULT_FRAME_KILL_REASON,
+                                             name=names)
                 self._update()
 
     markAsWaiting_info = ["Mark as &waiting", None, "configure"]
