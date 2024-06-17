@@ -19,6 +19,8 @@
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
+import getpass
+import os
 import time
 import unittest
 
@@ -56,10 +58,18 @@ class FrameTests(unittest.TestCase):
 
         frame = opencue.wrappers.frame.Frame(
             job_pb2.Frame(name=TEST_FRAME_NAME, state=job_pb2.RUNNING))
-        frame.kill()
+        username = getpass.getuser()
+        pid = os.getpid()
+        host_kill = os.uname()[1]
+        reason = "Frames Kill Request"
+        frame.kill(username=username, pid=pid, host_kill=host_kill, reason=reason)
 
         stubMock.Kill.assert_called_with(
-            job_pb2.FrameKillRequest(frame=frame.data), timeout=mock.ANY)
+            job_pb2.FrameKillRequest(frame=frame.data,
+                                     username=username,
+                                     pid=str(pid),
+                                     host_kill=host_kill,
+                                     reason=reason), timeout=mock.ANY)
 
     def testRetry(self, getStubMock):
         stubMock = mock.Mock()

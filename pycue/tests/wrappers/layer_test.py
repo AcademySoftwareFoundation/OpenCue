@@ -19,6 +19,8 @@
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
+import getpass
+import os
 import unittest
 
 import mock
@@ -45,10 +47,18 @@ class LayerTests(unittest.TestCase):
 
         layer = opencue.wrappers.layer.Layer(
             job_pb2.Layer(name=TEST_LAYER_NAME))
-        layer.kill()
+        username = getpass.getuser()
+        pid = os.getpid()
+        host_kill = os.uname()[1]
+        reason = "Frames Kill Request"
+        layer.kill(username=username, pid=pid, host_kill=host_kill, reason=reason)
 
         stubMock.KillFrames.assert_called_with(
-            job_pb2.LayerKillFramesRequest(layer=layer.data), timeout=mock.ANY)
+            job_pb2.LayerKillFramesRequest(layer=layer.data,
+                                           username=username,
+                                           pid=str(pid),
+                                           host_kill=host_kill,
+                                           reason=reason), timeout=mock.ANY)
 
     def testEat(self, getStubMock):
         stubMock = mock.Mock()

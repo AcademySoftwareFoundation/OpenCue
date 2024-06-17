@@ -23,12 +23,12 @@ from __future__ import absolute_import
 from builtins import str
 from builtins import map
 import datetime
-import re
+import getpass
 import os
-from datetime import datetime
-import time
-import socket
+import re
 import signal
+import socket
+import time
 import yaml
 
 from qtpy import QtGui
@@ -63,7 +63,7 @@ FRAME_COLUMN = 2
 LLU_COLUMN = 3
 RUNTIME_COLUMN = 4
 LASTLINE_COLUMN = 7
-
+DEFAULT_FRAME_KILL_REASON = "Manual Frame Kill Request in Cuegui by " + getpass.getuser()
 
 class StuckWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
@@ -1345,7 +1345,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if cuegui.Utils.questionBoxYesNo(self, "Confirm", "Kill selected frames?", names):
             self.log()
             for frame in self.selectedObjects():
-                frame.kill()
+                frame.kill(reason=DEFAULT_FRAME_KILL_REASON)
             self.remove()
 
     def retryFrame(self):
