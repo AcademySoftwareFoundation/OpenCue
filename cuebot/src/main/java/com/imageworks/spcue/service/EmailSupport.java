@@ -37,6 +37,8 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.jdom.output.Format;
 import org.jdom.output.XMLOutputter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
@@ -59,19 +61,21 @@ public class EmailSupport {
     private MailSender mailSender;
     private JobManager jobManager;
 
-    private Properties opencueProperties;
+    @Autowired
+    private Environment env;
+
+    private String emailDomain;
+    private String emailFromAddress;
+    private String[] emailCcAddresses;
 
     private Map<String, byte[]> imageMap;
 
     private static final Logger logger = LogManager.getLogger(EmailSupport.class);
 
     public EmailSupport() {
-
-        /*
-         * The OpenCue configuration file which we need to find the email template.
-         */
-        opencueProperties = getOpenCueProperties();
-
+        this.emailDomain = env.getProperty("email.domain", "opencue.io");
+        this.emailFromAddress = env.getProperty("email.from.address", "opencue-noreply@opencue.io");
+        this.emailCcAddresses = env.getProperty("email.cc.addresses", "").split(",");
     }
 
     private static void loadImage(Map<String, byte[]> map, String path) {
@@ -141,9 +145,9 @@ public class EmailSupport {
     public void reportLaunchError(JobSpec spec, Throwable t) {
 
         SimpleMailMessage msg = new SimpleMailMessage();
-        msg.setTo(String.format("%s@imageworks.com", spec.getUser()));
-        msg.setFrom("middle-tier@imageworks.com");
-        msg.setCc("middle-tier@imageworks.com");
+        msg.setTo(String.format("%s@%s", spec.getUser(), this.emailDomain));
+        msg.setFrom(this.emailFromAddress);
+        msg.setCc(this.emailCcAddresses);
         msg.setSubject("Failed to launch OpenCue job.");
 
         StringBuilder sb = new StringBuilder(131072);
@@ -175,7 +179,7 @@ public class EmailSupport {
 
         SimpleMailMessage msg = new SimpleMailMessage();
         msg.setTo(emails);
-        msg.setFrom("opencue-noreply@imageworks.com");
+        msg.setFrom(this.emailFromAddress);
         msg.setSubject("New comment on " + job.getName());
 
         StringBuilder sb = new StringBuilder(8096);
@@ -195,25 +199,6 @@ public class EmailSupport {
         } catch (MailException ex) {
             logger.warn("Failed to send launch failure email, " + ex.getMessage());
         }
-    }
-
-    public Properties getOpenCueProperties() {
-
-        // get the input stream of the properties file
-        InputStream in = EmailSupport.class.getClassLoader()
-                .getResourceAsStream("opencue.properties");
-
-        Properties props = new java.util.Properties();
-        try {
-            props.load(in);
-        } catch (IOException e) {
-            props = new Properties();
-            props.setProperty( "resource.loader", "file" );
-            props.setProperty("class.resource.loader.class",
-                    "org.apache.velocity.runtime.resource.loader.FileResourceLoader" );
-            props.setProperty("file.resource.loader.path", "/opt/opencue/webapps/spcue");
-        }
-        return props;
     }
 
     public void sendShutdownEmail(JobInterface job) {
@@ -294,8 +279,6 @@ public class EmailSupport {
 
             subject = status + subject;
 
-            String from = "opencue-noreply@imageworks.com";
-
             BufferedWriter output = null;
             File file = null;
             if (shouldCreateFile){
@@ -328,7 +311,7 @@ public class EmailSupport {
 
             for (String email : d.email.split(",")) {
                 try {
-                    CueUtil.sendmail(email, from, subject, new StringBuilder(w.toString()), imageMap, file);
+                    CueUtil.sendmail(email, this.emailFromAddress, subject, new StringBuilder(w.toString()), imageMap, file);
                 } catch (Exception e) {
                     // just log and eat if the mail server is down or something
                     // of that nature.
