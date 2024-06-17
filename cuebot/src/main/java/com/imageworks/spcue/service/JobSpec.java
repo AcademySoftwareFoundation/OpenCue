@@ -446,6 +446,7 @@ public class JobSpec {
             determineMinimumMemory(buildableJob, layerTag, layer,
                     buildableLayer);
             determineMinimumGpuMemory(buildableJob, layerTag, layer);
+            determineOutputs(layerTag, buildableJob, layer);
 
             // set a timeout value on the layer
             if (layerTag.getChildTextTrim("timeout") != null) {
