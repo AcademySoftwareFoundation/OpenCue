@@ -14,7 +14,13 @@ BEGIN
   -- concatenates all tags in host_tag and sets host.str_tags
   --
   UPDATE subscription SET int_cores = 0;
-  FOR r IN (select show.str_name as show_name, proc.pk_show, alloc.pk_alloc, alloc.str_name as alloc_name, sum(proc.int_cores_reserved) as c
+  UPDATE subscription SET int_gpus = 0;
+  FOR r IN (select show.str_name as show_name,
+                   proc.pk_show,
+                   alloc.pk_alloc,
+                   alloc.str_name as alloc_name,
+                   sum(proc.int_cores_reserved) as c,
+                   sum(proc.int_gpus_reserved) as d
             from show, proc, host, alloc
             where show.pk_show = proc.pk_show and proc.pk_host = host.pk_host AND host.pk_alloc = alloc.pk_alloc AND proc.b_local = false
             group by show.str_name, proc.pk_show, alloc.pk_alloc, alloc.str_name)
@@ -22,7 +28,7 @@ BEGIN
      BEGIN
        SELECT int_burst INTO cur_burst FROM subscription WHERE pk_alloc=r.pk_alloc AND pk_show=r.pk_show;
        -- Also changing int_burst here to bypass VERIFY_SUBSCRIPTION trigger
-       UPDATE subscription SET int_cores = r.c, int_burst = r.c WHERE pk_alloc=r.pk_alloc AND pk_show=r.pk_show;
+       UPDATE subscription SET int_cores = r.c, int_burst = r.c, int_gpus = r.d WHERE pk_alloc=r.pk_alloc AND pk_show=r.pk_show;
        -- Put original int_burst back.
        UPDATE subscription SET int_burst = cur_burst WHERE pk_alloc=r.pk_alloc AND pk_show=r.pk_show;
      EXCEPTION
