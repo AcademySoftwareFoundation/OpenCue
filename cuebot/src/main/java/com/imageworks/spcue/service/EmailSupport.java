@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-
-
 package com.imageworks.spcue.service;
 
 import java.io.*;
@@ -141,7 +139,6 @@ public class EmailSupport {
         }
     }
 
-
     public void reportLaunchError(JobSpec spec, Throwable t) {
 
         SimpleMailMessage msg = new SimpleMailMessage();
@@ -160,7 +157,7 @@ public class EmailSupport {
         sb.append(" provided below.\n\n");
 
         sb.append("Failed to launch jobs:\n");
-        for (BuildableJob job: spec.getJobs()) {
+        for (BuildableJob job : spec.getJobs()) {
             sb.append(job.detail.name);
             sb.append("\n");
         }
@@ -204,13 +201,16 @@ public class EmailSupport {
     public void sendShutdownEmail(JobInterface job) {
 
         JobDetail d = jobManager.getJobDetail(job.getJobId());
-        if (d.email == null ) { return; }
+        if (d.email == null) {
+            return;
+        }
 
         try {
 
             VelocityEngine ve = new VelocityEngine();
             ve.setProperty("resource.loader", "class");
-            ve.setProperty("class.resource.loader.class", "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
+            ve.setProperty("class.resource.loader.class",
+                    "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader");
             ve.init();
 
             VelocityContext context = new VelocityContext();
@@ -220,8 +220,7 @@ public class EmailSupport {
             String status = "";
             if (jts.total != jts.succeeded) {
                 status = "Failed ";
-            }
-            else {
+            } else {
                 status = "Succeeded ";
             }
 
@@ -237,11 +236,11 @@ public class EmailSupport {
             context.put("deadFrames", jts.dead);
             context.put("waitingFrames", jts.waiting);
             context.put("eatenFrames", jts.eaten);
-            context.put("failedFrames",  jts.dead + jts.eaten + jts.waiting);
-            context.put("checkpointFrames",  jts.checkpoint);
+            context.put("failedFrames", jts.dead + jts.eaten + jts.waiting);
+            context.put("checkpointFrames", jts.checkpoint);
             context.put("maxRSS", String.format(Locale.ROOT, "%.1fGB",
                     exj.highMemoryKb / 1024.0 / 1024.0));
-            context.put("coreTime",  String.format(Locale.ROOT, "%.1f",
+            context.put("coreTime", String.format(Locale.ROOT, "%.1f",
                     exj.coreTime / 3600.0));
 
             Template t = ve.getTemplate("/conf/webapp/html/email_template.html");
@@ -254,7 +253,7 @@ public class EmailSupport {
             Map<String, byte[]> map = new HashMap<String, byte[]>();
             loadImage(map, "opencue_logo.png");
 
-            for (LayerDetail layer: layers)  {
+            for (LayerDetail layer : layers) {
                 if (layer.type.equals(LayerType.RENDER)) {
                     LayerStats stats = new LayerStats();
                     stats.setDetail(layer);
@@ -263,8 +262,10 @@ public class EmailSupport {
                     stats.setThreadStats(jobManager.getThreadStats(layer));
                     stats.setOutputs(jobManager.getLayerOutputs(layer).stream().sorted().collect(Collectors.toList()));
                     layerStats.add(stats);
-                    if(stats.getOutputs().size() > 3) shouldCreateFile = true;
-                    if(!layer.services.isEmpty()) loadImage(map, "services/" + layer.services.toArray()[0] + ".png");
+                    if (stats.getOutputs().size() > 3)
+                        shouldCreateFile = true;
+                    if (!layer.services.isEmpty())
+                        loadImage(map, "services/" + layer.services.toArray()[0] + ".png");
                 }
             }
 
@@ -281,28 +282,28 @@ public class EmailSupport {
 
             BufferedWriter output = null;
             File file = null;
-            if (shouldCreateFile){
+            if (shouldCreateFile) {
                 try {
                     logger.info("\n\n\n\nhouldCreateFile \n\n\n\n");
                     file = new File("my_outputs.txt");
                     output = new BufferedWriter(new FileWriter(file));
-                    for (LayerDetail layer: layers) {
+                    for (LayerDetail layer : layers) {
                         if (layer.type.equals(LayerType.RENDER)) {
                             List<String> sortedNames = jobManager
                                     .getLayerOutputs(layer)
                                     .stream()
                                     .sorted()
                                     .collect(Collectors.toList());
-                            output.write(layer.name + "\n" + String.join("\n", sortedNames) + "\n" );
+                            output.write(layer.name + "\n" + String.join("\n", sortedNames) + "\n");
                         }
                     }
-                } catch ( IOException e ) {
+                } catch (IOException e) {
                     e.printStackTrace();
                 } finally {
-                    if ( output != null ) {
+                    if (output != null) {
                         try {
                             output.close();
-                        }catch (IOException e){
+                        } catch (IOException e) {
                             e.printStackTrace();
                         }
                     }
@@ -311,15 +312,15 @@ public class EmailSupport {
 
             for (String email : d.email.split(",")) {
                 try {
-                    CueUtil.sendmail(email, this.emailFromAddress, subject, new StringBuilder(w.toString()), imageMap, file);
+                    CueUtil.sendmail(email, this.emailFromAddress, subject, new StringBuilder(w.toString()), imageMap,
+                            file);
                 } catch (Exception e) {
                     // just log and eat if the mail server is down or something
                     // of that nature.
                     logger.info("Failed to send job complete mail, reason: " + e);
                 }
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             throw new SpcueRuntimeException("Failed " + e, e);
         }
@@ -337,4 +338,3 @@ public class EmailSupport {
         this.mailSender = mailSender;
     }
 }
-
