@@ -56,6 +56,7 @@ import cuegui.PreviewWidget
 import cuegui.ProcChildren
 import cuegui.ServiceDialog
 import cuegui.ShowDialog
+import cuegui.SubscribeToJobDialog
 import cuegui.TasksDialog
 import cuegui.UnbookDialog
 import cuegui.Utils
@@ -238,6 +239,14 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             cuegui.EmailDialog.EmailDialog(jobs, self._caller).show()
+
+    subscribeToJob_info = ["Subscribe to job", None, "mail"]
+
+    def subscribeToJob(self, rpcObjects=None):
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs:
+            # Dialog to ask for email. Use show PST email as default
+            cuegui.SubscribeToJobDialog.SubscribeToJobDialog(jobs, self._caller).show()
 
     setMinCores_info = ["Set Minimum Cores...", "Set Job(s) Minimum Cores", "configure"]
 
