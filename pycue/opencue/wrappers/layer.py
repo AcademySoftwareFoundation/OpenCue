@@ -15,6 +15,7 @@
 """Module for classes related to job layers."""
 
 import enum
+import getpass
 import os
 
 import opencue.api
@@ -46,9 +47,16 @@ class Layer(object):
         self.data = layer
         self.stub = Cuebot.getStub('layer')
 
-    def kill(self):
+    def kill(self, username=None, pid=None, host_kill=None, reason=None):
         """Kills the entire layer."""
-        return self.stub.KillFrames(job_pb2.LayerKillFramesRequest(layer=self.data),
+        username = username if username else getpass.getuser()
+        pid = pid if pid else os.getpid()
+        host_kill = host_kill if host_kill else os.uname()[1]
+        return self.stub.KillFrames(job_pb2.LayerKillFramesRequest(layer=self.data,
+                                                                   username=username,
+                                                                   pid=str(pid),
+                                                                   host_kill=host_kill,
+                                                                   reason=reason),
                                     timeout=Cuebot.Timeout)
 
     def eat(self):

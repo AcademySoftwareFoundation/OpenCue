@@ -535,6 +535,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
             self.__menuActions.jobs().addAction(menu, "view")
             self.__menuActions.jobs().addAction(menu, "emailArtist")
+            self.__menuActions.jobs().addAction(menu, "subscribeToJob")
             self.__menuActions.jobs().addAction(menu, "viewComments")
             self.__menuActions.jobs().addAction(menu, "sendToGroup")
 
