@@ -64,6 +64,10 @@ editor.windows: 'notepad'
 editor.mac: 'open -t'
 editor.linux: 'gview -R -m -M -U {config_path}/gvimrc +'
 
+viewer.windows: 'rv'
+viewer.macos: 'rv'
+viewer.linux: 'rv'
+
 resources:
   # The max cores and max memory based on the available hardware.
   # These values are used by:

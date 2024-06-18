@@ -151,6 +151,14 @@ else:
     DEFAULT_EDITOR = __config.get('editor.linux')
 DEFAULT_EDITOR = DEFAULT_EDITOR.format(config_path=CONFIG_PATH)
 
+if platform.system() == 'Windows':
+    DEFAULT_VIEWER = __config.get('viewer.windows')
+elif platform.system() == 'Darwin':
+    DEFAULT_VIEWER = __config.get('viewer.mac')
+else:
+    DEFAULT_VIEWER = __config.get('viewer.linux')
+DEFAULT_VIEWER = DEFAULT_VIEWER.format(config_path=CONFIG_PATH)
+
 LOG_ROOT_OS = __config.get('render_logs.root')
 
 ALLOWED_TAGS = tuple(__config.get('allowed_tags'))
