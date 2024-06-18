@@ -18,14 +18,12 @@
 package com.imageworks.spcue.service;
 
 import java.io.*;
-import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Properties;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.Logger;
@@ -58,10 +56,6 @@ public class EmailSupport {
 
     private MailSender mailSender;
     private JobManager jobManager;
-
-    @Autowired
-    private Environment env;
-
     private String emailDomain;
     private String emailFromAddress;
     private String[] emailCcAddresses;
@@ -70,7 +64,8 @@ public class EmailSupport {
 
     private static final Logger logger = LogManager.getLogger(EmailSupport.class);
 
-    public EmailSupport() {
+    @Autowired
+    public EmailSupport(Environment env) {
         this.emailDomain = env.getProperty("email.domain", "opencue.io");
         this.emailFromAddress = env.getProperty("email.from.address", "opencue-noreply@opencue.io");
         this.emailCcAddresses = env.getProperty("email.cc.addresses", "").split(",");
