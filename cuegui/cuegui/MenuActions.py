@@ -1052,7 +1052,12 @@ class FrameActions(AbstractActions):
         try:
             job = self._getSource()
             frame = self._getOnlyFrameObjects(rpcObjects)[0]
-            d = cuegui.PreviewWidget.PreviewProcessorDialog(job, frame, False)
+            layer = job.getLayer(frame.layer())
+            if layer is not None:
+                outputs = layer.getOutputPaths()
+                if len(outputs) > 0:
+                    print(outputs[0])
+            d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, False)
             d.process()
             d.exec_()
         except Exception as e:
@@ -1066,7 +1071,7 @@ class FrameActions(AbstractActions):
         try:
             job = self._getSource()
             frame = self._getOnlyFrameObjects(rpcObjects)[0]
-            d = cuegui.PreviewWidget.PreviewProcessorDialog(job, frame, True)
+            d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, True)
             d.process()
             d.exec_()
         except Exception as e:
