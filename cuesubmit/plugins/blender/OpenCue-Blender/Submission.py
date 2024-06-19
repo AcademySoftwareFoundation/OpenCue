@@ -17,7 +17,7 @@ import outline.cuerun
 import outline.modules.shell
 
 import bpy
-
+import re
 
 def buildBlenderCmd(layerData):
     """Builds the Blender command from layerdata
@@ -47,7 +47,7 @@ def buildBlenderCmd(layerData):
     if outputFormat:
         renderCommand += ' -F {}'.format(outputFormat)
     # Option to render still frame or animation must come after the scene and output
-    if frameRange:
+    if re.match(r"^\d+-\d+$", frameRange):
         renderCommand += ' -s {frameStart} -e {frameEnd} -a'.format(
             frameStart="#FRAME_START#",
             frameEnd="#FRAME_END#")
