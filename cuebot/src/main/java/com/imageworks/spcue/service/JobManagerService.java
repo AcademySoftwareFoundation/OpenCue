@@ -569,6 +569,16 @@ public class JobManagerService implements JobManager {
         return frameDao.getStaleCheckpoints(cutoffTimeSec);
     }
 
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updateEmail(JobInterface job, String email) {
+        jobDao.updateEmail(job, email);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    public String getEmail(JobInterface job) {
+        return jobDao.getEmail(job);
+    }
+
     public DependManager getDependManager() {
         return dependManager;
     }
