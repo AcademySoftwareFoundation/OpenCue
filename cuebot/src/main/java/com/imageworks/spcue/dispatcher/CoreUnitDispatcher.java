@@ -259,9 +259,10 @@ public class CoreUnitDispatcher implements Dispatcher {
                 host.getName() + " " + host.idleCores + "/" + host.idleMemory +
                 " on job " + job.getName());
 
+        String[] selfishServices = env.getProperty("dispatcher.frame.selfish.services", "").split(",");
         for (DispatchFrame frame: frames) {
 
-            VirtualProc proc =  VirtualProc.build(host, frame);
+            VirtualProc proc =  VirtualProc.build(host, frame, selfishServices);
 
             if (host.idleCores < frame.minCores ||
                     host.idleMemory < frame.minMemory ||
