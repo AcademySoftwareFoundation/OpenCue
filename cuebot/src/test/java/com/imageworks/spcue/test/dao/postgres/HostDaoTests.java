@@ -86,12 +86,13 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         RenderHost host = RenderHost.newBuilder()
                 .setName(name)
                 .setBootTime(1192369572)
-                .setFreeMcp(7602)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(15290520)
                 .setFreeSwap((int) CueUtil.MB512)
                 .setLoad(1)
                 .setNimbyEnabled(false)
-                .setTotalMcp(19543)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem((int) CueUtil.GB16)
                 .setTotalSwap((int) CueUtil.GB2)
                 .setNimbyEnabled(false)
@@ -328,24 +329,6 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         hostDao.updateHostLock(host, LockState.LOCKED, new Source("TEST"));
         assertEquals(hostDao.isHostLocked(host),true);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testIsKillMode() {
-        hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail(),
-                false);
-
-        HostEntity host = hostDao.findHostDetail(TEST_HOST);
-        assertFalse(hostDao.isKillMode(host));
-
-        jdbcTemplate.update(
-                "UPDATE host_stat SET int_swap_free = ?, int_mem_free = ? WHERE pk_host = ?",
-                CueUtil.MB256, CueUtil.MB256, host.getHostId());
-
-        assertTrue(hostDao.isKillMode(host));
     }
 
     @Test

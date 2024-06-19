@@ -204,6 +204,13 @@ public interface FrameDao {
      * @return
      */
     boolean updateFrameCleared(FrameInterface frame);
+    /**
+     * Sets a frame exitStatus to EXIT_STATUS_MEMORY_FAILURE
+     *
+     * @param frame
+     * @return whether the frame has been updated
+     */
+    boolean updateFrameMemoryError(FrameInterface frame);
 
     /**
      * Sets a frame to an unreserved waiting state.

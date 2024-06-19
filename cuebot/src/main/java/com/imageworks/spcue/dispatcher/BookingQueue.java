@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-
-
 package com.imageworks.spcue.dispatcher;
 
 import com.google.common.cache.Cache;
@@ -28,7 +26,7 @@ import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 
-public class BookingQueue {
+public class BookingQueue implements QueueHealthCheck {
 
     private final int healthThreshold;
     private final int minUnhealthyPeriodMin;
@@ -41,7 +39,7 @@ public class BookingQueue {
     private HealthyThreadPool healthyThreadPool;
 
     public BookingQueue(int healthThreshold, int minUnhealthyPeriodMin, int queueCapacity,
-                        int corePoolSize, int maxPoolSize) {
+            int corePoolSize, int maxPoolSize) {
         this.healthThreshold = healthThreshold;
         this.minUnhealthyPeriodMin = minUnhealthyPeriodMin;
         this.queueCapacity = queueCapacity;
@@ -61,9 +59,9 @@ public class BookingQueue {
                 BASE_SLEEP_TIME_MILLIS);
     }
 
-    public boolean isHealthy() {
+    public void shutdownUnhealthy() {
         try {
-            if (!healthyThreadPool.isHealthyOrShutdown()) {
+            if (!healthyThreadPool.shutdownUnhealthy()) {
                 logger.warn("BookingQueue: Unhealthy queue terminated, starting a new one");
                 initThreadPool();
             }
@@ -71,10 +69,11 @@ public class BookingQueue {
             // TODO: evaluate crashing the whole springbook context here
             //  to force a container restart cycle
             logger.error("Failed to restart BookingThreadPool", e);
-            return false;
         }
+    }
 
-        return true;
+    public boolean isHealthy() {
+        return healthyThreadPool.healthCheck();
     }
 
     public void execute(KeyRunnable r) {
@@ -118,4 +117,3 @@ public class BookingQueue {
     }
 
 }
-

@@ -446,6 +446,7 @@ public class JobSpec {
             determineMinimumMemory(buildableJob, layerTag, layer,
                     buildableLayer);
             determineMinimumGpuMemory(buildableJob, layerTag, layer);
+            determineOutputs(layerTag, buildableJob, layer);
 
             // set a timeout value on the layer
             if (layerTag.getChildTextTrim("timeout") != null) {
@@ -750,6 +751,33 @@ public class JobSpec {
         layer.limits.addAll(limits);
         layer.timeout = primaryService.timeout;
         layer.timeout_llu = primaryService.timeout_llu;
+    }
+
+    private void determineOutputs(Element layerTag,
+            BuildableJob job, LayerDetail layer) {
+
+        Element t_outputs = layerTag.getChild("outputs");
+        List<String> outputs = new ArrayList<String>();
+        /*
+         * Build a list of outputs from the XML.  Filter
+         * out duplicates and empty outputs.
+         */
+        if (t_outputs != null) {
+            for (Object tmp : t_outputs.getChildren()) {
+                Element t_output = (Element) tmp;
+                String output_path = t_output.getTextTrim();
+
+                if (output_path.length() == 0) {
+                    continue;
+                }
+
+                if (outputs.contains(output_path)) {
+                    continue;
+                }
+                outputs.add(output_path);
+            }
+        }
+        layer.outputs.addAll(outputs);
     }
 
     /**

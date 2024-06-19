@@ -98,7 +98,7 @@ class JobActionsTests(unittest.TestCase):
 
         self.job_actions.emailArtist(rpcObjects=[job])
 
-        emailDialogMock.assert_called_with(job, self.widgetMock)
+        emailDialogMock.assert_called_with([job], self.widgetMock)
         emailDialogMock.return_value.show.assert_called()
 
     @mock.patch('qtpy.QtWidgets.QInputDialog.getDouble')
@@ -958,7 +958,9 @@ class FrameActionsTests(unittest.TestCase):
 
         self.frame_actions.kill(rpcObjects=[frame])
 
-        self.job.killFrames.assert_called_with(name=[frame_name])
+        self.job.killFrames.assert_called_with(
+            name=[frame_name],
+            reason="Manual Frame(s) Kill Request in Cuegui by root")
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_markAsWaiting(self, yesNoMock):
@@ -1193,7 +1195,7 @@ class HostActionsTests(unittest.TestCase):
 
         self.host_actions.viewComments(rpcObjects=[opencue.wrappers.layer.Layer, host])
 
-        commentListDialogMock.assert_called_with(host, mock.ANY)
+        commentListDialogMock.assert_called_with([host], mock.ANY)
         commentListDialogMock.return_value.show.assert_called()
 
     def test_viewProc(self):

@@ -15,6 +15,7 @@
 """Module for classes related to frames."""
 
 import enum
+import getpass
 import time
 import os
 
@@ -70,10 +71,18 @@ class Frame(object):
         if self.data.state != job_pb2.FrameState.Value('EATEN'):
             self.stub.Eat(job_pb2.FrameEatRequest(frame=self.data), timeout=Cuebot.Timeout)
 
-    def kill(self):
+    def kill(self, username=None, pid=None, host_kill=None, reason=None):
         """Kills the frame."""
+        username = username if username else getpass.getuser()
+        pid = pid if pid else os.getpid()
+        host_kill = host_kill if host_kill else os.uname()[1]
         if self.data.state == job_pb2.FrameState.Value('RUNNING'):
-            self.stub.Kill(job_pb2.FrameKillRequest(frame=self.data), timeout=Cuebot.Timeout)
+            self.stub.Kill(job_pb2.FrameKillRequest(frame=self.data,
+                                                    username=username,
+                                                    pid=str(pid),
+                                                    host_kill=host_kill,
+                                                    reason=reason),
+                           timeout=Cuebot.Timeout)
 
     def retry(self):
         """Retries the frame."""

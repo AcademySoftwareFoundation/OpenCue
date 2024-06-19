@@ -116,12 +116,12 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOST)
                 .setBootTime(1192369572)
-                // The minimum amount of free space in the /mcp directory to book a host.
-                .setFreeMcp(1048576)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem(8173264)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)
@@ -276,6 +276,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         /** Change the version so the update fails **/
         jdbcTemplate.update(
                 "UPDATE frame SET int_version = int_version + 1 WHERE pk_frame=?",
+          
                 f.getFrameId());
 
         assertEquals(false, frameDao.updateFrameState(f, FrameState.RUNNING));

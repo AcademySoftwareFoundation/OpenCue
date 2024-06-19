@@ -162,6 +162,8 @@ class RunningFrame(object):
                     else:
                         os.killpg(self.pid, rqd.rqconstants.KILL_SIGNAL)
                 finally:
+                    log.warning(
+                        "kill() successfully killed frameId=%s pid=%s", self.frameId, self.pid)
                     rqd.rqutil.permissionsLow()
             except OSError as e:
                 log.warning(

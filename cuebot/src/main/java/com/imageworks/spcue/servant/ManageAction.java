@@ -18,8 +18,10 @@
 
 package com.imageworks.spcue.servant;
 
+import com.imageworks.spcue.SpcueRuntimeException;
 import io.grpc.stub.StreamObserver;
 
+import org.springframework.dao.EmptyResultDataAccessException;
 import com.imageworks.spcue.ActionEntity;
 import com.imageworks.spcue.FilterEntity;
 import com.imageworks.spcue.grpc.filter.Action;
@@ -61,12 +63,17 @@ public class ManageAction extends ActionInterfaceGrpc.ActionInterfaceImplBase {
     @Override
     public void commit(ActionCommitRequest request, StreamObserver<ActionCommitResponse> responseObserver) {
         Action requestAction = request.getAction();
-        ActionEntity existingAction = filterManager.getAction(requestAction.getId());
-        FilterEntity filterEntity = filterManager.getFilter(existingAction);
-        ActionEntity newAction = ActionEntity.build(filterEntity, requestAction, requestAction.getId());
-        filterManager.updateAction(newAction);
-        responseObserver.onNext(ActionCommitResponse.newBuilder().build());
-        responseObserver.onCompleted();
+        // Getting an action to have filterId populated from the DB
+        try {
+            ActionEntity persistedAction = filterManager.getAction(requestAction.getId());
+            ActionEntity newAction = ActionEntity.build(persistedAction, requestAction, requestAction.getId());
+            filterManager.updateAction(newAction);
+            responseObserver.onNext(ActionCommitResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            throw new SpcueRuntimeException("Invalid actionId on Action commit: " +
+                    requestAction.getId());
+        }
     }
 
     public FilterManager getFilterManager() {

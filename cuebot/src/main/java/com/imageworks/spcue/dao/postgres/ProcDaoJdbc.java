@@ -90,7 +90,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
 
     public boolean deleteVirtualProc(VirtualProc proc) {
         if(getJdbcTemplate().update(DELETE_VIRTUAL_PROC, proc.getProcId()) == 0) {
-            logger.warn("failed to delete " + proc + " , proc does not exist.");
+            logger.info("failed to delete " + proc + " , proc does not exist.");
             return false;
         }
         // update all of the resource counts.
@@ -564,7 +564,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                     value, p.getProcId(), value) == 1;
         } catch (Exception e) {
             // check by trigger erify_host_resources
-            throw new ResourceReservationFailureException("failed to increase memory reserveration for proc "
+            throw new ResourceReservationFailureException("failed to increase memory reservation for proc "
                     + p.getProcId() + " to " + value + ", proc does not have that much memory to spare.");
         }
       }
@@ -692,7 +692,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                  + targetProc.getName() + ", obtained " + memBorrowedTotal);
 
           if (memBorrowedTotal < targetMem) {
-              logger.warn("mem borrowed " + memBorrowedTotal +
+              logger.info("mem borrowed " + memBorrowedTotal +
                       " was less than the target memory of " + targetMem);
               return false;
           }

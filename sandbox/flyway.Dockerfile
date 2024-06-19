@@ -1,4 +1,4 @@
-FROM almalinux:8.7
+FROM almalinux:9
 
 ARG FLYWAY_VERSION=9.11.0
 

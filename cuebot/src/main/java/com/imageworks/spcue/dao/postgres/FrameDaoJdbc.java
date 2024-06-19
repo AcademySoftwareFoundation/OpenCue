@@ -157,6 +157,24 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         return updateFrame(frame, Dispatcher.EXIT_STATUS_FRAME_CLEARED) > 0;
     }
 
+    private static final String UPDATE_FRAME_MEMORY_ERROR =
+            "UPDATE "+
+                "frame "+
+            "SET " +
+                 "int_exit_status = ?, " +
+                 "int_version = int_version + 1 " +
+                 "WHERE " +
+                 "frame.pk_frame = ? ";
+    @Override
+    public boolean updateFrameMemoryError(FrameInterface frame) {
+        int result =  getJdbcTemplate().update(
+                UPDATE_FRAME_MEMORY_ERROR,
+                Dispatcher.EXIT_STATUS_MEMORY_FAILURE,
+                frame.getFrameId());
+
+        return result > 0;
+    }
+
     private static final String UPDATE_FRAME_STARTED =
         "UPDATE " +
             "frame " +
