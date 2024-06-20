@@ -596,7 +596,9 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
             // Increase the memory usage as frames are added
             procDao.updateProcMemoryUsage(frame,
-                    1000*i, 1000*i, 1000*i, 1000*i, 0, 0, children);
+                    1000*i, 1000*i,
+                    Dispatcher.MEM_RESERVED_DEFAULT*i, Dispatcher.MEM_RESERVED_DEFAULT*i,
+                    0, 0, children);
             i++;
         }
 
