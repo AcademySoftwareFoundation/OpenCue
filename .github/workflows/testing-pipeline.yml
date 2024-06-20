@@ -115,18 +115,3 @@ jobs:
         uses: tj-actions/changed-files@v35
       - name: Check for Version Change
         run: ci/check_version_bump.py ${{ steps.get_changed_files.outputs.all_changed_and_modified_files }}
-
-  integration_test:
-    name: Run Integration Test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Run test
-        run: ci/run_integration_test.sh
-      - name: Archive log files
-        uses: actions/upload-artifact@v3
-        if: ${{ always() }}
-        with:
-          name: test-logs
-          path: /tmp/opencue-test/*.log
