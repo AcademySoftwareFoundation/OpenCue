@@ -51,6 +51,17 @@ class Frame(object):
         EATEN = job_pb2.EATEN
         CHECKPOINT = job_pb2.CHECKPOINT
 
+    STATUS_COLOR = {
+        "RED": (255, 0, 0),
+        "GREEN": (0, 255, 0),
+        "BLUE": (0, 128, 255),
+        "YELLOW": (255, 255, 0),
+        "ORANGE": (255, 128, 0),
+        "PURPLE": (127, 0, 255),
+        "PINK": (255, 51, 255)
+    }
+
+
     def __init__(self, frame=None):
         self.data = frame
         self.stub = Cuebot.getStub('frame')
@@ -188,6 +199,47 @@ class Frame(object):
         self.stub.SetCheckpointState(
             job_pb2.FrameSetCheckpointStateRequest(frame=self.data, state=checkPointState))
 
+    def setFrameStateDisplayOverride(self, status, override_text, override_rgb):
+        """
+        Override the displayed text of a frame status
+
+        :param status: the job_pb2.FrameState to override
+        :param override_text: the text to display
+        :param override_rgb: tuple containing the RGB int values e.g.(255, 0, 0)
+        :return:
+        """
+        override = job_pb2.FrameStateDisplayOverride(state=status,
+                                text=override_text,
+                                color=job_pb2.FrameStateDisplayOverride.RGB(
+                                    red=override_rgb[0],
+                                    green=override_rgb[1],
+                                    blue=override_rgb[2]))
+        self.stub.SetFrameStateDisplayOverride(
+            job_pb2.FrameStateDisplayOverrideRequest(frame=self.data,
+                                                     override=override))
+
+    def getFrameStateDisplayOverrides(self):
+        """
+        Retrieve all frame state display overrides for the frame
+
+        :rtype: list
+        :return: overrides for the frame
+        """
+        response = self.stub.GetFrameStateDisplayOverrides(
+            job_pb2.GetFrameStateDisplayOverridesRequest(frame=self.data))
+        return response.overrides.overrides
+
+    def hasFrameStateDisplayOverride(self):
+        """
+        Check if frame has state override
+
+        :rtype: boolean
+        :return:  if a frame has any state overrides or not
+        """
+        if self.data.HasField("frame_state_display_override"):
+            return True
+        return False
+
     def id(self):
         """Returns the id of the frame.
 
@@ -321,3 +373,14 @@ class Frame(object):
         if self.data.stop_time == 0:
             return int(time.time() - self.data.start_time)
         return self.data.stop_time - self.data.start_time
+
+    def frameStateDisplayOverride(self):
+        """ Returns the frame state display override if there is one.
+            Meant to be used in conjunction with "hasFrameStateDisplayOverride"
+
+            :rtype: job_pb2.FrameStateDisplayOverride
+            :return: frame state display override or None
+        """
+        if self.hasFrameStateDisplayOverride():
+            return self.data.frame_state_display_override
+        return None
