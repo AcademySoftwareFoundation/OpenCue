@@ -115,3 +115,23 @@ jobs:
         uses: tj-actions/changed-files@v35
       - name: Check for Version Change
         run: ci/check_version_bump.py ${{ steps.get_changed_files.outputs.all_changed_and_modified_files }}
+
+  analyze_cuebot:
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2020
+    name: Analyze Cuebot
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          # Fetch all Git history, otherwise the current version number will
+          # not be correctly calculated.
+          fetch-depth: 0
+
+      - name: Analyze and send to SonarCloud
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          chown -R aswfuser:aswfgroup .
+          su -c "cd cuebot && ./gradlew jacocoTestReport sonarqube -Dsonar.login=${SONAR_TOKEN}" aswfuser
