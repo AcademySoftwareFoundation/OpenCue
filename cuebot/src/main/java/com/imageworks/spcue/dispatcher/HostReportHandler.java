@@ -365,7 +365,7 @@ public class HostReportHandler {
         Long minBookableFreeTempDir = env.getRequiredProperty("dispatcher.min_bookable_free_temp_dir_kb", Long.class);
 
         // Prevent cue frames from booking on hosts with full temporary directories
-        if (minBookableFreeTempDir != -1) {
+        if (minBookableFreeTempDir != -1 && !host.os.equalsIgnoreCase("Windows")) {
             if (host.hardwareState == HardwareState.UP && freeTempDir < minBookableFreeTempDir) {
 
                 // Insert a comment indicating that the Host status = Repair with reason = Full temporary directory
