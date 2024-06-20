@@ -20,6 +20,7 @@ package com.imageworks.spcue.servant;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.springframework.dao.EmptyResultDataAccessException;
 
@@ -175,12 +176,20 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
 
     @Override
     public void getJob(ProcGetJobRequest request, StreamObserver<ProcGetJobResponse> responseObserver) {
-        VirtualProc proc = getVirtualProc(request.getProc());
-        ProcGetJobResponse response = ProcGetJobResponse.newBuilder()
-                .setJob(whiteboard.getJob(procDao.getCurrentJobId(proc)))
-                .build();
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
+        try {
+            VirtualProc proc = getVirtualProc(request.getProc());
+            ProcGetJobResponse response = ProcGetJobResponse.newBuilder()
+                    .setJob(whiteboard.getJob(procDao.getCurrentJobId(proc)))
+                    .build();
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override
@@ -220,7 +229,7 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
     public void redirectToGroup(ProcRedirectToGroupRequest request,
                                 StreamObserver<ProcRedirectToGroupResponse> responseObserver) {
         VirtualProc proc = getVirtualProc(request.getProc());
-        VirtualProc p = procDao.getVirtualProc(proc.getId());
+        VirtualProc p = procDao.getVirtualProc(proc.getProcId());
         GroupInterface g = groupManager.getGroup(request.getGroupId());
         String message = "redirectToGroup called on " + proc.getProcId() + " with Group " + g.getGroupId();
         boolean value = redirectManager.addRedirect(p, g, request.getKill(), new Source(message));
