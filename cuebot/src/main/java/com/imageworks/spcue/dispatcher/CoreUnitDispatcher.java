@@ -360,15 +360,10 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     @Override
     public void dispatch(DispatchFrame frame, VirtualProc proc) {
-        /*
-         * The frame is reserved, the proc is created, now update
-         * the frame to the running state.
-         */
+        // Allocate frame on the database
         dispatchSupport.startFrameAndProc(proc, frame);
 
-        /*
-         * Communicate with RQD to run the frame.
-         */
+        // Communicate with RQD to run the frame.
         if (!testMode) {
             dispatchSupport.runFrame(proc,frame);
         }

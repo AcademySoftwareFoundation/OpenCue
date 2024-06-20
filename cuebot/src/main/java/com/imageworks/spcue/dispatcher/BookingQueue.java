@@ -33,6 +33,8 @@ public class BookingQueue implements QueueHealthCheck {
     private final int queueCapacity;
     private final int corePoolSize;
     private final int maxPoolSize;
+    // Base value for calculating the job sleep time
+    // this is used to slow down the booking queue to avoid racing conditions
     private static final int BASE_SLEEP_TIME_MILLIS = 300;
 
     private static final Logger logger = LogManager.getLogger("HEALTH");
