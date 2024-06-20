@@ -79,7 +79,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
      * @param frame
      * @return
      */
-    public static final VirtualProc build(DispatchHost host, DispatchFrame frame) {
+    public static final VirtualProc build(DispatchHost host, DispatchFrame frame, String... selfishServices) {
         VirtualProc proc = new VirtualProc();
         proc.allocationId = host.getAllocationId();
         proc.hostId = host.getHostId();
@@ -132,13 +132,19 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                 proc.coresReserved = wholeCores * 100;
             } else {
                 if (frame.threadable) {
-                    if (host.idleMemory - frame.minMemory
-                            <= Dispatcher.MEM_STRANDED_THRESHHOLD) {
+                    if (selfishServices != null && 
+                        frame.services != null &&
+                        containsSelfishService(frame.services.split(","), selfishServices)){
                         proc.coresReserved = wholeCores * 100;
-                    } else {
-                        proc.coresReserved = getCoreSpan(host, frame.minMemory);
                     }
-
+                    else {
+                        if (host.idleMemory - frame.minMemory
+                                <= Dispatcher.MEM_STRANDED_THRESHHOLD) {
+                            proc.coresReserved = wholeCores * 100;
+                        } else {
+                            proc.coresReserved = getCoreSpan(host, frame.minMemory);
+                        }
+                    }
                     if (host.threadMode == ThreadMode.VARIABLE_VALUE
                             && proc.coresReserved <= 200) {
                         proc.coresReserved = 200;
@@ -192,6 +198,17 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         }
 
         return proc;
+    }
+
+    private static final boolean containsSelfishService(String[] frameServices, String[] selfishServices) {
+        for (String frameService: frameServices){
+            for (String selfishService: selfishServices) {
+                if (frameService.equals(selfishService)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public static final VirtualProc build(DispatchHost host,

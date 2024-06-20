@@ -512,31 +512,25 @@ public class JobSpec {
         long minMemory;
         String memory = layerTag.getChildTextTrim("memory").toLowerCase();
 
-        try {
-            minMemory = convertMemoryInput(memory);
+        minMemory = convertMemoryInput(memory);
 
-            // Some quick sanity checks to make sure memory hasn't gone
-            // over or under reasonable defaults.
-            if (minMemory> Dispatcher.MEM_RESERVED_MAX) {
-                throw new SpecBuilderException("Memory requirements exceed " +
-                        "maximum. Are you specifying the correct units?");
-            }
-            else if (minMemory < Dispatcher.MEM_RESERVED_MIN) {
-                logger.warn(buildableJob.detail.name + "/" + layer.name +
-                        "Specified too little memory, defaulting to: " +
-                        Dispatcher.MEM_RESERVED_MIN);
-                minMemory = Dispatcher.MEM_RESERVED_MIN;
-            }
-
-            buildableLayer.isMemoryOverride = true;
-            layer.minimumMemory = minMemory;
-
-        } catch (Exception e) {
-            logger.info("Setting setting memory for " +
-                    buildableJob.detail.name + "/" + layer.name +
-                    " failed, reason: " + e + ". Using default.");
-            layer.minimumMemory = Dispatcher.MEM_RESERVED_DEFAULT;
+        // Some quick sanity checks to make sure memory hasn't gone
+        // over or under reasonable defaults.
+        if (minMemory > Dispatcher.MEM_RESERVED_MAX) {
+            logger.warn("Setting memory for " + buildableJob.detail.name +
+                    "/" + layer.name + " to: "+ Dispatcher.MEM_RESERVED_MAX);
+            layer.minimumMemory = Dispatcher.MEM_RESERVED_MAX;
         }
+        else if (minMemory < Dispatcher.MEM_RESERVED_MIN) {
+            logger.warn(buildableJob.detail.name + "/" + layer.name +
+                    "Specified too little memory, defaulting to: " +
+                    Dispatcher.MEM_RESERVED_MIN);
+            minMemory = Dispatcher.MEM_RESERVED_MIN;
+        }
+
+        buildableLayer.isMemoryOverride = true;
+        layer.minimumMemory = minMemory;
+
     }
 
     /**
@@ -620,6 +614,9 @@ public class JobSpec {
 
         if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
             corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
+        }
+        else if (corePoints > Dispatcher.CORE_POINTS_RESERVED_MAX) {
+            corePoints = Dispatcher.CORE_POINTS_RESERVED_MAX;
         }
 
         layer.minimumCores = corePoints;
