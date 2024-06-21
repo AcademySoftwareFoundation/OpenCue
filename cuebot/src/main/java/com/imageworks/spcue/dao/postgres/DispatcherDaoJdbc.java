@@ -197,15 +197,26 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 continue;
             }
 
-            result.addAll(getJdbcTemplate().query(
-                    findByShowQuery(),
-                    PKJOB_MAPPER,
-                    s.getShowId(), host.getFacilityId(), host.os,
-                    host.idleCores, host.idleMemory,
-                    threadMode(host.threadMode),
-                    host.idleGpus,
-                    (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
-                    host.getName(), numJobs * 10));
+            if (host.idleGpus == 0 && (schedulingMode == SchedulingMode.BALANCED)) {
+                result.addAll(getJdbcTemplate().query(
+                        FIND_JOBS_BY_SHOW_NO_GPU,
+                        PKJOB_MAPPER,
+                        s.getShowId(), host.getFacilityId(), host.os,
+                        host.idleCores, host.idleMemory,
+                        threadMode(host.threadMode),
+                        host.getName(), numJobs * 10));
+            }
+            else {
+                result.addAll(getJdbcTemplate().query(
+                        findByShowQuery(),
+                        PKJOB_MAPPER,
+                        s.getShowId(), host.getFacilityId(), host.os,
+                        host.idleCores, host.idleMemory,
+                        threadMode(host.threadMode),
+                        host.idleGpus,
+                        (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
+                        host.getName(), numJobs * 10));
+            }
 
             if (result.size() < 1) {
                 if (host.gpuMemory == 0) {
@@ -224,7 +235,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         switch (schedulingMode) {
             case PRIORITY_ONLY: return FIND_JOBS_BY_SHOW_PRIORITY_MODE;
             case FIFO: return FIND_JOBS_BY_SHOW_FIFO_MODE;
-            case BALANCED: return FIND_JOBS_BY_SHOW_BALANCED_MODE;
+            case BALANCED: return FIND_JOBS_BY_SHOW;
             default: return FIND_JOBS_BY_SHOW_PRIORITY_MODE;
         }
     }
@@ -251,15 +262,28 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     @Override
     public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
         LinkedHashSet<String> result = new LinkedHashSet<String>(5);
-        result.addAll(getJdbcTemplate().query(
-                findByGroupQuery(),
-                PKJOB_MAPPER,
-                g.getGroupId(),host.getFacilityId(), host.os,
-                host.idleCores, host.idleMemory,
-                threadMode(host.threadMode),
-                host.idleGpus,
-                (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
-                host.getName(), 50));
+        long lastTime = System.currentTimeMillis();
+
+        if (host.idleGpus == 0 && (schedulingMode == SchedulingMode.BALANCED)) {
+            result.addAll(getJdbcTemplate().query(
+                    FIND_JOBS_BY_GROUP_NO_GPU,
+                    PKJOB_MAPPER,
+                    g.getGroupId(), host.getFacilityId(), host.os,
+                    host.idleCores, host.idleMemory,
+                    threadMode(host.threadMode),
+                    host.getName(), 50));
+        }
+        else {
+            result.addAll(getJdbcTemplate().query(
+                    findByGroupQuery(),
+                    PKJOB_MAPPER,
+                    g.getGroupId(),host.getFacilityId(), host.os,
+                    host.idleCores, host.idleMemory,
+                    threadMode(host.threadMode),
+                    host.idleGpus,
+                    (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
+                    host.getName(), 50));
+        }
 
         return result;
     }
@@ -412,16 +436,26 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     public Set<String> findDispatchJobs(DispatchHost host,
             ShowInterface show, int numJobs) {
         LinkedHashSet<String> result = new LinkedHashSet<String>(numJobs);
-
-        result.addAll(getJdbcTemplate().query(
-                findByShowQuery(),
-                PKJOB_MAPPER,
-                show.getShowId(), host.getFacilityId(), host.os,
-                host.idleCores, host.idleMemory,
-                threadMode(host.threadMode),
-                host.idleGpus,
-                (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
-                host.getName(), numJobs * 10));
+        if (host.idleGpus == 0 && (schedulingMode == SchedulingMode.BALANCED)) {
+            result.addAll(getJdbcTemplate().query(
+                    FIND_JOBS_BY_SHOW_NO_GPU,
+                    PKJOB_MAPPER,
+                    show.getShowId(), host.getFacilityId(), host.os,
+                    host.idleCores, host.idleMemory,
+                    threadMode(host.threadMode),
+                    host.getName(), numJobs * 10));
+        }
+        else {
+            result.addAll(getJdbcTemplate().query(
+                    findByShowQuery(),
+                    PKJOB_MAPPER,
+                    show.getShowId(), host.getFacilityId(), host.os,
+                    host.idleCores, host.idleMemory,
+                    threadMode(host.threadMode),
+                    host.idleGpus,
+                    (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
+                    host.getName(), numJobs * 10));
+        }
 
         return result;
     }

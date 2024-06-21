@@ -185,6 +185,19 @@ class FrameTests(unittest.TestCase):
         stubMock.MarkAsWaiting.assert_called_with(
             job_pb2.FrameMarkAsWaitingRequest(frame=frame.data), timeout=mock.ANY)
 
+    def testDropDepends(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.DropDepends.return_value = job_pb2.FrameDropDependsResponse()
+        getStubMock.return_value = stubMock
+
+        target = depend_pb2.ANY_TARGET
+        frame = opencue.wrappers.frame.Frame(job_pb2.Frame(name='arbitrary-frame-name'))
+        frame.dropDepends(target)
+
+        stubMock.DropDepends.assert_called_with(
+            job_pb2.FrameDropDependsRequest(frame=frame.data, target=target),
+            timeout=mock.ANY)
+
     def testRunTimeZero(self, getStubMock):
         zeroFrame = opencue.wrappers.frame.Frame(
             job_pb2.Frame(name=TEST_FRAME_NAME, start_time=0, stop_time=1000))
