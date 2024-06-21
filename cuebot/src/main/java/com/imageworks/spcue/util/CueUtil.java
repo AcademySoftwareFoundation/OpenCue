@@ -19,6 +19,7 @@
 
 package com.imageworks.spcue.util;
 
+import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
@@ -168,7 +169,7 @@ public final class CueUtil {
      * @param body
      * @param images
      */
-    public static void sendmail(String to, String from, String subject, StringBuilder body, Map<String, byte[]> images) {
+    public static void sendmail(String to, String from, String subject, StringBuilder body, Map<String, byte[]> images, File attachment) {
         try {
             Properties props = System.getProperties();
             props.put("mail.smtp.host", CueUtil.smtpHost);
@@ -198,6 +199,11 @@ public final class CueUtil {
                 imageBodyPart.setDisposition("inline");
                 imageBodyPart.setHeader("Content-ID", '<' + name + '>');
                 mimeMultipart.addBodyPart(imageBodyPart);
+            }
+            if (attachment != null && attachment.length() != 0){
+                MimeBodyPart attachmentPart = new MimeBodyPart();
+                attachmentPart.attachFile(attachment);
+                mimeMultipart.addBodyPart(attachmentPart);
             }
 
             msg.setContent(mimeMultipart);
