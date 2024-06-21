@@ -143,8 +143,7 @@ test_pycue() {
         exit 1
     fi
 
-    rqd_name=$(docker compose ps --format json | jq -r '.[] | select(.Service=="rqd") | .Name')
-    rqd_ip=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${rqd_name}")
+    rqd_ip=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' opencue-rqd-1)
     want_hosts="['${rqd_ip}']"
     got_hosts=$(python -c 'import opencue; print([host.name() for host in opencue.api.getHosts()])')
     if [[ "${got_hosts}" = "${want_hosts}" ]]; then
@@ -169,8 +168,7 @@ test_cueadmin() {
         exit 1
     fi
 
-    rqd_name=$(docker compose ps --format json | jq -r '.[] | select(.Service=="rqd") | .Name')
-    want_host=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${rqd_name}")
+    want_host=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' opencue-rqd-1)
     lh_response=$(cueadmin -lh)
     got_host=$(echo "${lh_response}" | tail -n 1 | cut -d ' ' -f 1)
     if [[ "${got_host}" = "${want_host}" ]]; then
