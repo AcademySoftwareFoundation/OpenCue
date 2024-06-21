@@ -1056,10 +1056,13 @@ class FrameActions(AbstractActions):
             if layer is not None:
                 outputs = layer.getOutputPaths()
                 if len(outputs) > 0:
-                    print(outputs[0])
-            d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, False)
-            d.process()
-            d.exec_()
+                    job_log_cmd = cuegui.Constants.DEFAULT_VIEWER.split()
+                    job_log_cmd.append(str(outputs[0]))
+                    cuegui.Utils.checkShellOut(job_log_cmd)
+                else:
+                    d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, False)
+                    d.process()
+                    d.exec_()
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Preview Error",
                                            "Error displaying preview frames, %s" % e)
