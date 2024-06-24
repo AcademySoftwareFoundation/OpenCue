@@ -205,33 +205,52 @@ class FileSequenceTests(unittest.TestCase):
         for arg, member in tests.items():
             if arg in kwargs:
                 if isinstance(member, FrameSet):
-                    self.assertEqual(member.getAll(), kwargs[arg].getAll(), "Comparing '%s', got '%s', expected '%s'" % (arg, str(member), str(kwargs[arg])))
+                    self.assertEqual(member.getAll(), kwargs[arg].getAll(),
+                                     "Comparing '%s', got '%s', expected '%s'" % (arg, str(member),
+                                                                                  str(kwargs[arg])))
                 else:
-                    self.assertEqual(member, kwargs[arg], "Comparing '%s', got '%s', expected '%s'" % (arg, str(member), str(kwargs[arg])))
+                    self.assertEqual(member, kwargs[arg],
+                                     "Comparing '%s', got '%s', expected '%s'" % (arg, str(member),
+                                                                                  str(kwargs[arg])))
 
     def testVariousFileSequences(self):
         """Test various file sequences are correctly parsed."""
-        self.__testFileSequence('foo.1-1####.bar', prefix='foo.', frameSet=FrameSet('1-1'), suffix='.bar', padSize=4)
-        self.__testFileSequence('foo.####.bar', prefix='foo.', frameSet=None, suffix='.bar', padSize=4)
+        self.__testFileSequence('foo.1-1####.bar', prefix='foo.', frameSet=FrameSet('1-1'),
+                                suffix='.bar', padSize=4)
+        self.__testFileSequence('foo.####.bar', prefix='foo.', frameSet=None, suffix='.bar',
+                                padSize=4)
         # Not sure why this becomes padSize of 10
-        # self.__testFileSequence('foo.1-15x2#@#@.bar', prefix='foo.', frameSet=FrameSet('1-15x2'), suffix='.bar',
+        # self.__testFileSequence('foo.1-15x2#@#@.bar', prefix='foo.', frameSet=FrameSet('1-15x2'),
+        # suffix='.bar',
         # padSize=10)
-        self.__testFileSequence('foo.1-15x2.bar', prefix='foo.', frameSet=FrameSet('1-15x2'), suffix='.bar', padSize=1)
-        self.__testFileSequence('someImage.1,3,5####.rla', prefix='someImage.', frameSet=FrameSet('1,3,5'), suffix='.rla', padSize=4)
-        self.__testFileSequence('foo.####.exr.tx', prefix='foo.', frameSet=None, suffix='.exr.tx', padSize=4)
-        self.__testFileSequence('foo.1-10#.bar.1-9####.bar', prefix='foo.1-10#.bar.', frameSet=FrameSet('1-9'), suffix='.bar', padSize=4)
-        self.__testFileSequence('foo.1-9.bar', prefix='foo.', frameSet=FrameSet('1-9'), suffix='.bar', padSize=1)
-        self.__testFileSequence('foo.1-10.bar', prefix='foo.', frameSet=FrameSet('1-10'), suffix='.bar', padSize=1)
-        self.__testFileSequence('foo.9.bar', prefix='foo.', frameSet=FrameSet('9-9'), suffix='.bar', padSize=1)
+        self.__testFileSequence('foo.1-15x2.bar', prefix='foo.', frameSet=FrameSet('1-15x2'),
+                                suffix='.bar', padSize=1)
+        self.__testFileSequence('someImage.1,3,5####.rla', prefix='someImage.',
+                                frameSet=FrameSet('1,3,5'), suffix='.rla', padSize=4)
+        self.__testFileSequence('foo.####.exr.tx', prefix='foo.', frameSet=None, suffix='.exr.tx',
+                                padSize=4)
+        self.__testFileSequence('foo.1-10#.bar.1-9####.bar', prefix='foo.1-10#.bar.',
+                                frameSet=FrameSet('1-9'), suffix='.bar', padSize=4)
+        self.__testFileSequence('foo.1-9.bar', prefix='foo.', frameSet=FrameSet('1-9'),
+                                suffix='.bar', padSize=1)
+        self.__testFileSequence('foo.1-10.bar', prefix='foo.', frameSet=FrameSet('1-10'),
+                                suffix='.bar', padSize=1)
+        self.__testFileSequence('foo.9.bar', prefix='foo.', frameSet=FrameSet('9-9'), suffix='.bar',
+                                padSize=1)
 
         self.__testFileSequence('foo.1-10#.bar', prefix='foo.', dirname='', basename='foo')
         self.__testFileSequence('/foo.1-10#.bar', prefix='/foo.', dirname='/', basename='foo')
-        self.__testFileSequence('baz/foo.1-10#.bar', prefix='baz/foo.', dirname='baz/', basename='foo')
-        self.__testFileSequence('/baz/foo.1-10#.bar', prefix='/baz/foo.', dirname='/baz/', basename='foo')
-        self.__testFileSequence('/bar/baz/foo.1-10#.bar', prefix='/bar/baz/foo.', dirname='/bar/baz/', basename='foo')
+        self.__testFileSequence('baz/foo.1-10#.bar', prefix='baz/foo.', dirname='baz/',
+                                basename='foo')
+        self.__testFileSequence('/baz/foo.1-10#.bar', prefix='/baz/foo.', dirname='/baz/',
+                                basename='foo')
+        self.__testFileSequence('/bar/baz/foo.1-10#.bar', prefix='/bar/baz/foo.',
+                                dirname='/bar/baz/', basename='foo')
 
-        self.__testFileSequence('foo.-15-15####.bar', prefix='foo.', frameSet=FrameSet('-15-15'), suffix='.bar', padSize=4)
-        self.__testFileSequence('foo.-15--1####.bar', prefix='foo.', frameSet=FrameSet('-15--1'), suffix='.bar', padSize=4)
+        self.__testFileSequence('foo.-15-15####.bar', prefix='foo.', frameSet=FrameSet('-15-15'),
+                                suffix='.bar', padSize=4)
+        self.__testFileSequence('foo.-15--1####.bar', prefix='foo.', frameSet=FrameSet('-15--1'),
+                                suffix='.bar', padSize=4)
 
     def testPadSizeWithoutPadTokens(self):
         """Test the pad size is correctly guessed when no padding tokens are given."""
@@ -261,6 +280,7 @@ class FileSequenceTests(unittest.TestCase):
         # require a prefix
         self.assertRaises(ValueError, FileSequence, '.1')
         self.assertRaises(ValueError, FileSequence, '0.1')
+
 
 if __name__ == '__main__':
     unittest.main()
