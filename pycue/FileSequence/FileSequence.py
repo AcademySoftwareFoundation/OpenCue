@@ -96,6 +96,15 @@ class FileSequence:
                 filelist.append(framepath)
         return filelist
 
+    def getOpenRVPath(self, frameSet=None):
+        """ Returns a string specific for the OpenRV player"""
+        frameRange = ""
+        curFrameSet = frameSet or self.frameSet
+        if isinstance(curFrameSet, FrameSet):
+            frameRange = "%d-%d" % (curFrameSet.get(0), curFrameSet.get(-1))
+        framepath = self.getPrefix() + frameRange + "@"*self.__padSize + self.getSuffix()
+        return framepath
+
     def __getitem__(self, index):
         return self.getFileList()[index]
 
