@@ -1125,8 +1125,12 @@ class FrameActions(AbstractActions):
                                              "Drop dependencies on selected frames?\n"
                                              "(Drops all of the frame's dependencies)",
                                              names):
+                # Remove all dependency types
+                #  - get what frame depends on and remove each one
                 for frame in frames:
-                    frame.dropDepends(opencue.api.depend_pb2.ANY_TARGET)
+                    dependencies = frame.getWhatThisDependsOn()
+                    for d in dependencies:
+                        d.satisfy()
                 self._update()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
