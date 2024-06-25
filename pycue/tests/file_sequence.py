@@ -296,6 +296,7 @@ class FileSequenceTests(unittest.TestCase):
     def testFrameList(self):
         self.__testFrameList('foo.1-10.bar', 4, 'foo.4.bar')
         self.__testFrameList('foo.1-10####.bar', 4, 'foo.0004.bar')
+        self.__testFrameList('foo.####.bar', 4, 'foo.0004.bar')
 
 
 if __name__ == '__main__':
