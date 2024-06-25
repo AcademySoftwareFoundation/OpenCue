@@ -239,6 +239,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         menu.addSeparator()
         self.__menuActions.layers().addAction(menu, "previewMain")
+        self.__menuActions.layers().addAction(menu, "previewAll")
         menu.addSeparator()
         self.__menuActions.layers().addAction(menu, "setProperties")
         menu.addSeparator()

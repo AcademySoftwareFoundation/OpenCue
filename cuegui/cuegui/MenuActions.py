@@ -911,15 +911,25 @@ class LayerActions(AbstractActions):
     # pylint: disable=broad-except
     def previewMain(self, rpcObjects=None):
         try:
-            job = self._getSource()
             layer = self._getOnlyLayerObjects(rpcObjects)[0]
             if layer is not None:
                 outputs = layer.getOutputPaths()
-                print(outputs)
                 if len(outputs) > 0:
-                    job_log_cmd = cuegui.Constants.DEFAULT_VIEWER.split()
-                    job_log_cmd.append(outputs[0])
-                    cuegui.Utils.checkShellOut(job_log_cmd)
+                    cuegui.Utils.previewOutputs([outputs[0]])
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Preview Error",
+                                           "Error displaying preview frames, %s" % e)
+
+    previewAll_info = ["Preview All", None, "previewAll"]
+
+    # pylint: disable=broad-except
+    def previewAll(self, rpcObjects=None):
+        try:
+            layer = self._getOnlyLayerObjects(rpcObjects)[0]
+            if layer is not None:
+                outputs = layer.getOutputPaths()
+                if len(outputs) > 0:
+                    cuegui.Utils.previewOutputs(outputs)
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Preview Error",
                                            "Error displaying preview frames, %s" % e)
@@ -1074,10 +1084,7 @@ class FrameActions(AbstractActions):
             if layer is not None:
                 outputs = layer.getOutputPaths()
                 if len(outputs) > 0:
-                    job_log_cmd = cuegui.Constants.DEFAULT_VIEWER.split()
-                    fs = FileSequence.FileSequence(outputs[0])
-                    job_log_cmd.append(fs(frame))
-                    cuegui.Utils.checkShellOut(job_log_cmd)
+                    cuegui.Utils.previewOutputs([outputs[0]], frameNum=frame.number())
                 else:
                     d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, False)
                     d.process()
@@ -1093,16 +1100,11 @@ class FrameActions(AbstractActions):
         try:
             job = self._getSource()
             frame = self._getOnlyFrameObjects(rpcObjects)[0]
-            print(frame)
             layer = job.getLayer(frame.layer())
             if layer is not None:
                 outputs = layer.getOutputPaths()
                 if len(outputs) > 0:
-                    job_log_cmd = cuegui.Constants.DEFAULT_VIEWER.split()
-                    for output in outputs:
-                        fs = FileSequence.FileSequence(output)
-                        job_log_cmd.append(fs(frame.number()))
-                    cuegui.Utils.checkShellOut(job_log_cmd)
+                    cuegui.Utils.previewOutputs(outputs, frameNum=frame.number())
                 else:
                     d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, True)
                     d.process()

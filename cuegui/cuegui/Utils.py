@@ -44,6 +44,7 @@ import cuegui.ConfirmationDialog
 import cuegui.Constants
 import cuegui.Logger
 
+from FileSequence import FileSequence
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -670,3 +671,15 @@ def byteConversion(amount, btype):
     for _ in range(n):
         _bytes *= 1024
     return _bytes
+
+
+def previewOutputs(outputs, frameNum=None):
+    job_log_cmd = cuegui.Constants.DEFAULT_VIEWER.split()
+    for output in outputs:
+        if isinstance(frameNum, int):
+            fs = FileSequence(output)
+            job_log_cmd.append(fs(frameNum))
+        else:
+            job_log_cmd.append(output)
+    print(job_log_cmd)
+    checkShellOut(job_log_cmd)
