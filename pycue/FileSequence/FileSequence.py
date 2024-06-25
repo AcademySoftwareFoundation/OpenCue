@@ -113,7 +113,9 @@ class FileSequence:
         return len(self.getFileList())
 
     def __call__(self, frame):
-        return self.getFileList(frameSet=FrameSet(str(frame)))[0]
+        paddingString = "%%0%dd" % self.getPadSize()
+        framepath = self.getPrefix() + paddingString % frame + self.getSuffix()
+        return framepath
 
     def __str__(self):
         return self.__filepath
