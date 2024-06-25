@@ -906,6 +906,24 @@ class LayerActions(AbstractActions):
         self.cuebotCall(__layer.staggerFrames, "Stagger Frames Failed",
                         frameRange, int(increment))
 
+    previewMain_info = ["Preview Main", None, "previewMain"]
+
+    # pylint: disable=broad-except
+    def previewMain(self, rpcObjects=None):
+        try:
+            job = self._getSource()
+            layer = self._getOnlyLayerObjects(rpcObjects)[0]
+            if layer is not None:
+                outputs = layer.getOutputPaths()
+                print(outputs)
+                if len(outputs) > 0:
+                    job_log_cmd = cuegui.Constants.DEFAULT_VIEWER.split()
+                    job_log_cmd.append(outputs[0])
+                    cuegui.Utils.checkShellOut(job_log_cmd)
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Preview Error",
+                                           "Error displaying preview frames, %s" % e)
+
 
 class FrameActions(AbstractActions):
     """Actions for frames."""
@@ -1057,7 +1075,8 @@ class FrameActions(AbstractActions):
                 outputs = layer.getOutputPaths()
                 if len(outputs) > 0:
                     job_log_cmd = cuegui.Constants.DEFAULT_VIEWER.split()
-                    job_log_cmd.append(str(outputs[0]))
+                    fs = FileSequence.FileSequence(outputs[0])
+                    job_log_cmd.append(fs(frame))
                     cuegui.Utils.checkShellOut(job_log_cmd)
                 else:
                     d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, False)
@@ -1074,9 +1093,20 @@ class FrameActions(AbstractActions):
         try:
             job = self._getSource()
             frame = self._getOnlyFrameObjects(rpcObjects)[0]
-            d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, True)
-            d.process()
-            d.exec_()
+            print(frame)
+            layer = job.getLayer(frame.layer())
+            if layer is not None:
+                outputs = layer.getOutputPaths()
+                if len(outputs) > 0:
+                    job_log_cmd = cuegui.Constants.DEFAULT_VIEWER.split()
+                    for output in outputs:
+                        fs = FileSequence.FileSequence(output)
+                        job_log_cmd.append(fs(frame.number()))
+                    cuegui.Utils.checkShellOut(job_log_cmd)
+                else:
+                    d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, True)
+                    d.process()
+                    d.exec_()
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Preview Error",
                                            "Error displaying preview frames, %s" % e)
