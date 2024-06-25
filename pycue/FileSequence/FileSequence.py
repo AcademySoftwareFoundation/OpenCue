@@ -101,7 +101,7 @@ class FileSequence:
 
     def __next__(self):
         self.__iter_index += 1
-        if self.__iter_index <= len(self.getFileList()):
+        if self.__iter_index <= len(self):
             return self.getFileList()[self.__iter_index - 1]
         raise StopIteration
 
@@ -109,5 +109,11 @@ class FileSequence:
         self.__iter_index = 0
         return self
 
+    def __len__(self):
+        return len(self.getFileList())
+
     def __call__(self, frame):
         return self.getFileList(frameSet=FrameSet(str(frame)))[0]
+
+    def __str__(self):
+        return self.__filepath
