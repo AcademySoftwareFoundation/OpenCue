@@ -592,9 +592,7 @@ class OutputRegistrationTest(unittest.TestCase):
     def setUp(self):
         outline.Outline.current = None
 
-    # TODO(bcipriano) Re-enable this test once FileSequence has a Python
-    #  implementation. (Issue #242)
-    def disabled__test_output_passing(self):
+    def test_output_passing(self):
         """
         Test that output registered in a pre-process is serialized
         to a ol:outputs file in the render layer.
@@ -608,7 +606,7 @@ class OutputRegistrationTest(unittest.TestCase):
             # the preprocess
             prelayer = outline.LayerPreProcess(layer1)
             prelayer._execute = lambda frames: prelayer.add_output(
-                "test", outline.io.FileSpec("/tmp/foo.#.exr"))
+                "test", outline.io.Path("/tmp/foo.#.exr"))
 
             # Add both to the outline
             ol.add_layer(layer1)
