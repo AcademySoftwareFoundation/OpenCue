@@ -32,6 +32,7 @@ class FileSequence:
     __suffix = None
     __dirname = ""
     __padSize = 1
+    __iter_index = 0
 
     def __init__(self, filepath):
         """
@@ -84,3 +85,29 @@ class FileSequence:
     def getPadSize(self):
         """Returns the size of the frame padding. It defaults to 1 if none is detected"""
         return self.__padSize
+
+    def getFileList(self, frameSet=None):
+        """ Returns the file list of the sequence """
+        filelist = []
+        paddingString = "%%0%dd" % self.getPadSize()
+        for frame in self.frameSet.getAll():
+            if frameSet is None or (isinstance(frameSet, FrameSet) and frame in frameSet.getAll()):
+                framepath = self.getPrefix() + paddingString % frame + self.getSuffix()
+                filelist.append(framepath)
+        return filelist
+
+    def __getitem__(self, index):
+        return self.getFileList()[index]
+
+    def __next__(self):
+        self.__iter_index += 1
+        if self.__iter_index <= len(self.getFileList()):
+            return self.getFileList()[self.__iter_index - 1]
+        raise StopIteration
+
+    def __iter__(self):
+        self.__iter_index = 0
+        return self
+
+    def __call__(self, frame):
+        return self.getFileList(frameSet=FrameSet(str(frame)))[0]

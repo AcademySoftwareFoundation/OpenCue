@@ -200,7 +200,7 @@ class FileSequenceTests(unittest.TestCase):
                  'padSize': fs.getPadSize(),
                  'dirname': fs.getDirname(),
                  'basename': fs.getBasename()
-        }
+                 }
 
         for arg, member in tests.items():
             if arg in kwargs:
@@ -254,17 +254,17 @@ class FileSequenceTests(unittest.TestCase):
 
     def testPadSizeWithoutPadTokens(self):
         """Test the pad size is correctly guessed when no padding tokens are given."""
-        self.__testFileSequence('foo.0009.bar',         padSize=4)
-        self.__testFileSequence('foo.1-9x0002.bar',     padSize=1)
+        self.__testFileSequence('foo.0009.bar', padSize=4)
+        self.__testFileSequence('foo.1-9x0002.bar', padSize=1)
         # This test contradicts another test for negative steps
         # self.__testFileSequence('foo.9-1x-0002.bar',    padSize=1)
-        self.__testFileSequence('foo.9-09x0002.bar',    padSize=1)
-        self.__testFileSequence('foo.9,10.bar',         padSize=1)
-        self.__testFileSequence('foo.009,10.bar',       padSize=3)
-        self.__testFileSequence('foo.-011.bar',         padSize=4)
+        self.__testFileSequence('foo.9-09x0002.bar', padSize=1)
+        self.__testFileSequence('foo.9,10.bar', padSize=1)
+        self.__testFileSequence('foo.009,10.bar', padSize=3)
+        self.__testFileSequence('foo.-011.bar', padSize=4)
 
         # sequence padded to 4 but frame count goes above 9999
-        self.__testFileSequence('foo.0001-10000.bar',   padSize=4)
+        self.__testFileSequence('foo.0001-10000.bar', padSize=4)
 
     def testInvalidSequences(self):
         """Test invalid file sequences throw expected exception."""
@@ -280,6 +280,22 @@ class FileSequenceTests(unittest.TestCase):
         # require a prefix
         self.assertRaises(ValueError, FileSequence, '.1')
         self.assertRaises(ValueError, FileSequence, '0.1')
+
+    def __testStringify(self, filespec, index, expected):
+        fs = FileSequence(filespec)
+        self.assertEqual(expected, fs[index])
+
+    def testStringify(self):
+        self.__testStringify('foo.011.bar', 0, 'foo.011.bar')
+        self.__testStringify('foo.-011.bar', 0, 'foo.-011.bar')
+
+    def __testFrameList(self, filespec, frame, expected):
+        fs = FileSequence(filespec)
+        self.assertEqual(expected, fs(frame))
+
+    def testFrameList(self):
+        self.__testFrameList('foo.1-10.bar', 4, 'foo.4.bar')
+        self.__testFrameList('foo.1-10####.bar', 4, 'foo.0004.bar')
 
 
 if __name__ == '__main__':
