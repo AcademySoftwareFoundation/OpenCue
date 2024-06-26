@@ -906,7 +906,7 @@ class LayerActions(AbstractActions):
         self.cuebotCall(__layer.staggerFrames, "Stagger Frames Failed",
                         frameRange, int(increment))
 
-    previewMain_info = ["Preview Main", None, "previewMain"]
+    previewMain_info = ["Preview Main", None, "image"]
 
     # pylint: disable=broad-except
     def previewMain(self, rpcObjects=None):
@@ -920,7 +920,7 @@ class LayerActions(AbstractActions):
             QtWidgets.QMessageBox.critical(None, "Preview Error",
                                            "Error displaying preview frames, %s" % e)
 
-    previewAll_info = ["Preview All", None, "previewAll"]
+    previewAll_info = ["Preview All", None, "images"]
 
     # pylint: disable=broad-except
     def previewAll(self, rpcObjects=None):
@@ -1073,7 +1073,7 @@ class FrameActions(AbstractActions):
                 job.retryFrames(name=names)
                 self._update()
 
-    previewMain_info = ["Preview Main", None, "previewMain"]
+    previewMain_info = ["Preview Main", None, "image"]
 
     # pylint: disable=broad-except
     def previewMain(self, rpcObjects=None):
@@ -1093,7 +1093,7 @@ class FrameActions(AbstractActions):
             QtWidgets.QMessageBox.critical(None, "Preview Error",
                                            "Error displaying preview frames, %s" % e)
 
-    previewAovs_info = ["Preview All", None, "previewAovs"]
+    previewAovs_info = ["Preview All", None, "images"]
 
     # pylint: disable=broad-except
     def previewAovs(self, rpcObjects=None):
