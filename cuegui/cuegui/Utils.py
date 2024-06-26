@@ -45,6 +45,7 @@ import cuegui.Constants
 import cuegui.Logger
 
 from FileSequence import FileSequence
+from FileSequence import FrameSet
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -673,13 +674,13 @@ def byteConversion(amount, btype):
     return _bytes
 
 
-def previewOutputs(outputs, frameNum=None):
+def previewOutputs(outputs, frameSet=None):
     job_log_cmd = cuegui.Constants.DEFAULT_VIEWER.split()
     for output in outputs:
-        if isinstance(frameNum, int):
+        filepath = output
+        try:
             fs = FileSequence(output)
-            job_log_cmd.append(fs(frameNum))
-        else:
-            job_log_cmd.append(output)
-    print(job_log_cmd)
+            filepath = fs.getOpenRVPath(frameSet)
+        finally:
+            job_log_cmd.append(filepath)
     checkShellOut(job_log_cmd)

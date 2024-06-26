@@ -1084,7 +1084,9 @@ class FrameActions(AbstractActions):
             if layer is not None:
                 outputs = layer.getOutputPaths()
                 if len(outputs) > 0:
-                    cuegui.Utils.previewOutputs([outputs[0]], frameNum=frame.number())
+                    frames = self._getOnlyFrameObjects(rpcObjects)
+                    frameSet = FileSequence.FrameSet(','.join(str(f.number()) for f in frames))
+                    cuegui.Utils.previewOutputs([outputs[0]], frameSet=frameSet)
                 else:
                     d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, False)
                     d.process()
@@ -1104,7 +1106,9 @@ class FrameActions(AbstractActions):
             if layer is not None:
                 outputs = layer.getOutputPaths()
                 if len(outputs) > 0:
-                    cuegui.Utils.previewOutputs(outputs, frameNum=frame.number())
+                    frames = self._getOnlyFrameObjects(rpcObjects)
+                    frameSet = FileSequence.FrameSet(','.join(str(f.number()) for f in frames))
+                    cuegui.Utils.previewOutputs(outputs, frameSet=frameSet)
                 else:
                     d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, True)
                     d.process()
