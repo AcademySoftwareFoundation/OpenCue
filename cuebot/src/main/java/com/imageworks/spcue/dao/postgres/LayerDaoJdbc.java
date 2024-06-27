@@ -77,7 +77,9 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         "FROM " +
             "layer_output " +
         "WHERE " +
-            "pk_layer = ?";
+            "pk_layer = ?" +
+        "ORDER BY " +
+            "ser_order";
 
     private static final RowMapper<String> OUTPUT_MAPPER =
         new RowMapper<String>() {
