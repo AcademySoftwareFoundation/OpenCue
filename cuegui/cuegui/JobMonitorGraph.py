@@ -16,7 +16,6 @@
 """Node graph to display Layers of a Job"""
 
 
-from qtpy import QtGui
 from qtpy import QtWidgets
 
 import cuegui.Utils

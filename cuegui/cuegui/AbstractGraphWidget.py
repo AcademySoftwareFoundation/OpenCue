@@ -16,7 +16,6 @@
 """Base class for CueGUI graph widgets."""
 
 from qtpy import QtCore
-from qtpy import QtGui
 from qtpy import QtWidgets
 
 from NodeGraphQt import NodeGraph
@@ -33,6 +32,7 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         self.setupUI()
 
         self.timer = QtCore.QTimer(self)
+        # pylint: disable=no-member
         self.timer.timeout.connect(self.update)
         self.timer.setInterval(1000 * 20)
 

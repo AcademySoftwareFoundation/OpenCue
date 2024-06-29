@@ -21,7 +21,6 @@ from NodeGraphQt import BaseNode
 from cuegui.nodegraph.widgets.nodeWidgets import NodeProgressBar
 
 
-
 class CueBaseNode(BaseNode):
     """Base class for any cue nodes to work with NodeGraphQt"""
 
