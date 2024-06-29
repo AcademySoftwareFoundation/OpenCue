@@ -29,6 +29,7 @@ class AbstractGraphWidget(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
         super(AbstractGraphWidget, self).__init__(parent=parent)
+        self.graph = NodeGraph()
         self.setupUI()
 
         self.timer = QtCore.QTimer(self)
@@ -41,7 +42,6 @@ class AbstractGraphWidget(QtWidgets.QWidget):
 
     def setupUI(self):
         """Setup the UI."""
-        self.graph = NodeGraph()
         try:
             self.graph.register_node(CueLayerNode)
         except NodeRegistrationError:
