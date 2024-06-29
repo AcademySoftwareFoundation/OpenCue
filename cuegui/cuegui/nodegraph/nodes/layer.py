@@ -19,8 +19,8 @@
 from __future__ import division
 import os
 from qtpy import QtGui
-import NodeGraphQt.qgraphics.node_base
 import opencue
+import NodeGraphQt.qgraphics.node_base
 import cuegui.images
 from cuegui.Constants import RGB_FRAME_STATE
 from cuegui.nodegraph.nodes.base import CueBaseNode
