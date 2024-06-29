@@ -266,11 +266,11 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cuegui.app().select_layers.emit(layers)
 
     def __handle_select_layers(self, layerRpcObjects):
-        '''Select incoming Layers in tree.
+        """Select incoming Layers in tree.
         Slot connected to QtGui.qApp.select_layers inorder to handle
         selecting Layers in Tree.
         Also emits signal to filter FrameMonitor
-        '''
+        """
         received_layers = [l.data.name for l in layerRpcObjects]
         current_layers = [l.data.name for l in self.selectedObjects()]
         if received_layers == current_layers:
