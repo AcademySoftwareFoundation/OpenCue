@@ -58,6 +58,8 @@ class CueLayerNode(CueBaseNode):
         font = self.view.text_item.font()
         font.setPointSize(16)
         self.view.text_item.setFont(font)
+        # Lock the node text so it can't be edited
+        self.view.text_item.set_locked(True)
 
         self.setRpcObject(layerRpcObject)
 
