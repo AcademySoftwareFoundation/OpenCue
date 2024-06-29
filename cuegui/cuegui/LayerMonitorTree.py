@@ -22,7 +22,6 @@ from __future__ import division
 
 from qtpy import QtCore
 from qtpy import QtWidgets
-from qtpy import QtGui
 
 from opencue.exception import EntityNotFoundException
 
@@ -144,6 +143,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="Timeout for a frames\' LLU, Hours:Minutes")
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
+        # pylint: disable=no-member
         self.itemSelectionChanged.connect(self.__itemSelectionChangedFilterLayer)
         cuegui.app().select_layers.connect(self.__handle_select_layers)
 
