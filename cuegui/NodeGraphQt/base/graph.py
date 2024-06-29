@@ -7,6 +7,12 @@ import re
 
 from qtpy import QtCore, QtWidgets, QtGui
 
+import qtpy
+if qtpy.API_NAME in ("PyQt5", "PySide2"):
+    from qtpy.QtWidgets import QUndoStack
+elif qtpy.API_NAME in ("PyQt6", "PySide6"):
+    from qtpy.QtGui import QUndoStack
+
 from NodeGraphQt.base.commands import (NodeAddedCmd,
                                        NodesRemovedCmd,
                                        NodeMovedCmd,
@@ -150,7 +156,7 @@ class NodeGraph(QtCore.QObject):
             kwargs.get('node_factory') or NodeFactory())
         self._undo_view = None
         self._undo_stack = (
-            kwargs.get('undo_stack') or QtGui.QUndoStack(self)
+            kwargs.get('undo_stack') or QUndoStack(self)
         )
         self._widget = None
         self._sub_graphs = {}
