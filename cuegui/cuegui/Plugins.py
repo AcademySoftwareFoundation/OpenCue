@@ -191,6 +191,8 @@ class Plugins(object):
 
         # Runs any plugins that were saved to the settings
         openPlugins = self.app.settings.value("%s/Plugins_Opened" % self.name) or []
+        if isinstance(openPlugins, str):
+            openPlugins = [openPlugins]
         for plugin in openPlugins:
             if '::' in plugin:
                 plugin_name, plugin_state = str(plugin).split("::")
