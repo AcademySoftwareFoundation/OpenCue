@@ -146,7 +146,8 @@ class JobMonitorGraph(AbstractGraphWidget):
 
         This is run every 20 seconds by the timer.
         """
-        layers = self.job.getLayers()
-        for layer in layers:
-            node = self.graph.get_node_by_name(layer.name())
-            node.setRpcObject(layer)
+        if self.job is not None:
+            layers = self.job.getLayers()
+            for layer in layers:
+                node = self.graph.get_node_by_name(layer.name())
+                node.setRpcObject(layer)
