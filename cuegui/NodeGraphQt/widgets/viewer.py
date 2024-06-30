@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 import math
-from distutils.version import LooseVersion
+from packaging import version
 
 from qtpy import QtGui, QtCore, QtWidgets
 
@@ -201,7 +201,7 @@ class NodeViewer(QtWidgets.QGraphicsView):
         if self._undo_action and self._redo_action:
             self._undo_action.setShortcuts(QtGui.QKeySequence.StandardKey.Undo)
             self._redo_action.setShortcuts(QtGui.QKeySequence.StandardKey.Redo)
-            if LooseVersion(QtCore.qVersion()) >= LooseVersion('5.10'):
+            if version.parse(QtCore.qVersion()) >= version.parse('5.10'):
                 self._undo_action.setShortcutVisibleInContextMenu(True)
                 self._redo_action.setShortcutVisibleInContextMenu(True)
 
