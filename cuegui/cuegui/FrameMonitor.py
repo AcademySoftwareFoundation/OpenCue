@@ -428,14 +428,14 @@ class FrameMonitor(QtWidgets.QWidget):
         btn.setMenu(menu)
         menu.triggered.connect(self._filterStatusHandle)  # pylint: disable=no-member
 
-        for item in [("Clear", QtCore.Qt.ALT + QtCore.Qt.Key_QuoteLeft),
+        for item in [("Clear", QtCore.Qt.ALT | QtCore.Qt.Key_QuoteLeft),
                      None,
-                     ("Succeeded", QtCore.Qt.ALT + QtCore.Qt.Key_1),
-                     ("Running", QtCore.Qt.ALT + QtCore.Qt.Key_2),
-                     ("Waiting", QtCore.Qt.ALT + QtCore.Qt.Key_3),
-                     ("Depend", QtCore.Qt.ALT + QtCore.Qt.Key_4),
-                     ("Dead", QtCore.Qt.ALT + QtCore.Qt.Key_5),
-                     ("Eaten", QtCore.Qt.ALT + QtCore.Qt.Key_6)]:
+                     ("Succeeded", QtCore.Qt.ALT | QtCore.Qt.Key_1),
+                     ("Running", QtCore.Qt.ALT | QtCore.Qt.Key_2),
+                     ("Waiting", QtCore.Qt.ALT | QtCore.Qt.Key_3),
+                     ("Depend", QtCore.Qt.ALT | QtCore.Qt.Key_4),
+                     ("Dead", QtCore.Qt.ALT | QtCore.Qt.Key_5),
+                     ("Eaten", QtCore.Qt.ALT | QtCore.Qt.Key_6)]:
             if item:
                 a = QtWidgets.QAction(item[0], menu)
                 if item[0] != "Clear":

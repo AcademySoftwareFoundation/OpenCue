@@ -24,7 +24,7 @@ from builtins import str
 from builtins import range
 import getpass
 
-from PySide2 import QtCore, QtGui, QtWidgets
+from qtpy import QtCore, QtGui, QtWidgets
 
 import opencue
 from cuesubmit import Constants
