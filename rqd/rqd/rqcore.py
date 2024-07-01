@@ -875,7 +875,7 @@ class RqCore(object):
         @type   runFrame: RunFrame
         @param  runFrame: rqd_pb2.RunFrame"""
         log.info("Running command %s for %s", runFrame.command, runFrame.frame_id)
-        # log.debug(runFrame)
+        log.debug(runFrame)
 
         #
         # Check for reasons to abort launch
