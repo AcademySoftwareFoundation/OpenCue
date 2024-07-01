@@ -384,8 +384,9 @@ class FrameAttendantThread(threading.Thread):
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        stdin=subprocess.PIPE,
-                                                       stdout=self.rqlog,
-                                                       stderr=self.rqlog)
+                                                       stdout=subprocess.PIPE,
+                                                       stderr=subprocess.STDOUT,
+                                                       encoding='utf-8')
         # pylint: disable=broad-except
         except Exception:
             log.critical(
@@ -398,6 +399,13 @@ class FrameAttendantThread(threading.Thread):
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                           self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
+
+        while True:
+            output = frameInfo.forkedCommand.stdout.readline()
+            if not output and frameInfo.forkedCommand.poll() is not None:
+                break
+            if output:
+                self.rqlog.write(output, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
 
         frameInfo.forkedCommand.wait()
 
@@ -434,9 +442,10 @@ class FrameAttendantThread(threading.Thread):
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
                                                        stdin=subprocess.PIPE,
-                                                       stdout=self.rqlog,
-                                                       stderr=self.rqlog,
-                                                       preexec_fn=os.setsid)
+                                                       stdout=subprocess.PIPE,
+                                                       stderr=subprocess.STDOUT,
+                                                       preexec_fn=os.setsid,
+                                                       encoding='utf-8')
         finally:
             rqd.rqutil.permissionsLow()
 
@@ -446,6 +455,13 @@ class FrameAttendantThread(threading.Thread):
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                           self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
+
+        while True:
+            output = frameInfo.forkedCommand.stdout.readline()
+            if not output and frameInfo.forkedCommand.poll() is not None:
+                break
+            if output:
+                self.rqlog.write(output, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
 
         frameInfo.forkedCommand.wait()
 
