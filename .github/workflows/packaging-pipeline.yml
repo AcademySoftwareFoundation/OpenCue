@@ -4,6 +4,8 @@ name: OpenCue Packaging Pipeline
 on:
   push:
     branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   integration_test:
@@ -15,6 +17,13 @@ jobs:
 
       - name: Run test
         run: ci/run_integration_test.sh
+
+      - name: Build blender addon
+        uses: actions/upload-artifact@v3
+        run: ci/build_blender_addon.sh
+        with:
+          name: OpenCue-Blender
+          path: ${GITHUB_WORKSPACE}/artifacts/OpenCue-Blender.zip
 
       - name: Archive log files
         uses: actions/upload-artifact@v3
@@ -57,6 +66,10 @@ jobs:
             NAME: CueAdmin
             ARTIFACTS: cueadmin-${BUILD_ID}-all.tar.gz
 
+          - component: OpenCue_Blender
+            NAME: OpenCue-Blender
+            ARTIFACTS: OpenCue-Blender-${BUILD_ID}-all.zip
+
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-latest
     steps:
@@ -93,6 +106,15 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           file: ${{ matrix.component }}/Dockerfile
+          tags: opencuebuild/${{ matrix.component }}:${{ env.BUILD_ID }}
+          context: .
+          push: true
+
+      - name: Build Blender addon Docker image
+        if: matrix.component == 'OpenCue_Blender'
+        uses: docker/build-push-action@v3
+        with:
+          file: cuesubmit/plugins/blender/${{ matrix.component }}/Dockerfile
           tags: opencuebuild/${{ matrix.component }}:${{ env.BUILD_ID }}
           context: .
           push: true
