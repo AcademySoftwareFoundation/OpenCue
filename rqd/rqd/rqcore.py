@@ -48,6 +48,7 @@ import rqd.rqlogging
 INT32_MAX = 2147483647
 INT32_MIN = -2147483648
 log = logging.getLogger(__name__)
+log.setLevel(rqd.rqconstants.CONSOLE_LOG_LEVEL)
 
 
 class FrameAttendantThread(threading.Thread):
