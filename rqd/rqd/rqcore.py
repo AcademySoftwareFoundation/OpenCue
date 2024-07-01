@@ -43,7 +43,7 @@ import rqd.rqmachine
 import rqd.rqnetwork
 import rqd.rqnimby
 import rqd.rqutil
-
+import rqd.rqlogging
 
 INT32_MAX = 2147483647
 INT32_MIN = -2147483648
@@ -318,19 +318,16 @@ class FrameAttendantThread(threading.Thread):
             else:
                 tempCommand += [self._createCommandFile(runFrame.command)]
 
-            if rqd.rqconstants.RQD_PREPEND_TIMESTAMP:
-                file_descriptor = subprocess.PIPE
-            else:
-                file_descriptor = self.rqlog
             # pylint: disable=subprocess-popen-preexec-fn
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
                                                        stdin=subprocess.PIPE,
-                                                       stdout=file_descriptor,
-                                                       stderr=file_descriptor,
+                                                       stdout=subprocess.PIPE,
+                                                       stderr=subprocess.STDOUT,
                                                        close_fds=True,
-                                                       preexec_fn=os.setsid)
+                                                       preexec_fn=os.setsid,
+                                                       encoding='utf-8')
         finally:
             rqd.rqutil.permissionsLow()
 
@@ -338,11 +335,16 @@ class FrameAttendantThread(threading.Thread):
 
         if not self.rqCore.updateRssThread.is_alive():
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
-                                                           self.rqCore.updateRss)
+                                                          self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
 
-        if rqd.rqconstants.RQD_PREPEND_TIMESTAMP:
-            pipe_to_file(frameInfo.forkedCommand.stdout, frameInfo.forkedCommand.stderr, self.rqlog)
+        while True:
+            output = frameInfo.forkedCommand.stdout.readline()
+            if not output and frameInfo.forkedCommand.poll() is not None:
+                break
+            if output:
+                self.rqlog.write(output, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+
         returncode = frameInfo.forkedCommand.wait()
 
         # Find exitStatus and exitSignal
@@ -355,7 +357,7 @@ class FrameAttendantThread(threading.Thread):
             frameInfo.exitSignal = 0
 
         try:
-            statFile  = open(tempStatFile,"r")
+            statFile = open(tempStatFile, "r")
             frameInfo.realtime = statFile.readline().split()[1]
             frameInfo.utime = statFile.readline().split()[1]
             frameInfo.stime = statFile.readline().split()[1]
@@ -459,17 +461,6 @@ class FrameAttendantThread(threading.Thread):
         self.__writeFooter()
         self.__cleanup()
 
-    @staticmethod
-    def waitForFile(filepath, maxTries=5):
-        """Waits for a file to exist."""
-        tries = 0
-        while tries < maxTries:
-            if os.path.exists(filepath):
-                return
-            tries += 1
-            time.sleep(0.5 * tries)
-        raise IOError("Failed to create %s" % filepath)
-
     def runUnknown(self):
         """The steps required to handle a frame under an unknown OS."""
 
@@ -543,8 +534,8 @@ class FrameAttendantThread(threading.Thread):
                         else:
                             raise RuntimeError(err)
                     try:
-                        self.rqlog = open(runFrame.log_dir_file, "w+", 1)
-                        self.waitForFile(runFrame.log_dir_file)
+                        self.rqlog = rqd.rqlogging.createLogger(runFrame.log_dir_file)
+                        self.rqlog.waitForFile()
                     # pylint: disable=broad-except
                     except Exception as e:
                         err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
@@ -868,7 +859,7 @@ class RqCore(object):
         @type   runFrame: RunFrame
         @param  runFrame: rqd_pb2.RunFrame"""
         log.info("Running command %s for %s", runFrame.command, runFrame.frame_id)
-        log.debug(runFrame)
+        # log.debug(runFrame)
 
         #
         # Check for reasons to abort launch
@@ -1169,98 +1160,3 @@ class RqCore(object):
     def isWaitingForIdle(self):
         """Returns whether the host is waiting until idle to take some action."""
         return self.__whenIdle
-
-def pipe_to_file(stdout, stderr, outfile):
-    """
-    Prepend entries on stdout and stderr with a timestamp and write to outfile.
-
-    The logic to poll stdout/stderr is inspired by the Popen.communicate implementation.
-    This feature is linux specific
-    """
-    # Importing packages internally to avoid compatibility issues with Windows
-
-    if stdout is None or stderr is None:
-        return
-    outfile.flush()
-    os.fsync(outfile)
-
-    # pylint: disable=import-outside-toplevel
-    import select
-    import errno
-    # pylint: enable=import-outside-toplevel
-
-    fd2file = {}
-    fd2output = {}
-
-    poller = select.poll()
-
-    def register_and_append(file_ojb, eventmask):
-        poller.register(file_ojb, eventmask)
-        fd2file[file_ojb.fileno()] = file_ojb
-
-    def close_and_unregister_and_remove(fd, close=False):
-        poller.unregister(fd)
-        if close:
-            fd2file[fd].close()
-        fd2file.pop(fd)
-
-    def print_and_flush_ln(fd, last_timestamp):
-        txt = ''.join(fd2output[fd])
-        lines = txt.split('\n')
-        next_line_timestamp = None
-
-        # Save the timestamp of the first break
-        if last_timestamp is None:
-            curr_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-        else:
-            curr_line_timestamp = last_timestamp
-
-        # There are no line breaks
-        if len(lines) < 2:
-            return curr_line_timestamp
-        next_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-
-        remainder = lines[-1]
-        for line in lines[0:-1]:
-            print("[%s] %s" % (curr_line_timestamp, line), file=outfile)
-        outfile.flush()
-        os.fsync(outfile)
-        fd2output[fd] = [remainder]
-
-        if next_line_timestamp is None:
-            return curr_line_timestamp
-        return next_line_timestamp
-
-    def translate_newlines(data):
-        data = data.decode("utf-8", "ignore")
-        return data.replace("\r\n", "\n").replace("\r", "\n")
-
-    select_POLLIN_POLLPRI = select.POLLIN | select.POLLPRI
-    # stdout
-    register_and_append(stdout, select_POLLIN_POLLPRI)
-    fd2output[stdout.fileno()] = []
-
-    # stderr
-    register_and_append(stderr, select_POLLIN_POLLPRI)
-    fd2output[stderr.fileno()] = []
-
-    while fd2file:
-        try:
-            ready = poller.poll()
-        except select.error as e:
-            if e.args[0] == errno.EINTR:
-                continue
-            raise
-
-        first_chunk_timestamp = None
-        for fd, mode in ready:
-            if mode & select_POLLIN_POLLPRI:
-                data = os.read(fd, 4096)
-                if not data:
-                    close_and_unregister_and_remove(fd)
-                if not isinstance(data, str):
-                    data = translate_newlines(data)
-                fd2output[fd].append(data)
-                first_chunk_timestamp = print_and_flush_ln(fd, first_chunk_timestamp)
-            else:
-                close_and_unregister_and_remove(fd)
