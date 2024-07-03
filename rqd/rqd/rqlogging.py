@@ -121,6 +121,7 @@ class RQDLogger(object):
 
     # pylint: disable=arguments-differ
     def write(self, data, prependTimestamp=False):
+        """Abstract write function that will write to the correct backend"""
         if prependTimestamp is True:
             lines = data.splitlines()
             curr_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
@@ -136,16 +137,19 @@ class RQDLogger(object):
                     self.logger.info(data)
 
     def writelines(self, __lines):
+        """Provides support for writing mutliple lines at a time"""
         for line in __lines:
             self.write(line)
 
     def close(self):
+        """Closes the file if the backend is file based"""
         if self.type == LOGTYPE_FILE:
             self.fd.close()
 
     def waitForFile(self, maxTries=5):
+        """Waits for the file to exist before continuing when using a file backend"""
         if self.type == LOGTYPE_FILE:
-            """Waits for a file to exist."""
+            # Waits for a file to exist
             tries = 0
             while tries < maxTries:
                 if os.path.exists(self.filepath):
