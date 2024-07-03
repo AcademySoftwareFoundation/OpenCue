@@ -64,7 +64,7 @@ class RQDLogger(object):
                       "filepath": self.filepath},
                 version="1",
             )
-            self.logger = logging.getLogger("loki-logger")
+            self.logger = logging.getLogger(self.filepath)
             self.logger.setLevel(logging.INFO)
             self.logger.propagate = False
             self.logger.addHandler(self.handler)
@@ -145,6 +145,8 @@ class RQDLogger(object):
         """Closes the file if the backend is file based"""
         if self.type == LOGTYPE_FILE:
             self.fd.close()
+        elif self.type == LOGTYPE_LOKI:
+            pass
 
     def waitForFile(self, maxTries=5):
         """Waits for the file to exist before continuing when using a file backend"""
