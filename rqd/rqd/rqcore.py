@@ -318,17 +318,13 @@ class FrameAttendantThread(threading.Thread):
             else:
                 tempCommand += [self._createCommandFile(runFrame.command)]
 
-            if rqd.rqconstants.RQD_PREPEND_TIMESTAMP:
-                file_descriptor = subprocess.PIPE
-            else:
-                file_descriptor = self.rqlog
             # pylint: disable=subprocess-popen-preexec-fn
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
                                                        stdin=subprocess.PIPE,
-                                                       stdout=file_descriptor,
-                                                       stderr=file_descriptor,
+                                                       stdout=subprocess.PIPE,
+                                                       stderr=subprocess.PIPE,
                                                        close_fds=True,
                                                        preexec_fn=os.setsid)
         finally:
@@ -343,6 +339,16 @@ class FrameAttendantThread(threading.Thread):
 
         if rqd.rqconstants.RQD_PREPEND_TIMESTAMP:
             pipe_to_file(frameInfo.forkedCommand.stdout, frameInfo.forkedCommand.stderr, self.rqlog)
+        else:
+            with open(self.rqlog, 'a') as f:
+                # Convert to ASCII while discarding characters that can not be encoded
+                for line in frameInfo.forkedCommand.stdout:
+                    line = line.encode('ascii', 'ignore')
+                    f.write(line.decode('ascii') + '\n')
+                for line in frameInfo.forkedCommand.stderr:
+                    line = line.encode('ascii', 'ignore')
+                    f.write(line.decode('ascii') + '\n')
+
         returncode = frameInfo.forkedCommand.wait()
 
         # Find exitStatus and exitSignal
