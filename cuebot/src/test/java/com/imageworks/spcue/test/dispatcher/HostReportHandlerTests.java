@@ -548,6 +548,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setLayerId(proc1.getLayerId())
                 .setFrameId(proc1.getFrameId())
                 .setResourceId(proc1.getProcId())
+                .setVsize(CueUtil.GB2)
                 .setRss(CueUtil.GB2)
                 .setMaxRss(CueUtil.GB2)
                 .build();
@@ -558,6 +559,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setLayerId(proc2.getLayerId())
                 .setFrameId(proc2.getFrameId())
                 .setResourceId(proc2.getProcId())
+                .setVsize(CueUtil.GB4)
                 .setRss(CueUtil.GB4)
                 .setMaxRss(CueUtil.GB4)
                 .build();
@@ -569,6 +571,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setLayerId(proc3.getLayerId())
                 .setFrameId(proc3.getFrameId())
                 .setResourceId(proc3.getProcId())
+                .setVsize(memoryUsedProc3)
                 .setRss(memoryUsedProc3)
                 .setMaxRss(memoryUsedProc3)
                 .build();

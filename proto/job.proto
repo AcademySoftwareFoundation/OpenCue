@@ -139,6 +139,10 @@ service JobInterface {
     // run frames on the specified job.
     rpc AddRenderPartition(JobAddRenderPartRequest) returns (JobAddRenderPartResponse);
 
+    // Adds a subscriber to a job. When the job is finished, subscriber
+    // receives email with notification
+    rpc AddSubscriber(JobAddSubscriberRequest) returns (JobAddSubscriberResponse);
+
     // Setup and retunrn a JobOnFrame dependency
     rpc CreateDependencyOnFrame(JobCreateDependencyOnFrameRequest) returns (JobCreateDependencyOnFrameResponse);
 
@@ -885,6 +889,10 @@ message FrameGetWhatThisDependsOnResponse {
 // Kill
 message FrameKillRequest {
     Frame frame = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
 }
 
 message FrameKillResponse {} // Empty
@@ -1111,6 +1119,14 @@ message JobAddRenderPartResponse {
     renderPartition.RenderPartition render_partition = 1;
 }
 
+// AddSubscriber
+message JobAddSubscriberRequest {
+    Job job = 1;
+    string subscriber = 2;
+}
+
+message JobAddSubscriberResponse {}
+
 // CreateDependencyOnFrame
 message JobCreateDependencyOnFrameRequest {
     Job job = 1;
@@ -1283,6 +1299,10 @@ message JobIsJobPendingResponse {
 // Kill
 message JobKillRequest {
     Job job = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
 }
 
 message JobKillResponse {} // Empty
@@ -1291,6 +1311,10 @@ message JobKillResponse {} // Empty
 message JobKillFramesRequest {
     Job job = 1;
     FrameSearchCriteria req = 2;
+    string username = 3;
+    string pid = 4;
+    string host_kill = 5;
+    string reason = 6;
 }
 
 message JobKillFramesResponse {} // Empty
@@ -1613,6 +1637,10 @@ message LayerGetWhatThisDependsOnResponse {
 // KillFrames
 message LayerKillFramesRequest {
     Layer layer = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
 }
 
 message LayerKillFramesResponse {} // Empty

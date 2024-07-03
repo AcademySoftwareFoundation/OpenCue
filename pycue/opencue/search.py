@@ -288,7 +288,7 @@ def _createCriterion(search, searchType, convert=None):
         criterion = getattr(criterion_pb2,
                             "InRange%sSearchCriterion" % searchTypeStr)
         min_range, max_range = search.split("-")
-        return criterion(_convert(min_range), _convert(max_range))
+        return criterion(min=_convert(min_range), max=_convert(max_range))
 
     raise ValueError("Unable to parse this format: %s" % search)
 
@@ -364,7 +364,17 @@ def _setOptions(criteria, options):
                 criteria.memory_range = v
             else:
                 criteria.memory_range.append(
-                    _createCriterion(v, int, lambda mem: (1048576 * mem)))
+                    _createCriterion(v, int, lambda mem: (mem)))
+        elif k == "memory_greater_than":
+            if not v:
+                continue
+            criteria.memory_greater_than.append(
+                    _createCriterion(v, int, lambda mem: (mem)))
+        elif k == "memory_less_than":
+            if not v:
+                continue
+            criteria.memory_greater_than.append(
+                _createCriterion(v, int, lambda mem: (mem)))
         elif k == "duration":
             if not v:
                 continue
@@ -381,4 +391,8 @@ def _setOptions(criteria, options):
             criteria.first_result = int(v)
         elif k == "include_finished":
             criteria.include_finished = v
+        elif len(k) == 0:
+            return criteria
+        else:
+            raise Exception("Criteria for search does not exist")
     return criteria

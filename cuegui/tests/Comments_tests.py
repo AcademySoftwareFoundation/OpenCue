@@ -51,20 +51,21 @@ class CommentsTests(unittest.TestCase):
             opencue.compiled_proto.job_pb2.JobGetCommentsResponse(
                 comments=opencue.compiled_proto.comment_pb2.CommentSeq(comments=[commentProto]))
 
-        self.job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='fooJob'))
+        self.job_name = "fooJob"
+        self.job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=self.job_name))
         self.parentWidget = QtWidgets.QWidget()
         self.commentListDialog = cuegui.Comments.CommentListDialog(
-            self.job, parent=self.parentWidget)
+            [self.job], parent=self.parentWidget)
 
     def test_shouldDisplayComment(self):
         self.assertEqual(
             1, self.commentListDialog._CommentListDialog__treeSubjects.topLevelItemCount())
-        gotTreeWidgetItem = self.commentListDialog._CommentListDialog__treeSubjects.topLevelItem(0)
-        gotComment = gotTreeWidgetItem._Comment__comment
-        self.assertEqual(self.comment.timestamp(), gotComment.timestamp())
-        self.assertEqual(self.comment.user(), gotComment.user())
-        self.assertEqual(self.comment.subject(), gotComment.subject())
-        self.assertEqual(self.comment.message(), gotComment.message())
+        comments_per_job = self.commentListDialog.getComments()
+        comment = comments_per_job[self.job_name][0]
+        self.assertEqual(self.comment.timestamp(), comment.timestamp())
+        self.assertEqual(self.comment.user(), comment.user())
+        self.assertEqual(self.comment.subject(), comment.subject())
+        self.assertEqual(self.comment.message(), comment.message())
 
     def test_shouldRefreshJobComments(self):
         self.job.getComments = mock.Mock(return_value=[])
