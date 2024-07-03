@@ -18,3 +18,4 @@ pylint==2.6.0;python_version>="3.7"
 pynput==1.7.6
 PyYAML==5.1
 six==1.16.0
+python-logging-loki==0.3.1

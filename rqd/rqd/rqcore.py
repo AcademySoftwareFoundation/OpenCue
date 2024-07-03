@@ -551,7 +551,7 @@ class FrameAttendantThread(threading.Thread):
                         else:
                             raise RuntimeError(err)
                     try:
-                        self.rqlog = rqd.rqlogging.createLogger(runFrame.log_dir_file)
+                        self.rqlog = rqd.rqlogging.RQDLogger(runFrame.log_dir_file)
                         self.rqlog.waitForFile()
                     # pylint: disable=broad-except
                     except Exception as e:
