@@ -509,47 +509,6 @@ class FrameAttendantThread(threading.Thread):
                     #
                     # Setup proc to allow launching of frame
                     #
-
-                    if not os.access(runFrame.log_dir, os.F_OK):
-                        # Attempting mkdir for missing logdir
-                        msg = "No Error"
-                        try:
-                            os.makedirs(runFrame.log_dir)
-                            os.chmod(runFrame.log_dir, 0o777)
-                        # pylint: disable=broad-except
-                        except Exception as e:
-                            # This is expected to fail when called in abq
-                            # But the directory should now be visible
-                            msg = e
-
-                        if not os.access(runFrame.log_dir, os.F_OK):
-                            err = "Unable to see log directory: %s, mkdir failed with: %s" % (
-                                runFrame.log_dir, msg)
-                            raise RuntimeError(err)
-
-                    if not os.access(runFrame.log_dir, os.W_OK):
-                        err = "Unable to write to log directory %s" % runFrame.log_dir
-                        raise RuntimeError(err)
-
-                    try:
-                        # Rotate any old logs to a max of MAX_LOG_FILES:
-                        if os.path.isfile(runFrame.log_dir_file):
-                            rotateCount = 1
-                            while (os.path.isfile("%s.%s" % (runFrame.log_dir_file, rotateCount))
-                                   and rotateCount < rqd.rqconstants.MAX_LOG_FILES):
-                                rotateCount += 1
-                            os.rename(runFrame.log_dir_file,
-                                      "%s.%s" % (runFrame.log_dir_file, rotateCount))
-                    # pylint: disable=broad-except
-                    except Exception as e:
-                        err = "Unable to rotate previous log file due to %s" % e
-                        # Windows might fail while trying to rotate logs for checking if file is
-                        # being used by another process. Frame execution doesn't need to
-                        # be halted for this.
-                        if platform.system() == "Windows":
-                            log.warning(err)
-                        else:
-                            raise RuntimeError(err)
                     try:
                         self.rqlog = rqd.rqlogging.RQDLogger(runFrame.log_dir_file)
                         self.rqlog.waitForFile()
@@ -557,12 +516,6 @@ class FrameAttendantThread(threading.Thread):
                     except Exception as e:
                         err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
                         raise RuntimeError(err)
-                    try:
-                        os.chmod(runFrame.log_dir_file, 0o666)
-                    # pylint: disable=broad-except
-                    except Exception as e:
-                        err = "Failed to chmod log file! %s due to %s" % (runFrame.log_dir_file, e)
-                        log.warning(err)
 
                 finally:
                     rqd.rqutil.permissionsLow()

@@ -21,13 +21,19 @@ import re
 import time
 import os
 import datetime
+import platform
 
 from multiprocessing import Queue
 
 import logging_loki
 
+import rqd.rqconstants
+
 LOGTYPE_FILE = 1
 LOGTYPE_LOKI = 2
+
+log = logging.getLogger(__name__)
+log.setLevel(rqd.rqconstants.CONSOLE_LOG_LEVEL)
 
 
 class RQDLogger(object):
@@ -63,7 +69,53 @@ class RQDLogger(object):
             self.logger.propagate = False
             self.logger.addHandler(self.handler)
         elif self.type == LOGTYPE_FILE:
+            log_dir = os.path.dirname(self.filepath)
+            if not os.access(log_dir, os.F_OK):
+                # Attempting mkdir for missing logdir
+                try:
+                    os.makedirs(log_dir)
+                    os.chmod(log_dir, 0o777)
+                # pylint: disable=broad-except
+                except Exception as e:
+                    # This is expected to fail when called in abq
+                    # But the directory should now be visible
+                    msg = e
+
+                if not os.access(log_dir, os.F_OK):
+                    err = "Unable to see log directory: %s, mkdir failed with: %s" % (
+                        log_dir, msg)
+                    raise RuntimeError(err)
+
+            if not os.access(log_dir, os.W_OK):
+                err = "Unable to write to log directory %s" % log_dir
+                raise RuntimeError(err)
+
+            try:
+                # Rotate any old logs to a max of MAX_LOG_FILES:
+                if os.path.isfile(self.filepath):
+                    rotateCount = 1
+                    while (os.path.isfile("%s.%s" % (self.filepath, rotateCount))
+                           and rotateCount < rqd.rqconstants.MAX_LOG_FILES):
+                        rotateCount += 1
+                    os.rename(self.filepath,
+                              "%s.%s" % (self.filepath, rotateCount))
+            # pylint: disable=broad-except
+            except Exception as e:
+                err = "Unable to rotate previous log file due to %s" % e
+                # Windows might fail while trying to rotate logs for checking if file is
+                # being used by another process. Frame execution doesn't need to
+                # be halted for this.
+                if platform.system() == "Windows":
+                    log.warning(err)
+                else:
+                    raise RuntimeError(err)
             self.fd = open(self.filepath, "w+", 1)
+            try:
+                os.chmod(self.filepath, 0o666)
+            # pylint: disable=broad-except
+            except Exception as e:
+                err = "Failed to chmod log file! %s due to %s" % (self.filepath, e)
+                log.warning(err)
         else:
             raise Exception("Unknown file path type")
 
@@ -77,7 +129,7 @@ class RQDLogger(object):
         else:
             if self.type == LOGTYPE_FILE:
                 self.fd.write(data)
-            elif self.type == LOGTYPE_FILE:
+            elif self.type == LOGTYPE_LOKI:
                 # print() adds a newline in the end when writing to files.
                 # Ignore this when not writing to files
                 if data != os.linesep:
