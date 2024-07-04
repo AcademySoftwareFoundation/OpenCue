@@ -19,7 +19,7 @@
 # components are functioning as expected.
 #
 # Run with:
-#   ./build_blender_addon.sh
+#   ./ci/build_blender_addon.sh
 
 set -e
 
@@ -27,7 +27,7 @@ PYOUTLINE_PATH="pyoutline/outline"
 FILESEQUENCE_PATH="pycue/FileSequence"
 OPENCUE_PATH="pycue/opencue"
 
-ADDON_PATH="cuesubmit/plugins/blender/OpenCue-Blender"
+ADDON_PATH="cuesubmit/plugins/blender/OpenCue-Blender/"
 
 log() {
     echo "$(date "+%Y-%m-%d %H:%M:%S") $1 $2"
@@ -45,11 +45,16 @@ main() {
   log INFO "Copying dependencies into ${ADDON_PATH}"
   copy_dependencies
   # Check if script is running within GitHub Actions pipeline
-  if ["$GITHUB_ACTIONS" == "true"]
-  then
+  if [ "$GITHUB_ACTIONS" == "true" ]; then
+    log INFO "Generating zip in ${GITHUB_WORKSPACE}/artifacts/"
     mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
-    zip -r "${GITHUB_WORKSPACE}/artifacts/OpenCue-Blender.zip" "${ADDON_PATH}"
+    cd cuesubmit/plugins/blender
+    zip -r "${GITHUB_WORKSPACE}/artifacts/OpenCue-Blender.zip" OpenCue-Blender/
   else
-    zip -r "cuesubmit/plugins/blender/OpenCue-Blender.zip" "${ADDON_PATH}"
+    log INFO "Generating zip in cuesubmit/plugins/blender/"
+    cd cuesubmit/plugins/blender
+    zip -r "OpenCue-Blender.zip" OpenCue-Blender/
   fi
 }
+
+main
