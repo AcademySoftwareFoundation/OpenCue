@@ -29,6 +29,10 @@ OPENCUE_PATH="pycue/opencue"
 
 ADDON_PATH="cuesubmit/plugins/blender/OpenCue-Blender"
 
+log() {
+    echo "$(date "+%Y-%m-%d %H:%M:%S") $1 $2"
+}
+
 copy_dependencies() {
   DEPENDENCIES_PATH="${ADDON_PATH}/dependencies"
   mkdir -p "${DEPENDENCIES_PATH}"
@@ -40,6 +44,12 @@ copy_dependencies() {
 main() {
   log INFO "Copying dependencies into ${ADDON_PATH}"
   copy_dependencies
-  mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
-  zip -r "${GITHUB_WORKSPACE}/artifacts/OpenCue-Blender.zip" "${ADDON_PATH}"
+  # Check if script is running within GitHub Actions pipeline
+  if ["$GITHUB_ACTIONS" == "true"]
+  then
+    mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
+    zip -r "${GITHUB_WORKSPACE}/artifacts/OpenCue-Blender.zip" "${ADDON_PATH}"
+  else
+    zip -r "cuesubmit/plugins/blender/OpenCue-Blender.zip" "${ADDON_PATH}"
+  fi
 }
