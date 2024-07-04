@@ -171,8 +171,8 @@ class FrameAttendantThread(threading.Thread):
 
         try:
             print("="*59, file=self.rqlog)
-            print("RenderQ JobSpec     ", time.ctime(self.startTime), "\n", file=self.rqlog)
-            print("proxy               ", "rqd.rqnetwork.RunningFrame/%s -t:tcp -h %s -p 10021" % (
+            print("RenderQ JobSpec      %s" % time.ctime(self.startTime), "\n", file=self.rqlog)
+            print("proxy                rqd.rqnetwork.RunningFrame/%s -t:tcp -h %s -p 10021" % (
                 self.runFrame.frame_id,
                 self.rqCore.machine.getHostname()), file=self.rqlog)
             print("%-21s%s" % ("command", self.runFrame.command), file=self.rqlog)
