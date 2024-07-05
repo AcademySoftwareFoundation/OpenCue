@@ -149,14 +149,6 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         self.mousePressedSignal.emit(pos)
         self.copy_selection(QtGui.QClipboard.Selection)
 
-    def scrollContentsBy(self, *args, **kwargs):
-        """
-        Overriding to make sure the line numbers area is updated when scrolling
-        """
-
-        self._line_num_area.repaint()
-        return QtWidgets.QPlainTextEdit.scrollContentsBy(self, *args, **kwargs)
-
     def copy_selection(self, mode):
         """
         Copy (Ctrl + C) action. Stores the currently selected text in the
