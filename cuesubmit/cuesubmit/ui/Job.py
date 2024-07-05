@@ -21,7 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import range
-from PySide2 import QtCore, QtGui, QtWidgets
+from qtpy import QtCore, QtGui, QtWidgets
 
 from cuesubmit import Layer
 from cuesubmit.ui import Style
