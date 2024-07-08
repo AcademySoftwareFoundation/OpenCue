@@ -11,6 +11,8 @@ jobs:
     name: Run Python Unit Tests (CY2022)
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2022
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v3
       - name: Run Python Tests
@@ -21,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: aswf/ci-opencue:2022
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v3
       - name: Build with Gradle
@@ -53,6 +57,8 @@ jobs:
     name: Run Python Unit Tests using Python2
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2019
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v3
       - name: Run Python Tests
@@ -71,6 +77,8 @@ jobs:
     name: Lint Python Code
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2022
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v3
       - name: Lint Python Code
