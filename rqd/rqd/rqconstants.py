@@ -72,6 +72,8 @@ RQD_USE_PATH_ENV_VAR = False
 # Copy specific environment variable from the RQD host to the frame env.
 RQD_HOST_ENV_VARS = []
 
+LOKI_SERVERS = {}
+
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 RQD_TAGS = ''
@@ -156,6 +158,7 @@ try:
         # Hostname can come from here: rqutil.getHostname()
         __override_section = "Override"
         __host_env_var_section = "UseHostEnvVar"
+        __loki_section = "Loki"
         import six
         from six.moves import configparser
         if six.PY2:
@@ -223,6 +226,10 @@ try:
 
         if config.has_section(__host_env_var_section):
             RQD_HOST_ENV_VARS = config.options(__host_env_var_section)
+
+        if config.has_section(__loki_section):
+            for loki_server in config.options(__loki_section):
+                LOKI_SERVERS[loki_server] = config.get(__loki_section, loki_server)
 
 # pylint: disable=broad-except
 except Exception as e:

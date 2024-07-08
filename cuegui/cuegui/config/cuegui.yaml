@@ -110,3 +110,6 @@ startup_notice.msg: ''
 
 # Memory usage above this level will be displayed in a different color.
 memory_warning_level: 5242880
+
+loki.servers:
+  internal: http://127.0.0.1:3100/loki

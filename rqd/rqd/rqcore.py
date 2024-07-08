@@ -510,7 +510,8 @@ class FrameAttendantThread(threading.Thread):
                     # Setup proc to allow launching of frame
                     #
                     try:
-                        self.rqlog = rqd.rqlogging.RQDLogger(runFrame.log_dir_file)
+                        self.rqlog = rqd.rqlogging.RQDLogger(runFrame.log_dir_file,
+                                                             runFrame=runFrame)
                         self.rqlog.waitForFile()
                     # pylint: disable=broad-except
                     except Exception as e:

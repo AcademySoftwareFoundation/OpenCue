@@ -23,8 +23,6 @@ import os
 import datetime
 import platform
 
-from multiprocessing import Queue
-
 import logging_loki
 
 import rqd.rqconstants
@@ -35,6 +33,43 @@ LOGTYPE_LOKI = 2
 log = logging.getLogger(__name__)
 log.setLevel(rqd.rqconstants.CONSOLE_LOG_LEVEL)
 
+# This is to avoid a bug in logging_loki that generates debug messages in urllib3
+logging.getLogger('urllib3').setLevel(logging.INFO)
+
+
+class LokiLogger(object):
+    """Class for loki specific logging"""
+    def __init__(self, server, filepath, runFrame=None):
+        startTime = str(time.time_ns())
+        base_url = rqd.rqconstants.LOKI_SERVERS.get(server)
+        endpoint = f"{base_url}/api/v1/push"
+        handler = logging_loki.LokiHandler(
+            url=endpoint,
+            tags={"application": "rqd",
+                  "filepath": filepath,
+                  "start_time": startTime,
+                  "job_name": runFrame.job_name or "",
+                  "show": runFrame.show or "",
+                  "shot": runFrame.shot or "",
+                  "frame_name": runFrame.frame_name or "",
+                  "user_name": runFrame.user_name or ""
+                  },
+            version="1",
+        )
+        self.logger = logging.getLogger(filepath)
+        self.logger.setLevel(logging.INFO)
+        self.logger.propagate = False
+        self.logger.addHandler(handler)
+
+    def info(self, data):
+        self.logger.info(data.strip())
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
 
 class RQDLogger(object):
     """Class to abstract file logging, this class tries to act as a file object"""
@@ -42,32 +77,25 @@ class RQDLogger(object):
     fd = None
     type = 0
 
-    def __init__(self, filepath):
+    def __init__(self, filepath, runFrame=None):
         """RQDLogger class initialization
            @type    filepath: string
            @param   filepath: The filepath to log to
         """
-        protocolMatch = re.match(r"(?P<proto>\w+)://(?P<filepath>.*)", filepath)
+
+        protocolMatch = re.match(r"(?P<proto>[\w\-.:]+)://(?P<server>\w+)/(?P<filepath>.*)",
+                                 filepath)
         if protocolMatch is not None:
             if protocolMatch.group('proto') == 'loki':
                 self.type = LOGTYPE_LOKI
             self.filepath = protocolMatch.group('filepath')
+            self.server = protocolMatch.group('server')
         else:
             self.type = LOGTYPE_FILE
             self.filepath = filepath
 
         if self.type == LOGTYPE_LOKI:
-            self.handler = logging_loki.LokiQueueHandler(
-                Queue(-1),
-                url="http://localhost:3100/loki/api/v1/push",
-                tags={"application": "rqd",
-                      "filepath": self.filepath},
-                version="1",
-            )
-            self.logger = logging.getLogger(self.filepath)
-            self.logger.setLevel(logging.INFO)
-            self.logger.propagate = False
-            self.logger.addHandler(self.handler)
+            self.logger = LokiLogger(self.server, self.filepath, runFrame=runFrame)
         elif self.type == LOGTYPE_FILE:
             log_dir = os.path.dirname(self.filepath)
             if not os.access(log_dir, os.F_OK):
@@ -131,7 +159,7 @@ class RQDLogger(object):
             if self.type == LOGTYPE_FILE:
                 self.fd.write(data)
             elif self.type == LOGTYPE_LOKI:
-                # print() adds a newline in the end when writing to files.
+                # Popen adds a newline in the end when writing to files.
                 # Ignore this when not writing to files
                 if data != os.linesep:
                     self.logger.info(data)
@@ -159,3 +187,9 @@ class RQDLogger(object):
                 tries += 1
                 time.sleep(0.5 * tries)
             raise IOError("Failed to create %s" % self.filepath)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
