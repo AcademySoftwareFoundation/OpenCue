@@ -159,7 +159,6 @@ class LogReader(object):
         content = None
         if self.exists() is True:
             if self.type == LOGTYPE_LOKI:
-                print("LOKI")
                 fp = LokiReader(self.server, self.filepath)
                 content = fp.read()
             elif self.type == LOGTYPE_FILE:
