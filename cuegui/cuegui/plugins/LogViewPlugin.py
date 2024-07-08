@@ -32,7 +32,7 @@ import requests
 import logging
 import json
 
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 
 from qtpy import QtGui
 from qtpy import QtCore
@@ -63,8 +63,8 @@ class LokiReader(object):
         self.base_url = cuegui.Constants.LOKI_SERVERS.get(server)
         self.endpoint = f"{self.base_url}/api/v1/query_range"
 
-        current_time = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
-        start_time = (datetime.now(UTC) - timedelta(days=14)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        current_time = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        start_time = (datetime.now(timezone.utc) - timedelta(days=14)).strftime('%Y-%m-%dT%H:%M:%SZ')
         end_time = current_time
         query = f'{{application="rqd", filepath="{filepath}"}}'
         self.payload = {
