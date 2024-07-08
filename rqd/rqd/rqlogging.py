@@ -62,6 +62,9 @@ class LokiLogger(object):
         self.logger.addHandler(handler)
 
     def info(self, data):
+        """
+        Function to log with info level
+        """
         self.logger.info(data.strip())
 
     def __enter__(self):

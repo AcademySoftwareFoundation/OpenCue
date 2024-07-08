@@ -28,11 +28,11 @@ import string
 import sys
 import time
 import traceback
-import requests
 import logging
 import json
-
 from datetime import datetime, timedelta, timezone
+
+import requests
 
 from qtpy import QtGui
 from qtpy import QtCore
@@ -64,7 +64,8 @@ class LokiReader(object):
         self.endpoint = f"{self.base_url}/api/v1/query_range"
 
         current_time = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-        start_time = (datetime.now(timezone.utc) - timedelta(days=14)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        start_time = (datetime.now(timezone.utc) -
+                      timedelta(days=14)).strftime('%Y-%m-%dT%H:%M:%SZ')
         end_time = current_time
         query = f'{{application="rqd", filepath="{filepath}"}}'
         self.payload = {
@@ -79,6 +80,9 @@ class LokiReader(object):
         }
 
     def read(self):
+        """
+        Function for reading the log from the server
+        """
         try:
             response = requests.get(self.endpoint, params=self.payload, headers=self.headers)
             if response.status_code == 200:
@@ -93,13 +97,14 @@ class LokiReader(object):
                         return "\n".join(content)
                 except json.JSONDecodeError:
                     log.exception("Received a 200 status, but response is not valid JSON")
-                    log.exception(f"First 500 characters of response: {response.text[:500]}")
+                    log.exception("First 500 characters of response: %s", response.text[:500])
             else:
-                log.exception(f"Received non-200 status code. Response text: {response.text[:500]}")
+                log.exception("Received non-200 status code. Response text: %s",
+                              response.text[:500])
 
             return None
         except requests.exceptions.RequestException as e:
-            log.exception(f"Request Exception: {e}")
+            log.exception("Request Exception: %s", e)
 
         return "Default text"
 
@@ -137,22 +142,22 @@ class LogReader(object):
         """Return the size of the file"""
         if self.type == LOGTYPE_FILE:
             return int(os.stat(self.filepath).st_size)
-        else:
-            return 1
+        # TODO: Return size from other logger types
+        return 1
 
     def getMtime(self):
         """Return modification time of the file"""
         if self.type == LOGTYPE_FILE:
             return os.path.getmtime(self.filepath)
-        else:
-            return time.time()
+        # TODO: Return time from other logger types
+        return time.time()
 
     def exists(self):
         """Check if the file exists"""
         if self.type == LOGTYPE_FILE:
             return os.path.exists(self.filepath)
-        else:
-            return True
+        # TODO: Check for other logger types
+        return True
 
     def read(self):
         """Read the data from the backend"""
@@ -937,10 +942,10 @@ class LogViewWidget(QtWidgets.QWidget):
         @postcondition: The _update_log method is scheduled to run again
                         after 5 seconds
         """
-        self._log_reader = LogReader(self._log_file)
+        log_reader = LogReader(self._log_file)
 
         try:
-            if self._log_reader.exists() is not True:
+            if log_reader.exists() is not True:
                 self._log_file_exists = False
                 content = 'Log file does not exist: %s' % self._log_file
                 self._content_timestamp = time.time()
@@ -948,7 +953,7 @@ class LogViewWidget(QtWidgets.QWidget):
             else:
                 # Creating the load logs process as qrunnables so
                 # that they don't block the ui while loading
-                log_loader = LogLoader(self._load_log, self._log_reader,
+                log_loader = LogLoader(self._load_log, log_reader,
                                        self._new_log, self._log_mtime)
                 log_loader.signals.SIG_LOG_LOAD_RESULT.connect(self._receive_log_results)
                 log_loader.setAutoDelete(True)
