@@ -5,8 +5,10 @@ future==1.0.0
 futures==3.2.0;python_version<"3.0"
 grpcio==1.26.0;python_version<"3.0"
 grpcio-tools==1.26.0;python_version<"3.0"
-grpcio==1.53.2;python_version>="3.0"
-grpcio-tools==1.47.0;python_version>="3.0"
+grpcio==1.53.2;python_version>="3.0" and python_version<"3.12"
+grpcio-tools==1.53.2;python_version>="3.0" and python_version<"3.12"
+grpcio==1.64.1;python_version>="3.12"
+grpcio-tools==1.64.1;python_version>="3.12"
 mock==2.0.0
 packaging==20.9
 pathlib==1.0.1;python_version<"3.4"
