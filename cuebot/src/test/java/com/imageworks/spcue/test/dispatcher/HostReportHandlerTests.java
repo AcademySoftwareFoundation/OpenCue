@@ -297,14 +297,16 @@ public class HostReportHandlerTests extends TransactionalTest {
         *   Precondition:
         *     - HardwareState=UP
         *   Action:
-        *     - Receives a HostReport with freeTempDir < dispatcher.min_bookable_free_temp_dir_kb (opencue.properties)
+        *     - Receives a HostReport with less freeTempDir than the threshold 
+        *       (opencue.properties: min_available_temp_storage_percentage)
         *   Postcondition:
         *     - Host hardwareState changes to REPAIR
-        *     - A comment is created with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and user=CUEBOT_COMMENT_USER
+        *     - A comment is created with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and 
+        *       user=CUEBOT_COMMENT_USER
         * */
-        // Create HostReport
+        // Create HostReport with totalMcp=4GB and freeMcp=128MB
         HostReport report1 = HostReport.newBuilder()
-                .setHost(getRenderHostBuilder(hostname).setFreeMcp(1024L).build())
+                .setHost(getRenderHostBuilder(hostname).setFreeMcp(CueUtil.MB128).build())
                 .setCoreInfo(cores)
                 .build();
         // Call handleHostReport() => Create the comment with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and change the
@@ -337,9 +339,11 @@ public class HostReportHandlerTests extends TransactionalTest {
          * Test 2:
          *   Precondition: 
          *     - HardwareState=REPAIR
-         *     - There is a comment for the host with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and user=CUEBOT_COMMENT_USER
+         *     - There is a comment for the host with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and 
+         *       user=CUEBOT_COMMENT_USER
          *   Action:
-         *     - Receives a HostReport with freeTempDir >= dispatcher.min_bookable_free_temp_dir_kb (opencue.properties)
+         *     Receives a HostReport with more freeTempDir than the threshold 
+         *       (opencue.properties: min_available_temp_storage_percentage)
          *   Postcondition:
          *     - Host hardwareState changes to UP
          *     - Comment with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and user=CUEBOT_COMMENT_USER gets deleted
