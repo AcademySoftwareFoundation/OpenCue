@@ -40,12 +40,12 @@ import six
 import opencue
 import opencue.wrappers.group
 
+from FileSequence import FileSequence
+
 import cuegui.ConfirmationDialog
 import cuegui.Constants
 import cuegui.Logger
 
-from FileSequence import FileSequence
-from FileSequence import FrameSet
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -675,6 +675,13 @@ def byteConversion(amount, btype):
 
 
 def previewOutputs(outputs, frameSet=None):
+    """Wrapper function to preview files
+
+    :param outputs: outputs to preview
+    :rtype outputs: list
+    :param frameSet: optional frameset to define range
+    :rtype frameSet: FileSequence.FrameSet.FrameSet
+    """
     job_log_cmd = cuegui.Constants.DEFAULT_VIEWER.split()
     for output in outputs:
         filepath = output
