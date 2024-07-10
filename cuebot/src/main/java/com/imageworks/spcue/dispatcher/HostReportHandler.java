@@ -340,7 +340,7 @@ public class HostReportHandler {
      * Check if a reported temp storage size and availability is enough for running a job
      * 
      * Use dispatcher.min_available_temp_storage_percentage (opencue.properties) to
-     * define what's the accepted threashold. Providing hostOs is necessary as this feature
+     * define what's the accepted threshold. Providing hostOs is necessary as this feature
      * is currently not available on Windows hosts
      * 
      * @param tempTotalStorage Total storage on the temp directory
@@ -403,12 +403,12 @@ public class HostReportHandler {
     /**
      * Prevent cue frames from booking on hosts with full temporary directories.
      *
-     * Change host state to REPAIR or UP according the amount of free space
+     * Change host state to REPAIR or UP according to the amount of free space
      * in the temporary directory:
      *   - Set the host state to REPAIR, when the amount of free space in the
      *     temporary directory is less than the minimum required.
      *   - Set the host state to UP, when the amount of free space in the temporary directory
-     *     is greater or equals to the minimum required and the host has a comment with
+     *     is greater or equal to the minimum required and the host has a comment with
      *     subject: SUBJECT_COMMENT_FULL_TEMP_DIR
      * 
      * @param host
@@ -441,7 +441,7 @@ public class HostReportHandler {
             return true;
         } else if (hasEnoughTempStorage && host.hardwareState == HardwareState.REPAIR) {
             // Check if the host with REPAIR status has comments with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and
-            // user=CUEBOT_COMMENT_USER and delete the comments, if they exists
+            // user=CUEBOT_COMMENT_USER and delete the comments, if they exist
             boolean commentsDeleted = commentManager.deleteCommentByHostUserAndSubject(host,
                     CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_TEMP_DIR);
 

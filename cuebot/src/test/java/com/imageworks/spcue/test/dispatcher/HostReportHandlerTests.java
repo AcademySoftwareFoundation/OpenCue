@@ -297,7 +297,7 @@ public class HostReportHandlerTests extends TransactionalTest {
         *   Precondition:
         *     - HardwareState=UP
         *   Action:
-        *     - Receives a HostReport with less freeTempDir than the threashold 
+        *     - Receives a HostReport with less freeTempDir than the threshold 
         *       (opencue.properties: min_available_temp_storage_percentage)
         *   Postcondition:
         *     - Host hardwareState changes to REPAIR
@@ -342,7 +342,7 @@ public class HostReportHandlerTests extends TransactionalTest {
          *     - There is a comment for the host with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and 
          *       user=CUEBOT_COMMENT_USER
          *   Action:
-         *     Receives a HostReport with more freeTempDir than the threashold 
+         *     Receives a HostReport with more freeTempDir than the threshold 
          *       (opencue.properties: min_available_temp_storage_percentage)
          *   Postcondition:
          *     - Host hardwareState changes to UP
