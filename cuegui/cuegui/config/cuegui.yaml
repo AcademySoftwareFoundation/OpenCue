@@ -65,7 +65,7 @@ editor.mac: 'open -t'
 editor.linux: 'gview -R -m -M -U {config_path}/gvimrc +'
 
 viewer.windows: 'rv'
-viewer.macos: 'rv'
+viewer.mac: 'rv'
 viewer.linux: 'rv'
 
 resources:
