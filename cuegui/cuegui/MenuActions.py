@@ -1076,11 +1076,17 @@ class FrameActions(AbstractActions):
     previewMain_info = ["Preview Main", None, "image"]
 
     # pylint: disable=broad-except
-    def previewMain(self, rpcObjects=None):
+    def previewMain(self, rpcObjects=None, katanaMode=False):
         try:
             job = self._getSource()
             frame = self._getOnlyFrameObjects(rpcObjects)[0]
-            layer = job.getLayer(frame.layer())
+            layer = None
+            layers = job.getLayers()
+            if len(layers) > 0:
+                for ilayer in layers:
+                    if ilayer.name() == frame.layer():
+                        layer = ilayer
+
             if layer is not None:
                 outputs = layer.getOutputPaths()
                 if len(outputs) > 0:
@@ -1088,9 +1094,11 @@ class FrameActions(AbstractActions):
                     frameSet = FileSequence.FrameSet(','.join(str(f.number()) for f in frames))
                     cuegui.Utils.previewOutputs([outputs[0]], frameSet=frameSet)
                 else:
-                    d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, False)
-                    d.process()
-                    d.exec_()
+                    katanaMode = True
+            if katanaMode is True:
+                d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, False)
+                d.process()
+                d.exec_()
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Preview Error",
                                            "Error displaying preview frames, %s" % e)
@@ -1098,11 +1106,17 @@ class FrameActions(AbstractActions):
     previewAovs_info = ["Preview All", None, "images"]
 
     # pylint: disable=broad-except
-    def previewAovs(self, rpcObjects=None):
+    def previewAovs(self, rpcObjects=None, katanaMode=False):
         try:
             job = self._getSource()
             frame = self._getOnlyFrameObjects(rpcObjects)[0]
-            layer = job.getLayer(frame.layer())
+            layer = None
+            layers = job.getLayers()
+            if len(layers) > 0:
+                for ilayer in layers:
+                    if ilayer.name() == frame.layer():
+                        layer = ilayer
+
             if layer is not None:
                 outputs = layer.getOutputPaths()
                 if len(outputs) > 0:
@@ -1110,9 +1124,13 @@ class FrameActions(AbstractActions):
                     frameSet = FileSequence.FrameSet(','.join(str(f.number()) for f in frames))
                     cuegui.Utils.previewOutputs(outputs, frameSet=frameSet)
                 else:
-                    d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, True)
-                    d.process()
-                    d.exec_()
+                    katanaMode = True
+
+            if katanaMode is True:
+                d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, True)
+                d.process()
+                d.exec_()
+
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Preview Error",
                                            "Error displaying preview frames, %s" % e)
