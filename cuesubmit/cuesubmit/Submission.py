@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import str
+import re
 
 import outline
 import outline.cuerun
@@ -73,7 +74,7 @@ def buildBlenderCmd(layerData):
         renderCommand += ' -o {}'.format(outputPath)
     if outputFormat:
         renderCommand += ' -F {}'.format(outputFormat)
-    if frameRange:
+    if re.match(r"^\d+-\d+$", frameRange):
         # Render frames from start to end (inclusive) via '-a' command argument
         renderCommand += (' -s {startFrame} -e {endFrame} -a'
                           .format(startFrame=Constants.FRAME_START_TOKEN,
