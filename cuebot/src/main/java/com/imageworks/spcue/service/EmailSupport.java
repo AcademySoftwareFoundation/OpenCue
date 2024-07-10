@@ -279,7 +279,6 @@ public class EmailSupport {
             File file = null;
             if (shouldCreateFile) {
                 try {
-                    logger.info("\n\n\n\nhouldCreateFile \n\n\n\n");
                     file = new File("my_outputs.txt");
                     output = new BufferedWriter(new FileWriter(file));
                     for (LayerDetail layer : layers) {
