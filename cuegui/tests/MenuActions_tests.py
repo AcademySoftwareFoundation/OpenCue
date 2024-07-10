@@ -922,7 +922,7 @@ class FrameActionsTests(unittest.TestCase):
 
         self.job.retryFrames.assert_called_with(name=[frame_name])
 
-    @mock.patch('cuegui.PreviewWidget.PreviewProcessorDialog')
+    @mock.patch('cuegui.PreviewWidget.PreviewKatanaProcessorDialog')
     def test_previewMain(self, previewProcessorDialogMock):
         frame = opencue.wrappers.frame.Frame()
 
@@ -932,7 +932,7 @@ class FrameActionsTests(unittest.TestCase):
         previewProcessorDialogMock.return_value.process.assert_called()
         previewProcessorDialogMock.return_value.exec_.assert_called()
 
-    @mock.patch('cuegui.PreviewWidget.PreviewProcessorDialog')
+    @mock.patch('cuegui.PreviewWidget.PreviewKatanaProcessorDialog')
     def test_previewAovs(self, previewProcessorDialogMock):
         frame = opencue.wrappers.frame.Frame()
 
