@@ -36,6 +36,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Objects;
+import io.sentry.Sentry;
 
 /**
  * HealthCheckServlet returns 200 if the app is healthy and 500 if not.
@@ -89,6 +90,7 @@ public class HealthCheckServlet extends FrameworkServlet {
             try {
                 getJobs();
             } catch (RuntimeException re) {
+                Sentry.captureException(re);
                 statusList.add(HealthStatus.JOB_QUERY_ERROR);
             }
         }
@@ -124,6 +126,7 @@ public class HealthCheckServlet extends FrameworkServlet {
                     out.append(status.name());
                     out.append(" ");
                 }
+                Sentry.captureMessage("Healthcheck failure: " + out);
 
                 sendResponse(response, out.toString());
             }
@@ -133,7 +136,7 @@ public class HealthCheckServlet extends FrameworkServlet {
             }
         }
         catch (Exception e) {
-            logger.debug("Misc error", e);
+            logger.error("Unexpected error", e);
             response.setStatus(500);
             sendResponse(response, "FAILED " + e.getMessage());
         }
