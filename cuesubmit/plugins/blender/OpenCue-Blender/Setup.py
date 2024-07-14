@@ -21,15 +21,11 @@ import bpy
 
 blender_dependencies_directory = "lib/python3.10/site-packages"
 blender_dependencies_path = os.path.join(sys.prefix, blender_dependencies_directory)
+opencue_blender_path = os.path.dirname(__file__)
 
-opencue_home = os.environ['OPENCUE_HOME']
-pyoutline_directory = "pyoutline/outline"
-filesequence_directory = "pycue/FileSequence"
-opencue_directory = "pycue/opencue"
-
-pyoutline_path = os.path.join(opencue_home, pyoutline_directory)
-filesequence_path = os.path.join(opencue_home, filesequence_directory)
-opencue_path = os.path.join(opencue_home, opencue_directory)
+pyoutline_path = os.path.join(opencue_blender_path, "dependencies", "outline")
+filesequence_path = os.path.join(opencue_blender_path, "dependencies", "FileSequence")
+opencue_path = os.path.join(opencue_blender_path, "dependencies", "opencue")
 
 pyoutline_directory = "outline"
 opencue_imported_directory = "opencue"
