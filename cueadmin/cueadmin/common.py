@@ -289,6 +289,7 @@ def handleFloatCriterion(mixed, convert=None):
         else:
             result = opencue.api.criterion_pb2.GreaterThanFloatSearchCriterion(
                 value=_convert(mixed))
+    # pylint: disable=use-a-generator
     elif any([isinstance(mixed.__class__, crit_cls) for crit_cls in criterions]):
         result = mixed
     elif not mixed:
@@ -336,6 +337,7 @@ def handleIntCriterion(mixed, convert=None):
         else:
             result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
                 value=_convert(mixed))
+    # pylint: disable=use-a-generator
     elif any([isinstance(mixed.__class__, crit_cls) for crit_cls in criterions]):
         result = mixed
     elif not mixed:

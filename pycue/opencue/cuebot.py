@@ -354,6 +354,7 @@ class RetryOnRpcErrorClientInterceptor(
         self._sleeping_policy = sleeping_policy
         self._retry_statuses = status_for_retry
 
+    # pylint: disable=inconsistent-return-statements
     def _intercept_call(self, continuation, client_call_details,
                         request_or_iterator):
         for attempt in range(self._max_attempts):

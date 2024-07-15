@@ -66,7 +66,7 @@ class JsonTest(unittest.TestCase):
     @mock.patch.dict(os.environ, {}, clear=True)
     def testJsonFile(self, systemMock):
         """Load JSON from a file"""
-        with open(os.path.join(JSON_DIR, 'shell.outline')) as fp:
+        with open(os.path.join(JSON_DIR, 'shell.outline'), encoding='utf-8') as fp:
             ol = outline.load_json(fp.read())
         with test_utils.TemporarySessionDirectory():
             ol.setup()
@@ -79,7 +79,7 @@ class JsonTest(unittest.TestCase):
 
     def testFacility(self):
         """Test facility from JSON"""
-        with open(os.path.join(JSON_DIR, 'facility.json')) as fp:
+        with open(os.path.join(JSON_DIR, 'facility.json'), encoding='utf-8') as fp:
             ol = outline.load_json(fp.read())
             self.assertEqual('test_facility', ol.get_facility())
 
