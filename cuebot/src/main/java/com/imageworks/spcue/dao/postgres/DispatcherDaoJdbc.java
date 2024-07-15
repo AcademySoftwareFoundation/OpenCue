@@ -18,6 +18,8 @@
 
 package com.imageworks.spcue.dao.postgres;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.*;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -33,6 +35,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -209,30 +212,49 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             }
 
             if (host.idleGpus == 0 && (schedulingMode == SchedulingMode.BALANCED)) {
-                result.addAll(getJdbcTemplate().query(
-                        FIND_JOBS_BY_SHOW_NO_GPU,
-                        PKJOB_MAPPER,
-                        s.getShowId(), host.getFacilityId(), host.os,
-                        host.idleCores, host.idleMemory,
-                        threadMode(host.threadMode),
-                        host.getName(), numJobs * 10));
-
-                        prometheusMetrics.setBookingDurationMetric("findDispatchJobs nogpu findByShowQuery",
-                        System.currentTimeMillis() - lastTime);
+                result.addAll(getJdbcTemplate().query(new PreparedStatementCreator() {
+                     @Override
+                     public PreparedStatement createPreparedStatement(Connection conn)
+                             throws SQLException {
+                         PreparedStatement find_jobs_stmt = conn.prepareStatement(
+                                 FIND_JOBS_BY_SHOW_NO_GPU);
+                         find_jobs_stmt.setString(1, s.getShowId());
+                         find_jobs_stmt.setString(2, host.getFacilityId());
+                         find_jobs_stmt.setString(3, host.os);
+                         find_jobs_stmt.setInt(4, host.idleCores);
+                         find_jobs_stmt.setLong(5, host.idleMemory);
+                         find_jobs_stmt.setInt(6, threadMode(host.threadMode));
+                         find_jobs_stmt.setString(7, host.getName());
+                         find_jobs_stmt.setInt(8, numJobs * 10);
+                         return find_jobs_stmt;
+                     }}, PKJOB_MAPPER
+                ));
+                prometheusMetrics.setBookingDurationMetric("findDispatchJobs nogpu findByShowQuery", 
+                    System.currentTimeMillis() - lastTime);
             }
             else {
-                result.addAll(getJdbcTemplate().query(
-                        findByShowQuery(),
-                        PKJOB_MAPPER,
-                        s.getShowId(), host.getFacilityId(), host.os,
-                        host.idleCores, host.idleMemory,
-                        threadMode(host.threadMode),
-                        host.idleGpus,
-                        (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
-                        host.getName(), numJobs * 10));
-
-                        prometheusMetrics.setBookingDurationMetric("findDispatchJobs findByShowQuery",
-                        System.currentTimeMillis() - lastTime);
+                result.addAll(getJdbcTemplate().query(new PreparedStatementCreator() {
+                    @Override
+                    public PreparedStatement createPreparedStatement(Connection conn)
+                            throws SQLException {
+                        PreparedStatement find_jobs_stmt = conn.prepareStatement(
+                                findByShowQuery());
+                        find_jobs_stmt.setString(1, s.getShowId());
+                        find_jobs_stmt.setString(2, host.getFacilityId());
+                        find_jobs_stmt.setString(3, host.os);
+                        find_jobs_stmt.setInt(4, host.idleCores);
+                        find_jobs_stmt.setLong(5, host.idleMemory);
+                        find_jobs_stmt.setInt(6, threadMode(host.threadMode));
+                        find_jobs_stmt.setInt(7, host.idleGpus);
+                        find_jobs_stmt.setLong(8, (host.idleGpuMemory > 0) ? 1 : 0);
+                        find_jobs_stmt.setLong(9, host.idleGpuMemory);
+                        find_jobs_stmt.setString(10, host.getName());
+                        find_jobs_stmt.setInt(11, numJobs * 10);
+                        return find_jobs_stmt;
+                    }}, PKJOB_MAPPER
+                ));
+                prometheusMetrics.setBookingDurationMetric("findDispatchJobs findByShowQuery",
+                    System.currentTimeMillis() - lastTime);
             }
 
             // Collect metrics
