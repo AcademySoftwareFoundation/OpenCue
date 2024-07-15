@@ -53,17 +53,6 @@ jobs:
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
-  test_python2:
-    name: Run Python Unit Tests using Python2
-    runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2019
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run Python Tests
-        run: ci/run_python_tests.sh
-
   test_pyside6:
     name: Run CueGUI Tests using PySide6
     runs-on: ubuntu-latest
