@@ -81,5 +81,14 @@
  		<url-pattern>/health</url-pattern>
  	</servlet-mapping>
 
+	<servlet>
+		<servlet-name>PrometheusServer</servlet-name>
+		<servlet-class>io.prometheus.client.exporter.MetricsServlet</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>PrometheusServer</servlet-name>
+		<url-pattern>/metrics</url-pattern>
+	</servlet-mapping>
+
 </web-app>
 
