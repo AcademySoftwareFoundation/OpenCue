@@ -71,7 +71,7 @@ ICON = 2
 DEFAULT_JOB_KILL_REASON = "Manual Job Kill Request in Cuegui by " + getpass.getuser()
 DEFAULT_FRAME_KILL_REASON = "Manual Frame(s) Kill Request in Cuegui by " + getpass.getuser()
 
-# pylint: disable=missing-function-docstring,no-self-use,unused-argument
+# pylint: disable=missing-function-docstring,unused-argument
 
 
 class AbstractActions(object):

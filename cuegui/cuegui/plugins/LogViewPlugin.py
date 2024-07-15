@@ -835,7 +835,6 @@ class LogViewWidget(QtWidgets.QWidget):
         finally:
             QtCore.QTimer.singleShot(5000, self._display_log_content)
 
-    # pylint: disable=no-self-use
     @QtCore.Slot()
     def _load_log(self, log_file, new_log, curr_log_mtime):
         content = None
