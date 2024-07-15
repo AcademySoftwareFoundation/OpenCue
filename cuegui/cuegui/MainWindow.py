@@ -172,9 +172,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.__actions_facility[self.facility_default].setChecked(True)
         # Uncheck all other facilities if one is checked
         else:
-            for facility in self.__actions_facility:
+            for facility, facvalue in self.__actions_facility.items():
                 if facility != action.text():
-                    self.__actions_facility[facility].setChecked(False)
+                    facvalue.setChecked(False)
 
         for facility in list(self.__actions_facility.values()):
             if facility.isChecked():
@@ -300,12 +300,12 @@ class MainWindow(QtWidgets.QMainWindow):
         action_title = str(action.text())
         if action_title.startswith("Open Window: "):
             window_title = action_title.replace("Open Window: ","")
-            for name in self.windows_titles:
-                if self.windows_titles[name] == window_title:
+            for name, value in self.windows_titles.items():
+                if value == window_title:
                     self.windowMenuOpenWindow(name)
 
         elif action_title.endswith("Add new window") and len(action_title) == 18:
-            number = int(action_title[1:].split(")")[0]) - 1
+            number = int(action_title[1:].split(")", maxsplit=1)[0]) - 1
             self.windowMenuOpenWindow(self.windows_names[number])
 
         elif action_title.startswith("Raise Window: "):

@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+# pylint: disable=consider-using-generator
 
 """Provides actions and functions for right click menu items."""
 

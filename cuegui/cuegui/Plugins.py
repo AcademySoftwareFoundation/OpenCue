@@ -319,13 +319,13 @@ class Plugins(object):
             menu_locations[category] = []
 
         # Store the plugin name in the proper menu_locations category
-        for plugin in self.__plugins:
-            category = self.__plugins[plugin].get(CATEGORY, "root")
+        for plugin, pluginvalue in self.__plugins.items():
+            category = pluginvalue.get(CATEGORY, "root")
             menu_locations[category].append(plugin)
 
         # Create the QAction and add it to the correct menu (sorted)
-        for category in menu_locations:
-            for plugin in sorted(menu_locations[category]):
+        for category, categoryvalue in menu_locations.items():
+            for plugin in sorted(categoryvalue):
                 action = QtWidgets.QAction("{}".format(plugin), menu)
                 if category in submenus:
                     submenus[category].addAction(action)
@@ -338,7 +338,7 @@ class Plugins(object):
         """Handles what happens when a plugin menu item is clicked on
         @param action: The action that was selected from the menu
         @type  action: QAction"""
-        plugin_name = str(action.text()).split("%s" % self.__menu_separator)[0]
+        plugin_name = str(action.text()).split("%s" % self.__menu_separator, maxsplit=1)[0]
         self.launchPlugin(plugin_name, "")
 
 

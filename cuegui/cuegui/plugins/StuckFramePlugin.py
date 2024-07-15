@@ -1583,21 +1583,17 @@ class LogFinal():
 
         yaml_path = "/shots/" + show + "/home/etc/stuck_frames_db.yaml"
         if not os.path.exists(yaml_path):
-            yaml_ob = open(yaml_path, 'w')
-            yaml.dump(frames_dict, yaml_ob)
-            yaml_ob.close()
+            with open(yaml_path, 'w', encoding='utf-8') as yaml_ob:
+                yaml.dump(frames_dict, yaml_ob)
+
         else:
-            yaml_ob = open(yaml_path, 'r')
-            old_dict = yaml.load(yaml_ob)
-            yaml_ob.close()
+            with open(yaml_path, 'r', encoding='utf-8') as yaml_ob:
+                old_dict = yaml.load(yaml_ob)
+            with open(yaml_path, 'w', encoding='utf-8') as yaml_ob:
+                for key in frames_dict:  # updates old dict
+                    old_dict[key] = frames_dict[key]
 
-            yaml_ob = open(yaml_path, 'w')
-
-            for key in frames_dict:  # updates old dict
-                old_dict[key] = frames_dict[key]
-
-            yaml.dump(old_dict, yaml_ob)
-            yaml_ob.close()
+                yaml.dump(old_dict, yaml_ob)
 
 
 class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
@@ -1773,10 +1769,10 @@ class DJArnold(object):
         log_file = os.path.join(log_dir, log_name)
         if not os.path.exists(log_file):
             return []
-        f = open(log_file, 'r')
-        log_lines = [line.strip() for line in f.readlines() if line.strip()]
-        f.close()
-        return log_lines
+        with open(log_file, 'r', encoding='utf-8') as f:
+            log_lines = [line.strip() for line in f.readlines() if line.strip()]
+
+            return log_lines
 
     def getBuildTimes(self, job, layers=None):
         """Return a dictionary with layer names as keys, and build tiems as

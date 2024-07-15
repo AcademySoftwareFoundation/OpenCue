@@ -136,6 +136,7 @@ class ThreadPool(QtCore.QObject):
         def __init__(self, name, parent):
             QtCore.QThread.__init__(self, parent)
             self.__parent = parent
+            # pylint: disable=unused-private-member
             self.__name = name
             self.__running = False
 

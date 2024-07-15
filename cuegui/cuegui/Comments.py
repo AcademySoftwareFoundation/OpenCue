@@ -215,11 +215,11 @@ class CommentListDialog(QtWidgets.QDialog):
             comments[source.data.name] = source.getComments()
         self.__treeSubjects.clear()
         comments_length = 0
-        for source in comments:
+        for source, sourcevalue in comments.items():
             heading = CommentSource(source)
             heading.setSizeHint(0, QtCore.QSize(500, 1))
             self.__treeSubjects.addTopLevelItem(heading)
-            for comment in comments[source]:
+            for comment in sourcevalue:
                 item = Comment(comment)
                 heading.addChild(item)
                 item.setSizeHint(0, QtCore.QSize(300, 1))

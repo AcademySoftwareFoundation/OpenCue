@@ -494,6 +494,7 @@ class LogViewWidget(QtWidgets.QWidget):
         self._update_visible_indices()
         cursor_for_pos = self._content_box.cursorForPosition(pos)
         index = cursor_for_pos.position()
+        # pylint: disable=consider-using-enumerate
         for i in range(0, len(self._matches)):
             if index < self._matches[i][0]:
                 self._current_match = i
@@ -852,7 +853,7 @@ class LogViewWidget(QtWidgets.QWidget):
         if content is None:
             content = ''
             try:
-                with open(log_file, 'r') as f:
+                with open(log_file, 'r', encoding='utf-8') as f:
                     content = f.read()
             except IOError:
                 content = 'Can not access log file: %s' % log_file
