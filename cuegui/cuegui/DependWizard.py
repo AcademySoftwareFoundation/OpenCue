@@ -122,7 +122,7 @@ class DependWizard(QtWidgets.QWizard):
         self.__pages[PAGE_CONFIRMATION] = PageConfirmation(self, jobs, layers, frames)
 
         # Add the pages to the wizard
-        for key in self.__pages :
+        for key in self.__pages.items():
             self.setPage(key, self.__pages[key])
 
         # Define the start id
@@ -389,7 +389,7 @@ class PageDependType(AbstractWizardPage):
         self.wizard().setMinimumSize(500, 500)
 
     def validatePage(self):
-        for option in self.__options:
+        for option in self.__options.items():
             if self.__options[option].isChecked():
                 self.wizard().dependType = option
                 return True

@@ -213,6 +213,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
+        # pylint: disable=unused-private-member
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects, self.getJob)
         self.__sortByColumnCache = {}
@@ -597,11 +598,12 @@ class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__alignCenter = QtCore.Qt.AlignCenter
             self.__class__.__alignRight = QtCore.Qt.AlignRight
             self.__class__.__rgbFrameState = {}
-            for key in cuegui.Constants.RGB_FRAME_STATE:
+            for key in cuegui.Constants.RGB_FRAME_STATE.items():
                 self.__class__.__rgbFrameState[key] = cuegui.Constants.RGB_FRAME_STATE[key]
             self.__class__.__type = cuegui.Constants.TYPE_FRAME
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
             self, cuegui.Constants.TYPE_FRAME, rpcObject, parent, job)
+        # pylint: disable=unused-private-member
         self.__show = job.data.show
 
     def data(self, col, role):
@@ -683,6 +685,7 @@ class FrameLogDataBuffer(object):
         self.__LINE = 2
         self.__LLU = 3
 
+    # pylint: disable=inconsistent-return-statements
     def getLastLineData(self, job, frame):
         """Returns the last line and LLU of the log file or queues a request to update
         it"""
@@ -755,7 +758,7 @@ class FrameLogDataBuffer(object):
                 __cached[self.__TIME] = time.time()
                 __cached[self.__LINE] = results[1]
                 __cached[self.__LLU] = results[2]
-        except KeyError as e:
+        except KeyError:
             # Could happen while switching jobs with work in the queue
             pass
         except Exception as e:
@@ -842,7 +845,7 @@ class FrameEtaDataBuffer(object):
                 __cached = self.__cache[results[0]]
                 __cached[self.__TIME] = time.time()
                 __cached[self.__ETA] = results[1]
-        except KeyError as e:
+        except KeyError:
             # Could happen while switching jobs with work in the queue
             pass
         except Exception as e:
