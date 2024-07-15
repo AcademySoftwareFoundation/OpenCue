@@ -26,7 +26,6 @@ import com.imageworks.spcue.grpc.job.JobSeq;
 import com.imageworks.spcue.servant.CueStatic;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.web.servlet.FrameworkServlet;
 
@@ -46,8 +45,6 @@ public class HealthCheckServlet extends FrameworkServlet {
 
     private static final Logger logger = LogManager.getLogger(HealthCheckServlet.class);
     private CueStatic cueStatic;
-    
-    @Autowired
     private Environment env;
 
     private enum HealthStatus {
@@ -63,6 +60,8 @@ public class HealthCheckServlet extends FrameworkServlet {
     public void initFrameworkServlet() throws ServletException {
         this.cueStatic = (CueStatic)
             Objects.requireNonNull(this.getWebApplicationContext()).getBean("cueStaticServant");
+        this.env = (Environment) 
+            Objects.requireNonNull(this.getWebApplicationContext()).getBean("environment");
     }
 
     private ArrayList<HealthStatus> getHealthStatus() {
@@ -98,7 +97,7 @@ public class HealthCheckServlet extends FrameworkServlet {
     }
 
     private void getJobs() {
-        if (this.cueStatic != null) {
+        if (this.cueStatic != null && this.env != null) {
             // Defaults to testing show, which is added as part of the seeding data script
             String defaultShow = env.getProperty("protected_shows", 
                 String.class, "testing").split(",")[0];
