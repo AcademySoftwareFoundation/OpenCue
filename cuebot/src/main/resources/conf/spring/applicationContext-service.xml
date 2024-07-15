@@ -229,7 +229,7 @@
   </bean>
 
   <bean id="mailSender" class="org.springframework.mail.javamail.JavaMailSenderImpl">
-    <property name="host" value="smtp"/>
+    <property name="host" value=${smtp_host}/>
   </bean>
 
   <bean id="emailSupport" class="com.imageworks.spcue.service.EmailSupport">
