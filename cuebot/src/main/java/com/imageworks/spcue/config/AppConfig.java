@@ -77,6 +77,11 @@ public class AppConfig {
         return b;
     }
 
+    /**
+     * Registers the Prometheus MetricsServlet to expose metrics at /metrics endpoint
+     * 
+     * @return A ServletRegistrationBean for MetricsServlet
+     */
     @Bean
     public ServletRegistrationBean<MetricsServlet> prometheusServer() {
         ServletRegistrationBean<MetricsServlet> b = new ServletRegistrationBean<>();

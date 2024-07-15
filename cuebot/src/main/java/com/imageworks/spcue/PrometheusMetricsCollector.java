@@ -13,6 +13,9 @@ import io.prometheus.client.Counter;
 import io.prometheus.client.Gauge;
 import io.prometheus.client.Histogram;
 
+/**
+ * Collects and exposes metrics to Prometheus
+ */
 @Component
 public class PrometheusMetricsCollector {
     private BookingQueue bookingQueue;
@@ -24,22 +27,6 @@ public class PrometheusMetricsCollector {
     private HostReportQueue reportQueue;
 
     private boolean enabled;
-
-    public void setBookingQueue(BookingQueue bookingQueue) {
-        this.bookingQueue = bookingQueue;
-    }
-
-    public void setManageQueue(DispatchQueue manageQueue) {
-        this.manageQueue = manageQueue;
-    }
-
-    public void setDispatchQueue(DispatchQueue dispatchQueue) {
-        this.dispatchQueue = dispatchQueue;
-    }
-
-    public void setReportQueue(HostReportQueue reportQueue) {
-        this.reportQueue = reportQueue;
-    }
 
     // BookingQueue bookingQueue
     private static final Gauge bookingWaitingTotal = Gauge.build()
@@ -276,19 +263,42 @@ public class PrometheusMetricsCollector {
         }
     }
 
+    /**
+     * Set a new value to the cue_booking_durations_in_millis metric
+     * 
+     * @param stage_desc booking stage description to be used as a tag
+     * @param value value to set
+     */
     public void setBookingDurationMetric(String stage_desc, double value) {
         bookingDurationMillisMetric.labels(this.deployment_environment, this.cuebot_host, stage_desc).set(value);
         bookingDurationMillisHistogramMetric.labels(this.deployment_environment, this.cuebot_host, stage_desc).observe(value);
     }
 
+    /**
+     * Increment cue_find_jobs_by_show_count metric
+     */
     public void incrementFindJobsByShowQueryCountMetric() {
         findJobsByShowQueryCountMetric.labels(this.deployment_environment, this.cuebot_host).inc();
     }
 
+    /**
+     * Increment cue_frame_killed_counter metric
+     * 
+     * @param renderNode hostname of the render node receiving the kill request
+     * @param killCause cause assigned to the request
+     */
     public void incrementFrameKilledCounter(String renderNode, HostReportHandler.KillCause killCause) {
         frameKilledCounter.labels(this.deployment_environment, this.cuebot_host, renderNode, killCause.name()).inc();
     }
 
+    /**
+     * Increment cue_frame_kill_failure_counter metric
+     * 
+     * @param hostname
+     * @param jobName
+     * @param frameName
+     * @param frameId
+     */
     public void incrementFrameKillFailureCounter(String hostname, String jobName, String frameName, String frameId) {
         frameKillFailureCounter.labels(this.deployment_environment,
                 this.cuebot_host,
@@ -296,5 +306,22 @@ public class PrometheusMetricsCollector {
                 jobName,
                 frameName,
                 frameId).inc();
+    }
+
+    // Setters used for dependency injection
+    public void setBookingQueue(BookingQueue bookingQueue) {
+        this.bookingQueue = bookingQueue;
+    }
+
+    public void setManageQueue(DispatchQueue manageQueue) {
+        this.manageQueue = manageQueue;
+    }
+
+    public void setDispatchQueue(DispatchQueue dispatchQueue) {
+        this.dispatchQueue = dispatchQueue;
+    }
+
+    public void setReportQueue(HostReportQueue reportQueue) {
+        this.reportQueue = reportQueue;
     }
 }
