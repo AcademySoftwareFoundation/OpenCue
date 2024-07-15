@@ -77,7 +77,8 @@ disable=arguments-differ,
         too-many-statements,
         unused-argument,
         unused-variable,
-        useless-object-inheritance
+        useless-object-inheritance,
+        consider-using-f-string
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -523,5 +524,5 @@ min-public-methods=2
 
 # Exceptions that will emit a warning when being caught. Defaults to
 # "BaseException, Exception".
-overgeneral-exceptions=BaseException,
-                       Exception
+overgeneral-exceptions=builtins.BaseException,
+                       builtins.Exception
