@@ -171,7 +171,7 @@ class Frame(object):
         """
         frame_dep = frame.data if isinstance(frame, type(self)) else frame
         response = self.stub.CreateDependencyOnFrame(
-            job_pb2.FrameCreateDependencyOnFrameRequest(frame=self.data, 
+            job_pb2.FrameCreateDependencyOnFrameRequest(frame=self.data,
                                                         depend_on_frame=frame_dep),
                                                         timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
