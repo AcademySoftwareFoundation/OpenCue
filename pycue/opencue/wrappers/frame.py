@@ -202,7 +202,10 @@ class Frame(object):
 
     def setFrameStateDisplayOverride(self, status, override_text, override_rgb):
         """
-        Override the displayed text of a frame status
+        Override the displayed text of a frame status.
+        If an override already exists for the frame-state combo, the existing
+        override will be updated to the new text and color values.
+        If the override is identical to an existing override, no-op.
 
         :param status: the job_pb2.FrameState to override
         :param override_text: the text to display
