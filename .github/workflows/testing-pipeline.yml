@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     container: almalinux:9
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run CueGUI Tests
         run: ci/test_pyside6.sh
 
