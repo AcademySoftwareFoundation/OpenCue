@@ -319,8 +319,9 @@ class Plugins(object):
             menu_locations[category] = []
 
         # Store the plugin name in the proper menu_locations category
-        for plugin, pluginvalue in self.__plugins.items():
-            category = pluginvalue.get(CATEGORY, "root")
+        # pylint: disable=consider-using-dict-items
+        for plugin in self.__plugins:
+            category = self.__plugins[plugin].get(CATEGORY, "root")
             menu_locations[category].append(plugin)
 
         # Create the QAction and add it to the correct menu (sorted)

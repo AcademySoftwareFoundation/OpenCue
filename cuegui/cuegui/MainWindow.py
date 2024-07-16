@@ -300,8 +300,9 @@ class MainWindow(QtWidgets.QMainWindow):
         action_title = str(action.text())
         if action_title.startswith("Open Window: "):
             window_title = action_title.replace("Open Window: ","")
-            for name, value in self.windows_titles.items():
-                if value == window_title:
+            # pylint: disable=consider-using-dict-items
+            for name in self.windows_titles:
+                if self.windows_titles[name] == window_title:
                     self.windowMenuOpenWindow(name)
 
         elif action_title.endswith("Add new window") and len(action_title) == 18:
