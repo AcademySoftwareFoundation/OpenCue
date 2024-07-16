@@ -26,7 +26,6 @@ import com.imageworks.spcue.grpc.job.JobSeq;
 import com.imageworks.spcue.servant.CueStatic;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.web.servlet.FrameworkServlet;
 
@@ -36,6 +35,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Objects;
+import io.sentry.Sentry;
 
 /**
  * HealthCheckServlet returns 200 if the app is healthy and 500 if not.
@@ -45,8 +45,6 @@ public class HealthCheckServlet extends FrameworkServlet {
 
     private static final Logger logger = LogManager.getLogger(HealthCheckServlet.class);
     private CueStatic cueStatic;
-    
-    @Autowired
     private Environment env;
 
     private enum HealthStatus {
@@ -62,6 +60,8 @@ public class HealthCheckServlet extends FrameworkServlet {
     public void initFrameworkServlet() throws ServletException {
         this.cueStatic = (CueStatic)
             Objects.requireNonNull(this.getWebApplicationContext()).getBean("cueStaticServant");
+        this.env = (Environment) 
+            Objects.requireNonNull(this.getWebApplicationContext()).getBean("environment");
     }
 
     private ArrayList<HealthStatus> getHealthStatus() {
@@ -89,6 +89,7 @@ public class HealthCheckServlet extends FrameworkServlet {
             try {
                 getJobs();
             } catch (RuntimeException re) {
+                Sentry.captureException(re);
                 statusList.add(HealthStatus.JOB_QUERY_ERROR);
             }
         }
@@ -96,7 +97,7 @@ public class HealthCheckServlet extends FrameworkServlet {
     }
 
     private void getJobs() {
-        if (this.cueStatic != null) {
+        if (this.cueStatic != null && this.env != null) {
             // Defaults to testing show, which is added as part of the seeding data script
             String defaultShow = env.getProperty("protected_shows", 
                 String.class, "testing").split(",")[0];
@@ -124,6 +125,7 @@ public class HealthCheckServlet extends FrameworkServlet {
                     out.append(status.name());
                     out.append(" ");
                 }
+                Sentry.captureMessage("Healthcheck failure: " + out);
 
                 sendResponse(response, out.toString());
             }
@@ -133,7 +135,7 @@ public class HealthCheckServlet extends FrameworkServlet {
             }
         }
         catch (Exception e) {
-            logger.debug("Misc error", e);
+            logger.error("Unexpected error", e);
             response.setStatus(500);
             sendResponse(response, "FAILED " + e.getMessage());
         }

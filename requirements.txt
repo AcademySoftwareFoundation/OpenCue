@@ -1,11 +1,11 @@
 2to3==1.0
 enum34==1.1.6
 evdev==1.4.0;python_version<"3.0" and "linux" in sys_platform
-future==0.18.3
+future==1.0.0
 futures==3.2.0;python_version<"3.0"
 grpcio==1.26.0;python_version<"3.0"
 grpcio-tools==1.26.0;python_version<"3.0"
-grpcio==1.47.0;python_version>="3.0"
+grpcio==1.53.2;python_version>="3.0"
 grpcio-tools==1.47.0;python_version>="3.0"
 mock==2.0.0
 packaging==20.9
@@ -17,4 +17,4 @@ pyfakefs==5.2.3;python_version>="3.7"
 pylint==2.6.0;python_version>="3.7"
 pynput==1.7.6
 PyYAML==5.1
-six==1.11.0
+six==1.16.0

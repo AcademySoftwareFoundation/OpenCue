@@ -600,6 +600,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                   "host.pk_host = ? " +
               "AND " +
                   "proc.int_mem_reserved != 0 " +
+              "AND " +
+                  "proc.int_virt_used >= proc.int_mem_pre_reserved " +
               "ORDER BY " +
                   "proc.int_virt_used / proc.int_mem_pre_reserved DESC " +
           ") AS t1 LIMIT 1";
