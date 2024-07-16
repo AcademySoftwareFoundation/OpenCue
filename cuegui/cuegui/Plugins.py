@@ -325,8 +325,9 @@ class Plugins(object):
             menu_locations[category].append(plugin)
 
         # Create the QAction and add it to the correct menu (sorted)
-        for category, categoryvalue in menu_locations.items():
-            for plugin in sorted(categoryvalue):
+        # pylint: disable=consider-using-dict-items
+        for category in menu_locations:
+            for plugin in sorted(menu_locations[category]):
                 action = QtWidgets.QAction("{}".format(plugin), menu)
                 if category in submenus:
                     submenus[category].addAction(action)
