@@ -47,11 +47,11 @@ import com.imageworks.spcue.JobEntity;
 import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LocalHostAssignment;
+import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dispatcher.HostReportHandler.KillCause;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
@@ -66,12 +66,10 @@ import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.rqd.RqdClient;
-import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
 
 import static com.imageworks.spcue.dispatcher.Dispatcher.*;
@@ -96,10 +94,14 @@ public class HostReportHandler {
     private Environment env;
     @Autowired
     private CommentManager commentManager;
+    @Autowired
+    private PrometheusMetricsCollector prometheusMetrics;
+
     // Comment constants
     private static final String SUBJECT_COMMENT_FULL_TEMP_DIR = "Host set to REPAIR for not having enough storage " +
             "space on the temporary directory (mcp)";
     private static final String CUEBOT_COMMENT_USER = "cuebot";
+    private static final String WINDOWS_OS = "Windows";
 
     // A cache <hostname_frameId, count> to store kill requests and count the number of occurrences.
     // The cache expires after write to avoid growing unbounded. If a request for a host-frame doesn't appear
@@ -182,7 +184,11 @@ public class HostReportHandler {
                         rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
                         rhost.getAttributesMap().get("SP_OS"));
 
-                changeHardwareState(host, report.getHost().getState(), isBoot, report.getHost().getFreeMcp());
+                // Both logics are conflicting, only change hardware state if
+                // there was no need for a tempDirStorage state change
+                if (!changeStateForTempDirStorage(host, report.getHost())) {
+                    changeHardwareState(host, report.getHost().getState(), isBoot);
+                }
                 changeNimbyState(host, report.getHost());
 
                 /**
@@ -247,12 +253,10 @@ public class HostReportHandler {
                 }
             }
 
-            // The minimum amount of free space in the temporary directory to book a host
-            Long minBookableFreeTempDir = env.getRequiredProperty("dispatcher.min_bookable_free_temp_dir_kb", Long.class);
-
-            if (minBookableFreeTempDir != -1 && report.getHost().getFreeMcp() < minBookableFreeTempDir) {
-                msg = String.format("%s doens't have enough free space in the temporary directory (mcp), %dMB needs %dMB",
-                        host.name, (report.getHost().getFreeMcp()/1024),  (minBookableFreeTempDir/1024));
+            if (!isTempDirStorageEnough(report.getHost().getTotalMcp(), report.getHost().getFreeMcp(), host.os)) {
+                msg = String.format(
+                    "%s doens't have enough free space in the temporary directory (mcp), %dMB",
+                        host.name, (report.getHost().getFreeMcp()/1024));
             }
             else if (host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
                 msg = String.format("%s doesn't have enough idle cores, %d needs %d",
@@ -334,6 +338,27 @@ public class HostReportHandler {
     }
 
     /**
+     * Check if a reported temp storage size and availability is enough for running a job
+     * 
+     * Use dispatcher.min_available_temp_storage_percentage (opencue.properties) to
+     * define what's the accepted threshold. Providing hostOs is necessary as this feature
+     * is currently not available on Windows hosts
+     * 
+     * @param tempTotalStorage Total storage on the temp directory
+     * @param tempFreeStorage Free storage on the temp directory
+     * @param hostOs Reported os
+     * @return
+     */
+    private boolean isTempDirStorageEnough(Long tempTotalStorage, Long tempFreeStorage, String hostOs) {
+        // The minimum amount of free space in the temporary directory to book a host
+        int minAvailableTempPercentage = env.getRequiredProperty(
+            "dispatcher.min_available_temp_storage_percentage", Integer.class);
+
+        return minAvailableTempPercentage == -1 || hostOs.equalsIgnoreCase(WINDOWS_OS) ||
+                (((tempFreeStorage * 100.0) / tempTotalStorage) >= minAvailableTempPercentage);
+    }
+
+    /**
      * Update the hardware state property.
      *
      * If a host pings in with a different hardware state than what
@@ -342,62 +367,11 @@ public class HostReportHandler {
      * updated with a boot report.  If the state is Repair, then state is
      * never updated via RQD.
      *
-     *
-     * Prevent cue frames from booking on hosts with full temporary directories.
-     *
-     * Change host state to REPAIR or UP according the amount of free space
-     * in the temporary directory:
-     * - Set the host state to REPAIR, when the amount of free space in the
-     * temporary directory is less than the minimum required. Add a comment with
-     * subject: SUBJECT_COMMENT_FULL_TEMP_DIR
-     * - Set the host state to UP, when the amount of free space in the temporary directory
-     * is greater or equals to the minimum required and the host has a comment with
-     * subject: SUBJECT_COMMENT_FULL_TEMP_DIR
-     *
      * @param host
      * @param reportState
      * @param isBoot
-     * @param freeTempDir
      */
-    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot, long freeTempDir) {
-
-        // The minimum amount of free space in the temporary directory to book a host
-        Long minBookableFreeTempDir = env.getRequiredProperty("dispatcher.min_bookable_free_temp_dir_kb", Long.class);
-
-        // Prevent cue frames from booking on hosts with full temporary directories
-        if (minBookableFreeTempDir != -1 && !host.os.equalsIgnoreCase("Windows")) {
-            if (host.hardwareState == HardwareState.UP && freeTempDir < minBookableFreeTempDir) {
-
-                // Insert a comment indicating that the Host status = Repair with reason = Full temporary directory
-                CommentDetail c = new CommentDetail();
-                c.subject = SUBJECT_COMMENT_FULL_TEMP_DIR;
-                c.user = CUEBOT_COMMENT_USER;
-                c.timestamp = null;
-                c.message = "Host " + host.getName() + " marked as REPAIR. The current amount of free space in the " +
-                        "temporary directory (mcp) is " + (freeTempDir/1024) + "MB. It must have at least "
-                        + (minBookableFreeTempDir/1024) + "MB of free space in temporary directory";
-                commentManager.addComment(host, c);
-
-                // Set the host state to REPAIR
-                hostManager.setHostState(host, HardwareState.REPAIR);
-                host.hardwareState = HardwareState.REPAIR;
-
-                return;
-            } else if (host.hardwareState == HardwareState.REPAIR && freeTempDir >= minBookableFreeTempDir) {
-                // Check if the host with REPAIR status has comments with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and
-                // user=CUEBOT_COMMENT_USER and delete the comments, if they exists
-                boolean commentsDeleted = commentManager.deleteCommentByHostUserAndSubject(host,
-                        CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_TEMP_DIR);
-
-                if (commentsDeleted) {
-                    // Set the host state to UP
-                    hostManager.setHostState(host, HardwareState.UP);
-                    host.hardwareState = HardwareState.UP;
-                    return;
-                }
-            }
-        }
-
+    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot) {        
         // If the states are the same there is no reason to do this update.
         if (host.hardwareState.equals(reportState)) {
             return;
@@ -425,6 +399,61 @@ public class HostReportHandler {
                 break;
 
         }
+    }
+
+    /**
+     * Prevent cue frames from booking on hosts with full temporary directories.
+     *
+     * Change host state to REPAIR or UP according to the amount of free space
+     * in the temporary directory:
+     *   - Set the host state to REPAIR, when the amount of free space in the
+     *     temporary directory is less than the minimum required.
+     *   - Set the host state to UP, when the amount of free space in the temporary directory
+     *     is greater or equal to the minimum required and the host has a comment with
+     *     subject: SUBJECT_COMMENT_FULL_TEMP_DIR
+     * 
+     * @param host
+     * @param reportHost
+     * @return
+     */
+    private boolean changeStateForTempDirStorage(DispatchHost host, RenderHost reportHost) {
+        // The minimum amount of free space in the temporary directory to book a host
+        int minAvailableTempPercentage = env.getRequiredProperty(
+            "dispatcher.min_available_temp_storage_percentage", Integer.class);
+
+        // Prevent cue frames from booking on hosts with full temporary directories
+        boolean hasEnoughTempStorage = isTempDirStorageEnough(reportHost.getTotalMcp(), reportHost.getFreeMcp(), host.os);
+        if (!hasEnoughTempStorage && host.hardwareState == HardwareState.UP) {
+            // Insert a comment indicating that the Host status = Repair with reason = Full temporary directory
+            CommentDetail c = new CommentDetail();
+            c.subject = SUBJECT_COMMENT_FULL_TEMP_DIR;
+            c.user = CUEBOT_COMMENT_USER;
+            c.timestamp = null;
+            long requiredTempMb = (long)((minAvailableTempPercentage / 100.0) * reportHost.getTotalMcp()/ 1024);
+            c.message = "Host " + host.getName() + " marked as REPAIR. The current amount of free space in the " +
+                    "temporary directory (mcp) is " + (reportHost.getFreeMcp()/1024) + "MB. It must have at least "
+                    + ((requiredTempMb)) + "MB of free space in temporary directory";
+            commentManager.addComment(host, c);
+
+            // Set the host state to REPAIR
+            hostManager.setHostState(host, HardwareState.REPAIR);
+            host.hardwareState = HardwareState.REPAIR;
+
+            return true;
+        } else if (hasEnoughTempStorage && host.hardwareState == HardwareState.REPAIR) {
+            // Check if the host with REPAIR status has comments with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and
+            // user=CUEBOT_COMMENT_USER and delete the comments, if they exist
+            boolean commentsDeleted = commentManager.deleteCommentByHostUserAndSubject(host,
+                    CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_TEMP_DIR);
+
+            if (commentsDeleted) {
+                // Set the host state to UP
+                hostManager.setHostState(host, HardwareState.UP);
+                host.hardwareState = HardwareState.UP;
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -577,11 +606,22 @@ public class HostReportHandler {
         }
         killRequestCounterCache.put(cacheKey, cachedCount);
         if (cachedCount > FRAME_KILL_RETRY_LIMIT) {
-            FrameInterface frame = jobManager.getFrame(frameId);
-            JobInterface job = jobManager.getJob(frame.getJobId());
-
-            logger.warn("KillRequest blocked for " + job.getName() + "." + frame.getName() +
-                    " blocked for host " + hostname + ". The kill retry limit has been reached.");
+            // If the kill retry limit has been reached, notify prometheus of the issue and
+            // give up
+            if (!dispatcher.isTestMode()) {
+                try {
+                    FrameInterface frame = jobManager.getFrame(frameId);
+                    JobInterface job = jobManager.getJob(frame.getJobId());
+                    prometheusMetrics.incrementFrameKillFailureCounter(
+                            hostname,
+                            job.getName(),
+                            frame.getName(),
+                            frameId);
+                } catch (EmptyResultDataAccessException e) {
+                    logger.info(
+                            "Trying to kill a frame that no longer exists: host=" + hostname + " frameId=" + frameId);
+                }
+            }
             return false;
         }
         return true;
@@ -601,6 +641,7 @@ public class HostReportHandler {
             try {
                 killQueue.execute(new DispatchRqdKillFrameMemory(hostname, frame, killCause.toString(), rqdClient,
                         dispatchSupport, dispatcher.isTestMode()));
+                prometheusMetrics.incrementFrameKilledCounter(hostname, killCause);
             } catch (TaskRejectedException e) {
                 logger.warn("Unable to add a DispatchRqdKillFrame request, task rejected, " + e);
                 return false;
@@ -624,6 +665,7 @@ public class HostReportHandler {
                         frameId,
                         killCause.toString(),
                         rqdClient));
+                prometheusMetrics.incrementFrameKilledCounter(hostname, killCause);
             } catch (TaskRejectedException e) {
                 logger.warn("Unable to add a DispatchRqdKillFrame request, task rejected, " + e);
             }
