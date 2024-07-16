@@ -27,6 +27,8 @@ import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
+import io.sentry.Sentry;
+
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
@@ -81,7 +83,6 @@ public class JobManagerSupport {
         }
         else {
             if (jobManager.shutdownJob(job)) {
-
                 /*
                 * Satisfy any dependencies on just the
                 * job record, not layers or frames.
@@ -93,10 +94,9 @@ public class JobManagerSupport {
                 }
 
                 if (isManualKill) {
-
                     logger.info(job.getName() + "/" + job.getId() +
                             " is being manually killed by " + source.toString());
-
+                    
                     /**
                      * Sleep a bit here in case any frames were
                      * dispatched during the job shutdown process.
@@ -108,7 +108,17 @@ public class JobManagerSupport {
                                 " shutdown thread was interrupted.");
                         Thread.currentThread().interrupt();
                     }
-
+                    
+                    // Report kill requests to sentry
+                    Sentry.configureScope(scope -> {
+                        scope.setExtra("Job Name", job.getName());
+                        scope.setExtra("Job ID", job.getId());
+                        scope.setExtra("Job Details", source.toString());
+                        scope.setExtra("Kill Reason", source.getReason());
+                        scope.setTag("job", job.getName());
+                        Sentry.captureMessage("Kill Request Successful");                        
+                    });
+                    
                     FrameSearchInterface search = frameSearchFactory.create(job);
                     FrameSearchCriteria newCriteria = search.getCriteria();
                     FrameStateSeq states = newCriteria.getStates().toBuilder()
