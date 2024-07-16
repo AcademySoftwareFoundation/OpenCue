@@ -53,6 +53,27 @@ jobs:
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
+  test_python_2024:
+    name: Run Python Unit Tests (CY2024)
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2024
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Python Tests
+        run: ci/run_python_tests.sh
+
+  test_cuebot_2024:
+    name: Build Cuebot and Run Unit Tests (CY2024)
+    runs-on: ubuntu-latest
+    container:
+      image: aswf/ci-opencue:2024
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build with Gradle
+        run: |
+          chown -R aswfuser:aswfgroup .
+          su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
+
   test_pyside6:
     name: Run CueGUI Tests using PySide6
     runs-on: ubuntu-latest
