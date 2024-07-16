@@ -72,6 +72,11 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.frameLogDataBuffer = FrameLogDataBuffer()
         self.frameEtaDataBuffer = FrameEtaDataBuffer()
 
+        def getFrameStateOverride(frame):
+            if frame.hasFrameStateDisplayOverride():
+                return frame.data.frame_state_display_override.text
+            return job_pb2.FrameState.Name(frame.data.state)
+
         self.startColumnsForType(cuegui.Constants.TYPE_FRAME)
         self.addColumn("Order", 60, id=1,
                        data=lambda job, frame: frame.data.dispatch_order,
@@ -87,8 +92,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda job, frame: frame.data.layer_name,
                        tip="The layer that the frame is in.")
         self.addColumn("Status", 100, id=4,
-                       data=lambda job, frame: job_pb2.FrameState.Name(frame.data.state),
-                       sort=lambda job, frame: job_pb2.FrameState.Name(frame.data.state),
+                       data=lambda job, frame: getFrameStateOverride(frame),
+                       sort=lambda job, frame: getFrameStateOverride(frame),
                        tip="The status of the frame:\n"
                            "Succeeded: \t The frame finished without errors.\n"
                            "Running: \t The frame is currently running.\n"
@@ -566,7 +571,24 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         frameWidget = self._items.get('Frame.{}'.format(updatedFrame.id))
         if frameWidget:
             for field in list(job_pb2.UpdatedFrame.DESCRIPTOR.fields_by_name.keys()):
-                if field != "id":
+                if field == "id":
+                    continue
+
+                if field == "frame_state_display_override":
+                    # In proto, cannot assign values to embedded message field.
+                    # Instead, assigning values to any field within the child
+                    # message implies setting the message field in the parent.
+                    # The CopyFrom() handles that assignment for us.
+                    if updatedFrame.HasField('frame_state_display_override'):
+                        frameWidget.rpcObject.data.frame_state_display_override.CopyFrom(
+                            updatedFrame.frame_state_display_override)
+                    else:
+                        # If there's no override in the update but the current
+                        # state has one, we need to remove the current override
+                        if frameWidget.rpcObject.hasFrameStateDisplayOverride():
+                            frameWidget.rpcObject.data.ClearField(
+                                "frame_state_display_override")
+                else:
                     setattr(frameWidget.rpcObject.data, field, getattr(updatedFrame, field))
 
     def contextMenuEvent(self, e):
@@ -627,6 +649,13 @@ class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             return self.__foregroundColor
 
         if role == QtCore.Qt.BackgroundRole and col == STATUS_COLUMN:
+            # This where the frame state color is determined
+            # This returns a QtGUI.QColor(r,g,b) object
+            # rpcObject is opencue.wrappers.frame.Frame
+            if self.rpcObject.hasFrameStateDisplayOverride():
+                return QtGui.QColor(self.rpcObject.frameStateDisplayOverride().color.red,
+                                    self.rpcObject.frameStateDisplayOverride().color.green,
+                                    self.rpcObject.frameStateDisplayOverride().color.blue)
             return self.__rgbFrameState[self.rpcObject.data.state]
 
         if role == QtCore.Qt.DecorationRole and col == CHECKPOINT_COLUMN:
