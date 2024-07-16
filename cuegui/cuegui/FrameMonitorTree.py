@@ -598,8 +598,9 @@ class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__alignCenter = QtCore.Qt.AlignCenter
             self.__class__.__alignRight = QtCore.Qt.AlignRight
             self.__class__.__rgbFrameState = {}
-            for key, value in cuegui.Constants.RGB_FRAME_STATE.items():
-                self.__class__.__rgbFrameState[key] = value
+            # pylint: disable=consider-using-dict-items
+            for key in cuegui.Constants.RGB_FRAME_STATE:
+                self.__class__.__rgbFrameState[key] = cuegui.Constants.RGB_FRAME_STATE[key]
             self.__class__.__type = cuegui.Constants.TYPE_FRAME
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
             self, cuegui.Constants.TYPE_FRAME, rpcObject, parent, job)
