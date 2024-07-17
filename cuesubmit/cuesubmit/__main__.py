@@ -23,8 +23,8 @@ from __future__ import division
 from __future__ import absolute_import
 import sys
 
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from qtpy import QtGui
+from qtpy import QtWidgets
 
 from cuesubmit import Constants
 from cuesubmit import JobTypes

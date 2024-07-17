@@ -20,10 +20,9 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+from qtpy import QtCore, QtWidgets
 import re
 from collections import OrderedDict
-
-from PySide2 import QtCore, QtWidgets
 
 from cuesubmit import Constants
 from cuesubmit import Validators

@@ -54,6 +54,8 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverride;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverrideSeq;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.HostManager;
@@ -114,11 +116,12 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOST)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem(8173264)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)
@@ -273,6 +276,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         /** Change the version so the update fails **/
         jdbcTemplate.update(
                 "UPDATE frame SET int_version = int_version + 1 WHERE pk_frame=?",
+          
                 f.getFrameId());
 
         assertEquals(false, frameDao.updateFrameState(f, FrameState.RUNNING));
@@ -639,5 +643,44 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
         frameDao.updateFrameState(frame, FrameState.WAITING);
         assertFalse(frameDao.isFrameComplete(frame));
+    }
+
+    private FrameStateDisplayOverride createFrameStateDisplayOverride(FrameState state, String text,
+                                                                     int red, int green, int blue) {
+        FrameStateDisplayOverride override = FrameStateDisplayOverride.newBuilder()
+                .setState(state)
+                .setText(text)
+                .setColor(FrameStateDisplayOverride.RGB.newBuilder()
+                        .setRed(red)
+                        .setGreen(green)
+                        .setBlue(blue)
+                        .build())
+                .build();
+
+        return override;
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateFrameOverride() {
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+
+        // Create override
+        FrameStateDisplayOverride override = createFrameStateDisplayOverride(FrameState.SUCCEEDED,
+                "FINISHED", 200, 200, 123);
+        frameDao.setFrameStateDisplayOverride(frame.getFrameId(), override);
+        FrameStateDisplayOverrideSeq results = frameDao.getFrameStateDisplayOverrides(frame.getFrameId());
+        assertEquals(1, results.getOverridesCount());
+        assertEquals(override, results.getOverridesList().get(0));
+
+        // Try to update override
+        FrameStateDisplayOverride overrideUpdate = createFrameStateDisplayOverride(FrameState.SUCCEEDED,
+                "DONE", 100, 100, 100);
+        frameDao.updateFrameStateDisplayOverride(frame.getFrameId(), overrideUpdate);
+        results = frameDao.getFrameStateDisplayOverrides(frame.getFrameId());
+        assertEquals(1, results.getOverridesCount());
+        assertEquals(overrideUpdate, results.getOverridesList().get(0));
     }
 }

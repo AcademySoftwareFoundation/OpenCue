@@ -270,7 +270,7 @@ public abstract class Criteria implements CriteriaInterface {
 
     void addRangePhrase(String col, InRangeIntegerSearchCriterion criterion) {
         StringBuilder sb = new StringBuilder(128);
-        sb.append(" " + col + " >= ? ");
+        sb.append(" " + col + " >= ? AND " + col + " <= ? ");
         chunks.add(sb);
         values.add(criterion.getMin());
         values.add(criterion.getMax());

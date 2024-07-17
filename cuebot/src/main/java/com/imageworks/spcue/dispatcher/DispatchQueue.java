@@ -26,7 +26,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 
-public class DispatchQueue {
+public class DispatchQueue implements QueueHealthCheck {
 
     private int healthThreshold;
     private int minUnhealthyPeriodMin;
@@ -59,9 +59,9 @@ public class DispatchQueue {
                 maxPoolSize);
     }
 
-    public boolean isHealthy() {
+    public void shutdownUnhealthy() {
         try {
-            if (!healthyDispatchPool.isHealthyOrShutdown()) {
+            if (!healthyDispatchPool.shutdownUnhealthy()) {
                 logger.warn("DispatchQueue_" + name + ": Unhealthy queue terminated, starting a new one");
                 initThreadPool();
             }
@@ -69,10 +69,11 @@ public class DispatchQueue {
             // TODO: evaluate crashing the whole springbook context here
             //  to force a container restart cycle
             logger.error("DispatchQueue_" + name + ":Failed to restart DispatchThreadPool", e);
-            return false;
         }
+    }
 
-        return true;
+    public boolean isHealthy() {
+        return healthyDispatchPool.healthCheck();
     }
 
     public void execute(KeyRunnable r) {
