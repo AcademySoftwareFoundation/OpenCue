@@ -216,7 +216,9 @@ class Machine(object):
 
     def _getStatFields(self, pidFilePath):
         with open(pidFilePath, "r") as statFile:
-            return [None, None] + statFile.read().rsplit(")", 1)[-1].split()
+            stats = statFile.read().split()
+            stats[1] = stats[1].strip('()')
+            return stats
 
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""

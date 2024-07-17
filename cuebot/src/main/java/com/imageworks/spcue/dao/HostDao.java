@@ -79,6 +79,14 @@ public interface HostDao {
     void updateHostState(HostInterface host, HardwareState state);
 
     /**
+     * updates a host with the passed free temporary directory
+     *
+     * @param host
+     * @param freeTempDir
+     */
+    void updateHostFreeTempDir(HostInterface host, Long freeTempDir);
+
+    /**
      * returns a full host detail
      *
      * @param host  HostInterface
@@ -243,15 +251,6 @@ public interface HostDao {
      * @param mode ThreadMode
      */
     void updateThreadMode(HostInterface host, ThreadMode mode);
-
-    /**
-     * When a host is in kill mode that means its 256MB+ into the swap and the
-     * the worst memory offender is killed.
-     *
-     * @param h HostInterface
-     * @return boolean
-     */
-    boolean isKillMode(HostInterface h);
 
     /**
      * Update the specified host's hardware information.

@@ -491,5 +491,20 @@ public interface JobManager {
      * @param layer
      */
     List<LimitEntity> getLayerLimits(LayerInterface layer);
+
+    /**
+     * Update email(s) of subscribers for job
+     *
+     * @param job
+     * @param email
+     */
+    void updateEmail(JobInterface job, String email);
+
+    /**
+     * Return a list of limits for the given layer.
+     *
+     * @param job
+     */
+    String getEmail(JobInterface job);
 }
 
