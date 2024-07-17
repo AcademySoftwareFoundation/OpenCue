@@ -21,7 +21,9 @@ package com.imageworks.spcue.servant;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
+import com.google.common.collect.Sets;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.apache.logging.log4j.Logger;
@@ -61,6 +63,8 @@ import com.imageworks.spcue.grpc.job.JobAddCommentRequest;
 import com.imageworks.spcue.grpc.job.JobAddCommentResponse;
 import com.imageworks.spcue.grpc.job.JobAddRenderPartRequest;
 import com.imageworks.spcue.grpc.job.JobAddRenderPartResponse;
+import com.imageworks.spcue.grpc.job.JobAddSubscriberRequest;
+import com.imageworks.spcue.grpc.job.JobAddSubscriberResponse;
 import com.imageworks.spcue.grpc.job.JobCreateDependencyOnFrameRequest;
 import com.imageworks.spcue.grpc.job.JobCreateDependencyOnFrameResponse;
 import com.imageworks.spcue.grpc.job.JobCreateDependencyOnJobRequest;
@@ -275,7 +279,9 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
         try {
             setupJobData(request.getJob());
             manageQueue.execute(new DispatchJobComplete(job,
-                    new Source(request.toString()), true, jobManagerSupport));
+                    new Source(request.toString(), request.getUsername(), request.getPid(),
+                               request.getHostKill(), request.getReason()),
+                    true, jobManagerSupport));
             responseObserver.onNext(JobKillResponse.newBuilder().build());
             responseObserver.onCompleted();
         }
@@ -486,7 +492,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 manageQueue.execute(
                         new DispatchKillFrames(
                                 frameSearchFactory.create(job, request.getReq()),
-                                new Source(request.toString()),
+                                new Source(request.toString(), request.getUsername(), request.getPid(),
+                                           request.getHostKill(), request.getReason()),
                                 jobManagerSupport));
                 responseObserver.onNext(JobKillFramesResponse.newBuilder().build());
                 responseObserver.onCompleted();
@@ -909,6 +916,22 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
+    }
+
+    public void addSubscriber(JobAddSubscriberRequest request, StreamObserver<JobAddSubscriberResponse> responseStreamObserver) {
+        try {
+            setupJobData(request.getJob());
+            Set<String> subscribers = Sets.newHashSet(jobManager.getEmail(job).split(","));
+            subscribers.add(request.getSubscriber());
+            jobManager.updateEmail(job, String.join(",", subscribers));
+            responseStreamObserver.onNext(JobAddSubscriberResponse.newBuilder().build());
+            responseStreamObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseStreamObserver.onError(Status.INTERNAL
                     .withDescription("Failed to find job data")
                     .asRuntimeException());
         }

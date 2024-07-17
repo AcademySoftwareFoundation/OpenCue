@@ -20,8 +20,11 @@
 package com.imageworks.spcue.config;
 
 import com.imageworks.spcue.servlet.JobLaunchServlet;
+import com.imageworks.spcue.servlet.HealthCheckServlet;
 
 import javax.sql.DataSource;
+
+import io.prometheus.client.exporter.MetricsServlet;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -30,7 +33,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportResource;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 
@@ -63,6 +65,28 @@ public class AppConfig {
         b.addUrlMappings("/launch");
         b.addInitParameter("contextConfigLocation", "classpath:conf/spring/jobLaunchServlet-servlet.xml");
         b.setServlet(new JobLaunchServlet());
+        return b;
+    }
+
+    @Bean
+    public ServletRegistrationBean<HealthCheckServlet> healthCheckServlet() {
+        ServletRegistrationBean<HealthCheckServlet> b = new ServletRegistrationBean<>();
+        b.addUrlMappings("/health");
+        b.addInitParameter("contextConfigLocation", "classpath:conf/spring/healthCheckServlet-servlet.xml");
+        b.setServlet(new HealthCheckServlet());
+        return b;
+    }
+
+    /**
+     * Registers the Prometheus MetricsServlet to expose metrics at /metrics endpoint
+     * 
+     * @return A ServletRegistrationBean for MetricsServlet
+     */
+    @Bean
+    public ServletRegistrationBean<MetricsServlet> prometheusServer() {
+        ServletRegistrationBean<MetricsServlet> b = new ServletRegistrationBean<>();
+        b.addUrlMappings("/metrics");
+        b.setServlet(new MetricsServlet());
         return b;
     }
 }

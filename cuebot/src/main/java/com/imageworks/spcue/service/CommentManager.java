@@ -23,6 +23,8 @@ import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
 
+import java.util.List;
+
 public interface CommentManager {
 
     /**
@@ -46,6 +48,26 @@ public interface CommentManager {
      * @param id
      */
     public void deleteComment(String id);
+
+    /**
+     * Deletes comments using host, user, and subject
+     *
+     * @param host
+     * @param user
+     * @param subject
+     * @return boolean: returns true if one or more comments where deleted
+     */
+    public boolean deleteCommentByHostUserAndSubject(HostInterface host, String user, String subject);
+
+    /**
+     * Get comments using host, user, and subject
+     *
+     * @param host
+     * @param user
+     * @param subject
+     * @return List<Comment>
+     */
+    public List<CommentDetail> getCommentsByHostUserAndSubject(HostInterface host, String user, String subject);
 
     /**
      *

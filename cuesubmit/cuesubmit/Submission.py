@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import str
+import re
 
 import outline
 import outline.cuerun
@@ -38,8 +39,8 @@ def buildMayaCmd(layerData, silent=False):
         raise ValueError('No Maya File provided. Cannot submit job.')
     renderCommand = '{renderCmd} -r file -s {frameStart} -e {frameEnd}'.format(
         renderCmd=Constants.MAYA_RENDER_CMD,
-        frameStart=Constants.FRAME_START,
-        frameEnd=Constants.FRAME_END)
+        frameStart=Constants.FRAME_START_TOKEN,
+        frameEnd=Constants.FRAME_END_TOKEN)
     if camera:
         renderCommand += ' -cam {}'.format(camera)
     renderCommand += ' {}'.format(mayaFile)
@@ -65,6 +66,7 @@ def buildBlenderCmd(layerData, silent=False):
     blenderFile = layerData.cmd.get('blenderFile')
     outputPath = layerData.cmd.get('outputPath')
     outputFormat = layerData.cmd.get('outputFormat')
+    frameRange = layerData.layerRange
     if not blenderFile and not silent:
         raise ValueError('No Blender file provided. Cannot submit job.')
 
@@ -74,8 +76,14 @@ def buildBlenderCmd(layerData, silent=False):
         renderCommand += ' -o {}'.format(outputPath)
     if outputFormat:
         renderCommand += ' -F {}'.format(outputFormat)
-    # The render frame must come after the scene and output
-    renderCommand += ' -f {frameToken}'.format(frameToken=Constants.FRAME_TOKEN)
+    if re.match(r"^\d+-\d+$", frameRange):
+        # Render frames from start to end (inclusive) via '-a' command argument
+        renderCommand += (' -s {startFrame} -e {endFrame} -a'
+                          .format(startFrame=Constants.FRAME_START_TOKEN,
+                                  endFrame=Constants.FRAME_END_TOKEN))
+    else:
+        # The render frame must come after the scene and output
+        renderCommand += ' -f {frameToken}'.format(frameToken=Constants.FRAME_TOKEN)
     return renderCommand
 
 

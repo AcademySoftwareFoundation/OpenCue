@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Resource;
 
 import org.jdom.Document;
@@ -56,6 +57,7 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
+import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -147,11 +149,12 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem(8173264)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)
@@ -185,12 +188,8 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         int count = 10;
         launchJobs(count);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(getHost(), count);
+        Set<String> jobs = dispatcherDao.findDispatchJobs(getHost(), count);
         assertEquals(count, jobs.size());
-        for (int i = 0; i < count; i++) {
-            assertEquals("pipe-default-testuser_job" + i,
-                jobManager.getJob(jobs.get(i)).getName());
-        }
     }
 
     @Test
@@ -201,12 +200,8 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         launchJobs(count);
 
         int portion = 19;
-        List<String> jobs = dispatcherDao.findDispatchJobs(getHost(), (portion + 1) / 10);
+        Set<String> jobs = dispatcherDao.findDispatchJobs(getHost(), (portion + 1) / 10);
         assertEquals(portion, jobs.size());
-        for (int i = 0; i < portion; i++) {
-            assertEquals("pipe-default-testuser_job" + i,
-                jobManager.getJob(jobs.get(i)).getName());
-        }
     }
 
     @Test
@@ -218,7 +213,7 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         int count = 10;
         launchJobs(count);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(getHost(), count);
+        Set<String> jobs = dispatcherDao.findDispatchJobs(getHost(), count);
         assertEquals(count, jobs.size());
 
         List<String> sortedJobs = new ArrayList<String>(jobs);
@@ -241,12 +236,8 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         JobDetail job = jobManager.findJobDetail("pipe-default-testuser_job0");
         assertNotNull(job);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(getHost(),
+        Set<String> jobs = dispatcherDao.findDispatchJobs(getHost(),
                 groupManager.getGroupDetail(job));
         assertEquals(count, jobs.size());
-        for (int i = 0; i < count; i++) {
-            assertEquals("pipe-default-testuser_job" + i,
-                jobManager.getJob(jobs.get(i)).getName());
-        }
     }
 }

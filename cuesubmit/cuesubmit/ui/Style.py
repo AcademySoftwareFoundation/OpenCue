@@ -20,7 +20,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from PySide2 import QtGui
+from qtpy import QtGui
 
 
 MAIN_WINDOW = """
@@ -102,7 +102,7 @@ QTextEdit[accessibleName="commandBox"] {
 QToolButton {
     background-color: rgb(60, 70, 80);
     border-radius: 3px;
-    border: 1px;
+    border: 2px solid transparent;
     font-size: 10px;
     padding: 5px 35px 5px 35px;
 }
@@ -112,8 +112,14 @@ QToolButton[accessibleName="editLayer"] {
     font-weight: bold;
 }
 
+QToolButton:hover, QToolButton:focus {
+    background-color: rgb(80, 90, 100);
+    border-color: rgb(30, 40, 50);
+}
+
 QToolButton:pressed {
-    background-color: rgb(120, 130, 140);
+    background-color: rgb(60, 70, 80);
+    border-color: rgb(30, 40, 50);
 }
 
 QToolButton::menu-indicator {
@@ -170,6 +176,69 @@ QLineEdit {
     border: 0px solid;
     background-color: rgb(60, 70, 80);
     border-radius: 4px;
+}
+"""
+
+HEADER_VIEW = """
+QHeaderView::section {
+    background-color: rgb(31, 40, 48);
+    color: white;
+    padding-left: 4px;
+    border: 1px solid rgb(46, 56, 63);
+    border-bottom-color: rgb(25, 34, 42);
+    border-right-color: rgb(25, 34, 42);
+    font-size: 10pt;
+    height: 16px;
+}
+"""
+
+TREE_VIEW = """
+QTreeView {
+    show-decoration-selected: 1;
+}
+
+QTreeView::item {
+    color: white;
+    height: 20px;
+}
+
+QTreeView::item:hover {
+    background: rgb(32, 85, 123);
+}
+QTreeView::item:selected {
+    background: rgb(52, 139, 200);
+}
+QTreeView::branch:hover:!has-children:!selected {
+    background: rgb(32, 85, 123);
+}
+QTreeView::branch:selected {
+    background: rgb(52, 139, 200);
+}
+QTreeView::branch:open:has-children {
+    border-image: none;
+}
+QTreeView::branch:closed:has-children {
+    border-image: none;
+}
+"""
+
+PULLDOWN_LIST = """
+QMenu {
+    color: rgb(200, 200, 200);
+    border: 0px solid  rgb(30, 40, 50);
+    border-bottom: 1px solid  rgb(30, 40, 50);
+    border-left: 1px solid qlineargradient(
+                                x1: 0, y1: 0,
+                                x2: 0, y2: 1,
+                                stop: 0 transparent, stop: 1 rgb(30, 40, 50));
+    border-right: 1px solid qlineargradient(
+                                x1: 0, y1: 0,
+                                x2: 0, y2: 1,
+                                stop: 0 transparent, stop: 1 rgb(30, 40, 50));
+}
+
+QMenu::item:selected {
+    background-color: rgb(30, 40, 50);
 }
 """
 

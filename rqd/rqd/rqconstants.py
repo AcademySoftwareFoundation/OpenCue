@@ -69,6 +69,8 @@ RQD_USE_IPV6_AS_HOSTNAME = False
 
 # Use the PATH environment variable from the RQD host.
 RQD_USE_PATH_ENV_VAR = False
+# Copy specific environment variable from the RQD host to the frame env.
+RQD_HOST_ENV_VARS = []
 
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
@@ -115,11 +117,16 @@ PATH_PROC_PID_CMDLINE = "/proc/{0}/cmdline"
 if platform.system() == 'Linux':
     SYS_HERTZ = os.sysconf('SC_CLK_TCK')
 
+# First retrieve local configuration file
 if platform.system() == 'Windows':
     CONFIG_FILE = os.path.expandvars('%LOCALAPPDATA%/OpenCue/rqd.conf')
 else:
     CONFIG_FILE = '/etc/opencue/rqd.conf'
 
+# Then overwrites with an eventual shared configuration file
+CONFIG_FILE = os.environ.get('RQD_CONFIG_FILE', CONFIG_FILE)
+
+# Finally get the one passed as argument when launching rqd
 if '-c' in sys.argv:
     CONFIG_FILE = sys.argv[sys.argv.index('-c') + 1]
 
@@ -147,59 +154,76 @@ SP_OS = platform.system()
 try:
     if os.path.isfile(CONFIG_FILE):
         # Hostname can come from here: rqutil.getHostname()
-        __section = "Override"
+        __override_section = "Override"
+        __host_env_var_section = "UseHostEnvVar"
         import six
         from six.moves import configparser
         if six.PY2:
             ConfigParser = configparser.SafeConfigParser
         else:
             ConfigParser = configparser.RawConfigParser
-        config = ConfigParser()
+        # Allow some config file sections to contain only keys
+        config = ConfigParser(allow_no_value=True)
+        # Respect case from the config file keys
+        config.optionxform = str
         config.read(CONFIG_FILE)
         logging.warning('Loading config %s', CONFIG_FILE)
 
-        if config.has_option(__section, "RQD_GRPC_PORT"):
-            RQD_GRPC_PORT = config.getint(__section, "RQD_GRPC_PORT")
-        if config.has_option(__section, "CUEBOT_GRPC_PORT"):
-            CUEBOT_GRPC_PORT = config.getint(__section, "CUEBOT_GRPC_PORT")
-        if config.has_option(__section, "OVERRIDE_CORES"):
-            OVERRIDE_CORES = config.getint(__section, "OVERRIDE_CORES")
-        if config.has_option(__section, "OVERRIDE_PROCS"):
-            OVERRIDE_PROCS = config.getint(__section, "OVERRIDE_PROCS")
-        if config.has_option(__section, "OVERRIDE_MEMORY"):
-            OVERRIDE_MEMORY = config.getint(__section, "OVERRIDE_MEMORY")
-        if config.has_option(__section, "OVERRIDE_CUEBOT"):
-            CUEBOT_HOSTNAME = config.get(__section, "OVERRIDE_CUEBOT")
-        if config.has_option(__section, "OVERRIDE_NIMBY"):
-            OVERRIDE_NIMBY = config.getboolean(__section, "OVERRIDE_NIMBY")
-        if config.has_option(__section, "OVERRIDE_HOSTNAME"):
-            OVERRIDE_HOSTNAME = config.get(__section, "OVERRIDE_HOSTNAME")
-        if config.has_option(__section, "GPU"):
-            ALLOW_GPU = config.getboolean(__section, "GPU")
-        if config.has_option(__section, "LOAD_MODIFIER"):
-            LOAD_MODIFIER = config.getint(__section, "LOAD_MODIFIER")
-        if config.has_option(__section, "RQD_USE_IP_AS_HOSTNAME"):
-            RQD_USE_IP_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IP_AS_HOSTNAME")
-        if config.has_option(__section, "RQD_USE_IPV6_AS_HOSTNAME"):
-            RQD_USE_IPV6_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IPV6_AS_HOSTNAME")
-        if config.has_option(__section, "RQD_USE_PATH_ENV_VAR"):
-            RQD_USE_PATH_ENV_VAR = config.getboolean(__section, "RQD_USE_PATH_ENV_VAR")
-        if config.has_option(__section, "RQD_BECOME_JOB_USER"):
-            RQD_BECOME_JOB_USER = config.getboolean(__section, "RQD_BECOME_JOB_USER")
-        if config.has_option(__section, "RQD_TAGS"):
-            RQD_TAGS = config.get(__section, "RQD_TAGS")
-        if config.has_option(__section, "DEFAULT_FACILITY"):
-            DEFAULT_FACILITY = config.get(__section, "DEFAULT_FACILITY")
-        if config.has_option(__section, "LAUNCH_FRAME_USER_GID"):
-            LAUNCH_FRAME_USER_GID = config.getint(__section, "LAUNCH_FRAME_USER_GID")
-        if config.has_option(__section, "CONSOLE_LOG_LEVEL"):
-            level = config.get(__section, "CONSOLE_LOG_LEVEL")
+        if config.has_option(__override_section, "RQD_GRPC_PORT"):
+            RQD_GRPC_PORT = config.getint(__override_section, "RQD_GRPC_PORT")
+        if config.has_option(__override_section, "CUEBOT_GRPC_PORT"):
+            CUEBOT_GRPC_PORT = config.getint(__override_section, "CUEBOT_GRPC_PORT")
+        if config.has_option(__override_section, "OVERRIDE_CORES"):
+            OVERRIDE_CORES = config.getint(__override_section, "OVERRIDE_CORES")
+        if config.has_option(__override_section, "OVERRIDE_PROCS"):
+            OVERRIDE_PROCS = config.getint(__override_section, "OVERRIDE_PROCS")
+        if config.has_option(__override_section, "OVERRIDE_MEMORY"):
+            OVERRIDE_MEMORY = config.getint(__override_section, "OVERRIDE_MEMORY")
+        if config.has_option(__override_section, "OVERRIDE_CUEBOT"):
+            CUEBOT_HOSTNAME = config.get(__override_section, "OVERRIDE_CUEBOT")
+        if config.has_option(__override_section, "OVERRIDE_NIMBY"):
+            OVERRIDE_NIMBY = config.getboolean(__override_section, "OVERRIDE_NIMBY")
+        if config.has_option(__override_section, "USE_NIMBY_PYNPUT"):
+            USE_NIMBY_PYNPUT = config.getboolean(__override_section, "USE_NIMBY_PYNPUT")
+        if config.has_option(__override_section, "OVERRIDE_IS_DESKTOP"):
+            OVERRIDE_IS_DESKTOP = config.getboolean(__override_section, "OVERRIDE_IS_DESKTOP")
+        if config.has_option(__override_section, "OVERRIDE_HOSTNAME"):
+            OVERRIDE_HOSTNAME = config.get(__override_section, "OVERRIDE_HOSTNAME")
+        if config.has_option(__override_section, "GPU"):
+            ALLOW_GPU = config.getboolean(__override_section, "GPU")
+        if config.has_option(__override_section, "LOAD_MODIFIER"):
+            LOAD_MODIFIER = config.getint(__override_section, "LOAD_MODIFIER")
+        if config.has_option(__override_section, "RQD_USE_IP_AS_HOSTNAME"):
+            RQD_USE_IP_AS_HOSTNAME = config.getboolean(__override_section, "RQD_USE_IP_AS_HOSTNAME")
+        if config.has_option(__override_section, "RQD_USE_IPV6_AS_HOSTNAME"):
+            RQD_USE_IPV6_AS_HOSTNAME = config.getboolean(__override_section,
+                                                         "RQD_USE_IPV6_AS_HOSTNAME")
+        if config.has_option(__override_section, "RQD_USE_PATH_ENV_VAR"):
+            RQD_USE_PATH_ENV_VAR = config.getboolean(__override_section, "RQD_USE_PATH_ENV_VAR")
+        if config.has_option(__override_section, "RQD_BECOME_JOB_USER"):
+            RQD_BECOME_JOB_USER = config.getboolean(__override_section, "RQD_BECOME_JOB_USER")
+        if config.has_option(__override_section, "RQD_TAGS"):
+            RQD_TAGS = config.get(__override_section, "RQD_TAGS")
+        if config.has_option(__override_section, "DEFAULT_FACILITY"):
+            DEFAULT_FACILITY = config.get(__override_section, "DEFAULT_FACILITY")
+        if config.has_option(__override_section, "LAUNCH_FRAME_USER_GID"):
+            LAUNCH_FRAME_USER_GID = config.getint(__override_section, "LAUNCH_FRAME_USER_GID")
+        if config.has_option(__override_section, "CONSOLE_LOG_LEVEL"):
+            level = config.get(__override_section, "CONSOLE_LOG_LEVEL")
             CONSOLE_LOG_LEVEL = logging.getLevelName(level)
-        if config.has_option(__section, "FILE_LOG_LEVEL"):
-            level = config.get(__section, "FILE_LOG_LEVEL")
+        if config.has_option(__override_section, "FILE_LOG_LEVEL"):
+            level = config.get(__override_section, "FILE_LOG_LEVEL")
             FILE_LOG_LEVEL = logging.getLevelName(level)
-        if config.has_option(__section, "RQD_PREPEND_TIMESTAMP"):
-            RQD_PREPEND_TIMESTAMP = config.getboolean(__section, "RQD_PREPEND_TIMESTAMP")
+        if config.has_option(__override_section, "RQD_PREPEND_TIMESTAMP"):
+            RQD_PREPEND_TIMESTAMP = config.getboolean(__override_section, "RQD_PREPEND_TIMESTAMP")
+        if config.has_option(__override_section, "CHECK_INTERVAL_LOCKED"):
+            CHECK_INTERVAL_LOCKED = config.getint(__override_section, "CHECK_INTERVAL_LOCKED")
+        if config.has_option(__override_section, "MINIMUM_IDLE"):
+            MINIMUM_IDLE = config.getint(__override_section, "MINIMUM_IDLE")
+
+        if config.has_section(__host_env_var_section):
+            RQD_HOST_ENV_VARS = config.options(__host_env_var_section)
+
 # pylint: disable=broad-except
 except Exception as e:
     logging.warning(
