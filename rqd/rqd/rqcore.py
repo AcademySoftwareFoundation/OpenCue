@@ -327,8 +327,7 @@ class FrameAttendantThread(threading.Thread):
                                                        stdout=subprocess.PIPE,
                                                        stderr=subprocess.STDOUT,
                                                        close_fds=True,
-                                                       preexec_fn=os.setsid,
-                                                       encoding='utf-8')
+                                                       preexec_fn=os.setsid)
         finally:
             rqd.rqutil.permissionsLow()
 
@@ -386,8 +385,7 @@ class FrameAttendantThread(threading.Thread):
                                                        env=self.frameEnv,
                                                        stdin=subprocess.PIPE,
                                                        stdout=subprocess.PIPE,
-                                                       stderr=subprocess.STDOUT,
-                                                       encoding='utf-8')
+                                                       stderr=subprocess.STDOUT)
         # pylint: disable=broad-except
         except Exception:
             log.critical(
@@ -445,8 +443,7 @@ class FrameAttendantThread(threading.Thread):
                                                        stdin=subprocess.PIPE,
                                                        stdout=subprocess.PIPE,
                                                        stderr=subprocess.STDOUT,
-                                                       preexec_fn=os.setsid,
-                                                       encoding='utf-8')
+                                                       preexec_fn=os.setsid)
         finally:
             rqd.rqutil.permissionsLow()
 

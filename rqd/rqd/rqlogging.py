@@ -153,6 +153,9 @@ class RQDLogger(object):
     # pylint: disable=arguments-differ
     def write(self, data, prependTimestamp=False):
         """Abstract write function that will write to the correct backend"""
+        # Convert data to unicode
+        if isinstance(data, bytes):
+            data = data.decode('utf-8', errors='ignore')
         if prependTimestamp is True:
             lines = data.splitlines()
             curr_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
