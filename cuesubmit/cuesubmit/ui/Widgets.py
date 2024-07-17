@@ -134,6 +134,11 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         """
         return self.lineEdit.text()
 
+    def greyOut(self):
+        """Make widget grey and read-only"""
+        self.lineEdit.setReadOnly(True)
+        self.lineEdit.setStyleSheet(Style.DISABLED_LINE_EDIT)
+
 
 class CueLineEdit(QtWidgets.QLineEdit):
     """Wrapper around QLineEdit that allows for changing text with up/down arrow keys."""

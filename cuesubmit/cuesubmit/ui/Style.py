@@ -242,6 +242,15 @@ QMenu::item:selected {
 }
 """
 
+DISABLED_LINE_EDIT = """
+QLineEdit {
+    color: rgb(110, 110, 110);
+    border: 0px solid;
+    background-color: rgb(30, 35, 40);
+    border-radius: 4px;
+}
+"""
+
 GROUP_BOX = """
 QGroupBox {
     border: 3px solid rgb(30, 40, 50);

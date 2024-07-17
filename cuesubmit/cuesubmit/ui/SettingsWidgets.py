@@ -246,6 +246,7 @@ class BaseBlenderSettings(BaseSettingsWidget):
         # pylint: disable=no-member
         self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)
         self.outputPath.lineEdit.textChanged.connect(self.dataChanged.emit)
+        self.outputSelector.optionsMenu.triggered.connect(self.dataChanged.emit)
         self.fileInput.setFileBrowsable(fileFilter=self.fileFilters)
         # pylint: enable=no-member
 
