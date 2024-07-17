@@ -17,7 +17,6 @@
 
 Some values can be overridden by custom config, see Config.py."""
 
-
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -38,11 +37,26 @@ MAYA_RENDER_CMD = config.get('MAYA_RENDER_CMD', 'Render')
 NUKE_RENDER_CMD = config.get('NUKE_RENDER_CMD', 'nuke')
 BLENDER_RENDER_CMD = config.get('BLENDER_RENDER_CMD', 'blender')
 FRAME_TOKEN = config.get('FRAME_TOKEN', '#IFRAME#')
+FRAME_START_TOKEN = config.get('FRAME_START', '#FRAME_START#')
+FRAME_END_TOKEN = config.get('FRAME_END', '#FRAME_END#')
 
+# Tokens are replaced by cuebot during dispatch with their computed value.
+# see: cuebot/src/main/java/com/imageworks/spcue/dispatcher/DispatchSupportService.java
+# Update this file when updating tokens in cuebot, they will appear in the cuesubmit tooltip popup.
+COMMAND_TOKENS = {'#ZFRAME#': 'Current frame with a padding of 4',
+                  '#IFRAME#': 'Current frame',
+                  '#FRAME_START#': 'First frame of chunk',
+                  '#FRAME_END#': 'Last frame of chunk',
+                  '#FRAME_CHUNK#': 'Chunk size',
+                  '#FRAMESPEC#': 'Full frame range',
+                  '#LAYER#': 'Name of the Layer',
+                  '#JOB#': 'Name of the Job',
+                  '#FRAME#': 'Name of the Frame'
+                  }
 BLENDER_FORMATS = ['', 'AVIJPEG', 'AVIRAW', 'BMP', 'CINEON', 'DPX', 'EXR', 'HDR', 'IRIS', 'IRIZ',
                    'JP2', 'JPEG', 'MPEG', 'MULTILAYER', 'PNG', 'RAWTGA', 'TGA', 'TIFF']
 BLENDER_OUTPUT_OPTIONS_URL = \
-  'https://docs.blender.org/manual/en/latest/advanced/command_line/arguments.html#render-options'
+    'https://docs.blender.org/manual/en/latest/advanced/command_line/arguments.html#render-options'
 
 DIR_PATH = os.path.dirname(__file__)
 

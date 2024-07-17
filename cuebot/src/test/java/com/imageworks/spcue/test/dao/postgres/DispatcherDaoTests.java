@@ -146,11 +146,12 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem(8173264)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)
@@ -327,7 +328,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertTrue(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM job WHERE str_state='PENDING'", Integer.class) > 0);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(host, 10);
+        Set<String> jobs = dispatcherDao.findDispatchJobs(host, 10);
         assertTrue(jobs.size() > 0);
     }
 
@@ -341,7 +342,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertNotNull(job);
         assertNotNull(job.groupId);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(host,
+        Set<String> jobs = dispatcherDao.findDispatchJobs(host,
                 groupManager.getGroupDetail(job));
         assertTrue(jobs.size() > 0);
     }
@@ -354,7 +355,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         final JobDetail job = getJob1();
         assertNotNull(job);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(host,
+        Set<String> jobs = dispatcherDao.findDispatchJobs(host,
                 adminManager.findShowEntity("pipe"), 5);
         assertTrue(jobs.size() > 0);
     }

@@ -60,7 +60,7 @@ public abstract class AbstractDispatcher {
                     "frame reservation error, "
                             + "dispatchProcToJob failed to book next frame, "
                             + fre;
-            logger.warn(msg);
+            logger.info(msg);
         } catch (ResourceDuplicationFailureException rrfe) {
             /*
              * There is a resource already assigned to the frame we reserved!
@@ -75,7 +75,7 @@ public abstract class AbstractDispatcher {
                             + "to assign proc to job " + frame + ", " + proc
                             + " already assigned to another frame." + rrfe;
 
-            logger.warn(msg);
+            logger.info(msg);
         } catch (ResourceReservationFailureException rrfe) {
             /*
              * This should technically never happen since the proc is already
@@ -86,7 +86,7 @@ public abstract class AbstractDispatcher {
                     "proc update error, "
                             + "dispatchProcToJob failed to assign proc to job "
                             + frame + ", " + rrfe;
-            logger.warn(msg);
+            logger.info(msg);
             dispatchSupport.unbookProc(proc);
             dispatchSupport.clearFrame(frame);
 
@@ -104,7 +104,7 @@ public abstract class AbstractDispatcher {
             String msg =
                     "dispatchProcToJob failed booking proc " + proc
                             + " on job " + frame;
-            logger.warn(msg);
+            logger.info(msg);
             dispatchSupport.unbookProc(proc);
             dispatchSupport.clearFrame(frame);
 
@@ -138,7 +138,7 @@ public abstract class AbstractDispatcher {
              * just retry on the next frame.
              */
             DispatchSupport.bookingRetries.incrementAndGet();
-            logger.warn("frame reservation error, "
+            logger.info("frame reservation error, "
                     + "dispatchHostToJob failed to book new frame: " + fre);
         } catch (ResourceDuplicationFailureException rrfe) {
             /*
@@ -154,7 +154,7 @@ public abstract class AbstractDispatcher {
                             + "to assign proc to job " + frame + ", " + proc
                             + " already assigned to another frame." + rrfe;
 
-            logger.warn(msg);
+            logger.info(msg);
         } catch (ResourceReservationFailureException rrfe) {
             /*
              * This generally means that the resources we're booked by another
@@ -197,17 +197,9 @@ public abstract class AbstractDispatcher {
 
     public void dispatch(DispatchFrame frame, VirtualProc proc) {
         /*
-         * The frame is reserved, the proc is created, now update the frame to
-         * the running state.
+         * Start frame and create proc on the database.
          */
-        dispatchSupport.startFrame(proc, frame);
-
-        /*
-         * Creates a proc to run on the specified frame. Throws a
-         * ResourceReservationFailureException if the proc cannot be created due
-         * to lack of resources.
-         */
-        dispatchSupport.reserveProc(proc, frame);
+        dispatchSupport.startFrameAndProc(proc, frame);
 
         /*
          * Communicate with RQD to run the frame.

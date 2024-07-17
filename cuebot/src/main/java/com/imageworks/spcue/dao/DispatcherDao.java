@@ -82,7 +82,7 @@ public interface DispatcherDao {
      * @param numJobs
      * @return
      */
-    List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs);
+    Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs);
 
     /**
      * Return a list of jobs which could use resources of the specified
@@ -92,7 +92,7 @@ public interface DispatcherDao {
      * @param numJobs
      * @return
      */
-    List<String> findDispatchJobs(DispatchHost host, int numJobs);
+    Set<String> findDispatchJobs(DispatchHost host, int numJobs);
 
     /**
     * Return a list of jobs which could use resources of the specified
@@ -102,7 +102,7 @@ public interface DispatcherDao {
     * @param numJobs
     * @return
     */
-    List<String> findDispatchJobs(DispatchHost host, GroupInterface g);
+    Set<String> findDispatchJobs(DispatchHost host, GroupInterface g);
 
     /**
      * Finds an under proced job if one exists and returns it,
@@ -131,7 +131,7 @@ public interface DispatcherDao {
     * @param numJobs
     * @return
     */
-   List<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
+   Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
 
    /**
     * Find a list of local dispatch jobs.

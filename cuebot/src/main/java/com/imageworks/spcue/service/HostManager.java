@@ -63,13 +63,12 @@ public interface HostManager {
     void setHostState(HostInterface host, HardwareState state);
 
     /**
-     * Return true if the host is swapping hard enough
-     * that killing frames will save the entire machine.
+     * Updates the free temporary directory (mcp) of a host.
      *
-     * @param host
-     * @return
+     * @param host HostInterface
+     * @param freeTempDir Long
      */
-    boolean isSwapping(HostInterface host);
+    void setHostFreeTempDir(HostInterface host, Long freeTempDir);
 
     DispatchHost createHost(HostReport report);
     DispatchHost createHost(RenderHost host);
@@ -174,7 +173,7 @@ public interface HostManager {
     void unbookProc(ProcInterface proc);
 
     /**
-     * Returns the proc who is most deliquent on memory allocation
+     * For a given host, return the proc using more memory above what it had initially reserved
      * @param h
      * @return
      */

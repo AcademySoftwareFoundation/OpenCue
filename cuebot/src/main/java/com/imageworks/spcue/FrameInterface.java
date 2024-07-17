@@ -1,4 +1,3 @@
-
 /*
  * Copyright Contributors to the OpenCue Project
  *
