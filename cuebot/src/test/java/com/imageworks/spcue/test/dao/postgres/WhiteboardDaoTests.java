@@ -98,11 +98,17 @@ import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.host.Owner;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 import com.imageworks.spcue.grpc.job.Frame;
+import com.imageworks.spcue.grpc.job.FrameSeq;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverride;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverrideSeq;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 import com.imageworks.spcue.grpc.job.Layer;
+import com.imageworks.spcue.grpc.job.UpdatedFrameCheckResult;
+import com.imageworks.spcue.grpc.job.UpdatedFrame;
+import com.imageworks.spcue.grpc.job.UpdatedFrameSeq;
 import com.imageworks.spcue.grpc.limit.Limit;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.BookingManager;
@@ -366,7 +372,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
             whiteboardDao.getDepend(depend.id);
         }
     }
-
 
     @Test
     @Transactional
@@ -955,7 +960,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         whiteboardDao.getDepartments(show);
     }
 
-
     @Test
     @Transactional
     @Rollback(true)
@@ -1236,7 +1240,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertEquals(1, o2.getHostCount());
     }
 
-
     @Test
     @Transactional
     @Rollback(true)
@@ -1278,6 +1281,83 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void getFacility() {
         whiteboardDao.getFacilities();
         whiteboardDao.getFacility("spi");
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void getFrameWithNoDisplayOverride() {
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+        Frame retrievedFrame = whiteboardDao.getFrame(frame.getFrameId());
+        assertEquals(false, retrievedFrame.hasFrameStateDisplayOverride());
+    }
+
+    public FrameStateDisplayOverride createFrameStateDisplayOverride(String frameId) {
+        FrameStateDisplayOverride override = FrameStateDisplayOverride.newBuilder()
+                .setState(FrameState.SUCCEEDED)
+                .setText("FINISHED")
+                .setColor(FrameStateDisplayOverride.RGB.newBuilder()
+                        .setRed(114)
+                        .setGreen(42)
+                        .setBlue(200)
+                        .build())
+                .build();
+        frameDao.setFrameStateDisplayOverride(frameId, override);
+
+        return override;
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFramesWithDisplayOverride() {
+        // since current_timestamp does not update, we need to make sure the 
+        // timestamp we use when retrieving updated frames is older than when
+        // the frame's ts_updated value is set to during insertion.
+        long timestamp = System.currentTimeMillis();
+
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+
+        // Create override
+        FrameStateDisplayOverride override = createFrameStateDisplayOverride(frame.getFrameId());
+        FrameStateDisplayOverrideSeq results = frameDao.getFrameStateDisplayOverrides(frame.getFrameId());
+        assertEquals(1, results.getOverridesCount());
+        
+        frameDao.updateFrameState(frame, FrameState.SUCCEEDED);
+
+        // Test GET_FRAME
+        Frame retrievedFrame = whiteboardDao.getFrame(frame.getFrameId());
+        assertTrue(retrievedFrame.hasFrameStateDisplayOverride());
+        assertEquals(override, retrievedFrame.getFrameStateDisplayOverride());
+
+        // Test GET_UPDATED_FRAME
+        UpdatedFrameCheckResult rs = whiteboardDao.getUpdatedFrames(job,
+                    new ArrayList<LayerInterface>(), (int) (timestamp / 1000));
+        UpdatedFrameSeq uFrames = rs.getUpdatedFrames();
+        // We'll end up getting all the frames for the job so we need to find
+        // the one we want. 
+        for (UpdatedFrame uFrame: uFrames.getUpdatedFramesList()) {
+            if (uFrame.getId().equals(frame.getFrameId())) {
+                assertTrue(uFrame.hasFrameStateDisplayOverride());
+                assertEquals(override, uFrame.getFrameStateDisplayOverride());
+                break;
+            }
+        }
+
+        // Test GET_FRAMES_CRITERIA
+        FrameSearchInterface r = frameSearchFactory.create(job);
+        FrameSearchCriteria criteria = r.getCriteria();
+        r.setCriteria(criteria.toBuilder()
+                .setPage(1)
+                .setLimit(5)
+                .addLayers("pass_1_preprocess")
+                .build());
+        FrameSeq frames = whiteboardDao.getFrames(r);
+        Frame fcFrame = frames.getFrames(0);
+        assertTrue(fcFrame.hasFrameStateDisplayOverride());
+        assertEquals(override, fcFrame.getFrameStateDisplayOverride());
     }
 }
 
