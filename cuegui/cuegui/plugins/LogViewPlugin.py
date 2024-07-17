@@ -71,6 +71,8 @@ class LokiReader(object):
         self.payload = {
             "query": query,
             "direction": "forward",
+            # TODO: Pagenate or find actual limit
+            "limit": 1000,
             "start": start_time,
             "end": end_time
         }
