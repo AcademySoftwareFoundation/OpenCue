@@ -387,6 +387,8 @@ def _setOptions(criteria, options):
                     _createCriterion(v, int, lambda duration: (60 * 60 * duration)))
         elif k == "limit":
             criteria.max_results = int(v)
+        elif k == "page" and isinstance(criteria, job_pb2.FrameSearchCriteria):
+            criteria.page = int(v)
         elif k == "offset":
             criteria.first_result = int(v)
         elif k == "include_finished":

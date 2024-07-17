@@ -169,10 +169,11 @@ class Frame(object):
         :rtype:  opencue.wrappers.depend.Depend
         :return: the new dependency
         """
+        frame_dep = frame.data if isinstance(frame, type(self)) else frame
         response = self.stub.CreateDependencyOnFrame(
             job_pb2.FrameCreateDependencyOnFrameRequest(frame=self.data,
-                                                        depend_on_frame=frame.data),
-            timeout=Cuebot.Timeout)
+                                                        depend_on_frame=frame_dep),
+                                                        timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
 
     def dropDepends(self, target):
@@ -201,7 +202,10 @@ class Frame(object):
 
     def setFrameStateDisplayOverride(self, status, override_text, override_rgb):
         """
-        Override the displayed text of a frame status
+        Override the displayed text of a frame status.
+        If an override already exists for the frame-state combo, the existing
+        override will be updated to the new text and color values.
+        If the override is identical to an existing override, no-op.
 
         :param status: the job_pb2.FrameState to override
         :param override_text: the text to display
