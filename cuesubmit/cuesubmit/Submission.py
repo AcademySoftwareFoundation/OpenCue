@@ -153,13 +153,13 @@ def buildLayerCommand(layerData, silent=False):
     if layerData.layerType in JobTypes.JobTypes.FROM_CONFIG_FILE:
         command = buildDynamicCmd(layerData)
     elif layerData.layerType == JobTypes.JobTypes.MAYA:
-        command = buildMayaCmd(layerData, silent)
+        command = buildMayaCmd(layerData)
     elif layerData.layerType == JobTypes.JobTypes.SHELL:
         command = layerData.cmd.get('commandTextBox') if silent else layerData.cmd['commandTextBox']
     elif layerData.layerType == JobTypes.JobTypes.NUKE:
-        command = buildNukeCmd(layerData, silent)
+        command = buildNukeCmd(layerData)
     elif layerData.layerType == JobTypes.JobTypes.BLENDER:
-        command = buildBlenderCmd(layerData, silent)
+        command = buildBlenderCmd(layerData)
     elif silent:
         command = 'Error: unrecognized layer type {}'.format(layerData.layerType)
     else:
