@@ -277,12 +277,12 @@ def _createCriterion(search, searchType, convert=None):
     if search.startswith("gt"):
         criterion = getattr(criterion_pb2,
                             "GreaterThan%sSearchCriterion" % searchTypeStr)
-        return criterion(_convert(search[2:]))
+        return criterion(value=_convert(search[2:]))
 
     if search.startswith("lt"):
         criterion = getattr(criterion_pb2,
                             "LessThan%sSearchCriterion" % searchTypeStr)
-        return criterion(_convert(search[2:]))
+        return criterion(value=_convert(int(search[2:])))
 
     if search.find("-") > -1:
         criterion = getattr(criterion_pb2,
