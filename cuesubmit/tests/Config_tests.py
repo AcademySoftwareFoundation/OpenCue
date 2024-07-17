@@ -94,7 +94,8 @@ class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
     def test__should_expand_sub_config_from_env_var(self):
         config_file_path = '/path/to/config.yaml'
         sub_config_file_path = '/path/to/sub_config.yaml'
-        self.fs.create_file(config_file_path, contents=CONFIG_YAML_WITH_RENDER_CMDS_AND_SUB_CONFIG_FILE)
+        self.fs.create_file(config_file_path,
+                            contents=CONFIG_YAML_WITH_RENDER_CMDS_AND_SUB_CONFIG_FILE)
         self.fs.create_file(sub_config_file_path, contents=SUB_JOB_CONFIG_YAML)
         os.environ['CUESUBMIT_CONFIG_FILE'] = config_file_path
         os.environ['SUB_JOB_CONFIG_FILE'] = sub_config_file_path
@@ -110,7 +111,8 @@ class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test__should_feed_error_on_missing_sub_config_from_env_var(self):
         config_file_path = '/path/to/config.yaml'
-        self.fs.create_file(config_file_path, contents=CONFIG_YAML_WITH_RENDER_CMDS_AND_SUB_CONFIG_FILE)
+        self.fs.create_file(config_file_path,
+                            contents=CONFIG_YAML_WITH_RENDER_CMDS_AND_SUB_CONFIG_FILE)
         os.environ['CUESUBMIT_CONFIG_FILE'] = config_file_path
         if 'SUB_JOB_CONFIG_FILE' in os.environ:
             del os.environ['SUB_JOB_CONFIG_FILE']

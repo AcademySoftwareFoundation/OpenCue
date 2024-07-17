@@ -20,9 +20,9 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from qtpy import QtCore, QtWidgets
-import re
 from collections import OrderedDict
+
+from qtpy import QtCore, QtWidgets
 
 from cuesubmit import Constants
 from cuesubmit import Validators
@@ -240,7 +240,7 @@ class DynamicSettingsWidget(BaseSettingsWidget):
     See `buildDynamicWidgets` for the widgets creation
     """
 
-    def __init__(self, parent=None, tool_name=None, parameters=None, *args, **kwargs):
+    def __init__(self, parent=None, tool_name=None, parameters=None):
         super(DynamicSettingsWidget, self).__init__(parent=parent)
         self.groupBox.setTitle(f'{tool_name} options')
         self.widgets = buildDynamicWidgets(parameters)

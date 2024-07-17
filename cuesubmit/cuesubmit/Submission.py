@@ -35,11 +35,11 @@ def isSoloFlag(flag):
     """ Check if the flag is solo, meaning it has no associated value
      solo flags are marked with a ~ (ex: --background~)
      """
-    return re.match('^-+\w+~$', flag)
+    return re.match(r'^-+\w+~$', flag)
 
 def isFlag(flag):
     """ Check if the provided string is a flag (starts with a -)"""
-    return re.match('^-+\w+$', flag)
+    return re.match(r'^-+\w+$', flag)
 
 def formatValue(flag, value, isPath, isMandatory):
     """ Adds quotes around file/folder path variables
