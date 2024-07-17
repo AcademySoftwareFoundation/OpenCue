@@ -614,7 +614,7 @@ def findAllocation(name):
     """Returns the Allocation object that matches the name.
 
     :type  name: str
-    :param name: the name of the allocation
+    :param name: fully qualified name of the allocation (facility.allocation)
     :rtype:  Allocation
     :return: an Allocation object"""
     return Allocation(Cuebot.getStub('allocation').Find(
@@ -678,6 +678,7 @@ def allocSetBillable(alloc, is_billable):
     :rtype:  facility_pb2.AllocSetBillableResponse
     :return: empty response
     """
+    alloc.name = alloc.name.split(".")[-1]
     return Cuebot.getStub('allocation').SetBillable(
         facility_pb2.AllocSetBillableRequest(allocation=alloc, value=is_billable),
         timeout=Cuebot.Timeout)
