@@ -326,7 +326,7 @@ class Host(object):
                     # pylint: enable=no-member
 
         # Wait for remaining hosts to finish (20% not awaited for)
-        if len(host_still_rebooting) > 0:
+        if host_still_rebooting:
             print("Waiting on remaining hosts to reboot")
             while True:
                 try:
