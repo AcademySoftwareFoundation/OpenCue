@@ -58,6 +58,7 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.browseButton = QtWidgets.QPushButton(text='Browse')
         self.horizontalLine = CueHLine()
         self.validators = validators or []
+        self.setter = self.setText
         self.setupUi()
         self.setupConnections()
         self.setAutoFillBackground(True)
@@ -87,6 +88,7 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self._showBrowseButton()
         if isinstance(fileFilter, (list, tuple)):
             fileFilter = ';;'.join(fileFilter)
+        # pylint: disable=no-member
         self.browseButton.clicked.connect(partial(_setBrowseFileText,
                                                   widget_setter=self.setter,
                                                   fileFilter=fileFilter))
@@ -94,6 +96,7 @@ class CueLabelLineEdit(QtWidgets.QWidget):
     def setFolderBrowsable(self):
         """ Displays the Browse button and hook it to a folderBrowser """
         self._showBrowseButton()
+        # pylint: disable=no-member
         self.browseButton.clicked.connect(partial(_setBrowseFolderText,
                                                   widget_setter=self.setter))
 
@@ -567,12 +570,14 @@ def separatorLine():
 
 def getFile(fileFilter=None):
     """ Opens a file browser and returns the result
-    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;
+                       Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
     :type fileFilter: str
     :returns: Name of the file
     :rtype: str
     """
-    filename, _ = QtWidgets.QFileDialog.getOpenFileName(caption='Select file', dir='.', filter=fileFilter)
+    filename, _ = QtWidgets.QFileDialog.getOpenFileName(caption='Select file',
+                                                        dir='.', filter=fileFilter)
     return filename
 
 def getFolder():
@@ -580,20 +585,22 @@ def getFolder():
     :returns: Name of the folder
     :rtype: str
     """
-    folder = QtWidgets.QFileDialog.getExistingDirectory(caption='Select folder', dir='.', filter='')
+    folder = QtWidgets.QFileDialog.getExistingDirectory(caption='Select folder',
+                                                        dir='.', filter='')
     return folder
 
-def _setBrowseFileText(widget_setter, fileFilter, *args, **kwargs):
+def _setBrowseFileText(widget_setter, fileFilter):
     """ wrapper function to open a fileBrowser and set its result back in the widget
     :param widget_setter: widget's function to set its text
     :type widget_setter: function
-    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;
+                       Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
     :type fileFilter: str
     """
     result = getFile(fileFilter)
     widget_setter(result)
 
-def _setBrowseFolderText(widget_setter, *args, **kwargs):
+def _setBrowseFolderText(widget_setter):
     """ wrapper function to open a folderBrowser and set its result back in the widget
     :param widget_setter: widget's function to set its text
     :type widget_setter: function
