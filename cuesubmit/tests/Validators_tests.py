@@ -104,6 +104,7 @@ class ValidatorsTests(unittest.TestCase):
         self.assertFalse(moreThan3Chars(''))
 
         self.assertRaises(TypeError, moreThan3Chars, None)
+
     def testNotEmptyString(self):
         self.assertTrue(notEmptyString('abcd'))
         self.assertTrue(notEmptyString('1234'))
@@ -111,6 +112,7 @@ class ValidatorsTests(unittest.TestCase):
         self.assertTrue(notEmptyString('abc'))
         self.assertFalse(notEmptyString(''))
         self.assertRaises(TypeError, notEmptyString, None)
+
 
 if __name__ == '__main__':
     unittest.main()
