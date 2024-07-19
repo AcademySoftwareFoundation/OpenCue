@@ -564,7 +564,7 @@ def handleArgs(args):
 
     if args.facility:
         logger.debug("setting facility to %s", args.facility)
-        opencue.Cuebot.setFacility(args.facility)
+        opencue.Cuebot.setHostWithFacility(args.facility)
 
     #
     # Query

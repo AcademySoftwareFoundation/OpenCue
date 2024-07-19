@@ -178,7 +178,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         for facility in list(self.__actions_facility.values()):
             if facility.isChecked():
-                opencue.Cuebot.setFacility(str(facility.text()))
+                opencue.Cuebot.setHostWithFacility(str(facility.text()))
                 self.app.facility_changed.emit()
                 return
 
