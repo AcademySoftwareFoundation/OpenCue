@@ -668,7 +668,7 @@ class LogViewWidget(QtWidgets.QWidget):
             self._clear_search_data()
             return
 
-        search_case_stv = self._case_stv_checkbox.checkState()
+        search_case_stv = self._case_stv_checkbox.isChecked()
         if self._content_timestamp <= self._search_timestamp:
             if prev_search == self._search_text:  # Same content & pattern
                 if self._last_search_case_stv == search_case_stv:
