@@ -455,7 +455,10 @@ class LogViewWidget(QtWidgets.QWidget):
         # Signals are defined in code, so pylint thinks they don't exist.
         self.app.display_log_file_content.connect(self._set_log_files)
         self._log_scrollbar = self._content_box.verticalScrollBar()
-        self._log_scrollbar.valueChanged.connect(self._set_scrollbar_value)
+        # Disabled connecting the _set_scrollbar_value since it's causing the
+        # search buttons to only search within visible text.
+        # Also it doesn't really seem to do anything.
+        # self._log_scrollbar.valueChanged.connect(self._set_scrollbar_value)
 
         self._new_log = False
         self._current_log_index = 0
