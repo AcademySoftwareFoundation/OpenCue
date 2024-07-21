@@ -343,9 +343,9 @@ class FrameAttendantThread(threading.Thread):
         else:
             # Convert to ASCII while discarding characters that can not be encoded
             for line in frameInfo.forkedCommand.stdout:
-                self.rqlog.write(line.decode('ascii') + '\n')
+                self.rqlog.write(line.decode('ascii', errors='ignore'))
             for line in frameInfo.forkedCommand.stderr:
-                self.rqlog.write(line.decode('ascii') + '\n')
+                self.rqlog.write(line.decode('ascii', errors='ignore'))
 
         returncode = frameInfo.forkedCommand.wait()
 
