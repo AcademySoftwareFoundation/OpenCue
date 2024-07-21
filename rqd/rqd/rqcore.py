@@ -341,14 +341,11 @@ class FrameAttendantThread(threading.Thread):
         if rqd.rqconstants.RQD_PREPEND_TIMESTAMP:
             pipe_to_file(frameInfo.forkedCommand.stdout, frameInfo.forkedCommand.stderr, self.rqlog)
         else:
-            with open(self.rqlog.name, 'a', encoding='utf-8') as f:
-                # Convert to ASCII while discarding characters that can not be encoded
-                for line in frameInfo.forkedCommand.stdout:
-                    line = line.encode('ascii', 'ignore')
-                    f.write(line.decode('ascii') + '\n')
-                for line in frameInfo.forkedCommand.stderr:
-                    line = line.encode('ascii', 'ignore')
-                    f.write(line.decode('ascii') + '\n')
+            # Convert to ASCII while discarding characters that can not be encoded
+            for line in frameInfo.forkedCommand.stdout:
+                self.rqlog.write(line.decode('ascii') + '\n')
+            for line in frameInfo.forkedCommand.stderr:
+                self.rqlog.write(line.decode('ascii') + '\n')
 
         returncode = frameInfo.forkedCommand.wait()
 
