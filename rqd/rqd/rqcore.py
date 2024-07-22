@@ -34,6 +34,8 @@ import tempfile
 import threading
 import time
 import traceback
+import select
+import errno
 
 import rqd.compiled_proto.host_pb2
 import rqd.compiled_proto.report_pb2
@@ -43,7 +45,7 @@ import rqd.rqmachine
 import rqd.rqnetwork
 import rqd.rqnimby
 import rqd.rqutil
-
+import rqd.rqlogging
 
 INT32_MAX = 2147483647
 INT32_MIN = -2147483648
@@ -170,8 +172,8 @@ class FrameAttendantThread(threading.Thread):
 
         try:
             print("="*59, file=self.rqlog)
-            print("RenderQ JobSpec     ", time.ctime(self.startTime), "\n", file=self.rqlog)
-            print("proxy               ", "rqd.rqnetwork.RunningFrame/%s -t:tcp -h %s -p 10021" % (
+            print("RenderQ JobSpec      %s" % time.ctime(self.startTime), "\n", file=self.rqlog)
+            print("proxy                rqd.rqnetwork.RunningFrame/%s -t:tcp -h %s -p 10021" % (
                 self.runFrame.frame_id,
                 self.rqCore.machine.getHostname()), file=self.rqlog)
             print("%-21s%s" % ("command", self.runFrame.command), file=self.rqlog)
@@ -334,20 +336,27 @@ class FrameAttendantThread(threading.Thread):
 
         if not self.rqCore.updateRssThread.is_alive():
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
-                                                           self.rqCore.updateRss)
+                                                          self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
 
-        if rqd.rqconstants.RQD_PREPEND_TIMESTAMP:
-            pipe_to_file(frameInfo.forkedCommand.stdout, frameInfo.forkedCommand.stderr, self.rqlog)
-        else:
-            with open(self.rqlog.name, 'a') as f:
-                # Convert to ASCII while discarding characters that can not be encoded
-                for line in frameInfo.forkedCommand.stdout:
-                    line = line.encode('ascii', 'ignore')
-                    f.write(line.decode('ascii') + '\n')
-                for line in frameInfo.forkedCommand.stderr:
-                    line = line.encode('ascii', 'ignore')
-                    f.write(line.decode('ascii') + '\n')
+        poller = select.poll()
+        poller.register(frameInfo.forkedCommand.stdout, select.POLLIN)
+        poller.register(frameInfo.forkedCommand.stderr, select.POLLIN)
+        while True:
+            ready = poller.poll()
+            for fd, event in ready:
+                if event & select.POLLIN:
+                    if fd == frameInfo.forkedCommand.stdout.fileno():
+                        line = frameInfo.forkedCommand.stdout.readline()
+                    elif fd == frameInfo.forkedCommand.stderr.fileno():
+                        line = frameInfo.forkedCommand.stderr.readline()
+                    else:
+                        continue
+                    if not line:
+                        break
+                    self.rqlog.write(line, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+            if frameInfo.forkedCommand.poll() is not None:
+                break
 
         returncode = frameInfo.forkedCommand.wait()
 
@@ -361,7 +370,7 @@ class FrameAttendantThread(threading.Thread):
             frameInfo.exitSignal = 0
 
         try:
-            statFile  = open(tempStatFile,"r")
+            statFile = open(tempStatFile, "r")
             frameInfo.realtime = statFile.readline().split()[1]
             frameInfo.utime = statFile.readline().split()[1]
             frameInfo.stime = statFile.readline().split()[1]
@@ -388,8 +397,8 @@ class FrameAttendantThread(threading.Thread):
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        stdin=subprocess.PIPE,
-                                                       stdout=self.rqlog,
-                                                       stderr=self.rqlog)
+                                                       stdout=subprocess.PIPE,
+                                                       stderr=subprocess.STDOUT)
         # pylint: disable=broad-except
         except Exception:
             log.critical(
@@ -402,6 +411,13 @@ class FrameAttendantThread(threading.Thread):
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                           self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
+
+        while True:
+            output = frameInfo.forkedCommand.stdout.readline()
+            if not output and frameInfo.forkedCommand.poll() is not None:
+                break
+            if output:
+                self.rqlog.write(output, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
 
         frameInfo.forkedCommand.wait()
 
@@ -438,8 +454,8 @@ class FrameAttendantThread(threading.Thread):
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
                                                        stdin=subprocess.PIPE,
-                                                       stdout=self.rqlog,
-                                                       stderr=self.rqlog,
+                                                       stdout=subprocess.PIPE,
+                                                       stderr=subprocess.STDOUT,
                                                        preexec_fn=os.setsid)
         finally:
             rqd.rqutil.permissionsLow()
@@ -450,6 +466,13 @@ class FrameAttendantThread(threading.Thread):
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                           self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
+
+        while True:
+            output = frameInfo.forkedCommand.stdout.readline()
+            if not output and frameInfo.forkedCommand.poll() is not None:
+                break
+            if output:
+                self.rqlog.write(output, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
 
         frameInfo.forkedCommand.wait()
 
@@ -464,17 +487,6 @@ class FrameAttendantThread(threading.Thread):
 
         self.__writeFooter()
         self.__cleanup()
-
-    @staticmethod
-    def waitForFile(filepath, maxTries=5):
-        """Waits for a file to exist."""
-        tries = 0
-        while tries < maxTries:
-            if os.path.exists(filepath):
-                return
-            tries += 1
-            time.sleep(0.5 * tries)
-        raise IOError("Failed to create %s" % filepath)
 
     def runUnknown(self):
         """The steps required to handle a frame under an unknown OS."""
@@ -507,60 +519,14 @@ class FrameAttendantThread(threading.Thread):
                     #
                     # Setup proc to allow launching of frame
                     #
-
-                    if not os.access(runFrame.log_dir, os.F_OK):
-                        # Attempting mkdir for missing logdir
-                        msg = "No Error"
-                        try:
-                            os.makedirs(runFrame.log_dir)
-                            os.chmod(runFrame.log_dir, 0o777)
-                        # pylint: disable=broad-except
-                        except Exception as e:
-                            # This is expected to fail when called in abq
-                            # But the directory should now be visible
-                            msg = e
-
-                        if not os.access(runFrame.log_dir, os.F_OK):
-                            err = "Unable to see log directory: %s, mkdir failed with: %s" % (
-                                runFrame.log_dir, msg)
-                            raise RuntimeError(err)
-
-                    if not os.access(runFrame.log_dir, os.W_OK):
-                        err = "Unable to write to log directory %s" % runFrame.log_dir
-                        raise RuntimeError(err)
-
                     try:
-                        # Rotate any old logs to a max of MAX_LOG_FILES:
-                        if os.path.isfile(runFrame.log_dir_file):
-                            rotateCount = 1
-                            while (os.path.isfile("%s.%s" % (runFrame.log_dir_file, rotateCount))
-                                   and rotateCount < rqd.rqconstants.MAX_LOG_FILES):
-                                rotateCount += 1
-                            os.rename(runFrame.log_dir_file,
-                                      "%s.%s" % (runFrame.log_dir_file, rotateCount))
-                    # pylint: disable=broad-except
-                    except Exception as e:
-                        err = "Unable to rotate previous log file due to %s" % e
-                        # Windows might fail while trying to rotate logs for checking if file is
-                        # being used by another process. Frame execution doesn't need to
-                        # be halted for this.
-                        if platform.system() == "Windows":
-                            log.warning(err)
-                        else:
-                            raise RuntimeError(err)
-                    try:
-                        self.rqlog = open(runFrame.log_dir_file, "w+", 1)
-                        self.waitForFile(runFrame.log_dir_file)
+                        self.rqlog = rqd.rqlogging.RQDLogger(runFrame.log_dir_file,
+                                                             runFrame=runFrame)
+                        self.rqlog.waitForFile()
                     # pylint: disable=broad-except
                     except Exception as e:
                         err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
                         raise RuntimeError(err)
-                    try:
-                        os.chmod(runFrame.log_dir_file, 0o666)
-                    # pylint: disable=broad-except
-                    except Exception as e:
-                        err = "Failed to chmod log file! %s due to %s" % (runFrame.log_dir_file, e)
-                        log.warning(err)
 
                 finally:
                     rqd.rqutil.permissionsLow()
@@ -1175,100 +1141,3 @@ class RqCore(object):
     def isWaitingForIdle(self):
         """Returns whether the host is waiting until idle to take some action."""
         return self.__whenIdle
-
-def pipe_to_file(stdout, stderr, outfile):
-    """
-    Prepend entries on stdout and stderr with a timestamp and write to outfile.
-
-    The logic to poll stdout/stderr is inspired by the Popen.communicate implementation.
-    This feature is linux specific
-    """
-    # Importing packages internally to avoid compatibility issues with Windows
-
-    if stdout is None or stderr is None:
-        return
-    outfile.flush()
-    os.fsync(outfile)
-
-    # pylint: disable=import-outside-toplevel
-    import select
-    import errno
-    # pylint: enable=import-outside-toplevel
-
-    fd2file = {}
-    fd2output = {}
-
-    poller = select.poll()
-
-    def register_and_append(file_ojb, eventmask):
-        poller.register(file_ojb, eventmask)
-        fd2file[file_ojb.fileno()] = file_ojb
-
-    def close_and_unregister_and_remove(fd, close=False):
-        poller.unregister(fd)
-        if close:
-            fd2file[fd].close()
-        fd2file.pop(fd)
-
-    def print_and_flush_ln(fd, last_timestamp):
-        txt = ''.join(fd2output[fd])
-        lines = txt.split('\n')
-        next_line_timestamp = None
-
-        # Save the timestamp of the first break
-        if last_timestamp is None:
-            curr_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-        else:
-            curr_line_timestamp = last_timestamp
-
-        # There are no line breaks
-        if len(lines) < 2:
-            return curr_line_timestamp
-        next_line_timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-
-        remainder = lines[-1]
-        for line in lines[0:-1]:
-            # Convert to ASCII while discarding characters that can not be encoded
-            line = line.encode('ascii', 'ignore')
-            print("[%s] %s" % (curr_line_timestamp, line), file=outfile)
-        outfile.flush()
-        os.fsync(outfile)
-        fd2output[fd] = [remainder]
-
-        if next_line_timestamp is None:
-            return curr_line_timestamp
-        return next_line_timestamp
-
-    def translate_newlines(data):
-        data = data.decode("utf-8", "ignore")
-        return data.replace("\r\n", "\n").replace("\r", "\n")
-
-    select_POLLIN_POLLPRI = select.POLLIN | select.POLLPRI
-    # stdout
-    register_and_append(stdout, select_POLLIN_POLLPRI)
-    fd2output[stdout.fileno()] = []
-
-    # stderr
-    register_and_append(stderr, select_POLLIN_POLLPRI)
-    fd2output[stderr.fileno()] = []
-
-    while fd2file:
-        try:
-            ready = poller.poll()
-        except select.error as e:
-            if e.args[0] == errno.EINTR:
-                continue
-            raise
-
-        first_chunk_timestamp = None
-        for fd, mode in ready:
-            if mode & select_POLLIN_POLLPRI:
-                data = os.read(fd, 4096)
-                if not data:
-                    close_and_unregister_and_remove(fd)
-                if not isinstance(data, str):
-                    data = translate_newlines(data)
-                fd2output[fd].append(data)
-                first_chunk_timestamp = print_and_flush_ln(fd, first_chunk_timestamp)
-            else:
-                close_and_unregister_and_remove(fd)
