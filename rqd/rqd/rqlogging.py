@@ -37,7 +37,7 @@ class RQDLogger(object):
     fd = None
     type = 0
 
-    def __init__(self, filepath, runFrame=None):
+    def __init__(self, filepath):
         """RQDLogger class initialization
            @type    filepath: string
            @param   filepath: The filepath to log to
