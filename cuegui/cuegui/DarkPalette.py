@@ -44,7 +44,8 @@ def init():
 
 def setDarkStyleSheet():
     """Sets the stylesheet."""
-    cuegui.app().setStyleSheet(open(cuegui.Constants.DARK_STYLE_SHEET).read())
+    with open(cuegui.Constants.DARK_STYLE_SHEET, encoding='utf-8') as fp:
+        cuegui.app().setStyleSheet(fp.read())
 
 
 def DarkPalette():
