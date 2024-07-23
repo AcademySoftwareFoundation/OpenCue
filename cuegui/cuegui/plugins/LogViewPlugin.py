@@ -455,7 +455,6 @@ class LogViewWidget(QtWidgets.QWidget):
         # Signals are defined in code, so pylint thinks they don't exist.
         self.app.display_log_file_content.connect(self._set_log_files)
         self._log_scrollbar = self._content_box.verticalScrollBar()
-        self._log_scrollbar.valueChanged.connect(self._set_scrollbar_value)
 
         self._new_log = False
         self._current_log_index = 0
@@ -494,6 +493,7 @@ class LogViewWidget(QtWidgets.QWidget):
         self._update_visible_indices()
         cursor_for_pos = self._content_box.cursorForPosition(pos)
         index = cursor_for_pos.position()
+        # pylint: disable=consider-using-enumerate
         for i in range(0, len(self._matches)):
             if index < self._matches[i][0]:
                 self._current_match = i
@@ -667,7 +667,7 @@ class LogViewWidget(QtWidgets.QWidget):
             self._clear_search_data()
             return
 
-        search_case_stv = self._case_stv_checkbox.checkState()
+        search_case_stv = self._case_stv_checkbox.isChecked()
         if self._content_timestamp <= self._search_timestamp:
             if prev_search == self._search_text:  # Same content & pattern
                 if self._last_search_case_stv == search_case_stv:
@@ -834,7 +834,6 @@ class LogViewWidget(QtWidgets.QWidget):
         finally:
             QtCore.QTimer.singleShot(5000, self._display_log_content)
 
-    # pylint: disable=no-self-use
     @QtCore.Slot()
     def _load_log(self, log_file, new_log, curr_log_mtime):
         content = None
@@ -852,7 +851,7 @@ class LogViewWidget(QtWidgets.QWidget):
         if content is None:
             content = ''
             try:
-                with open(log_file, 'r') as f:
+                with open(log_file, 'r', encoding='utf-8') as f:
                     content = f.read()
             except IOError:
                 content = 'Can not access log file: %s' % log_file

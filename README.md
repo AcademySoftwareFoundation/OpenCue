@@ -7,6 +7,7 @@
 - [Introduction](#Introduction)
 - [OpenCue features](#OpenCue-features)
 - [Learn more](#Learn-more)
+- [Meeting notes](#Meeting-notes)
 - [Contact us](#Contact-us)
 
 # Introduction
@@ -38,6 +39,12 @@ OpenCue provides the following features to help manage rendering jobs at scale:
 
 For more information on installing, using, and administering OpenCue, visit
 [www.opencue.io](https://www.opencue.io).
+
+# Meeting notes
+
+Starting from May 2024, all Opencue meeting notes are stored on the [Opencue Confluence page](http://wiki.aswf.io/display/OPENCUE/OpenCue+Home).
+
+For meeting notes before May 2024, please refer to the Opencue repository in the [opencue/tsc/meetings](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/tsc/meetings) folder.
 
 # Contact us
 
