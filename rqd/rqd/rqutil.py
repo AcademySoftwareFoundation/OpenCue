@@ -79,14 +79,14 @@ def permissionsHigh():
     """Sets the effective gid/uid to processes original values (root)"""
     if platform.system() == "Windows" or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
-    PERMISSIONS.acquire()
-    os.setegid(os.getgid())
-    os.seteuid(os.getuid())
-    try:
-        os.setgroups(HIGH_PERMISSION_GROUPS)
-    # pylint: disable=broad-except
-    except Exception:
-        pass
+    with PERMISSIONS:
+        os.setegid(os.getgid())
+        os.seteuid(os.getuid())
+        try:
+            os.setgroups(HIGH_PERMISSION_GROUPS)
+        # pylint: disable=broad-except
+        except Exception:
+            pass
 
 
 def permissionsLow():
@@ -107,17 +107,17 @@ def permissionsUser(uid, gid):
     """Sets the effective gid/uid to supplied values"""
     if platform.system() in ('Windows', 'Darwin') or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
-    PERMISSIONS.acquire()
-    __becomeRoot()
-    try:
-        username = pwd.getpwuid(uid).pw_name
-        groups = [20] + [g.gr_gid for g in grp.getgrall() if username in g.gr_mem]
-        os.setgroups(groups)
-    # pylint: disable=broad-except
-    except Exception:
-        pass
-    os.setegid(gid)
-    os.seteuid(uid)
+    with PERMISSIONS:
+        __becomeRoot()
+        try:
+            username = pwd.getpwuid(uid).pw_name
+            groups = [20] + [g.gr_gid for g in grp.getgrall() if username in g.gr_mem]
+            os.setgroups(groups)
+        # pylint: disable=broad-except
+        except Exception:
+            pass
+        os.setegid(gid)
+        os.seteuid(uid)
 
 
 def __becomeRoot():

@@ -202,23 +202,23 @@ class LayerTest(unittest.TestCase):
             strArgName = 'some-str-arg'
             self.layer.require_arg(strArgName, str)
             self.assertRaises(
-                outline.LayerException, self.layer.set_arg, strArgName, dict())
+                outline.LayerException, self.layer.set_arg, strArgName, {})
             self.layer.set_arg(strArgName, 'py3-string')
         else:
             strArgName = 'some-str-arg'
             self.layer.require_arg(strArgName, str)
             self.assertRaises(
-                outline.LayerException, self.layer.set_arg, strArgName, dict())
+                outline.LayerException, self.layer.set_arg, strArgName, {})
             self.layer.set_arg(strArgName, 'standard-py2-string')
-            self.layer.set_arg(strArgName, u'py2-unicode')
+            self.layer.set_arg(strArgName, 'py2-unicode')
             self.layer.set_arg(strArgName, future.types.newstr('py3-string-backport'))
 
             newstrArgName = 'some-newstr-arg'
             self.layer.require_arg(newstrArgName, future.types.newstr)
             self.assertRaises(
-                outline.LayerException, self.layer.set_arg, newstrArgName, dict())
+                outline.LayerException, self.layer.set_arg, newstrArgName, {})
             self.layer.set_arg(newstrArgName, 'standard-py2-string')
-            self.layer.set_arg(newstrArgName, u'py2-unicode')
+            self.layer.set_arg(newstrArgName, 'py2-unicode')
             self.layer.set_arg(newstrArgName, future.types.newstr('py3-string-backport'))
 
     def test_require_arg(self):
@@ -366,7 +366,8 @@ class LayerTest(unittest.TestCase):
 
     def test_should_add_event_listener(self):
         event_type = 'arbitrary-event-type'
-        callback = lambda x: x
+        def callback(x):
+            return x
 
         self.layer.add_event_listener(event_type, callback)
 

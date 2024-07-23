@@ -814,7 +814,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def logResult(self, work, rpcObjects):
         self.frames = {}
 
-    # pylint: disable=redefined-builtin,inconsistent-return-statements,no-self-use
+    # pylint: disable=redefined-builtin,inconsistent-return-statements
     def numFormat(self, num, type):
         """Returns string formatting based on the number"""
         if num == "" or num < .001 or num is None:
@@ -906,7 +906,6 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.ticksWithoutUpdate = 999
         self.completeRefresh = True
 
-    # pylint: disable=no-self-use
     def get_frame_run_time(self, item):
         """Returns frame run time."""
         if cuegui.Utils.isProc(item):
@@ -919,7 +918,6 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         run_time = current_time - start_time
         return run_time
 
-    # pylint: disable=no-self-use
     def get_llu_time(self, item):
         """Returns LLU time."""
         if cuegui.Utils.isProc(item):
@@ -957,6 +955,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Confirm frame filter."""
         currentHostsNew = []
         nextIndex = 2
+        # pylint: disable=consider-using-enumerate
         for index in range(len(self.currentHosts)):
             if index == nextIndex:
                 frame = self.currentHosts[index]
@@ -1072,8 +1071,8 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                             if percentStuck * 100 > self.time_filter and percentStuck < 1.1:
                                 please_exclude = False
                                 for exclude in self.excludes:
-                                    if (layerName.__contains__(exclude) or
-                                            jobName.__contains__(exclude)):
+                                    if (exclude in layerName or
+                                            exclude in jobName):
                                         please_exclude = True
                                         continue
 
@@ -1301,6 +1300,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def remove(self):
         currentHostsNew = []
         nextIndex = 2
+        # pylint: disable=consider-using-enumerate
         for index in range(len(self.currentHosts)):
             if index == nextIndex:
 
@@ -1434,6 +1434,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         jobName = self.selectedObjects()[0].data.name
         currentHostsNew = []
         nextIndex = 2
+        # pylint: disable=consider-using-enumerate
         for index in range(len(self.currentHosts)):
             if index == nextIndex:
 
@@ -1500,28 +1501,27 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         yaml_path = "/shots/" + self.show + "/home/etc/stuck_frames_db.yaml"
 
         if not os.path.exists(yaml_path):
-            yaml_ob = open(yaml_path, 'w')
-            yaml.dump(dict, yaml_ob)
-            yaml_ob.close()
+
+            with open(yaml_path, 'w', encoding='utf-8') as yaml_ob:
+                yaml.dump(dict, yaml_ob)
 
         else:
-            yaml_ob = open(yaml_path, 'r')
-            old_dict = yaml.load(yaml_ob)
-            yaml_ob.close()
+            with open(yaml_path, 'r', encoding='utf-8') as yaml_ob:
+                old_dict = yaml.load(yaml_ob)
 
-            yaml_ob = open(yaml_path, 'w')
+            with open(yaml_path, 'w', encoding='utf-8') as yaml_ob:
 
-            for key in dict:  # updates old dict
-                old_dict[key] = dict[key]
+                for key in dict:  # updates old dict
+                    old_dict[key] = dict[key]
 
-            yaml.dump(old_dict, yaml_ob)
-            yaml_ob.close()
+                yaml.dump(old_dict, yaml_ob)
 
 
 class CommentWidget(QtWidgets.QWidget):
     """Represents a comment."""
     def __init__(self, subject, message, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
+        # pylint: disable=unused-private-member
         self.__textSubject = subject
         self.__textMessage = message
 
@@ -1576,28 +1576,23 @@ class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
 class LogFinal():
     """Utility class for logging to yaml."""
-    # pylint: disable=no-self-use
     def finalize(self, frames, show):
         """Saves logs to yaml. If file not created, will create one."""
         frames_dict = frames
 
         yaml_path = "/shots/" + show + "/home/etc/stuck_frames_db.yaml"
         if not os.path.exists(yaml_path):
-            yaml_ob = open(yaml_path, 'w')
-            yaml.dump(frames_dict, yaml_ob)
-            yaml_ob.close()
+            with open(yaml_path, 'w', encoding='utf-8') as yaml_ob:
+                yaml.dump(frames_dict, yaml_ob)
+
         else:
-            yaml_ob = open(yaml_path, 'r')
-            old_dict = yaml.load(yaml_ob)
-            yaml_ob.close()
+            with open(yaml_path, 'r', encoding='utf-8') as yaml_ob:
+                old_dict = yaml.load(yaml_ob)
+            with open(yaml_path, 'w', encoding='utf-8') as yaml_ob:
+                for key in frames_dict:  # updates old dict
+                    old_dict[key] = frames_dict[key]
 
-            yaml_ob = open(yaml_path, 'w')
-
-            for key in frames_dict:  # updates old dict
-                old_dict[key] = frames_dict[key]
-
-            yaml.dump(old_dict, yaml_ob)
-            yaml_ob.close()
+                yaml.dump(old_dict, yaml_ob)
 
 
 class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
@@ -1765,7 +1760,6 @@ class DJArnold(object):
             show = os.environ.get('SHOW')
         self.show = show
 
-    # pylint: disable=no-self-use
     def getLog(self, job, frame):
         """Return the contents of a log given a job and a frame."""
         log_dir = job.logDir()
@@ -1773,10 +1767,10 @@ class DJArnold(object):
         log_file = os.path.join(log_dir, log_name)
         if not os.path.exists(log_file):
             return []
-        f = open(log_file, 'r')
-        log_lines = [line.strip() for line in f.readlines() if line.strip()]
-        f.close()
-        return log_lines
+        with open(log_file, 'r', encoding='utf-8') as f:
+            log_lines = [line.strip() for line in f.readlines() if line.strip()]
+
+            return log_lines
 
     def getBuildTimes(self, job, layers=None):
         """Return a dictionary with layer names as keys, and build tiems as

@@ -125,6 +125,7 @@ class FrameAttendantThread(threading.Thread):
         if 'GPU_LIST' in self.runFrame.attributes:
             self.frameEnv['CUE_GPU_CORES'] = self.runFrame.attributes['GPU_LIST']
 
+    # pylint: disable=inconsistent-return-statements
     def _createCommandFile(self, command):
         """Creates a file that subprocess. Popen then executes.
         @type  command: string
@@ -151,10 +152,10 @@ class FrameAttendantThread(threading.Thread):
             else:
                 commandFile = os.path.join(tempfile.gettempdir(),
                                            'rqd-cmd-%s-%s' % (self.runFrame.frame_id, time.time()))
-            rqexe = open(commandFile, "w")
-            self._tempLocations.append(commandFile)
-            rqexe.write(command)
-            rqexe.close()
+            with open(commandFile, "w", encoding='utf-8') as rqexe:
+                self._tempLocations.append(commandFile)
+                rqexe.write(command)
+                rqexe.close()
             os.chmod(commandFile, 0o777)
             return commandFile
         # pylint: disable=broad-except
@@ -318,7 +319,7 @@ class FrameAttendantThread(threading.Thread):
             else:
                 tempCommand += [self._createCommandFile(runFrame.command)]
 
-            # pylint: disable=subprocess-popen-preexec-fn
+            # pylint: disable=subprocess-popen-preexec-fn,consider-using-with
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
@@ -340,14 +341,11 @@ class FrameAttendantThread(threading.Thread):
         if rqd.rqconstants.RQD_PREPEND_TIMESTAMP:
             pipe_to_file(frameInfo.forkedCommand.stdout, frameInfo.forkedCommand.stderr, self.rqlog)
         else:
-            with open(self.rqlog.name, 'a') as f:
-                # Convert to ASCII while discarding characters that can not be encoded
-                for line in frameInfo.forkedCommand.stdout:
-                    line = line.encode('ascii', 'ignore')
-                    f.write(line.decode('ascii') + '\n')
-                for line in frameInfo.forkedCommand.stderr:
-                    line = line.encode('ascii', 'ignore')
-                    f.write(line.decode('ascii') + '\n')
+            # Convert to ASCII while discarding characters that can not be encoded
+            for line in frameInfo.forkedCommand.stdout:
+                self.rqlog.write(line.decode('ascii', errors='ignore'))
+            for line in frameInfo.forkedCommand.stderr:
+                self.rqlog.write(line.decode('ascii', errors='ignore'))
 
         returncode = frameInfo.forkedCommand.wait()
 
@@ -361,11 +359,11 @@ class FrameAttendantThread(threading.Thread):
             frameInfo.exitSignal = 0
 
         try:
-            statFile  = open(tempStatFile,"r")
-            frameInfo.realtime = statFile.readline().split()[1]
-            frameInfo.utime = statFile.readline().split()[1]
-            frameInfo.stime = statFile.readline().split()[1]
-            statFile.close()
+            with open(tempStatFile, "r", encoding='utf-8') as statFile:
+                frameInfo.realtime = statFile.readline().split()[1]
+                frameInfo.utime = statFile.readline().split()[1]
+                frameInfo.stime = statFile.readline().split()[1]
+                statFile.close()
         # pylint: disable=broad-except
         except Exception:
             pass  # This happens when frames are killed
@@ -385,6 +383,7 @@ class FrameAttendantThread(threading.Thread):
             runFrame.command = runFrame.command.replace('%{frame}', self.frameEnv['CUE_IFRAME'])
             tempCommand = [self._createCommandFile(runFrame.command)]
 
+            # pylint: disable=consider-using-with
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        stdin=subprocess.PIPE,
@@ -433,7 +432,7 @@ class FrameAttendantThread(threading.Thread):
             tempCommand = ["/usr/bin/su", frameInfo.runFrame.user_name, "-c", '"' +
                            self._createCommandFile(frameInfo.runFrame.command) + '"']
 
-            # pylint: disable=subprocess-popen-preexec-fn
+            # pylint: disable=subprocess-popen-preexec-fn,consider-using-with
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
@@ -549,7 +548,8 @@ class FrameAttendantThread(threading.Thread):
                         else:
                             raise RuntimeError(err)
                     try:
-                        self.rqlog = open(runFrame.log_dir_file, "w+", 1)
+                        # pylint: disable=consider-using-with
+                        self.rqlog = open(runFrame.log_dir_file, "w+", 1, encoding='utf-8')
                         self.waitForFile(runFrame.log_dir_file)
                     # pylint: disable=broad-except
                     except Exception as e:
@@ -638,6 +638,7 @@ class RqCore(object):
         self.intervalStartTime = None
         self.intervalSleepTime = rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC
 
+        #  pylint: disable=unused-private-member
         self.__cluster = None
         self.__session = None
         self.__stmt = None
@@ -745,21 +746,17 @@ class RqCore(object):
         @param frameId: A frame's unique Id
         @type  runningFrame: rqd.rqnetwork.RunningFrame
         @param runningFrame: rqd.rqnetwork.RunningFrame object"""
-        self.__threadLock.acquire()
-        try:
+        with self.__threadLock:
             if frameId in self.__cache:
                 raise rqd.rqexceptions.RqdException(
                     "frameId " + frameId + " is already running on this machine")
             self.__cache[frameId] = runningFrame
-        finally:
-            self.__threadLock.release()
 
     def deleteFrame(self, frameId):
         """Deletes a frame from the cache
         @type  frameId: string
         @param frameId: A frame's unique Id"""
-        self.__threadLock.acquire()
-        try:
+        with self.__threadLock:
             if frameId in self.__cache:
                 del self.__cache[frameId]
                 # pylint: disable=no-member
@@ -770,8 +767,6 @@ class RqCore(object):
                         self.cores.reserved_cores)
                     # pylint: disable=no-member
                     self.cores.reserved_cores.clear()
-        finally:
-            self.__threadLock.release()
 
     def killAllFrame(self, reason):
         """Will execute .kill() on every frame in cache until no frames remain
@@ -805,8 +800,7 @@ class RqCore(object):
         """The requested number of cores are released
         @type  reqRelease: int
         @param reqRelease: Number of cores to release, 100 = 1 physical core"""
-        self.__threadLock.acquire()
-        try:
+        with self.__threadLock:
             # pylint: disable=no-member
             self.cores.booked_cores -= reqRelease
             maxRelease = (self.cores.total_cores -
@@ -823,9 +817,6 @@ class RqCore(object):
 
             if releaseGpus:
                 self.machine.releaseGpus(releaseGpus)
-
-        finally:
-            self.__threadLock.release()
 
         # pylint: disable=no-member
         if self.cores.idle_cores > self.cores.total_cores:
@@ -916,8 +907,7 @@ class RqCore(object):
             raise rqd.rqexceptions.CoreReservationFailureException(err)
 
         # See if all requested cores are available
-        self.__threadLock.acquire()
-        try:
+        with self.__threadLock:
             # pylint: disable=no-member
             if self.cores.idle_cores < runFrame.num_cores:
                 err = "Not launching, insufficient idle cores"
@@ -940,8 +930,6 @@ class RqCore(object):
             self.cores.idle_cores -= runFrame.num_cores
             self.cores.booked_cores += runFrame.num_cores
             # pylint: enable=no-member
-        finally:
-            self.__threadLock.release()
 
         runningFrame = rqd.rqnetwork.RunningFrame(self, runFrame)
         runningFrame.frameAttendantThread = FrameAttendantThread(self, runFrame, runningFrame)
@@ -1062,8 +1050,7 @@ class RqCore(object):
         @type  reqLock: int
         @param reqLock: Number of cores to lock, 100 = 1 physical core"""
         sendUpdate = False
-        self.__threadLock.acquire()
-        try:
+        with self.__threadLock:
             # pylint: disable=no-member
             numLock = min(self.cores.total_cores - self.cores.locked_cores,
                           reqLock)
@@ -1072,8 +1059,6 @@ class RqCore(object):
                 self.cores.idle_cores -= min(numLock, self.cores.idle_cores)
                 sendUpdate = True
             # pylint: enable=no-member
-        finally:
-            self.__threadLock.release()
 
         log.debug(self.cores)
 
@@ -1084,16 +1069,13 @@ class RqCore(object):
         """"Locks all cores on the machine.
             If a locked status changes, a status report is sent."""
         sendUpdate = False
-        self.__threadLock.acquire()
-        try:
+        with self.__threadLock:
             # pylint: disable=no-member
             if self.cores.locked_cores < self.cores.total_cores:
                 self.cores.locked_cores = self.cores.total_cores
                 self.cores.idle_cores = 0
                 sendUpdate = True
             # pylint: enable=no-member
-        finally:
-            self.__threadLock.release()
 
         log.debug(self.cores)
 
@@ -1118,8 +1100,7 @@ class RqCore(object):
         self.__respawn = False
         self.machine.state = rqd.compiled_proto.host_pb2.UP
 
-        self.__threadLock.acquire()
-        try:
+        with self.__threadLock:
             # pylint: disable=no-member
             numUnlock = min(self.cores.locked_cores, reqUnlock)
             if numUnlock > 0:
@@ -1127,8 +1108,6 @@ class RqCore(object):
                 self.cores.idle_cores += numUnlock
                 sendUpdate = True
             # pylint: enable=no-member
-        finally:
-            self.__threadLock.release()
 
         log.debug(self.cores)
 
@@ -1151,8 +1130,7 @@ class RqCore(object):
         self.__respawn = False
         self.machine.state = rqd.compiled_proto.host_pb2.UP
 
-        self.__threadLock.acquire()
-        try:
+        with self.__threadLock:
             # pylint: disable=no-member
             if self.cores.locked_cores > 0:
                 if not self.nimby.locked:
@@ -1160,8 +1138,6 @@ class RqCore(object):
                 self.cores.locked_cores = 0
                 sendUpdate = True
             # pylint: enable=no-member
-        finally:
-            self.__threadLock.release()
 
         log.debug(self.cores)
 

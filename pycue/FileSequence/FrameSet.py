@@ -82,7 +82,7 @@ class FrameSet(object):
         :rtype: FrameSet
         :return: The FrameSet representing the same sequence.
         """
-        frameList = list()
+        frameList = []
         for frameRangeSection in frameRange.split(','):
             frameList.extend(FrameRange.parseFrameRange(frameRangeSection))
         return frameList
