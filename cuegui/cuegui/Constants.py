@@ -54,7 +54,7 @@ def __getLogger():
 
 def __loadConfigFromFile():
     logger = __getLogger()
-    with open(__DEFAULT_CONFIG_FILE) as fp:
+    with open(__DEFAULT_CONFIG_FILE, encoding='utf-8') as fp:
         config = yaml.load(fp, Loader=yaml.SafeLoader)
 
     user_config_file = None
@@ -73,7 +73,7 @@ def __loadConfigFromFile():
 
     if user_config_file:
         logger.info('Loading cuegui config from %s', user_config_file)
-        with open(user_config_file, 'r') as fp:
+        with open(user_config_file, 'r', encoding='utf-8') as fp:
             config.update(yaml.load(fp, Loader=yaml.SafeLoader))
 
     return config
@@ -83,7 +83,7 @@ def __packaged_version():
     possible_version_path = os.path.join(
         os.path.abspath(os.path.join(__file__, "../../..")), 'VERSION.in')
     if os.path.exists(possible_version_path):
-        with open(possible_version_path) as fp:
+        with open(possible_version_path, encoding='utf-8') as fp:
             default_version = fp.read().strip()
         return default_version
     return "1.3.0"

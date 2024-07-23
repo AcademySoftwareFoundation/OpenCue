@@ -58,7 +58,7 @@ class MockConfig(object):
         config = os.path.join(tempdir, str(uuid.uuid4()))
         self.patcher = mock.patch("sys.argv", ["rqd", "-c", config])
 
-        with open(config, "w") as f:
+        with open(config, "w", encoding='utf-8') as f:
             print(content, file=f)
 
     def __enter__(self):

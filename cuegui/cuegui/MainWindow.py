@@ -172,13 +172,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.__actions_facility[self.facility_default].setChecked(True)
         # Uncheck all other facilities if one is checked
         else:
-            for facility in self.__actions_facility:
+            for facility, facvalue in self.__actions_facility.items():
                 if facility != action.text():
-                    self.__actions_facility[facility].setChecked(False)
+                    facvalue.setChecked(False)
 
         for facility in list(self.__actions_facility.values()):
             if facility.isChecked():
-                opencue.Cuebot.setFacility(str(facility.text()))
+                opencue.Cuebot.setHostWithFacility(str(facility.text()))
                 self.app.facility_changed.emit()
                 return
 
@@ -300,12 +300,13 @@ class MainWindow(QtWidgets.QMainWindow):
         action_title = str(action.text())
         if action_title.startswith("Open Window: "):
             window_title = action_title.replace("Open Window: ","")
+            # pylint: disable=consider-using-dict-items
             for name in self.windows_titles:
                 if self.windows_titles[name] == window_title:
                     self.windowMenuOpenWindow(name)
 
         elif action_title.endswith("Add new window") and len(action_title) == 18:
-            number = int(action_title[1:].split(")")[0]) - 1
+            number = int(action_title[1:].split(")", maxsplit=1)[0]) - 1
             self.windowMenuOpenWindow(self.windows_names[number])
 
         elif action_title.startswith("Raise Window: "):

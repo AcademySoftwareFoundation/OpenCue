@@ -258,7 +258,7 @@ class FileSpec(Path):
             for f in frame_set:
                 path = self.get_frame_path(f)
                 if not exists(path):
-                    for ext in self.get_attribute("checkExt", list()):
+                    for ext in self.get_attribute("checkExt", []):
                         n = path[0:path.rfind(self.get_ext())]
                         n = "%s%s" % (n, ext)
                         if exists(n):
@@ -267,7 +267,7 @@ class FileSpec(Path):
         else:
             for path in self.__fs:
                 if not exists(path):
-                    for ext in self.get_attribute("checkExt", list()):
+                    for ext in self.get_attribute("checkExt", []):
                         n = path[0:path.rfind(self.get_ext())]
                         n = "%s%s" % (n, ext)
                         if exists(n):
@@ -436,9 +436,9 @@ def file_spec_serializer(dumper, data):
     Serialize a FileSpec object.  This is required for Yaml
     to serialize a FileSpec properly.
     """
-    return dumper.represent_scalar(u'!FileSpec',
-                                   u'%s' % yaml.dump([data.get_path(),
-                                                      data.get_attributes()]))
+    return dumper.represent_scalar('!FileSpec',
+                                   '%s' % yaml.dump([data.get_path(),
+                                                     data.get_attributes()]))
 
 
 def file_spec_constructor(loader, node):
@@ -451,4 +451,4 @@ def file_spec_constructor(loader, node):
 
 # Register the yaml serialize/unserialize callbacks.
 yaml.add_representer(FileSpec, file_spec_serializer)
-yaml.add_constructor(u'!FileSpec', file_spec_constructor)
+yaml.add_constructor('!FileSpec', file_spec_constructor)

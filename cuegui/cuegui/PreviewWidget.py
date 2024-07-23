@@ -65,6 +65,7 @@ class PreviewKatanaProcessorDialog(QtWidgets.QDialog):
         self.__aovs = aovs
 
         self.__previewThread = None
+        # pylint: disable=unused-private-member
         self.__itvFile = None
 
         layout = QtWidgets.QVBoxLayout(self)
@@ -92,6 +93,7 @@ class PreviewKatanaProcessorDialog(QtWidgets.QDialog):
         if not items:
             return
 
+        # pylint: disable=unused-private-member
         self.__itvFile = self.__writePlaylist(playlist)
         self.__previewThread = PreviewKatanaProcessorWatchThread(items, self)
         self.app.threads.append(self.__previewThread)
@@ -120,26 +122,26 @@ class PreviewKatanaProcessorDialog(QtWidgets.QDialog):
     def __writePlaylist(data):
         (fh, name) = tempfile.mkstemp(suffix=".itv", prefix="playlist")
         os.close(fh)
-        fp = open(name, "w")
-        try:
-            fp.write(data)
-        finally:
-            fp.close()
+        with open(name, "w", encoding='utf-8') as fp:
+            try:
+                fp.write(data)
+            finally:
+                fp.close()
         return name
 
     def __findHttpPort(self):
         log = cuegui.Utils.getFrameLogFile(self.__job, self.__frame)
-        fp = open(log, "r")
-        try:
-            counter = 0
-            for line in fp:
-                counter += 1
-                if counter >= 5000:
-                    break
-                if line.startswith("Preview Server"):
-                    return int(line.split(":")[1].strip())
-        finally:
-            fp.close()
+        with open(log, "r", encoding='utf-8') as fp:
+            try:
+                counter = 0
+                for line in fp:
+                    counter += 1
+                    if counter >= 5000:
+                        break
+                    if line.startswith("Preview Server"):
+                        return int(line.split(":")[1].strip())
+            finally:
+                fp.close()
 
         raise Exception("Katana 2.7.19 and above is required for preview feature.")
 

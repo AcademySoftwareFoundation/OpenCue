@@ -201,8 +201,9 @@ def getCuewho(show):
     @return: The username who is cuewho for the show
     @rtype:  string"""
     try:
-        file = open("/shots/%s/home/cue/cuewho.who" % show, "r")
-        return file.read()
+
+        with open("/shots/%s/home/cue/cuewho.who" % show, "r", encoding='utf-8') as file:
+            return file.read()
     except Exception as e:
         logger.warning("Failed to update cuewho: %s\n%s", show, e)
         return "Unknown"
@@ -317,6 +318,7 @@ def exceptionOutput(e):
 
 def handleExceptions(function):
     """Custom exception handler."""
+    # pylint: disable=inconsistent-return-statements
     def new(*args):
         try:
             return function(*args)
@@ -449,15 +451,14 @@ def getLastLine(path):
     ansiEscape = r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]'
 
     try:
-        fp = open(path, 'rb')
-        fp.seek(0, 2)
+        with open(path, 'rb') as fp:
+            fp.seek(0, 2)
 
-        backseek = min(4096, fp.tell())
-        fp.seek(-backseek, 1)
-        buf = fp.read(4096)
+            backseek = min(4096, fp.tell())
+            fp.seek(-backseek, 1)
+            buf = fp.read(4096)
 
-        newline_pos = buf.rfind(b'\n', 0, len(buf)-1)
-        fp.close()
+            newline_pos = buf.rfind(b'\n', 0, len(buf)-1)
 
         line = buf[newline_pos+1:].strip().decode("utf-8")
 

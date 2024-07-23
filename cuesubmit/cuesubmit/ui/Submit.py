@@ -81,7 +81,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
     def __init__(
             self, settingsWidgetType, jobTypes=JobTypes.JobTypes, parent=None, *args, **kwargs):
         super(CueSubmitWidget, self).__init__(parent)
-        self.startupErrors = list()
+        self.startupErrors = []
         self.skipDataChangedEvent = False
         self.settings = QtCore.QSettings('opencue', 'cuesubmit')
         self.clearMessageShown = False
