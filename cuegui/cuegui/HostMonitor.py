@@ -116,7 +116,7 @@ class HostMonitor(QtWidgets.QWidget):
         QtCore.QObject.connect(btn,
                                QtCore.SIGNAL('clicked()'),
                                self.__filterByHostNameClear)
-
+        # pylint: disable=unused-private-member
         self.__filterByHostNameClearBtn = btn
 
     def __filterByHostNameHandle(self):

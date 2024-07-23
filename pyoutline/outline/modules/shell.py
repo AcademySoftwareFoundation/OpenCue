@@ -47,16 +47,14 @@ class PyEval(outline.layer.Layer):
         self.__code = code
 
     def _setup(self):
-        fp = open("%s/script" % self.get_path(), "w")
-        try:
+        with open(f"{self.get_path()}/script", "w", encoding="utf-8") as fp:
             fp.write(self.__code)
-        finally:
-            fp.close()
+
         self.__code = None
 
     def _execute(self, frames):
         path = self.get_file("script")
-        with open(path) as fp:
+        with open(path, encoding="utf-8") as fp:
             code = compile(fp.read(), path, 'exec')
             exec(code)  # pylint: disable=exec-used
 

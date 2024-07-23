@@ -240,7 +240,6 @@ class LayerAttributes(AbstractAttributes):
         """Prepopulates needed layer information."""
         return {"depends": layer.getWhatThisDependsOn()}
 
-    # pylint: disable=no-self-use
     def dataSource(self, layer, preload):
         """Returns layer information structured as needed for the attributes list."""
         d = {
@@ -314,7 +313,6 @@ class JobAttributes(AbstractAttributes):
         """Prepopulates needed job information."""
         return {"depends": jobObject.getWhatThisDependsOn()}
 
-    # pylint: disable=no-self-use
     def dataSource(self, job, preload):
         """Returns job information structured as needed for the attributes list."""
         if isinstance(job, opencue.wrappers.job.NestedJob):
@@ -398,7 +396,6 @@ class HostAttributes(AbstractAttributes):
 
     NAME = "Host"
 
-    # pylint: disable=no-self-use
     def dataSource(self, host, preload):
         """Returns host information structured as needed for the attributes list."""
         del preload

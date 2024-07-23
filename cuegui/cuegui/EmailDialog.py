@@ -83,6 +83,7 @@ class EmailWidget(QtWidgets.QWidget):
     def __init__(self, jobs, parent=None):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
+        # pylint: disable=unused-private-member
         self.__jobs = jobs
 
         # Temporary workaround when pwd library is not available (i.e. Windows).

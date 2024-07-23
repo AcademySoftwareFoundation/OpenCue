@@ -71,6 +71,7 @@ class LayerPropertiesItem(QtWidgets.QWidget):
     """An key/value widget for populating a dialog box."""
     def __init__(self, label, widget, stretch=True, help_widget=None, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
+        # pylint: disable=unused-private-member
         self.__label = label
         self.__widget = widget
 
@@ -357,6 +358,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
 
     def getMaxGpuMemory(self):
         """Gets the layer max GPU memory."""
+        # pylint: disable=consider-using-generator
         return max([layer.data.min_gpu_memory // self.gpu_mem_tick_kb for layer in self.__layers])
 
     def getMinCores(self):
@@ -524,6 +526,7 @@ class LayerTagsDialog(QtWidgets.QDialog):
         QtWidgets.QDialog.__init__(self, parent)
         self._tags_widget = LayerTagsWidget(layers=layers,
                                             parent=parent)
+        # pylint: disable=unused-private-member
         self.__warning = QtWidgets.QLabel(
             'Warning: Changing these tags may cause your job to not run any frames')
         self.__buttons = QtWidgets.QDialogButtonBox(

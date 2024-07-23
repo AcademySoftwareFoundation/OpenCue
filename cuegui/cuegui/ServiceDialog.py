@@ -345,6 +345,7 @@ class ServiceDialog(QtWidgets.QDialog):
     def __init__(self, show, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
 
+        # pylint: disable=unused-private-member
         self.__srv_manager = ServiceManager(show, self)
 
         self.setWindowTitle("Services")

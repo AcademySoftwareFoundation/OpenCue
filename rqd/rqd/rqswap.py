@@ -115,7 +115,7 @@ class VmStat(object):
         self.__repeatedTimer = RepeatedTimer(
             self.__interval,
             self.__getPgoutNum)
-        self.__repeatedTimer.setDaemon(True)
+        self.__repeatedTimer.daemon = True
         self.__repeatedTimer.start()
 
     def __getSampleDataCopy(self):
@@ -130,7 +130,7 @@ class VmStat(object):
         foundPgpgout = False
         pgpgoutNum = 0
         try:
-            with open("/proc/vmstat") as vmStatFile:
+            with open("/proc/vmstat", encoding='utf-8') as vmStatFile:
                 for line in vmStatFile.readlines():
                     matchObj = PGPGOUT_RE.match(line)
                     if matchObj:
