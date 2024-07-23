@@ -419,6 +419,7 @@ class HostHistoryDelegate(AbstractDelegate):
                     points = QtGui.QPolygon(len(hostItem.coresHistory) + 2)
                     points.setPoint(0, option.rect.bottomLeft())
                     num = 1
+                    # pylint: disable=consider-using-enumerate
                     for i in range(len(hostItem.coresHistory)):
                         points.setPoint(
                             num, option.rect.x() + stepWidth * i,

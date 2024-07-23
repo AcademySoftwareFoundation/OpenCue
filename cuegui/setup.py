@@ -63,7 +63,6 @@ setup(
         'future',
         'grpcio',
         'grpcio-tools',
-        'PySide2',
         'PyYAML',
         'QtPy',
     ]

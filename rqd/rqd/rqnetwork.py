@@ -158,6 +158,7 @@ class RunningFrame(object):
                 rqd.rqutil.permissionsHigh()
                 try:
                     if platform.system() == "Windows":
+                        # pylint: disable=consider-using-with
                         subprocess.Popen('taskkill /F /T /PID %i' % self.pid, shell=True)
                     else:
                         os.killpg(self.pid, rqd.rqconstants.KILL_SIGNAL)
@@ -373,6 +374,7 @@ class RetryOnRpcErrorClientInterceptor(
         self._sleeping_policy = sleeping_policy
         self._retry_statuses = status_for_retry
 
+    # pylint: disable=inconsistent-return-statements
     def _intercept_call(self, continuation, client_call_details,
                         request_or_iterator):
         for attempt in range(self._max_attempts):

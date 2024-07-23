@@ -268,7 +268,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 else:
                     # We'll only add the new job if it's not already listed
                     # as a dependent on another job
-                    if jobKey not in self.__reverseDependents.keys():
+                    if jobKey not in self.__reverseDependents:
                         self.__load[jobKey] = newJobObj
 
                         # when we are adding jobs manually, we want to calculate
@@ -337,12 +337,14 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @param item: A tree widget item
         @type  item: AbstractTreeWidgetItem"""
         self.app.unmonitor.emit(item.rpcObject)
+        # pylint: disable=protected-access
         cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
         self.__jobTimeLoaded.pop(item.rpcObject, "")
         try:
             jobKey = cuegui.Utils.getObjectKey(item)
             # Remove the item from the main _items dictionary as well as the
             # __dependentJobs and the reverseDependent dictionaries
+            # pylint: disable=protected-access
             cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
             dependent_jobs = self.__dependentJobs.get(jobKey, [])
             for djob in dependent_jobs:

@@ -56,6 +56,7 @@ class RQDLogger(object):
             log_dir = os.path.dirname(self.filepath)
             if not os.access(log_dir, os.F_OK):
                 # Attempting mkdir for missing logdir
+                msg = "No Error"
                 try:
                     os.makedirs(log_dir)
                     os.chmod(log_dir, 0o777)
@@ -93,7 +94,8 @@ class RQDLogger(object):
                     log.warning(err)
                 else:
                     raise RuntimeError(err)
-            self.fd = open(self.filepath, "w+", 1)
+            # pylint: disable=consider-using-with
+            self.fd = open(self.filepath, "w+", 1, encoding='utf-8')
             try:
                 os.chmod(self.filepath, 0o666)
             # pylint: disable=broad-except

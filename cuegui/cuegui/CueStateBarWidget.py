@@ -94,7 +94,7 @@ class CueStateBarWidget(QtWidgets.QWidget):
         @type  event: QEvent
         @param event: The draw event"""
         del event
-        assert threading.currentThread().getName() == "MainThread"
+        assert threading.current_thread().name == "MainThread"
         self.__colorsLock.lockForWrite()
         try:
             if not self.__colors:
@@ -136,7 +136,7 @@ class CueStateBarWidget(QtWidgets.QWidget):
         @param colors: List of job background colors"""
         # Could draw it the max size and allow the resize on drawPixmap
         # that way the same buffer is always used
-        assert threading.currentThread().getName() == "MainThread"
+        assert threading.current_thread().name == "MainThread"
         buffer = QtGui.QPixmap(self.contentsRect().size())
         buffer.fill(self.__baseColor)
 
