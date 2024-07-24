@@ -912,10 +912,12 @@ class LayerActions(AbstractActions):
     # pylint: disable=broad-except
     def previewMain(self, rpcObjects=None):
         try:
-            layer = self._getOnlyLayerObjects(rpcObjects)[0]
-            if layer is not None:
+            layer_objects = self._getOnlyLayerObjects(rpcObjects)
+            if selected_layers:
+                # Only displays the first item selected on the layer widget
+                layer = selected_layers[0]
                 outputs = layer.getOutputPaths()
-                if len(outputs) > 0:
+                if outputs:
                     cuegui.Utils.previewOutputs([outputs[0]])
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Preview Error",
