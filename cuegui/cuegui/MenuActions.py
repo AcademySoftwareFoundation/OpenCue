@@ -1098,7 +1098,7 @@ class FrameActions(AbstractActions):
                     cuegui.Utils.previewOutputs([outputs[0]], frameSet=frameSet)
                 else:
                     katanaMode = True
-            if katanaMode is True:
+            if katanaMode:
                 d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, False)
                 d.process()
                 d.exec_()
