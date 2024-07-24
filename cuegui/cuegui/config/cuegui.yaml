@@ -64,6 +64,7 @@ editor.windows: 'notepad'
 editor.mac: 'open -t'
 editor.linux: 'gview -R -m -M -U {config_path}/gvimrc +'
 
+# Default application for previewing output files
 viewer.windows: 'rv'
 viewer.mac: 'rv'
 viewer.linux: 'rv'
