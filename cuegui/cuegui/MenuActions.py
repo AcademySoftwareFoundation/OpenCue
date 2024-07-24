@@ -912,7 +912,7 @@ class LayerActions(AbstractActions):
     # pylint: disable=broad-except
     def previewMain(self, rpcObjects=None):
         try:
-            layer_objects = self._getOnlyLayerObjects(rpcObjects)
+            selected_layers = self._getOnlyLayerObjects(rpcObjects)
             if selected_layers:
                 # Only displays the first item selected on the layer widget
                 layer = selected_layers[0]
