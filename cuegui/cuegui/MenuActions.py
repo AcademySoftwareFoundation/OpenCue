@@ -1085,10 +1085,10 @@ class FrameActions(AbstractActions):
             frame = self._getOnlyFrameObjects(rpcObjects)[0]
             layer = None
             layers = job.getLayers()
-            if len(layers) > 0:
-                for ilayer in layers:
-                    if ilayer.name() == frame.layer():
-                        layer = ilayer
+            for ilayer in layers:
+                if ilayer.name() == frame.layer():
+                    layer = ilayer
+                    break
 
             if layer is not None:
                 outputs = layer.getOutputPaths()
@@ -1115,10 +1115,10 @@ class FrameActions(AbstractActions):
             frame = self._getOnlyFrameObjects(rpcObjects)[0]
             layer = None
             layers = job.getLayers()
-            if len(layers) > 0:
-                for ilayer in layers:
-                    if ilayer.name() == frame.layer():
-                        layer = ilayer
+            for ilayer in layers:
+                if ilayer.name() == frame.layer():
+                    layer = ilayer
+                    break
 
             if layer is not None:
                 outputs = layer.getOutputPaths()
