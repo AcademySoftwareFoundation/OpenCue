@@ -62,11 +62,22 @@ MAYA_FILE_FILTERS = [
 NUKE_FILE_FILTERS = ['Nuke script file (*.nk)']
 BLENDER_FILE_FILTERS = ['Blender file (*.blend)']
 
+RENDER_CMDS = config.get('RENDER_CMDS', {})
 
 BLENDER_FORMATS = ['', 'AVIJPEG', 'AVIRAW', 'BMP', 'CINEON', 'DPX', 'EXR', 'HDR', 'IRIS', 'IRIZ',
                    'JP2', 'JPEG', 'MPEG', 'MULTILAYER', 'PNG', 'RAWTGA', 'TGA', 'TIFF']
 BLENDER_OUTPUT_OPTIONS_URL = \
     'https://docs.blender.org/manual/en/latest/advanced/command_line/arguments.html#render-options'
+
+REGEX_CUETOKEN = r'^#.*#$' #FRAME_START#
+REGEX_COMMAND_OPTIONS = (r'(?P<command_flag>-+\w*)?'   # -optionFlag
+                         r'(?P<hidden>\~)?'            # -hiddenFlag~
+                         r'\s?'
+                         r'({'
+                           r'(?P<mandatory>\!)?'      # {!Mandatory argument}
+                           r'(?P<label>[^{}\*\/\!]+)' # {Nice name}
+                           r'(?P<browsable>\*?\/?)'   # {browseFile*} or {browseFolder/}
+                         r'})?')
 
 DIR_PATH = os.path.dirname(__file__)
 

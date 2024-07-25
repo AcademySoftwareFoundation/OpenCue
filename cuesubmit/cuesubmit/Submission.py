@@ -31,6 +31,44 @@ from cuesubmit import Constants
 from cuesubmit import JobTypes
 
 
+def isSoloFlag(flag):
+    """ Check if the flag is solo, meaning it has no associated value
+     solo flags are marked with a ~ (ex: --background~)
+     """
+    return re.match('^-+\w+~$', flag)
+
+def isFlag(flag):
+    """ Check if the provided string is a flag (starts with a -)"""
+    return re.match('^-+\w+$', flag)
+
+def formatValue(flag, value, isPath, isMandatory):
+    """ Adds quotes around file/folder path variables
+     and provide an error value to display for missing mandatory values.
+    """
+    if isPath and value:
+        value = f'"{value}"'
+    if isMandatory and value in ('', None):
+        value = f'!!missing value for {flag}!!'
+    return value
+
+def buildDynamicCmd(layerData):
+    """From a layer, builds a customized render command."""
+    renderCommand = Constants.RENDER_CMDS[layerData.layerType].get('command')
+    for (flag, isPath, isMandatory), value in layerData.cmd.items():
+        if isSoloFlag(flag):
+            renderCommand += f' {flag[:-1]}'
+            continue
+        value = formatValue(flag, value, isPath, isMandatory)
+        if isFlag(flag) and value not in ('', None):
+            # flag and value
+            renderCommand += f' {flag} {value}'
+            continue
+        # solo argument without flag
+        if value not in ('', None):
+            renderCommand += f' {value}'
+
+    return renderCommand
+
 def buildMayaCmd(layerData, silent=False):
     """From a layer, builds a Maya Render command."""
     camera = layerData.cmd.get('camera')
@@ -114,7 +152,9 @@ def buildLayer(layerData, command, lastLayer=None):
 
 def buildLayerCommand(layerData, silent=False):
     """Builds the command to be sent per jobType"""
-    if layerData.layerType == JobTypes.JobTypes.MAYA:
+    if layerData.layerType in JobTypes.JobTypes.FROM_CONFIG_FILE:
+        command = buildDynamicCmd(layerData)
+    elif layerData.layerType == JobTypes.JobTypes.MAYA:
         command = buildMayaCmd(layerData, silent)
     elif layerData.layerType == JobTypes.JobTypes.SHELL:
         command = layerData.cmd.get('commandTextBox') if silent else layerData.cmd['commandTextBox']
@@ -122,11 +162,11 @@ def buildLayerCommand(layerData, silent=False):
         command = buildNukeCmd(layerData, silent)
     elif layerData.layerType == JobTypes.JobTypes.BLENDER:
         command = buildBlenderCmd(layerData, silent)
+    elif silent:
+        command = 'Error: unrecognized layer type {}'.format(layerData.layerType)
     else:
-        if silent:
-            command = 'Error: unrecognized layer type {}'.format(layerData.layerType)
-        else:
-            raise ValueError('unrecognized layer type {}'.format(layerData.layerType))
+        raise ValueError('unrecognized layer type {}'.format(layerData.layerType))
+
     return command
 
 def submitJob(jobData):
