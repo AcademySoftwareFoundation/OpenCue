@@ -102,7 +102,6 @@ def setup_sentry():
     except ImportError:
         logging.warning('Sentry support disabled. SENTRY_DSN_PATH is set but '
                         'the lib is not available')
-        pass
 
 
 def usage():
@@ -149,9 +148,6 @@ def main():
     rqd.rqutil.permissionsLow()
 
     logging.warning('RQD Starting Up')
-
-    if rqd.rqconstants.FACILITY == 'abq':
-        os.environ['TZ'] = 'PST8PDT'
 
     setup_sentry()
 
