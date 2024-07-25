@@ -110,7 +110,7 @@ def daemonize(log_path=None, chdir_to_root=True):
     # pylint: disable=protected-access
     if os.fork() != 0:
         # Intentionally not using sys.exit here to avoid raising SystemExit,
-        # cleaning handlers and flushing stdio buffers        
+        # cleaning handlers and flushing stdio buffers
         os._exit(0)
 
     os.setsid()
