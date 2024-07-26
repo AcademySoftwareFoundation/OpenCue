@@ -18,9 +18,9 @@ jobs:
       - name: Run test
         run: ci/run_integration_test.sh
 
-      - name: Build blender addon
-        uses: actions/upload-artifact@v3
-        run: ci/build_blender_addon.sh
+#      - name: Build blender addon
+#        uses: actions/upload-artifact@v3
+#        run: ci/build_blender_addon.sh
 #        with:
 #          name: OpenCue-Blender
 #          path: ${GITHUB_WORKSPACE}/artifacts/OpenCue-Blender.zip
