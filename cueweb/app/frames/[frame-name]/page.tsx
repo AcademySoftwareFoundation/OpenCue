@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import Editor, { Monaco } from "@monaco-editor/react";
-import { editor, IPosition } from "monaco-editor";
+import { getFrame } from "@/app/utils/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import Editor, { Monaco } from "@monaco-editor/react";
+import { editor } from "monaco-editor";
 import { useSearchParams } from "next/navigation";
-import { getFrame, getFrameLogDir, getJob } from "../../utils/utils";
-import { Frame, frameColumns } from "../frame-columns";
-import { SimpleDataTable } from "../../../components/ui/simple-data-table";
+import React, { useEffect, useRef, useState } from "react";
 import CueWebIcon from "../../../components/ui/cuewebicon";
+import { SimpleDataTable } from "../../../components/ui/simple-data-table";
+import { Frame, frameColumns } from "../frame-columns";
 
 // number of log lines for paginated infinite logs
 const LOG_CHUNK_SIZE = process.env.NEXT_PUBLIC_LOG_CHUNK_SIZE ? parseInt(process.env.NEXT_PUBLIC_LOG_CHUNK_SIZE) : 100;

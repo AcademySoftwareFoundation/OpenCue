@@ -4,7 +4,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM } from "../utils/utils";
+import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM } from "@/app/utils/utils";
 import { Status } from "@/components/ui/status";
 
 // This type is used to define the shape of our data.

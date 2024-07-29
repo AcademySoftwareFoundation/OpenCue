@@ -3,7 +3,7 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
-import { convertMemoryToString, secondsToHHMMSS, secondsToHHHMM } from "../utils/utils";
+import { convertMemoryToString, secondsToHHMMSS, secondsToHHHMM } from "@/app/utils/utils";
 
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.

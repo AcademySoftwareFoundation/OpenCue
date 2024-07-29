@@ -78,6 +78,10 @@ Go back to [Contents](#contents).
     - NEXT_PUBLIC_OPENCUE_ENDPOINT
         - This is a gateway that provides a REST endpoint to the opencue gRPC API. This is needed for jobs, layers, and frames to be retrieved. See [this PR](https://github.com/AcademySoftwareFoundation/OpenCue/pull/1355).
         - This means that this rest gateway must be set-up and the environment variable should be set to the url for rest gateway.
+    - NEXT_PUBLIC_URL
+        - This is the URL where CueWeb is hosted and accessible by users ex: localhost:3000
+    - NEXT_JWT_SECRET
+        - This is used to create a JWT token which is required to access the REST endpoint of the opencue gRPC API
 
     - Authentication environment variables
         - Depending on which provider you use for authentication, you may have to set certain environment variables. 
@@ -109,9 +113,11 @@ Example of `.env` file (`cueweb/.env.example`):
 
 ```env
 NEXT_PUBLIC_OPENCUE_ENDPOINT=http://your-rest-gateway-url.com
-
+NEXT_PUBLIC_URL=http://your-cueweb-url.com
 SENTRY_ENVIRONMENT='development'
 
+# gRPC REST gateway values
+NEXT_JWT_SECRET=secretkey
 
 # Authentication Configuration:
 
@@ -296,6 +302,12 @@ Go back to [Contents](#contents).
 
 Go back to [Contents](#contents).
 
+### Testing application in dev mode with Docker
+- To run the Jest unit tests in Docker, uncomment `CMD ["npm, "run", "test"]` in the Dockerfile or run `npm run test` in the terminal
+- Test coverage currently includes:
+    - loading environment variables and verifying them
+    - creating json web tokens
+    - fetching objects from the gRPC REST gateway and handling errors
 
 
 ### Important note about job table data
