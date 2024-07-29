@@ -1,28 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
+import { fetchObjectFromRestGateway } from '@/app/utils/rest_auth_utils';
 import * as Sentry from "@sentry/nextjs";
+import { NextRequest, NextResponse } from "next/server";
+import { handleError } from "@/app/utils/utils";
 
-//endpoint to get a job given its unique id
 export async function POST(request: NextRequest) {
+  const endpoint = "/job.JobInterface/GetJob";
+  const method = request.method;
   const body = JSON.stringify(await request.json());
-  Sentry.captureMessage(`Request to api/job with request body: ${body}`, "info");
 
-  const url = `${process.env.NEXT_PUBLIC_OPENCUE_ENDPOINT}/job.JobInterface/GetJob`;
+  Sentry.captureMessage(`Request to api/route with request body: ${body}`, "info");
+
+  // Default status to 500 (Internal Server Error)
+  let status = 500;
 
   try {
-    const apiResponse = await fetch(url, {
-      method: request.method,
-      headers: {
-        "Content-Type": "application/json",
-        // Add any other headers required by the external API
-      },
-      body: body,
-    });
+    const response = await fetchObjectFromRestGateway(endpoint, method, body);
+    const responseData = await response.json();
+    status = await response.status;
 
-    const data = await apiResponse.json();
+    if (responseData.error) {
+      throw new Error(responseData.error);
+    }
 
-    return NextResponse.json({ data: data.job });
+    return NextResponse.json({ data: responseData.data.job }, { status: status });
   } catch (error) {
-    Sentry.captureMessage(`${error}\nRequest body: ${body}`, "error");
-    return NextResponse.json({ error: true, errorMessage: error });
+    if (error instanceof Error) {
+      handleError(error);
+      return NextResponse.json({ error: error.message }, { status: status });
+    }
+    const unknownError = 'An unknown error occurred';
+    handleError(`${unknownError}\nRequest body: ${body}`)
+    return NextResponse.json({ error: unknownError }, { status: status });
   }
 }

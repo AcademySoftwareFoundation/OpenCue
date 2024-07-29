@@ -1,38 +1,46 @@
-import { NextRequest, NextResponse } from "next/server";
+import { fetchObjectFromRestGateway } from '@/app/utils/rest_auth_utils';
 import * as Sentry from "@sentry/nextjs";
+import { NextRequest, NextResponse } from "next/server";
+import { handleError } from "@/app/utils/utils";
+
+// The API endpoint queried returns a double nested dictionary with the following structure:
+// {
+//   layers: {
+//     layers: [
+//         {Layer Object 0}, {Layer Object 1}, {Layer Object 2},...
+//      ]
+//   }
+// }
+// so we return data.layers.layers to return only the array of layer objects
+// i.e. [ {Layer Object 0}, {Layer Object 1}, ...]
 
 export async function POST(request: NextRequest) {
+  const endpoint = "/job.JobInterface/GetLayers";
+  const method = request.method;
   const body = JSON.stringify(await request.json());
+
   Sentry.captureMessage(`Request to api/layers with request body: ${body}`, "info");
 
-  const url = `${process.env.NEXT_PUBLIC_OPENCUE_ENDPOINT}/job.JobInterface/GetLayers`;
+  // Default status to 500 (Internal Server Error)
+  let status = 500;
 
   try {
-    const apiResponse = await fetch(url, {
-      method: request.method,
-      headers: {
-        "Content-Type": "application/json",
-        // Add any other headers required by the external API
-      },
-      body: body,
-    });
+    const response = await fetchObjectFromRestGateway(endpoint, method, body);
+    const responseData = await response.json();
+    status = await response.status;
 
-    const data = await apiResponse.json();
+    if (responseData.error) {
+      throw new Error(responseData.error);
+    }
 
-    // above returns a double nested dictionary with the following structure:
-    // {
-    //   layers: {
-    //     layers: [
-    //         {Layer Object 0}, {Layer Object 1}, {Layer Object 2},...
-    //      ]
-    //   }
-    // }
-    // so we return data.layers.layers to return only the array of layer objects
-    // i.e. [ {Layer Object 0}, {Layer Object 1}, ...]
-
-    return NextResponse.json({ data: data.layers.layers });
+    return NextResponse.json({ data: responseData.data.layers.layers }, { status: status });
   } catch (error) {
-    Sentry.captureMessage(`${error}\nRequest body: ${body}`, "error");
-    return NextResponse.json({ error: true, errorMessage: error });
+    if (error instanceof Error) {
+      handleError(error);
+      return NextResponse.json({ error: error.message }, { status: status });
+    }
+    const unknownError = `An unknown error occurred\nRequest body: ${body}`;
+    handleError(unknownError)
+    return NextResponse.json({ error: unknownError }, { status: status });
   }
 }
