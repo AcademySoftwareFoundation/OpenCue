@@ -710,6 +710,7 @@ message Layer {
     int32 timeout_llu = 19;
     float min_gpus = 20;
     float max_gpus = 21;
+    string command = 22;
 }
 
 message LayerSeq {
