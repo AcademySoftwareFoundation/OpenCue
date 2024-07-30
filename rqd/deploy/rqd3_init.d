@@ -24,14 +24,6 @@ start()
     echo ""
 }
 
-idle_restart()
-{
-    echo -n "Requesting idle restart of openrqd services:"
-    cd ${RQD_PATH}
-    daemon "rqd/cuerqd.py --restart &>/dev/null || :"
-    echo ""
-}
-
 stop()
 {
     echo -n "Stopping openrqd services:"
@@ -51,9 +43,6 @@ case "$1" in
         stop
         sleep 3
         start
-        ;;
-  idle-restart)
-        idle_restart
         ;;
   *)
         echo $"Usage: $0 {start|stop|restart|idle_restart}"

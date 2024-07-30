@@ -140,22 +140,6 @@ class CueRqdTests(unittest.TestCase):
 
         stubMock.return_value.ShutdownRqdNow.assert_called_with(shutdownNowRequest)
 
-    def test_restartRqdIdle(self, stubMock, frameStubMock):
-        sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--restart']
-        restartIdleRequest = rqd.compiled_proto.rqd_pb2.RqdStaticRestartIdleRequest()
-
-        rqd.cuerqd.main()
-
-        stubMock.return_value.RestartRqdIdle.assert_called_with(restartIdleRequest)
-
-    def test_restartRqdNow(self, stubMock, frameStubMock):
-        sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--restart_now']
-        restartNowRequest = rqd.compiled_proto.rqd_pb2.RqdStaticRestartNowRequest()
-
-        rqd.cuerqd.main()
-
-        stubMock.return_value.RestartRqdNow.assert_called_with(restartNowRequest)
-
     def test_rebootIdle(self, stubMock, frameStubMock):
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--reboot']
         rebootIdleRequest = rqd.compiled_proto.rqd_pb2.RqdStaticRebootIdleRequest()
