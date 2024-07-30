@@ -1260,6 +1260,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setChunkSize(rs.getInt("int_chunk_size"))
                             .setDispatchOrder(rs.getInt("int_dispatch_order"))
                             .setName(SqlUtil.getString(rs,"str_name"))
+                            .setCommand(SqlUtil.getString(rs,"str_cmd"))
                             .setRange(SqlUtil.getString(rs,"str_range"))
                             .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_cores_min")))
                             .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_cores_max")))

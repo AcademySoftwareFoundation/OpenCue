@@ -53,6 +53,16 @@ COMMAND_TOKENS = {'#ZFRAME#': 'Current frame with a padding of 4',
                   '#JOB#': 'Name of the Job',
                   '#FRAME#': 'Name of the Frame'
                   }
+
+MAYA_FILE_FILTERS = [
+    'Maya Ascii file (*.ma)',
+    'Maya Binary file (*.mb)',
+    'Maya file (*.ma *.mb)'
+]
+NUKE_FILE_FILTERS = ['Nuke script file (*.nk)']
+BLENDER_FILE_FILTERS = ['Blender file (*.blend)']
+
+
 BLENDER_FORMATS = ['', 'AVIJPEG', 'AVIRAW', 'BMP', 'CINEON', 'DPX', 'EXR', 'HDR', 'IRIS', 'IRIZ',
                    'JP2', 'JPEG', 'MPEG', 'MULTILAYER', 'PNG', 'RAWTGA', 'TGA', 'TIFF']
 BLENDER_OUTPUT_OPTIONS_URL = \
