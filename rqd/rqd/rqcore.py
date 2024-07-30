@@ -612,7 +612,6 @@ class RqCore(object):
     def __init__(self, optNimbyoff=False):
         """RqCore class initialization"""
         self.__whenIdle = False
-        self.__respawn = False
         self.__reboot = False
 
         self.__optNimbyoff = optNimbyoff
@@ -826,22 +825,13 @@ class RqCore(object):
                 traceback.extract_tb(sys.exc_info()[2]))
         # pylint: enable=no-member
 
-    @staticmethod
-    def respawn_rqd():
-        """Restarts RQD"""
-        os.system("/etc/init.d/rqd3 restart")
-
     def shutdown(self):
-        """Shuts down all rqd systems,
-           will call respawn or reboot if requested"""
+        """Shuts down all rqd systems"""
         self.nimbyOff()
         if self.onIntervalThread is not None:
             self.onIntervalThread.cancel()
         if self.updateRssThread is not None:
             self.updateRssThread.cancel()
-        if self.__respawn:
-            log.warning("Respawning RQD by request")
-            self.respawn_rqd()
         elif self.__reboot:
             log.warning("Rebooting machine by request")
             self.machine.reboot()
@@ -972,22 +962,6 @@ class RqCore(object):
         if not self.__cache:
             self.shutdownRqdNow()
 
-    def restartRqdNow(self):
-        """Kill all running frames and restart RQD"""
-        log.info("RestartRqdNow")
-        self.__respawn = True
-        self.shutdownRqdNow()
-
-    def restartRqdIdle(self):
-        """When machine is idle, restart RQD"""
-        log.info("RestartRqdIdle")
-        self.lockAll()
-        self.__whenIdle = True
-        self.__respawn = True
-        self.sendStatusReport()
-        if not self.__cache:
-            self.shutdownRqdNow()
-
     def rebootNow(self):
         """Kill all running frames and reboot machine.
            This is not available when a user is logged in"""
@@ -1091,13 +1065,12 @@ class RqCore(object):
 
         sendUpdate = False
 
-        if (self.__whenIdle or self.__reboot or self.__respawn
-                or self.machine.state != rqd.compiled_proto.host_pb2.UP):
+        if (self.__whenIdle or self.__reboot or
+            self.machine.state != rqd.compiled_proto.host_pb2.UP):
             sendUpdate = True
 
         self.__whenIdle = False
         self.__reboot = False
-        self.__respawn = False
         self.machine.state = rqd.compiled_proto.host_pb2.UP
 
         with self.__threadLock:
@@ -1121,13 +1094,12 @@ class RqCore(object):
 
         sendUpdate = False
 
-        if (self.__whenIdle or self.__reboot or self.__respawn
+        if (self.__whenIdle or self.__reboot
                 or self.machine.state != rqd.compiled_proto.host_pb2.UP):
             sendUpdate = True
 
         self.__whenIdle = False
         self.__reboot = False
-        self.__respawn = False
         self.machine.state = rqd.compiled_proto.host_pb2.UP
 
         with self.__threadLock:
