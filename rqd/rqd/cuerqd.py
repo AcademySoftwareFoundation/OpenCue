@@ -113,11 +113,6 @@ class RqdHost(object):
         print(self.rqdHost, "Sending restartRqdIdle command")
         self.stub.RestartRqdIdle(rqd.compiled_proto.rqd_pb2.RqdStaticRestartIdleRequest())
 
-    def restartRqdNow(self):
-        """Restarts RQD on the host now."""
-        print(self.rqdHost, "Sending restartRqdNow command")
-        self.stub.RestartRqdNow(rqd.compiled_proto.rqd_pb2.RqdStaticRestartNowRequest())
-
     def rebootIdle(self):
         """Reboots the host when idle."""
         print(self.rqdHost, "Sending rebootIdle command")
@@ -174,8 +169,6 @@ def main():
         '--restart', action='store_true',
         help='Lock host, wait until machine is idle, and then restart RQD. Any unlock '
              'command cancels this request')
-    parser.add_argument(
-        '--restart_now', action='store_true', help='KILL ALL running frames and restart RQD')
     parser.add_argument(
         '--reboot', action='store_true',
         help='Lock host, wait until machine is idle, and then REBOOT machine. Any unlock '
@@ -237,13 +230,10 @@ def main():
     elif args.exit:
         rqdHost.shutdownRqdIdle()
 
-    if args.restart_now:
-        rqdHost.restartRqdNow()
-
     elif args.restart:
         rqdHost.restartRqdIdle()
 
-    if args.reboot_now:
+    elif args.reboot_now:
         rqdHost.rebootNow()
 
     elif args.reboot:
