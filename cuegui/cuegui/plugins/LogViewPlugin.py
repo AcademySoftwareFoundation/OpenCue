@@ -43,8 +43,6 @@ PLUGIN_DESCRIPTION = 'Displays Frame Log'
 PLUGIN_PROVIDES = 'LogViewPlugin'
 PRINTABLE = set(string.printable)
 
-LOGTYPE_FILE = 1
-
 
 class LogReader(object):
     """
@@ -58,40 +56,26 @@ class LogReader(object):
            @type    filepath: string
            @param   filepath: The filepath to log to
         """
-        protocolMatch = re.match(r"(?P<proto>[\w\-.:]+)://(?P<server>\w+)/(?P<filepath>.*)",
-                                 filepath)
-        if protocolMatch is not None:
-            self.filepath = protocolMatch.group('filepath')
-            self.server = protocolMatch.group('server')
-        else:
-            self.type = LOGTYPE_FILE
-            self.filepath = filepath
+        self.filepath = filepath
 
     def size(self):
         """Return the size of the file"""
-        if self.type == LOGTYPE_FILE:
-            return int(os.stat(self.filepath).st_size)
-        return 1
+        return int(os.stat(self.filepath).st_size)
 
     def getMtime(self):
         """Return modification time of the file"""
-        if self.type == LOGTYPE_FILE:
-            return os.path.getmtime(self.filepath)
-        return time.time()
+        return os.path.getmtime(self.filepath)
 
     def exists(self):
         """Check if the file exists"""
-        if self.type == LOGTYPE_FILE:
-            return os.path.exists(self.filepath)
-        return True
+        return os.path.exists(self.filepath)
 
     def read(self):
         """Read the data from the backend"""
         content = None
         if self.exists() is True:
-            if self.type == LOGTYPE_FILE:
-                with open(self.filepath, "r", encoding='utf-8') as fp:
-                    content = fp.read()
+            with open(self.filepath, "r", encoding='utf-8') as fp:
+                content = fp.read()
 
         return content
 
