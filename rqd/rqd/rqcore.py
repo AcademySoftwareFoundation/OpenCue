@@ -343,8 +343,7 @@ class FrameAttendantThread(threading.Thread):
         poller.register(frameInfo.forkedCommand.stdout, select.POLLIN)
         poller.register(frameInfo.forkedCommand.stderr, select.POLLIN)
         while True:
-            ready = poller.poll()
-            for fd, event in ready:
+            for fd, event in poller.poll():
                 if event & select.POLLIN:
                     if fd == frameInfo.forkedCommand.stdout.fileno():
                         line = frameInfo.forkedCommand.stdout.readline()
