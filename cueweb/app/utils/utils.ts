@@ -1,9 +1,10 @@
 // *** Helper functions ** //
 
+import * as Sentry from "@sentry/nextjs";
 import path from "path";
+import { toast } from "react-toastify";
 import { Frame } from "../frames/frame-columns";
 import { Job } from "../jobs/columns";
-import * as Sentry from "@sentry/nextjs";
 
 export const convertUnixToHumanReadableDate = (timestamp: number) => {
   if (timestamp == 0) {
@@ -70,8 +71,20 @@ export const getFrameLogDir = (job: Job, frame: Frame) => {
   return path.join(job.logDir, `${job.name}.${frame.name}.rqlog`);
 };
 
+// Captures errors to display as a toast error and as a console error
+export function handleError(toastMessage: string, error: Error | string) {
+  toast.error(toastMessage);
+
+  if (typeof error === "string") {
+    console.error(error);
+  } else {
+    console.error(error.message);
+  }
+}
+
 export async function getFrame(body: string) {
-  const response = await fetch("/api/frame", {
+  const ENDPOINT = "/api/frame";
+  const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -80,14 +93,15 @@ export async function getFrame(body: string) {
   });
   const res = await response.json();
   if (res.error) {
-    alert("Failed to fetch frame from /api/frame");
+    handleError(`Failed to fetch from ${ENDPOINT}`, res.error);
     return [];
   }
   return res.data;
 }
 
 export async function getJob(body: string) {
-  const response = await fetch("/api/job", {
+  const ENDPOINT = "/api/job";
+  const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -96,14 +110,15 @@ export async function getJob(body: string) {
   });
   const res = await response.json();
   if (res.error) {
-    alert("Failed to fetch job from /api/job");
+    handleError(`Failed to fetch from ${ENDPOINT}`, res.error);
     return [];
   }
   return res.data;
 }
 
 export async function getJobs(body: string) {
-  const response = await fetch("/api/jobs", {
+  const ENDPOINT = "/api/jobs";
+  const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -112,14 +127,15 @@ export async function getJobs(body: string) {
   });
   const res = await response.json();
   if (res.error) {
-    alert("Failed to fetch jobs from /api/jobs");
+    handleError(`Failed to fetch from ${ENDPOINT}`, res.error);
     return [];
   }
   return res.data;
 }
 
 export async function getLayers(body: string) {
-  const response = await fetch("/api/layers", {
+  const ENDPOINT = "/api/layers";
+  const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -128,14 +144,15 @@ export async function getLayers(body: string) {
   });
   const res = await response.json();
   if (res.error) {
-    alert("Failed to fetch layers from /api/layers");
+    handleError(`Failed to fetch from ${ENDPOINT}`, res.error);
     return [];
   }
   return res.data;
 }
 
 export async function getFrames(body: string) {
-  const response = await fetch("/api/frames", {
+  const ENDPOINT = "/api/frames";
+  const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -144,7 +161,7 @@ export async function getFrames(body: string) {
   });
   const res = await response.json();
   if (res.error) {
-    alert("Failed to fetch frames from /api/frames");
+    handleError(`Failed to fetch from ${ENDPOINT}`, res.error);
     return [];
   }
   return res.data;
@@ -155,8 +172,23 @@ export async function getJobsForUser(user: string) {
   return getJobs(JSON.stringify(body));
 }
 
+/*
+ * Fetches all jobs for a show given the show name.
+ * @param show - The show's name to get jobs from.
+ * @returns A promise that resolves to the list of all jobs from the show.
+ */
 export async function getJobsForShow(show: string) {
   const body = { r: { include_finished: true, shows: [`${show}`] } };
+  return getJobs(JSON.stringify(body));
+}
+
+/*
+ * Fetches jobs that match a given regex pattern.
+ * @param regex - The regex pattern to search for in job names.
+ * @returns A promise that resolves to the list of jobs matching the regex pattern.
+ */
+export async function getJobsForRegex(regex: string) {
+  const body = { r: { include_finished: true, regex: [`${regex}`] } };
   return getJobs(JSON.stringify(body));
 }
 

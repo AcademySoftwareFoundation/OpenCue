@@ -1,9 +1,14 @@
-import { Job, columns } from "./jobs/columns"
-import {getServerSession} from 'next-auth'
-import {authOptions} from '@/lib/auth'
-import {redirect} from 'next/navigation'
-import dynamic from "next/dynamic";
+import { authOptions } from '@/lib/auth';
 import * as Sentry from "@sentry/nextjs";
+import { getServerSession } from 'next-auth';
+import dynamic from "next/dynamic";
+import { redirect } from 'next/navigation';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { columns, Job } from "./jobs/columns";
+
+// optionally import this config to setup Sentry on the client side
+// import '../sentry.client.config';
 
 // https://nextjs.org/docs/pages/building-your-application/optimizing/lazy-loading#with-no-ssr
 // disable server-side rendering of the DataTable component since it requires the browser/window (only on client side)
@@ -76,6 +81,7 @@ export default async function Page() {
   
   return (
     <div className="container mx-auto py-10 max-w-[90%]">
+      <ToastContainer />
       <DataTable columns={columns} data={data} session={session}/>
     </div>
   );
