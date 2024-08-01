@@ -44,6 +44,42 @@ PLUGIN_PROVIDES = 'LogViewPlugin'
 PRINTABLE = set(string.printable)
 
 
+class LogReader(object):
+    """
+    Custom class to abstract reading log files from multiple backends
+    """
+    filepath = None
+    type = None
+
+    def __init__(self, filepath):
+        """LogReader class initialization
+           @type    filepath: string
+           @param   filepath: The filepath to log to
+        """
+        self.filepath = filepath
+
+    def size(self):
+        """Return the size of the file"""
+        return int(os.stat(self.filepath).st_size)
+
+    def getMtime(self):
+        """Return modification time of the file"""
+        return os.path.getmtime(self.filepath)
+
+    def exists(self):
+        """Check if the file exists"""
+        return os.path.exists(self.filepath)
+
+    def read(self):
+        """Read the data from the backend"""
+        content = None
+        if self.exists() is True:
+            with open(self.filepath, "r", encoding='utf-8') as fp:
+                content = fp.read()
+
+        return content
+
+
 class LineNumberArea(QtWidgets.QWidget):
     """
     Custom widget for the line numbers. This widget is designed to be attached
@@ -813,9 +849,10 @@ class LogViewWidget(QtWidgets.QWidget):
         @postcondition: The _update_log method is scheduled to run again
                         after 5 seconds
         """
+        log_reader = LogReader(self._log_file)
 
         try:
-            if not os.path.exists(self._log_file):
+            if log_reader.exists() is not True:
                 self._log_file_exists = False
                 content = 'Log file does not exist: %s' % self._log_file
                 self._content_timestamp = time.time()
@@ -823,10 +860,9 @@ class LogViewWidget(QtWidgets.QWidget):
             else:
                 # Creating the load logs process as qrunnables so
                 # that they don't block the ui while loading
-                log_loader = LogLoader(self._load_log, self._log_file,
-                    self._new_log, self._log_mtime)
-                log_loader.signals.SIG_LOG_LOAD_RESULT.connect(
-                    self._receive_log_results)
+                log_loader = LogLoader(self._load_log, log_reader,
+                                       self._new_log, self._log_mtime)
+                log_loader.signals.SIG_LOG_LOAD_RESULT.connect(self._receive_log_results)
                 log_loader.setAutoDelete(True)
                 self.log_thread_pool.start(log_loader)
                 self.log_thread_pool.waitForDone()
@@ -835,15 +871,15 @@ class LogViewWidget(QtWidgets.QWidget):
             QtCore.QTimer.singleShot(5000, self._display_log_content)
 
     @QtCore.Slot()
-    def _load_log(self, log_file, new_log, curr_log_mtime):
+    def _load_log(self, log_reader, new_log, curr_log_mtime):
         content = None
-        log_size = int(os.stat(log_file).st_size)
+        log_size = log_reader.size()
         if log_size > 1 * 1e6:
             content = ('Log file size (%0.1f MB) exceeds the size '
-                        'threshold (1.0 MB).'
-                        % float(log_size / (1024 * 1024)))
-        elif not new_log and os.path.exists(log_file):
-            log_mtime = os.path.getmtime(log_file)
+                       'threshold (1.0 MB).'
+                       % float(log_size / (1024 * 1024)))
+        elif not new_log and log_reader.exists():
+            log_mtime = log_reader.getMtime()
             if log_mtime > curr_log_mtime:
                 curr_log_mtime = log_mtime  # no new updates
                 content = ''
@@ -851,10 +887,9 @@ class LogViewWidget(QtWidgets.QWidget):
         if content is None:
             content = ''
             try:
-                with open(log_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
+                content = log_reader.read()
             except IOError:
-                content = 'Can not access log file: %s' % log_file
+                content = 'Can not access log file: %s' % log_reader.filepath
 
         return content, curr_log_mtime
 
