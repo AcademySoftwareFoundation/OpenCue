@@ -1,33 +1,112 @@
 import { Job } from "@/app/jobs/columns";
-import React from "react";
-import { CommandEmpty, CommandGroup, CommandItem, CommandList } from "./command";
-import { PlusCircle } from "lucide-react";
+import Box from "@mui/material/Box";
+import Divider from "@mui/material/Divider";
+import ListItem from "@mui/material/ListItem";
+import ListItemText from "@mui/material/ListItemText";
+import React, { useEffect } from "react";
+import { FixedSizeList } from "react-window";
 
 type SearchDropdownProps = {
-  promise: Promise<Job[]> | undefined;
+  jobs: Job[];
   hidden: boolean;
+  maxListWidth: number;
+  tableData: Job[];
+  setMaxListWidth(width: number): void;
   handleJobSearchSelect(job: Job): void;
 };
 
-export default async function SearchDropdown({ promise, hidden, handleJobSearchSelect }: SearchDropdownProps) {
-  const jobs = await promise;
+// SearchDropdown component to display a list of jobs in a virtualized dropdown
+export default function SearchDropdown({
+  jobs,
+  hidden,
+  tableData,
+  maxListWidth,
+  setMaxListWidth,
+  handleJobSearchSelect,
+}: SearchDropdownProps) {
+  const itemHeight = 40;
+  const maxListHeight = 400;
+  const listHeight = Math.min(itemHeight * jobs.length + 5, maxListHeight);
+  const listRef = React.useRef<FixedSizeList | null>(null);
+  const style = {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    background: "white",
+    border: "1px solid #ccc",
+    borderRadius: "4px",
+    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+    zIndex: 1000,
+  };
+
+  // Calculates the max width for a job and sets the lists width to that size
+  useEffect(() => {
+    if (jobs.length > 0) {
+      const tempDiv = document.createElement("div");
+      tempDiv.style.position = "absolute";
+      tempDiv.style.visibility = "hidden";
+      tempDiv.style.whiteSpace = "nowrap";
+      document.body.appendChild(tempDiv);
+
+      let maxWidth = 0;
+      jobs.forEach((job) => {
+        tempDiv.innerText = job.name;
+        maxWidth = Math.max(maxWidth, tempDiv.clientWidth);
+      });
+      document.body.removeChild(tempDiv);
+
+      setMaxListWidth(maxWidth + 100);
+    }
+  }, [jobs]);
+
+  // Auto scroll to the top when jobs change (when filtering)
+  useEffect(() => {
+    if (listRef && listRef.current) {
+      listRef.current.scrollTo(0);
+    }
+  }, [jobs]);
+
   return (
-    <div>
-      <CommandList
-        className="absolute z-10 bg-stone-50 rounded-md w-100 border shadow-md dark:bg-background"
-        hidden={hidden}
-      >
-        <CommandEmpty>No results found.</CommandEmpty>
-        <CommandGroup>
-          {jobs?.map((job) => (
-            <CommandItem key={job.name} onSelect={() => handleJobSearchSelect(job)}>
-              {/* For some reason adding the plus icon here causes the jobs to not show? */}
-              {/* <PlusCircle strokeWidth={1.25} className="mr-2" /> */}
-              {job.name}
-            </CommandItem>
-          ))}
-        </CommandGroup>
-      </CommandList>
-    </div>
+    <Box sx={{ position: "relative", width: "auto" }}>
+      {!hidden && (
+        <FixedSizeList
+          height={listHeight}
+          itemCount={jobs.length}
+          itemSize={itemHeight}
+          width={maxListWidth}
+          ref={listRef}
+          style={style}
+        >
+          {({ index, style }: { index: number; style: React.CSSProperties }) => {
+            const job = jobs[index];
+            const isJobAdded = tableData.some((existingJob: Job) => existingJob.name === job.name);
+
+            return (
+              <React.Fragment key={index}>
+                <ListItem
+                  button
+                  style={{
+                    ...style,
+                    backgroundColor: isJobAdded ? "lightgreen" : "white",
+                  }}
+                  onMouseOver={(e: React.MouseEvent<HTMLDivElement, MouseEvent>) =>
+                    (e.currentTarget.style.backgroundColor = isJobAdded ? "#1ec71e" : "lightgrey")
+                  }
+                  onMouseOut={(e: React.MouseEvent<HTMLDivElement, MouseEvent>) =>
+                    (e.currentTarget.style.backgroundColor = isJobAdded ? "lightgreen" : "white")
+                  }
+                  key={index}
+                  onClick={() => handleJobSearchSelect(job)}
+                >
+                  <ListItemText primary={jobs[index].name} />
+                </ListItem>
+                <Divider />
+              </React.Fragment>
+            );
+          }}
+        </FixedSizeList>
+      )}
+    </Box>
   );
 }

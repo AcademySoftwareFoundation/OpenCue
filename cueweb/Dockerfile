@@ -17,6 +17,8 @@ COPY package*.json ./
 # TODO: something in the sentry-cli is causing 'npm run build' to fail
 # So for a temporary solution, skip downloading the sentry-cli binary entirely until a fix is found
 ENV SENTRYCLI_SKIP_DOWNLOAD=1
+# run npm install if npm ci is not working properly because of the package-lock.json
+# RUN npm install
 RUN npm ci
 
 COPY *.json /opt/cueweb/
@@ -32,7 +34,7 @@ COPY sentry.edge.config.ts /opt/cueweb/sentry.edge.config.ts
 COPY public/ /opt/cueweb/public/ 
 
 # needed to give permission to store cached data from 'fetch'
-RUN chmod 777 /opt/cueweb
+RUN chmod 755 /opt/cueweb
 
 EXPOSE 3000
 
