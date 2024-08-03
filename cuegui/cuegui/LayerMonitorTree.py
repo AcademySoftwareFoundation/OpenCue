@@ -243,7 +243,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         for layer in __selectedObjects:
             for output in layer.getOutputPaths():
                 rep = output.split("/")[-2]
-                output_menu = QtWidgets.QMenu(f"{layer.name()}: {rep}", self)
+                output_menu = QtWidgets.QMenu(f"{layer.name()}: {rep}", menu)
                 for viewername in cuegui.Constants.VIEWERS:
                     output_menu.addAction(viewername,
                                           functools.partial(cuegui.Utils.previewOutputs,
