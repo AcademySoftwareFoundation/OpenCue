@@ -933,30 +933,31 @@ class FrameContextMenu(QtWidgets.QMenu):
 
         job = widget.getJob()
         frames = widget.selectedObjects()
-        layername = frames[0].layer()
-        layer = job.getLayer(layername)
-        if layer is not None:
-            outputs = layer.getOutputPaths()
-            if outputs:
-                self.addSection("Outputs")
-                frameSet = FileSequence.FrameSet(','.join(str(f.number()) for f in frames))
-                for output in outputs:
-                    rep = output.split("/")[-2]
-                    output_menu = QtWidgets.QMenu(f"{layer.name()}: {rep}", self)
-                    for viewername in cuegui.Constants.VIEWERS:
-                        output_menu.addAction(
-                            viewername,
-                            functools.partial(
-                                cuegui.Utils.previewOutputs,
-                                output,
+        if frames:
+            layername = frames[0].layer()
+            layer = job.getLayer(layername)
+            if layer is not None:
+                outputs = layer.getOutputPaths()
+                if outputs:
+                    self.addSection("Outputs")
+                    frameSet = FileSequence.FrameSet(','.join(str(f.number()) for f in frames))
+                    for output in outputs:
+                        rep = output.split("/")[-2]
+                        output_menu = QtWidgets.QMenu(f"{layer.name()}: {rep}", self)
+                        for viewername in cuegui.Constants.VIEWERS:
+                            output_menu.addAction(
                                 viewername,
-                                frameSet=frameSet)
-                        )
-                    self.addMenu(output_menu)
-            else:
-                self.addSeparator()
-                self.__menuActions.frames().addAction(self, "previewMain")
-                self.__menuActions.frames().addAction(self, "previewAovs")
+                                functools.partial(
+                                    cuegui.Utils.previewOutputs,
+                                    output,
+                                    viewername,
+                                    frameSet=frameSet)
+                            )
+                        self.addMenu(output_menu)
+                else:
+                    self.addSeparator()
+                    self.__menuActions.frames().addAction(self, "previewMain")
+                    self.__menuActions.frames().addAction(self, "previewAovs")
 
         self.addSeparator()
         self.__menuActions.frames().addAction(self, "retry")
