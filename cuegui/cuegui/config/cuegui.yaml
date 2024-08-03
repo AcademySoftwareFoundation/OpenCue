@@ -64,10 +64,16 @@ editor.windows: 'notepad'
 editor.mac: 'open -t'
 editor.linux: 'gview -R -m -M -U {config_path}/gvimrc +'
 
-# Default application for previewing output files
-viewer.windows: 'rv'
-viewer.mac: 'rv'
-viewer.linux: 'rv'
+# Applications for previewing output files
+viewer:
+  rv:
+    linux: 'rv'
+    windows: 'rv'
+    mac: 'rv'
+  mrv2:
+    linux: 'mrv2'
+    windows: 'mrv2'
+    mac: 'mrv2'
 
 resources:
   # The max cores and max memory based on the available hardware.

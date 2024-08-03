@@ -20,6 +20,8 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import functools
+
 from qtpy import QtCore
 from qtpy import QtWidgets
 
@@ -237,9 +239,17 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self.__menuActions.layers().addAction(menu, "reorder")
             self.__menuActions.layers().addAction(menu, "stagger")
 
-        menu.addSeparator()
-        self.__menuActions.layers().addAction(menu, "previewMain")
-        self.__menuActions.layers().addAction(menu, "previewAll")
+        menu.addSection("Outputs")
+        for layer in __selectedObjects:
+            for output in layer.getOutputPaths():
+                rep = output.split("/")[-2]
+                output_menu = QtWidgets.QMenu(f"{layer.name()}: {rep}", self)
+                for viewername in cuegui.Constants.VIEWERS:
+                    output_menu.addAction(viewername,
+                                          functools.partial(cuegui.Utils.previewOutputs,
+                                                            output,
+                                                            viewername))
+                menu.addMenu(output_menu)
         menu.addSeparator()
         self.__menuActions.layers().addAction(menu, "setProperties")
         menu.addSeparator()

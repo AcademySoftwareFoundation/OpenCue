@@ -43,7 +43,7 @@ import cuegui.Utils
 logger = cuegui.Logger.getLogger(__file__)
 
 
-class PreviewKatanaProcessorDialog(QtWidgets.QDialog):
+class PreviewProcessorDialog(QtWidgets.QDialog):
     """Widget for displaying a preview of a frame in an image viewer."""
 
     def __init__(self, job, frame, aovs=False, parent=None):
@@ -95,7 +95,7 @@ class PreviewKatanaProcessorDialog(QtWidgets.QDialog):
 
         # pylint: disable=unused-private-member
         self.__itvFile = self.__writePlaylist(playlist)
-        self.__previewThread = PreviewKatanaProcessorWatchThread(items, self)
+        self.__previewThread = PreviewProcessorWatchThread(items, self)
         self.app.threads.append(self.__previewThread)
         self.__previewThread.start()
         self.__progbar.setRange(0, len(items))
@@ -146,7 +146,7 @@ class PreviewKatanaProcessorDialog(QtWidgets.QDialog):
         raise Exception("Katana 2.7.19 and above is required for preview feature.")
 
 
-class PreviewKatanaProcessorWatchThread(QtCore.QThread):
+class PreviewProcessorWatchThread(QtCore.QThread):
     """
     Waits for preview files to appear and emits the progress every second.  This
     thread times out after 60 seconds, which should only occur if there are

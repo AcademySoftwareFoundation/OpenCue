@@ -922,25 +922,25 @@ class FrameActionsTests(unittest.TestCase):
 
         self.job.retryFrames.assert_called_with(name=[frame_name])
 
-    @mock.patch('cuegui.PreviewWidget.PreviewKatanaProcessorDialog')
-    def test_previewMain(self, previewKatanaProcessorDialogMock):
+    @mock.patch('cuegui.PreviewWidget.PreviewProcessorDialog')
+    def test_previewMain(self, previewProcessorDialogMock):
         frame = opencue.wrappers.frame.Frame()
 
-        self.frame_actions.previewMain(rpcObjects=[frame], katanaMode=True)
+        self.frame_actions.previewMain(rpcObjects=[frame])
 
-        previewKatanaProcessorDialogMock.assert_called_with(self.job, frame, False)
-        previewKatanaProcessorDialogMock.return_value.process.assert_called()
-        previewKatanaProcessorDialogMock.return_value.exec_.assert_called()
+        previewProcessorDialogMock.assert_called_with(self.job, frame, False)
+        previewProcessorDialogMock.return_value.process.assert_called()
+        previewProcessorDialogMock.return_value.exec_.assert_called()
 
-    @mock.patch('cuegui.PreviewWidget.PreviewKatanaProcessorDialog')
-    def test_previewAovs(self, previewKatanaProcessorDialogMock):
+    @mock.patch('cuegui.PreviewWidget.PreviewProcessorDialog')
+    def test_previewAovs(self, previewProcessorDialogMock):
         frame = opencue.wrappers.frame.Frame()
 
-        self.frame_actions.previewAovs(rpcObjects=[frame], katanaMode=True)
+        self.frame_actions.previewAovs(rpcObjects=[frame])
 
-        previewKatanaProcessorDialogMock.assert_called_with(self.job, frame, True)
-        previewKatanaProcessorDialogMock.return_value.process.assert_called()
-        previewKatanaProcessorDialogMock.return_value.exec_.assert_called()
+        previewProcessorDialogMock.assert_called_with(self.job, frame, True)
+        previewProcessorDialogMock.return_value.process.assert_called()
+        previewProcessorDialogMock.return_value.exec_.assert_called()
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_eat(self, yesNoMock):

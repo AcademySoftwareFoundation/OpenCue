@@ -28,12 +28,14 @@ import glob
 import os
 import re
 import time
+import functools
 
 from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
 
 import opencue
+import FileSequence
 from opencue.compiled_proto import job_pb2
 
 import cuegui.AbstractTreeWidget
@@ -928,9 +930,34 @@ class FrameContextMenu(QtWidgets.QMenu):
         self.__menuActions.frames().createAction(self, "Filter Selected Layers", None,
                                                  filterSelectedLayersCallback, "stock-filters")
         self.__menuActions.frames().addAction(self, "reorder")
-        self.addSeparator()
-        self.__menuActions.frames().addAction(self, "previewMain")
-        self.__menuActions.frames().addAction(self, "previewAovs")
+
+        job = widget.getJob()
+        frames = widget.selectedObjects()
+        layername = frames[0].layer()
+        layer = job.getLayer(layername)
+        if layer is not None:
+            outputs = layer.getOutputPaths()
+            if outputs:
+                self.addSection("Outputs")
+                frameSet = FileSequence.FrameSet(','.join(str(f.number()) for f in frames))
+                for output in outputs:
+                    rep = output.split("/")[-2]
+                    output_menu = QtWidgets.QMenu(f"{layer.name()}: {rep}", self)
+                    for viewername in cuegui.Constants.VIEWERS:
+                        output_menu.addAction(
+                            viewername,
+                            functools.partial(
+                                cuegui.Utils.previewOutputs,
+                                output,
+                                viewername,
+                                frameSet=frameSet)
+                        )
+                    self.addMenu(output_menu)
+            else:
+                self.addSeparator()
+                self.__menuActions.frames().addAction(self, "previewMain")
+                self.__menuActions.frames().addAction(self, "previewAovs")
+
         self.addSeparator()
         self.__menuActions.frames().addAction(self, "retry")
         self.__menuActions.frames().addAction(self, "eat")

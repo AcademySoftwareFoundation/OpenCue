@@ -675,20 +675,20 @@ def byteConversion(amount, btype):
     return _bytes
 
 
-def previewOutputs(outputs, frameSet=None):
+def previewOutputs(output, viewername, frameSet=None):
     """Wrapper function to preview files
 
-    :param outputs: outputs to preview
-    :rtype outputs: list
+    :param output: output to preview
+    :rtype output: string
+    :param viewername: viewer to be used
+    :rtype viewername: string
     :param frameSet: optional frameset to define range
     :rtype frameSet: FileSequence.FrameSet.FrameSet
     """
-    job_log_cmd = cuegui.Constants.DEFAULT_VIEWER.split()
-    for output in outputs:
-        filepath = output
-        try:
-            fs = FileSequence(output)
-            filepath = fs.getOpenRVPath(frameSet)
-        finally:
-            job_log_cmd.append(filepath)
+    job_log_cmd = cuegui.Constants.VIEWERS.get(viewername).split()
+    try:
+        fs = FileSequence(output)
+        output = fs.getOpenRVPath(frameSet)
+    finally:
+        job_log_cmd.append(output)
     checkShellOut(job_log_cmd)

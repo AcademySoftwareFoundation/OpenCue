@@ -907,36 +907,6 @@ class LayerActions(AbstractActions):
         self.cuebotCall(__layer.staggerFrames, "Stagger Frames Failed",
                         frameRange, int(increment))
 
-    previewMain_info = ["Preview Main", None, "image"]
-
-    # pylint: disable=broad-except
-    def previewMain(self, rpcObjects=None):
-        try:
-            selected_layers = self._getOnlyLayerObjects(rpcObjects)
-            if selected_layers:
-                # Only displays the first item selected on the layer widget
-                layer = selected_layers[0]
-                outputs = layer.getOutputPaths()
-                if outputs:
-                    cuegui.Utils.previewOutputs([outputs[0]])
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(None, "Preview Error",
-                                           "Error displaying preview frames, %s" % e)
-
-    previewAll_info = ["Preview All", None, "images"]
-
-    # pylint: disable=broad-except
-    def previewAll(self, rpcObjects=None):
-        try:
-            layer = self._getOnlyLayerObjects(rpcObjects)[0]
-            if layer is not None:
-                outputs = layer.getOutputPaths()
-                if len(outputs) > 0:
-                    cuegui.Utils.previewOutputs(outputs)
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(None, "Preview Error",
-                                           "Error displaying preview frames, %s" % e)
-
 
 class FrameActions(AbstractActions):
     """Actions for frames."""
@@ -1076,64 +1046,30 @@ class FrameActions(AbstractActions):
                 job.retryFrames(name=names)
                 self._update()
 
-    previewMain_info = ["Preview Main", None, "image"]
+    previewMain_info = ["Preview Main", None, "previewMain"]
 
     # pylint: disable=broad-except
-    def previewMain(self, rpcObjects=None, katanaMode=False):
+    def previewMain(self, rpcObjects=None):
         try:
             job = self._getSource()
             frame = self._getOnlyFrameObjects(rpcObjects)[0]
-            layer = None
-            layers = job.getLayers()
-            for ilayer in layers:
-                if ilayer.name() == frame.layer():
-                    layer = ilayer
-                    break
-
-            if layer is not None:
-                outputs = layer.getOutputPaths()
-                if outputs:
-                    frames = self._getOnlyFrameObjects(rpcObjects)
-                    frameSet = FileSequence.FrameSet(','.join(str(f.number()) for f in frames))
-                    cuegui.Utils.previewOutputs([outputs[0]], frameSet=frameSet)
-                else:
-                    katanaMode = True
-            if katanaMode:
-                d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, False)
-                d.process()
-                d.exec_()
+            d = cuegui.PreviewWidget.PreviewProcessorDialog(job, frame, False)
+            d.process()
+            d.exec_()
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Preview Error",
                                            "Error displaying preview frames, %s" % e)
 
-    previewAovs_info = ["Preview All", None, "images"]
+    previewAovs_info = ["Preview All", None, "previewAovs"]
 
     # pylint: disable=broad-except
-    def previewAovs(self, rpcObjects=None, katanaMode=False):
+    def previewAovs(self, rpcObjects=None):
         try:
             job = self._getSource()
             frame = self._getOnlyFrameObjects(rpcObjects)[0]
-            layer = None
-            layers = job.getLayers()
-            for ilayer in layers:
-                if ilayer.name() == frame.layer():
-                    layer = ilayer
-                    break
-
-            if layer is not None:
-                outputs = layer.getOutputPaths()
-                if outputs:
-                    frames = self._getOnlyFrameObjects(rpcObjects)
-                    frameSet = FileSequence.FrameSet(','.join(str(f.number()) for f in frames))
-                    cuegui.Utils.previewOutputs(outputs, frameSet=frameSet)
-                else:
-                    katanaMode = True
-
-            if katanaMode is True:
-                d = cuegui.PreviewWidget.PreviewKatanaProcessorDialog(job, frame, True)
-                d.process()
-                d.exec_()
-
+            d = cuegui.PreviewWidget.PreviewProcessorDialog(job, frame, True)
+            d.process()
+            d.exec_()
         except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Preview Error",
                                            "Error displaying preview frames, %s" % e)
