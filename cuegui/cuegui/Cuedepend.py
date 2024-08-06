@@ -139,7 +139,7 @@ def createHardDepend(job, onjob):
     for depend_er_layer in opencue.api.findJob(job).getLayers():
         for depend_on_layer in onLayers:
             if depend_er_layer.data.type == depend_on_layer.data.type:
-                depends.append(depend_er_layer.createFrameByFrameDependency(depend_on_layer, False))
+                depends.append(depend_er_layer.createFrameByFrameDependency(depend_on_layer))
     return depends
 
 
