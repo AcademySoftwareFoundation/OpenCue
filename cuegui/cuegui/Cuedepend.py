@@ -378,7 +378,7 @@ def createFrameByFrameDepend(job, layer, onjob, onlayer):
 
     depend_er_layer = opencue.api.findLayer(job, layer)
     depend_on_layer = opencue.api.findLayer(onjob, onlayer)
-    return depend_er_layer.createFrameByFrameDependency(depend_on_layer, False)
+    return depend_er_layer.createFrameByFrameDependency(depend_on_layer)
 
 
 def createLayerOnSimFrameDepend(job, layer, onjob, onlayer, onframe):
