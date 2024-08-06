@@ -201,7 +201,6 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
             # Load job if a uuid is provided
             if cuegui.Utils.isStringId(substring):
                 self.jobMonitor.addJob(substring)
-
             # Load if show and shot are provided or if the "load finished" checkbox is checked
             elif load_finished_jobs or re.search(
                 r"^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
