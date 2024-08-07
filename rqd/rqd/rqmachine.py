@@ -618,6 +618,14 @@ class Machine(object):
                     # An entry without data
                     elif len(lineList) == 1:
                         currCore[lineList[0]] = ""
+
+                # Reads information from /proc/meminfo
+                with open(rqd.rqconstants.PATH_MEMINFO, "r", encoding="utf-8") as fp:
+                    for line in fp:
+                        if line.startswith("MemTotal"):
+                            self.__renderHost.total_mem = int(line.split()[1])
+                        elif line.startswith("SwapTotal"):
+                            self.__renderHost.total_swap = int(line.split()[1])
         else:
             hyperthreadingMultiplier = 1
 
