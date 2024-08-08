@@ -38,10 +38,10 @@ RUN python3.9 -m grpc_tools.protoc \
 RUN 2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
 
 COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION
 
-RUN cd rqd && python3.9 setup.py test
-RUN cd rqd && python3.9 setup.py install
+RUN cd rqd && python3.9 -m unittest discover
+RUN cd rqd && python3.9 -m pip install .
 
 # This step isn't really needed at runtime, but is used when publishing an OpenCue release
 # from this build.
