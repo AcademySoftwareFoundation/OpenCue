@@ -58,7 +58,7 @@ def _loadYamlFile(yaml_file):
     if not os.path.exists(_yaml_file):
         raise FileNotFoundError(f"yaml_file:{_yaml_file} not found")
     config_data = {}
-    with open(_yaml_file, 'r') as data:
+    with open(_yaml_file, 'r', encoding='utf-8') as data:
         try:
             config_data = yaml.load(data, Loader=yaml.SafeLoader)
         except yaml.YAMLError:
