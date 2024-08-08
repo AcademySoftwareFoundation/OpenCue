@@ -29,6 +29,7 @@ from builtins import str
 from builtins import range
 from builtins import object
 
+import codecs
 import ctypes
 import errno
 import logging
@@ -620,7 +621,7 @@ class Machine(object):
                         currCore[lineList[0]] = ""
 
                 # Reads information from /proc/meminfo
-                with open(rqd.rqconstants.PATH_MEMINFO, "r", encoding="utf-8") as fp:
+                with codecs.open(rqd.rqconstants.PATH_MEMINFO, "r", encoding="utf-8") as fp:
                     for line in fp:
                         if line.startswith("MemTotal"):
                             self.__renderHost.total_mem = int(line.split()[1])
