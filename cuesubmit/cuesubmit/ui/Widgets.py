@@ -58,10 +58,14 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.browseButton = QtWidgets.QPushButton(text='Browse')
         self.horizontalLine = CueHLine()
         self.validators = validators or []
+        self.signals = [self.lineEdit.textChanged,
+                        self.lineEdit.focusChange]
+        self.getter = self.lineEdit.text
         self.setter = self.setText
         self.setupUi()
         self.setupConnections()
         self.setAutoFillBackground(True)
+        self.validateText()
 
     def setupUi(self):
         """Creates the widget layout."""
@@ -222,10 +226,13 @@ class CueSelectPulldown(QtWidgets.QWidget):
         self.optionsMenu = QtWidgets.QMenu(self)
         self.optionsMenu.setStyleSheet(Style.PULLDOWN_LIST)
         self.setOptions(options)
+        self.signals = [self.optionsMenu.triggered]
+        self.getter = self.text
+        self.setter = self.setCheckedFromText
         if self.multiselect:
             self.toolButton.setText(self.emptyText)
         else:
-            self.setChecked(options[0])
+            self.setChecked([options[0]])
         self.setupUi()
         self.setupConnections()
 
@@ -280,6 +287,16 @@ class CueSelectPulldown(QtWidgets.QWidget):
                 self.optionsMenu.actions()[0].setChecked(True)
         self.updateLabelText()
 
+    def setCheckedFromText(self, actionsAstext):
+        """Set the given actionNames to be checked and update the label.
+        @type actionNames: str
+        @param actionNames: list of action names to set to checked separated by a comma and a space
+        """
+        if ', ' in actionsAstext and self.multiselect:
+            self.setChecked(actionsAstext.split(', '))
+        else:
+            self.setChecked([actionsAstext])
+
     def text(self):
         """Return the tool button's current text value.
         @rtype: str
@@ -331,7 +348,7 @@ class CueLabelSlider(QtWidgets.QWidget):
                  max_value=999,
                  float_precision=None):
         super(CueLabelSlider, self).__init__(parent=parent)
-        self._labelValue = "%s ({value})" % label
+        self._labelValue = f'{label} ({{value}})'
         self.float_mult = 1
         if float_precision:
             self.float_mult = 10**float_precision
@@ -406,13 +423,17 @@ class CueLabelToggle(QtWidgets.QWidget):
     actionTriggered = QtCore.Signal(int)
     rangeChanged = QtCore.Signal(int, int)
 
-    def __init__(self, label=None, parent=None):
+    def __init__(self, label=None, default_value=False, parent=None):
         super(CueLabelToggle, self).__init__(parent=parent)
         self.mainLayout = QtWidgets.QHBoxLayout()
         self.label = QtWidgets.QLabel(label, parent=self)
         self.label.setMinimumWidth(120)
         self.label.setAlignment(QtCore.Qt.AlignVCenter)
         self.toggle = CueToggle(parent=self)
+        self.toggle.setValue(default_value)
+        self.signals = [self.toggle.valueChanged]
+        self.getter = self.toggle.value
+        self.setter = self.toggle.setValue
         self.setupUi()
         self.setupConnections()
 
@@ -570,14 +591,17 @@ def separatorLine():
 
 def getFile(fileFilter=None):
     """ Opens a file browser and returns the result
-    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;
-                       Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :param fileFilter: optional filters
+      (ex: "Maya Ascii File (*.ma);;Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
     :type fileFilter: str
     :returns: Name of the file
     :rtype: str
     """
-    filename, _ = QtWidgets.QFileDialog.getOpenFileName(caption='Select file',
-                                                        dir='.', filter=fileFilter)
+    filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+        caption='Select file',
+        dir='.',
+        filter=fileFilter
+    )
     return filename
 
 def getFolder():
@@ -585,22 +609,25 @@ def getFolder():
     :returns: Name of the folder
     :rtype: str
     """
-    folder = QtWidgets.QFileDialog.getExistingDirectory(caption='Select folder',
-                                                        dir='.', filter='')
+    folder = QtWidgets.QFileDialog.getExistingDirectory(
+        caption='Select folder',
+        dir='.',
+        filter=''
+    )
     return folder
 
 def _setBrowseFileText(widget_setter, fileFilter):
     """ wrapper function to open a fileBrowser and set its result back in the widget
     :param widget_setter: widget's function to set its text
     :type widget_setter: function
-    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;
-                       Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :param fileFilter: optional filters
+       (ex: "Maya Ascii File (*.ma);;Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
     :type fileFilter: str
     """
     result = getFile(fileFilter)
     widget_setter(result)
 
-def _setBrowseFolderText(widget_setter):
+def _setBrowseFolderText(widget_setter, *args, **kwargs):
     """ wrapper function to open a folderBrowser and set its result back in the widget
     :param widget_setter: widget's function to set its text
     :type widget_setter: function
