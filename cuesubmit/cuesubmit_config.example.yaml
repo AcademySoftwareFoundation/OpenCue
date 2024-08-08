@@ -103,6 +103,10 @@ Help: >
        command uses blank space (no flag)
        UI displays `Nice Name`
   
+     "~{Nice Name}": "python"
+       command uses " python"
+       the widget is hidden
+  
      "-flagName~"
        command uses '-flagName'
        the widget is hidden
