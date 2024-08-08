@@ -37,9 +37,11 @@ def isSoloFlag(flag):
      """
     return re.match('^-+\w+~$', flag)
 
+
 def isFlag(flag):
     """ Check if the provided string is a flag (starts with a -)"""
     return re.match('^-+\w+$', flag)
+
 
 def formatValue(flag, value, isPath, isMandatory):
     """ Adds quotes around file/folder path variables
@@ -50,6 +52,7 @@ def formatValue(flag, value, isPath, isMandatory):
     if isMandatory and value in ('', None):
         value = f'!!missing value for {flag}!!'
     return value
+
 
 def buildDynamicCmd(layerData):
     """From a layer, builds a customized render command."""
@@ -68,6 +71,7 @@ def buildDynamicCmd(layerData):
             renderCommand += f' {value}'
 
     return renderCommand
+
 
 def buildMayaCmd(layerData, silent=False):
     """From a layer, builds a Maya Render command."""
@@ -150,6 +154,7 @@ def buildLayer(layerData, command, lastLayer=None):
             layer.depend_on(lastLayer)
     return layer
 
+
 def buildLayerCommand(layerData, silent=False):
     """Builds the command to be sent per jobType"""
     if layerData.layerType in JobTypes.JobTypes.FROM_CONFIG_FILE:
@@ -168,6 +173,7 @@ def buildLayerCommand(layerData, silent=False):
         else:
             raise ValueError('unrecognized layer type {}'.format(layerData.layerType))
     return command
+
 
 def submitJob(jobData):
     """Submits the job using the PyOutline API."""

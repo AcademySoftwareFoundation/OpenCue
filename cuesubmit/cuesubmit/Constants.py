@@ -41,7 +41,6 @@ RENDER_CMDS = config.get('RENDER_CMDS', {})
 FRAME_TOKEN = config.get('FRAME_TOKEN', '#IFRAME#')
 FRAME_START_TOKEN = config.get('FRAME_START', '#FRAME_START#')
 FRAME_END_TOKEN = config.get('FRAME_END', '#FRAME_END#')
-RENDER_CMDS = config.get('RENDER_CMDS', {})
 
 # Tokens are replaced by cuebot during dispatch with their computed value.
 # see: cuebot/src/main/java/com/imageworks/spcue/dispatcher/DispatchSupportService.java
@@ -64,6 +63,7 @@ MAYA_FILE_FILTERS = [
 ]
 NUKE_FILE_FILTERS = ['Nuke script file (*.nk)']
 BLENDER_FILE_FILTERS = ['Blender file (*.blend)']
+
 
 BLENDER_FORMATS = ['', 'AVIJPEG', 'AVIRAW', 'BMP', 'CINEON', 'DPX', 'EXR', 'HDR', 'IRIS', 'IRIZ',
                    'JP2', 'JPEG', 'MPEG', 'MULTILAYER', 'PNG', 'RAWTGA', 'TGA', 'TIFF']
