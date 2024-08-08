@@ -11,3 +11,7 @@ pylint==2.15.10
 pynput==1.7.6
 PyYAML==5.1
 six==1.16.0
+
+# Optional requirements
+# Sentry support for rqd
+sentry-sdk==2.11.0

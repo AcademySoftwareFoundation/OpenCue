@@ -378,6 +378,8 @@ class NimbyNop(Nimby):
         self.warning_msg()
 
     def unlockedIdle(self):
+        if rqd.rqconstants.OVERRIDE_NIMBY:
+            self.lockNimby()
         self.warning_msg()
 
     def lockedIdle(self):
