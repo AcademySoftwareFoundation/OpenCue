@@ -41,6 +41,7 @@ RENDER_CMDS = config.get('RENDER_CMDS', {})
 FRAME_TOKEN = config.get('FRAME_TOKEN', '#IFRAME#')
 FRAME_START_TOKEN = config.get('FRAME_START', '#FRAME_START#')
 FRAME_END_TOKEN = config.get('FRAME_END', '#FRAME_END#')
+RENDER_CMDS = config.get('RENDER_CMDS', {})
 
 # Tokens are replaced by cuebot during dispatch with their computed value.
 # see: cuebot/src/main/java/com/imageworks/spcue/dispatcher/DispatchSupportService.java
