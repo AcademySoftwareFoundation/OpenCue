@@ -153,7 +153,18 @@ public class FrameCompleteHandler {
             final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() +
                                "_" + report.getFrame().getFrameId();
 
-            if (dispatchSupport.stopFrame(frame, newFrameState, report.getExitStatus(),
+            // rqd is currently not able to report exit_signal=9 when a frame is killed by
+            // the OOM logic. The current solution sets exitStatus to
+            // Dispatcher.EXIT_STATUS_MEMORY_FAILURE before killing the frame, this enables
+            // auto-retrying frames affected by the logic when they report with a
+            // frameCompleteReport. This status retouch ensures a frame complete report is
+            // not able to override what has been set by the previous logic.
+            int exitStatus = report.getExitStatus();
+            if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+                exitStatus = frameDetail.exitStatus;
+            }
+
+            if (dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
                     report.getFrame().getMaxRss())) {
                 if (dispatcher.isTestMode()) {
                     // Database modifications on a threadpool cannot be captured by the test thread
