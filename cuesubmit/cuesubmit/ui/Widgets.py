@@ -348,7 +348,7 @@ class CueLabelSlider(QtWidgets.QWidget):
                  max_value=999,
                  float_precision=None):
         super(CueLabelSlider, self).__init__(parent=parent)
-        self._labelValue = "%s ({value})" % label
+        self._labelValue = f'{label} ({{value}})'
         self.float_mult = 1
         if float_precision:
             self.float_mult = 10**float_precision
@@ -591,14 +591,17 @@ def separatorLine():
 
 def getFile(fileFilter=None):
     """ Opens a file browser and returns the result
-    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;
-                       Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :param fileFilter: optional filters
+      (ex: "Maya Ascii File (*.ma);;Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
     :type fileFilter: str
     :returns: Name of the file
     :rtype: str
     """
-    filename, _ = QtWidgets.QFileDialog.getOpenFileName(caption='Select file',
-                                                        dir='.', filter=fileFilter)
+    filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+        caption='Select file',
+        dir='.',
+        filter=fileFilter
+    )
     return filename
 
 def getFolder():
@@ -606,22 +609,25 @@ def getFolder():
     :returns: Name of the folder
     :rtype: str
     """
-    folder = QtWidgets.QFileDialog.getExistingDirectory(caption='Select folder',
-                                                        dir='.', filter='')
+    folder = QtWidgets.QFileDialog.getExistingDirectory(
+        caption='Select folder',
+        dir='.',
+        filter=''
+    )
     return folder
 
 def _setBrowseFileText(widget_setter, fileFilter):
     """ wrapper function to open a fileBrowser and set its result back in the widget
     :param widget_setter: widget's function to set its text
     :type widget_setter: function
-    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;
-                       Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :param fileFilter: optional filters
+       (ex: "Maya Ascii File (*.ma);;Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
     :type fileFilter: str
     """
     result = getFile(fileFilter)
     widget_setter(result)
 
-def _setBrowseFolderText(widget_setter):
+def _setBrowseFolderText(widget_setter, *args, **kwargs):
     """ wrapper function to open a folderBrowser and set its result back in the widget
     :param widget_setter: widget's function to set its text
     :type widget_setter: function
