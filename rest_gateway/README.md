@@ -6,19 +6,20 @@ A gateway to provide a REST endpoint to opencue gRPC API.
 
 This is a go serviced based on the official [grpc-gateway project](https://github.com/grpc-ecosystem/grpc-gateway) 
 that compiles opencue's proto files into a go service that provides a REST interface and redirect calls to the  
-grpc endpoint.
+grpc endpoint. All API calls over the REST interface requires an authentication header with a json web token as the bearer.
 
-## Running the service
-
-Running the service is very simple:
- * Read and modify the rest_gateway/Dockerfile according to your environment and build the gateway image using docker.
- * Run the image providing the environment variable `CUEBOT_ENDPOINT=your.cuebot.server:8443`
+**Note:** In the examples below, the REST gateway is available at OPENCUE_REST_GATEWAY_URL. Remember to replace OPENCUE_REST_GATEWAY_URL with the appropriate URL.
 
 ## REST interface
 
 All service rpc calls are accessible:
  * HTTP method is POST
  * URI path is built from the service’s name and method: /<fully qualified service name>/<method name> (e.g.: /show.ShowInterface/FindShow)
+ * HTTP header must have an authorization with a jwt token as the bearer. e.g:
+    ```headers: {
+            "Authorization": `Bearer ${jwtToken}`,
+        },
+    ```
  * HTTP body is a JSON with the request object: e.g.: 
     ```proto
         message ShowFindShowRequest {
@@ -61,9 +62,9 @@ message Show {
     float default_max_gpus = 11;
 }
 ```
-request (gateway running on `http://opencue-gateway.apps.com`):
+request (gateway running on `OPENCUE_REST_GATEWAY_URL`):
 ```bash
-curl -i -X POST http://opencue-gateway.apps.com/show.ShowInterface/FindShow -d '{"name": "ashow"}`
+curl -i -H "Authorization: Bearer jwtToken" -X POST OPENCUE_REST_GATEWAY_URL/show.ShowInterface/FindShow -d '{"name": "testshow"}`
 ```
 response
 ```bash
@@ -74,7 +75,7 @@ Grpc-Metadata-Grpc-Accept-Encoding: gzip
 Date: Tue, 12 Dec 2023 18:05:18 GMT
 Content-Length: 501
 
-{"show":{"id":"00000000-0000-0000-0000-99999999999999","name":"ashow","defaultMinCores":1,"defaultMaxCores":10,"commentEmail":"middle-tier@imageworks.com","bookingEnabled":true,"dispatchEnabled":true,"active":true,"showStats":{"runningFrames":75,"deadFrames":14,"pendingFrames":1814,"pendingJobs":175,"createdJobCount":"2353643","createdFrameCount":"10344702","renderedFrameCount":"9733366","failedFrameCount":"1096394","reservedCores":252,"reservedGpus":0},"defaultMinGpus":100,"defaultMaxGpus":100000}}
+{"show":{"id":"00000000-0000-0000-0000-000000000000","name":"testshow","defaultMinCores":1,"defaultMaxCores":10,"commentEmail":"middle-tier@company.com","bookingEnabled":true,"dispatchEnabled":true,"active":true,"showStats":{"runningFrames":75,"deadFrames":14,"pendingFrames":1814,"pendingJobs":175,"createdJobCount":"2353643","createdFrameCount":"10344702","renderedFrameCount":"9733366","failedFrameCount":"1096394","reservedCores":252,"reservedGpus":0},"defaultMinGpus":100,"defaultMaxGpus":100000}}
 ```
 
 ### Example (getting frames for a job):
@@ -143,11 +144,11 @@ message FrameSeq {
     repeated Frame frames = 1;
 }
 ```
-request (gateway running on `http://opencue-gateway.apps.com`):
+request (gateway running on `OPENCUE_REST_GATEWAY_URL`):
 
 Note: it is important to include 'page' and 'limit' when getting frames for a job.
 ```bash
-curl -i -X POST http://opencue-gateway.apps.com/job.JobInterface/GetFrames -d '{"job":{"id":"9999999999-b8d7-9999-a29c-99999999999999"}, "req": {"include_finished":true,"page":1,"limit":100}}'
+curl -i -H "Authorization: Bearer jwtToken" -X POST OPENCUE_REST_GATEWAY_URL/job.JobInterface/GetFrames -d '{"job":{"id":"00000000-0000-0000-0000-000000000001", "req": {"include_finished":true,"page":1,"limit":100}}'
 ```
 response
 ```bash
@@ -157,7 +158,17 @@ grpc-metadata-content-type: application/grpc
 grpc-metadata-grpc-accept-encoding: gzip
 date: Tue, 13 Feb 2024 17:15:49 GMT
 transfer-encoding: chunked
-set-cookie: 3d3a38cc45d028e42e93031e0ccc9b1e=534d34fde72242856a7fdadc27260929; path=/; HttpOnly
+set-cookie: 01234567890123456789012345678901234567890123456789012345678901234; path=/; HttpOnly
 
-{"frames":{"frames":[{"id":"9999999", "name":"0001-some_frame_0999990", "layerName":"h", "number":1, "state":"WAITING", "retryCount":0, "exitStatus":-1, "dispatchOrder":0, "startTime":0, "stopTime":0, "maxRss":"0", "usedMemory":"0", "reservedMemory":"0", "reservedGpuMemory":"0", "lastResource":"/0.00/0", "checkpointState":"DISABLED", "checkpointCount":0, "totalCoreTime":0, "lluTime":1707842141, "totalGpuTime":0, "maxGpuMemory":"0", "usedGpuMemory":"0", "frameStateDisplayOverride":null}, {"id":"10fa17d4-9313-4924-86f5-380c5b2a25d8", "name":"0002-some_frame_0999990", "layerName":"some_frame_0999990", "number":2, "state":"WAITING", "retryCount":0, "exitStatus":-1, "dispatchOrder":1, "startTime":0, "stopTime":0, "maxRss":"0", "usedMemory":"0", "reservedMemory":"0", "reservedGpuMemory":"0", "lastResource":"/0.00/0", "checkpointState":"DISABLED", "checkpointCount":0, "totalCoreTime":0, "lluTime":1707842141, "totalGpuTime":0, "maxGpuMemory":"0", "usedGpuMemory":"0", "frameStateDisplayOverride":null}, {"id":"8d39c602-0b27-4b1e-a09b-4fa35db40e55", "name":"0003-some_frame_0999990", "layerName":"some_frame_0999990", "number":3, "state":"WAITING", "retryCount":0, "exitStatus":-1, "dispatchOrder":2, "startTime":0, "stopTime":0, "maxRss":"0", "usedMemory":"0", "reservedMemory":"0", "reservedGpuMemory":"0", "lastResource":"/0.00/0", "checkpointState":"DISABLED", "checkpointCount":0, "totalCoreTime":0, "lluTime":1707842141, "totalGpuTime":0, "maxGpuMemory":"0", "usedGpuMemory":"0", "frameStateDisplayOverride":null}, {"id":"d418a837-e974-4716-9105-296f495bc407", "name":"0004-some_frame_0999990", "layerName":"some_frame_0999990", "number":4, "state":"WAITING", "retryCount":0, "exitStatus":-1, "dispatchOrder":3, "startTime":0, "stopTime":0, "maxRss":"0", "usedMemory":"0", "reservedMemory":"0", "reservedGpuMemory":"0", "lastResource":"/0.00/0", "checkpointState":"DISABLED", "checkpointCount":0, "totalCoreTime":0, "lluTime":1707842141, "totalGpuTime":0, "maxGpuMemory":"0", "usedGpuMemory":"0", "frameStateDisplayOverride":null}, {"id":"d2113372-99999-4c05-8100-9999999", "name":"0005-some_frame_0999990", "layerName":"some_frame_0999990", "number":5, "state":"WAITING", "retryCount":0, "exitStatus":-1, "dispatchOrder":4, "startTime":0, "stopTime":0, "maxRss":"0", "usedMemory":"0", "reservedMemory":"0", "reservedGpuMemory":"0", "lastResource":"/0.00/0", "checkpointState":"DISABLED", "checkpointCount":0, "totalCoreTime":0, "lluTime":1707842141, "totalGpuTime":0, "maxGpuMemory":"0", "usedGpuMemory":"0", "frameStateDisplayOverride":null}]}}
+
+{"frames":{"frames":[{"id":"00000000-0000-0000-0000-000000000002", "name":"0001-bty_tp_3d_123456", "layerName":"bty_tp_3d_123456", "number":1, "state":"WAITING", "retryCount":0, "exitStatus":-1, "dispatchOrder":0, "startTime":0, "stopTime":0, "maxRss":"0", "usedMemory":"0", "reservedMemory":"0", "reservedGpuMemory":"0", "lastResource":"/0.00/0", "checkpointState":"DISABLED", "checkpointCount":0, "totalCoreTime":0, "lluTime":1707842141, "totalGpuTime":0, "maxGpuMemory":"0", "usedGpuMemory":"0", "frameStateDisplayOverride":null}, {"id":"00000000-0000-0000-0000-000000000003", "name":"0002-bty_tp_3d_123456", "layerName":"bty_tp_3d_123456", "number":2, "state":"WAITING", "retryCount":0, "exitStatus":-1, "dispatchOrder":1, "startTime":0, "stopTime":0, "maxRss":"0", "usedMemory":"0", "reservedMemory":"0", "reservedGpuMemory":"0", "lastResource":"/0.00/0", "checkpointState":"DISABLED", "checkpointCount":0, "totalCoreTime":0, "lluTime":1707842141, "totalGpuTime":0, "maxGpuMemory":"0", "usedGpuMemory":"0", "frameStateDisplayOverride":null}, {"id":"00000000-0000-0000-0000-000000000004", "name":"0003-bty_tp_3d_083540", "layerName":"bty_tp_3d_123456", "number":3, "state":"WAITING", "retryCount":0, "exitStatus":-1, "dispatchOrder":2, "startTime":0, "stopTime":0, "maxRss":"0", "usedMemory":"0", "reservedMemory":"0", "reservedGpuMemory":"0", "lastResource":"/0.00/0", "checkpointState":"DISABLED", "checkpointCount":0, "totalCoreTime":0, "lluTime":1707842141, "totalGpuTime":0, "maxGpuMemory":"0", "usedGpuMemory":"0", "frameStateDisplayOverride":null}, {"id":"00000000-0000-0000-0000-000000000005", "name":"0004-bty_tp_3d_083540", "layerName":"bty_tp_3d_123456", "number":4, "state":"WAITING", "retryCount":0, "exitStatus":-1, "dispatchOrder":3, "startTime":0, "stopTime":0, "maxRss":"0", "usedMemory":"0", "reservedMemory":"0", "reservedGpuMemory":"0", "lastResource":"/0.00/0", "checkpointState":"DISABLED", "checkpointCount":0, "totalCoreTime":0, "lluTime":1707842141, "totalGpuTime":0, "maxGpuMemory":"0", "usedGpuMemory":"0", "frameStateDisplayOverride":null}, {"id":"00000000-0000-0000-0000-000000000006", "name":"0005-bty_tp_3d_083540", "layerName":"bty_tp_3d_123456", "number":5, "state":"WAITING", "retryCount":0, "exitStatus":-1, "dispatchOrder":4, "startTime":0, "stopTime":0, "maxRss":"0", "usedMemory":"0", "reservedMemory":"0", "reservedGpuMemory":"0", "lastResource":"/0.00/0", "checkpointState":"DISABLED", "checkpointCount":0, "totalCoreTime":0, "lluTime":1707842141, "totalGpuTime":0, "maxGpuMemory":"0", "usedGpuMemory":"0", "frameStateDisplayOverride":null}]}}
 ```
+
+## Unit testing and system logs
+Unit tests for the gRPC REST gateway can be run by uncommenting `RUN go test -v` in the Dockerfile. Unit tests currently cover the following cases for jwtMiddleware (used for authentication):
+- valid tokens
+- missing tokens
+- invalid tokens
+- expired tokens
+
+System logs are available in /logs and require mounting to be properly tracked. All Stdout are output to both the console and /logs. Here is an example Docker run command that includes addding an environment file and volume mounting: `docker run --env-file ./rest_gateway/.env -v PATH_TO_REST_GATEWAY/logs:/logs -p 8448:8448 restgateway`.
