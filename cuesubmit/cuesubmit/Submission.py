@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import str
+import re
 
 import outline
 import outline.cuerun
@@ -30,25 +31,27 @@ from cuesubmit import Constants
 from cuesubmit import JobTypes
 
 
-def buildMayaCmd(layerData):
+def buildMayaCmd(layerData, silent=False):
     """From a layer, builds a Maya Render command."""
     camera = layerData.cmd.get('camera')
     mayaFile = layerData.cmd.get('mayaFile')
-    if not mayaFile:
+    if not mayaFile and not silent:
         raise ValueError('No Maya File provided. Cannot submit job.')
-    renderCommand = '{renderCmd} -r file -s {frameToken} -e {frameToken}'.format(
-        renderCmd=Constants.MAYA_RENDER_CMD, frameToken=Constants.FRAME_TOKEN)
+    renderCommand = '{renderCmd} -r file -s {frameStart} -e {frameEnd}'.format(
+        renderCmd=Constants.MAYA_RENDER_CMD,
+        frameStart=Constants.FRAME_START_TOKEN,
+        frameEnd=Constants.FRAME_END_TOKEN)
     if camera:
         renderCommand += ' -cam {}'.format(camera)
     renderCommand += ' {}'.format(mayaFile)
     return renderCommand
 
 
-def buildNukeCmd(layerData):
+def buildNukeCmd(layerData, silent=False):
     """From a layer, builds a Nuke Render command."""
     writeNodes = layerData.cmd.get('writeNodes')
     nukeFile = layerData.cmd.get('nukeFile')
-    if not nukeFile:
+    if not nukeFile and not silent:
         raise ValueError('No Nuke file provided. Cannot submit job.')
     renderCommand = '{renderCmd} -F {frameToken} '.format(
         renderCmd=Constants.NUKE_RENDER_CMD, frameToken=Constants.FRAME_TOKEN)
@@ -58,12 +61,13 @@ def buildNukeCmd(layerData):
     return renderCommand
 
 
-def buildBlenderCmd(layerData):
+def buildBlenderCmd(layerData, silent=False):
     """From a layer, builds a Blender render command."""
     blenderFile = layerData.cmd.get('blenderFile')
     outputPath = layerData.cmd.get('outputPath')
     outputFormat = layerData.cmd.get('outputFormat')
-    if not blenderFile:
+    frameRange = layerData.layerRange
+    if not blenderFile and not silent:
         raise ValueError('No Blender file provided. Cannot submit job.')
 
     renderCommand = '{renderCmd} -b -noaudio {blenderFile}'.format(
@@ -72,8 +76,14 @@ def buildBlenderCmd(layerData):
         renderCommand += ' -o {}'.format(outputPath)
     if outputFormat:
         renderCommand += ' -F {}'.format(outputFormat)
-    # The render frame must come after the scene and output
-    renderCommand += ' -f {frameToken}'.format(frameToken=Constants.FRAME_TOKEN)
+    if re.match(r"^\d+-\d+$", frameRange):
+        # Render frames from start to end (inclusive) via '-a' command argument
+        renderCommand += (' -s {startFrame} -e {endFrame} -a'
+                          .format(startFrame=Constants.FRAME_START_TOKEN,
+                                  endFrame=Constants.FRAME_END_TOKEN))
+    else:
+        # The render frame must come after the scene and output
+        renderCommand += ' -f {frameToken}'.format(frameToken=Constants.FRAME_TOKEN)
     return renderCommand
 
 
@@ -102,29 +112,22 @@ def buildLayer(layerData, command, lastLayer=None):
             layer.depend_on(lastLayer)
     return layer
 
-
-def buildMayaLayer(layerData, lastLayer):
-    """Builds a PyOutline layer running a Maya command."""
-    mayaCmd = buildMayaCmd(layerData)
-    return buildLayer(layerData, mayaCmd, lastLayer)
-
-
-def buildNukeLayer(layerData, lastLayer):
-    """Builds a PyOutline layer running a Nuke command."""
-    nukeCmd = buildNukeCmd(layerData)
-    return buildLayer(layerData, nukeCmd, lastLayer)
-
-
-def buildBlenderLayer(layerData, lastLayer):
-    """Builds a PyOutline layer running a Blender command."""
-    blenderCmd = buildBlenderCmd(layerData)
-    return buildLayer(layerData, blenderCmd, lastLayer)
-
-
-def buildShellLayer(layerData, lastLayer):
-    """Builds a PyOutline layer running a shell command."""
-    return buildLayer(layerData, layerData.cmd['commandTextBox'], lastLayer)
-
+def buildLayerCommand(layerData, silent=False):
+    """Builds the command to be sent per jobType"""
+    if layerData.layerType == JobTypes.JobTypes.MAYA:
+        command = buildMayaCmd(layerData, silent)
+    elif layerData.layerType == JobTypes.JobTypes.SHELL:
+        command = layerData.cmd.get('commandTextBox') if silent else layerData.cmd['commandTextBox']
+    elif layerData.layerType == JobTypes.JobTypes.NUKE:
+        command = buildNukeCmd(layerData, silent)
+    elif layerData.layerType == JobTypes.JobTypes.BLENDER:
+        command = buildBlenderCmd(layerData, silent)
+    else:
+        if silent:
+            command = 'Error: unrecognized layer type {}'.format(layerData.layerType)
+        else:
+            raise ValueError('unrecognized layer type {}'.format(layerData.layerType))
+    return command
 
 def submitJob(jobData):
     """Submits the job using the PyOutline API."""
@@ -132,16 +135,8 @@ def submitJob(jobData):
         jobData['name'], shot=jobData['shot'], show=jobData['show'], user=jobData['username'])
     lastLayer = None
     for layerData in jobData['layers']:
-        if layerData.layerType == JobTypes.JobTypes.MAYA:
-            layer = buildMayaLayer(layerData, lastLayer)
-        elif layerData.layerType == JobTypes.JobTypes.SHELL:
-            layer = buildShellLayer(layerData, lastLayer)
-        elif layerData.layerType == JobTypes.JobTypes.NUKE:
-            layer = buildNukeLayer(layerData, lastLayer)
-        elif layerData.layerType == JobTypes.JobTypes.BLENDER:
-            layer = buildBlenderLayer(layerData, lastLayer)
-        else:
-            raise ValueError('unrecognized layer type %s' % layerData.layerType)
+        command = buildLayerCommand(layerData)
+        layer = buildLayer(layerData, command, lastLayer)
         ol.add_layer(layer)
         lastLayer = layer
 

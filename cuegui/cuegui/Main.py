@@ -80,7 +80,7 @@ def startup(app_name, app_version, argv):
 
     # Open all windows that were open when the app was last closed
     for name in mainWindow.windows_names[1:]:
-        if settings.value("%s/Open" % name, False):
+        if settings.value("%s/Open" % name, "false").lower() == 'true':
             mainWindow.windowMenuOpenWindow(name)
 
     # End splash screen

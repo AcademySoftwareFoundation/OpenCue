@@ -69,6 +69,12 @@ service FrameInterface {
     // Updates the state of the frame's checkpoint status.  If the checkpoint status is complete, then the frame's
     // checkpointCoreSeconds is updated with the amount of render time that was checkpointed.
     rpc SetCheckpointState(FrameSetCheckpointStateRequest) returns (FrameSetCheckpointStateResponse);
+
+    // Set a frame's state display override
+    rpc SetFrameStateDisplayOverride(FrameStateDisplayOverrideRequest) returns (FrameStateDisplayOverrideResponse);
+
+    // Get a frame's state display overrides
+    rpc GetFrameStateDisplayOverrides(GetFrameStateDisplayOverridesRequest) returns (GetFrameStateDisplayOverridesResponse);
 }
 
 service GroupInterface {
@@ -140,6 +146,10 @@ service JobInterface {
     // Add a render partition to the local host.  This partition will
     // run frames on the specified job.
     rpc AddRenderPartition(JobAddRenderPartRequest) returns (JobAddRenderPartResponse);
+
+    // Adds a subscriber to a job. When the job is finished, subscriber
+    // receives email with notification
+    rpc AddSubscriber(JobAddSubscriberRequest) returns (JobAddSubscriberResponse);
 
     // Setup and retunrn a JobOnFrame dependency
     rpc CreateDependencyOnFrame(JobCreateDependencyOnFrameRequest) returns (JobCreateDependencyOnFrameResponse);
@@ -468,6 +478,23 @@ enum Order {
 
 // -------- Primary Message Types --------]
 
+// Object to contain an override of the frame's display settings
+message FrameStateDisplayOverride {
+    FrameState state = 1;   // the FrameState to override
+    string text = 2;  // the text to use
+
+    message RGB {
+        int32 red = 1;
+        int32 green = 2;
+        int32 blue = 3;
+    }
+    RGB color = 3; // RGB color to use e.g. 255,0,0
+}
+
+message FrameStateDisplayOverrideSeq {
+    repeated FrameStateDisplayOverride overrides = 1;
+}
+
 // FRAME ----
 message Frame {
     string id = 1;
@@ -492,6 +519,7 @@ message Frame {
     int32 total_gpu_time = 20;
     int64 max_gpu_memory = 21;
     int64 used_gpu_memory = 22;
+    FrameStateDisplayOverride frame_state_display_override = 23;
 }
 
 // Object for frame searching
@@ -537,6 +565,7 @@ message UpdatedFrame {
     int32 llu_time = 10;
     int64 max_gpu_memory = 11;
     int64 used_gpu_memory = 12;
+    FrameStateDisplayOverride frame_state_display_override = 13;
 }
 
 message UpdatedFrameSeq {
@@ -683,6 +712,7 @@ message Layer {
     int32 timeout_llu = 19;
     float min_gpus = 20;
     float max_gpus = 21;
+    string command = 22;
 }
 
 message LayerSeq {
@@ -887,6 +917,10 @@ message FrameGetWhatThisDependsOnResponse {
 // Kill
 message FrameKillRequest {
     Frame frame = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
 }
 
 message FrameKillResponse {} // Empty
@@ -1113,6 +1147,14 @@ message JobAddRenderPartResponse {
     renderPartition.RenderPartition render_partition = 1;
 }
 
+// AddSubscriber
+message JobAddSubscriberRequest {
+    Job job = 1;
+    string subscriber = 2;
+}
+
+message JobAddSubscriberResponse {}
+
 // CreateDependencyOnFrame
 message JobCreateDependencyOnFrameRequest {
     Job job = 1;
@@ -1285,6 +1327,10 @@ message JobIsJobPendingResponse {
 // Kill
 message JobKillRequest {
     Job job = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
 }
 
 message JobKillResponse {} // Empty
@@ -1293,6 +1339,10 @@ message JobKillResponse {} // Empty
 message JobKillFramesRequest {
     Job job = 1;
     FrameSearchCriteria req = 2;
+    string username = 3;
+    string pid = 4;
+    string host_kill = 5;
+    string reason = 6;
 }
 
 message JobKillFramesResponse {} // Empty
@@ -1615,6 +1665,10 @@ message LayerGetWhatThisDependsOnResponse {
 // KillFrames
 message LayerKillFramesRequest {
     Layer layer = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
 }
 
 message LayerKillFramesResponse {} // Empty
@@ -1748,3 +1802,19 @@ message LayerStaggerFramesRequest {
 }
 
 message LayerStaggerFramesResponse {} // Empty
+
+
+message FrameStateDisplayOverrideRequest {
+  Frame frame = 1;
+  FrameStateDisplayOverride override = 2;
+}
+
+message FrameStateDisplayOverrideResponse {} //Empty
+
+message GetFrameStateDisplayOverridesRequest {
+  Frame frame = 1;
+}
+
+message GetFrameStateDisplayOverridesResponse {
+  FrameStateDisplayOverrideSeq overrides = 1;
+}

@@ -398,6 +398,12 @@ message ProcSearchCriteria {
     // A range of memory usage. Values are in KB.
     repeated criterion.InRangeIntegerSearchCriterion memory_range = 6;
 
+    // Less than memory usage. Values are in KB.
+    repeated criterion.GreaterThanIntegerSearchCriterion memory_greater_than = 10;
+
+    // Greater than memory usage. Values are in KB.
+    repeated criterion.GreaterThanIntegerSearchCriterion memory_less_than = 11;
+
     // A duration range. Values are in seconds.
     repeated criterion.InRangeIntegerSearchCriterion duration_range = 7;
 

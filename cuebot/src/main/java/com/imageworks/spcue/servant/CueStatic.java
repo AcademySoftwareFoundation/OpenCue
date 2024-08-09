@@ -93,6 +93,21 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
         responseObserver.onCompleted();
     }
 
+    public boolean isDispatchQueueHealthy() {
+        return this.dispatchQueue.isHealthy();
+    }
+
+    public boolean isManageQueueHealthy() {
+        return this.manageQueue.isHealthy();
+    }
+
+    public boolean isReportQueueHealthy() {
+        return this.reportQueue.isHealthy();
+    }
+
+    public boolean isBookingQueueHealthy() {
+        return this.bookingQueue.isHealthy();
+    }
 
     public Whiteboard getWhiteboard() {
         return whiteboard;

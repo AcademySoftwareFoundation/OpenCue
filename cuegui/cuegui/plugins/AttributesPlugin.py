@@ -240,7 +240,6 @@ class LayerAttributes(AbstractAttributes):
         """Prepopulates needed layer information."""
         return {"depends": layer.getWhatThisDependsOn()}
 
-    # pylint: disable=no-self-use
     def dataSource(self, layer, preload):
         """Returns layer information structured as needed for the attributes list."""
         d = {
@@ -248,6 +247,7 @@ class LayerAttributes(AbstractAttributes):
                 "layer": layer.data.name,
                 "services": layer.data.services,
                 "type": str(layer.data.type),
+                "command": str(layer.data.command),
                 "range": layer.data.range,
                 "tags": layer.data.tags,
                 "threadable": str(layer.data.is_threadable),
@@ -280,7 +280,7 @@ class LayerAttributes(AbstractAttributes):
                           "Running frames": layer.data.layer_stats.running_frames,
                           "maxRss": int(layer.data.layer_stats.max_rss)
                 },
-                "__childOrder":["id","layer","services","type","range","tags",
+                "__childOrder":["id","layer","services","type","command","range","tags",
                                 "threadable","minCores","minMemory","outputs",
                                 "depends", "frames","resources"],
                 "depends": getDependsForm(preload["depends"]),
@@ -314,7 +314,6 @@ class JobAttributes(AbstractAttributes):
         """Prepopulates needed job information."""
         return {"depends": jobObject.getWhatThisDependsOn()}
 
-    # pylint: disable=no-self-use
     def dataSource(self, job, preload):
         """Returns job information structured as needed for the attributes list."""
         if isinstance(job, opencue.wrappers.job.NestedJob):
@@ -398,7 +397,6 @@ class HostAttributes(AbstractAttributes):
 
     NAME = "Host"
 
-    # pylint: disable=no-self-use
     def dataSource(self, host, preload):
         """Returns host information structured as needed for the attributes list."""
         del preload

@@ -44,7 +44,8 @@ def init():
 
 def setDarkStyleSheet():
     """Sets the stylesheet."""
-    cuegui.app().setStyleSheet(open(cuegui.Constants.DARK_STYLE_SHEET).read())
+    with open(cuegui.Constants.DARK_STYLE_SHEET, encoding='utf-8') as fp:
+        cuegui.app().setStyleSheet(fp.read())
 
 
 def DarkPalette():
@@ -52,50 +53,50 @@ def DarkPalette():
     p = QtGui.QPalette()
 
     c = GreyF(0.175)
-    p.setColor(p.Window, c)
-    p.setColor(p.Button, c)
+    p.setColor(QtGui.QPalette.Window, c)
+    p.setColor(QtGui.QPalette.Button, c)
 
     c = GreyF(0.79)
-    p.setColor(p.WindowText, c)
-    p.setColor(p.Text, c)
-    p.setColor(p.ButtonText, c)
-    p.setColor(p.BrightText, c)
+    p.setColor(QtGui.QPalette.WindowText, c)
+    p.setColor(QtGui.QPalette.Text, c)
+    p.setColor(QtGui.QPalette.ButtonText, c)
+    p.setColor(QtGui.QPalette.BrightText, c)
 
     c = ColorF(0.6, 0.6, 0.8)
-    p.setColor(p.Link, c)
+    p.setColor(QtGui.QPalette.Link, c)
     c = ColorF(0.8, 0.6, 0.8)
-    p.setColor(p.LinkVisited, c)
+    p.setColor(QtGui.QPalette.LinkVisited, c)
 
     c = GreyF(0.215)
-    p.setColor(p.Base, c)
+    p.setColor(QtGui.QPalette.Base, c)
     c = GreyF(0.25)
-    p.setColor(p.AlternateBase, c)
+    p.setColor(QtGui.QPalette.AlternateBase, c)
 
     c = GreyF(0.0)
-    p.setColor(p.Shadow, c)
+    p.setColor(QtGui.QPalette.Shadow, c)
 
     c = GreyF(0.13)
-    p.setColor(p.Dark, c)
+    p.setColor(QtGui.QPalette.Dark, c)
 
     c = GreyF(0.21)
-    p.setColor(p.Mid, c)
+    p.setColor(QtGui.QPalette.Mid, c)
 
     c = GreyF(0.25)
-    p.setColor(p.Midlight, c)
+    p.setColor(QtGui.QPalette.Midlight, c)
 
     c = GreyF(0.40)
-    p.setColor(p.Light, c)
+    p.setColor(QtGui.QPalette.Light, c)
 
     c = ColorF(0.31, 0.31, 0.25)
-    p.setColor(p.Highlight, c)
+    p.setColor(QtGui.QPalette.Highlight, c)
 
     c = GreyF(0.46)
-    p.setColor(QtGui.QPalette.Disabled, p.WindowText, c)
-    p.setColor(QtGui.QPalette.Disabled, p.Text, c)
-    p.setColor(QtGui.QPalette.Disabled, p.ButtonText, c)
+    p.setColor(QtGui.QPalette.Disabled, QtGui.QPalette.WindowText, c)
+    p.setColor(QtGui.QPalette.Disabled, QtGui.QPalette.Text, c)
+    p.setColor(QtGui.QPalette.Disabled, QtGui.QPalette.ButtonText, c)
 
     c = GreyF(0.55)
-    p.setColor(QtGui.QPalette.Disabled, p.BrightText, c)
+    p.setColor(QtGui.QPalette.Disabled, QtGui.QPalette.BrightText, c)
 
     return p
 

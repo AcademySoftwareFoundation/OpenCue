@@ -242,7 +242,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         user = os.environ["USER"]
         try:
             owner = opencue.api.getOwner(user)
-        except opencue.EntityNotFoundException as e:
+        except opencue.EntityNotFoundException:
             # Owner does not exist
             owner = _show.createOwner(user)
 

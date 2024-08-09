@@ -48,10 +48,10 @@ service RqdInterface {
     // Return the HostReport
     rpc ReportStatus(RqdStaticReportStatusRequest) returns (RqdStaticReportStatusResponse);
 
-    // Restart the rqd process when it becomes idle
+    // [Deprecated] Restart the rqd process when it becomes idle
     rpc RestartRqdIdle(RqdStaticRestartIdleRequest) returns (RqdStaticRestartIdleResponse);
 
-    // Restart rqd process now
+    // [Deprecated] Restart rqd process now
     rpc RestartRqdNow(RqdStaticRestartNowRequest) returns (RqdStaticRestartNowResponse);
 
     // Turn off rqd when it becomes idle

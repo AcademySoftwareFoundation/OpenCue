@@ -176,6 +176,7 @@ class FilterMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def _processUpdate(self, work, rpcObjects):
         """Adds the feature of forcing the items to be sorted by the first
         column"""
+        # pylint: disable=protected-access
         cuegui.AbstractTreeWidget.AbstractTreeWidget._processUpdate(self, work, rpcObjects)
 
     def _getUpdate(self):
@@ -224,6 +225,7 @@ class MatcherMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
+        # pylint: disable=unused-private-member
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
         self._timer.stop()

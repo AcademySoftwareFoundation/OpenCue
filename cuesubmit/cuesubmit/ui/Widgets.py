@@ -21,7 +21,9 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import object
-from PySide2 import QtCore, QtGui, QtWidgets
+from functools import partial
+
+from qtpy import QtCore, QtGui, QtWidgets
 
 from cuesubmit import Constants
 from cuesubmit.ui import Style
@@ -53,8 +55,10 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         self.lineEdit = CueLineEdit(defaultText, completerStrings=completers)
         self.lineEdit.setToolTip(tooltip)
+        self.browseButton = QtWidgets.QPushButton(text='Browse')
         self.horizontalLine = CueHLine()
         self.validators = validators or []
+        self.setter = self.setText
         self.setupUi()
         self.setupConnections()
         self.setAutoFillBackground(True)
@@ -64,6 +68,7 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.setLayout(self.mainLayout)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
         self.mainLayout.addWidget(self.lineEdit, 1, 0, 1, 4)
+        self.browseButton.setVisible(False)
         self.mainLayout.addWidget(self.horizontalLine, 2, 0, 1, 4)
         self.label.setStyleSheet(Style.LABEL_TEXT)
 
@@ -73,6 +78,34 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.lineEdit.textChanged.connect(self.validateText)
         self.lineEdit.focusChange.connect(self.textFocusChange)
         # pylint: enable=no-member
+
+    def setFileBrowsable(self, fileFilter=None):
+        """ Displays the Browse button and hook it to a fileBrowser with optional file filters
+
+        :param fileFilter: single or multiple file filters (ex: 'Maya Ascii File (*.ma)')
+        :type fileFilter: str or list
+        """
+        self._showBrowseButton()
+        if isinstance(fileFilter, (list, tuple)):
+            fileFilter = ';;'.join(fileFilter)
+        # pylint: disable=no-member
+        self.browseButton.clicked.connect(partial(_setBrowseFileText,
+                                                  widget_setter=self.setter,
+                                                  fileFilter=fileFilter))
+
+    def setFolderBrowsable(self):
+        """ Displays the Browse button and hook it to a folderBrowser """
+        self._showBrowseButton()
+        # pylint: disable=no-member
+        self.browseButton.clicked.connect(partial(_setBrowseFolderText,
+                                                  widget_setter=self.setter))
+
+    def _showBrowseButton(self):
+        """ Re-layout lineEdit and browse button and display it """
+        self.mainLayout.removeWidget(self.lineEdit)
+        self.mainLayout.addWidget(self.lineEdit, 1, 0, 1, 3)
+        self.mainLayout.addWidget(self.browseButton, 1, 3, 1, 1)
+        self.browseButton.setVisible(True)
 
     def setText(self, text):
         """Set the text to the given value.
@@ -103,6 +136,11 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         @return: current text
         """
         return self.lineEdit.text()
+
+    def greyOut(self):
+        """Make widget grey and read-only"""
+        self.lineEdit.setReadOnly(True)
+        self.lineEdit.setStyleSheet(Style.DISABLED_LINE_EDIT)
 
 
 class CueLineEdit(QtWidgets.QLineEdit):
@@ -182,6 +220,7 @@ class CueSelectPulldown(QtWidgets.QWidget):
         self.label = QtWidgets.QLabel(labelText)
         self.toolButton = QtWidgets.QToolButton(parent=self)
         self.optionsMenu = QtWidgets.QMenu(self)
+        self.optionsMenu.setStyleSheet(Style.PULLDOWN_LIST)
         self.setOptions(options)
         if self.multiselect:
             self.toolButton.setText(self.emptyText)
@@ -274,6 +313,87 @@ class CueSpacerItem(QtWidgets.QSpacerItem):
         @param spacerType: a valid SpacerType
         """
         super(CueSpacerItem, self).__init__(width, height, spacerType[0], spacerType[1])
+
+class CueLabelSlider(QtWidgets.QWidget):
+    """Container widget that holds a label and an int or float slider.
+    Behaves as a float slider when providing a float_precision
+    """
+
+    valueChanged = QtCore.Signal(int)
+    sliderMoved = QtCore.Signal(int)
+    sliderReleased = QtCore.Signal()
+    actionTriggered = QtCore.Signal(int)
+    rangeChanged = QtCore.Signal(int, int)
+
+    def __init__(self, label=None, parent=None,
+                 default_value=0,
+                 min_value=0,
+                 max_value=999,
+                 float_precision=None):
+        super(CueLabelSlider, self).__init__(parent=parent)
+        self._labelValue = "%s ({value})" % label
+        self.float_mult = 1
+        if float_precision:
+            self.float_mult = 10**float_precision
+        self.mainLayout = QtWidgets.QHBoxLayout()
+        self.label = QtWidgets.QLabel(self._labelValue.format(value=default_value), parent=self)
+        self.label.setMinimumWidth(120)
+        self.label.setAlignment(QtCore.Qt.AlignVCenter)
+        self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, parent=self)
+        self.slider.setMinimumWidth(120)
+        self.slider.setMinimum(min_value*self.float_mult)
+        self.slider.setMaximum(max_value*self.float_mult)
+        self.setValue(default_value)
+        self.slider.setSingleStep(1)
+        self.signals = [self.valueChanged]
+        self.getter = self.getValue
+        self.setter = self.setValue
+        self.setupUi()
+        self.setupConnections()
+
+    def setupUi(self):
+        """Creates the widget layout."""
+        self.setLayout(self.mainLayout)
+        self.mainLayout.addWidget(self.label)
+        self.mainLayout.addWidget(self.slider)
+
+    def setupConnections(self):
+        """Sets up widget signals."""
+        self.valueChanged.connect(self.updateLabelValue)
+        # pylint: disable=no-member
+        self.slider.valueChanged.connect(self.valueChanged.emit)
+        self.slider.sliderMoved.connect(self.sliderMoved.emit)
+        self.slider.sliderReleased.connect(self.sliderReleased.emit)
+        self.slider.actionTriggered.connect(self.actionTriggered.emit)
+        self.slider.rangeChanged.connect(self.rangeChanged.emit)
+        # pylint: enable=no-member
+
+    def updateLabelValue(self, value):
+        """ Updates the label with the slider's value at the end
+
+        :param value: current slider integer value
+        :type value: int
+        """
+        if self.float_mult!=1:
+            value = value*1./self.float_mult
+        self.label.setText(self._labelValue.format(value=value))
+
+    def getValue(self):
+        """ Query the slider's value
+        :returns: slider's value
+        :rtype: int or float
+        """
+        if self.float_mult!=1:
+            return self.slider.value()*1./self.float_mult
+        return self.slider.value()
+
+    def setValue(self, value):
+        """ Set the slider's value (consider the float multiplier)
+
+        :param value: current slider integer value
+        :type value: int
+        """
+        self.slider.setValue(value*self.float_mult)
 
 
 class CueLabelToggle(QtWidgets.QWidget):
@@ -448,6 +568,45 @@ def separatorLine():
     line.setStyleSheet(Style.SEPARATOR_LINE)
     return line
 
+def getFile(fileFilter=None):
+    """ Opens a file browser and returns the result
+    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;
+                       Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :type fileFilter: str
+    :returns: Name of the file
+    :rtype: str
+    """
+    filename, _ = QtWidgets.QFileDialog.getOpenFileName(caption='Select file',
+                                                        dir='.', filter=fileFilter)
+    return filename
+
+def getFolder():
+    """ Opens a folder browser and returns the result
+    :returns: Name of the folder
+    :rtype: str
+    """
+    folder = QtWidgets.QFileDialog.getExistingDirectory(caption='Select folder',
+                                                        dir='.', filter='')
+    return folder
+
+def _setBrowseFileText(widget_setter, fileFilter):
+    """ wrapper function to open a fileBrowser and set its result back in the widget
+    :param widget_setter: widget's function to set its text
+    :type widget_setter: function
+    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;
+                       Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :type fileFilter: str
+    """
+    result = getFile(fileFilter)
+    widget_setter(result)
+
+def _setBrowseFolderText(widget_setter):
+    """ wrapper function to open a folderBrowser and set its result back in the widget
+    :param widget_setter: widget's function to set its text
+    :type widget_setter: function
+    """
+    result = getFolder()
+    widget_setter(result)
 
 class CueMessageBox(QtWidgets.QMessageBox):
     """A QMessageBox with message and OK button."""
