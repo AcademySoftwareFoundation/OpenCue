@@ -345,7 +345,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 fqdn = host.getName();
             }
         } catch (UnknownHostException e) {
-            logger.warn(e);
+            logger.info(e);
             fqdn = host.getName();
             name = getHostNameFromFQDN(name, useLongNames);
         }

@@ -173,7 +173,7 @@ public interface HostManager {
     void unbookProc(ProcInterface proc);
 
     /**
-     * Returns the proc who is most deliquent on memory allocation
+     * For a given host, return the proc using more memory above what it had initially reserved
      * @param h
      * @return
      */

@@ -114,6 +114,15 @@ public class ProcSearch extends Criteria implements ProcSearchInterface {
         if (criteria.getMemoryRangeCount() > 0) {
             addRangePhrase("proc.int_mem_reserved", criteria.getMemoryRange(0));
         }
+
+        if (criteria.getMemoryLessThanCount() > 0) {
+            addRangePhrase("proc.int_mem_reserved", criteria.getMemoryLessThan(0));
+        }
+
+        if (criteria.getMemoryGreaterThanCount() > 0) {
+            addRangePhrase("proc.int_mem_reserved", criteria.getMemoryGreaterThan(0));
+        }
+
         if (criteria.getDurationRangeCount() > 0) {
             filterByDurationRange(criteria.getDurationRange(0));
         }

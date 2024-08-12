@@ -85,6 +85,10 @@ public class ActionEntity extends Entity implements ActionInterface {
     }
 
     public String getFilterId() {
+        if (filterId == null){
+            throw new SpcueRuntimeException(
+                    "Trying to get a filterId from a ActityEntity created without a filter");
+        }
         return filterId;
     }
 
