@@ -1,5 +1,27 @@
 "use client";
 
+import { getJobsForRegex, getJobsForShow, getJobsForUser, handleError } from "@/app/utils/utils";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { FramesLayersPopup } from "@/components/ui/frames-layers-popup";
+import { JobProgressBar } from "@/components/ui/job-progress-bar";
+import JobSearchbox from "@/components/ui/jobs-searchbox";
+import { DataTablePagination } from "@/components/ui/pagination";
+import SearchDropdown from "@/components/ui/search-dropdown";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import LinearProgress from "@mui/material/LinearProgress";
+import { Label } from "@radix-ui/react-label";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -10,44 +32,22 @@ import {
   getSortedRowModel,
   Row,
   useReactTable,
-  VisibilityState,
+  VisibilityState
 } from "@tanstack/react-table";
-import * as React from "react";
-import "./index.css";
-
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TbEyeOff, TbPacman, TbPlayerPause, TbPlayerPlay, TbReload } from "react-icons/tb";
-import { MdOutlineCancel } from "react-icons/md";
-import { ChevronDown } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@radix-ui/react-label";
-import { DataTablePagination } from "@/components/ui/pagination";
-import { getState, Job } from "./columns";
-import { FramesLayersPopup } from "@/components/ui/frames-layers-popup";
-import { JobProgressBar } from "@/components/ui/job-progress-bar";
-import JobSearchbox from "@/components/ui/jobs-searchbox";
-import SearchDropdown from "@/components/ui/search-dropdown";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-import Alert from "@mui/material/Alert";
-import Box from "@mui/material/Box";
-import LinearProgress from "@mui/material/LinearProgress";
 import debounce from "lodash/debounce";
+import { ChevronDown } from "lucide-react";
 import { Session } from "next-auth";
 import { signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
+import * as React from "react";
 import { useEffect } from "react";
+import { MdOutlineCancel } from "react-icons/md";
+import { TbEyeOff, TbPacman, TbPlayerPause, TbPlayerPlay, TbReload } from "react-icons/tb";
 import CueWebIcon from "../../components/ui/cuewebicon";
 import { Frame } from "../frames/frame-columns";
-import { getJobsForRegex, getJobsForShow, getJobsForUser, handleError } from "../utils/utils";
+import { getState, Job } from "./columns";
+import "./index.css";
+
 
 export const getItemFromLocalStorage = (itemKey: string, initialItemValue: string) => {
   const itemFromStorage = JSON.parse(localStorage.getItem(itemKey) || initialItemValue);
@@ -188,7 +188,7 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
         // If there is an error in the web worker, set filtered jobs to empty and show errors
         // Otherise, set filtered jobs to filtering results
         if (e.data.error) {
-          handleError("Issue with filtering", e.data.error);
+          handleError(e.data.error, "Issue with filtering");
           setFilteredJobs([]);
         } else {
           setFilteredJobs(e.data);
