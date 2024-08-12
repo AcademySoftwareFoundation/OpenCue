@@ -183,6 +183,9 @@ LOG_HIGHLIGHT_INFO = __config.get('render_logs.highlight.info')
 
 RESOURCE_LIMITS = __config.get('resources')
 
+FINISHED_JOBS_READONLY_FRAME = __config.get('finished_jobs_readonly.frame', False)
+FINISHED_JOBS_READONLY_LAYER = __config.get('finished_jobs_readonly.layer', False)
+
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2
 TYPE_FRAME = QtWidgets.QTreeWidgetItem.UserType + 3

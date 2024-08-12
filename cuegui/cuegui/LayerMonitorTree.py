@@ -221,7 +221,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
-        readonly = (self._cfg().get("layer.finished_jobs_readonly", False) and
+        readonly = (cuegui.Constants.FINISHED_JOBS_READONLY_LAYER and
                     self.__job and self.__job.state() == job_pb2.FINISHED)
 
         __selectedObjects = self.selectedObjects()
@@ -259,17 +259,6 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __itemDoubleClickedFilterLayer(self, item, col):
         del col
         self.handle_filter_layers_byLayer.emit([item.rpcObject.data.name])
-
-    def _cfg(self):
-        """
-        Loads (if necessary) and returns the config values.
-        Warns and returns an empty dict if there's a problem reading the config
-        @return: The keys & values stored in the config file
-        @rtype: dict<str:str>
-        """
-        if not hasattr(self, '__config'):
-            self.__config = cuegui.Utils.getResourceConfig()
-        return self.__config
 
 
 class LayerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):

@@ -593,9 +593,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
-        cfg_allow_edit = self._cfg().get("frame.finished_jobs_readonly", False)
         menu = FrameContextMenu(self, self._actionFilterSelectedLayers,
-                                readonly=(cfg_allow_edit and
+                                readonly=(cuegui.Constants.FINISHED_JOBS_READONLY_FRAME and
                                           self.__jobState == opencue.api.job_pb2.FINISHED))
         menu.exec_(e.globalPos())
 
@@ -605,17 +604,6 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         for frame in self.selectedObjects():
             results[frame.layer()] = True
         self.handle_filter_layers_byLayer[str].emit(list(results.keys()))
-
-    def _cfg(self):
-        """
-        Loads (if necessary) and returns the config values.
-        Warns and returns an empty dict if there's a problem reading the config
-        @return: The keys & values stored in the config file
-        @rtype: dict<str:str>
-        """
-        if not hasattr(self, '__config'):
-            self.__config = cuegui.Utils.getResourceConfig()
-        return self.__config
 
 
 class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
