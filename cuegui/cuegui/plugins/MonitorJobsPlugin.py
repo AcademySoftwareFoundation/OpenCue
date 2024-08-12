@@ -198,16 +198,16 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.jobMonitor.removeAllItems()
 
         if substring:
+            # Load job if a uuid is provided
             if cuegui.Utils.isStringId(substring):
-                # If a uuid is provided, load it
                 self.jobMonitor.addJob(substring)
+            # Load if show and shot are provided or if the "load finished" checkbox is checked
             elif load_finished_jobs or re.search(
                 r"^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
-                # Load all ff show and shot is provided or if "load finished" checkbox is checked
                 for job in opencue.api.getJobs(regex=[substring], include_finished=True):
                     self.jobMonitor.addJob(job)
+            # Otherwise, just load current matching jobs (except for the empty string)
             else:
-                # Otherwise, just load current matching jobs (except for the empty string)
                 for job in opencue.api.getJobs(regex=[substring]):
                     self.jobMonitor.addJob(job)
 

@@ -241,7 +241,9 @@ class NimbySelect(Nimby):
             for device in os.listdir("/dev/input/"):
                 if device.startswith("event") or device.startswith("mice"):
                     try:
-                        self.fileObjList.append(open("/dev/input/%s" % device, "rb"))
+                        # pylint: disable=consider-using-with
+                        self.fileObjList.append(open("/dev/input/%s" % device, "rb",
+                                                     encoding='utf-8'))
                     except IOError:
                         # Bad device found
                         log.exception("IOError: Failed to open /dev/input/%s", device)
@@ -376,6 +378,8 @@ class NimbyNop(Nimby):
         self.warning_msg()
 
     def unlockedIdle(self):
+        if rqd.rqconstants.OVERRIDE_NIMBY:
+            self.lockNimby()
         self.warning_msg()
 
     def lockedIdle(self):

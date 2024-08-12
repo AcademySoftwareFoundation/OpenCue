@@ -27,11 +27,11 @@ from qtpy import QtCore
 from qtpy import QtWidgets
 
 import opencue
+from opencue.wrappers.service import ServiceOverride
 
 import cuegui.Constants
 import cuegui.TagsWidget
 import cuegui.Utils
-from opencue.wrappers.service import ServiceOverride
 
 
 class ServiceForm(QtWidgets.QWidget):
@@ -135,7 +135,6 @@ class ServiceForm(QtWidgets.QWidget):
         self.timeout.setValue(service.data.timeout)
         self.timeout_llu.setValue(service.data.timeout_llu)
         self.min_memory_increase.setValue(service.data.min_memory_increase // 1024)
-        self.__service = service.data
 
     def new(self):
         """
@@ -345,6 +344,7 @@ class ServiceDialog(QtWidgets.QDialog):
     def __init__(self, show, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
 
+        # pylint: disable=unused-private-member
         self.__srv_manager = ServiceManager(show, self)
 
         self.setWindowTitle("Services")

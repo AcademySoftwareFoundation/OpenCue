@@ -86,15 +86,13 @@ class RqdInterfaceServicer(rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceServicer)
 
     def RestartRqdNow(self, request, context):
         """RPC call that kills all running frames and restarts rqd"""
-        log.info("Request received: restartRqdNow")
-        self.rqCore.restartRqdNow()
+        log.warning("Deprecated Request received: restartRqdNow. This request has no effect.")
         return rqd.compiled_proto.rqd_pb2.RqdStaticRestartNowResponse()
 
     def RestartRqdIdle(self, request, context):
         """RPC call that that locks all cores and restarts rqd when idle.
            unlockAll will abort the request."""
-        log.info("Request received: restartRqdIdle")
-        self.rqCore.restartRqdIdle()
+        log.warning("Deprecated Request received: restartRqdIdle. This request has no effect.")
         return rqd.compiled_proto.rqd_pb2.RqdStaticRestartIdleResponse()
 
     def RebootNow(self, request, context):

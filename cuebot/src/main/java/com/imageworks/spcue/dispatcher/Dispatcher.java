@@ -57,7 +57,7 @@ public interface Dispatcher {
     public static final long MEM_RESERVED_DEFAULT = 3355443;
 
     // The maximum amount of memory that can be requested for a given frame.
-    public static final long MEM_RESERVED_MAX = CueUtil.GB * 30;
+    public static final long MEM_RESERVED_MAX = CueUtil.GB * 50;
 
     // The minimum amount of memory that can be assigned to a frame.
     public static final long MEM_RESERVED_MIN = 262144;

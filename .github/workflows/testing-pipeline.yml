@@ -11,6 +11,8 @@ jobs:
     name: Run Python Unit Tests (CY2022)
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2022
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v3
       - name: Run Python Tests
@@ -21,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: aswf/ci-opencue:2022
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v3
       - name: Build with Gradle
@@ -49,21 +53,33 @@ jobs:
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
-  test_python2:
-    name: Run Python Unit Tests using Python2
+  test_python_2024:
+    name: Run Python Unit Tests (CY2024)
     runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2019
+    container: aswf/ci-opencue:2024
     steps:
       - uses: actions/checkout@v3
       - name: Run Python Tests
         run: ci/run_python_tests.sh
+
+  test_cuebot_2024:
+    name: Build Cuebot and Run Unit Tests (CY2024)
+    runs-on: ubuntu-latest
+    container:
+      image: aswf/ci-opencue:2024
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build with Gradle
+        run: |
+          chown -R aswfuser:aswfgroup .
+          su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
   test_pyside6:
     name: Run CueGUI Tests using PySide6
     runs-on: ubuntu-latest
     container: almalinux:9
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run CueGUI Tests
         run: ci/test_pyside6.sh
 
@@ -71,6 +87,8 @@ jobs:
     name: Lint Python Code
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2022
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v3
       - name: Lint Python Code
@@ -93,7 +111,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Get Changed Files
         id: get_changed_files
-        uses: tj-actions/changed-files@v35
+        uses: tj-actions/changed-files@v41
       - name: Check for Version Change
         run: ci/check_changed_files.py ${{ steps.get_changed_files.outputs.modified_files }} ${{ steps.get_changed_files.outputs.deleted_files }}
 
@@ -112,6 +130,6 @@ jobs:
       - uses: actions/checkout@v3
       - name: Get Changed Files
         id: get_changed_files
-        uses: tj-actions/changed-files@v35
+        uses: tj-actions/changed-files@v41
       - name: Check for Version Change
         run: ci/check_version_bump.py ${{ steps.get_changed_files.outputs.all_changed_and_modified_files }}
