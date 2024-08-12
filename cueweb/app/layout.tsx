@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 
 export const metadata: Metadata = {
   title: "CueWeb",
-  description: "CueWeb System",
+  description: "CueWeb system",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
