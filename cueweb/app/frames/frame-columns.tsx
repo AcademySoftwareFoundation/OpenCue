@@ -3,7 +3,7 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown } from "lucide-react";
-import { convertUnixToHumanReadableDate, convertMemoryToString, secondsToHHMMSS } from "../utils/utils";
+import { convertUnixToHumanReadableDate, convertMemoryToString, secondsToHHMMSS } from "@/app/utils/utils";
 
 // This type is used to define the shape of our data.
 export type Frame = {

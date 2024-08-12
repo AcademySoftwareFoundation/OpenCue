@@ -96,6 +96,7 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
+        # pylint: disable=unused-private-member
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
 
@@ -112,7 +113,6 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Creates and returns the proper item"""
         return AllocationWidgetItem(rpcObject, self)
 
-    # pylint: disable=no-self-use
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
         try:

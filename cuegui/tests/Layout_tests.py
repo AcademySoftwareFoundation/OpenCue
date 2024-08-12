@@ -63,7 +63,7 @@ class LayoutTests(unittest.TestCase):
         app_name = 'arbitraryapp'
         config_file_path = os.path.join(self.config_dir, '.%s' % app_name, 'config.ini')
         os.mkdir(os.path.dirname(config_file_path))
-        with open(config_file_path, 'w') as fp:
+        with open(config_file_path, 'w', encoding='utf-8') as fp:
             fp.write(CONFIG_INI)
 
         settings = cuegui.Layout.startup(app_name)
@@ -83,7 +83,7 @@ class LayoutTests(unittest.TestCase):
     def test__should_restore_default_layout(self):
         config_file_path = os.path.join(self.config_dir, '.cuecommander', 'config.ini')
         os.mkdir(os.path.dirname(config_file_path))
-        with open(config_file_path, 'w') as fp:
+        with open(config_file_path, 'w', encoding='utf-8') as fp:
             fp.write(CONFIG_WITH_RESTORE_FLAG)
 
         settings = cuegui.Layout.startup('CueCommander')

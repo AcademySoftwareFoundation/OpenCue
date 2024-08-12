@@ -72,6 +72,11 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.frameLogDataBuffer = FrameLogDataBuffer()
         self.frameEtaDataBuffer = FrameEtaDataBuffer()
 
+        def getFrameStateOverride(frame):
+            if frame.hasFrameStateDisplayOverride():
+                return frame.data.frame_state_display_override.text
+            return job_pb2.FrameState.Name(frame.data.state)
+
         self.startColumnsForType(cuegui.Constants.TYPE_FRAME)
         self.addColumn("Order", 60, id=1,
                        data=lambda job, frame: frame.data.dispatch_order,
@@ -87,8 +92,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda job, frame: frame.data.layer_name,
                        tip="The layer that the frame is in.")
         self.addColumn("Status", 100, id=4,
-                       data=lambda job, frame: job_pb2.FrameState.Name(frame.data.state),
-                       sort=lambda job, frame: job_pb2.FrameState.Name(frame.data.state),
+                       data=lambda job, frame: getFrameStateOverride(frame),
+                       sort=lambda job, frame: getFrameStateOverride(frame),
                        tip="The status of the frame:\n"
                            "Succeeded: \t The frame finished without errors.\n"
                            "Running: \t The frame is currently running.\n"
@@ -213,6 +218,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
+        # pylint: disable=unused-private-member
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects, self.getJob)
         self.__sortByColumnCache = {}
@@ -565,7 +571,24 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         frameWidget = self._items.get('Frame.{}'.format(updatedFrame.id))
         if frameWidget:
             for field in list(job_pb2.UpdatedFrame.DESCRIPTOR.fields_by_name.keys()):
-                if field != "id":
+                if field == "id":
+                    continue
+
+                if field == "frame_state_display_override":
+                    # In proto, cannot assign values to embedded message field.
+                    # Instead, assigning values to any field within the child
+                    # message implies setting the message field in the parent.
+                    # The CopyFrom() handles that assignment for us.
+                    if updatedFrame.HasField('frame_state_display_override'):
+                        frameWidget.rpcObject.data.frame_state_display_override.CopyFrom(
+                            updatedFrame.frame_state_display_override)
+                    else:
+                        # If there's no override in the update but the current
+                        # state has one, we need to remove the current override
+                        if frameWidget.rpcObject.hasFrameStateDisplayOverride():
+                            frameWidget.rpcObject.data.ClearField(
+                                "frame_state_display_override")
+                else:
                     setattr(frameWidget.rpcObject.data, field, getattr(updatedFrame, field))
 
     def contextMenuEvent(self, e):
@@ -597,11 +620,13 @@ class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__alignCenter = QtCore.Qt.AlignCenter
             self.__class__.__alignRight = QtCore.Qt.AlignRight
             self.__class__.__rgbFrameState = {}
+            # pylint: disable=consider-using-dict-items
             for key in cuegui.Constants.RGB_FRAME_STATE:
                 self.__class__.__rgbFrameState[key] = cuegui.Constants.RGB_FRAME_STATE[key]
             self.__class__.__type = cuegui.Constants.TYPE_FRAME
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
             self, cuegui.Constants.TYPE_FRAME, rpcObject, parent, job)
+        # pylint: disable=unused-private-member
         self.__show = job.data.show
 
     def data(self, col, role):
@@ -624,6 +649,13 @@ class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             return self.__foregroundColor
 
         if role == QtCore.Qt.BackgroundRole and col == STATUS_COLUMN:
+            # This where the frame state color is determined
+            # This returns a QtGUI.QColor(r,g,b) object
+            # rpcObject is opencue.wrappers.frame.Frame
+            if self.rpcObject.hasFrameStateDisplayOverride():
+                return QtGui.QColor(self.rpcObject.frameStateDisplayOverride().color.red,
+                                    self.rpcObject.frameStateDisplayOverride().color.green,
+                                    self.rpcObject.frameStateDisplayOverride().color.blue)
             return self.__rgbFrameState[self.rpcObject.data.state]
 
         if role == QtCore.Qt.DecorationRole and col == CHECKPOINT_COLUMN:
@@ -683,6 +715,7 @@ class FrameLogDataBuffer(object):
         self.__LINE = 2
         self.__LLU = 3
 
+    # pylint: disable=inconsistent-return-statements
     def getLastLineData(self, job, frame):
         """Returns the last line and LLU of the log file or queues a request to update
         it"""
@@ -755,7 +788,7 @@ class FrameLogDataBuffer(object):
                 __cached[self.__TIME] = time.time()
                 __cached[self.__LINE] = results[1]
                 __cached[self.__LLU] = results[2]
-        except KeyError as e:
+        except KeyError:
             # Could happen while switching jobs with work in the queue
             pass
         except Exception as e:
@@ -842,7 +875,7 @@ class FrameEtaDataBuffer(object):
                 __cached = self.__cache[results[0]]
                 __cached[self.__TIME] = time.time()
                 __cached[self.__ETA] = results[1]
-        except KeyError as e:
+        except KeyError:
             # Could happen while switching jobs with work in the queue
             pass
         except Exception as e:

@@ -3,7 +3,7 @@ import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import ListItem from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
-import React, { useEffect } from "react";
+import React, { CSSProperties, useEffect } from "react";
 import { FixedSizeList } from "react-window";
 
 type SearchDropdownProps = {
@@ -28,7 +28,7 @@ export default function SearchDropdown({
   const maxListHeight = 400;
   const listHeight = Math.min(itemHeight * jobs.length + 5, maxListHeight);
   const listRef = React.useRef<FixedSizeList | null>(null);
-  const style = {
+  const style: CSSProperties = {
     position: "absolute",
     top: "100%",
     left: 0,

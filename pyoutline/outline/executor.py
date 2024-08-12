@@ -45,7 +45,7 @@ class TaskExecutor(object):
         for i in range(0, threads):
             logger.debug("executor creating thread #%d", i)
             t = threading.Thread(target=self.worker)
-            t.setDaemon(True)
+            t.daemon = True
             t.start()
 
     def execute(self, callable_, *args):

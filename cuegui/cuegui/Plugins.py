@@ -191,6 +191,8 @@ class Plugins(object):
 
         # Runs any plugins that were saved to the settings
         openPlugins = self.app.settings.value("%s/Plugins_Opened" % self.name) or []
+        if isinstance(openPlugins, str):
+            openPlugins = [openPlugins]
         for plugin in openPlugins:
             if '::' in plugin:
                 plugin_name, plugin_state = str(plugin).split("::")
@@ -319,11 +321,13 @@ class Plugins(object):
             menu_locations[category] = []
 
         # Store the plugin name in the proper menu_locations category
+        # pylint: disable=consider-using-dict-items
         for plugin in self.__plugins:
             category = self.__plugins[plugin].get(CATEGORY, "root")
             menu_locations[category].append(plugin)
 
         # Create the QAction and add it to the correct menu (sorted)
+        # pylint: disable=consider-using-dict-items
         for category in menu_locations:
             for plugin in sorted(menu_locations[category]):
                 action = QtWidgets.QAction("{}".format(plugin), menu)
@@ -338,7 +342,7 @@ class Plugins(object):
         """Handles what happens when a plugin menu item is clicked on
         @param action: The action that was selected from the menu
         @type  action: QAction"""
-        plugin_name = str(action.text()).split("%s" % self.__menu_separator)[0]
+        plugin_name = str(action.text()).split("%s" % self.__menu_separator, maxsplit=1)[0]
         self.launchPlugin(plugin_name, "")
 
 

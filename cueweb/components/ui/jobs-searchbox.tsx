@@ -1,7 +1,7 @@
 import { styled, TextField, Tooltip, TooltipProps, Typography } from "@mui/material";
 import { useTheme } from "next-themes";
 import React, { useCallback, useState } from "react";
-import { handleError } from "/app/utils/utils";
+import { handleError } from "@/app/utils/utils";
 
 interface SearchboxProps {
   searchQuery: string;
@@ -39,7 +39,9 @@ const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, t
         setOpen(false);
         handleInputChange(event);
       } catch (error) {
-        handleError("Error handling input change", error);
+        if (error instanceof Error) {
+          handleError(error, "Error handling input change");
+        }
       }
     },
     [handleInputChange],

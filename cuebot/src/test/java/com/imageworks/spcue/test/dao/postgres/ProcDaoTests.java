@@ -596,7 +596,9 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
             // Increase the memory usage as frames are added
             procDao.updateProcMemoryUsage(frame,
-                    1000*i, 1000*i, 1000*i, 1000*i, 0, 0, children);
+                    1000*i, 1000*i,
+                    Dispatcher.MEM_RESERVED_DEFAULT*i, Dispatcher.MEM_RESERVED_DEFAULT*i,
+                    0, 0, children);
             i++;
         }
 
@@ -846,6 +848,32 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 .build());
         assertEquals(2, procDao.findVirtualProcs(r).size());
 
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testVirtualProcWithSelfishService() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        
+        FrameDetail frameDetail = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+        DispatchFrame frame = frameDao.getDispatchFrame(frameDetail.id);
+        frame.minCores = 250;
+        frame.threadable = true;
+
+        // Frame from a non-selfish sevice
+        VirtualProc proc = VirtualProc.build(host, frame, "something-else");        
+        assertEquals(250, proc.coresReserved);
+
+        // When no selfish service config is provided
+        proc = VirtualProc.build(host, frame);        
+        assertEquals(250, proc.coresReserved);
+
+
+        // Frame with a selfish service        
+        proc = VirtualProc.build(host, frame, "shell", "something-else");        
+        assertEquals(800, proc.coresReserved);
     }
 }
 
