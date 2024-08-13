@@ -102,6 +102,7 @@ def __setup_sentry():
         return
 
     try:
+        # pylint: disable=import-outside-toplevel
         # Avoid importing sentry on the top level to make this dependency optional
         import sentry_sdk
         sentry_sdk.init(cuegui.Constants.SENTRY_DSN)
