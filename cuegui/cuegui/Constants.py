@@ -155,6 +155,8 @@ LOG_ROOT_OS = __config.get('render_logs.root')
 
 ALLOWED_TAGS = tuple(__config.get('allowed_tags'))
 
+SENTRY_DSN = __config.get('sentry.dsn')
+
 DARK_STYLE_SHEET = os.path.join(CONFIG_PATH, __config.get('style.style_sheet'))
 COLOR_THEME = __config.get('style.color_theme')
 __bg_colors = __config.get('style.colors.background')

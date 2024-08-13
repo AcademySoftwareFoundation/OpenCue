@@ -64,6 +64,10 @@ editor.windows: 'notepad'
 editor.mac: 'open -t'
 editor.linux: 'gview -R -m -M -U {config_path}/gvimrc +'
 
+# Url to the sentry application dsn
+# comment out to disable sentry
+# sentry.dsn: 'https://someid@your-sentry.com/10'
+
 resources:
   # The max cores and max memory based on the available hardware.
   # These values are used by:
