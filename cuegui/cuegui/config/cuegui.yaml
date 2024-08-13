@@ -111,7 +111,7 @@ startup_notice.msg: ''
 # Memory usage above this level will be displayed in a different color.
 memory_warning_level: 5242880
 
-# Output Viewer config. 
+# Output Viewer config.
 # Frame, Layer and Job objects have right click menu option for opening an output viewer
 # (eg. OpenRV)
 # output_viewer:

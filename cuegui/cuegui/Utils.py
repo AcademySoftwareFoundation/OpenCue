@@ -568,14 +568,13 @@ def viewFramesOutput(job, frames):
     if frames and len(frames) >= 1:
         paths = []
 
-        all_layers = dict([(layer.data.name, layer)
-                           for layer in job.getLayers()])
+        all_layers = { layer.data.name: layer for layer in job.getLayers() }
         for frame in frames:
             paths.extend(__getOutputFromFrame(all_layers[frame.data.layer_name], frame))
         launchViewerUsingPaths(paths)
 
 
-def launchViewerUsingPaths(paths):
+def launchViewerUsingPaths(paths, test_mode=False):
     """Launch viewer using paths if paths exists and are valid
     This function relies on the following constants that should be configured on the output_viewer
     section of the config file:
@@ -585,20 +584,24 @@ def launchViewerUsingPaths(paths):
     @type  paths: list<String>
     @param paths: List of paths"""
     if not paths:
-        showErrorMessageBox("Sorry, unable to find any completed frames with known output paths",
-                            title="Unable to find completed frames")
+        if not test_mode:
+            showErrorMessageBox(
+                "Sorry, unable to find any completed frames with known output paths",
+                title="Unable to find completed frames")
         return None
 
-    stereo_modifiers = cuegui.Constants.OUTPUT_VIEWER_STEREO_MODIFIERS.split(",")
     # If paths are stereo outputs only keep one of the variants.
     # Stereo ouputs are usually differentiated by a modifier like _lf_ and _rt_,
     # the viewer should only be called with one of them if OUTPUT_VIEWER_STEREO_MODIFIERS
     # is set.
-    if len(paths) == 2 and len(stereo_modifiers) == 2:
-        unified_paths = [path.replace(stereo_modifiers[0].strip(), stereo_modifiers[1].strip())
-                         for path in paths]
-        if len(set(unified_paths)) == 1:
-            paths.pop()
+    if cuegui.Constants.OUTPUT_VIEWER_STEREO_MODIFIERS:
+        stereo_modifiers = cuegui.Constants.OUTPUT_VIEWER_STEREO_MODIFIERS.split(",")
+        if len(paths) == 2 and len(stereo_modifiers) == 2:
+            unified_paths = [path.replace(stereo_modifiers[0].strip(),
+                                        stereo_modifiers[1].strip())
+                            for path in paths]
+            if len(set(unified_paths)) == 1:
+                paths.pop()
 
     # If a regex is provided, the first path will be used to extract groups
     # to be applied cmd_pattern. The number of groups extracted from regexp
@@ -608,31 +611,35 @@ def launchViewerUsingPaths(paths):
     regexp = cuegui.Constants.OUTPUT_VIEWER_EXTRACT_ARGS_REGEX
     cmd_pattern = cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN
     joined_paths = " ".join(paths)
+
+    # Default to the cmd + paths
+    cmd = "%s %s" % (cmd_pattern, joined_paths)
     if regexp:
         try:
             match = re.search(regexp, sample_path)
-            args = match.groupdict().update({"paths": joined_paths})
-            cmd = cmd_pattern.format(**args)
+            if match:
+                args = match.groupdict().update({"paths": joined_paths})
+                cmd = cmd_pattern.format(**args)
         except KeyError:
             print("groups extracted by regex output_viewer.extract_args_regex "
                     "(%s) on sample path (%s) don't match output_viewer.cmd_pattern (%s) " %
                     (regexp, sample_path, cmd_pattern))
-            showErrorMessageBox("Sorry, unable to launch viewer with provided parameters",
-                                title="Viewer misconfigured")
+            if not test_mode:
+                showErrorMessageBox("Sorry, unable to launch viewer with provided parameters",
+                                    title="Viewer misconfigured")
             return None
-    else:
-        cmd = "%s %s" % (cmd_pattern, joined_paths)
 
     # Launch viewer and inform user
     msg = 'Launching viewer: {0}'.format(cmd)
-    QtGui.qApp.emit(QtCore.SIGNAL('status(PyQt_PyObject)'), msg)
-    print(msg)
-    try:
-        subprocess.check_call(cmd)
-    except subprocess.CalledProcessError as e:
-        showErrorMessageBox(str(e), title='Error running Viewer command')
-    except Exception as e:
-        showErrorMessageBox(str(e), title='Unable to open output in Viewer')
+    if not test_mode:
+        QtGui.qApp.emit(QtCore.SIGNAL('status(PyQt_PyObject)'), msg)
+        print(msg)
+        try:
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError as e:
+            showErrorMessageBox(str(e), title='Error running Viewer command')
+        except Exception as e:
+            showErrorMessageBox(str(e), title='Unable to open output in Viewer')
 
     return cmd
 
@@ -652,7 +659,7 @@ def __findMainOutputPath(outputs):
             layer_name = output.split('/')[-2]
             if len(layer_name.split('_')) == 3:
                 return output
-    except:
+    except IndexError:
         pass
     return outputs[0]
 
