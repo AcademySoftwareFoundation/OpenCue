@@ -93,15 +93,17 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda allocation: sum(int(host.cores())
                                                    for host in allocation.getHosts()
                                                    if host.state() == 1),
-                       sort=lambda allocation: (host.cores() for host in allocation.getHosts()
-                                                if host.state() == 1))
+                       sort=lambda allocation: sum(int(host.cores())
+                                                   for host in allocation.getHosts()
+                                                   if host.state() == 1))
 
         self.addColumn("Repair", 65, id=7,
                        data=lambda allocation: sum(int(host.cores())
                                                    for host in allocation.getHosts()
                                                    if host.state() == 4),
-                       sort=lambda allocation: (host.cores() for host in allocation.getHosts()
-                                                if host.state() == 4))
+                       sort=lambda allocation: sum(int(host.cores())
+                                                   for host in allocation.getHosts()
+                                                   if host.state() == 4))
 
         self.addColumn("Hosts", 55, id=8,
                        data=lambda alloc: alloc.data.stats.hosts,
@@ -109,22 +111,23 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self.addColumn("Locked", 65, id=9,
                        data=lambda alloc: alloc.totalLockedHosts()
-                                          + len(list(host for host in alloc.getHosts()
-                                                     if host.lockState() == 2)),
+                                          + len([host for host in alloc.getHosts()
+                                                     if host.lockState() == 2]),
                        sort=lambda alloc: alloc.totalLockedHosts()
-                                          + len(list(host for host in alloc.getHosts()
-                                                     if host.lockState() == 2)))
+                                          + len([host for host in alloc.getHosts()
+                                                     if host.lockState() == 2]))
 
         self.addColumn("Down", 55, id=10,
                        data=lambda alloc: alloc.totalDownHosts(),
                        sort=lambda alloc: alloc.totalDownHosts())
 
         self.addColumn("Repair", 50, id=11,
-                       data=lambda allocation: len(list((host)
-                                                        for host in allocation.getHosts()
-                                                        if host.state() == 4)),
-                       sort=lambda allocation: (host for host in allocation.getHosts()
-                                                if host.state() == 4))
+                       data=lambda allocation: len([host
+                                                    for host in allocation.getHosts()
+                                                    if host.state() == 4]),
+                       sort=lambda allocation: len([host
+                                                    for host in allocation.getHosts()
+                                                    if host.state() == 4]))
 
 
 
