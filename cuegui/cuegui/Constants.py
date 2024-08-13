@@ -183,6 +183,10 @@ LOG_HIGHLIGHT_INFO = __config.get('render_logs.highlight.info')
 
 RESOURCE_LIMITS = __config.get('resources')
 
+OUTPUT_VIEWER_ACTION_TEXT = __config.get('output_viewer.action_text')
+OUTPUT_VIEWER_EXTRACT_ARGS_REGEX = __config.get('output_viewer.extract_args_regex')
+OUTPUT_VIEWER_CMD_PATTERN = __config.get('output_viewer.cmd_pattern')
+
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2
 TYPE_FRAME = QtWidgets.QTreeWidgetItem.UserType + 3

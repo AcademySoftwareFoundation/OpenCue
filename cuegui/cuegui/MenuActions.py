@@ -228,11 +228,11 @@ class JobActions(AbstractActions):
         for job in self._getOnlyJobObjects(rpcObjects):
             self.app.view_object.emit(job)
 
-    viewOutputInItview_info = ["View Output in Itview", None, "view"]
-    def viewOutputInItview(self, rpcObjects=None):
+    viewOutput_info = [cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT, None, "view"]
+    def viewOutput(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
-        if jobs:
-            cuegui.Utils.viewOutputInItview(jobs)
+        if jobs and cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT:
+            cuegui.Utils.viewOutput(jobs)
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
 
@@ -846,11 +846,11 @@ class LayerActions(AbstractActions):
         if layers:
             cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], layers=layers)
 
-    viewOutputInItview_info = ["View Output in Itview", None, "view"]
-    def viewOutputInItview(self, rpcObjects=None):
+    viewOutput_info = [cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT, None, "view"]
+    def viewOutput(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
-        if layers:
-            cuegui.Utils.viewOutputInItview(layers)
+        if layers and cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT:
+            cuegui.Utils.viewOutput(layers)
 
     reorder_info = ["Reorder Frames...", None, "configure"]
 
@@ -1042,11 +1042,11 @@ class FrameActions(AbstractActions):
         frames = self._getOnlyFrameObjects(rpcObjects)
         cuegui.DependDialog.DependDialog(frames[0], self._caller).show()
 
-    viewOutputInItview_info = ["View Output in Itview", None, "view"]
-    def viewOutputInItview(self, rpcObjects=None):
+    viewOutput_info = [cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT, None, "view"]
+    def viewOutput(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
-        if frames:
-            cuegui.Utils.viewFramesOutputInItview(self._getSource(), frames)
+        if frames and cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT:
+            cuegui.Utils.viewFramesOutput(self._getSource(), frames)
 
     getWhatDependsOnThis_info = ["print getWhatDependsOnThis", None, "log"]
 

@@ -222,7 +222,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu = QtWidgets.QMenu()
 
         self.__menuActions.layers().addAction(menu, "view")
-        self.__menuActions.layers().addAction(menu, "viewOutputInItview")
+        self.__menuActions.layers().addAction(menu, "viewOutput")
         depend_menu = QtWidgets.QMenu("&Dependencies", self)
         self.__menuActions.layers().addAction(depend_menu, "viewDepends")
         self.__menuActions.layers().addAction(depend_menu, "dependWizard")

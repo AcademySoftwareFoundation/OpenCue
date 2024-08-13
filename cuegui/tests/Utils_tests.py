@@ -23,6 +23,7 @@ import mock
 import opencue.compiled_proto.job_pb2
 import opencue.wrappers.job
 import cuegui.Utils
+import cuegui.Constants
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
@@ -80,6 +81,46 @@ class UtilsTests(unittest.TestCase):
             'max_proc_hour_cutoff': 30,
             'redirect_wasted_cores_threshold': 100,
         }, result)
+
+    def test_shouldLaunchViewerUsingPaths(self):
+        # Test launching without empty paths
+        self.assertIsNone(cuegui.Utils.launchViewerUsingPaths([]))
+
+        # Test launching without regexp
+        cuegui.Constants.OUTPUT_VIEWER_EXTRACT_ARGS_REGEX = None
+        cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN = 'echo'
+
+        out = cuegui.Utils.launchViewerUsingPaths(["/shots/test_show/test_shot/something/else"])
+        self.assertEqual('echo /shots/test_show/test_shot/something/else', out)
+
+        # Test launching with invalig regex and pattern combination
+        cuegui.Constants.OUTPUT_VIEWER_EXTRACT_ARGS_REGEX = '/shots/(?P<show>\w+)/(?P<name>shot\w+)/.*'
+        cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN = 'echo show={not_a_show}, shot={shot}'
+
+        out = cuegui.Utils.launchViewerUsingPaths(["/shots/test_show/test_shot/something/else"])
+        self.assertIsNone(out)
+
+        # Test launching with valid regex and pattern
+        cuegui.Constants.OUTPUT_VIEWER_EXTRACT_ARGS_REGEX = '/shots/(?P<show>\w+)/(?P<name>shot\w+)/.*'
+        cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN = 'echo show={show}, shot={shot}'
+
+        out = cuegui.Utils.launchViewerUsingPaths(["/shots/test_show/test_shot/something/else"])
+        self.assertEqual('echo show=test_show, shot=test_shot', out)
+
+        # Test launching with stereo output
+        cuegui.Constants.OUTPUT_VIEWER_EXTRACT_ARGS_REGEX = None
+        cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN = 'echo'
+
+        out = cuegui.Utils.launchViewerUsingPaths(["/test/something_lf_something", "/test/something_rt_something"])
+        self.assertEqual('echo /test/something_rt_something', out)
+
+
+        # Test launching multiple outputs
+        cuegui.Constants.OUTPUT_VIEWER_EXTRACT_ARGS_REGEX = None
+        cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN = 'echo'
+
+        out = cuegui.Utils.launchViewerUsingPaths(["/test/something_1", "/test/something_2"])
+        self.assertEqual('echo /test/something_1 /test/something_2', out)
 
 
 if __name__ == '__main__':

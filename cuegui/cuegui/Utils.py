@@ -531,11 +531,12 @@ def popupFrameXdiff(job, frame1, frame2, frame3 = None):
             shellOut(command)
 
 ################################################################################
-# View output in itview functions
+# View output in viewer
 ################################################################################
 
-def viewOutputInItview(items):
-    """Views the output of a list of jobs or list of layers in itview
+def viewOutput(items):
+    """Views the output of a list of jobs or list of layers in viewer
+
     @type  items: list<Job> or list<Layer>
     @param items: List of jobs or list of layers to view the entire job's outputs"""
     if items and len(items) >= 1:
@@ -543,71 +544,100 @@ def viewOutputInItview(items):
 
         if isJob(items[0]):
             for job in items:
-                path_list = getOutputFromLayers(job.getLayers())
+                path_list = __getOutputFromLayers(job.getLayers())
                 paths.extend(path_list)
 
         elif isLayer(items[0]):
-            paths = getOutputFromLayers(items)
+            paths = __getOutputFromLayers(items)
 
         else:
-            raise Exception("The function viewOutputInItview(items) "
-                            "expects a list of jobs or a list of layers")
+            raise Exception("The function expects a list of jobs or a list of layers")
 
-        # Launch Itview using paths if paths exists and are valid
-        launchItviewUsingPaths(paths)
+        # Launch viewer using paths if paths exists and are valid
+        launchViewerUsingPaths(paths)
 
 
-def viewFramesOutputInItview(job, frames):
-    """Views the output of a list of frames in Itview using the job's layer
+def viewFramesOutput(job, frames):
+    """Views the output of a list of frames in viewer using the job's layer
     associated with the frames
+
     @type  job: Job or None
     @param job: The job with the output to view.
     @type  frames: list<Frame>
     @param frames: List of frames to view the entire job's outputs"""
-
     if frames and len(frames) >= 1:
         paths = []
 
         all_layers = dict([(layer.data.name, layer)
                            for layer in job.getLayers()])
         for frame in frames:
-            paths.extend(getOutputFromFrame(all_layers[frame.data.layer_name],
-                                            frame))
-        # Launch Itview using paths if paths exists and are valid
-        launchItviewUsingPaths(paths)
+            paths.extend(__getOutputFromFrame(all_layers[frame.data.layer_name], frame))
+        launchViewerUsingPaths(paths)
 
 
-def launchItviewUsingPaths(paths):
-    """Launch Itview using paths if paths exists and are valid
+def launchViewerUsingPaths(paths):
+    """Launch viewer using paths if paths exists and are valid
+    This function relies on the following constants that should be configured on the output_viewer
+    section of the config file:
+        - OUTPUT_VIEWER_STEREO_MODIFIERS
+        - OUTPUT_VIEWER_EXTRACT_ARGS_REGEX
+        - OUTPUT_VIEWER_CMD_PATTERN
     @type  paths: list<String>
     @param paths: List of paths"""
-
-    # Only load a stereo output once, itview will load the other
-    if len(paths) == 2:
-        if len(set([path.replace('_rt_', '_lf_') for path in paths])) == 1:
-            paths.pop()
-
-    if paths:
-        split = paths[0].split("shots")[1].split("/")
-
-        show = split[1]
-        shot = split[2]
-        colorio = '/shots/{0}/home/lib/lut/colorspaces.xml'.format(show)
-        ocio = '/shots/{0}/home/lib/lut/current/config.ocio'.format(show)
-
-        cmd = 'env SHOW={0} SHOT={1} COLOR_IO={2} OCIO={3}'.format(show, shot, colorio, ocio)
-        cmd += ' itview {0}'.format(' '.join(paths))
-
-        msg = 'Launching Itview: {0}'.format(cmd)
-        QtGui.qApp.emit(QtCore.SIGNAL('status(PyQt_PyObject)'), msg)
-        print(msg)
-        shellOut(cmd)
-    else:
+    if not paths:
         showErrorMessageBox("Sorry, unable to find any completed frames with known output paths",
                             title="Unable to find completed frames")
+        return None
+
+    stereo_modifiers = cuegui.Constants.OUTPUT_VIEWER_STEREO_MODIFIERS.split(",")
+    # If paths are stereo outputs only keep one of the variants.
+    # Stereo ouputs are usually differentiated by a modifier like _lf_ and _rt_,
+    # the viewer should only be called with one of them if OUTPUT_VIEWER_STEREO_MODIFIERS
+    # is set.
+    if len(paths) == 2 and len(stereo_modifiers) == 2:
+        unified_paths = [path.replace(stereo_modifiers[0].strip(), stereo_modifiers[1].strip())
+                         for path in paths]
+        if len(set(unified_paths)) == 1:
+            paths.pop()
+
+    # If a regex is provided, the first path will be used to extract groups
+    # to be applied cmd_pattern. The number of groups extracted from regexp
+    # should be the same as the quantity expected by cmd_pattern.
+    # If no regex is provided, cmd_pattern is executed as it is
+    sample_path = paths[0]
+    regexp = cuegui.Constants.OUTPUT_VIEWER_EXTRACT_ARGS_REGEX
+    cmd_pattern = cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN
+    joined_paths = " ".join(paths)
+    if regexp:
+        try:
+            match = re.search(regexp, sample_path)
+            args = match.groupdict().update({"paths": joined_paths})
+            cmd = cmd_pattern.format(**args)
+        except KeyError:
+            print("groups extracted by regex output_viewer.extract_args_regex "
+                    "(%s) on sample path (%s) don't match output_viewer.cmd_pattern (%s) " %
+                    (regexp, sample_path, cmd_pattern))
+            showErrorMessageBox("Sorry, unable to launch viewer with provided parameters",
+                                title="Viewer misconfigured")
+            return None
+    else:
+        cmd = "%s %s" % (cmd_pattern, joined_paths)
+
+    # Launch viewer and inform user
+    msg = 'Launching viewer: {0}'.format(cmd)
+    QtGui.qApp.emit(QtCore.SIGNAL('status(PyQt_PyObject)'), msg)
+    print(msg)
+    try:
+        subprocess.check_call(cmd)
+    except subprocess.CalledProcessError as e:
+        showErrorMessageBox(str(e), title='Error running Viewer command')
+    except Exception as e:
+        showErrorMessageBox(str(e), title='Unable to open output in Viewer')
+
+    return cmd
 
 
-def findMainOutputPath(outputs):
+def __findMainOutputPath(outputs):
     """Returns the main output layer from list of output paths
     @type  outputs: list<str>
     @param outputs: A list of output paths"""
@@ -627,7 +657,7 @@ def findMainOutputPath(outputs):
     return outputs[0]
 
 
-def getOutputFromLayers(layers):
+def __getOutputFromLayers(layers):
     """Returns the output paths from the frame logs
     @type  layers: list<Layer>
     @param layers: A list of at least one layer
@@ -644,13 +674,14 @@ def getOutputFromLayers(layers):
                     svi_found = True
                     break
             if not svi_found:
-                output = findMainOutputPath(outputs)
+                output = __findMainOutputPath(outputs)
                 paths.append(output)
     return paths
 
 
-def getOutputFromFrame(layer, frame):
+def __getOutputFromFrame(layer, frame):
     """Returns the output paths from a single frame
+
     @type  layer: Layer
     @param layer: The frames' layer
     @type  frame: Frame
@@ -661,7 +692,7 @@ def getOutputFromFrame(layer, frame):
         outputs = layer.getOutputPaths()
         if not outputs:
             return []
-        main_output = findMainOutputPath(outputs)
+        main_output = __findMainOutputPath(outputs)
         main_output = main_output.replace("#", "%04d" % frame.data.number)
         return [main_output]
     except IndexError:
@@ -673,7 +704,8 @@ __REGEX_AOV = re.compile("aov\\_", re.IGNORECASE)
 
 def reorganizeOrder(paths):
     """ Returns the output paths with aov passes appended to the end of the list
-     so itview doesn't load it first
+    so viewer doesn't load it first
+
     @param  paths: list
     @rtype: list
     @return: A list of reorganized output paths"""

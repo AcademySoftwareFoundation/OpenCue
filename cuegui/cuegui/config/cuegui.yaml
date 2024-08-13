@@ -110,3 +110,20 @@ startup_notice.msg: ''
 
 # Memory usage above this level will be displayed in a different color.
 memory_warning_level: 5242880
+
+# Output Viewer config. 
+# Frame, Layer and Job objects have right click menu option for opening an output viewer
+# (eg. OpenRV)
+# output_viewer:
+#   # Text to be displayed at the menu action button
+#   action_text: "View Output in Itview"
+
+#   # extract_args_regex: Regex to extract arguments from the output path produced by a job/layer/frame
+#   # cmd_pattern: Command pattern to be matched with the regex defined at extract_args_regex
+#   # if extract_args_regex is not provided, cmd_pattern is called directly with paths as arguments
+#   extract_args_regex: '/shots/(?P<show>\w+)/(?P<name>shot\w+)/.*'
+#   cmd_pattern: "env SHOW={show} SHOT={shot} COLOR_IO=/{show}/home/colorspaces.xml OCIO=/{show}/home/config.ocio openrv {paths}"
+
+#   # if provided, paths containing any of the two values are considered the same output and only one
+#   # of them will be passed to the viewer
+#   stereo_modifiers: "_rt_,_lf_"
