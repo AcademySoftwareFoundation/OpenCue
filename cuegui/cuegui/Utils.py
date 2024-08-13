@@ -617,9 +617,12 @@ def launchViewerUsingPaths(paths, test_mode=False):
     if regexp:
         try:
             match = re.search(regexp, sample_path)
-            if match:
-                args = match.groupdict().update({"paths": joined_paths})
-                cmd = cmd_pattern.format(**args)
+            if match is None:
+                raise KeyError
+            args = match.groupdict()
+            args.update({"paths": joined_paths})
+            # Raises KeyError if args don't match pattern
+            cmd = cmd_pattern.format(**args)
         except KeyError:
             print("groups extracted by regex output_viewer.extract_args_regex "
                     "(%s) on sample path (%s) don't match output_viewer.cmd_pattern (%s) " %

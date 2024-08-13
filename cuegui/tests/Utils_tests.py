@@ -82,6 +82,7 @@ class UtilsTests(unittest.TestCase):
             'redirect_wasted_cores_threshold': 100,
         }, result)
 
+class UtilsViewerTests(unittest.TestCase):
     def test_shouldLaunchViewerUsingEmptyPaths(self):
         # Test launching without empty paths
         self.assertIsNone(cuegui.Utils.launchViewerUsingPaths([], test_mode=True))
@@ -109,7 +110,7 @@ class UtilsTests(unittest.TestCase):
     def test_shouldLaunchViewerUsingRegextAndPattern(self):
         # Test launching with valid regex and pattern
         cuegui.Constants.OUTPUT_VIEWER_EXTRACT_ARGS_REGEX = \
-            r'/shots/(?P<show>\w+)/(?P<name>shot\w+)/.*'
+            r'/shots/(?P<show>\w+)/(?P<shot>\w+)/.*'
         cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN = 'echo show={show}, shot={shot}'
 
         out = cuegui.Utils.launchViewerUsingPaths(["/shots/test_show/test_shot/something/else"],
@@ -125,7 +126,7 @@ class UtilsTests(unittest.TestCase):
         out = cuegui.Utils.launchViewerUsingPaths(["/test/something_lf_something",
                                                    "/test/something_rt_something"],
                                                    test_mode=True)
-        self.assertEqual('echo /test/something_rt_something', out)
+        self.assertEqual('echo /test/something_lf_something', out)
 
     def test_shouldLaunchViewerUsingMultiplePaths(self):
         # Test launching multiple outputs
