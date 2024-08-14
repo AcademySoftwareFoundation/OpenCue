@@ -5,8 +5,6 @@ FROM opencue/rqd
 RUN yum -y update
 RUN yum -y install \
         bzip2 \
-        libfreetype6 \
-        libgl1-mesa-dev \
         libXi-devel  \
         mesa-libGLU-devel \
         zlib-devel \
