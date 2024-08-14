@@ -84,4 +84,20 @@ public class FrameSetTests {
 
         assertEquals("55-60", result.getChunk(0, 10));
     }
+
+    @Test
+    public void shouldReturnLastFrame() {
+        FrameSet result1 = new FrameSet("1-10x2");
+
+        FrameSet chunk1 = new FrameSet(result1.getChunk(1, 3));
+        FrameSet chunk2 = new FrameSet(result1.getChunk(3, 3));
+
+        assertEquals(5, chunk1.get(-1));
+        assertEquals(9, chunk2.get(-1));
+
+        FrameSet result2 = new FrameSet("1");
+        FrameSet chunk3 = new FrameSet(result2.getChunk(1, 3));
+
+        assertEquals(1, chunk3.get(-1));
+    }
 }
