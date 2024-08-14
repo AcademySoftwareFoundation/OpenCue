@@ -29,15 +29,15 @@ import unittest
 import mock
 
 import rqd.cuerqd
-import rqd.compiled_proto.rqd_pb2
+import opencue.compiled_proto.rqd_pb2
 
 
 SCRIPT_NAME = '/arbitrary/path/to/script'
 RQD_HOSTNAME = 'arbitrary-rqd-hostname'
 
 
-@mock.patch('rqd.compiled_proto.rqd_pb2_grpc.RunningFrameStub')
-@mock.patch('rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceStub')
+@mock.patch('opencue.compiled_proto.rqd_pb2_grpc.RunningFrameStub')
+@mock.patch('opencue.compiled_proto.rqd_pb2_grpc.RqdInterfaceStub')
 @mock.patch('grpc.insecure_channel', new=mock.MagicMock())
 class CueRqdTests(unittest.TestCase):
 
