@@ -36,6 +36,7 @@ import time
 import traceback
 import select
 
+import opencue.cuelogging
 import opencue.compiled_proto.host_pb2
 import opencue.compiled_proto.report_pb2
 import rqd.rqconstants
@@ -44,7 +45,6 @@ import rqd.rqmachine
 import rqd.rqnetwork
 import rqd.rqnimby
 import rqd.rqutil
-import rqd.rqlogging
 
 INT32_MAX = 2147483647
 INT32_MIN = -2147483648
@@ -520,7 +520,11 @@ class FrameAttendantThread(threading.Thread):
                     # Setup proc to allow launching of frame
                     #
                     try:
-                        self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)
+                        self.rqlog = opencue.cuelogging.CueLogger(
+                            runFrame.log_dir_file,
+                            mode=opencue.cuelogging.MODE_WRITE,
+                            maxLogFiles=rqd.rqconstants.MAX_LOG_FILES
+                        )
                         self.rqlog.waitForFile()
                     # pylint: disable=broad-except
                     except Exception as e:
