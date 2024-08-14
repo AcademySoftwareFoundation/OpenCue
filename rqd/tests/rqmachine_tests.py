@@ -33,9 +33,9 @@ import rqd.rqmachine
 import rqd.rqnetwork
 import rqd.rqnimby
 import rqd.rqutil
-import rqd.compiled_proto.host_pb2
-import rqd.compiled_proto.report_pb2
-import rqd.compiled_proto.rqd_pb2
+import opencue.compiled_proto.host_pb2
+import opencue.compiled_proto.report_pb2
+import opencue.compiled_proto.rqd_pb2
 
 
 CPUINFO = """processor	: 0
@@ -180,7 +180,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.rqCore.nimby = self.nimby
         self.nimby.active = False
         self.nimby.locked = False
-        self.coreDetail = rqd.compiled_proto.report_pb2.CoreDetail(total_cores=2)
+        self.coreDetail = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=2)
 
         self.machine = rqd.rqmachine.Machine(self.rqCore, self.coreDetail)
 
@@ -288,7 +288,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.fs.create_file('/proc/%s/cmdline'  % pid, contents=PROC_PID_CMDLINE)
         self.fs.create_file('/proc/%s/statm'  % pid, contents=PROC_PID_STATM)
         runningFrame = rqd.rqnetwork.RunningFrame(self.rqCore,
-                                                  rqd.compiled_proto.rqd_pb2.RunFrame())
+                                                  opencue.compiled_proto.rqd_pb2.RunFrame())
         runningFrame.pid = pid
         frameCache = {frameId: runningFrame}
 
@@ -403,14 +403,14 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(25, hostInfo.load)
         self.assertEqual(False, hostInfo.nimby_enabled)
         self.assertEqual(False, hostInfo.nimby_locked)
-        self.assertEqual(rqd.compiled_proto.host_pb2.UP, hostInfo.state)
+        self.assertEqual(opencue.compiled_proto.host_pb2.UP, hostInfo.state)
 
     def test_getHostReport(self):
         frame1 = mock.MagicMock(spec=rqd.rqnetwork.RunningFrame)
-        frame1Info = rqd.compiled_proto.report_pb2.RunningFrameInfo(resource_id='arbitrary-id-1')
+        frame1Info = opencue.compiled_proto.report_pb2.RunningFrameInfo(resource_id='arbitrary-id-1')
         frame1.runningFrameInfo.return_value = frame1Info
         frame2 = mock.MagicMock(spec=rqd.rqnetwork.RunningFrame)
-        frame2Info = rqd.compiled_proto.report_pb2.RunningFrameInfo(resource_id='arbitrary-id-2')
+        frame2Info = opencue.compiled_proto.report_pb2.RunningFrameInfo(resource_id='arbitrary-id-2')
         frame2.runningFrameInfo.return_value = frame2Info
         frameIds = ['frame1', 'frame2']
         frames = {
@@ -419,7 +419,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         }
         self.rqCore.getFrameKeys.return_value = frameIds
         self.rqCore.getFrame.side_effect = lambda frameId: frames[frameId]
-        coreDetail = rqd.compiled_proto.report_pb2.CoreDetail(
+        coreDetail = opencue.compiled_proto.report_pb2.CoreDetail(
             total_cores=152, idle_cores=57, locked_cores=30, booked_cores=65)
         self.rqCore.getCoreInfo.return_value = coreDetail
 

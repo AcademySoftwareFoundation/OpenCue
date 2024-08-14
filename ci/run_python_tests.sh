@@ -24,7 +24,7 @@ python pycue/setup.py test
 PYTHONPATH=pycue python pyoutline/setup.py test
 PYTHONPATH=pycue python cueadmin/setup.py test
 PYTHONPATH=pycue:pyoutline python cuesubmit/setup.py test
-python rqd/setup.py test
+PYTHONPATH=pycue python rqd/setup.py test
 
 # Xvfb no longer supports Python 2.
 if [[ "$python_version" =~ "Python 3" && ${args[0]} != "--no-gui" ]]; then

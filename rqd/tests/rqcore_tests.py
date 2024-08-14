@@ -28,9 +28,9 @@ import unittest
 import mock
 import pyfakefs.fake_filesystem_unittest
 
-import rqd.compiled_proto.host_pb2
-import rqd.compiled_proto.report_pb2
-import rqd.compiled_proto.rqd_pb2
+import opencue.compiled_proto.host_pb2
+import opencue.compiled_proto.report_pb2
+import opencue.compiled_proto.rqd_pb2
 import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqexceptions
@@ -211,13 +211,13 @@ class RqCoreTests(unittest.TestCase):
         frame2Id = 'frame2'
         frame3Id = 'frame3'
         frame1 = rqd.rqnetwork.RunningFrame(
-            self.rqcore, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
+            self.rqcore, opencue.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
         frame1.frameAttendantThread = frameAttendantThread
         frame2 = rqd.rqnetwork.RunningFrame(
-            self.rqcore, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frame2Id))
+            self.rqcore, opencue.compiled_proto.rqd_pb2.RunFrame(frame_id=frame2Id))
         frame2.frameAttendantThread = frameAttendantThread
         frame3 = rqd.rqnetwork.RunningFrame(
-            self.rqcore, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frame3Id))
+            self.rqcore, opencue.compiled_proto.rqd_pb2.RunFrame(frame_id=frame3Id))
         frame3.frameAttendantThread = frameAttendantThread
         self.rqcore.storeFrame(frame1Id, frame1)
         self.rqcore.storeFrame(frame2Id, frame2)
@@ -234,10 +234,10 @@ class RqCoreTests(unittest.TestCase):
         frame1Id = 'frame1'
         frame2Id = 'frame2'
         frame1 = rqd.rqnetwork.RunningFrame(
-            self.rqcore, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
+            self.rqcore, opencue.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
         frame1.frameAttendantThread = frameAttendantThread
         frame2 = rqd.rqnetwork.RunningFrame(
-            self.rqcore, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frame2Id, ignore_nimby=True))
+            self.rqcore, opencue.compiled_proto.rqd_pb2.RunFrame(frame_id=frame2Id, ignore_nimby=True))
         frame2.frameAttendantThread = frameAttendantThread
         self.rqcore.storeFrame(frame1Id, frame1)
         self.rqcore.storeFrame(frame2Id, frame2)
@@ -250,7 +250,7 @@ class RqCoreTests(unittest.TestCase):
         num_idle_cores = 10
         num_booked_cores = 7
         num_cores_to_release = 5
-        self.rqcore.cores = rqd.compiled_proto.report_pb2.CoreDetail(
+        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(
             total_cores=50, idle_cores=num_idle_cores, locked_cores=2,
             booked_cores=num_booked_cores)
 
@@ -282,10 +282,10 @@ class RqCoreTests(unittest.TestCase):
 
     @mock.patch('rqd.rqcore.FrameAttendantThread')
     def test_launchFrame(self, frameThreadMock):
-        self.rqcore.cores = rqd.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=20)
-        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=20)
+        self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.locked = False
-        frame = rqd.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
+        frame = opencue.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
         rqd.rqconstants.OVERRIDE_NIMBY = None
 
         self.rqcore.launchFrame(frame)
@@ -293,16 +293,16 @@ class RqCoreTests(unittest.TestCase):
         frameThreadMock.return_value.start.assert_called()
 
     def test_launchFrameOnDownHost(self):
-        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.DOWN
-        frame = rqd.compiled_proto.rqd_pb2.RunFrame()
+        self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.DOWN
+        frame = opencue.compiled_proto.rqd_pb2.RunFrame()
 
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
             self.rqcore.launchFrame(frame)
 
     def test_launchFrameOnHostWaitingForShutdown(self):
-        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.active = False
-        frame = rqd.compiled_proto.rqd_pb2.RunFrame()
+        frame = opencue.compiled_proto.rqd_pb2.RunFrame()
         self.rqcore.shutdownRqdIdle()
 
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
@@ -310,10 +310,10 @@ class RqCoreTests(unittest.TestCase):
 
     @mock.patch('rqd.rqcore.FrameAttendantThread')
     def test_launchFrameOnNimbyHost(self, frameThreadMock):
-        self.rqcore.cores = rqd.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=20)
-        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
-        frame = rqd.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
-        frameIgnoreNimby = rqd.compiled_proto.rqd_pb2.RunFrame(
+        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=20)
+        self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
+        frame = opencue.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
+        frameIgnoreNimby = opencue.compiled_proto.rqd_pb2.RunFrame(
             uid=22, num_cores=10, ignore_nimby=True)
         self.rqcore.nimby = mock.create_autospec(rqd.rqnimby.NimbySelect)
         self.rqcore.nimby.locked = True
@@ -326,45 +326,45 @@ class RqCoreTests(unittest.TestCase):
         frameThreadMock.return_value.start.assert_called()
 
     def test_launchDuplicateFrame(self):
-        self.rqcore.cores = rqd.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=20)
-        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=20)
+        self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.locked = False
         frameId = 'arbitrary-frame-id'
-        self.rqcore.storeFrame(frameId, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frameId))
-        frameToLaunch = rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frameId)
+        self.rqcore.storeFrame(frameId, opencue.compiled_proto.rqd_pb2.RunFrame(frame_id=frameId))
+        frameToLaunch = opencue.compiled_proto.rqd_pb2.RunFrame(frame_id=frameId)
         rqd.rqconstants.OVERRIDE_NIMBY = None
 
         with self.assertRaises(rqd.rqexceptions.DuplicateFrameViolationException):
             self.rqcore.launchFrame(frameToLaunch)
 
     def test_launchFrameWithInvalidUid(self):
-        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.locked = False
-        frame = rqd.compiled_proto.rqd_pb2.RunFrame(uid=0)
+        frame = opencue.compiled_proto.rqd_pb2.RunFrame(uid=0)
 
         with self.assertRaises(rqd.rqexceptions.InvalidUserException):
             self.rqcore.launchFrame(frame)
 
     def test_launchFrameWithInvalidCoreCount(self):
-        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.locked = False
-        frame = rqd.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=0)
+        frame = opencue.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=0)
 
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
             self.rqcore.launchFrame(frame)
 
     def test_launchFrameWithInsufficientCores(self):
-        self.rqcore.cores = rqd.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=5)
-        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=5)
+        self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.locked = False
-        frame = rqd.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
+        frame = opencue.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
 
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
             self.rqcore.launchFrame(frame)
 
     def test_getRunningFrame(self):
         frameId = 'arbitrary-frame-id'
-        frame = rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frameId)
+        frame = opencue.compiled_proto.rqd_pb2.RunFrame(frame_id=frameId)
         self.rqcore.storeFrame(frameId, frame)
 
         self.assertEqual(frame, self.rqcore.getRunningFrame(frameId))
@@ -395,7 +395,7 @@ class RqCoreTests(unittest.TestCase):
     def test_rebootIdleWithFrames(self):
         frame1Id = 'frame1'
         frame1 = rqd.rqnetwork.RunningFrame(
-            self.rqcore, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
+            self.rqcore, opencue.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
         self.rqcore.storeFrame(frame1Id, frame1)
 
         self.rqcore.rebootIdle()
@@ -465,7 +465,7 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(50, self.rqcore.cores.locked_cores)
 
     def test_unlock(self):
-        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.rqcore.cores.total_cores = 50
         self.rqcore.cores.idle_cores = 10
         self.rqcore.cores.locked_cores = 40
@@ -477,7 +477,7 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(20, self.rqcore.cores.locked_cores)
 
     def test_unlockMoreCoresThanThereAre(self):
-        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.rqcore.cores.total_cores = 50
         self.rqcore.cores.idle_cores = 40
         self.rqcore.cores.locked_cores = 10
@@ -489,7 +489,7 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(0, self.rqcore.cores.locked_cores)
 
     def test_unlockAll(self):
-        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.locked = False
         self.rqcore.cores.total_cores = 50
         self.rqcore.cores.idle_cores = 40
@@ -502,7 +502,7 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(0, self.rqcore.cores.locked_cores)
 
     def test_unlockAllWhenNimbyLocked(self):
-        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.locked = True
         self.rqcore.cores.total_cores = 50
         self.rqcore.cores.idle_cores = 40
@@ -541,7 +541,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         frameUid = 928
         frameUsername = 'my-random-user'
         returnCode = 0
-        renderHost = rqd.compiled_proto.report_pb2.RenderHost(name='arbitrary-host-name')
+        renderHost = opencue.compiled_proto.report_pb2.RenderHost(name='arbitrary-host-name')
         logFile = os.path.join(logDir, '%s.%s.rqlog' % (jobName, frameName))
 
         self.fs.create_dir(tempDir)
@@ -557,9 +557,9 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
-        children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
+        children = opencue.compiled_proto.report_pb2.ChildrenProcStats()
 
-        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
+        runFrame = opencue.compiled_proto.rqd_pb2.RunFrame(
             frame_id=frameId,
             job_name=jobName,
             frame_name=frameName,
@@ -596,9 +596,9 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         _, kwargs = popenMock.call_args
 
         rqCore.network.reportRunningFrameCompletion.assert_called_with(
-            rqd.compiled_proto.report_pb2.FrameCompleteReport(
+            opencue.compiled_proto.report_pb2.FrameCompleteReport(
                 host=renderHost,
-                frame=rqd.compiled_proto.report_pb2.RunningFrameInfo(
+                frame=opencue.compiled_proto.report_pb2.RunningFrameInfo(
                     job_name=jobName, frame_id=frameId, frame_name=frameName, children=children),
                 exit_status=returnCode))
 
@@ -617,7 +617,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         frameUid = 928
         frameUsername = 'my-random-user'
         returnCode = 0
-        renderHost = rqd.compiled_proto.report_pb2.RenderHost(name='arbitrary-host-name')
+        renderHost = opencue.compiled_proto.report_pb2.RenderHost(name='arbitrary-host-name')
 
         timeMock.return_value = currentTime
         popenMock.return_value.returncode = returnCode
@@ -629,9 +629,9 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
-        children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
+        children = opencue.compiled_proto.report_pb2.ChildrenProcStats()
 
-        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
+        runFrame = opencue.compiled_proto.rqd_pb2.RunFrame(
             frame_id=frameId,
             job_id=jobId,
             job_name=jobName,
@@ -656,9 +656,9 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         # TODO(bcipriano) Verify the log directory was created and used for stdout/stderr.
 
         rqCore.network.reportRunningFrameCompletion.assert_called_with(
-            rqd.compiled_proto.report_pb2.FrameCompleteReport(
+            opencue.compiled_proto.report_pb2.FrameCompleteReport(
                 host=renderHost,
-                frame=rqd.compiled_proto.report_pb2.RunningFrameInfo(
+                frame=opencue.compiled_proto.report_pb2.RunningFrameInfo(
                     job_name=jobName, frame_id=frameId, frame_name=frameName, children=children),
                 exit_status=returnCode))
 
@@ -676,7 +676,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         frameUid = 928
         frameUsername = 'my-random-user'
         returnCode = 0
-        renderHost = rqd.compiled_proto.report_pb2.RenderHost(name='arbitrary-host-name')
+        renderHost = opencue.compiled_proto.report_pb2.RenderHost(name='arbitrary-host-name')
         logFile = os.path.join(logDir, '%s.%s.rqlog' % (jobName, frameName))
 
         self.fs.create_dir(tempDir)
@@ -692,9 +692,9 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
-        children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
+        children = opencue.compiled_proto.report_pb2.ChildrenProcStats()
 
-        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
+        runFrame = opencue.compiled_proto.rqd_pb2.RunFrame(
             frame_id=frameId,
             job_name=jobName,
             frame_name=frameName,
@@ -730,9 +730,9 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(logFile, kwargs['stderr'].name)
 
         rqCore.network.reportRunningFrameCompletion.assert_called_with(
-            rqd.compiled_proto.report_pb2.FrameCompleteReport(
+            opencue.compiled_proto.report_pb2.FrameCompleteReport(
                 host=renderHost,
-                frame=rqd.compiled_proto.report_pb2.RunningFrameInfo(
+                frame=opencue.compiled_proto.report_pb2.RunningFrameInfo(
                     job_name=jobName, frame_id=frameId, frame_name=frameName, children=children),
                 exit_status=returnCode))
 
