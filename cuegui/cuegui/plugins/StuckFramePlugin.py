@@ -22,6 +22,7 @@ from __future__ import absolute_import
 
 from builtins import str
 from builtins import map
+from future.utils import iteritems
 import datetime
 import getpass
 import os
@@ -140,7 +141,7 @@ class ShowCombo(QtWidgets.QComboBox):
         """Refreshes the show list."""
         self.clear()
         shows = opencue.api.getActiveShows()
-        shows.sort()
+        shows.sort(key=lambda s: s.data.name)
 
         for show in shows:
             self.addItem(show.data.name, show)
@@ -350,7 +351,6 @@ class StuckFrameControls(QtWidgets.QWidget):
 
     def add(self):
         """Adds new filter"""
-        # TODO: check if this is the correct implementation
         return self.__all_filters
 
 
@@ -562,7 +562,7 @@ class ServiceBox(QtWidgets.QLineEdit):
     def refresh(self):
         """Refreshes the show list."""
         slist = opencue.api.getDefaultServices()
-        slist.sort()
+        slist.sort(key=lambda s: s.name())
         self.__c = QtWidgets.QCompleter(slist, self)
         self.__c.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self.setCompleter(self.__c)
@@ -1011,11 +1011,13 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # pylint: disable=broad-except,too-many-nested-blocks
         try:
             treeItems = []
-            procs = []
             self.groups = []
             self.procSearch.hosts = []
             self.procSearch.shows = [self.show]
-            procs = opencue.api.getProcs()
+            procs = []
+            shows = opencue.api.getShows()
+            for show in shows:
+                procs.extend(opencue.api.getProcs(show=[show.name()]))
 
             current_prog = 0
             self.emit(QtCore.SIGNAL("updatedProgressMax"), (len(procs)))
@@ -1046,7 +1048,6 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 (frameNumber, layerName) = proc.data.frame_name.split("-")
 
                 frameRunTime = self.get_frame_run_time(proc)
-                # frameResource = proc.data.name
 
                 if frameRunTime >= self.runtime_filter * 60:
                     # Get average completion time of the layer
@@ -1128,7 +1129,6 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             return self.currentHosts
         except Exception as e:
             print(cuegui.Utils.exceptionOutput(e))
-            map(logger.warning, cuegui.Utils.exceptionOutput(e))
             return []
 
     def _createItem(self, object, parent=None):
@@ -1166,14 +1166,11 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         isFrame = False
         sameJob = True
         jobName = None
-        # isGroup = True
         for item in self.selectedObjects():
             if cuegui.Utils.isJob(item):
                 isJob = True
             elif cuegui.Utils.isFrame(item):
                 isFrame = True
-            # elif cuegui.Utils.isGroup(item):
-            #     isGroup = True
             if not jobName:
                 jobName = item.data.name
             else:
@@ -1616,9 +1613,7 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
                     self.rpcObject)
             return self._cache.get(col, cuegui.Constants.QVARIANT_NULL)
         if role == QtCore.Qt.DecorationRole:
-            # todo: get rpcOject comment!!
             if col == COMMENT_COLUMN and cuegui.Utils.isJob(self.rpcObject):
-                # and self.rpcObject.hasComment:
                 return self.__commentIcon
         elif role == QtCore.Qt.ForegroundRole:
             return self.__foregroundColor
@@ -1640,14 +1635,14 @@ class CoreUpWindow(QtWidgets.QDialog):
         """Setup the initial dialog box layout."""
         # Create initial layout
         build_times = {}
-        for job, layers in self.jobs.iteritems():
+        for job, layers in iteritems(self.jobs):
             build_times[job] = self.dj.getBuildTimes(job, layers)
         layout = QtWidgets.QVBoxLayout()
         self.setLayout(layout)
 
         self.listWidget = QtWidgets.QListWidget(self)
         self._layers = {}
-        for job, layers in self.jobs.iteritems():
+        for job, layers in iteritems(self.jobs):
             for layer in layers:
                 self._layers[layer.name()] = (job, layer)
                 layer_label = layer.name()
