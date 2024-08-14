@@ -15,7 +15,7 @@ class CueLogger(object):
     filepath = None
     fd = None
     type = 0
-    mode = 0  # 0 for read, 1 for write
+    mode = MODE_READ
 
     def __init__(self, filepath, mode, maxLogFiles=1):
         """RQDLogger class initialization
