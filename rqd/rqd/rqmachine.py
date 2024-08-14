@@ -631,7 +631,8 @@ class Machine(object):
             hyperthreadingMultiplier = 1
 
         if platform.system() == 'Windows':
-            self.__init_stats_from_windows()
+            logicalCoreCount, __numProcs, hyperthreadingMultiplier = self.__init_stats_from_windows()
+            __totalCores = logicalCoreCount * rqd.rqconstants.CORE_VALUE
 
         # All other systems will just have one proc/core
         if not __numProcs or not __totalCores:
