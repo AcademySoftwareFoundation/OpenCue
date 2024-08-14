@@ -30,7 +30,7 @@ class CueLogger(object):
     """Class to abstract file logging, this class tries to act as a file object"""
     filepath = None
     fd = None
-    mode = MODE_READ
+    mode = MODE_READ  # Default in read mode
 
     def __init__(self, filepath, mode, maxLogFiles=1):
         """RQDLogger class initialization
