@@ -35,49 +35,13 @@ from qtpy import QtWidgets
 
 import cuegui.Constants
 import cuegui.AbstractDockWidget
-
+import opencue.cuelogging
 
 PLUGIN_NAME = 'LogView'
 PLUGIN_CATEGORY = 'Other'
 PLUGIN_DESCRIPTION = 'Displays Frame Log'
 PLUGIN_PROVIDES = 'LogViewPlugin'
 PRINTABLE = set(string.printable)
-
-
-class LogReader(object):
-    """
-    Custom class to abstract reading log files from multiple backends
-    """
-    filepath = None
-    type = None
-
-    def __init__(self, filepath):
-        """LogReader class initialization
-           @type    filepath: string
-           @param   filepath: The filepath to log to
-        """
-        self.filepath = filepath
-
-    def size(self):
-        """Return the size of the file"""
-        return int(os.stat(self.filepath).st_size)
-
-    def getMtime(self):
-        """Return modification time of the file"""
-        return os.path.getmtime(self.filepath)
-
-    def exists(self):
-        """Check if the file exists"""
-        return os.path.exists(self.filepath)
-
-    def read(self):
-        """Read the data from the backend"""
-        content = None
-        if self.exists() is True:
-            with open(self.filepath, "r", encoding='utf-8') as fp:
-                content = fp.read()
-
-        return content
 
 
 class LineNumberArea(QtWidgets.QWidget):
@@ -849,7 +813,7 @@ class LogViewWidget(QtWidgets.QWidget):
         @postcondition: The _update_log method is scheduled to run again
                         after 5 seconds
         """
-        log_reader = LogReader(self._log_file)
+        log_reader = opencue.cuelogging.CueLogger(self._log_file, mode=opencue.cuelogging.MODE_READ)
 
         try:
             if log_reader.exists() is not True:

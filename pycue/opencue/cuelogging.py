@@ -116,6 +116,29 @@ class CueLogger(object):
             time.sleep(0.5 * tries)
         raise IOError("Failed to create %s" % self.filepath)
 
+    def size(self):
+        """Return the size of the file"""
+        return int(os.stat(self.filepath).st_size)
+
+    def getMtime(self):
+        """Return modification time of the file"""
+        return os.path.getmtime(self.filepath)
+
+    def exists(self):
+        """Check if the file exists"""
+        return os.path.exists(self.filepath)
+
+    def read(self):
+        """Read the data from the backend"""
+        # Only allow reading when in read mode
+        if self.mode == MODE_READ:
+            content = None
+            if self.exists() is True:
+                with open(self.filepath, "r", encoding='utf-8') as fp:
+                    content = fp.read()
+
+            return content
+
     def __enter__(self):
         return self
 
