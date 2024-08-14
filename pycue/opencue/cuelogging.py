@@ -30,7 +30,6 @@ class CueLogger(object):
     """Class to abstract file logging, this class tries to act as a file object"""
     filepath = None
     fd = None
-    type = 0
     mode = MODE_READ
 
     def __init__(self, filepath, mode, maxLogFiles=1):
