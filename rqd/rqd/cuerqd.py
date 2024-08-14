@@ -31,8 +31,8 @@ import random
 
 import grpc
 
-import rqd.compiled_proto.rqd_pb2
-import rqd.compiled_proto.rqd_pb2_grpc
+import opencue.compiled_proto.rqd_pb2
+import opencue.compiled_proto.rqd_pb2_grpc
 import rqd.rqconstants
 
 
@@ -46,62 +46,62 @@ class RqdHost(object):
         self.rqdPort = rqdPort
 
         channel = grpc.insecure_channel('%s:%s' % (self.rqdHost, self.rqdPort))
-        self.stub = rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceStub(channel)
-        self.frameStub = rqd.compiled_proto.rqd_pb2_grpc.RunningFrameStub(channel)
+        self.stub = opencue.compiled_proto.rqd_pb2_grpc.RqdInterfaceStub(channel)
+        self.frameStub = opencue.compiled_proto.rqd_pb2_grpc.RunningFrameStub(channel)
 
     def status(self):
         """Fetches and returns the host status report."""
-        return self.stub.ReportStatus(rqd.compiled_proto.rqd_pb2.RqdStaticReportStatusRequest())
+        return self.stub.ReportStatus(opencue.compiled_proto.rqd_pb2.RqdStaticReportStatusRequest())
 
     def getRunningFrame(self, frameId):
         """Returns the host's currently running frame."""
         return self.stub.GetRunFrame(
-            rqd.compiled_proto.rqd_pb2.RqdStaticGetRunFrameRequest(frame_id=frameId))
+            opencue.compiled_proto.rqd_pb2.RqdStaticGetRunFrameRequest(frame_id=frameId))
 
     def nimbyOff(self):
         """Disables Nimby on the host."""
         log.info(self.rqdHost, "Turning off Nimby")
         log.info("rqd nimbyoff by %s", os.environ.get("USER"))
-        self.stub.NimbyOff(rqd.compiled_proto.rqd_pb2.RqdStaticNimbyOffRequest())
+        self.stub.NimbyOff(opencue.compiled_proto.rqd_pb2.RqdStaticNimbyOffRequest())
 
     def nimbyOn(self):
         """Enables Nimby on the host."""
         log.info(self.rqdHost, "Turning on Nimby")
         log.info("rqd nimbyon by %s", os.environ.get("USER"))
-        self.stub.NimbyOn(rqd.compiled_proto.rqd_pb2.RqdStaticNimbyOnRequest())
+        self.stub.NimbyOn(opencue.compiled_proto.rqd_pb2.RqdStaticNimbyOnRequest())
 
     def lockAll(self):
         """Locks all of the host's cores."""
         print(self.rqdHost, "Locking all cores")
-        self.stub.LockAll(rqd.compiled_proto.rqd_pb2.RqdStaticLockAllRequest())
+        self.stub.LockAll(opencue.compiled_proto.rqd_pb2.RqdStaticLockAllRequest())
 
     def unlockAll(self):
         """Unlocks all of the host's cores."""
         print(self.rqdHost, "Unlocking all cores")
-        self.stub.UnlockAll(rqd.compiled_proto.rqd_pb2.RqdStaticUnlockAllRequest())
+        self.stub.UnlockAll(opencue.compiled_proto.rqd_pb2.RqdStaticUnlockAllRequest())
 
     def lock(self, cores):
         """Locks the given number of cores."""
         cores = int(cores)
         print(self.rqdHost, "Locking %d cores" % cores)
-        self.stub.Lock(rqd.compiled_proto.rqd_pb2.RqdStaticLockRequest(cores=cores))
+        self.stub.Lock(opencue.compiled_proto.rqd_pb2.RqdStaticLockRequest(cores=cores))
 
     def unlock(self, cores):
         """Unlocks the given number of cores."""
         cores = int(cores)
         print(self.rqdHost, "Unlocking %d cores" % cores)
-        self.stub.Unlock(rqd.compiled_proto.rqd_pb2.RqdStaticUnlockRequest(cores=cores))
+        self.stub.Unlock(opencue.compiled_proto.rqd_pb2.RqdStaticUnlockRequest(cores=cores))
 
     def shutdownRqdIdle(self):
         """Shuts down the host when idle."""
         print(self.rqdHost, "Sending shutdownRqdIdle command")
-        self.stub.ShutdownRqdIdle(rqd.compiled_proto.rqd_pb2.RqdStaticShutdownIdleRequest())
+        self.stub.ShutdownRqdIdle(opencue.compiled_proto.rqd_pb2.RqdStaticShutdownIdleRequest())
 
     def shutdownRqdNow(self):
         """Shuts down the host now."""
         print(self.rqdHost, "Sending shutdownRqdNow command")
         try:
-            self.stub.ShutdownRqdNow(rqd.compiled_proto.rqd_pb2.RqdStaticShutdownNowRequest())
+            self.stub.ShutdownRqdNow(opencue.compiled_proto.rqd_pb2.RqdStaticShutdownNowRequest())
         # pylint: disable=broad-except
         except Exception:
             # Shutting down the service from inside means this request will receive
@@ -111,22 +111,22 @@ class RqdHost(object):
     def restartRqdIdle(self):
         """Restarts RQD on the host when idle."""
         print(self.rqdHost, "Sending restartRqdIdle command")
-        self.stub.RestartRqdIdle(rqd.compiled_proto.rqd_pb2.RqdStaticRestartIdleRequest())
+        self.stub.RestartRqdIdle(opencue.compiled_proto.rqd_pb2.RqdStaticRestartIdleRequest())
 
     def rebootIdle(self):
         """Reboots the host when idle."""
         print(self.rqdHost, "Sending rebootIdle command")
-        self.stub.RebootIdle(rqd.compiled_proto.rqd_pb2.RqdStaticRebootIdleRequest())
+        self.stub.RebootIdle(opencue.compiled_proto.rqd_pb2.RqdStaticRebootIdleRequest())
 
     def rebootNow(self):
         """Reboots the host now."""
         print(self.rqdHost, "Sending rebootNow command")
-        self.stub.RebootNow(rqd.compiled_proto.rqd_pb2.RqdStaticRebootNowRequest())
+        self.stub.RebootNow(opencue.compiled_proto.rqd_pb2.RqdStaticRebootNowRequest())
 
     def launchFrame(self, frame):
         """Launches a frame on the host."""
         self.stub.LaunchFrame(
-            rqd.compiled_proto.rqd_pb2.RqdStaticLaunchFrameRequest(run_frame=frame))
+            opencue.compiled_proto.rqd_pb2.RqdStaticLaunchFrameRequest(run_frame=frame))
 
     def killFrame(self, frameId, message):
         """Kills a frame on the host."""
@@ -251,7 +251,7 @@ def main():
     if args.test_edu_frame:
         print("Launching edu test frame (logs to /mcp)")
         frameNum = "0001"
-        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
+        runFrame = opencue.compiled_proto.rqd_pb2.RunFrame()
         runFrame.job_id = "SD6F3S72DJ26236KFS"
         runFrame.job_name = "edu-trn_jwelborn-jwelborn_teapot_bty"
         runFrame.frame_id = "FD1S3I154O646UGSNN%s" % frameNum
@@ -272,7 +272,7 @@ def main():
 
     if args.test_script_frame:
         print("Launching script test frame (logs to /mcp)")
-        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
+        runFrame = opencue.compiled_proto.rqd_pb2.RunFrame()
         runFrame.resource_id = "8888888877777755555"
         runFrame.job_id = "SD6F3S72DJ26236KFS"
         runFrame.job_name = "swtest-home-jwelborn_rqd_test"
@@ -290,7 +290,7 @@ def main():
 
     if args.test_script_frame_mac:
         print("Launching script test frame (logs to /tmp)")
-        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
+        runFrame = opencue.compiled_proto.rqd_pb2.RunFrame()
         runFrame.resource_id = "2222222277777755555"
         runFrame.job_id = "SD6F3S72DJ26236KFS"
         runFrame.job_name = "swtest-home-jwelborn_rqd_test"
