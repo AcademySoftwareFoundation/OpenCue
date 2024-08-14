@@ -175,6 +175,23 @@ def setupLogging():
     logging.getLogger('').setLevel(logging.DEBUG)
 
 
+def setup_sentry():
+    """Set up sentry if a SENTRY_DSN_PATH is configured"""
+    sentry_dsn_path = rqd.rqconstants.SENTRY_DSN_PATH
+    if sentry_dsn_path is not None:
+        return
+
+    # Not importing sentry at the toplevel to avoid an unecessary dependency
+    try:
+        # pylint: disable=import-outside-toplevel
+        import sentry_sdk
+        # pylint: enable=import-outside-toplevel
+        sentry_sdk.init(sentry_dsn_path)
+    except ImportError:
+        logging.warning('Sentry support disabled. SENTRY_DSN_PATH is set but '
+                        'the lib is not available')
+
+
 def usage():
     """Prints command line syntax"""
     usage_msg = f"""SYNOPSIS
@@ -218,6 +235,8 @@ def main():
     rqd.rqutil.permissionsLow()
 
     logging.warning('RQD Starting Up')
+
+    setup_sentry()
 
     rqCore = rqd.rqcore.RqCore(optNimbyOff)
     rqCore.start()
