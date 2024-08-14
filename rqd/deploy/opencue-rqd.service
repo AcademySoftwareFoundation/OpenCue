@@ -8,6 +8,7 @@ Environment=OPTIONS=
 Environment=BIN=/usr/bin
 EnvironmentFile=-/etc/sysconfig/opencue-rqd
 ExecStart=/bin/bash -c "${BIN}/rqd ${OPTIONS}"
+ExecStop=/bin/bash -c "${BIN}/rqd --exit_now
 LimitNOFILE=500000
 LimitNPROC=500000
 StandardOutput=syslog+console

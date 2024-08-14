@@ -247,6 +247,7 @@ class LayerAttributes(AbstractAttributes):
                 "layer": layer.data.name,
                 "services": layer.data.services,
                 "type": str(layer.data.type),
+                "command": str(layer.data.command),
                 "range": layer.data.range,
                 "tags": layer.data.tags,
                 "threadable": str(layer.data.is_threadable),
@@ -279,7 +280,7 @@ class LayerAttributes(AbstractAttributes):
                           "Running frames": layer.data.layer_stats.running_frames,
                           "maxRss": int(layer.data.layer_stats.max_rss)
                 },
-                "__childOrder":["id","layer","services","type","range","tags",
+                "__childOrder":["id","layer","services","type","command","range","tags",
                                 "threadable","minCores","minMemory","outputs",
                                 "depends", "frames","resources"],
                 "depends": getDependsForm(preload["depends"]),
