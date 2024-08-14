@@ -631,20 +631,7 @@ class Machine(object):
             hyperthreadingMultiplier = 1
 
         if platform.system() == 'Windows':
-            # Windows memory information
-            stat = self.getWindowsMemory()
-            TEMP_DEFAULT = 1048576
-            self.__renderHost.total_mcp = TEMP_DEFAULT
-            self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
-            self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
-
-            # Windows CPU information
-            logical_core_count = psutil.cpu_count(logical=True)
-            actual_core_count = psutil.cpu_count(logical=False)
-            hyperthreadingMultiplier = logical_core_count // actual_core_count
-
-            __totalCores = logical_core_count * rqd.rqconstants.CORE_VALUE
-            __numProcs = 1  # TODO: figure out how to count sockets in Python
+            self.__init_stats_from_windows()
 
         # All other systems will just have one proc/core
         if not __numProcs or not __totalCores:
@@ -673,6 +660,66 @@ class Machine(object):
 
         if hyperthreadingMultiplier >= 1:
             self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
+
+    def __init_stats_from_windows(self):
+        """Init machine stats for Windows platforms.
+
+        @rtype:  tuple
+        @return: A 3-items tuple containing:
+            - the number of logical cores
+            - the number of physical processors
+            - the hyper-threading multiplier
+
+        Implementation detail.
+        """
+        # Windows memory information
+        stat = self.getWindowsMemory()
+        TEMP_DEFAULT = 1048576
+        self.__renderHost.total_mcp = TEMP_DEFAULT
+        self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
+        self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
+
+        # Windows CPU information
+        self.__update_procs_mappings_from_windows()
+
+        logical_core_count = psutil.cpu_count(logical=True)
+        actual_core_count = psutil.cpu_count(logical=False)
+        hyper_threading_multiplier = logical_core_count // actual_core_count
+
+        physical_processor_count = len(self.__procs_by_physid_and_coreid)
+
+        return logical_core_count, physical_processor_count, hyper_threading_multiplier
+
+    def __update_procs_mappings_from_windows(self):
+        """Update `__procs_by_physid_and_coreid` and `__physid_and_coreid_by_proc` mappings for Windows platforms.
+
+        Implementation detail.
+        """
+        import wmi  # Windows-specific
+
+        # Reset mappings
+        self.__procs_by_physid_and_coreid = {}
+        self.__physid_and_coreid_by_proc = {}
+
+        # Connect to the Windows Management Instrumentation (WMI) interface
+        wmi_instance = wmi.WMI()
+
+        # Retrieve CPU information using WMI
+        for physical_id, processor in enumerate(wmi_instance.Win32_Processor()):
+
+            thread_per_core = processor.NumberOfLogicalProcessors // processor.NumberOfCores
+            proc_id = 0
+
+            for core_id in range(processor.NumberOfCores):
+                for _ in range(thread_per_core):
+                    self.__procs_by_physid_and_coreid.setdefault(
+                        str(physical_id), {}
+                    ).setdefault(str(core_id), set()).add(str(proc_id))
+                    self.__physid_and_coreid_by_proc[str(proc_id)] = (
+                        str(physical_id),
+                        str(core_id),
+                    )
+                    proc_id += 1
 
     def getWindowsMemory(self):
         """Gets information on system memory, Windows compatible version."""
