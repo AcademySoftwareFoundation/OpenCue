@@ -237,7 +237,8 @@ class RqCoreTests(unittest.TestCase):
             self.rqcore, opencue.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
         frame1.frameAttendantThread = frameAttendantThread
         frame2 = rqd.rqnetwork.RunningFrame(
-            self.rqcore, opencue.compiled_proto.rqd_pb2.RunFrame(frame_id=frame2Id, ignore_nimby=True))
+            self.rqcore, opencue.compiled_proto.rqd_pb2.RunFrame(frame_id=frame2Id,
+                                                                 ignore_nimby=True))
         frame2.frameAttendantThread = frameAttendantThread
         self.rqcore.storeFrame(frame1Id, frame1)
         self.rqcore.storeFrame(frame2Id, frame2)
@@ -282,7 +283,8 @@ class RqCoreTests(unittest.TestCase):
 
     @mock.patch('rqd.rqcore.FrameAttendantThread')
     def test_launchFrame(self, frameThreadMock):
-        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=20)
+        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=100,
+                                                                         idle_cores=20)
         self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.locked = False
         frame = opencue.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
@@ -310,7 +312,8 @@ class RqCoreTests(unittest.TestCase):
 
     @mock.patch('rqd.rqcore.FrameAttendantThread')
     def test_launchFrameOnNimbyHost(self, frameThreadMock):
-        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=20)
+        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=100,
+                                                                         idle_cores=20)
         self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         frame = opencue.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
         frameIgnoreNimby = opencue.compiled_proto.rqd_pb2.RunFrame(
@@ -326,7 +329,8 @@ class RqCoreTests(unittest.TestCase):
         frameThreadMock.return_value.start.assert_called()
 
     def test_launchDuplicateFrame(self):
-        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=20)
+        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=100,
+                                                                         idle_cores=20)
         self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.locked = False
         frameId = 'arbitrary-frame-id'
@@ -354,7 +358,8 @@ class RqCoreTests(unittest.TestCase):
             self.rqcore.launchFrame(frame)
 
     def test_launchFrameWithInsufficientCores(self):
-        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=5)
+        self.rqcore.cores = opencue.compiled_proto.report_pb2.CoreDetail(total_cores=100,
+                                                                         idle_cores=5)
         self.machineMock.return_value.state = opencue.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.locked = False
         frame = opencue.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)

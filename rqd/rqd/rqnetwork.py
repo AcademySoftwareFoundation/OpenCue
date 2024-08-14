@@ -194,7 +194,8 @@ class GrpcServer(object):
     def addServicers(self):
         """Registers the gRPC servicers defined in rqdservicers.py."""
         for servicer in self.servicers:
-            addFunc = getattr(opencue.compiled_proto.rqd_pb2_grpc, 'add_{0}_to_server'.format(servicer))
+            addFunc = getattr(opencue.compiled_proto.rqd_pb2_grpc,
+                              'add_{0}_to_server'.format(servicer))
             servicerClass = getattr(rqd.rqdservicers, servicer)
             addFunc(servicerClass(self.rqCore), self.server)
 

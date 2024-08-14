@@ -27,15 +27,15 @@ import unittest
 import mock
 import pyfakefs.fake_filesystem_unittest
 
+import opencue.compiled_proto.host_pb2
+import opencue.compiled_proto.report_pb2
+import opencue.compiled_proto.rqd_pb2
 import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqmachine
 import rqd.rqnetwork
 import rqd.rqnimby
 import rqd.rqutil
-import opencue.compiled_proto.host_pb2
-import opencue.compiled_proto.report_pb2
-import opencue.compiled_proto.rqd_pb2
 
 
 CPUINFO = """processor	: 0
@@ -407,10 +407,12 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_getHostReport(self):
         frame1 = mock.MagicMock(spec=rqd.rqnetwork.RunningFrame)
-        frame1Info = opencue.compiled_proto.report_pb2.RunningFrameInfo(resource_id='arbitrary-id-1')
+        frame1Info = opencue.compiled_proto.report_pb2.RunningFrameInfo(
+            resource_id='arbitrary-id-1')
         frame1.runningFrameInfo.return_value = frame1Info
         frame2 = mock.MagicMock(spec=rqd.rqnetwork.RunningFrame)
-        frame2Info = opencue.compiled_proto.report_pb2.RunningFrameInfo(resource_id='arbitrary-id-2')
+        frame2Info = opencue.compiled_proto.report_pb2.RunningFrameInfo(
+            resource_id='arbitrary-id-2')
         frame2.runningFrameInfo.return_value = frame2Info
         frameIds = ['frame1', 'frame2']
         frames = {

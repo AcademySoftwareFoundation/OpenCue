@@ -28,8 +28,8 @@ import unittest
 
 import mock
 
-import rqd.cuerqd
 import opencue.compiled_proto.rqd_pb2
+import rqd.cuerqd
 
 
 SCRIPT_NAME = '/arbitrary/path/to/script'
@@ -68,7 +68,8 @@ class CueRqdTests(unittest.TestCase):
     def test_getRunningFrame(self, stubMock, frameStubMock):
         frameId = 'arbitrary-frame-id'
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--getproxy', frameId]
-        runFrameRequest = opencue.compiled_proto.rqd_pb2.RqdStaticGetRunFrameRequest(frame_id=frameId)
+        runFrameRequest = opencue.compiled_proto.rqd_pb2.RqdStaticGetRunFrameRequest(
+            frame_id=frameId)
 
         rqd.cuerqd.main()
 
@@ -118,7 +119,8 @@ class CueRqdTests(unittest.TestCase):
     def test_unlock(self, stubMock, frameStubMock):
         numCoresToUnlock = 52
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--ulp', str(numCoresToUnlock)]
-        unlockRequest = opencue.compiled_proto.rqd_pb2.RqdStaticUnlockRequest(cores=numCoresToUnlock)
+        unlockRequest = opencue.compiled_proto.rqd_pb2.RqdStaticUnlockRequest(
+            cores=numCoresToUnlock)
 
         rqd.cuerqd.main()
 
@@ -161,7 +163,8 @@ class CueRqdTests(unittest.TestCase):
         runFrame.job_id = "SD6F3S72DJ26236KFS"
         runFrame.job_name = "edu-trn_job-name"
         runFrame.frame_id = "FD1S3I154O646UGSNN"
-        runFrameRequest = opencue.compiled_proto.rqd_pb2.RqdStaticLaunchFrameRequest(run_frame=runFrame)
+        runFrameRequest = opencue.compiled_proto.rqd_pb2.RqdStaticLaunchFrameRequest(
+            run_frame=runFrame)
         rqdHost = rqd.cuerqd.RqdHost(RQD_HOSTNAME)
         rqdHost.active = False
 

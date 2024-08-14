@@ -32,12 +32,12 @@ import pyfakefs.fake_filesystem_unittest
 
 import six
 
+import opencue.compiled_proto.report_pb2
 import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqmachine
 import rqd.rqnimby
 import rqd.rqutil
-import opencue.compiled_proto.report_pb2
 
 from .rqmachine_tests import (
     CPUINFO,
