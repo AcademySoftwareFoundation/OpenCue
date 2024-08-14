@@ -22,7 +22,6 @@ from __future__ import absolute_import
 
 from builtins import str
 from builtins import range
-import os
 import re
 import string
 import sys
@@ -33,9 +32,9 @@ from qtpy import QtGui
 from qtpy import QtCore
 from qtpy import QtWidgets
 
+import opencue.cuelogging
 import cuegui.Constants
 import cuegui.AbstractDockWidget
-import opencue.cuelogging
 
 PLUGIN_NAME = 'LogView'
 PLUGIN_CATEGORY = 'Other'

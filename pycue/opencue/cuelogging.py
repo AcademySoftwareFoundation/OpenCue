@@ -147,13 +147,14 @@ class CueLogger(object):
     def read(self):
         """Read the data from the backend"""
         # Only allow reading when in read mode
+
+        content = None
         if self.mode == MODE_READ:
-            content = None
             if self.exists() is True:
                 with open(self.filepath, "r", encoding='utf-8') as fp:
                     content = fp.read()
 
-            return content
+        return content
 
     def __enter__(self):
         return self
