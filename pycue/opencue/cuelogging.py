@@ -37,6 +37,10 @@ class CueLogger(object):
         """RQDLogger class initialization
            @type    filepath: string
            @param   filepath: The filepath to log to
+           @type    mode: int
+           @param   mode: read or write mode
+           @type    maxLogFiles: int
+           @param   maxLogFiles: number of files to rotate, when in write mode
         """
 
         self.filepath = filepath
