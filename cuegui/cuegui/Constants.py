@@ -155,6 +155,8 @@ LOG_ROOT_OS = __config.get('render_logs.root')
 
 ALLOWED_TAGS = tuple(__config.get('allowed_tags'))
 
+SENTRY_DSN = __config.get('sentry.dsn')
+
 DARK_STYLE_SHEET = os.path.join(CONFIG_PATH, __config.get('style.style_sheet'))
 COLOR_THEME = __config.get('style.color_theme')
 __bg_colors = __config.get('style.colors.background')
@@ -187,6 +189,8 @@ OUTPUT_VIEWER_ACTION_TEXT = __config.get('output_viewer.action_text')
 OUTPUT_VIEWER_EXTRACT_ARGS_REGEX = __config.get('output_viewer.extract_args_regex')
 OUTPUT_VIEWER_CMD_PATTERN = __config.get('output_viewer.cmd_pattern')
 OUTPUT_VIEWER_STEREO_MODIFIERS = __config.get('output_viewer.stereo_modifiers')
+FINISHED_JOBS_READONLY_FRAME = __config.get('finished_jobs_readonly.frame', False)
+FINISHED_JOBS_READONLY_LAYER = __config.get('finished_jobs_readonly.layer', False)
 
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2
