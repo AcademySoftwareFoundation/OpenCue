@@ -239,8 +239,8 @@ class CueSelectPulldown(QtWidgets.QWidget):
     def setupUi(self):
         """Creates the widget layout."""
         self.mainLayout.setVerticalSpacing(1)
-        self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
-        self.mainLayout.addWidget(self.toolButton, 1, 0, 1, 1)
+        self.mainLayout.addWidget(self.label, 0, 0, 1, 2)
+        self.mainLayout.addWidget(self.toolButton, 1, 0, 1, 2)
         self.toolButton.setMenu(self.optionsMenu)
         self.toolButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
 
@@ -627,7 +627,8 @@ def _setBrowseFileText(widget_setter, fileFilter):
     result = getFile(fileFilter)
     widget_setter(result)
 
-def _setBrowseFolderText(widget_setter, *args, **kwargs):
+# pylint: disable=keyword-arg-before-vararg,unused-argument
+def _setBrowseFolderText(widget_setter):
     """ wrapper function to open a folderBrowser and set its result back in the widget
     :param widget_setter: widget's function to set its text
     :type widget_setter: function
