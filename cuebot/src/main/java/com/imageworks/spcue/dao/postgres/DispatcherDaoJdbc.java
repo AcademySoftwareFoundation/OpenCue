@@ -18,9 +18,12 @@
 
 package com.imageworks.spcue.dao.postgres;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.*;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
+
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -28,10 +31,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -42,14 +46,12 @@ import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.SortableShow;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.grpc.host.ThreadMode;
-import com.imageworks.spcue.util.CueUtil;
-
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.*;
 
 
 /**
@@ -58,8 +60,12 @@ import static com.imageworks.spcue.dao.postgres.DispatchQuery.*;
  * @category DAO
  */
 public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
-
     private static final Logger logger = LogManager.getLogger(DispatcherDaoJdbc.class);
+    private PrometheusMetricsCollector prometheusMetrics;
+
+    public void setPrometheusMetrics(PrometheusMetricsCollector prometheusMetrics) {
+        this.prometheusMetrics = prometheusMetrics;
+    }
 
     public static final RowMapper<String> PKJOB_MAPPER =
         new RowMapper<String>() {
@@ -146,6 +152,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
      * @return a sorted list of shows.
      */
     private List<SortableShow> getBookableShows(AllocationInterface alloc) {
+        long startTime = System.currentTimeMillis();
         String key = alloc.getAllocationId();
 
         ShowCache cached = bookableShows.get(key);
@@ -159,12 +166,14 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     FIND_SHOWS,
                     SHOW_MAPPER, alloc.getAllocationId())));
         }
+        prometheusMetrics.setBookingDurationMetric("getBookableShows",
+                System.currentTimeMillis() - startTime);
 
         return bookableShows.get(key).shows;
     }
 
-    private List<String> findDispatchJobs(DispatchHost host, int numJobs, boolean shuffleShows) {
-        ArrayList<String> result = new ArrayList<String>();
+    private Set<String> findDispatchJobs(DispatchHost host, int numJobs, boolean shuffleShows) {
+        LinkedHashSet<String> result = new LinkedHashSet<String>();
         List<SortableShow> shows = new LinkedList<SortableShow>(getBookableShows(host));
         // shows were sorted. If we want it in random sequence, we need to shuffle it.
         if (shuffleShows) {
@@ -173,8 +182,9 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             Collections.shuffle(shows);
         }
 
+        long loopTime = System.currentTimeMillis();
         for (SortableShow s: shows) {
-
+            long lastTime = System.currentTimeMillis();
             if (s.isSkipped(host.tags, (long) host.cores, host.memory)) {
                 logger.info("skipping show " + s.getShowId());
                 continue;
@@ -195,19 +205,60 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     "SELECT int_burst - int_cores FROM subscription WHERE pk_show=? AND pk_alloc=?",
                     Integer.class, s.getShowId(), host.getAllocationId()) < 100) {
                 s.skip(host);
+
+                prometheusMetrics.setBookingDurationMetric("findDispatchJobs check overburst",
+                        System.currentTimeMillis() - lastTime);
                 continue;
             }
 
-            result.addAll(getJdbcTemplate().query(
-                    findByShowQuery(),
-                    PKJOB_MAPPER,
-                    s.getShowId(), host.getFacilityId(), host.os,
-                    host.idleCores, host.idleMemory,
-                    threadMode(host.threadMode),
-                    host.idleGpus,
-                    (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
-                    host.getName(), numJobs * 10));
+            if (host.idleGpus == 0 && (schedulingMode == SchedulingMode.BALANCED)) {
+                result.addAll(getJdbcTemplate().query(new PreparedStatementCreator() {
+                     @Override
+                     public PreparedStatement createPreparedStatement(Connection conn)
+                             throws SQLException {
+                         PreparedStatement find_jobs_stmt = conn.prepareStatement(
+                                 FIND_JOBS_BY_SHOW_NO_GPU);
+                         find_jobs_stmt.setString(1, s.getShowId());
+                         find_jobs_stmt.setString(2, host.getFacilityId());
+                         find_jobs_stmt.setString(3, host.os);
+                         find_jobs_stmt.setInt(4, host.idleCores);
+                         find_jobs_stmt.setLong(5, host.idleMemory);
+                         find_jobs_stmt.setInt(6, threadMode(host.threadMode));
+                         find_jobs_stmt.setString(7, host.getName());
+                         find_jobs_stmt.setInt(8, numJobs * 10);
+                         return find_jobs_stmt;
+                     }}, PKJOB_MAPPER
+                ));
+                prometheusMetrics.setBookingDurationMetric("findDispatchJobs nogpu findByShowQuery", 
+                    System.currentTimeMillis() - lastTime);
+            }
+            else {
+                result.addAll(getJdbcTemplate().query(new PreparedStatementCreator() {
+                    @Override
+                    public PreparedStatement createPreparedStatement(Connection conn)
+                            throws SQLException {
+                        PreparedStatement find_jobs_stmt = conn.prepareStatement(
+                                findByShowQuery());
+                        find_jobs_stmt.setString(1, s.getShowId());
+                        find_jobs_stmt.setString(2, host.getFacilityId());
+                        find_jobs_stmt.setString(3, host.os);
+                        find_jobs_stmt.setInt(4, host.idleCores);
+                        find_jobs_stmt.setLong(5, host.idleMemory);
+                        find_jobs_stmt.setInt(6, threadMode(host.threadMode));
+                        find_jobs_stmt.setInt(7, host.idleGpus);
+                        find_jobs_stmt.setLong(8, (host.idleGpuMemory > 0) ? 1 : 0);
+                        find_jobs_stmt.setLong(9, host.idleGpuMemory);
+                        find_jobs_stmt.setString(10, host.getName());
+                        find_jobs_stmt.setInt(11, numJobs * 10);
+                        return find_jobs_stmt;
+                    }}, PKJOB_MAPPER
+                ));
+                prometheusMetrics.setBookingDurationMetric("findDispatchJobs findByShowQuery",
+                    System.currentTimeMillis() - lastTime);
+            }
 
+            // Collect metrics
+            prometheusMetrics.incrementFindJobsByShowQueryCountMetric();
             if (result.size() < 1) {
                 if (host.gpuMemory == 0) {
                     s.skip(host.tags, host.idleCores, host.idleMemory);
@@ -217,6 +268,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 return result;
             }
         }
+        prometheusMetrics.setBookingDurationMetric("findDispatchJobs show loop",
+                System.currentTimeMillis() - loopTime);
         return result;
 
     }
@@ -225,7 +278,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         switch (schedulingMode) {
             case PRIORITY_ONLY: return FIND_JOBS_BY_SHOW_PRIORITY_MODE;
             case FIFO: return FIND_JOBS_BY_SHOW_FIFO_MODE;
-            case BALANCED: return FIND_JOBS_BY_SHOW_BALANCED_MODE;
+            case BALANCED: return FIND_JOBS_BY_SHOW;
             default: return FIND_JOBS_BY_SHOW_PRIORITY_MODE;
         }
     }
@@ -240,36 +293,56 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
+    public Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
         return findDispatchJobs(host, numJobs, true);
     }
 
     @Override
-    public List<String> findDispatchJobs(DispatchHost host, int numJobs) {
+    public Set<String> findDispatchJobs(DispatchHost host, int numJobs) {
         return findDispatchJobs(host, numJobs, false);
     }
 
     @Override
-    public List<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
-        List<String> result = getJdbcTemplate().query(
-                findByGroupQuery(),
-                PKJOB_MAPPER,
-                g.getGroupId(),host.getFacilityId(), host.os,
-                host.idleCores, host.idleMemory,
-                threadMode(host.threadMode),
-                host.idleGpus,
-                (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
-                host.getName(), 50);
+    public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
+        LinkedHashSet<String> result = new LinkedHashSet<String>(5);
+        long lastTime = System.currentTimeMillis();
 
+        if (host.idleGpus == 0 && (schedulingMode == SchedulingMode.BALANCED)) {
+            result.addAll(getJdbcTemplate().query(
+                    FIND_JOBS_BY_GROUP_NO_GPU,
+                    PKJOB_MAPPER,
+                    g.getGroupId(), host.getFacilityId(), host.os,
+                    host.idleCores, host.idleMemory,
+                    threadMode(host.threadMode),
+                    host.getName(), 50));
+            prometheusMetrics.setBookingDurationMetric("findDispatchJobs by group nogpu query",
+                    System.currentTimeMillis() - lastTime);
+        }
+        else {
+            result.addAll(getJdbcTemplate().query(
+                    findByGroupQuery(),
+                    PKJOB_MAPPER,
+                    g.getGroupId(),host.getFacilityId(), host.os,
+                    host.idleCores, host.idleMemory,
+                    threadMode(host.threadMode),
+                    host.idleGpus,
+                    (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
+                    host.getName(), 50));
+            prometheusMetrics.setBookingDurationMetric("findDispatchJobs by group query",
+                    System.currentTimeMillis() - lastTime);
+
+        }
+        
         return result;
     }
 
     @Override
     public List<DispatchFrame> findNextDispatchFrames(JobInterface job,
             VirtualProc proc,  int limit) {
-
+        long lastTime = System.currentTimeMillis();
+        List<DispatchFrame> frames;
         if (proc.isLocalDispatch) {
-            return getJdbcTemplate().query(
+            frames = getJdbcTemplate().query(
                     FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.memoryReserved,
@@ -278,7 +351,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     limit);
         }
         else {
-            return getJdbcTemplate().query(
+            frames = getJdbcTemplate().query(
                     FIND_DISPATCH_FRAME_BY_JOB_AND_PROC,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.coresReserved,
@@ -288,21 +361,28 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     job.getJobId(), proc.hostName,
                     job.getJobId(), limit);
         }
+
+        prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by job and proc query",
+                System.currentTimeMillis() - lastTime);
+
+        return frames;
     }
 
     @Override
     public List<DispatchFrame> findNextDispatchFrames(JobInterface job,
             DispatchHost host, int limit) {
+        long lastTime = System.currentTimeMillis();
+        List<DispatchFrame> frames;
 
         if (host.isLocalDispatch) {
-            return getJdbcTemplate().query(
+            frames = getJdbcTemplate().query(
                     FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     host.idleMemory, host.idleGpuMemory, job.getJobId(),
                     limit);
 
         } else {
-            return getJdbcTemplate().query(
+            frames = getJdbcTemplate().query(
                 FIND_DISPATCH_FRAME_BY_JOB_AND_HOST,
                 FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                 host.idleCores, host.idleMemory,
@@ -312,15 +392,21 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 job.getJobId(), host.getName(),
                 job.getJobId(), limit);
         }
+        prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by job and host query",
+                System.currentTimeMillis() - lastTime);
+
+        return frames;
     }
 
 
     @Override
     public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer,
             VirtualProc proc,  int limit) {
+        long lastTime = System.currentTimeMillis();
+        List<DispatchFrame> frames;
 
         if (proc.isLocalDispatch) {
-            return getJdbcTemplate().query(
+            frames = getJdbcTemplate().query(
                     FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.memoryReserved, proc.gpuMemoryReserved,
@@ -328,7 +414,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     limit);
         }
         else {
-            return getJdbcTemplate().query(
+            frames = getJdbcTemplate().query(
                     FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.coresReserved, proc.memoryReserved,
@@ -336,21 +422,29 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     layer.getLayerId(), layer.getLayerId(),
                     proc.hostName, limit);
         }
+
+
+        prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by layer and proc query",
+                System.currentTimeMillis() - lastTime);
+
+        return frames;
     }
 
     @Override
     public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer,
             DispatchHost host, int limit) {
+        long lastTime = System.currentTimeMillis();
+        List<DispatchFrame> frames;
 
         if (host.isLocalDispatch) {
-            return getJdbcTemplate().query(
+            frames = getJdbcTemplate().query(
                     FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     host.idleMemory, host.idleGpuMemory, layer.getLayerId(),
                     limit);
 
         } else {
-            return getJdbcTemplate().query(
+            frames = getJdbcTemplate().query(
                 FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST,
                 FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                 host.idleCores, host.idleMemory,
@@ -358,6 +452,11 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 host.idleGpus, host.idleGpuMemory, layer.getLayerId(), layer.getLayerId(),
                 host.getName(), limit);
         }
+
+        prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by layer and host query",
+                System.currentTimeMillis() - lastTime);
+
+        return frames;
     }
 
 
@@ -386,7 +485,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
              return false;
          }
          finally {
-             logger.trace("findUnderProcedJob(Job excludeJob, VirtualProc proc) " + CueUtil.duration(start));
+             prometheusMetrics.setBookingDurationMetric("findUnderProcedJob query",
+                System.currentTimeMillis() - start);
          }
     }
 
@@ -404,35 +504,57 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             return false;
         }
         finally {
-            logger.trace("higherPriorityJobExists(JobDetail baseJob, VirtualProc proc) " + CueUtil.duration(start));
+            prometheusMetrics.setBookingDurationMetric("higherPriorityJobExists query",
+                System.currentTimeMillis() - start);
         }
     }
 
     @Override
-    public List<String> findDispatchJobs(DispatchHost host,
+    public Set<String> findDispatchJobs(DispatchHost host,
             ShowInterface show, int numJobs) {
-        List<String> result = getJdbcTemplate().query(
-                findByShowQuery(),
-                PKJOB_MAPPER,
-                show.getShowId(), host.getFacilityId(), host.os,
-                host.idleCores, host.idleMemory,
-                threadMode(host.threadMode),
-                host.idleGpus,
-                (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
-                host.getName(), numJobs * 10);
+        LinkedHashSet<String> result = new LinkedHashSet<String>(numJobs);
+        long start = System.currentTimeMillis();
+        if (host.idleGpus == 0 && (schedulingMode == SchedulingMode.BALANCED)) {
+            result.addAll(getJdbcTemplate().query(
+                    FIND_JOBS_BY_SHOW_NO_GPU,
+                    PKJOB_MAPPER,
+                    show.getShowId(), host.getFacilityId(), host.os,
+                    host.idleCores, host.idleMemory,
+                    threadMode(host.threadMode),
+                    host.getName(), numJobs * 10));
+            prometheusMetrics.setBookingDurationMetric("findDispatchJobs by show nogpu query",
+                    System.currentTimeMillis() - start);
+        }
+        else {
+            result.addAll(getJdbcTemplate().query(
+                    findByShowQuery(),
+                    PKJOB_MAPPER,
+                    show.getShowId(), host.getFacilityId(), host.os,
+                    host.idleCores, host.idleMemory,
+                    threadMode(host.threadMode),
+                    host.idleGpus,
+                    (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
+                    host.getName(), numJobs * 10));
+            prometheusMetrics.setBookingDurationMetric("findDispatchJobs by show query",
+                    System.currentTimeMillis() - start);
+        }
 
+        // Collect metrics
+        prometheusMetrics.incrementFindJobsByShowQueryCountMetric();
         return result;
     }
 
     @Override
     public Set<String> findLocalDispatchJobs(DispatchHost host) {
         LinkedHashSet<String> result = new LinkedHashSet<String>(5);
+        long start = System.currentTimeMillis();
         result.addAll(getJdbcTemplate().query(
                     FIND_JOBS_BY_LOCAL,
                     PKJOB_MAPPER,
                     host.getHostId(), host.getFacilityId(),
                     host.os, host.getHostId(), host.getFacilityId(), host.os));
-
+        prometheusMetrics.setBookingDurationMetric("findLocalDispatchJobs query",
+                System.currentTimeMillis() - start);
         return result;
     }
 

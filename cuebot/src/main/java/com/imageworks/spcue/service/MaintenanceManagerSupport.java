@@ -27,6 +27,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 
+import io.sentry.Sentry;
+
+import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.MaintenanceTask;
 import com.imageworks.spcue.PointDetail;
@@ -111,8 +114,14 @@ public class MaintenanceManagerSupport {
                 maintenanceDao
                         .unlockTask(MaintenanceTask.LOCK_HARDWARE_STATE_CHECK);
             }
-        } catch (CannotGetJdbcConnectionException db) {
-            logger.warn("error obtaining DB connection for hardware state check");
+        } catch (Exception e) {
+            // This catch could be more specific using CannotGetJdbcConnectionException, but we need
+            // to catch a wider range of exceptions from HikariPool. 
+            // HikariPool will log this message very frequently with error level, the following check
+            // avoids polluting the logs by logging it twice
+            if (!e.getMessage().contains("Exception during pool initialization")) {
+                logger.warn("Error obtaining DB connection for hardware state check", e);
+            }
             // If this fails, then the network went down, set the current time.
             dbConnectionFailureTime = System.currentTimeMillis();
         }
@@ -138,6 +147,13 @@ public class MaintenanceManagerSupport {
                 dispatchSupport.lostProc(proc,
                         "Removed by maintenance, orphaned",
                         Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
+
+                Sentry.configureScope(scope -> {
+                    scope.setExtra("frame_id", proc.getFrameId());
+                    scope.setExtra("host_id", proc.getHostId());
+                    scope.setExtra("name", proc.getName());
+                    Sentry.captureMessage("Manager cleaning orphan procs");
+                });                
             } catch (Exception e) {
                 logger.info("failed to clear orphaned proc: " + proc.getName() + " " + e);
             }
@@ -163,6 +179,16 @@ public class MaintenanceManagerSupport {
                 dispatchSupport.lostProc(proc,
                         proc.getName() + " was marked as down.",
                         Dispatcher.EXIT_STATUS_DOWN_HOST);
+                FrameInterface f = frameDao.getFrame(proc.frameId);
+                FrameDetail frameDetail = frameDao.getFrameDetail(f);
+                Sentry.configureScope(scope -> {
+                    scope.setExtra("host", proc.getName());
+                    scope.setExtra("procId", proc.getProcId());
+                    scope.setExtra("frame Name", frameDetail.getName());
+                    scope.setExtra("frame Exit Status", String.valueOf(frameDetail.exitStatus));
+                    scope.setExtra("Frame Job ID", frameDetail.getJobId());
+                    Sentry.captureMessage("MaintenanceManager proc removed due to host offline");
+                });
             } catch (Exception e) {
                 logger.info("failed to down  proc: " + proc.getName() + " " + e);
             }

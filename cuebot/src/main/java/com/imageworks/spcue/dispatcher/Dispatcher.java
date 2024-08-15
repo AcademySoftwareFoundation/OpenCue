@@ -1,4 +1,3 @@
-
 /*
  * Copyright Contributors to the OpenCue Project
  *
@@ -58,7 +57,7 @@ public interface Dispatcher {
     public static final long MEM_RESERVED_DEFAULT = 3355443;
 
     // The maximum amount of memory that can be requested for a given frame.
-    public static final long MEM_RESERVED_MAX = CueUtil.GB * 30;
+    public static final long MEM_RESERVED_MAX = CueUtil.GB * 50;
 
     // The minimum amount of memory that can be assigned to a frame.
     public static final long MEM_RESERVED_MIN = 262144;
@@ -108,13 +107,8 @@ public interface Dispatcher {
     // without being penalized for it.
     public static final long VIRTUAL_MEM_THRESHHOLD = CueUtil.GB2;
 
-    // The amount of swap that must be used before a host can go
-    // into kill mode.
-    public static final long KILL_MODE_SWAP_THRESHOLD = CueUtil.MB128;
-
-    // When the amount of free memory drops below this point, the
-    // host can go into kill mode.
-    public static final long KILL_MODE_MEM_THRESHOLD = CueUtil.MB512;
+    // How long to keep track of a frame kill request
+    public static final int FRAME_KILL_CACHE_EXPIRE_AFTER_WRITE_MINUTES = 3;
 
     // A higher number gets more deep booking but less spread on the cue.
     public static final int DEFAULT_MAX_FRAMES_PER_PASS = 4;

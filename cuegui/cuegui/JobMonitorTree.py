@@ -268,7 +268,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 else:
                     # We'll only add the new job if it's not already listed
                     # as a dependent on another job
-                    if jobKey not in self.__reverseDependents.keys():
+                    if jobKey not in self.__reverseDependents:
                         self.__load[jobKey] = newJobObj
 
                         # when we are adding jobs manually, we want to calculate
@@ -285,6 +285,14 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         dep = self.__menuActions.jobs(
                         ).getRecursiveDependentJobs([newJobObj],
                                                     active_only=active_only)
+
+                        # Remove dependent if it has the same name as the job
+                        # - This avoids missing jobs on MonitorJobs
+                        # - Remove the parent job is necessary to avoid remove
+                        # the parent job and all the dependents
+                        # in the step 2 below
+                        dep = [j for j in dep if j.data.name != newJobObj.data.name]
+
                         self.__dependentJobs[jobKey] = dep
                         # we'll also store a reversed dictionary for
                         # dependencies with the dependent as key and the main
@@ -329,12 +337,14 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @param item: A tree widget item
         @type  item: AbstractTreeWidgetItem"""
         self.app.unmonitor.emit(item.rpcObject)
+        # pylint: disable=protected-access
         cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
         self.__jobTimeLoaded.pop(item.rpcObject, "")
         try:
             jobKey = cuegui.Utils.getObjectKey(item)
             # Remove the item from the main _items dictionary as well as the
             # __dependentJobs and the reverseDependent dictionaries
+            # pylint: disable=protected-access
             cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
             dependent_jobs = self.__dependentJobs.get(jobKey, [])
             for djob in dependent_jobs:
@@ -376,6 +386,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.jobs().addAction(menu, "unmonitor")
         self.__menuActions.jobs().addAction(menu, "view")
         self.__menuActions.jobs().addAction(menu, "emailArtist")
+        self.__menuActions.jobs().addAction(menu, "subscribeToJob")
         self.__menuActions.jobs().addAction(menu, "viewComments")
 
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
@@ -486,7 +497,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 # an empty list for the id argument!
                 if not ids:
                     continue
-                tmp = opencue.api.getJobs(id=ids, all=True)
+                tmp = opencue.api.getJobs(id=ids, include_finished=True)
                 self.__dependentJobs[job] = tmp
 
             if self.__loadMine:

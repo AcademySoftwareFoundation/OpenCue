@@ -283,6 +283,7 @@ public class JobManagerService implements JobManager {
                 layerDao.insertLayerEnvironment(layer, buildableLayer.env);
                 layer.limits.stream()
                         .forEach(ln -> addLayerLimit(layer, limitDao.findLimit(ln).getLimitId()));
+                layer.outputs.stream().forEach(ln -> registerLayerOutput(layer, ln));
                 frameDao.insertFrames(layer, frames);
             }
 
@@ -566,6 +567,16 @@ public class JobManagerService implements JobManager {
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public List<FrameInterface> getStaleCheckpoints(int cutoffTimeSec) {
         return frameDao.getStaleCheckpoints(cutoffTimeSec);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updateEmail(JobInterface job, String email) {
+        jobDao.updateEmail(job, email);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    public String getEmail(JobInterface job) {
+        return jobDao.getEmail(job);
     }
 
     public DependManager getDependManager() {

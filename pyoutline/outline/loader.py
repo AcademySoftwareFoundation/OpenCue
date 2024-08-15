@@ -77,7 +77,7 @@ def load_outline(path):
 
     ext = os.path.splitext(path)
     if ext[1] == ".yaml" or path.find("cue_archive") != -1:
-        with open(path) as file_object:
+        with open(path, encoding='utf-8') as file_object:
             ol = yaml.load(file_object, Loader=yaml.FullLoader)
         Outline.current = ol
         if not isinstance(ol, Outline):
@@ -172,7 +172,7 @@ def parse_outline_script(path):
     """
     try:
         logger.info("parsing outline file %s", path)
-        with open(path) as fp:
+        with open(path, encoding='utf-8') as fp:
             code = compile(fp.read(), path, 'exec')
             exec(code)  # pylint: disable=exec-used
     except Exception as exp:

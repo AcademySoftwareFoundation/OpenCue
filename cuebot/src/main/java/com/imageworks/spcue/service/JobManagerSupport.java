@@ -27,6 +27,8 @@ import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
+import io.sentry.Sentry;
+
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
@@ -75,76 +77,90 @@ public class JobManagerSupport {
 
     public boolean shutdownJob(JobInterface job, Source source, boolean isManualKill) {
 
-        if (jobManager.shutdownJob(job)) {
+        if (isManualKill && source.getReason().isEmpty()) {
+            logger.info(job.getName() + "/" + job.getId() +
+                    " **Invalid Job Kill Request** for " + source.toString());
+        }
+        else {
+            if (jobManager.shutdownJob(job)) {
+                /*
+                * Satisfy any dependencies on just the
+                * job record, not layers or frames.
+                */
+                satisfyWhatDependsOn(job);
 
-            /*
-             * Satisfy any dependencies on just the
-             * job record, not layers or frames.
-             */
-            satisfyWhatDependsOn(job);
-
-            if (departmentManager.isManaged(job)) {
-                departmentManager.syncJobsWithTask(job);
-            }
-
-            if (isManualKill) {
-
-                logger.info(job.getName() + "/" + job.getId() +
-                        " is being manually killed by " + source.toString());
-
-                /**
-                 * Sleep a bit here in case any frames were
-                 * dispatched during the job shutdown process.
-                 */
-                try {
-                    Thread.sleep(3000);
-                } catch (InterruptedException e1) {
-                    logger.info(job.getName() + "/" + job.getId() +
-                            " shutdown thread was interrupted.");
-                    Thread.currentThread().interrupt();
+                if (departmentManager.isManaged(job)) {
+                    departmentManager.syncJobsWithTask(job);
                 }
 
-                FrameSearchInterface search = frameSearchFactory.create(job);
-                FrameSearchCriteria newCriteria = search.getCriteria();
-                FrameStateSeq states = newCriteria.getStates().toBuilder()
-                        .addFrameStates(FrameState.RUNNING)
-                        .build();
-                search.setCriteria(newCriteria.toBuilder().setStates(states).build());
-
-                for (FrameInterface frame: jobManager.findFrames(search)) {
-
-                    VirtualProc proc = null;
+                if (isManualKill) {
+                    logger.info(job.getName() + "/" + job.getId() +
+                            " is being manually killed by " + source.toString());
+                    
+                    /**
+                     * Sleep a bit here in case any frames were
+                     * dispatched during the job shutdown process.
+                     */
                     try {
-                        proc = hostManager.findVirtualProc(frame);
+                        Thread.sleep(3000);
+                    } catch (InterruptedException e1) {
+                        logger.info(job.getName() + "/" + job.getId() +
+                                " shutdown thread was interrupted.");
+                        Thread.currentThread().interrupt();
                     }
-                    catch (DataAccessException e) {
-                        logger.warn("Unable to find proc to kill frame " + frame +
-                                " on job shutdown operation, " + e);
-                    }
+                    
+                    // Report kill requests to sentry
+                    Sentry.configureScope(scope -> {
+                        scope.setExtra("Job Name", job.getName());
+                        scope.setExtra("Job ID", job.getId());
+                        scope.setExtra("Job Details", source.toString());
+                        scope.setExtra("Kill Reason", source.getReason());
+                        scope.setTag("job", job.getName());
+                        Sentry.captureMessage("Kill Request Successful");                        
+                    });
+                    
+                    FrameSearchInterface search = frameSearchFactory.create(job);
+                    FrameSearchCriteria newCriteria = search.getCriteria();
+                    FrameStateSeq states = newCriteria.getStates().toBuilder()
+                            .addFrameStates(FrameState.RUNNING)
+                            .build();
+                    search.setCriteria(newCriteria.toBuilder().setStates(states).build());
 
-                    if (manualStopFrame(frame, FrameState.WAITING)) {
+                    for (FrameInterface frame: jobManager.findFrames(search)) {
+
+                        VirtualProc proc = null;
                         try {
-                            if (proc != null) {
-                                kill(proc, source);
-                            }
-                        } catch (DataAccessException e) {
-                            logger.warn("Failed to kill frame " + frame +
+                            proc = hostManager.findVirtualProc(frame);
+                        }
+                        catch (DataAccessException e) {
+                            logger.warn("Unable to find proc to kill frame " + frame +
                                     " on job shutdown operation, " + e);
                         }
-                        catch (Exception e) {
-                            logger.warn("error killing frame: " + frame);
+
+                        if (manualStopFrame(frame, FrameState.WAITING)) {
+                            try {
+                                if (proc != null) {
+                                    kill(proc, source);
+                                }
+                            } catch (DataAccessException e) {
+                                logger.warn("Failed to kill frame " + frame +
+                                        " on job shutdown operation, " + e);
+                            }
+                            catch (Exception e) {
+                                logger.warn("error killing frame: " + frame);
+                            }
                         }
                     }
                 }
+
+                /*
+                * Send mail after all frames have been stopped or else the email
+                * will have inaccurate numbers.
+                */
+                emailSupport.sendShutdownEmail(job);
+
+                return true;
             }
-
-            /*
-             * Send mail after all frames have been stopped or else the email
-             * will have inaccurate numbers.
-             */
-            emailSupport.sendShutdownEmail(job);
-
-            return true;
         }
 
         return false;

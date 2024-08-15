@@ -575,6 +575,7 @@ class RedirectWidget(QtWidgets.QWidget):
         try:
             procsBurst = (showSubs.get(alloc).data.burst -
                               showSubs.get(alloc).data.reserved_cores)
+            # pylint: disable=consider-using-generator
             procsRedirect = int(sum([p.data.reserved_cores
                                          for p in procs]))
             wastedCores = int(procsRedirect - procsBurst)

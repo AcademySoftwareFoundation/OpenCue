@@ -190,17 +190,17 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            data=lambda group: group.data.stats.waiting_frames)
             self.addColumn("", 0, id=8)
             self.addColumn("", 0, id=9)
-            self.addColumn("", 0, id=10,
-                           data=lambda group: (group.data.min_cores or ""))
+            self.addColumn("", 0, id=10)
             self.addColumn("", 0, id=11,
+                           data=lambda group: (group.data.min_cores or ""))
+            self.addColumn("", 0, id=12,
                            data=lambda group: (
                                    group.data.max_cores > 0 and group.data.max_cores or ""))
-            self.addColumn("", 0, id=12,
-                           data=lambda group: (group.data.min_gpus or ""))
             self.addColumn("", 0, id=13,
+                           data=lambda group: (group.data.min_gpus or ""))
+            self.addColumn("", 0, id=14,
                            data=lambda group: (
                                    group.data.max_gpus > 0 and group.data.max_gpus or ""))
-            self.addColumn("", 0, id=14)
             self.addColumn("", 0, id=15)
             self.addColumn("", 0, id=16)
             self.addColumn("", 0, id=17)
@@ -535,6 +535,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
             self.__menuActions.jobs().addAction(menu, "view")
             self.__menuActions.jobs().addAction(menu, "emailArtist")
+            self.__menuActions.jobs().addAction(menu, "subscribeToJob")
             self.__menuActions.jobs().addAction(menu, "viewComments")
             self.__menuActions.jobs().addAction(menu, "sendToGroup")
 

@@ -29,6 +29,7 @@ from builtins import str
 from builtins import range
 from builtins import object
 
+import codecs
 import ctypes
 import errno
 import logging
@@ -133,7 +134,6 @@ class Machine(object):
             return False
         return True
 
-    # pylint: disable=no-self-use
     @rqd.rqutil.Memoize
     def isDesktop(self):
         """Returns True if machine starts in run level 5 (X11)
@@ -141,10 +141,10 @@ class Machine(object):
         if rqd.rqconstants.OVERRIDE_IS_DESKTOP:
             return True
         if platform.system() == "Linux" and os.path.exists(rqd.rqconstants.PATH_INITTAB):
-            inittabFile = open(rqd.rqconstants.PATH_INITTAB, "r")
-            for line in inittabFile:
-                if line.startswith("id:5:initdefault:"):
-                    return True
+            with open(rqd.rqconstants.PATH_INITTAB, "r", encoding='utf-8') as inittabFile:
+                for line in inittabFile:
+                    if line.startswith("id:5:initdefault:"):
+                        return True
             if os.path.islink(rqd.rqconstants.PATH_INIT_TARGET):
                 if os.path.realpath(rqd.rqconstants.PATH_INIT_TARGET).endswith('graphical.target'):
                     return True
@@ -215,8 +215,10 @@ class Machine(object):
             frame.lluTime = int(stat)
 
     def _getStatFields(self, pidFilePath):
-        with open(pidFilePath, "r") as statFile:
-            return [None, None] + statFile.read().rsplit(")", 1)[-1].split()
+        with open(pidFilePath, "r", encoding='utf-8') as statFile:
+            stats = statFile.read().split()
+            stats[1] = stats[1].strip('()')
+            return stats
 
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
@@ -397,23 +399,23 @@ class Machine(object):
         """Returns average number of processes waiting to be served
            for the last 1 minute multiplied by 100."""
         if platform.system() == "Linux":
-            loadAvgFile = open(rqd.rqconstants.PATH_LOADAVG, "r")
-            loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
-            if self.__enabledHT():
-                loadAvg = loadAvg // self.__getHyperthreadingMultiplier()
-            loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
-            loadAvg = max(loadAvg, 0)
-            return loadAvg
+            with open(rqd.rqconstants.PATH_LOADAVG, "r", encoding='utf-8') as loadAvgFile:
+                loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
+                if self.__enabledHT():
+                    loadAvg = loadAvg // self.__getHyperthreadingMultiplier()
+                loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
+                loadAvg = max(loadAvg, 0)
+                return loadAvg
         return 0
 
     @rqd.rqutil.Memoize
     def getBootTime(self):
         """Returns epoch when the system last booted"""
         if platform.system() == "Linux":
-            statFile = open(rqd.rqconstants.PATH_STAT, "r")
-            for line in statFile:
-                if line.startswith("btime"):
-                    return int(line.split()[1])
+            with open(rqd.rqconstants.PATH_STAT, "r", encoding='utf-8') as statFile:
+                for line in statFile:
+                    if line.startswith("btime"):
+                        return int(line.split()[1])
         return 0
 
     @rqd.rqutil.Memoize
@@ -526,7 +528,8 @@ class Machine(object):
         """Reboots the machine immediately"""
         if platform.system() == "Linux":
             log.warning("Rebooting machine")
-            subprocess.Popen(['/usr/bin/sudo','/sbin/reboot', '-f'])
+            # pylint: disable=consider-using-with
+            subprocess.Popen(['/usr/bin/sudo', '/sbin/reboot', '-f'])
 
     # pylint: disable=no-member
     def __initMachineTags(self):
@@ -576,7 +579,8 @@ class Machine(object):
             self.__physid_and_coreid_by_proc = {}
 
             # Reads static information from /proc/cpuinfo
-            with open(pathCpuInfo or rqd.rqconstants.PATH_CPUINFO, "r") as cpuinfoFile:
+            with open(pathCpuInfo or rqd.rqconstants.PATH_CPUINFO, "r",
+                      encoding='utf-8') as cpuinfoFile:
                 currCore = {}
                 procsFound = []
                 for line in cpuinfoFile:
@@ -615,6 +619,14 @@ class Machine(object):
                     # An entry without data
                     elif len(lineList) == 1:
                         currCore[lineList[0]] = ""
+
+                # Reads information from /proc/meminfo
+                with codecs.open(rqd.rqconstants.PATH_MEMINFO, "r", encoding="utf-8") as fp:
+                    for line in fp:
+                        if line.startswith("MemTotal"):
+                            self.__renderHost.total_mem = int(line.split()[1])
+                        elif line.startswith("SwapTotal"):
+                            self.__renderHost.total_swap = int(line.split()[1])
         else:
             hyperthreadingMultiplier = 1
 
@@ -726,7 +738,7 @@ class Machine(object):
             self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // KILOBYTE
 
             # Reads dynamic information from /proc/meminfo
-            with open(rqd.rqconstants.PATH_MEMINFO, "r") as fp:
+            with open(rqd.rqconstants.PATH_MEMINFO, "r", encoding='utf-8') as fp:
                 for line in fp:
                     if line.startswith("MemFree"):
                         freeMem = int(line.split()[1])

@@ -274,7 +274,7 @@ class FrameMonitor(QtWidgets.QWidget):
         if has_filters:
             temp_search = deepcopy(self.frameMonitorTree.frameSearch)
             temp_search.page = self.page + 1
-            temp_frames = job.getFrames(temp_search)
+            temp_frames = job.getFrames(**temp_search.options)
             self.next_page_btn.setEnabled(len(temp_frames) > 0)
         else:
             page_label_text += ' of {0}'.format(total_pages)
@@ -428,14 +428,14 @@ class FrameMonitor(QtWidgets.QWidget):
         btn.setMenu(menu)
         menu.triggered.connect(self._filterStatusHandle)  # pylint: disable=no-member
 
-        for item in [("Clear", QtCore.Qt.ALT + QtCore.Qt.Key_QuoteLeft),
+        for item in [("Clear", QtCore.Qt.ALT | QtCore.Qt.Key_QuoteLeft),
                      None,
-                     ("Succeeded", QtCore.Qt.ALT + QtCore.Qt.Key_1),
-                     ("Running", QtCore.Qt.ALT + QtCore.Qt.Key_2),
-                     ("Waiting", QtCore.Qt.ALT + QtCore.Qt.Key_3),
-                     ("Depend", QtCore.Qt.ALT + QtCore.Qt.Key_4),
-                     ("Dead", QtCore.Qt.ALT + QtCore.Qt.Key_5),
-                     ("Eaten", QtCore.Qt.ALT + QtCore.Qt.Key_6)]:
+                     ("Succeeded", QtCore.Qt.ALT | QtCore.Qt.Key_1),
+                     ("Running", QtCore.Qt.ALT | QtCore.Qt.Key_2),
+                     ("Waiting", QtCore.Qt.ALT | QtCore.Qt.Key_3),
+                     ("Depend", QtCore.Qt.ALT | QtCore.Qt.Key_4),
+                     ("Dead", QtCore.Qt.ALT | QtCore.Qt.Key_5),
+                     ("Eaten", QtCore.Qt.ALT | QtCore.Qt.Key_6)]:
             if item:
                 a = QtWidgets.QAction(item[0], menu)
                 if item[0] != "Clear":

@@ -25,7 +25,9 @@ from builtins import range
 import os
 import re
 import string
+import sys
 import time
+import traceback
 
 from qtpy import QtGui
 from qtpy import QtCore
@@ -40,6 +42,42 @@ PLUGIN_CATEGORY = 'Other'
 PLUGIN_DESCRIPTION = 'Displays Frame Log'
 PLUGIN_PROVIDES = 'LogViewPlugin'
 PRINTABLE = set(string.printable)
+
+
+class LogReader(object):
+    """
+    Custom class to abstract reading log files from multiple backends
+    """
+    filepath = None
+    type = None
+
+    def __init__(self, filepath):
+        """LogReader class initialization
+           @type    filepath: string
+           @param   filepath: The filepath to log to
+        """
+        self.filepath = filepath
+
+    def size(self):
+        """Return the size of the file"""
+        return int(os.stat(self.filepath).st_size)
+
+    def getMtime(self):
+        """Return modification time of the file"""
+        return os.path.getmtime(self.filepath)
+
+    def exists(self):
+        """Check if the file exists"""
+        return os.path.exists(self.filepath)
+
+    def read(self):
+        """Read the data from the backend"""
+        content = None
+        if self.exists() is True:
+            with open(self.filepath, "r", encoding='utf-8') as fp:
+                content = fp.read()
+
+        return content
 
 
 class LineNumberArea(QtWidgets.QWidget):
@@ -146,14 +184,6 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         pos = event.pos()
         self.mousePressedSignal.emit(pos)
         self.copy_selection(QtGui.QClipboard.Selection)
-
-    def scrollContentsBy(self, *args, **kwargs):
-        """
-        Overriding to make sure the line numbers area is updated when scrolling
-        """
-
-        self._line_num_area.repaint()
-        return QtWidgets.QPlainTextEdit.scrollContentsBy(self, *args, **kwargs)
 
     def copy_selection(self, mode):
         """
@@ -292,10 +322,40 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
             bottom = top + self.blockBoundingRect(block).height()
             block_number += 1
 
+class LogLoadSignals(QtCore.QObject):
+    """Signals for the LoadLog action"""
+    SIG_LOG_LOAD_ERROR = QtCore.Signal(tuple)
+    SIG_LOG_LOAD_RESULT = QtCore.Signal(str, str)
+    SIG_LOG_LOAD_FINISHED = QtCore.Signal()
+
+class LogLoader(QtCore.QRunnable):
+    """A thread to load logs"""
+    def __init__(self, fn, *args, **kwargs):
+        super(LogLoader, self).__init__()
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = LogLoadSignals()
+
+    @QtCore.Slot()
+    def run(self):
+        # pylint: disable=bare-except
+        try:
+            content, log_mtime = self.fn(*self.args, **self.kwargs)
+        except:
+            exctype, value = sys.exc_info()[:2]
+            self.signals.SIG_LOG_LOAD_ERROR.emit(
+                (exctype, value, traceback.format_exc()))
+        else:
+            self.signals.SIG_LOG_LOAD_RESULT.emit(content, log_mtime)
+        finally:
+            self.signals.SIG_LOG_LOAD_FINISHED.emit()
 
 class LogViewWidget(QtWidgets.QWidget):
-    """Displays the log file for the selected frame."""
-
+    """
+    Displays the log file for the selected frame
+    """
+    SIG_CONTENT_UPDATED = QtCore.Signal(str, str)
     def __init__(self, parent=None):
         """
         Create the UI elements
@@ -431,7 +491,6 @@ class LogViewWidget(QtWidgets.QWidget):
         # Signals are defined in code, so pylint thinks they don't exist.
         self.app.display_log_file_content.connect(self._set_log_files)
         self._log_scrollbar = self._content_box.verticalScrollBar()
-        self._log_scrollbar.valueChanged.connect(self._set_scrollbar_value)
 
         self._new_log = False
         self._current_log_index = 0
@@ -453,6 +512,9 @@ class LogViewWidget(QtWidgets.QWidget):
         self._current_match = 0
         self._content_box.mousePressedSignal.connect(self._on_mouse_pressed)
 
+        self.SIG_CONTENT_UPDATED.connect(self._update_log_content)
+        self.log_thread_pool = QtCore.QThreadPool()
+
     def _on_mouse_pressed(self, pos):
         """
         Mouse press event, to be called when the user scrolls by hand or moves
@@ -467,6 +529,7 @@ class LogViewWidget(QtWidgets.QWidget):
         self._update_visible_indices()
         cursor_for_pos = self._content_box.cursorForPosition(pos)
         index = cursor_for_pos.position()
+        # pylint: disable=consider-using-enumerate
         for i in range(0, len(self._matches)):
             if index < self._matches[i][0]:
                 self._current_match = i
@@ -640,7 +703,7 @@ class LogViewWidget(QtWidgets.QWidget):
             self._clear_search_data()
             return
 
-        search_case_stv = self._case_stv_checkbox.checkState()
+        search_case_stv = self._case_stv_checkbox.isChecked()
         if self._content_timestamp <= self._search_timestamp:
             if prev_search == self._search_text:  # Same content & pattern
                 if self._last_search_case_stv == search_case_stv:
@@ -786,14 +849,56 @@ class LogViewWidget(QtWidgets.QWidget):
         @postcondition: The _update_log method is scheduled to run again
                         after 5 seconds
         """
+        log_reader = LogReader(self._log_file)
 
         try:
-            self._update_log()
-            self._new_log = False
+            if log_reader.exists() is not True:
+                self._log_file_exists = False
+                content = 'Log file does not exist: %s' % self._log_file
+                self._content_timestamp = time.time()
+                self._update_log_content(content, self._log_mtime)
+            else:
+                # Creating the load logs process as qrunnables so
+                # that they don't block the ui while loading
+                log_loader = LogLoader(self._load_log, log_reader,
+                                       self._new_log, self._log_mtime)
+                log_loader.signals.SIG_LOG_LOAD_RESULT.connect(self._receive_log_results)
+                log_loader.setAutoDelete(True)
+                self.log_thread_pool.start(log_loader)
+                self.log_thread_pool.waitForDone()
+                self._new_log = False
         finally:
             QtCore.QTimer.singleShot(5000, self._display_log_content)
 
-    def _update_log(self):
+    @QtCore.Slot()
+    def _load_log(self, log_reader, new_log, curr_log_mtime):
+        content = None
+        log_size = log_reader.size()
+        if log_size > 1 * 1e6:
+            content = ('Log file size (%0.1f MB) exceeds the size '
+                       'threshold (1.0 MB).'
+                       % float(log_size / (1024 * 1024)))
+        elif not new_log and log_reader.exists():
+            log_mtime = log_reader.getMtime()
+            if log_mtime > curr_log_mtime:
+                curr_log_mtime = log_mtime  # no new updates
+                content = ''
+
+        if content is None:
+            content = ''
+            try:
+                content = log_reader.read()
+            except IOError:
+                content = 'Can not access log file: %s' % log_reader.filepath
+
+        return content, curr_log_mtime
+
+    @QtCore.Slot()
+    def _receive_log_results(self, content, log_mtime):
+        self.SIG_CONTENT_UPDATED.emit(content, log_mtime)
+
+    @QtCore.Slot(str, str)
+    def _update_log_content(self, content, log_mtime):
         """
         Updates the content of the content box with the content of the log
         file, if necessary. The full path to the log file will be populated in
@@ -813,49 +918,23 @@ class LogViewWidget(QtWidgets.QWidget):
                         (if necessary)
         """
 
-        # Get the content of the log file
-        if not self._log_file:
-            return  # There's no log file, nothing to do here!
-        self._path.setText(self._log_file)
-        content = None
-        if not os.path.exists(self._log_file):
-            self._log_file_exists = False
-            content = 'Log file does not exist: %s' % self._log_file
-            self._content_timestamp = time.time()
-        else:
-            log_size = int(os.stat(self._log_file).st_size)
-            if log_size > 5 * 1e6:
-                content = ('Log file size (%0.1f MB) exceeds the size '
-                           'threshold (5.0 MB).'
-                           % float(log_size / (1024 * 1024)))
-            elif not self._new_log and os.path.exists(self._log_file):
-                log_mtime = os.path.getmtime(self._log_file)
-                if log_mtime > self._log_mtime:
-                    self._log_mtime = log_mtime  # no new updates
-                    content = ''
+        self._log_mtime = log_mtime
 
-        if content is None:
-            content = ''
-            try:
-                with open(self._log_file, 'r') as f:
-                    content = f.read()
-            except IOError:
-                content = 'Can not access log file: %s' % self._log_file
-
-        # Do we need to scroll to the end?
-        scroll_to_end = (self._scrollbar_max == self._scrollbar_value
-                         or self._new_log)
+        self.app.processEvents()
 
         # Update the content in the gui (if necessary)
-        current_text = (self._content_box.toPlainText() or '')
-        new_text = content.lstrip(str(current_text))
-        if new_text:
-            if self._new_log:
-                self._content_box.setPlainText(content)
-            else:
+        if self._new_log:
+            self._content_box.setPlainText(content)
+        else:
+            current_text = (self._content_box.toPlainText() or '')
+            new_text = content.lstrip(str(current_text))
+            if new_text:
                 self._content_box.appendPlainText(new_text)
-            self._content_timestamp = time.time()
-        self.app.processEvents()
+        self._content_timestamp = time.time()
+        self._path.setText(self._log_file)
+
+        scroll_to_end = (self._scrollbar_max == self._scrollbar_value
+                         or self._new_log)
 
         # Adjust scrollbar value (if necessary)
         self._scrollbar_max = self._log_scrollbar.maximum()
