@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 import os
+import re
 
 import opencue
 from cuesubmit import Constants
@@ -62,13 +63,13 @@ def getFacilities(allocations):
     return default_facilities + list(facilities)
 
 def convertCommandOptions(options):
-    """ Parse command options from the config file and return parameters to feed the UI (name, type, value)
+    """ Parse command options from the config file
+    and return parameters to feed the UI (name, type, value)
 
     :param options: All options for a given command (ex:{"-flag {Nice Name}": "default_value"})
     :type options: dict
     :return: list of dict of parameters
     """
-    import re
     parameters = []
     for option_line, value in options.items():
         parse_option = re.search(Constants.REGEX_COMMAND_OPTIONS,
