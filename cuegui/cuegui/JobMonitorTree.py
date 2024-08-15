@@ -394,7 +394,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         it_view_action = self.__menuActions.jobs().addAction(menu, "viewOutput")
         it_view_action.setDisabled(__count == 0)
-        it_view_action.setToolTip("Open ItView for the selected items")
+        it_view_action.setToolTip("Open Viewer for the selected items")
 
         depend_menu = QtWidgets.QMenu("&Dependencies",self)
         self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
