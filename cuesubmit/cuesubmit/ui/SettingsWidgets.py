@@ -271,7 +271,7 @@ class DynamicSettingsWidget(BaseSettingsWidget):
     See `buildDynamicWidgets` for the widgets creation
     """
 
-    def __init__(self, parent=None, tool_name=None, parameters=None, *args, **kwargs):
+    def __init__(self, parent=None, tool_name=None, parameters=None):
         super(DynamicSettingsWidget, self).__init__(parent=parent)
         self.groupBox.setTitle(f'{tool_name} options')
         self.widgets = buildDynamicWidgets(parameters)
