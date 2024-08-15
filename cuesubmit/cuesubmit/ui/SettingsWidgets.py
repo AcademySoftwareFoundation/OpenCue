@@ -356,10 +356,6 @@ def buildDynamicWidgets(parameters):
                 widget = Widgets.CueLabelLineEdit(labelText=f'{label}:',
                                                   defaultText=option.get('value', ''),
                                                   validators=validators)
-            # Hide widgets containing opencue tokens (#IFRAME#, etc..) or solo flags
-            if option['hidden']:
-                widget.setDisabled(True)
-                widget.setHidden(True)
 
         elif option['type'] in (list, tuple):
             _options = option.get('value', ['No options'])
@@ -368,6 +364,11 @@ def buildDynamicWidgets(parameters):
                                                multiselect=False)
         else:
             continue
+
+        # Hide widgets containing tokens (#IFRAME#, etc..) or solo flags
+        if option['hidden']:
+            widget.setDisabled(True)
+            widget.setHidden(True)
 
         # Register widget common attributes
         widget.mandatory = option.get('mandatory')
