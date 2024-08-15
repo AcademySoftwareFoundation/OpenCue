@@ -188,6 +188,10 @@ RESOURCE_LIMITS = __config.get('resources')
 FINISHED_JOBS_READONLY_FRAME = __config.get('finished_jobs_readonly.frame', False)
 FINISHED_JOBS_READONLY_LAYER = __config.get('finished_jobs_readonly.layer', False)
 
+DISABLED_ACTION_TYPES = [action_type.strip()
+                         for action_type
+                         in __config.get('filter_dialog.disabled_action_types', "").split(",")]
+
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2
 TYPE_FRAME = QtWidgets.QTreeWidgetItem.UserType + 3
@@ -209,4 +213,3 @@ QVARIANT_NULL = None
 QT_MAX_INT = 2147483647
 
 COLUMN_INFO_DISPLAY = 2
-DISABLED_ACTION_TYPES = ['SET_ALL_RENDER_LAYER_CORES']
