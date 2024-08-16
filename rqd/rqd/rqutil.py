@@ -150,7 +150,7 @@ def checkAndCreateUser(username, uid=None, gid=None):
         if gid:
             cmd += ['-g', str(gid)]
         cmd.append(username)
-        log.info("Frame's username not found on host. Adding user with: %s" % cmd)
+        log.info("Frame's username not found on host. Adding user with: %s", cmd)
         subprocess.check_call(cmd)
 
 
