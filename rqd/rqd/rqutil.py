@@ -132,7 +132,7 @@ def __becomeRoot():
             pass
 
 
-def checkAndCreateUser(username):
+def checkAndCreateUser(username, uid=None, gid=None):
     """Check to see if the provided user exists, if not attempt to create it."""
     # TODO(gregdenton): Add Windows and Mac support here. (Issue #61)
     if not rqd.rqconstants.RQD_BECOME_JOB_USER:
@@ -141,11 +141,17 @@ def checkAndCreateUser(username):
         pwd.getpwnam(username)
         return
     except KeyError:
-        subprocess.check_call([
+        cmd = [
             'useradd',
             '-p', str(uuid.uuid4()),  # generate a random password
-            username
-        ])
+        ]
+        if uid:
+            cmd += ['-u', str(uid)]
+        if gid:
+            cmd += ['-g', str(gid)]
+        cmd.append(username)
+        log.info("Frame's username not found on host. Adding user with: %s" % cmd)
+        subprocess.check_call(cmd)
 
 
 def getHostIp():
