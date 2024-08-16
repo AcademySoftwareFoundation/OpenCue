@@ -9,7 +9,8 @@ RUN yum -y install \
         mesa-libGLU-devel \
         zlib-devel \
         libXinerama-devel \
-        libXrandr-devel
+        libXrandr-devel \
+        xz
 
 # Set Blender install directory
 ARG BLENDER_INSTALL_DIR=/usr/local/blender
