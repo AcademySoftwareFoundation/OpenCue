@@ -51,7 +51,9 @@ FILTERTYPES = opencue.compiled_proto.filter_pb2.FilterType.keys()
 PAUSETYPES = ["Pause", "Unpause"]
 MEMOPTTYPES = ["Enabled", "Disabled"]
 MAX_RENDER_MEM = 251.0
-ALLOWED_ACTION_TYPES = [action_type for action_type in ACTIONTYPES if action_type not in DISABLED_ACTION_TYPES]
+ALLOWED_ACTION_TYPES = [action_type
+                        for action_type in ACTIONTYPES
+                        if action_type not in DISABLED_ACTION_TYPES]
 
 class FilterDialog(QtWidgets.QDialog):
     """Dialog to display/modify a show's filters, matchers and actions."""
