@@ -67,7 +67,8 @@ class FrameMonitor(QtWidgets.QWidget):
         self._filterLayersSetup(hlayout)  # Menu to filter layers
         self._filterStatusSetup(hlayout)  # Menu to filter frames by status
         hlayout.addStretch()
-        hlayout.addWidget(QtWidgets.QLabel("(Limited to {0} frames)".format(self.frameSearchLimit)))
+        hlayout.addWidget(QtWidgets.QLabel("(Limited to {0} frames)"
+                                           .format(self.frameSearchLimit)))
         hlayout.addStretch()
         self._displayJobNameSetup(hlayout)
 
