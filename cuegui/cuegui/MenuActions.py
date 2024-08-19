@@ -171,6 +171,7 @@ class AbstractActions(object):
             self.__actionCache[key] = action
 
         menu.addAction(self.__actionCache[key])
+        return self.__actionCache[key]
 
     def cuebotCall(self, functionToCall, errorMessageTitle, *args):
         """Makes the given call to the Cuebot, displaying exception info if needed.
