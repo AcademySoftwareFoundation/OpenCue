@@ -102,7 +102,7 @@ class ConstantsTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual('%(levelname)-9s %(module)-10s %(message)s', result.LOGGER_FORMAT)
         self.assertEqual('WARNING', result.LOGGER_LEVEL)
         self.assertEqual('cuemail: please check ', result.EMAIL_SUBJECT_PREFIX)
-        self.assertEqual('Your PSTs request that you check ', result.EMAIL_BODY_PREFIX)
+        self.assertEqual('Your PSTs request that you check:\n', result.EMAIL_BODY_PREFIX)
         self.assertEqual('\n\n', result.EMAIL_BODY_SUFFIX)
         self.assertEqual('', result.EMAIL_DOMAIN)
         self.assertEqual(

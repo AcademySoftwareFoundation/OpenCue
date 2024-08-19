@@ -20,8 +20,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-from builtins import str
-from builtins import map
 
 try:
     from email.MIMEText import MIMEText
@@ -32,22 +30,11 @@ except ImportError:
     from email.mime.multipart import MIMEMultipart
     from email.header import Header
 
-import os
-
-# pwd is not available on Windows.
-# TODO(bcipriano) Remove this, not needed once user info can come directly from Cuebot.
-#  (https://github.com/imageworks/OpenCue/issues/218)
-try:
-    import pwd
-except ImportError:
-    pass
 import smtplib
 
 from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
-
-import opencue
 
 import cuegui.Constants
 import cuegui.Logger
@@ -90,20 +77,26 @@ class EmailCoresWidget(QtWidgets.QWidget):
 
         self.__job = job
 
-        # Temporary workaround when pwd library is not available (i.e. Windows).
-        # TODO(bcipriano) Pull this info directly from Cuebot.
-        #  (https://github.com/imageworks/OpenCue/issues/218)
-        if "pwd" in globals():
-            user_name = pwd.getpwnam(job.username()).pw_gecos
-        else:
-            user_name = job.username()
-
         __default_from = "%s@%s" % (job.username(), cuegui.Constants.EMAIL_DOMAIN)
         __default_to = ""
-        __default_cc = [
-            "%s-pst@%s" % (job.show(), cuegui.Constants.EMAIL_DOMAIN),
-            "%s-cad@%s" % (job.show(), cuegui.Constants.EMAIL_DOMAIN),
-        ]
+        __default_cc = []
+        if cuegui.Constants.SHOW_SUPPORT_CC_TEMPLATE:
+            try:
+                for address in cuegui.Constants.SHOW_SUPPORT_CC_TEMPLATE:
+                    args = {}
+                    # {show} is options
+                    # {domain} is mandatory
+                    if "{show}" in address:
+                        args["show"] = job.show()
+                    args["domain"] = cuegui.Constants.EMAIL_DOMAIN
+
+                    __default_cc.append(address.format(**args))
+            except KeyError:
+                logger.info(
+                    "Invalid value on cuegui.Constants.SHOW_SUPPORT_CC_TEMPLATE: %s."
+                    "\nSee cuegui.yaml email.show_support_cc_template for the "
+                    "pattern documentation", cuegui.Constants.SHOW_SUPPORT_CC_TEMPLATE)
+
         __default_bcc = ""
         __default_subject = "%s%s" % (
             self.EMAIL_REQUEST_CORES_SUBJECT_PREFIX,
