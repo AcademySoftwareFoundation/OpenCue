@@ -359,11 +359,12 @@ class FrameTests(unittest.TestCase):
         getStubMock.return_value = stubMock
 
         frames = opencue.api.getFrames(TEST_JOB_NAME, range="1-5")
+        framePageLimit = opencue.api.search.FrameSearch.limit
 
         stubMock.GetFrames.assert_called_with(
             job_pb2.FrameGetFramesRequest(
                 job=TEST_JOB_NAME, r=job_pb2.FrameSearchCriteria(
-                    frame_range="1-5", page=1, limit=1000)),
+                    frame_range="1-5", page=1, limit=framePageLimit)),
             timeout=mock.ANY)
         self.assertEqual(5, len(frames))
         self.assertTrue(all((frame.layer() == TEST_LAYER_NAME for frame in frames)))
