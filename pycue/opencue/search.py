@@ -114,7 +114,7 @@ class FrameSearch(BaseSearch):
     """Class for searching for frames."""
 
     page = 1
-    limit = 1000
+    limit = 500
     change_date = 0
 
     @classmethod
