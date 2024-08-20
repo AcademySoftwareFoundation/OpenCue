@@ -26,8 +26,6 @@ log = logging.getLogger(__name__)
 class CueLogWriter(object):
     """Class to abstract file log writing, this class tries to act as a file object"""
     filepath = None
-    fd = None
-
     def __init__(self, filepath, maxLogFiles=1):
         """CueLogWriter class initialization
            @type    filepath: string
@@ -37,34 +35,32 @@ class CueLogWriter(object):
         """
 
         self.filepath = filepath
-        log_dir = os.path.dirname(self.filepath)
-        if not os.access(log_dir, os.F_OK):
-            # Attempting mkdir for missing logdir
-            msg = "No Error"
-            try:
-                os.makedirs(log_dir)
-                os.chmod(log_dir, 0o777)
-            # pylint: disable=broad-except
-            except Exception as e:
-                # This is expected to fail when called in abq
-                # But the directory should now be visible
-                msg = e
+        self.__log_dir = os.path.dirname(self.filepath)
+        self.__maxLogFiles = maxLogFiles
+        if not os.access(self.__log_dir, os.F_OK):
+            self.__makeLogDir()
 
-            if not os.access(log_dir, os.F_OK):
-                err = "Unable to see log directory: %s, mkdir failed with: %s" % (
-                    log_dir, msg)
-                raise RuntimeError(err)
-
-        if not os.access(log_dir, os.W_OK):
-            err = "Unable to write to log directory %s" % log_dir
+        if not os.access(self.__log_dir, os.W_OK):
+            err = "Unable to write to log directory %s" % self.__log_dir
             raise RuntimeError(err)
 
+        self.__attemptRotateLogs()
+        # pylint: disable=consider-using-with
+        self.__fd = open(self.filepath, "w+", 1, encoding='utf-8')
+        try:
+            os.chmod(self.filepath, 0o666)
+        # pylint: disable=broad-except
+        except Exception as e:
+            err = "Failed to chmod log file! %s due to %s" % (self.filepath, e)
+            log.warning(err)
+
+    def __attemptRotateLogs(self):
         try:
             # Rotate any old logs to a max of MAX_LOG_FILES:
             if os.path.isfile(self.filepath):
                 rotateCount = 1
                 while (os.path.isfile("%s.%s" % (self.filepath, rotateCount))
-                       and rotateCount < maxLogFiles):
+                       and rotateCount < self.__maxLogFiles):
                     rotateCount += 1
                 os.rename(self.filepath,
                           "%s.%s" % (self.filepath, rotateCount))
@@ -78,14 +74,22 @@ class CueLogWriter(object):
                 log.warning(err)
             else:
                 raise RuntimeError(err)
-        # pylint: disable=consider-using-with
-        self.fd = open(self.filepath, "w+", 1, encoding='utf-8')
+
+    def __makeLogDir(self):
+        # Attempting mkdir for missing logdir
+        msg = "No Error"
         try:
-            os.chmod(self.filepath, 0o666)
+            os.makedirs(self.__log_dir)
+            os.chmod(self.__log_dir, 0o777)
         # pylint: disable=broad-except
         except Exception as e:
-            err = "Failed to chmod log file! %s due to %s" % (self.filepath, e)
-            log.warning(err)
+            # This is expected to fail when called in abq
+            # But the directory should now be visible
+            msg = e
+
+        if not os.access(self.__log_dir, os.F_OK):
+            err = "Unable to see log directory: %s, mkdir failed with: %s" % (self.__log_dir, msg)
+            raise RuntimeError(err)
 
     # pylint: disable=arguments-differ
     def write(self, data, prependTimestamp=False):
@@ -99,7 +103,7 @@ class CueLogWriter(object):
             for line in lines:
                 print("[%s] %s" % (curr_line_timestamp, line), file=self)
         else:
-            self.fd.write(data)
+            self.__fd.write(data)
 
     def writelines(self, __lines):
         """Provides support for writing mutliple lines at a time"""
@@ -108,7 +112,7 @@ class CueLogWriter(object):
 
     def close(self):
         """Closes the file if the backend is file based"""
-        self.fd.close()
+        self.__fd.close()
 
     def waitForFile(self, maxTries=5):
         """Waits for the file to exist before continuing when using a file backend"""
@@ -124,35 +128,33 @@ class CueLogWriter(object):
 
 class CueLogReader(object):
     """Class to abstract file log reading, this class tries to act as a file object"""
-    filepath = None
-    fd = None
 
     def __init__(self, filepath):
         """CueLogWriter class initialization
            @type    filepath: string
            @param   filepath: The filepath to log to
         """
-        self.filepath = filepath
-        self.fd = open(self.filepath, "r", encoding='utf-8')
+        self.__filepath = filepath
+        self.__fd = open(self.__filepath, "r", encoding='utf-8')
 
     def size(self):
         """Return the size of the file"""
-        return int(os.stat(self.filepath).st_size)
+        return int(os.stat(self.__filepath).st_size)
 
     def getMtime(self):
         """Return modification time of the file"""
-        return os.path.getmtime(self.filepath)
+        return os.path.getmtime(self.__filepath)
 
     def exists(self):
         """Check if the file exists"""
-        return os.path.exists(self.filepath)
+        return os.path.exists(self.__filepath)
 
     def read(self):
         """Read the data from the backend"""
 
         content = None
         if self.exists() is True:
-            with open(self.filepath, "r", encoding='utf-8') as fp:
+            with open(self.__filepath, "r", encoding='utf-8') as fp:
                 content = fp.read()
 
         return content
