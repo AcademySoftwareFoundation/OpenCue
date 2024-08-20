@@ -297,7 +297,7 @@ class FrameAttendantThread(threading.Thread):
         self.__writeHeader()
         if rqd.rqconstants.RQD_CREATE_USER_IF_NOT_EXISTS:
             rqd.rqutil.permissionsHigh()
-            rqd.rqutil.checkAndCreateUser(runFrame.user_name)
+            rqd.rqutil.checkAndCreateUser(runFrame.user_name, runFrame.uid, runFrame.gid)
             rqd.rqutil.permissionsLow()
 
         tempStatFile = "%srqd-stat-%s-%s" % (self.rqCore.machine.getTempPath(),
