@@ -25,7 +25,9 @@ log = logging.getLogger(__name__)
 
 class CueLogWriter(object):
     """Class to abstract file log writing, this class tries to act as a file object"""
+
     filepath = None
+
     def __init__(self, filepath, maxLogFiles=1):
         """CueLogWriter class initialization
            @type    filepath: string
@@ -129,33 +131,37 @@ class CueLogWriter(object):
 class CueLogReader(object):
     """Class to abstract file log reading, this class tries to act as a file object"""
 
+    filepath = None
+
     def __init__(self, filepath):
         """CueLogWriter class initialization
            @type    filepath: string
            @param   filepath: The filepath to log to
         """
-        self.__filepath = filepath
-        self.__fd = open(self.__filepath, "r", encoding='utf-8')
+        self.filepath = filepath
+        self.__fd = open(self.filepath, "r", encoding='utf-8')
 
     def size(self):
         """Return the size of the file"""
-        return int(os.stat(self.__filepath).st_size)
+        return int(os.stat(self.filepath).st_size)
 
     def getMtime(self):
         """Return modification time of the file"""
-        return os.path.getmtime(self.__filepath)
+        return os.path.getmtime(self.filepath)
 
     def exists(self):
         """Check if the file exists"""
-        return os.path.exists(self.__filepath)
+        return os.path.exists(self.filepath)
 
     def read(self):
         """Read the data from the backend"""
 
         content = None
         if self.exists() is True:
-            with open(self.__filepath, "r", encoding='utf-8') as fp:
+            with open(self.filepath, "r", encoding='utf-8') as fp:
                 content = fp.read()
+        else:
+            raise IOError("Failed to open %s" % self.filepath)
 
         return content
 
