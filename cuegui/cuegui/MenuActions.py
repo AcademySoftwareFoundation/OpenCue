@@ -214,6 +214,9 @@ class AbstractActions(object):
 class JobActions(AbstractActions):
     """Actions for jobs."""
 
+    # Template for permission alert messages
+    USER_INTERACTION_PERMISSIONS = "You do not have permissions to {0} {1} owned by {2}"
+
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
@@ -384,9 +387,9 @@ class JobActions(AbstractActions):
                 for job in jobs:
                     # check permissions
                     if not cuegui.Utils.isPermissible(job):
-                        msg = cuegui.Constants.USER_INTERACTION_PERMISSIONS.format("kill",
-                                                                                   "job(s)",
-                                                                                   job.username())
+                        msg = JobActions.USER_INTERACTION_PERMISSIONS.format("kill",
+                                                                             "job(s)",
+                                                                             job.username())
                         cuegui.Utils.showErrorMessageBox(msg)
                     else:
                         job.kill(reason=DEFAULT_JOB_KILL_REASON)
@@ -465,9 +468,9 @@ class JobActions(AbstractActions):
                 for job in jobs:
                     # check permissions
                     if not cuegui.Utils.isPermissible(job):
-                        msg = cuegui.Constants.USER_INTERACTION_PERMISSIONS.format("eat dead",
-                                                                                   "job",
-                                                                                   job.username())
+                        msg = JobActions.USER_INTERACTION_PERMISSIONS.format("eat dead",
+                                                                             "job",
+                                                                             job.username())
                         cuegui.Utils.showErrorMessageBox(msg)
                     else:
                         job.eatFrames(state=[opencue.compiled_proto.job_pb2.DEAD])
@@ -503,9 +506,9 @@ class JobActions(AbstractActions):
                                              [job.data.name for job in jobs]):
                 for job in jobs:
                     if not cuegui.Utils.isPermissible(job):
-                        msg = cuegui.Constants.USER_INTERACTION_PERMISSIONS.format("retry dead",
-                                                                                   "job",
-                                                                                   job.username())
+                        msg = JobActions.USER_INTERACTION_PERMISSIONS.format("retry dead",
+                                                                             "job",
+                                                                             job.username())
                         cuegui.showErrorMessageBox(msg)
                     else:
                         job.retryFrames(
@@ -804,9 +807,9 @@ class LayerActions(AbstractActions):
         if layers:
             #check permissions
             if not cuegui.Utils.isPermissible(self._getSource()):
-                msg = cuegui.Constants.USER_INTERACTION_PERMISSIONS.format("kill",
-                                                                           "layers",
-                                                                           self._getSource().username())
+                msg = JobActions.USER_INTERACTION_PERMISSIONS.format("kill",
+                                                                     "layers",
+                                                                     self._getSource().username())
                 cuegui.Utils.showErrorMessageBox(msg)
             else:
                 if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
@@ -822,9 +825,9 @@ class LayerActions(AbstractActions):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
             if not cuegui.Utils.isPermissible(self._getSource()):
-                msg = cuegui.Constants.USER_INTERACTION_PERMISSIONS.format("eat",
-                                                                           "layers",
-                                                                           self._getSource().username())
+                msg = JobActions.USER_INTERACTION_PERMISSIONS.format("eat",
+                                                                     "layers",
+                                                                     self._getSource().username())
                 cuegui.Utils.showErrorMessageBox(msg)
             else:
                 if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
@@ -840,9 +843,9 @@ class LayerActions(AbstractActions):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
             if not cuegui.Utils.isPermissible(self._getSource()):
-                msg = cuegui.Constants.USER_INTERACTION_PERMISSIONS.format("retry",
-                                                                           "layers",
-                                                                           self._getSource().username())
+                msg = JobActions.USER_INTERACTION_PERMISSIONS.format("retry",
+                                                                     "layers",
+                                                                     self._getSource().username())
                 cuegui.Utils.showErrorMessageBox(msg)
             else:
                 if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
@@ -858,9 +861,9 @@ class LayerActions(AbstractActions):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
             if not cuegui.Utils.isPermissible(self._getSource()):
-                msg = cuegui.Constants.USER_INTERACTION_PERMISSIONS.format("retry dead",
-                                                                           "layers",
-                                                                           self._getSource().username())
+                msg = JobActions.USER_INTERACTION_PERMISSIONS.format("retry dead",
+                                                                     "layers",
+                                                                     self._getSource().username())
                 cuegui.Utils.showErrorMessageBox(msg)
             else:
                 if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
@@ -1093,9 +1096,9 @@ class FrameActions(AbstractActions):
             job = self._getSource()
             # check permissions
             if not cuegui.Utils.isPermissible(job):
-                msg = cuegui.Constants.USER_INTERACTION_PERMISSIONS.format("retry",
-                                                                           "frames",
-                                                                           job.username())
+                msg = JobActions.USER_INTERACTION_PERMISSIONS.format("retry",
+                                                                     "frames",
+                                                                     job.username())
                 cuegui.Utils.showErrorMessageBox(msg)
             else:
                 if cuegui.Utils.questionBoxYesNo(
@@ -1138,9 +1141,9 @@ class FrameActions(AbstractActions):
             #check permissions
             print(self._getSource())
             if not cuegui.Utils.isPermissible(self._getSource()):
-                msg = cuegui.Constants.USER_INTERACTION_PERMISSIONS.format("eat",
-                                                                           "frames",
-                                                                           self._getSource().username())
+                msg = JobActions.USER_INTERACTION_PERMISSIONS.format("eat",
+                                                                     "frames",
+                                                                     self._getSource().username())
                 cuegui.Utils.showErrorMessageBox(msg)
             else:
                 if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
@@ -1155,9 +1158,9 @@ class FrameActions(AbstractActions):
         names = [frame.data.name for frame in self._getOnlyFrameObjects(rpcObjects)]
         if names:
             if not cuegui.Utils.isPermissible(self._getSource(), self):
-                msg = cuegui.Constants.USER_INTERACTION_PERMISSIONS.format("kill",
-                                                                           "frames",
-                                                                           self._getSource().username())
+                msg = JobActions.USER_INTERACTION_PERMISSIONS.format("kill",
+                                                                     "frames",
+                                                                     self._getSource().username())
                 cuegui.Utils.showErrorMessageBox(msg)
             else:
                 if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
@@ -1271,9 +1274,9 @@ class FrameActions(AbstractActions):
             frameNames = [frame.data.name for frame in frames]
             #check permissions
             if not cuegui.Utils.isPermissible(self._getSource(), self):
-                msg = cuegui.Constants.USER_INTERACTION_PERMISSIONS.format("eat and mark done",
-                                                                           "frames",
-                                                                           self._getSource().username())
+                msg = JobActions.USER_INTERACTION_PERMISSIONS.format("eat and mark done",
+                                                                     "frames",
+                                                                     self._getSource().username())
                 cuegui.Utils.showErrorMessageBox(msg)
             else:
                 if cuegui.Utils.questionBoxYesNo(
@@ -1750,9 +1753,9 @@ class ProcActions(AbstractActions):
         if procs:
             print(self._getSource())
             if not cuegui.Utils.isPermissible(self._getSource(), self):
-                msg = cuegui.Constants.USER_INTERACTION_PERMISSIONS.format("eat and mark done",
-                                                                           "frames",
-                                                                           self._getSource().username())
+                msg = JobActions.USER_INTERACTION_PERMISSIONS.format("eat and mark done",
+                                                                     "frames",
+                                                                     self._getSource().username())
                 cuegui.Utils.showErrorMessageBox(msg)
             else:
                 if cuegui.Utils.questionBoxYesNo(

@@ -46,6 +46,9 @@ logger = cuegui.Logger.getLogger(__file__)
 class MainWindow(QtWidgets.QMainWindow):
     """The main window of the application. Multiple windows may exist."""
 
+    # Message to be displayed when a change requires an application restart
+    USER_CONFIRM_RESTART = "You must restart for this action to take effect, close window?: "
+
     windows = []
     windows_names = []
     windows_titles = {}
@@ -469,7 +472,7 @@ class MainWindow(QtWidgets.QMainWindow):
         result = QtWidgets.QMessageBox.question(
                     self,
                     "Restart required ",
-                    cuegui.Constants.USER_CONFIRM_RESTART,
+                    MainWindow.USER_CONFIRM_RESTART,
                     QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
 
         if result == QtWidgets.QMessageBox.Yes:
@@ -481,7 +484,7 @@ class MainWindow(QtWidgets.QMainWindow):
         result = QtWidgets.QMessageBox.question(
                     self,
                     "Job Interaction Settings ",
-                    cuegui.Constants.USER_CONFIRM_RESTART,
+                    MainWindow.USER_CONFIRM_RESTART,
                     QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
 
         if result == QtWidgets.QMessageBox.Yes:
