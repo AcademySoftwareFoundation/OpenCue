@@ -520,9 +520,8 @@ class FrameAttendantThread(threading.Thread):
                     # Setup proc to allow launching of frame
                     #
                     try:
-                        self.rqlog = opencue.cuelogging.CueLogger(
+                        self.rqlog = opencue.cuelogging.CueLogWriter(
                             runFrame.log_dir_file,
-                            mode=opencue.cuelogging.MODE_WRITE,
                             maxLogFiles=rqd.rqconstants.MAX_LOG_FILES
                         )
                         self.rqlog.waitForFile()
