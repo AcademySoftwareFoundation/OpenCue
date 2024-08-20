@@ -341,7 +341,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
         self.__jobTimeLoaded.pop(item.rpcObject, "")
         try:
-            jobKey = cuegui.Utils.getObjectKey(item)
+            jobKey = cuegui.Utils.getObjectKey(item.rpcObject)
             # Remove the item from the main _items dictionary as well as the
             # __dependentJobs and the reverseDependent dictionaries
             # pylint: disable=protected-access
