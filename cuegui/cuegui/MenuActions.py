@@ -79,6 +79,11 @@ class AbstractActions(object):
 
     __iconCache = {}
 
+    # Template for permission alert messages
+    USER_INTERACTION_PERMISSIONS = "You do not have permissions to {0} owned by {1}" \
+        "\n\nJob actions can still be enabled at File > Enable Job Interaction," \
+        " but caution is advised."
+
     def __init__(self, caller, updateCallable, selectedRpcObjectsCallable, sourceCallable):
         self._caller = caller
         self.__selectedRpcObjects = selectedRpcObjectsCallable
@@ -213,9 +218,6 @@ class AbstractActions(object):
 
 class JobActions(AbstractActions):
     """Actions for jobs."""
-
-    # Template for permission alert messages
-    USER_INTERACTION_PERMISSIONS = "You do not have permissions to {0} owned by {2}"
 
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
@@ -396,7 +398,7 @@ class JobActions(AbstractActions):
                     self.killDependents(authorized_jobs)
                 if blocked_job_owners:
                     cuegui.Utils.showErrorMessageBox(
-                        JobActions.USER_INTERACTION_PERMISSIONS.format(
+                        AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                             "kill some of the selected jobs",
                             ", ".join(blocked_job_owners)))
                 self._update()
@@ -477,7 +479,7 @@ class JobActions(AbstractActions):
                         job.eatFrames(state=[opencue.compiled_proto.job_pb2.DEAD])
                 if blocked_job_owners:
                     cuegui.Utils.showErrorMessageBox(
-                        JobActions.USER_INTERACTION_PERMISSIONS.format(
+                        AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                             "eat dead for some of the selected jobs",
                             ", ".join(blocked_job_owners)))
                 self._update()
@@ -487,9 +489,18 @@ class JobActions(AbstractActions):
     def autoEatOn(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
+            blocked_job_owners = []
             for job in jobs:
-                job.setAutoEat(True)
-                job.eatFrames(state=[opencue.compiled_proto.job_pb2.DEAD])
+                if not cuegui.Utils.isPermissible(job):
+                    blocked_job_owners.append(job.username())
+                else:
+                    job.setAutoEat(True)
+                    job.eatFrames(state=[opencue.compiled_proto.job_pb2.DEAD])
+            if blocked_job_owners:
+                cuegui.Utils.showErrorMessageBox(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
+                        "enable auto eating frames",
+                        ", ".join(blocked_job_owners)))
             self._update()
 
     autoEatOff_info = ["Disable auto eating", None, "eat"]
@@ -497,8 +508,17 @@ class JobActions(AbstractActions):
     def autoEatOff(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
+            blocked_job_owners = []
             for job in jobs:
-                job.setAutoEat(False)
+                if not cuegui.Utils.isPermissible(job):
+                    blocked_job_owners.append(job.username())
+                else:
+                    job.setAutoEat(False)
+            if blocked_job_owners:
+                cuegui.Utils.showErrorMessageBox(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
+                        "disable auto eating frames",
+                        ", ".join(blocked_job_owners)))
             self._update()
 
     retryDead_info = ["Retry dead frames", None, "retry"]
@@ -519,7 +539,7 @@ class JobActions(AbstractActions):
                             state=[opencue.compiled_proto.job_pb2.DEAD])
                 if blocked_job_owners:
                     cuegui.Utils.showErrorMessageBox(
-                        JobActions.USER_INTERACTION_PERMISSIONS.format(
+                        AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                             "retry dead for some of the selected jobs",
                             ", ".join(blocked_job_owners)))
                 self._update()
@@ -817,7 +837,7 @@ class LayerActions(AbstractActions):
             #check permissions
             if not cuegui.Utils.isPermissible(self._getSource()):
                 cuegui.Utils.showErrorMessageBox(
-                    JobActions.USER_INTERACTION_PERMISSIONS.format(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "kill layers",
                         self._getSource().username()))
             else:
@@ -835,7 +855,7 @@ class LayerActions(AbstractActions):
         if layers:
             if not cuegui.Utils.isPermissible(self._getSource()):
                 cuegui.Utils.showErrorMessageBox(
-                    JobActions.USER_INTERACTION_PERMISSIONS.format(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "eat layers",
                         self._getSource().username())
                 )
@@ -854,7 +874,7 @@ class LayerActions(AbstractActions):
         if layers:
             if not cuegui.Utils.isPermissible(self._getSource()):
                 cuegui.Utils.showErrorMessageBox(
-                    JobActions.USER_INTERACTION_PERMISSIONS.format(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "retry layers",
                         self._getSource().username())
                 )
@@ -873,7 +893,7 @@ class LayerActions(AbstractActions):
         if layers:
             if not cuegui.Utils.isPermissible(self._getSource()):
                 cuegui.Utils.showErrorMessageBox(
-                    JobActions.USER_INTERACTION_PERMISSIONS.format(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "retry dead layers",
                         self._getSource().username())
                 )
@@ -1109,7 +1129,7 @@ class FrameActions(AbstractActions):
             # check permissions
             if not cuegui.Utils.isPermissible(job):
                 cuegui.Utils.showErrorMessageBox(
-                    JobActions.USER_INTERACTION_PERMISSIONS.format(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "retry frames",
                         job.username())
                 )
@@ -1151,11 +1171,9 @@ class FrameActions(AbstractActions):
     def eat(self, rpcObjects=None):
         names = [frame.data.name for frame in self._getOnlyFrameObjects(rpcObjects)]
         if names:
-            #check permissions
-            print(self._getSource())
             if not cuegui.Utils.isPermissible(self._getSource()):
                 cuegui.Utils.showErrorMessageBox(
-                    JobActions.USER_INTERACTION_PERMISSIONS.format(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "eat frames",
                         self._getSource().username())
                 )
@@ -1173,7 +1191,7 @@ class FrameActions(AbstractActions):
         if names:
             if not cuegui.Utils.isPermissible(self._getSource(), self):
                 cuegui.Utils.showErrorMessageBox(
-                    JobActions.USER_INTERACTION_PERMISSIONS.format(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "kill frames",
                         self._getSource().username()))
             else:
@@ -1289,51 +1307,52 @@ class FrameActions(AbstractActions):
             #check permissions
             if not cuegui.Utils.isPermissible(self._getSource(), self):
                 cuegui.Utils.showErrorMessageBox(
-                    JobActions.USER_INTERACTION_PERMISSIONS.format(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "eat and mark done frames",
                         self._getSource().username())
                 )
-            else:
-                if cuegui.Utils.questionBoxYesNo(
-                        self._caller, "Confirm",
-                        "Eat and Mark done all selected frames?\n"
-                        "(Drops any dependencies that are waiting on these frames)\n\n"
-                        "If a frame is part of a layer that will now only contain\n"
-                        "eaten or succeeded frames, any dependencies on the\n"
-                        "layer will be dropped as well.",
-                        frameNames):
+                return
+            if not cuegui.Utils.questionBoxYesNo(
+                    self._caller, "Confirm",
+                    "Eat and Mark done all selected frames?\n"
+                    "(Drops any dependencies that are waiting on these frames)\n\n"
+                    "If a frame is part of a layer that will now only contain\n"
+                    "eaten or succeeded frames, any dependencies on the\n"
+                    "layer will be dropped as well.",
+                    frameNames):
+                return
 
-                    # Mark done the layers to drop their dependencies if the layer is done
+            # Mark done the layers to drop their dependencies if the layer is done
 
-                    if len(frames) == 1:
-                        # Since only a single frame selected, check if layer is only one frame
-                        layer = opencue.api.findLayer(self._getSource().data.name,
-                                                      frames[0].data.layer_name)
-                        if layer.data.layer_stats.total_frames == 1:
-                            # Single frame selected of single frame layer, mark done and eat it all
-                            layer.eat()
-                            layer.markdone()
+            if len(frames) == 1:
+                # Since only a single frame selected, check if layer is only one frame
+                layer = opencue.api.findLayer(self._getSource().data.name,
+                                                frames[0].data.layer_name)
+                if layer.data.layer_stats.total_frames == 1:
+                    # Single frame selected of single frame layer, mark done and eat it all
+                    layer.eat()
+                    layer.markdone()
 
-                            self._update()
-                            return
-
-                    self._getSource().eatFrames(name=frameNames)
-                    self._getSource().markdoneFrames(name=frameNames)
-
-                    # Warning: The below assumes that eaten frames are desired to be markdone
-
-                    # Wait for the markDoneFrames to be processed, then drop the dependencies on
-                    # the layer if all frames are done.
-                    layerNames = [frame.data.layer_name for frame in frames]
-                    time.sleep(1)
-                    for layer in self._getSource().getLayers():
-                        if layer.data.name in layerNames:
-                            if (
-                                    layer.data.layer_stats.eaten_frames +
-                                    layer.data.layer_stats.succeeded_frames ==
-                                    layer.data.layer_stats.total_frames):
-                                layer.markdone()
                     self._update()
+                    return
+
+            self._getSource().eatFrames(name=frameNames)
+            self._getSource().markdoneFrames(name=frameNames)
+
+            # Warning: The below assumes that eaten frames are desired to be markdone
+
+            # Wait for the markDoneFrames to be processed, then drop the dependencies on
+            # the layer if all frames are done.
+            layerNames = [frame.data.layer_name for frame in frames]
+            time.sleep(1)
+            for layer in self._getSource().getLayers():
+                if layer.data.name in layerNames:
+                    if (
+                            layer.data.layer_stats.eaten_frames +
+                            layer.data.layer_stats.succeeded_frames ==
+                            layer.data.layer_stats.total_frames):
+                        layer.markdone()
+            self._update()
 
 
 class ShowActions(AbstractActions):
@@ -1766,17 +1785,19 @@ class ProcActions(AbstractActions):
     def kill(self, rpcObjects=None):
         procs = self._getOnlyProcObjects(rpcObjects)
         if procs:
-            print(self._getSource())
-            if not cuegui.Utils.isPermissible(self._getSource(), self):
+            if not cuegui.Utils.isPermissible(self._getSource()):
                 cuegui.Utils.showErrorMessageBox(
-                    JobActions.USER_INTERACTION_PERMISSIONS.format(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "eat and mark done frames",
                         self._getSource().username())
                 )
             else:
                 if cuegui.Utils.questionBoxYesNo(
                         self._caller, "Confirm", "Kill selected frames?",
-                        ["%s -> %s @ %s" % (proc.data.job_name, proc.data.frame_name, proc.data.name)
+                        ["%s -> %s @ %s" % (
+                            proc.data.job_name,
+                            proc.data.frame_name,
+                            proc.data.name)
                          for proc in procs]):
                     for proc in procs:
                         self.cuebotCall(proc.kill,
