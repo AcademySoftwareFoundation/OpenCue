@@ -139,7 +139,6 @@ class CueLogReader(object):
            @param   filepath: The filepath to log to
         """
         self.filepath = filepath
-        self.__fd = open(self.filepath, "r", encoding='utf-8')
 
     def size(self):
         """Return the size of the file"""
