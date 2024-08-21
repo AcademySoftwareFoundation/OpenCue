@@ -95,6 +95,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
 
         self.__num_mem = QtWidgets.QSlider(self)
         self.__num_mem.setValue(4)
+        self.__num_mem.setMaximum(256)
         self.__num_mem.setOrientation(QtCore.Qt.Horizontal)
         self.__num_mem.setTickPosition(QtWidgets.QSlider.TicksBelow)
         self.__num_mem.setTickInterval(1)
@@ -114,6 +115,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
 
         self.__run_mem = QtWidgets.QSlider(self)
         self.__run_mem.setValue(4)
+        self.__num_mem.setMaximum(256)
         self.__run_mem.setOrientation(QtCore.Qt.Horizontal)
         self.__run_mem.setTickPosition(QtWidgets.QSlider.TicksBelow)
         self.__run_mem.setTickInterval(1)
