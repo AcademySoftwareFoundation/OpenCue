@@ -20,13 +20,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-# pylint: disable=wrong-import-position
-from future import standard_library
-
-import cuegui.Constants
-standard_library.install_aliases()
-# pylint: enable=wrong-import-position
-
 import os
 import subprocess
 import tempfile
@@ -39,6 +32,7 @@ import xml.etree.ElementTree as Et
 from qtpy import QtCore
 from qtpy import QtWidgets
 
+import cuegui.Constants
 import cuegui.Logger
 import cuegui.Utils
 
@@ -92,10 +86,8 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
             aovs = "/aovs"
 
         url = "http://%s:%d%s" % (http_host, http_port, aovs)
-        try:
-            playlist = urllib.request.urlopen(url).read()
-        except:
-            raise RuntimeError("Failed to access %s" % url)
+        with urllib.request.urlopen(url) as response:
+            playlist = response.read()
 
         for element in Et.fromstring(playlist).findall("page/edit/element"):
             items.append(str(element.text))
@@ -153,6 +145,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
 
     def __close(self, event):
         """Close preview thread"""
+        del event
         self.__previewThread.terminate = True
 
     def __findHttpPort(self):
@@ -206,4 +199,5 @@ class PreviewProcessorWatchThread(QtCore.QThread):
                 break
 
     def stop(self):
+        """Stop the preview capture thread"""
         self.terminate = True
