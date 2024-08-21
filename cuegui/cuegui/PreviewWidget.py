@@ -22,6 +22,8 @@ from __future__ import division
 
 # pylint: disable=wrong-import-position
 from future import standard_library
+
+import cuegui.Constants
 standard_library.install_aliases()
 # pylint: enable=wrong-import-position
 
@@ -118,11 +120,16 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         else:
             self.close()
             self.__previewThread.stop()
-            self.__launchItview()
+            self.__launchViewer()
 
-    def __launchItview(self):
+    def __launchViewer(self):
+        """Launch a viewer for this preview frame"""
+        if not cuegui.Constants.OUTPUT_VIEWER_DIRECT_CMD_CALL:
+            print("No viewer configured. "
+                  "Please ensure output_viewer.direct_cmd_call is configured properly")
         print("Launching preview: itview ", self.__itvFile)
-        subprocess.call(["itview", self.__itvFile], shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        cmd = cuegui.Constants.OUTPUT_VIEWER_DIRECT_CMD_CALL.format(paths=self.__itvFile).split()
+        subprocess.call(cmd, shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def processTimedOut(self):
         """Event handler when the process has timed out."""
@@ -134,6 +141,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
 
     @staticmethod
     def __writePlaylist(data):
+        """Write preview data to a temporary file"""
         (fh, name) = tempfile.mkstemp(suffix=".itv", prefix="playlist")
         os.close(fh)
         with open(name, "w", encoding='utf-8') as fp:
@@ -144,9 +152,11 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         return name
 
     def __close(self, event):
+        """Close preview thread"""
         self.__previewThread.terminate = True
 
     def __findHttpPort(self):
+        """Figure out what port is being used by the tool to write previews"""
         log = cuegui.Utils.getFrameLogFile(self.__job, self.__frame)
         with open(log, "r", encoding='utf-8') as fp:
             try:
@@ -197,4 +207,3 @@ class PreviewProcessorWatchThread(QtCore.QThread):
 
     def stop(self):
         self.terminate = True
-
