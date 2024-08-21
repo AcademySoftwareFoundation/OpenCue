@@ -179,7 +179,10 @@ def isTask(obj):
     return obj.__class__.__name__ == "Task"
 
 
-__REGEX_ID = re.compile(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
+# Regex matches:
+#  - 12345678-1234-1234-1234-123456789ABC
+#  - Job.12345678-1234-1234-1234-123456789ABC
+__REGEX_ID = re.compile(r"(?:Job.)?[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
 
 
 def isStringId(value):
@@ -257,8 +260,10 @@ def findJob(job):
     if not isinstance(job, six.string_types):
         return None
     if isStringId(job):
+        if re.search("^Job.", job):
+            job = re.sub("Job.", "", job)
         return opencue.api.getJob(job)
-    if not re.search(r"^([a-z0-9\_]+)\-([a-z0-9\.\_]+)\-", job, re.IGNORECASE):
+    if not re.search(r"^(?:Job.)?([a-z0-9_]+)-([a-z0-9._]+)-", job, re.IGNORECASE):
         return None
     try:
         return opencue.api.findJob(job)

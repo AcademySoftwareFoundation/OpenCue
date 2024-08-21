@@ -115,12 +115,6 @@ CONFIG_PATH = __config.get('paths.config')
 if not os.path.isabs(CONFIG_PATH):
     CONFIG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), CONFIG_PATH))
 
-
-EMAIL_SUBJECT_PREFIX = "cuemail: please check "
-EMAIL_BODY_PREFIX = "Your PSTs request that you check:\n"
-EMAIL_BODY_SUFFIX = "\n\n"
-EMAIL_DOMAIN = ""
-
 DEFAULT_INI_PATH = os.getenv('CUEGUI_DEFAULT_INI_PATH', __config.get('paths.default_ini_path'))
 if not os.path.isabs(DEFAULT_INI_PATH):
     DEFAULT_INI_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), DEFAULT_INI_PATH))
@@ -133,10 +127,14 @@ for i, path in enumerate(DEFAULT_PLUGIN_PATHS):
 LOGGER_FORMAT = __config.get('logger.format')
 LOGGER_LEVEL = __config.get('logger.level')
 
-EMAIL_SUBJECT_PREFIX = __config.get('email.subject_prefix')
-EMAIL_BODY_PREFIX = __config.get('email.body_prefix')
-EMAIL_BODY_SUFFIX = __config.get('email.body_suffix')
-EMAIL_DOMAIN = __config.get('email.domain')
+EMAIL_SUBJECT_PREFIX = __config.get('email.subject_prefix', "cuemail: please check ")
+EMAIL_BODY_PREFIX = __config.get('email.body_prefix',
+                                 "Your Support Team requests that you check:\n")
+EMAIL_BODY_SUFFIX = __config.get('email.body_suffix', "\n\n")
+EMAIL_DOMAIN = __config.get('email.domain', "")
+SHOW_SUPPORT_CC_TEMPLATE = [val.strip()
+                            for val
+                            in __config.get('email.show_support_cc_template', '').split(',')]
 
 GITHUB_CREATE_ISSUE_URL = __config.get('links.issue.create')
 URL_USERGUIDE = __config.get('links.user_guide')
@@ -192,6 +190,10 @@ OUTPUT_VIEWER_DIRECT_CMD_CALL = __config.get('output_viewer.direct_cmd_call')
 OUTPUT_VIEWER_STEREO_MODIFIERS = __config.get('output_viewer.stereo_modifiers')
 FINISHED_JOBS_READONLY_FRAME = __config.get('finished_jobs_readonly.frame', False)
 FINISHED_JOBS_READONLY_LAYER = __config.get('finished_jobs_readonly.layer', False)
+
+DISABLED_ACTION_TYPES = [action_type.strip()
+                         for action_type
+                         in __config.get('filter_dialog.disabled_action_types', "").split(",")]
 
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2

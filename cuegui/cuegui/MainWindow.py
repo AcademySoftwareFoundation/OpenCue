@@ -25,6 +25,8 @@ from __future__ import division
 
 from builtins import str
 from builtins import range
+
+import os
 import sys
 import time
 
@@ -117,6 +119,13 @@ class MainWindow(QtWidgets.QMainWindow):
         msg += "Python:\n%s\n\n" % sys.version
         QtWidgets.QMessageBox.about(self, "About", msg)
 
+    def handleExit(self, sig, flag):
+        """Save current state and close the application"""
+        del sig
+        del flag
+        self.__saveSettings()
+        self.__windowCloseApplication()
+
     @staticmethod
     def openSuggestionPage():
         """Opens the suggestion page URL."""
@@ -147,7 +156,9 @@ class MainWindow(QtWidgets.QMainWindow):
         menu.triggered.connect(self.__facilityMenuHandle)
 
         cue_config = opencue.Cuebot.getConfig()
-        self.facility_default = cue_config.get("cuebot.facility_default")
+        self.facility_default = os.getenv(
+            "CUEBOT_FACILITY",
+            cue_config.get("cuebot.facility_default"))
         self.facility_dict = cue_config.get("cuebot.facility")
 
         for facility in self.facility_dict:
@@ -190,7 +201,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Menu bar
         self.fileMenu = self.menuBar().addMenu("&File")
-        self.facilityMenu = self.__facilityMenuSetup(self.menuBar().addMenu("&Cuebot"))
+        self.facilityMenu = self.__facilityMenuSetup(self.menuBar().addMenu("&Cuebot Facility"))
         self.PluginMenu = self.menuBar().addMenu("&Views/Plugins")
         self.windowMenu = self.menuBar().addMenu("&Window")
         self.helpMenu = self.menuBar().addMenu("&Help")
@@ -360,9 +371,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowClosed(self):
         """Called from closeEvent on window close"""
 
-        # Disconnect to avoid multiple attempts to close a window
-        self.app.quit.connect(self.close)
-
         # Save the fact that this window is open or not when the app closed
         self.settings.setValue("%s/Open" % self.name, self.app.closingApp)
 
@@ -382,6 +390,8 @@ class MainWindow(QtWidgets.QMainWindow):
         to exit."""
         self.app.closingApp = True
         self.app.quit.emit()
+        # Give the application some time to save the state
+        time.sleep(4)
 
     ################################################################################
 
