@@ -145,3 +145,9 @@ memory_warning_level: 5242880
 # In order to toggle the same protection on cuebot's side, set flags in opencue.properties
 finished_jobs_readonly.frame: True
 finished_jobs_readonly.layer: True
+
+# A comma-separated list of action types that should be hidden on the FilterDialog widget.
+# (See filter.proto/ActionType for a full list eg. SET_ALL_RENDER_LAYER_CORES,
+# MOVE_JOB_TO_GROUP, SET_ALL_RENDER_LAYER_MAX_CORES)
+# An empty string means all actions are active.
+filter_dialog.disabled_action_types: ''
