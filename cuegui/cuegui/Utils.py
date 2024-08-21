@@ -179,6 +179,9 @@ def isTask(obj):
     return obj.__class__.__name__ == "Task"
 
 
+# Regex matches:
+#  - 12345678-1234-1234-1234-123456789ABC
+#  - Job.12345678-1234-1234-1234-123456789ABC
 __REGEX_ID = re.compile(r"(?:Job.)?[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
 
 
