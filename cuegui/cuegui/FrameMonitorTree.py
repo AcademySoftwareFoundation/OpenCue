@@ -911,7 +911,8 @@ class FrameContextMenu(QtWidgets.QMenu):
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.frames().addAction(self, "useLocalCores")
 
-        self.__menuActions.frames().addAction(self, "viewOutput")
+        if cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN:
+            self.__menuActions.frames().addAction(self, "viewOutput")
 
         if self.app.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(self, "viewHost")
@@ -933,7 +934,8 @@ class FrameContextMenu(QtWidgets.QMenu):
                                                  filterSelectedLayersCallback, "stock-filters")
         self.__menuActions.frames().addAction(self, "reorder").setEnabled(not readonly)
         self.addSeparator()
-        self.__menuActions.frames().addAction(self, "previewMain")
+        if cuegui.Constants.OUTPUT_VIEWER_DIRECT_CMD_CALL:
+            self.__menuActions.frames().addAction(self, "previewMain")
         self.__menuActions.frames().addAction(self, "previewAovs")
         self.addSeparator()
         self.__menuActions.frames().addAction(self, "retry").setEnabled(not readonly)
