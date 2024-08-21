@@ -149,7 +149,9 @@ class MainWindow(QtWidgets.QMainWindow):
         menu.triggered.connect(self.__facilityMenuHandle)
 
         cue_config = opencue.Cuebot.getConfig()
-        self.facility_default = os.getenv("CUEBOT_FACILITY", cue_config.get("cuebot.facility_default"))
+        self.facility_default = os.getenv(
+            "CUEBOT_FACILITY",
+            cue_config.get("cuebot.facility_default"))
         self.facility_dict = cue_config.get("cuebot.facility")
 
         for facility in self.facility_dict:
