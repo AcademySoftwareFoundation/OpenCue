@@ -170,7 +170,7 @@ class ServiceForm(QtWidgets.QWidget):
         # inconsistently
         if (not service_name.isalnum()) and \
             [char for char in service_name
-             if not char.isalnum and char not in "|/-_"]:
+             if not char.isalnum() and char not in "|/-_"]:
             QtWidgets.QMessageBox.critical(self, "Error", "The service name must alphanumeric.")
             return
 
