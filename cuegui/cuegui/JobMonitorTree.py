@@ -386,6 +386,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.jobs().addAction(menu, "unmonitor")
         self.__menuActions.jobs().addAction(menu, "view")
         self.__menuActions.jobs().addAction(menu, "emailArtist")
+        self.__menuActions.jobs().addAction(menu, "requestCores")
         self.__menuActions.jobs().addAction(menu, "subscribeToJob")
         self.__menuActions.jobs().addAction(menu, "viewComments")
 
