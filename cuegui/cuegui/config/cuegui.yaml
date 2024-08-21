@@ -103,7 +103,7 @@ allowed_tags: ['general', 'desktop', 'playblast', 'util', 'preprocess', 'wan', '
 
 email:
   subject_prefix: 'cuemail: please check '
-  body_prefix: 'Your PSTs request that you check '
+  body_prefix: 'Your Support Team requests that you check '
   body_suffix: "\n\n"
   domain: 'your.domain.com'
   # A template for what email should be used for show support.
