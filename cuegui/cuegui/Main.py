@@ -24,6 +24,7 @@ import getpass
 import signal
 
 from qtpy import QtGui
+from qtpy import QtCore
 
 import cuegui
 import cuegui.Layout
@@ -129,10 +130,11 @@ def warning_handler(msg_type, msg_log_context, msg_string):
     if ('QTextCursor::setPosition:' in msg_string or
         'SelectionRequest too old' in msg_string):
         return
-    else:
-        # Todo: write to a log file
-        logger.warning('{}: {}, Message: {}'.format(
-            str(msg_type), str(msg_log_context), str(msg_string)))
+
+    logger.warning('%s: %s, Message: %s',
+                   str(msg_type),
+                   str(msg_log_context),
+                   str(msg_string))
 
 
 def closingTime():
