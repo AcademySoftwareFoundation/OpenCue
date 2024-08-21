@@ -911,6 +911,8 @@ class FrameContextMenu(QtWidgets.QMenu):
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.frames().addAction(self, "useLocalCores")
 
+        self.__menuActions.frames().addAction(self, "viewOutput")
+
         if self.app.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(self, "viewHost")
 

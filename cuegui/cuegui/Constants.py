@@ -185,6 +185,10 @@ LOG_HIGHLIGHT_INFO = __config.get('render_logs.highlight.info')
 
 RESOURCE_LIMITS = __config.get('resources')
 
+OUTPUT_VIEWER_ACTION_TEXT = __config.get('output_viewer.action_text')
+OUTPUT_VIEWER_EXTRACT_ARGS_REGEX = __config.get('output_viewer.extract_args_regex')
+OUTPUT_VIEWER_CMD_PATTERN = __config.get('output_viewer.cmd_pattern')
+OUTPUT_VIEWER_STEREO_MODIFIERS = __config.get('output_viewer.stereo_modifiers')
 FINISHED_JOBS_READONLY_FRAME = __config.get('finished_jobs_readonly.frame', False)
 FINISHED_JOBS_READONLY_LAYER = __config.get('finished_jobs_readonly.layer', False)
 
