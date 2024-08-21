@@ -54,6 +54,7 @@ import cuegui.LayerDialog
 import cuegui.LocalBooking
 import cuegui.Logger
 import cuegui.PreviewWidget
+import cuegui.RequestCoresDialog
 import cuegui.ProcChildren
 import cuegui.ServiceDialog
 import cuegui.ShowDialog
@@ -233,6 +234,12 @@ class JobActions(AbstractActions):
         for job in self._getOnlyJobObjects(rpcObjects):
             self.app.view_object.emit(job)
 
+    viewOutput_info = [cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT, None, "view"]
+    def viewOutput(self, rpcObjects=None):
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs and cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT:
+            cuegui.Utils.viewOutput(jobs)
+
     viewDepends_info = ["&View Dependencies...", None, "log"]
 
     def viewDepends(self, rpcObjects=None):
@@ -254,6 +261,13 @@ class JobActions(AbstractActions):
         if jobs:
             # Dialog to ask for email. Use show PST email as default
             cuegui.SubscribeToJobDialog.SubscribeToJobDialog(jobs, self._caller).show()
+
+    requestCores_info = ["Request Cores...", None, "mail"]
+
+    def requestCores(self, rpcObjects=None):
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs:
+            cuegui.RequestCoresDialog.RequestCoresDialog(jobs[0], self._caller).show()
 
     setMinCores_info = ["Set Minimum Cores...", "Set Job(s) Minimum Cores", "configure"]
 
@@ -924,6 +938,12 @@ class LayerActions(AbstractActions):
         if layers:
             cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], layers=layers)
 
+    viewOutput_info = [cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT, None, "view"]
+    def viewOutput(self, rpcObjects=None):
+        layers = self._getOnlyLayerObjects(rpcObjects)
+        if layers and cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT:
+            cuegui.Utils.viewOutput(layers)
+
     reorder_info = ["Reorder Frames...", None, "configure"]
 
     def reorder(self, rpcObjects=None):
@@ -1113,6 +1133,12 @@ class FrameActions(AbstractActions):
     def viewDepends(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         cuegui.DependDialog.DependDialog(frames[0], self._caller).show()
+
+    viewOutput_info = [cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT, None, "view"]
+    def viewOutput(self, rpcObjects=None):
+        frames = self._getOnlyFrameObjects(rpcObjects)
+        if frames and cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT:
+            cuegui.Utils.viewFramesOutput(self._getSource(), frames)
 
     getWhatDependsOnThis_info = ["print getWhatDependsOnThis", None, "log"]
 

@@ -386,11 +386,16 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.jobs().addAction(menu, "unmonitor")
         self.__menuActions.jobs().addAction(menu, "view")
         self.__menuActions.jobs().addAction(menu, "emailArtist")
+        self.__menuActions.jobs().addAction(menu, "requestCores")
         self.__menuActions.jobs().addAction(menu, "subscribeToJob")
         self.__menuActions.jobs().addAction(menu, "viewComments")
 
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.jobs().addAction(menu, "useLocalCores")
+
+        it_view_action = self.__menuActions.jobs().addAction(menu, "viewOutput")
+        it_view_action.setDisabled(__count == 0)
+        it_view_action.setToolTip("Open Viewer for the selected items")
 
         depend_menu = QtWidgets.QMenu("&Dependencies",self)
         self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
