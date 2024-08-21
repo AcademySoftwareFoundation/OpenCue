@@ -263,7 +263,7 @@ def findJob(job):
         if re.search("^Job.", job):
             job = re.sub("Job.", "", job)
         return opencue.api.getJob(job)
-    if not re.search(r"^(?:Job.)?([a-z0-9\_]+)\-([a-z0-9\.\_]+)\-", job, re.IGNORECASE):
+    if not re.search(r"^(?:Job.)?([a-z0-9_]+)-([a-z0-9._]+)-", job, re.IGNORECASE):
         return None
     try:
         return opencue.api.findJob(job)
