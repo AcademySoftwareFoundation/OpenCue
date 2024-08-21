@@ -128,7 +128,8 @@ LOGGER_FORMAT = __config.get('logger.format')
 LOGGER_LEVEL = __config.get('logger.level')
 
 EMAIL_SUBJECT_PREFIX = __config.get('email.subject_prefix', "cuemail: please check ")
-EMAIL_BODY_PREFIX = __config.get('email.body_prefix', "Your Support Team requests that you check:\n")
+EMAIL_BODY_PREFIX = __config.get('email.body_prefix',
+                                 "Your Support Team requests that you check:\n")
 EMAIL_BODY_SUFFIX = __config.get('email.body_suffix', "\n\n")
 EMAIL_DOMAIN = __config.get('email.domain', "")
 SHOW_SUPPORT_CC_TEMPLATE = [val.strip()
