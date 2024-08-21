@@ -119,6 +119,13 @@ class MainWindow(QtWidgets.QMainWindow):
         msg += "Python:\n%s\n\n" % sys.version
         QtWidgets.QMessageBox.about(self, "About", msg)
 
+    def handleExit(self, sig, flag):
+        """Save current state and close the application"""
+        del sig
+        del flag
+        self.__saveSettings()
+        self.__windowCloseApplication()
+
     @staticmethod
     def openSuggestionPage():
         """Opens the suggestion page URL."""
@@ -364,9 +371,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowClosed(self):
         """Called from closeEvent on window close"""
 
-        # Disconnect to avoid multiple attempts to close a window
-        self.app.quit.connect(self.close)
-
         # Save the fact that this window is open or not when the app closed
         self.settings.setValue("%s/Open" % self.name, self.app.closingApp)
 
@@ -386,6 +390,8 @@ class MainWindow(QtWidgets.QMainWindow):
         to exit."""
         self.app.closingApp = True
         self.app.quit.emit()
+        # Give the application some time to save the state
+        time.sleep(4)
 
     ################################################################################
 
