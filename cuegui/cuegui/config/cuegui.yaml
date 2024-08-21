@@ -64,6 +64,10 @@ editor.windows: 'notepad'
 editor.mac: 'open -t'
 editor.linux: 'gview -R -m -M -U {config_path}/gvimrc +'
 
+# Url to the sentry application dsn
+# comment out to disable sentry
+# sentry.dsn: 'https://someid@your-sentry.com/10'
+
 resources:
   # The max cores and max memory based on the available hardware.
   # These values are used by:
@@ -110,3 +114,28 @@ startup_notice.msg: ''
 
 # Memory usage above this level will be displayed in a different color.
 memory_warning_level: 5242880
+
+# Output Viewer config.
+# # ------------------------------------------------------------------------------------------------------
+# Frame, Layer and Job objects have right click menu option for opening an output viewer
+# (eg. OpenRV)
+# output_viewer:
+#   # Text to be displayed at the menu action button
+#   action_text: "View Output in Itview"
+
+#   # extract_args_regex: Regex to extract arguments from the output path produced by a job/layer/frame
+#   # cmd_pattern: Command pattern to be matched with the regex defined at extract_args_regex
+#   # if extract_args_regex is not provided, cmd_pattern is called directly with paths as arguments
+#   extract_args_regex: '/shots/(?P<show>\w+)/(?P<shot>shot\w+)/.*'
+#   cmd_pattern: "env SHOW={show} SHOT={shot} COLOR_IO=/{show}/home/colorspaces.xml OCIO=/{show}/home/config.ocio openrv {paths}"
+
+#   # if provided, paths containing any of the two values are considered the same output and only one
+#   # of them will be passed to the viewer
+#   stereo_modifiers: "_rt_,_lf_"
+# # ------------------------------------------------------------------------------------------------------
+
+# These flags determine whether or not layers/frames will be readonly when job is finished.
+# If flags are set as true, layers/frames cannot be retried, eaten, edited dependency on, etc.
+# In order to toggle the same protection on cuebot's side, set flags in opencue.properties
+finished_jobs_readonly.frame: True
+finished_jobs_readonly.layer: True

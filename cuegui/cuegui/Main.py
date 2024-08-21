@@ -20,6 +20,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import getpass
 import signal
 
 from qtpy import QtGui
@@ -72,6 +73,8 @@ def startup(app_name, app_version, argv):
     settings = cuegui.Layout.startup(app_name)
     app.settings = settings
 
+    __setup_sentry()
+
     cuegui.Style.init()
 
     mainWindow = cuegui.MainWindow.MainWindow(app_name, app_version,  None)
@@ -91,6 +94,23 @@ def startup(app_name, app_version, argv):
     gc = cuegui.GarbageCollector.GarbageCollector(parent=app, debug=False)  # pylint: disable=unused-variable
     app.aboutToQuit.connect(closingTime)  # pylint: disable=no-member
     app.exec_()
+
+
+def __setup_sentry():
+    """Setup sentry if cuegui.Constants.SENTRY_DSN is defined, nop otherwise"""
+    if not cuegui.Constants.SENTRY_DSN:
+        return
+
+    try:
+        # pylint: disable=import-outside-toplevel
+        # Avoid importing sentry on the top level to make this dependency optional
+        import sentry_sdk
+        sentry_sdk.init(cuegui.Constants.SENTRY_DSN)
+        sentry_sdk.set_user({
+            'username': getpass.getuser()
+        })
+    except ImportError:
+        logger.warning('Failed to import Sentry')
 
 def closingTime():
     """Window close callback."""

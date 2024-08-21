@@ -171,6 +171,7 @@ class AbstractActions(object):
             self.__actionCache[key] = action
 
         menu.addAction(self.__actionCache[key])
+        return self.__actionCache[key]
 
     def cuebotCall(self, functionToCall, errorMessageTitle, *args):
         """Makes the given call to the Cuebot, displaying exception info if needed.
@@ -226,6 +227,12 @@ class JobActions(AbstractActions):
     def view(self, rpcObjects=None):
         for job in self._getOnlyJobObjects(rpcObjects):
             self.app.view_object.emit(job)
+
+    viewOutput_info = [cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT, None, "view"]
+    def viewOutput(self, rpcObjects=None):
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs and cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT:
+            cuegui.Utils.viewOutput(jobs)
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
 
@@ -839,6 +846,12 @@ class LayerActions(AbstractActions):
         if layers:
             cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], layers=layers)
 
+    viewOutput_info = [cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT, None, "view"]
+    def viewOutput(self, rpcObjects=None):
+        layers = self._getOnlyLayerObjects(rpcObjects)
+        if layers and cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT:
+            cuegui.Utils.viewOutput(layers)
+
     reorder_info = ["Reorder Frames...", None, "configure"]
 
     def reorder(self, rpcObjects=None):
@@ -1028,6 +1041,12 @@ class FrameActions(AbstractActions):
     def viewDepends(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         cuegui.DependDialog.DependDialog(frames[0], self._caller).show()
+
+    viewOutput_info = [cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT, None, "view"]
+    def viewOutput(self, rpcObjects=None):
+        frames = self._getOnlyFrameObjects(rpcObjects)
+        if frames and cuegui.Constants.OUTPUT_VIEWER_ACTION_TEXT:
+            cuegui.Utils.viewFramesOutput(self._getSource(), frames)
 
     getWhatDependsOnThis_info = ["print getWhatDependsOnThis", None, "log"]
 

@@ -387,7 +387,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @type  job: job, string, None"""
         self.frameSearch = opencue.search.FrameSearch()
         self.__job = job
-        self.__jobState = None
+        self.__jobState = job.state()
         self.removeAllItems()
         self.__sortByColumnLoad()
         self._lastUpdate = 0
@@ -593,7 +593,9 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
-        menu = FrameContextMenu(self, self._actionFilterSelectedLayers)
+        menu = FrameContextMenu(self, self._actionFilterSelectedLayers,
+                                readonly=(cuegui.Constants.FINISHED_JOBS_READONLY_FRAME and
+                                          self.__jobState == opencue.api.job_pb2.FINISHED))
         menu.exec_(e.globalPos())
 
     def _actionFilterSelectedLayers(self):
@@ -885,7 +887,7 @@ class FrameEtaDataBuffer(object):
 class FrameContextMenu(QtWidgets.QMenu):
     """Context menu for frames."""
 
-    def __init__(self, widget, filterSelectedLayersCallback):
+    def __init__(self, widget, filterSelectedLayersCallback, readonly=False):
         super(FrameContextMenu, self).__init__()
         self.app = cuegui.app()
 
@@ -909,6 +911,8 @@ class FrameContextMenu(QtWidgets.QMenu):
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.frames().addAction(self, "useLocalCores")
 
+        self.__menuActions.frames().addAction(self, "viewOutput")
+
         if self.app.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(self, "viewHost")
 
@@ -927,13 +931,13 @@ class FrameContextMenu(QtWidgets.QMenu):
 
         self.__menuActions.frames().createAction(self, "Filter Selected Layers", None,
                                                  filterSelectedLayersCallback, "stock-filters")
-        self.__menuActions.frames().addAction(self, "reorder")
+        self.__menuActions.frames().addAction(self, "reorder").setEnabled(not readonly)
         self.addSeparator()
         self.__menuActions.frames().addAction(self, "previewMain")
         self.__menuActions.frames().addAction(self, "previewAovs")
         self.addSeparator()
-        self.__menuActions.frames().addAction(self, "retry")
-        self.__menuActions.frames().addAction(self, "eat")
-        self.__menuActions.frames().addAction(self, "kill")
-        self.__menuActions.frames().addAction(self, "eatandmarkdone")
+        self.__menuActions.frames().addAction(self, "retry").setEnabled(not readonly)
+        self.__menuActions.frames().addAction(self, "eat").setEnabled(not readonly)
+        self.__menuActions.frames().addAction(self, "kill").setEnabled(not readonly)
+        self.__menuActions.frames().addAction(self, "eatandmarkdone").setEnabled(not readonly)
         self.__menuActions.frames().addAction(self, "viewProcesses")

@@ -341,7 +341,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
         self.__jobTimeLoaded.pop(item.rpcObject, "")
         try:
-            jobKey = cuegui.Utils.getObjectKey(item)
+            jobKey = cuegui.Utils.getObjectKey(item.rpcObject)
             # Remove the item from the main _items dictionary as well as the
             # __dependentJobs and the reverseDependent dictionaries
             # pylint: disable=protected-access
@@ -391,6 +391,10 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.jobs().addAction(menu, "useLocalCores")
+
+        it_view_action = self.__menuActions.jobs().addAction(menu, "viewOutput")
+        it_view_action.setDisabled(__count == 0)
+        it_view_action.setToolTip("Open Viewer for the selected items")
 
         depend_menu = QtWidgets.QMenu("&Dependencies",self)
         self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
