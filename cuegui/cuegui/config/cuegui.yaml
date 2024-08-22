@@ -101,16 +101,15 @@ links.issue.bug: '?labels=bug&template=bug_report.md'
 allowed_tags: ['general', 'desktop', 'playblast', 'util', 'preprocess', 'wan', 'cuda', 'splathw',
                'naiad', 'massive']
 
-email:
-  subject_prefix: 'cuemail: please check '
-  body_prefix: 'Your Support Team requests that you check '
-  body_suffix: "\n\n"
-  domain: 'your.domain.com'
-  # A template for what email should be used for show support.
-  #  - {domain} is required and will be replaced by email.domain
-  #  - {show} is not required and will be replaced by the job show
-  #  - Multiple addresses might be provided in a comma separated list
-  show_support_cc_template: "{show}-support@{domain}"
+email.subject_prefix: 'cuemail: please check '
+email.body_prefix: 'Your Support Team requests that you check '
+email.body_suffix: "\n\n"
+email.domain: 'your.domain.com'
+# A template for what email should be used for show support.
+#  - {domain} is required and will be replaced by email.domain
+#  - {show} is not required and will be replaced by the job show
+#  - Multiple addresses might be provided in a comma separated list
+email.show_support_cc_template: "{show}-support@{domain}"
 
 # Unix epoch timestamp. If the user last viewed the startup notice before this time, the
 # notice will be shown.
