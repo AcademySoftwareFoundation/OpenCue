@@ -120,7 +120,8 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
             print("No viewer configured. "
                   "Please ensure output_viewer.direct_cmd_call is configured properly")
         print("Launching preview: ", self.__previewFile)
-        cmd = cuegui.Constants.OUTPUT_VIEWER_DIRECT_CMD_CALL.format(paths=self.__previewFile).split()
+        cmd = cuegui.Constants.OUTPUT_VIEWER_DIRECT_CMD_CALL.format(
+            paths=self.__previewFile).split()
         subprocess.call(cmd, shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def processTimedOut(self):
