@@ -63,7 +63,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
 
         self.__previewThread = None
         # pylint: disable=unused-private-member
-        self.__itvFile = None
+        self.__previewFile = None
 
         layout = QtWidgets.QVBoxLayout(self)
 
@@ -96,7 +96,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
             return
 
         # pylint: disable=unused-private-member
-        self.__itvFile = self.__writePlaylist(playlist)
+        self.__previewFile = self.__writePlaylist(playlist)
         self.__previewThread = PreviewProcessorWatchThread(items, self)
         self.app.threads.append(self.__previewThread)
         self.__previewThread.start()
@@ -119,8 +119,8 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         if not cuegui.Constants.OUTPUT_VIEWER_DIRECT_CMD_CALL:
             print("No viewer configured. "
                   "Please ensure output_viewer.direct_cmd_call is configured properly")
-        print("Launching preview: itview ", self.__itvFile)
-        cmd = cuegui.Constants.OUTPUT_VIEWER_DIRECT_CMD_CALL.format(paths=self.__itvFile).split()
+        print("Launching preview: ", self.__previewFile)
+        cmd = cuegui.Constants.OUTPUT_VIEWER_DIRECT_CMD_CALL.format(paths=self.__previewFile).split()
         subprocess.call(cmd, shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def processTimedOut(self):
@@ -163,7 +163,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
             finally:
                 fp.close()
 
-        raise Exception("This frame doesn't support previews. No Preview Server Found.")
+        raise Exception("This frame doesn't support previews. No Preview Server found.")
 
 
 class PreviewProcessorWatchThread(QtCore.QThread):
