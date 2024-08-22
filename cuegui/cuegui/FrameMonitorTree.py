@@ -387,9 +387,10 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @type  job: job, string, None"""
         self.frameSearch = opencue.search.FrameSearch()
         self.__job = job
-        self.__jobState = job.state()
         self.removeAllItems()
-        self.__sortByColumnLoad()
+        if job:
+            self.__jobState = job.state()
+            self.__sortByColumnLoad()
         self._lastUpdate = 0
         self.job_changed.emit()
 
