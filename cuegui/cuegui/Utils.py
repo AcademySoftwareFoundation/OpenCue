@@ -830,7 +830,12 @@ def showErrorMessageBox(text, title="ERROR!", detailedText=None):
 def shutdownThread(thread):
     """Shuts down a WorkerThread."""
     thread.stop()
-    return thread.wait(1500)
+    # Stop may terminate the underlying thread object yielding a
+    # RuntimeError(QtFatal) when wait is called
+    try:
+        return thread.wait(1500)
+    except RuntimeError:
+        return False
 
 def getLLU(item):
     """ LLU time from log_path """
