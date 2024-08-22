@@ -31,6 +31,7 @@ import sys
 import time
 import traceback
 import webbrowser
+import yaml
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -877,3 +878,21 @@ def byteConversion(amount, btype):
     for _ in range(n):
         _bytes *= 1024
     return _bytes
+
+
+def isPermissible(jobObject):
+    """
+    Validate if the current user has the correct permissions to perform
+    the action
+
+    :param userName: jobObject
+    :ptype userName: Opencue Job Object
+    :return:
+    """
+    # Read cached setting from user config file
+    hasPermissions = yaml.safe_load(cuegui.app().settings.value("EnableJobInteraction", "False"))
+    # If not set by default, check if current user is the job owner
+    currentUser = getpass.getuser()
+    if not hasPermissions and currentUser.lower() == jobObject.username().lower():
+        hasPermissions = True
+    return hasPermissions

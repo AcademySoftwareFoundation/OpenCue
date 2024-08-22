@@ -230,7 +230,8 @@ class JobActionsTests(unittest.TestCase):
         job.resume.assert_called()
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_kill(self, yesNoMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_kill(self, isPermissibleMock, yesNoMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
         job.kill = mock.Mock()
         job.getWhatDependsOnThis = mock.Mock()
@@ -241,7 +242,8 @@ class JobActionsTests(unittest.TestCase):
         job.kill.assert_called()
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
-    def test_killCanceled(self, yesNoMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_killCanceled(self, isPermissibleMock, yesNoMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
         job.kill = mock.Mock()
 
@@ -250,7 +252,8 @@ class JobActionsTests(unittest.TestCase):
         job.kill.assert_not_called()
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_eatDead(self, yesNoMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_eatDead(self, isPermissibleMock, yesNoMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
         job.eatFrames = mock.Mock()
 
@@ -259,7 +262,8 @@ class JobActionsTests(unittest.TestCase):
         job.eatFrames.assert_called_with(state=[opencue.compiled_proto.job_pb2.DEAD])
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
-    def test_eatDeadCanceled(self, yesNoMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_eatDeadCanceled(self, isPermissibleMock, yesNoMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
         job.eatFrames = mock.Mock()
 
@@ -267,7 +271,8 @@ class JobActionsTests(unittest.TestCase):
 
         job.eatFrames.assert_not_called()
 
-    def test_autoEatOn(self):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_autoEatOn(self, isPermissibleMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
         job.setAutoEat = mock.Mock()
         job.eatFrames = mock.Mock()
@@ -277,7 +282,8 @@ class JobActionsTests(unittest.TestCase):
         job.setAutoEat.assert_called_with(True)
         job.eatFrames.assert_called_with(state=[opencue.compiled_proto.job_pb2.DEAD])
 
-    def test_autoEatOff(self):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_autoEatOff(self, isPermissibleMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
         job.setAutoEat = mock.Mock()
 
@@ -286,7 +292,8 @@ class JobActionsTests(unittest.TestCase):
         job.setAutoEat.assert_called_with(False)
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_retryDead(self, yesNoMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_retryDead(self, isPermissibleMock, yesNoMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
         job.retryFrames = mock.Mock()
 
@@ -295,7 +302,8 @@ class JobActionsTests(unittest.TestCase):
         job.retryFrames.assert_called_with(state=[opencue.compiled_proto.job_pb2.DEAD])
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
-    def test_retryDeadCanceled(self, yesNoMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_retryDeadCanceled(self, isPermissibleMock, yesNoMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
         job.retryFrames = mock.Mock()
 
@@ -669,7 +677,8 @@ class LayerActionsTests(unittest.TestCase):
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'kill')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_kill(self, yesNoMock, killMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_kill(self, isPermissibleMock, yesNoMock, killMock):
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
 
@@ -679,7 +688,8 @@ class LayerActionsTests(unittest.TestCase):
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'kill')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
-    def test_killCanceled(self, yesNoMock, killMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_killCanceled(self, isPermissibleMock, yesNoMock, killMock):
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
 
@@ -689,7 +699,8 @@ class LayerActionsTests(unittest.TestCase):
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'eat')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_eat(self, yesNoMock, eatMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_eat(self, isPermissibleMock, yesNoMock, eatMock):
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
 
@@ -699,7 +710,8 @@ class LayerActionsTests(unittest.TestCase):
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'eat')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
-    def test_eatCanceled(self, yesNoMock, eatMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_eatCanceled(self, isPermissibleMock, yesNoMock, eatMock):
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
 
@@ -709,7 +721,8 @@ class LayerActionsTests(unittest.TestCase):
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'retry', autospec=True)
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_retry(self, yesNoMock, retryMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_retry(self, isPermissibleMock, yesNoMock, retryMock):
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
 
@@ -719,7 +732,8 @@ class LayerActionsTests(unittest.TestCase):
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'retry')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
-    def test_retryCanceled(self, yesNoMock, retryMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_retryCanceled(self, isPermissibleMock, yesNoMock, retryMock):
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
 
@@ -728,7 +742,8 @@ class LayerActionsTests(unittest.TestCase):
         retryMock.assert_not_called()
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_retryDead(self, yesNoMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_retryDead(self, isPermissibleMock, yesNoMock):
         layer_name = 'arbitrary-name'
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name=layer_name))
@@ -914,7 +929,8 @@ class FrameActionsTests(unittest.TestCase):
         self.frame_actions.getWhatDependsOnThis(rpcObjects=[frame])
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_retry(self, yesNoMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_retry(self, isPermissibleMock, yesNoMock):
         frame_name = 'arbitrary-frame-name'
         frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
 
@@ -943,7 +959,8 @@ class FrameActionsTests(unittest.TestCase):
         previewProcessorDialogMock.return_value.exec_.assert_called()
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_eat(self, yesNoMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_eat(self, isPermissibleMock, yesNoMock):
         frame_name = 'arbitrary-frame-name'
         frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
 
@@ -952,7 +969,8 @@ class FrameActionsTests(unittest.TestCase):
         self.job.eatFrames.assert_called_with(name=[frame_name])
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_kill(self, yesNoMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_kill(self, isPermissibleMock, yesNoMock):
         frame_name = 'arbitrary-frame-name'
         frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
 
@@ -1019,7 +1037,8 @@ class FrameActionsTests(unittest.TestCase):
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'markdone', autospec=True)
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_eatandmarkdone(self, yesNoMock, markdoneMock):
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_eatandmarkdone(self, isPermissibleMock, yesNoMock, markdoneMock):
         layer_name = 'layer-name'
         frames = [
             opencue.wrappers.frame.Frame(
@@ -1339,7 +1358,7 @@ class ProcActionsTests(unittest.TestCase):
         self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.proc_actions = cuegui.MenuActions.ProcActions(
-            self.widgetMock, mock.Mock(), None, None)
+            self.widgetMock, mock.Mock(), mock.Mock(), mock.Mock())
 
     @mock.patch('opencue.api.findJob')
     def test_view(self, findJobMock):
@@ -1353,8 +1372,9 @@ class ProcActionsTests(unittest.TestCase):
 
         self.app.view_object.emit.assert_called_once_with(job)
 
-    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
-    def test_kill(self):
+    @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
+    @mock.patch('cuegui.Utils.isPermissible', return_value=True)
+    def test_kill(self, isPermissibleMock, yesNoMock):
         proc = opencue.wrappers.proc.Proc(opencue.compiled_proto.host_pb2.Proc())
         proc.kill = mock.MagicMock()
 
