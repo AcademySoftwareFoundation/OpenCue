@@ -263,7 +263,7 @@ main() {
     run_job
 
     log INFO "Starting RQD Blender..."
-    RQD_IMAGE=opencue/blender docker compose up --force-recreate rqd
+    docker compose up --force-recreate -e RQD_IMAGE=opencue/blender rqd
     wait_for_service_state "rqd" "running" $docker_timeout
 
     log INFO "Testing Blender job..."
