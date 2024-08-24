@@ -93,7 +93,7 @@ def build_frame_range(frame_range, chunk_size):
     frames = []
     if chunk_size > 1:
         if chunk_size >= len(frame_set):
-            frames.append(frame_set.__getitem__(0))
+            frames.append(frame_set[0])
         else:
             unique_frames = list(set(frame_set))
             for i, unique_frame in enumerate(unique_frames):

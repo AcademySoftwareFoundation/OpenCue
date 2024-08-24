@@ -253,15 +253,6 @@ public interface HostDao {
     void updateThreadMode(HostInterface host, ThreadMode mode);
 
     /**
-     * When a host is in kill mode that means its 256MB+ into the swap and the
-     * the worst memory offender is killed.
-     *
-     * @param h HostInterface
-     * @return boolean
-     */
-    boolean isKillMode(HostInterface h);
-
-    /**
      * Update the specified host's hardware information.
      *
      * @param host        HostInterface

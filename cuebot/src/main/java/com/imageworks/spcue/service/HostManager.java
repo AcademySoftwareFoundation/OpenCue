@@ -70,15 +70,6 @@ public interface HostManager {
      */
     void setHostFreeTempDir(HostInterface host, Long freeTempDir);
 
-    /**
-     * Return true if the host is swapping hard enough
-     * that killing frames will save the entire machine.
-     *
-     * @param host
-     * @return
-     */
-    boolean isSwapping(HostInterface host);
-
     DispatchHost createHost(HostReport report);
     DispatchHost createHost(RenderHost host);
 
@@ -182,7 +173,7 @@ public interface HostManager {
     void unbookProc(ProcInterface proc);
 
     /**
-     * Returns the proc who is most deliquent on memory allocation
+     * For a given host, return the proc using more memory above what it had initially reserved
      * @param h
      * @return
      */

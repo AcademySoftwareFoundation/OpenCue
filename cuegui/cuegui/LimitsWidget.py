@@ -133,7 +133,6 @@ class LimitsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         item = LimitWidgetItem(rpcObject, self)
         return item
 
-    # pylint: disable=no-self-use
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
         try:

@@ -27,6 +27,7 @@ from qtpy import QtCore
 from qtpy import QtWidgets
 
 import opencue
+from opencue.wrappers.service import ServiceOverride
 
 import cuegui.Constants
 import cuegui.TagsWidget
@@ -124,17 +125,16 @@ class ServiceForm(QtWidgets.QWidget):
         """
         self.__service = service
         self.__buttons.setDisabled(False)
-        self.name.setText(service.data.name)
-        self.threadable.setChecked(service.data.threadable)
-        self.min_cores.setValue(service.data.min_cores)
-        self.max_cores.setValue(service.data.max_cores)
-        self.min_memory.setValue(service.data.min_memory // 1024)
+        self.name.setText(service.name())
+        self.threadable.setChecked(service.threadable())
+        self.min_cores.setValue(service.minCores())
+        self.max_cores.setValue(service.maxCores())
         self.min_gpu_memory.setValue(service.data.min_gpu_memory // 1024)
-        self._tags_w.set_tags(service.data.tags)
+        self.min_memory.setValue(service.minMemory() // 1024)
+        self._tags_w.set_tags(service.tags())
         self.timeout.setValue(service.data.timeout)
         self.timeout_llu.setValue(service.data.timeout_llu)
         self.min_memory_increase.setValue(service.data.min_memory_increase // 1024)
-        self.__service = service.data
 
     def new(self):
         """
@@ -159,12 +159,18 @@ class ServiceForm(QtWidgets.QWidget):
         Create and emit a ServiceData object based
         on the contents of the form.
         """
-        if len(str(self.name.text())) < 3:
+        service_name = str(self.name.text())
+        if len(service_name) < 3:
             QtWidgets.QMessageBox.critical(self, "Error",
                                            "The service name must be at least 3 characters.")
             return
 
-        if not str(self.name.text()).isalnum():
+        # Allow alphanumeric chars and | / - _
+        # chars like , and . can be used as separators in other parts of the API and behave
+        # inconsistently
+        if (not service_name.isalnum()) and \
+            [char for char in service_name
+             if not char.isalnum() and char not in "|/-_"]:
             QtWidgets.QMessageBox.critical(self, "Error", "The service name must alphanumeric.")
             return
 
@@ -176,7 +182,7 @@ class ServiceForm(QtWidgets.QWidget):
         service = opencue.wrappers.service.Service()
         if self.__service:
             service.data.id = self.__service.data.id
-        service.setName(str(self.name.text()))
+        service.setName(service_name)
         service.setThreadable(self.threadable.isChecked())
         service.setMinCores(self.min_cores.value())
         service.setMaxCores(self.max_cores.value())
@@ -263,11 +269,16 @@ class ServiceManager(QtWidgets.QWidget):
 
         if self.__new_service:
             if self.__show:
-                self.__show.createServiceOverride(service.data)
+                serviceOverride = self.__show.createServiceOverride(service.data)
             else:
                 opencue.api.createService(service.data)
         else:
-            service.update()
+            if self.__show:
+                serviceOverride = ServiceOverride(service)
+                serviceOverride.id = service.id()
+                serviceOverride.update()
+            else:
+                service.update()
 
         self.refresh()
         self.__new_service = False
@@ -339,6 +350,7 @@ class ServiceDialog(QtWidgets.QDialog):
     def __init__(self, show, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
 
+        # pylint: disable=unused-private-member
         self.__srv_manager = ServiceManager(show, self)
 
         self.setWindowTitle("Services")

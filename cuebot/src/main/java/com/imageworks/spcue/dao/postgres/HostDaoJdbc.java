@@ -345,7 +345,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 fqdn = host.getName();
             }
         } catch (UnknownHostException e) {
-            logger.warn(e);
+            logger.info(e);
             fqdn = host.getName();
             name = getHostNameFromFQDN(name, useLongNames);
         }
@@ -610,15 +610,6 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         getJdbcTemplate().update(
                 "UPDATE host_stat SET str_os=? WHERE pk_host=?",
                  os, host.getHostId());
-    }
-
-    @Override
-    public boolean isKillMode(HostInterface h) {
-        return getJdbcTemplate().queryForObject(
-                "SELECT COUNT(1) FROM host_stat WHERE pk_host = ? " +
-                "AND int_swap_total - int_swap_free > ? AND int_mem_free < ?",
-                Integer.class, h.getHostId(), Dispatcher.KILL_MODE_SWAP_THRESHOLD,
-                Dispatcher.KILL_MODE_MEM_THRESHOLD) > 0;
     }
 
     @Override
