@@ -172,6 +172,8 @@ try:
             CUEBOT_HOSTNAME = config.get(__section, "OVERRIDE_CUEBOT")
         if config.has_option(__section, "OVERRIDE_NIMBY"):
             OVERRIDE_NIMBY = config.getboolean(__section, "OVERRIDE_NIMBY")
+        if config.has_option(__section, "USE_NIMBY_PYNPUT"):
+            USE_NIMBY_PYNPUT = config.getboolean(__section, "USE_NIMBY_PYNPUT")
         if config.has_option(__section, "OVERRIDE_HOSTNAME"):
             OVERRIDE_HOSTNAME = config.get(__section, "OVERRIDE_HOSTNAME")
         if config.has_option(__section, "GPU"):

@@ -45,6 +45,7 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.TransactionalTest;
+import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertEquals;
 
@@ -99,11 +100,12 @@ public class CoreUnitDispatcherTests extends TransactionalTest {
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalMcp(CueUtil.GB4)
                 .setTotalMem(8173264)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)
