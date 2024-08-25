@@ -244,7 +244,7 @@ public class HostReportHandler {
              */
             String msg = null;
             boolean hasLocalJob = bookingManager.hasLocalHostAssignment(host);
-            int cores_to_reserve = host.handleNegativeCoresRequirement(Dispatcher.CORE_POINTS_RESERVED_MIN);
+            int coresToReserve = host.handleNegativeCoresRequirement(Dispatcher.CORE_POINTS_RESERVED_MIN);
 
             if (hasLocalJob) {
                 List<LocalHostAssignment> lcas =
@@ -256,10 +256,10 @@ public class HostReportHandler {
           
             if (!isTempDirStorageEnough(report.getHost().getTotalMcp(), report.getHost().getFreeMcp(), host.os)) {
                 msg = String.format(
-                    "%s doens't have enough free space in the temporary directory (mcp), %dMB",
+                    "%s doesn't have enough free space in the temporary directory (mcp), %dMB",
                         host.name, (report.getHost().getFreeMcp()/1024));
             }
-            else if (cores_to_reserve <= 0 || host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
+            else if (coresToReserve <= 0 || host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
                 msg = String.format("%s doesn't have enough idle cores, %d needs %d",
                     host.name,  host.idleCores, Dispatcher.CORE_POINTS_RESERVED_MIN);
             }
@@ -268,7 +268,7 @@ public class HostReportHandler {
                         host.name,  host.idleMemory,  Dispatcher.MEM_RESERVED_MIN);
             }
             else if (report.getHost().getFreeMem() < CueUtil.MB512) {
-                msg = String.format("%s doens't have enough free system mem, %d needs %d",
+                msg = String.format("%s doesn't have enough free system mem, %d needs %d",
                         host.name, report.getHost().getFreeMem(), Dispatcher.MEM_RESERVED_MIN);
             }
             else if(!host.hardwareState.equals(HardwareState.UP)) {

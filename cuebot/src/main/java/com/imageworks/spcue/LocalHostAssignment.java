@@ -69,6 +69,7 @@ public class LocalHostAssignment extends Entity
 
     public int handleNegativeCoresRequirement(int requestedCores) {
         // If we request a <=0 amount of cores, return positive core count.
+        // Request -2 on a 24 core machine will return 22.
 
         if (requestedCores > 0) {
             // Do not process positive core requests.

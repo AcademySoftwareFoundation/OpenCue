@@ -261,14 +261,14 @@ public class CoreUnitDispatcher implements Dispatcher {
 
         String[] selfishServices = env.getProperty("dispatcher.frame.selfish.services", "").split(",");
         for (DispatchFrame frame: frames) {
-          
+
             VirtualProc proc =  VirtualProc.build(host, frame, selfishServices);
-          
+
             if (frame.minCores <= 0 && !proc.canHandleNegativeCoresRequest) {
                 logger.debug("Cannot dispatch job, host is busy.");
                 break;
             }
-          
+
             if (host.idleCores < host.handleNegativeCoresRequirement(frame.minCores) ||
                     host.idleMemory < frame.minMemory ||
                     host.idleGpus < frame.minGpus ||
