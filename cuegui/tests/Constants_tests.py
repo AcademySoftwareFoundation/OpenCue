@@ -104,7 +104,7 @@ class ConstantsTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual('cuemail: please check ', result.EMAIL_SUBJECT_PREFIX)
         self.assertEqual('Your Support Team requests that you check ', result.EMAIL_BODY_PREFIX)
         self.assertEqual('\n\n', result.EMAIL_BODY_SUFFIX)
-        self.assertEqual('', result.EMAIL_DOMAIN)
+        self.assertEqual('your.domain.com', result.EMAIL_DOMAIN)
         self.assertEqual(
             'https://github.com/AcademySoftwareFoundation/OpenCue/issues/new',
             result.GITHUB_CREATE_ISSUE_URL)
