@@ -79,14 +79,14 @@ def permissionsHigh():
     """Sets the effective gid/uid to processes original values (root)"""
     if platform.system() == "Windows" or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
-    with PERMISSIONS:
-        os.setegid(os.getgid())
-        os.seteuid(os.getuid())
-        try:
-            os.setgroups(HIGH_PERMISSION_GROUPS)
-        # pylint: disable=broad-except
-        except Exception:
-            pass
+    PERMISSIONS.acquire()
+    os.setegid(os.getgid())
+    os.seteuid(os.getuid())
+    try:
+        os.setgroups(HIGH_PERMISSION_GROUPS)
+    # pylint: disable=broad-except
+    except Exception:
+        pass
 
 
 def permissionsLow():
@@ -114,10 +114,9 @@ def permissionsUser(uid, gid):
             groups = [20] + [g.gr_gid for g in grp.getgrall() if username in g.gr_mem]
             os.setgroups(groups)
         # pylint: disable=broad-except
-        except Exception:
-            pass
-        os.setegid(gid)
-        os.seteuid(uid)
+        finally:
+            os.setegid(gid)
+            os.seteuid(uid)
 
 
 def __becomeRoot():
@@ -134,24 +133,29 @@ def __becomeRoot():
 
 def checkAndCreateUser(username, uid=None, gid=None):
     """Check to see if the provided user exists, if not attempt to create it."""
-    # TODO(gregdenton): Add Windows and Mac support here. (Issue #61)
-    if not rqd.rqconstants.RQD_BECOME_JOB_USER:
+    if platform.system() == "Windows" or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
     try:
         pwd.getpwnam(username)
         return
     except KeyError:
-        cmd = [
-            'useradd',
-            '-p', str(uuid.uuid4()),  # generate a random password
-        ]
-        if uid:
-            cmd += ['-u', str(uid)]
-        if gid:
-            cmd += ['-g', str(gid)]
-        cmd.append(username)
-        log.info("Frame's username not found on host. Adding user with: %s", cmd)
-        subprocess.check_call(cmd)
+        # Multiple processes can be trying to access passwd, permissionHigh and
+        # permissionLow handle locking
+        permissionsHigh()
+        try:
+            cmd = [
+                'useradd',
+                '-p', str(uuid.uuid4()),  # generate a random password
+            ]
+            if uid:
+                cmd += ['-u', str(uid)]
+            if gid:
+                cmd += ['-g', str(gid)]
+            cmd.append(username)
+            log.info("Frame's username not found on host. Adding user with: %s", cmd)
+            subprocess.check_call(cmd)
+        finally:
+            permissionsLow()
 
 
 def getHostIp():
