@@ -89,15 +89,15 @@ public class FrameSetTests {
     public void shouldReturnLastFrame() {
         FrameSet result1 = new FrameSet("1-10x2");
 
-        FrameSet chunk1 = new FrameSet(result1.getChunk(1, 3));
+        FrameSet chunk1 = new FrameSet(result1.getChunk(0, 3));
         FrameSet chunk2 = new FrameSet(result1.getChunk(3, 3));
 
-        assertEquals(5, chunk1.get(-1));
-        assertEquals(9, chunk2.get(-1));
+        assertEquals(5, chunk1.get(chunk1.size()-1));
+        assertEquals(9, chunk2.get(chunk2.size()-1));
 
         FrameSet result2 = new FrameSet("1");
-        FrameSet chunk3 = new FrameSet(result2.getChunk(1, 3));
+        FrameSet chunk3 = new FrameSet(result2.getChunk(0, 3));
 
-        assertEquals(1, chunk3.get(-1));
+        assertEquals(1, chunk3.get(chunk3.size()-1));
     }
 }

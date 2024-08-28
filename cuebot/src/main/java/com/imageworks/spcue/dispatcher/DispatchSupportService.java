@@ -378,7 +378,7 @@ public class DispatchSupportService implements DispatchSupport {
         String frameSpec = fs.getChunk(startFrameIndex, frame.chunkSize);
 
         FrameSet chunkFrameSet = new FrameSet(frameSpec);
-        int chunkEndFrame = chunkFrameSet.get(-1);
+        int chunkEndFrame = chunkFrameSet.get(chunkFrameSet.size()-1);
 
         RunFrame.Builder builder = RunFrame.newBuilder()
                 .setShot(frame.shot)
