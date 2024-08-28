@@ -223,6 +223,8 @@ try:
             MINIMUM_IDLE = config.getint(__override_section, "MINIMUM_IDLE")
         if config.has_option(__override_section, "SENTRY_DSN_PATH"):
             SENTRY_DSN_PATH = config.getint(__override_section, "SENTRY_DSN_PATH")
+        if config.has_option(__override_section, "SP_OS"):
+            SP_OS = config.get(__override_section, "SP_OS")
 
         if config.has_section(__host_env_var_section):
             RQD_HOST_ENV_VARS = config.options(__host_env_var_section)
