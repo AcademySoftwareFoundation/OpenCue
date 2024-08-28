@@ -446,6 +446,7 @@ public class JobSpec {
             determineMinimumMemory(buildableJob, layerTag, layer,
                     buildableLayer);
             determineMinimumGpuMemory(buildableJob, layerTag, layer);
+            determineOutputs(layerTag, buildableJob, layer);
 
             // set a timeout value on the layer
             if (layerTag.getChildTextTrim("timeout") != null) {
@@ -511,31 +512,25 @@ public class JobSpec {
         long minMemory;
         String memory = layerTag.getChildTextTrim("memory").toLowerCase();
 
-        try {
-            minMemory = convertMemoryInput(memory);
+        minMemory = convertMemoryInput(memory);
 
-            // Some quick sanity checks to make sure memory hasn't gone
-            // over or under reasonable defaults.
-            if (minMemory> Dispatcher.MEM_RESERVED_MAX) {
-                throw new SpecBuilderException("Memory requirements exceed " +
-                        "maximum. Are you specifying the correct units?");
-            }
-            else if (minMemory < Dispatcher.MEM_RESERVED_MIN) {
-                logger.warn(buildableJob.detail.name + "/" + layer.name +
-                        "Specified too little memory, defaulting to: " +
-                        Dispatcher.MEM_RESERVED_MIN);
-                minMemory = Dispatcher.MEM_RESERVED_MIN;
-            }
-
-            buildableLayer.isMemoryOverride = true;
-            layer.minimumMemory = minMemory;
-
-        } catch (Exception e) {
-            logger.info("Setting setting memory for " +
-                    buildableJob.detail.name + "/" + layer.name +
-                    " failed, reason: " + e + ". Using default.");
-            layer.minimumMemory = Dispatcher.MEM_RESERVED_DEFAULT;
+        // Some quick sanity checks to make sure memory hasn't gone
+        // over or under reasonable defaults.
+        if (minMemory > Dispatcher.MEM_RESERVED_MAX) {
+            logger.warn("Setting memory for " + buildableJob.detail.name +
+                    "/" + layer.name + " to: "+ Dispatcher.MEM_RESERVED_MAX);
+            layer.minimumMemory = Dispatcher.MEM_RESERVED_MAX;
         }
+        else if (minMemory < Dispatcher.MEM_RESERVED_MIN) {
+            logger.warn(buildableJob.detail.name + "/" + layer.name +
+                    "Specified too little memory, defaulting to: " +
+                    Dispatcher.MEM_RESERVED_MIN);
+            minMemory = Dispatcher.MEM_RESERVED_MIN;
+        }
+
+        buildableLayer.isMemoryOverride = true;
+        layer.minimumMemory = minMemory;
+
     }
 
     /**
@@ -619,6 +614,9 @@ public class JobSpec {
 
         if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
             corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
+        }
+        else if (corePoints > Dispatcher.CORE_POINTS_RESERVED_MAX) {
+            corePoints = Dispatcher.CORE_POINTS_RESERVED_MAX;
         }
 
         layer.minimumCores = corePoints;
@@ -750,6 +748,33 @@ public class JobSpec {
         layer.limits.addAll(limits);
         layer.timeout = primaryService.timeout;
         layer.timeout_llu = primaryService.timeout_llu;
+    }
+
+    private void determineOutputs(Element layerTag,
+            BuildableJob job, LayerDetail layer) {
+
+        Element t_outputs = layerTag.getChild("outputs");
+        List<String> outputs = new ArrayList<String>();
+        /*
+         * Build a list of outputs from the XML.  Filter
+         * out duplicates and empty outputs.
+         */
+        if (t_outputs != null) {
+            for (Object tmp : t_outputs.getChildren()) {
+                Element t_output = (Element) tmp;
+                String output_path = t_output.getTextTrim();
+
+                if (output_path.length() == 0) {
+                    continue;
+                }
+
+                if (outputs.contains(output_path)) {
+                    continue;
+                }
+                outputs.add(output_path);
+            }
+        }
+        layer.outputs.addAll(outputs);
     }
 
     /**

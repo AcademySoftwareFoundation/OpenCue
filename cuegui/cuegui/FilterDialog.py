@@ -38,6 +38,7 @@ import cuegui.MenuActions
 import cuegui.TextEditDialog
 import cuegui.Utils
 
+from cuegui.Constants import DISABLED_ACTION_TYPES
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -45,12 +46,14 @@ MATCHSUBJECT = opencue.compiled_proto.filter_pb2.MatchSubject.keys()
 DEFAULT_MATCHSUBJECT = MATCHSUBJECT.index('SHOT')
 MATCHTYPE = opencue.compiled_proto.filter_pb2.MatchType.keys()
 DEFAULT_MATCHTYPE = MATCHTYPE.index('IS')
-ACTIONTYPE = opencue.compiled_proto.filter_pb2.ActionType.keys()
-FILTERTYPE = opencue.compiled_proto.filter_pb2.FilterType.keys()
-PAUSETYPE = ["Pause", "Unpause"]
-MEMOPTTYPE = ["Enabled", "Disabled"]
+ACTIONTYPES = opencue.compiled_proto.filter_pb2.ActionType.keys()
+FILTERTYPES = opencue.compiled_proto.filter_pb2.FilterType.keys()
+PAUSETYPES = ["Pause", "Unpause"]
+MEMOPTTYPES = ["Enabled", "Disabled"]
 MAX_RENDER_MEM = 251.0
-
+ALLOWED_ACTION_TYPES = [action_type
+                        for action_type in ACTIONTYPES
+                        if action_type not in DISABLED_ACTION_TYPES]
 
 class FilterDialog(QtWidgets.QDialog):
     """Dialog to display/modify a show's filters, matchers and actions."""
@@ -176,6 +179,7 @@ class FilterMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def _processUpdate(self, work, rpcObjects):
         """Adds the feature of forcing the items to be sorted by the first
         column"""
+        # pylint: disable=protected-access
         cuegui.AbstractTreeWidget.AbstractTreeWidget._processUpdate(self, work, rpcObjects)
 
     def _getUpdate(self):
@@ -224,6 +228,7 @@ class MatcherMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
+        # pylint: disable=unused-private-member
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
         self._timer.stop()
@@ -429,7 +434,7 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self,
                 "Create Action",
                 "Please select the type of action to add:",
-                ACTIONTYPE,
+                ALLOWED_ACTION_TYPES,
                 0,
                 False)
             if choice:
@@ -442,10 +447,10 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         self,
                         "Create Action",
                         "Should the job be paused or unpaused?",
-                        PAUSETYPE,
+                        PAUSETYPES,
                         0,
                         False)
-                    value = PAUSETYPE.index(str(value)) == 0
+                    value = PAUSETYPES.index(str(value)) == 0
 
                 elif actionType in (opencue.api.filter_pb2.SET_JOB_MAX_CORES,
                                     opencue.api.filter_pb2.SET_JOB_MIN_CORES):
@@ -527,10 +532,10 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         self,
                         "Create Action",
                         "Should the memory optimizer be enabled or disabled?",
-                        MEMOPTTYPE,
+                        MEMOPTTYPES,
                         0,
                         False)
-                    value = MEMOPTTYPE.index(str(value)) == 0
+                    value = MEMOPTTYPES.index(str(value)) == 0
 
                 if choice:
                     self.addObject(self.__filter.createAction(actionType, value))
@@ -601,7 +606,7 @@ class FilterWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__widgets["enabled"] = combo
 
             combo = NoWheelComboBox(self.parent())
-            combo.addItems(FILTERTYPE)
+            combo.addItems(FILTERTYPES)
             self.treeWidget().setItemWidget(self, 3, combo)
             combo.currentIndexChanged.connect(self.setType)  # pylint: disable=no-member
             self.__widgets["type"] = combo
@@ -728,7 +733,7 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
         # Get the proper value from the widget
         if self.rpcObject.type() in (opencue.api.filter_pb2.PAUSE_JOB,):
-            value = PAUSETYPE.index(str(value)) == 0
+            value = PAUSETYPES.index(str(value)) == 0
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_PRIORITY,):
             value = widget.value()
@@ -754,7 +759,7 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             return
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
-            value = MEMOPTTYPE.index(str(value)) == 0
+            value = MEMOPTTYPES.index(str(value)) == 0
 
         # Set the new value
         if self.rpcObject.value() != value:
@@ -768,7 +773,7 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             # Create the proper widget depending on the action type
             if self.rpcObject.type() in (opencue.api.filter_pb2.PAUSE_JOB,):
                 widget = NoWheelComboBox(self.parent())
-                widget.addItems(PAUSETYPE)
+                widget.addItems(PAUSETYPES)
                 widget.currentIndexChanged.connect(self.__setValue)  # pylint: disable=no-member
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_PRIORITY,):
@@ -804,7 +809,7 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
                 widget = NoWheelComboBox(self.parent())
-                widget.addItems(MEMOPTTYPE)
+                widget.addItems(MEMOPTTYPES)
                 widget.currentIndexChanged.connect(self.__setValue)  # pylint: disable=no-member
 
             if widget:

@@ -495,5 +495,8 @@ public interface JobDao {
     boolean isLaunching(JobInterface j);
 
     void updateEmail(JobInterface job, String email);
+
+    String getEmail(JobInterface job);
+
 }
 

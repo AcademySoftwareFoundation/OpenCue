@@ -79,14 +79,14 @@ def permissionsHigh():
     """Sets the effective gid/uid to processes original values (root)"""
     if platform.system() == "Windows" or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
-    PERMISSIONS.acquire()
-    os.setegid(os.getgid())
-    os.seteuid(os.getuid())
-    try:
-        os.setgroups(HIGH_PERMISSION_GROUPS)
-    # pylint: disable=broad-except
-    except Exception:
-        pass
+    with PERMISSIONS:
+        os.setegid(os.getgid())
+        os.seteuid(os.getuid())
+        try:
+            os.setgroups(HIGH_PERMISSION_GROUPS)
+        # pylint: disable=broad-except
+        except Exception:
+            pass
 
 
 def permissionsLow():
@@ -107,17 +107,17 @@ def permissionsUser(uid, gid):
     """Sets the effective gid/uid to supplied values"""
     if platform.system() in ('Windows', 'Darwin') or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
-    PERMISSIONS.acquire()
-    __becomeRoot()
-    try:
-        username = pwd.getpwuid(uid).pw_name
-        groups = [20] + [g.gr_gid for g in grp.getgrall() if username in g.gr_mem]
-        os.setgroups(groups)
-    # pylint: disable=broad-except
-    except Exception:
-        pass
-    os.setegid(gid)
-    os.seteuid(uid)
+    with PERMISSIONS:
+        __becomeRoot()
+        try:
+            username = pwd.getpwuid(uid).pw_name
+            groups = [20] + [g.gr_gid for g in grp.getgrall() if username in g.gr_mem]
+            os.setgroups(groups)
+        # pylint: disable=broad-except
+        except Exception:
+            pass
+        os.setegid(gid)
+        os.seteuid(uid)
 
 
 def __becomeRoot():
@@ -132,7 +132,7 @@ def __becomeRoot():
             pass
 
 
-def checkAndCreateUser(username):
+def checkAndCreateUser(username, uid=None, gid=None):
     """Check to see if the provided user exists, if not attempt to create it."""
     # TODO(gregdenton): Add Windows and Mac support here. (Issue #61)
     if not rqd.rqconstants.RQD_BECOME_JOB_USER:
@@ -141,11 +141,17 @@ def checkAndCreateUser(username):
         pwd.getpwnam(username)
         return
     except KeyError:
-        subprocess.check_call([
+        cmd = [
             'useradd',
             '-p', str(uuid.uuid4()),  # generate a random password
-            username
-        ])
+        ]
+        if uid:
+            cmd += ['-u', str(uid)]
+        if gid:
+            cmd += ['-g', str(gid)]
+        cmd.append(username)
+        log.info("Frame's username not found on host. Adding user with: %s", cmd)
+        subprocess.check_call(cmd)
 
 
 def getHostIp():

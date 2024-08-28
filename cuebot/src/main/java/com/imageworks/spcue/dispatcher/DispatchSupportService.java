@@ -42,6 +42,7 @@ import com.imageworks.spcue.VirtualProc;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -150,17 +151,17 @@ public class DispatchSupportService implements DispatchSupport {
     }
 
     @Transactional(readOnly = true)
-    public List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
+    public Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
         return dispatcherDao.findDispatchJobsForAllShows(host, numJobs);
     }
 
     @Transactional(readOnly = true)
-    public List<String> findDispatchJobs(DispatchHost host, int numJobs) {
+    public Set<String> findDispatchJobs(DispatchHost host, int numJobs) {
         return dispatcherDao.findDispatchJobs(host, numJobs);
     }
 
     @Transactional(readOnly = true)
-    public List<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
+    public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
         return dispatcherDao.findDispatchJobs(host, g);
     }
 
@@ -172,7 +173,7 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(readOnly = true)
-    public List<String> findDispatchJobs(DispatchHost host, ShowInterface show,
+    public Set<String> findDispatchJobs(DispatchHost host, ShowInterface show,
             int numJobs) {
         return dispatcherDao.findDispatchJobs(host, show, numJobs);
     }
@@ -184,7 +185,11 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     public boolean clearVirtualProcAssignement(ProcInterface proc) {
-        return procDao.clearVirtualProcAssignment(proc);
+        try {
+            return procDao.clearVirtualProcAssignment(proc);
+        } catch (DataAccessException e) {
+            return false;
+        }
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
@@ -204,11 +209,20 @@ public class DispatchSupportService implements DispatchSupport {
         try {
             rqdClient.launchFrame(prepareRqdRunFrame(proc, frame), proc);
             dispatchedProcs.getAndIncrement();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new DispatcherException(proc.getName() +
                     " could not be booked on " + frame.getName() + ", " + e);
         }
+    }
+    
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void startFrameAndProc(VirtualProc proc, DispatchFrame frame) {
+        logger.trace("starting frame: " + frame);
+        
+        frameDao.updateFrameStarted(proc, frame);
+
+        reserveProc(proc, frame);
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
@@ -343,6 +357,12 @@ public class DispatchSupportService implements DispatchSupport {
         frameDao.updateFrameCleared(frame);
     }
 
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public boolean updateFrameMemoryError(FrameInterface frame) {
+        return frameDao.updateFrameMemoryError(frame);
+    }
+
     @Transactional(propagation = Propagation.SUPPORTS)
     public RunFrame prepareRqdRunFrame(VirtualProc proc, DispatchFrame frame) {
         int threads =  proc.coresReserved / 100;
@@ -356,6 +376,12 @@ public class DispatchSupportService implements DispatchSupport {
         FrameSet fs = new FrameSet(frame.range);
         int startFrameIndex = fs.index(frameNumber);
         String frameSpec = fs.getChunk(startFrameIndex, frame.chunkSize);
+        int lastFrameIndex = fs.size() - 1;
+        int endChunkIndex = startFrameIndex + frame.chunkSize - 1;
+        if (endChunkIndex > lastFrameIndex) {
+            endChunkIndex = lastFrameIndex;
+        }
+
 
         RunFrame.Builder builder = RunFrame.newBuilder()
                 .setShot(frame.shot)
@@ -398,24 +424,20 @@ public class DispatchSupportService implements DispatchSupport {
                                 .replaceAll("#ZFRAME#", zFrameNumber)
                                 .replaceAll("#IFRAME#",  String.valueOf(frameNumber))
                                 .replaceAll("#FRAME_START#",  String.valueOf(frameNumber))
-                                .replaceAll("#FRAME_END#",  String.valueOf(frameNumber+frame.chunkSize-1))
+                                .replaceAll("#FRAME_END#",  String.valueOf(endChunkIndex))
                                 .replaceAll("#FRAME_CHUNK#",  String.valueOf(frame.chunkSize))
                                 .replaceAll("#LAYER#", frame.layerName)
                                 .replaceAll("#JOB#",  frame.jobName)
                                 .replaceAll("#FRAMESPEC#",  frameSpec)
                                 .replaceAll("#FRAME#",  frame.name));
+        /* The special command tokens above (#ZFRAME# and others) are provided to the user in cuesubmit.
+         * see: cuesubmit/cuesubmit/Constants.py
+         * Update the Constant.py file when updating tokens here, they will appear in the cuesubmit tooltip popup.
+         */
 
         frame.uid.ifPresent(builder::setUid);
 
         return builder.build();
-    }
-
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED)
-    public void startFrame(VirtualProc proc, DispatchFrame frame) {
-        logger.trace("starting frame: " + frame);
-        frameDao.updateFrameStarted(proc, frame);
     }
 
     @Override
@@ -456,9 +478,7 @@ public class DispatchSupportService implements DispatchSupport {
         }
     }
 
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED)
-    public void reserveProc(VirtualProc proc, DispatchFrame frame) {
+    private void reserveProc(VirtualProc proc, DispatchFrame frame) {
 
         proc.jobId = frame.getJobId();
         proc.frameId = frame.getFrameId();

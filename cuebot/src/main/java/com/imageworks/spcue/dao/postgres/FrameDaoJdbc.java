@@ -49,6 +49,8 @@ import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameExitStatus;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverride;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverrideSeq;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.CueUtil;
@@ -155,6 +157,24 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         return updateFrame(frame, Dispatcher.EXIT_STATUS_FRAME_CLEARED) > 0;
     }
 
+    private static final String UPDATE_FRAME_MEMORY_ERROR =
+            "UPDATE "+
+                "frame "+
+            "SET " +
+                 "int_exit_status = ?, " +
+                 "int_version = int_version + 1 " +
+                 "WHERE " +
+                 "frame.pk_frame = ? ";
+    @Override
+    public boolean updateFrameMemoryError(FrameInterface frame) {
+        int result =  getJdbcTemplate().update(
+                UPDATE_FRAME_MEMORY_ERROR,
+                Dispatcher.EXIT_STATUS_MEMORY_FAILURE,
+                frame.getFrameId());
+
+        return result > 0;
+    }
+
     private static final String UPDATE_FRAME_STARTED =
         "UPDATE " +
             "frame " +
@@ -216,7 +236,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         try {
             int result = getJdbcTemplate().update(UPDATE_FRAME_STARTED,
                     FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
-                    proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved, frame.getFrameId(),
+                proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved, frame.getFrameId(),
                     FrameState.WAITING.toString(), frame.getVersion());
             if (result == 0) {
                 String error_msg = "the frame " +
@@ -1101,5 +1121,80 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 JobState.PENDING.toString(),
                 FrameState.CHECKPOINT.toString());
     }
-}
 
+    private static final String CREATE_FRAME_STATE_OVERRIDE =
+        "INSERT INTO frame_state_display_overrides (" +
+            "pk_frame_override," +
+            "pk_frame," +
+            "str_frame_state," +
+            "str_override_text," +
+            "str_rgb" +
+            ") " +
+            "VALUES (?,?,?,?,?)";
+
+    @Override
+    public void setFrameStateDisplayOverride(String frameId,
+                                             FrameStateDisplayOverride override) {
+        getJdbcTemplate().update(CREATE_FRAME_STATE_OVERRIDE,
+            SqlUtil.genKeyRandom(),
+            frameId,
+            override.getState().toString(),
+            override.getText(),
+            Integer.toString(override.getColor().getRed()) + ","
+                    + Integer.toString(override.getColor().getGreen()) + ","
+                    + Integer.toString(override.getColor().getBlue())
+        );
+    }
+
+    private static final String GET_FRAME_STATE_OVERRIDE =
+        "SELECT * from frame_state_display_overrides WHERE pk_frame = ?";
+
+    private static final RowMapper<FrameStateDisplayOverride> OVERRIDE_MAPPER =
+        new RowMapper<FrameStateDisplayOverride>() {
+            public FrameStateDisplayOverride mapRow(ResultSet rs,
+                                                    int rowNum) throws SQLException {
+                String[] rgb = rs.getString("str_rgb").split(",");
+                return FrameStateDisplayOverride.newBuilder()
+                    .setState(FrameState.valueOf(rs.getString("str_frame_state")))
+                    .setText(rs.getString("str_override_text"))
+                    .setColor(FrameStateDisplayOverride.RGB.newBuilder()
+                        .setRed(Integer.parseInt(rgb[0]))
+                        .setGreen(Integer.parseInt(rgb[1]))
+                        .setBlue(Integer.parseInt(rgb[2]))
+                        .build())
+                    .build();
+            }
+        };
+
+    @Override
+    public FrameStateDisplayOverrideSeq getFrameStateDisplayOverrides(String frameId) {
+        List<FrameStateDisplayOverride> overrides = getJdbcTemplate().query(
+                GET_FRAME_STATE_OVERRIDE, OVERRIDE_MAPPER, frameId);
+        return FrameStateDisplayOverrideSeq.newBuilder()
+                .addAllOverrides(overrides)
+                .build();
+    }
+
+    private static final String UPDATE_FRAME_STATE_OVERRIDE =
+            "UPDATE " +
+                "frame_state_display_overrides " +
+            "SET " +
+                "str_override_text = ?," +
+                "str_rgb = ? " +
+            "WHERE " +
+                "pk_frame = ? " +
+            "AND " +
+                "str_frame_state = ?";
+
+    @Override
+    public void updateFrameStateDisplayOverride(String frameId,
+                                                 FrameStateDisplayOverride override) {
+        getJdbcTemplate().update(UPDATE_FRAME_STATE_OVERRIDE,
+                override.getText(),
+                Integer.toString(override.getColor().getRed()) + ","
+                        + Integer.toString(override.getColor().getGreen()) + ","
+                        + Integer.toString(override.getColor().getBlue()),
+                frameId,
+                override.getState().toString());
+    }
+}

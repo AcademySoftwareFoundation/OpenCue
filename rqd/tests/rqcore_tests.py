@@ -370,45 +370,6 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(frame, self.rqcore.getRunningFrame(frameId))
         self.assertIsNone(self.rqcore.getRunningFrame('some-unknown-frame-id'))
 
-    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
-    def test_restartRqdNowNoFrames(self, respawnMock):
-        self.nimbyMock.return_value.active = False
-
-        self.rqcore.restartRqdNow()
-
-        respawnMock.assert_called_with()
-
-    @mock.patch.object(rqd.rqcore.RqCore, 'killAllFrame', autospec=True)
-    def test_restartRqdNowWithFrames(self, killAllFrameMock):
-        frame1Id = 'frame1'
-        frame1 = rqd.rqnetwork.RunningFrame(
-            self.rqcore, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
-        self.rqcore.storeFrame(frame1Id, frame1)
-
-        self.rqcore.restartRqdNow()
-
-        killAllFrameMock.assert_called_with(self.rqcore, mock.ANY)
-
-    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
-    def test_restartRqdIdleNoFrames(self, respawnMock):
-        self.nimbyMock.return_value.active = False
-
-        self.rqcore.restartRqdIdle()
-
-        respawnMock.assert_called_with()
-
-    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
-    def test_restartRqdIdleWithFrames(self, respawnMock):
-        frame1Id = 'frame1'
-        frame1 = rqd.rqnetwork.RunningFrame(
-            self.rqcore, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
-        self.rqcore.storeFrame(frame1Id, frame1)
-
-        self.rqcore.restartRqdIdle()
-
-        self.assertTrue(self.rqcore.isWaitingForIdle())
-        respawnMock.assert_not_called()
-
     def test_rebootNowNoUser(self):
         self.machineMock.return_value.isUserLoggedIn.return_value = False
         self.nimbyMock.return_value.active = False

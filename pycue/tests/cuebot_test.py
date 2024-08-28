@@ -16,8 +16,8 @@
 
 """Tests for `opencue.cuebot`."""
 
+import os
 import unittest
-
 import mock
 
 import opencue
@@ -48,6 +48,9 @@ class CuebotTests(unittest.TestCase):
         healthcheck_mock = mock.Mock()
         self.cuebot.SERVICE_MAP['cue'] = healthcheck_mock
 
+        # Clear any existing overrides
+        if 'CUEBOT_HOSTS' in os.environ:
+            del os.environ['CUEBOT_HOSTS']
         self.cuebot.init(config=TESTING_CONFIG)
 
         self.assertEqual(["fake-cuebot-01"], self.cuebot.Hosts)
@@ -57,14 +60,14 @@ class CuebotTests(unittest.TestCase):
     def test__should_set_known_facility(self):
         self.cuebot.init(config=TESTING_CONFIG)
 
-        self.cuebot.setFacility('fake-facility-02')
+        self.cuebot.setHostWithFacility('fake-facility-02')
 
         self.assertEqual(['fake-cuebot-02', 'fake-cuebot-03'], self.cuebot.Hosts)
 
     def test__should_ignore_unknown_facility(self):
         self.cuebot.init(config=TESTING_CONFIG)
 
-        self.cuebot.setFacility('unknown-facility')
+        self.cuebot.setHostWithFacility('unknown-facility')
 
         self.assertEqual(['fake-cuebot-01'], self.cuebot.Hosts)
 

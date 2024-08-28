@@ -118,7 +118,6 @@ class ThreadPool(QtCore.QObject):
         if work[1]:
             self.runCallback(work, result)
 
-    # pylint: disable=no-self-use
     def runCallback(self, work, result):
         """Runs the callback function."""
         if work[1]:
@@ -136,6 +135,7 @@ class ThreadPool(QtCore.QObject):
         def __init__(self, name, parent):
             QtCore.QThread.__init__(self, parent)
             self.__parent = parent
+            # pylint: disable=unused-private-member
             self.__name = name
             self.__running = False
 

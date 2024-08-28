@@ -24,7 +24,7 @@ from builtins import str
 from builtins import range
 import getpass
 
-from PySide2 import QtCore, QtGui, QtWidgets
+from qtpy import QtCore, QtGui, QtWidgets
 
 import opencue
 from cuesubmit import Constants
@@ -81,7 +81,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
     def __init__(
             self, settingsWidgetType, jobTypes=JobTypes.JobTypes, parent=None, *args, **kwargs):
         super(CueSubmitWidget, self).__init__(parent)
-        self.startupErrors = list()
+        self.startupErrors = []
         self.skipDataChangedEvent = False
         self.settings = QtCore.QSettings('opencue', 'cuesubmit')
         self.clearMessageShown = False
@@ -202,6 +202,8 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.facilitySelector.setChecked(selected_facility)
 
         self.settingsWidget = self.jobTypes.build(self.primaryWidgetType, *args, **kwargs)
+        self.commandFeedback = Widgets.CueLabelLineEdit( labelText='Final command:' )
+        self.commandFeedback.greyOut()
         self.jobTreeWidget = Job.CueJobWidget()
         self.submitButtons = CueSubmitButtons()
         self.setupUi()
@@ -264,8 +266,6 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.scrollingLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
         self.scrollingLayout.addWidget(Widgets.CueLabelLine('Layer Info'))
         self.layerInfoLayout.addWidget(self.layerNameInput)
-        self.settingsLayout.addWidget(self.settingsWidget)
-        self.layerInfoLayout.addLayout(self.settingsLayout)
         self.layerInfoLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
         self.layerInfoLayout.addWidget(self.frameBox)
 
@@ -280,7 +280,11 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.coresLayout.addWidget(self.dependSelector)
         self.coresLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
         self.layerInfoLayout.addLayout(self.coresLayout)
+        self.layerInfoLayout.addWidget(self.commandFeedback)
         self.scrollingLayout.addLayout(self.layerInfoLayout)
+
+        self.settingsLayout.addWidget(self.settingsWidget)
+        self.layerInfoLayout.addLayout(self.settingsLayout)
 
         self.scrollingLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
         self.scrollingLayout.addWidget(Widgets.CueLabelLine('Submission Details'))
@@ -329,6 +333,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.dependSelector.clearChecked()
         self.dependSelector.setChecked([layerObject.dependType])
         self.settingsWidget.setCommandData(layerObject.cmd)
+        self.updateFeedbackCommand(layerObject)
         self.skipDataChangedEvent = False
 
     def jobDataChanged(self):
@@ -351,6 +356,13 @@ class CueSubmitWidget(QtWidgets.QWidget):
             dependsOn=None
         )
         self.jobTreeWidget.updateJobData(self.jobNameInput.text())
+        self.updateFeedbackCommand(self.jobTreeWidget.currentLayerData)
+
+    def updateFeedbackCommand(self, layerData):
+        """ Builds the final command for this layer and displays it in the feedback widget """
+        command = Submission.buildLayerCommand(layerData=layerData,
+                                               silent=True)
+        self.commandFeedback.setText(text=command)
 
     def jobTypeChanged(self):
         """Action when the job type is changed."""
