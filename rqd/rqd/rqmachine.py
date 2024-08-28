@@ -407,7 +407,7 @@ class Machine(object):
         """Helper function to get swap memory used by a process"""
         swap_used = 0
         try:
-            with open("/proc/%s/status" % pid, "r") as statusFile:
+            with open("/proc/%s/status" % pid, "r", encoding='utf-8') as statusFile:
                 for line in statusFile:
                     if line.startswith("VmSwap:"):
                         swap_used = int(line.split()[1])
