@@ -79,6 +79,9 @@ def permissionsHigh():
     """Sets the effective gid/uid to processes original values (root)"""
     if platform.system() == "Windows" or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
+    # PERMISSIONS gets locked here and unlocked at permissionsLow()
+    # therefore 'with' should not be used here
+    # pylint: disable=consider-using-with
     PERMISSIONS.acquire()
     os.setegid(os.getgid())
     os.seteuid(os.getuid())
