@@ -31,6 +31,7 @@ import sys
 import time
 import traceback
 import webbrowser
+import yaml
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -179,7 +180,10 @@ def isTask(obj):
     return obj.__class__.__name__ == "Task"
 
 
-__REGEX_ID = re.compile(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
+# Regex matches:
+#  - 12345678-1234-1234-1234-123456789ABC
+#  - Job.12345678-1234-1234-1234-123456789ABC
+__REGEX_ID = re.compile(r"(?:Job.)?[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
 
 
 def isStringId(value):
@@ -257,8 +261,10 @@ def findJob(job):
     if not isinstance(job, six.string_types):
         return None
     if isStringId(job):
+        if re.search("^Job.", job):
+            job = re.sub("Job.", "", job)
         return opencue.api.getJob(job)
-    if not re.search(r"^([a-z0-9\_]+)\-([a-z0-9\.\_]+)\-", job, re.IGNORECASE):
+    if not re.search(r"^(?:Job.)?([a-z0-9_]+)-([a-z0-9._]+)-", job, re.IGNORECASE):
         return None
     try:
         return opencue.api.findJob(job)
@@ -481,8 +487,11 @@ def popupView(file, facility=None):
         app = cuegui.app()
         if editor_from_env:
             job_log_cmd = editor_from_env.split()
-        elif app.settings.contains('LogEditor'):
-            job_log_cmd = app.settings.value("LogEditor")
+        elif app.settings.contains('LogEditor') and (
+                len(app.settings.value("LogEditor").strip()) > 0):
+            job_log_cmd = app.settings.value("LogEditor").split()
+            if not isinstance(job_log_cmd, list):
+                job_log_cmd = job_log_cmd.split()
         else:
             job_log_cmd = cuegui.Constants.DEFAULT_EDITOR.split()
         job_log_cmd.append(str(file))
@@ -824,7 +833,12 @@ def showErrorMessageBox(text, title="ERROR!", detailedText=None):
 def shutdownThread(thread):
     """Shuts down a WorkerThread."""
     thread.stop()
-    return thread.wait(1500)
+    # Stop may terminate the underlying thread object yielding a
+    # RuntimeError(QtFatal) when wait is called
+    try:
+        return thread.wait(1500)
+    except RuntimeError:
+        return False
 
 def getLLU(item):
     """ LLU time from log_path """
@@ -872,3 +886,21 @@ def byteConversion(amount, btype):
     for _ in range(n):
         _bytes *= 1024
     return _bytes
+
+
+def isPermissible(jobObject):
+    """
+    Validate if the current user has the correct permissions to perform
+    the action
+
+    :param userName: jobObject
+    :ptype userName: Opencue Job Object
+    :return:
+    """
+    # Read cached setting from user config file
+    hasPermissions = yaml.safe_load(cuegui.app().settings.value("EnableJobInteraction", "False"))
+    # If not set by default, check if current user is the job owner
+    currentUser = getpass.getuser()
+    if not hasPermissions and currentUser.lower() == jobObject.username().lower():
+        hasPermissions = True
+    return hasPermissions

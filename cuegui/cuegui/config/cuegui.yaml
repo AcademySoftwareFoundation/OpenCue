@@ -101,10 +101,16 @@ links.issue.bug: '?labels=bug&template=bug_report.md'
 allowed_tags: ['general', 'desktop', 'playblast', 'util', 'preprocess', 'wan', 'cuda', 'splathw',
                'naiad', 'massive']
 
-email.subject_prefix: 'cuemail: please check '
-email.body_prefix: 'Your PSTs request that you check '
-email.body_suffix: "\n\n"
-email.domain: ''
+email:
+  subject_prefix: 'cuemail: please check '
+  body_prefix: 'Your Support Team requests that you check '
+  body_suffix: "\n\n"
+  domain: 'your.domain.com'
+  # A template for what email should be used for show support.
+  #  - {domain} is required and will be replaced by email.domain
+  #  - {show} is not required and will be replaced by the job show
+  #  - Multiple addresses might be provided in a comma separated list
+  show_support_cc_template: "{show}-support@{domain}"
 
 # Unix epoch timestamp. If the user last viewed the startup notice before this time, the
 # notice will be shown.
@@ -128,6 +134,8 @@ memory_warning_level: 5242880
 #   # if extract_args_regex is not provided, cmd_pattern is called directly with paths as arguments
 #   extract_args_regex: '/shots/(?P<show>\w+)/(?P<shot>shot\w+)/.*'
 #   cmd_pattern: "env SHOW={show} SHOT={shot} COLOR_IO=/{show}/home/colorspaces.xml OCIO=/{show}/home/config.ocio openrv {paths}"
+#   # Pattern to call viewer cmd directly without extracting environment variables. Used for previewing frames
+#   direct_cmd_call: "openrv {paths}"
 
 #   # if provided, paths containing any of the two values are considered the same output and only one
 #   # of them will be passed to the viewer
@@ -139,3 +147,9 @@ memory_warning_level: 5242880
 # In order to toggle the same protection on cuebot's side, set flags in opencue.properties
 finished_jobs_readonly.frame: True
 finished_jobs_readonly.layer: True
+
+# A comma-separated list of action types that should be hidden on the FilterDialog widget.
+# (See filter.proto/ActionType for a full list eg. SET_ALL_RENDER_LAYER_CORES,
+# MOVE_JOB_TO_GROUP, SET_ALL_RENDER_LAYER_MAX_CORES)
+# An empty string means all actions are active.
+filter_dialog.disabled_action_types: ''
