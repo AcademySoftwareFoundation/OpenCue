@@ -866,10 +866,12 @@ class Machine(object):
                 reverse=True):
             cores = sorted(list(cores), key=lambda _coreid: int(_coreid))
             while remaining_procs > 0 and len(cores) > 0:
-                # Reserve cores with max threads first
-                # Avoid booking too much threads
+                # Reserve hyper-threaded cores first (2 threads(logical cores) for 1 physical core)
+                # Avoid booking a hyper-threaded core for an odd thread count remainder
                 # ex: if remaining_procs==2, get the next core with 2 threads
                 # ex: if remaining_procs==1, get the next core with 1 thread or any other core
+                # here we fall back on the first physical core (assuming "first in list" == "has more threads")
+                # if we didn't find a core with the right number of threads, and continue the loop.
                 coreid = next(iter([cid for cid in cores
                                     if len(self.__procs_by_physid_and_coreid[physid][cid]) <= remaining_procs]),
                               cores[0])
