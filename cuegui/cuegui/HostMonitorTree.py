@@ -148,13 +148,13 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="A frame that runs on this host will:\n"
                            "All:  Use all cores.\n"
                            "Auto: Use the number of cores as decided by the cuebot.\n")
-        self.addColumn("Tags/Job", 50, id=20,
+        self.addColumn("OS", 50, id=20,
+                       data=lambda host: host.data.os,
+                       tip="Host operational system or distro.")
+        self.addColumn("Tags/Job", 50, id=21,
                        data=lambda host: ",".join(host.data.tags),
                        tip="The tags applied to the host.\n\n"
                            "On a frame it is the name of the job.")
-        self.addColumn("OS", 50, id=21,
-                       data=lambda host: host.data.os,
-                       tip="Host operational system or distro.")
 
         self.hostSearch = opencue.search.HostSearch()
 
