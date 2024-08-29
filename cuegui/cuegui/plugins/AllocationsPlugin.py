@@ -129,13 +129,6 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                                     for host in allocation.getHosts()
                                                     if host.state() == 4]))
 
-
-
-
-        # It would be nice to display this again:
-        #self.addColumn("Nimby", 40, id=6,
-        #               data=lambda alloc:(alloc.totalNimbyLockedHosts()))
-
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
