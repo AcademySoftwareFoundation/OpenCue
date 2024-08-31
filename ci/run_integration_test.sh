@@ -198,6 +198,7 @@ run_blender_job() {
 
 cleanup() {
     docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
+    docker rm -f blender
     rm -rf "${RQD_ROOT}" || true
     rm -rf "${DB_DATA_DIR}" || true
     rm -rf "${VENV}" || true
@@ -263,8 +264,7 @@ main() {
     run_job
 
     log INFO "Starting RQD Blender..."
-    docker compose up --force-recreate -e RQD_IMAGE=opencue/blender rqd
-    wait_for_service_state "rqd" "running" $docker_timeout
+    docker run -td --name blender --env CUEBOT_HOSTNAME=${CUEBOT_HOSTNAME} --volume "/tmp/rqd/shots:/tmp/rqd/shots" opencue/blender
 
     log INFO "Testing Blender job..."
     run_blender_job
