@@ -21,6 +21,7 @@ package com.imageworks.spcue.dispatcher;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -529,11 +530,13 @@ public class HostReportHandler {
         final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD = env
                 .getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
 
-        double physMemoryUsageRatio = 1.0 - ((double) renderHost.getFreeMem()
-                / renderHost.getTotalMem());
+        double physMemoryUsageRatio = renderHost.getTotalMem() > 0 ?
+            1.0 - ((double) renderHost.getFreeMem() / renderHost.getTotalMem()) :
+            0.0;
 
-        double swapMemoryUsageRatio = 1.0 - ((double) renderHost.getFreeSwap()
-                / renderHost.getTotalSwap());
+        double swapMemoryUsageRatio = renderHost.getTotalSwap() > 0 ?
+            1.0 - ((double) renderHost.getFreeSwap() / renderHost.getTotalSwap()) :
+            0.0;
 
         // Take both physical memory usage and Swap usage into consideration.
         // If checking for the swap threshold has been disabled, only memory usage is
@@ -553,20 +556,31 @@ public class HostReportHandler {
                     physMemoryUsageRatio + ", swapRatio: " + swapMemoryUsageRatio);
             // Try to kill frames using swap memory as they are probably performing poorly
             long swapUsed = renderHost.getTotalSwap() - renderHost.getFreeSwap();
-            long maxSwapUsadAllowed = (long) (renderHost.getTotalSwap()
+            long maxSwapUsageAllowed = (long) (renderHost.getTotalSwap()
                     * OOM_MAX_SAFE_USED_SWAP_THRESHOLD);
-            // Only allow killing up to 5 frames at a time
+
+            // Sort runningFrames bassed on how much swap they are using
+            runningFrames.sort(Comparator.comparingLong((RunningFrameInfo frame) ->
+                frame.getUsedSwapMemory()).reversed());
+
             int killAttemptsRemaining = 5;
-            RunningFrameInfo killedFrame = null;
-            do {
-                killedFrame = killWorstSwapOffender(dispatchHost, runningFrames);
-                killAttemptsRemaining -= 1;
-                if (killedFrame != null) {
-                    swapUsed = swapUsed - killedFrame.getUsedSwapMemory();
+            for (RunningFrameInfo frame : runningFrames) {
+                // Reached the first frame on the sorted list without swap usage
+                if (frame.getUsedSwapMemory() <= 0) {
+                    break;
                 }
-            } while (killAttemptsRemaining > 0 &&
-                    swapUsed > maxSwapUsadAllowed &&
-                    killedFrame != null);
+                if (killProcForMemory(frame.getFrameId(), renderHost.getName(),
+                        KillCause.HostUnderOom)) {
+                    swapUsed -= frame.getUsedSwapMemory();
+                    logger.info("Killing frame on " + frame.getJobName() + "." +
+                        frame.getFrameName() + ", using too much swap.");
+                }
+
+                killAttemptsRemaining -= 1;
+                if (killAttemptsRemaining <= 0 || swapUsed <= maxSwapUsageAllowed) {
+                    break;
+                }
+            }
         } else {
             // When no mass cleaning was required, check for frames going overboard
             // if frames didn't go overboard, manage its reservations trying to increase
@@ -701,35 +715,6 @@ public class HostReportHandler {
         }
         DispatchSupport.killedOffenderProcs.incrementAndGet();
         return true;
-    }
-
-    /**
-     * Kill the frame using more swap memory
-     *
-     * @param host
-     * @param runningFrames
-     * @return killed frame, or null if none could be found or failed to be killed
-     */
-    private RunningFrameInfo killWorstSwapOffender(final DispatchHost host,
-            List<RunningFrameInfo> runningFrames) {
-        RunningFrameInfo worstOffender = null;
-        for (RunningFrameInfo runningFrame : runningFrames) {
-            if ((worstOffender == null && runningFrame.getUsedSwapMemory() > 0) ||
-                    (worstOffender != null && runningFrame.getUsedSwapMemory() > worstOffender.getUsedSwapMemory())) {
-                worstOffender = runningFrame;
-            }
-        }
-        // Couldn't find a frame using swap
-        if (worstOffender == null || worstOffender.getUsedSwapMemory() <= 0) {
-            return null;
-        }
-        if (!killProcForMemory(worstOffender.getFrameId(), host.getName(), KillCause.HostUnderOom)) {
-            return null;
-        }
-        logger.info("Killing frame on " + worstOffender.getJobName() + "." +
-                worstOffender.getFrameName() + ", using too much swap.");
-
-        return worstOffender;
     }
 
     /**
