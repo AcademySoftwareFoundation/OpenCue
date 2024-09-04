@@ -552,7 +552,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                         .setLayerId(proc1.getLayerId())
                         .setFrameId(proc1.getFrameId())
                         .setResourceId(proc1.getProcId())
-                        .setUsedSwapMemory(CueUtil.MB128)
+                        .setUsedSwapMemory(CueUtil.MB512 - CueUtil.MB128)
                         .setVsize(CueUtil.GB2)
                         .setRss(CueUtil.GB2)
                         .setMaxRss(CueUtil.GB2)
@@ -564,7 +564,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                         .setLayerId(proc2.getLayerId())
                         .setFrameId(proc2.getFrameId())
                         .setResourceId(proc2.getProcId())
-                        .setUsedSwapMemory(CueUtil.MB256)
+                        .setUsedSwapMemory(CueUtil.MB512)
                         .setVsize(CueUtil.GB4)
                         .setRss(CueUtil.GB4)
                         .setMaxRss(CueUtil.GB4)
@@ -577,7 +577,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                         .setLayerId(proc3.getLayerId())
                         .setFrameId(proc3.getFrameId())
                         .setResourceId(proc3.getProcId())
-                        .setUsedSwapMemory(CueUtil.MB512)
+                        .setUsedSwapMemory(CueUtil.MB512 * 2)
                         .setVsize(memoryUsedProc3)
                         .setRss(memoryUsedProc3)
                         .setMaxRss(memoryUsedProc3)
@@ -585,7 +585,10 @@ public class HostReportHandlerTests extends TransactionalTest {
 
         RenderHost hostAfterUpdate = getRenderHostBuilder(hostname)
                         .setFreeMem(0)
-                        .setFreeSwap(CueUtil.MB128)
+                        .setFreeSwap(CueUtil.GB2 -
+                                info1.getUsedSwapMemory() -
+                                info2.getUsedSwapMemory() -
+                                info3.getUsedSwapMemory())
                         .build();
 
         HostReport report = HostReport.newBuilder()
@@ -598,7 +601,7 @@ public class HostReportHandlerTests extends TransactionalTest {
         LayerDetail layerBeforeIncrease = jobManager.getLayerDetail(proc3.getLayerId());
 
         // In this case, killing 2 frames should be enough to ge the machine to a safe
-        // state. Swap goes from 896MB to 128MB (<20%)
+        // state. Total Swap: 2GB, usage before kill: 1944MB, usage after kill: 348 (less than 20%)
         long killCount = DispatchSupport.killedOffenderProcs.get();
         hostReportHandler.handleHostReport(report, false);
         assertEquals(killCount + 2, DispatchSupport.killedOffenderProcs.get());

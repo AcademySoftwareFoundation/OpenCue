@@ -530,25 +530,25 @@ public class HostReportHandler {
         final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD = env
                 .getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
 
-        double physMemoryUsageRatio = renderHost.getTotalMem() > 0 ?
-            1.0 - ((double) renderHost.getFreeMem() / renderHost.getTotalMem()) :
+        Double physMemoryUsageRatio = renderHost.getTotalMem() > 0 ?
+            1.0 - renderHost.getFreeMem() / (double) renderHost.getTotalMem() :
             0.0;
 
-        double swapMemoryUsageRatio = renderHost.getTotalSwap() > 0 ?
-            1.0 - ((double) renderHost.getFreeSwap() / renderHost.getTotalSwap()) :
+        Double swapMemoryUsageRatio = renderHost.getTotalSwap() > 0 ?
+            1.0 - renderHost.getFreeSwap() / (double) renderHost.getTotalSwap() :
             0.0;
 
-        // Take both physical memory usage and Swap usage into consideration.
         // If checking for the swap threshold has been disabled, only memory usage is
-        // taken into consideration
+        // taken into consideration.
         // If checking for memory has been disable, checking for swap isolated is not
         // safe, therefore disabled
         boolean memoryWarning = false;
-        if (OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD > 0 && physMemoryUsageRatio < 1) {
+        if (OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD > 0.0 && OOM_MAX_SAFE_USED_SWAP_THRESHOLD > 0.0 &&
+            !physMemoryUsageRatio.isNaN() && !swapMemoryUsageRatio.isNaN()) {
+            memoryWarning = physMemoryUsageRatio > OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD &&
+                swapMemoryUsageRatio > OOM_MAX_SAFE_USED_SWAP_THRESHOLD;
+        } else if (OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD > 0.0 && !physMemoryUsageRatio.isNaN()) {
             memoryWarning = physMemoryUsageRatio > OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD;
-        }
-        if (OOM_MAX_SAFE_USED_SWAP_THRESHOLD > 0 && swapMemoryUsageRatio < 1) {
-            memoryWarning = memoryWarning && (swapMemoryUsageRatio > OOM_MAX_SAFE_USED_SWAP_THRESHOLD);
         }
 
         if (memoryWarning) {
