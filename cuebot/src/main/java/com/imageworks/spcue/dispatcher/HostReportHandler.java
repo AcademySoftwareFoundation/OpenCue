@@ -572,7 +572,8 @@ public class HostReportHandler {
                 if (killProcForMemory(frame.getFrameId(), renderHost.getName(),
                         KillCause.HostUnderOom)) {
                     swapUsed -= frame.getUsedSwapMemory();
-                    logger.info("Killing frame on " + frame.getJobName() + "." +
+                    logger.info("Memory warning(" + renderHost.getName() + "): " +
+                        "Killing frame on " + frame.getJobName() + "." +
                         frame.getFrameName() + ", using too much swap.");
                 }
 
