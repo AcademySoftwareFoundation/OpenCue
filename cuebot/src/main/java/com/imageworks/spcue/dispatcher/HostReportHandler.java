@@ -501,7 +501,7 @@ public class HostReportHandler {
 
     /**
      * Prevent host from entering an OOM state where oom-killer might start killing
-     * important OS processes. and frames start using SWAP memory
+     * important OS processes and frames start using SWAP memory
      * The kill logic will kick in one of the following conditions is met:
      * - Host has less than oom_max_safe_used_physical_memory_threshold memory
      * available and less than oom_max_safe_used_swap_memory_threshold swap
@@ -517,7 +517,7 @@ public class HostReportHandler {
      */
     private void handleMemoryUsage(final DispatchHost dispatchHost, RenderHost renderHost,
             List<RunningFrameInfo> runningFrames) {
-        // Don't keep memory balances on nimby hosts and host with invalid memory
+        // Don't keep memory balances on nimby hosts and hosts with invalid memory
         // information
         if (dispatchHost.isNimby || renderHost.getTotalMem() <= 0) {
             return;
@@ -540,7 +540,7 @@ public class HostReportHandler {
 
         // If checking for the swap threshold has been disabled, only memory usage is
         // taken into consideration.
-        // If checking for memory has been disable, checking for swap isolated is not
+        // If checking for memory has been disabled, checking for swap isolated is not
         // safe, therefore disabled
         boolean memoryWarning = false;
         if (OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD > 0.0 && OOM_MAX_SAFE_USED_SWAP_THRESHOLD > 0.0 &&

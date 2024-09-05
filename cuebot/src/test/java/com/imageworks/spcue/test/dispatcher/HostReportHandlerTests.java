@@ -629,10 +629,10 @@ public class HostReportHandlerTests extends TransactionalTest {
         FrameDetail killedFrame = jobManager.getFrameDetail(proc3.getFrameId());
         LayerDetail layer = jobManager.getLayerDetail(proc3.getLayerId());
         assertEquals(FrameState.WAITING, killedFrame.state);
-        // Memory increases are processed in two different places one will set the new
-        // value to proc.reserved + 2GB
-        // and the other will set to the maximum reported proc.maxRss the end value will
-        // be whoever is higher.
+        // Memory increases are processed in two different places.
+        // First: proc.reserved + 2GB
+        // Second: the maximum reported proc.maxRss
+        // The higher valuer beween First and Second wins.
         // In this case, proc.maxRss
         assertEquals(Math.max(memoryUsedProc3, layerBeforeIncrease.getMinimumMemory() + CueUtil.GB2),
                         layer.getMinimumMemory());
