@@ -108,7 +108,7 @@ email.domain: 'your.domain.com'
 # A template for what email should be used for show support.
 #  - {domain} is required and will be replaced by email.domain
 #  - {show} is not required and will be replaced by the job show
-#  - Multiple addresses might be provided in a comma separated list
+#  - Multiple addresses might be provided in a comma-separated list
 email.show_support_cc_template: "{show}-support@{domain}"
 
 # Unix epoch timestamp. If the user last viewed the startup notice before this time, the
