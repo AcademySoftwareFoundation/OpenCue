@@ -74,7 +74,7 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda host: host.data.free_swap,
                        delegate=cuegui.ItemDelegate.HostSwapBarDelegate,
                        tip="The amount of used swap (red) vs available swap (green)")
-        self.addColumn("Phys Memory", 70, id=5,
+        self.addColumn("Physical", 70, id=5,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_memory),
                        sort=lambda host: host.data.free_memory,
                        delegate=cuegui.ItemDelegate.HostMemBarDelegate,
