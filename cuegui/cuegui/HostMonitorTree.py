@@ -93,7 +93,7 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda host: cuegui.Utils.memoryToString(host.data.idle_memory),
                        sort=lambda host: host.data.idle_memory,
                        tip="The amount of unreserved memory.")
-        self.addColumn("Tmp available", 70, id=9,
+        self.addColumn("Temp available", 70, id=9,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_mcp),
                        sort=lambda host: host.data.free_mcp,
                        tip="The amount of free space in /mcp/")
