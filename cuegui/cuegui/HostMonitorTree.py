@@ -69,48 +69,49 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "indication that a frame is using more cores than it\n"
                            "reserved. If all cores are reserved and the percentage\n"
                            "is way below 100% then the cpu is underutilized.")
-        self.addColumn("Swap", 60, id=4,
+        self.addColumn("Swap", 70, id=4,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_swap),
                        sort=lambda host: host.data.free_swap,
                        delegate=cuegui.ItemDelegate.HostSwapBarDelegate,
                        tip="The amount of used swap (red) vs available swap (green)")
-        self.addColumn("Memory", 60, id=5,
+        self.addColumn("Physical", 70, id=5,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_memory),
                        sort=lambda host: host.data.free_memory,
-                       tip="The amount of used memory (red) vs available gpu memory (green)")
-        self.addColumn("GPU Memory", 60, id=6,
+                       delegate=cuegui.ItemDelegate.HostMemBarDelegate,
+                       tip="The amount of used memory (red) vs available phys memory (green)")
+        self.addColumn("GPU Memory", 70, id=6,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_gpu_memory),
                        sort=lambda host: host.data.free_gpu_memory,
                        delegate=cuegui.ItemDelegate.HostGpuBarDelegate,
                        tip="The amount of used gpu memory (red) vs available gpu memory (green)")
-        self.addColumn("freeMcp", 60, id=7,
+        self.addColumn("Total Memory", 60, id=7,
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.memory),
+                       sort=lambda host: host.data.total_memory,
+                       tip="The total amount of available memory.\n\n"
+                           "Takes into consideration free memory and cached memory.")
+        self.addColumn("Idle Memory", 60, id=8,
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.idle_memory),
+                       sort=lambda host: host.data.idle_memory,
+                       tip="The amount of unreserved memory.")
+        self.addColumn("Temp available", 70, id=9,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_mcp),
                        sort=lambda host: host.data.free_mcp,
                        tip="The amount of free space in /mcp/")
-        self.addColumn("Cores", 45, id=8,
+        self.addColumn("Cores", 60, id=10,
                        data=lambda host: "%.2f" % host.data.cores,
                        sort=lambda host: host.data.cores,
                        tip="The total number of cores.\n\n"
                            "On a frame it is the number of cores reserved.")
-        self.addColumn("Idle", 40, id=9,
+        self.addColumn("Idle Cores", 60, id=11,
                        data=lambda host: "%.2f" % host.data.idle_cores,
                        sort=lambda host: host.data.idle_cores,
                        tip="The number of cores that are not reserved.")
-        self.addColumn("Mem", 50, id=10,
-                       data=lambda host: cuegui.Utils.memoryToString(host.data.memory),
-                       sort=lambda host: host.data.memory,
-                       tip="The total amount of reservable memory.\n\n"
-                           "On a frame it is the amount of memory reserved.")
-        self.addColumn("Idle", 50, id=11,
-                       data=lambda host: cuegui.Utils.memoryToString(host.data.idle_memory),
-                       sort=lambda host: host.data.idle_memory,
-                       tip="The amount of unreserved memory.")
         self.addColumn("GPUs", 50, id=12,
                        data=lambda host: "%d" % host.data.gpus,
                        sort=lambda host: host.data.gpus,
                        tip="The total number of gpus.\n\n"
                            "On a frame it is the number of gpus reserved.")
-        self.addColumn("Idle GPUs", 40, id=13,
+        self.addColumn("Idle GPUs", 50, id=13,
                        data=lambda host: "%d" % host.data.idle_gpus,
                        sort=lambda host: host.data.idle_gpus,
                        tip="The number of gpus that are not reserved.")
@@ -147,7 +148,10 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="A frame that runs on this host will:\n"
                            "All:  Use all cores.\n"
                            "Auto: Use the number of cores as decided by the cuebot.\n")
-        self.addColumn("Tags/Job", 50, id=20,
+        self.addColumn("OS", 50, id=20,
+                       data=lambda host: host.data.os,
+                       tip="Host operational system or distro.")
+        self.addColumn("Tags/Job", 50, id=21,
                        data=lambda host: ",".join(host.data.tags),
                        tip="The tags applied to the host.\n\n"
                            "On a frame it is the name of the job.")
