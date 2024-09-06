@@ -30,9 +30,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
-import org.springframework.jdbc.core.PreparedStatementCreator;
 
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
@@ -240,6 +240,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "int_virt_max_used = ?, " +
             "int_gpu_mem_used = ?, " +
             "int_gpu_mem_max_used = ?, " +
+            "int_swap_used = ?, " +
             "bytea_children = ?, " +
             "ts_ping = current_timestamp " +
         "WHERE " +
@@ -247,7 +248,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
 
     @Override
     public void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss,
-            long vss, long maxVss, long usedGpuMemory, long maxUsedGpuMemory, byte[] children) {
+            long vss, long maxVss, long usedGpuMemory, long maxUsedGpuMemory,
+            long usedSwapMemory, byte[] children) {
         /*
          * This method is going to repeat for a proc every 1 minute, so
          * if the proc is being touched by another thread, then return
@@ -274,8 +276,9 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                         updateProc.setLong(4, maxVss);
                         updateProc.setLong(5, usedGpuMemory);
                         updateProc.setLong(6, maxUsedGpuMemory);
-                        updateProc.setBytes(7, children);
-                        updateProc.setString(8, f.getFrameId());
+                        updateProc.setLong(7, usedSwapMemory);
+                        updateProc.setBytes(8, children);
+                        updateProc.setString(9, f.getFrameId());
                         return updateProc;
                     }
                 });
@@ -567,49 +570,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             throw new ResourceReservationFailureException("failed to increase memory reservation for proc "
                     + p.getProcId() + " to " + value + ", proc does not have that much memory to spare.");
         }
-      }
-
-      private static final String FIND_WORST_MEMORY_OFFENDER =
-          "SELECT " +
-              "pk_proc, " +
-              "pk_host, " +
-              "pk_show, "+
-              "pk_job, "+
-              "pk_layer,"+
-              "pk_frame,"+
-              "b_unbooked,"+
-              "b_local, "+
-              "pk_alloc, "+
-              "pk_facility, " +
-              "int_cores_reserved,"+
-              "int_mem_reserved," +
-              "int_mem_max_used,"+
-              "int_mem_used,"+
-              "int_gpus_reserved," +
-              "int_gpu_mem_reserved," +
-              "int_gpu_mem_max_used," +
-              "int_gpu_mem_used," +
-              "int_virt_max_used,"+
-              "int_virt_used,"+
-              "host_name, " +
-              "str_os, " +
-              "bytea_children " +
-          "FROM ("
-              + GET_VIRTUAL_PROC + " " +
-              "AND " +
-                  "host.pk_host = ? " +
-              "AND " +
-                  "proc.int_mem_reserved != 0 " +
-              "AND " +
-                  "proc.int_virt_used >= proc.int_mem_pre_reserved " +
-              "ORDER BY " +
-                  "proc.int_virt_used / proc.int_mem_pre_reserved DESC " +
-          ") AS t1 LIMIT 1";
-
-      @Override
-      public VirtualProc getWorstMemoryOffender(HostInterface host) {
-          return getJdbcTemplate().queryForObject(FIND_WORST_MEMORY_OFFENDER,
-                  VIRTUAL_PROC_MAPPER, host.getHostId());
       }
 
       public long getReservedMemory(ProcInterface proc) {

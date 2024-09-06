@@ -107,7 +107,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
     @Resource
     FrameSearchFactory frameSearchFactory;
-    
+
     @Resource
     ProcSearchFactory procSearchFactory;
 
@@ -328,7 +328,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         procDao.verifyRunningProc(proc.getId(), frame.getId());
         byte[] children = new byte[100];
 
-        procDao.updateProcMemoryUsage(frame, 100, 100, 1000, 1000, 0, 0, children);
+        procDao.updateProcMemoryUsage(frame, 100, 100, 1000, 1000, 0, 0, 0, children);
 
     }
 
@@ -575,47 +575,6 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
-    public void testFindReservedMemoryOffender() {
-        DispatchHost host = createHost();
-
-
-        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
-        JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_dispatch_test_v1");
-        jobManager.setJobPaused(job, false);
-
-        int i = 1;
-        List<DispatchFrame> frames  = dispatcherDao.findNextDispatchFrames(job, host, 6);
-        assertEquals(6, frames.size());
-        byte[] children = new byte[100];
-        for (DispatchFrame frame: frames) {
-
-            VirtualProc proc = VirtualProc.build(host, frame);
-            proc.childProcesses = children;
-            frame.minMemory = Dispatcher.MEM_RESERVED_DEFAULT;
-            dispatcher.dispatch(frame, proc);
-
-            // Increase the memory usage as frames are added
-            procDao.updateProcMemoryUsage(frame,
-                    1000*i, 1000*i,
-                    Dispatcher.MEM_RESERVED_DEFAULT*i, Dispatcher.MEM_RESERVED_DEFAULT*i,
-                    0, 0, children);
-            i++;
-        }
-
-        // Now compare the last frame which has the highest memory
-        // usage to the what is returned by getWorstMemoryOffender
-        VirtualProc offender = procDao.getWorstMemoryOffender(host);
-
-        FrameDetail f = frameDao.getFrameDetail(frames.get(5));
-        FrameDetail o = frameDao.getFrameDetail(offender);
-
-        assertEquals(f.getName(), o.getName());
-        assertEquals(f.id, o.getFrameId());
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
     public void testGetReservedMemory() {
         DispatchHost host = createHost();
         JobDetail job = launchJob();
@@ -672,7 +631,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         procDao.insertVirtualProc(proc1);
 
         byte[] children = new byte[100];
-        procDao.updateProcMemoryUsage(frame1, 250000, 250000, 250000, 250000, 0, 0, children);
+        procDao.updateProcMemoryUsage(frame1, 250000, 250000, 250000, 250000, 0, 0, 0, children);
         layerDao.updateLayerMaxRSS(frame1, 250000, true);
 
         FrameDetail frameDetail2 = frameDao.findFrameDetail(job, "0002-pass_1");
@@ -682,7 +641,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc2.frameId = frame2.id;
         procDao.insertVirtualProc(proc2);
 
-        procDao.updateProcMemoryUsage(frame2, 255000, 255000,255000, 255000, 0, 0, children);
+        procDao.updateProcMemoryUsage(frame2, 255000, 255000,255000, 255000, 0, 0, 0, children);
         layerDao.updateLayerMaxRSS(frame2, 255000, true);
 
         FrameDetail frameDetail3 = frameDao.findFrameDetail(job, "0003-pass_1");
@@ -692,7 +651,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc3.frameId = frame3.id;
         procDao.insertVirtualProc(proc3);
 
-        procDao.updateProcMemoryUsage(frame3, 3145728, 3145728,3145728, 3145728, 0, 0, children);
+        procDao.updateProcMemoryUsage(frame3, 3145728, 3145728,3145728, 3145728, 0, 0, 0, children);
         layerDao.updateLayerMaxRSS(frame3,300000, true);
 
         procDao.balanceUnderUtilizedProcs(proc3, 100000);
@@ -856,23 +815,23 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testVirtualProcWithSelfishService() {
         DispatchHost host = createHost();
         JobDetail job = launchJob();
-        
+
         FrameDetail frameDetail = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
         DispatchFrame frame = frameDao.getDispatchFrame(frameDetail.id);
         frame.minCores = 250;
         frame.threadable = true;
 
         // Frame from a non-selfish sevice
-        VirtualProc proc = VirtualProc.build(host, frame, "something-else");        
+        VirtualProc proc = VirtualProc.build(host, frame, "something-else");
         assertEquals(250, proc.coresReserved);
 
         // When no selfish service config is provided
-        proc = VirtualProc.build(host, frame);        
+        proc = VirtualProc.build(host, frame);
         assertEquals(250, proc.coresReserved);
 
 
-        // Frame with a selfish service        
-        proc = VirtualProc.build(host, frame, "shell", "something-else");        
+        // Frame with a selfish service
+        proc = VirtualProc.build(host, frame, "shell", "something-else");
         assertEquals(800, proc.coresReserved);
     }
 }

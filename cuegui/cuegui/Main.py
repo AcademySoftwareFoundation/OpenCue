@@ -24,6 +24,7 @@ import getpass
 import signal
 
 from qtpy import QtGui
+from qtpy import QtCore
 
 import cuegui
 import cuegui.Layout
@@ -81,6 +82,14 @@ def startup(app_name, app_version, argv):
     mainWindow.displayStartupNotice()
     mainWindow.show()
 
+    # Allow ctrl-c to kill the application
+    signal.signal(signal.SIGINT, mainWindow.handleExit)
+    signal.signal(signal.SIGTERM, mainWindow.handleExit)
+
+    # Custom qt message handler to ignore known warnings
+    QtCore.qInstallMessageHandler(warning_handler)
+
+
     # Open all windows that were open when the app was last closed
     for name in mainWindow.windows_names[1:]:
         if settings.value("%s/Open" % name, "false").lower() == 'true':
@@ -111,6 +120,22 @@ def __setup_sentry():
         })
     except ImportError:
         logger.warning('Failed to import Sentry')
+
+
+def warning_handler(msg_type, msg_log_context, msg_string):
+    """
+    Handler qt warnings. Ignore known warning messages that happens when
+    multi-threaded/multiple updates happen in a short span
+    """
+    if ('QTextCursor::setPosition:' in msg_string or
+        'SelectionRequest too old' in msg_string):
+        return
+
+    logger.warning('%s: %s, Message: %s',
+                   str(msg_type),
+                   str(msg_log_context),
+                   str(msg_string))
+
 
 def closingTime():
     """Window close callback."""
