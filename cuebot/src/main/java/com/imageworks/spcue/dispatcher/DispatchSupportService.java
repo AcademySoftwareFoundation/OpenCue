@@ -214,12 +214,12 @@ public class DispatchSupportService implements DispatchSupport {
                     " could not be booked on " + frame.getName() + ", " + e);
         }
     }
-    
+
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
     public void startFrameAndProc(VirtualProc proc, DispatchFrame frame) {
         logger.trace("starting frame: " + frame);
-        
+
         frameDao.updateFrameStarted(proc, frame);
 
         reserveProc(proc, frame);
@@ -571,9 +571,11 @@ public class DispatchSupportService implements DispatchSupport {
     @Transactional(propagation = Propagation.REQUIRED)
     public void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss,
                                       long vsize, long maxVsize, long usedGpuMemory,
-                                      long maxUsedGpuMemory, byte[] children) {
+                                      long maxUsedGpuMemory, long usedSwapMemory,
+                                      byte[] children) {
         procDao.updateProcMemoryUsage(frame, rss, maxRss, vsize, maxVsize,
-                                      usedGpuMemory, maxUsedGpuMemory, children);
+                                      usedGpuMemory, maxUsedGpuMemory, usedSwapMemory,
+                                      children);
     }
 
     @Override
