@@ -264,7 +264,13 @@ main() {
     run_job
 
     log INFO "Starting RQD Blender..."
-    docker run -td --name blender --env CUEBOT_HOSTNAME=${CUEBOT_HOSTNAME} --volume "/tmp/rqd/shots:/tmp/rqd/shots" opencue/blender
+    docker run -td --name blender \
+    --env CUEBOT_HOSTNAME=cuebot \
+    --volume "/tmp/rqd/shots:/tmp/rqd/shots" \
+    --volume "/tmp/rqd/logs:/tmp/rqd/logs" \
+    -p 8441:8441 \
+    --network opencue_default \
+    opencue/blender
 
     log INFO "Testing Blender job..."
     run_blender_job
