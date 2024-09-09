@@ -24,7 +24,6 @@ import outline.modules.shell
 parser = argparse.ArgumentParser(description="Simple Blender job")
 
 parser.add_argument('-b', '--blendfile', type=str, help='Path to the .blend file source')
-parser.add_argument('-o', '--output', type=str, help='Path to the output destination')
 
 args = parser.parse_args()
 
@@ -32,10 +31,8 @@ ol = outline.Outline(
     'blender_job', shot='shot02', show='testing', user=getpass.getuser())
 layer = outline.modules.shell.Shell(
     'blender_layer', command=['blender', '-b', args.blendfile,
-                              '-o', args.output,
                               '-F', 'PNG',
                               '-f', '1'
-                              '-E', 'CYCLES', '--', '--cycles-device', 'CPU'],
-    chunk=1, threads=1)
+                              '-E', 'CYCLES', '--', '--cycles-device', 'CPU'], chunk=1, threads=1)
 ol.add_layer(layer)
 outline.cuerun.launch(ol, use_pycuerun=False)
