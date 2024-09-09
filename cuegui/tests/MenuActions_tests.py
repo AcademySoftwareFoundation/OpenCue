@@ -22,6 +22,7 @@ from __future__ import absolute_import
 
 import unittest
 
+import getpass
 import mock
 import qtpy.QtGui
 import qtpy.QtWidgets
@@ -975,10 +976,10 @@ class FrameActionsTests(unittest.TestCase):
         frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
 
         self.frame_actions.kill(rpcObjects=[frame])
-
+        username = getpass.getuser()
         self.job.killFrames.assert_called_with(
             name=[frame_name],
-            reason="Manual Frame(s) Kill Request in Cuegui by root")
+            reason="Manual Frame(s) Kill Request in Cuegui by %s" % username)
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_markAsWaiting(self, yesNoMock):

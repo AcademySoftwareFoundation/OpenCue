@@ -410,18 +410,18 @@ class DependUtil(object):
             logger.debug("dropping all depends on: %s/%04d-%s", job, layer, frame)
             depend_er_frame = opencue.api.findFrame(job, layer, frame)
             for depend in depend_er_frame.getWhatThisDependsOn():
-                depend.proxy.satisfy()
+                depend.satisfy()
         elif layer:
             logger.debug("dropping all depends on: %s/%s", job, layer)
             depend_er_layer = opencue.api.findLayer(job, layer)
             for depend in depend_er_layer.getWhatThisDependsOn():
-                depend.proxy.satisfy()
+                depend.satisfy()
         else:
             logger.debug("dropping all depends on: %s", job)
             depend_er_job = opencue.api.findJob(job)
             for depend in depend_er_job.getWhatThisDependsOn():
                 logger.debug("dropping depend %s %s", depend.data.type, opencue.id(depend))
-                depend.proxy.satisfy()
+                depend.satisfy()
 
 
 class Convert(object):

@@ -644,10 +644,9 @@ def launchViewerUsingPaths(paths, test_mode=False):
     # Launch viewer and inform user
     msg = 'Launching viewer: {0}'.format(cmd)
     if not test_mode:
-        QtGui.qApp.emit(QtCore.SIGNAL('status(PyQt_PyObject)'), msg)
         print(msg)
         try:
-            subprocess.check_call(cmd)
+            subprocess.check_call(cmd.split())
         except subprocess.CalledProcessError as e:
             showErrorMessageBox(str(e), title='Error running Viewer command')
         except Exception as e:

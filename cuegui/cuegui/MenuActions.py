@@ -1215,7 +1215,7 @@ class FrameActions(AbstractActions):
     def kill(self, rpcObjects=None):
         names = [frame.data.name for frame in self._getOnlyFrameObjects(rpcObjects)]
         if names:
-            if not cuegui.Utils.isPermissible(self._getSource(), self):
+            if not cuegui.Utils.isPermissible(self._getSource()):
                 cuegui.Utils.showErrorMessageBox(
                     AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "kill frames",
@@ -1331,7 +1331,7 @@ class FrameActions(AbstractActions):
         if frames:
             frameNames = [frame.data.name for frame in frames]
             #check permissions
-            if not cuegui.Utils.isPermissible(self._getSource(), self):
+            if not cuegui.Utils.isPermissible(self._getSource()):
                 cuegui.Utils.showErrorMessageBox(
                     AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "eat and mark done frames",
