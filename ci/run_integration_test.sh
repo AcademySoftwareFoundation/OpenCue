@@ -190,6 +190,7 @@ run_job() {
 
 run_blender_job() {
     cp samples/pyoutline/sample.blend $RQD_ROOT
+    chmod +x samples/pyoutline/blender_job.py
     samples/pyoutline/blender_job.py --blendfile "${RQD_ROOT}/sample.blend"
     job_name="testing-shot01-${USER}_blender_job"
     samples/pycue/wait_for_job.py "${job_name}" --timeout 300
