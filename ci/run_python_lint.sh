@@ -49,6 +49,6 @@ cd ..
 
 echo "Running lint for rqd/..."
 cd rqd
-PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main rqd --ignore=pycue/opencue/compiled_proto
+PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main rqd --ignore=rqd/compiled_proto
 PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..

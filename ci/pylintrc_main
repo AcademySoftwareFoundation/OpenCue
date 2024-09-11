@@ -204,15 +204,15 @@ ignored-classes=optparse.Values,thread._local,_thread._local
 # and thus existing member attributes cannot be deduced by static analysis). It
 # supports qualified module names, as well as Unix pattern matching.
 ignored-modules=opencue.compiled_proto,
-            opencue.compiled_proto.filter_pb2,
-            opencue.compiled_proto.host_pb2,
-            opencue.compiled_proto.rqd_pb2,
-            opencue.compiled_proto.report_pb2,
-            rqd.compiled_proto,
-            rqd.compiled_proto.filter_pb2,
-            rqd.compiled_proto.host_pb2,
-            rqd.compiled_proto.rqd_pb2,
-            rqd.compiled_proto.report_pb2
+                opencue.compiled_proto.filter_pb2,
+                opencue.compiled_proto.host_pb2,
+                opencue.compiled_proto.rqd_pb2,
+                opencue.compiled_proto.report_pb2,
+                rqd.compiled_proto,
+                rqd.compiled_proto.filter_pb2,
+                rqd.compiled_proto.host_pb2,
+                rqd.compiled_proto.rqd_pb2,
+                rqd.compiled_proto.report_pb2
 
 # Show a hint with possible names when a member name was not found. The aspect
 # of finding the hint is based on edit distance.
