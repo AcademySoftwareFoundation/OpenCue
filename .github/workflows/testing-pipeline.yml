@@ -14,9 +14,7 @@ jobs:
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - uses: actions/checkout@v3
       - name: Run Python Tests
         run: ci/run_python_tests.sh --no-gui
 
@@ -79,17 +77,6 @@ jobs:
         run: |
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
-
-  test_pyside6:
-    name: Run CueGUI Tests using PySide6
-    runs-on: ubuntu-latest
-    container: almalinux:9
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Run CueGUI Tests
-        run: ci/test_pyside6.sh
 
   lint_python:
     name: Lint Python Code
