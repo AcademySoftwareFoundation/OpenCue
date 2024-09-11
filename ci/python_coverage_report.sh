@@ -16,7 +16,7 @@ PYTHONPATH=pycue coverage run -a --source=pyoutline/outline/ pyoutline/setup.py 
 PYTHONPATH=pycue coverage run -a --source=cueadmin/cueadmin/ cueadmin/setup.py test
 PYTHONPATH=pycue xvfb-run -d coverage run -a --source=cuegui/cuegui/ cuegui/setup.py test
 PYTHONPATH=pycue:pyoutline coverage run -a --source=cuesubmit/cuesubmit/ cuesubmit/setup.py test
-coverage run -a --source=rqd/rqd/ --omit=pycue/opencue/compiled_proto/* rqd/setup.py test
+coverage run -a --source=rqd/rqd/ --omit=rqd/rqd/compiled_proto/* rqd/setup.py test
 
 # SonarCloud needs the report in XML.
 coverage xml
