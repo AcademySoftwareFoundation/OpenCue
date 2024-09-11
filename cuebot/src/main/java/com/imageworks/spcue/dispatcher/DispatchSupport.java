@@ -437,7 +437,8 @@ public interface DispatchSupport {
      */
     void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss,
                                long vsize, long maxVsize, long usedGpuMemory,
-                               long maxUsedGpuMemory, byte[] children);
+                               long maxUsedGpuMemory, long usedSwapMemory,
+                               byte[] children);
 
     /**
      * Return true if adding the given core units would put the show

@@ -213,8 +213,8 @@ class OutputTests(unittest.TestCase):
         self.assertEqual(
             'Subscriptions for showName\n'
             'Allocation                     Show           Size    Burst      Run     Used\n'
-            'local.general                  showName       1000     1500   500.00   50.00%\n'
-            'cloud.desktop                  showName          0     1500    50.00 5000.00%\n',
+            'local.general                  showName       10.0     15.0     5.00   50.00%\n'
+            'cloud.desktop                  showName        0.0     15.0     0.50    0.50%\n',
             out.getvalue())
 
     def testDisplayJobs(self, getStubMock):

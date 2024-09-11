@@ -339,12 +339,6 @@ public class HostManagerService implements HostManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public VirtualProc getWorstMemoryOffender(HostInterface h) {
-        return procDao.getWorstMemoryOffender(h);
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public VirtualProc getVirtualProc(String id) {
         return procDao.getVirtualProc(id);
     }

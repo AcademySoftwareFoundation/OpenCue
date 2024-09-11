@@ -23,6 +23,7 @@ from __future__ import division
 from future.utils import iteritems
 from builtins import map
 import time
+import pickle
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -394,6 +395,14 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Removes finished jobs"""
         for item in self.findItems("Finished", QtCore.Qt.MatchFixedString, COLUMN_STATE):
             self.removeItem(item)
+
+    def getUserColors(self):
+        """Returns the colored jobs to be saved"""
+        return list(pickle.dumps(self.__userColors))
+
+    def setUserColors(self, state):
+        """Sets the colored jobs that were saved"""
+        self.__userColors = pickle.loads(bytes(state))
 
     def contextMenuEvent(self, e):
         """Creates a context menu when an item is right clicked.
