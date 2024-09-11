@@ -15,6 +15,8 @@ jobs:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Run Python Tests
         run: ci/run_python_tests.sh --no-gui
 
@@ -38,6 +40,8 @@ jobs:
     container: aswf/ci-opencue:2023
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -60,6 +64,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Run Python Tests
+        with:
+          submodules: recursive
         run: ci/run_python_tests.sh
 
   test_cuebot_2024:
@@ -80,6 +86,8 @@ jobs:
     container: almalinux:9
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Run CueGUI Tests
         run: ci/test_pyside6.sh
 
@@ -91,6 +99,8 @@ jobs:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: true
       - name: Lint Python Code
         run: ci/run_python_lint.sh
 
