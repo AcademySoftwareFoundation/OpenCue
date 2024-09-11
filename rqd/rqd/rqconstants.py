@@ -141,9 +141,10 @@ OVERRIDE_HOSTNAME = None # Force to use this hostname
 ALLOW_GPU = False
 LOAD_MODIFIER = 0 # amount to add/subtract from load
 
-LOG_FORMAT = '%(asctime)s %(levelname)-9s openrqd-%(module)-10s %(message)s'
-CONSOLE_LOG_LEVEL = logging.DEBUG
-FILE_LOG_LEVEL = logging.WARNING  # Equal to or greater than the consoleLevel
+LOG_FORMAT = '%(levelname)-9s openrqd-%(module)-10s: %(message)s'
+CONSOLE_LOG_LEVEL = logging.WARNING
+# Equal to or greater than the consoleLevel. None deactives logging to file
+FILE_LOG_LEVEL = None
 
 if subprocess.getoutput('/bin/su --help').find('session-command') != -1:
     SU_ARGUMENT = '--session-command'

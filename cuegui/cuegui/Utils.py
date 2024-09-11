@@ -487,8 +487,11 @@ def popupView(file, facility=None):
         app = cuegui.app()
         if editor_from_env:
             job_log_cmd = editor_from_env.split()
-        elif app.settings.contains('LogEditor'):
-            job_log_cmd = app.settings.value("LogEditor")
+        elif app.settings.contains('LogEditor') and (
+                len(app.settings.value("LogEditor").strip()) > 0):
+            job_log_cmd = app.settings.value("LogEditor").split()
+            if not isinstance(job_log_cmd, list):
+                job_log_cmd = job_log_cmd.split()
         else:
             job_log_cmd = cuegui.Constants.DEFAULT_EDITOR.split()
         job_log_cmd.append(str(file))
@@ -641,10 +644,9 @@ def launchViewerUsingPaths(paths, test_mode=False):
     # Launch viewer and inform user
     msg = 'Launching viewer: {0}'.format(cmd)
     if not test_mode:
-        QtGui.qApp.emit(QtCore.SIGNAL('status(PyQt_PyObject)'), msg)
         print(msg)
         try:
-            subprocess.check_call(cmd)
+            subprocess.check_call(cmd.split())
         except subprocess.CalledProcessError as e:
             showErrorMessageBox(str(e), title='Error running Viewer command')
         except Exception as e:

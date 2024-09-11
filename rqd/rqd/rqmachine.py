@@ -266,6 +266,8 @@ class Machine(object):
                         # The time in jiffies the process started
                         # after system boot.
                         "start_time": statFields[21],
+                        # Fetch swap usage
+                        "swap": self._getProcSwap(pid),
                     }
                     # cmdline:
                     p = psutil.Process(int(pid))
@@ -301,6 +303,7 @@ class Machine(object):
                     session = str(frame.pid)
                     rss = 0
                     vsize = 0
+                    swap = 0
                     pcpu = 0
                     # children pids share the same session id
                     for pid, data in pids.items():
@@ -308,6 +311,7 @@ class Machine(object):
                             try:
                                 rss += int(data["rss"])
                                 vsize += int(data["vsize"])
+                                swap += int(data["swap"])
 
                                 # jiffies used by this process, last two means that dead
                                 # children are counted
@@ -343,6 +347,7 @@ class Machine(object):
                                         frame.childrenProcs[pid]['rss'] = childRss
                                         frame.childrenProcs[pid]['vsize'] = \
                                             int(data["vsize"]) // 1024
+                                        frame.childrenProcs[pid]['swap'] = swap // 1024
                                         frame.childrenProcs[pid]['statm_rss'] = \
                                             (int(data["statm_rss"]) \
                                              * resource.getpagesize()) // 1024
@@ -355,6 +360,7 @@ class Machine(object):
                                          'rss_page': int(data["rss"]),
                                          'rss': (int(data["rss"]) * resource.getpagesize()) // 1024,
                                          'vsize': int(data["vsize"])  // 1024,
+                                         'swap': swap // 1024,
                                          'state': data['state'],
                                          # statm reports in pages (~ 4kB)
                                          # same as VmRss in /proc/[pid]/status (in KB)
@@ -373,9 +379,11 @@ class Machine(object):
                     # convert bytes to KB
                     rss = (rss * resource.getpagesize()) // 1024
                     vsize = int(vsize/1024)
+                    swap = swap // 1024
 
                     frame.rss = rss
                     frame.maxRss = max(rss, frame.maxRss)
+                    frame.usedSwapMemory = swap
 
                     if os.path.exists(frame.runFrame.log_dir_file):
                         stat = os.stat(frame.runFrame.log_dir_file).st_mtime
@@ -394,6 +402,21 @@ class Machine(object):
         # pylint: disable=broad-except
         except Exception as e:
             log.exception('Failure with rss update due to: %s', e)
+
+    def _getProcSwap(self, pid):
+        """Helper function to get swap memory used by a process"""
+        swap_used = 0
+        try:
+            with open("/proc/%s/status" % pid, "r", encoding='utf-8') as statusFile:
+                for line in statusFile:
+                    if line.startswith("VmSwap:"):
+                        swap_used = int(line.split()[1])
+                        break
+        except FileNotFoundError:
+            log.info('Process %s terminated before swap info could be read.', pid)
+        except Exception as e:
+            log.warning('Failed to read swap usage for pid %s: %s', pid, e)
+        return swap_used
 
     def getLoadAvg(self):
         """Returns average number of processes waiting to be served
