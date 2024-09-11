@@ -1,4 +1,4 @@
 [submodule "external/NodeGraphQt"]
 	path = external/NodeGraphQt
 	url = https://github.com/lithorus/NodeGraphQt.git
-	branch = 4d4a17e5a88a82ec436696e6c266f1c8918124d7
+	branch = pyside2+6
