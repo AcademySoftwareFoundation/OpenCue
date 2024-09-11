@@ -149,30 +149,30 @@ def daemonize(log_path=None, chdir_to_root=True):
             pass
 
 def setupLogging():
-    """Sets up the logging for RQD. Logs to /var/log/messages"""
+    """Sets up the logging for RQD.
+    Logs to /var/log/messages"""
+    logger = logging.getLogger()
+    logger.setLevel(rqd.rqconstants.CONSOLE_LOG_LEVEL)
+    for handler in logger.handlers:
+        handler.setFormatter(logging.Formatter(rqd.rqconstants.LOG_FORMAT))
 
-    consolehandler = logging.StreamHandler()
-    consolehandler.setLevel(rqd.rqconstants.CONSOLE_LOG_LEVEL)
-    consolehandler.setFormatter(logging.Formatter(rqd.rqconstants.LOG_FORMAT))
-    logging.getLogger('').addHandler(consolehandler)
-
-    if platform.system() in ('Linux', 'Darwin'):
-        if platform.system() == 'Linux':
-            syslogAddress = '/dev/log'
-        else:
-            syslogAddress = '/var/run/syslog'
-        if os.path.exists(syslogAddress):
-            logfile = logging.handlers.SysLogHandler(address=syslogAddress)
+    if rqd.rqconstants.FILE_LOG_LEVEL is not None:
+        if platform.system() in ('Linux', 'Darwin'):
+            if platform.system() == 'Linux':
+                syslogAddress = '/dev/log'
+            else:
+                syslogAddress = '/var/run/syslog'
+            if os.path.exists(syslogAddress):
+                logfile = logging.handlers.SysLogHandler(address=syslogAddress)
+            else:
+                logfile = logging.handlers.SysLogHandler()
+        elif platform.system() == 'Windows':
+            logfile = logging.FileHandler(os.path.expandvars('%TEMP%/openrqd.log'))
         else:
             logfile = logging.handlers.SysLogHandler()
-    elif platform.system() == 'Windows':
-        logfile = logging.FileHandler(os.path.expandvars('%TEMP%/openrqd.log'))
-    else:
-        logfile = logging.handlers.SysLogHandler()
-    logfile.setLevel(rqd.rqconstants.FILE_LOG_LEVEL)
-    logfile.setFormatter(logging.Formatter(rqd.rqconstants.LOG_FORMAT))
-    logging.getLogger('').addHandler(logfile)
-    logging.getLogger('').setLevel(logging.DEBUG)
+        logfile.setLevel(rqd.rqconstants.FILE_LOG_LEVEL)
+        logfile.setFormatter(logging.Formatter(rqd.rqconstants.LOG_FORMAT))
+        logger.addHandler(logfile)
 
 
 def setup_sentry():
@@ -210,6 +210,7 @@ def usage():
 def main():
     """Entrypoint for RQD."""
     setupLogging()
+    logger = logging.getLogger()
 
     if platform.system() == 'Linux' and os.getuid() != 0 and \
        rqd.rqconstants.RQD_BECOME_JOB_USER:
@@ -234,7 +235,7 @@ def main():
 
     rqd.rqutil.permissionsLow()
 
-    logging.warning('RQD Starting Up')
+    logger.warning('RQD Starting Up')
 
     setup_sentry()
 
