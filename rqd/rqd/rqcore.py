@@ -37,8 +37,8 @@ import traceback
 import select
 
 import cuelogging
-import rqd.compiled_proto.host_pb2 as host_pb3
-import rqd.compiled_proto.report_pb2 as report_pb3
+import rqd.compiled_proto.host_pb2
+import rqd.compiled_proto.report_pb2
 import rqd.rqconstants
 import rqd.rqexceptions
 import rqd.rqmachine
@@ -242,7 +242,7 @@ class FrameAttendantThread(threading.Thread):
 
     def __sendFrameCompleteReport(self):
         """Send report to cuebot that frame has finished"""
-        report = report_pb3.FrameCompleteReport()
+        report = rqd.compiled_proto.report_pb2.FrameCompleteReport()
         # pylint: disable=no-member
         report.host.CopyFrom(self.rqCore.machine.getHostInfo())
         report.frame.CopyFrom(self.frameInfo.runningFrameInfo())
@@ -580,7 +580,7 @@ class RqCore(object):
 
         self.__optNimbyoff = optNimbyoff
 
-        self.cores = report_pb3.CoreDetail(
+        self.cores = rqd.compiled_proto.report_pb2.CoreDetail(
             total_cores=0,
             idle_cores=0,
             locked_cores=0,
@@ -824,7 +824,7 @@ class RqCore(object):
         # Check for reasons to abort launch
         #
 
-        if self.machine.state != host_pb3.UP:
+        if self.machine.state != rqd.compiled_proto.host_pb2.UP:
             err = "Not launching, rqd HardwareState is not Up"
             log.info(err)
             raise rqd.rqexceptions.CoreReservationFailureException(err)
@@ -906,7 +906,7 @@ class RqCore(object):
 
     def shutdownRqdNow(self):
         """Kill all running frames and shutdown RQD"""
-        self.machine.state = host_pb3.DOWN
+        self.machine.state = rqd.compiled_proto.host_pb2.DOWN
         try:
             self.lockAll()
             self.killAllFrame("shutdownRqdNow Command")
@@ -1029,12 +1029,12 @@ class RqCore(object):
         sendUpdate = False
 
         if (self.__whenIdle or self.__reboot or
-            self.machine.state != host_pb3.UP):
+            self.machine.state != rqd.compiled_proto.host_pb2.UP):
             sendUpdate = True
 
         self.__whenIdle = False
         self.__reboot = False
-        self.machine.state = host_pb3.UP
+        self.machine.state = rqd.compiled_proto.host_pb2.UP
 
         with self.__threadLock:
             # pylint: disable=no-member
@@ -1058,12 +1058,12 @@ class RqCore(object):
         sendUpdate = False
 
         if (self.__whenIdle or self.__reboot
-                or self.machine.state != host_pb3.UP):
+                or self.machine.state != rqd.compiled_proto.host_pb2.UP):
             sendUpdate = True
 
         self.__whenIdle = False
         self.__reboot = False
-        self.machine.state = host_pb3.UP
+        self.machine.state = rqd.compiled_proto.host_pb2.UP
 
         with self.__threadLock:
             # pylint: disable=no-member

@@ -27,6 +27,16 @@ COPY rqd/setup.py ./rqd/
 COPY rqd/tests/ ./rqd/tests
 COPY rqd/rqd/ ./rqd/rqd
 
+RUN python3.9 -m grpc_tools.protoc \
+  -I=./proto \
+  --python_out=./rqd/rqd/compiled_proto \
+  --grpc_python_out=./rqd/rqd/compiled_proto \
+  ./proto/*.proto
+
+# Fix imports to work in both Python 2 and 3. See
+# <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
+RUN 2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
+
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION
 
