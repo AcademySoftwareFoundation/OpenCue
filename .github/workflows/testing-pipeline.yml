@@ -81,7 +81,7 @@ jobs:
   lint_python:
     name: Lint Python Code
     runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2022
+    container: aswf/ci-opencue:2023
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
