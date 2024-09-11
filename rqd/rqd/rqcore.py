@@ -295,10 +295,6 @@ class FrameAttendantThread(threading.Thread):
 
         self.__createEnvVariables()
         self.__writeHeader()
-        if rqd.rqconstants.RQD_CREATE_USER_IF_NOT_EXISTS:
-            rqd.rqutil.permissionsHigh()
-            rqd.rqutil.checkAndCreateUser(runFrame.user_name)
-            rqd.rqutil.permissionsLow()
 
         tempStatFile = "%srqd-stat-%s-%s" % (self.rqCore.machine.getTempPath(),
                                              frameInfo.frameId,
@@ -508,17 +504,17 @@ class FrameAttendantThread(threading.Thread):
             runFrame.log_dir_file = os.path.join(runFrame.log_dir, runFrame.log_file)
 
             try:  # Exception block for all exceptions
-
-                # Change to frame user if needed:
-                if runFrame.HasField("uid"):
-                    # Do everything as launching user:
-                    runFrame.gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
-                    rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
-
+                # Ensure permissions return to Low after this block
                 try:
-                    #
-                    # Setup proc to allow launching of frame
-                    #
+                    if rqd.rqconstants.RQD_CREATE_USER_IF_NOT_EXISTS and runFrame.HasField("uid"):
+                        rqd.rqutil.checkAndCreateUser(runFrame.user_name,
+                                                      runFrame.uid,
+                                                      runFrame.gid)
+                        # Do everything as launching user:
+                        runFrame.gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
+                        rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
+
+                    # Setup frame logging
                     try:
                         self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)
                         self.rqlog.waitForFile()

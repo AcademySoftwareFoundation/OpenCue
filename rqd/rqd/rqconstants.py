@@ -141,9 +141,10 @@ OVERRIDE_HOSTNAME = None # Force to use this hostname
 ALLOW_GPU = False
 LOAD_MODIFIER = 0 # amount to add/subtract from load
 
-LOG_FORMAT = '%(asctime)s %(levelname)-9s openrqd-%(module)-10s %(message)s'
-CONSOLE_LOG_LEVEL = logging.DEBUG
-FILE_LOG_LEVEL = logging.WARNING  # Equal to or greater than the consoleLevel
+LOG_FORMAT = '%(levelname)-9s openrqd-%(module)-10s: %(message)s'
+CONSOLE_LOG_LEVEL = logging.WARNING
+# Equal to or greater than the consoleLevel. None deactives logging to file
+FILE_LOG_LEVEL = None
 
 if subprocess.getoutput('/bin/su --help').find('session-command') != -1:
     SU_ARGUMENT = '--session-command'
@@ -223,6 +224,8 @@ try:
             MINIMUM_IDLE = config.getint(__override_section, "MINIMUM_IDLE")
         if config.has_option(__override_section, "SENTRY_DSN_PATH"):
             SENTRY_DSN_PATH = config.getint(__override_section, "SENTRY_DSN_PATH")
+        if config.has_option(__override_section, "SP_OS"):
+            SP_OS = config.get(__override_section, "SP_OS")
 
         if config.has_section(__host_env_var_section):
             RQD_HOST_ENV_VARS = config.options(__host_env_var_section)
