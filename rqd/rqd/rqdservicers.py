@@ -24,14 +24,14 @@ import logging
 
 import grpc
 
-import opencue.compiled_proto.rqd_pb2
-import opencue.compiled_proto.rqd_pb2_grpc
+import rqd.compiled_proto.rqd_pb2
+import rqd.compiled_proto.rqd_pb2_grpc
 
 
 log = logging.getLogger(__name__)
 
 
-class RqdInterfaceServicer(opencue.compiled_proto.rqd_pb2_grpc.RqdInterfaceServicer):
+class RqdInterfaceServicer(rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceServicer):
     """Service interface for RqdStatic gRPC definition."""
 
     def __init__(self, rqCore):
@@ -41,12 +41,12 @@ class RqdInterfaceServicer(opencue.compiled_proto.rqd_pb2_grpc.RqdInterfaceServi
         """RPC call that launches the given frame"""
         log.info("Request received: launchFrame")
         self.rqCore.launchFrame(request.run_frame)
-        return opencue.compiled_proto.rqd_pb2.RqdStaticLaunchFrameResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticLaunchFrameResponse()
 
     def ReportStatus(self, request, context):
         """RPC call that returns reportStatus"""
         log.info("Request received: reportStatus")
-        return opencue.compiled_proto.rqd_pb2.RqdStaticReportStatusResponse(
+        return rqd.compiled_proto.rqd_pb2.RqdStaticReportStatusResponse(
             host_report=self.rqCore.reportStatus())
 
     def GetRunningFrameStatus(self, request, context):
@@ -54,12 +54,12 @@ class RqdInterfaceServicer(opencue.compiled_proto.rqd_pb2_grpc.RqdInterfaceServi
         log.info("Request received: getRunningFrameStatus")
         frame = self.rqCore.getRunningFrame(request.frameId)
         if frame:
-            return opencue.compiled_proto.rqd_pb2.RqdStaticGetRunningFrameStatusResponse(
+            return rqd.compiled_proto.rqd_pb2.RqdStaticGetRunningFrameStatusResponse(
                 running_frame_info=frame.runningFrameInfo())
         context.set_details(
             "The requested frame was not found. frameId: {}".format(request.frameId))
         context.set_code(grpc.StatusCode.NOT_FOUND)
-        return opencue.compiled_proto.rqd_pb2.RqdStaticGetRunningFrameStatusResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticGetRunningFrameStatusResponse()
 
     def KillRunningFrame(self, request, context):
         """RPC call that kills the running frame with the given id"""
@@ -69,77 +69,77 @@ class RqdInterfaceServicer(opencue.compiled_proto.rqd_pb2_grpc.RqdInterfaceServi
             frame.kill(message=request.message)
         else:
             log.warning("Wasn't able to find frame(%s) to kill", request.frame_id)
-        return opencue.compiled_proto.rqd_pb2.RqdStaticKillRunningFrameResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticKillRunningFrameResponse()
 
     def ShutdownRqdNow(self, request, context):
         """RPC call that kills all running frames and shuts down rqd"""
         log.info("Request received: shutdownRqdNow")
         self.rqCore.shutdownRqdNow()
-        return opencue.compiled_proto.rqd_pb2.RqdStaticShutdownNowResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticShutdownNowResponse()
 
     def ShutdownRqdIdle(self, request, context):
         """RPC call that locks all cores and shuts down rqd when it is idle.
            unlockAll will abort the request."""
         log.info("Request received: shutdownRqdIdle")
         self.rqCore.shutdownRqdIdle()
-        return opencue.compiled_proto.rqd_pb2.RqdStaticShutdownIdleResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticShutdownIdleResponse()
 
     def RestartRqdNow(self, request, context):
         """RPC call that kills all running frames and restarts rqd"""
         log.warning("Deprecated Request received: restartRqdNow. This request has no effect.")
-        return opencue.compiled_proto.rqd_pb2.RqdStaticRestartNowResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticRestartNowResponse()
 
     def RestartRqdIdle(self, request, context):
         """RPC call that that locks all cores and restarts rqd when idle.
            unlockAll will abort the request."""
         log.warning("Deprecated Request received: restartRqdIdle. This request has no effect.")
-        return opencue.compiled_proto.rqd_pb2.RqdStaticRestartIdleResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticRestartIdleResponse()
 
     def RebootNow(self, request, context):
         """RPC call that kills all running frames and reboots the host."""
         log.info("Request received: rebootNow")
         self.rqCore.rebootNow()
-        return opencue.compiled_proto.rqd_pb2.RqdStaticRebootNowResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticRebootNowResponse()
 
     def RebootIdle(self, request, context):
         """RPC call that that locks all cores and reboots the host when idle.
            unlockAll will abort the request."""
         log.info("Request received: rebootIdle")
         self.rqCore.rebootIdle()
-        return opencue.compiled_proto.rqd_pb2.RqdStaticRebootIdleResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticRebootIdleResponse()
 
     def NimbyOn(self, request, context):
         """RPC call that activates nimby"""
         log.info("Request received: nimbyOn")
         self.rqCore.nimbyOn()
-        return opencue.compiled_proto.rqd_pb2.RqdStaticNimbyOnResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticNimbyOnResponse()
 
     def NimbyOff(self, request, context):
         """RPC call that deactivates nimby"""
         log.info("Request received: nimbyOff")
         self.rqCore.nimbyOff()
-        return opencue.compiled_proto.rqd_pb2.RqdStaticNimbyOffResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticNimbyOffResponse()
 
     def Lock(self, request, context):
         """RPC call that locks a specific number of cores"""
         log.info("Request received: lock %d", request.cores)
         self.rqCore.lock(request.cores)
-        return opencue.compiled_proto.rqd_pb2.RqdStaticLockResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticLockResponse()
 
     def LockAll(self, request, context):
         """RPC call that locks all cores"""
         log.info("Request received: lockAll")
         self.rqCore.lockAll()
-        return opencue.compiled_proto.rqd_pb2.RqdStaticLockAllResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticLockAllResponse()
 
     def Unlock(self, request, context):
         """RPC call that unlocks a specific number of cores"""
         log.info("Request received: unlock %d", request.cores)
         self.rqCore.unlock(request.cores)
-        return opencue.compiled_proto.rqd_pb2.RqdStaticUnlockResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticUnlockResponse()
 
     def UnlockAll(self, request, context):
         """RPC call that unlocks all cores"""
         log.info("Request received: unlockAll")
         self.rqCore.unlockAll()
-        return opencue.compiled_proto.rqd_pb2.RqdStaticUnlockAllResponse()
+        return rqd.compiled_proto.rqd_pb2.RqdStaticUnlockAllResponse()

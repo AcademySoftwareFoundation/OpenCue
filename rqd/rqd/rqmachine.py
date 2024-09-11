@@ -57,8 +57,8 @@ elif platform.system() == "Windows":
 
 import psutil
 
-import opencue.compiled_proto.host_pb2
-import opencue.compiled_proto.report_pb2
+import rqd.compiled_proto.host_pb2
+import rqd.compiled_proto.report_pb2
 import rqd.rqconstants
 import rqd.rqexceptions
 import rqd.rqswap
@@ -75,7 +75,7 @@ class Machine(object):
         """Machine class initialization
         @type   rqCore: rqd.rqcore.RqCore
         @param  rqCore: Main RQD Object, used to access frames and nimby states
-        @type  coreInfo: opencue.compiled_proto.report_pb2.CoreDetail
+        @type  coreInfo: rqd.compiled_proto.report_pb2.CoreDetail
         @param coreInfo: Object contains information on the state of all cores
         """
         self.__rqCore = rqCore
@@ -93,18 +93,18 @@ class Machine(object):
         if platform.system() == 'Linux':
             self.__vmstat = rqd.rqswap.VmStat()
 
-        self.state = opencue.compiled_proto.host_pb2.UP
+        self.state = rqd.compiled_proto.host_pb2.UP
 
-        self.__renderHost = opencue.compiled_proto.report_pb2.RenderHost()
+        self.__renderHost = rqd.compiled_proto.report_pb2.RenderHost()
         self.__initMachineTags()
         self.__initMachineStats()
 
-        self.__bootReport = opencue.compiled_proto.report_pb2.BootReport()
+        self.__bootReport = rqd.compiled_proto.report_pb2.BootReport()
         # pylint: disable=no-member
         self.__bootReport.core_info.CopyFrom(self.__coreInfo)
         # pylint: enable=no-member
 
-        self.__hostReport = opencue.compiled_proto.report_pb2.HostReport()
+        self.__hostReport = rqd.compiled_proto.report_pb2.HostReport()
         # pylint: disable=no-member
         self.__hostReport.core_info.CopyFrom(self.__coreInfo)
         # pylint: enable=no-member

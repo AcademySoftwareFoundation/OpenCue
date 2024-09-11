@@ -32,7 +32,7 @@ from qtpy import QtGui
 from qtpy import QtCore
 from qtpy import QtWidgets
 
-import opencue.cuelogging
+import cuelogging
 import cuegui.Constants
 import cuegui.AbstractDockWidget
 
@@ -813,7 +813,7 @@ class LogViewWidget(QtWidgets.QWidget):
         @postcondition: The _update_log method is scheduled to run again
                         after 5 seconds
         """
-        log_reader = opencue.cuelogging.CueLogReader(self._log_file)
+        log_reader = cuelogging.CueLogReader(self._log_file)
 
         try:
             if log_reader.exists() is not True:
