@@ -38,6 +38,8 @@ from qtpy import QtGui
 from qtpy import QtWidgets
 import six
 
+import FileSequence
+
 import opencue
 import opencue.wrappers.group
 
@@ -697,7 +699,7 @@ def __getOutputFromLayers(layers):
     return paths
 
 
-def __getOutputFromFrame(layer, frame):
+def getOutputFromFrame(layer, frame):
     """Returns the output paths from a single frame
 
     @type  layer: Layer
