@@ -120,14 +120,14 @@ startup_notice.msg: ''
 # Memory usage above this level will be displayed in a different color.
 memory_warning_level: 5242880
 
-# Output Viewer config.
+# Output Viewers config.
 # # ------------------------------------------------------------------------------------------------------
 # Frame, Layer and Job objects have right click menu option for opening an output viewer
 # (eg. OpenRV)
-# output_viewer:
-#   # Text to be displayed at the menu action button
-#   action_text: "View Output in Itview"
 
+#output_viewers:
+#  # Text to be displayed at the menu action button
+#  - action_text: "View in OpenRV"
 #   # extract_args_regex: Regex to extract arguments from the output path produced by a job/layer/frame
 #   # cmd_pattern: Command pattern to be matched with the regex defined at extract_args_regex
 #   # if extract_args_regex is not provided, cmd_pattern is called directly with paths as arguments

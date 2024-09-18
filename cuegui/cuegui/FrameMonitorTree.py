@@ -28,6 +28,7 @@ import glob
 import os
 import re
 import time
+import functools
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -912,8 +913,19 @@ class FrameContextMenu(QtWidgets.QMenu):
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.frames().addAction(self, "useLocalCores")
 
-        if cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN:
-            self.__menuActions.frames().addAction(self, "viewOutput")
+        if len(cuegui.Constants.OUTPUT_VIEWERS):
+            job = widget.getJob()
+            outputPaths = []
+            for frame in widget.selectedObjects():
+                layer = job.getLayer(frame.layer())
+                outputPaths.extend(cuegui.Utils.getOutputFromFrame(layer, frame))
+            if len(outputPaths):
+                for viewer in cuegui.Constants.OUTPUT_VIEWERS:
+                    self.addAction(viewer['action_text'],
+                                   functools.partial(cuegui.Utils.viewFramesOutput,
+                                                     job,
+                                                     widget.selectedObjects(),
+                                                     viewer['action_text']))
 
         if self.app.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(self, "viewHost")
@@ -934,10 +946,6 @@ class FrameContextMenu(QtWidgets.QMenu):
         self.__menuActions.frames().createAction(self, "Filter Selected Layers", None,
                                                  filterSelectedLayersCallback, "stock-filters")
         self.__menuActions.frames().addAction(self, "reorder").setEnabled(not readonly)
-        self.addSeparator()
-        if cuegui.Constants.OUTPUT_VIEWER_DIRECT_CMD_CALL:
-            self.__menuActions.frames().addAction(self, "previewMain")
-        self.__menuActions.frames().addAction(self, "previewAovs")
         self.addSeparator()
         self.__menuActions.frames().addAction(self, "retry").setEnabled(not readonly)
         self.__menuActions.frames().addAction(self, "eat").setEnabled(not readonly)
