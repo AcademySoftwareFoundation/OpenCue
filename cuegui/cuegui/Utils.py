@@ -598,6 +598,7 @@ def getViewer(actionText):
     for viewer in cuegui.Constants.OUTPUT_VIEWERS:
         if viewer['action_text'] == actionText:
             return viewer
+    return None
 
 def launchViewerUsingPaths(paths, actionText, test_mode=False):
     """Launch viewer using paths if paths exists and are valid
