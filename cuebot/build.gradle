@@ -10,7 +10,7 @@ buildscript {
     dependencies {
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.8'
         classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.2.1.RELEASE'
-        classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.7.1'
+        classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.6.2'
     }
 }
 
@@ -23,8 +23,8 @@ apply plugin: 'com.google.protobuf'
 apply plugin: 'jacoco'
 apply plugin: 'org.sonarqube'
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 11
+targetCompatibility = 11
 
 ext {
     activemqVersion = '5.12.0'
