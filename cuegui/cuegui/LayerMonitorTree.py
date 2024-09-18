@@ -20,6 +20,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import functools
 
 from qtpy import QtCore
 from qtpy import QtWidgets
@@ -229,8 +230,15 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu = QtWidgets.QMenu()
 
         self.__menuActions.layers().addAction(menu, "view")
-        if cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN:
-            self.__menuActions.layers().addAction(menu, "viewOutput")
+
+        if (len(cuegui.Constants.OUTPUT_VIEWERS) > 0
+                and sum(len(layer.getOutputPaths()) for layer in __selectedObjects) > 0):
+            for viewer in cuegui.Constants.OUTPUT_VIEWERS:
+                menu.addAction(viewer['action_text'],
+                               functools.partial(cuegui.Utils.viewOutput,
+                                                 __selectedObjects,
+                                                 viewer['action_text']))
+
         depend_menu = QtWidgets.QMenu("&Dependencies", self)
         self.__menuActions.layers().addAction(depend_menu, "viewDepends")
         self.__menuActions.layers().addAction(depend_menu, "dependWizard")
