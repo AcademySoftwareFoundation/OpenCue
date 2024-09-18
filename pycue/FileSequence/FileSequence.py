@@ -92,7 +92,8 @@ class FileSequence:
         paddingString = "%%0%dd" % self.getPadSize()
         if self.frameSet:
             for frame in self.frameSet.getAll():
-                if frameSet is None or (isinstance(frameSet, FrameSet) and frame in frameSet.getAll()):
+                if (frameSet is None or
+                        (isinstance(frameSet, FrameSet) and frame in frameSet.getAll())):
                     framepath = self.getPrefix() + paddingString % frame + self.getSuffix()
                     filelist.append(framepath)
         else:
