@@ -31,6 +31,7 @@ import sys
 import time
 import traceback
 import webbrowser
+import yaml
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -179,7 +180,10 @@ def isTask(obj):
     return obj.__class__.__name__ == "Task"
 
 
-__REGEX_ID = re.compile(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
+# Regex matches:
+#  - 12345678-1234-1234-1234-123456789ABC
+#  - Job.12345678-1234-1234-1234-123456789ABC
+__REGEX_ID = re.compile(r"(?:Job.)?[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
 
 
 def isStringId(value):
@@ -199,8 +203,9 @@ def getCuewho(show):
     @return: The username who is cuewho for the show
     @rtype:  string"""
     try:
-        file = open("/shots/%s/home/cue/cuewho.who" % show, "r")
-        return file.read()
+
+        with open("/shots/%s/home/cue/cuewho.who" % show, "r", encoding='utf-8') as file:
+            return file.read()
     except Exception as e:
         logger.warning("Failed to update cuewho: %s\n%s", show, e)
         return "Unknown"
@@ -256,8 +261,10 @@ def findJob(job):
     if not isinstance(job, six.string_types):
         return None
     if isStringId(job):
+        if re.search("^Job.", job):
+            job = re.sub("Job.", "", job)
         return opencue.api.getJob(job)
-    if not re.search(r"^([a-z0-9\_]+)\-([a-z0-9\.\_]+)\-", job, re.IGNORECASE):
+    if not re.search(r"^(?:Job.)?([a-z0-9_]+)-([a-z0-9._]+)-", job, re.IGNORECASE):
         return None
     try:
         return opencue.api.findJob(job)
@@ -315,6 +322,7 @@ def exceptionOutput(e):
 
 def handleExceptions(function):
     """Custom exception handler."""
+    # pylint: disable=inconsistent-return-statements
     def new(*args):
         try:
             return function(*args)
@@ -447,15 +455,14 @@ def getLastLine(path):
     ansiEscape = r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]'
 
     try:
-        fp = open(path, 'rb')
-        fp.seek(0, 2)
+        with open(path, 'rb') as fp:
+            fp.seek(0, 2)
 
-        backseek = min(4096, fp.tell())
-        fp.seek(-backseek, 1)
-        buf = fp.read(4096)
+            backseek = min(4096, fp.tell())
+            fp.seek(-backseek, 1)
+            buf = fp.read(4096)
 
-        newline_pos = buf.rfind(b'\n', 0, len(buf)-1)
-        fp.close()
+            newline_pos = buf.rfind(b'\n', 0, len(buf)-1)
 
         line = buf[newline_pos+1:].strip().decode("utf-8")
 
@@ -480,8 +487,11 @@ def popupView(file, facility=None):
         app = cuegui.app()
         if editor_from_env:
             job_log_cmd = editor_from_env.split()
-        elif app.settings.contains('LogEditor'):
-            job_log_cmd = app.settings.value("LogEditor")
+        elif app.settings.contains('LogEditor') and (
+                len(app.settings.value("LogEditor").strip()) > 0):
+            job_log_cmd = app.settings.value("LogEditor").split()
+            if not isinstance(job_log_cmd, list):
+                job_log_cmd = job_log_cmd.split()
         else:
             job_log_cmd = cuegui.Constants.DEFAULT_EDITOR.split()
         job_log_cmd.append(str(file))
@@ -529,6 +539,206 @@ def popupFrameXdiff(job, frame1, frame2, frame3 = None):
                     command += " --title1 %s %s" % (frame.data.name, getFrameLogFile(job, frame))
             shellOut(command)
 
+################################################################################
+# View output in viewer
+################################################################################
+
+def viewOutput(items):
+    """Views the output of a list of jobs or list of layers in viewer
+
+    @type  items: list<Job> or list<Layer>
+    @param items: List of jobs or list of layers to view the entire job's outputs"""
+    if items and len(items) >= 1:
+        paths = []
+
+        if isJob(items[0]):
+            for job in items:
+                path_list = __getOutputFromLayers(job.getLayers())
+                paths.extend(path_list)
+
+        elif isLayer(items[0]):
+            paths = __getOutputFromLayers(items)
+
+        else:
+            raise Exception("The function expects a list of jobs or a list of layers")
+
+        # Launch viewer using paths if paths exists and are valid
+        launchViewerUsingPaths(paths)
+
+
+def viewFramesOutput(job, frames):
+    """Views the output of a list of frames in viewer using the job's layer
+    associated with the frames
+
+    @type  job: Job or None
+    @param job: The job with the output to view.
+    @type  frames: list<Frame>
+    @param frames: List of frames to view the entire job's outputs"""
+    if frames and len(frames) >= 1:
+        paths = []
+
+        all_layers = { layer.data.name: layer for layer in job.getLayers() }
+        for frame in frames:
+            paths.extend(__getOutputFromFrame(all_layers[frame.data.layer_name], frame))
+        launchViewerUsingPaths(paths)
+
+
+def launchViewerUsingPaths(paths, test_mode=False):
+    """Launch viewer using paths if paths exists and are valid
+    This function relies on the following constants that should be configured on the output_viewer
+    section of the config file:
+        - OUTPUT_VIEWER_STEREO_MODIFIERS
+        - OUTPUT_VIEWER_EXTRACT_ARGS_REGEX
+        - OUTPUT_VIEWER_CMD_PATTERN
+    @type  paths: list<String>
+    @param paths: List of paths"""
+    if not paths:
+        if not test_mode:
+            showErrorMessageBox(
+                "Sorry, unable to find any completed frames with known output paths",
+                title="Unable to find completed frames")
+        return None
+
+    # If paths are stereo outputs only keep one of the variants.
+    # Stereo ouputs are usually differentiated by a modifier like _lf_ and _rt_,
+    # the viewer should only be called with one of them if OUTPUT_VIEWER_STEREO_MODIFIERS
+    # is set.
+    if cuegui.Constants.OUTPUT_VIEWER_STEREO_MODIFIERS:
+        stereo_modifiers = cuegui.Constants.OUTPUT_VIEWER_STEREO_MODIFIERS.split(",")
+        if len(paths) == 2 and len(stereo_modifiers) == 2:
+            unified_paths = [path.replace(stereo_modifiers[0].strip(),
+                                        stereo_modifiers[1].strip())
+                            for path in paths]
+            if len(set(unified_paths)) == 1:
+                paths.pop()
+
+    # If a regex is provided, the first path will be used to extract groups
+    # to be applied cmd_pattern. The number of groups extracted from regexp
+    # should be the same as the quantity expected by cmd_pattern.
+    # If no regex is provided, cmd_pattern is executed as it is
+    sample_path = paths[0]
+    regexp = cuegui.Constants.OUTPUT_VIEWER_EXTRACT_ARGS_REGEX
+    cmd_pattern = cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN
+    joined_paths = " ".join(paths)
+
+    # Default to the cmd + paths
+    cmd = "%s %s" % (cmd_pattern, joined_paths)
+    if regexp:
+        try:
+            match = re.search(regexp, sample_path)
+            if match is None:
+                raise KeyError
+            args = match.groupdict()
+            args.update({"paths": joined_paths})
+            # Raises KeyError if args don't match pattern
+            cmd = cmd_pattern.format(**args)
+        except KeyError:
+            print("groups extracted by regex output_viewer.extract_args_regex "
+                    "(%s) on sample path (%s) don't match output_viewer.cmd_pattern (%s) " %
+                    (regexp, sample_path, cmd_pattern))
+            if not test_mode:
+                showErrorMessageBox("Sorry, unable to launch viewer with provided parameters",
+                                    title="Viewer misconfigured")
+            return None
+
+    # Launch viewer and inform user
+    msg = 'Launching viewer: {0}'.format(cmd)
+    if not test_mode:
+        print(msg)
+        try:
+            subprocess.check_call(cmd.split())
+        except subprocess.CalledProcessError as e:
+            showErrorMessageBox(str(e), title='Error running Viewer command')
+        except Exception as e:
+            showErrorMessageBox(str(e), title='Unable to open output in Viewer')
+
+    return cmd
+
+
+def __findMainOutputPath(outputs):
+    """Returns the main output layer from list of output paths
+    @type  outputs: list<str>
+    @param outputs: A list of output paths"""
+    if not outputs:
+        return ''
+    try:
+        # Try to find the bty layer from the list of output paths
+        # The bty layers are named with this convention:
+        # <res>_<colorspace>_<format>
+        # Example: 2kdcs_lnf_exr, misc_vd8_jpg
+        for output in outputs:
+            layer_name = output.split('/')[-2]
+            if len(layer_name.split('_')) == 3:
+                return output
+    except IndexError:
+        pass
+    return outputs[0]
+
+
+def __getOutputFromLayers(layers):
+    """Returns the output paths from the frame logs
+    @type  layers: list<Layer>
+    @param layers: A list of at least one layer
+    @rtype:  list
+    @return: The path to the proxy SVI or the primary output."""
+    paths = []
+    for layer in layers:
+        svi_found = False
+        outputs = layer.getOutputPaths()
+        if outputs:
+            for path in outputs:
+                if path.find("_svi") != -1:
+                    paths.append(path)
+                    svi_found = True
+                    break
+            if not svi_found:
+                output = __findMainOutputPath(outputs)
+                paths.append(output)
+    return paths
+
+
+def __getOutputFromFrame(layer, frame):
+    """Returns the output paths from a single frame
+
+    @type  layer: Layer
+    @param layer: The frames' layer
+    @type  frame: Frame
+    @param frame: This frame's log is checked for known output paths
+    @rtype:  list
+    @return: A list of output paths"""
+    try:
+        outputs = layer.getOutputPaths()
+        if not outputs:
+            return []
+        main_output = __findMainOutputPath(outputs)
+        main_output = main_output.replace("#", "%04d" % frame.data.number)
+        return [main_output]
+    except IndexError:
+        return []
+
+
+__REGEX_AOV = re.compile("aov\\_", re.IGNORECASE)
+
+
+def reorganizeOrder(paths):
+    """ Returns the output paths with aov passes appended to the end of the list
+    so viewer doesn't load it first
+
+    @param  paths: list
+    @rtype: list
+    @return: A list of reorganized output paths"""
+    aov_layer = []
+    render_layer = []
+    if paths:
+        for path in paths:
+            render_pass_name = path.split("/")[-1]
+            if re.search(__REGEX_AOV, render_pass_name):
+                aov_layer.append(path)
+            else:
+                render_layer.append(path)
+        paths = render_layer + aov_layer
+
+    return paths
 
 ################################################################################
 # Drag and drop functions
@@ -622,7 +832,12 @@ def showErrorMessageBox(text, title="ERROR!", detailedText=None):
 def shutdownThread(thread):
     """Shuts down a WorkerThread."""
     thread.stop()
-    return thread.wait(1500)
+    # Stop may terminate the underlying thread object yielding a
+    # RuntimeError(QtFatal) when wait is called
+    try:
+        return thread.wait(1500)
+    except RuntimeError:
+        return False
 
 def getLLU(item):
     """ LLU time from log_path """
@@ -670,3 +885,21 @@ def byteConversion(amount, btype):
     for _ in range(n):
         _bytes *= 1024
     return _bytes
+
+
+def isPermissible(jobObject):
+    """
+    Validate if the current user has the correct permissions to perform
+    the action
+
+    :param userName: jobObject
+    :ptype userName: Opencue Job Object
+    :return:
+    """
+    # Read cached setting from user config file
+    hasPermissions = yaml.safe_load(cuegui.app().settings.value("EnableJobInteraction", "False"))
+    # If not set by default, check if current user is the job owner
+    currentUser = getpass.getuser()
+    if not hasPermissions and currentUser.lower() == jobObject.username().lower():
+        hasPermissions = True
+    return hasPermissions

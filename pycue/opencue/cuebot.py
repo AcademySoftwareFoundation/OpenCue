@@ -150,18 +150,19 @@ class Cuebot(object):
         :type config: dict
         :param config: config dictionary, this will override the config read from disk
         """
+        hosts_env = os.getenv("CUEBOT_HOSTS")
+
         if config:
             Cuebot.Config = config
             Cuebot.Timeout = config.get('cuebot.timeout', Cuebot.Timeout)
-        if os.getenv("CUEBOT_HOSTS"):
-            Cuebot.setHosts(os.getenv("CUEBOT_HOSTS").split(","))
+        if hosts_env:
+            Cuebot.setHosts(hosts_env.split(","))
         else:
-            facility_default = Cuebot.Config.get("cuebot.facility_default")
-            Cuebot.setFacility(facility_default)
+            facility = os.getenv("CUEBOT_FACILITY", Cuebot.Config.get("cuebot.facility_default"))
+            Cuebot.setHostWithFacility(facility)
         if Cuebot.Hosts is None:
             raise CueException('Cuebot host not set. Please ensure CUEBOT_HOSTS is set ' +
                                'or a facility_default host is set in the yaml pycue config.')
-        Cuebot.setChannel()
 
     @staticmethod
     def setChannel():
@@ -182,6 +183,7 @@ class Cuebot(object):
             ),
         )
 
+        connectStr = "Not Defined"
         for host in hosts:
             if ':' in host:
                 connectStr = host
@@ -208,7 +210,7 @@ class Cuebot(object):
             atexit.register(Cuebot.closeChannel)
             return None
         raise ConnectionException('No grpc connection could be established. ' +
-                                  'Please check configured cuebot hosts.')
+                                  'Please check configured cuebot hosts: ' + connectStr)
 
     @staticmethod
     def closeChannel():
@@ -225,9 +227,10 @@ class Cuebot(object):
         Cuebot.setChannel()
 
     @staticmethod
-    def setFacility(facility):
-        """Sets the facility to connect to. If an unknown facility is provided,
-        it will fall back to the one listed in cuebot.facility_default
+    def setHostWithFacility(facility):
+        """Sets hosts to connect to based on the provided facility.
+        If an unknown facility is provided, it will fall back to the one listed
+        in cuebot.facility_default
 
         :type  facility: str
         :param facility: a facility named in the config file"""
@@ -354,6 +357,7 @@ class RetryOnRpcErrorClientInterceptor(
         self._sleeping_policy = sleeping_policy
         self._retry_statuses = status_for_retry
 
+    # pylint: disable=inconsistent-return-statements
     def _intercept_call(self, continuation, client_call_details,
                         request_or_iterator):
         for attempt in range(self._max_attempts):

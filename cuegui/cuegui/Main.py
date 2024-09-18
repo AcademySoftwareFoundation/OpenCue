@@ -20,9 +20,11 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import getpass
 import signal
 
 from qtpy import QtGui
+from qtpy import QtCore
 
 import cuegui
 import cuegui.Layout
@@ -72,15 +74,25 @@ def startup(app_name, app_version, argv):
     settings = cuegui.Layout.startup(app_name)
     app.settings = settings
 
+    __setup_sentry()
+
     cuegui.Style.init()
 
     mainWindow = cuegui.MainWindow.MainWindow(app_name, app_version,  None)
     mainWindow.displayStartupNotice()
     mainWindow.show()
 
+    # Allow ctrl-c to kill the application
+    signal.signal(signal.SIGINT, mainWindow.handleExit)
+    signal.signal(signal.SIGTERM, mainWindow.handleExit)
+
+    # Custom qt message handler to ignore known warnings
+    QtCore.qInstallMessageHandler(warning_handler)
+
+
     # Open all windows that were open when the app was last closed
     for name in mainWindow.windows_names[1:]:
-        if settings.value("%s/Open" % name, False):
+        if settings.value("%s/Open" % name, "false").lower() == 'true':
             mainWindow.windowMenuOpenWindow(name)
 
     # End splash screen
@@ -91,6 +103,39 @@ def startup(app_name, app_version, argv):
     gc = cuegui.GarbageCollector.GarbageCollector(parent=app, debug=False)  # pylint: disable=unused-variable
     app.aboutToQuit.connect(closingTime)  # pylint: disable=no-member
     app.exec_()
+
+
+def __setup_sentry():
+    """Setup sentry if cuegui.Constants.SENTRY_DSN is defined, nop otherwise"""
+    if not cuegui.Constants.SENTRY_DSN:
+        return
+
+    try:
+        # pylint: disable=import-outside-toplevel
+        # Avoid importing sentry on the top level to make this dependency optional
+        import sentry_sdk
+        sentry_sdk.init(cuegui.Constants.SENTRY_DSN)
+        sentry_sdk.set_user({
+            'username': getpass.getuser()
+        })
+    except ImportError:
+        logger.warning('Failed to import Sentry')
+
+
+def warning_handler(msg_type, msg_log_context, msg_string):
+    """
+    Handler qt warnings. Ignore known warning messages that happens when
+    multi-threaded/multiple updates happen in a short span
+    """
+    if ('QTextCursor::setPosition:' in msg_string or
+        'SelectionRequest too old' in msg_string):
+        return
+
+    logger.warning('%s: %s, Message: %s',
+                   str(msg_type),
+                   str(msg_log_context),
+                   str(msg_string))
+
 
 def closingTime():
     """Window close callback."""

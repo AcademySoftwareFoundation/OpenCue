@@ -297,14 +297,16 @@ public class HostReportHandlerTests extends TransactionalTest {
         *   Precondition:
         *     - HardwareState=UP
         *   Action:
-        *     - Receives a HostReport with freeTempDir < dispatcher.min_bookable_free_temp_dir_kb (opencue.properties)
+        *     - Receives a HostReport with less freeTempDir than the threshold
+        *       (opencue.properties: min_available_temp_storage_percentage)
         *   Postcondition:
         *     - Host hardwareState changes to REPAIR
-        *     - A comment is created with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and user=CUEBOT_COMMENT_USER
+        *     - A comment is created with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and
+        *       user=CUEBOT_COMMENT_USER
         * */
-        // Create HostReport
+        // Create HostReport with totalMcp=4GB and freeMcp=128MB
         HostReport report1 = HostReport.newBuilder()
-                .setHost(getRenderHostBuilder(hostname).setFreeMcp(1024L).build())
+                .setHost(getRenderHostBuilder(hostname).setFreeMcp(CueUtil.MB128).build())
                 .setCoreInfo(cores)
                 .build();
         // Call handleHostReport() => Create the comment with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and change the
@@ -335,11 +337,13 @@ public class HostReportHandlerTests extends TransactionalTest {
 
         /*
          * Test 2:
-         *   Precondition: 
+         *   Precondition:
          *     - HardwareState=REPAIR
-         *     - There is a comment for the host with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and user=CUEBOT_COMMENT_USER
+         *     - There is a comment for the host with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and
+         *       user=CUEBOT_COMMENT_USER
          *   Action:
-         *     - Receives a HostReport with freeTempDir >= dispatcher.min_bookable_free_temp_dir_kb (opencue.properties)
+         *     Receives a HostReport with more freeTempDir than the threshold
+         *       (opencue.properties: min_available_temp_storage_percentage)
          *   Postcondition:
          *     - Host hardwareState changes to UP
          *     - Comment with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and user=CUEBOT_COMMENT_USER gets deleted
@@ -544,81 +548,94 @@ public class HostReportHandlerTests extends TransactionalTest {
 
         // Ok
         RunningFrameInfo info1 = RunningFrameInfo.newBuilder()
-                .setJobId(proc1.getJobId())
-                .setLayerId(proc1.getLayerId())
-                .setFrameId(proc1.getFrameId())
-                .setResourceId(proc1.getProcId())
-                .setVsize(CueUtil.GB2)
-                .setRss(CueUtil.GB2)
-                .setMaxRss(CueUtil.GB2)
-                .build();
+                        .setJobId(proc1.getJobId())
+                        .setLayerId(proc1.getLayerId())
+                        .setFrameId(proc1.getFrameId())
+                        .setResourceId(proc1.getProcId())
+                        .setUsedSwapMemory(CueUtil.MB512 - CueUtil.MB128)
+                        .setVsize(CueUtil.GB2)
+                        .setRss(CueUtil.GB2)
+                        .setMaxRss(CueUtil.GB2)
+                        .build();
 
         // Overboard Rss
         RunningFrameInfo info2 = RunningFrameInfo.newBuilder()
-                .setJobId(proc2.getJobId())
-                .setLayerId(proc2.getLayerId())
-                .setFrameId(proc2.getFrameId())
-                .setResourceId(proc2.getProcId())
-                .setVsize(CueUtil.GB4)
-                .setRss(CueUtil.GB4)
-                .setMaxRss(CueUtil.GB4)
-                .build();
+                        .setJobId(proc2.getJobId())
+                        .setLayerId(proc2.getLayerId())
+                        .setFrameId(proc2.getFrameId())
+                        .setResourceId(proc2.getProcId())
+                        .setUsedSwapMemory(CueUtil.MB512)
+                        .setVsize(CueUtil.GB4)
+                        .setRss(CueUtil.GB4)
+                        .setMaxRss(CueUtil.GB4)
+                        .build();
 
         // Overboard Rss
         long memoryUsedProc3 = CueUtil.GB8;
         RunningFrameInfo info3 = RunningFrameInfo.newBuilder()
-                .setJobId(proc3.getJobId())
-                .setLayerId(proc3.getLayerId())
-                .setFrameId(proc3.getFrameId())
-                .setResourceId(proc3.getProcId())
-                .setVsize(memoryUsedProc3)
-                .setRss(memoryUsedProc3)
-                .setMaxRss(memoryUsedProc3)
-                .build();
+                        .setJobId(proc3.getJobId())
+                        .setLayerId(proc3.getLayerId())
+                        .setFrameId(proc3.getFrameId())
+                        .setResourceId(proc3.getProcId())
+                        .setUsedSwapMemory(CueUtil.MB512 * 2)
+                        .setVsize(memoryUsedProc3)
+                        .setRss(memoryUsedProc3)
+                        .setMaxRss(memoryUsedProc3)
+                        .build();
 
-        RenderHost hostAfterUpdate = getRenderHostBuilder(hostname).setFreeMem(0).build();
+        RenderHost hostAfterUpdate = getRenderHostBuilder(hostname)
+                        .setFreeMem(0)
+                        .setFreeSwap(CueUtil.GB2 -
+                                info1.getUsedSwapMemory() -
+                                info2.getUsedSwapMemory() -
+                                info3.getUsedSwapMemory())
+                        .build();
 
         HostReport report = HostReport.newBuilder()
-                .setHost(hostAfterUpdate)
-                .setCoreInfo(getCoreDetail(200, 200, 0, 0))
-                .addAllFrames(Arrays.asList(info1, info2, info3))
-                .build();
+                        .setHost(hostAfterUpdate)
+                        .setCoreInfo(getCoreDetail(200, 200, 0, 0))
+                        .addAllFrames(Arrays.asList(info1, info2, info3))
+                        .build();
 
         // Get layer state before report gets sent
         LayerDetail layerBeforeIncrease = jobManager.getLayerDetail(proc3.getLayerId());
 
-        // In this case, killing one job should be enough to ge the machine to a safe state
+        // In this case, killing 2 frames should be enough to ge the machine to a safe
+        // state. Total Swap: 2GB, usage before kill: 1944MB, usage after kill: 348 (less than 20%)
         long killCount = DispatchSupport.killedOffenderProcs.get();
         hostReportHandler.handleHostReport(report, false);
-        assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
+        assertEquals(killCount + 2, DispatchSupport.killedOffenderProcs.get());
 
-        // Confirm the frame will be set to retry after it's completion has been processed
+        // Confirm the frame will be set to retry after it's completion has been
+        // processed
 
         RunningFrameInfo runningFrame = RunningFrameInfo.newBuilder()
-                .setFrameId(proc3.getFrameId())
-                .setFrameName("frame_name")
-                .setLayerId(proc3.getLayerId())
-                .setRss(memoryUsedProc3)
-                .setMaxRss(memoryUsedProc3)
-                .setResourceId(proc3.id)
-                .build();
+                        .setFrameId(proc3.getFrameId())
+                        .setFrameName("frame_name")
+                        .setLayerId(proc3.getLayerId())
+                        .setRss(memoryUsedProc3)
+                        .setMaxRss(memoryUsedProc3)
+                        .setResourceId(proc3.id)
+                        .build();
         FrameCompleteReport completeReport = FrameCompleteReport.newBuilder()
-                .setHost(hostAfterUpdate)
-                .setFrame(runningFrame)
-                .setExitSignal(9)
-                .setRunTime(1)
-                .setExitStatus(1)
-                .build();
+                        .setHost(hostAfterUpdate)
+                        .setFrame(runningFrame)
+                        .setExitSignal(9)
+                        .setRunTime(1)
+                        .setExitStatus(1)
+                        .build();
 
         frameCompleteHandler.handleFrameCompleteReport(completeReport);
         FrameDetail killedFrame = jobManager.getFrameDetail(proc3.getFrameId());
         LayerDetail layer = jobManager.getLayerDetail(proc3.getLayerId());
         assertEquals(FrameState.WAITING, killedFrame.state);
-        // Memory increases are processed in two different places one will set the new value to proc.reserved + 2GB
-        // and the other will set to the maximum reported proc.maxRss the end value will be whoever is higher.
+        // Memory increases are processed in two different places.
+        // First: proc.reserved + 2GB
+        // Second: the maximum reported proc.maxRss
+        // The higher valuer beween First and Second wins.
         // In this case, proc.maxRss
         assertEquals(Math.max(memoryUsedProc3, layerBeforeIncrease.getMinimumMemory() + CueUtil.GB2),
-                layer.getMinimumMemory());
+                        layer.getMinimumMemory());
     }
 }
 

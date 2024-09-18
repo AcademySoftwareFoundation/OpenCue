@@ -21,7 +21,9 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import object
-from PySide2 import QtCore, QtGui, QtWidgets
+from functools import partial
+
+from qtpy import QtCore, QtGui, QtWidgets
 
 from cuesubmit import Constants
 from cuesubmit.ui import Style
@@ -53,8 +55,10 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         self.lineEdit = CueLineEdit(defaultText, completerStrings=completers)
         self.lineEdit.setToolTip(tooltip)
+        self.browseButton = QtWidgets.QPushButton(text='Browse')
         self.horizontalLine = CueHLine()
         self.validators = validators or []
+        self.setter = self.setText
         self.setupUi()
         self.setupConnections()
         self.setAutoFillBackground(True)
@@ -64,6 +68,7 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.setLayout(self.mainLayout)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
         self.mainLayout.addWidget(self.lineEdit, 1, 0, 1, 4)
+        self.browseButton.setVisible(False)
         self.mainLayout.addWidget(self.horizontalLine, 2, 0, 1, 4)
         self.label.setStyleSheet(Style.LABEL_TEXT)
 
@@ -73,6 +78,34 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.lineEdit.textChanged.connect(self.validateText)
         self.lineEdit.focusChange.connect(self.textFocusChange)
         # pylint: enable=no-member
+
+    def setFileBrowsable(self, fileFilter=None):
+        """ Displays the Browse button and hook it to a fileBrowser with optional file filters
+
+        :param fileFilter: single or multiple file filters (ex: 'Maya Ascii File (*.ma)')
+        :type fileFilter: str or list
+        """
+        self._showBrowseButton()
+        if isinstance(fileFilter, (list, tuple)):
+            fileFilter = ';;'.join(fileFilter)
+        # pylint: disable=no-member
+        self.browseButton.clicked.connect(partial(_setBrowseFileText,
+                                                  widget_setter=self.setter,
+                                                  fileFilter=fileFilter))
+
+    def setFolderBrowsable(self):
+        """ Displays the Browse button and hook it to a folderBrowser """
+        self._showBrowseButton()
+        # pylint: disable=no-member
+        self.browseButton.clicked.connect(partial(_setBrowseFolderText,
+                                                  widget_setter=self.setter))
+
+    def _showBrowseButton(self):
+        """ Re-layout lineEdit and browse button and display it """
+        self.mainLayout.removeWidget(self.lineEdit)
+        self.mainLayout.addWidget(self.lineEdit, 1, 0, 1, 3)
+        self.mainLayout.addWidget(self.browseButton, 1, 3, 1, 1)
+        self.browseButton.setVisible(True)
 
     def setText(self, text):
         """Set the text to the given value.
@@ -103,6 +136,11 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         @return: current text
         """
         return self.lineEdit.text()
+
+    def greyOut(self):
+        """Make widget grey and read-only"""
+        self.lineEdit.setReadOnly(True)
+        self.lineEdit.setStyleSheet(Style.DISABLED_LINE_EDIT)
 
 
 class CueLineEdit(QtWidgets.QLineEdit):
@@ -357,6 +395,7 @@ class CueLabelSlider(QtWidgets.QWidget):
         """
         self.slider.setValue(value*self.float_mult)
 
+
 class CueLabelToggle(QtWidgets.QWidget):
     """Container widget that holds a label and a toggle."""
 
@@ -529,6 +568,45 @@ def separatorLine():
     line.setStyleSheet(Style.SEPARATOR_LINE)
     return line
 
+def getFile(fileFilter=None):
+    """ Opens a file browser and returns the result
+    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;
+                       Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :type fileFilter: str
+    :returns: Name of the file
+    :rtype: str
+    """
+    filename, _ = QtWidgets.QFileDialog.getOpenFileName(caption='Select file',
+                                                        dir='.', filter=fileFilter)
+    return filename
+
+def getFolder():
+    """ Opens a folder browser and returns the result
+    :returns: Name of the folder
+    :rtype: str
+    """
+    folder = QtWidgets.QFileDialog.getExistingDirectory(caption='Select folder',
+                                                        dir='.', filter='')
+    return folder
+
+def _setBrowseFileText(widget_setter, fileFilter):
+    """ wrapper function to open a fileBrowser and set its result back in the widget
+    :param widget_setter: widget's function to set its text
+    :type widget_setter: function
+    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;
+                       Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :type fileFilter: str
+    """
+    result = getFile(fileFilter)
+    widget_setter(result)
+
+def _setBrowseFolderText(widget_setter):
+    """ wrapper function to open a folderBrowser and set its result back in the widget
+    :param widget_setter: widget's function to set its text
+    :type widget_setter: function
+    """
+    result = getFolder()
+    widget_setter(result)
 
 class CueMessageBox(QtWidgets.QMessageBox):
     """A QMessageBox with message and OK button."""

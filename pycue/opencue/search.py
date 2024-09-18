@@ -114,7 +114,7 @@ class FrameSearch(BaseSearch):
     """Class for searching for frames."""
 
     page = 1
-    limit = 1000
+    limit = 500
     change_date = 0
 
     @classmethod
@@ -277,12 +277,12 @@ def _createCriterion(search, searchType, convert=None):
     if search.startswith("gt"):
         criterion = getattr(criterion_pb2,
                             "GreaterThan%sSearchCriterion" % searchTypeStr)
-        return criterion(_convert(search[2:]))
+        return criterion(value=_convert(search[2:]))
 
     if search.startswith("lt"):
         criterion = getattr(criterion_pb2,
                             "LessThan%sSearchCriterion" % searchTypeStr)
-        return criterion(_convert(search[2:]))
+        return criterion(value=_convert(int(search[2:])))
 
     if search.find("-") > -1:
         criterion = getattr(criterion_pb2,
@@ -387,6 +387,8 @@ def _setOptions(criteria, options):
                     _createCriterion(v, int, lambda duration: (60 * 60 * duration)))
         elif k == "limit":
             criteria.max_results = int(v)
+        elif k == "page" and isinstance(criteria, job_pb2.FrameSearchCriteria):
+            criteria.page = int(v)
         elif k == "offset":
             criteria.first_result = int(v)
         elif k == "include_finished":

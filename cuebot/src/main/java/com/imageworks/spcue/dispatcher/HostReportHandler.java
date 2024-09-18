@@ -21,6 +21,7 @@ package com.imageworks.spcue.dispatcher;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,11 +48,11 @@ import com.imageworks.spcue.JobEntity;
 import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LocalHostAssignment;
+import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dispatcher.HostReportHandler.KillCause;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
@@ -66,12 +67,10 @@ import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.rqd.RqdClient;
-import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
 
 import static com.imageworks.spcue.dispatcher.Dispatcher.*;
@@ -96,10 +95,14 @@ public class HostReportHandler {
     private Environment env;
     @Autowired
     private CommentManager commentManager;
+    @Autowired
+    private PrometheusMetricsCollector prometheusMetrics;
+
     // Comment constants
     private static final String SUBJECT_COMMENT_FULL_TEMP_DIR = "Host set to REPAIR for not having enough storage " +
             "space on the temporary directory (mcp)";
     private static final String CUEBOT_COMMENT_USER = "cuebot";
+    private static final String WINDOWS_OS = "Windows";
 
     // A cache <hostname_frameId, count> to store kill requests and count the number of occurrences.
     // The cache expires after write to avoid growing unbounded. If a request for a host-frame doesn't appear
@@ -182,7 +185,11 @@ public class HostReportHandler {
                         rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
                         rhost.getAttributesMap().get("SP_OS"));
 
-                changeHardwareState(host, report.getHost().getState(), isBoot, report.getHost().getFreeMcp());
+                // Both logics are conflicting, only change hardware state if
+                // there was no need for a tempDirStorage state change
+                if (!changeStateForTempDirStorage(host, report.getHost())) {
+                    changeHardwareState(host, report.getHost().getState(), isBoot);
+                }
                 changeNimbyState(host, report.getHost());
 
                 /**
@@ -247,12 +254,10 @@ public class HostReportHandler {
                 }
             }
 
-            // The minimum amount of free space in the temporary directory to book a host
-            Long minBookableFreeTempDir = env.getRequiredProperty("dispatcher.min_bookable_free_temp_dir_kb", Long.class);
-
-            if (minBookableFreeTempDir != -1 && report.getHost().getFreeMcp() < minBookableFreeTempDir) {
-                msg = String.format("%s doens't have enough free space in the temporary directory (mcp), %dMB needs %dMB",
-                        host.name, (report.getHost().getFreeMcp()/1024),  (minBookableFreeTempDir/1024));
+            if (!isTempDirStorageEnough(report.getHost().getTotalMcp(), report.getHost().getFreeMcp(), host.os)) {
+                msg = String.format(
+                    "%s doens't have enough free space in the temporary directory (mcp), %dMB",
+                        host.name, (report.getHost().getFreeMcp()/1024));
             }
             else if (host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
                 msg = String.format("%s doesn't have enough idle cores, %d needs %d",
@@ -334,6 +339,27 @@ public class HostReportHandler {
     }
 
     /**
+     * Check if a reported temp storage size and availability is enough for running a job
+     *
+     * Use dispatcher.min_available_temp_storage_percentage (opencue.properties) to
+     * define what's the accepted threshold. Providing hostOs is necessary as this feature
+     * is currently not available on Windows hosts
+     *
+     * @param tempTotalStorage Total storage on the temp directory
+     * @param tempFreeStorage Free storage on the temp directory
+     * @param hostOs Reported os
+     * @return
+     */
+    private boolean isTempDirStorageEnough(Long tempTotalStorage, Long tempFreeStorage, String hostOs) {
+        // The minimum amount of free space in the temporary directory to book a host
+        int minAvailableTempPercentage = env.getRequiredProperty(
+            "dispatcher.min_available_temp_storage_percentage", Integer.class);
+
+        return minAvailableTempPercentage == -1 || hostOs.equalsIgnoreCase(WINDOWS_OS) ||
+                (((tempFreeStorage * 100.0) / tempTotalStorage) >= minAvailableTempPercentage);
+    }
+
+    /**
      * Update the hardware state property.
      *
      * If a host pings in with a different hardware state than what
@@ -342,62 +368,11 @@ public class HostReportHandler {
      * updated with a boot report.  If the state is Repair, then state is
      * never updated via RQD.
      *
-     *
-     * Prevent cue frames from booking on hosts with full temporary directories.
-     *
-     * Change host state to REPAIR or UP according the amount of free space
-     * in the temporary directory:
-     * - Set the host state to REPAIR, when the amount of free space in the
-     * temporary directory is less than the minimum required. Add a comment with
-     * subject: SUBJECT_COMMENT_FULL_TEMP_DIR
-     * - Set the host state to UP, when the amount of free space in the temporary directory
-     * is greater or equals to the minimum required and the host has a comment with
-     * subject: SUBJECT_COMMENT_FULL_TEMP_DIR
-     *
      * @param host
      * @param reportState
      * @param isBoot
-     * @param freeTempDir
      */
-    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot, long freeTempDir) {
-
-        // The minimum amount of free space in the temporary directory to book a host
-        Long minBookableFreeTempDir = env.getRequiredProperty("dispatcher.min_bookable_free_temp_dir_kb", Long.class);
-
-        // Prevent cue frames from booking on hosts with full temporary directories
-        if (minBookableFreeTempDir != -1 && !host.os.equalsIgnoreCase("Windows")) {
-            if (host.hardwareState == HardwareState.UP && freeTempDir < minBookableFreeTempDir) {
-
-                // Insert a comment indicating that the Host status = Repair with reason = Full temporary directory
-                CommentDetail c = new CommentDetail();
-                c.subject = SUBJECT_COMMENT_FULL_TEMP_DIR;
-                c.user = CUEBOT_COMMENT_USER;
-                c.timestamp = null;
-                c.message = "Host " + host.getName() + " marked as REPAIR. The current amount of free space in the " +
-                        "temporary directory (mcp) is " + (freeTempDir/1024) + "MB. It must have at least "
-                        + (minBookableFreeTempDir/1024) + "MB of free space in temporary directory";
-                commentManager.addComment(host, c);
-
-                // Set the host state to REPAIR
-                hostManager.setHostState(host, HardwareState.REPAIR);
-                host.hardwareState = HardwareState.REPAIR;
-
-                return;
-            } else if (host.hardwareState == HardwareState.REPAIR && freeTempDir >= minBookableFreeTempDir) {
-                // Check if the host with REPAIR status has comments with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and
-                // user=CUEBOT_COMMENT_USER and delete the comments, if they exists
-                boolean commentsDeleted = commentManager.deleteCommentByHostUserAndSubject(host,
-                        CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_TEMP_DIR);
-
-                if (commentsDeleted) {
-                    // Set the host state to UP
-                    hostManager.setHostState(host, HardwareState.UP);
-                    host.hardwareState = HardwareState.UP;
-                    return;
-                }
-            }
-        }
-
+    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot) {
         // If the states are the same there is no reason to do this update.
         if (host.hardwareState.equals(reportState)) {
             return;
@@ -425,6 +400,61 @@ public class HostReportHandler {
                 break;
 
         }
+    }
+
+    /**
+     * Prevent cue frames from booking on hosts with full temporary directories.
+     *
+     * Change host state to REPAIR or UP according to the amount of free space
+     * in the temporary directory:
+     *   - Set the host state to REPAIR, when the amount of free space in the
+     *     temporary directory is less than the minimum required.
+     *   - Set the host state to UP, when the amount of free space in the temporary directory
+     *     is greater or equal to the minimum required and the host has a comment with
+     *     subject: SUBJECT_COMMENT_FULL_TEMP_DIR
+     *
+     * @param host
+     * @param reportHost
+     * @return
+     */
+    private boolean changeStateForTempDirStorage(DispatchHost host, RenderHost reportHost) {
+        // The minimum amount of free space in the temporary directory to book a host
+        int minAvailableTempPercentage = env.getRequiredProperty(
+            "dispatcher.min_available_temp_storage_percentage", Integer.class);
+
+        // Prevent cue frames from booking on hosts with full temporary directories
+        boolean hasEnoughTempStorage = isTempDirStorageEnough(reportHost.getTotalMcp(), reportHost.getFreeMcp(), host.os);
+        if (!hasEnoughTempStorage && host.hardwareState == HardwareState.UP) {
+            // Insert a comment indicating that the Host status = Repair with reason = Full temporary directory
+            CommentDetail c = new CommentDetail();
+            c.subject = SUBJECT_COMMENT_FULL_TEMP_DIR;
+            c.user = CUEBOT_COMMENT_USER;
+            c.timestamp = null;
+            long requiredTempMb = (long)((minAvailableTempPercentage / 100.0) * reportHost.getTotalMcp()/ 1024);
+            c.message = "Host " + host.getName() + " marked as REPAIR. The current amount of free space in the " +
+                    "temporary directory (mcp) is " + (reportHost.getFreeMcp()/1024) + "MB. It must have at least "
+                    + ((requiredTempMb)) + "MB of free space in temporary directory";
+            commentManager.addComment(host, c);
+
+            // Set the host state to REPAIR
+            hostManager.setHostState(host, HardwareState.REPAIR);
+            host.hardwareState = HardwareState.REPAIR;
+
+            return true;
+        } else if (hasEnoughTempStorage && host.hardwareState == HardwareState.REPAIR) {
+            // Check if the host with REPAIR status has comments with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and
+            // user=CUEBOT_COMMENT_USER and delete the comments, if they exist
+            boolean commentsDeleted = commentManager.deleteCommentByHostUserAndSubject(host,
+                    CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_TEMP_DIR);
+
+            if (commentsDeleted) {
+                // Set the host state to UP
+                hostManager.setHostState(host, HardwareState.UP);
+                host.hardwareState = HardwareState.UP;
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -470,47 +500,88 @@ public class HostReportHandler {
     }
 
     /**
-     * Prevent host from entering an OOM state where oom-killer might start killing important OS processes.
+     * Prevent host from entering an OOM state where oom-killer might start killing
+     * important OS processes and frames start using SWAP memory
      * The kill logic will kick in one of the following conditions is met:
-     *   - Host has less than OOM_MEMORY_LEFT_THRESHOLD_PERCENT memory available
-     *   - A frame is taking more than OOM_FRAME_OVERBOARD_PERCENT of what it had reserved
-     * For frames that are using more than they had reserved but not above the threshold, negotiate expanding
-     * the reservations with other frames on the same host
-     * 
+     * - Host has less than oom_max_safe_used_physical_memory_threshold memory
+     * available and less than oom_max_safe_used_swap_memory_threshold swap
+     * available
+     * - A frame is taking more than OOM_FRAME_OVERBOARD_PERCENT of what it had
+     * reserved
+     * For frames that are using more than they had reserved but not above the
+     * threshold, negotiate expanding the reservations with other frames on the same
+     * host
+     *
      * @param dispatchHost
      * @param report
      */
     private void handleMemoryUsage(final DispatchHost dispatchHost, RenderHost renderHost,
             List<RunningFrameInfo> runningFrames) {
-        // Don't keep memory balances on nimby hosts
-        if (dispatchHost.isNimby) {
+        // Don't keep memory balances on nimby hosts and hosts with invalid memory
+        // information
+        if (dispatchHost.isNimby || renderHost.getTotalMem() <= 0) {
             return;
         }
 
-        final double OOM_MAX_SAFE_USED_MEMORY_THRESHOLD = env
-                .getRequiredProperty("dispatcher.oom_max_safe_used_memory_threshold", Double.class);
+        final double OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD = env
+                .getRequiredProperty("dispatcher.oom_max_safe_used_physical_memory_threshold", Double.class);
+        final double OOM_MAX_SAFE_USED_SWAP_THRESHOLD = env
+                .getRequiredProperty("dispatcher.oom_max_safe_used_swap_memory_threshold", Double.class);
         final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD = env
                 .getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
 
-        boolean memoryWarning = renderHost.getTotalMem() > 0 &&
-                ((double)renderHost.getFreeMem()/renderHost.getTotalMem() <
-                        (1.0 - OOM_MAX_SAFE_USED_MEMORY_THRESHOLD));
+        Double physMemoryUsageRatio = renderHost.getTotalMem() > 0 ?
+            1.0 - renderHost.getFreeMem() / (double) renderHost.getTotalMem() :
+            0.0;
+
+        Double swapMemoryUsageRatio = renderHost.getTotalSwap() > 0 ?
+            1.0 - renderHost.getFreeSwap() / (double) renderHost.getTotalSwap() :
+            0.0;
+
+        // If checking for the swap threshold has been disabled, only memory usage is
+        // taken into consideration.
+        // If checking for memory has been disabled, checking for swap isolated is not
+        // safe, therefore disabled
+        boolean memoryWarning = false;
+        if (OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD > 0.0 && OOM_MAX_SAFE_USED_SWAP_THRESHOLD > 0.0 &&
+            !physMemoryUsageRatio.isNaN() && !swapMemoryUsageRatio.isNaN()) {
+            memoryWarning = physMemoryUsageRatio > OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD &&
+                swapMemoryUsageRatio > OOM_MAX_SAFE_USED_SWAP_THRESHOLD;
+        } else if (OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD > 0.0 && !physMemoryUsageRatio.isNaN()) {
+            memoryWarning = physMemoryUsageRatio > OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD;
+        }
 
         if (memoryWarning) {
-            long memoryAvailable = renderHost.getFreeMem();
-            long minSafeMemoryAvailable = (long)(renderHost.getTotalMem() * (1.0 - OOM_MAX_SAFE_USED_MEMORY_THRESHOLD));
-            // Only allow killing up to 10 frames at a time
-            int killAttemptsRemaining = 10;
-            VirtualProc killedProc = null;
-            do {
-                killedProc = killWorstMemoryOffender(dispatchHost);
-                killAttemptsRemaining -= 1;
-                if (killedProc != null) {
-                    memoryAvailable = memoryAvailable + killedProc.memoryUsed;
+            logger.warn("Memory warning(" + renderHost.getName() + "): physMemoryRatio: " +
+                    physMemoryUsageRatio + ", swapRatio: " + swapMemoryUsageRatio);
+            // Try to kill frames using swap memory as they are probably performing poorly
+            long swapUsed = renderHost.getTotalSwap() - renderHost.getFreeSwap();
+            long maxSwapUsageAllowed = (long) (renderHost.getTotalSwap()
+                    * OOM_MAX_SAFE_USED_SWAP_THRESHOLD);
+
+            // Sort runningFrames bassed on how much swap they are using
+            runningFrames.sort(Comparator.comparingLong((RunningFrameInfo frame) ->
+                frame.getUsedSwapMemory()).reversed());
+
+            int killAttemptsRemaining = 5;
+            for (RunningFrameInfo frame : runningFrames) {
+                // Reached the first frame on the sorted list without swap usage
+                if (frame.getUsedSwapMemory() <= 0) {
+                    break;
                 }
-            } while (killAttemptsRemaining > 0 &&
-                    memoryAvailable < minSafeMemoryAvailable &&
-                    killedProc != null);
+                if (killProcForMemory(frame.getFrameId(), renderHost.getName(),
+                        KillCause.HostUnderOom)) {
+                    swapUsed -= frame.getUsedSwapMemory();
+                    logger.info("Memory warning(" + renderHost.getName() + "): " +
+                        "Killing frame on " + frame.getJobName() + "." +
+                        frame.getFrameName() + ", using too much swap.");
+                }
+
+                killAttemptsRemaining -= 1;
+                if (killAttemptsRemaining <= 0 || swapUsed <= maxSwapUsageAllowed) {
+                    break;
+                }
+            }
         } else {
             // When no mass cleaning was required, check for frames going overboard
             // if frames didn't go overboard, manage its reservations trying to increase
@@ -553,10 +624,12 @@ public class HostReportHandler {
             if (proc.isLocalDispatch) {
                 return false;
             }
-
-            logger.info("Killing frame on " + frame.getJobName() + "." + frame.getFrameName() +
-                    ", using too much memory.");
-            return killProcForMemory(proc, hostname, KillCause.FrameOverboard);
+            boolean killed = killProcForMemory(proc.frameId, hostname, KillCause.FrameOverboard);
+            if (killed) {
+                logger.info("Killing frame on " + frame.getJobName() + "." + frame.getFrameName() +
+                        ", using too much memory.");
+            }
+            return killed;
         } catch (EmptyResultDataAccessException e) {
             return false;
         }
@@ -577,22 +650,33 @@ public class HostReportHandler {
         }
         killRequestCounterCache.put(cacheKey, cachedCount);
         if (cachedCount > FRAME_KILL_RETRY_LIMIT) {
-            FrameInterface frame = jobManager.getFrame(frameId);
-            JobInterface job = jobManager.getJob(frame.getJobId());
-
-            logger.warn("KillRequest blocked for " + job.getName() + "." + frame.getName() +
-                    " blocked for host " + hostname + ". The kill retry limit has been reached.");
+            // If the kill retry limit has been reached, notify prometheus of the issue and
+            // give up
+            if (!dispatcher.isTestMode()) {
+                try {
+                    FrameInterface frame = jobManager.getFrame(frameId);
+                    JobInterface job = jobManager.getJob(frame.getJobId());
+                    prometheusMetrics.incrementFrameKillFailureCounter(
+                            hostname,
+                            job.getName(),
+                            frame.getName(),
+                            frameId);
+                } catch (EmptyResultDataAccessException e) {
+                    logger.info(
+                            "Trying to kill a frame that no longer exists: host=" + hostname + " frameId=" + frameId);
+                }
+            }
             return false;
         }
         return true;
     }
 
-    private boolean killProcForMemory(VirtualProc proc, String hostname, KillCause killCause) {
-        if (!getKillClearance(hostname, proc.frameId)) {
+    private boolean killProcForMemory(String frameId, String hostname, KillCause killCause) {
+        if (!getKillClearance(hostname, frameId)) {
             return false;
         }
 
-        FrameInterface frame = jobManager.getFrame(proc.frameId);
+        FrameInterface frame = jobManager.getFrame(frameId);
         if (dispatcher.isTestMode()) {
             // Different threads don't share the same database state on the test environment
             (new DispatchRqdKillFrameMemory(hostname, frame, killCause.toString(), rqdClient,
@@ -601,6 +685,7 @@ public class HostReportHandler {
             try {
                 killQueue.execute(new DispatchRqdKillFrameMemory(hostname, frame, killCause.toString(), rqdClient,
                         dispatchSupport, dispatcher.isTestMode()));
+                prometheusMetrics.incrementFrameKilledCounter(hostname, killCause);
             } catch (TaskRejectedException e) {
                 logger.warn("Unable to add a DispatchRqdKillFrame request, task rejected, " + e);
                 return false;
@@ -624,34 +709,13 @@ public class HostReportHandler {
                         frameId,
                         killCause.toString(),
                         rqdClient));
+                prometheusMetrics.incrementFrameKilledCounter(hostname, killCause);
             } catch (TaskRejectedException e) {
                 logger.warn("Unable to add a DispatchRqdKillFrame request, task rejected, " + e);
             }
         }
         DispatchSupport.killedOffenderProcs.incrementAndGet();
         return true;
-    }
-
-    /**
-     * Kill proc with the worst user/reserved memory ratio.
-     *
-     * @param host
-     * @return killed proc, or null if none could be found or failed to be killed
-     */
-    private VirtualProc killWorstMemoryOffender(final DispatchHost host) {
-        try {
-            VirtualProc proc = hostManager.getWorstMemoryOffender(host);
-            logger.info("Killing frame on " + proc.getName() + ", host is under stress.");
-
-            if (!killProcForMemory(proc, host.getName(), KillCause.HostUnderOom)) {
-                proc = null;
-            }
-            return proc;
-        }
-        catch (EmptyResultDataAccessException e) {
-            logger.error(host.name + " is under OOM and no proc is memory overboard.");
-            return null;
-        }
     }
 
     /**
@@ -783,7 +847,6 @@ public class HostReportHandler {
     private void updateMemoryUsageAndLluTime(List<RunningFrameInfo> rFrames) {
 
         for (RunningFrameInfo rf: rFrames) {
-
             FrameInterface frame = jobManager.getFrame(rf.getFrameId());
 
             dispatchSupport.updateFrameMemoryUsageAndLluTime(frame,
@@ -791,7 +854,9 @@ public class HostReportHandler {
 
             dispatchSupport.updateProcMemoryUsage(frame, rf.getRss(), rf.getMaxRss(),
                     rf.getVsize(), rf.getMaxVsize(), rf.getUsedGpuMemory(),
-                    rf.getMaxUsedGpuMemory(), rf.getChildren().toByteArray());
+                    rf.getMaxUsedGpuMemory(), rf.getUsedSwapMemory(),
+                    rf.getChildren().toByteArray());
+
         }
 
         updateJobMemoryUsage(rFrames);

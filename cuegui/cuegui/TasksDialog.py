@@ -199,6 +199,7 @@ class TaskMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def _update(self):
         """Adds the feature of forcing the items to be sorted by the first
         column"""
+        # pylint: disable=protected-access
         cuegui.AbstractTreeWidget.AbstractTreeWidget._update(self)
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 

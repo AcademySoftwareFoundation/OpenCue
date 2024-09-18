@@ -71,10 +71,12 @@ class LayerPropertiesItem(QtWidgets.QWidget):
     """An key/value widget for populating a dialog box."""
     def __init__(self, label, widget, stretch=True, help_widget=None, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
+        # pylint: disable=unused-private-member
         self.__label = label
         self.__widget = widget
 
         layout = QtWidgets.QHBoxLayout(self)
+        layout.setContentsMargins(1, 1, 1, 1)
         if label:
             layout.addWidget(QtWidgets.QLabel(label, self))
         if stretch:
@@ -227,14 +229,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__timeout.setValue(self.getTimeout())
         self.__timeout_llu.setValue(self.getTimeoutLLU())
 
-        topLayout = QtWidgets.QVBoxLayout()
-        topWidget = QtWidgets.QWidget()
-        topWidget.setLayout(topLayout)
-        scrollArea = QtWidgets.QScrollArea(widgetResizable=True)
-        scrollArea.setWidget(topWidget)
-
         QtWidgets.QVBoxLayout(self)
-        self.layout().addWidget(scrollArea)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(EnableableItem(LayerPropertiesItem("Minimum Memory:",
@@ -280,10 +275,10 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         layout.addStretch()
         self.__group.setLayout(layout)
 
-        topLayout.addWidget(EnableableItem(self.__tags, multiSelect))
-        topLayout.addWidget(EnableableItem(self.__limits, multiSelect))
-        topLayout.addWidget(self.__group)
-        topLayout.addWidget(self.__buttons)
+        self.layout().addWidget(EnableableItem(self.__tags, multiSelect))
+        self.layout().addWidget(EnableableItem(self.__limits, multiSelect))
+        self.layout().addWidget(self.__group)
+        self.layout().addWidget(self.__buttons)
 
     def _cfg(self):
         """
@@ -357,6 +352,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
 
     def getMaxGpuMemory(self):
         """Gets the layer max GPU memory."""
+        # pylint: disable=consider-using-generator
         return max([layer.data.min_gpu_memory // self.gpu_mem_tick_kb for layer in self.__layers])
 
     def getMinCores(self):
@@ -524,6 +520,7 @@ class LayerTagsDialog(QtWidgets.QDialog):
         QtWidgets.QDialog.__init__(self, parent)
         self._tags_widget = LayerTagsWidget(layers=layers,
                                             parent=parent)
+        # pylint: disable=unused-private-member
         self.__warning = QtWidgets.QLabel(
             'Warning: Changing these tags may cause your job to not run any frames')
         self.__buttons = QtWidgets.QDialogButtonBox(

@@ -25,8 +25,11 @@ from __future__ import division
 
 from builtins import str
 from builtins import range
+
+import os
 import sys
 import time
+import yaml
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -45,6 +48,9 @@ logger = cuegui.Logger.getLogger(__file__)
 
 class MainWindow(QtWidgets.QMainWindow):
     """The main window of the application. Multiple windows may exist."""
+
+    # Message to be displayed when a change requires an application restart
+    USER_CONFIRM_RESTART = "You must restart for this action to take effect, close window?: "
 
     windows = []
     windows_names = []
@@ -68,6 +74,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.name = window_name
         else:
             self.name = self.windows_names[0]
+        self.__isEnabled = yaml.safe_load(self.app.settings.value("EnableJobInteraction", "False"))
 
         # Provides a location for widgets to the right of the menu
         menuLayout = QtWidgets.QHBoxLayout()
@@ -117,6 +124,13 @@ class MainWindow(QtWidgets.QMainWindow):
         msg += "Python:\n%s\n\n" % sys.version
         QtWidgets.QMessageBox.about(self, "About", msg)
 
+    def handleExit(self, sig, flag):
+        """Save current state and close the application"""
+        del sig
+        del flag
+        self.__saveSettings()
+        self.__windowCloseApplication()
+
     @staticmethod
     def openSuggestionPage():
         """Opens the suggestion page URL."""
@@ -147,7 +161,9 @@ class MainWindow(QtWidgets.QMainWindow):
         menu.triggered.connect(self.__facilityMenuHandle)
 
         cue_config = opencue.Cuebot.getConfig()
-        self.facility_default = cue_config.get("cuebot.facility_default")
+        self.facility_default = os.getenv(
+            "CUEBOT_FACILITY",
+            cue_config.get("cuebot.facility_default"))
         self.facility_dict = cue_config.get("cuebot.facility")
 
         for facility in self.facility_dict:
@@ -172,13 +188,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.__actions_facility[self.facility_default].setChecked(True)
         # Uncheck all other facilities if one is checked
         else:
-            for facility in self.__actions_facility:
+            for facility, facvalue in self.__actions_facility.items():
                 if facility != action.text():
-                    self.__actions_facility[facility].setChecked(False)
+                    facvalue.setChecked(False)
 
         for facility in list(self.__actions_facility.values()):
             if facility.isChecked():
-                opencue.Cuebot.setFacility(str(facility.text()))
+                opencue.Cuebot.setHostWithFacility(str(facility.text()))
                 self.app.facility_changed.emit()
                 return
 
@@ -190,10 +206,26 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Menu bar
         self.fileMenu = self.menuBar().addMenu("&File")
-        self.facilityMenu = self.__facilityMenuSetup(self.menuBar().addMenu("&Cuebot"))
+        self.facilityMenu = self.__facilityMenuSetup(self.menuBar().addMenu("&Cuebot Facility"))
         self.PluginMenu = self.menuBar().addMenu("&Views/Plugins")
         self.windowMenu = self.menuBar().addMenu("&Window")
         self.helpMenu = self.menuBar().addMenu("&Help")
+
+        if self.__isEnabled is False:
+            # Menu Bar: File -> Enable Job Interaction
+            enableJobInteraction = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'),
+                                                     '&Enable Job Interaction', self)
+            enableJobInteraction.setStatusTip('Enable Job Interaction')
+            enableJobInteraction.triggered.connect(self.__enableJobInteraction)
+            self.fileMenu.addAction(enableJobInteraction)
+        # allow user to disable the job interaction
+        else:
+            # Menu Bar: File -> Disable Job Interaction
+            enableJobInteraction = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'),
+                                                     '&Disable Job Interaction', self)
+            enableJobInteraction.setStatusTip('Disable Job Interaction')
+            enableJobInteraction.triggered.connect(self.__enableJobInteraction)
+            self.fileMenu.addAction(enableJobInteraction)
 
         # Menu Bar: File -> Close Window
         close = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), '&Close Window', self)
@@ -300,12 +332,13 @@ class MainWindow(QtWidgets.QMainWindow):
         action_title = str(action.text())
         if action_title.startswith("Open Window: "):
             window_title = action_title.replace("Open Window: ","")
+            # pylint: disable=consider-using-dict-items
             for name in self.windows_titles:
                 if self.windows_titles[name] == window_title:
                     self.windowMenuOpenWindow(name)
 
         elif action_title.endswith("Add new window") and len(action_title) == 18:
-            number = int(action_title[1:].split(")")[0]) - 1
+            number = int(action_title[1:].split(")", maxsplit=1)[0]) - 1
             self.windowMenuOpenWindow(self.windows_names[number])
 
         elif action_title.startswith("Raise Window: "):
@@ -359,9 +392,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowClosed(self):
         """Called from closeEvent on window close"""
 
-        # Disconnect to avoid multiple attempts to close a window
-        self.app.quit.connect(self.close)
-
         # Save the fact that this window is open or not when the app closed
         self.settings.setValue("%s/Open" % self.name, self.app.closingApp)
 
@@ -381,6 +411,8 @@ class MainWindow(QtWidgets.QMainWindow):
         to exit."""
         self.app.closingApp = True
         self.app.quit.emit()
+        # Give the application some time to save the state
+        time.sleep(4)
 
     ################################################################################
 
@@ -453,9 +485,26 @@ class MainWindow(QtWidgets.QMainWindow):
         result = QtWidgets.QMessageBox.question(
                     self,
                     "Restart required ",
-                    "You must restart for this action to take effect, close window?: ",
+                    MainWindow.USER_CONFIRM_RESTART,
                     QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
 
         if result == QtWidgets.QMessageBox.Yes:
             self.settings.setValue("RevertLayout", True)
             self.__windowCloseApplication()
+
+    def __enableJobInteraction(self):
+        """ Enable/Disable user job interaction """
+        result = QtWidgets.QMessageBox.question(
+                    self,
+                    "Job Interaction Settings ",
+                    MainWindow.USER_CONFIRM_RESTART,
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+
+        if result == QtWidgets.QMessageBox.Yes:
+            # currently not enabled, user wants to enable
+            if self.__isEnabled is False:
+                self.settings.setValue("EnableJobInteraction", 1)
+                self.__windowCloseApplication()
+            else:
+                self.settings.setValue("EnableJobInteraction", 0)
+                self.__windowCloseApplication()

@@ -20,7 +20,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from PySide2 import QtGui
+from qtpy import QtGui
 
 
 MAIN_WINDOW = """
@@ -239,6 +239,23 @@ QMenu {
 
 QMenu::item:selected {
     background-color: rgb(30, 40, 50);
+}
+"""
+
+DISABLED_LINE_EDIT = """
+QLineEdit {
+    color: rgb(110, 110, 110);
+    border: 0px solid;
+    background-color: rgb(30, 35, 40);
+    border-radius: 4px;
+}
+"""
+
+GROUP_BOX = """
+QGroupBox {
+    border: 3px solid rgb(30, 40, 50);
+    border-radius: 6px;
+    font-size: 8pt;
 }
 """
 

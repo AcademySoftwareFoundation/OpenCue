@@ -71,6 +71,8 @@ class RunningFrame(object):
         self.usedGpuMemory = 0
         self.maxUsedGpuMemory = 0
 
+        self.usedSwapMemory = 0
+
         self.realtime = 0
         self.utime = 0
         self.stime = 0
@@ -98,7 +100,8 @@ class RunningFrame(object):
             num_gpus=self.runFrame.num_gpus,
             max_used_gpu_memory=self.maxUsedGpuMemory,
             used_gpu_memory=self.usedGpuMemory,
-            children=self._serializeChildrenProcs()
+            children=self._serializeChildrenProcs(),
+            used_swap_memory=self.usedSwapMemory,
         )
         return runningFrameInfo
 
@@ -158,6 +161,7 @@ class RunningFrame(object):
                 rqd.rqutil.permissionsHigh()
                 try:
                     if platform.system() == "Windows":
+                        # pylint: disable=consider-using-with
                         subprocess.Popen('taskkill /F /T /PID %i' % self.pid, shell=True)
                     else:
                         os.killpg(self.pid, rqd.rqconstants.KILL_SIGNAL)
@@ -373,6 +377,7 @@ class RetryOnRpcErrorClientInterceptor(
         self._sleeping_policy = sleeping_policy
         self._retry_statuses = status_for_retry
 
+    # pylint: disable=inconsistent-return-statements
     def _intercept_call(self, continuation, client_call_details,
                         request_or_iterator):
         for attempt in range(self._max_attempts):

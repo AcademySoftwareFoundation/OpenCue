@@ -215,6 +215,7 @@ class CommentListDialog(QtWidgets.QDialog):
             comments[source.data.name] = source.getComments()
         self.__treeSubjects.clear()
         comments_length = 0
+        # pylint: disable=consider-using-dict-items
         for source in comments:
             heading = CommentSource(source)
             heading.setSizeHint(0, QtCore.QSize(500, 1))
