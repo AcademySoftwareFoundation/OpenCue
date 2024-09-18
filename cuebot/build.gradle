@@ -10,7 +10,7 @@ buildscript {
     dependencies {
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.8'
         classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.2.1.RELEASE'
-        classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.6.2'
+        classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.8'
     }
 }
 
@@ -123,7 +123,7 @@ bootJar {
 }
 
 jacoco {
-    toolVersion = "0.8.5"
+    toolVersion = "0.8.12"
 }
 
 jacocoTestReport {
@@ -147,6 +147,7 @@ jacocoTestReport {
 
 sonarqube {
     properties {
+        property "sonar.java.source", "11"
         property "sonar.host.url", "https://sonarcloud.io"
         property "sonar.organization", "academysoftwarefoundation"
         property "sonar.projectKey", "AcademySoftwareFoundation_OpenCue_Cuebot"
