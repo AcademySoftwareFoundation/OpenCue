@@ -590,6 +590,11 @@ def viewFramesOutput(job, frames, actionText):
         launchViewerUsingPaths(paths, actionText)
 
 def getViewer(actionText):
+    """Retrieves the viewer from cuegui.Constants.OUTPUT_VIEWERS using the actionText
+
+    @type  actionText: String
+    @param actionText: String to identity which viewer to use"""
+
     for viewer in cuegui.Constants.OUTPUT_VIEWERS:
         if viewer['action_text'] == actionText:
             return viewer
