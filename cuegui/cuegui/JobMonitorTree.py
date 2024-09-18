@@ -426,7 +426,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.jobs().addAction(menu, "useLocalCores")
 
-        if len(cuegui.Constants.OUTPUT_VIEWERS):
+        if cuegui.Constants.OUTPUT_VIEWERS:
             job = __selectedObjects[0]
             for viewer in cuegui.Constants.OUTPUT_VIEWERS:
                 viewer_menu = QtWidgets.QMenu(viewer['action_text'], self)

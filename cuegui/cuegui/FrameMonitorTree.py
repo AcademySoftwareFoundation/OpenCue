@@ -913,13 +913,13 @@ class FrameContextMenu(QtWidgets.QMenu):
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.frames().addAction(self, "useLocalCores")
 
-        if len(cuegui.Constants.OUTPUT_VIEWERS):
+        if cuegui.Constants.OUTPUT_VIEWERS:
             job = widget.getJob()
             outputPaths = []
             for frame in widget.selectedObjects():
                 layer = job.getLayer(frame.layer())
                 outputPaths.extend(cuegui.Utils.getOutputFromFrame(layer, frame))
-            if len(outputPaths):
+            if outputPaths:
                 for viewer in cuegui.Constants.OUTPUT_VIEWERS:
                     self.addAction(viewer['action_text'],
                                    functools.partial(cuegui.Utils.viewFramesOutput,
