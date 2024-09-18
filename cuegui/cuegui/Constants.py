@@ -187,6 +187,8 @@ OUTPUT_VIEWERS = []
 for viewer in __config.get('output_viewers', {}):
     OUTPUT_VIEWERS.append(viewer)
 
+OUTPUT_VIEWER_DIRECT_CMD_CALL = __config.get('output_viewer_direct_cmd_call')
+
 FINISHED_JOBS_READONLY_FRAME = __config.get('finished_jobs_readonly.frame', False)
 FINISHED_JOBS_READONLY_LAYER = __config.get('finished_jobs_readonly.layer', False)
 

@@ -947,6 +947,10 @@ class FrameContextMenu(QtWidgets.QMenu):
                                                  filterSelectedLayersCallback, "stock-filters")
         self.__menuActions.frames().addAction(self, "reorder").setEnabled(not readonly)
         self.addSeparator()
+        if cuegui.Constants.OUTPUT_VIEWER_DIRECT_CMD_CALL:
+            self.__menuActions.frames().addAction(self, "previewMain")
+        self.__menuActions.frames().addAction(self, "previewAovs")
+        self.addSeparator()
         self.__menuActions.frames().addAction(self, "retry").setEnabled(not readonly)
         self.__menuActions.frames().addAction(self, "eat").setEnabled(not readonly)
         self.__menuActions.frames().addAction(self, "kill").setEnabled(not readonly)
