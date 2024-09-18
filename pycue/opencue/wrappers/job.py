@@ -187,6 +187,17 @@ class Job(object):
         layerSeq = response.layers
         return [opencue.wrappers.layer.Layer(lyr) for lyr in layerSeq.layers]
 
+    def getLayer(self, layerName):
+        """ Returns the layer with the specified name
+        :type:   layername: str
+        :rtype:  opencue.wrappers.layer.Layer
+        :return: specific layer in the job
+        """
+        for layer in self.getLayers():
+            if layer.name() == layerName:
+                return layer
+        return None
+
     def getFrames(self, **options):
         """Returns the list of up to 1000 frames from within the job.
 
