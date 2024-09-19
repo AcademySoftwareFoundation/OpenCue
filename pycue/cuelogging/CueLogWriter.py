@@ -14,10 +14,13 @@
 
 """Module for writing files"""
 
+import logging
 import os
 import platform
 import datetime
 import time
+
+log = logging.getLogger(__name__)
 
 class CueLogWriter(object):
     """Class to abstract file log writing, this class tries to act as a file object"""
