@@ -195,6 +195,8 @@ DISABLED_ACTION_TYPES = [action_type.strip()
                          for action_type
                          in __config.get('filter_dialog.disabled_action_types', "").split(",")]
 
+SEARCH_JOBS_APPEND_RESULTS = __config.get('search_jobs.append_results', True)
+
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2
 TYPE_FRAME = QtWidgets.QTreeWidgetItem.UserType + 3
