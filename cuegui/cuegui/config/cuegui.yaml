@@ -152,3 +152,8 @@ finished_jobs_readonly.layer: True
 # MOVE_JOB_TO_GROUP, SET_ALL_RENDER_LAYER_MAX_CORES)
 # An empty string means all actions are active.
 filter_dialog.disabled_action_types: ''
+
+# A flag for search job with appended results
+# true to appended to the current list of monitored jobs,
+# false to clear the current job list and show only the new search results
+search_jobs.append_results: True
