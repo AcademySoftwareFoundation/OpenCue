@@ -153,7 +153,7 @@ finished_jobs_readonly.layer: True
 # An empty string means all actions are active.
 filter_dialog.disabled_action_types: ''
 
-# A flag for search job with appended results
-# true to appended to the current list of monitored jobs,
-# false to clear the current job list and show only the new search results
+# Define whether or not new jobs should be appended to the current list of jobs on the JobMonitor widget
+#  - True: search result will append jobs to the current list of monitored jobs
+#  - False: repopulate the jobs table with the search result
 search_jobs.append_results: True
