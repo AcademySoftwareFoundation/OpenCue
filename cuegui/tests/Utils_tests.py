@@ -99,9 +99,10 @@ class UtilsViewerTests(unittest.TestCase):
 
     def test_shouldNotLaunchViewerUsingInvalidCombination(self):
         # Test launching with invalig regex and pattern combination
-        cuegui.Constants.OUTPUT_VIEWERS = [{"action_text": "test",
-                                            "extract_args_regex": r'/shots/(?P<show>\w+)/(?P<name>shot\w+)/.*',
-                                            "cmd_pattern": 'echo show={not_a_show}, shot={shot}'}]
+        cuegui.Constants.OUTPUT_VIEWERS = [
+            {"action_text": "test",
+             "extract_args_regex": r'/shots/(?P<show>\w+)/(?P<name>shot\w+)/.*',
+             "cmd_pattern": 'echo show={not_a_show}, shot={shot}'}]
 
         out = cuegui.Utils.launchViewerUsingPaths(["/shots/test_show/test_shot/something/else"],
                                                   "test",
@@ -110,9 +111,10 @@ class UtilsViewerTests(unittest.TestCase):
 
     def test_shouldLaunchViewerUsingRegextAndPattern(self):
         # Test launching with valid regex and pattern
-        cuegui.Constants.OUTPUT_VIEWERS = [{"action_text": "test",
-                                            "extract_args_regex": r'/shots/(?P<show>\w+)/(?P<shot>\w+)/.*',
-                                            "cmd_pattern": 'echo show={show}, shot={shot}'}]
+        cuegui.Constants.OUTPUT_VIEWERS = [
+            {"action_text": "test",
+             "extract_args_regex": r'/shots/(?P<show>\w+)/(?P<shot>\w+)/.*',
+             "cmd_pattern": 'echo show={show}, shot={shot}'}]
 
         out = cuegui.Utils.launchViewerUsingPaths(["/shots/test_show/test_shot/something/else"],
                                                   "test",
