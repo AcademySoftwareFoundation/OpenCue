@@ -320,7 +320,7 @@ def buildDynamicWidgets(parameters):
 
         if option['type'] is FileNotFoundError:
             widget = Widgets.CueLabelLineEdit( labelText='Error:' )
-            widget.greyOut()
+            widget.disable()
             widget.setText(str(option.get('value')))
             widget.label.setStyleSheet(Style.INVALID_TEXT)
 

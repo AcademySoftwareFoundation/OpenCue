@@ -45,6 +45,8 @@ class SpacerTypes(object):
 
 class CueLabelLineEdit(QtWidgets.QWidget):
     """Container widget that contains a lineedit and label."""
+    textChanged = QtCore.Signal()
+
     def __init__(self, labelText=None, defaultText='', tooltip=None, validators=None,
                  completers=None, parent=None):
         super(CueLabelLineEdit, self).__init__(parent)
@@ -80,6 +82,7 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         """Sets up widget signals."""
         # pylint: disable=no-member
         self.lineEdit.textChanged.connect(self.validateText)
+        self.lineEdit.textChanged.connect(self.textChanged)
         self.lineEdit.focusChange.connect(self.textFocusChange)
         # pylint: enable=no-member
 
@@ -141,10 +144,15 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         """
         return self.lineEdit.text()
 
-    def greyOut(self):
+    def disable(self):
         """Make widget grey and read-only"""
         self.lineEdit.setReadOnly(True)
         self.lineEdit.setStyleSheet(Style.DISABLED_LINE_EDIT)
+
+    def enable(self):
+        """Make widget editable"""
+        self.lineEdit.setReadOnly(False)
+        self.lineEdit.setStyleSheet(Style.LINE_EDIT)
 
 
 class CueLineEdit(QtWidgets.QLineEdit):
