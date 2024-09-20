@@ -58,6 +58,13 @@ def matchNumbersOnly(value):
     return False
 
 
+def matchIntegers(value):
+    """Matches positive and negative integers."""
+    if re.match(r'^-?[0-9]+$', value):
+        return True
+    return False
+
+
 def matchPositiveIntegers(value):
     """Matches integers greater than 0."""
     if re.match(r'^[0-9]+$', value) and int(value) >= 1:
