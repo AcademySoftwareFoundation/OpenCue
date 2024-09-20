@@ -276,6 +276,7 @@ class DynamicSettingsWidget(BaseSettingsWidget):
         self.groupBox.setTitle(f'{tool_name} options')
         self.widgets = buildDynamicWidgets(parameters)
         self.setupUi()
+        self.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Maximum)
         self.setupConnections()
 
     def setupUi(self):
