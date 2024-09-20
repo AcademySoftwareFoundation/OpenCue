@@ -157,6 +157,8 @@ jobs:
           echo $(which java)
           sudo yum -y install java-17-openjdk.x86_64
           echo $(which java)
+          ls -l /usr/bin/java
+          ls /usr/lib/jvm
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build" aswfuser
           su -c "cd cuebot && ./gradlew jacocoTestReport sonar -Dsonar.login=$(SONAR_TOKEN)" aswfuser
