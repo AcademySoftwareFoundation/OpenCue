@@ -103,8 +103,13 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.mainLayout.addWidget(self.scrollArea)
         self.jobInfoLayout = QtWidgets.QVBoxLayout()
         self.layerInfoLayout = QtWidgets.QVBoxLayout()
+        self.layerLayout = QtWidgets.QHBoxLayout()
+        self.layerLayout.setSpacing(0)
+        self.framesLayout = QtWidgets.QHBoxLayout()
+        self.framesLayout.setSpacing(0)
         self.submissionDetailsLayout = QtWidgets.QVBoxLayout()
         self.jobInfoLayout.setContentsMargins(20, 0, 0, 0)
+        self.jobInfoLayout.setSpacing(0)
         self.layerInfoLayout.setContentsMargins(20, 0, 0, 0)
         self.submissionDetailsLayout.setContentsMargins(20, 0, 0, 0)
         self.settingsLayout = QtWidgets.QHBoxLayout()
@@ -157,7 +162,27 @@ class CueSubmitWidget(QtWidgets.QWidget):
             validators=[Validators.matchNoSpecialCharactersOnly, Validators.moreThan3Chars,
                         Validators.matchNoSpaces]
         )
+        self.layerNameInput.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Maximum)
+        self.dependSelector = Widgets.CueSelectPulldown(
+            'Dependency Type:',
+            emptyText='',
+            tooltip='No dependency: start as soon as possible.\n'
+                    'Layer: start after the previous layer.\n'
+                    'Frame: start each frame after the previous layer\'s matching frame finished.',
+            options=[Layer.DependType.Null, Layer.DependType.Layer, Layer.DependType.Frame],
+            multiselect=False)
+
         self.frameBox = Frame.FrameSpecWidget()
+        self.frameBox.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Maximum)
+        self.chunkInput = Widgets.CueLabelLineEdit(
+            'Chunk Size:',
+            '1',
+            tooltip='Chunk frames by this value. Integers equal or greater than 1.',
+            validators=[Validators.matchPositiveIntegers]
+        )
+        self.chunkInput.lineEdit.setFixedWidth(120)
+        self.chunkInput.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+
         jobTypes = self.jobTypes.types()
         self.jobTypeSelector = Widgets.CueSelectPulldown(
             'Job Type:',
@@ -167,10 +192,14 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.jobTypeSelector.setChecked(self.primaryWidgetType)
         self.servicesSelector = Widgets.CueSelectPulldown(
             'Services:',
+            tooltip='A service is a collection of resource requirements and tags that are associated with a layer.\n'
+                    'It is used to help the farm allocate proper resources to the job.',
             options=Util.getServices()
         )
         self.limitsSelector = Widgets.CueSelectPulldown(
             'Limits:',
+            tooltip='A limit is set to avoid running too many jobs.\n'
+                    'For instance it can be the number of licenses available on the farm.',
             options=Util.getLimits()
         )
         self.coresInput = Widgets.CueLabelLineEdit(
@@ -186,18 +215,6 @@ class CueSubmitWidget(QtWidgets.QWidget):
             horizontal=True,
             validators=[Validators.matchIntegers]
         )
-        self.chunkInput = Widgets.CueLabelLineEdit(
-            'Chunk Size:',
-            '1',
-            tooltip='Chunk frames by this value. Integers equal or greater than 1.',
-            validators=[Validators.matchPositiveIntegers]
-        )
-        self.chunkInput.lineEdit.setFixedWidth(120)
-        self.dependSelector = Widgets.CueSelectPulldown(
-            'Dependency Type:',
-            emptyText='',
-            options=[Layer.DependType.Null, Layer.DependType.Layer, Layer.DependType.Frame],
-            multiselect=False)
         self.coresInput.lineEdit.setFixedWidth(103)
 
         allocations = Util.getAllocations()
@@ -205,10 +222,13 @@ class CueSubmitWidget(QtWidgets.QWidget):
         preset_facility = Util.getPresetFacility()
         selected_facility = preset_facility if preset_facility else facilities[0]
         self.facilitySelector = Widgets.CueSelectPulldown(
-            'Facility:',
-            facilities[0],
+            labelText='Facility:',
+            emptyText=facilities[0],
             options=facilities,
-            multiselect=False)
+            multiselect=False,
+            tooltip='If you need to specify where your job is submitted.\n'
+                    f'{facilities[0]} means no specific facility.'
+        )
         self.facilitySelector.setChecked(selected_facility)
 
         self.settingsWidget = self.jobTypes.build(self.primaryWidgetType, *args, **kwargs)
@@ -240,16 +260,17 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.submitButtons.cancelled.connect(self.cancel)
         self.submitButtons.submitted.connect(self.submit)
         self.jobTreeWidget.selectionChanged.connect(self.jobLayerSelectionChanged)
-        self.jobNameInput.lineEdit.textChanged.connect(self.jobDataChanged)
-        self.layerNameInput.lineEdit.textChanged.connect(self.jobDataChanged)
-        self.frameBox.frameSpecInput.lineEdit.textChanged.connect(self.jobDataChanged)
+        self.jobNameInput.textChanged.connect(self.jobDataChanged)
+        self.shotInput.textChanged.connect(self.jobDataChanged)
+        self.layerNameInput.textChanged.connect(self.jobDataChanged)
+        self.frameBox.frameSpecInput.textChanged.connect(self.jobDataChanged)
         self.settingsWidget.dataChanged.connect(self.jobDataChanged)
         self.jobTypeSelector.optionsMenu.triggered.connect(self.jobTypeChanged)
         self.servicesSelector.optionsMenu.triggered.connect(self.jobDataChanged)
         self.limitsSelector.optionsMenu.triggered.connect(self.jobDataChanged)
-        self.chunkInput.lineEdit.textChanged.connect(self.jobDataChanged)
         self.coresInput.stateChanged.connect(self.jobDataChanged)
         self.coresInput.textChanged.connect(self.jobDataChanged)
+        self.chunkInput.textChanged.connect(self.jobDataChanged)
         self.dependSelector.optionsMenu.triggered.connect(self.dependencyChanged)
         # pylint: enable=no-member
 
@@ -260,7 +281,6 @@ class CueSubmitWidget(QtWidgets.QWidget):
 
         self.scrollingLayout.addWidget(Widgets.CueLabelLine('Job Info'))
         self.jobInfoLayout.addWidget(self.jobNameInput)
-        self.jobInfoLayout.addWidget(self.userNameInput)
         self.showLayout.setHorizontalSpacing(20)
         self.showLayout.setColumnStretch(1, 1)
         self.showLayout.addWidget(self.showSelector, 0, 0, 1, 1, QtCore.Qt.AlignLeft)
@@ -270,25 +290,27 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.facilityLayout.setHorizontalSpacing(20)
         self.facilityLayout.setColumnStretch(1, 1)
         self.facilityLayout.addWidget(self.facilitySelector, 0, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self.facilityLayout.addWidget(self.userNameInput, 0, 1, 1, 2)
         self.jobInfoLayout.addLayout(self.facilityLayout, QtCore.Qt.AlignLeft)
 
         self.scrollingLayout.addLayout(self.jobInfoLayout)
-
-        self.scrollingLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
         self.scrollingLayout.addWidget(Widgets.CueLabelLine('Layer Info'))
-        self.layerInfoLayout.addWidget(self.layerNameInput)
-        self.layerInfoLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
-        self.layerInfoLayout.addWidget(self.frameBox)
+
+        self.layerInfoLayout.addLayout(self.layerLayout)
+        self.layerLayout.addWidget(self.layerNameInput)
+        self.layerLayout.addWidget(self.dependSelector)
+
+        self.framesLayout.addWidget(self.frameBox)
+        self.framesLayout.addWidget(self.chunkInput)
+        self.layerInfoLayout.addLayout(self.framesLayout)
 
         self.servicesLayout.addWidget(self.jobTypeSelector)
         self.servicesLayout.addWidget(self.servicesSelector)
         self.servicesLayout.addWidget(self.limitsSelector)
-        self.servicesLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
+        self.servicesLayout.addStretch(1)
         self.layerInfoLayout.addLayout(self.servicesLayout)
 
         self.coresLayout.addWidget(self.coresInput)
-        self.coresLayout.addWidget(self.chunkInput)
-        self.coresLayout.addWidget(self.dependSelector)
         self.coresLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
         self.layerInfoLayout.addLayout(self.coresLayout)
         self.layerInfoLayout.addLayout(self.settingsLayout)
@@ -297,7 +319,6 @@ class CueSubmitWidget(QtWidgets.QWidget):
 
         self.settingsLayout.addWidget(self.settingsWidget)
 
-        self.scrollingLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
         self.scrollingLayout.addWidget(Widgets.CueLabelLine('Submission Details'))
 
         self.submissionDetailsLayout.addWidget(self.jobTreeWidget)
