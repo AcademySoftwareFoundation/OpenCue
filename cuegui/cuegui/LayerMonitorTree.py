@@ -70,7 +70,9 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda layer: self.labelCoresColumn(layer.data.min_cores),
                        sort=lambda layer: layer.data.min_cores,
                        tip="The number of cores that the frames in this layer\n"
-                           "will reserve as a minimum.")
+                           "will reserve as a minimum."
+                           "Zero or negative value indicate that the layer will use\n"
+                           "all available cores on the machine, minus this value.")
         self.addColumn("Memory", 60, id=7,
                        data=lambda layer: cuegui.Utils.memoryToString(layer.data.min_memory),
                        sort=lambda layer: layer.data.min_memory,
