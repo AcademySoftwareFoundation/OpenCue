@@ -136,7 +136,8 @@ jobs:
 
   analyze_cuebot:
     runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2024.1
+    # container: aswf/ci-opencue:2024.1
+    container: openjdk:17-jdk-slim
     name: Analyze Cuebot
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -153,14 +154,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          chown -R aswfuser:aswfgroup .
           cuebot/gradlew dependencies
-          echo ""
-          echo "main JAVA_HOME: \"${JAVA_HOME}\""
-          java -version
-          echo ""
-          su -c "echo aswfuser JAVA_HOME: \"${JAVA_HOME}\"" aswfuser
-          su -c "java -version" aswfuser
-          echo ""
-          su -c "cd cuebot && ./gradlew jacocoTestReport sonar -Dsonar.login=$(SONAR_TOKEN)" aswfuser
+          cd cuebot && ./gradlew jacocoTestReport sonar -Dsonar.login=$(SONAR_TOKEN)
 

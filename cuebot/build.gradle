@@ -152,7 +152,7 @@ sonarqube {
         property "sonar.organization", "academysoftwarefoundation"
         property "sonar.projectKey", "AcademySoftwareFoundation_OpenCue_Cuebot"
         property "sonar.projectName", "OpenCue Cuebot"
-        property "sonar.scanner.skipJreProvisioning", "true"
+        // property "sonar.scanner.skipJreProvisioning", "true"
         // NOTE: sonar.login must be provided manually, like:
         //   ./gradlew sonarqube -Dsonar.login=<login key>
 
