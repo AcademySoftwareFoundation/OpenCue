@@ -157,7 +157,8 @@ jobs:
           sudo yum -y install java-17-openjdk.x86_64
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build" aswfuser
-          su -c "export JAVA_HOME=/usr/lib/jvm/jre-17 && cd cuebot && ./gradlew jacocoTestReport sonar -Dsonar.login=$(SONAR_TOKEN)" aswfuser
+          su -c "cd cuebot && ./gradlew jacocoTestReport" aswfuser
+          su -c "export JAVA_HOME=/usr/lib/jvm/jre-17 && cd cuebot && ./gradlew sonar -Dsonar.login=$(SONAR_TOKEN)" aswfuser
 
 # ls -l /etc/alternatives/java
 # ls /usr/lib/jvm/jre-17
