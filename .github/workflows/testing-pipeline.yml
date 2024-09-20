@@ -154,13 +154,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          echo $(which java)
           sudo yum -y install java-17-openjdk.x86_64
-          echo $(which java)
-          ls -l /etc/alternatives/java
-          ls /usr/lib/jvm/jre-17
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build" aswfuser
-          su -c "cd cuebot && ./gradlew jacocoTestReport sonar -Dsonar.login=$(SONAR_TOKEN)" aswfuser
+          su -c "export JAVA_HOME=/usr/lib/jvm/jre-17 && cd cuebot && ./gradlew jacocoTestReport sonar -Dsonar.login=$(SONAR_TOKEN)" aswfuser
 
+# ls -l /etc/alternatives/java
+# ls /usr/lib/jvm/jre-17
 # cuebot/gradlew dependencies
