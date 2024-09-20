@@ -50,7 +50,7 @@ RENDER_CMDS:
     options:
       "-X {!Write Nodes}": ""
       "-F {Frame Range}": "#FRAME_START#-#FRAME_END#"
-      "-x {!Nuke File}":
+      "-x {!Nuke File*}":
         - Nuke Script File (*.nk)
 
   Isolated Job Example:
