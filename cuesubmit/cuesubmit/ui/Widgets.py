@@ -248,7 +248,7 @@ class CueSelectPulldown(QtWidgets.QWidget):
     """A button that acts like a dropdown and supports multiselect."""
 
     def __init__(
-            self, labelText=None, emptyText='[None]', options=None, multiselect=True, parent=None):
+            self, labelText=None, emptyText='[None]', options=None, tooltip=None, multiselect=True, parent=None):
         super(CueSelectPulldown, self).__init__(parent=parent)
         self.multiselect = multiselect
         self.emptyText = emptyText
@@ -259,13 +259,15 @@ class CueSelectPulldown(QtWidgets.QWidget):
         self.optionsMenu = QtWidgets.QMenu(self)
         self.optionsMenu.setStyleSheet(Style.PULLDOWN_LIST)
         self.setOptions(options)
+        self.setToolTip(tooltip)
         self.signals = [self.optionsMenu.triggered]
         self.getter = self.text
         self.setter = self.setCheckedFromText
         if self.multiselect:
             self.toolButton.setText(self.emptyText)
         else:
-            self.setChecked([options[0]])
+            default_option = self.emptyText if self.emptyText in options else options[0]
+            self.setChecked([default_option])
         self.setupUi()
         self.setupConnections()
 
@@ -363,6 +365,7 @@ class CueSpacerItem(QtWidgets.QSpacerItem):
         @param spacerType: a valid SpacerType
         """
         super(CueSpacerItem, self).__init__(width, height, spacerType[0], spacerType[1])
+
 
 class CueLabelSlider(QtWidgets.QWidget):
     """Container widget that holds a label and an int or float slider.
