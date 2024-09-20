@@ -22,6 +22,7 @@ from __future__ import absolute_import
 
 import os
 import re
+import socket
 
 import opencue
 from cuesubmit import Constants
@@ -35,6 +36,14 @@ def getLimits():
 def getServices():
     """Returns a list of service names from cuebot."""
     return [service.name() for service in opencue.api.getDefaultServices()]
+
+
+def getServiceOption(serviceName, option):
+    """Returns the value of a service property."""
+    service = next(iter(service for service in opencue.api.getDefaultServices() if service.name() == serviceName))
+    if service and hasattr(service, option):
+        return getattr(service, option)()
+    print(f'{service.name()} service has no {option} option.')
 
 
 def getShows():
@@ -68,6 +77,7 @@ def getFacilities(allocations):
     default_facilities = [Constants.DEFAULT_FACILITY_TEXT]
     facilities = set(alloc.data.facility for alloc in allocations)
     return default_facilities + list(facilities)
+
 
 def convertCommandOptions(options):
     """ Parse command options from the config file

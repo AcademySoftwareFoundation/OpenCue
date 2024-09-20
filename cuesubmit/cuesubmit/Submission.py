@@ -29,6 +29,7 @@ import outline.modules.shell
 
 from cuesubmit import Constants
 from cuesubmit import JobTypes
+from cuesubmit import Util
 
 
 def isSoloFlag(flag):
@@ -139,10 +140,17 @@ def buildLayer(layerData, command, lastLayer=None):
     @type lastLayer: outline.layer.Layer
     @param lastLayer: layer that this new layer should be dependent on if dependType is set.
     """
-    threadable = float(layerData.cores) >= 2
+    threadable = False
+    if layerData.overrideCores:
+        threadable = float(layerData.cores) >= 2 or float(layerData.cores) <= 0
+    elif layerData.services and layerData.services[0] in Util.getServices():
+        threadable = Util.getServiceOption(layerData.services[0], 'threadable')
+
+    tags = []
     layer = outline.modules.shell.Shell(
         layerData.name, command=command.split(), chunk=layerData.chunk,
-        threads=float(layerData.cores), range=str(layerData.layerRange), threadable=threadable)
+        overrideCores=layerData.overrideCores, cores=layerData.cores,
+        range=str(layerData.layerRange), threadable=threadable)
     if layerData.services:
         layer.set_service(layerData.services[0])
     if layerData.limits:
