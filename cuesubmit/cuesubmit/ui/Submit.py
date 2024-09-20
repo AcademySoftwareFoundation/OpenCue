@@ -110,6 +110,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.settingsLayout = QtWidgets.QHBoxLayout()
 
         self.coresLayout = QtWidgets.QHBoxLayout()
+        self.coresLayout.setSpacing(10)
         self.servicesLayout = QtWidgets.QHBoxLayout()
         self.showLayout = QtWidgets.QGridLayout()
         self.facilityLayout = QtWidgets.QGridLayout()
@@ -173,10 +174,17 @@ class CueSubmitWidget(QtWidgets.QWidget):
             options=Util.getLimits()
         )
         self.coresInput = Widgets.CueLabelLineEdit(
-            'Min Cores:',
+            'Override Cores:',
             '0',
-            tooltip='Minimum number of cores to run. 0 is any',
-            validators=[Validators.matchNumbersOnly]
+            tooltip='Override the number of cores for this layer\n'
+                    'If disabled, use the service settings.\n'
+                    '0: all cores.\n'
+                    '-2: all cores minus 2.\n'
+                    'Values <= 0 force a host to accept only one job.',
+            toggleable=True,
+            toggleValue=False,
+            horizontal=True,
+            validators=[Validators.matchIntegers]
         )
         self.chunkInput = Widgets.CueLabelLineEdit(
             'Chunk Size:',
@@ -190,6 +198,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
             emptyText='',
             options=[Layer.DependType.Null, Layer.DependType.Layer, Layer.DependType.Frame],
             multiselect=False)
+        self.coresInput.lineEdit.setFixedWidth(103)
 
         allocations = Util.getAllocations()
         facilities = Util.getFacilities(allocations)
@@ -204,7 +213,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
 
         self.settingsWidget = self.jobTypes.build(self.primaryWidgetType, *args, **kwargs)
         self.commandFeedback = Widgets.CueLabelLineEdit( labelText='Final command:' )
-        self.commandFeedback.greyOut()
+        self.commandFeedback.disable()
         self.jobTreeWidget = Job.CueJobWidget()
         self.submitButtons = CueSubmitButtons()
         self.setupUi()
@@ -238,8 +247,9 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.jobTypeSelector.optionsMenu.triggered.connect(self.jobTypeChanged)
         self.servicesSelector.optionsMenu.triggered.connect(self.jobDataChanged)
         self.limitsSelector.optionsMenu.triggered.connect(self.jobDataChanged)
-        self.coresInput.lineEdit.textChanged.connect(self.jobDataChanged)
         self.chunkInput.lineEdit.textChanged.connect(self.jobDataChanged)
+        self.coresInput.stateChanged.connect(self.jobDataChanged)
+        self.coresInput.textChanged.connect(self.jobDataChanged)
         self.dependSelector.optionsMenu.triggered.connect(self.dependencyChanged)
         # pylint: enable=no-member
 
@@ -330,6 +340,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.limitsSelector.clearChecked()
         self.limitsSelector.setChecked(layerObject.limits)
         self.coresInput.setText(str(layerObject.cores))
+        self.coresInput.label.toggle.setValue(bool(layerObject.overrideCores))
         self.chunkInput.setText(str(layerObject.chunk))
         self.dependSelector.clearChecked()
         self.dependSelector.setChecked([layerObject.dependType])
@@ -349,6 +360,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
             cmd=self.settingsWidget.getCommandData(),
             layerRange=self.frameBox.frameSpecInput.text(),
             chunk=self.chunkInput.text(),
+            overrideCores=self.coresInput.toggleValue,
             cores=self.coresInput.text(),
             env=None,
             services=self.servicesSelector.getChecked(),
