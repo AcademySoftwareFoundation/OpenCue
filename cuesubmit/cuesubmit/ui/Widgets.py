@@ -557,7 +557,6 @@ class CueHelpWidget(QtWidgets.QWidget):
         self.mainLayout.addLayout(self.contentLayout, 0, 0, 1, 4)
         self.mainLayout.addWidget(self.helpButton, 0, 4, 1, 1)
         self.mainLayout.addWidget(self.helpTextField, 1, 0, 1, 5)
-        self.mainLayout.addItem(CueSpacerItem(SpacerTypes.VERTICAL), 3, 0, 1, 5)
         self.mainLayout.setVerticalSpacing(0)
         self.mainLayout.setRowStretch(3, 1)
 
