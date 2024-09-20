@@ -18,6 +18,11 @@ RENDER_CMDS:
 
   Maya:
     command: "Render"
+    services:
+      - "maya"
+      - "arnold"
+    limits:
+        - "arnold license limit"
     options:
       "-r {Renderer}":
         - file
@@ -47,6 +52,10 @@ RENDER_CMDS:
 
   Nuke:
     command: "nuke"
+    services:
+      - "nuke"
+    limits:
+        - "nuke license limit"
     options:
       "-X {!Write Nodes}": ""
       "-F {Frame Range}": "#FRAME_START#-#FRAME_END#"
@@ -67,6 +76,12 @@ Help: >
   1) To configure a job directly:
     Command name:
       command: "path/to/executable"
+      services:
+        - "service1"
+        - "service2"
+      limits:
+        - "limit1"
+        - "limit2"
       options:
         "-strFlag": "default value"
         "-strFlagB {Nice Name}": "default value"
