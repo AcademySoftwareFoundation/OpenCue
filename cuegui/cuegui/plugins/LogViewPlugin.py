@@ -514,6 +514,7 @@ class LogViewWidget(QtWidgets.QWidget):
 
         self.SIG_CONTENT_UPDATED.connect(self._update_log_content)
         self.log_thread_pool = QtCore.QThreadPool()
+        self.log_thread_pool.waitForDone()
 
     def _on_mouse_pressed(self, pos):
         """

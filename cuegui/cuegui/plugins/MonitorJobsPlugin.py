@@ -81,6 +81,9 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                      ("jobs",
                                       self.getJobIds,
                                       self.restoreJobIds),
+                                     ("userColors",
+                                      self.jobMonitor.getUserColors,
+                                      self.jobMonitor.setUserColors),
                                      ("columnVisibility",
                                       self.jobMonitor.getColumnVisibility,
                                       self.jobMonitor.setColumnVisibility),
@@ -190,12 +193,14 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.__loadFinishedJobsCheckBox.stateChanged.connect(self._regexLoadJobsHandle)  # pylint: disable=no-member
 
     def _regexLoadJobsHandle(self):
-        """This will select all jobs that have a name that contain the substring
-        in self.__regexLoadJobsEditBox.text() and scroll to the first match"""
+        """This will select all jobs that have a name that contains the substring
+        in self.__regexLoadJobsEditBox.text() and scroll to the first match."""
         substring = str(self.__regexLoadJobsEditBox.text()).strip()
         load_finished_jobs = self.__loadFinishedJobsCheckBox.isChecked()
 
-        self.jobMonitor.removeAllItems()
+        # Only clear the existing jobs if SEARCH_JOBS_APPEND_RESULTS is False
+        if not cuegui.Constants.SEARCH_JOBS_APPEND_RESULTS:
+            self.jobMonitor.removeAllItems()
 
         if substring:
             # Load job if a uuid is provided

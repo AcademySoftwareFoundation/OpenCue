@@ -57,14 +57,6 @@ public interface ProcDao {
     long getReservedGpuMemory(ProcInterface proc);
 
     /**
-     * Return the proc that has exceeded its reserved memory by the largest factor.
-     *
-     * @param host
-     * @return
-     */
-    VirtualProc getWorstMemoryOffender(HostInterface host);
-
-    /**
      * Removes a little bit of reserved memory from every other running frame
      * in order to give some to the target proc.
      *
@@ -151,7 +143,8 @@ public interface ProcDao {
      */
     void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss,
                                long vsize, long maxVsize, long usedGpuMemory,
-                               long maxUsedGpuMemory, byte[] children);
+                               long maxUsedGpuMemory, long usedSwapMemory,
+                               byte[] children);
 
     /**
      * get aq virual proc from its unique id

@@ -102,9 +102,14 @@ allowed_tags: ['general', 'desktop', 'playblast', 'util', 'preprocess', 'wan', '
                'naiad', 'massive']
 
 email.subject_prefix: 'cuemail: please check '
-email.body_prefix: 'Your PSTs request that you check '
+email.body_prefix: 'Your Support Team requests that you check '
 email.body_suffix: "\n\n"
-email.domain: ''
+email.domain: 'your.domain.com'
+# A template for what email should be used for show support.
+#  - {domain} is required and will be replaced by email.domain
+#  - {show} is not required and will be replaced by the job show
+#  - Multiple addresses might be provided in a comma-separated list
+email.show_support_cc_template: "{show}-support@{domain}"
 
 # Unix epoch timestamp. If the user last viewed the startup notice before this time, the
 # notice will be shown.
@@ -115,8 +120,40 @@ startup_notice.msg: ''
 # Memory usage above this level will be displayed in a different color.
 memory_warning_level: 5242880
 
+# Output Viewer config.
+# # ------------------------------------------------------------------------------------------------------
+# Frame, Layer and Job objects have right click menu option for opening an output viewer
+# (eg. OpenRV)
+# output_viewer:
+#   # Text to be displayed at the menu action button
+#   action_text: "View Output in Itview"
+
+#   # extract_args_regex: Regex to extract arguments from the output path produced by a job/layer/frame
+#   # cmd_pattern: Command pattern to be matched with the regex defined at extract_args_regex
+#   # if extract_args_regex is not provided, cmd_pattern is called directly with paths as arguments
+#   extract_args_regex: '/shots/(?P<show>\w+)/(?P<shot>shot\w+)/.*'
+#   cmd_pattern: "env SHOW={show} SHOT={shot} COLOR_IO=/{show}/home/colorspaces.xml OCIO=/{show}/home/config.ocio openrv {paths}"
+#   # Pattern to call viewer cmd directly without extracting environment variables. Used for previewing frames
+#   direct_cmd_call: "openrv {paths}"
+
+#   # if provided, paths containing any of the two values are considered the same output and only one
+#   # of them will be passed to the viewer
+#   stereo_modifiers: "_rt_,_lf_"
+# # ------------------------------------------------------------------------------------------------------
+
 # These flags determine whether or not layers/frames will be readonly when job is finished.
 # If flags are set as true, layers/frames cannot be retried, eaten, edited dependency on, etc.
 # In order to toggle the same protection on cuebot's side, set flags in opencue.properties
 finished_jobs_readonly.frame: True
 finished_jobs_readonly.layer: True
+
+# A comma-separated list of action types that should be hidden on the FilterDialog widget.
+# (See filter.proto/ActionType for a full list eg. SET_ALL_RENDER_LAYER_CORES,
+# MOVE_JOB_TO_GROUP, SET_ALL_RENDER_LAYER_MAX_CORES)
+# An empty string means all actions are active.
+filter_dialog.disabled_action_types: ''
+
+# Define whether or not new jobs should be appended to the current list of jobs on the JobMonitor widget
+#  - True: search result will append jobs to the current list of monitored jobs
+#  - False: repopulate the jobs table with the search result
+search_jobs.append_results: True
