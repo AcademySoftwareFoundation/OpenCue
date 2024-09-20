@@ -42,6 +42,13 @@ def getShows():
     return [show.name() for show in opencue.api.getShows()]
 
 
+def getDefaultShow():
+    default_show = next(iter([show for show in getShows()
+                              if re.match(show, Constants.DEFAULT_SHOW, re.IGNORECASE)]),
+                        'no default show')
+    return default_show
+
+
 def getAllocations():
     """Returns a list of Allocations from cuebot."""
     return opencue.api.getAllocations()

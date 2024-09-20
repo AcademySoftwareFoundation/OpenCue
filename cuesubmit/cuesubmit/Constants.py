@@ -38,6 +38,8 @@ NUKE_RENDER_CMD = config.get('NUKE_RENDER_CMD', 'nuke')
 BLENDER_RENDER_CMD = config.get('BLENDER_RENDER_CMD', 'blender')
 RENDER_CMDS = config.get('RENDER_CMDS', {})
 
+DEFAULT_SHOW = config.get('DEFAULT_SHOW') or os.environ.get('PROJECT', 'default')
+
 FRAME_TOKEN = config.get('FRAME_TOKEN', '#IFRAME#')
 FRAME_START_TOKEN = config.get('FRAME_START', '#FRAME_START#')
 FRAME_END_TOKEN = config.get('FRAME_END', '#FRAME_END#')

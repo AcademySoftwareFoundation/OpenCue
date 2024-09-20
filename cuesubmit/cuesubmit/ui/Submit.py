@@ -137,7 +137,8 @@ class CueSubmitWidget(QtWidgets.QWidget):
                 "to create one!\nYou won't be able to submit a job for a non-existent show!\n")
             shows = ['']  # to allow building UI
         self.showSelector = Widgets.CueSelectPulldown(
-            'Show:', shows[0],
+            'Show:',
+            emptyText=Util.getDefaultShow(),
             options=shows,
             multiselect=False,
             parent=self)
