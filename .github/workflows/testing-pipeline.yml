@@ -155,7 +155,12 @@ jobs:
         run: |
           chown -R aswfuser:aswfgroup .
           cuebot/gradlew dependencies
-          echo "${USER} JAVA_HOME: ${JAVA_HOME}"
-          su -c "echo aswfuser JAVA_HOME ${JAVA_HOME}" aswfuser
+          echo ""
+          echo "main JAVA_HOME: \"${JAVA_HOME}\""
+          java -version
+          echo ""
+          su -c "echo aswfuser JAVA_HOME: \"${JAVA_HOME}\"" aswfuser
+          su -c "java -version" aswfuser
+          echo ""
           su -c "cd cuebot && ./gradlew jacocoTestReport sonar -Dsonar.login=$(SONAR_TOKEN)" aswfuser
 
