@@ -459,14 +459,16 @@ class CueLabelToggle(QtWidgets.QWidget):
     actionTriggered = QtCore.Signal(int)
     rangeChanged = QtCore.Signal(int, int)
 
-    def __init__(self, label=None, default_value=False, parent=None):
+    def __init__(self, label=None, tooltip=None, default_value=False, parent=None):
         super(CueLabelToggle, self).__init__(parent=parent)
         self.mainLayout = QtWidgets.QHBoxLayout()
-        self.label = QtWidgets.QLabel(label, parent=self)
-        self.label.setMinimumWidth(120)
-        self.label.setAlignment(QtCore.Qt.AlignVCenter)
+        self.mainLayout.setContentsMargins(0, 0, 0, 0)
         self.toggle = CueToggle(parent=self)
         self.toggle.setValue(default_value)
+        self.label = QtWidgets.QLabel(label, parent=self)
+        self.label.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.label.setAlignment(QtCore.Qt.AlignVCenter)
+        self.setToolTip(tooltip)
         self.signals = [self.toggle.valueChanged]
         self.getter = self.toggle.value
         self.setter = self.toggle.setValue
@@ -476,9 +478,13 @@ class CueLabelToggle(QtWidgets.QWidget):
     def setupUi(self):
         """Creates the widget layout."""
         self.setLayout(self.mainLayout)
-        self.mainLayout.addWidget(self.label)
         self.mainLayout.addWidget(self.toggle)
-        self.mainLayout.addSpacerItem(CueSpacerItem(SpacerTypes.HORIZONTAL))
+        self.mainLayout.addWidget(self.label)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed)
+
+    def mousePressEvent(self, e):
+        """Passes any mousePressEvent to the toggle, this way we can click on the label."""
+        self.toggle.toggle()
 
     def setupConnections(self):
         """Sets up widget signals."""
@@ -502,6 +508,7 @@ class CueToggle(QtWidgets.QSlider):
         self.setMaximum(1)
         self.setSingleStep(1)
         self.setFixedWidth(30)
+        self.setFixedHeight(20)
         self.setupConnections()
         self.setStyleSheet(Style.TOGGLE_DEFAULT)
 
