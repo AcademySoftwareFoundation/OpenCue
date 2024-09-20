@@ -46,19 +46,26 @@ class SpacerTypes(object):
 class CueLabelLineEdit(QtWidgets.QWidget):
     """Container widget that contains a lineedit and label."""
     textChanged = QtCore.Signal()
+    stateChanged = QtCore.Signal()
 
     def __init__(self, labelText=None, defaultText='', tooltip=None, validators=None,
+                 toggleable=False, toggleValue=False, horizontal=False,
                  completers=None, parent=None):
         super(CueLabelLineEdit, self).__init__(parent)
         self.mainLayout = QtWidgets.QGridLayout()
         self.mainLayout.setVerticalSpacing(0)
-        self.label = QtWidgets.QLabel(labelText)
-        self.label.setAlignment(QtCore.Qt.AlignLeft)
-        self.label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.toggleable = toggleable
+        if self.toggleable:
+            self.label = CueLabelToggle(labelText, default_value=toggleValue, tooltip=tooltip, parent=self)
+        else:
+            self.label = QtWidgets.QLabel(labelText)
+            self.label.setAlignment(QtCore.Qt.AlignLeft)
         self.lineEdit = CueLineEdit(defaultText, completerStrings=completers)
+        self.lineEdit.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         self.lineEdit.setToolTip(tooltip)
         self.browseButton = QtWidgets.QPushButton(text='Browse')
         self.horizontalLine = CueHLine()
+        self.horizontal = int(horizontal)
         self.validators = validators or []
         self.signals = [self.lineEdit.textChanged,
                         self.lineEdit.focusChange]
@@ -73,9 +80,9 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         """Creates the widget layout."""
         self.setLayout(self.mainLayout)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
-        self.mainLayout.addWidget(self.lineEdit, 1, 0, 1, 4)
+        self.mainLayout.addWidget(self.lineEdit, 1-self.horizontal, self.horizontal, 1, 4)
+        self.mainLayout.addWidget(self.horizontalLine, 2-self.horizontal, self.horizontal, 1, 4)
         self.browseButton.setVisible(False)
-        self.mainLayout.addWidget(self.horizontalLine, 2, 0, 1, 4)
         self.label.setStyleSheet(Style.LABEL_TEXT)
 
     def setupConnections(self):
@@ -84,7 +91,16 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.lineEdit.textChanged.connect(self.validateText)
         self.lineEdit.textChanged.connect(self.textChanged)
         self.lineEdit.focusChange.connect(self.textFocusChange)
+        if self.toggleable:
+            self.label.toggle.valueChanged.connect(self.toggled)
+            self.toggled(self.label.toggle.value())
         # pylint: enable=no-member
+
+    @property
+    def toggleValue(self):
+        if self.toggleable:
+            return self.label.toggle.value()
+        return True
 
     def setFileBrowsable(self, fileFilter=None):
         """ Displays the Browse button and hook it to a fileBrowser with optional file filters
@@ -148,11 +164,20 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         """Make widget grey and read-only"""
         self.lineEdit.setReadOnly(True)
         self.lineEdit.setStyleSheet(Style.DISABLED_LINE_EDIT)
+        self.stateChanged.emit()
 
     def enable(self):
         """Make widget editable"""
         self.lineEdit.setReadOnly(False)
         self.lineEdit.setStyleSheet(Style.LINE_EDIT)
+        self.stateChanged.emit()
+
+    def toggled(self, value):
+        """Action when the toggle is clicked."""
+        if value:
+            self.enable()
+        else:
+            self.disable()
 
 
 class CueLineEdit(QtWidgets.QLineEdit):
