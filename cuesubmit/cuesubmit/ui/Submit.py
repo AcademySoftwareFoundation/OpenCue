@@ -367,7 +367,17 @@ class CueSubmitWidget(QtWidgets.QWidget):
 
     def jobTypeChanged(self):
         """Action when the job type is changed."""
-        self.updateSettingsWidget(self.jobTypeSelector.text())
+        jobType = self.jobTypeSelector.text()
+        self.updateSettingsWidget(jobType)
+
+        # Add preset from config file
+        services = JobTypes.JobTypes.services(jobType)
+        limits = JobTypes.JobTypes.limits(jobType)
+        self.servicesSelector.clearChecked()
+        self.servicesSelector.setChecked(services)
+        self.limitsSelector.clearChecked()
+        self.limitsSelector.setChecked(limits)
+
         self.jobDataChanged()
 
     def updateJobTypeSelector(self, layerType):

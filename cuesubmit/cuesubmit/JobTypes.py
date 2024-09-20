@@ -65,3 +65,13 @@ class JobTypes(object):
     def types(cls):
         """return a list of available types."""
         return list(cls.SETTINGS_MAP.keys())
+
+    @classmethod
+    def services(cls, jobType):
+        """return a list of services for a given jobType. (the "services" key in your yaml file)"""
+        return Constants.RENDER_CMDS[jobType].get('services', [])
+
+    @classmethod
+    def limits(cls, jobType):
+        """return a list of limits for a given jobType. (the "limits" key in your yaml file)"""
+        return Constants.RENDER_CMDS[jobType].get('limits', [])
