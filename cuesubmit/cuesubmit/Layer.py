@@ -69,12 +69,15 @@ class LayerData(object):
         }
 
     @staticmethod
-    def buildFactory(name=None, layerType=None, cmd=None, layerRange=None, chunk=None, cores=None,
-                     env=None, services=None, limits=None, dependType=None, dependsOn=None):
+    def buildFactory(name=None, layerType=None, cmd=None, layerRange=None, chunk=None,
+                     overrideCores=None, cores=None, env=None, services=None, limits=None,
+                     dependType=None, dependsOn=None):
         """Build a new LayerData object with the given settings."""
         layerData = LayerData()
-        layerData.update(name, layerType, cmd, layerRange, chunk, cores, env, services, limits,
-                         dependType, dependsOn)
+        layerData.update(name=name, layerType=layerType, cmd=cmd, layerRange=layerRange,
+                         chunk=chunk, overrideCores=overrideCores, cores=cores, env=env,
+                         services=services, limits=limits,
+                         dependType=dependType, dependsOn=dependsOn)
         return layerData
 
     def update(self, name=None, layerType=None, cmd=None, layerRange=None, chunk=None,
