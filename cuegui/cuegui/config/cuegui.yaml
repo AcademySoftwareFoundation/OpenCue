@@ -152,3 +152,8 @@ finished_jobs_readonly.layer: True
 # MOVE_JOB_TO_GROUP, SET_ALL_RENDER_LAYER_MAX_CORES)
 # An empty string means all actions are active.
 filter_dialog.disabled_action_types: ''
+
+# Define whether or not new jobs should be appended to the current list of jobs on the JobMonitor widget
+#  - True: search result will append jobs to the current list of monitored jobs
+#  - False: repopulate the jobs table with the search result
+search_jobs.append_results: True
