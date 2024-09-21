@@ -887,17 +887,19 @@ class Machine(object):
                 # the most idle cores first.
                 key=lambda tup: len(tup[1]),
                 reverse=True):
-            cores = sorted(list(cores), key=lambda _coreid: int(_coreid))
+            cores = sorted(list(cores))
             while remaining_procs > 0 and len(cores) > 0:
                 # Reserve hyper-threaded cores first (2 threads(logical cores) for 1 physical core)
                 # Avoid booking a hyper-threaded core for an odd thread count remainder
                 # ex: if remaining_procs==2, get the next core with 2 threads
                 # ex: if remaining_procs==1, get the next core with 1 thread or any other core
-                # here we fall back on the first physical core (assuming "first in list" == "has more threads")
+                # here we fall back on the first physical core
+                # (assuming "first in list" == "has more threads")
                 # if we didn't find a core with the right number of threads, and continue the loop.
-                coreid = next(iter([cid for cid in cores
-                                    if len(self.__procs_by_physid_and_coreid[physid][cid]) <= remaining_procs]),
-                              cores[0])
+                coreid = next(iter(
+                    [cid for cid in cores
+                     if len(self.__procs_by_physid_and_coreid[physid][cid]) <= remaining_procs]),
+                    cores[0])
                 cores.remove(coreid)
                 procids = self.__procs_by_physid_and_coreid[physid][coreid]
                 reserved_cores[int(physid)].coreid.extend([int(coreid)])
