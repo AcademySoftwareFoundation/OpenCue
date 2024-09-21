@@ -34,7 +34,12 @@ def getLimits():
 
 def getServices():
     """Returns a list of service names from cuebot."""
-    return [service.name() for service in opencue.api.getDefaultServices()]
+    try:
+        services = opencue.api.getDefaultServices()
+    except opencue.exception.ConnectionException:
+        return []
+    else:
+        return [service.name() for service in services]
 
 
 def getServiceOption(serviceName, option):
