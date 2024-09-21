@@ -22,7 +22,6 @@ from __future__ import absolute_import
 
 import os
 import re
-import socket
 
 import opencue
 from cuesubmit import Constants
@@ -40,10 +39,12 @@ def getServices():
 
 def getServiceOption(serviceName, option):
     """Returns the value of a service property."""
-    service = next(iter(service for service in opencue.api.getDefaultServices() if service.name() == serviceName))
+    service = next(iter(service for service in opencue.api.getDefaultServices()
+                        if service.name() == serviceName))
     if service and hasattr(service, option):
         return getattr(service, option)()
     print(f'{service.name()} service has no {option} option.')
+    return None
 
 
 def getShows():
@@ -52,6 +53,7 @@ def getShows():
 
 
 def getDefaultShow():
+    """Returns the default show defined via environment variable or config file, if set."""
     default_show = next(iter([show for show in getShows()
                               if re.match(show, Constants.DEFAULT_SHOW, re.IGNORECASE)]),
                         'no default show')

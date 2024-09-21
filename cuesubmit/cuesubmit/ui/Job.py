@@ -36,7 +36,8 @@ class CueJobWidget(QtWidgets.QWidget):
         super(CueJobWidget, self).__init__(parent=parent)
 
         self.table = CueJobTree()
-        self.table.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.MinimumExpanding)
+        self.table.setSizePolicy(QtWidgets.QSizePolicy.Preferred,
+                                 QtWidgets.QSizePolicy.MinimumExpanding)
         self.model = CueJobModel()
         self.jobRow = QtGui.QStandardItem('')
         self.jobRow.setEditable(False)

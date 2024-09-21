@@ -56,7 +56,8 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         self.mainLayout.setVerticalSpacing(0)
         self.toggleable = toggleable
         if self.toggleable:
-            self.label = CueLabelToggle(labelText, default_value=toggleValue, tooltip=tooltip, parent=self)
+            self.label = CueLabelToggle(labelText, default_value=toggleValue,
+                                        tooltip=tooltip, parent=self)
         else:
             self.label = QtWidgets.QLabel(labelText)
             self.label.setAlignment(QtCore.Qt.AlignLeft)
@@ -98,6 +99,7 @@ class CueLabelLineEdit(QtWidgets.QWidget):
 
     @property
     def toggleValue(self):
+        """ Return the current toggle value """
         if self.toggleable:
             return self.label.toggle.value()
         return True
@@ -248,7 +250,8 @@ class CueSelectPulldown(QtWidgets.QWidget):
     """A button that acts like a dropdown and supports multiselect."""
 
     def __init__(
-            self, labelText=None, emptyText='[None]', options=None, tooltip=None, multiselect=True, parent=None):
+            self, labelText=None, emptyText='[None]', options=None,
+            tooltip=None, multiselect=True, parent=None):
         super(CueSelectPulldown, self).__init__(parent=parent)
         self.multiselect = multiselect
         self.emptyText = emptyText
@@ -482,7 +485,8 @@ class CueLabelToggle(QtWidgets.QWidget):
         self.mainLayout.addWidget(self.label)
         self.setSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed)
 
-    def mousePressEvent(self, e):
+    # pylint: disable=unused-argument
+    def mousePressEvent(self, mouseEvent):
         """Passes any mousePressEvent to the toggle, this way we can click on the label."""
         self.toggle.toggle()
 

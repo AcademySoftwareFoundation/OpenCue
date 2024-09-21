@@ -162,7 +162,8 @@ class CueSubmitWidget(QtWidgets.QWidget):
             validators=[Validators.matchNoSpecialCharactersOnly, Validators.moreThan3Chars,
                         Validators.matchNoSpaces]
         )
-        self.layerNameInput.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Maximum)
+        self.layerNameInput.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
+                                          QtWidgets.QSizePolicy.Maximum)
         self.dependSelector = Widgets.CueSelectPulldown(
             'Dependency Type:',
             emptyText='',
@@ -192,7 +193,8 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.jobTypeSelector.setChecked(self.primaryWidgetType)
         self.servicesSelector = Widgets.CueSelectPulldown(
             'Services:',
-            tooltip='A service is a collection of resource requirements and tags that are associated with a layer.\n'
+            tooltip='A service is a collection of resource requirements'
+                    ' and tags that are associated with a layer.\n'
                     'It is used to help the farm allocate proper resources to the job.',
             options=Util.getServices()
         )
