@@ -197,6 +197,22 @@ run_blender_job() {
     log INFO "Blender job succeeded (PASS)"
 }
 
+add_RQD_tag() {
+    container_id=$(docker ps --filter "name=blender" --format "{{.ID}}")
+    host_name="['${container_id}']"
+    got_hosts=$(python -c 'import opencue; print([host.name() for host in opencue.api.getHosts()])')
+    if [[ "${got_hosts}" = "${host_name}" ]]; then
+      log INFO "Adding tag to Blender RQD"
+      python -c "import opencue; import opencue.wrappers.host; \
+                  host=opencue.api.findHost('${host_name}'); \
+                  tags = ['blender']; \
+                  host.addTags(tags)"
+    else
+        log ERROR "Blender RQD not detected by Cuebot. Unable to add tag"
+        exit 1
+    fi
+}
+
 cleanup() {
     docker compose rm --stop --force >>"${DOCKER_COMPOSE_LOG}" 2>&1
     docker rm -f blender
