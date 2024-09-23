@@ -272,6 +272,10 @@ main() {
     -p 8441:8441 \
     --network opencue_default \
     opencue/blender
+    docker exec blender sh -c 'echo "RQD_USE_IP_AS_HOSTNAME=False" >> /etc/opencue/rqd.conf'
+    log INFO "Restarting RQD Blender..."
+    docker restart blender
+
 
     log INFO "Testing Blender job..."
     run_blender_job
