@@ -204,7 +204,7 @@ add_RQD_tag() {
     if [[ "${got_hosts}" = "${host_name}" ]]; then
       log INFO "Adding tag to Blender RQD"
       python -c "import opencue; import opencue.wrappers.host; \
-                  host=opencue.api.findHost('${host_name}'); \
+                  host=opencue.api.findHost('${container_id}'); \
                   tags = ['blender']; \
                   host.addTags(tags)"
     else
