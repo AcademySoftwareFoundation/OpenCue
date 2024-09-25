@@ -77,6 +77,7 @@ class ValidatorsTests(unittest.TestCase):
     def testMatchNumbersOnly(self):
         self.assertTrue(matchNumbersOnly('0123'))
         self.assertTrue(matchNumbersOnly('3.14'))
+        self.assertTrue(matchNumbersOnly('-3.14'))
         # bit weird, but that's how the function is written
         self.assertTrue(matchNumbersOnly('800.555.555'))
 

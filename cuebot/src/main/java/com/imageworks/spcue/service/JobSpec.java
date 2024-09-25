@@ -117,7 +117,7 @@ public class JobSpec {
     public JobSpec() {
     }
 
-    public static final String NAME_REGEX = "^([\\w\\.]{3,})$";
+    public static final String NAME_REGEX = "^([\\w\\.-]{3,})$";
 
     public static final Pattern NAME_PATTERN = Pattern.compile(NAME_REGEX);
 
@@ -607,12 +607,16 @@ public class JobSpec {
         int corePoints = layer.minimumCores;
 
         if (cores.contains(".")) {
-            corePoints = (int) (Double.valueOf(cores) * 100 + .5);
+            if (cores.contains("-")) {
+                corePoints = (int) (Double.valueOf(cores) * 100 - .5);
+            } else {
+                corePoints = (int) (Double.valueOf(cores) * 100 + .5);
+            }
         } else {
             corePoints = Integer.valueOf(cores);
         }
 
-        if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
+        if (corePoints > 0 && corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
             corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
         }
         else if (corePoints > Dispatcher.CORE_POINTS_RESERVED_MAX) {
@@ -649,7 +653,7 @@ public class JobSpec {
      */
     private void determineThreadable(Element layerTag, LayerDetail layer) {
         // Must have at least 1 core to thread.
-        if (layer.minimumCores < 100) {
+        if (layer.minimumCores > 0 && layer.minimumCores < 100) {
             layer.isThreadable = false;
         }
         else if (layerTag.getChildTextTrim("threadable") != null) {
