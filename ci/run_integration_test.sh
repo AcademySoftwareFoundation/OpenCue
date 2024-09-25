@@ -201,7 +201,15 @@ add_RQD_tag() {
     container_id=$(docker ps --filter "name=blender" --format "{{.ID}}")
     host_name="['${container_id}']"
     got_hosts=$(python -c 'import opencue; print([host.name() for host in opencue.api.getHosts()])')
-    if [[ "${got_hosts}" = "${host_name}" ]]; then
+    host_exists=false
+    for host in ${got_hosts//[\[\]\' ]/}; do
+      if [[ "$host" == "$container_id" ]]; then
+          host_exists=true
+          break
+      fi
+    done
+
+    if [[ "$host_exists" == true ]]; then
       log INFO "Adding tag to Blender RQD"
       python -c "import opencue; import opencue.wrappers.host; \
                   host=opencue.api.findHost('${container_id}'); \
