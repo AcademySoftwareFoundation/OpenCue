@@ -154,6 +154,5 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           chown -R aswfuser:aswfgroup .
-          cuebot/gradlew dependencies
           su -c "cd cuebot && ./gradlew jacocoTestReport sonar -Dsonar.login=$(SONAR_TOKEN)" aswfuser
 
