@@ -31,6 +31,7 @@ import os
 import platform
 import subprocess
 import time
+import sys
 
 import grpc
 
@@ -234,16 +235,12 @@ class GrpcServer(object):
 
     def handle_wedged_state(self):
         """Handles the RQD wedged state when reconnection attempts are exhausted."""
-        log.error("RQD has entered a wedged state. Triggering automatic restart.")
-        self.restart_rqd()
+        log.error("RQD has entered a wedged state. Terminating process to allow watchdog to restart.")
 
-    def restart_rqd(self):
-        """Restarts the RQD service to recover from a wedged state."""
-        try:
-            log.info("Restarting RQD to recover from wedged state...")
-            os.system("systemctl restart openrqd")
-        except OSError as e:
-            log.error("Failed to restart RQD: %s", e)
+        # Call shutdown/cleanup method
+        self.shutdown()
+        # Exit with failure indication (non-zero)
+        sys.exit(1)
 
     def serve(self):
         """Starts serving gRPC."""
