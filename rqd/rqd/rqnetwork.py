@@ -212,8 +212,8 @@ class GrpcServer(object):
                 self.reconnection_attempts = 0
                 break
             except grpc.RpcError as exc:
-                # Log the gRPC connection issue
-                if hasattr(exc, 'code') and exc.code() == grpc.StatusCode.UNAVAILABLE:
+                # pylint: disable=no-member
+                if exc.code() == grpc.StatusCode.UNAVAILABLE:
                     # Increment reconnection attempts counter
                     self.reconnection_attempts += 1
 
@@ -229,6 +229,7 @@ class GrpcServer(object):
 
                     # Sleep before retrying
                     time.sleep(rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP_SEC)
+                # pylint: enable=no-member
                 else:
                     log.error("GRPC encountered an unknown error: %s", exc)
                     raise exc
