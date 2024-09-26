@@ -235,7 +235,8 @@ class GrpcServer(object):
 
     def handle_wedged_state(self):
         """Handles the RQD wedged state when reconnection attempts are exhausted."""
-        log.error("RQD has entered a wedged state. Terminating process to allow watchdog to restart.")
+        log.error(
+            "RQD has entered a wedged state. Terminating process to allow watchdog to restart.")
 
         # Call shutdown/cleanup method
         self.shutdown()
