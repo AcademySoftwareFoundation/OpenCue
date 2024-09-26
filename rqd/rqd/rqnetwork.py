@@ -193,6 +193,7 @@ class GrpcServer(object):
             futures.ThreadPoolExecutor(max_workers=rqd.rqconstants.RQD_GRPC_MAX_WORKERS))
         self.servicers = ['RqdInterfaceServicer']
         self.server.add_insecure_port('[::]:{0}'.format(rqd.rqconstants.RQD_GRPC_PORT))
+        self.reconnection_attempts = 0
 
     def addServicers(self):
         """Registers the gRPC servicers defined in rqdservicers.py."""
@@ -206,17 +207,43 @@ class GrpcServer(object):
         while True:
             try:
                 self.rqCore.grpcConnected()
+                log.info("Successfully connected to Cuebot.")
+                self.reconnection_attempts = 0
                 break
             except grpc.RpcError as exc:
-                # pylint: disable=no-member
+                # Log the gRPC connection issue
                 if exc.code() == grpc.StatusCode.UNAVAILABLE:
                     log.warning(
-                        'GRPC connection failed. Retrying in %s seconds',
-                        rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP_SEC)
+                        'GRPC connection failed. Retrying in %s seconds (attempt %d)',
+                        rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP_SEC,
+                        self.reconnection_attempts + 1)
+
+                    # Increment reconnection attempts counter
+                    self.reconnection_attempts += 1
+
+                    if self.reconnection_attempts >= rqd.rqconstants.RQD_GRPC_MAX_RETRIES:
+                        log.error("Exceeded maximum reconnection attempts. Marking RQD as wedged.")
+                        self.handle_wedged_state()
+                        break
+
+                    # Sleep before retrying
                     time.sleep(rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP_SEC)
                 else:
+                    log.error("GRPC encountered an unknown error: %s", exc)
                     raise exc
-                # pylint: enable=no-member
+
+    def handle_wedged_state(self):
+        """Handles the RQD wedged state when reconnection attempts are exhausted."""
+        log.error("RQD has entered a wedged state. Triggering automatic restart.")
+        self.restart_rqd()
+
+    def restart_rqd(self):
+        """Restarts the RQD service to recover from a wedged state."""
+        try:
+            log.info("Restarting RQD to recover from wedged state...")
+            os.system("systemctl restart openrqd")
+        except OSError as e:
+            log.error("Failed to restart RQD: %s", e)
 
     def serve(self):
         """Starts serving gRPC."""

@@ -52,11 +52,21 @@ import logging
 import logging.handlers
 import os
 import platform
+import subprocess
 import sys
 
 import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqutil
+
+
+def start_watchdog():
+    """Starts the RQD watchdog in a separate process."""
+    try:
+        watchdog_process = subprocess.Popen([sys.executable, 'rqd_watchdog.py'])
+        logging.info("RQD watchdog started with PID: %d", watchdog_process.pid)
+    except Exception as e:
+        logging.error("Failed to start RQD watchdog: %s", e)
 
 
 def reopen_stdout_stderr(log_path):
@@ -239,6 +249,10 @@ def main():
 
     setup_sentry()
 
+    # Start the watchdog process
+    start_watchdog()
+
+    # Start the RQD core services
     rqCore = rqd.rqcore.RqCore(optNimbyOff)
     rqCore.start()
 

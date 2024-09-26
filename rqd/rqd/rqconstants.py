@@ -48,10 +48,14 @@ RQD_TIMEOUT = 10000
 DEFAULT_FACILITY = 'cloud'
 
 # GRPC VALUES
+# Maximum number of threads for the gRPC server
 RQD_GRPC_MAX_WORKERS = 10
 RQD_GRPC_PORT = 8444
 RQD_GRPC_SLEEP_SEC = 60 * 60 * 24
+# Seconds between retry attempts
 RQD_GRPC_CONNECTION_ATTEMPT_SLEEP_SEC = 15
+# Maximum number of gRPC reconnection attempts
+RQD_GRPC_MAX_RETRIES = 5
 RQD_GRPC_RETRY_CONNECTION = True
 CUEBOT_GRPC_PORT = 8443
 
