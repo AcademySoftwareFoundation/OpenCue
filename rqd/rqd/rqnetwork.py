@@ -214,13 +214,13 @@ class GrpcServer(object):
             except grpc.RpcError as exc:
                 # Log the gRPC connection issue
                 if exc.code() == grpc.StatusCode.UNAVAILABLE:
+                    # Increment reconnection attempts counter
+                    self.reconnection_attempts += 1
+
                     log.warning(
                         'GRPC connection failed. Retrying in %s seconds (attempt %d)',
                         rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP_SEC,
-                        self.reconnection_attempts + 1)
-
-                    # Increment reconnection attempts counter
-                    self.reconnection_attempts += 1
+                        self.reconnection_attempts)
 
                     if self.reconnection_attempts >= rqd.rqconstants.RQD_GRPC_MAX_RETRIES:
                         log.error("Exceeded maximum reconnection attempts. Marking RQD as wedged.")
