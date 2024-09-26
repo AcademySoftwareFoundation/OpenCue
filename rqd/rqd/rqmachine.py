@@ -809,6 +809,7 @@ class Machine(object):
         self.__hostReport.host.CopyFrom(self.getHostInfo())
 
         self.__hostReport.ClearField('frames')
+        self.__rqCore.sanitizeFrames()
         for frameKey in self.__rqCore.getFrameKeys():
             try:
                 info = self.__rqCore.getFrame(frameKey).runningFrameInfo()
