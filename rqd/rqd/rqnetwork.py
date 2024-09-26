@@ -213,7 +213,7 @@ class GrpcServer(object):
                 break
             except grpc.RpcError as exc:
                 # Log the gRPC connection issue
-                if exc.code() == grpc.StatusCode.UNAVAILABLE:
+                if hasattr(exc, 'code') and exc.code() == grpc.StatusCode.UNAVAILABLE:
                     # Increment reconnection attempts counter
                     self.reconnection_attempts += 1
 
