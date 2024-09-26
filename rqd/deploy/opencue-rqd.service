@@ -14,8 +14,6 @@ LimitNPROC=500000
 StandardOutput=syslog+console
 StandardError=syslog+console
 SyslogIdentifier=rqd
-
-# Restart the service automatically if it crashes or exits
 Restart=always
 RestartSec=5
 
