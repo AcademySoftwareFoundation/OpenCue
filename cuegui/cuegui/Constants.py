@@ -91,9 +91,10 @@ def __packaged_version():
 
 def __get_version_from_cmd(command):
     try:
-        result = subprocess.run(command, shell=True, capture_output=True, text=True)
-        if result.returncode == 0:
-            return result.stdout.strip()
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        print(f"Command failed with return code {e.returncode}: {e}")
     except Exception as e:
         print(f"Failed to get version from command: {e}")
     return None
