@@ -1,7 +1,8 @@
 # Default CueGUI config file
 
-# If False, use the version number in the VERSION.in file
-# Otherwise, use the version cuegui.custom.cmd.version.beta (for beta) or cuegui.custom.cmd.version.stable (for stable)
+# Configure how a version number should be acquired. 
+#  - False, use the version number in VERSION.in
+#  - True, run the commands defined at cuegui.custom.cmd.version.beta (for beta) or cuegui.custom.cmd.version.stable (for stable) to acquire the version number
 cuegui.use.custom.version: False
 # Used to show the CueGUI beta version, if the environment variable OPENCUE_BETA = 1 (setenv OPENCUE_BETA 1)
 # If the CueGUI is deployed using the SPK and SPAWN (https://getspk.io/), it is also possible to run the SPAWN command
