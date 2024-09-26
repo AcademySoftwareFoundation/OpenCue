@@ -14,7 +14,6 @@ htmlcov/
 .vscode
 .venv/
 .eggs/*
-.gradle/*
-/cuebot/logs
-/cuebot/bin
-/logs
+/cuebot/bin/*
+/logs/*
+/.gradle/*
