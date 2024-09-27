@@ -542,7 +542,8 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_reserveHybridHT(self):
         """
-        Total 1 physical(ph) processors with 8 P-cores(2 threads) and 8 E-cores(1 thread), total 24 threads.
+        Total 1 physical(ph) processors with 8 P-cores(2 threads) and 8 E-cores(1 thread),
+            for a total of 24 threads.
         note: reserving odd threads will result in even threads when there is no mono-thread cores,
         which is not the case here. it should reserve E-cores to match the odd request.
         step1 - taskset0: Reserve 4 threads (2P), 4 threads occupied
@@ -553,7 +554,9 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         step6 - taskset4: Reserve 1 thread (1E), 24 threads occupied
         step7 - Reserve 1 thread (1E), no more free cores
         """
-        cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_i9_12900_hybrid_ht_24-24-1-1')
+        cpuInfo = os.path.join(os.path.dirname(__file__),
+                               'cpuinfo',
+                               '_cpuinfo_i9_12900_hybrid_ht_24-24-1-1')
         self.fs.add_real_file(cpuInfo)
         self.machine.testInitMachineStats(cpuInfo)
 
@@ -640,7 +643,8 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         # should have 8 cores occupied
         # pylint: disable=no-member
-        self.assertCountEqual([0, 4, 8, 12, 16, 20, 24, 32], self.coreDetail.reserved_cores[0].coreid)
+        self.assertCountEqual([0, 4, 8, 12, 16, 20, 24, 32],
+                              self.coreDetail.reserved_cores[0].coreid)
         # should have 15 threads occupied
         self.assertEqual(len(tasksets0.split(','))
                          + len(tasksets1.split(','))
@@ -665,7 +669,8 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         # should reserve 3P + 6E (0,1, 2,3, 14,15, 17, 18, 19, 20, 21, 22)
         # pylint: disable=no-member
-        self.assertCountEqual(['0', '1', '2', '3', '14', '15', '17', '18', '19', '20', '21', '22'], tasksets3.split(','))
+        self.assertCountEqual(['0', '1', '2', '3', '14', '15', '17', '18', '19', '20', '21', '22'],
+                              tasksets3.split(','))
 
         # should have 15 cores occupied, 1E free
         # pylint: disable=no-member
