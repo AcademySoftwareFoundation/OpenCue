@@ -700,6 +700,9 @@ class RqCore(object):
                         self.cores.reserved_cores)
                     # pylint: disable=no-member
                     self.cores.reserved_cores.clear()
+                    log.info("Successfully delete frame with Id: %s", frameId)
+                else:
+                    log.warning("Frame with Id: %s not found in cache", frameId)
 
     def killAllFrame(self, reason):
         """Will execute .kill() on every frame in cache until no frames remain
@@ -1088,16 +1091,19 @@ class RqCore(object):
         Iterate over the cache and update the status of frames that might have
         completed but never reported back to cuebot.
         """
-        for runningFrame in self.__cache:
+        for frameId, runningFrame in self.__cache.items():
             # If the frame was marked as completed (exitStatus) and a report has not been sent
             # try to file the report again
             if runningFrame.exitStatus is not None and not runningFrame.completeReportSent:
                 try:
                     self.sendFrameCompleteReport(runningFrame)
-                    self.deleteFrame(runningFrame.frameId)
+                    self.deleteFrame(frameId)
+                    log.info("Successfully deleted frame from cache for %s/%s (%s)",
+                                  runningFrame.runFrame.job_name,
+                                  runningFrame.runFrame.frame_name,
+                                  frameId)
                 # pylint: disable=broad-except
                 except Exception:
-                    log.exception("Failed to sanitize frame %s/%s" %
-                                  (runningFrame.runFrame.job_name,
-                                   runningFrame.runFrame.frame_name))
-
+                    log.exception("Failed to sanitize frame %s/%s",
+                                  runningFrame.runFrame.job_name,
+                                  runningFrame.runFrame.frame_name)
