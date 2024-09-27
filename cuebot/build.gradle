@@ -12,10 +12,6 @@ plugins {
 sourceCompatibility = 11
 targetCompatibility = 11
 
-ext {
-    activemqVersion = '5.12.0'
-}
-
 configurations {
     testCompile
     compile.exclude module: 'spring-boot-starter-logging'
@@ -28,6 +24,7 @@ repositories {
 
 def grpcVersion = '1.47.0'
 def protobufVersion = '3.21.2'
+def activemqVersion = '5.12.0'
 
 // Spring dependency versions are managed by the io.spring.dependency-management plugin.
 // Appropriate versions will be pulled based on the spring boot version specified in the

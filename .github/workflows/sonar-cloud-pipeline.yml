@@ -54,4 +54,4 @@ jobs:
           sudo alternatives --set javac java-17-openjdk.x86_64
           sudo alternatives --set jre_openjdk java-17-openjdk.x86_64
           chown -R aswfuser:aswfgroup .
-          su -c "cd cuebot && ./gradlew jacocoTestReport sonar aswfuser
+          su -c "cd cuebot && ./gradlew jacocoTestReport sonar" aswfuser
