@@ -1,5 +1,16 @@
 # Default CueGUI config file
 
+# Configure how a version number should be acquired. 
+#  - False, use the version number in VERSION.in
+#  - True, run the commands defined at cuegui.custom.cmd.version.beta (for beta) or cuegui.custom.cmd.version.stable (for stable) to acquire the version number
+cuegui.use.custom.version: False
+# Used to show the CueGUI beta version, if the environment variable OPENCUE_BETA = 1 (setenv OPENCUE_BETA 1)
+# If the CueGUI beta version is enabled, it's possible to run a shell command to get the cuegui version or any other
+# custom command specified in the environment configuration.
+cuegui.custom.cmd.version.beta: "echo 1.0.0"
+# Used to show the CueGUI stable version, if the environment variable OPENCUE_BETA = 0 (setenv OPENCUE_BETA 0)
+cuegui.custom.cmd.version.stable: "echo 1.0.1"
+
 logger.format: '%(levelname)-9s %(module)-10s %(message)s'
 logger.level: 'WARNING'
 
@@ -152,3 +163,8 @@ finished_jobs_readonly.layer: True
 # MOVE_JOB_TO_GROUP, SET_ALL_RENDER_LAYER_MAX_CORES)
 # An empty string means all actions are active.
 filter_dialog.disabled_action_types: ''
+
+# Define whether or not new jobs should be appended to the current list of jobs on the JobMonitor widget
+#  - True: search result will append jobs to the current list of monitored jobs
+#  - False: repopulate the jobs table with the search result
+search_jobs.append_results: True

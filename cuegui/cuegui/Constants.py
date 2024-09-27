@@ -23,6 +23,7 @@ from __future__ import absolute_import
 
 import logging
 import os
+import subprocess
 import platform
 
 from qtpy import QtGui
@@ -88,10 +89,27 @@ def __packaged_version():
         return default_version
     return "1.3.0"
 
+def __get_version_from_cmd(command):
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        print(f"Command failed with return code {e.returncode}: {e}")
+    except Exception as e:
+        print(f"Failed to get version from command: {e}")
+    return None
 
 __config = __loadConfigFromFile()
 
-VERSION = __config.get('version', __packaged_version())
+# Decide which CueGUI version to show
+if __config.get('cuegui.use.custom.version', False):
+    beta_version = os.getenv('OPENCUE_BETA', '0')
+    if beta_version == '1':
+        VERSION = __get_version_from_cmd(__config.get('cuegui.custom.cmd.version.beta'))
+    else:
+        VERSION = __get_version_from_cmd(__config.get('cuegui.custom.cmd.version.stable'))
+else:
+    VERSION = __config.get('version', __packaged_version())
 
 STARTUP_NOTICE_DATE = __config.get('startup_notice.date')
 STARTUP_NOTICE_MSG = __config.get('startup_notice.msg')
@@ -194,6 +212,8 @@ FINISHED_JOBS_READONLY_LAYER = __config.get('finished_jobs_readonly.layer', Fals
 DISABLED_ACTION_TYPES = [action_type.strip()
                          for action_type
                          in __config.get('filter_dialog.disabled_action_types', "").split(",")]
+
+SEARCH_JOBS_APPEND_RESULTS = __config.get('search_jobs.append_results', True)
 
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2

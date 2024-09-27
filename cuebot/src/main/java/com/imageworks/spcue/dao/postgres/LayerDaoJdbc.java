@@ -51,8 +51,12 @@ import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
-public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
+public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
+    private static final Logger logger = LogManager.getLogger(LayerDaoJdbc.class);
     private static final String INSERT_OUTPUT_PATH =
         "INSERT INTO " +
             "layer_output " +
@@ -77,7 +81,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         "FROM " +
             "layer_output " +
         "WHERE " +
-            "pk_layer = ?" +
+            "pk_layer = ? " +
         "ORDER BY " +
             "ser_order";
 
