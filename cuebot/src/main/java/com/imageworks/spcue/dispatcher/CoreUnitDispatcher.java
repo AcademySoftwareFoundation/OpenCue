@@ -264,10 +264,16 @@ public class CoreUnitDispatcher implements Dispatcher {
 
             VirtualProc proc =  VirtualProc.build(host, frame, selfishServices);
 
-            if (host.idleCores < frame.minCores ||
+            if (frame.minCores <= 0 && !proc.canHandleNegativeCoresRequest) {
+                logger.debug("Cannot dispatch job, host is busy.");
+                break;
+            }
+
+            if (host.idleCores < host.handleNegativeCoresRequirement(frame.minCores) ||
                     host.idleMemory < frame.minMemory ||
                     host.idleGpus < frame.minGpus ||
                     host.idleGpuMemory < frame.minGpuMemory) {
+                    logger.debug("Cannot dispatch, insufficient resources.");
                 break;
             }
 
@@ -283,6 +289,8 @@ public class CoreUnitDispatcher implements Dispatcher {
 
             boolean success = new DispatchFrameTemplate(proc, job, frame, false) {
                 public void wrapDispatchFrame() {
+                    logger.debug("Dispatching frame with " + frame.minCores + " minCores on proc with " +
+                                 proc.coresReserved + " coresReserved");
                     dispatch(frame, proc);
                     dispatchSummary(proc, frame, "Booking");
                     return;

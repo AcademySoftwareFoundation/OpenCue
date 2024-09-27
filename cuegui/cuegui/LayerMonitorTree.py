@@ -67,10 +67,12 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda layer: displayRange(layer),
                        tip="The range of frames that the layer should render.")
         self.addColumn("Cores", 45, id=6,
-                       data=lambda layer: "%.2f" % layer.data.min_cores,
+                       data=lambda layer: self.labelCoresColumn(layer.data.min_cores),
                        sort=lambda layer: layer.data.min_cores,
                        tip="The number of cores that the frames in this layer\n"
-                           "will reserve as a minimum.")
+                           "will reserve as a minimum."
+                           "Zero or negative value indicate that the layer will use\n"
+                           "all available cores on the machine, minus this value.")
         self.addColumn("Memory", 60, id=7,
                        data=lambda layer: cuegui.Utils.memoryToString(layer.data.min_memory),
                        sort=lambda layer: layer.data.min_memory,
@@ -180,6 +182,14 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Updates the items in the TreeWidget if sufficient time has passed
         since last updated"""
         self.ticksWithoutUpdate = 9999
+
+    def labelCoresColumn(self, reserved_cores):
+        """Returns the reserved cores for a job"""
+        if reserved_cores > 0:
+            return "%.2f" % reserved_cores
+        if reserved_cores == 0:
+            return "ALL"
+        return "ALL (%.2f)" % reserved_cores
 
     # pylint: disable=inconsistent-return-statements
     def setJob(self, job):
