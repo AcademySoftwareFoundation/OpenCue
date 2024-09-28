@@ -237,6 +237,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.commandFeedback = Widgets.CueLabelLineEdit( labelText='Final command:' )
         self.commandFeedback.disable()
         self.jobTreeWidget = Job.CueJobWidget()
+        self.jobTreeWidget.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
         self.submitButtons = CueSubmitButtons()
         self.setupUi()
         self.setupConnections()
@@ -293,7 +294,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.facilityLayout.setColumnStretch(1, 1)
         self.facilityLayout.addWidget(self.facilitySelector, 0, 0, 1, 1, QtCore.Qt.AlignLeft)
         self.facilityLayout.addWidget(self.userNameInput, 0, 1, 1, 2)
-        self.jobInfoLayout.addLayout(self.facilityLayout, QtCore.Qt.AlignLeft)
+        self.jobInfoLayout.addLayout(self.facilityLayout)
 
         self.scrollingLayout.addLayout(self.jobInfoLayout)
         self.scrollingLayout.addWidget(Widgets.CueLabelLine('Layer Info'))
