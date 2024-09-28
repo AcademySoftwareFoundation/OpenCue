@@ -36,7 +36,6 @@ MAYA_LAYER_DATA = {
     'layerType': cuesubmit.JobTypes.JobTypes.MAYA,
     'cmd': {'camera': 'renderCam', 'mayaFile': '/path/to/scene.ma'},
     'layerRange': '1-5',
-    'overrideCores': True,
     'cores': '6',
     'services': ['maya', 'foo'],
 }
@@ -46,7 +45,6 @@ NUKE_LAYER_DATA = {
     'layerType': cuesubmit.JobTypes.JobTypes.NUKE,
     'cmd': {'writeNodes': 'Write1,Write2', 'nukeFile': '/path/to/script.nk'},
     'layerRange': '17-124',
-    'overrideCores': False,
     'cores': '1',
     'services': ['nuke'],
 }
@@ -58,7 +56,6 @@ BLENDER_MULTI_LAYER_DATA = {
             'blenderFile': '/path/to/scene.blend',
             'outputFormat': 'PNG'},
     'layerRange': '3-9',
-    'overrideCores': True,
     'cores': '2',
     'services': ['blender']
 }
@@ -69,7 +66,6 @@ BLENDER_SINGLE_LAYER_DATA = {
     'cmd': {'outputPath': '/path/to/output',
             'blenderFile': '/path/to/scene.blend',
             'outputFormat': 'PNG'},
-    'overrideCores': True,
     'cores': '2',
     'services': ['blender']
 }
