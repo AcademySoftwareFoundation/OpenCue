@@ -146,9 +146,10 @@ def buildLayer(layerData, command, lastLayer=None):
     elif layerData.services and layerData.services[0] in Util.getServices():
         threadable = Util.getServiceOption(layerData.services[0], 'threadable')
 
+    cores = layerData.cores if layerData.overrideCores else None
     layer = outline.modules.shell.Shell(
         layerData.name, command=command.split(), chunk=layerData.chunk,
-        overrideCores=layerData.overrideCores, cores=layerData.cores,
+        cores=cores,
         range=str(layerData.layerRange), threadable=threadable)
     if layerData.services:
         layer.set_service(layerData.services[0])
