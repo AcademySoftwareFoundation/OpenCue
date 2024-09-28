@@ -112,19 +112,16 @@ class CoresTest(unittest.TestCase):
 
     def testCores(self):
         ol, layer = self.create()
-        layer.set_arg("overrideCores", True)
         layer.set_arg("cores", 42)
         self.assertCoresOverride(ol, "42.0")
 
     def testThreads(self):
         ol, layer = self.create()
-        layer.set_arg("overrideCores", True)
         layer.set_arg("threads", 4)
         self.assertCoresOverride(ol, "4.0")
 
     def testCoresAndThreads(self):
         ol, layer = self.create()
-        layer.set_arg("overrideCores", True)
         layer.set_arg("cores", 8)
         layer.set_arg("threads", 4)
         # cores overrides threads
@@ -132,8 +129,7 @@ class CoresTest(unittest.TestCase):
 
     def testNoCoreOverride(self):
         ol, layer = self.create()
-        layer.set_arg("overrideCores", False)
-        layer.set_arg("cores", 8)
+        layer.set_arg("cores", None)
 
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
         outlineXml = ET.fromstring(outline.backend.cue.serialize(launcher))
