@@ -60,6 +60,7 @@ class LayerData(object):
             'cmd': self.cmd,
             'layerRange': self.layerRange,
             'chunk': self.chunk,
+            'overrideCores': self.overrideCores,
             'cores': self.cores,
             'env': self.env,
             'services': self.services,
