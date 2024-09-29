@@ -237,7 +237,8 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.commandFeedback = Widgets.CueLabelLineEdit( labelText='Final command:' )
         self.commandFeedback.disable()
         self.jobTreeWidget = Job.CueJobWidget()
-        self.jobTreeWidget.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
+        self.jobTreeWidget.setSizePolicy(QtWidgets.QSizePolicy.Preferred,
+                                         QtWidgets.QSizePolicy.Expanding)
         self.submitButtons = CueSubmitButtons()
         self.setupUi()
         self.setupConnections()
