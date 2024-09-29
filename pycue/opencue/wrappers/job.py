@@ -17,6 +17,7 @@
 import enum
 import getpass
 import os
+import platform
 import time
 
 from opencue import Cuebot
@@ -49,7 +50,7 @@ class Job(object):
         """Kills the job."""
         username = username if username else getpass.getuser()
         pid = pid if pid else os.getpid()
-        host_kill = host_kill if host_kill else os.uname()[1]
+        host_kill = host_kill if host_kill else platform.uname()[1]
         self.stub.Kill(job_pb2.JobKillRequest(job=self.data,
                                               username=username,
                                               pid=str(pid),
@@ -73,7 +74,7 @@ class Job(object):
         """
         username = username if username else getpass.getuser()
         pid = pid if pid else os.getpid()
-        host_kill = host_kill if host_kill else os.uname()[1]
+        host_kill = host_kill if host_kill else platform.uname()[1]
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**request)
         self.stub.KillFrames(job_pb2.JobKillFramesRequest(job=self.data,
                                                           req=criteria,
