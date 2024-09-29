@@ -319,14 +319,18 @@ def _serialize(launcher, use_pycuerun):
 
         # opencue specific options
         # Keeping 'threads' for backward compatibility
-        if layer.get_arg("cores") is None:
+        cores = None
+        if layer.is_arg_set("cores"):
+            cores = layer.get_arg("cores")
+        elif layer.is_arg_set("threads"):
+            cores = layer.get_arg("threads")
+        if cores is None:
             logger.info("%s will use service cores.", layer.get_name())
         else:
             logger.info("%s is set to override service cores.", layer.get_name())
             if layer.is_arg_set("cores") and layer.is_arg_set("threads"):
                 logger.warning("%s has both cores and threads. Use cores.", layer.get_name())
-            cores = "%0.1f" % float(layer.get_arg("cores") or layer.get_arg("threads", 0))
-            sub_element(spec_layer, "cores", cores)
+            sub_element(spec_layer, "cores", "%0.1f" % cores)
 
         if layer.is_arg_set("threadable"):
             sub_element(spec_layer, "threadable",
