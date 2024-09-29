@@ -31,6 +31,7 @@ LAYER_DATA = {
     'cmd': 'echo #IFRAME#',
     'layerRange': '1-5',
     'limits': [],
+    'overrideCores': True,
     'cores': '6',
     'env': {'fooKey': 'barVal'},
     'services': ['shell', 'maya'],
@@ -47,6 +48,7 @@ class LayerTests(unittest.TestCase):
         self.assertEqual('randomType', layer.layerType)
         self.assertEqual('echo #IFRAME#', layer.cmd)
         self.assertEqual('1-5', layer.layerRange)
+        self.assertEqual(True, layer.overrideCores)
         self.assertEqual('6', layer.cores)
         self.assertEqual('1', layer.chunk)
         self.assertEqual(None, layer.dependsOn)
