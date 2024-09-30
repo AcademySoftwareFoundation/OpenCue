@@ -1,5 +1,16 @@
 # Default CueGUI config file
 
+# Configure how a version number should be acquired. 
+#  - False, use the version number in VERSION.in
+#  - True, run the commands defined at cuegui.custom.cmd.version.beta (for beta) or cuegui.custom.cmd.version.stable (for stable) to acquire the version number
+cuegui.use.custom.version: False
+# Used to show the CueGUI beta version, if the environment variable OPENCUE_BETA = 1 (setenv OPENCUE_BETA 1)
+# If the CueGUI beta version is enabled, it's possible to run a shell command to get the cuegui version or any other
+# custom command specified in the environment configuration.
+cuegui.custom.cmd.version.beta: "echo 1.0.0"
+# Used to show the CueGUI stable version, if the environment variable OPENCUE_BETA = 0 (setenv OPENCUE_BETA 0)
+cuegui.custom.cmd.version.stable: "echo 1.0.1"
+
 logger.format: '%(levelname)-9s %(module)-10s %(message)s'
 logger.level: 'WARNING'
 
