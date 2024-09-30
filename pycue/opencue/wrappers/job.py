@@ -22,6 +22,7 @@ import time
 from opencue import Cuebot
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import job_pb2
+import opencue.api
 import opencue.search
 import opencue.wrappers.comment
 import opencue.wrappers.depend
@@ -193,10 +194,7 @@ class Job(object):
         :rtype:  opencue.wrappers.layer.Layer
         :return: specific layer in the job
         """
-        for layer in self.getLayers():
-            if layer.name() == layerName:
-                return layer
-        return None
+        return opencue.api.findLayer(self.name(), layerName)
 
     def getFrames(self, **options):
         """Returns the list of up to 1000 frames from within the job.
