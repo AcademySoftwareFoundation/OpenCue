@@ -22,6 +22,9 @@ package com.imageworks.spcue;
 import com.imageworks.spcue.dispatcher.ResourceContainer;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 /**
  * Contains information about local desktop cores a user has
  * assigned to the given job.
@@ -32,6 +35,8 @@ import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
  */
 public class LocalHostAssignment extends Entity
     implements ResourceContainer {
+
+    private static final Logger logger = LogManager.getLogger(LocalHostAssignment.class);
 
     private int idleCoreUnits;
     private long idleMemory;
@@ -62,10 +67,35 @@ public class LocalHostAssignment extends Entity
         this.maxGpuMemory = maxGpuMemory;
     }
 
+    public int handleNegativeCoresRequirement(int requestedCores) {
+        // If we request a <=0 amount of cores, return positive core count.
+        // Request -2 on a 24 core machine will return 22.
+
+        if (requestedCores > 0) {
+            // Do not process positive core requests.
+            logger.debug("Requested " + requestedCores + " cores.");
+            return requestedCores;
+        }
+        if (requestedCores <=0 && idleCoreUnits < threads) {
+            // If request is negative but cores are already used, return 0.
+            // We don't want to overbook the host.
+            logger.debug("Requested " + requestedCores + " cores, but the host is busy and cannot book more jobs.");
+            return 0;
+        }
+        // Book all cores minus the request
+        int totalCores = idleCoreUnits + requestedCores;
+        logger.debug("Requested " + requestedCores + " cores  <= 0, " +
+                     idleCoreUnits + " cores are free, booking " + totalCores + " cores");
+        return totalCores;
+    }
+
     @Override
     public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus, long minGpuMemory) {
-
+        minCores = handleNegativeCoresRequirement(minCores);
         if (idleCoreUnits < minCores) {
+            return false;
+        }
+        if (minCores <= 0) {
             return false;
         }
         else if (idleMemory <  minMemory) {
