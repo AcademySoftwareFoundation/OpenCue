@@ -80,8 +80,7 @@ public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests 
             jobLauncher.parse(xml);
             fail("Expected exception");
         } catch (SpecBuilderException e) {
-            assertEquals(e.getMessage(),
-                    "Failed to parse job spec XML, java.net.MalformedURLException");
+            assertTrue(e.getMessage().startsWith("Failed to parse job spec XML, java.net.MalformedURLException"));
         }
     }
 

@@ -31,7 +31,7 @@ jobs:
 
   analyze_cuebot:
     runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2020
+    container: aswf/ci-opencue:2024.1
     name: Analyze Cuebot
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -48,5 +48,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
+          sudo yum -y install java-17-openjdk.x86_64
+          sudo yum -y install java-17-openjdk-devel.x86_64
+          sudo alternatives --set java java-17-openjdk.x86_64
+          sudo alternatives --set javac java-17-openjdk.x86_64
+          sudo alternatives --set jre_openjdk java-17-openjdk.x86_64
           chown -R aswfuser:aswfgroup .
-          su -c "cd cuebot && ./gradlew jacocoTestReport sonarqube -Dsonar.login=$(SONAR_TOKEN)" aswfuser
+          su -c "cd cuebot && ./gradlew jacocoTestReport sonar" aswfuser
