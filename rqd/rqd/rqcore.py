@@ -98,10 +98,7 @@ class FrameAttendantThread(threading.Thread):
         self.frameEnv["CUE_GPU_MEMORY"] = str(self.rqCore.machine.getGpuMemoryFree())
         self.frameEnv["SP_NOMYCSHRC"] = "1"
 
-        if platform.system() in ("Linux", "Darwin"):
-            self.frameEnv["MAIL"] = "/usr/mail/%s" % self.runFrame.user_name
-            self.frameEnv["HOME"] = "/net/homedirs/%s" % self.runFrame.user_name
-        elif platform.system() == "Windows":
+        if platform.system() == "Windows":
             for variable in ["SYSTEMROOT", "APPDATA", "TMP", "COMMONPROGRAMFILES", "SYSTEMDRIVE"]:
                 if variable in os.environ:
                     self.frameEnv[variable] = os.environ[variable]
