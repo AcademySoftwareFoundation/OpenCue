@@ -571,11 +571,11 @@ class Machine(object):
             self.__renderHost.tags.append("windows")
             return
 
-        if os.uname()[-1] in ("i386", "i686"):
+        if platform.uname()[-1] in ("i386", "i686"):
             self.__renderHost.tags.append("32bit")
-        elif os.uname()[-1] == "x86_64":
+        elif platform.uname()[-1] == "x86_64":
             self.__renderHost.tags.append("64bit")
-        self.__renderHost.tags.append(os.uname()[2].replace(".EL.spi", "").replace("smp", ""))
+        self.__renderHost.tags.append(platform.uname()[2].replace(".EL.spi", "").replace("smp", ""))
 
     def testInitMachineStats(self, pathCpuInfo):
         """Initializes machine stats outside of normal startup process. Used for testing."""

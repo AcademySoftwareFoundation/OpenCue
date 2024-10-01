@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 import getpass
 import os
+import platform
 import unittest
 
 import mock
@@ -49,7 +50,7 @@ class JobTests(unittest.TestCase):
             job_pb2.Job(name=TEST_JOB_NAME))
         username = getpass.getuser()
         pid = os.getpid()
-        host_kill = os.uname()[1]
+        host_kill = platform.uname()[1]
         reason = "Job Kill Request"
         job.kill(username=username, pid=pid, host_kill=host_kill, reason=reason)
 
@@ -95,7 +96,7 @@ class JobTests(unittest.TestCase):
             job_pb2.Job(name=TEST_JOB_NAME))
         username = getpass.getuser()
         pid = os.getpid()
-        host_kill = os.uname()[1]
+        host_kill = platform.uname()[1]
         reason = "Job Kill Request"
         job.killFrames(range=frameRange,
                        username=username,
