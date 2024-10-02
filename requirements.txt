@@ -6,7 +6,7 @@ grpcio-tools==1.48.2;python_version<"3.7"
 grpcio==1.53.2;python_version>="3.7"
 grpcio-tools==1.53.0;python_version>="3.7"
 mock==2.0.0
-packaging==20.9
+packaging==24.1
 psutil==5.9.8
 pyfakefs==3.6;python_version<"3.7"
 pyfakefs==5.2.3;python_version>="3.7"

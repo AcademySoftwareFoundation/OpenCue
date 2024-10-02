@@ -56,7 +56,7 @@ COPY cuesubmit/plugins ./cuesubmit/plugins
 COPY cuesubmit/cuesubmit ./cuesubmit/cuesubmit
 
 COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION
 
 RUN cd pycue && python3.6 setup.py install
 RUN cd pyoutline && python3.6 setup.py install
