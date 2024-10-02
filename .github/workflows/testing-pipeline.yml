@@ -124,26 +124,3 @@ jobs:
         uses: tj-actions/changed-files@v41
       - name: Check for Version Change
         run: ci/check_version_bump.py ${{ steps.get_changed_files.outputs.all_changed_and_modified_files }}
-
-  analyze_python:
-    runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2024.1
-    name: Analyze Python Components
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          # Fetch all Git history, otherwise the current version number will
-          # not be correctly calculated.
-          fetch-depth: 0
-
-      - name: Generate coverage report
-        run: ci/python_coverage_report.sh
-
-      - name: Analyze and send to SonarCloud
-        uses: sonarsource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
