@@ -28,9 +28,10 @@ RUN python3 -m grpc_tools.protoc \
 RUN 2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
 
 COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION
 
-RUN cd pycue && python3 setup.py test
+RUN cd pycue && python3 -m pip install .
+RUN cd pycue && python3 -m unittest tests/*.py
 
 RUN cp LICENSE requirements.txt VERSION pycue/
 
