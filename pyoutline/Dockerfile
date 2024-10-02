@@ -36,8 +36,9 @@ COPY pyoutline/outline ./pyoutline/outline
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION
 
+# Install pycue as pyoutline depends on it to run tests
 RUN cd pycue && python3 -m pip install .
-RUN cd pycue && python3 -m unittest tests/*.py
+RUN cd pyoutline && python3 tests/test_suite.py
 
 RUN cp LICENSE requirements.txt VERSION pyoutline/
 
