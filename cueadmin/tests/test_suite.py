@@ -11,11 +11,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+# pylint: disable=missing-function-docstring,missing-module-docstring
 
 import unittest
 
 def create_test_suite():
-    """Create test suite for this module"""
     loader = unittest.TestLoader()
     start_dir = '.'  # Specify the directory where your test files reside
     suite = loader.discover(start_dir, pattern='*_tests.py')
