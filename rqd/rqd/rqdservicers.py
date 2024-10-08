@@ -70,7 +70,7 @@ class RqdInterfaceServicer(rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceServicer)
         else:
             context.set_details(
                 "The requested frame to kill was not found. frameId: {}".format(
-                    request.frameId))
+                    request.frame_id))
             context.set_code(grpc.StatusCode.NOT_FOUND)
             log.warning("Wasn't able to find frame(%s) to kill", request.frame_id)
         return rqd.compiled_proto.rqd_pb2.RqdStaticKillRunningFrameResponse()
