@@ -5,6 +5,8 @@ package department;
 option java_package = "com.imageworks.spcue.grpc.department";
 option java_multiple_files = true;
 
+option go_package = "opencue_gateway/gen/go";
+
 import "task.proto";
 
 // Departments

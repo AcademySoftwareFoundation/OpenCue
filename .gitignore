@@ -9,6 +9,7 @@ venv*/
 .coverage
 coverage.xml
 htmlcov/
+rest_gateway/*.tar\.gz
 /.env
 .envrc
 .vscode

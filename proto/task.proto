@@ -5,6 +5,8 @@ package task;
 option java_package = "com.imageworks.spcue.grpc.task";
 option java_multiple_files = true;
 
+option go_package = "opencue_gateway/gen/go";
+
 // Tasks
 // Tasks are shot priorities for a specific dept
 

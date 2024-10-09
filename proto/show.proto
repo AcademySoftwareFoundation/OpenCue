@@ -5,6 +5,8 @@ package show;
 option java_package = "com.imageworks.spcue.grpc.show";
 option java_multiple_files = true;
 
+option go_package = "opencue_gateway/gen/go";
+
 import "department.proto";
 import "filter.proto";
 import "host.proto";

@@ -7,6 +7,7 @@ option java_multiple_files = true;
 import "host.proto";
 import "subscription.proto";
 
+option go_package = "opencue_gateway/gen/go";
 
 // -------- Services --------
 
