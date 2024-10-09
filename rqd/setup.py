@@ -61,7 +61,7 @@ setup(
         'grpcio',
         'grpcio-tools',
         'psutil',
-        'pywin32; platform_system == "Windows"',
+        'pywin32==224; platform_system == "Windows"',
         'wmi==1.5.1; platform_system == "Windows"'
     ]
 )
