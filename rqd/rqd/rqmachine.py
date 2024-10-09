@@ -692,7 +692,9 @@ class Machine(object):
         return logicalCoreCount, physicalProcessorCount, hyperThreadingMultiplier
 
     def __updateProcsMappingsFromWindows(self):
-        """Update `__procs_by_physid_and_coreid` and `__physid_and_coreid_by_proc` mappings for Windows platforms.
+        """
+        Update `__procs_by_physid_and_coreid` and `__physid_and_coreid_by_proc` mappings
+        for Windows platforms.
 
         Implementation detail.
         """
