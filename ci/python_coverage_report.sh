@@ -19,7 +19,7 @@ PYTHONPATH=pycue python -m coverage run -a --source=cueadmin/cueadmin/ cueadmin/
 # TODO: re-enable cuegui tests when xvfb-run gets configured to execute on the new vfx-platform
 # PYTHONPATH=pycue xvfb-run -d python -m coverage run -a --source=cuegui/cuegui/ cuegui/setup.py test
 PYTHONPATH=pycue:pyoutline python -m coverage run -a --source=cuesubmit/cuesubmit/ cuesubmit/setup.py test
-python -m coverage run -a --source=rqd/rqd/ --omit=rqd/rqd/compiled_proto/* rqd/setup.py test
+PYTHONPATH=pycue python -m coverage run -a --source=rqd/rqd/ --omit=rqd/rqd/compiled_proto/* rqd/setup.py test
 
 # SonarCloud needs the report in XML.
 python -m coverage xml
