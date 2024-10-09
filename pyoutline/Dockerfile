@@ -34,10 +34,11 @@ COPY pyoutline/wrappers ./pyoutline/wrappers
 COPY pyoutline/outline ./pyoutline/outline
 
 COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION
 
-RUN cd pycue && python3 setup.py install
-RUN cd pyoutline && python3 setup.py test
+# Install pycue as pyoutline depends on it to run tests
+RUN cd pycue && python3 -m pip install .
+RUN cd pyoutline && python3 tests/test_suite.py
 
 RUN cp LICENSE requirements.txt VERSION pyoutline/
 
