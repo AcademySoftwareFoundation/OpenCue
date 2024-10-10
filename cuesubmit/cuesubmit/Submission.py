@@ -29,6 +29,49 @@ import outline.modules.shell
 
 from cuesubmit import Constants
 from cuesubmit import JobTypes
+from cuesubmit import Util
+
+
+def isSoloFlag(flag):
+    """ Check if the flag is solo, meaning it has no associated value
+     solo flags are marked with a ~ (ex: --background~)
+     """
+    return re.match(r"^-+\w+~$", flag)
+
+
+def isFlag(flag):
+    """ Check if the provided string is a flag (starts with a -)"""
+    return re.match(r"^-+\w+$", flag)
+
+
+def formatValue(flag, value, isPath, isMandatory):
+    """ Adds quotes around file/folder path variables
+     and provide an error value to display for missing mandatory values.
+    """
+    if isPath and value:
+        value = f'"{value}"'
+    if isMandatory and value in ('', None):
+        value = f'!!missing value for {flag}!!'
+    return value
+
+
+def buildDynamicCmd(layerData):
+    """From a layer, builds a customized render command."""
+    renderCommand = Constants.RENDER_CMDS[layerData.layerType].get('command')
+    for (flag, isPath, isMandatory), value in layerData.cmd.items():
+        if isSoloFlag(flag):
+            renderCommand += f' {flag[:-1]}'
+            continue
+        value = formatValue(flag, value, isPath, isMandatory)
+        if isFlag(flag) and value not in ('', None):
+            # flag and value
+            renderCommand += f' {flag} {value}'
+            continue
+        # solo argument without flag
+        if value not in ('', None):
+            renderCommand += f' {value}'
+
+    return renderCommand
 
 
 def buildMayaCmd(layerData, silent=False):
@@ -97,10 +140,17 @@ def buildLayer(layerData, command, lastLayer=None):
     @type lastLayer: outline.layer.Layer
     @param lastLayer: layer that this new layer should be dependent on if dependType is set.
     """
-    threadable = float(layerData.cores) >= 2 or float(layerData.cores) <= 0
+    threadable = False
+    if layerData.overrideCores:
+        threadable = float(layerData.cores) >= 2 or float(layerData.cores) <= 0
+    elif layerData.services and layerData.services[0] in Util.getServices():
+        threadable = Util.getServiceOption(layerData.services[0], 'threadable')
+
+    cores = layerData.cores if layerData.overrideCores else None
     layer = outline.modules.shell.Shell(
         layerData.name, command=command.split(), chunk=layerData.chunk,
-        threads=float(layerData.cores), range=str(layerData.layerRange), threadable=threadable)
+        cores=cores,
+        range=str(layerData.layerRange), threadable=threadable)
     if layerData.services:
         layer.set_service(layerData.services[0])
     if layerData.limits:
@@ -112,9 +162,12 @@ def buildLayer(layerData, command, lastLayer=None):
             layer.depend_on(lastLayer)
     return layer
 
+
 def buildLayerCommand(layerData, silent=False):
     """Builds the command to be sent per jobType"""
-    if layerData.layerType == JobTypes.JobTypes.MAYA:
+    if layerData.layerType in JobTypes.JobTypes.FROM_CONFIG_FILE:
+        command = buildDynamicCmd(layerData)
+    elif layerData.layerType == JobTypes.JobTypes.MAYA:
         command = buildMayaCmd(layerData, silent)
     elif layerData.layerType == JobTypes.JobTypes.SHELL:
         command = layerData.cmd.get('commandTextBox') if silent else layerData.cmd['commandTextBox']
@@ -128,6 +181,7 @@ def buildLayerCommand(layerData, silent=False):
         else:
             raise ValueError('unrecognized layer type {}'.format(layerData.layerType))
     return command
+
 
 def submitJob(jobData):
     """Submits the job using the PyOutline API."""

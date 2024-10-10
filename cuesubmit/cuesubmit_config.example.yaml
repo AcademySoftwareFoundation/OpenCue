@@ -5,7 +5,151 @@
 
 UI_NAME : "OPENCUESUBMIT"
 SUBMIT_APP_WINDOW_TITLE : "OpenCue Submit"
-MAYA_RENDER_CMD : "Render"
-NUKE_RENDER_CMD : "nuke"
-BLENDER_RENDER_CMD : "blender"
+
+DEFAULT_SHOW : "MyProject" # Can also be set with the "PROJECT" env var
+
 FRAME_TOKEN : "#IFRAME#"
+FRAME_START_TOKEN : "#FRAME_START#"
+FRAME_END_TOKEN : "#FRAME_END#"
+
+RENDER_CMDS:
+  Shell:
+    command: ""
+    options:
+      "{Command to run}": "\n"
+
+  Maya:
+    command: "Render"
+    services:
+      - "maya"
+      - "arnold"
+    limits:
+        - "arnold license limit"
+    options:
+      "-r {Renderer}":
+        - file
+        - default
+        - hw2
+        - sw
+        - arnold
+      "-s {Start Frame}": "#FRAME_START#"
+      "-e {End Frame}": "#FRAME_END#"
+      "{!mayaFile*}":
+          - Maya Ascii file (*.ma)
+          - Maya Binary file (*.mb)
+          - Maya file (*.ma *.mb)
+
+  Blender:
+    command: "blender"
+    options:
+      "--background~": ""
+      "-noaudio~": ""
+      "{!file*}":
+          - Blender file (*.blend)
+      "-s {Start Frame}": "#FRAME_START#"
+      "-e {End Frame}": "#FRAME_END#"
+      "-o {Output Path (Optional)*}": "//render_"
+      "-F {Output Format}": ['', 'AVIJPEG', 'AVIRAW', 'BMP', 'CINEON', 'DPX', 'EXR', 'HDR', 'IRIS', 'IRIZ',
+                   'JP2', 'JPEG', 'MPEG', 'MULTILAYER', 'PNG', 'RAWTGA', 'TGA', 'TIFF']
+
+  Nuke:
+    command: "nuke"
+    services:
+      - "nuke"
+    limits:
+        - "nuke license limit"
+    options:
+      "-X {!Write Nodes}": ""
+      "-F {Frame Range}": "#FRAME_START#-#FRAME_END#"
+      "-x {!Nuke File*}":
+        - Nuke Script File (*.nk)
+
+  Isolated Job Example:
+    config_file: "$MAYA_JOB_CONFIG_FILE"
+
+
+Help: >
+  RENDER_CMDS section describes custom job types that will appear in the UI
+  There are 2 ways to declare a job:
+   - directly in the list
+   - from a separate config file (yaml)
+  You can use environment variables to define paths
+  
+  1) To configure a job directly:
+    Command name:
+      command: "path/to/executable"
+      services:
+        - "service1"
+        - "service2"
+      limits:
+        - "limit1"
+        - "limit2"
+      options:
+        "-strFlag": "default value"
+        "-strFlagB {Nice Name}": "default value"
+        "-boolFlag": false
+        "-intFlag": 10
+                    # Creates a slider from 0 to 999
+        "-intRange": [0, 5, 3]
+                    #[min, max, default]
+        "-floatRange": [0, 1, 0.5, 2]
+                      #[min, max, default, float_precision]
+        "-choiceList":
+          -choiceA
+          -choiceB
+        "-browsableFolder {Output Folder/}": ""
+        "-anyBrowsableFile {Any File*}": ""
+        "-filteredBrowsableFile {Maya File*}":
+          - Maya Ascii file (*.ma)
+          - Maya Binary file (*.mb)
+          - Maya file (*.ma *.mb)
+        "{No flag argument}": ""
+        "{!Mandatory argument}": ""
+        "-hiddenFlag~": ""
+    
+    Note:
+     - arguments order is respected
+     - flags can have double dash (--background)
+     - Syntax:
+  
+     "-flagName"
+       command uses `-flagName`
+       UI displays `-flagName`
+  
+     "-flagName {Nice Name}"
+       command uses `-flagName`
+       UI displays `Nice Name`
+  
+     "{Nice Name}"
+       command uses blank space (no flag)
+       UI displays `Nice Name`
+  
+     "~{Nice Name}": "python"
+       command uses " python"
+       the widget is hidden
+  
+     "-flagName~"
+       command uses '-flagName'
+       the widget is hidden
+  
+     "-f {Frame}": "#IFRAME#"
+       command uses '-f #IFRAME#'
+       the widget is hidden (with any opencue token)
+  
+     "{Nice Name}": "\n"
+       Creates a multiline widget
+  
+     To make string browsable, use:
+       "{Nice Name/}" for folders
+       "{Nice Name*}" for files
+  
+     To make an option mandatory, use:
+       "{!Nice Name}"
+       UI will make it red if empty
+  
+  2) To load a command from another config_file:
+    Command Name:
+      config_file: "path/to/command/config.yaml"
+    
+    Note:
+      see cuesubmit_isolated_job_config.example.yaml
