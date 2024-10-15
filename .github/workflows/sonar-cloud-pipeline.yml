@@ -7,7 +7,7 @@ on:
 
 jobs:
   analyze_python:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024.1
     name: Analyze Python Components
     env:
@@ -30,7 +30,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   analyze_cuebot:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024.1
     name: Analyze Cuebot
     env:
