@@ -20,3 +20,5 @@ six==1.16.0
 # Optional requirements
 # Sentry support for rqd
 sentry-sdk==2.11.0
+
+docker==7.1.0

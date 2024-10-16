@@ -153,11 +153,18 @@ else:
 
 SP_OS = platform.system()
 
+# Docker mode config
+RUN_ON_DOCKER = False
+DOCKER_IMAGE = "Invalid"
+DOCKER_MOUNTS = []
+
 try:
     if os.path.isfile(CONFIG_FILE):
         # Hostname can come from here: rqutil.getHostname()
         __override_section = "Override"
         __host_env_var_section = "UseHostEnvVar"
+        __docker_mounts = "docker.mounts"
+        __docker_config = "docker.config"
         import six
         from six.moves import configparser
         if six.PY2:
@@ -229,6 +236,40 @@ try:
 
         if config.has_section(__host_env_var_section):
             RQD_HOST_ENV_VARS = config.options(__host_env_var_section)
+
+        if config.has_section(__docker_config):
+            RUN_ON_DOCKER = config.getboolean(__docker_config, "RUN_ON_DOCKER")
+            if RUN_ON_DOCKER:
+                import docker
+                import docker.models
+                import docker.types
+
+                def parse_mount(mount_str):
+                    """
+                    Parse mount definitions similar to a docker run command into a docker
+                    mount obj
+
+                    Format: type=bind,source=/tmp,target=/tmp,bind-propagation=slave
+                    """
+                    mount_dict = {}
+                    # bind-propagation defaults to None as only type=bind accepts it
+                    mount_dict["bind-propagation"] = None
+                    for item in mount_str.split(","):
+                        key, value = item.split("=")
+                        mount_dic[key.strip()] = value.strip()
+                    return mount_dic
+
+                DOCKER_IMAGE = config.get(__docker_config, "DOCKER_IMAGE")
+                # Parse values under the category docker.mounts into Mount objects
+                mounts = config.options(__docker_mounts)
+                for mount_name in mounts:
+                    mount_str = config.get(__docker_mounts, mount_name)
+                    mount_dic = parse_mount(mount_str)
+                    mount = docker.types.Mount(mount_dic["target"],
+                                               mount_dic["source"],
+                                               type=mount_dic["type"],
+                                               propagation=mount_dic["bind-propagation"])
+                    DOCKER_MOUNTS.append(mount)
 
 # pylint: disable=broad-except
 except Exception as e:
