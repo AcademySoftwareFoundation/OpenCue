@@ -81,13 +81,18 @@ def __loadConfigFromFile():
 
 
 def __packaged_version():
-    possible_version_path = os.path.join(
+    version_file_path = os.path.join(
         os.path.abspath(os.path.join(__file__, "../../..")), 'VERSION.in')
-    if os.path.exists(possible_version_path):
-        with open(possible_version_path, encoding='utf-8') as fp:
-            default_version = fp.read().strip()
-        return default_version
-    return "1.3.0"
+    try:
+        with open(version_file_path, encoding='utf-8') as fp:
+            version = fp.read().strip()
+        return version
+    except FileNotFoundError:
+        print(f"VERSION.in not found at: {version_file_path}")
+    except Exception as e:
+        print(f"An unexpected error occurred while reading VERSION.in: {e}")
+    return None
+
 
 def __get_version_from_cmd(command):
     try:
@@ -97,7 +102,7 @@ def __get_version_from_cmd(command):
         print(f"Command failed with return code {e.returncode}: {e}")
     except Exception as e:
         print(f"Failed to get version from command: {e}")
-    return None
+    return __config.get('version', __packaged_version())
 
 __config = __loadConfigFromFile()
 
