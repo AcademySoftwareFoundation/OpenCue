@@ -124,3 +124,63 @@ jobs:
         uses: tj-actions/changed-files@v41
       - name: Check for Version Change
         run: ci/check_version_bump.py ${{ steps.get_changed_files.outputs.all_changed_and_modified_files }}
+
+  test_rqd_python_3_7:
+    name: Test RQD with python 3.7
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Sphinx build
+        run: ci/run_rqd_python_tests.sh
+
+  test_rqd_python_3_8:
+    name: Test RQD with python 3.8
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Sphinx build
+        run: ci/run_rqd_python_tests.sh
+
+  test_rqd_python_3_9:
+    name: Test RQD with python 3.9
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.9
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Sphinx build
+        run: ci/run_rqd_python_tests.sh
+
+  test_rqd_python_3_10:
+    name: Test RQD with python 3.10
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Sphinx build
+        run: ci/run_rqd_python_tests.sh
+
+  test_rqd_python_3_11:
+    name: Test RQD with python 3.11
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.11
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Sphinx build
+        run: ci/run_rqd_python_tests.sh
+
+  test_rqd_python_3_12:
+    name: Test RQD with python 3.12
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Sphinx build
+        run: ci/run_rqd_python_tests.sh
