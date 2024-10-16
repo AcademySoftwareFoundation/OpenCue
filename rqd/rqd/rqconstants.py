@@ -165,6 +165,8 @@ try:
         # Hostname can come from here: rqutil.getHostname()
         __override_section = "Override"
         __host_env_var_section = "UseHostEnvVar"
+        __docker_mounts = "docker.mounts"
+        __docker_config = "docker.config"
         import six
         from six.moves import configparser
         if six.PY2:
