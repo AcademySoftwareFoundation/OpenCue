@@ -102,7 +102,7 @@ def __get_version_from_cmd(command):
         print(f"Command failed with return code {e.returncode}: {e}")
     except Exception as e:
         print(f"Failed to get version from command: {e}")
-    return None
+    return __config.get('version', __packaged_version())
 
 __config = __loadConfigFromFile()
 
