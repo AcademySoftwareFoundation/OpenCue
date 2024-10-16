@@ -22,5 +22,5 @@ python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc
 2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
 2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
 
-python pycue/setup.py test
-python rqd/setup.py test
+python -m pytest pycue/tests
+python -m pytest rqd/tests
