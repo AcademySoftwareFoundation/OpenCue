@@ -91,7 +91,7 @@ def __packaged_version():
         print(f"VERSION.in not found at: {version_file_path}")
     except Exception as e:
         print(f"An unexpected error occurred while reading VERSION.in: {e}")
-    return None
+    return "1.0.0"
 
 
 def __get_version_from_cmd(command):
@@ -102,7 +102,7 @@ def __get_version_from_cmd(command):
         print(f"Command failed with return code {e.returncode}: {e}")
     except Exception as e:
         print(f"Failed to get version from command: {e}")
-    return None
+    return __config.get('version', __packaged_version())
 
 __config = __loadConfigFromFile()
 
