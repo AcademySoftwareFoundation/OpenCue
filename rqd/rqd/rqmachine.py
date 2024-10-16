@@ -887,7 +887,7 @@ class Machine(object):
                 # the most idle cores first.
                 key=lambda tup: len(tup[1]),
                 reverse=True):
-            cores = sorted(list(cores))
+            cores = sorted(list(cores), key=int)
             while remaining_procs > 0 and len(cores) > 0:
                 # Reserve hyper-threaded cores first (2 threads(logical cores) for 1 physical core)
                 # Avoid booking a hyper-threaded core for an odd thread count remainder
