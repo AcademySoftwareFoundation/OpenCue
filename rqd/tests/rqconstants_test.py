@@ -30,8 +30,6 @@ import uuid
 import mock
 import pyfakefs.fake_filesystem_unittest
 
-import six
-
 import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqmachine
@@ -39,19 +37,14 @@ import rqd.rqnimby
 import rqd.rqutil
 import rqd.compiled_proto.report_pb2
 
-from .rqmachine_tests import (
+from .rqmachine_test import (
     CPUINFO,
     LOADAVG_LOW_USAGE,
     MEMINFO_MODERATE_USAGE,
     PROC_STAT,
 )
 
-
-if not six.PY2:
-    import importlib
-
-    reload = importlib.reload
-
+import importlib
 
 class MockConfig(object):
     def __init__(self, tempdir, content):
@@ -63,7 +56,8 @@ class MockConfig(object):
 
     def __enter__(self):
         self.patcher.start()
-        reload(rqd.rqconstants)
+        import rqd.rqconstants
+        importlib.reload(rqd.rqconstants)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):

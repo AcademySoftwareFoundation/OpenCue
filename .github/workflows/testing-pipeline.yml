@@ -184,3 +184,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run Sphinx build
         run: ci/run_rqd_python_tests.sh
+
+  test_rqd_python_3_13:
+    name: Test RQD with python 3.13
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.13
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Sphinx build
+        run: ci/run_rqd_python_tests.sh
