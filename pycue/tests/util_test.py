@@ -25,12 +25,13 @@ import uuid
 
 import grpc
 import mock
+import pytest
 
 from opencue.compiled_proto import job_pb2
 import opencue.exception
 from opencue.wrappers.job import Job
 
-
+@pytest.mark.skip
 @opencue.util.grpcExceptionParser
 def testRaise(exc):
     uuid.uuid4()
