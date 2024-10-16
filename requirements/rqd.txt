@@ -7,3 +7,4 @@ grpcio-tools==1.53.0;python_version>="3.7" and python_version<"3.12"
 grpcio==1.66.2;python_version>="3.12"
 grpcio-tools==1.66.2;python_version>="3.12"
 PyYAML==5.1
+psutil==5.9.8
