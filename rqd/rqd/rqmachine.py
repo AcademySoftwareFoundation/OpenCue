@@ -906,7 +906,7 @@ class Machine(object):
                 remaining_procs -= len(procids)
                 tasksets.extend(procids)
 
-            if remaining_procs == 0:
+            if remaining_procs <= 0:
                 break
 
         log.warning('Taskset: Reserving procs - %s', ','.join(tasksets))
