@@ -247,6 +247,7 @@ try:
                 # rqd needs to run as root to be able to run docker
                 RQD_UID = 0
                 RQD_GID = 0
+
                 def parse_mount(mount_str):
                     """
                     Parse mount definitions similar to a docker run command into a docker
