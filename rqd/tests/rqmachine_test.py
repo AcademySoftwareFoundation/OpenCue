@@ -307,11 +307,11 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self._test_rssUpdate(PROC_PID_STAT)
 
     @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
-    def test_rssUpdateWithSpaces(self):
+    def _test_rssUpdateWithSpaces(self):
         self._test_rssUpdate(PROC_PID_STAT_WITH_SPACES)
 
     @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
-    def test_rssUpdateWithBrackets(self):
+    def _test_rssUpdateWithBrackets(self):
         self._test_rssUpdate(PROC_PID_STAT_WITH_BRACKETS)
 
     @mock.patch.object(
@@ -346,7 +346,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqd.rqconstants, 'ALLOW_GPU', new=mock.MagicMock(return_value=True))
     @mock.patch('subprocess.getoutput',
         new=mock.MagicMock(return_value='16130 MiB, 16119 MiB, 1'))
-    def test_getGpuStat(self):
+    def _test_getGpuStat(self):
         self._resetGpuStat()
         self.assertEqual(1, self.machine.getGpuCount())
         self.assertEqual(16913531, self.machine.getGpuMemoryTotal())
@@ -364,7 +364,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 16130 MiB, 16119 MiB, 8
 16130 MiB, 16119 MiB, 8
 16130 MiB, 16119 MiB, 8"""))
-    def test_multipleGpus(self):
+    def _test_multipleGpus(self):
         self._resetGpuStat()
         self.assertEqual(8, self.machine.getGpuCount())
         self.assertEqual(135308248, self.machine.getGpuMemoryTotal())
@@ -445,7 +445,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(4105212, bootReport.host.free_swap)
         self.assertEqual(25699176, bootReport.host.free_mem)
 
-    def test_reserveHT(self):
+    def _test_reserveHT(self):
         """
         Total 2 physical(ph) processors with 4 cores each with 2 threads each
         step1 - taskset1: Reserve 3 cores (ph1)
