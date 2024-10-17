@@ -41,6 +41,7 @@ class LayerData(object):
         self.cmd = {}
         self.layerRange = ''
         self.chunk = '1'
+        self.overrideCores = False
         self.cores = '1'
         self.env = {}
         self.services = []
@@ -59,6 +60,7 @@ class LayerData(object):
             'cmd': self.cmd,
             'layerRange': self.layerRange,
             'chunk': self.chunk,
+            'overrideCores': self.overrideCores,
             'cores': self.cores,
             'env': self.env,
             'services': self.services,
@@ -68,15 +70,19 @@ class LayerData(object):
         }
 
     @staticmethod
-    def buildFactory(name=None, layerType=None, cmd=None, layerRange=None, chunk=None, cores=None,
-                     env=None, services=None, limits=None, dependType=None, dependsOn=None):
+    def buildFactory(name=None, layerType=None, cmd=None, layerRange=None, chunk=None,
+                     overrideCores=None, cores=None, env=None, services=None, limits=None,
+                     dependType=None, dependsOn=None):
         """Build a new LayerData object with the given settings."""
         layerData = LayerData()
-        layerData.update(name, layerType, cmd, layerRange, chunk, cores, env, services, limits,
-                         dependType, dependsOn)
+        layerData.update(name=name, layerType=layerType, cmd=cmd, layerRange=layerRange,
+                         chunk=chunk, overrideCores=overrideCores, cores=cores, env=env,
+                         services=services, limits=limits,
+                         dependType=dependType, dependsOn=dependsOn)
         return layerData
 
-    def update(self, name=None, layerType=None, cmd=None, layerRange=None, chunk=None, cores=None,
+    def update(self, name=None, layerType=None, cmd=None, layerRange=None, chunk=None,
+               overrideCores=None, cores=None,
                env=None, services=None, limits=None, dependType=None, dependsOn=None):
         """Update this Layer with the provided settings."""
         if name is not None:
@@ -91,6 +97,8 @@ class LayerData(object):
             self.chunk = chunk
         if cores is not None:
             self.cores = cores
+        if overrideCores is not None:
+            self.overrideCores = overrideCores
         if env is not None:
             self.env = env
         if services is not None:
