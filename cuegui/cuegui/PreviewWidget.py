@@ -118,7 +118,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         """Launch a viewer for this preview frame"""
         if not cuegui.Constants.OUTPUT_VIEWER_DIRECT_CMD_CALL:
             print("No viewer configured. "
-                  "Please ensure output_viewer.direct_cmd_call is configured properly")
+                  "Please ensure output_viewer_direct_cmd_call is configured properly")
         print("Launching preview: ", self.__previewFile)
         cmd = cuegui.Constants.OUTPUT_VIEWER_DIRECT_CMD_CALL.format(
             paths=self.__previewFile).split()
