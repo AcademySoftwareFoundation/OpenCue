@@ -132,7 +132,7 @@ jobs:
       image: python:3.7
     steps:
       - uses: actions/checkout@v4
-      - name: Run Sphinx build
+      - name: Run Python Tests
         run: ci/run_rqd_python_tests.sh
 
   test_rqd_python_3_8:
@@ -142,7 +142,7 @@ jobs:
       image: python:3.8
     steps:
       - uses: actions/checkout@v4
-      - name: Run Sphinx build
+      - name: Run Python Tests
         run: ci/run_rqd_python_tests.sh
 
   test_rqd_python_3_9:
@@ -152,7 +152,7 @@ jobs:
       image: python:3.9
     steps:
       - uses: actions/checkout@v4
-      - name: Run Sphinx build
+      - name: Run Python Tests
         run: ci/run_rqd_python_tests.sh
 
   test_rqd_python_3_10:
@@ -162,7 +162,7 @@ jobs:
       image: python:3.10
     steps:
       - uses: actions/checkout@v4
-      - name: Run Sphinx build
+      - name: Run Python Tests
         run: ci/run_rqd_python_tests.sh
 
   test_rqd_python_3_11:
@@ -172,7 +172,7 @@ jobs:
       image: python:3.11
     steps:
       - uses: actions/checkout@v4
-      - name: Run Sphinx build
+      - name: Run Python Tests
         run: ci/run_rqd_python_tests.sh
 
   test_rqd_python_3_12:
@@ -182,7 +182,7 @@ jobs:
       image: python:3.12
     steps:
       - uses: actions/checkout@v4
-      - name: Run Sphinx build
+      - name: Run Python Tests
         run: ci/run_rqd_python_tests.sh
 
   test_rqd_python_3_13:
@@ -192,5 +192,5 @@ jobs:
       image: python:3.13
     steps:
       - uses: actions/checkout@v4
-      - name: Run Sphinx build
+      - name: Run Python Tests
         run: ci/run_rqd_python_tests.sh
