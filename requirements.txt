@@ -14,6 +14,7 @@ pyfakefs==5.2.3;python_version>="3.7"
 pylint==2.13.9;python_version<"3.7"
 pylint==2.15.10;python_version>="3.7"
 pynput==1.7.6
+pytest==7.4.4
 PyYAML==5.1
 six==1.16.0
 
