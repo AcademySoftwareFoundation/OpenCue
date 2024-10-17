@@ -41,6 +41,7 @@ render_logs.root:
   darwin: '/Users/shots'
   linux: '/shots'
   rhel7: '/shots'
+  rocky9: '/shots'
 # Substrings which, when found in render logs, will cause that line to be highlighted.
 render_logs.highlight.error: [
   'error', 'aborted', 'fatal', 'failed', 'killed', 'command not found',
