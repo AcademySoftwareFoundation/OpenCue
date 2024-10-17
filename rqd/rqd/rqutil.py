@@ -157,6 +157,10 @@ def checkAndCreateUser(username, uid=None, gid=None):
             cmd.append(username)
             log.info("Frame's username not found on host. Adding user with: %s", cmd)
             subprocess.check_call(cmd)
+        # pylint: disable=broad-except
+        except Exception:
+            logging.exception("useradd failed to add user: %s. User possibly already exists.",
+                              username)
         finally:
             permissionsLow()
 

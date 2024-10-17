@@ -93,6 +93,7 @@ class RqCore(object):
         self.docker_mounts = []
         self.docker_image = "Invalid"
         if rqd.rqconstants.RUN_ON_DOCKER:
+            # pylint: disable=import-outside-toplevel
             import docker
             self.docker_client = docker.from_env()
             self.docker_image = rqd.rqconstants.DOCKER_IMAGE
@@ -940,7 +941,8 @@ class FrameAttendantThread(threading.Thread):
         #
         # image = self.rqCore.docker_images.get(runFrame.os)
         # if image is None:
-        #     raise RuntimeError("rqd not configured to run an image for this frame OS: %s", runFrame.os)
+        #     raise RuntimeError("rqd not configured to run an
+        #     image for this frame OS: %s", runFrame.os)
         image = self.rqCore.docker_image
 
         self.__createEnvVariables()
@@ -961,35 +963,41 @@ class FrameAttendantThread(threading.Thread):
         tempCommand += [runFrame.command]
 
         # Print PID before executing
-        command = ["sh", "-c", "echo '$$'; exec " + " ".join(tempCommand)]
+        command = ["sh", "-c", "echo $$; exec " + " ".join(tempCommand)]
 
         client = self.rqCore.docker_client
-        container = client.containers.run(image=image,
-                                          detach=True,
-                                          environment=self.frameEnv,
-                                          working_dir=self.rqCore.machine.getTempPath(),
-                                          mounts=self.rqCore.docker_mounts,
-                                          privileged=True,
-                                          remove=True,
-                                          pid_mode="host",
-                                          stderr=True,
-                                          hostname=self.frameEnv["jobhost"],
-                                          entrypoint=command)
+        try:
+            container = client.containers.run(image=image,
+                                              detach=True,
+                                              environment=self.frameEnv,
+                                              working_dir=self.rqCore.machine.getTempPath(),
+                                              mounts=self.rqCore.docker_mounts,
+                                              privileged=True,
+                                              remove=True,
+                                              pid_mode="host",
+                                              stderr=True,
+                                              hostname=self.frameEnv["jobhost"],
+                                              entrypoint=command,
+                                              user=runFrame.uid)
 
-        log_stream = container.logs(stream=True)
-        # CMD prints the process PID before executing the actual command
-        frameInfo.pid = int(next(log_stream))
+            log_stream = container.logs(stream=True)
+            # CMD prints the process PID before executing the actual command
+            frameInfo.pid = int(next(log_stream))
 
-        if not self.rqCore.updateRssThread.is_alive():
-            self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
-                                                          self.rqCore.updateRss)
-            self.rqCore.updateRssThread.start()
+            if not self.rqCore.updateRssThread.is_alive():
+                self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
+                                                            self.rqCore.updateRss)
+                self.rqCore.updateRssThread.start()
 
-        for line in log_stream:
-            self.rqlog.write(line, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+            for line in log_stream:
+                self.rqlog.write(line, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
 
-        output = container.wait()
-        returncode = output["StatusCode"]
+            output = container.wait()
+            returncode = output["StatusCode"]
+        # pylint: disable=broad-except
+        except Exception:
+            returncode = 1
+            logging.exception("Failed to launch frame container")
 
         # Find exitStatus and exitSignal
         if returncode < 0:
@@ -1128,6 +1136,7 @@ class FrameAttendantThread(threading.Thread):
         log.info("Monitor frame started for frameId=%s", self.frameId)
 
         runFrame = self.runFrame
+        run_on_docker = self.rqCore.docker_client is not None
 
         # pylint: disable=too-many-nested-blocks
         try:
@@ -1146,9 +1155,10 @@ class FrameAttendantThread(threading.Thread):
                         rqd.rqutil.checkAndCreateUser(runFrame.user_name,
                                                       runFrame.uid,
                                                       runFrame.gid)
-                        # Do everything as launching user:
-                        runFrame.gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
-                        rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
+                        if not run_on_docker:
+                            # Do everything as launching user:
+                            runFrame.gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
+                            rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
 
                     # Setup frame logging
                     try:
@@ -1165,7 +1175,7 @@ class FrameAttendantThread(threading.Thread):
                 # Store frame in cache and register servant
                 self.rqCore.storeFrame(runFrame.frame_id, self.frameInfo)
 
-                if platform.system() == "Linux" and self.rqCore.docker_client is not None:
+                if run_on_docker:
                     self.runDocker()
                 elif platform.system() == "Linux":
                     self.runLinux()
