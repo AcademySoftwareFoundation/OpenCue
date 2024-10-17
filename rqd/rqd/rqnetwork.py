@@ -79,6 +79,7 @@ class RunningFrame(object):
 
         self.lluTime = 0
         self.childrenProcs = {}
+        self.completeReportSent = False
 
     def runningFrameInfo(self):
         """Returns the RunningFrameInfo object"""

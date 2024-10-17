@@ -81,13 +81,18 @@ def __loadConfigFromFile():
 
 
 def __packaged_version():
-    possible_version_path = os.path.join(
+    version_file_path = os.path.join(
         os.path.abspath(os.path.join(__file__, "../../..")), 'VERSION.in')
-    if os.path.exists(possible_version_path):
-        with open(possible_version_path, encoding='utf-8') as fp:
-            default_version = fp.read().strip()
-        return default_version
-    return "1.3.0"
+    try:
+        with open(version_file_path, encoding='utf-8') as fp:
+            version = fp.read().strip()
+        return version
+    except FileNotFoundError:
+        print(f"VERSION.in not found at: {version_file_path}")
+    except Exception as e:
+        print(f"An unexpected error occurred while reading VERSION.in: {e}")
+    return None
+
 
 def __get_version_from_cmd(command):
     try:
@@ -97,7 +102,7 @@ def __get_version_from_cmd(command):
         print(f"Command failed with return code {e.returncode}: {e}")
     except Exception as e:
         print(f"Failed to get version from command: {e}")
-    return None
+    return __config.get('version', __packaged_version())
 
 __config = __loadConfigFromFile()
 
@@ -201,11 +206,12 @@ LOG_HIGHLIGHT_INFO = __config.get('render_logs.highlight.info')
 
 RESOURCE_LIMITS = __config.get('resources')
 
-OUTPUT_VIEWER_ACTION_TEXT = __config.get('output_viewer', {}).get('action_text')
-OUTPUT_VIEWER_EXTRACT_ARGS_REGEX = __config.get('output_viewer', {}).get('extract_args_regex')
-OUTPUT_VIEWER_CMD_PATTERN = __config.get('output_viewer', {}).get('cmd_pattern')
-OUTPUT_VIEWER_DIRECT_CMD_CALL = __config.get('output_viewer', {}).get('direct_cmd_call')
-OUTPUT_VIEWER_STEREO_MODIFIERS = __config.get('output_viewer', {}).get('stereo_modifiers')
+OUTPUT_VIEWERS = []
+for viewer in __config.get('output_viewers', {}):
+    OUTPUT_VIEWERS.append(viewer)
+
+OUTPUT_VIEWER_DIRECT_CMD_CALL = __config.get('output_viewer_direct_cmd_call')
+
 FINISHED_JOBS_READONLY_FRAME = __config.get('finished_jobs_readonly.frame', False)
 FINISHED_JOBS_READONLY_LAYER = __config.get('finished_jobs_readonly.layer', False)
 

@@ -24,6 +24,7 @@ from builtins import str
 from builtins import map
 from builtins import object
 import datetime
+import functools
 import glob
 import os
 import re
@@ -912,8 +913,19 @@ class FrameContextMenu(QtWidgets.QMenu):
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.frames().addAction(self, "useLocalCores")
 
-        if cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN:
-            self.__menuActions.frames().addAction(self, "viewOutput")
+        if cuegui.Constants.OUTPUT_VIEWERS:
+            job = widget.getJob()
+            outputPaths = []
+            for frame in widget.selectedObjects():
+                layer = job.getLayer(frame.layer())
+                outputPaths.extend(cuegui.Utils.getOutputFromFrame(layer, frame))
+            if outputPaths:
+                for viewer in cuegui.Constants.OUTPUT_VIEWERS:
+                    self.addAction(viewer['action_text'],
+                                   functools.partial(cuegui.Utils.viewFramesOutput,
+                                                     job,
+                                                     widget.selectedObjects(),
+                                                     viewer['action_text']))
 
         if self.app.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(self, "viewHost")

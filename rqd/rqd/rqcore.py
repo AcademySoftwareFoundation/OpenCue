@@ -98,10 +98,7 @@ class FrameAttendantThread(threading.Thread):
         self.frameEnv["CUE_GPU_MEMORY"] = str(self.rqCore.machine.getGpuMemoryFree())
         self.frameEnv["SP_NOMYCSHRC"] = "1"
 
-        if platform.system() in ("Linux", "Darwin"):
-            self.frameEnv["MAIL"] = "/usr/mail/%s" % self.runFrame.user_name
-            self.frameEnv["HOME"] = "/net/homedirs/%s" % self.runFrame.user_name
-        elif platform.system() == "Windows":
+        if platform.system() == "Windows":
             for variable in ["SYSTEMROOT", "APPDATA", "TMP", "COMMONPROGRAMFILES", "SYSTEMDRIVE"]:
                 if variable in os.environ:
                     self.frameEnv[variable] = os.environ[variable]
@@ -239,29 +236,6 @@ class FrameAttendantThread(threading.Thread):
             log.critical(
                 "Unable to write footer: %s due to %s at %s",
                 self.runFrame.log_dir_file, e, traceback.extract_tb(sys.exc_info()[2]))
-
-    def __sendFrameCompleteReport(self):
-        """Send report to cuebot that frame has finished"""
-        report = rqd.compiled_proto.report_pb2.FrameCompleteReport()
-        # pylint: disable=no-member
-        report.host.CopyFrom(self.rqCore.machine.getHostInfo())
-        report.frame.CopyFrom(self.frameInfo.runningFrameInfo())
-        # pylint: enable=no-member
-
-        if self.frameInfo.exitStatus is None:
-            report.exit_status = 1
-        else:
-            report.exit_status = self.frameInfo.exitStatus
-
-        report.exit_signal = self.frameInfo.exitSignal
-        report.run_time = int(self.frameInfo.runTime)
-
-        # If nimby is active, then frame must have been killed by nimby
-        # Set the exitSignal to indicate this event
-        if self.rqCore.nimby.locked and not self.runFrame.ignore_nimby:
-            report.exit_status = rqd.rqconstants.EXITSTATUS_FOR_NIMBY_KILL
-
-        self.rqCore.network.reportRunningFrameCompletion(report)
 
     def __cleanup(self):
         """Cleans up temporary files"""
@@ -554,7 +528,7 @@ class FrameAttendantThread(threading.Thread):
 
             self.rqCore.deleteFrame(self.runFrame.frame_id)
 
-            self.__sendFrameCompleteReport()
+            self.rqCore.sendFrameCompleteReport(self.frameInfo)
             time_till_next = (
                     (self.rqCore.intervalStartTime + self.rqCore.intervalSleepTime) - time.time())
             if time_till_next > (2 * rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC):
@@ -726,6 +700,9 @@ class RqCore(object):
                         self.cores.reserved_cores)
                     # pylint: disable=no-member
                     self.cores.reserved_cores.clear()
+                    log.info("Successfully delete frame with Id: %s", frameId)
+                else:
+                    log.warning("Frame with Id: %s not found in cache", frameId)
 
     def killAllFrame(self, reason):
         """Will execute .kill() on every frame in cache until no frames remain
@@ -1083,3 +1060,50 @@ class RqCore(object):
     def isWaitingForIdle(self):
         """Returns whether the host is waiting until idle to take some action."""
         return self.__whenIdle
+
+    def sendFrameCompleteReport(self, runningFrame):
+        """Send a frameCompleteReport to Cuebot"""
+        if not runningFrame.completeReportSent:
+            report = rqd.compiled_proto.report_pb2.FrameCompleteReport()
+            # pylint: disable=no-member
+            report.host.CopyFrom(self.machine.getHostInfo())
+            report.frame.CopyFrom(runningFrame.runningFrameInfo())
+            # pylint: enable=no-member
+
+            if runningFrame.exitStatus is None:
+                report.exit_status = 1
+            else:
+                report.exit_status = runningFrame.exitStatus
+
+            report.exit_signal = runningFrame.exitSignal
+            report.run_time = int(runningFrame.runTime)
+
+            # If nimby is active, then frame must have been killed by nimby
+            # Set the exitSignal to indicate this event
+            if self.nimby.locked and not runningFrame.ignoreNimby:
+                report.exit_status = rqd.rqconstants.EXITSTATUS_FOR_NIMBY_KILL
+
+            self.network.reportRunningFrameCompletion(report)
+            runningFrame.completeReportSent = True
+
+    def sanitizeFrames(self):
+        """
+        Iterate over the cache and update the status of frames that might have
+        completed but never reported back to cuebot.
+        """
+        for frameId, runningFrame in self.__cache.items():
+            # If the frame was marked as completed (exitStatus) and a report has not been sent
+            # try to file the report again
+            if runningFrame.exitStatus is not None and not runningFrame.completeReportSent:
+                try:
+                    self.sendFrameCompleteReport(runningFrame)
+                    self.deleteFrame(frameId)
+                    log.info("Successfully deleted frame from cache for %s/%s (%s)",
+                                  runningFrame.runFrame.job_name,
+                                  runningFrame.runFrame.frame_name,
+                                  frameId)
+                # pylint: disable=broad-except
+                except Exception:
+                    log.exception("Failed to sanitize frame %s/%s",
+                                  runningFrame.runFrame.job_name,
+                                  runningFrame.runFrame.frame_name)
