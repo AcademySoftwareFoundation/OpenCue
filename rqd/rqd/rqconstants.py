@@ -244,6 +244,9 @@ try:
                 import docker.models
                 import docker.types
 
+                # rqd needs to run as root to be able to run docker
+                RQD_UID = 0
+                RQD_GID = 0
                 def parse_mount(mount_str):
                     """
                     Parse mount definitions similar to a docker run command into a docker
@@ -255,21 +258,25 @@ try:
                     # bind-propagation defaults to None as only type=bind accepts it
                     mount_dict["bind-propagation"] = None
                     for item in mount_str.split(","):
-                        key, value = item.split("=")
-                        mount_dic[key.strip()] = value.strip()
-                    return mount_dic
+                        key, value = item.split(":")
+                        mount_dict[key.strip()] = value.strip()
+                    return mount_dict
 
                 DOCKER_IMAGE = config.get(__docker_config, "DOCKER_IMAGE")
                 # Parse values under the category docker.mounts into Mount objects
                 mounts = config.options(__docker_mounts)
                 for mount_name in mounts:
-                    mount_str = config.get(__docker_mounts, mount_name)
-                    mount_dic = parse_mount(mount_str)
-                    mount = docker.types.Mount(mount_dic["target"],
-                                               mount_dic["source"],
-                                               type=mount_dic["type"],
-                                               propagation=mount_dic["bind-propagation"])
-                    DOCKER_MOUNTS.append(mount)
+                    try:
+                        mount_str = config.get(__docker_mounts, mount_name)
+                        mount_dict = parse_mount(mount_str)
+                        mount = docker.types.Mount(mount_dict["target"],
+                                                  mount_dict["source"],
+                                                  type=mount_dict["type"],
+                                                  propagation=mount_dict["bind-propagation"])
+                        DOCKER_MOUNTS.append(mount)
+                    except KeyError as e:
+                        logging.exception("Failed to create Mount for key=%s, value=%s",
+                                          mount_name, mount_str)
 
 # pylint: disable=broad-except
 except Exception as e:
