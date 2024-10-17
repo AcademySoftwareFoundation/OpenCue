@@ -581,6 +581,8 @@ class JobActions(AbstractActions):
     def viewComments(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
+            if not isinstance(jobs, list):
+                jobs = [jobs]
             cuegui.Comments.CommentListDialog(jobs, self._caller).show()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
