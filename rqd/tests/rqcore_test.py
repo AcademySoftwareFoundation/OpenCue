@@ -261,7 +261,8 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(num_idle_cores+num_cores_to_release, self.rqcore.cores.idle_cores)
 
     @mock.patch.object(rqd.rqcore.RqCore, 'nimbyOff')
-    def test_shutdown(self, nimbyOffMock):
+    @mock.patch('os._exit')
+    def test_shutdown(self, nimbyOffMock, exitMock):
         self.rqcore.onIntervalThread = mock.MagicMock()
         self.rqcore.updateRssThread = mock.MagicMock()
 
@@ -272,7 +273,7 @@ class RqCoreTests(unittest.TestCase):
         self.rqcore.updateRssThread.cancel.assert_called()
 
     @mock.patch('rqd.rqnetwork.Network', autospec=True)
-    @mock.patch('sys.exit')
+    @mock.patch('os._exit')
     def test_handleExit(self, networkMock, exitMock):
         self.rqcore = rqd.rqcore.RqCore()
 
@@ -299,7 +300,8 @@ class RqCoreTests(unittest.TestCase):
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
             self.rqcore.launchFrame(frame)
 
-    def test_launchFrameOnHostWaitingForShutdown(self):
+    @mock.patch('os._exit')
+    def test_launchFrameOnHostWaitingForShutdown(self, exitMock):
         self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.active = False
         frame = rqd.compiled_proto.rqd_pb2.RunFrame()
@@ -370,7 +372,8 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(frame, self.rqcore.getRunningFrame(frameId))
         self.assertIsNone(self.rqcore.getRunningFrame('some-unknown-frame-id'))
 
-    def test_rebootNowNoUser(self):
+    @mock.patch('os._exit')
+    def test_rebootNowNoUser(self, exitMock):
         self.machineMock.return_value.isUserLoggedIn.return_value = False
         self.nimbyMock.return_value.active = False
 
@@ -384,7 +387,8 @@ class RqCoreTests(unittest.TestCase):
         with self.assertRaises(rqd.rqexceptions.RqdException):
             self.rqcore.rebootNow()
 
-    def test_rebootIdleNoFrames(self):
+    @mock.patch('os._exit')
+    def test_rebootIdleNoFrames(self, exitMock):
         self.machineMock.return_value.isUserLoggedIn.return_value = False
         self.nimbyMock.return_value.active = False
 
