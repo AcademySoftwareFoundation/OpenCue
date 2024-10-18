@@ -354,7 +354,7 @@ class JobActionsTests(unittest.TestCase):
 
         self.job_actions.viewComments(rpcObjects=[job])
 
-        commentListMock.assert_called_with(job, self.widgetMock)
+        commentListMock.assert_called_with([job], self.widgetMock)
         commentListMock.return_value.show.assert_called()
 
     @mock.patch('cuegui.DependWizard.DependWizard')
