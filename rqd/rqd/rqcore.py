@@ -91,12 +91,12 @@ class RqCore(object):
 
         self.docker_client = None
         self.docker_mounts = []
-        self.docker_image = "Invalid"
+        self.docker_images = {}
         if rqd.rqconstants.RUN_ON_DOCKER:
             # pylint: disable=import-outside-toplevel
             import docker
             self.docker_client = docker.from_env()
-            self.docker_image = rqd.rqconstants.DOCKER_IMAGE
+            self.docker_images = rqd.rqconstants.DOCKER_IMAGES
             self.docker_mounts = rqd.rqconstants.DOCKER_MOUNTS
 
         signal.signal(signal.SIGINT, self.handleExit)
@@ -222,9 +222,9 @@ class RqCore(object):
                         self.cores.reserved_cores)
                     # pylint: disable=no-member
                     self.cores.reserved_cores.clear()
-                    log.info("Successfully delete frame with Id: %s", frameId)
-                else:
-                    log.warning("Frame with Id: %s not found in cache", frameId)
+                log.info("Successfully delete frame with Id: %s", frameId)
+            else:
+                log.warning("Frame with Id: %s not found in cache", frameId)
 
     def killAllFrame(self, reason):
         """Will execute .kill() on every frame in cache until no frames remain
@@ -936,14 +936,25 @@ class FrameAttendantThread(threading.Thread):
         frameInfo = self.frameInfo
         runFrame = self.runFrame
 
-        # TODO: implement support for multiple images
-        # requires adding `string os = 25;` to rqd.proto/RunFrame
-        #
-        # image = self.rqCore.docker_images.get(runFrame.os)
-        # if image is None:
-        #     raise RuntimeError("rqd not configured to run an
-        #     image for this frame OS: %s", runFrame.os)
-        image = self.rqCore.docker_image
+        if runFrame.os:
+            image = self.rqCore.docker_images.get(runFrame.os)
+            if image is None:
+                self.__writeHeader()
+                msg = ("This rqd is not configured to run an image "
+                    "for this frame OS: %s. Check the [docker.images] "
+                    "section of rqd.conf for more information." % runFrame.os)
+                self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+                raise RuntimeError(msg)
+        elif self.rqCore.docker_images:
+            # If a frame doesn't require an specic OS, default to the first configured OS on
+            # [docker.images]
+            image = list(self.rqCore.docker_images.values)[0]
+        else:
+            self.__writeHeader()
+            msg = ("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
+                   "least one image on DOCKER_IMAGES ([docker.images] section of rqd.conf)")
+            self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+            raise RuntimeError(msg)
 
         self.__createEnvVariables()
         self.__writeHeader()

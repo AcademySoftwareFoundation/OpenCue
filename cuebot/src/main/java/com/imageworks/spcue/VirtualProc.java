@@ -85,7 +85,9 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
      * @param frame
      * @return
      */
-    public static final VirtualProc build(DispatchHost host, DispatchFrame frame, String... selfishServices) {
+    public static final VirtualProc build(DispatchHost host,
+                                          DispatchFrame frame,
+                                          String... selfishServices) {
         VirtualProc proc = new VirtualProc();
         proc.allocationId = host.getAllocationId();
         proc.hostId = host.getHostId();
@@ -94,7 +96,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.jobId = frame.getJobId();
         proc.showId = frame.getShowId();
         proc.facilityId = frame.getFacilityId();
-        proc.os = host.os;
+        proc.os = frame.os;
 
         proc.hostName = host.getName();
         proc.unbooked = false;
@@ -148,7 +150,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                 proc.coresReserved = wholeCores * 100;
             } else {
                 if (frame.threadable) {
-                    if (selfishServices != null && 
+                    if (selfishServices != null &&
                         frame.services != null &&
                         containsSelfishService(frame.services.split(","), selfishServices)){
                         proc.coresReserved = wholeCores * 100;
@@ -238,7 +240,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.jobId = frame.getJobId();
         proc.showId = frame.getShowId();
         proc.facilityId = frame.getFacilityId();
-        proc.os = host.os;
+        proc.os = frame.os;
 
         proc.hostName = host.getName();
         proc.unbooked = false;

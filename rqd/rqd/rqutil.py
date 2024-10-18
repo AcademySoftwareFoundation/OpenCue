@@ -159,8 +159,7 @@ def checkAndCreateUser(username, uid=None, gid=None):
             subprocess.check_call(cmd)
         # pylint: disable=broad-except
         except Exception:
-            logging.exception("useradd failed to add user: %s. User possibly already exists.",
-                              username)
+            logging.info("useradd failed to add user: %s. User possibly already exists.", username)
         finally:
             permissionsLow()
 

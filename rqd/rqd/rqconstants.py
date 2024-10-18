@@ -1,4 +1,5 @@
 #  Copyright Contributors to the OpenCue Project
+#  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -155,7 +156,7 @@ SP_OS = platform.system()
 
 # Docker mode config
 RUN_ON_DOCKER = False
-DOCKER_IMAGE = "Invalid"
+DOCKER_IMAGES = {}
 DOCKER_MOUNTS = []
 
 try:
@@ -163,8 +164,6 @@ try:
         # Hostname can come from here: rqutil.getHostname()
         __override_section = "Override"
         __host_env_var_section = "UseHostEnvVar"
-        __docker_mounts = "docker.mounts"
-        __docker_config = "docker.config"
         import six
         from six.moves import configparser
         if six.PY2:
@@ -237,6 +236,10 @@ try:
         if config.has_section(__host_env_var_section):
             RQD_HOST_ENV_VARS = config.options(__host_env_var_section)
 
+        __docker_mounts = "docker.mounts"
+        __docker_config = "docker.config"
+        __docker_images = "docker.images"
+
         if config.has_section(__docker_config):
             RUN_ON_DOCKER = config.getboolean(__docker_config, "RUN_ON_DOCKER")
             if RUN_ON_DOCKER:
@@ -247,6 +250,31 @@ try:
                 # rqd needs to run as root to be able to run docker
                 RQD_UID = 0
                 RQD_GID = 0
+
+                # Every key:value on the config file under docker.images
+                # is parsed as key=SP_OS and value=image_tag.
+                # SP_OS is set to a list of all available keys
+                # For example:
+                #
+                #   rqd.conf
+                #     [docker.images]
+                #     centos7=centos7.3:latest
+                #     rocky9=rocky9.3:latest
+                #
+                #   becomes:
+                #     SP_OS=centos7,rocky9
+                #     DOCKER_IMAGES={
+                #       "centos7": "centos7.3:latest",
+                #       "rocky9": "rocky9.3:latest"
+                #     }
+                keys = config.options(__docker_images)
+                DOCKER_IMAGES = {}
+                for key in keys:
+                    DOCKER_IMAGES[key] = config.get(__docker_images, key)
+                SP_OS = ",".join(keys)
+                if not DOCKER_IMAGES:
+                    raise RuntimeError("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
+                                       "least one image on DOCKER_IMAGES ([docker.images] section of rqd.conf)")
 
                 def parse_mount(mount_str):
                     """
@@ -263,7 +291,6 @@ try:
                         mount_dict[key.strip()] = value.strip()
                     return mount_dict
 
-                DOCKER_IMAGE = config.get(__docker_config, "DOCKER_IMAGE")
                 # Parse values under the category docker.mounts into Mount objects
                 mounts = config.options(__docker_mounts)
                 for mount_name in mounts:
