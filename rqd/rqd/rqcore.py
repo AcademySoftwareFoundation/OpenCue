@@ -222,9 +222,9 @@ class RqCore(object):
                         self.cores.reserved_cores)
                     # pylint: disable=no-member
                     self.cores.reserved_cores.clear()
-                    log.info("Successfully delete frame with Id: %s", frameId)
-                else:
-                    log.warning("Frame with Id: %s not found in cache", frameId)
+                log.info("Successfully delete frame with Id: %s", frameId)
+            else:
+                log.warning("Frame with Id: %s not found in cache", frameId)
 
     def killAllFrame(self, reason):
         """Will execute .kill() on every frame in cache until no frames remain
