@@ -395,6 +395,7 @@ public class DispatchSupportService implements DispatchSupport {
                 .setNumGpus(proc.gpusReserved)
                 .setStartTime(System.currentTimeMillis())
                 .setIgnoreNimby(proc.isLocalDispatch)
+                .setOs(proc.os)
                 .putAllEnvironment(jobDao.getEnvironment(frame))
                 .putAllEnvironment(layerDao.getLayerEnvironment(frame))
                 .putEnvironment("CUE3", "1")
