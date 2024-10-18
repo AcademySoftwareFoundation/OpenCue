@@ -12,64 +12,56 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-"""Logging module, handles logging to files and non-files"""
-
+"""Module for writing files"""
 
 import logging
-import time
 import os
-import datetime
 import platform
-
-import rqd.rqconstants
+import datetime
+import time
 
 log = logging.getLogger(__name__)
-log.setLevel(rqd.rqconstants.CONSOLE_LOG_LEVEL)
 
+class CueLogWriter(object):
+    """Class to abstract file log writing, this class tries to act as a file object"""
 
-class RqdLogger(object):
-    """Class to abstract file logging, this class tries to act as a file object"""
     filepath = None
-    fd = None
-    type = 0
 
-    def __init__(self, filepath):
-        """RQDLogger class initialization
+    def __init__(self, filepath, maxLogFiles=1):
+        """CueLogWriter class initialization
            @type    filepath: string
            @param   filepath: The filepath to log to
+           @type    maxLogFiles: int
+           @param   maxLogFiles: number of files to rotate, when in write mode
         """
 
         self.filepath = filepath
+        self.__log_dir = os.path.dirname(self.filepath)
+        self.__maxLogFiles = maxLogFiles
+        if not os.access(self.__log_dir, os.F_OK):
+            self.__makeLogDir()
 
-        log_dir = os.path.dirname(self.filepath)
-        if not os.access(log_dir, os.F_OK):
-            # Attempting mkdir for missing logdir
-            msg = "No Error"
-            try:
-                os.makedirs(log_dir)
-                os.chmod(log_dir, 0o777)
-            # pylint: disable=broad-except
-            except Exception as e:
-                # This is expected to fail when called in abq
-                # But the directory should now be visible
-                msg = e
-
-            if not os.access(log_dir, os.F_OK):
-                err = "Unable to see log directory: %s, mkdir failed with: %s" % (
-                    log_dir, msg)
-                raise RuntimeError(err)
-
-        if not os.access(log_dir, os.W_OK):
-            err = "Unable to write to log directory %s" % log_dir
+        if not os.access(self.__log_dir, os.W_OK):
+            err = "Unable to write to log directory %s" % self.__log_dir
             raise RuntimeError(err)
 
+        self.__attemptRotateLogs()
+        # pylint: disable=consider-using-with
+        self.__fd = open(self.filepath, "w+", 1, encoding='utf-8')
+        try:
+            os.chmod(self.filepath, 0o666)
+        # pylint: disable=broad-except
+        except Exception as e:
+            err = "Failed to chmod log file! %s due to %s" % (self.filepath, e)
+            log.warning(err)
+
+    def __attemptRotateLogs(self):
         try:
             # Rotate any old logs to a max of MAX_LOG_FILES:
             if os.path.isfile(self.filepath):
                 rotateCount = 1
                 while (os.path.isfile("%s.%s" % (self.filepath, rotateCount))
-                       and rotateCount < rqd.rqconstants.MAX_LOG_FILES):
+                       and rotateCount < self.__maxLogFiles):
                     rotateCount += 1
                 os.rename(self.filepath,
                           "%s.%s" % (self.filepath, rotateCount))
@@ -83,14 +75,22 @@ class RqdLogger(object):
                 log.warning(err)
             else:
                 raise RuntimeError(err)
-        # pylint: disable=consider-using-with
-        self.fd = open(self.filepath, "w+", 1, encoding='utf-8')
+
+    def __makeLogDir(self):
+        # Attempting mkdir for missing logdir
+        msg = "No Error"
         try:
-            os.chmod(self.filepath, 0o666)
+            os.makedirs(self.__log_dir)
+            os.chmod(self.__log_dir, 0o777)
         # pylint: disable=broad-except
         except Exception as e:
-            err = "Failed to chmod log file! %s due to %s" % (self.filepath, e)
-            log.warning(err)
+            # This is expected to fail when called in abq
+            # But the directory should now be visible
+            msg = e
+
+        if not os.access(self.__log_dir, os.F_OK):
+            err = "Unable to see log directory: %s, mkdir failed with: %s" % (self.__log_dir, msg)
+            raise RuntimeError(err)
 
     # pylint: disable=arguments-differ
     def write(self, data, prependTimestamp=False):
@@ -104,7 +104,7 @@ class RqdLogger(object):
             for line in lines:
                 print("[%s] %s" % (curr_line_timestamp, line), file=self)
         else:
-            self.fd.write(data)
+            self.__fd.write(data)
 
     def writelines(self, __lines):
         """Provides support for writing mutliple lines at a time"""
@@ -113,7 +113,7 @@ class RqdLogger(object):
 
     def close(self):
         """Closes the file if the backend is file based"""
-        self.fd.close()
+        self.__fd.close()
 
     def waitForFile(self, maxTries=5):
         """Waits for the file to exist before continuing when using a file backend"""
@@ -126,8 +126,4 @@ class RqdLogger(object):
             time.sleep(0.5 * tries)
         raise IOError("Failed to create %s" % self.filepath)
 
-    def __enter__(self):
-        return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
