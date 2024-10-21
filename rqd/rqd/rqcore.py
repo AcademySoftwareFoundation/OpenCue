@@ -1006,9 +1006,12 @@ class FrameAttendantThread(threading.Thread):
             output = container.wait()
             returncode = output["StatusCode"]
         # pylint: disable=broad-except
-        except Exception:
+        except Exception as e:
             returncode = 1
-            logging.exception("Failed to launch frame container")
+            msg = "Failed to launch frame container"
+            logging.exception(msg)
+            self.rqlog.write(msg + " - " + e,
+                             prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
 
         # Find exitStatus and exitSignal
         if returncode < 0:
