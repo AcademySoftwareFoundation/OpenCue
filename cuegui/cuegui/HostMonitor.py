@@ -60,6 +60,7 @@ class HostMonitor(QtWidgets.QWidget):
         self.__filterByHostNameSetup(hlayout)
         self.__filterAllocationSetup(hlayout)
         self.__filterHardwareStateSetup(hlayout)
+        self.__filterOSSetup(hlayout)
         hlayout.addStretch()
         self.__refreshToggleCheckBoxSetup(hlayout)
         self.__refreshButtonSetup(hlayout)
@@ -263,6 +264,69 @@ class HostMonitor(QtWidgets.QWidget):
         self.hostMonitorTree.updateRequest()
 
     # ==============================================================================
+    # Menu to filter by OS
+    # ==============================================================================
+    def __filterOSSetup(self, layout):
+        self.__filterOSList = ["rhel7", "rhel9", "Windows"]
+
+        btn = QtWidgets.QPushButton("Filter OS")
+        btn.setMaximumHeight(FILTER_HEIGHT)
+        btn.setFocusPolicy(QtCore.Qt.NoFocus)
+        btn.setContentsMargins(0, 0, 0, 0)
+        btn.setFlat(True)
+
+        menu = QtWidgets.QMenu(self)
+        btn.setMenu(menu)
+        QtCore.QObject.connect(menu,
+                            QtCore.SIGNAL("triggered(QAction*)"),
+                            self.__filterOSHandle)
+
+        for item in ["Clear", None] + self.__filterOSList:
+            if item:
+                a = QtWidgets.QAction(menu)
+                a.setText(str(item))
+                if item != "Clear":
+                    a.setCheckable(True)
+                menu.addAction(a)
+            else:
+                menu.addSeparator()
+
+        layout.addWidget(btn)
+        self.__filterOSButton = btn
+
+    def __filterOSClear(self):
+        """Clears the currently selected OS filter"""
+        btn = self.__filterOSButton
+        menu = btn.menu()
+        for action in menu.actions():
+            action.setChecked(False)
+        self.hostMonitorTree.hostSearch.options['os'] = []
+
+    def __filterOSHandle(self, action):
+        """Called when an option in the filter OS menu is triggered.
+        Tells the HostMonitorTree widget what OS to filter by.
+        @param action: Defines the menu item selected
+        @type  action: QAction"""
+        __hostSearch = self.hostMonitorTree.hostSearch
+        if action.text() == "Clear":
+            for item in self.__filterOSButton.menu().actions():
+                if item.isChecked():
+                    if item.text() != "Clear":
+                        __hostSearch.options['os'].remove(str(item.text()))
+                    item.setChecked(False)
+        else:
+            os_list = __hostSearch.options.get('os', [])
+            if action.isChecked():
+                os_list.append(str(action.text()))
+            elif os_list is not None:
+                os_list.remove(str(action.text()))
+            else:
+                os_list = []
+            __hostSearch.options['os'] = os_list
+
+        self.hostMonitorTree.updateRequest()
+
+    # ==============================================================================
     # Checkbox to toggle auto-refresh
     # ==============================================================================
     def __refreshToggleCheckBoxSetup(self, layout):
@@ -321,6 +385,7 @@ class HostMonitor(QtWidgets.QWidget):
         self.hostMonitorTree.ticksWithoutUpdate = -1
         self.__filterAllocationClear()
         self.__filterHardwareStateClear()
+        self.__filterOSClear()
         self.__filterByHostNameClear()
         self.hostMonitorTree.clearFilters()
 
