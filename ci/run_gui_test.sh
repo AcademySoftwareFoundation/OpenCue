@@ -21,7 +21,7 @@ fi
 echo "Using Python binary ${py}"
 
 test_log="/tmp/cuegui_result.log"
-PYTHONPATH=pycue xvfb-run -d "${py}" cuegui/setup.py test | tee ${test_log}
+PYTHONPATH=pycue xvfb-run -d "${py}" -m unittest discover -s cuegui/tests -t cuegui -p "*.py"| tee ${test_log}
 
 grep -Pz 'Ran \d+ tests in [0-9\.]+s\n\nOK' ${test_log}
 if [ $? -eq 0 ]; then
