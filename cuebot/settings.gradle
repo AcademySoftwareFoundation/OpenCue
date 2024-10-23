@@ -1,2 +1,19 @@
-rootProject.name = 'cuebot'
+pluginManagement {
+    repositories {
+        maven { url 'https://repo.spring.io/plugins-snapshot' }
+        maven {
+            url = uri("https://plugins.gradle.org/m2/")
+        }
+        mavenCentral()
+        jcenter()
+    }
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.getName() == 'protobuf') {
+                useModule('com.google.protobuf:protobuf-gradle-plugin:0.9.1')
+            }
+        }
+    }
+}
 
+rootProject.name = 'cuebot'

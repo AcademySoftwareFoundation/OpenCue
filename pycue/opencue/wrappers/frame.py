@@ -18,6 +18,7 @@ import enum
 import getpass
 import time
 import os
+import platform
 
 from opencue import Cuebot
 from opencue.compiled_proto import job_pb2
@@ -75,7 +76,7 @@ class Frame(object):
         """Kills the frame."""
         username = username if username else getpass.getuser()
         pid = pid if pid else os.getpid()
-        host_kill = host_kill if host_kill else os.uname()[1]
+        host_kill = host_kill if host_kill else platform.uname()[1]
         if self.data.state == job_pb2.FrameState.Value('RUNNING'):
             self.stub.Kill(job_pb2.FrameKillRequest(frame=self.data,
                                                     username=username,

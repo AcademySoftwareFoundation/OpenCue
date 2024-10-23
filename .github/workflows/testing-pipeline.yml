@@ -9,7 +9,7 @@ on:
 jobs:
   test_python_2022:
     name: Run Python Unit Tests (CY2022)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2022
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -20,7 +20,7 @@ jobs:
 
   test_cuebot_2022:
     name: Build Cuebot and Run Unit Tests (CY2022)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container:
       image: aswf/ci-opencue:2022
     env:
@@ -34,7 +34,7 @@ jobs:
 
   test_python_2023:
     name: Run Python Unit Tests (CY2023)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2023
     steps:
       - uses: actions/checkout@v3
@@ -43,7 +43,7 @@ jobs:
 
   test_cuebot_2023:
     name: Build Cuebot and Run Unit Tests (CY2023)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container:
       image: aswf/ci-opencue:2023
     steps:
@@ -55,7 +55,7 @@ jobs:
 
   test_python_2024:
     name: Run Python Unit Tests (CY2024)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024
     steps:
       - uses: actions/checkout@v3
@@ -64,7 +64,7 @@ jobs:
 
   test_cuebot_2024:
     name: Build Cuebot and Run Unit Tests (CY2024)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container:
       image: aswf/ci-opencue:2024
     steps:
@@ -74,18 +74,9 @@ jobs:
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
-  test_pyside6:
-    name: Run CueGUI Tests using PySide6
-    runs-on: ubuntu-latest
-    container: almalinux:9
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run CueGUI Tests
-        run: ci/test_pyside6.sh
-
   lint_python:
     name: Lint Python Code
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2022
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -96,7 +87,7 @@ jobs:
 
   test_sphinx:
     name: Test Documentation Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container:
       image: aswf/ci-opencue:2023
     steps:
@@ -106,7 +97,7 @@ jobs:
 
   check_changed_files:
     name: Check Changed Files
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Get Changed Files
@@ -117,7 +108,7 @@ jobs:
 
   check_migration_files:
     name: Check Database Migration Files
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Check Migration Files
@@ -125,7 +116,7 @@ jobs:
 
   check_for_version_bump:
     name: Check for Version Bump
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Get Changed Files

@@ -10,7 +10,7 @@ on:
 jobs:
   integration_test:
     name: Run Integration Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -73,7 +73,7 @@ jobs:
             ARTIFACTS: OpenCue-Blender-${BUILD_ID}-all.zip
 
     name: Build ${{ matrix.NAME }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -145,7 +145,7 @@ jobs:
   create_other_artifacts:
     name: Create Other Build Artifacts
     needs: build_components
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3

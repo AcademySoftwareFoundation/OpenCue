@@ -2,6 +2,11 @@ FROM --platform=linux/x86_64 centos:7
 
 WORKDIR /src
 
+# centos:7 repos moved to vault.centos
+RUN sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/CentOS-*.repo
+RUN sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/CentOS-*.repo
+RUN sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/CentOS-*.repo
+
 RUN yum -y install \
   epel-release \
   fontconfig \
@@ -57,7 +62,7 @@ COPY cuegui/tests ./cuegui/tests
 COPY cuegui/cuegui ./cuegui/cuegui
 
 COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION
 
 RUN cd pycue && python3.6 setup.py install
 
