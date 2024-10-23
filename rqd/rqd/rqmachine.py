@@ -693,8 +693,6 @@ class Machine(object):
             - the number of logical cores
             - the number of physical processors
             - the hyper-threading multiplier
-
-        Implementation detail.
         """
         # Windows memory information
         stat = self.getWindowsMemory()
@@ -718,10 +716,9 @@ class Machine(object):
         """
         Update `__procs_by_physid_and_coreid` and `__physid_and_coreid_by_proc` mappings
         for Windows platforms.
-
-        Implementation detail.
         """
-        import wmi  # Windows-specific
+        # Windows-specific
+        import wmi  # pylint:disable=import-outside-toplevel,import-error
 
         # Reset mappings
         self.__procs_by_physid_and_coreid = {}
