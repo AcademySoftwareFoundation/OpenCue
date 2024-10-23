@@ -199,10 +199,9 @@ run_blender_job() {
 
 add_RQD_tag() {
     container_id=$(docker ps --filter "name=blender" --format "{{.ID}}")
-    host_name="['${container_id}']"
     got_hosts=$(python -c 'import opencue; print([host.name() for host in opencue.api.getHosts()])')
     host_exists=false
-    for host in ${got_hosts//[\[\]\' ]/}; do
+    for host in $(echo "${got_hosts}" | tr -d '[],' | tr -d "'" | tr ' ' '\n'); do
       if [[ "$host" == "$container_id" ]]; then
           host_exists=true
           break
