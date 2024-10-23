@@ -23,6 +23,7 @@ from __future__ import absolute_import
 
 import logging
 import os
+import subprocess
 import platform
 
 from qtpy import QtGui
@@ -80,18 +81,40 @@ def __loadConfigFromFile():
 
 
 def __packaged_version():
-    possible_version_path = os.path.join(
+    version_file_path = os.path.join(
         os.path.abspath(os.path.join(__file__, "../../..")), 'VERSION.in')
-    if os.path.exists(possible_version_path):
-        with open(possible_version_path, encoding='utf-8') as fp:
-            default_version = fp.read().strip()
-        return default_version
-    return "1.3.0"
+    try:
+        with open(version_file_path, encoding='utf-8') as fp:
+            version = fp.read().strip()
+        return version
+    except FileNotFoundError:
+        print(f"VERSION.in not found at: {version_file_path}")
+    except Exception as e:
+        print(f"An unexpected error occurred while reading VERSION.in: {e}")
+    return None
 
+
+def __get_version_from_cmd(command):
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        print(f"Command failed with return code {e.returncode}: {e}")
+    except Exception as e:
+        print(f"Failed to get version from command: {e}")
+    return __config.get('version', __packaged_version())
 
 __config = __loadConfigFromFile()
 
-VERSION = __config.get('version', __packaged_version())
+# Decide which CueGUI version to show
+if __config.get('cuegui.use.custom.version', False):
+    beta_version = os.getenv('OPENCUE_BETA', '0')
+    if beta_version == '1':
+        VERSION = __get_version_from_cmd(__config.get('cuegui.custom.cmd.version.beta'))
+    else:
+        VERSION = __get_version_from_cmd(__config.get('cuegui.custom.cmd.version.stable'))
+else:
+    VERSION = __config.get('version', __packaged_version())
 
 STARTUP_NOTICE_DATE = __config.get('startup_notice.date')
 STARTUP_NOTICE_MSG = __config.get('startup_notice.msg')
@@ -183,17 +206,20 @@ LOG_HIGHLIGHT_INFO = __config.get('render_logs.highlight.info')
 
 RESOURCE_LIMITS = __config.get('resources')
 
-OUTPUT_VIEWER_ACTION_TEXT = __config.get('output_viewer.action_text')
-OUTPUT_VIEWER_EXTRACT_ARGS_REGEX = __config.get('output_viewer.extract_args_regex')
-OUTPUT_VIEWER_CMD_PATTERN = __config.get('output_viewer.cmd_pattern')
-OUTPUT_VIEWER_DIRECT_CMD_CALL = __config.get('output_viewer.direct_cmd_call')
-OUTPUT_VIEWER_STEREO_MODIFIERS = __config.get('output_viewer.stereo_modifiers')
+OUTPUT_VIEWERS = []
+for viewer in __config.get('output_viewers', {}):
+    OUTPUT_VIEWERS.append(viewer)
+
+OUTPUT_VIEWER_DIRECT_CMD_CALL = __config.get('output_viewer_direct_cmd_call')
+
 FINISHED_JOBS_READONLY_FRAME = __config.get('finished_jobs_readonly.frame', False)
 FINISHED_JOBS_READONLY_LAYER = __config.get('finished_jobs_readonly.layer', False)
 
 DISABLED_ACTION_TYPES = [action_type.strip()
                          for action_type
                          in __config.get('filter_dialog.disabled_action_types', "").split(",")]
+
+SEARCH_JOBS_APPEND_RESULTS = __config.get('search_jobs.append_results', True)
 
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2

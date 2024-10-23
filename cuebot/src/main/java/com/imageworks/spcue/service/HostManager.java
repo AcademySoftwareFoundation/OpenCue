@@ -173,13 +173,6 @@ public interface HostManager {
     void unbookProc(ProcInterface proc);
 
     /**
-     * For a given host, return the proc using more memory above what it had initially reserved
-     * @param h
-     * @return
-     */
-    VirtualProc getWorstMemoryOffender(HostInterface h);
-
-    /**
      * Return the Virtual proc with the specified unique ID.
      *
      * @param id

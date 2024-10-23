@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 import getpass
 import os
+import platform
 import time
 import unittest
 
@@ -60,7 +61,7 @@ class FrameTests(unittest.TestCase):
             job_pb2.Frame(name=TEST_FRAME_NAME, state=job_pb2.RUNNING))
         username = getpass.getuser()
         pid = os.getpid()
-        host_kill = os.uname()[1]
+        host_kill = platform.uname()[1]
         reason = "Frames Kill Request"
         frame.kill(username=username, pid=pid, host_kill=host_kill, reason=reason)
 

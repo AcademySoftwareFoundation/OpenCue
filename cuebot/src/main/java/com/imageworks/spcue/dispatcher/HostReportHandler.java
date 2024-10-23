@@ -21,6 +21,7 @@ package com.imageworks.spcue.dispatcher;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -244,6 +245,7 @@ public class HostReportHandler {
              */
             String msg = null;
             boolean hasLocalJob = bookingManager.hasLocalHostAssignment(host);
+            int coresToReserve = host.handleNegativeCoresRequirement(Dispatcher.CORE_POINTS_RESERVED_MIN);
 
             if (hasLocalJob) {
                 List<LocalHostAssignment> lcas =
@@ -252,13 +254,13 @@ public class HostReportHandler {
                     bookingManager.removeInactiveLocalHostAssignment(lca);
                 }
             }
-
+          
             if (!isTempDirStorageEnough(report.getHost().getTotalMcp(), report.getHost().getFreeMcp(), host.os)) {
                 msg = String.format(
-                    "%s doens't have enough free space in the temporary directory (mcp), %dMB",
+                    "%s doesn't have enough free space in the temporary directory (mcp), %dMB",
                         host.name, (report.getHost().getFreeMcp()/1024));
             }
-            else if (host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
+            else if (coresToReserve <= 0 || host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
                 msg = String.format("%s doesn't have enough idle cores, %d needs %d",
                     host.name,  host.idleCores, Dispatcher.CORE_POINTS_RESERVED_MIN);
             }
@@ -267,7 +269,7 @@ public class HostReportHandler {
                         host.name,  host.idleMemory,  Dispatcher.MEM_RESERVED_MIN);
             }
             else if (report.getHost().getFreeMem() < CueUtil.MB512) {
-                msg = String.format("%s doens't have enough free system mem, %d needs %d",
+                msg = String.format("%s doesn't have enough free system mem, %d needs %d",
                         host.name, report.getHost().getFreeMem(), Dispatcher.MEM_RESERVED_MIN);
             }
             else if(!host.hardwareState.equals(HardwareState.UP)) {
@@ -339,11 +341,11 @@ public class HostReportHandler {
 
     /**
      * Check if a reported temp storage size and availability is enough for running a job
-     * 
+     *
      * Use dispatcher.min_available_temp_storage_percentage (opencue.properties) to
      * define what's the accepted threshold. Providing hostOs is necessary as this feature
      * is currently not available on Windows hosts
-     * 
+     *
      * @param tempTotalStorage Total storage on the temp directory
      * @param tempFreeStorage Free storage on the temp directory
      * @param hostOs Reported os
@@ -371,7 +373,7 @@ public class HostReportHandler {
      * @param reportState
      * @param isBoot
      */
-    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot) {        
+    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot) {
         // If the states are the same there is no reason to do this update.
         if (host.hardwareState.equals(reportState)) {
             return;
@@ -411,7 +413,7 @@ public class HostReportHandler {
      *   - Set the host state to UP, when the amount of free space in the temporary directory
      *     is greater or equal to the minimum required and the host has a comment with
      *     subject: SUBJECT_COMMENT_FULL_TEMP_DIR
-     * 
+     *
      * @param host
      * @param reportHost
      * @return
@@ -499,47 +501,88 @@ public class HostReportHandler {
     }
 
     /**
-     * Prevent host from entering an OOM state where oom-killer might start killing important OS processes.
+     * Prevent host from entering an OOM state where oom-killer might start killing
+     * important OS processes and frames start using SWAP memory
      * The kill logic will kick in one of the following conditions is met:
-     *   - Host has less than OOM_MEMORY_LEFT_THRESHOLD_PERCENT memory available
-     *   - A frame is taking more than OOM_FRAME_OVERBOARD_PERCENT of what it had reserved
-     * For frames that are using more than they had reserved but not above the threshold, negotiate expanding
-     * the reservations with other frames on the same host
-     * 
+     * - Host has less than oom_max_safe_used_physical_memory_threshold memory
+     * available and less than oom_max_safe_used_swap_memory_threshold swap
+     * available
+     * - A frame is taking more than OOM_FRAME_OVERBOARD_PERCENT of what it had
+     * reserved
+     * For frames that are using more than they had reserved but not above the
+     * threshold, negotiate expanding the reservations with other frames on the same
+     * host
+     *
      * @param dispatchHost
      * @param report
      */
     private void handleMemoryUsage(final DispatchHost dispatchHost, RenderHost renderHost,
             List<RunningFrameInfo> runningFrames) {
-        // Don't keep memory balances on nimby hosts
-        if (dispatchHost.isNimby) {
+        // Don't keep memory balances on nimby hosts and hosts with invalid memory
+        // information
+        if (dispatchHost.isNimby || renderHost.getTotalMem() <= 0) {
             return;
         }
 
-        final double OOM_MAX_SAFE_USED_MEMORY_THRESHOLD = env
-                .getRequiredProperty("dispatcher.oom_max_safe_used_memory_threshold", Double.class);
+        final double OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD = env
+                .getRequiredProperty("dispatcher.oom_max_safe_used_physical_memory_threshold", Double.class);
+        final double OOM_MAX_SAFE_USED_SWAP_THRESHOLD = env
+                .getRequiredProperty("dispatcher.oom_max_safe_used_swap_memory_threshold", Double.class);
         final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD = env
                 .getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
 
-        boolean memoryWarning = renderHost.getTotalMem() > 0 &&
-                ((double)renderHost.getFreeMem()/renderHost.getTotalMem() <
-                        (1.0 - OOM_MAX_SAFE_USED_MEMORY_THRESHOLD));
+        Double physMemoryUsageRatio = renderHost.getTotalMem() > 0 ?
+            1.0 - renderHost.getFreeMem() / (double) renderHost.getTotalMem() :
+            0.0;
+
+        Double swapMemoryUsageRatio = renderHost.getTotalSwap() > 0 ?
+            1.0 - renderHost.getFreeSwap() / (double) renderHost.getTotalSwap() :
+            0.0;
+
+        // If checking for the swap threshold has been disabled, only memory usage is
+        // taken into consideration.
+        // If checking for memory has been disabled, checking for swap isolated is not
+        // safe, therefore disabled
+        boolean memoryWarning = false;
+        if (OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD > 0.0 && OOM_MAX_SAFE_USED_SWAP_THRESHOLD > 0.0 &&
+            !physMemoryUsageRatio.isNaN() && !swapMemoryUsageRatio.isNaN()) {
+            memoryWarning = physMemoryUsageRatio > OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD &&
+                swapMemoryUsageRatio > OOM_MAX_SAFE_USED_SWAP_THRESHOLD;
+        } else if (OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD > 0.0 && !physMemoryUsageRatio.isNaN()) {
+            memoryWarning = physMemoryUsageRatio > OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD;
+        }
 
         if (memoryWarning) {
-            long memoryAvailable = renderHost.getFreeMem();
-            long minSafeMemoryAvailable = (long)(renderHost.getTotalMem() * (1.0 - OOM_MAX_SAFE_USED_MEMORY_THRESHOLD));
-            // Only allow killing up to 10 frames at a time
-            int killAttemptsRemaining = 10;
-            VirtualProc killedProc = null;
-            do {
-                killedProc = killWorstMemoryOffender(dispatchHost);
-                killAttemptsRemaining -= 1;
-                if (killedProc != null) {
-                    memoryAvailable = memoryAvailable + killedProc.memoryUsed;
+            logger.warn("Memory warning(" + renderHost.getName() + "): physMemoryRatio: " +
+                    physMemoryUsageRatio + ", swapRatio: " + swapMemoryUsageRatio);
+            // Try to kill frames using swap memory as they are probably performing poorly
+            long swapUsed = renderHost.getTotalSwap() - renderHost.getFreeSwap();
+            long maxSwapUsageAllowed = (long) (renderHost.getTotalSwap()
+                    * OOM_MAX_SAFE_USED_SWAP_THRESHOLD);
+
+            // Sort runningFrames bassed on how much swap they are using
+            runningFrames.sort(Comparator.comparingLong((RunningFrameInfo frame) ->
+                frame.getUsedSwapMemory()).reversed());
+
+            int killAttemptsRemaining = 5;
+            for (RunningFrameInfo frame : runningFrames) {
+                // Reached the first frame on the sorted list without swap usage
+                if (frame.getUsedSwapMemory() <= 0) {
+                    break;
                 }
-            } while (killAttemptsRemaining > 0 &&
-                    memoryAvailable < minSafeMemoryAvailable &&
-                    killedProc != null);
+                if (killProcForMemory(frame.getFrameId(), renderHost.getName(),
+                        KillCause.HostUnderOom)) {
+                    swapUsed -= frame.getUsedSwapMemory();
+                    logger.info("Memory warning(" + renderHost.getName() + "): " +
+                        "Killing frame on " + frame.getJobName() + "." +
+                        frame.getFrameName() + ", using too much swap.");
+                }
+
+                killAttemptsRemaining -= 1;
+                if (killAttemptsRemaining <= 0 || swapUsed <= maxSwapUsageAllowed) {
+                    break;
+                }
+            }
         } else {
             // When no mass cleaning was required, check for frames going overboard
             // if frames didn't go overboard, manage its reservations trying to increase
@@ -582,10 +625,12 @@ public class HostReportHandler {
             if (proc.isLocalDispatch) {
                 return false;
             }
-
-            logger.info("Killing frame on " + frame.getJobName() + "." + frame.getFrameName() +
-                    ", using too much memory.");
-            return killProcForMemory(proc, hostname, KillCause.FrameOverboard);
+            boolean killed = killProcForMemory(proc.frameId, hostname, KillCause.FrameOverboard);
+            if (killed) {
+                logger.info("Killing frame on " + frame.getJobName() + "." + frame.getFrameName() +
+                        ", using too much memory.");
+            }
+            return killed;
         } catch (EmptyResultDataAccessException e) {
             return false;
         }
@@ -627,12 +672,12 @@ public class HostReportHandler {
         return true;
     }
 
-    private boolean killProcForMemory(VirtualProc proc, String hostname, KillCause killCause) {
-        if (!getKillClearance(hostname, proc.frameId)) {
+    private boolean killProcForMemory(String frameId, String hostname, KillCause killCause) {
+        if (!getKillClearance(hostname, frameId)) {
             return false;
         }
 
-        FrameInterface frame = jobManager.getFrame(proc.frameId);
+        FrameInterface frame = jobManager.getFrame(frameId);
         if (dispatcher.isTestMode()) {
             // Different threads don't share the same database state on the test environment
             (new DispatchRqdKillFrameMemory(hostname, frame, killCause.toString(), rqdClient,
@@ -672,28 +717,6 @@ public class HostReportHandler {
         }
         DispatchSupport.killedOffenderProcs.incrementAndGet();
         return true;
-    }
-
-    /**
-     * Kill proc with the worst user/reserved memory ratio.
-     *
-     * @param host
-     * @return killed proc, or null if none could be found or failed to be killed
-     */
-    private VirtualProc killWorstMemoryOffender(final DispatchHost host) {
-        try {
-            VirtualProc proc = hostManager.getWorstMemoryOffender(host);
-            logger.info("Killing frame on " + proc.getName() + ", host is under stress.");
-
-            if (!killProcForMemory(proc, host.getName(), KillCause.HostUnderOom)) {
-                proc = null;
-            }
-            return proc;
-        }
-        catch (EmptyResultDataAccessException e) {
-            logger.error(host.name + " is under OOM and no proc is memory overboard.");
-            return null;
-        }
     }
 
     /**
@@ -825,7 +848,6 @@ public class HostReportHandler {
     private void updateMemoryUsageAndLluTime(List<RunningFrameInfo> rFrames) {
 
         for (RunningFrameInfo rf: rFrames) {
-
             FrameInterface frame = jobManager.getFrame(rf.getFrameId());
 
             dispatchSupport.updateFrameMemoryUsageAndLluTime(frame,
@@ -833,7 +855,9 @@ public class HostReportHandler {
 
             dispatchSupport.updateProcMemoryUsage(frame, rf.getRss(), rf.getMaxRss(),
                     rf.getVsize(), rf.getMaxVsize(), rf.getUsedGpuMemory(),
-                    rf.getMaxUsedGpuMemory(), rf.getChildren().toByteArray());
+                    rf.getMaxUsedGpuMemory(), rf.getUsedSwapMemory(),
+                    rf.getChildren().toByteArray());
+
         }
 
         updateJobMemoryUsage(rFrames);

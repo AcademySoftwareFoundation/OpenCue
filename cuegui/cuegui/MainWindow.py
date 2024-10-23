@@ -119,9 +119,19 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def displayAbout(self):
         """Displays about text."""
-        msg = self.app_name + "\n\nA opencue tool\n\n"
-        msg += "Qt:\n%s\n\n" % QtCore.qVersion()
-        msg += "Python:\n%s\n\n" % sys.version
+        msg = f"{self.app_name}\n\nA opencue tool\n\n"
+        msg += f"CueGUI:\n{cuegui.Constants.VERSION}\n\n"
+
+        # Only show the labels (Beta or Stable) if OPENCUE_BETA exists
+        opencue_beta = os.getenv('OPENCUE_BETA')
+        if opencue_beta:
+            if opencue_beta == '1':
+                msg += "(Beta Version)\n\n"
+            else:
+                msg += "(Stable Version)\n\n"
+
+        msg += f"Qt:\n{QtCore.qVersion()}\n\n"
+        msg += f"Python:\n{sys.version}\n\n"
         QtWidgets.QMessageBox.about(self, "About", msg)
 
     def handleExit(self, sig, flag):

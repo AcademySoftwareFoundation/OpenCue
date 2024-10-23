@@ -22,7 +22,9 @@ from __future__ import division
 
 from future.utils import iteritems
 from builtins import map
+import functools
 import time
+import pickle
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -395,6 +397,14 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         for item in self.findItems("Finished", QtCore.Qt.MatchFixedString, COLUMN_STATE):
             self.removeItem(item)
 
+    def getUserColors(self):
+        """Returns the colored jobs to be saved"""
+        return list(pickle.dumps(self.__userColors))
+
+    def setUserColors(self, state):
+        """Sets the colored jobs that were saved"""
+        self.__userColors = pickle.loads(bytes(state))
+
     def contextMenuEvent(self, e):
         """Creates a context menu when an item is right clicked.
         @param e: Right click QEvent
@@ -416,10 +426,16 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.jobs().addAction(menu, "useLocalCores")
 
-        if cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN:
-            viewer_action = self.__menuActions.jobs().addAction(menu, "viewOutput")
-            viewer_action.setDisabled(__count == 0)
-            viewer_action.setToolTip("Open Viewer for the selected items")
+        if cuegui.Constants.OUTPUT_VIEWERS:
+            job = __selectedObjects[0]
+            for viewer in cuegui.Constants.OUTPUT_VIEWERS:
+                viewer_menu = QtWidgets.QMenu(viewer['action_text'], self)
+                for layer in job.getLayers():
+                    viewer_menu.addAction(layer.name(),
+                                          functools.partial(cuegui.Utils.viewOutput,
+                                                            [layer],
+                                                            viewer['action_text']))
+                menu.addMenu(viewer_menu)
 
         depend_menu = QtWidgets.QMenu("&Dependencies",self)
         self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
