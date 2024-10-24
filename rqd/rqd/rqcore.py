@@ -983,11 +983,8 @@ class FrameAttendantThread(threading.Thread):
 
         # Command wrapper
         command = """#!/bin/sh
-exec sh -c "
-echo \$$;
 useradd -u %s -g %s %s >& /dev/null || true;
-su -s %s %s -c '/bin/nice /usr/bin/time -p -o %s %s %s'
-"
+exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         """ % (
             runFrame.uid,
             gid,
