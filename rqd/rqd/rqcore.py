@@ -1091,7 +1091,8 @@ class RqCore(object):
         Iterate over the cache and update the status of frames that might have
         completed but never reported back to cuebot.
         """
-        for frameId, runningFrame in self.__cache.items():
+        for frameId in list(self.__cache.keys):
+            runningFrame = self.__cache[frameId]
             # If the frame was marked as completed (exitStatus) and a report has not been sent
             # try to file the report again
             if runningFrame.exitStatus is not None and not runningFrame.completeReportSent:
