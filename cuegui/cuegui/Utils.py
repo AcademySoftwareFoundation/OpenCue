@@ -38,8 +38,6 @@ from qtpy import QtGui
 from qtpy import QtWidgets
 import six
 
-import FileSequence
-
 import opencue
 import opencue.wrappers.group
 
@@ -545,13 +543,11 @@ def popupFrameXdiff(job, frame1, frame2, frame3 = None):
 # View output in viewer
 ################################################################################
 
-def viewOutput(items, actionText):
+def viewOutput(items):
     """Views the output of a list of jobs or list of layers in viewer
 
-    @type       items: list<Job> or list<Layer>
-    @param      items: List of jobs or list of layers to view the entire job's outputs
-    @type  actionText: String
-    @param actionText: String to identity which viewer to use"""
+    @type  items: list<Job> or list<Layer>
+    @param items: List of jobs or list of layers to view the entire job's outputs"""
     if items and len(items) >= 1:
         paths = []
 
@@ -567,40 +563,27 @@ def viewOutput(items, actionText):
             raise Exception("The function expects a list of jobs or a list of layers")
 
         # Launch viewer using paths if paths exists and are valid
-        launchViewerUsingPaths(paths, actionText)
+        launchViewerUsingPaths(paths)
 
 
-def viewFramesOutput(job, frames, actionText):
+def viewFramesOutput(job, frames):
     """Views the output of a list of frames in viewer using the job's layer
     associated with the frames
 
     @type  job: Job or None
     @param job: The job with the output to view.
     @type  frames: list<Frame>
-    @param frames: List of frames to view the entire job's outputs
-    @type  actionText: String
-    @param actionText: String to identity which viewer to use"""
-
+    @param frames: List of frames to view the entire job's outputs"""
     if frames and len(frames) >= 1:
         paths = []
 
-        all_layers = { layer.name(): layer for layer in job.getLayers() }
+        all_layers = { layer.data.name: layer for layer in job.getLayers() }
         for frame in frames:
-            paths.extend(getOutputFromFrame(all_layers[frame.layer()], frame))
-        launchViewerUsingPaths(paths, actionText)
+            paths.extend(__getOutputFromFrame(all_layers[frame.data.layer_name], frame))
+        launchViewerUsingPaths(paths)
 
-def getViewer(actionText):
-    """Retrieves the viewer from cuegui.Constants.OUTPUT_VIEWERS using the actionText
 
-    @type  actionText: String
-    @param actionText: String to identity which viewer to use"""
-
-    for viewer in cuegui.Constants.OUTPUT_VIEWERS:
-        if viewer['action_text'] == actionText:
-            return viewer
-    return None
-
-def launchViewerUsingPaths(paths, actionText, test_mode=False):
+def launchViewerUsingPaths(paths, test_mode=False):
     """Launch viewer using paths if paths exists and are valid
     This function relies on the following constants that should be configured on the output_viewer
     section of the config file:
@@ -608,10 +591,7 @@ def launchViewerUsingPaths(paths, actionText, test_mode=False):
         - OUTPUT_VIEWER_EXTRACT_ARGS_REGEX
         - OUTPUT_VIEWER_CMD_PATTERN
     @type  paths: list<String>
-    @param paths: List of paths
-    @type  actionText: String
-    @param actionText: String to identity which viewer to use"""
-    viewer = getViewer(actionText)
+    @param paths: List of paths"""
     if not paths:
         if not test_mode:
             showErrorMessageBox(
@@ -623,8 +603,8 @@ def launchViewerUsingPaths(paths, actionText, test_mode=False):
     # Stereo ouputs are usually differentiated by a modifier like _lf_ and _rt_,
     # the viewer should only be called with one of them if OUTPUT_VIEWER_STEREO_MODIFIERS
     # is set.
-    if 'stereo_modifiers' in viewer:
-        stereo_modifiers = viewer['stereo_modifiers'].split(",")
+    if cuegui.Constants.OUTPUT_VIEWER_STEREO_MODIFIERS:
+        stereo_modifiers = cuegui.Constants.OUTPUT_VIEWER_STEREO_MODIFIERS.split(",")
         if len(paths) == 2 and len(stereo_modifiers) == 2:
             unified_paths = [path.replace(stereo_modifiers[0].strip(),
                                         stereo_modifiers[1].strip())
@@ -637,8 +617,8 @@ def launchViewerUsingPaths(paths, actionText, test_mode=False):
     # should be the same as the quantity expected by cmd_pattern.
     # If no regex is provided, cmd_pattern is executed as it is
     sample_path = paths[0]
-    regexp = viewer.get('extract_args_regex')
-    cmd_pattern = viewer.get('cmd_pattern')
+    regexp = cuegui.Constants.OUTPUT_VIEWER_EXTRACT_ARGS_REGEX
+    cmd_pattern = cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN
     joined_paths = " ".join(paths)
 
     # Default to the cmd + paths
@@ -717,7 +697,7 @@ def __getOutputFromLayers(layers):
     return paths
 
 
-def getOutputFromFrame(layer, frame):
+def __getOutputFromFrame(layer, frame):
     """Returns the output paths from a single frame
 
     @type  layer: Layer
@@ -730,8 +710,9 @@ def getOutputFromFrame(layer, frame):
         outputs = layer.getOutputPaths()
         if not outputs:
             return []
-        seq = FileSequence.FileSequence(__findMainOutputPath(outputs))
-        return seq.getFileList(frameSet=FileSequence.FrameSet(str(frame.number())))
+        main_output = __findMainOutputPath(outputs)
+        main_output = main_output.replace("#", "%04d" % frame.data.number)
+        return [main_output]
     except IndexError:
         return []
 
