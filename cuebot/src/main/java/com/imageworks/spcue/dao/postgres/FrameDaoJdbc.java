@@ -331,6 +331,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.minGpuMemory = rs.getLong("int_gpu_mem_min");
             frame.version = rs.getInt("int_version");
             frame.services = rs.getString("str_services");
+            frame.os = rs.getString("str_os");
             return frame;
         }
     };
@@ -347,6 +348,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "job.str_user,"+
             "job.int_uid,"+
             "job.str_log_dir,"+
+            "job.str_os,"+
             "frame.str_name AS frame_name, "+
             "frame.str_state AS frame_state, "+
             "frame.pk_frame, "+

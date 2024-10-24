@@ -214,7 +214,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             host.isNimby = rs.getBoolean("b_nimby");
             host.threadMode = rs.getInt("int_thread_mode");
             host.tags = rs.getString("str_tags");
-            host.os = rs.getString("str_os");
+            host.setOs(rs.getString("str_os"));
             host.hardwareState =
                 HardwareState.valueOf(rs.getString("str_state"));
             return host;

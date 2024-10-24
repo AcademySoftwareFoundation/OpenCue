@@ -1,4 +1,5 @@
 #  Copyright Contributors to the OpenCue Project
+#  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -153,6 +154,12 @@ else:
 
 SP_OS = platform.system()
 
+# Docker mode config
+RUN_ON_DOCKER = False
+DOCKER_IMAGES = {}
+DOCKER_MOUNTS = []
+DOCKER_SHELL_PATH = "/bin/sh"
+
 try:
     if os.path.isfile(CONFIG_FILE):
         # Hostname can come from here: rqutil.getHostname()
@@ -229,6 +236,82 @@ try:
 
         if config.has_section(__host_env_var_section):
             RQD_HOST_ENV_VARS = config.options(__host_env_var_section)
+
+        __docker_mounts = "docker.mounts"
+        __docker_config = "docker.config"
+        __docker_images = "docker.images"
+
+        if config.has_section(__docker_config):
+            RUN_ON_DOCKER = config.getboolean(__docker_config, "RUN_ON_DOCKER")
+            if RUN_ON_DOCKER:
+                import docker
+                import docker.models
+                import docker.types
+
+                # rqd needs to run as root to be able to run docker
+                RQD_UID = 0
+                RQD_GID = 0
+
+                # Path to the shell to be used in the frame environment
+                if config.has_option(__docker_config, "DOCKER_SHELL_PATH"):
+                    DOCKER_SHELL_PATH = config.get(
+                        __docker_config,
+                        "DOCKER_SHELL_PATH")
+
+                # Every key:value on the config file under docker.images
+                # is parsed as key=SP_OS and value=image_tag.
+                # SP_OS is set to a list of all available keys
+                # For example:
+                #
+                #   rqd.conf
+                #     [docker.images]
+                #     centos7=centos7.3:latest
+                #     rocky9=rocky9.3:latest
+                #
+                #   becomes:
+                #     SP_OS=centos7,rocky9
+                #     DOCKER_IMAGES={
+                #       "centos7": "centos7.3:latest",
+                #       "rocky9": "rocky9.3:latest"
+                #     }
+                keys = config.options(__docker_images)
+                DOCKER_IMAGES = {}
+                for key in keys:
+                    DOCKER_IMAGES[key] = config.get(__docker_images, key)
+                SP_OS = ",".join(keys)
+                if not DOCKER_IMAGES:
+                    raise RuntimeError("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
+                                       "least one image on DOCKER_IMAGES ([docker.images] section of rqd.conf)")
+
+                def parse_mount(mount_str):
+                    """
+                    Parse mount definitions similar to a docker run command into a docker
+                    mount obj
+
+                    Format: type=bind,source=/tmp,target=/tmp,bind-propagation=slave
+                    """
+                    mount_dict = {}
+                    # bind-propagation defaults to None as only type=bind accepts it
+                    mount_dict["bind-propagation"] = None
+                    for item in mount_str.split(","):
+                        key, value = item.split(":")
+                        mount_dict[key.strip()] = value.strip()
+                    return mount_dict
+
+                # Parse values under the category docker.mounts into Mount objects
+                mounts = config.options(__docker_mounts)
+                for mount_name in mounts:
+                    try:
+                        mount_str = config.get(__docker_mounts, mount_name)
+                        mount_dict = parse_mount(mount_str)
+                        mount = docker.types.Mount(mount_dict["target"],
+                                                  mount_dict["source"],
+                                                  type=mount_dict["type"],
+                                                  propagation=mount_dict["bind-propagation"])
+                        DOCKER_MOUNTS.append(mount)
+                    except KeyError as e:
+                        logging.exception("Failed to create Mount for key=%s, value=%s",
+                                          mount_name, mount_str)
 
 # pylint: disable=broad-except
 except Exception as e:

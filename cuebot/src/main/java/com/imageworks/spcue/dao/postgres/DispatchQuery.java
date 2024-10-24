@@ -74,7 +74,7 @@ public class DispatchQuery {
                     "(" +
                         "job.str_os IS NULL OR job.str_os = '' " +
                     "OR " +
-                        "job.str_os = ? " +
+                        "job.str_os IN ? " +
                     ") " +
                 "AND (CASE WHEN layer_stat.int_waiting_count > 0 THEN 1 ELSE NULL END) = 1 " +
                 "AND layer.int_cores_min            <= ? " +
@@ -135,7 +135,7 @@ public class DispatchQuery {
                     "(" +
                         "job.str_os IS NULL OR job.str_os = '' " +
                     "OR " +
-                        "job.str_os = ? " +
+                        "job.str_os IN ? " +
                     ") " +
                 "AND (CASE WHEN layer_stat.int_waiting_count > 0 THEN 1 ELSE NULL END) = 1 " +
                 "AND layer.int_cores_min            <= ? " +
@@ -250,7 +250,7 @@ public class DispatchQuery {
             "AND " +
                 "job.pk_facility =  ? " +
             "AND " +
-                "(job.str_os = ? OR job.str_os IS NULL) " +
+                "(job.str_os IN ? OR job.str_os IS NULL) " +
             "AND " +
                 "job.pk_job IN ( " +
                     "SELECT " +
@@ -276,7 +276,7 @@ public class DispatchQuery {
                     "AND " +
                         "j.pk_facility = ? " +
                     "AND " +
-                        "(j.str_os = ? OR j.str_os IS NULL) " +
+                        "(j.str_os IN ? OR j.str_os IS NULL) " +
                     "AND " +
                         "(CASE WHEN lst.int_waiting_count > 0 THEN lst.pk_layer ELSE NULL END) = l.pk_layer " +
                     "AND " +
@@ -519,40 +519,42 @@ public class DispatchQuery {
                 ") " +
             "LIMIT 1";
 
+    private static final String FIND_DISPATCH_FRAME_COLUMNS =
+        "show_name, " +
+        "job_name, " +
+        "pk_job, " +
+        "pk_show, " +
+        "pk_facility, " +
+        "str_name, " +
+        "str_shot, " +
+        "str_user, " +
+        "int_uid, " +
+        "str_log_dir, " +
+        "str_os, " +
+        "frame_name, " +
+        "frame_state, " +
+        "pk_frame, " +
+        "pk_layer, " +
+        "int_retries, " +
+        "int_version, " +
+        "layer_name, " +
+        "layer_type, " +
+        "b_threadable, " +
+        "int_cores_min, " +
+        "int_cores_max, " +
+        "int_mem_min, " +
+        "int_gpus_min, " +
+        "int_gpus_max, " +
+        "int_gpu_mem_min, " +
+        "str_cmd, " +
+        "str_range, " +
+        "int_chunk_size, " +
+        "str_services ";
     /**
      * Finds the next frame in a job for a proc.
      */
     public static final String FIND_DISPATCH_FRAME_BY_JOB_AND_PROC =
-        "SELECT " +
-            "show_name, " +
-            "job_name, " +
-            "pk_job, " +
-            "pk_show, " +
-            "pk_facility, " +
-            "str_name, " +
-            "str_shot, " +
-            "str_user, " +
-            "int_uid, " +
-            "str_log_dir, " +
-            "frame_name, " +
-            "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
-            "layer_name, " +
-            "layer_type, " +
-            "b_threadable, " +
-            "int_cores_min, " +
-            "int_cores_max, " +
-            "int_mem_min, " +
-            "int_gpus_min, " +
-            "int_gpus_max, " +
-            "int_gpu_mem_min, " +
-            "str_cmd, " +
-            "str_range, " +
-            "int_chunk_size, " +
-            "str_services " +
+        "SELECT " + FIND_DISPATCH_FRAME_COLUMNS +
         "FROM ( " +
             "SELECT " +
                 "ROW_NUMBER() OVER ( ORDER BY " +
@@ -569,6 +571,7 @@ public class DispatchQuery {
                 "job.str_user, " +
                 "job.int_uid, " +
                 "job.str_log_dir, " +
+                "job.str_os, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -638,36 +641,7 @@ public class DispatchQuery {
      * Find the next frame in a job for a host.
      */
     public static final String FIND_DISPATCH_FRAME_BY_JOB_AND_HOST =
-        "SELECT " +
-            "show_name, " +
-            "job_name, " +
-            "pk_job, " +
-            "pk_show, " +
-            "pk_facility, " +
-            "str_name, " +
-            "str_shot, " +
-            "str_user, " +
-            "int_uid, " +
-            "str_log_dir, " +
-            "frame_name, " +
-            "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
-            "layer_name, " +
-            "layer_type, " +
-            "int_cores_min, " +
-            "int_cores_max, " +
-            "int_gpus_min, " +
-            "int_gpus_max, " +
-            "b_threadable, " +
-            "int_mem_min, " +
-            "int_gpu_mem_min, " +
-            "str_cmd, " +
-            "str_range, " +
-            "int_chunk_size, " +
-            "str_services " +
+        "SELECT " + FIND_DISPATCH_FRAME_COLUMNS +
         "FROM ( " +
             "SELECT " +
                 "ROW_NUMBER() OVER ( ORDER BY " +
@@ -684,6 +658,7 @@ public class DispatchQuery {
                 "job.str_user, " +
                 "job.int_uid, " +
                 "job.str_log_dir, " +
+                "job.str_os, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -754,36 +729,7 @@ public class DispatchQuery {
 
 
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC =
-        "SELECT " +
-            "show_name, " +
-            "job_name, " +
-            "pk_job, " +
-            "pk_show, " +
-            "pk_facility, " +
-            "str_name, " +
-            "str_shot, " +
-            "str_user, " +
-            "int_uid, " +
-            "str_log_dir, " +
-            "frame_name, " +
-            "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
-            "layer_name, " +
-            "layer_type, " +
-            "b_threadable, " +
-            "int_cores_min, " +
-            "int_cores_max, " +
-            "int_mem_min, " +
-            "int_gpus_min, " +
-            "int_gpus_max, " +
-            "int_gpu_mem_min, " +
-            "str_cmd, " +
-            "str_range, " +
-            "int_chunk_size, " +
-            "str_services " +
+        "SELECT " + FIND_DISPATCH_FRAME_COLUMNS +
         "FROM ( " +
             "SELECT " +
                 "ROW_NUMBER() OVER ( ORDER BY " +
@@ -800,6 +746,7 @@ public class DispatchQuery {
                 "job.str_user, " +
                 "job.int_uid, " +
                 "job.str_log_dir, " +
+                "job.str_os, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -863,36 +810,7 @@ public class DispatchQuery {
      * Find the next frame in a job for a host.
      */
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST =
-        "SELECT " +
-            "show_name, " +
-            "job_name, " +
-            "pk_job, " +
-            "pk_show, " +
-            "pk_facility, " +
-            "str_name, " +
-            "str_shot, " +
-            "str_user, " +
-            "int_uid, " +
-            "str_log_dir, " +
-            "frame_name, " +
-            "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
-            "layer_name, " +
-            "layer_type, " +
-            "int_cores_min, " +
-            "int_cores_max, " +
-            "int_gpus_min, " +
-            "int_gpus_max, " +
-            "b_threadable, " +
-            "int_mem_min, " +
-            "int_gpu_mem_min, " +
-            "str_cmd, " +
-            "str_range, " +
-            "int_chunk_size, " +
-            "str_services " +
+        "SELECT " + FIND_DISPATCH_FRAME_COLUMNS +
         "FROM (" +
             "SELECT " +
                 "ROW_NUMBER() OVER ( ORDER BY " +
@@ -909,6 +827,7 @@ public class DispatchQuery {
                 "job.str_user, " +
                 "job.int_uid, " +
                 "job.str_log_dir, " +
+                "job.str_os, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -975,36 +894,7 @@ public class DispatchQuery {
      * Finds the next frame in a job for a proc.
      */
     public static final String FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC =
-        "SELECT " +
-            "show_name, " +
-            "job_name, " +
-            "pk_job, " +
-            "pk_show, " +
-            "pk_facility, " +
-            "str_name, " +
-            "str_shot, " +
-            "str_user, " +
-            "int_uid, " +
-            "str_log_dir, " +
-            "frame_name, " +
-            "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
-            "layer_name, " +
-            "layer_type, " +
-            "b_threadable, " +
-            "int_cores_min, " +
-            "int_cores_max, " +
-            "int_mem_min, " +
-            "int_gpus_min, " +
-            "int_gpus_max, " +
-            "int_gpu_mem_min, " +
-            "str_cmd, " +
-            "str_range, " +
-            "int_chunk_size, " +
-            "str_services " +
+        "SELECT " + FIND_DISPATCH_FRAME_COLUMNS +
         "FROM (" +
             "SELECT " +
                 "ROW_NUMBER() OVER ( ORDER BY " +
@@ -1021,6 +911,7 @@ public class DispatchQuery {
                 "job.str_user, " +
                 "job.int_uid, " +
                 "job.str_log_dir, " +
+                "job.str_os, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -1090,36 +981,7 @@ public class DispatchQuery {
      * Find the next frame in a job for a host.
      */
     public static final String FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST =
-        "SELECT " +
-            "show_name, " +
-            "job_name, " +
-            "pk_job, " +
-            "pk_show, " +
-            "pk_facility, " +
-            "str_name, " +
-            "str_shot, " +
-            "str_user, " +
-            "int_uid, " +
-            "str_log_dir, " +
-            "frame_name, " +
-            "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
-            "layer_name, " +
-            "layer_type, " +
-            "int_cores_min, " +
-            "int_cores_max, " +
-            "b_threadable, " +
-            "int_mem_min, " +
-            "int_gpus_min, " +
-            "int_gpus_max, " +
-            "int_gpu_mem_min, " +
-            "str_cmd, " +
-            "str_range, " +
-            "int_chunk_size, " +
-            "str_services " +
+        "SELECT " + FIND_DISPATCH_FRAME_COLUMNS +
         "FROM (" +
             "SELECT " +
                 "ROW_NUMBER() OVER ( ORDER BY " +
@@ -1136,6 +998,7 @@ public class DispatchQuery {
                 "job.str_user, " +
                 "job.int_uid, " +
                 "job.str_log_dir, " +
+                "job.str_os, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -1206,36 +1069,7 @@ public class DispatchQuery {
 
 
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC =
-        "SELECT " +
-            "show_name, " +
-            "job_name, " +
-            "pk_job, " +
-            "pk_show, " +
-            "pk_facility, " +
-            "str_name, " +
-            "str_shot, " +
-            "str_user, " +
-            "int_uid, " +
-            "str_log_dir, " +
-            "frame_name, " +
-            "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
-            "layer_name, " +
-            "layer_type, " +
-            "b_threadable, " +
-            "int_cores_min, " +
-            "int_cores_max, " +
-            "int_mem_min, " +
-            "int_gpus_min, " +
-            "int_gpus_max, " +
-            "int_gpu_mem_min, " +
-            "str_cmd, " +
-            "str_range, " +
-            "int_chunk_size, " +
-            "str_services " +
+        "SELECT " + FIND_DISPATCH_FRAME_COLUMNS +
         "FROM (" +
             "SELECT " +
                 "ROW_NUMBER() OVER ( ORDER BY " +
@@ -1252,6 +1086,7 @@ public class DispatchQuery {
                 "job.str_user, " +
                 "job.int_uid, " +
                 "job.str_log_dir, " +
+                "job.str_os, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -1315,36 +1150,7 @@ public class DispatchQuery {
      * Find the next frame in a job for a host.
      */
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST =
-        "SELECT " +
-            "show_name, " +
-            "job_name, " +
-            "pk_job, " +
-            "pk_show, " +
-            "pk_facility, " +
-            "str_name, " +
-            "str_shot, " +
-            "str_user, " +
-            "int_uid, " +
-            "str_log_dir, " +
-            "frame_name, " +
-            "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
-            "layer_name, " +
-            "layer_type, " +
-            "int_cores_min, " +
-            "int_cores_max, " +
-            "b_threadable, " +
-            "int_mem_min, " +
-            "int_gpus_min, " +
-            "int_gpus_max, " +
-            "int_gpu_mem_min, " +
-            "str_cmd, " +
-            "str_range, " +
-            "int_chunk_size, " +
-            "str_services " +
+        "SELECT " + FIND_DISPATCH_FRAME_COLUMNS +
         "FROM (" +
             "SELECT " +
                 "ROW_NUMBER() OVER (ORDER BY " +
@@ -1361,6 +1167,7 @@ public class DispatchQuery {
                 "job.str_user, " +
                 "job.int_uid, " +
                 "job.str_log_dir, " +
+                "job.str_os, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +

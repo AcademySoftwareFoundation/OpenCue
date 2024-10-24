@@ -51,7 +51,7 @@ public class DispatchHost extends Entity
     public long gpuMemory;
     public long idleGpuMemory;
     public String tags;
-    public String os;
+    private String os;
 
     public boolean isNimby;
     public boolean isLocalDispatch = false;
@@ -79,6 +79,14 @@ public class DispatchHost extends Entity
 
     public String getFacilityId() {
         return facilityId;
+    }
+
+    public String[] getOs() {
+        return this.os.split(",");
+    }
+
+    public void setOs(String os) {
+        this.os = os;
     }
 
     public boolean canHandleNegativeCoresRequest(int requestedCores) {

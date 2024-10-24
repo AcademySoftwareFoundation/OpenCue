@@ -49,5 +49,8 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
 
     // A comma separated list of services
     public String services;
+
+    // The Operational System this frame is expected to run in
+    public String os;
 }
 
