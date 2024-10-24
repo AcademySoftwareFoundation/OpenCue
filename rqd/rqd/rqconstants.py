@@ -158,6 +158,7 @@ SP_OS = platform.system()
 RUN_ON_DOCKER = False
 DOCKER_IMAGES = {}
 DOCKER_MOUNTS = []
+DOCKER_SHELL_PATH = "/bin/sh"
 
 try:
     if os.path.isfile(CONFIG_FILE):
@@ -250,6 +251,12 @@ try:
                 # rqd needs to run as root to be able to run docker
                 RQD_UID = 0
                 RQD_GID = 0
+
+                # Path to the shell to be used in the frame environment
+                if config.has_option(__docker_config, "DOCKER_SHELL_PATH"):
+                    DOCKER_SHELL_PATH = config.get(
+                        __docker_config,
+                        "DOCKER_SHELL_PATH")
 
                 # Every key:value on the config file under docker.images
                 # is parsed as key=SP_OS and value=image_tag.

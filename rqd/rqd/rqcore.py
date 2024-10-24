@@ -963,18 +963,47 @@ class FrameAttendantThread(threading.Thread):
                                              frameInfo.frameId,
                                              time.time())
         self._tempLocations.append(tempStatFile)
-        tempCommand = []
-        if self.rqCore.machine.isDesktop():
-            tempCommand += ["/bin/nice"]
-        tempCommand += ["/usr/bin/time", "-p", "-o", tempStatFile]
 
-        if 'CPU_LIST' in runFrame.attributes:
-            tempCommand += ['taskset', '-c', runFrame.attributes['CPU_LIST']]
+        # Prevent frame from attempting to run as ROOT
+        if runFrame.gid <= 0:
+            gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
+        else:
+            gid = runFrame.gid
 
-        tempCommand += [runFrame.command]
+        # Never give frame ROOT permissions
+        if runFrame.uid == 0 or gid == 0:
+            self.rqlog.write("Frame cannot run as ROOT",
+                             prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+            return
 
-        # Print PID before executing
-        command = ["sh", "-c", "echo $$; exec " + " ".join(tempCommand)]
+        # Thread affinity
+        tasksetCmd = ""
+        if runFrame.attributes['CPU_LIST']:
+            tasksetCmd = "taskset -c %s" % runFrame.attributes['CPU_LIST']
+
+        # Command wrapper
+        command = """#!/bin/sh
+exec sh -c "
+echo \$$;
+useradd -u %s -g %s %s >& /dev/null || true;
+su -s %s %s -c '/bin/nice /usr/bin/time -p -o %s %s %s'
+"
+        """ % (
+            runFrame.uid,
+            gid,
+            runFrame.user_name,
+            rqd.rqconstants.DOCKER_SHELL_PATH,
+            runFrame.user_name,
+            tempStatFile,
+            tasksetCmd,
+            runFrame.command
+        )
+
+        # Log entrypoint on frame log to simplify replaying frames
+        self.rqlog.write("DOCKER_ENTRYPOINT = %s" % command,
+                         prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+        # Write command to a file on the job tmpdir to simplify replaying a frame
+        command = self._createCommandFile(command)
 
         client = self.rqCore.docker_client
         try:
@@ -988,8 +1017,7 @@ class FrameAttendantThread(threading.Thread):
                                               pid_mode="host",
                                               stderr=True,
                                               hostname=self.frameEnv["jobhost"],
-                                              entrypoint=command,
-                                              user=runFrame.uid)
+                                              entrypoint=command)
 
             log_stream = container.logs(stream=True)
             # CMD prints the process PID before executing the actual command
@@ -1010,7 +1038,7 @@ class FrameAttendantThread(threading.Thread):
             returncode = 1
             msg = "Failed to launch frame container"
             logging.exception(msg)
-            self.rqlog.write(msg + " - " + e,
+            self.rqlog.write("%s - %s" % (msg, e),
                              prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
 
         # Find exitStatus and exitSignal
