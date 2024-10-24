@@ -10,7 +10,6 @@ import glob
 
 PYTHON_SCRIPT_PATH = sys.argv[1]
 
-print(PYTHON_SCRIPT_PATH)
 if os.path.isdir(PYTHON_SCRIPT_PATH):
     pattern = re.compile(r"^import \w+ as \w+_pb2")
     for filepath in glob.glob(os.path.join(PYTHON_SCRIPT_PATH, "*_pb2*.py")):
@@ -21,7 +20,6 @@ if os.path.isdir(PYTHON_SCRIPT_PATH):
                 if match is not None:
                     line = f"from . {line}"
                 filedata.append(line.strip("\n"))
-        # print("\n".join(filedata))
         with open(filepath, "w") as f:
             f.write("\n".join(filedata))
 else:
