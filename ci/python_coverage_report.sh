@@ -9,8 +9,8 @@ python -m pip install coverage pytest-xvfb
 # Protos need to have their Python code generated in order for tests to pass.
 python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto --grpc_python_out=pycue/opencue/compiled_proto proto/*.proto
 python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc_python_out=rqd/rqd/compiled_proto proto/*.proto
-2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
-2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
+python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
+python ci/fix_compiled_proto.py rqd/rqd/compiled_proto
 
 # Run coverage for each component individually, but append it all into the same report.
 python -m coverage run --source=pycue/opencue/,pycue/FileSequence/ --omit=pycue/opencue/compiled_proto/* pycue/tests/test_suite.py

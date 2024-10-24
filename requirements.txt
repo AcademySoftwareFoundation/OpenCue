@@ -1,4 +1,3 @@
-2to3==1.0
 enum34==1.1.6
 future==1.0.0
 grpcio==1.48.2;python_version<"3.7"
