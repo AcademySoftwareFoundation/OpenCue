@@ -528,7 +528,6 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
     @mock.patch('tempfile.gettempdir')
-    @mock.patch('rqd.rqcore.pipe_to_file', new=mock.MagicMock())
     def test_runLinux(self, getTempDirMock, permsUser, timeMock, popenMock): # mkdirMock, openMock,
         # given
         currentTime = 1568070634.3
@@ -557,6 +556,8 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
+        rqCore.docker_client = None
+
         children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
@@ -602,6 +603,98 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
                     job_name=jobName, frame_id=frameId, frame_name=frameName, children=children),
                 exit_status=returnCode))
 
+    @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
+    @mock.patch('tempfile.gettempdir')
+    def test_runDocker(self, getTempDirMock, timeMock, popenMock): # mkdirMock, openMock,
+        # given
+        currentTime = 1568070634.3
+        jobTempPath = '/job/temp/path/'
+        logDir = '/path/to/log/dir/'
+        tempDir = '/some/random/temp/dir'
+        frameId = 'arbitrary-frame-id'
+        jobName = 'arbitrary-job-name'
+        frameName = 'arbitrary-frame-name'
+        frameUid = 928
+        frameUsername = 'my-random-user'
+        returnCode = 0
+        renderHost = rqd.compiled_proto.report_pb2.RenderHost(name='arbitrary-host-name')
+        logFile = os.path.join(logDir, '%s.%s.rqlog' % (jobName, frameName))
+
+        self.fs.create_dir(tempDir)
+
+        timeMock.return_value = currentTime
+        getTempDirMock.return_value = tempDir
+        popenMock.return_value.wait.return_value = returnCode
+
+        rqCore = mock.MagicMock()
+        rqCore.intervalStartTime = 20
+        rqCore.intervalSleepTime = 40
+        rqCore.machine.getTempPath.return_value = jobTempPath
+        rqCore.machine.isDesktop.return_value = True
+        rqCore.machine.getHostInfo.return_value = renderHost
+        rqCore.nimby.locked = False
+
+        # Setup mock docker client
+        rqCore.docker_client = mock.MagicMock()
+        rqCore.docker_images = {
+            "centos7": "centos7_image",
+            "rocky9": "rocky9_image",
+        }
+        rqCore.docker_mounts = {
+            "vol1": "/vol1/mount",
+            "vol2": "/vol2/mount",
+        }
+
+        children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
+
+        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
+            frame_id=frameId,
+            job_name=jobName,
+            frame_name=frameName,
+            uid=frameUid,
+            user_name=frameUsername,
+            log_dir=logDir,
+            children=children,
+            environment={"ENVVAR": "env_value"},
+            os="centos7")
+        frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
+
+        # when
+        attendantThread = rqd.rqcore.FrameAttendantThread(rqCore, runFrame, frameInfo)
+        attendantThread.start()
+        attendantThread.join()
+
+        # then
+        cmd_file = os.path.join(jobTempPath, 'rqd-cmd-%s-%s' % (runFrame.frame_id, currentTime))
+        rqCore.docker_client.containers.run.assert_called_with(
+            image="centos7_image",
+            detach=True,
+            environment={"ENVVAR": "env_value"},
+            working_dir=jobTempPath,
+            mounts=rqCore.docker_mounts,
+            privileged=True,
+            remove=True,
+            pid_mode="host",
+            stderr=True,
+            hostname=mock.ANY,
+            entrypoint=[cmd_file]
+        )
+
+        with open(cmd_file) as f:
+            cmd = f.read()
+            self.assertEquals("tbd", cmd)
+
+        self.assertTrue(os.path.exists(logDir))
+        self.assertTrue(os.path.isfile(logFile))
+        _, kwargs = popenMock.call_args
+
+        rqCore.network.reportRunningFrameCompletion.assert_called_with(
+            rqd.compiled_proto.report_pb2.FrameCompleteReport(
+                host=renderHost,
+                frame=rqd.compiled_proto.report_pb2.RunningFrameInfo(
+                    job_name=jobName, frame_id=frameId, frame_name=frameName, children=children),
+                exit_status=returnCode))
+
     # TODO(bcipriano) Re-enable this test once Windows is supported. The main sticking point here
     #   is that the log directory is always overridden on Windows which makes mocking difficult.
     @mock.patch('platform.system', new=mock.Mock(return_value='Windows'))
@@ -629,6 +722,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
+        rqCore.docker_client = None
         children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
@@ -692,6 +786,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
+        rqCore.docker_client = None
         children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
