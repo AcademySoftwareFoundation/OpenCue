@@ -19,8 +19,8 @@ python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
-2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
+python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
+python ci/fix_compiled_proto.py rqd/rqd/compiled_proto
 
 python3 -m unittest discover -s pycue/tests -t pycue -p "*.py"
 PYTHONPATH=pycue python3 -m unittest discover -s pyoutline/tests -t pyoutline -p "*.py"
