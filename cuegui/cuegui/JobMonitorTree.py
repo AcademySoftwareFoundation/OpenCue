@@ -427,15 +427,11 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__menuActions.jobs().addAction(menu, "useLocalCores")
 
         if cuegui.Constants.OUTPUT_VIEWERS:
-            job = __selectedObjects[0]
             for viewer in cuegui.Constants.OUTPUT_VIEWERS:
-                viewer_menu = QtWidgets.QMenu(viewer['action_text'], self)
-                for layer in job.getLayers():
-                    viewer_menu.addAction(layer.name(),
-                                          functools.partial(cuegui.Utils.viewOutput,
-                                                            [layer],
-                                                            viewer['action_text']))
-                menu.addMenu(viewer_menu)
+                menu.addAction(viewer['action_text'],
+                               functools.partial(cuegui.Utils.viewOutput,
+                                                 __selectedObjects,
+                                                 viewer['action_text']))
 
         depend_menu = QtWidgets.QMenu("&Dependencies",self)
         self.__menuActions.jobs().addAction(depend_menu, "viewDepends")

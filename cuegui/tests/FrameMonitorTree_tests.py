@@ -128,6 +128,9 @@ class FrameMonitorTreeTests(unittest.TestCase):
     def test_rightClickItem(self, execMock):
         mouse_position = qtpy.QtCore.QPoint()
 
+        # Ensure the job attribute is set
+        self.frameMonitorTree.setJob(self.job)
+
         self.frameMonitorTree.contextMenuEvent(
             qtpy.QtGui.QContextMenuEvent(
                 qtpy.QtGui.QContextMenuEvent.Reason.Mouse, mouse_position, mouse_position))
