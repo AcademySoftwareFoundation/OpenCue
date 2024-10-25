@@ -983,10 +983,10 @@ class FrameAttendantThread(threading.Thread):
             tasksetCmd = "taskset -c %s" % runFrame.attributes['CPU_LIST']
 
         # Command wrapper
-        command = """#!/bin/sh
+        command = r"""#!/bin/sh
 useradd -u %s -g %s %s >& /dev/null || true;
 exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
-        """ % (
+""" % (
             runFrame.uid,
             gid,
             runFrame.user_name,
