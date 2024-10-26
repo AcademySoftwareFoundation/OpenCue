@@ -39,7 +39,7 @@ import rqd.rqnimby
 import rqd.rqutil
 import rqd.compiled_proto.report_pb2
 
-from .rqmachine_tests import (
+from .rqmachine_test import (
     CPUINFO,
     LOADAVG_LOW_USAGE,
     MEMINFO_MODERATE_USAGE,
