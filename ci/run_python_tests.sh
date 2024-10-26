@@ -26,7 +26,7 @@ python -m unittest discover -s pycue/tests -t pycue -p "*.py"
 PYTHONPATH=pycue python -m unittest discover -s pyoutline/tests -t pyoutline -p "*.py"
 PYTHONPATH=pycue python -m unittest discover -s cueadmin/tests -t cueadmin -p "*.py"
 PYTHONPATH=pycue:pyoutline python -m unittest discover -s cuesubmit/tests -t cuesubmit -p "*.py"
-pytest rqd/tests
+python -m pytest rqd/tests
 
 
 # Xvfb no longer supports Python 2.
