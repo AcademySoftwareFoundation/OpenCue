@@ -143,6 +143,7 @@ memory_warning_level: 5242880
 #    # if extract_args_regex is not provided, cmd_pattern is called directly with paths as arguments
 #    extract_args_regex: '/shots/(?P<show>\w+)/(?P<shot>shot\w+)/.*'
 #    cmd_pattern: "env SHOW={show} SHOT={shot} COLOR_IO=/{show}/home/colorspaces.xml OCIO=/{show}/home/config.ocio openrv {paths}"
+#
 #    # if provided, paths containing any of the two values are considered the same output and only one
 #    # of them will be passed to the viewer
 #    stereo_modifiers: "_rt_,_lf_"
