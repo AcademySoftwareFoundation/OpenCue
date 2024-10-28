@@ -539,6 +539,7 @@ class RqCoreTests(unittest.TestCase):
         self.rqcore.cores.total_cores = 50
         self.rqcore.cores.idle_cores = 40
         self.rqcore.cores.locked_cores = 10
+        self.rqcore.nimby.locked = True
 
         self.rqcore.unlockAll()
 
