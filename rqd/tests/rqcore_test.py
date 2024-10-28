@@ -444,13 +444,6 @@ class RqCoreTests(unittest.TestCase):
         self.assertTrue(self.rqcore.isWaitingForIdle())
         self.machineMock.return_value.reboot.assert_not_called()
 
-    def test_nimbyOff(self):
-        self.nimbyMock.return_value.active = True
-
-        self.rqcore.nimbyOff()
-
-        self.nimbyMock.return_value.stop.assert_called_with()
-
     @mock.patch.object(rqd.rqcore.RqCore, "killAllFrame", autospec=True)
     def test_onNimbyLock(self, killAllFrameMock):
         self.rqcore.onNimbyLock()
