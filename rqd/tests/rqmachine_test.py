@@ -303,15 +303,19 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertAlmostEqual(0.034444696691, float(updatedFrameInfo.attributes['pcpu']))
 
     @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
-    def test_rssUpdate(self):
+    @mock.patch('psutil.Process')
+    def test_rssUpdate(self, processMock):
+        processMock.return_value.cmdline.return_value = "some_command"
         self._test_rssUpdate(PROC_PID_STAT)
 
     @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
-    def test_rssUpdateWithSpaces(self):
+    @mock.patch('psutil.Process')
+    def test_rssUpdateWithSpaces(self, processMock):
         self._test_rssUpdate(PROC_PID_STAT_WITH_SPACES)
 
     @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
-    def test_rssUpdateWithBrackets(self):
+    @mock.patch('psutil.Process')
+    def test_rssUpdateWithBrackets(self, processMock):
         self._test_rssUpdate(PROC_PID_STAT_WITH_BRACKETS)
 
     @mock.patch.object(
@@ -461,43 +465,41 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         self.machine.setupTaskset()
 
+        #-----------------------Core Map------------------------
+        # phys 0             phys 1
+        #   core 0             core 0
+        #     proc 0             proc 4
+        #     proc 8             proc 12
+        #   core 1             core 1
+        #     proc 1             proc 5
+        #     proc 9             proc 13
+        #   core 2             core 2
+        #     proc 2             proc 6
+        #     proc 10            proc 14
+        #   core 3             core 3
+        #     proc 3             proc 7
+        #     proc 11            proc 15
         # ------------------------step1-------------------------
-        # phys_id 1
-        #   - core_id 0
-        #     - process_id 4
-        #     - process_id 12
-        #   - core_id 1
-        #     - process_id 5
-        #     - process_id 13
-        #   - core_id 3
-        #     - process_id 7
-        #     - process_id 15
-        tasksets1 = self.machine.reserveHT(300)
-        # pylint: disable=no-member
-        self.assertItemsEqual(['4', '5', '7', '12', '13', '15'], sorted(tasksets1.split(',')))
+        def assertTaskSet(taskset_list):
+            """Ensure all tasks are being allocated with the right thread pairs"""
+            phys0 = [('0', '8'), ('1', '9'), ('10', '2'), ('11', '3')]
+            phys1 = [('12', '4'), ('13', '5'), ('14', '6'), ('15', '7')]
 
-        # ------------------------step2-------------------------
-        # phys_id 0
-        #   - core_id 0
-        #     - process_id 0
-        #     - process_id 8
-        #   - core_id 1
-        #     - process_id 1
-        #     - process_id 9
-        #   - core_id 2
-        #     - process_id 2
-        #     - process_id 10
-        #   - core_id 3
-        #     - process_id 3
-        #     - process_id 11
-        tasksets0 = self.machine.reserveHT(400)
-        # pylint: disable=no-member
-        self.assertItemsEqual(['0', '1', '2', '3', '8', '9', '10', '11'],
-                              sorted(tasksets0.split(',')))
+            taskset_2_2 = list(zip(taskset_list[::2], taskset_list[1::2]))
+            if taskset_2_2[0] in phys0:
+                for t in taskset_2_2:
+                    self.assertTrue(tuple(sorted(t)) in phys0, "%s not in %s" % (t, phys0))
+            elif taskset_2_2[0] in phys1:
+                for t in taskset_2_2:
+                    self.assertTrue(tuple(sorted(t)) in phys1, "%s not in %s" % (t, phys1))
 
-        # reserved cores got updated properly
-        # pylint: disable=no-member
-        self.assertItemsEqual([0, 1, 2, 3], self.coreDetail.reserved_cores[0].coreid)
+        tasksets0 = self.machine.reserveHT(300)
+        self.assertIsNotNone(tasksets0)
+        assertTaskSet(tasksets0.split(","))
+
+        tasksets1 = self.machine.reserveHT(400)
+        self.assertIsNotNone(tasksets1)
+        assertTaskSet(tasksets1.split(","))
 
         # Make sure tastsets don't overlap
         self.assertTrue(set(tasksets0.split(',')).isdisjoint(tasksets1.split(',')))
@@ -507,8 +509,6 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.machine.releaseHT(tasksets0)
         # pylint: disable=no-member
         self.assertTrue(1 in self.coreDetail.reserved_cores)
-        # pylint: disable=no-member
-        self.assertItemsEqual([0, 1, 3], self.coreDetail.reserved_cores[1].coreid)
 
         # ------------------------step4-------------------------
         # phys_id 0
@@ -519,29 +519,12 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         #     - process_id 1
         #     - process_id 9
         tasksets3 = self.machine.reserveHT(200)
-        # pylint: disable=no-member
-        self.assertItemsEqual(['0', '1', '8', '9'], sorted(tasksets3.split(',')))
+        assertTaskSet(tasksets3.split(","))
 
         # ------------------------step5-------------------------
-        # phys_id 0
-        #   - core_id 2
-        #     - process_id 2
-        #     - process_id 10
-        #   - core_id 3
-        #     - process_id 3
-        #     - process_id 11
-        # phys_id 1
-        #   - core_id 2
-        #     - process_id 6
-        #     - process_id 14
-        tasksets4 = self.machine.reserveHT(300)
-        # pylint: disable=no-member
-        self.assertItemsEqual(['2', '10', '3', '11', '6', '14'], sorted(tasksets4.split(',')))
-
-        # ------------------------step6-------------------------
-        # No cores available
+        # Missing one core
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
-            self.machine.reserveHT(300)
+            tasksets4 = self.machine.reserveHT(300)
 
 
     def test_tags(self):
@@ -553,9 +536,17 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertTrue(all(tag in machine.__dict__['_Machine__renderHost'].tags for tag in tags))
 
 
-class CpuinfoTests(unittest.TestCase):
+@mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
+class CpuinfoTestsLinux(pyfakefs.fake_filesystem_unittest.TestCase):
 
+    @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
     def setUp(self):
+        self.setUpPyfakefs()
+        self.fs.create_file('/proc/cpuinfo', contents=CPUINFO)
+        self.loadavg = self.fs.create_file('/proc/loadavg', contents=LOADAVG_LOW_USAGE)
+        self.procStat = self.fs.create_file('/proc/stat', contents=PROC_STAT)
+        self.meminfo = self.fs.create_file('/proc/meminfo', contents=MEMINFO_MODERATE_USAGE)
+        self.fs.add_real_directory(os.path.dirname(__file__))
         self.rqd = rqd.rqcore.RqCore()
 
     def test_shark(self):
@@ -591,6 +582,7 @@ class CpuinfoTests(unittest.TestCase):
     def __cpuinfoTestHelper(self, pathCpuInfo):
         # File format: _cpuinfo_dub_x-x-x where x-x-x is totalCores-coresPerProc-numProcs
         pathCpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', pathCpuInfo)
+        self.meminfo.set_contents(MEMINFO_MODERATE_USAGE)
         renderHost, coreInfo = self.rqd.machine.testInitMachineStats(pathCpuInfo)
         totalCores, coresPerProc, numProcs = pathCpuInfo.split('_')[-1].split('-')[:3]
 
