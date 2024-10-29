@@ -283,26 +283,28 @@ try:
                 SP_OS = ",".join(keys)
                 if not DOCKER_IMAGES:
                     raise RuntimeError("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
-                                       "least one image on DOCKER_IMAGES ([docker.images] section of rqd.conf)")
+                                       "least one image on DOCKER_IMAGES ([docker.images] "
+                                       "section of rqd.conf)")
 
-                def parse_mount(mount_str):
+                def parse_mount(mount_string):
                     """
                     Parse mount definitions similar to a docker run command into a docker
                     mount obj
 
                     Format: type=bind,source=/tmp,target=/tmp,bind-propagation=slave
                     """
-                    mount_dict = {}
+                    mounts = {}
                     # bind-propagation defaults to None as only type=bind accepts it
-                    mount_dict["bind-propagation"] = None
-                    for item in mount_str.split(","):
-                        key, value = item.split(":")
-                        mount_dict[key.strip()] = value.strip()
-                    return mount_dict
+                    mounts["bind-propagation"] = None
+                    for item in mount_string.split(","):
+                        mount_name, mount_path = item.split(":")
+                        mounts[mount_name.strip()] = mount_path.strip()
+                    return mounts
 
                 # Parse values under the category docker.mounts into Mount objects
                 mounts = config.options(__docker_mounts)
                 for mount_name in mounts:
+                    mount_str = ""
                     try:
                         mount_str = config.get(__docker_mounts, mount_name)
                         mount_dict = parse_mount(mount_str)
