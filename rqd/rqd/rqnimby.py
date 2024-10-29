@@ -242,8 +242,7 @@ class NimbySelect(Nimby):
                 if device.startswith("event") or device.startswith("mice"):
                     try:
                         # pylint: disable=consider-using-with
-                        self.fileObjList.append(open("/dev/input/%s" % device, "rb",
-                                                     encoding='utf-8'))
+                        self.fileObjList.append(open("/dev/input/%s" % device, "rb"))
                     except IOError:
                         # Bad device found
                         log.exception("IOError: Failed to open /dev/input/%s", device)
