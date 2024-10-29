@@ -131,9 +131,11 @@ class FrameMonitorTreeTests(unittest.TestCase):
         # Ensure the job attribute is set
         self.frameMonitorTree.setJob(self.job)
 
-        self.frameMonitorTree.contextMenuEvent(
-            qtpy.QtGui.QContextMenuEvent(
-                qtpy.QtGui.QContextMenuEvent.Reason.Mouse, mouse_position, mouse_position))
+        # Mock the getLayers method to return an empty list or a list of mock layers
+        with mock.patch.object(self.job, 'getLayers', return_value=[]):
+            self.frameMonitorTree.contextMenuEvent(
+                qtpy.QtGui.QContextMenuEvent(
+                    qtpy.QtGui.QContextMenuEvent.Reason.Mouse, mouse_position, mouse_position))
 
         execMock.assert_called_with(mouse_position)
 
