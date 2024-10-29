@@ -915,24 +915,25 @@ class FrameContextMenu(QtWidgets.QMenu):
 
         if cuegui.Constants.OUTPUT_VIEWERS:
             job = widget.getJob()
-            outputPaths = []
-            selectedFrames = widget.selectedObjects()
+            if job is not None:
+                outputPaths = []
+                selectedFrames = widget.selectedObjects()
 
-            layers_dict = {layer.name(): layer for layer in job.getLayers()}
+                layers_dict = {layer.name(): layer for layer in job.getLayers()}
 
-            for frame in selectedFrames:
-                layer_name = frame.layer()
-                layer = layers_dict.get(layer_name)
-                if layer:
-                    outputPaths.extend(cuegui.Utils.getOutputFromFrame(layer, frame))
+                for frame in selectedFrames:
+                    layer_name = frame.layer()
+                    layer = layers_dict.get(layer_name)
+                    if layer:
+                        outputPaths.extend(cuegui.Utils.getOutputFromFrame(layer, frame))
 
-            if outputPaths:
-                for viewer in cuegui.Constants.OUTPUT_VIEWERS:
-                    self.addAction(viewer['action_text'],
-                                   functools.partial(cuegui.Utils.viewFramesOutput,
-                                                     job,
-                                                     selectedFrames,
-                                                     viewer['action_text']))
+                if outputPaths:
+                    for viewer in cuegui.Constants.OUTPUT_VIEWERS:
+                        self.addAction(viewer['action_text'],
+                                       functools.partial(cuegui.Utils.viewFramesOutput,
+                                                         job,
+                                                         selectedFrames,
+                                                         viewer['action_text']))
 
         if self.app.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(self, "viewHost")
