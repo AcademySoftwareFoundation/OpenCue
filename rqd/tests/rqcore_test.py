@@ -764,7 +764,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             entrypoint=cmd_file
         )
 
-        with open(cmd_file) as f:
+        with open(cmd_file, "r", encoding='utf-8') as f:
             cmd = f.read()
             self.assertEqual(r"""#!/bin/sh
 useradd -u %s -g %s %s >& /dev/null || true;
