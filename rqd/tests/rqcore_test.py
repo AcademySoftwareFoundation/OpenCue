@@ -25,6 +25,7 @@ from builtins import str
 import os.path
 import unittest
 import subprocess
+import re
 
 import mock
 import pyfakefs.fake_filesystem_unittest
@@ -765,7 +766,8 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         )
 
         with open(cmd_file, "r", encoding='utf-8') as f:
-            cmd = f.read()
+            # Remove `-p RANDOM_PASSWORD` from output
+            cmd = re.sub(r"-p\s+(\d|\w)\S+\s*", "", f.read())
             self.assertEqual(r"""#!/bin/sh
 useradd -u %s -g %s %s >& /dev/null || true;
 exec su -s /bin/sh %s -c "echo \$$; /bin/nice /usr/bin/time -p -o /job/temp/path/rqd-stat-%s-%s  "

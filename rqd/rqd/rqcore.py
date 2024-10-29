@@ -35,6 +35,7 @@ import threading
 import time
 import traceback
 import select
+import uuid
 
 import rqd.compiled_proto.host_pb2
 import rqd.compiled_proto.report_pb2
@@ -984,11 +985,12 @@ class FrameAttendantThread(threading.Thread):
 
         # Command wrapper
         command = r"""#!/bin/sh
-useradd -u %s -g %s %s >& /dev/null || true;
+useradd -u %s -g %s -p %s %s >& /dev/null || true;
 exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
 """ % (
             runFrame.uid,
             gid,
+            str(uuid.uuid4()),
             runFrame.user_name,
             rqd.rqconstants.DOCKER_SHELL_PATH,
             runFrame.user_name,
