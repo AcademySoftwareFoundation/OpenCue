@@ -293,13 +293,13 @@ try:
 
                     Format: type=bind,source=/tmp,target=/tmp,bind-propagation=slave
                     """
-                    mounts = {}
+                    parsed_mounts = {}
                     # bind-propagation defaults to None as only type=bind accepts it
-                    mounts["bind-propagation"] = None
+                    parsed_mounts["bind-propagation"] = None
                     for item in mount_string.split(","):
-                        mount_name, mount_path = item.split(":")
-                        mounts[mount_name.strip()] = mount_path.strip()
-                    return mounts
+                        name, mount_path = item.split(":")
+                        parsed_mounts[name.strip()] = mount_path.strip()
+                    return parsed_mounts
 
                 # Parse values under the category docker.mounts into Mount objects
                 mounts = config.options(__docker_mounts)
