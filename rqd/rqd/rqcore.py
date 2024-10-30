@@ -35,6 +35,7 @@ import threading
 import time
 import traceback
 import select
+import uuid
 
 import rqd.compiled_proto.host_pb2
 import rqd.compiled_proto.report_pb2
@@ -613,7 +614,8 @@ class RqCore(object):
         Iterate over the cache and update the status of frames that might have
         completed but never reported back to cuebot.
         """
-        for frameId, runningFrame in self.__cache.items():
+        for frameId in list(self.__cache.keys):
+            runningFrame = self.__cache[frameId]
             # If the frame was marked as completed (exitStatus) and a report has not been sent
             # try to file the report again
             if runningFrame.exitStatus is not None and not runningFrame.completeReportSent:
@@ -963,18 +965,45 @@ class FrameAttendantThread(threading.Thread):
                                              frameInfo.frameId,
                                              time.time())
         self._tempLocations.append(tempStatFile)
-        tempCommand = []
-        if self.rqCore.machine.isDesktop():
-            tempCommand += ["/bin/nice"]
-        tempCommand += ["/usr/bin/time", "-p", "-o", tempStatFile]
 
-        if 'CPU_LIST' in runFrame.attributes:
-            tempCommand += ['taskset', '-c', runFrame.attributes['CPU_LIST']]
+        # Prevent frame from attempting to run as ROOT
+        if runFrame.gid <= 0:
+            gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
+        else:
+            gid = runFrame.gid
 
-        tempCommand += [runFrame.command]
+        # Never give frame ROOT permissions
+        if runFrame.uid == 0 or gid == 0:
+            self.rqlog.write("Frame cannot run as ROOT",
+                             prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+            return
 
-        # Print PID before executing
-        command = ["sh", "-c", "echo $$; exec " + " ".join(tempCommand)]
+        # Thread affinity
+        tasksetCmd = ""
+        if runFrame.attributes['CPU_LIST']:
+            tasksetCmd = "taskset -c %s" % runFrame.attributes['CPU_LIST']
+
+        # Command wrapper
+        command = r"""#!/bin/sh
+useradd -u %s -g %s -p %s %s >& /dev/null || true;
+exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
+""" % (
+            runFrame.uid,
+            gid,
+            str(uuid.uuid4()),
+            runFrame.user_name,
+            rqd.rqconstants.DOCKER_SHELL_PATH,
+            runFrame.user_name,
+            tempStatFile,
+            tasksetCmd,
+            runFrame.command
+        )
+
+        # Log entrypoint on frame log to simplify replaying frames
+        self.rqlog.write("DOCKER_ENTRYPOINT = %s" % command,
+                         prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+        # Write command to a file on the job tmpdir to simplify replaying a frame
+        command = self._createCommandFile(command)
 
         client = self.rqCore.docker_client
         try:
@@ -988,8 +1017,7 @@ class FrameAttendantThread(threading.Thread):
                                               pid_mode="host",
                                               stderr=True,
                                               hostname=self.frameEnv["jobhost"],
-                                              entrypoint=command,
-                                              user=runFrame.uid)
+                                              entrypoint=command)
 
             log_stream = container.logs(stream=True)
             # CMD prints the process PID before executing the actual command
@@ -1006,9 +1034,12 @@ class FrameAttendantThread(threading.Thread):
             output = container.wait()
             returncode = output["StatusCode"]
         # pylint: disable=broad-except
-        except Exception:
+        except Exception as e:
             returncode = 1
-            logging.exception("Failed to launch frame container")
+            msg = "Failed to launch frame container"
+            logging.exception(msg)
+            self.rqlog.write("%s - %s" % (msg, e),
+                             prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
 
         # Find exitStatus and exitSignal
         if returncode < 0:

@@ -158,6 +158,7 @@ SP_OS = platform.system()
 RUN_ON_DOCKER = False
 DOCKER_IMAGES = {}
 DOCKER_MOUNTS = []
+DOCKER_SHELL_PATH = "/bin/sh"
 
 try:
     if os.path.isfile(CONFIG_FILE):
@@ -251,6 +252,12 @@ try:
                 RQD_UID = 0
                 RQD_GID = 0
 
+                # Path to the shell to be used in the frame environment
+                if config.has_option(__docker_config, "DOCKER_SHELL_PATH"):
+                    DOCKER_SHELL_PATH = config.get(
+                        __docker_config,
+                        "DOCKER_SHELL_PATH")
+
                 # Every key:value on the config file under docker.images
                 # is parsed as key=SP_OS and value=image_tag.
                 # SP_OS is set to a list of all available keys
@@ -274,26 +281,27 @@ try:
                 SP_OS = ",".join(keys)
                 if not DOCKER_IMAGES:
                     raise RuntimeError("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
-                                       "least one image on DOCKER_IMAGES ([docker.images] section of rqd.conf)")
-
-                def parse_mount(mount_str):
+                                       "least one image on DOCKER_IMAGES ([docker.images] "
+                                       "section of rqd.conf)")
+                def parse_mount(mount_string):
                     """
                     Parse mount definitions similar to a docker run command into a docker
                     mount obj
 
                     Format: type=bind,source=/tmp,target=/tmp,bind-propagation=slave
                     """
-                    mount_dict = {}
+                    parsed_mounts = {}
                     # bind-propagation defaults to None as only type=bind accepts it
-                    mount_dict["bind-propagation"] = None
-                    for item in mount_str.split(","):
-                        key, value = item.split(":")
-                        mount_dict[key.strip()] = value.strip()
-                    return mount_dict
+                    parsed_mounts["bind-propagation"] = None
+                    for item in mount_string.split(","):
+                        name, mount_path = item.split(":")
+                        parsed_mounts[name.strip()] = mount_path.strip()
+                    return parsed_mounts
 
                 # Parse values under the category docker.mounts into Mount objects
                 mounts = config.options(__docker_mounts)
                 for mount_name in mounts:
+                    mount_str = ""
                     try:
                         mount_str = config.get(__docker_mounts, mount_name)
                         mount_dict = parse_mount(mount_str)

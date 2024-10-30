@@ -346,9 +346,10 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "proc.int_virt_max_used,"+
             "proc.int_virt_used,"+
             "host.str_name AS host_name, " +
-            "host_stat.str_os " +
+            "job.str_os " +
         "FROM " +
-            "proc," +
+            "proc, " +
+            "job, " +
             "host, " +
             "host_stat, " +
             "alloc " +
@@ -357,7 +358,9 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         "AND " +
             "host.pk_host = host_stat.pk_host " +
         "AND " +
-            "host.pk_alloc = alloc.pk_alloc ";
+            "host.pk_alloc = alloc.pk_alloc " +
+        "AND " +
+            "job.pk_job = proc.pk_job ";
 
       public VirtualProc getVirtualProc(String id) {
           return getJdbcTemplate().queryForObject(
@@ -376,7 +379,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               "proc.*, " +
               "host.str_name AS host_name, " +
               "host.pk_alloc, " +
-              "host_stat.str_os, " +
+              "job.str_os, " +
               "alloc.pk_facility " +
           "FROM " +
               "proc, " +
@@ -517,20 +520,23 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
           "SELECT " +
               "proc.*, " +
               "host.str_name AS host_name, " +
-              "host_stat.str_os, " +
+              "job.str_os, " +
               "host.pk_alloc, " +
               "alloc.pk_facility " +
           "FROM " +
               "proc, " +
               "host, " +
               "host_stat,"+
-              "alloc " +
+              "alloc, " +
+              "job " +
           "WHERE " +
               "proc.pk_host = host.pk_host " +
           "AND " +
               "host.pk_host = host_stat.pk_host " +
           "AND " +
               "host.pk_alloc = alloc.pk_alloc " +
+          "AND " +
+              "job.pk_job = proc.pk_job " +
           "AND " +
               "current_timestamp - proc.ts_ping > " + ORPHANED_PROC_INTERVAL;
 
