@@ -165,8 +165,6 @@ try:
         # Hostname can come from here: rqutil.getHostname()
         __override_section = "Override"
         __host_env_var_section = "UseHostEnvVar"
-        __docker_mounts = "docker.mounts"
-        __docker_config = "docker.config"
         import six
         from six.moves import configparser
         if six.PY2:
@@ -285,7 +283,6 @@ try:
                     raise RuntimeError("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
                                        "least one image on DOCKER_IMAGES ([docker.images] "
                                        "section of rqd.conf)")
-
                 def parse_mount(mount_string):
                     """
                     Parse mount definitions similar to a docker run command into a docker
