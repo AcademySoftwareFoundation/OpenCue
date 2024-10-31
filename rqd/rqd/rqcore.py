@@ -1018,6 +1018,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                                               privileged=True,
                                               remove=True,
                                               pid_mode="host",
+                                              network="host",
                                               stderr=True,
                                               hostname=self.frameEnv["jobhost"],
                                               entrypoint=command)
