@@ -614,7 +614,7 @@ class RqCore(object):
         Iterate over the cache and update the status of frames that might have
         completed but never reported back to cuebot.
         """
-        for frameId in list(self.__cache.keys):
+        for frameId in list(self.__cache.keys()):
             runningFrame = self.__cache[frameId]
             # If the frame was marked as completed (exitStatus) and a report has not been sent
             # try to file the report again
@@ -743,6 +743,7 @@ class FrameAttendantThread(threading.Thread):
             log.critical(
                 "Unable to make command file: %s due to %s at %s",
                 commandFile, e, traceback.extract_tb(sys.exc_info()[2]))
+            raise e
 
     def __writeHeader(self):
         """Writes the frame's log header"""
@@ -950,7 +951,7 @@ class FrameAttendantThread(threading.Thread):
         elif self.rqCore.docker_images:
             # If a frame doesn't require an specic OS, default to the first configured OS on
             # [docker.images]
-            image = list(self.rqCore.docker_images.values)[0]
+            image = list(self.rqCore.docker_images.values())[0]
         else:
             self.__writeHeader()
             msg = ("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
@@ -1007,6 +1008,8 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
 
         client = self.rqCore.docker_client
         try:
+            if not client:
+                raise TypeError("Invalid state: docker_client must have been initialized.")
             container = client.containers.run(image=image,
                                               detach=True,
                                               environment=self.frameEnv,
@@ -1023,7 +1026,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             # CMD prints the process PID before executing the actual command
             frameInfo.pid = int(next(log_stream))
 
-            if not self.rqCore.updateRssThread.is_alive():
+            if self.rqCore.updateRssThread and not self.rqCore.updateRssThread.is_alive():
                 self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                             self.rqCore.updateRss)
                 self.rqCore.updateRssThread.start()
