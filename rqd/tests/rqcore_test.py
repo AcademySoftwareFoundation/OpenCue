@@ -760,6 +760,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             privileged=True,
             remove=True,
             pid_mode="host",
+            network="host",
             stderr=True,
             hostname=mock.ANY,
             entrypoint=cmd_file
