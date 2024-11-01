@@ -984,6 +984,10 @@ class FrameAttendantThread(threading.Thread):
         if runFrame.attributes['CPU_LIST']:
             tasksetCmd = "taskset -c %s" % runFrame.attributes['CPU_LIST']
 
+        # A temporary password for the user created inside of the frame container.
+        # This user is only valid inside of the container, meaning a leakage would only
+        # be harmful if the perpetrator gains access to run docker commands.
+        tempPassword = str(uuid.uuid4())
         # Command wrapper
         command = r"""#!/bin/sh
 useradd -u %s -g %s -p %s %s >& /dev/null || true;
@@ -991,7 +995,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
 """ % (
             runFrame.uid,
             gid,
-            str(uuid.uuid4()),
+            tempPassword,
             runFrame.user_name,
             rqd.rqconstants.DOCKER_SHELL_PATH,
             runFrame.user_name,
@@ -1001,7 +1005,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         )
 
         # Log entrypoint on frame log to simplify replaying frames
-        self.rqlog.write("DOCKER_ENTRYPOINT = %s" % command,
+        self.rqlog.write("DOCKER_ENTRYPOINT = %s" % command.replace(tempPassword, "[password]"),
                          prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
         # Write command to a file on the job tmpdir to simplify replaying a frame
         command = self._createCommandFile(command)
