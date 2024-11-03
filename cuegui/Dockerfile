@@ -54,7 +54,7 @@ RUN python3.6 -m grpc_tools.protoc \
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-RUN 2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
+RUN python3 ci/fix_compiled_proto.py pycue/opencue/compiled_proto
 
 COPY cuegui/README.md ./cuegui/
 COPY cuegui/setup.py ./cuegui/
