@@ -10,7 +10,7 @@ python -m grpc_tools.protoc -I=. \
   --python_out=../pycue/opencue/compiled_proto \
   --grpc_python_out=../pycue/opencue/compiled_proto ./*.proto
 cd ..
-2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
+python ../ci/fix_compiled_proto.py pycue/opencue/compiled_proto
 
 # Install all client packages.
 pip install pycue/ pyoutline/ cueadmin/ cuesubmit/ cuegui/
