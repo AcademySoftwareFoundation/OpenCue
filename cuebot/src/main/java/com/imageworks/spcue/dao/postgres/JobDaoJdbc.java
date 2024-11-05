@@ -114,6 +114,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.deptId = rs.getString("pk_dept");
                 job.groupId = rs.getString("pk_folder");
                 job.logDir = rs.getString("str_log_dir");
+                job.logLokiEnabled = rs.getBoolean("b_loki_enabled");
+                job.logLokiURL = rs.getString("str_loki_url");
                 job.maxCoreUnits = rs.getInt("int_max_cores");
                 job.minCoreUnits = rs.getInt("int_min_cores");
                 job.maxGpuUnits = rs.getInt("int_max_gpus");
@@ -206,6 +208,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
              "job.pk_dept,"+
              "job.pk_folder,"+
              "job.str_log_dir,"+
+             "job.b_loki_enabled,"+
+             "job.str_loki_url,"+
              "job.str_name,"+
              "job.str_shot,"+
              "job.str_state,"+
@@ -473,20 +477,25 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "int_uid," +
             "b_paused," +
             "b_autoeat,"+
-            "int_max_retries " +
+            "int_max_retries," +
+            "b_loki_enabled," +
+            "str_loki_url" +
         ") " +
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insertJob(JobDetail j, JobLogUtil jobLogUtil) {
         j.id = SqlUtil.genKeyRandom();
         j.logDir = jobLogUtil.getJobLogPath(j);
+        j.logLokiEnabled = jobLogUtil.getLokiIsEnabled();
+        j.logLokiURL = jobLogUtil.getLokiURL();
         if (j.minCoreUnits < 100) { j.minCoreUnits = 100; }
 
         getJdbcTemplate().update(INSERT_JOB,
                 j.id, j.showId, j.groupId, j.facilityId, j.deptId,
                 j.name, j.name, j.showName, j.shot, j.user, j.email, j.state.toString(),
-                j.logDir, j.os, j.uid.orElse(null), j.isPaused, j.isAutoEat, j.maxRetries);
+                j.logDir, j.os, j.uid.orElse(null), j.isPaused, j.isAutoEat, j.maxRetries,
+                j.logLokiEnabled, j.logLokiURL);
     }
 
     private static final String JOB_EXISTS =

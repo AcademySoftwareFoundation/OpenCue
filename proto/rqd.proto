@@ -112,6 +112,8 @@ message RunFrame {
     map<string, string> attributes = 22;
     int32 num_gpus = 23;
     report.ChildrenProcStats children = 24;
+    bool loki_enabled = 25;
+    string loki_url = 26;
 }
 
 message RunFrameSeq {
