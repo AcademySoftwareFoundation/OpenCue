@@ -79,7 +79,6 @@ class RqCore(object):
         self.network = rqd.rqnetwork.Network(self)
         self.__threadLock = threading.Lock()
         self.__cache = {}
-
         self.updateRssThread = None
         self.onIntervalThread = None
         self.intervalStartTime = None

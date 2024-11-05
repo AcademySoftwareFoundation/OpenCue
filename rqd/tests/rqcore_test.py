@@ -788,7 +788,6 @@ exec su -s /bin/sh %s -c "echo \$$; /bin/nice /usr/bin/time -p -o /job/temp/path
             frameInfo
         )
 
-
     # TODO(bcipriano) Re-enable this test once Windows is supported. The main sticking point here
     #   is that the log directory is always overridden on Windows which makes mocking difficult.
     @mock.patch("platform.system", new=mock.Mock(return_value="Windows"))
