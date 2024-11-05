@@ -45,14 +45,8 @@ EXPOSE 3000
 # command for running the application
 # CMD ["npm", "run", "dev"]
 
-# for production builds using Openshift (comment out all the following lines when testing locally):
+# For production builds using Openshift (comment out all the following lines when testing locally):
 # this is required to build Next.js or else it will throw errors. Actual env variables will be passed by Openshift
-# change NEXT_PUBLIC_AUTH_PROVIDER to add the authentication providers used in the CueWeb application
-ENV NEXT_PUBLIC_AUTH_PROVIDER=google,okta,github
-ENV NEXT_PUBLIC_AUTH_PROVIDER=okta
-ENV NEXT_PUBLIC_URL=tobeoverriden
-ENV NEXT_PUBLIC_OPENCUE_ENDPOINT=tobeoverriden
-ENV NEXT_PUBLIC_AUTH_PROVIDER=okta
 ENV NEXTAUTH_URL=tobeoverriden
 ENV NEXTAUTH_SECRET=tobeoverriden
 ENV NEXT_JWT_SECRET=tobeoverriden
@@ -64,6 +58,12 @@ ENV SENTRY_PROJECT=tobeoverriden
 ENV SENTRY_URL=tobeoverriden
 ENV SENTRY_ORG=tobeoverriden
 ENV SENTRY_DSN=tobeoverriden
+
+# The following environment variables need to be accurately defined during production or dev builds as their
+# values cannot be changed after build time
+ENV NEXT_PUBLIC_URL=tobeoverriden
+ENV NEXT_PUBLIC_OPENCUE_ENDPOINT=tobeoverriden
+ENV NEXT_PUBLIC_AUTH_PROVIDER=google,okta,github
 
 RUN npm run build
 CMD ["npm", "run", "start"]

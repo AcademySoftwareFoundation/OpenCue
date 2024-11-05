@@ -1,5 +1,5 @@
 import { loadServerEnvVars } from '@/app/utils/config';
-import { createJwtToken } from '@/app/utils/rest_auth_utils';
+import { createJwtToken } from '@/app/utils/api_utils';
 
 interface JwtParams {
   sub: string;
@@ -8,7 +8,7 @@ interface JwtParams {
   exp: number;
 }
 
-// This test is in its own file because there were issues with the mock functions when these tests were in rest_auth_utils.tests.ts.
+// This test is in its own file because there were issues with the mock functions when these tests were in api_utils.tests.ts.
 // Using jest.mock outside of describe() would cause createJwtToken to return undefined, and using jest.mock inside of describe() would
 // cause 'TypeError: filename.functionname.mockReturnValu is not a function'
 jest.mock('@/app/utils/config', () => ({

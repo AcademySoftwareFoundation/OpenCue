@@ -1,15 +1,20 @@
 "use client";
 
-import { getFrame } from "@/app/utils/utils";
+import { getFrame } from "@/app/utils/get_utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import Editor, { Monaco } from "@monaco-editor/react";
+import FormControl from "@mui/material/FormControl";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
 import { editor } from "monaco-editor";
 import { useSearchParams } from "next/navigation";
+import * as path from "path";
 import React, { useEffect, useRef, useState } from "react";
 import CueWebIcon from "../../../components/ui/cuewebicon";
 import { SimpleDataTable } from "../../../components/ui/simple-data-table";
 import { Frame, frameColumns } from "../frame-columns";
+import { SelectChangeEvent } from "@mui/material/Select";
 
 // number of log lines for paginated infinite logs
 const LOG_CHUNK_SIZE = process.env.NEXT_PUBLIC_LOG_CHUNK_SIZE ? parseInt(process.env.NEXT_PUBLIC_LOG_CHUNK_SIZE) : 100;
@@ -19,8 +24,13 @@ export default function FramePage() {
   const [frameObject, setFrame] = React.useState<Frame | null>(null);
   const [totalNumLogLines, setTotalNumLogLines] = useState(-1);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
-  const frameId = searchParams.get("frameId");
-  const logDirPath = searchParams.get("frameLogDir");
+  const frameId = searchParams.get("frameId") || "";
+  const logDirPath = searchParams.get("frameLogDir") || "";
+  const username = searchParams.get("username") || "";
+
+  const [curLogVersion, setCurLogVersion] = useState(path.basename(logDirPath));
+  const [curLogPath, setCurLogPath] = useState(logDirPath)
+  const [logVersions, setLogVersions] = useState<string[]>([]);
 
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [numberOfLinesLoaded, setNumberOfLinesLoaded] = useState(LOG_CHUNK_SIZE);
@@ -40,52 +50,45 @@ export default function FramePage() {
     setFrame(frame);
   };
 
-  // on page load: get the frame object
   useEffect(() => {
     fetchData();
-  }, []);
+  }, []);  
 
-  // retrieve and display the logs once the editor has mounted or frame object has loaded
   useEffect(() => {
-    fetchInitialLogs();
-  }, [frameObject, editorMounted]);
+      fetchInitialLogs();
+  }, [editorMounted, frameObject, curLogVersion]);
+  
 
   const fetchInitialLogs = async () => {
-    const totalLines = await getLogLineCount();
-    // exit early if log files are not generated -
-    // either log file doesn't exist or no logs written out yet
-    if (totalLines == -1) {
-      updateTextInEditor("Could not find log file for the frame. \n___");
-      return;
+    try {
+      const totalLines = await getLogLineCount();
+      if (totalLines == -1) {
+        updateTextInEditor("Could not find log file for the frame.");
+        return;
+      }
+      if (totalLines === 0) {
+        updateTextInEditor("No log output to display yet.");
+        setNumberOfLinesLoaded(0);
+        return;
+      }
+
+      setTotalNumLogLines(totalLines);
+      let startline = totalLines < LOG_CHUNK_SIZE ? 1 : totalLines - LOG_CHUNK_SIZE + 1;
+      let endline = totalLines;
+      let newLogs = await fetchPaginatedLogs(startline, endline);
+      setNumberOfLinesLoaded(endline - startline + 1);
+      setLogDisplayStart(startline);
+      setLogDisplayEnd(endline);
+
+      if (newLogs) {
+        updateTextInEditor(newLogs);
+        setInitialDataLoaded(true);
+      }
+
+      scrollToBottomOfIDE();
+    } catch (error) {
+      console.error("Error fetching initial logs:", error);
     }
-
-    if (totalLines == 0) {
-      updateTextInEditor("No log output to display yet. \n");
-      setNumberOfLinesLoaded(0);
-    }
-
-    // set total number of lines currently in the logfile
-    setTotalNumLogLines(totalLines);
-
-    let startline = totalLines < LOG_CHUNK_SIZE ? 1 : totalLines - LOG_CHUNK_SIZE + 1;
-    let endline = totalLines;
-    let newLogs = await fetchPaginatedLogs(startline, endline);
-    setNumberOfLinesLoaded(endline - startline + 1);
-    setLogDisplayStart(startline);
-    setLogDisplayEnd(endline);
-
-    // update editor
-    if (newLogs) {
-      updateTextInEditor(newLogs);
-      setInitialDataLoaded(true);
-    }
-
-    scrollToBottomOfIDE();
-  };
-
-  // the `loadMoreLogsIfNeeded` function listens to the `scrollTrigger` variable change to activate
-  const scrollTriggerHandler = () => {
-    setScrollTrigger((prev) => !prev);
   };
 
   // scrollTrigger listener
@@ -108,7 +111,7 @@ export default function FramePage() {
     });
 
     editorRef.current = editor;
-    editorRef.current.onDidScrollChange(scrollTriggerHandler);
+    editorRef.current.onDidScrollChange(() => setScrollTrigger((prev) => !prev));
     setEditorMounted(true);
   };
 
@@ -219,7 +222,7 @@ export default function FramePage() {
 
   // helper function to access next js endpoint for retrieving log lines
   const fetchPaginatedLogs = async (start: number, end: number) => {
-    let res = await fetch(`/api/getlines?path=${logDirPath}&start=${start}&end=${end}`);
+    let res = await fetch(`/api/getlines?path=${curLogPath}&start=${start}&end=${end}`);
     let json = await res.json();
     if (json.error) {
       alert("error");
@@ -230,11 +233,31 @@ export default function FramePage() {
 
   // helper function to access next js endpoint for counting lines
   const getLogLineCount = async () => {
-    const numLines = fetch(`/api/countlines?path=${logDirPath}`);
+    const numLines = fetch(`/api/countlines?path=${curLogPath}`);
     const data = await (await numLines).json();
     const totLines = data.count;
     return totLines;
   };
+
+  // Handles updates when a different log version is selected
+  const handleVersionChange = (e: SelectChangeEvent<string>) => {
+    setCurLogVersion(e.target.value);
+    setCurLogPath(path.dirname(logDirPath) + "/" + e.target.value);
+    setInitialDataLoaded(false); // Reset data for new log version
+  };
+  // Retreives new log versions when the logDirPath changes
+  useEffect(() => {
+    async function fetchLogVersions() {
+      const res = await fetch(`/api/getlogversions?filename=${logDirPath}`);
+      const json = await res.json();
+      if (res.ok && json.versions) {
+        setLogVersions(json.versions);
+      } else {
+        setLogVersions([]);
+      }
+    }
+    fetchLogVersions();
+  }, [logDirPath]);
 
   return (
     <div className="container mx-auto py-10 max-w-[90%]">
@@ -248,14 +271,33 @@ export default function FramePage() {
       {frameObject != null ? (
         <>
           <span>{frameObject.name}</span>
-          <SimpleDataTable data={[frameObject]} columns={frameColumns} showPagination={false}></SimpleDataTable>
+          <SimpleDataTable data={[frameObject]} columns={frameColumns} showPagination={false} isFramesLogTable={true} username={username}></SimpleDataTable>
         </>
       ) : (
         <div />
       )}
 
       {/* Some white space between table and logs div */}
-      <div className="mb-6" />
+      <div className="mb-12" />
+      
+      {/* Dropdown to select different log versions */}
+      <div className="my-4">
+        <h3>Log versions</h3>
+        <FormControl size="small">
+          <Select
+            id={"log-version-select"}
+            value={curLogVersion}
+            label="log version"
+            onChange={handleVersionChange}
+          >
+            {logVersions.map((version) => (
+              <MenuItem key={version} value={version}>
+                {version}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </div>
 
       {/* Logs for Frame */}
       <div className="my-2 mt-1 pt-1 overflow-hidden w-full rounded-xl border border-gray-400 bg-black">
