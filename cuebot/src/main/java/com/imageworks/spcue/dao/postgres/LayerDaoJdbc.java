@@ -33,6 +33,8 @@ import org.apache.commons.lang.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 
 import com.imageworks.spcue.ExecutionSummary;
 import com.imageworks.spcue.FrameStateTotals;
@@ -41,7 +43,6 @@ import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LimitEntity;
-import com.imageworks.spcue.LimitInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ThreadStats;
 import com.imageworks.spcue.dao.LayerDao;
@@ -56,6 +57,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
+    private final long MEM_RESERVED_MIN;
     private static final Logger logger = LogManager.getLogger(LayerDaoJdbc.class);
     private static final String INSERT_OUTPUT_PATH =
         "INSERT INTO " +
@@ -66,6 +68,14 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             "pk_job,"+
             "str_filespec " +
         ") VALUES (?,?,?,?)";
+
+    @Autowired
+    public LayerDaoJdbc(Environment env) {
+        this.MEM_RESERVED_MIN = env.getRequiredProperty(
+            "dispatcher.memory.mem_reserved_min",
+            Long.class
+        );
+    }
 
     @Override
     public void insertLayerOutput(LayerInterface layer, String filespec) {
@@ -341,8 +351,8 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
     @Override
     public void updateLayerMinMemory(LayerInterface layer, long val) {
-        if (val < Dispatcher.MEM_RESERVED_MIN) {
-            val = Dispatcher.MEM_RESERVED_MIN;
+        if (val < MEM_RESERVED_MIN) {
+            val = MEM_RESERVED_MIN;
         }
         getJdbcTemplate().update("UPDATE layer SET int_mem_min=? WHERE pk_layer=?",
                 val, layer.getLayerId());
@@ -380,8 +390,8 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         if (maxrss < frameMaxRss) {
             maxrss = frameMaxRss;
         }
-        if (maxrss < Dispatcher.MEM_RESERVED_MIN) {
-            maxrss = Dispatcher.MEM_RESERVED_MIN;
+        if (maxrss < MEM_RESERVED_MIN) {
+            maxrss = MEM_RESERVED_MIN;
         } else {
             maxrss = maxrss + CueUtil.MB256;
         }
@@ -603,11 +613,11 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         try {
             long maxRss = getJdbcTemplate().queryForObject(FIND_PAST_MAX_RSS,
                     Long.class, job.getJobId(), name);
-            if (maxRss >= Dispatcher.MEM_RESERVED_MIN) {
+            if (maxRss >= MEM_RESERVED_MIN) {
                 return maxRss;
             }
             else {
-                return Dispatcher.MEM_RESERVED_MIN;
+                return MEM_RESERVED_MIN;
             }
         } catch (EmptyResultDataAccessException e) {
             // Actually want to return 0 here, which means
@@ -625,8 +635,8 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
     @Override
     public void updateMinMemory(JobInterface job, long mem, LayerType type) {
-        if (mem < Dispatcher.MEM_RESERVED_MIN) {
-            mem = Dispatcher.MEM_RESERVED_MIN;
+        if (mem < MEM_RESERVED_MIN) {
+            mem = MEM_RESERVED_MIN;
         }
         getJdbcTemplate().update(
                 "UPDATE layer SET int_mem_min=? WHERE pk_job=? AND str_type=?",

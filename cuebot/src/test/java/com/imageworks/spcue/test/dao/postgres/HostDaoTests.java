@@ -43,7 +43,6 @@ import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.HostDao;
-import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.HostTagType;
 import com.imageworks.spcue.grpc.host.LockState;
@@ -81,6 +80,10 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     protected FacilityDao facilityDao;
 
     public HostDaoTests() { }
+
+    // Hardcoded value of dispatcher.memory.mem_reserved_system
+    // to avoid having to read opencue.properties on a test setting
+    private final long MEM_RESERVED_SYSTEM = 524288;
 
     public static RenderHost buildRenderHost(String name) {
         RenderHost host = RenderHost.newBuilder()
@@ -131,7 +134,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 hostManager.getDefaultAllocationDetail(),
                 false);
 
-        assertEquals(Long.valueOf(CueUtil.GB16 - Dispatcher.MEM_RESERVED_SYSTEM), jdbcTemplate.queryForObject(
+        assertEquals(Long.valueOf(CueUtil.GB16 - this.MEM_RESERVED_SYSTEM), jdbcTemplate.queryForObject(
                 "SELECT int_mem FROM host WHERE str_name=?",
                 Long.class, TEST_HOST));
     }
@@ -272,7 +275,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 hostManager.getDefaultAllocationDetail(),
                 false);
 
-        assertEquals(Long.valueOf(CueUtil.GB16 - Dispatcher.MEM_RESERVED_SYSTEM), jdbcTemplate.queryForObject(
+        assertEquals(Long.valueOf(CueUtil.GB16 - this.MEM_RESERVED_SYSTEM), jdbcTemplate.queryForObject(
                 "SELECT int_mem FROM host WHERE str_name=?",
                 Long.class, TEST_HOST));
     }
@@ -482,9 +485,9 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         // Verify what the original values are
         assertEquals(800, dispatchHost.cores);
         assertEquals(800, dispatchHost.idleCores);
-        assertEquals(CueUtil.GB16 - Dispatcher.MEM_RESERVED_SYSTEM,
+        assertEquals(CueUtil.GB16 - this.MEM_RESERVED_SYSTEM,
                 dispatchHost.idleMemory);
-        assertEquals(CueUtil.GB16-  Dispatcher.MEM_RESERVED_SYSTEM,
+        assertEquals(CueUtil.GB16-  this.MEM_RESERVED_SYSTEM,
                 dispatchHost.memory);
 
         dispatchHost = hostDao.findDispatchHost(TEST_HOST);
@@ -492,9 +495,9 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         // Now verify they've changed.
         assertEquals(2400, dispatchHost.cores);
         assertEquals(2400, dispatchHost.idleCores);
-        assertEquals(CueUtil.GB32 -  Dispatcher.MEM_RESERVED_SYSTEM,
+        assertEquals(CueUtil.GB32 -  this.MEM_RESERVED_SYSTEM,
                 dispatchHost.idleMemory);
-        assertEquals(CueUtil.GB32-  Dispatcher.MEM_RESERVED_SYSTEM,
+        assertEquals(CueUtil.GB32-  this.MEM_RESERVED_SYSTEM,
                 dispatchHost.memory);
     }
 

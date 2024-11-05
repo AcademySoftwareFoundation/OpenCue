@@ -19,17 +19,14 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import java.util.List;
-import java.util.ArrayList;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.spcue.VirtualProc;
 
 /**
  * A command for booking a host.
@@ -37,9 +34,9 @@ import com.imageworks.spcue.VirtualProc;
  * @category command
  */
 public class DispatchBookHost extends KeyRunnable {
-    private static final Logger logger =
-            LogManager.getLogger(DispatchBookHost.class);
 
+    @Autowired
+    private Environment env;
     private ShowInterface show = null;
     private GroupInterface group = null;
     private JobInterface job = null;
@@ -90,21 +87,27 @@ public class DispatchBookHost extends KeyRunnable {
                 else if (job != null) {
                     dispatcher.dispatchHost(host, job);
                 }
+                long memReservedMin = env.getRequiredProperty(
+                    "dispatcher.memory.mem_reserved_min",
+                    Long.class);
+                long memGpuReservedMin = env.getRequiredProperty(
+                    "dispatcher.memory.mem_gpu_reserved_min",
+                    Long.class);
 
                 // Try to book any remaining resources
                 if (host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
-                        Dispatcher.MEM_RESERVED_MIN,
+                        memReservedMin,
                         Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                        memGpuReservedMin)) {
                     dispatcher.dispatchHost(host);
                 }
 
                 if (host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
-                        Dispatcher.MEM_RESERVED_MIN,
+                        memReservedMin,
                         Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                        memGpuReservedMin)) {
                     dispatcher.dispatchHostToAllShows(host);
                 }
             }
