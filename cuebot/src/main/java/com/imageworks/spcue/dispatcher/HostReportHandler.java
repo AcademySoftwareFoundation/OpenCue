@@ -254,6 +254,9 @@ public class HostReportHandler {
                     bookingManager.removeInactiveLocalHostAssignment(lca);
                 }
             }
+            long memReservedMin = env.getRequiredProperty(
+                "dispatcher.memory.mem_reserved_min",
+                Long.class);
 
             if (!isTempDirStorageEnough(report.getHost().getTotalMcp(),
                                         report.getHost().getFreeMcp(),
@@ -266,13 +269,13 @@ public class HostReportHandler {
                 msg = String.format("%s doesn't have enough idle cores, %d needs %d",
                     host.name,  host.idleCores, Dispatcher.CORE_POINTS_RESERVED_MIN);
             }
-            else if (host.idleMemory < Dispatcher.MEM_RESERVED_MIN) {
+            else if (host.idleMemory < memReservedMin) {
                 msg = String.format("%s doesn't have enough idle memory, %d needs %d",
-                        host.name,  host.idleMemory,  Dispatcher.MEM_RESERVED_MIN);
+                        host.name,  host.idleMemory,  memReservedMin);
             }
             else if (report.getHost().getFreeMem() < CueUtil.MB512) {
                 msg = String.format("%s doesn't have enough free system mem, %d needs %d",
-                        host.name, report.getHost().getFreeMem(), Dispatcher.MEM_RESERVED_MIN);
+                        host.name, report.getHost().getFreeMem(), memReservedMin);
             }
             else if(!host.hardwareState.equals(HardwareState.UP)) {
                 msg = host + " is not in the Up state.";

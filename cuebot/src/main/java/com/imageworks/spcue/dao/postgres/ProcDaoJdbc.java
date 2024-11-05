@@ -29,6 +29,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
@@ -45,13 +47,15 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
-import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceDuplicationFailureException;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
+
+    @Autowired
+    private Environment env;
 
     private static final String VERIFY_RUNNING_PROC =
         "SELECT " +
@@ -121,15 +125,21 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
 
     public void insertVirtualProc(VirtualProc proc) {
         proc.id = SqlUtil.genKeyRandom();
+        long memReservedMin = env.getRequiredProperty(
+            "dispatcher.memory.mem_reserved_min",
+            Long.class);
+        long memGpuReservedMin = env.getRequiredProperty(
+            "dispatcher.memory.mem_gpu_reserved_min",
+            Long.class);
         int result = 0;
         try {
             result = getJdbcTemplate().update(INSERT_VIRTUAL_PROC,
                      proc.getProcId(), proc.getHostId(), proc.getShowId(),
                      proc.getLayerId(), proc.getJobId(), proc.getFrameId(),
                      proc.coresReserved, proc.memoryReserved,
-                     proc.memoryReserved, Dispatcher.MEM_RESERVED_MIN,
+                     proc.memoryReserved, memReservedMin,
                      proc.gpusReserved, proc.gpuMemoryReserved,
-                     proc.gpuMemoryReserved, Dispatcher.MEM_GPU_RESERVED_MIN,
+                     proc.gpuMemoryReserved, memGpuReservedMin,
                      proc.isLocalDispatch);
 
             // Update all of the resource counts
@@ -640,7 +650,10 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               for (Map<String,Object> map: result) {
                   String pk_proc = (String) map.get("pk_proc");
                   Long free_mem = (Long) map.get("free_mem");
-                  long available = free_mem - borrowMap.get(pk_proc) - Dispatcher.MEM_RESERVED_MIN;
+                  long memReservedMin = env.getRequiredProperty(
+                    "dispatcher.memory.mem_reserved_min",
+                    Long.class);
+                  long available = free_mem - borrowMap.get(pk_proc) - memReservedMin;
                   if (available > memPerFrame) {
                       borrowMap.put(pk_proc, borrowMap.get(pk_proc) + memPerFrame);
                       memBorrowedTotal = memBorrowedTotal + memPerFrame;

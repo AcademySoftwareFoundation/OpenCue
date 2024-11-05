@@ -99,7 +99,10 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     public boolean testMode = false;
 
-    @Autowired
+    private final long MEM_RESERVED_MIN;
+    private final long MEM_GPU_RESERVED_DEFAULT;
+    private final long MEM_GPU_RESERVED_MIN;
+
     private Environment env;
 
     /*
@@ -108,11 +111,26 @@ public class CoreUnitDispatcher implements Dispatcher {
      */
     private Cache<String, String> jobLock;
 
+    @Autowired
+    public CoreUnitDispatcher(Environment env) {
+        this.env = env;
+        MEM_RESERVED_MIN = getLongProperty("dispatcher.memory.mem_reserved_min");
+        MEM_GPU_RESERVED_DEFAULT = getLongProperty("dispatcher.memory.mem_gpu_reserved_default");
+        MEM_GPU_RESERVED_MIN = getLongProperty("dispatcher.memory.mem_gpu_reserved_min");
+    }
+
     /*
      * Return an integer value from the opencue.properties given a key
      */
     private int getIntProperty(String property) {
         return env.getRequiredProperty(property, Integer.class);
+    }
+
+    /*
+     * Return an integer value from the opencue.properties given a key
+     */
+    private long getLongProperty(String property) {
+        return env.getRequiredProperty(property, Long.class);
     }
 
     private Cache<String, String> getOrCreateJobLock() {
@@ -134,10 +152,10 @@ public class CoreUnitDispatcher implements Dispatcher {
             for (String jobid: jobs) {
 
                 if (!host.hasAdditionalResources(
-                        Dispatcher.CORE_POINTS_RESERVED_MIN,
-                        Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                        CORE_POINTS_RESERVED_MIN,
+                        MEM_RESERVED_MIN,
+                        GPU_UNITS_RESERVED_MIN,
+                        MEM_GPU_RESERVED_MIN)) {
                     return procs;
                 }
 
@@ -174,15 +192,13 @@ public class CoreUnitDispatcher implements Dispatcher {
     private Set<String> getGpuJobs(DispatchHost host, ShowInterface show) {
         Set<String> jobs = null;
 
-        // TODO: GPU: make index with the 4 components instead of just 3, replace the just 3
-
         // If the host has gpu idle, first do a query to find gpu jobs
         // If no gpu jobs found remove resources to leave room for a gpu frame
         if (host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_DEFAULT,
-                        Dispatcher.MEM_RESERVED_MIN,
+                        this.MEM_RESERVED_MIN,
                         Dispatcher.GPU_UNITS_RESERVED_DEFAULT,
-                        Dispatcher.MEM_GPU_RESERVED_DEFAULT)) {
+                        this.MEM_GPU_RESERVED_DEFAULT)) {
             if (show == null)
                 jobs = dispatchSupport.findDispatchJobs(host,
                         getIntProperty("dispatcher.job_query_max"));
@@ -312,9 +328,9 @@ public class CoreUnitDispatcher implements Dispatcher {
                 host.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved);
                 if (!host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
-                        Dispatcher.MEM_RESERVED_MIN,
+                        MEM_RESERVED_MIN,
                         Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                        MEM_GPU_RESERVED_MIN)) {
                     break;
                 }
                 else if (procs.size() >= getIntProperty("dispatcher.job_frame_dispatch_max")) {
