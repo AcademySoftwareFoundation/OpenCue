@@ -15,6 +15,7 @@ pylint==2.15.10;python_version>="3.7"
 pynput==1.7.6
 PyYAML==5.1
 six==1.16.0
+pytest==8.3.3
 
 # Optional requirements
 # Sentry support for rqd
