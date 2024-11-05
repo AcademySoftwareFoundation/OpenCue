@@ -54,12 +54,12 @@ public class ServiceEntity extends Entity {
     /**
      * Determines the default minimum memory per frame.
      */
-    public long minMemory = Dispatcher.MEM_RESERVED_DEFAULT;
+    public long minMemory = Dispatcher.MEM_SERVICE_RESERVED_DEFAULT;
 
     /**
      * Determines the default minimum gpu per frame.
      */
-    public long minGpuMemory = Dispatcher.MEM_GPU_RESERVED_DEFAULT;
+    public long minGpuMemory = Dispatcher.MEM_SERVICE_GPU_RESERVED_DEFAULT;
 
     /**
      * Determines the default tags.
