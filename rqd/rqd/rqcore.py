@@ -131,6 +131,7 @@ class FrameAttendantThread(threading.Thread):
         @rtype:  string
         @return: Command file location"""
         # TODO: this should use tempfile to create the files and clean them up afterwards
+        commandFile = None
         try:
             if platform.system() == "Windows":
                 rqd_tmp_dir = os.path.join(tempfile.gettempdir(), 'rqd')

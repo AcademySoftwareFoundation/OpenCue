@@ -39,7 +39,7 @@ import rqd.rqnimby
 import rqd.rqutil
 import rqd.compiled_proto.report_pb2
 
-from .rqmachine_tests import (
+from .rqmachine_test import (
     CPUINFO,
     LOADAVG_LOW_USAGE,
     MEMINFO_MODERATE_USAGE,
@@ -121,6 +121,7 @@ class RqConstantTests(pyfakefs.fake_filesystem_unittest.TestCase):
         """
 [Override]
 DEFAULT_FACILITY =  test_facility
+RQD_TAGS =  test_tag1 test_tag2  test_tag3
 """,
     )
     def test_facility(self):
@@ -128,19 +129,6 @@ DEFAULT_FACILITY =  test_facility
 
         machine = self.makeRqMachine()
         self.assertEqual(machine.renderHost.facility, "test_facility")
-
-    @MockConfig(
-        tempdir,
-        """
-[Override]
-RQD_TAGS =  test_tag1 test_tag2  test_tag3
-""",
-    )
-    def test_tags(self):
-        self.assertEqual(rqd.rqconstants.RQD_TAGS, "test_tag1 test_tag2  test_tag3")
-
-        machine = self.makeRqMachine()
-        self.assertEqual(machine.renderHost.facility, "cloud")
         self.assertTrue(
             set(["test_tag1", "test_tag2", "test_tag3"]).issubset(
                 machine.renderHost.tags
