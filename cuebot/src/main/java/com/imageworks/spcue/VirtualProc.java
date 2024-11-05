@@ -148,7 +148,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                 proc.coresReserved = wholeCores * 100;
             } else {
                 if (frame.threadable) {
-                    if (selfishServices != null && 
+                    if (selfishServices != null &&
                         frame.services != null &&
                         containsSelfishService(frame.services.split(","), selfishServices)){
                         proc.coresReserved = wholeCores * 100;
