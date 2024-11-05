@@ -258,7 +258,7 @@ public class HostReportHandler {
                     "dispatcher.memory.mem_reserved_min",
                     Long.class);
 
-            if (!isTempDirStorageEnough(report.getHost().getTotalMcp(), report.getHost().getFreeMcp(), host.os)) {
+            if (!isTempDirStorageEnough(report.getHost().getTotalMcp(), report.getHost().getFreeMcp(), host.getOs())) {
                 msg = String.format(
                     "%s doesn't have enough free space in the temporary directory (mcp), %dMB",
                         host.name, (report.getHost().getFreeMcp()/1024));
