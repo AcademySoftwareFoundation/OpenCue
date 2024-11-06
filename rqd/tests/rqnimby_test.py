@@ -28,6 +28,7 @@ import pyfakefs.fake_filesystem_unittest
 
 import rqd.rqcore
 import rqd.rqmachine
+import rqd.rqconstants
 import rqd.rqnimby
 
 
@@ -38,6 +39,7 @@ class RqNimbyTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.setUpPyfakefs()
         self.inputDevice = self.fs.create_file('/dev/input/event0', contents='mouse event')
 
+        rqd.rqconstants.USE_NIMBY_PYNPUT = False
         self.rqMachine = mock.MagicMock(spec=rqd.rqmachine.Machine)
         self.rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
         self.rqCore.machine = self.rqMachine
