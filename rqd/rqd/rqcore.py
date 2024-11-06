@@ -984,7 +984,7 @@ class FrameAttendantThread(threading.Thread):
             tasksetCmd = "taskset -c %s" % runFrame.attributes['CPU_LIST']
 
         # A temporary password for the user created inside of the frame container.
-        # This user is only valid inside of the container, meaning a leakage would only
+        # This user is only valid inside the container, meaning a leakage would only
         # be harmful if the perpetrator gains access to run docker commands.
         tempPassword = str(uuid.uuid4())
         # Command wrapper

@@ -173,7 +173,6 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         return bookableShows.get(key).shows;
     }
 
-    // Given a query,
     private String handleInClause(String key, String query, int inValueLength) {
         String placeholders = String.join(",", Collections.nCopies(inValueLength, "?"));
         return query.replace(key + " IN ?", key + " IN (" + placeholders + ")");

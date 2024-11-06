@@ -360,7 +360,7 @@ public class HostReportHandler {
             "dispatcher.min_available_temp_storage_percentage", Integer.class);
 
         return minAvailableTempPercentage == -1
-            // It is safe to asume multiple OSs imply windows is not the base OS,
+            // It is safe to assume multiple OSs imply windows is not the base OS,
             // threfore Windows will always report a single hostOs
             || (hostOs.length == 1 && hostOs[0].equalsIgnoreCase(WINDOWS_OS))
             || (((tempFreeStorage * 100.0) / tempTotalStorage) >= minAvailableTempPercentage);
