@@ -32,6 +32,8 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
     public String owner;
     public Optional<Integer> uid;
     public String logDir;
+    public boolean lokiEnabled;
+    public String lokiURL;
     public String command;
     public String range;
     public int chunkSize;

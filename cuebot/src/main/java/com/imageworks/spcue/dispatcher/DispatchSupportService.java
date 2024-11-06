@@ -385,6 +385,8 @@ public class DispatchSupportService implements DispatchSupport {
                 .setShow(frame.show)
                 .setUserName(frame.owner)
                 .setLogDir(frame.logDir)
+                .setLokiEnabled(frame.lokiEnabled)
+                .setLokiUrl(frame.lokiURL)
                 .setJobId(frame.jobId)
                 .setJobName(frame.jobName)
                 .setFrameId(frame.id)

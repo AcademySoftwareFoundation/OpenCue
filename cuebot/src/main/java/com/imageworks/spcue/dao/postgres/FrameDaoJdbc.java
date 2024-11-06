@@ -316,6 +316,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.chunkSize = rs.getInt("int_chunk_size");
             frame.range = rs.getString("str_range");
             frame.logDir = rs.getString("str_log_dir");
+            frame.lokiEnabled = rs.getBoolean("b_loki_enabled");
+            frame.lokiURL = rs.getString("str_loki_url");
             frame.shot = rs.getString("str_shot");
             frame.show = rs.getString("show_name");
             frame.owner = rs.getString("str_user");
@@ -347,6 +349,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "job.str_user,"+
             "job.int_uid,"+
             "job.str_log_dir,"+
+            "job.b_loki_enabled,"+
+            "job.str_loki_url,"+
             "frame.str_name AS frame_name, "+
             "frame.str_state AS frame_state, "+
             "frame.pk_frame, "+
