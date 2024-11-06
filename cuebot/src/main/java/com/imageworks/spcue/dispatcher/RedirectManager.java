@@ -24,6 +24,9 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobInterface;
@@ -59,8 +62,11 @@ public class RedirectManager {
     private DispatchSupport dispatchSupport;
     private RedirectService redirectService;
     private ProcSearchFactory procSearchFactory;
+    private Environment env;
 
-    public RedirectManager(RedirectService redirectService) {
+    @Autowired
+    public RedirectManager(RedirectService redirectService, Environment env) {
+        this.env = env;
         this.redirectService = redirectService;
     }
 
@@ -332,7 +338,7 @@ public class RedirectManager {
                     }
                     else {
                         bookingQueue.execute(new
-                                DispatchBookHost(host, job, dispatcher));
+                                DispatchBookHost(host, job, dispatcher, env));
                     }
                     return true;
 
@@ -348,7 +354,7 @@ public class RedirectManager {
                     }
                     else {
                         bookingQueue.execute(new DispatchBookHost(host,
-                                group, dispatcher));
+                                group, dispatcher, env));
                     }
                     return true;
 
