@@ -58,7 +58,7 @@ class NimbyFactory(object):
                 # Ideally ImportError could be used here, but pynput
                 # can throw other kinds of exception while trying to
                 # access runpy components
-                log.exception("Failed to import pynput, falling back to Select module")
+                log.debug("Failed to import pynput, falling back to Select module")
                 # Still enabling the application start as hosts can be manually locked
                 # using the API/GUI
                 return NimbyNop(rqCore)
@@ -242,8 +242,7 @@ class NimbySelect(Nimby):
                 if device.startswith("event") or device.startswith("mice"):
                     try:
                         # pylint: disable=consider-using-with
-                        self.fileObjList.append(open("/dev/input/%s" % device, "rb",
-                                                     encoding='utf-8'))
+                        self.fileObjList.append(open("/dev/input/%s" % device, "rb"))
                     except IOError:
                         # Bad device found
                         log.exception("IOError: Failed to open /dev/input/%s", device)

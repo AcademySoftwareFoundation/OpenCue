@@ -1,4 +1,3 @@
-2to3==1.0
 enum34==1.1.6
 future==1.0.0
 grpcio==1.48.2;python_version<"3.7"
@@ -16,6 +15,7 @@ pylint==2.15.10;python_version>="3.7"
 pynput==1.7.6
 PyYAML==5.1
 six==1.16.0
+pytest==8.3.3
 
 # Optional requirements
 # Sentry support for rqd
