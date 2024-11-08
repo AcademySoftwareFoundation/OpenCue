@@ -50,7 +50,6 @@ import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
-import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
@@ -454,7 +453,11 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         JobInterface job = getJob3();
         LayerDetail layer = layerDao.findLayerDetail(job, "pass_1");
 
-        assertEquals(Dispatcher.MEM_RESERVED_DEFAULT, layer.minimumMemory);
+        // Hardcoded value of dispatcher.memory.mem_reserved_default
+        // to avoid having to read opencue.properties on a test setting
+        long memReservedDefault = 3355443;
+
+        assertEquals(memReservedDefault, layer.minimumMemory);
         assertThat(layer.tags, contains("general"));
 
         /*

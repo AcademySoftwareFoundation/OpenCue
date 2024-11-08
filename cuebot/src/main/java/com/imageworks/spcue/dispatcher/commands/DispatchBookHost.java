@@ -19,17 +19,14 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import java.util.List;
-import java.util.ArrayList;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.spcue.VirtualProc;
 
 /**
  * A command for booking a host.
@@ -37,9 +34,8 @@ import com.imageworks.spcue.VirtualProc;
  * @category command
  */
 public class DispatchBookHost extends KeyRunnable {
-    private static final Logger logger =
-            LogManager.getLogger(DispatchBookHost.class);
 
+    private Environment env;
     private ShowInterface show = null;
     private GroupInterface group = null;
     private JobInterface job = null;
@@ -51,31 +47,35 @@ public class DispatchBookHost extends KeyRunnable {
         return host;
     }
 
-    public DispatchBookHost(DispatchHost host, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, Dispatcher d, Environment env) {
         super(host.getId());
         this.host = host;
         this.dispatcher = d;
+        this.env = env;
     }
 
-    public DispatchBookHost(DispatchHost host, JobInterface job, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, JobInterface job, Dispatcher d, Environment env) {
         super(host.getId() + "_job_" + job.getJobId());
         this.host = host;
         this.job = job;
         this.dispatcher = d;
+        this.env = env;
     }
 
-    public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d, Environment env) {
         super(host.getId() + "_group_" + group.getGroupId());
         this.host = host;
         this.group = group;
         this.dispatcher = d;
+        this.env = env;
     }
 
-    public DispatchBookHost(DispatchHost host, ShowInterface show, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, ShowInterface show, Dispatcher d, Environment env) {
         super(host.getId() + "_name_" + show.getName());
         this.host = host;
         this.show = show;
         this.dispatcher = d;
+        this.env = env;
     }
 
     public void run() {
@@ -90,21 +90,27 @@ public class DispatchBookHost extends KeyRunnable {
                 else if (job != null) {
                     dispatcher.dispatchHost(host, job);
                 }
+                long memReservedMin = env.getRequiredProperty(
+                    "dispatcher.memory.mem_reserved_min",
+                    Long.class);
+                long memGpuReservedMin = env.getRequiredProperty(
+                    "dispatcher.memory.mem_gpu_reserved_min",
+                    Long.class);
 
                 // Try to book any remaining resources
                 if (host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
-                        Dispatcher.MEM_RESERVED_MIN,
+                        memReservedMin,
                         Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                        memGpuReservedMin)) {
                     dispatcher.dispatchHost(host);
                 }
 
                 if (host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
-                        Dispatcher.MEM_RESERVED_MIN,
+                        memReservedMin,
                         Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                        memGpuReservedMin)) {
                     dispatcher.dispatchHostToAllShows(host);
                 }
             }
