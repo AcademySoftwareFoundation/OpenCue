@@ -140,7 +140,10 @@ class LokiLogger(object):
         self.runFrame = runFrame
         self.sessionStartTime = datetime.datetime.now().timestamp()
         self.defaultLogData = {
-            'host': 'test',
+            'host': platform.node(),
+            'job_name': self.runFrame.job_name,
+            'frame_name': self.runFrame.frame_name,
+            'username': self.runFrame.user_name,
             'frame_id': self.runFrame.frame_id,
             'session_start_time': str(self.sessionStartTime)
         }
@@ -157,6 +160,10 @@ class LokiLogger(object):
         raise IOError("Failed to create loki stream")
 
     def write(self, data, prependTimestamp=False):
+        """
+        Provides write function for writing to loki server.
+        Ignores prepentTimeStamp which is redundant with Loki
+        """
         if len(data.strip()) == 0:
             return
         if isinstance(data, bytes):
