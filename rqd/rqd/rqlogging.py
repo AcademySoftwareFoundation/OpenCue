@@ -22,6 +22,7 @@ import os
 import datetime
 import platform
 
+from rqd.loki_client import LokiClient
 import rqd.rqconstants
 
 log = logging.getLogger(__name__)
@@ -131,3 +132,51 @@ class RqdLogger(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
+
+class LokiLogger(object):
+    """Class for logging to a loki server. It mimics a file object as much as possible"""
+    def __init__(self, lokiURL, runFrame):
+        self.client = LokiClient(url=lokiURL)
+        self.runFrame = runFrame
+        self.sessionStartTime = datetime.datetime.now().timestamp()
+        self.defaultLogData = {
+            'host': 'test',
+            'frame_id': self.runFrame.frame_id,
+            'session_start_time': str(self.sessionStartTime)
+        }
+
+    def waitForFile(self, maxTries=5):
+        """Waits for the connection to be ready before continuing"""
+        tries = 0
+        while tries < maxTries:
+            if self.client.ready() is True:
+                print("Loki is ready")
+                return
+            tries += 1
+            time.sleep(0.5 * tries)
+        raise IOError("Failed to create loki stream")
+
+    def write(self, data, prependTimestamp=False):
+        if len(data.strip()) == 0:
+            return
+        if isinstance(data, bytes):
+            data = data.decode('utf-8', errors='ignore')
+        requestStatus, requestCode = self.client.post(self.defaultLogData, [data.strip()])
+        if requestStatus is not True:
+            raise IOError(f"Failed to write log to loki server with error : {requestCode}")
+
+    def writelines(self, __lines):
+        """Provides support for writing mutliple lines at a time"""
+        for line in __lines:
+            self.write(line)
+
+    def close(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
