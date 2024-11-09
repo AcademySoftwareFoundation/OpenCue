@@ -23,5 +23,4 @@ python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
 python ci/fix_compiled_proto.py rqd/rqd/compiled_proto
 
 python -m unittest discover -s pycue/tests -t pycue -p "*.py"
-python -m unittest discover -s rqd/tests -t rqd -p "*.py"
-
+python -m pytest rqd/tests

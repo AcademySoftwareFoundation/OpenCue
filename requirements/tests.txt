@@ -2,3 +2,4 @@ mock==2.0.0
 pyfakefs==3.6;python_version<"3.7"
 pyfakefs==5.2.3;python_version>="3.7"
 pynput==1.7.6
+pytest==8.3.3
