@@ -666,7 +666,7 @@ def launchViewerUsingPaths(paths, actionText, test_mode=False):
     if not test_mode:
         print(msg)
         try:
-            subprocess.check_call(cmd.split())
+            subprocess.Popen(cmd.split())
         except subprocess.CalledProcessError as e:
             showErrorMessageBox(str(e), title='Error running Viewer command')
         except Exception as e:
