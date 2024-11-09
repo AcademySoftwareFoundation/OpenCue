@@ -639,6 +639,8 @@ message Job {
     JobStats job_stats = 20;
     float min_gpus = 21;
     float max_gpus = 22;
+    bool loki_enabled = 23;
+    string loki_url = 24;
 }
 
 // Use to filter the job search.  Please note that by searching for non-pending jobs, the output is limited to 200 jobs
