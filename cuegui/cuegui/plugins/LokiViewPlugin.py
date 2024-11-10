@@ -19,7 +19,6 @@ import string
 import time
 import datetime
 
-from qtpy import QtGui
 from qtpy import QtCore
 from qtpy import QtWidgets
 
@@ -122,19 +121,7 @@ class LokiViewWidget(QtWidgets.QWidget):
         self.horizontalLayout_2.addWidget(self.prevButton)
         self.verticalLayout.addLayout(self.horizontalLayout_2)
 
-        self.retranslateUi()
         QtCore.QMetaObject.connectSlotsByName(self)
-
-    def retranslateUi(self):
-        _translate = QtCore.QCoreApplication.translate
-        self.setWindowTitle(_translate("self", "self"))
-        self.wordWrapCheck.setText(_translate("self", "Word Wrap"))
-        self.refreshButton.setText(_translate("self", "Refresh"))
-        self.caseCheck.setText(_translate("self", "Aa"))
-        self.searchLine.setPlaceholderText(_translate("self", "Search log.."))
-        self.findButton.setText(_translate("self", "Find"))
-        self.nextButton.setText(_translate("self", "Next"))
-        self.prevButton.setText(_translate("self", "Prev"))
 
     def _selectLog(self, index):
         self.frameText.clear()
