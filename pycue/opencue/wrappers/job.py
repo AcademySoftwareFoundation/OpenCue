@@ -814,6 +814,21 @@ class Job(object):
         self.stub.ShutdownIfCompleted(job_pb2.JobShutdownIfCompletedRequest(job=self.data),
                                       timeout=Cuebot.Timeout)
 
+    def lokiEnabled(self):
+        """Returns whether or now loki si enabled
+
+        :rtype:  bool
+        :return: Return true if loki ei enabled
+        """
+        return self.data.loki_enabled
+
+    def lokiURL(self):
+        """Returns url for loki server on the job
+
+        :rtype: str
+        "return: Return URL of loki server of the job
+        """
+        return self.data.loki_url
 
 class NestedJob(Job):
     """This class contains information and actions related to a nested job."""
