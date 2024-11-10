@@ -45,7 +45,7 @@ class LokiViewWidget(QtWidgets.QWidget):
         super().__init__(parent)
         self.app = cuegui.app()
         self.setupUi()
-
+        self.frameLogCombo.currentIndexChanged.connect(self._selectLog)
         self.app.display_frame_log_content.connect(self._display_frame_log)
 
     def _display_frame_log(self, jobObj: job.Job, frameObj: frame.Frame):
@@ -55,24 +55,23 @@ class LokiViewWidget(QtWidgets.QWidget):
         self.frameLogCombo.clear()
         if jobObj.lokiEnabled():
             self.frameNameLabel.setText(f"{jobName}.{frameName}")
-            client = LokiClient(jobObj.lokiURL())
+            self.client = LokiClient(jobObj.lokiURL())
             maxTries = 5
             tries = 0
             while tries < maxTries:
-                if client.ready() is True:
-                    print("Loki is ready")
+                if self.client.ready() is True:
                     break
                 tries += 1
                 time.sleep(0.5 * tries)
-            success, result = client.label_values("session_start_time", params={'query': '{frame_id="'+frameId+'"}'})
+            success, result = self.client.label_values("session_start_time", params={'query': f'{{frame_id="{frameId}"}}'})
             if success is True:
                 labelValues = result.get('data', [])
                 for unix_timestamp in sorted(labelValues, reverse=True):
-                    self.frameLogCombo.addItem(unix_to_datetime(int(float(unix_timestamp))))
+                    query = f'{{session_start_time="{unix_timestamp}", frame_id="{frameId}"}}'
+                    self.frameLogCombo.addItem(unix_to_datetime(int(float(unix_timestamp))), userData=query)
                 self.frameLogCombo.adjustSize()
         else:
             pass
-        # print(jobName, frameName, frameId, lokiEnabled, lokiURL)
 
     def setupUi(self):
         # self.setObjectName("self")
@@ -96,10 +95,12 @@ class LokiViewWidget(QtWidgets.QWidget):
         self.horizontalLayout.addWidget(self.refreshButton)
         self.horizontalLayout.setStretch(0, 1)
         self.verticalLayout.addLayout(self.horizontalLayout)
-        self.textEdit = QtWidgets.QTextEdit(self)
-        self.textEdit.setReadOnly(True)
-        self.textEdit.setObjectName("textEdit")
-        self.verticalLayout.addWidget(self.textEdit)
+        self.frameText = QtWidgets.QTextEdit(self)
+        self.frameText.setStyleSheet("pre {display: inline;}")
+        self.frameText.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
+        self.frameText.setReadOnly(True)
+        self.frameText.setObjectName("frameText")
+        self.verticalLayout.addWidget(self.frameText)
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         self.caseCheck = QtWidgets.QCheckBox(self)
@@ -134,6 +135,15 @@ class LokiViewWidget(QtWidgets.QWidget):
         self.findButton.setText(_translate("self", "Find"))
         self.nextButton.setText(_translate("self", "Next"))
         self.prevButton.setText(_translate("self", "Prev"))
+
+    def _selectLog(self, index):
+        self.frameText.clear()
+        query =  self.frameLogCombo.currentData()
+        success, result = self.client.query_range(query=query, direction='forward', limit=1000)
+        if success is True:
+            for res in result.get('data', {}).get('result', []):
+                for timestamp, line in res.get('values'):
+                    self.frameText.append(f"<pre style='margin: 0px;'>{line}</pre>")
 
 
 def unix_to_datetime(unix_timestamp):
