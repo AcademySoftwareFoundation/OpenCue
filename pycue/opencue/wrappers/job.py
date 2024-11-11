@@ -818,7 +818,7 @@ class Job(object):
         """Returns whether or now loki si enabled
 
         :rtype:  bool
-        :return: Return true if loki ei enabled
+        :return: Return true if loki is enabled
         """
         return self.data.loki_enabled
 
