@@ -114,8 +114,6 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.deptId = rs.getString("pk_dept");
                 job.groupId = rs.getString("pk_folder");
                 job.logDir = rs.getString("str_log_dir");
-                job.logLokiEnabled = rs.getBoolean("b_loki_enabled");
-                job.logLokiURL = rs.getString("str_loki_url");
                 job.maxCoreUnits = rs.getInt("int_max_cores");
                 job.minCoreUnits = rs.getInt("int_min_cores");
                 job.maxGpuUnits = rs.getInt("int_max_gpus");
@@ -139,6 +137,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.showName = rs.getString("show_name");
                 job.facilityName = rs.getString("facility_name");
                 job.deptName = rs.getString("dept_name");
+                job.logLokiEnabled = rs.getBoolean("b_loki_enabled");
+                job.logLokiURL = rs.getString("str_loki_url");
                 return job;
             }
         };

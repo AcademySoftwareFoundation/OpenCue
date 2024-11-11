@@ -1174,8 +1174,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     Job.Builder jobBuilder = Job.newBuilder()
                             .setId(SqlUtil.getString(rs, "pk_job"))
                             .setLogDir(SqlUtil.getString(rs, "str_log_dir"))
-                            .setLokiEnabled(rs.getBoolean("b_loki_enabled"))
-                            .setLokiUrl(SqlUtil.getString(rs, "str_loki_url"))
                             .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
                             .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
                             .setMaxGpus(rs.getInt("int_max_gpus"))
@@ -1192,7 +1190,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setHasComment(rs.getBoolean("b_comment"))
                             .setAutoEat(rs.getBoolean("b_autoeat"))
                             .setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000))
-                            .setOs(SqlUtil.getString(rs,"str_os"));
+                            .setOs(SqlUtil.getString(rs,"str_os"))
+                            .setLokiEnabled(rs.getBoolean("b_loki_enabled"))
+                            .setLokiUrl(SqlUtil.getString(rs, "str_loki_url"));
 
                     int uid = rs.getInt("int_uid");
                     if (!rs.wasNull()) {
