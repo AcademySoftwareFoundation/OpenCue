@@ -153,7 +153,6 @@ class LokiLogger(object):
         tries = 0
         while tries < maxTries:
             if self.client.ready() is True:
-                print("Loki is ready")
                 return
             tries += 1
             time.sleep(0.5 * tries)
