@@ -67,7 +67,8 @@ class LokiViewWidget(QtWidgets.QWidget):
                 labelValues = result.get('data', [])
                 for unix_timestamp in sorted(labelValues, reverse=True):
                     query = f'{{session_start_time="{unix_timestamp}", frame_id="{frameId}"}}'
-                    self.frameLogCombo.addItem(unix_to_datetime(int(float(unix_timestamp))), userData=query)
+                    data = [unix_timestamp, query]
+                    self.frameLogCombo.addItem(unix_to_datetime(int(float(unix_timestamp))), userData=data)
                 self.frameLogCombo.adjustSize()
         else:
             pass
@@ -125,12 +126,17 @@ class LokiViewWidget(QtWidgets.QWidget):
 
     def _selectLog(self, index):
         self.frameText.clear()
-        query =  self.frameLogCombo.currentData()
-        success, result = self.client.query_range(query=query, direction='forward', limit=1000)
+        timestamp, query =  self.frameLogCombo.currentData()
+        # start = datetime.datetime.now() - datetime.timedelta(days=30)
+        start = datetime.datetime.fromtimestamp(float(timestamp))
+        end = datetime.datetime.now()
+        success, result = self.client.query_range(query=query, direction='forward', limit=1000, start=start, end=end)
         if success is True:
             for res in result.get('data', {}).get('result', []):
                 for timestamp, line in res.get('values'):
                     self.frameText.append(f"<pre style='margin: 0px;'>{line}</pre>")
+        else:
+            print(success, result)
 
 
 def unix_to_datetime(unix_timestamp):
