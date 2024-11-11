@@ -315,9 +315,9 @@ class LokiClient(object):
             response = self.__session.request(
                 "POST",
                 url=target_url,
-                data=payload_json,
+                body=payload_json,
                 headers=headers
             )
-            return True if response.status == 200 else False, response.reason
+            return True if response.status == 204 else False, response.reason
         except Exception as ex:
             return False, {'message': repr(ex)}
