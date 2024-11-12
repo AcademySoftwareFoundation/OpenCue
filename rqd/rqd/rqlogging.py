@@ -179,7 +179,6 @@ class LokiLogger(object):
 
     def close(self):
         """Dummy function since cloasing it not necessary for the http connection"""
-        pass
 
     def __enter__(self):
         return self
