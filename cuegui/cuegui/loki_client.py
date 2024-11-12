@@ -1,10 +1,27 @@
-import urllib3
+#! /usr/local/bin/python
+
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+"""Module for communicating with Loki"""
+
 import datetime
 import json
-
-from urllib.parse import urlparse, urlencode
-from urllib3.util.retry import Retry
 from typing import Dict, List
+from urllib.parse import urlparse, urlencode
+import urllib3
+
 
 # Support Loki version:2.4.2
 MAX_REQUEST_RETRIES = 3
@@ -24,7 +41,6 @@ class LokiClient(object):
     def __init__(self,
                 url: str = "http://127.0.0.1:3100",
                 headers: dict = None,
-                retry: Retry = None,
                 hours_delta = DEFAULT_HOURS_DELTA):
         """
         constructor
@@ -46,11 +62,7 @@ class LokiClient(object):
         # the time range when searching context for one key line
         self.context_timedelta = int(CONTEXT_HOURS_DELTA * 3600 * 10 ** 9)
 
-        if retry is None:
-            retry = Retry(total=MAX_REQUEST_RETRIES, backoff_factor=RETRY_BACKOFF_FACTOR, status_forcelist=RETRY_ON_STATUS)
-
         self.__session = urllib3.PoolManager()
-        # self.__session.mount(self.url, HTTPAdapter(max_retries=retry))
         self.__session.keep_alive = False
 
     def ready(self) -> bool:
@@ -66,8 +78,9 @@ class LokiClient(object):
                 url="{}/ready".format(self.url),
                 headers=self.headers
             )
-            return True if response.status == 200 else False
-        except Exception as ex:
+            return bool(response.status == 200)
+        # pylint: disable=bare-except
+        except:
             return False
 
     def labels(self,
@@ -86,7 +99,9 @@ class LokiClient(object):
 
         if end:
             if end is not type(datetime.datetime):
-                return False, {'message': 'Incorrect end type {}, should be type {}.'.format(type(end), datetime)}
+                return False, {
+                    'message':
+                        f'Incorrect end type {type(end)}, should be type {datetime.datetime}.'}
             # Convert to int, or will be scientific notation, which will result in request exception
             params['end'] = int(end.timestamp() * 10 ** 9)
         else:
@@ -94,11 +109,15 @@ class LokiClient(object):
 
         if start:
             if not isinstance(start, datetime.datetime):
-                return False, {'message': 'Incorrect start type {}, should be type {}.'.format(type(start), datetime)}
+                return False, {
+                    'message':
+                        f'Incorrect end type {type(start)}, should be type {datetime.datetime}.'}
             # Convert to int, or will be scientific notation, which will result in request exception
             params['start'] = int(start.timestamp() * 10 ** 9)
         else:
-            params['start'] = int((datetime.datetime.fromtimestamp(params['end'] / 10 ** 9) - datetime.timedelta(hours=self.hours_delta)).timestamp() * 10 ** 9)
+            params['start'] = int((datetime.datetime.fromtimestamp(params['end'] / 10 ** 9)
+                                   - datetime.timedelta(hours=self.hours_delta)).timestamp()
+                                  * 10 ** 9)
 
         enc_query = urlencode(params)
         target_url = '{}/loki/api/v1/labels?{}'.format(self.url, enc_query)
@@ -109,7 +128,7 @@ class LokiClient(object):
                 url=target_url,
                 headers=self.headers
             )
-            return True if response.status == 200 else False, response.json()
+            return bool(response.status == 200), response.json()
         except Exception as ex:
             return False, {'message': repr(ex)}
 
@@ -119,7 +138,8 @@ class LokiClient(object):
                      end: datetime.datetime = None,
                      params : dict = None) -> tuple:
         """
-        Get the list of known values for a given label within a given time span, corresponding values.
+        Get the list of known values for a given label within a given time span and
+        corresponding values.
         Ref: GET /loki/api/v1/label/<name>/values
         :param label:
         :param start:
@@ -131,13 +151,16 @@ class LokiClient(object):
 
         if label:
             if not isinstance(label, str):
-                return False, {'message': 'Incorrect label type {}, should be type {}.'.format(type(label), str)}
+                return False, {'message':
+                                   f'Incorrect label type {type(label)}, should be type {str}.'}
         else:
             return False, {'message':'Param label can not be empty.'}
 
         if end:
             if not isinstance(end, datetime.datetime):
-                return False, {'message': 'Incorrect end type {}, should be type {}.'.format(type(end), datetime)}
+                return False, {
+                    'message':
+                        f'Incorrect end type {type(end)}, should be type {datetime.datetime}.'}
             # Convert to int, or will be scientific notation, which will result in request exception
             params['end'] = int(end.timestamp() * 10 ** 9)
         else:
@@ -145,12 +168,15 @@ class LokiClient(object):
 
         if start:
             if not isinstance(start, datetime.datetime):
-                return False, {'message': 'Incorrect start type {}, should be type {}.'.format(type(start), datetime)}
+                return False, {
+                    'message':
+                        f'Incorrect start type {type(start)}, should be type {datetime.datetime}.'}
             # Convert to int, or will be scientific notation, which will result in request exception
             params['start'] = int(start.timestamp() * 10 ** 9)
         else:
-            params['start'] = int((datetime.datetime.fromtimestamp(params['end'] / 10 ** 9) - datetime.timedelta(
-                hours=self.hours_delta)).timestamp() * 10 ** 9)
+            params['start'] = int(
+                (datetime.datetime.fromtimestamp(params['end'] / 10 ** 9)
+                 - datetime.timedelta(hours=self.hours_delta)).timestamp() * 10 ** 9)
 
         enc_query = urlencode(params)
         target_url = '{}/loki/api/v1/label/{}/values?{}'.format(self.url, label, enc_query)
@@ -161,7 +187,7 @@ class LokiClient(object):
                 url=target_url,
                 headers=self.headers
             )
-            return True if response.status == 200 else False, response.json()
+            return bool(response.status == 200), response.json()
         except Exception as ex:
             return False, {'message': repr(ex)}
 
@@ -185,7 +211,8 @@ class LokiClient(object):
 
         if query:
             if not isinstance(query, str):
-                return False, {'message': 'Incorrect query type {}, should be type {}.'.format(type(query), str)}
+                return False, {'message':
+                                   f'Incorrect query type {type(query)}, should be type {str}.'}
             params['query'] = query
         else:
             return False, {'message':'Param query can not be empty.'}
@@ -197,7 +224,9 @@ class LokiClient(object):
 
         if time:
             if not isinstance(time, datetime.datetime):
-                return False, {'message': 'Incorrect time type {}, should be type {}.'.format(type(time), datetime)}
+                return False, {
+                    'message':
+                        f'Incorrect start type {type(time)}, should be type {datetime.datetime}.'}
             # Convert to int, or will be scientific notation, which will result in request exception
             params['time'] = int(time.timestamp() * 10 ** 9)
         else:
@@ -216,7 +245,7 @@ class LokiClient(object):
                 url=target_url,
                 headers=self.headers
             )
-            return True if response.status == 200 else False, response.json()
+            return bool(response.status == 200), response.json()
         except Exception as ex:
             return False, {'message': repr(ex)}
 
@@ -241,14 +270,17 @@ class LokiClient(object):
         params = params or {}
         if query:
             if not isinstance(query, str):
-                return False, {'message': 'Incorrect query type {}, should be type {}.'.format(type(query), str)}
+                return False, {'message':
+                                   f'Incorrect query type {type(query)}, should be type {str}.'}
             params['query'] = query
         else:
             return False, {'message': 'Param query can not be empty.'}
 
         if end:
             if not isinstance(end, datetime.datetime):
-                return False, {'message': 'Incorrect end type {}, should be type {}.'.format(type(end), datetime)}
+                return False, {
+                    'message':
+                        f'Incorrect start type {type(start)}, should be type {datetime.datetime}.'}
             # Convert to int, or will be scientific notation, which will result in request exception
             params['end'] = int(end.timestamp() * 10 ** 9)
         else:
@@ -256,12 +288,15 @@ class LokiClient(object):
 
         if start:
             if not isinstance(start, datetime.datetime):
-                return False, {'message': 'Incorrect start type {}, should be type {}.'.format(type(start), datetime)}
+                return False, {
+                    'message':
+                        f'Incorrect start type {type(start)}, should be type {datetime.datetime}.'}
             # Convert to int, or will be scientific notation, which will result in request exception
             params['start'] = int(start.timestamp() * 10 ** 9)
         else:
-            params['start'] = int((datetime.datetime.fromtimestamp(params['end'] / 10 ** 9) - datetime.timedelta(hours=self.hours_delta)).timestamp() * 10 ** 9)
-            print(params['start'])
+            params['start'] = int((datetime.datetime.fromtimestamp(params['end'] / 10 ** 9)
+                                   - datetime.timedelta(hours=self.hours_delta)).timestamp()
+                                  * 10 ** 9)
 
         if limit:
             params['limit'] = limit
@@ -282,8 +317,7 @@ class LokiClient(object):
             )
             if response.status == 200:
                 return True, response.json()
-            else:
-                return False, response.data
+            return False, response.data
         except Exception as ex:
             return False, {'message': repr(ex)}
 
@@ -321,6 +355,6 @@ class LokiClient(object):
                 body=payload_json,
                 headers=headers
             )
-            return True if response.status == 204 else False, response.reason
+            return bool(response.status == 204), response.reason
         except Exception as ex:
             return False, {'message': repr(ex)}

@@ -39,7 +39,7 @@ class LokiViewWidget(QtWidgets.QWidget):
     """
     Displays the log file for the selected frame
     """
-    SIG_CONTENT_UPDATED = QtCore.Signal(str, str)
+    client = None
     def __init__(self, parent=None):
         super().__init__(parent)
         self.app = cuegui.app()
@@ -62,18 +62,23 @@ class LokiViewWidget(QtWidgets.QWidget):
                     break
                 tries += 1
                 time.sleep(0.5 * tries)
-            success, result = self.client.label_values("session_start_time", params={'query': f'{{frame_id="{frameId}"}}'})
+            success, result = self.client.label_values(
+                "session_start_time", params={'query': f'{{frame_id="{frameId}"}}'}
+            )
             if success is True:
                 labelValues = result.get('data', [])
                 for unix_timestamp in sorted(labelValues, reverse=True):
                     query = f'{{session_start_time="{unix_timestamp}", frame_id="{frameId}"}}'
                     data = [unix_timestamp, query]
-                    self.frameLogCombo.addItem(unix_to_datetime(int(float(unix_timestamp))), userData=data)
+                    self.frameLogCombo.addItem(
+                        _unix_to_datetime(int(float(unix_timestamp))), userData=data
+                    )
                 self.frameLogCombo.adjustSize()
         else:
             pass
 
     def setupUi(self):
+        """Function for setting up the UI widgets"""
         # self.setObjectName("self")
         # self.resize(958, 663)
         self.verticalLayout = QtWidgets.QVBoxLayout(self)
@@ -126,6 +131,7 @@ class LokiViewWidget(QtWidgets.QWidget):
         QtCore.QMetaObject.connectSlotsByName(self)
 
     def retranslateUi(self):
+        """ Add text to the widgets"""
         _translate = QtCore.QCoreApplication.translate
         self.setWindowTitle(_translate("self", "self"))
         self.wordWrapCheck.setText(_translate("self", "Word Wrap"))
@@ -136,13 +142,14 @@ class LokiViewWidget(QtWidgets.QWidget):
         self.nextButton.setText(_translate("self", "Next"))
         self.prevButton.setText(_translate("self", "Prev"))
 
+    # pylint: disable=unused-argument
     def _selectLog(self, index):
         self.frameText.clear()
         timestamp, query =  self.frameLogCombo.currentData()
-        # start = datetime.datetime.now() - datetime.timedelta(days=30)
         start = datetime.datetime.fromtimestamp(float(timestamp))
         end = datetime.datetime.now()
-        success, result = self.client.query_range(query=query, direction='forward', limit=1000, start=start, end=end)
+        success, result = self.client.query_range(query=query, direction='forward',
+                                                  limit=1000, start=start, end=end)
         if success is True:
             for res in result.get('data', {}).get('result', []):
                 for timestamp, line in res.get('values'):
@@ -151,7 +158,8 @@ class LokiViewWidget(QtWidgets.QWidget):
             print(success, result)
 
 
-def unix_to_datetime(unix_timestamp):
+def _unix_to_datetime(unix_timestamp):
+    """Simple function to convert from timestamp to human readable string"""
     return datetime.datetime.fromtimestamp(int(unix_timestamp)).strftime('%Y-%m-%d %H:%M:%S')
 
 
