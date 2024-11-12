@@ -315,7 +315,7 @@ class Machine(object):
 
             values = list(frames.values())
             for frame in values:
-                if frame.pid > 0:
+                if frame.pid is not None and frame.pid > 0:
                     session = str(frame.pid)
                     rss = 0
                     vsize = 0
