@@ -30,8 +30,6 @@ public class JobDetail extends JobEntity implements JobInterface, DepartmentInte
     public String email;
     public Optional<Integer> uid;
     public String logDir;
-    public Boolean logLokiEnabled;
-    public String logLokiURL;
     public boolean isPaused;
     public boolean isAutoEat;
     public int totalFrames;
@@ -61,5 +59,8 @@ public class JobDetail extends JobEntity implements JobInterface, DepartmentInte
     public String getDepartmentId() {
         return deptId;
     }
+
+    public Boolean logLokiEnabled;
+    public String logLokiURL;
 }
 
