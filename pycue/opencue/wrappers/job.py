@@ -826,7 +826,7 @@ class Job(object):
         """Returns url for loki server on the job
 
         :rtype: str
-        "return: Return URL of loki server of the job
+        :return: Return URL of loki server of the job
         """
         return self.data.loki_url
 
