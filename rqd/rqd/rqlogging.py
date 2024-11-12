@@ -158,6 +158,7 @@ class LokiLogger(object):
             time.sleep(0.5 * tries)
         raise IOError("Failed to create loki stream")
 
+    # pylint: disable=unused-argument
     def write(self, data, prependTimestamp=False):
         """
         Provides write function for writing to loki server.
@@ -177,6 +178,7 @@ class LokiLogger(object):
             self.write(line)
 
     def close(self):
+        """Dummy function since cloasing it not necessary for the http connection"""
         pass
 
     def __enter__(self):
@@ -184,5 +186,3 @@ class LokiLogger(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
-
-
