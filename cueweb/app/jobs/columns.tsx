@@ -4,7 +4,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM } from "@/app/utils/utils";
+import { convertMemoryToString, convertUnixToHumanReadableDate, secondsToHHHMM } from "@/app/utils/layers_frames_utils";
 import { Status } from "@/components/ui/status";
 
 // This type is used to define the shape of our data.
@@ -157,6 +157,19 @@ export const columns: ColumnDef<Job>[] = [
       );
     },
     cell: ({ row }) => <Status status={getState(row.original as Job)} />,
+    sortingFn: (rowA, rowB) => {
+      const stateA = getState(rowA.original as Job);
+      const stateB = getState(rowB.original as Job);
+      const stateOrder = {
+        "Failing": 0,
+        "Finished": 1,
+        "In Progress": 2,
+        "Dependency": 3,
+        "Paused": 4,
+      };
+
+      return (stateOrder[stateA] || 5) - (stateOrder[stateB] || 5);
+    },
   },
   {
     id: "done / total",

@@ -1,7 +1,22 @@
 "use client";
 
-import { getJobsForRegex, getJobsForShow, getJobsForUser, handleError } from "@/app/utils/utils";
+import {
+  eatJobsDeadFramesFromSelectedRows,
+  getItemFromLocalStorage,
+  killJobFromSelectedRows,
+  pauseJobsFromSelectedRows,
+  retryJobsDeadFramesFromSelectedRows,
+  setItemInLocalStorage,
+  unpauseJobsFromSelectedRows
+} from "@/app/utils/action_utils";
+import {
+  getJobsForRegex,
+  getJobsForShowShot
+} from "@/app/utils/get_utils";
+import { handleError } from "@/app/utils/notify_utils";
 import { Button } from "@/components/ui/button";
+import { JobContextMenu } from "@/components/ui/context_menus/action-context-menu";
+import { useContextMenu } from "@/components/ui/context_menus/useContextMenu";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -40,75 +55,255 @@ import { Session } from "next-auth";
 import { signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import * as React from "react";
-import { useEffect } from "react";
+import { useEffect, useReducer } from "react";
 import { MdOutlineCancel } from "react-icons/md";
 import { TbEyeOff, TbPacman, TbPlayerPause, TbPlayerPlay, TbReload } from "react-icons/tb";
 import CueWebIcon from "../../components/ui/cuewebicon";
-import { Frame } from "../frames/frame-columns";
 import { getState, Job } from "./columns";
 import "./index.css";
-
-
-export const getItemFromLocalStorage = (itemKey: string, initialItemValue: string) => {
-  const itemFromStorage = JSON.parse(localStorage.getItem(itemKey) || initialItemValue);
-  return itemFromStorage;
-};
-
-const setItemInLocalStorage = (itemKey: string, item: string) => {
-  localStorage.setItem(itemKey, item);
-};
-
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<any, any>[];
+interface DataTableProps {
+  columns: ColumnDef<Job>[];
   data: Job[];
   session: Session;
 }
 
-export function DataTable<TData, TValue>({ columns, data, session }: DataTableProps<TData, TValue>) {
+// Define the actions for useReducer
+type Action =
+  | { type: "SET_TABLE_DATA"; payload: Job[] }
+  | { type: "SET_TABLE_DATA_UNFILTERED"; payload: Job[] }
+  | { type: "SET_SORTING"; payload: any[] }
+  | { type: "SET_COLUMN_FILTERS"; payload: any[] }
+  | { type: "SET_STATE_SELECT_VALUE"; payload: string }
+  | { type: "SET_JOB_SEARCH_RESULTS"; payload: Job[] }
+  | { type: "SET_FILTERED_JOB_SEARCH_RESULTS"; payload: Job[] }
+  | { type: "SET_SEARCH_QUERY"; payload: string }
+  | { type: "SET_API_QUERY"; payload: string }
+  | { type: "SET_ROW_SELECTION"; payload: { [key: string]: boolean } }
+  | { type: "SET_COLUMN_VISIBILITY"; payload: VisibilityState }
+  | { type: "SET_ERROR"; payload: string | null } // New action for setting errors
+  | { type: "SET_USERNAME"; payload: string }
+  | { type: "RESET_COLUMN_VISIBILITY" }
+  | { type: "RESET_STATE" };
+
+// tableDataUnfiltered starts off containing the same exact data as tableData (which is used to populate the table)
+// The difference is tableDataUnfiltered will be used to keep track of the table data without any 'state' filters
+// This is so that when we update the tableData based on the 'state' the user is filtering on,
+// tableDataUnfiltered remains the same, so that the user can later access the unfiltered table data
+
+// For example, let's say the user filters tableData on state 'In Progress'
+// When they later filter on state 'Finished', we search the unfiltered table data for jobs with state 'Finished'
+// If we didn't keep track of the unfiltered table data, the user would get no results because we would be searching
+// tableData for state 'Finished' and tableData currently only contains jobs with state 'In Progress'
+interface State {
+  tableData: Job[];
+  tableDataUnfiltered: Job[];
+  sorting: any[];
+  columnFilters: ColumnFiltersState;
+  stateSelectValue: string;
+  jobSearchResults: Job[];
+  filteredJobSearchResults: Job[];
+  searchQuery: string;
+  apiQuery: string;
+  rowSelection: { [key: string]: boolean };
+  columnVisibility: VisibilityState;
+  error: string | null;
+  username: string;
+}
+
+const initialColumnVisibility = {
+  running: false,
+  dead: false,
+  wait: false,
+  eaten: false,
+  age: false,
+  maxRss: false,
+}
+
+// Initial state
+const initialState: State = {
+  tableData: getItemFromLocalStorage("tableData", "[]"),
+  tableDataUnfiltered: getItemFromLocalStorage("tableDataUnfiltered", "[]"),
+  sorting: getItemFromLocalStorage("sorting", "[]"),
+  columnFilters: getItemFromLocalStorage("columnFilters", "[]"),
+  stateSelectValue: getItemFromLocalStorage("stateSelectValue", JSON.stringify("All States")),
+  jobSearchResults: [],
+  filteredJobSearchResults: [],
+  searchQuery: "",
+  apiQuery: "",
+  rowSelection: {},
+  columnVisibility: getItemFromLocalStorage("columnVisibility", JSON.stringify(initialColumnVisibility)),
+  error: null,
+  username: "Unknown User",
+};
+
+// Reducer function
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case "SET_TABLE_DATA":
+      return { ...state, tableData: action.payload };
+    case "SET_TABLE_DATA_UNFILTERED":
+      return { ...state, tableDataUnfiltered: action.payload };
+    case "SET_SORTING":
+      return { ...state, sorting: action.payload };
+    case "SET_COLUMN_FILTERS":
+      return { ...state, columnFilters: action.payload };
+    case "SET_STATE_SELECT_VALUE":
+      return { ...state, stateSelectValue: action.payload };
+    case "SET_JOB_SEARCH_RESULTS":
+      return { ...state, jobSearchResults: action.payload };
+    case "SET_FILTERED_JOB_SEARCH_RESULTS":
+      return { ...state, filteredJobSearchResults: action.payload };
+    case "SET_SEARCH_QUERY":
+      return { ...state, searchQuery: action.payload };
+    case "SET_API_QUERY":
+      return { ...state, apiQuery: action.payload };
+    case "SET_ROW_SELECTION":
+      return { ...state, rowSelection: action.payload };
+    case "SET_COLUMN_VISIBILITY":
+      return { ...state, columnVisibility: action.payload };
+    case "SET_ERROR":
+      return { ...state, error: action.payload }; // Set the error message
+    case "SET_USERNAME":
+      return { ...state, username: action.payload };
+    case "RESET_COLUMN_VISIBILITY":
+      return {
+        ...state,
+        columnVisibility: initialState.columnVisibility,
+      };
+    case "RESET_STATE":
+      return initialState;
+    default:
+      return state;
+  }
+}
+
+// Reusable Job Action Button component to reduce redundancy
+const JobActionButton = ({
+  icon: Icon,
+  label,
+  onClick,
+  color,
+  last=false,
+}: {
+  icon: React.ElementType;
+  label: string;
+  onClick: () => void;
+  color: string;
+  last?: boolean;
+}) => (
+  last ? (
+    <button className="flex flex-row justify-center items-center" onClick={onClick}>
+      <Icon className="mr-1" size={18} color={color} />
+      {label}
+    </button>
+  ) : (
+    <button className="flex flex-row justify-center items-center border-r border-gray-300 pr-2" onClick={onClick}>
+      <Icon className="mr-1" size={18} color={color} />
+      {label}
+    </button>
+  )
+  
+);
+
+export function DataTable({ columns, data, session }: DataTableProps) {
   const { theme, setTheme } = useTheme();
 
-  const [tableData, setTableData] = React.useState(getItemFromLocalStorage("tableData", JSON.stringify(data)));
-  setItemInLocalStorage("tableData", JSON.stringify(tableData));
+  // useReducer hook to manage state
+  const [state, dispatch] = useReducer(reducer, initialState);
 
-  const [sorting, setSorting] = React.useState(getItemFromLocalStorage("sorting", "[]"));
-  setItemInLocalStorage("sorting", JSON.stringify(sorting));
+  useEffect(() => {
+    setItemInLocalStorage("tableData", JSON.stringify(state.tableData));
+  }, [state.tableData]);
 
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    getItemFromLocalStorage("columnFilters", "[]"),
-  );
-  setItemInLocalStorage("columnFilters", JSON.stringify(columnFilters));
+  useEffect(() => {
+    setItemInLocalStorage("tableDataUnfiltered", JSON.stringify(state.tableDataUnfiltered));
+  }, [state.tableDataUnfiltered]);
+  
+  useEffect(() => {
+    setItemInLocalStorage("sorting", JSON.stringify(state.sorting));
+  }, [state.sorting]);
 
-  // by default, certain columns are hidden
-  const initialColumnVisibility = {
-    running: false,
-    dead: false,
-    wait: false,
-    eaten: false,
-    age: false,
-    maxRss: false,
-  };
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
-    getItemFromLocalStorage("columnVisibility", JSON.stringify(initialColumnVisibility)),
-  );
-  setItemInLocalStorage("columnVisibility", JSON.stringify(columnVisibility));
+  useEffect(() => {
+    setItemInLocalStorage("columnFilters", JSON.stringify(state.columnFilters));
+  }, [state.columnFilters]);
 
-  const [rowSelection, setRowSelection] = React.useState({});
+  useEffect(() => {
+    setItemInLocalStorage("columnVisibility", JSON.stringify(state.columnVisibility));
+  }, [state.columnVisibility]);
 
-  const [usernameInput, setUsernameInput] = React.useState<string>(
-    session && session.user && session.user.email ? session.user.email.split("@")[0] : "monitor",
-  );
-  const [frames, setFrames] = React.useState<Frame[]>([]);
+  useEffect(() => {
+    setItemInLocalStorage("stateSelectValue", JSON.stringify(state.stateSelectValue));
+  }, [state.stateSelectValue]);
+
+  useEffect(() => {
+    const username = session && session.user && session.user.email ? session.user.email.split("@")[0] : "Unknown User";
+    dispatch({ type: "SET_USERNAME", payload: username });
+  }, []);
+
+  function setTableData(
+    dispatch: React.Dispatch<Action>,
+    tableData: Job[]): React.Dispatch<React.SetStateAction<Job[]>> {
+    return (update) => {
+      const newTableData = typeof update === "function" ? update(tableData) : update;
+      dispatch({ type: "SET_TABLE_DATA", payload: newTableData });
+    };
+  }
+
+  function setTableDataUnfiltered(
+    dispatch: React.Dispatch<Action>,
+    tableData: Job[]): React.Dispatch<React.SetStateAction<Job[]>> {
+    return (update) => {
+      const newTableData = typeof update === "function" ? update(tableData) : update;
+      dispatch({ type: "SET_TABLE_DATA_UNFILTERED", payload: newTableData });
+    };
+  }
+
+  function setRowSelection(
+    dispatch: React.Dispatch<Action>,
+    rowSelection: { [key: string]: boolean }
+  ): React.Dispatch<React.SetStateAction<{ [key: string]: boolean }>> {
+    return (update) => {
+      const newRowSelection = typeof update === "function" ? update(rowSelection) : update;
+      dispatch({ type: "SET_ROW_SELECTION", payload: newRowSelection });
+    };
+  }
+  
+  function setSorting(
+    dispatch: React.Dispatch<Action>,
+    sorting: any[]
+  ): React.Dispatch<React.SetStateAction<any[]>> {
+    return (update) => {
+      const newSorting = typeof update === "function" ? update(sorting) : update;
+      dispatch({ type: "SET_SORTING", payload: newSorting });
+    };
+  }
+  
+  function setColumnFilters(
+    dispatch: React.Dispatch<Action>,
+    columnFilters: ColumnFiltersState
+  ): React.Dispatch<React.SetStateAction<ColumnFiltersState>> {
+    return (update) => {
+      const newColumnFilters = typeof update === "function" ? update(columnFilters) : update;
+      dispatch({ type: "SET_COLUMN_FILTERS", payload: newColumnFilters });
+    };
+  }
+  
+  function setColumnVisibility(
+    dispatch: React.Dispatch<Action>,
+    columnVisibility: VisibilityState
+  ): React.Dispatch<React.SetStateAction<VisibilityState>> {
+    return (update) => {
+      const newColumnVisibility = typeof update === "function" ? update(columnVisibility) : update;
+      dispatch({ type: "SET_COLUMN_VISIBILITY", payload: newColumnVisibility });
+    };
+  }
 
   // Search/dropdown variables:
   const [hideSearchDropdown, setHideSearchDropdown] = React.useState<boolean>(true);
-  const [searchQuery, setSearchQuery] = React.useState<string>("");
   // The amount of delay in milliseconds after typing stops that is required before calling handleGetJobs
   const searchDelay = 300;
-  const [allJobs, setAllJobs] = React.useState<Job[]>([]);
-  const [filteredJobs, setFilteredJobs] = React.useState<Job[]>([]);
   // Current api query to keep track if it changes during search
-  const [curAPIQuery, setCurAPIQuery] = React.useState<string>("");
-  const [waitingForAPI, setWaitingForAPI] = React.useState<boolean>(false);
+  const [jobSearchLoading, setJobSearchLoading] = React.useState<boolean>(false);
   const [waitingForFiltering, setWaitingForFiltering] = React.useState<boolean>(false);
   const [searchDropdownWidth, setSearchDropdownWidth] = React.useState<number>(1000);
   const filterWorkerRef = React.useRef<Worker | null>(null);
@@ -116,7 +311,7 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
   // Used to track when searching (API and Filtering) is finished
   // Without this, the loading component would render right as '-' was typed
   const searchFinishedRef = React.useRef<boolean>(false);
-  const SEARCH_BY_SHOW = "search_by_show";
+  const SEARCH_BY_SHOWSHOT = "search_by_showshot";
   const SEARCH_BY_REGEX = "search_by_regex";
   const TOOLTIP_TITLE = `
   Add '!' after searches for regular expressions.<br>
@@ -125,63 +320,117 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
   &nbsp;&nbsp;&nbsp;&nbsp;sm2.*comp!<br>
   &nbsp;&nbsp;&nbsp;&nbsp;sm2-(madkisson|chung).*comp!<br>
   Jobs finished for 3 days will not be shown.<br>
-  Load your finished jobs with: show-shot-username_`;
-
-  // tableDataUnfiltered starts off containing the same exact data as tableData (which is used to populate the table)
-  // The difference is tableDataUnfiltered will be used to keep track of the table data without any 'state' filters
-  // This is so that when we update the tableData based on the 'state' the user is filtering on,
-  // tableDataUnfiltered remains the same, so that the user can later access the unfiltered table data
-
-  // For example, let's say the user filters tableData on state 'In Progress'
-  // When they later filter on state 'Finished', we search the unfiltered table data for jobs with state 'Finished'
-  // If we didn't keep track of the unfiltered table data, the user would get no results because we would be searching
-  // tableData for state 'Finished' and tableData currently only contains jobs with state 'In Progress'
-  const [tableDataUnfiltered, setTableDataUnfiltered] = React.useState(
-    getItemFromLocalStorage("tableDataUnfiltered", JSON.stringify(data)),
-  );
-  setItemInLocalStorage("tableDataUnfiltered", JSON.stringify(tableDataUnfiltered));
-
-  const [stateSelectValue, setStateSelectValue] = React.useState(
-    getItemFromLocalStorage("stateSelectValue", JSON.stringify("All States")),
-  );
-  setItemInLocalStorage("stateSelectValue", JSON.stringify(stateSelectValue));
-
+  Load your jobs with: show-shot-`;
   // column IDs of columns that look better when their data is center-aligned, rather than to the left (the default)
   const centeredColumns = ["done / total", "running", "dead", "eaten", "wait", "maxRss"];
+  
+  // Regularly update the data-table data to see if jobs have changed attributes
+  useEffect(() => {
+    let interval: NodeJS.Timeout | undefined;
+    let worker: Worker | undefined;
+    try{
+      // Worker to update table data on a separate thread every 5 seconds
+      worker = new Worker(new URL('/public/workers/updateJobsTableDataWorker.tsx', import.meta.url));
+      const updateData = () => {
+        if (worker) {
+          worker.postMessage({ jobs: state.tableDataUnfiltered });
+        } else {
+          throw new Error("Error creating worker in data-table.tsx");
+        } 
+      };
 
-  const handleSetUserAndGetJobs = async () => {
-    const userJobs = await getJobsForUser(usernameInput);
-    setAllJobs(userJobs);
-  };
+      worker.onmessage = (e) => {
+        if (e.data.error || typeof e.data.updatedJobs === undefined) {
+          throw new Error(e.data.error);
+        }
+        const newData = e.data.updatedJobs;
+        if (JSON.stringify(newData) !== JSON.stringify(state.tableDataUnfiltered)) {
+          // Update the old data based on the new data retrieved from the web worker
+          let updatedTableDataUnfiltered = state.tableDataUnfiltered.map((oldJob: Job) => {
+            const updatedJob = newData.find((newJob: Job) => newJob.id === oldJob.id);
+            return updatedJob ? updatedJob : oldJob;
+          });
+          let updatedTableData = state.tableData.map((oldJob: Job) => {
+            const updatedJob = newData.find((newJob: Job) => newJob.id === oldJob.id);
+            return updatedJob ? updatedJob : oldJob;
+          });
+          
+          // Filter out any of the old data in the data table which no longer exists (has been finished for over 48 hours)
+          updatedTableDataUnfiltered = updatedTableDataUnfiltered.filter((oldJob: Job) => newData.some((newJob: Job) => oldJob.id === newJob.id));
+          updatedTableData = updatedTableData.filter((oldJob: Job) => newData.some((newJob: Job) => oldJob.id === newJob.id));
+
+          // Update table data as both a variable and in local storage
+          dispatch({ type: "SET_TABLE_DATA_UNFILTERED", payload: updatedTableDataUnfiltered });
+          dispatch({ type: "SET_TABLE_DATA", payload: updatedTableData });
+        }
+      };
+
+      // Trigger table updates every 5000ms
+      interval = setInterval(() => {
+        updateData();
+      }, 5000);
+    } catch (error) {
+      handleError(error, "Error updating table");
+    }
+
+    return () => {
+      // Clean up interval on component unmount
+      if (interval) clearInterval(interval);
+      // Terminate the worker when the component unmounts
+      worker?.terminate();
+    };
+  }, [state.tableDataUnfiltered]);
+
+  // Automatically remove jobs in selectedRows if they've been removed from the table.
+  // Cases where jobs are removed include:
+  // - deselecting jobs that have been added from the dropdown
+  // - automatically removed jobs by a web worker because the jobs been finished for 48 hours 
+  useEffect(() => {
+    const updatedRowSelection = { ...state.rowSelection };
+    const validJobIds = new Set(state.tableDataUnfiltered.map((job: Job) => job.id));
+    Object.keys(updatedRowSelection).forEach((jobId: string) => {
+      if (!validJobIds.has(jobId)) {
+        delete updatedRowSelection[jobId];
+      }
+    });
+    dispatch({ type: "SET_ROW_SELECTION", payload: updatedRowSelection });
+  }, [state.tableDataUnfiltered]);
 
   // Uses debouncing and memoization (useCallback) to cache the function and only run after delay of no typing
   const handleGetJobs = React.useCallback(
     debounce(async (query: string, searchType: string) => {
-      if (searchType === SEARCH_BY_SHOW) {
-        setCurAPIQuery(query);
-        setWaitingForAPI(true);
-        const newJobs = await getJobsForShow(query);
-        setWaitingForAPI(false);
-        setAllJobs(newJobs);
-        if (newJobs.length === 0) {
-          setFilteredJobs([]);
+      try {
+        if (searchType === SEARCH_BY_SHOWSHOT) {
+          dispatch({ type: "SET_API_QUERY", payload: query });
+          setJobSearchLoading(true);
+          const showShot = query.split("-");
+          const newJobs = await getJobsForShowShot(showShot[0], showShot[1]);
+  
+          setJobSearchLoading(false);
+          dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: newJobs });
+          if (newJobs.length === 0) {
+            dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: [] });
+          }
+        } else if (searchType === SEARCH_BY_REGEX) {
+          dispatch({ type: "SET_API_QUERY", payload: SEARCH_BY_REGEX });
+          setJobSearchLoading(true);
+          const newJobs = await getJobsForRegex(query);
+          setJobSearchLoading(false);
+          dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: newJobs });
+          dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: newJobs });
+          searchFinishedRef.current = true;
         }
-      } else if (searchType === SEARCH_BY_REGEX) {
-        setCurAPIQuery(SEARCH_BY_REGEX);
-        setWaitingForAPI(true);
-        const newJobs = await getJobsForRegex(query);
-        setWaitingForAPI(false);
-        setAllJobs(newJobs);
-        setFilteredJobs(newJobs);
-        searchFinishedRef.current = true;
+      } catch (error) {
+        handleError(error, "Error searching for jobs");
       }
+      
     }, searchDelay),
     [],
   );
 
   // Use a worker thread to filter and return the filtered jobs based on the query
   useEffect(() => {
-    filterWorkerRef.current = new Worker(new URL("../workers/searchFilterWorker.tsx", import.meta.url));
+    filterWorkerRef.current = new Worker(new URL("/public/workers/searchFilterWorker.tsx", import.meta.url));
 
     if (filterWorkerRef.current) {
       filterWorkerRef.current.onmessage = (e: MessageEvent<any>) => {
@@ -189,9 +438,9 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
         // Otherise, set filtered jobs to filtering results
         if (e.data.error) {
           handleError(e.data.error, "Issue with filtering");
-          setFilteredJobs([]);
+          dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: [] });
         } else {
-          setFilteredJobs(e.data);
+          dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: e.data });
         }
         setWaitingForFiltering(false);
       };
@@ -207,15 +456,15 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
     const handleFiltering = (query: string) => {
       if (filterWorkerRef.current) {
         setWaitingForFiltering(true);
-        filterWorkerRef.current.postMessage({ allJobs, query });
+        filterWorkerRef.current.postMessage({ allJobs: state.jobSearchResults, query });
       }
     };
 
-    if (curAPIQuery !== SEARCH_BY_REGEX && !waitingForAPI) {
-      handleFiltering(searchQuery);
+    if (state.apiQuery !== SEARCH_BY_REGEX && !jobSearchLoading) {
+      handleFiltering(state.searchQuery);
       searchFinishedRef.current = true;
     }
-  }, [allJobs, searchQuery, waitingForAPI]);
+  }, [state.jobSearchResults, state.searchQuery, jobSearchLoading]);
 
   // Opens/closes search dropdown based on where the user clicks
   const handleClickOutsideDropdown = (event: MouseEvent) => {
@@ -240,24 +489,25 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
     setHideSearchDropdown(true);
 
     const query = e.target.value;
-    setSearchQuery(query);
+    dispatch({ type: "SET_SEARCH_QUERY", payload: query});
+    // Regex to match if the query has the format "[at least one character]-[at least one character]-[any or no characters]"
+    const showShot = query.match(/^(.+)-(.+)-.*$/)
 
-    // Query the API after the first '-' typed since a job name begins with 'show-shot-user'
-    // We also Query the API for show name if it doesn't include '!' or for regex if it includes '!' at the end
+    // Query the API for show name if it inlcudes the correct 'show-shot-' format or for regex if it includes '!' at the end
     if (query.slice(-1) === "!") {
       const regexQuery = query.slice(0, -1);
       handleGetJobs(regexQuery, SEARCH_BY_REGEX);
       setHideSearchDropdown(false);
-    } else if (query.includes("-")) {
-      const nextShow = query.split("-")[0];
-      if (nextShow !== curAPIQuery) {
-        handleGetJobs(nextShow, SEARCH_BY_SHOW);
+    } else if (showShot && showShot.length >= 3) {
+      const nextShowShot = `${showShot[1]}-${showShot[2]}`
+      if (nextShowShot !== state.apiQuery) {
+        handleGetJobs(nextShowShot, SEARCH_BY_SHOWSHOT);
       }
       setHideSearchDropdown(false);
     } else {
-      setAllJobs([]);
-      setFilteredJobs([]);
-      setCurAPIQuery("");
+      dispatch({ type: "SET_JOB_SEARCH_RESULTS", payload: [] });
+      dispatch({ type: "SET_FILTERED_JOB_SEARCH_RESULTS", payload: [] });
+      dispatch({ type: "SET_API_QUERY", payload: "" });
     }
 
     // Cancel handleGetJobs if the input changes before the timeout completes
@@ -268,95 +518,122 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
 
   const handleUnmonitorSelected = () => {
     const selectedRows = table.getSelectedRowModel().rows;
-    let jobsToUnmonitorSet = new Set(selectedRows.map((row: Row<TData>) => JSON.stringify(row.original)));
+    let jobsToUnmonitorSet = new Set(selectedRows.map((row: Row<Job>) => JSON.stringify(row.original)));
 
-    const updatedUnfilteredTableData = tableDataUnfiltered.filter(
+    const updatedTableDataUnfiltered = state.tableDataUnfiltered.filter(
       (job: Job) => !jobsToUnmonitorSet.has(JSON.stringify(job)),
     );
-    setTableDataUnfiltered(updatedUnfilteredTableData);
+    dispatch({ type: "SET_TABLE_DATA_UNFILTERED", payload: updatedTableDataUnfiltered });
 
-    const updatedTableData = tableData.filter((job: Job) => !jobsToUnmonitorSet.has(JSON.stringify(job)));
-    setTableData(updatedTableData);
+    const updatedTableData = state.tableData.filter((job: Job) => !jobsToUnmonitorSet.has(JSON.stringify(job)));
+    dispatch({ type: "SET_TABLE_DATA", payload: updatedTableData });
 
-    setRowSelection({});
+    dispatch({ type: "SET_ROW_SELECTION", payload: {} });
   };
 
   const handleUnmonitorPaused = () => {
-    const pausedJobs = tableData.filter((job: Job) => getState(job) === "Paused");
+    const pausedJobs = state.tableData.filter((job: Job) => getState(job) === "Paused");
 
-    const updatedUnfilteredTableData = tableDataUnfiltered.filter(
+    // Update unfiltered table data
+    const updatedTableDataUnfiltered = state.tableDataUnfiltered.filter(
       (job: Job) => !pausedJobs.some((pausedJob: Job) => pausedJob === job),
     );
-    setTableDataUnfiltered(updatedUnfilteredTableData);
-
-    const updatedTableData = tableData.filter((job: Job) => !pausedJobs.some((pausedJob: Job) => pausedJob === job));
-    setTableData(updatedTableData);
+    dispatch({ type: "SET_TABLE_DATA_UNFILTERED", payload: updatedTableDataUnfiltered });
+    
+    // Update table data
+    const updatedTableData = state.tableData.filter((job: Job) => !pausedJobs.some((pausedJob: Job) => pausedJob === job));
+    dispatch({ type: "SET_TABLE_DATA", payload: updatedTableData });
+    
+    // Update row selection data
+    const updatedRowSelection = { ...state.rowSelection };
+    pausedJobs.forEach((pausedJob: Job) => {
+      delete updatedRowSelection[pausedJob.id];
+    });
+    dispatch({ type: "SET_ROW_SELECTION", payload: updatedRowSelection });
   };
 
   const handleUnmonitorFinished = () => {
-    const finishedJobs = tableDataUnfiltered.filter((job: Job) => getState(job) === "Finished");
+    const finishedJobs = state.tableDataUnfiltered.filter((job: Job) => getState(job) === "Finished");
 
-    const updatedUnfilteredTableData = tableDataUnfiltered.filter(
+    // Update unfiltered table data
+    const updatedTableDataUnfiltered = state.tableDataUnfiltered.filter(
       (job: Job) => !finishedJobs.some((finishedJob: Job) => finishedJob === job),
     );
-    setTableDataUnfiltered(updatedUnfilteredTableData);
-
-    const updatedTableData = tableData.filter(
+    dispatch({ type: "SET_TABLE_DATA_UNFILTERED", payload: updatedTableDataUnfiltered });
+    
+    // Update table data
+    const updatedTableData = state.tableData.filter(
       (job: Job) => !finishedJobs.some((finishedJob: Job) => finishedJob === job),
     );
-    setTableData(updatedTableData);
+    dispatch({ type: "SET_TABLE_DATA", payload: updatedTableData });
+    
+    // Update row selection data
+    const updatedRowSelection = { ...state.rowSelection };
+    finishedJobs.forEach((pausedJob: Job) => {
+      delete updatedRowSelection[pausedJob.id];
+    });
+    dispatch({ type: "SET_ROW_SELECTION", payload: updatedRowSelection });
   };
-
+  
   const handleUnmonitorAll = () => {
-    setTableDataUnfiltered([]);
-    setTableData([]);
+    dispatch({ type: "SET_TABLE_DATA", payload: [] });
+    dispatch({ type: "SET_TABLE_DATA_UNFILTERED", payload: [] });
+    dispatch({ type: "SET_ROW_SELECTION", payload: {} });
   };
 
   const handleJobSearchSelect = (job: Job) => {
     // we check if the job is already in tableDataUnfiltered so we don't add it twice
-    const isJobAlreadyAdded = tableDataUnfiltered.some((existingJob: Job) => (existingJob as Job).name === job.name);
+    const isJobAlreadyAdded = state.tableDataUnfiltered.some((existingJob: Job) => (existingJob as Job).name === job.name);
 
     if (!isJobAlreadyAdded) {
       // if job not already in the table data, add it (to both tableData & tableDataUnfiltered)
-      setTableData((prevData: TData[]) => [...prevData, job] as TData[]);
-      setTableDataUnfiltered((prevData: TData[]) => [...prevData, job] as TData[]);
+      dispatch({ type: "SET_TABLE_DATA", payload: [...state.tableData, job] });
+      dispatch({ type: "SET_TABLE_DATA_UNFILTERED", payload: [...state.tableDataUnfiltered, job] });
     } else {
-      setTableData((prevData: Job[]) => prevData.filter((existingJob) => existingJob.name !== job.name));
-      setTableDataUnfiltered((prevData: Job[]) => prevData.filter((existingJob) => existingJob.name !== job.name));
+      const newTableData = state.tableData.filter(oldJob => oldJob.name !== job.name);
+      dispatch({ type: "SET_TABLE_DATA", payload: newTableData });
+
+      const newTableDataUnfiltered = state.tableDataUnfiltered.filter(oldJob => oldJob.name !== job.name);
+      dispatch({ type: "SET_TABLE_DATA_UNFILTERED", payload: newTableDataUnfiltered });
     }
   };
 
-  const handleStateFiltering = (state: string) => {
-    setStateSelectValue(state);
-    if (state === "All States") {
-      setTableData(tableDataUnfiltered);
-      return;
+  const handleStateFiltering = (stateFilter: string) => {
+    dispatch({ type: "SET_STATE_SELECT_VALUE", payload: stateFilter });
+    if (stateFilter === "All States") {
+      dispatch({ type: "SET_TABLE_DATA", payload: state.tableDataUnfiltered });
+    } else {
+      const newTableData = state.tableDataUnfiltered.filter((job: Job) => getState(job) === stateFilter);
+      dispatch({ type: "SET_TABLE_DATA", payload: newTableData });
     }
-    const filteredData = tableDataUnfiltered.filter((job: Job) => getState(job) === state);
-    setTableData(filteredData);
   };
+
+  useEffect(() => {
+    handleStateFiltering(state.stateSelectValue);
+  }, [state.tableDataUnfiltered]);
 
   const resetColumnVisibilityToDefault = () => {
-    setColumnVisibility(initialColumnVisibility);
+    dispatch({ type: "SET_COLUMN_VISIBILITY", payload: initialColumnVisibility });
   };
 
   const table = useReactTable({
-    data: tableData,
+    data: state.tableData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
+    onSortingChange: setSorting(dispatch, state.sorting),
     getSortedRowModel: getSortedRowModel(),
-    onColumnFiltersChange: setColumnFilters,
+    onColumnFiltersChange: setColumnFilters(dispatch, state.columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
+    onColumnVisibilityChange: setColumnVisibility(dispatch, state.columnVisibility),
+    onRowSelectionChange: setRowSelection(dispatch, state.rowSelection),
+    getRowId: (job: Job) => job.id,
 
     state: {
-      sorting,
-      columnFilters,
-      columnVisibility,
-      rowSelection,
+      sorting: state.sorting,
+      columnFilters: state.columnFilters,
+      columnVisibility: state.columnVisibility,
+      rowSelection: state.rowSelection,
     },
 
     initialState: {
@@ -366,6 +643,15 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
       },
     },
   });
+
+  const jobTableRef = React.useRef<HTMLDivElement>(null);
+  const {
+    contextMenuState,
+    contextMenuHandleOpen,
+    contextMenuHandleClose,
+    contextMenuRef,
+    contextMenuTargetAreaRef
+  } = useContextMenu(jobTableRef);
 
   return (
     <>
@@ -381,7 +667,7 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
               signOut("okta");
             }}
           >
-            Signout ({usernameInput})
+            Signout ({state.username})
           </Button>
           <ThemeToggle></ThemeToggle>
         </div>
@@ -399,29 +685,29 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
             }}
           >
             <JobSearchbox
-              searchQuery={searchQuery}
+              searchQuery={state.searchQuery}
               handleInputChange={handleInputChange}
               tooltipTitle={TOOLTIP_TITLE}
               hidden={!hideSearchDropdown}
             />
-            {waitingForAPI || waitingForFiltering ? (
+            {jobSearchLoading || waitingForFiltering ? (
               <Box style={{ position: "absolute", top: "100%", left: 0, width: "100%", zIndex: 1000 }}>
                 <LinearProgress />
               </Box>
             ) : (
               <>
-                {filteredJobs.length > 0 && (
+                {state.filteredJobSearchResults.length > 0 && (
                   <SearchDropdown
-                    jobs={filteredJobs}
+                    jobs={state.filteredJobSearchResults}
                     hidden={hideSearchDropdown}
                     handleJobSearchSelect={handleJobSearchSelect}
                     maxListWidth={searchDropdownWidth}
                     setMaxListWidth={setSearchDropdownWidth}
-                    tableData={tableData}
+                    tableData={state.tableDataUnfiltered}
                   />
                 )}
-                {filteredJobs.length === 0 &&
-                  curAPIQuery !== "" &&
+                {state.filteredJobSearchResults.length === 0 &&
+                  state.apiQuery !== "" &&
                   !hideSearchDropdown &&
                   searchFinishedRef.current && (
                     <Box style={{ position: "absolute", top: "100%", left: 0, width: "100%", zIndex: 1000 }}>
@@ -468,26 +754,11 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <button className="flex flex-row justify-center items-center border-r border-gray-300 pr-2">
-            <MdOutlineCancel className="mr-1" size={18} color="red" />
-            Kill
-          </button>
-          <button className="flex flex-row justify-center items-center border-r border-gray-300 pr-2">
-            <TbPacman className="mr-1" size={18} color="orange" />
-            Eat Dead Frame
-          </button>
-          <button className="flex flex-row justify-center items-center border-r border-gray-300 pr-2">
-            <TbReload className="mr-1" size={18} color="black" />
-            Retry Dead Frames
-          </button>
-          <button className="flex flex-row justify-center items-center border-r border-gray-300 pr-2">
-            <TbPlayerPause className="mr-1" size={20} color="blue" />
-            Pause
-          </button>
-          <button className="flex flex-row justify-center items-center">
-            <TbPlayerPlay className="mr-1" size={18} color="green" />
-            Unpause
-          </button>
+          <JobActionButton icon={TbPacman} label="Eat Dead Frames" onClick={() => eatJobsDeadFramesFromSelectedRows(table)} color="orange" />
+          <JobActionButton icon={TbReload} label="Retry Dead Frames" onClick={() => retryJobsDeadFramesFromSelectedRows(table)} color="red" />
+          <JobActionButton icon={TbPlayerPause} label="Pause" onClick={() => pauseJobsFromSelectedRows(table)} color="blue" />
+          <JobActionButton icon={TbPlayerPlay} label="Unpause" onClick={() => unpauseJobsFromSelectedRows(table)} color="green" />
+          <JobActionButton icon={MdOutlineCancel} label="Kill" onClick={() => killJobFromSelectedRows(table, state.username)} color="red" last={true} />
         </div>
 
         {/* Dropdown Column Visibility */}
@@ -525,7 +796,7 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
 
       {/* Filtering for state & the 'Autoload Mine' toggle*/}
       <div className="flex flex-row space-x-2 m-2 mx-0">
-        <Select defaultValue={stateSelectValue} onValueChange={(val: string) => handleStateFiltering(val)}>
+        <Select defaultValue={state.stateSelectValue} onValueChange={(val: string) => handleStateFiltering(val)}>
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="All States" />
           </SelectTrigger>
@@ -551,7 +822,7 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
       </div>
 
       {/* Table */}
-      <div className="rounded-md border">
+      <div className="rounded-md border" ref={jobTableRef}>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -571,25 +842,27 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
               table.getRowModel().rows.map((row) => (
                 // React.Fragment is a way to group elements without introducing an extra container in the DOM.
                 // the shorthand notation for a Fragment is <>
-                <React.Fragment key={row.id}>
-                  <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-                    {row.getVisibleCells().map((cell) => (
-                      // if the column for this cell is the pop-up button column, make it a "sticky" column so that
-                      // it hovers over all other columns when table overflow occurs and the table becomes scrollable
-                      <TableCell key={cell.id} className={cell.column.id == "pop-up" ? `sticky ${theme}` : ""}>
-                        {cell.column.id === "progress" ? (
-                          <JobProgressBar job={row.original as Job} />
-                        ) : cell.column.id === "pop-up" ? (
-                          <FramesLayersPopup job={row.original as Job} />
-                        ) : centeredColumns.includes(cell.column.id) ? (
-                          <div className="text-center">{flexRender(cell.column.columnDef.cell, cell.getContext())}</div>
-                        ) : (
-                          flexRender(cell.column.columnDef.cell, cell.getContext())
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                </React.Fragment>
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                  onContextMenu={(e: React.MouseEvent) => contextMenuHandleOpen(e, row)}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    // if the column for this cell is the pop-up button column, make it a "sticky" column so that
+                    // it hovers over all other columns when table overflow occurs and the table becomes scrollable
+                    <TableCell key={cell.id} className={cell.column.id == "pop-up" ? `sticky ${theme}` : ""}>
+                      {cell.column.id === "progress" ? (
+                        <JobProgressBar job={row.original as Job} />
+                      ) : cell.column.id === "pop-up" ? (
+                        <FramesLayersPopup job={row.original as Job} username={state.username} />
+                      ) : centeredColumns.includes(cell.column.id) ? (
+                        <div className="text-center">{flexRender(cell.column.columnDef.cell, cell.getContext())}</div>
+                      ) : (
+                        flexRender(cell.column.columnDef.cell, cell.getContext())
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
               ))
             ) : (
               <TableRow>
@@ -600,6 +873,23 @@ export function DataTable<TData, TValue>({ columns, data, session }: DataTablePr
             )}
           </TableBody>
         </Table>
+        {/* Context menu for the jobs table */}
+        <JobContextMenu
+          username={state.username}
+          contextMenuState={contextMenuState}
+          contextMenuHandleClose={contextMenuHandleClose}
+          contextMenuRef={contextMenuRef}
+          contextMenuTargetAreaRef={contextMenuTargetAreaRef}
+          // Unmonitor jobs props
+          tableData={state.tableData}
+          tableDataUnfiltered={state.tableDataUnfiltered}
+          rowSelection={state.rowSelection}
+          setTableData={setTableData(dispatch, state.tableData)}
+          setTableDataUnfiltered={setTableDataUnfiltered(dispatch, state.tableDataUnfiltered)}
+          setRowSelection={setRowSelection(dispatch, state.rowSelection)}
+          tableStorageName={"tableData"}
+          unfilteredTableStorageName={"tableDataUnfiltered"}
+        />
       </div>
 
       {/* Pagination */}
