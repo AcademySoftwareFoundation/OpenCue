@@ -20,12 +20,17 @@ self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
       return;
     }
 
+    if (!Array.isArray(jobs) || !jobs.every(isValidJob)) {
+      throw new Error("Invalid job data received by worker");
+    }
+
+    const ids = jobs.map(job => job.id);
     const updatedJobs: Job[] = [];
 
     // Fetch updated data for each job concurrently, limiting concurrency to avoid overwhelming the gRPC API
     await Promise.all(
-      jobs.map(async (job) => {
-        const body = JSON.stringify({ r: { include_finished: true, ids: [job.id] } });
+      ids.map(async (id) => {
+        const body = JSON.stringify({ r: { include_finished: true, ids: [id] } });
         const newJobData = await getJobs(body);
         
         if (newJobData.length !== 0) {
@@ -41,3 +46,8 @@ self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
     self.postMessage({ error: errorMessage } as WorkerResponse);
   }
 };
+
+// Function to validate the structure of a Job object
+function isValidJob(job: any): job is Job {
+  return typeof job === 'object' && job !== null && typeof job.id === 'string' && job.id.trim().length > 0;
+}
