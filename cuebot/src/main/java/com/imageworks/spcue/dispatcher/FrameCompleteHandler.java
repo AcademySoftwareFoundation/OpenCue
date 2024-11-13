@@ -86,6 +86,7 @@ public class FrameCompleteHandler {
     private WhiteboardDao whiteboardDao;
     private ServiceDao serviceDao;
     private ShowDao showDao;
+    private Environment env;
 
     /*
      * The last time a proc was unbooked for subscription or job balancing.
@@ -122,6 +123,7 @@ public class FrameCompleteHandler {
 
     @Autowired
     public FrameCompleteHandler(Environment env) {
+        this.env = env;
         satisfyDependOnlyOnFrameSuccess = env.getProperty(
             "depend.satisfy_only_on_frame_success", Boolean.class, true);
     }
@@ -460,7 +462,7 @@ public class FrameCompleteHandler {
                         && dispatchSupport.isCueBookable(job)) {
 
                     bookingQueue.execute(new DispatchBookHost(hostManager
-                            .getDispatchHost(proc.getHostId()), dispatcher));
+                            .getDispatchHost(proc.getHostId()), dispatcher, env));
                 }
 
                 if (job.state.equals(JobState.FINISHED)) {
@@ -509,7 +511,7 @@ public class FrameCompleteHandler {
                                         hostManager.getDispatchHost(proc.getHostId());
 
                                 bookingQueue.execute(
-                                        new DispatchBookHost(host, dispatcher));
+                                        new DispatchBookHost(host, dispatcher, env));
                                 return;
                             }
                         } catch (JobLookupException e) {
@@ -538,7 +540,7 @@ public class FrameCompleteHandler {
                         dispatchSupport.strandCores(host, stranded_cores);
                         dispatchSupport.unbookProc(proc);
                         bookingQueue.execute(new DispatchBookHost(host, job,
-                                dispatcher));
+                                dispatcher, env));
                         return;
                     }
                 }
