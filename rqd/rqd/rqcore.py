@@ -98,6 +98,16 @@ class FrameAttendantThread(threading.Thread):
         self.frameEnv["CUE_GPU_MEMORY"] = str(self.rqCore.machine.getGpuMemoryFree())
         self.frameEnv["SP_NOMYCSHRC"] = "1"
 
+        if rqd.rqconstants.RQD_CUSTOM_HOME_PREFIX:
+            self.frameEnv["HOME"] = "%s/%s" % (
+                rqd.rqconstants.RQD_CUSTOM_HOME_PREFIX,
+                self.runFrame.user_name)
+
+        if rqd.rqconstants.RQD_CUSTOM_MAIL_PREFIX:
+            self.frameEnv["MAIL"] = "%s/%s" % (
+                rqd.rqconstants.RQD_CUSTOM_MAIL_PREFIX,
+                self.runFrame.user_name)
+
         if platform.system() == "Windows":
             for variable in ["SYSTEMROOT", "APPDATA", "TMP", "COMMONPROGRAMFILES", "SYSTEMDRIVE"]:
                 if variable in os.environ:
