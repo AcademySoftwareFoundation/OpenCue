@@ -628,6 +628,7 @@ export function DataTable({ columns, data, session }: DataTableProps) {
     onColumnVisibilityChange: setColumnVisibility(dispatch, state.columnVisibility),
     onRowSelectionChange: setRowSelection(dispatch, state.rowSelection),
     getRowId: (job: Job) => job.id,
+    autoResetPageIndex: false,
 
     state: {
       sorting: state.sorting,
