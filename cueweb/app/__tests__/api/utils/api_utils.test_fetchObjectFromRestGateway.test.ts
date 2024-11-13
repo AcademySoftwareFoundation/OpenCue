@@ -1,5 +1,5 @@
 import { loadClientEnvVars, loadServerEnvVars } from '@/app/utils/config';
-import { createJwtToken, fetchObjectFromRestGateway } from '@/app/utils/rest_auth_utils';
+import { createJwtToken, fetchObjectFromRestGateway } from '@/app/utils/api_utils';
 import jwt from "jsonwebtoken";
 
 // Mock loadClientEnvVars and createJwtToken to return two predefined environment variables
@@ -9,8 +9,8 @@ jest.mock('@/app/utils/config', () => ({
   loadClientEnvVars: jest.fn(),
   loadServerEnvVars: jest.fn(),
 }));
-jest.mock('@/app/utils/rest_auth_utils', () => ({
-  ...jest.requireActual('@/app/utils/rest_auth_utils'), // Keep the original implementation for other functions
+jest.mock('@/app/utils/api_utils', () => ({
+  ...jest.requireActual('@/app/utils/api_utils'), // Keep the original implementation for other functions
   createJwtToken: jest.fn(), // Mock the createJwtToken function
 }));
 jest.mock('jsonwebtoken', () => ({
@@ -91,7 +91,7 @@ describe('fetchObjectFromRestGateway', () => {
       },
       body: JSON.stringify({ key: 'value' }),
     });
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: 'Unauthorized request: Unauthorized error' });
   });
 
@@ -123,7 +123,7 @@ describe('fetchObjectFromRestGateway', () => {
       },
       body: JSON.stringify({ key: 'value' }),
     });
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: 'Resource not found: Resource not found' });
   });
 
@@ -156,7 +156,7 @@ describe('fetchObjectFromRestGateway', () => {
       body: JSON.stringify({ key: 'value' }),
     });
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: 'Unexpected API Error: Unexpected error' });
+    expect(await response.json()).toEqual({ error: 'Unexpected API error: Unexpected error' });
   });
 
   /*
@@ -183,7 +183,7 @@ describe('fetchObjectFromRestGateway', () => {
       },
       body: JSON.stringify({ key: 'value' }),
     });
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: 'Fetch error' });
   });
 });

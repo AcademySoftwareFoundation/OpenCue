@@ -7,6 +7,9 @@ const exec = promisify(execCallback);
 async function countLines(filename: string | null) {
   try {
     const result = await exec(`wc -l ${filename}`);
+    if (result.stdout.includes("No such file or directory")) {
+      return -1;
+    }
     return parseInt(result.stdout.trim().split(" ")[0]);
   } catch (error) {
     Sentry.captureMessage(`Error reading logfile: ${error}`, "log");

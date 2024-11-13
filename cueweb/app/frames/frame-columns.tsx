@@ -3,9 +3,8 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown } from "lucide-react";
-import { convertUnixToHumanReadableDate, convertMemoryToString, secondsToHHMMSS } from "@/app/utils/utils";
+import { convertUnixToHumanReadableDate, convertMemoryToString, secondsToHHMMSS } from "@/app/utils/layers_frames_utils";
 
-// This type is used to define the shape of our data.
 export type Frame = {
   id: string;
   name: string;
@@ -29,242 +28,108 @@ export type Frame = {
   totalGpuTime: number;
   maxGpuMemory: string;
   usedGpuMemory: string;
-  frameStateDisplayOverride: string; //??
+  frameStateDisplayOverride: string;
 };
 
-// cuegui.cuegui.FrameMonitorTree.getCores() contains logic for getting cores a frame is using
 const getFrameCores = (frame: Frame) => {
-  const cores = frame.lastResource.split("/")[1];
-  return cores;
+  const parts = frame.lastResource.split("/");
+  return parts.length > 1 ? parts[1] : "N/A";
 };
 
-// cuegui.cuegui.FrameMonitorTree.getGpus() contains logic for getting gpus a frame is using
-// the gpus are the last digit in the host (lastResource) name
 const getFrameGpus = (frame: Frame) => {
-  const gpus = frame.lastResource.split("/")[2];
-  return gpus;
+  const parts = frame.lastResource.split("/");
+  return parts.length > 2 ? parts[2] : "N/A";
 };
 
 const getFrameMemory = (frame: Frame) => {
-  if (frame.state == "RUNNING") {
-    return convertMemoryToString(parseInt(frame.usedMemory), JSON.stringify(frame));
-  }
-  return convertMemoryToString(parseInt(frame.maxRss), JSON.stringify(frame));
+  const memory = frame.state === "RUNNING" ? frame.usedMemory : frame.maxRss;
+  return memory ? convertMemoryToString(parseInt(memory), JSON.stringify(frame)) : "N/A";
 };
 
 const getFrameGpuMemory = (frame: Frame) => {
-  if (frame.state == "RUNNING") {
-    return convertMemoryToString(parseInt(frame.usedGpuMemory), JSON.stringify(frame));
-  }
-  return convertMemoryToString(parseInt(frame.maxGpuMemory), JSON.stringify(frame));
+  const gpuMemory = frame.state === "RUNNING" ? frame.usedGpuMemory : frame.maxGpuMemory;
+  return gpuMemory ? convertMemoryToString(parseInt(gpuMemory), JSON.stringify(frame)) : "N/A";
 };
 
-const getFrameRuntime = (frame: Frame) => {
-  if (frame.stopTime != 0) {
+const getFrameRuntime = (frame: Frame, currentTimestampInSeconds: number) => {
+  if (frame.stopTime !== 0) {
     return secondsToHHMMSS(frame.stopTime - frame.startTime);
   }
-  if (frame.startTime != 0) {
-    const currentDate = new Date();
-    const timestampInSeconds = currentDate.getTime() / 1000;
-    return secondsToHHMMSS(timestampInSeconds - frame.startTime);
+  if (frame.startTime !== 0) {
+    return secondsToHHMMSS(currentTimestampInSeconds - frame.startTime);
   }
   return "00:00:00";
 };
 
+const SortingButton = ({ column, label }: { column: any; label: string }) => (
+  <Button variant="ghost" className="px-1 py-1 mx-0" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+    {label}
+    <ArrowUpDown className="ml-1 h-4 w-3" />
+  </Button>
+);
+
 export const frameColumns: ColumnDef<Frame>[] = [
-  // accessorKey is the unique id for each column, header is the string that shows as the header in the row
   {
     accessorKey: "dispatchOrder",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Order
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="Order" />,
   },
   {
     accessorKey: "number",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Frame
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="Frame" />,
   },
   {
     accessorKey: "layerName",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Layer
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="Layer" />,
   },
   {
     accessorKey: "state",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Status
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="Status" />,
   },
   {
     accessorKey: "cores",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Cores
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="Cores" />,
     cell: ({ row }) => getFrameCores(row.original),
   },
   {
     accessorKey: "gpus",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          GPUs
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="GPUs" />,
     cell: ({ row }) => getFrameGpus(row.original),
   },
   {
     accessorKey: "lastResource",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Host
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="Host" />,
   },
   {
     accessorKey: "retryCount",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Retries
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="Retries" />,
   },
   {
     accessorKey: "checkpointCount",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          CheckP
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="CheckP" />,
   },
   {
     id: "runtime",
-    accessorFn: (row) => getFrameRuntime(row),
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Runtime
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-  },
-  {
-    accessorKey: "llu??",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          LLU
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    accessorFn: (row) => getFrameRuntime(row, new Date().getTime() / 1000),
+    header: ({ column }) => <SortingButton column={column} label="Runtime" />,
   },
   {
     accessorKey: "usedMemory",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Memory
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="Memory" />,
     cell: ({ row }) => getFrameMemory(row.original),
   },
   {
     accessorKey: "usedGpuMemory",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          GPU Memory
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="GPU Memory" />,
     cell: ({ row }) => getFrameGpuMemory(row.original),
   },
   {
-    accessorKey: "remain??",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Remain
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-  },
-  {
     accessorKey: "startTime",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Start Time
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="Start Time" />,
     cell: ({ row }) => convertUnixToHumanReadableDate(row.original.startTime),
   },
   {
     accessorKey: "stopTime",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Stop Time
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => <SortingButton column={column} label="Stop Time" />,
     cell: ({ row }) => convertUnixToHumanReadableDate(row.original.stopTime),
-  },
-  {
-    accessorKey: "lastLine??",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Last Line
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
   },
 ];

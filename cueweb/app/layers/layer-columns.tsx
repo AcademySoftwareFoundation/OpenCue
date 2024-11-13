@@ -2,11 +2,9 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, MoreHorizontal } from "lucide-react";
-import { convertMemoryToString, secondsToHHMMSS, secondsToHHHMM } from "@/app/utils/utils";
+import { ArrowUpDown } from "lucide-react";
+import { convertMemoryToString, secondsToHHMMSS, secondsToHHHMM } from "@/app/utils/layers_frames_utils";
 
-// This type is used to define the shape of our data.
-// You can use a Zod schema here if you want.
 export type LayerStats = {
   totalFrames: number;
   waitingFrames: number;
@@ -60,266 +58,119 @@ export type Layer = {
 };
 
 const getPercentCompleted = (layer: Layer) => {
+  if (layer.layerStats.totalFrames === 0) return "0%";
   const completed = (layer.layerStats.succeededFrames / layer.layerStats.totalFrames) * 100.0;
-  return `${completed}%`;
+  return `${completed.toFixed(2)}%`;
 };
 
+const renderHeader = (title: string, column: any) => (
+  <Button variant="ghost" className="px-1 py-1 mx-0" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+    {title}
+    <ArrowUpDown className="ml-1 h-4 w-3" />
+  </Button>
+);
+
 export const layerColumns: ColumnDef<Layer>[] = [
-  // accessorKey is the unique id for each column, header is the string that shows as the header in the row
   {
     accessorKey: "dispatchOrder",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Dispatch Order
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Dispatch Order", column),
   },
   {
     accessorKey: "name",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Name
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Name", column),
   },
   {
     accessorKey: "services",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Services
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Services", column),
   },
   {
     accessorKey: "limits",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Limits
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Limits", column),
   },
   {
     accessorKey: "range",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Range
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Range", column),
   },
   {
     accessorKey: "minCores",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Cores
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Cores", column),
   },
   {
     id: "minMemory",
     accessorFn: (row) => convertMemoryToString(Number.parseInt(row.minMemory), JSON.stringify(row)),
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Memory
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Memory", column),
   },
   {
     accessorKey: "minGpus",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Gpus
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Gpus", column),
   },
   {
     id: "minGpuMemory",
     accessorFn: (row) => convertMemoryToString(Number.parseInt(row.minGpuMemory), JSON.stringify(row)),
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Gpu Memory
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Gpu Memory", column),
   },
   {
     id: "maxRss",
-    accessorFn: (row) => convertMemoryToString(Number.parseInt(row.layerStats.maxRss), JSON.stringify(row)),
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          MaxRss
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    accessorFn: (row) => row.layerStats ? convertMemoryToString(Number.parseInt(row.layerStats.maxRss), JSON.stringify(row)) : "N/A",
+    header: ({ column }) => renderHeader("MaxRss", column),
   },
   {
     id: "totalFrames",
     accessorFn: (row) => row.layerStats.totalFrames,
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Total
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Total", column),
   },
   {
     id: "succeededFrames",
     accessorFn: (row) => row.layerStats.succeededFrames,
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Done
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Done", column),
   },
   {
     id: "runningFrames",
     accessorFn: (row) => row.layerStats.runningFrames,
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Run
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Run", column),
   },
   {
     id: "dependFrames",
     accessorFn: (row) => row.layerStats.dependFrames,
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Depend
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Depend", column),
   },
   {
     id: "waitingFrames",
     accessorFn: (row) => row.layerStats.waitingFrames,
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Wait
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Wait", column),
   },
   {
     id: "eatenFrames",
     accessorFn: (row) => row.layerStats.eatenFrames,
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Eaten
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Eaten", column),
   },
   {
     id: "deadFrames",
     accessorFn: (row) => row.layerStats.deadFrames,
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Dead
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Dead", column),
   },
   {
     id: "avgFrameSec",
     accessorFn: (row) => secondsToHHMMSS(row.layerStats.avgFrameSec),
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Avg
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Avg", column),
   },
   {
     accessorKey: "tags",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Tags
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Tags", column),
   },
   {
     id: "progress",
     accessorFn: (row) => getPercentCompleted(row),
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Progress
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Progress", column),
   },
   {
     id: "timeout",
     accessorFn: (row) => secondsToHHHMM(row.timeout),
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Timeout
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Timeout", column),
   },
   {
     id: "timeoutLlu",
     accessorFn: (row) => secondsToHHHMM(row.timeoutLlu),
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Timeout LLU
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
+    header: ({ column }) => renderHeader("Timeout LLU", column),
   },
 ];

@@ -1,4 +1,4 @@
-import { getJobsForUser } from "@/app/utils/utils";
+import { getJobsForUser } from "@/app/utils/get_utils";
 import { authOptions } from '@/lib/auth';
 import { getServerSession } from 'next-auth';
 import dynamic from "next/dynamic";
@@ -29,14 +29,12 @@ export default async function Page() {
       await fetch(`${process.env.NEXTAUTH_URL}/api/metrics`);
     } catch (error) {
       console.error("Error incrementing metrics:", error);
-      toast.error("Failed to increment user metrics");
     }
     
     try {
       data = await getJobsForUser(username);
     } catch (error) {
       console.error("Error fetching jobs:", error);
-      toast.error("Failed to fetch jobs");
     }
   } else {
     redirect('/login');
