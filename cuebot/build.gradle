@@ -46,7 +46,6 @@ dependencies {
     implementation group: 'org.postgresql', name: 'postgresql', version: '42.2.2'
     implementation group: 'com.google.protobuf', name: 'protobuf-java', version: "${protobufVersion}"
     implementation group: 'log4j', name: 'log4j', version: '1.2.17'
-    implementation group: 'org.slf4j', name: 'slf4j-log4j12', version: '1.7.26'
     implementation group: 'io.sentry', name: 'sentry-log4j2', version: '7.11.0'
     implementation group: 'io.prometheus', name: 'simpleclient', version: '0.16.0'
     implementation group: 'io.prometheus', name: 'simpleclient_servlet', version: '0.16.0'

@@ -51,33 +51,15 @@ public interface Dispatcher {
     // on the host.
     public static final int CORE_LOAD_THRESHOLD = 5;
 
-
-    // The default amount of memory reserved for a frame if no memory
-    // reservation settings are specified
-    public static final long MEM_RESERVED_DEFAULT = 3355443;
-
-    // The maximum amount of memory that can be requested for a given frame.
-    public static final long MEM_RESERVED_MAX = CueUtil.GB * 50;
-
-    // The minimum amount of memory that can be assigned to a frame.
-    public static final long MEM_RESERVED_MIN = 262144;
-
-    // Memory reserved by system, gets chopped off the available memory
-    public static final long MEM_RESERVED_SYSTEM = 524288;
-
     // Amount of memory that has to be idle for the rest of the cores
     // on the machine to be considered stranded.
     public static final long MEM_STRANDED_THRESHHOLD = CueUtil.GB + CueUtil.MB512;
 
-    // The default amount of gpu memory reserved for a frame if no gpu memory
-    // reservation settings are specified
-    public static final long MEM_GPU_RESERVED_DEFAULT = 0;
+    // Determines the service default minimum memory per frame.
+    public static final long MEM_SERVICE_RESERVED_DEFAULT = CueUtil.GB4;
 
-    // The minimum amount of gpu memory that can be assigned to a frame.
-    public static final long MEM_GPU_RESERVED_MIN = 0;
-
-    // The maximum amount of gpu memory that can be assigned to a frame.
-    public static final long MEM_GPU_RESERVED_MAX = CueUtil.GB * 1024;
+    // Determines the service default minimum gpu per frame.
+    public static final long MEM_SERVICE_GPU_RESERVED_DEFAULT = 0;
 
     // Return value for cleared frame
     public static final int EXIT_STATUS_FRAME_CLEARED = 299;

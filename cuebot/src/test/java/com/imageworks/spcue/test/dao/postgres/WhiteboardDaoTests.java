@@ -268,17 +268,19 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     }
 
     public RenderHost getRenderHost() {
-
+        // Hardcoded value of dispatcher.memory.mem_reserved_min
+        // to avoid having to read opencue.properties on a test setting
+        long memReservedMin = 262144;
         RenderHost host = RenderHost.newBuilder()
                 .setName(HOST)
                 .setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
                 .setFreeMcp(CueUtil.GB)
-                .setFreeMem((int) Dispatcher.MEM_RESERVED_MIN * 4)
+                .setFreeMem((int) memReservedMin * 4)
                 .setFreeSwap(2076)
                 .setLoad(1)
                 .setTotalMcp(CueUtil.GB4)
-                .setTotalMem((int) Dispatcher.MEM_RESERVED_MIN * 4)
+                .setTotalMem((int) memReservedMin * 4)
                 .setTotalSwap(2096)
                 .setNimbyEnabled(true)
                 .setNumProcs(2)
@@ -1312,7 +1314,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testFramesWithDisplayOverride() {
-        // since current_timestamp does not update, we need to make sure the 
+        // since current_timestamp does not update, we need to make sure the
         // timestamp we use when retrieving updated frames is older than when
         // the frame's ts_updated value is set to during insertion.
         long timestamp = System.currentTimeMillis();
@@ -1324,7 +1326,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         FrameStateDisplayOverride override = createFrameStateDisplayOverride(frame.getFrameId());
         FrameStateDisplayOverrideSeq results = frameDao.getFrameStateDisplayOverrides(frame.getFrameId());
         assertEquals(1, results.getOverridesCount());
-        
+
         frameDao.updateFrameState(frame, FrameState.SUCCEEDED);
 
         // Test GET_FRAME
@@ -1337,7 +1339,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
                     new ArrayList<LayerInterface>(), (int) (timestamp / 1000));
         UpdatedFrameSeq uFrames = rs.getUpdatedFrames();
         // We'll end up getting all the frames for the job so we need to find
-        // the one we want. 
+        // the one we want.
         for (UpdatedFrame uFrame: uFrames.getUpdatedFramesList()) {
             if (uFrame.getId().equals(frame.getFrameId())) {
                 assertTrue(uFrame.hasFrameStateDisplayOverride());
