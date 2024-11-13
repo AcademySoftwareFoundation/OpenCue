@@ -61,6 +61,7 @@ export function SimpleDataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     state: { sorting },
+    autoResetPageIndex: false,
   });
 
   const leftAlignedColumns = React.useMemo(() => ["dispatchOrder", "name", "services", "lastResource"], []);
