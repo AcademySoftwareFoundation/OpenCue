@@ -31,6 +31,7 @@ func getEnv(key string) string {
 
 // Parse and validate the JWT token string
 func validateJWTToken(tokenString string, jwtSecret []byte) (*jwt.Token, error) {
+	log.Println("Validating JWT token")
 	return jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Ensure that the token's signing method is HMAC
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -38,6 +39,7 @@ func validateJWTToken(tokenString string, jwtSecret []byte) (*jwt.Token, error) 
 			log.Printf(errorString)
 			return nil, fmt.Errorf(errorString)
 		}
+		log.Println("JWT signing method validated")
 		// Return the secret key for validation
 		return jwtSecret, nil
 	})
@@ -71,7 +73,7 @@ func jwtMiddleware(next http.Handler, jwtSecret []byte) http.Handler {
 			return
 		}
 
-		// If token is valid, pass it to the next handler
+		log.Println("Token validated successfully; passing request to next handler")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -89,54 +91,46 @@ func run() error {
 	// Note: Make sure the gRPC server is running properly and accessible
 	mux := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-	
-	// show.proto
-	errShow := gw.RegisterShowInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
-	if errShow != nil {
-		return errShow
+
+	// Register gRPC handlers
+	if err := registerGRPCHandlers(ctx, mux, grpcServerEndpoint, opts); err != nil {
+		return fmt.Errorf("failed to register gRPC handlers: %w", err)
 	}
 
-	errFrame := gw.RegisterFrameInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
-	if errFrame != nil {
-		return errFrame
-	}
-	errGroup := gw.RegisterGroupInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
-	if errGroup != nil {
-		return errGroup
-	}
-	errJob := gw.RegisterJobInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
-	if errJob != nil {
-		return errJob
-	}
-	errLayer := gw.RegisterLayerInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
-	if errLayer != nil {
-		return errLayer
-	}
-
-	// host.proto
-	errDeed := gw.RegisterDeedInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
-	if errDeed != nil {
-		return errDeed
-	}
-	errHost := gw.RegisterHostInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
-	if errHost != nil {
-		return errHost
-	}
-	errOwner := gw.RegisterOwnerInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
-	if errOwner != nil {
-		return errOwner
-	}
-	errProc := gw.RegisterProcInterfaceHandlerFromEndpoint(ctx, mux, grpcServerEndpoint, opts)
-	if errProc != nil {
-		return errProc
-	}
+	log.Println("All gRPC handlers registered successfully")
 
 	// Create a new HTTP ServeMux with middleware jwtMiddleware to protect the mux
 	httpMux := http.NewServeMux()
 	httpMux.Handle("/", jwtMiddleware(mux, jwtSecret))
-	
+
+	log.Printf("Starting HTTP server on endpoint: %s, port %s", grpcServerEndpoint, port)
+
 	// Start HTTP server (and proxy calls to gRPC server endpoint)
 	return http.ListenAndServe(":" + port, httpMux)
+}
+
+func registerGRPCHandlers(ctx context.Context, mux *runtime.ServeMux, grpcServerEndpoint string, opts []grpc.DialOption) error {
+	log.Println("Registering gRPC handlers")
+	handlers := []func(context.Context, *runtime.ServeMux, string, []grpc.DialOption) error{
+		gw.RegisterShowInterfaceHandlerFromEndpoint,
+		gw.RegisterFrameInterfaceHandlerFromEndpoint,
+		gw.RegisterGroupInterfaceHandlerFromEndpoint,
+		gw.RegisterJobInterfaceHandlerFromEndpoint,
+		gw.RegisterLayerInterfaceHandlerFromEndpoint,
+		gw.RegisterDeedInterfaceHandlerFromEndpoint,
+		gw.RegisterHostInterfaceHandlerFromEndpoint,
+		gw.RegisterOwnerInterfaceHandlerFromEndpoint,
+		gw.RegisterProcInterfaceHandlerFromEndpoint,
+	}
+
+	for _, handler := range handlers {
+		if err := handler(ctx, mux, grpcServerEndpoint, opts); err != nil {
+			log.Printf("Error registering gRPC handler: %v", err)
+			return err
+		}
+	}
+	log.Println("All gRPC handlers registered")
+	return nil
 }
 
 func main() {
@@ -151,6 +145,7 @@ func main() {
 	log.SetOutput(mw)
 
 	flag.Parse()
+	log.Println("Starting main application")
 
 	if err := run(); err != nil {
 		grpclog.Fatal(err)
