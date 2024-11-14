@@ -29,7 +29,6 @@ import uuid
 
 import mock
 import pyfakefs.fake_filesystem_unittest
-import unittest
 
 import six
 
