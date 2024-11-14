@@ -29,6 +29,7 @@ import uuid
 
 import mock
 import pyfakefs.fake_filesystem_unittest
+import unittest
 
 import six
 
@@ -91,7 +92,7 @@ class RqConstantTests(pyfakefs.fake_filesystem_unittest.TestCase):
     tempdir = tempfile.mkdtemp()
 
     def setUp(self):
-        self.setUpPyfakefs()
+        self.setUpPyfakefs(additional_skip_names=['shutil'])
         self.fs.add_real_directory(self.tempdir)
         self.fs.create_file("/proc/cpuinfo", contents=CPUINFO)
         self.loadavg = self.fs.create_file("/proc/loadavg", contents=LOADAVG_LOW_USAGE)
