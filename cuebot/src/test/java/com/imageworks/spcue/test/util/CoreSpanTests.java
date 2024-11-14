@@ -25,7 +25,6 @@ import org.junit.Before;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -97,10 +96,13 @@ public class CoreSpanTests extends TestCase {
         host.idleMemory = CueUtil.GB8;
         host.cores = 800;
         host.idleCores = 780;
+        // Hardcoded value of dispatcher.memory.mem_reserved_default
+        // to avoid having to read opencue.properties on a test setting
+        long memReservedDefault = 3355443;
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = Dispatcher.MEM_RESERVED_DEFAULT;
+        frame.minMemory = memReservedDefault;
         frame.threadable = true;
 
         VirtualProc proc = VirtualProc.build(host, frame);
@@ -133,10 +135,13 @@ public class CoreSpanTests extends TestCase {
         host.idleMemory = CueUtil.GB8;
         host.cores = 800;
         host.idleCores = 800;
+        // Hardcoded value of dispatcher.memory.mem_reserved_default
+        // to avoid having to read opencue.properties on a test setting
+        long memReservedDefault = 3355443;
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = Dispatcher.MEM_RESERVED_DEFAULT;
+        frame.minMemory = memReservedDefault;
         frame.threadable = true;
 
         proc = VirtualProc.build(host, frame);

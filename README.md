@@ -1,7 +1,7 @@
 ![OpenCue](/images/opencue_logo_with_text.png)
 
-[![Supported VFX Platform Versions](https://img.shields.io/badge/vfx%20platform-2019--2021-lightgrey.svg)](http://www.vfxplatform.com/)
-![Supported Python Versions](https://img.shields.io/badge/python-2.7%2C%203.6%2C%203.7%2C%203.8%2C%203.9-blue.svg)
+[![Supported VFX Platform Versions](https://img.shields.io/badge/vfx%20platform-2021--2024-lightgrey.svg)](http://www.vfxplatform.com/)
+![Supported Python Versions](https://img.shields.io/badge/python-3.6+-blue.svg)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2837/badge)](https://bestpractices.coreinfrastructure.org/projects/2837)
 
 - [Introduction](#Introduction)

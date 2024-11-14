@@ -25,12 +25,13 @@ RUN python3 -m grpc_tools.protoc \
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-RUN 2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
+RUN python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
 
 COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION
 
-RUN cd pycue && python3 setup.py test
+RUN cd pycue && python3 -m pip install .
+RUN cd pycue && python3 tests/test_suite.py
 
 RUN cp LICENSE requirements.txt VERSION pycue/
 

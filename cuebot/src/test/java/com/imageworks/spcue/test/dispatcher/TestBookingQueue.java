@@ -29,6 +29,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.core.env.Environment;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.config.TestAppConfig;
@@ -56,6 +58,9 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
 
     @Resource
     BookingQueue bookingQueue;
+
+    @Autowired
+    Environment env;
 
     private static final String HOSTNAME = "beta";
 
@@ -102,9 +107,9 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
         DispatchHost host3 = hostDao.findDispatchHost(HOSTNAME);
         BookingQueue queue = new BookingQueue(healthThreshold, minUnhealthyPeriodMin, queueCapacity,
                 corePoolSize, maxPoolSize);
-        bookingQueue.execute(new DispatchBookHost(host2,dispatcher));
-        bookingQueue.execute(new DispatchBookHost(host3,dispatcher));
-        bookingQueue.execute(new DispatchBookHost(host1,dispatcher));
+        bookingQueue.execute(new DispatchBookHost(host2,dispatcher, env));
+        bookingQueue.execute(new DispatchBookHost(host3,dispatcher, env));
+        bookingQueue.execute(new DispatchBookHost(host1,dispatcher, env));
         try {
             Thread.sleep(10000);
         } catch (InterruptedException e) {

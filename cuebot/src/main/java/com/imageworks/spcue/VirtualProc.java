@@ -22,7 +22,12 @@ package com.imageworks.spcue;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 public class VirtualProc extends FrameEntity implements ProcInterface {
+
+    private static final Logger logger = LogManager.getLogger(VirtualProc.class);
 
     public String hostId;
     public String allocationId;
@@ -31,6 +36,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
     public String os;
     public byte[] childProcesses;
 
+    public boolean canHandleNegativeCoresRequest;
     public int coresReserved;
     public long memoryReserved;
     public long memoryUsed;
@@ -111,7 +117,17 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
             proc.coresReserved = proc.coresReserved + host.strandedCores;
         }
 
-        if (proc.coresReserved >= 100) {
+        proc.canHandleNegativeCoresRequest = host.canHandleNegativeCoresRequest(proc.coresReserved);
+
+        if (proc.coresReserved == 0) {
+            logger.debug("Reserving all cores");
+            proc.coresReserved = host.cores;
+        }
+        else if (proc.coresReserved < 0) {
+            logger.debug("Reserving all cores minus " + proc.coresReserved);
+            proc.coresReserved = host.cores + proc.coresReserved;
+        }
+        else if (proc.coresReserved >= 100) {
 
             int originalCores = proc.coresReserved;
 
@@ -132,7 +148,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                 proc.coresReserved = wholeCores * 100;
             } else {
                 if (frame.threadable) {
-                    if (selfishServices != null && 
+                    if (selfishServices != null &&
                         frame.services != null &&
                         containsSelfishService(frame.services.split(","), selfishServices)){
                         proc.coresReserved = wholeCores * 100;

@@ -90,8 +90,14 @@ class FileSequence:
         """ Returns the file list of the sequence """
         filelist = []
         paddingString = "%%0%dd" % self.getPadSize()
-        for frame in self.frameSet.getAll():
-            if frameSet is None or (isinstance(frameSet, FrameSet) and frame in frameSet.getAll()):
+        if self.frameSet:
+            for frame in self.frameSet.getAll():
+                if (frameSet is None or
+                        (isinstance(frameSet, FrameSet) and frame in frameSet.getAll())):
+                    framepath = self.getPrefix() + paddingString % frame + self.getSuffix()
+                    filelist.append(framepath)
+        else:
+            for frame in frameSet.getAll():
                 framepath = self.getPrefix() + paddingString % frame + self.getSuffix()
                 filelist.append(framepath)
         return filelist
