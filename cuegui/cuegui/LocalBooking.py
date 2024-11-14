@@ -230,17 +230,17 @@ class LocalBookingWidget(QtWidgets.QWidget):
             return
         host = opencue.api.findHost(str(hostname))
         try:
-            rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
+            rp = [r for r in host.getRenderPartitions() if r.data.job == self.jobName]
 
             if rp:
                 rp = rp[0]
                 self.__stack.setCurrentIndex(1)
                 self.__btn_clear.setText("Clear")
                 self.__btn_clear.setDisabled(False)
-                self.__run_cores.setRange(1, int(host.data.idle_cores) + rp.max_cores // 100)
-                self.__run_cores.setValue(rp.max_cores // 100)
+                self.__run_cores.setRange(1, int(host.data.idle_cores) + rp.data.max_cores // 100)
+                self.__run_cores.setValue(rp.data.max_cores // 100)
                 self.__run_mem.setRange(1, int(host.data.total_memory / 1024 / 1024))
-                self.__run_mem.setValue(int(rp.max_memory / 1024 / 1024))
+                self.__run_mem.setValue(int(rp.data.max_memory / 1024 / 1024))
 
             else:
                 self.__stack.setCurrentIndex(0)
@@ -338,7 +338,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
             self.__btn_clear.setDisabled(True)
             host = opencue.api.findHost(str(hostname))
 
-            rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
+            rp = [r for r in host.getRenderPartitions() if r.data.job == self.jobName]
             if rp:
                 rp = rp[0]
 
@@ -348,7 +348,8 @@ class LocalBookingWidget(QtWidgets.QWidget):
                 for _ in range(0, 10):
                     # pylint: disable=broad-except
                     try:
-                        rp = [r for r in host.getRenderPartitions() if r.job == self.jobName][0]
+                        rp = [r for r in host.getRenderPartitions()
+                            if r.data.job == self.jobName][0]
                         time.sleep(1)
                     except Exception:
                         break
@@ -364,12 +365,12 @@ class LocalBookingWidget(QtWidgets.QWidget):
             return
 
         host = opencue.api.findHost(str(self.__select_host.currentText()))
-        rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
+        rp = [r for r in host.getRenderPartitions() if r.data.job == self.jobName]
         if rp:
             # A render partition already exists on this hosts and user is modifying
             rp[0].setMaxResources(int(self.__run_cores.value() * 100),
-                                        int(self.__run_mem.value()) * 1024 * 1024,
-                                        0)
+                int(self.__run_mem.value()) * 1024 * 1024,
+                0, 0)
         else:
             self.__target.addRenderPartition(
                 str(self.__select_host.currentText()),

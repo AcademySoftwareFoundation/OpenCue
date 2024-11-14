@@ -53,8 +53,8 @@ message RenderPartitionSeq {
 
 
 // -------- Requests & Responses --------]
-
 message RenderPartDeleteRequest {
+
     RenderPartition render_partition = 1;
 }
 
