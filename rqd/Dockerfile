@@ -26,6 +26,7 @@ COPY rqd/README.md ./rqd/
 COPY rqd/setup.py ./rqd/
 COPY rqd/tests/ ./rqd/tests
 COPY rqd/rqd/ ./rqd/rqd
+COPY ci/fix_compiled_proto.py ./ci/
 
 RUN python3.9 -m grpc_tools.protoc \
   -I=./proto \
