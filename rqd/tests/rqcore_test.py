@@ -740,7 +740,9 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             log_dir=logDir,
             children=children,
             environment={"ENVVAR": "env_value"},
-            os="centos7")
+            os="centos7",
+            soft_memory_limit=2000000000,
+            hard_memory_limit=5000000000)
         frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
 
         # when
@@ -761,6 +763,8 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             network="host",
             stderr=True,
             hostname=mock.ANY,
+            mem_reservation=2000000000,
+            mem_limit=5000000000,
             entrypoint=cmd_file
         )
 

@@ -1058,6 +1058,8 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                     network="host",
                     stderr=True,
                     hostname=self.frameEnv["jobhost"],
+                    mem_reservation=runFrame.soft_memory_limit,
+                    mem_limit=runFrame.hard_memory_limit,
                     entrypoint=command)
 
             log_stream = container.logs(stream=True)
