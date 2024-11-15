@@ -696,6 +696,25 @@ class FrameAttendantThread(threading.Thread):
         self.frameEnv["CUE_GPU_MEMORY"] = str(self.rqCore.machine.getGpuMemoryFree())
         self.frameEnv["SP_NOMYCSHRC"] = "1"
 
+        if rqd.rqconstants.RQD_CUSTOM_HOME_PREFIX:
+            self.frameEnv["HOME"] = "%s/%s" % (
+                rqd.rqconstants.RQD_CUSTOM_HOME_PREFIX,
+                self.runFrame.user_name)
+
+        if rqd.rqconstants.RQD_CUSTOM_MAIL_PREFIX:
+            self.frameEnv["MAIL"] = "%s/%s" % (
+                rqd.rqconstants.RQD_CUSTOM_MAIL_PREFIX,
+                self.runFrame.user_name)
+
+        if platform.system() == "Windows":
+            for variable in ["SYSTEMROOT", "APPDATA", "TMP", "COMMONPROGRAMFILES", "SYSTEMDRIVE"]:
+                if variable in os.environ:
+                    self.frameEnv[variable] = os.environ[variable]
+        for variable in rqd.rqconstants.RQD_HOST_ENV_VARS:
+            # Fallback to empty string, easy to spot what is missing in the log
+            self.frameEnv[variable] = os.environ.get(variable, '')
+
+
         if platform.system() == "Windows":
             for variable in ["SYSTEMROOT", "APPDATA", "TMP", "COMMONPROGRAMFILES", "SYSTEMDRIVE"]:
                 if variable in os.environ:
