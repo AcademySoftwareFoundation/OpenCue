@@ -27,7 +27,8 @@ class RenderPartition(object):
 
     def delete(self):
         """Deletes the render partition."""
-        self.stub.Delete(renderPartition_pb2.RenderPartDeleteRequest(render_partition=self.data), timeout=Cuebot.Timeout)
+        self.stub.Delete(renderPartition_pb2.RenderPartDeleteRequest(
+            render_partition=self.data), timeout=Cuebot.Timeout)
 
 
     def setMaxResources(self, cores, memory, gpuMemory, gpuCores):
