@@ -302,7 +302,7 @@ class Machine(object):
                         if re.search(r"\d+", child_statm_fields[1]) else -1
 
                 # pylint: disable=broad-except
-                except (OSError, IOError):
+                except (OSError, IOError, psutil.ZombieProcess):
                     # Many Linux processes are ephemeral and will disappear before we're able
                     # to read them. This is not typically indicative of a problem.
                     log.debug('Failed to read stat/statm file for pid %s', pid)
@@ -315,7 +315,7 @@ class Machine(object):
 
             values = list(frames.values())
             for frame in values:
-                if frame.pid > 0:
+                if frame.pid is not None and frame.pid > 0:
                     session = str(frame.pid)
                     rss = 0
                     vsize = 0
@@ -870,7 +870,7 @@ class Machine(object):
         if frameCores % 100:
             log.warning('Taskset: Can not reserveHT with fractional cores')
             return None
-        log.warning('Taskset: Requesting reserve of %d', (frameCores // 100))
+        log.info('Taskset: Requesting reserve of %d', (frameCores // 100))
 
         # Look for the most idle physical cpu.
         # Prefer to assign cores from the same physical cpu.
