@@ -25,10 +25,8 @@ from builtins import str
 import os.path
 import unittest
 import subprocess
-import re
 
 import mock
-from mock.mock import MagicMock
 import pyfakefs.fake_filesystem_unittest
 
 import rqd.compiled_proto.host_pb2
