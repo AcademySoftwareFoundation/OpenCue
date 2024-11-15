@@ -1010,7 +1010,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             runFrame.user_name,
             tempStatFile,
             tasksetCmd,
-            runFrame.command
+            runFrame.command.replace('"', r"""\"""")
         )
 
         # Log entrypoint on frame log to simplify replaying frames
@@ -1023,6 +1023,8 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         command = self._createCommandFile(command)
         docker_client = self.rqCore.docker.from_env()
         container = None
+        container_id = "00000000"
+        frameInfo.pid = -1
         try:
             log_stream = None
             with self.rqCore.docker_lock:
@@ -1065,7 +1067,8 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                 runFrame.frame_name,
                 frameInfo.frameId,
                 frameInfo.pid)
-            log.warning(msg)
+
+            log.info(msg)
             self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
 
             # Ping rss thread on rqCore
@@ -1087,7 +1090,6 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                 output = container.wait()
                 returncode = output["StatusCode"]
             else:
-                frameInfo.pid = -1
                 returncode = -1
                 container_id = container.short_id if container else -1
                 msg = "Failed to read frame container logs on %s for %s.%s(%s)" % (
@@ -1100,7 +1102,6 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         # pylint: disable=broad-except
         except Exception as e:
             returncode = -1
-            frameInfo.pid = -1
             msg = "Failed to launch frame container"
             logging.exception(msg)
             self.rqlog.write("%s - %s" % (msg, e),
@@ -1108,15 +1109,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         finally:
             # Clear up container after if finishes
             if container:
-                # Log success if frame pid got executed
-                if frameInfo.pid and frameInfo.pid > 0:
-                    # Log frame start info
-                    log.warning("Container %s finished for %s.%s(%s) with pid %s",
-                        container.short_id,
-                        runFrame.job_name,
-                        runFrame.frame_name,
-                        frameInfo.frameId,
-                        frameInfo.pid)
+                container_id = container.short_id
                 container.remove()
             docker_client.close()
 
@@ -1128,6 +1121,16 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         else:
             frameInfo.exitStatus = returncode
             frameInfo.exitSignal = 0
+
+        # Log frame start info
+        log.warning("Frame %s.%s(%s) with pid %s finished on container %s with exitStatus %s %s ",
+            runFrame.job_name,
+            runFrame.frame_name,
+            frameInfo.frameId,
+            frameInfo.pid,
+            container_id,
+            frameInfo.exitStatus,
+            "" if frameInfo.exitStatus == 0 else " - " + runFrame.log_dir_file)
 
         try:
             with open(tempStatFile, "r", encoding='utf-8') as statFile:
