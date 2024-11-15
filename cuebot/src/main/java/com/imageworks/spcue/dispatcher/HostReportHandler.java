@@ -258,7 +258,7 @@ public class HostReportHandler {
                     "dispatcher.memory.mem_reserved_min",
                     Long.class);
 
-            if (!isTempDirStorageEnough(report.getHost().getTotalMcp(), report.getHost().getFreeMcp(), host.os)) {
+            if (!isTempDirStorageEnough(report.getHost().getTotalMcp(), report.getHost().getFreeMcp(), host.getOs())) {
                 msg = String.format(
                     "%s doesn't have enough free space in the temporary directory (mcp), %dMB",
                         host.name, (report.getHost().getFreeMcp()/1024));
@@ -351,16 +351,19 @@ public class HostReportHandler {
      *
      * @param tempTotalStorage Total storage on the temp directory
      * @param tempFreeStorage Free storage on the temp directory
-     * @param hostOs Reported os
+     * @param hostOs Reported operational systems
      * @return
      */
-    private boolean isTempDirStorageEnough(Long tempTotalStorage, Long tempFreeStorage, String hostOs) {
+    private boolean isTempDirStorageEnough(Long tempTotalStorage, Long tempFreeStorage, String[] hostOs) {
         // The minimum amount of free space in the temporary directory to book a host
         int minAvailableTempPercentage = env.getRequiredProperty(
             "dispatcher.min_available_temp_storage_percentage", Integer.class);
 
-        return minAvailableTempPercentage == -1 || hostOs.equalsIgnoreCase(WINDOWS_OS) ||
-                (((tempFreeStorage * 100.0) / tempTotalStorage) >= minAvailableTempPercentage);
+        return minAvailableTempPercentage == -1
+            // It is safe to assume multiple OSs imply windows is not the base OS,
+            // threfore Windows will always report a single hostOs
+            || (hostOs.length == 1 && hostOs[0].equalsIgnoreCase(WINDOWS_OS))
+            || (((tempFreeStorage * 100.0) / tempTotalStorage) >= minAvailableTempPercentage);
     }
 
     /**
@@ -427,7 +430,10 @@ public class HostReportHandler {
             "dispatcher.min_available_temp_storage_percentage", Integer.class);
 
         // Prevent cue frames from booking on hosts with full temporary directories
-        boolean hasEnoughTempStorage = isTempDirStorageEnough(reportHost.getTotalMcp(), reportHost.getFreeMcp(), host.os);
+        boolean hasEnoughTempStorage = isTempDirStorageEnough(
+            reportHost.getTotalMcp(),
+            reportHost.getFreeMcp(),
+            host.getOs());
         if (!hasEnoughTempStorage && host.hardwareState == HardwareState.UP) {
             // Insert a comment indicating that the Host status = Repair with reason = Full temporary directory
             CommentDetail c = new CommentDetail();
