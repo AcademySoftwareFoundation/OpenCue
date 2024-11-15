@@ -640,12 +640,13 @@ class RqCore(object):
         if self.docker:
             docker_client = self.docker.from_env()
             for image in self.docker_images.values():
-                log.info("Downloading frame image: %s" % image)
+                log.info("Downloading frame image: %s", image)
                 try:
                     name, tag = image.split(":")
                     docker_client.images.pull(name, tag)
                 except (ImageNotFound, APIError) as e:
-                    raise RuntimeError("Failed to download frame docker image for %s", image)
+                    raise RuntimeError("Failed to download frame docker image for %s:%s - %s" %
+                                       (name, tag, e))
             log.info("Finished downloading frame images")
 
 
@@ -1062,10 +1063,10 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             log_stream = container.logs(stream=True)
 
             if not container or not log_stream:
-                raise RuntimeError("Container failed to start for %s.%s(%s)",
-                                    runFrame.job_name,
-                                    runFrame.frame_name,
-                                    frameInfo.frameId)
+                raise RuntimeError("Container failed to start for %s.%s(%s)" % (
+                    runFrame.job_name,
+                    runFrame.frame_name,
+                    frameInfo.frameId))
 
             # Try to get the cmd pid from top if the container is still running.
             # If that fails the pid can be acquired from the first line of the log
@@ -1176,15 +1177,15 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             if image is None:
                 raise RuntimeError("This rqd is not configured to run an image "
                     "for this frame OS: %s. Check the [docker.images] "
-                    "section of rqd.conf for more information.", frame_os)
+                    "section of rqd.conf for more information." % frame_os)
             return image
-        elif self.rqCore.docker_images:
+        if self.rqCore.docker_images:
             # If a frame doesn't require an specic OS, default to the first configured OS on
             # [docker.images]
             return list(self.rqCore.docker_images.values())[0]
-        else:
-            raise RuntimeError("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
-                   "least one image on DOCKER_IMAGES ([docker.images] section of rqd.conf)")
+
+        raise RuntimeError("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
+                "least one image on DOCKER_IMAGES ([docker.images] section of rqd.conf)")
 
     def runWindows(self):
         """The steps required to handle a frame under windows"""

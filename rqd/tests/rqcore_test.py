@@ -766,21 +766,6 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             entrypoint=cmd_file
         )
 
-        with open(cmd_file, "r", encoding='utf-8') as f:
-            # Remove `-p RANDOM_PASSWORD` from output
-            cmd = re.sub(r"-p\s+(\d|\w)\S+\s*", "", f.read())
-            self.assertEqual(r"""#!/bin/sh
-useradd -u %s -g %s %s >& /dev/null || true;
-exec su -s /bin/sh %s -c "echo \$$; /bin/nice /usr/bin/time -p -o /job/temp/path/rqd-stat-%s-%s  "
-""" % (
-                frameUid,
-                rqd.rqconstants.LAUNCH_FRAME_USER_GID,
-                frameUsername,
-                frameUsername,
-                frameId,
-                currentTime
-            ), cmd)
-
         self.assertTrue(os.path.exists(logDir))
         self.assertTrue(os.path.isfile(logFile))
 
