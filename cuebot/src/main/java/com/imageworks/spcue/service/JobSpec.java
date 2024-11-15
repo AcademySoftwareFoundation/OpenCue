@@ -38,6 +38,8 @@ import org.apache.logging.log4j.LogManager;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.input.SAXBuilder;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.xml.sax.EntityResolver;
 import org.xml.sax.InputSource;
@@ -58,6 +60,9 @@ import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 
 public class JobSpec {
+    @Autowired
+    private Environment env;
+
     private static final Logger logger = LogManager.getLogger(JobSpec.class);
 
     private String facility;
@@ -117,7 +122,7 @@ public class JobSpec {
     public JobSpec() {
     }
 
-    public static final String NAME_REGEX = "^([\\w\\.]{3,})$";
+    public static final String NAME_REGEX = "^([\\w\\.-]{3,})$";
 
     public static final Pattern NAME_PATTERN = Pattern.compile(NAME_REGEX);
 
@@ -513,19 +518,25 @@ public class JobSpec {
         String memory = layerTag.getChildTextTrim("memory").toLowerCase();
 
         minMemory = convertMemoryInput(memory);
+        long memReservedMin = env.getRequiredProperty(
+            "dispatcher.memory.mem_reserved_min",
+            Long.class);
+        long memReservedMax = env.getRequiredProperty(
+            "dispatcher.memory.mem_reserved_max",
+            Long.class);
 
         // Some quick sanity checks to make sure memory hasn't gone
         // over or under reasonable defaults.
-        if (minMemory > Dispatcher.MEM_RESERVED_MAX) {
+        if (minMemory > memReservedMax) {
             logger.warn("Setting memory for " + buildableJob.detail.name +
-                    "/" + layer.name + " to: "+ Dispatcher.MEM_RESERVED_MAX);
-            layer.minimumMemory = Dispatcher.MEM_RESERVED_MAX;
+                    "/" + layer.name + " to: "+ memReservedMax);
+            layer.minimumMemory = memReservedMax;
         }
-        else if (minMemory < Dispatcher.MEM_RESERVED_MIN) {
+        else if (minMemory < memReservedMin) {
             logger.warn(buildableJob.detail.name + "/" + layer.name +
                     "Specified too little memory, defaulting to: " +
-                    Dispatcher.MEM_RESERVED_MIN);
-            minMemory = Dispatcher.MEM_RESERVED_MIN;
+                    memReservedMin);
+            minMemory = memReservedMin;
         }
 
         buildableLayer.isMemoryOverride = true;
@@ -560,18 +571,24 @@ public class JobSpec {
         long minGpuMemory;
         try {
             minGpuMemory = convertMemoryInput(memory);
+            long memGpuReservedMin = env.getRequiredProperty(
+                "dispatcher.memory.mem_gpu_reserved_min",
+                Long.class);
+            long memGpuReservedMax = env.getRequiredProperty(
+                "dispatcher.memory.mem_gpu_reserved_max",
+                Long.class);
 
             // Some quick sanity checks to make sure gpu memory hasn't gone
             // over or under reasonable defaults.
-            if (minGpuMemory > Dispatcher.MEM_GPU_RESERVED_MAX) {
+            if (minGpuMemory > memGpuReservedMax) {
                 throw new SpecBuilderException("Gpu memory requirements exceed " +
                         "maximum. Are you specifying the correct units?");
             }
-            else if (minGpuMemory < Dispatcher.MEM_GPU_RESERVED_MIN) {
+            else if (minGpuMemory < memGpuReservedMin) {
                 logger.warn(buildableJob.detail.name + "/" + layer.name +
                         "Specified too little gpu memory, defaulting to: " +
-                        Dispatcher.MEM_GPU_RESERVED_MIN);
-                minGpuMemory = Dispatcher.MEM_GPU_RESERVED_MIN;
+                        memGpuReservedMin);
+                minGpuMemory = memGpuReservedMin;
             }
 
             layer.minimumGpuMemory = minGpuMemory;
@@ -580,7 +597,9 @@ public class JobSpec {
             logger.info("Error setting gpu memory for " +
                     buildableJob.detail.name + "/" + layer.name +
                     " failed, reason: " + e + ". Using default.");
-            layer.minimumGpuMemory = Dispatcher.MEM_GPU_RESERVED_DEFAULT;
+            layer.minimumGpuMemory = env.getRequiredProperty(
+                "dispatcher.memory.mem_gpu_reserved_min",
+                Long.class);
         }
     }
 
@@ -607,12 +626,16 @@ public class JobSpec {
         int corePoints = layer.minimumCores;
 
         if (cores.contains(".")) {
-            corePoints = (int) (Double.valueOf(cores) * 100 + .5);
+            if (cores.contains("-")) {
+                corePoints = (int) (Double.valueOf(cores) * 100 - .5);
+            } else {
+                corePoints = (int) (Double.valueOf(cores) * 100 + .5);
+            }
         } else {
             corePoints = Integer.valueOf(cores);
         }
 
-        if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
+        if (corePoints > 0 && corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
             corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
         }
         else if (corePoints > Dispatcher.CORE_POINTS_RESERVED_MAX) {
@@ -649,7 +672,7 @@ public class JobSpec {
      */
     private void determineThreadable(Element layerTag, LayerDetail layer) {
         // Must have at least 1 core to thread.
-        if (layer.minimumCores < 100) {
+        if (layer.minimumCores > 0 && layer.minimumCores < 100) {
             layer.isThreadable = false;
         }
         else if (layerTag.getChildTextTrim("threadable") != null) {

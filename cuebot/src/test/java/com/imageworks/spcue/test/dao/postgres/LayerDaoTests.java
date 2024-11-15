@@ -281,7 +281,9 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
          */
         layerDao.updateLayerMinMemory(layer, 8096);
         LayerDetail l2 = layerDao.findLayerDetail(getJob(), "pass_1");
-        assertEquals(l2.minimumMemory, Dispatcher.MEM_RESERVED_MIN);
+        // Hardcoded value of dispatcher.memory.mem_reserved_min
+        // to avoid having to read opencue.properties on a test setting
+        assertEquals(l2.minimumMemory, 262144);
 
         /*
          * Check regular operation.

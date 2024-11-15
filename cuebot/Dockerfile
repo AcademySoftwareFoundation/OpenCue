@@ -1,7 +1,7 @@
 # -----------------
 # BUILD
 # -----------------
-FROM gradle:6.0.1-jdk13 AS build
+FROM gradle:7.6.4-jdk17 AS build
 
 USER gradle
 

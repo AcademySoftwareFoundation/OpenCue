@@ -20,16 +20,21 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import functools
+
 from qtpy import QtCore
 from qtpy import QtWidgets
 
 from opencue.exception import EntityNotFoundException
+from opencue.api import job_pb2
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
 import cuegui.MenuActions
 import cuegui.Utils
+
+logger = cuegui.Logger.getLogger(__file__)
 
 
 def displayRange(layer):
@@ -63,10 +68,12 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda layer: displayRange(layer),
                        tip="The range of frames that the layer should render.")
         self.addColumn("Cores", 45, id=6,
-                       data=lambda layer: "%.2f" % layer.data.min_cores,
+                       data=lambda layer: self.labelCoresColumn(layer.data.min_cores),
                        sort=lambda layer: layer.data.min_cores,
                        tip="The number of cores that the frames in this layer\n"
-                           "will reserve as a minimum.")
+                           "will reserve as a minimum."
+                           "Zero or negative value indicate that the layer will use\n"
+                           "all available cores on the machine, minus this value.")
         self.addColumn("Memory", 60, id=7,
                        data=lambda layer: cuegui.Utils.memoryToString(layer.data.min_memory),
                        sort=lambda layer: layer.data.min_memory,
@@ -177,6 +184,14 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         since last updated"""
         self.ticksWithoutUpdate = 9999
 
+    def labelCoresColumn(self, reserved_cores):
+        """Returns the reserved cores for a job"""
+        if reserved_cores > 0:
+            return "%.2f" % reserved_cores
+        if reserved_cores == 0:
+            return "ALL"
+        return "ALL (%.2f)" % reserved_cores
+
     # pylint: disable=inconsistent-return-statements
     def setJob(self, job):
         """Sets the current job.
@@ -217,11 +232,23 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
+        readonly = (cuegui.Constants.FINISHED_JOBS_READONLY_LAYER and
+                    self.__job and self.__job.state() == job_pb2.FINISHED)
+
         __selectedObjects = self.selectedObjects()
 
         menu = QtWidgets.QMenu()
 
         self.__menuActions.layers().addAction(menu, "view")
+
+        if (len(cuegui.Constants.OUTPUT_VIEWERS) > 0
+                and sum(len(layer.getOutputPaths()) for layer in __selectedObjects) > 0):
+            for viewer in cuegui.Constants.OUTPUT_VIEWERS:
+                menu.addAction(viewer['action_text'],
+                               functools.partial(cuegui.Utils.viewOutput,
+                                                 __selectedObjects,
+                                                 viewer['action_text']))
+
         depend_menu = QtWidgets.QMenu("&Dependencies", self)
         self.__menuActions.layers().addAction(depend_menu, "viewDepends")
         self.__menuActions.layers().addAction(depend_menu, "dependWizard")
@@ -232,20 +259,21 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if len(__selectedObjects) == 1:
             menu.addSeparator()
             if bool(int(self.app.settings.value("AllowDeeding", 0))):
-                self.__menuActions.layers().addAction(menu, "useLocalCores")
+                self.__menuActions.layers().addAction(menu, "useLocalCores") \
+                    .setEnabled(not readonly)
             if len({layer.data.range for layer in __selectedObjects}) == 1:
-                self.__menuActions.layers().addAction(menu, "reorder")
-            self.__menuActions.layers().addAction(menu, "stagger")
+                self.__menuActions.layers().addAction(menu, "reorder").setEnabled(not readonly)
+            self.__menuActions.layers().addAction(menu, "stagger").setEnabled(not readonly)
 
         menu.addSeparator()
-        self.__menuActions.layers().addAction(menu, "setProperties")
+        self.__menuActions.layers().addAction(menu, "setProperties").setEnabled(not readonly)
         menu.addSeparator()
-        self.__menuActions.layers().addAction(menu, "kill")
-        self.__menuActions.layers().addAction(menu, "eat")
-        self.__menuActions.layers().addAction(menu, "retry")
+        self.__menuActions.layers().addAction(menu, "kill").setEnabled(not readonly)
+        self.__menuActions.layers().addAction(menu, "eat").setEnabled(not readonly)
+        self.__menuActions.layers().addAction(menu, "retry").setEnabled(not readonly)
         if [layer for layer in __selectedObjects if layer.data.layer_stats.dead_frames]:
             menu.addSeparator()
-            self.__menuActions.layers().addAction(menu, "retryDead")
+            self.__menuActions.layers().addAction(menu, "retryDead").setEnabled(not readonly)
 
         menu.exec_(e.globalPos())
 

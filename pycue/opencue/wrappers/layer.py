@@ -17,6 +17,7 @@
 import enum
 import getpass
 import os
+import platform
 
 import opencue.api
 from opencue.compiled_proto import job_pb2
@@ -51,7 +52,7 @@ class Layer(object):
         """Kills the entire layer."""
         username = username if username else getpass.getuser()
         pid = pid if pid else os.getpid()
-        host_kill = host_kill if host_kill else os.uname()[1]
+        host_kill = host_kill if host_kill else platform.uname()[1]
         return self.stub.KillFrames(job_pb2.LayerKillFramesRequest(layer=self.data,
                                                                    username=username,
                                                                    pid=str(pid),

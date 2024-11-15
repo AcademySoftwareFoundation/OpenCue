@@ -243,9 +243,8 @@ main() {
     log INFO "Creating Python virtual environment..."
     create_and_activate_venv
     log INFO "Installing OpenCue Python libraries..."
-    install_log="${TEST_LOGS}/install-client-sources.log"
-    sandbox/install-client-sources.sh &>"${install_log}"
-    log INFO "Testing pycue library..."
+    sandbox/install-client-sources.sh
+    log INFO "Testing pycue library..."£
     test_pycue
     log INFO "Testing cueadmin..."
     test_cueadmin

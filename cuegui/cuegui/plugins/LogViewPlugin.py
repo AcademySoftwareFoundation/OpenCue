@@ -514,6 +514,7 @@ class LogViewWidget(QtWidgets.QWidget):
 
         self.SIG_CONTENT_UPDATED.connect(self._update_log_content)
         self.log_thread_pool = QtCore.QThreadPool()
+        self.log_thread_pool.waitForDone()
 
     def _on_mouse_pressed(self, pos):
         """
@@ -927,6 +928,14 @@ class LogViewWidget(QtWidgets.QWidget):
             self._content_box.setPlainText(content)
         else:
             current_text = (self._content_box.toPlainText() or '')
+
+            # ignore decoding higher order bytes outside ordinal range(128)
+            # ex: umlats, latin-1 etc.
+            try:
+                content = content.decode("utf-8", errors="ignore")
+                current_text = current_text.decode("utf-8", errors="ignore")
+            except AttributeError:
+                pass
             new_text = content.lstrip(str(current_text))
             if new_text:
                 self._content_box.appendPlainText(new_text)

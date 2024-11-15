@@ -86,6 +86,7 @@ public class FrameCompleteHandler {
     private WhiteboardDao whiteboardDao;
     private ServiceDao serviceDao;
     private ShowDao showDao;
+    private Environment env;
 
     /*
      * The last time a proc was unbooked for subscription or job balancing.
@@ -122,6 +123,7 @@ public class FrameCompleteHandler {
 
     @Autowired
     public FrameCompleteHandler(Environment env) {
+        this.env = env;
         satisfyDependOnlyOnFrameSuccess = env.getProperty(
             "depend.satisfy_only_on_frame_success", Boolean.class, true);
     }
@@ -153,7 +155,18 @@ public class FrameCompleteHandler {
             final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() +
                                "_" + report.getFrame().getFrameId();
 
-            if (dispatchSupport.stopFrame(frame, newFrameState, report.getExitStatus(),
+            // rqd is currently not able to report exit_signal=9 when a frame is killed by
+            // the OOM logic. The current solution sets exitStatus to
+            // Dispatcher.EXIT_STATUS_MEMORY_FAILURE before killing the frame, this enables
+            // auto-retrying frames affected by the logic when they report with a
+            // frameCompleteReport. This status retouch ensures a frame complete report is
+            // not able to override what has been set by the previous logic.
+            int exitStatus = report.getExitStatus();
+            if (frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+                exitStatus = frameDetail.exitStatus;
+            }
+
+            if (dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
                     report.getFrame().getMaxRss())) {
                 if (dispatcher.isTestMode()) {
                     // Database modifications on a threadpool cannot be captured by the test thread
@@ -449,7 +462,7 @@ public class FrameCompleteHandler {
                         && dispatchSupport.isCueBookable(job)) {
 
                     bookingQueue.execute(new DispatchBookHost(hostManager
-                            .getDispatchHost(proc.getHostId()), dispatcher));
+                            .getDispatchHost(proc.getHostId()), dispatcher, env));
                 }
 
                 if (job.state.equals(JobState.FINISHED)) {
@@ -498,7 +511,7 @@ public class FrameCompleteHandler {
                                         hostManager.getDispatchHost(proc.getHostId());
 
                                 bookingQueue.execute(
-                                        new DispatchBookHost(host, dispatcher));
+                                        new DispatchBookHost(host, dispatcher, env));
                                 return;
                             }
                         } catch (JobLookupException e) {
@@ -527,7 +540,7 @@ public class FrameCompleteHandler {
                         dispatchSupport.strandCores(host, stranded_cores);
                         dispatchSupport.unbookProc(proc);
                         bookingQueue.execute(new DispatchBookHost(host, job,
-                                dispatcher));
+                                dispatcher, env));
                         return;
                     }
                 }

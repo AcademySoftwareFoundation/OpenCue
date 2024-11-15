@@ -230,12 +230,18 @@ public final class CueUtil {
         return String.format("%dMB", kb / 1024);
     }
 
-    public static final long convertKbToFakeKb64bit(long Kb) {
-        return (long) (Math.ceil((Kb * 0.0009765625) * 0.0009765625) * 1048576) - Dispatcher.MEM_RESERVED_SYSTEM;
+    public static final long convertKbToFakeKb64bit(Environment env, long Kb) {
+        long memReservedSystem = env.getRequiredProperty(
+            "dispatcher.memory.mem_reserved_system",
+            Long.class);
+        return (long) (Math.ceil((Kb * 0.0009765625) * 0.0009765625) * 1048576) - memReservedSystem;
     }
 
-    public static final long convertKbToFakeKb32bit(long Kb) {
-        return (long) (Math.floor((Kb * 0.0009765625) * 0.0009765625) * 1048576) - Dispatcher.MEM_RESERVED_SYSTEM;
+    public static final long convertKbToFakeKb32bit(Environment env, long Kb) {
+        long memReservedSystem = env.getRequiredProperty(
+            "dispatcher.memory.mem_reserved_system",
+            Long.class);
+        return (long) (Math.floor((Kb * 0.0009765625) * 0.0009765625) * 1048576) - memReservedSystem;
     }
 
     /**

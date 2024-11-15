@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 import getpass
 import os
+import platform
 import unittest
 
 import mock
@@ -49,7 +50,7 @@ class LayerTests(unittest.TestCase):
             job_pb2.Layer(name=TEST_LAYER_NAME))
         username = getpass.getuser()
         pid = os.getpid()
-        host_kill = os.uname()[1]
+        host_kill = platform.uname()[1]
         reason = "Frames Kill Request"
         layer.kill(username=username, pid=pid, host_kill=host_kill, reason=reason)
 

@@ -15,3 +15,6 @@ rest_gateway/*.tar\.gz
 .vscode
 .venv/
 .eggs/*
+/cuebot/bin/*
+/logs/*
+/.gradle/*

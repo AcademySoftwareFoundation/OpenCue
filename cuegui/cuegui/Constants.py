@@ -23,6 +23,7 @@ from __future__ import absolute_import
 
 import logging
 import os
+import subprocess
 import platform
 
 from qtpy import QtGui
@@ -80,18 +81,40 @@ def __loadConfigFromFile():
 
 
 def __packaged_version():
-    possible_version_path = os.path.join(
+    version_file_path = os.path.join(
         os.path.abspath(os.path.join(__file__, "../../..")), 'VERSION.in')
-    if os.path.exists(possible_version_path):
-        with open(possible_version_path, encoding='utf-8') as fp:
-            default_version = fp.read().strip()
-        return default_version
-    return "1.3.0"
+    try:
+        with open(version_file_path, encoding='utf-8') as fp:
+            version = fp.read().strip()
+        return version
+    except FileNotFoundError:
+        print(f"VERSION.in not found at: {version_file_path}")
+    except Exception as e:
+        print(f"An unexpected error occurred while reading VERSION.in: {e}")
+    return None
 
+
+def __get_version_from_cmd(command):
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        print(f"Command failed with return code {e.returncode}: {e}")
+    except Exception as e:
+        print(f"Failed to get version from command: {e}")
+    return __config.get('version', __packaged_version())
 
 __config = __loadConfigFromFile()
 
-VERSION = __config.get('version', __packaged_version())
+# Decide which CueGUI version to show
+if __config.get('cuegui.use.custom.version', False):
+    beta_version = os.getenv('OPENCUE_BETA', '0')
+    if beta_version == '1':
+        VERSION = __get_version_from_cmd(__config.get('cuegui.custom.cmd.version.beta'))
+    else:
+        VERSION = __get_version_from_cmd(__config.get('cuegui.custom.cmd.version.stable'))
+else:
+    VERSION = __config.get('version', __packaged_version())
 
 STARTUP_NOTICE_DATE = __config.get('startup_notice.date')
 STARTUP_NOTICE_MSG = __config.get('startup_notice.msg')
@@ -115,12 +138,6 @@ CONFIG_PATH = __config.get('paths.config')
 if not os.path.isabs(CONFIG_PATH):
     CONFIG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), CONFIG_PATH))
 
-
-EMAIL_SUBJECT_PREFIX = "cuemail: please check "
-EMAIL_BODY_PREFIX = "Your PSTs request that you check:\n"
-EMAIL_BODY_SUFFIX = "\n\n"
-EMAIL_DOMAIN = ""
-
 DEFAULT_INI_PATH = os.getenv('CUEGUI_DEFAULT_INI_PATH', __config.get('paths.default_ini_path'))
 if not os.path.isabs(DEFAULT_INI_PATH):
     DEFAULT_INI_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), DEFAULT_INI_PATH))
@@ -133,10 +150,14 @@ for i, path in enumerate(DEFAULT_PLUGIN_PATHS):
 LOGGER_FORMAT = __config.get('logger.format')
 LOGGER_LEVEL = __config.get('logger.level')
 
-EMAIL_SUBJECT_PREFIX = __config.get('email.subject_prefix')
-EMAIL_BODY_PREFIX = __config.get('email.body_prefix')
-EMAIL_BODY_SUFFIX = __config.get('email.body_suffix')
-EMAIL_DOMAIN = __config.get('email.domain')
+EMAIL_SUBJECT_PREFIX = __config.get('email.subject_prefix', "cuemail: please check ")
+EMAIL_BODY_PREFIX = __config.get('email.body_prefix',
+                                 "Your Support Team requests that you check:\n")
+EMAIL_BODY_SUFFIX = __config.get('email.body_suffix', "\n\n")
+EMAIL_DOMAIN = __config.get('email.domain', "")
+SHOW_SUPPORT_CC_TEMPLATE = [val.strip()
+                            for val
+                            in __config.get('email.show_support_cc_template', '').split(',')]
 
 GITHUB_CREATE_ISSUE_URL = __config.get('links.issue.create')
 URL_USERGUIDE = __config.get('links.user_guide')
@@ -154,6 +175,8 @@ DEFAULT_EDITOR = DEFAULT_EDITOR.format(config_path=CONFIG_PATH)
 LOG_ROOT_OS = __config.get('render_logs.root')
 
 ALLOWED_TAGS = tuple(__config.get('allowed_tags'))
+
+SENTRY_DSN = __config.get('sentry.dsn')
 
 DARK_STYLE_SHEET = os.path.join(CONFIG_PATH, __config.get('style.style_sheet'))
 COLOR_THEME = __config.get('style.color_theme')
@@ -182,6 +205,21 @@ LOG_HIGHLIGHT_WARN = __config.get('render_logs.highlight.warning')
 LOG_HIGHLIGHT_INFO = __config.get('render_logs.highlight.info')
 
 RESOURCE_LIMITS = __config.get('resources')
+
+OUTPUT_VIEWERS = []
+for viewer in __config.get('output_viewers', {}):
+    OUTPUT_VIEWERS.append(viewer)
+
+OUTPUT_VIEWER_DIRECT_CMD_CALL = __config.get('output_viewer_direct_cmd_call')
+
+FINISHED_JOBS_READONLY_FRAME = __config.get('finished_jobs_readonly.frame', False)
+FINISHED_JOBS_READONLY_LAYER = __config.get('finished_jobs_readonly.layer', False)
+
+DISABLED_ACTION_TYPES = [action_type.strip()
+                         for action_type
+                         in __config.get('filter_dialog.disabled_action_types', "").split(",")]
+
+SEARCH_JOBS_APPEND_RESULTS = __config.get('search_jobs.append_results', True)
 
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2

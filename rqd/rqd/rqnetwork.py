@@ -71,12 +71,15 @@ class RunningFrame(object):
         self.usedGpuMemory = 0
         self.maxUsedGpuMemory = 0
 
+        self.usedSwapMemory = 0
+
         self.realtime = 0
         self.utime = 0
         self.stime = 0
 
         self.lluTime = 0
         self.childrenProcs = {}
+        self.completeReportSent = False
 
     def runningFrameInfo(self):
         """Returns the RunningFrameInfo object"""
@@ -98,7 +101,8 @@ class RunningFrame(object):
             num_gpus=self.runFrame.num_gpus,
             max_used_gpu_memory=self.maxUsedGpuMemory,
             used_gpu_memory=self.usedGpuMemory,
-            children=self._serializeChildrenProcs()
+            children=self._serializeChildrenProcs(),
+            used_swap_memory=self.usedSwapMemory,
         )
         return runningFrameInfo
 
