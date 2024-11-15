@@ -35,7 +35,6 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
  */
 public class DispatchBookHost extends KeyRunnable {
 
-    @Autowired
     private Environment env;
     private ShowInterface show = null;
     private GroupInterface group = null;
@@ -48,31 +47,35 @@ public class DispatchBookHost extends KeyRunnable {
         return host;
     }
 
-    public DispatchBookHost(DispatchHost host, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, Dispatcher d, Environment env) {
         super(host.getId());
         this.host = host;
         this.dispatcher = d;
+        this.env = env;
     }
 
-    public DispatchBookHost(DispatchHost host, JobInterface job, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, JobInterface job, Dispatcher d, Environment env) {
         super(host.getId() + "_job_" + job.getJobId());
         this.host = host;
         this.job = job;
         this.dispatcher = d;
+        this.env = env;
     }
 
-    public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d, Environment env) {
         super(host.getId() + "_group_" + group.getGroupId());
         this.host = host;
         this.group = group;
         this.dispatcher = d;
+        this.env = env;
     }
 
-    public DispatchBookHost(DispatchHost host, ShowInterface show, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, ShowInterface show, Dispatcher d, Environment env) {
         super(host.getId() + "_name_" + show.getName());
         this.host = host;
         this.show = show;
         this.dispatcher = d;
+        this.env = env;
     }
 
     public void run() {
