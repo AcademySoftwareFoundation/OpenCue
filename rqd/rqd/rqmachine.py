@@ -302,7 +302,7 @@ class Machine(object):
                         if re.search(r"\d+", child_statm_fields[1]) else -1
 
                 # pylint: disable=broad-except
-                except (OSError, IOError):
+                except (OSError, IOError, psutil.ZombieProcess):
                     # Many Linux processes are ephemeral and will disappear before we're able
                     # to read them. This is not typically indicative of a problem.
                     log.debug('Failed to read stat/statm file for pid %s', pid)
