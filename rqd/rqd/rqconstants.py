@@ -72,6 +72,9 @@ RQD_USE_PATH_ENV_VAR = False
 # Copy specific environment variable from the RQD host to the frame env.
 RQD_HOST_ENV_VARS = []
 
+RQD_CUSTOM_HOME_PREFIX = None
+RQD_CUSTOM_MAIL_PREFIX = None
+
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 SENTRY_DSN_PATH = None
@@ -232,6 +235,10 @@ try:
             SENTRY_DSN_PATH = config.getint(__override_section, "SENTRY_DSN_PATH")
         if config.has_option(__override_section, "SP_OS"):
             SP_OS = config.get(__override_section, "SP_OS")
+        if config.has_option(__override_section, "RQD_CUSTOM_HOME_PREFIX"):
+            RQD_CUSTOM_HOME_PREFIX = config.get(__override_section, "RQD_CUSTOM_HOME_PREFIX")
+        if config.has_option(__override_section, "RQD_CUSTOM_MAIL_PREFIX"):
+            RQD_CUSTOM_MAIL_PREFIX = config.get(__override_section, "RQD_CUSTOM_MAIL_PREFIX")
 
         if config.has_section(__host_env_var_section):
             RQD_HOST_ENV_VARS = config.options(__host_env_var_section)

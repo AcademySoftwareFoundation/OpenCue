@@ -5,6 +5,8 @@ package rqd;
 option java_package = "com.imageworks.spcue.grpc.rqd";
 option java_multiple_files = true;
 
+option go_package = "opencue_gateway/gen/go";
+
 import "report.proto";
 
 // Interface for issuing commands to an RQD instance.

@@ -320,11 +320,11 @@ public class HostReportHandler {
                  */
                 if (hostManager.isPreferShow(host)) {
                     bookingQueue.execute(new DispatchBookHost(
-                            host, hostManager.getPreferredShow(host), dispatcher));
+                            host, hostManager.getPreferredShow(host), dispatcher, env));
                     return;
                 }
 
-                bookingQueue.execute(new DispatchBookHost(host, dispatcher));
+                bookingQueue.execute(new DispatchBookHost(host, dispatcher, env));
             }
 
         } finally {
