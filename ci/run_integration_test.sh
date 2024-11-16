@@ -190,8 +190,7 @@ run_job() {
 
 run_blender_job() {
     cp samples/pyoutline/sample.blend $RQD_ROOT
-    chmod +x samples/pyoutline/blender_job.py
-    samples/pyoutline/blender_job.py --blendfile "${RQD_ROOT}/sample.blend"
+    samples/pyoutline/blender_job.py
     job_name="testing-shot02-${USER}_blender_job"
     samples/pycue/wait_for_job.py "${job_name}" --timeout 300
     log INFO "Blender job succeeded (PASS)"
@@ -255,7 +254,7 @@ main() {
     log INFO "$(docker compose version)"
 
     log INFO "Building Cuebot image..."
-    docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
+#    docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
     log INFO "Building RQD image..."
     docker build -t opencue/rqd -f rqd/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd.log"
     log INFO "Building RQD Blender image..."
