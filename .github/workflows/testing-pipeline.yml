@@ -7,17 +7,6 @@ on:
     branches: [ master ]
 
 jobs:
-  test_python_2022:
-    name: Run Python Unit Tests (CY2022)
-    runs-on: ubuntu-22.04
-    container: aswf/ci-opencue:2022
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run Python Tests
-        run: ci/run_python_tests.sh --no-gui
-
   test_cuebot_2022:
     name: Build Cuebot and Run Unit Tests (CY2022)
     runs-on: ubuntu-22.04
