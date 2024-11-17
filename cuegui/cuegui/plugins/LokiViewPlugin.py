@@ -63,7 +63,9 @@ class LokiViewWidget(QtWidgets.QWidget):
                 tries += 1
                 time.sleep(0.5 * tries)
             success, result = self.client.label_values(
-                "session_start_time", params={'query': f'{{frame_id="{frameId}"}}'}
+                label="session_start_time",
+                start=datetime.datetime.fromtimestamp(jobObj.startTime()),
+                params={'query': f'{{frame_id="{frameId}"}}'}
             )
             if success is True:
                 labelValues = result.get('data', [])
@@ -145,17 +147,19 @@ class LokiViewWidget(QtWidgets.QWidget):
     # pylint: disable=unused-argument
     def _selectLog(self, index):
         self.frameText.clear()
-        timestamp, query =  self.frameLogCombo.currentData()
-        start = datetime.datetime.fromtimestamp(float(timestamp))
-        end = datetime.datetime.now()
-        success, result = self.client.query_range(query=query, direction='forward',
-                                                  limit=1000, start=start, end=end)
-        if success is True:
-            for res in result.get('data', {}).get('result', []):
-                for timestamp, line in res.get('values'):
-                    self.frameText.append(f"<pre style='margin: 0px;'>{line}</pre>")
-        else:
-            print(success, result)
+        if self.frameLogCombo.currentData():
+            timestamp, query =  self.frameLogCombo.currentData()
+            start = datetime.datetime.fromtimestamp(float(timestamp))
+            end = datetime.datetime.now()
+            success, result = self.client.query_range(query=query,
+                                                      direction=LokiClient.Direction.forward,
+                                                      limit=1000, start=start, end=end)
+            if success is True:
+                for res in result.get('data', {}).get('result', []):
+                    for timestamp, line in res.get('values'):
+                        self.frameText.append(f"<pre style='margin: 0px;'>{line}</pre>")
+            else:
+                print(success, result)
 
 
 def _unix_to_datetime(unix_timestamp):
