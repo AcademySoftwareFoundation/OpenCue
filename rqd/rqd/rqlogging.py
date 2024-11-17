@@ -22,7 +22,7 @@ import os
 import datetime
 import platform
 
-from rqd.loki_client import LokiClient
+from loki_urllib3_client import LokiClient
 import rqd.rqconstants
 
 log = logging.getLogger(__name__)

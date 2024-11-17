@@ -24,7 +24,7 @@ from qtpy import QtWidgets
 
 from opencue.wrappers import job, frame
 
-from cuegui.loki_client import LokiClient
+from loki_urllib3_client import LokiClient
 
 import cuegui.Constants
 import cuegui.AbstractDockWidget
