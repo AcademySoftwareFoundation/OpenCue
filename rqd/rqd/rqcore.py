@@ -1330,10 +1330,9 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                     try:
                         if self.runFrame.loki_enabled:
                             self.rqlog = rqd.rqlogging.LokiLogger(self.runFrame.loki_url, runFrame)
-                            self.rqlog.waitForFile()
                         else:
                             self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)
-                            self.rqlog.waitForFile()
+                        self.rqlog.waitForFile()
                     # pylint: disable=broad-except
                     except Exception as e:
                         err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
