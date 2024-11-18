@@ -29,7 +29,6 @@ PYTHONPATH=pycue:pyoutline python -m unittest discover -s cuesubmit/tests -t cue
 python -m pytest rqd/tests
 python -m pytest rqd/pytests
 
-
 # Xvfb no longer supports Python 2.
 if [[ "$python_version" =~ "Python 3" && ${args[0]} != "--no-gui" ]]; then
   ci/run_gui_test.sh

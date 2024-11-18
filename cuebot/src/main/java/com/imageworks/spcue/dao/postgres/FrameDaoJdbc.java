@@ -331,6 +331,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.minGpuMemory = rs.getLong("int_gpu_mem_min");
             frame.version = rs.getInt("int_version");
             frame.services = rs.getString("str_services");
+            frame.os = rs.getString("str_os");
             frame.lokiEnabled = rs.getBoolean("b_loki_enabled");
             frame.lokiURL = rs.getString("str_loki_url");
             return frame;
@@ -349,6 +350,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "job.str_user,"+
             "job.int_uid,"+
             "job.str_log_dir,"+
+            "job.str_os,"+
             "job.b_loki_enabled,"+
             "job.str_loki_url,"+
             "frame.str_name AS frame_name, "+

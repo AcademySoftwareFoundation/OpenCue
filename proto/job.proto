@@ -5,6 +5,8 @@ package job;
 option java_package = "com.imageworks.spcue.grpc.job";
 option java_multiple_files = true;
 
+option go_package = "opencue_gateway/gen/go";
+
 import "comment.proto";
 import "depend.proto";
 import "limit.proto";

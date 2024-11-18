@@ -23,4 +23,6 @@ urllib3==2.2.3;python_version>"3.9"
 # Sentry support for rqd
 sentry-sdk==2.11.0
 
+docker==7.1.0
+
 loki-urllib3-client==0.2.2

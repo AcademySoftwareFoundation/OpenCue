@@ -203,7 +203,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertNotNull(frame);
         assertEquals("0001-pass_1", frame.name);
 
-        VirtualProc proc = VirtualProc.build(host, frame);
+        VirtualProc proc = VirtualProc.build(host, frame, job.os);
         proc.coresReserved = 100;
         dispatcher.dispatch(frame, proc);
 
@@ -235,7 +235,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
 
         DispatchFrame frame = frames.get(0);
 
-        VirtualProc proc = VirtualProc.build(host, frame);
+        VirtualProc proc = VirtualProc.build(host, frame, job.os);
         proc.coresReserved = 100;
         dispatcher.dispatch(frame, proc);
 
@@ -288,7 +288,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertEquals(10, frames.size());
 
         DispatchFrame frame = frames.get(0);
-        VirtualProc proc = VirtualProc.build(host, frame);
+        VirtualProc proc = VirtualProc.build(host, frame, job.os);
         proc.coresReserved = 100;
         proc.isLocalDispatch = true;
 
@@ -310,7 +310,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertEquals(10, frames.size());
 
         DispatchFrame frame = frames.get(0);
-        VirtualProc proc = VirtualProc.build(host, frame);
+        VirtualProc proc = VirtualProc.build(host, frame, job.os);
         proc.coresReserved = 100;
         proc.isLocalDispatch = true;
 
@@ -406,7 +406,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
                 "SELECT str_state FROM job WHERE pk_job=?",
                 String.class, job2.id));
 
-        VirtualProc proc = VirtualProc.build(host, frame);
+        VirtualProc proc = VirtualProc.build(host, frame, job1.os);
         proc.coresReserved = 100;
         dispatcher.dispatch(frame, proc);
 
@@ -442,7 +442,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
                         "SELECT str_state FROM job WHERE pk_job=?",
                         String.class, job2.id));
 
-        VirtualProc proc = VirtualProc.build(host, frame);
+        VirtualProc proc = VirtualProc.build(host, frame, job2.os);
         proc.coresReserved = 100;
         dispatcher.dispatch(frame, proc);
 
@@ -476,7 +476,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
                         "SELECT str_state FROM job WHERE pk_job=?",
                         String.class, job2.id));
 
-        VirtualProc proc = VirtualProc.build(host, frame);
+        VirtualProc proc = VirtualProc.build(host, frame, job2.os);
         proc.coresReserved = 100;
         dispatcher.dispatch(frame, proc);
 
@@ -511,7 +511,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
                         "SELECT str_state FROM job WHERE pk_job=?",
                         String.class, job2.id));
 
-        VirtualProc proc = VirtualProc.build(host, frame);
+        VirtualProc proc = VirtualProc.build(host, frame, job2.os);
         proc.coresReserved = 100;
         dispatcher.dispatch(frame, proc);
 
@@ -524,5 +524,47 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testFifoSchedulingEnabled() {
         assertEquals(dispatcherDao.getSchedulingMode(), DispatcherDao.SchedulingMode.PRIORITY_ONLY);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFindDispatchJobsByShowMultiOs() {
+        DispatchHost host = getHost();
+        // Set multiple Os and confirm jobs with Linux are still being found
+        final JobDetail job = getJob1();
+        assertNotNull(job);
+
+        // Host with different os
+        host.setOs("centos7,SomethingElse");
+        Set<String> jobs = dispatcherDao.findDispatchJobs(host,
+                adminManager.findShowEntity("pipe"), 5);
+        assertTrue(jobs.size() == 0);
+
+        // Host with Linux Os (same as defined on spec)
+        host.setOs("centos7,Linux,rocky9");
+        jobs = dispatcherDao.findDispatchJobs(host,
+                adminManager.findShowEntity("pipe"), 5);
+        assertTrue(jobs.size() > 0);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFindDispatchJobsAllShowsMultiOs() {
+        DispatchHost host = getHost();
+        // Set multiple Os and confirm jobs with Linux are still being found
+        final JobDetail job = getJob1();
+        assertNotNull(job);
+
+        // Host with incompatible OS shouldn't find any job
+        host.setOs("centos7,SomethingElse");
+        Set<String> jobs = dispatcherDao.findDispatchJobs(host, 5);
+        assertTrue(jobs.size() == 0);
+
+        // Host with Linux Os (same as defined on spec) should find jobs
+        host.setOs("centos7,Linux,rocky9");
+        jobs = dispatcherDao.findDispatchJobs(host, 5);
+        assertTrue(jobs.size() > 0);
     }
 }
