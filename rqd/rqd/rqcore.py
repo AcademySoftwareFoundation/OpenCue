@@ -1039,15 +1039,15 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             command.replace(tempPassword, "[password]").replace(";", "\n"),
             prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
 
-        # Handle memory limits
-        # Docker min requirement is 6MB, if request is bellow limit,
-        # give the frame a reasonable amount of memory
-        soft_memory_limit = runFrame.soft_memory_limit
+        # Handle memory limits. Cuebot users KB docker uses Bytes.
+        # Docker min requirement is 6MB, if request is bellow limit, give the frame a reasonable
+        # amount of memory.
+        soft_memory_limit = runFrame.soft_memory_limit * 1000
         if soft_memory_limit <= 6291456:
             logging.warning("Frame requested %s bytes of soft_memory_limit, which is lower than "
                             "minimum required. Running with 1MB", soft_memory_limit)
             soft_memory_limit = "1GB"
-        hard_memory_limit = runFrame.soft_memory_limit
+        hard_memory_limit = runFrame.hard_memory_limit * 1000
         if hard_memory_limit <= 6291456:
             logging.warning("Frame requested %s bytes of hard_memory_limit, which is lower than "
                             "minimum required. Running with 2MB", hard_memory_limit)
