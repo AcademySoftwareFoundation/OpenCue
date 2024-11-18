@@ -479,7 +479,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "b_autoeat,"+
             "int_max_retries," +
             "b_loki_enabled," +
-            "str_loki_url" +
+            "str_loki_url " +
         ") " +
         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 

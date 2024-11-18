@@ -72,7 +72,7 @@ public class DispatchQuery {
                 "AND job.pk_facility                = ? " +
                 "AND " +
                     "(" +
-                        "job.str_os IS NULL OR job.str_os IN '' " +
+                        "job.str_os IS NULL OR job.str_os = '' " +
                     "OR " +
                         "job.str_os IN ? " +
                     ") " +
