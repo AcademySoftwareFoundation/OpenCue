@@ -82,6 +82,9 @@ public interface Dispatcher {
     // Upgrade the memory on the layer by 1g and retry.
     public static final int EXIT_STATUS_MEMORY_FAILURE = 33;
 
+    // Upgrade the memory on the layer by 1g and retry.
+    public static final int DOCKER_EXIT_STATUS_MEMORY_FAILURE = 137;
+
     // max retry time
     public static final int FRAME_TIME_NO_RETRY = 3600 * 8;
 
