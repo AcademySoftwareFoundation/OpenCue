@@ -75,7 +75,12 @@ const Searchbox: React.FC<SearchboxProps> = ({ searchQuery, handleInputChange, t
           placeholder="Search Jobs: add '!' after queries for regex"
           size="small"
           autoComplete="off"
-          sx={{ mb: 2, width: "100%" }}
+          sx={{
+            mb: 2,
+            width: "100%",
+            backgroundColor: theme => theme.palette.background.default,
+            color: theme => theme.palette.text.primary
+          }}
           onFocus={handleFocus}
           onClick={handleFocus}
         />

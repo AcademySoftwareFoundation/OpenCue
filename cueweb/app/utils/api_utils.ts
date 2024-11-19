@@ -98,7 +98,7 @@ export async function accessActionApi(endpoint: string, body: string | string[])
   
 
 // Helper function to access object retrieval APIs that return arrays of objects (jobs, layers, or frames).
-export async function accessGetApi(endpoint: string, body: string): Promise<any[]> {
+export async function accessGetApi(endpoint: string, body: string): Promise<any> {
     const { NEXT_PUBLIC_URL } = loadClientEnvVars();
   
     try {
@@ -115,7 +115,7 @@ export async function accessGetApi(endpoint: string, body: string): Promise<any[
       return res.data;
     } catch (error) {
       handleError(error, `Error at ${endpoint}`);
-      return [];
+      return null;
     }
   }
   
