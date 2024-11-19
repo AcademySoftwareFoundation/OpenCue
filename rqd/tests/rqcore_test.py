@@ -701,6 +701,8 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         frameUid = 928
         frameUsername = 'my-random-user'
         returnCode = 0
+        softLimit = 2000000000
+        hardLimit = 5000000000
         renderHost = rqd.compiled_proto.report_pb2.RenderHost(name='arbitrary-host-name')
         logFile = os.path.join(logDir, '%s.%s.rqlog' % (jobName, frameName))
 
@@ -731,6 +733,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
+        # Test Valid memory limit
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
             frame_id=frameId,
             job_name=jobName,
@@ -741,8 +744,8 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             children=children,
             environment={"ENVVAR": "env_value"},
             os="centos7",
-            soft_memory_limit=2000000000,
-            hard_memory_limit=5000000000)
+            soft_memory_limit=softLimit,
+            hard_memory_limit=hardLimit)
         frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
 
         # when
@@ -763,8 +766,8 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             network="host",
             stderr=True,
             hostname=mock.ANY,
-            mem_reservation=2000000000,
-            mem_limit=5000000000,
+            mem_reservation=softLimit*1000,
+            mem_limit=hardLimit*1000,
             entrypoint=cmd_file
         )
 
@@ -773,6 +776,44 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         rqCore.sendFrameCompleteReport.assert_called_with(
             frameInfo
+        )
+
+        ### Test minimum memory limit
+        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
+            frame_id=frameId,
+            job_name=jobName,
+            frame_name=frameName,
+            uid=frameUid,
+            user_name=frameUsername,
+            log_dir=logDir,
+            children=children,
+            environment={"ENVVAR": "env_value"},
+            os="centos7",
+            soft_memory_limit=1,
+            hard_memory_limit=2)
+        frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
+
+        # when
+        attendantThread = rqd.rqcore.FrameAttendantThread(rqCore, runFrame, frameInfo)
+        attendantThread.start()
+        attendantThread.join()
+
+        # then
+        cmd_file = os.path.join(tempDir, 'rqd-cmd-%s-%s' % (runFrame.frame_id, currentTime))
+        rqCore.docker.from_env.return_value.containers.run.assert_called_with(
+            image="centos7_image",
+            detach=True,
+            environment=mock.ANY,
+            working_dir=jobTempPath,
+            mounts=rqCore.docker_mounts,
+            privileged=True,
+            pid_mode="host",
+            network="host",
+            stderr=True,
+            hostname=mock.ANY,
+            mem_reservation="1GB",
+            mem_limit="2GB",
+            entrypoint=cmd_file
         )
 
 
