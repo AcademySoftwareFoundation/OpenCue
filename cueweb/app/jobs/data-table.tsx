@@ -11,7 +11,8 @@ import {
 } from "@/app/utils/action_utils";
 import {
   getJobsForRegex,
-  getJobsForShowShot
+  getJobsForShowShot,
+  getJobsForUser
 } from "@/app/utils/get_utils";
 import { handleError } from "@/app/utils/notify_utils";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ interface DataTableProps {
 
 // Define the actions for useReducer
 type Action =
+  | { type: "SET_AUTOLOAD_MINE"; payload: boolean }
   | { type: "SET_TABLE_DATA"; payload: Job[] }
   | { type: "SET_TABLE_DATA_UNFILTERED"; payload: Job[] }
   | { type: "SET_SORTING"; payload: any[] }
@@ -95,6 +97,7 @@ type Action =
 // If we didn't keep track of the unfiltered table data, the user would get no results because we would be searching
 // tableData for state 'Finished' and tableData currently only contains jobs with state 'In Progress'
 interface State {
+  autoloadMine: boolean;
   tableData: Job[];
   tableDataUnfiltered: Job[];
   sorting: any[];
@@ -121,6 +124,7 @@ const initialColumnVisibility = {
 
 // Initial state
 const initialState: State = {
+  autoloadMine: getItemFromLocalStorage("autoloadMine", "true"),
   tableData: getItemFromLocalStorage("tableData", "[]"),
   tableDataUnfiltered: getItemFromLocalStorage("tableDataUnfiltered", "[]"),
   sorting: getItemFromLocalStorage("sorting", "[]"),
@@ -139,6 +143,8 @@ const initialState: State = {
 // Reducer function
 function reducer(state: State, action: Action): State {
   switch (action.type) {
+    case "SET_AUTOLOAD_MINE":
+      return { ...state, autoloadMine: action.payload };
     case "SET_TABLE_DATA":
       return { ...state, tableData: action.payload };
     case "SET_TABLE_DATA_UNFILTERED":
@@ -212,6 +218,14 @@ export function DataTable({ columns, data, session }: DataTableProps) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
+    addUsersJobs();
+  },[state.username, state.autoloadMine]);
+  
+  useEffect(() => {
+    setItemInLocalStorage("autoloadMine", JSON.stringify(state.autoloadMine));
+  }, [state.autoloadMine]);
+
+  useEffect(() => {
     setItemInLocalStorage("tableData", JSON.stringify(state.tableData));
   }, [state.tableData]);
 
@@ -236,9 +250,18 @@ export function DataTable({ columns, data, session }: DataTableProps) {
   }, [state.stateSelectValue]);
 
   useEffect(() => {
-    const username = session && session.user && session.user.email ? session.user.email.split("@")[0] : "Unknown User";
+    const username: string = (session && session.user && session.user.email) ? session.user.email.split("@")[0] : "Unknown User";
     dispatch({ type: "SET_USERNAME", payload: username });
   }, []);
+
+  function setAutoloadMine(
+    dispatch: React.Dispatch<Action>,
+    autoloadMine: boolean): React.Dispatch<React.SetStateAction<boolean>> {
+    return (update) => {
+      const newAutoload = typeof update === "function" ? update(autoloadMine) : update;
+      dispatch({ type: "SET_AUTOLOAD_MINE", payload: newAutoload });
+    };
+  }
 
   function setTableData(
     dispatch: React.Dispatch<Action>,
@@ -368,6 +391,7 @@ export function DataTable({ columns, data, session }: DataTableProps) {
       // Trigger table updates every 5000ms
       interval = setInterval(() => {
         updateData();
+        addUsersJobs();
       }, 5000);
     } catch (error) {
       handleError(error, "Error updating table");
@@ -379,7 +403,7 @@ export function DataTable({ columns, data, session }: DataTableProps) {
       // Terminate the worker when the component unmounts
       worker?.terminate();
     };
-  }, [state.tableDataUnfiltered]);
+  }, [state.tableDataUnfiltered, state.tableData, state.autoloadMine]);
 
   // Automatically remove jobs in selectedRows if they've been removed from the table.
   // Cases where jobs are removed include:
@@ -598,6 +622,23 @@ export function DataTable({ columns, data, session }: DataTableProps) {
     }
   };
 
+  async function addUsersJobs() {
+    if (!state.autoloadMine || state.username === "Unknown User") return;
+
+    const userJobs = await getJobsForUser(state.username);
+
+    const jobsToAddUnfiltered = userJobs.filter(userJob => {
+      return !state.tableDataUnfiltered.some(existingJob => existingJob.name === userJob.name)
+    });
+
+    const jobsToAdd = userJobs.filter(userJob => {
+      return !state.tableData.some(existingJob => existingJob.name === userJob.name)
+    });
+    
+    dispatch({ type: "SET_TABLE_DATA", payload: [...state.tableDataUnfiltered, ...jobsToAddUnfiltered] });
+    dispatch({ type: "SET_TABLE_DATA_UNFILTERED", payload: [...state.tableData, ...jobsToAdd] });
+  };
+
   const handleStateFiltering = (stateFilter: string) => {
     dispatch({ type: "SET_STATE_SELECT_VALUE", payload: stateFilter });
     if (stateFilter === "All States") {
@@ -814,9 +855,8 @@ export function DataTable({ columns, data, session }: DataTableProps) {
           {/* to do later: add functionality for autoloading artist jobs after checking if checked is true */}
           <Switch
             id="autoload-mine"
-            onCheckedChange={(checked) => {
-              checked === true;
-            }}
+            checked={state.autoloadMine}
+            onCheckedChange={setAutoloadMine(dispatch, state.autoloadMine)}
           />
           <Label htmlFor="autoload-mine">Autoload Mine</Label>
         </div>

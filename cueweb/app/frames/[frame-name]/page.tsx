@@ -283,7 +283,13 @@ export default function FramePage() {
       {/* Dropdown to select different log versions */}
       <div className="my-4">
         <h3>Log versions</h3>
-        <FormControl size="small">
+        <FormControl 
+          size="small"
+          sx={{
+            backgroundColor: theme => theme.palette.background.default,
+            color: theme => theme.palette.text.primary
+          }}
+        >
           <Select
             id={"log-version-select"}
             value={curLogVersion}
