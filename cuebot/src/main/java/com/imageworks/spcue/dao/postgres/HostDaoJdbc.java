@@ -27,6 +27,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -219,7 +220,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             host.isNimby = rs.getBoolean("b_nimby");
             host.threadMode = rs.getInt("int_thread_mode");
             host.tags = rs.getString("str_tags");
-            host.setOs(rs.getString("str_os"));
+            host.setOs(Optional.ofNullable(rs.getString("str_os")).orElse(""));
             host.hardwareState =
                 HardwareState.valueOf(rs.getString("str_state"));
             return host;
