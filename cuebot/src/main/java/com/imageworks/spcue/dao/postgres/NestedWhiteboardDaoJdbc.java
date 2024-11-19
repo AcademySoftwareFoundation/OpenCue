@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -326,7 +327,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                 .setPriority(rs.getInt("int_priority"))
                 .setShot(rs.getString("str_shot"))
                 .setShow(rs.getString("str_show"))
-                .setOs(rs.getString("str_os"))
+                .setOs(Optional.ofNullable(rs.getString("str_os")).orElse(""))
                 .setFacility(rs.getString("facility_name"))
                 .setGroup(rs.getString("group_name"))
                 .setState(JobState.valueOf(rs.getString("str_state")))
