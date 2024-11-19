@@ -30,7 +30,7 @@ class CueGuiApplication(QtWidgets.QApplication):
 
     # Global signals
     display_log_file_content = QtCore.Signal(object)
-    display_frame_log_content = QtCore.Signal(object, object)
+    select_frame = QtCore.Signal(object, object)
     double_click = QtCore.Signal(object)
     facility_changed = QtCore.Signal()
     single_click = QtCore.Signal(object)

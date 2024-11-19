@@ -78,7 +78,7 @@ class LokiViewWidget(QtWidgets.QWidget):
         self.verticalLayout.addLayout(self.horizontalLayout_2)
 
         self.frameLogCombo.currentIndexChanged.connect(self._selectLog)
-        self.app.display_frame_log_content.connect(self._display_frame_log)
+        self.app.select_frame.connect(self._display_frame_log)
 
     def _display_frame_log(self, jobObj: job.Job, frameObj: frame.Frame):
         jobName = jobObj.name()

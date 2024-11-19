@@ -359,7 +359,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             old_log_files = []
 
         self.app.display_log_file_content.emit([current_log_file] + old_log_files)
-        self.app.display_frame_log_content.emit(self.__job, item.rpcObject)
+        self.app.select_frame.emit(self.__job, item.rpcObject)
 
     def __itemDoubleClickedViewLog(self, item, col):
         """Called when a frame is double clicked, views the frame log in a popup
