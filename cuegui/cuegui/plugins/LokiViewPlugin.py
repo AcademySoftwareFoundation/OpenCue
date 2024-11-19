@@ -54,8 +54,32 @@ class LokiViewWidget(QtWidgets.QWidget):
         self.caseCheck = QtWidgets.QCheckBox(self)
         self.searchLine = QtWidgets.QLineEdit(self)
         self.findButton = QtWidgets.QPushButton(self)
-        self.setupUi()
 
+        self.horizontalLayout.addWidget(self.frameNameLabel)
+        self.frameLogCombo.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+        self.horizontalLayout.addWidget(self.frameLogCombo)
+        self.wordWrapCheck.setText("Word Wrap")
+        self.horizontalLayout.addWidget(self.wordWrapCheck)
+        self.refreshButton.setText("Refresh")
+        self.horizontalLayout.addWidget(self.refreshButton)
+        self.horizontalLayout.setStretch(0, 1)
+        self.verticalLayout.addLayout(self.horizontalLayout)
+        self.frameText.setStyleSheet("pre {display: inline;}")
+        self.frameText.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
+        self.frameText.setReadOnly(True)
+        self.verticalLayout.addWidget(self.frameText)
+        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
+        self.caseCheck.setText("Aa")
+        self.horizontalLayout_2.addWidget(self.caseCheck)
+        self.searchLine.setPlaceholderText("Search log..")
+        self.searchLine.setText("")
+        self.searchLine.setClearButtonEnabled(True)
+        self.horizontalLayout_2.addWidget(self.searchLine)
+        self.findButton.setText("Find")
+        self.horizontalLayout_2.addWidget(self.findButton)
+        self.verticalLayout.addLayout(self.horizontalLayout_2)
+
+        self.frameLogCombo.currentIndexChanged.connect(self._selectLog)
         self.app.display_frame_log_content.connect(self._display_frame_log)
 
     def _display_frame_log(self, jobObj: job.Job, frameObj: frame.Frame):
@@ -89,34 +113,6 @@ class LokiViewWidget(QtWidgets.QWidget):
                 self.frameLogCombo.adjustSize()
         else:
             pass
-
-    def setupUi(self):
-        """Function for setting up the UI widgets"""
-
-        self.horizontalLayout.addWidget(self.frameNameLabel)
-        self.frameLogCombo.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
-        self.horizontalLayout.addWidget(self.frameLogCombo)
-        self.wordWrapCheck.setText("Word Wrap")
-        self.horizontalLayout.addWidget(self.wordWrapCheck)
-        self.refreshButton.setText("Refresh")
-        self.horizontalLayout.addWidget(self.refreshButton)
-        self.horizontalLayout.setStretch(0, 1)
-        self.verticalLayout.addLayout(self.horizontalLayout)
-        self.frameText.setStyleSheet("pre {display: inline;}")
-        self.frameText.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
-        self.frameText.setReadOnly(True)
-        self.verticalLayout.addWidget(self.frameText)
-        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
-        self.caseCheck.setText("Aa")
-        self.horizontalLayout_2.addWidget(self.caseCheck)
-        self.searchLine.setPlaceholderText("Search log..")
-        self.searchLine.setText("")
-        self.searchLine.setClearButtonEnabled(True)
-        self.horizontalLayout_2.addWidget(self.searchLine)
-        self.findButton.setText("Find")
-        self.horizontalLayout_2.addWidget(self.findButton)
-        self.verticalLayout.addLayout(self.horizontalLayout_2)
-        self.frameLogCombo.currentIndexChanged.connect(self._selectLog)
 
     # pylint: disable=unused-argument
     def _selectLog(self, index):
