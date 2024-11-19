@@ -121,12 +121,6 @@ class LokiViewWidget(QtWidgets.QWidget):
         self.findButton = QtWidgets.QPushButton(self)
         self.findButton.setObjectName("findButton")
         self.horizontalLayout_2.addWidget(self.findButton)
-        self.nextButton = QtWidgets.QPushButton(self)
-        self.nextButton.setObjectName("nextButton")
-        self.horizontalLayout_2.addWidget(self.nextButton)
-        self.prevButton = QtWidgets.QPushButton(self)
-        self.prevButton.setObjectName("prevButton")
-        self.horizontalLayout_2.addWidget(self.prevButton)
         self.verticalLayout.addLayout(self.horizontalLayout_2)
 
         self.retranslateUi()
@@ -141,8 +135,6 @@ class LokiViewWidget(QtWidgets.QWidget):
         self.caseCheck.setText(_translate("self", "Aa"))
         self.searchLine.setPlaceholderText(_translate("self", "Search log.."))
         self.findButton.setText(_translate("self", "Find"))
-        self.nextButton.setText(_translate("self", "Next"))
-        self.prevButton.setText(_translate("self", "Prev"))
 
     # pylint: disable=unused-argument
     def _selectLog(self, index):
