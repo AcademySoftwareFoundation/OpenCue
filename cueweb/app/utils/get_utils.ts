@@ -12,41 +12,41 @@ import { Frame } from "../frames/frame-columns";
 export async function getFrame(body: string): Promise<Frame | null> {
     const ENDPOINT = "/api/frame/getframe";
     const response = await accessGetApi(ENDPOINT, body);
-    return response.length ? response[0] : null;
+    return response;
 }
 
 // Fetch multiple frames based on the request body
 export async function getFrames(body: string): Promise<Frame[]> {
     const ENDPOINT = "/api/job/getframes";
     const response = await accessGetApi(ENDPOINT, body);
-    return response;
+    return response ? response : [];
 }
 
 // Fetch a pending job based on the request body
 export async function getPendingJob(body: string): Promise<Job | null> {
     const ENDPOINT = "/api/job/getjob";
     const response = await accessGetApi(ENDPOINT, body);
-    return response.length ? response[0] : null;
+    return response;
 }
 
 // Fetch all jobs based on the request body
 export async function getJobs(body: string): Promise<Job[]> {
     const ENDPOINT = "/api/job/getjobs";
     const response = await accessGetApi(ENDPOINT, body);
-    return response;
+    return response ? response : [];
 }
 
 // Fetch all layers based on the request body
 export async function getLayers(body: string): Promise<Layer[]> {
     const ENDPOINT = "/api/job/getlayers";
     const response = await accessGetApi(ENDPOINT, body);
-    return response;
+    return response ? response : [];
 }
 
 // Fetch jobs for a specific user, including finished jobs
 export async function getJobsForUser(user: string): Promise<Job[]> {
     const body = { r: { include_finished: true, users: [`${user}`] } };
-    return getJobs(JSON.stringify(body));
+    return await getJobs(JSON.stringify(body));
 }
 
 /*
