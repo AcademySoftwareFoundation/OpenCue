@@ -43,8 +43,19 @@ class LokiViewWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.app = cuegui.app()
+        self.verticalLayout = QtWidgets.QVBoxLayout(self)
+        self.horizontalLayout = QtWidgets.QHBoxLayout()
+        self.frameNameLabel = QtWidgets.QLabel(self)
+        self.frameLogCombo = QtWidgets.QComboBox(self)
+        self.wordWrapCheck = QtWidgets.QCheckBox(self)
+        self.refreshButton = QtWidgets.QPushButton(self)
+        self.frameText = QtWidgets.QTextEdit(self)
+        self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
+        self.caseCheck = QtWidgets.QCheckBox(self)
+        self.searchLine = QtWidgets.QLineEdit(self)
+        self.findButton = QtWidgets.QPushButton(self)
         self.setupUi()
-        self.frameLogCombo.currentIndexChanged.connect(self._selectLog)
+
         self.app.display_frame_log_content.connect(self._display_frame_log)
 
     def _display_frame_log(self, jobObj: job.Job, frameObj: frame.Frame):
@@ -81,60 +92,31 @@ class LokiViewWidget(QtWidgets.QWidget):
 
     def setupUi(self):
         """Function for setting up the UI widgets"""
-        # self.setObjectName("self")
-        # self.resize(958, 663)
-        self.verticalLayout = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout.setObjectName("verticalLayout")
-        self.horizontalLayout = QtWidgets.QHBoxLayout()
-        self.horizontalLayout.setObjectName("horizontalLayout")
-        self.frameNameLabel = QtWidgets.QLabel(self)
-        self.frameNameLabel.setObjectName("frameNameLabel")
+
         self.horizontalLayout.addWidget(self.frameNameLabel)
-        self.frameLogCombo = QtWidgets.QComboBox(self)
         self.frameLogCombo.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
-        self.frameLogCombo.setObjectName("frameLogCombo")
         self.horizontalLayout.addWidget(self.frameLogCombo)
-        self.wordWrapCheck = QtWidgets.QCheckBox(self)
-        self.wordWrapCheck.setObjectName("wordWrapCheck")
+        self.wordWrapCheck.setText("Word Wrap")
         self.horizontalLayout.addWidget(self.wordWrapCheck)
-        self.refreshButton = QtWidgets.QPushButton(self)
-        self.refreshButton.setObjectName("refreshButton")
+        self.refreshButton.setText("Refresh")
         self.horizontalLayout.addWidget(self.refreshButton)
         self.horizontalLayout.setStretch(0, 1)
         self.verticalLayout.addLayout(self.horizontalLayout)
-        self.frameText = QtWidgets.QTextEdit(self)
         self.frameText.setStyleSheet("pre {display: inline;}")
         self.frameText.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
         self.frameText.setReadOnly(True)
-        self.frameText.setObjectName("frameText")
         self.verticalLayout.addWidget(self.frameText)
-        self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
-        self.caseCheck = QtWidgets.QCheckBox(self)
-        self.caseCheck.setObjectName("caseCheck")
+        self.caseCheck.setText("Aa")
         self.horizontalLayout_2.addWidget(self.caseCheck)
-        self.searchLine = QtWidgets.QLineEdit(self)
+        self.searchLine.setPlaceholderText("Search log..")
         self.searchLine.setText("")
         self.searchLine.setClearButtonEnabled(True)
-        self.searchLine.setObjectName("searchLine")
         self.horizontalLayout_2.addWidget(self.searchLine)
-        self.findButton = QtWidgets.QPushButton(self)
-        self.findButton.setObjectName("findButton")
+        self.findButton.setText("Find")
         self.horizontalLayout_2.addWidget(self.findButton)
         self.verticalLayout.addLayout(self.horizontalLayout_2)
-
-        self.retranslateUi()
-        QtCore.QMetaObject.connectSlotsByName(self)
-
-    def retranslateUi(self):
-        """ Add text to the widgets"""
-        _translate = QtCore.QCoreApplication.translate
-        self.setWindowTitle(_translate("self", "self"))
-        self.wordWrapCheck.setText(_translate("self", "Word Wrap"))
-        self.refreshButton.setText(_translate("self", "Refresh"))
-        self.caseCheck.setText(_translate("self", "Aa"))
-        self.searchLine.setPlaceholderText(_translate("self", "Search log.."))
-        self.findButton.setText(_translate("self", "Find"))
+        self.frameLogCombo.currentIndexChanged.connect(self._selectLog)
 
     # pylint: disable=unused-argument
     def _selectLog(self, index):
