@@ -90,7 +90,7 @@ class Frame(object):
         if self.data.state != job_pb2.FrameState.Value('WAITING'):
             self.stub.Retry(job_pb2.FrameRetryRequest(frame=self.data), timeout=Cuebot.Timeout)
 
-    def addRenderPartition(self, hostname, threads, max_cores, num_mem, max_gpu):
+    def addRenderPartition(self, hostname, threads, max_cores, max_mem, max_gpu_memory, max_gpus):
         """Adds a render partition to the frame.
 
         :type  hostname: str
@@ -99,10 +99,12 @@ class Frame(object):
         :param threads: number of threads of the partition
         :type  max_cores: int
         :param max_cores: max cores enabled for the partition
-        :type  num_mem: int
-        :param num_mem: amount of memory reserved for the partition
-        :type  max_gpu: int
-        :param max_gpu: max gpu cores enabled for the partition
+        :type  max_mem: int
+        :param max_mem: amount of memory reserved for the partition
+        :type  max_gpu_memory: int
+        :param max_gpu_memory: max gpu memory enabled for the partition
+        :type  max_gpus: int
+        :param max_gpus: max number of gpus enabled for the partition
         """
         self.stub.AddRenderPartition(
             job_pb2.FrameAddRenderPartitionRequest(
@@ -110,9 +112,10 @@ class Frame(object):
                 host=hostname,
                 threads=threads,
                 max_cores=max_cores,
-                max_memory=num_mem,
-                max_gpu=max_gpu,
-                username=os.getenv("USER", "unknown")))
+                max_memory=max_mem,
+                max_gpu_memory=max_gpu_memory,
+                username=os.getenv("USER", "unknown"),
+                max_gpu=max_gpus))
 
     def getWhatDependsOnThis(self):
         """Returns a list of dependencies that depend directly on this frame.
