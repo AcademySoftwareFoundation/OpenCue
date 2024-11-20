@@ -20,6 +20,8 @@
 package com.imageworks.spcue;
 
 import java.util.Optional;
+
+import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.job.FrameState;
 
 public class DispatchFrame extends FrameEntity implements FrameInterface {
@@ -42,7 +44,6 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
     public int minCores;
     public int maxCores;
     public boolean threadable;
-    public long minMemory;
     public int minGpus;
     public int maxGpus;
     public long minGpuMemory;
@@ -52,6 +53,25 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
 
     // The Operational System this frame is expected to run in
     public String os;
+
+    // Memory requirement for this frame in bytes
+    private long minMemory;
+
+    // Soft limit to be enforced for this frame in bytes
+    public long softMemoryLimit;
+
+    // Hard limit to be enforced for this frame in bytes
+    public long hardMemoryLimit;
+
+    public void setMinMemory(long minMemory) {
+        this.minMemory = minMemory;
+        this.softMemoryLimit = (long)(((double)minMemory) * Dispatcher.SOFT_MEMORY_MULTIPLIER);
+        this.hardMemoryLimit = (long)(((double)minMemory) * Dispatcher.HARD_MEMORY_MULTIPLIER);
+    }
+
+    public long getMinMemory() {
+        return this.minMemory;
+    }
 
     public boolean lokiEnabled;
     public String lokiURL;

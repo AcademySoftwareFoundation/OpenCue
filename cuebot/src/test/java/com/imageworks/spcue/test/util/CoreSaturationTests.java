@@ -47,7 +47,7 @@ public class CoreSaturationTests extends TestCase {
         DispatchFrame frame = new DispatchFrame();
         frame.services = "NOTarnold";
         frame.minCores = 100;
-        frame.minMemory = CueUtil.GB * 7;
+        frame.setMinMemory(CueUtil.GB * 7);
         frame.threadable = true;
 
         VirtualProc proc = VirtualProc.build(host, frame);

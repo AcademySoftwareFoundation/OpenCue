@@ -115,8 +115,10 @@ message RunFrame {
     int32 num_gpus = 23;
     report.ChildrenProcStats children = 24;
     string os = 25;
-    bool loki_enabled = 26;
-    string loki_url = 27;
+    int64 soft_memory_limit = 26;
+    int64 hard_memory_limit = 27;
+    bool loki_enabled = 28;
+    string loki_url = 29;
 }
 
 message RunFrameSeq {

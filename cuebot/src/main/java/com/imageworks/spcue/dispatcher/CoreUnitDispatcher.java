@@ -286,7 +286,7 @@ public class CoreUnitDispatcher implements Dispatcher {
             }
 
             if (host.idleCores < host.handleNegativeCoresRequirement(frame.minCores) ||
-                    host.idleMemory < frame.minMemory ||
+                    host.idleMemory < frame.getMinMemory() ||
                     host.idleGpus < frame.minGpus ||
                     host.idleGpuMemory < frame.minGpuMemory) {
                     logger.debug("Cannot dispatch, insufficient resources.");
