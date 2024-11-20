@@ -325,7 +325,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.minCores = rs.getInt("int_cores_min");
             frame.maxCores = rs.getInt("int_cores_max");
             frame.threadable = rs.getBoolean("b_threadable");
-            frame.minMemory = rs.getLong("int_mem_min");
+            frame.setMinMemory(rs.getLong("int_mem_min"));
             frame.minGpus = rs.getInt("int_gpus_min");
             frame.maxGpus = rs.getInt("int_gpus_max");
             frame.minGpuMemory = rs.getLong("int_gpu_mem_min");

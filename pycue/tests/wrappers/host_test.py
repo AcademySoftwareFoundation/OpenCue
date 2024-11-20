@@ -110,7 +110,7 @@ class HostTests(unittest.TestCase):
             host_pb2.HostGetRenderPartitionsRequest(host=host.data),
             timeout=mock.ANY)
         self.assertEqual(len(renderParts), 1)
-        self.assertEqual(renderParts[0].id, renderPartId)
+        self.assertEqual(renderParts[0].data.id, renderPartId)
 
     def testRebootWhenIdle(self, getStubMock):
         stubMock = mock.Mock()
