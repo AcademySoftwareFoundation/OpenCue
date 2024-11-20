@@ -53,7 +53,7 @@ public class CoreSpanTests extends TestCase {
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = CueUtil.GB * 7;
+        frame.setMinMemory(CueUtil.GB * 7);
         frame.threadable = true;
 
         VirtualProc proc = VirtualProc.build(host, frame);
@@ -70,7 +70,7 @@ public class CoreSpanTests extends TestCase {
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = CueUtil.GB;
+        frame.setMinMemory(CueUtil.GB);
 
         VirtualProc proc = VirtualProc.build(host, frame);
         assertEquals(100, proc.coresReserved);
@@ -84,7 +84,7 @@ public class CoreSpanTests extends TestCase {
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = CueUtil.GB4;
+        frame.setMinMemory(CueUtil.GB4);
         frame.threadable = true;
 
         VirtualProc proc = VirtualProc.build(host, frame);
@@ -102,7 +102,7 @@ public class CoreSpanTests extends TestCase {
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = memReservedDefault;
+        frame.setMinMemory(memReservedDefault);
         frame.threadable = true;
 
         VirtualProc proc = VirtualProc.build(host, frame);
@@ -117,7 +117,7 @@ public class CoreSpanTests extends TestCase {
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = CueUtil.GB * 8;
+        frame.setMinMemory(CueUtil.GB * 8);
         frame.threadable = true;
 
         VirtualProc proc = VirtualProc.build(host, frame);
@@ -141,7 +141,7 @@ public class CoreSpanTests extends TestCase {
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = memReservedDefault;
+        frame.setMinMemory(memReservedDefault);
         frame.threadable = true;
 
         proc = VirtualProc.build(host, frame);
