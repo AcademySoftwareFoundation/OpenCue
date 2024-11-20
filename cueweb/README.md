@@ -175,7 +175,17 @@ Go back to [Contents](#contents).
 Go back to [Contents](#contents).
 
 ## Authentication Setup 
-This project utilizes the [NextAuth.js](https://next-auth.js.org/) library for authentication, which includes many popular providers out-of-the-box for additional configuration or for implementing your own email authentication with a custom database. This project already implements Google, Github and Okta authentication and they are enabled if their respective environment variables are provided, otherwise ignored. 
+The CueWeb project utilizes the [NextAuth.js](https://next-auth.js.org/) library for authentication, which includes many popular providers out-of-the-box for additional configuration or for implementing your own email authentication with a custom database. This project already implements Google, Github and Okta authentication and they are enabled if their respective environment variables are provided, otherwise ignored. 
+
+Authentication providers in [NextAuth.js](https://next-auth.js.org/) are services that can be used to sign in to a user.
+
+There are four ways a user can be signed in:
+
+- [Using a built-in OAuth Provider](https://next-auth.js.org/configuration/providers/oauth) (e.g Github, Google, Okta, Apple, GitLab, Amazon, Microsoft Azure, LinkedIn, Atlassian, Auth0, etc...)
+   - List of NextAuth.js providers: https://next-auth.js.org/providers/.
+- [Using a custom OAuth Provider](https://next-auth.js.org/configuration/providers/oauth#using-a-custom-provider)
+- [Using Email](https://next-auth.js.org/configuration/providers/email)
+- [Using Credentials](https://next-auth.js.org/configuration/providers/credentials)
 
 Go back to [Contents](#contents).
 
