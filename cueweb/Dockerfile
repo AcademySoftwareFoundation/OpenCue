@@ -14,8 +14,7 @@ COPY package*.json ./
 # sentry-cli is needed to upload source maps to sentry
 # ENV SENTRYCLI_USE_LOCAL=1
 
-# TODO: something in the sentry-cli is causing 'npm run build' to fail
-# So for a temporary solution, skip downloading the sentry-cli binary entirely until a fix is found
+# Skip downloading the sentry-cli binary entirely
 ENV SENTRYCLI_SKIP_DOWNLOAD=1
 # run npm install if npm ci is not working properly because of the package-lock.json
 # RUN npm install
