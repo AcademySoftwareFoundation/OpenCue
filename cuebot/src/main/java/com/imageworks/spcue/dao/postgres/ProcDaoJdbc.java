@@ -356,7 +356,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "proc.int_virt_max_used,"+
             "proc.int_virt_used,"+
             "host.str_name AS host_name, " +
-            "job.str_os " +
+            "COALESCE(job.str_os, '') AS str_os " +
         "FROM " +
             "proc, " +
             "job, " +
@@ -389,7 +389,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               "proc.*, " +
               "host.str_name AS host_name, " +
               "host.pk_alloc, " +
-              "job.str_os, " +
+              "COALESCE(job.str_os, '') AS str_os, " +
               "alloc.pk_facility " +
           "FROM " +
               "proc, " +
@@ -530,7 +530,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
           "SELECT " +
               "proc.*, " +
               "host.str_name AS host_name, " +
-              "job.str_os, " +
+              "COALESCE(job.str_os, '') AS str_os, " +
               "host.pk_alloc, " +
               "alloc.pk_facility " +
           "FROM " +
