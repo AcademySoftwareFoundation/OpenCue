@@ -3,9 +3,10 @@ import { authOptions } from '@/lib/auth';
 import { getServerSession } from 'next-auth';
 import dynamic from "next/dynamic";
 import { redirect } from 'next/navigation';
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { columns, Job } from "./jobs/columns";
+import { UNKNOWN_USER } from "@/app/utils/constants";
 
 // Optionally import this config to setup Sentry on the client side
 // import '../sentry.client.config';
@@ -18,10 +19,10 @@ const DataTable = dynamic(() => import("@/app/jobs/data-table"), {
 
 export default async function Page() {
   const session = await getServerSession(authOptions);
-  let data: Job[] = [];
+  let username = UNKNOWN_USER;
   
   if (session && session.user && session.user.email) {
-    const username = session.user.email.split('@')[0];
+    username = session.user.email.split('@')[0];
     // Increment Prometheus metric - number of log ins for this user
     try {
       await fetch(`${process.env.NEXTAUTH_URL}/api/increment?username=${username}`);
@@ -31,12 +32,8 @@ export default async function Page() {
       console.error("Error incrementing metrics:", error);
     }
     
-    try {
-      data = await getJobsForUser(username);
-    } catch (error) {
-      console.error("Error fetching jobs:", error);
-    }
-  } else {
+  // Ensure that NEXT_PUBLIC_AUTH_PROVIDER is configured as outlined in the cueweb/README.md to correctly set up login authentication
+  } else if (process.env.NEXT_PUBLIC_AUTH_PROVIDER) {
     redirect('/login');
     return;
   }
@@ -44,7 +41,7 @@ export default async function Page() {
   return (
     <div className="container mx-auto py-10 max-w-[90%]">
       <ToastContainer />
-      <DataTable columns={columns} data={data} session={session}/>
+      <DataTable columns={columns} username={username}/>
     </div>
   );
 }

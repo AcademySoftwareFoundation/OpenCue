@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
+import { handleError } from "@/app/utils/notify_utils";
 
 /*****************************************************************/
 // Utility functions for layers and frames, which include:
@@ -39,7 +39,7 @@ export const convertMemoryToString = (kmem: number, object: string): string => {
 
   const mem = kmem / (k * k);
   if (isNaN(mem)) {
-    Sentry.captureMessage(`Memory is NaN\nFor object: ${object}`, "log");
+    handleError(`Memory is NaN\nFor object: ${object}`);
     return "";
   }
 

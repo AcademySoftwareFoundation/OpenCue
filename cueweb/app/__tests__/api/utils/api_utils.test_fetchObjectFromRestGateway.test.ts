@@ -26,15 +26,12 @@ describe('fetchObjectFromRestGateway', () => {
   // Clear mocks before running each test and mock the return values of loadClientEnvVars and createJwtToken
   beforeEach(() => {
     jest.clearAllMocks();
-    (loadClientEnvVars as jest.Mock).mockReturnValue({ NEXT_PUBLIC_OPENCUE_ENDPOINT: 'http://localhost:3000' });
-    (loadServerEnvVars as jest.Mock).mockReturnValue({ NEXT_JWT_SECRET: 'NEXT_JWT_SECRET' });
     (jwt.sign as jest.Mock).mockReturnValue('mockJwtToken');
     (createJwtToken as jest.Mock).mockReturnValue('mockJwtToken');
   });
   
   /*
   Given a non error response from the gRPC REST gateway expect:
-  - loadClientEnvVars to be called
   - createJwtToken to be called with correct parameters
   - status 200 and correct data to be returned
   */
@@ -50,8 +47,7 @@ describe('fetchObjectFromRestGateway', () => {
     const body = JSON.stringify({ key: 'value' });
     const response = await fetchObjectFromRestGateway(endpoint, method, body);
 
-    expect(loadClientEnvVars).toHaveBeenCalled();
-    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/test-endpoint', {
+    expect(fetch).toHaveBeenCalledWith('NEXT_PUBLIC_OPENCUE_ENDPOINT/test-endpoint', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -65,7 +61,6 @@ describe('fetchObjectFromRestGateway', () => {
 
   /*
   Given a 401 status response from the gRPC REST gateway expect:
-  - loadClientEnvVars to be called
   - createJwtToken to be called with correct parameters
   - status 401 and error message 'Unauthorized request: Unauthorized error' to be returned
   */
@@ -82,8 +77,7 @@ describe('fetchObjectFromRestGateway', () => {
 
     const response = await fetchObjectFromRestGateway(endpoint, method, body);
 
-    expect(loadClientEnvVars).toHaveBeenCalled();
-    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/test-endpoint', {
+    expect(fetch).toHaveBeenCalledWith('NEXT_PUBLIC_OPENCUE_ENDPOINT/test-endpoint', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -97,7 +91,6 @@ describe('fetchObjectFromRestGateway', () => {
 
   /*
   Given a 404 status response from the gRPC REST gateway expect:
-  - loadClientEnvVars to be called
   - createJwtToken to be called with correct parameters
   - status 404 and error message 'Resource not found: Resource not found' to be returned
   */
@@ -114,8 +107,7 @@ describe('fetchObjectFromRestGateway', () => {
 
     const response = await fetchObjectFromRestGateway(endpoint, method, body);
 
-    expect(loadClientEnvVars).toHaveBeenCalled();
-    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/test-endpoint', {
+    expect(fetch).toHaveBeenCalledWith('NEXT_PUBLIC_OPENCUE_ENDPOINT/test-endpoint', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -129,7 +121,6 @@ describe('fetchObjectFromRestGateway', () => {
 
   /*
   Given a 500 status response from the gRPC REST gateway expect:
-  - loadClientEnvVars to be called
   - createJwtToken to be called with correct parameters
   - status 500 and error message 'Unexpected API Error: Unexpected error' to be returned
   */
@@ -146,8 +137,7 @@ describe('fetchObjectFromRestGateway', () => {
 
     const response = await fetchObjectFromRestGateway(endpoint, method, body);
 
-    expect(loadClientEnvVars).toHaveBeenCalled();
-    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/test-endpoint', {
+    expect(fetch).toHaveBeenCalledWith('NEXT_PUBLIC_OPENCUE_ENDPOINT/test-endpoint', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -161,7 +151,6 @@ describe('fetchObjectFromRestGateway', () => {
 
   /*
   Given an error when fetching from the gRPC REST gateway expect:
-  - loadClientEnvVars to be called
   - createJwtToken to be called with correct parameters
   - status 400 and error message 'Fetch error' to be returned
   */
@@ -174,8 +163,7 @@ describe('fetchObjectFromRestGateway', () => {
 
     const response = await fetchObjectFromRestGateway(endpoint, method, body);
 
-    expect(loadClientEnvVars).toHaveBeenCalled();
-    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/test-endpoint', {
+    expect(fetch).toHaveBeenCalledWith('NEXT_PUBLIC_OPENCUE_ENDPOINT/test-endpoint', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -12,22 +12,36 @@ function loadServerEnvVars() {
     // The server and client have different dictionaries because they have different access to environment variables
     // - Server: all environment variables
     // - client: public environment variables (variables that start with NEXT_PUBLIC)
-    const serverEnvVars = {
+    let serverEnvVars = {
         "NEXT_PUBLIC_OPENCUE_ENDPOINT": process.env.NEXT_PUBLIC_OPENCUE_ENDPOINT,
         "NEXT_PUBLIC_URL": process.env.NEXT_PUBLIC_URL,
+        "NEXT_JWT_SECRET": process.env.NEXT_JWT_SECRET,
+    };
+
+    const optionalNextAuthVars = {
         "NEXT_PUBLIC_AUTH_PROVIDER": process.env.NEXT_PUBLIC_AUTH_PROVIDER,
         "NEXTAUTH_URL": process.env.NEXTAUTH_URL,
         "NEXTAUTH_SECRET": process.env.NEXTAUTH_SECRET,
-        "NEXT_JWT_SECRET": process.env.NEXT_JWT_SECRET,
         "NEXT_AUTH_OKTA_CLIENT_ID": process.env.NEXT_AUTH_OKTA_CLIENT_ID,
         "NEXT_AUTH_OKTA_ISSUER": process.env.NEXT_AUTH_OKTA_ISSUER,
         "NEXT_AUTH_OKTA_CLIENT_SECRET": process.env.NEXT_AUTH_OKTA_CLIENT_SECRET,
+    }
+
+    const optionalSentryVars = {
         "SENTRY_ENVIRONMENT": process.env.SENTRY_ENVIRONMENT,
         "SENTRY_PROJECT": process.env.SENTRY_PROJECT,
         "SENTRY_ORG": process.env.SENTRY_ORG,
         "SENTRY_URL": process.env.SENTRY_URL,
         "SENTRY_DSN": process.env.SENTRY_DSN,
-    };
+    }
+
+    if (process.env.NEXT_PUBLIC_AUTH_PROVIDER) {
+        serverEnvVars = { ...serverEnvVars, ...optionalNextAuthVars };
+    }
+
+    if (process.env.SENTRY_DSN) {
+        serverEnvVars = { ...serverEnvVars, ...optionalSentryVars };
+    }
 
     // Iterate through the environment variables and verify them
     for (const varName in serverEnvVars) {
@@ -40,8 +54,6 @@ function loadServerEnvVars() {
             throw new Error(error);
         }
     }
-    return serverEnvVars;
-
 }
 
 // Loads and verifies client side environment variables (NEXT_PUBLIC_ ...)
@@ -52,7 +64,7 @@ function loadClientEnvVars() {
     const clientEnvVars = {
         "NEXT_PUBLIC_OPENCUE_ENDPOINT": process.env.NEXT_PUBLIC_OPENCUE_ENDPOINT,
         "NEXT_PUBLIC_URL": process.env.NEXT_PUBLIC_URL,
-        "NEXT_PUBLIC_AUTH_PROVIDER": process.env.NEXT_PUBLIC_AUTH_PROVIDER,
+        ...(process.env.NEXT_PUBLIC_AUTH_PROVIDER ? { "NEXT_PUBLIC_AUTH_PROVIDER": process.env.NEXT_PUBLIC_AUTH_PROVIDER } : { }),
     }
 
     for (const varName in clientEnvVars) {
@@ -62,7 +74,6 @@ function loadClientEnvVars() {
             throw new Error(error);
         }
     }
-    return clientEnvVars;
 }
 
 module.exports = {

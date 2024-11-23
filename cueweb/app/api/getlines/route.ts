@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exec as execCallback } from "child_process";
 import { promisify } from "util";
-import * as Sentry from "@sentry/nextjs";
+import { handleError } from "@/app/utils/notify_utils";
 
 const exec = promisify(execCallback);
 
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   let path = request.nextUrl.searchParams.get("path");
 
   if (!path || !start || !end) {
-    Sentry.captureMessage("Query paramater not provided to api/getlines", "error");
+    handleError("Query paramater not provided to api/getlines");
     return NextResponse.json({ message: "Query parameter not provided" }, { status: 500 });
   }
 

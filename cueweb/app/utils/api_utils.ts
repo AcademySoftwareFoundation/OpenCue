@@ -1,5 +1,3 @@
-import { loadClientEnvVars, loadServerEnvVars } from "@/app/utils/config";
-import * as Sentry from "@sentry/nextjs";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
 import { handleError } from "./notify_utils";
@@ -25,7 +23,7 @@ export async function fetchObjectFromRestGateway(
     method: string,
     body: string
   ): Promise<NextResponse> {
-    const { NEXT_PUBLIC_OPENCUE_ENDPOINT } = loadClientEnvVars();
+    const NEXT_PUBLIC_OPENCUE_ENDPOINT = process.env.NEXT_PUBLIC_OPENCUE_ENDPOINT;
     const url = `${NEXT_PUBLIC_OPENCUE_ENDPOINT}${endpoint}`;
   
     const jwtParams: JwtParams = {
@@ -61,7 +59,7 @@ export async function fetchObjectFromRestGateway(
 
 // Create the JWT token given the payload parameters
 export function createJwtToken({ sub, role, iat, exp }: JwtParams): string {
-    const { NEXT_JWT_SECRET } = loadServerEnvVars();
+    const NEXT_JWT_SECRET = process.env.NEXT_JWT_SECRET;
     const payload = { sub, role, iat, exp };
     return jwt.sign(payload, NEXT_JWT_SECRET as string);
   }
@@ -70,7 +68,7 @@ export function createJwtToken({ sub, role, iat, exp }: JwtParams): string {
 // Helper function to access a post API with a success or failure returned and handle any errors.
 // Actions follow this format: post to the API and see if the action was successful
 export async function accessActionApi(endpoint: string, body: string | string[]): Promise<{ success?: boolean; error?: string }> {
-    const { NEXT_PUBLIC_URL } = loadClientEnvVars();
+    const NEXT_PUBLIC_URL = process.env.NEXT_PUBLIC_URL;
     const bodyAr = Array.isArray(body) ? body : [body];
   
     try {
@@ -99,7 +97,7 @@ export async function accessActionApi(endpoint: string, body: string | string[])
 
 // Helper function to access object retrieval APIs that return arrays of objects (jobs, layers, or frames).
 export async function accessGetApi(endpoint: string, body: string): Promise<any> {
-    const { NEXT_PUBLIC_URL } = loadClientEnvVars();
+    const NEXT_PUBLIC_URL = process.env.NEXT_PUBLIC_URL;
   
     try {
       const response = await fetch(`${NEXT_PUBLIC_URL}${endpoint}`, {

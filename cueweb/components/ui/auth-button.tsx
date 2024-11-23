@@ -45,3 +45,15 @@ export function GithubSignInButton({onClick}: {onClick: ()=> void}) {
         </Button>
     );
 }
+
+export function CuewebRedirectButton({onClick}: {onClick: ()=> void}) {
+    return (
+        <Button
+            className="w-full"
+            aria-label="Go to CueWeb"
+            onClick={onClick}
+        >
+            CueWeb Home
+        </Button>
+    );
+}

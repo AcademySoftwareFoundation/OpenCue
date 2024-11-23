@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exec as execCallback } from "child_process";
 import { promisify } from "util";
-import * as Sentry from "@sentry/nextjs";
+import { handleError } from "@/app/utils/notify_utils";
 
 const exec = promisify(execCallback);
 async function countLines(filename: string | null) {
@@ -12,7 +12,7 @@ async function countLines(filename: string | null) {
     }
     return parseInt(result.stdout.trim().split(" ")[0]);
   } catch (error) {
-    Sentry.captureMessage(`Error reading logfile: ${error}`, "log");
+    handleError(`Error reading logfile: ${error}`);
     return -1;
   }
 }

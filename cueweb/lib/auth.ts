@@ -3,7 +3,6 @@ import { NextAuthOptions } from "next-auth";
 import OktaProvider from "next-auth/providers/okta";
 import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
-import * as Sentry from "@sentry/nextjs";
 
 const providerConfigs = [
     {
@@ -42,7 +41,6 @@ function loadProviderConfig(type: string, envKeys: any) {
     for (const key in envKeys) {
         const value = process.env[envKeys[key]];
         if (!value) {
-            Sentry.captureMessage(`Missing environment variable: ${envKeys[key]} for ${type}`, "log");
             return null;
         }
         settings[key] = value;

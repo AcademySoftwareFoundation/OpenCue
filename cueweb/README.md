@@ -119,6 +119,17 @@ Next is the process to install and use the CueWeb system.
           - GitHub
             - GITHUB_ID
             - GITHUB_SECRET
+        - To disable authentication, do not define `NEXT_PUBLIC_AUTH_PROVIDER`.
+        Change `.env` from:
+        ```env
+        # Authentication Configuration:
+        NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google
+        ```
+        to
+        ```env
+        # Authentication Configuration:
+        # NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google
+        ```
 
     - Sentry environment variables
         - If you use [Sentry](https://sentry.io/) system to monitor your application, the following environment variables should be set:
@@ -127,17 +138,39 @@ Next is the process to install and use the CueWeb system.
             - SENTRY_DSN
             - SENTRY_ORG
             - SENTRY_PROJECT
+        - If you do not want to use Sentry, do not define `SENTRY_DSN`.
+        Change `.env` from:
+        ```env
+        # Sentry values
+        SENTRY_ENVIRONMENT='development'
+        SENTRY_DSN = sentrydsn
+        SENTRY_URL = sentryurl
+        SENTRY_ORG = sentryorg
+        SENTRY_PROJECT = sentryproject
+        ```
+        to
+        ```env
+        # Sentry values
+        SENTRY_ENVIRONMENT='development'
+        # SENTRY_DSN = sentrydsn
+        SENTRY_URL = sentryurl
+        SENTRY_ORG = sentryorg
+        SENTRY_PROJECT = sentryproject
+        ```
 
 Example of `.env` file (`cueweb/.env.example`):
 
 ```env
 NEXT_PUBLIC_OPENCUE_ENDPOINT=http://your-rest-gateway-url.com
 
+# Sentry values
 SENTRY_ENVIRONMENT='development'
-
+SENTRY_DSN = sentrydsn
+SENTRY_URL = sentryurl
+SENTRY_ORG = sentryorg
+SENTRY_PROJECT = sentryproject
 
 # Authentication Configuration:
-
 NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=canbeanything

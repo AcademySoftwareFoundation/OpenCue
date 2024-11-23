@@ -18,7 +18,7 @@ export function handleError(error: unknown, toastMessage?: string): void {
   // If window is undefined, we are on the server side.
   const isServer = typeof window === "undefined";
 
-  if (isServer) {
+  if (isServer && process.env.SENTRY_DSN) {
     // Handle error on the server side using Sentry
     if (typeof error === "string") {
       Sentry.captureMessage(error, "error");

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import MetricsService from "@/lib/metrics-service";
-import * as Sentry from "@sentry/nextjs";
+import { handleError } from "@/app/utils/notify_utils";
 
 //endpoint to return prometheus metrics
 export async function GET(request: NextRequest) {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    Sentry.captureMessage(`Failed to retrieve metrics: ${error}`, "error");
+    handleError(`Failed to retrieve metrics: ${error}`);
     return new Response('Internal server error', { status: 500 });
   }
 }
