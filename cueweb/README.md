@@ -102,24 +102,25 @@ Next is the process to install and use the CueWeb system.
     - NEXT_JWT_SECRET
         - This is used to create a JWT token which is required to access the REST endpoint of the opencue gRPC API
 
-    - Authentication environment variables
-        - Depending on which provider you use for authentication, you may have to set certain environment variables. 
+    - CueWeb authentication environment variables
+        - Depending on which [Next-Auth.js](https://next-auth.js.org/) provider you use for authentication, you may have to set certain environment variables. 
         - For example, for authentication (see file `cueweb/lib/auth.ts`), the following environment variables must be set:
             - `NEXT_PUBLIC_AUTH_PROVIDER=github,okta,google` will show the three authentication buttons (Okta, Google, GitHub).
             - `NEXT_PUBLIC_AUTH_PROVIDER=github,google` will show the two authentication buttons (GitHub and Google).
             - `NEXT_PUBLIC_AUTH_PROVIDER=google` will show only the Google (Gmail) authentication button.
 
-          - [Okta](https://www.okta.com/)
-              - NEXT_AUTH_OKTA_CLIENT_ID
-              - NEXT_AUTH_OKTA_ISSUER
-              - NEXT_AUTH_OKTA_CLIENT_SECRET
-          - Google (Gmail)
-            - GOOGLE_CLIENT_ID
-            - GOOGLE_CLIENT_SECRET
-          - GitHub
-            - GITHUB_ID
-            - GITHUB_SECRET
-        - To disable authentication, do not define `NEXT_PUBLIC_AUTH_PROVIDER`.
+            - [Okta](https://www.okta.com/)
+                - NEXT_AUTH_OKTA_CLIENT_ID
+                - NEXT_AUTH_OKTA_ISSUER
+                - NEXT_AUTH_OKTA_CLIENT_SECRET
+            - Google (Gmail)
+                - GOOGLE_CLIENT_ID
+                - GOOGLE_CLIENT_SECRET
+            - GitHub
+                - GITHUB_ID
+                - GITHUB_SECRET
+        - To disable the CueWeb authentication, do not define `NEXT_PUBLIC_AUTH_PROVIDER`.
+            - Note that all the CueWeb environment variables are defined in build time (`cueweb/Dockerfile`), including the `NEXT_PUBLIC_AUTH_PROVIDER`, so define if the CueWeb will use or not authentication will be defined in the build time.
         Change `.env` from:
         ```env
         # Authentication Configuration:
@@ -132,7 +133,7 @@ Next is the process to install and use the CueWeb system.
         ```
 
     - Sentry environment variables
-        - If you use [Sentry](https://sentry.io/) system to monitor your application, the following environment variables should be set:
+        - If you use [Sentry](https://sentry.io/) system to monitor the CueWeb application, the following environment variables should be set:
             - SENTRY_ENVIRONMENT
             - SENTRY_URL
             - SENTRY_DSN
