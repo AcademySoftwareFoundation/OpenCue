@@ -31,7 +31,7 @@
     "@radix-ui/react-switch": "^1.0.3",
     "@radix-ui/react-toast": "^1.1.5",
     "@sentry/cli": "^2.31.0",
-    "@sentry/nextjs": "^8.32.0",
+    "@sentry/nextjs": "^8.40.0",
     "@tanstack/react-table": "^8.11.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
