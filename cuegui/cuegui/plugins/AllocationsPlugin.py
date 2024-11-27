@@ -185,8 +185,6 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def tick(self):
         """no-op"""
-        # tick is unused in this widget
-        pass
 
 
 class AllocationWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
