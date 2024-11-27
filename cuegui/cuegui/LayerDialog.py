@@ -534,5 +534,6 @@ class LayerTagsDialog(QtWidgets.QDialog):
         # pylint: enable=no-member
 
     def accept(self):
+        """Accept action"""
         self._tags_widget.apply()
         self.close()

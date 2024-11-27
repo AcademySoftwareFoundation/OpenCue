@@ -141,6 +141,7 @@ class ThreadPool(QtCore.QObject):
             self.__running = False
 
         # pylint: disable=protected-access
+        # pylint: disable=missing-function-docstring
         def run(self):
             self.__running = True
             while self.__running:
