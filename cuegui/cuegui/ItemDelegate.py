@@ -68,6 +68,7 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
         QtWidgets.QItemDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
+        """Paint QItem"""
         if option.state & QtWidgets.QStyle.State_Selected:
             # If selected cell
             self._paintSelected(painter, option, index)
@@ -476,6 +477,7 @@ class ProgressDelegate(AbstractDelegate):
             AbstractDelegate.paint(self, painter, option, index)
 
     def sizeHint(self, option, index):
+        """Delete both option and index and return a new qsize"""
         del option
         del index
-        return QtCore.QSize(12, 12)
+        return QtCore.QSize(12, 12) # pylint: disable=no-member

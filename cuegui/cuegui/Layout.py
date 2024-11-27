@@ -41,7 +41,7 @@ def startup(app_name):
     """
     # E.g. ~/.config/.cuecommander/config.ini
     config_path = "/.%s/config" % app_name.lower()
-    settings = QtCore.QSettings(QtCore.QSettings.IniFormat, QtCore.QSettings.UserScope, config_path)
+    settings = QtCore.QSettings(QtCore.QSettings.IniFormat, QtCore.QSettings.UserScope, config_path) # pylint: disable=no-member
     logger.info('Reading config file from %s', settings.fileName())
     local = settings.fileName()
 
