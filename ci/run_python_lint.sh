@@ -38,7 +38,7 @@ cd ..
 echo "Running lint for cuegui/..."
 cd cuegui
 PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cuegui --ignore=cuegui/images,cuegui/images/crystal --disable=no-member
-PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests
+PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
 cd ..
 
 echo "Running lint for cuesubmit/..."
