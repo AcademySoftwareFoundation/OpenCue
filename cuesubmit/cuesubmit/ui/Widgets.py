@@ -164,10 +164,12 @@ class CueLineEdit(QtWidgets.QLineEdit):
         self.setStyleSheet(Style.LINE_EDIT)
 
     def focusInEvent(self, e):
+        """Event when in focus"""
         super(CueLineEdit, self).focusInEvent(e)
         self.focusChange.emit(True)
 
     def focusOutEvent(self, e):
+        """Event when out of focus"""
         super(CueLineEdit, self).focusOutEvent(e)
         self.focusChange.emit(False)
 
