@@ -892,7 +892,7 @@ class ProxyModel(QtCore.QSortFilterProxyModel):
     """Provides support for sorting data passed between the model and the tree view"""
 
     def lessThan(self, left, right):
-
+        """Handle sorting comparison"""
         leftData = self.sourceModel().data(left)
         rightData = self.sourceModel().data(right)
 
