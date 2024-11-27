@@ -68,6 +68,7 @@ def systemCpuCount():
         return 1
 
 
+# pylint: disable=no-member
 class ThreadPool(QtCore.QObject):
     """A general purpose work queue class."""
 
