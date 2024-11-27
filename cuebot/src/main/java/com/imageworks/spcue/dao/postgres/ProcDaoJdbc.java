@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -327,7 +326,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 proc.memoryUsed = rs.getLong("int_mem_used");
                 proc.unbooked = rs.getBoolean("b_unbooked");
                 proc.isLocalDispatch = rs.getBoolean("b_local");
-                proc.os = Optional.ofNullable(rs.getString("str_os")).orElse("");
+                proc.os = rs.getString("str_os");
                 proc.childProcesses = rs.getBytes("bytea_children");
                 return proc;
             }
