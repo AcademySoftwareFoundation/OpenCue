@@ -100,12 +100,15 @@ class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget)
         self.__monitorLayers.disableUpdate = not bool(pos)
 
     def dragEnterEvent(self, event):
+        """Enter drag event handler"""
         cuegui.Utils.dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
+        """Move drag event handler"""
         cuegui.Utils.dragMoveEvent(event)
 
     def dropEvent(self, event):
+        """Drop Event handler"""
         for jobName in cuegui.Utils.dropEvent(event):
             self.__setJob(jobName)
 

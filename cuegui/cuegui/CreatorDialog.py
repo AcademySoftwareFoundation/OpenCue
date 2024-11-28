@@ -63,6 +63,7 @@ class SubscriptionCreator(QtWidgets.QWidget):
         layout.addRow('Burst:', self.burstBox)
 
     def create(self):
+        """Create Subscription"""
         try:
             showMap = dict(list(zip([s.data.name for s in self.__shows], self.__shows)))
             allocMap = dict(list(zip([a.data.name for a in self.__allocs], self.__allocs)))
@@ -103,5 +104,6 @@ class SubscriptionCreatorDialog(QtWidgets.QDialog):
         # pylint: enable=no-member
 
     def create(self):
+        """Create subscription"""
         self.__creator.create()
         self.close()

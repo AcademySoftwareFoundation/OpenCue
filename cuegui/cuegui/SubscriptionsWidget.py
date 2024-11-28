@@ -243,7 +243,7 @@ class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.subscriptions().addAction(menu, "editBurst")
         menu.addSeparator()
         self.__menuActions.subscriptions().addAction(menu, "delete")
-        menu.exec_(QtCore.QPoint(e.globalX(),e.globalY()))
+        menu.exec_(QtCore.QPoint(e.globalX(),e.globalY())) # pylint: disable=no-member
 
     def tick(self):
         pass
