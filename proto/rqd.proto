@@ -5,6 +5,8 @@ package rqd;
 option java_package = "com.imageworks.spcue.grpc.rqd";
 option java_multiple_files = true;
 
+option go_package = "opencue_gateway/gen/go";
+
 import "report.proto";
 
 // Interface for issuing commands to an RQD instance.
@@ -112,6 +114,9 @@ message RunFrame {
     map<string, string> attributes = 22;
     int32 num_gpus = 23;
     report.ChildrenProcStats children = 24;
+    string os = 25;
+    int64 soft_memory_limit = 26;
+    int64 hard_memory_limit = 27;
 }
 
 message RunFrameSeq {

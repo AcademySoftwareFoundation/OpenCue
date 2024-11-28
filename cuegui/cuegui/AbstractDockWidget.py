@@ -57,12 +57,15 @@ class AbstractDockWidget(cuegui.Plugins.Plugin, QtWidgets.QDockWidget):
         self.widget().setLayout(self.__layout)
 
     def closeEvent(self, event):
+        """Delete event and emit close signal"""
         del event
         self.closed.emit(self)
 
     def showEvent(self, event):
+        """Delete event and emit enabled signal"""
         del event
         self.enabled.emit()
 
     def layout(self):
+        """Returns the layout"""
         return self.__layout

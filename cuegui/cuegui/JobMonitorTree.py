@@ -249,15 +249,19 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__menuActions.jobs().viewComments([job])
 
     def startDrag(self, dropActions):
+        """Triggers a drag event"""
         cuegui.Utils.startDrag(self, dropActions, self.selectedObjects())
 
     def dragEnterEvent(self, event):
+        """Enter Drag event"""
         cuegui.Utils.dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
+        """Move Drag Event"""
         cuegui.Utils.dragMoveEvent(event)
 
     def dropEvent(self, event):
+        """Drop Drag Event"""
         for job_name in cuegui.Utils.dropEvent(event):
             self.addJob(job_name)
 

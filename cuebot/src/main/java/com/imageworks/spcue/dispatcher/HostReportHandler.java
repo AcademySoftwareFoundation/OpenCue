@@ -1,4 +1,3 @@
-
 /*
  * Copyright Contributors to the OpenCue Project
  *
@@ -15,38 +14,20 @@
  * limitations under the License.
  */
 
-
-
 package com.imageworks.spcue.dispatcher;
 
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import static com.imageworks.spcue.dispatcher.Dispatcher.*;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.imageworks.spcue.JobInterface;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.env.Environment;
-import org.springframework.core.task.TaskRejectedException;
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.EmptyResultDataAccessException;
-
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobEntity;
-import com.imageworks.spcue.LayerEntity;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.Source;
@@ -72,12 +53,28 @@ import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.util.CueUtil;
-
-import static com.imageworks.spcue.dispatcher.Dispatcher.*;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.core.task.TaskRejectedException;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 public class HostReportHandler {
 
-    private static final Logger logger = LogManager.getLogger(HostReportHandler.class);
+    private static final Logger logger = LogManager.getLogger(
+        HostReportHandler.class
+    );
 
     private BookingManager bookingManager;
     private HostManager hostManager;
@@ -91,16 +88,20 @@ public class HostReportHandler {
     private JobManager jobManager;
     private JobDao jobDao;
     private LayerDao layerDao;
+
     @Autowired
     private Environment env;
+
     @Autowired
     private CommentManager commentManager;
+
     @Autowired
     private PrometheusMetricsCollector prometheusMetrics;
 
     // Comment constants
-    private static final String SUBJECT_COMMENT_FULL_TEMP_DIR = "Host set to REPAIR for not having enough storage " +
-            "space on the temporary directory (mcp)";
+    private static final String SUBJECT_COMMENT_FULL_TEMP_DIR =
+        "Host set to REPAIR for not having enough storage " +
+        "space on the temporary directory (mcp)";
     private static final String CUEBOT_COMMENT_USER = "cuebot";
     private static final String WINDOWS_OS = "Windows";
 
@@ -108,8 +109,11 @@ public class HostReportHandler {
     // The cache expires after write to avoid growing unbounded. If a request for a host-frame doesn't appear
     // for a period of time, the entry will be removed.
     Cache<String, Long> killRequestCounterCache = CacheBuilder.newBuilder()
-            .expireAfterWrite(FRAME_KILL_CACHE_EXPIRE_AFTER_WRITE_MINUTES, TimeUnit.MINUTES)
-            .build();
+        .expireAfterWrite(
+            FRAME_KILL_CACHE_EXPIRE_AFTER_WRITE_MINUTES,
+            TimeUnit.MINUTES
+        )
+        .build();
 
     /**
      * Boolean to toggle if this class is accepting data or not.
@@ -141,8 +145,9 @@ public class HostReportHandler {
     public void queueBootReport(BootReport report) {
         if (isShutdown()) {
             throw new RqdRetryReportException(
-                    "Error processing host report. Cuebot not " +
-                    "accepting packets.");
+                "Error processing host report. Cuebot not " +
+                "accepting packets."
+            );
         }
         reportQueue.execute(new DispatchHandleHostReport(report, this));
     }
@@ -155,8 +160,9 @@ public class HostReportHandler {
     public void queueHostReport(HostReport report) {
         if (isShutdown()) {
             throw new RqdRetryReportException(
-                    "Error processing host report. Cuebot not " +
-                    "accepting packets.");
+                "Error processing host report. Cuebot not " +
+                "accepting packets."
+            );
         }
         reportQueue.execute(new DispatchHandleHostReport(report, this));
     }
@@ -164,31 +170,45 @@ public class HostReportHandler {
     public void handleHostReport(HostReport report, boolean isBoot) {
         long startTime = System.currentTimeMillis();
         try {
-
             long swapOut = 0;
             if (report.getHost().getAttributesMap().containsKey("swapout")) {
-                swapOut = Integer.parseInt(report.getHost().getAttributesMap().get("swapout"));
-                if (swapOut > 0)
-                    logger.info(report.getHost().getName() + " swapout: " +
-                                report.getHost().getAttributesMap().get("swapout"));
+                swapOut = Integer.parseInt(
+                    report.getHost().getAttributesMap().get("swapout")
+                );
+                if (swapOut > 0) logger.info(
+                    report.getHost().getName() +
+                    " swapout: " +
+                    report.getHost().getAttributesMap().get("swapout")
+                );
             }
 
             DispatchHost host;
             RenderHost rhost = report.getHost();
             try {
                 host = hostManager.findDispatchHost(rhost.getName());
-                hostManager.setHostStatistics(host,
-                        rhost.getTotalMem(), rhost.getFreeMem(),
-                        rhost.getTotalSwap(), rhost.getFreeSwap(),
-                        rhost.getTotalMcp(), rhost.getFreeMcp(),
-                        rhost.getTotalGpuMem(), rhost.getFreeGpuMem(),
-                        rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
-                        rhost.getAttributesMap().get("SP_OS"));
+                hostManager.setHostStatistics(
+                    host,
+                    rhost.getTotalMem(),
+                    rhost.getFreeMem(),
+                    rhost.getTotalSwap(),
+                    rhost.getFreeSwap(),
+                    rhost.getTotalMcp(),
+                    rhost.getFreeMcp(),
+                    rhost.getTotalGpuMem(),
+                    rhost.getFreeGpuMem(),
+                    rhost.getLoad(),
+                    new Timestamp(rhost.getBootTime() * 1000l),
+                    rhost.getAttributesMap().get("SP_OS")
+                );
 
                 // Both logics are conflicting, only change hardware state if
                 // there was no need for a tempDirStorage state change
                 if (!changeStateForTempDirStorage(host, report.getHost())) {
-                    changeHardwareState(host, report.getHost().getState(), isBoot);
+                    changeHardwareState(
+                        host,
+                        report.getHost().getState(),
+                        isBoot
+                    );
                 }
                 changeNimbyState(host, report.getHost());
 
@@ -200,16 +220,22 @@ public class HostReportHandler {
                     hostManager.setHostResources(host, report);
                 }
 
-                dispatchSupport.determineIdleCores(host, report.getHost().getLoad());
-
+                dispatchSupport.determineIdleCores(
+                    host,
+                    report.getHost().getLoad()
+                );
             } catch (DataAccessException dae) {
-                logger.info("Unable to find host " + rhost.getName() + ","
-                        + dae + " , creating host.");
+                logger.info(
+                    "Unable to find host " +
+                    rhost.getName() +
+                    "," +
+                    dae +
+                    " , creating host."
+                );
                 // TODO: Skip adding it if the host name is over 30 characters
 
                 host = hostManager.createHost(report);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.warn("Error processing HostReport, " + e);
                 return;
             }
@@ -218,7 +244,9 @@ public class HostReportHandler {
              * Verify all the frames in the report are valid.
              * Frames that are not valid are removed.
              */
-            List<RunningFrameInfo> runningFrames = verifyRunningFrameInfo(report);
+            List<RunningFrameInfo> runningFrames = verifyRunningFrameInfo(
+                report
+            );
 
             /*
              * Updates memory usage for the proc, frames,
@@ -245,7 +273,9 @@ public class HostReportHandler {
              */
             String msg = null;
             boolean hasLocalJob = bookingManager.hasLocalHostAssignment(host);
-            int coresToReserve = host.handleNegativeCoresRequirement(Dispatcher.CORE_POINTS_RESERVED_MIN);
+            int coresToReserve = host.handleNegativeCoresRequirement(
+                Dispatcher.CORE_POINTS_RESERVED_MIN
+            );
 
             if (hasLocalJob) {
                 List<LocalHostAssignment> lcas =
@@ -255,38 +285,55 @@ public class HostReportHandler {
                 }
             }
             long memReservedMin = env.getRequiredProperty(
-                    "dispatcher.memory.mem_reserved_min",
-                    Long.class);
+                "dispatcher.memory.mem_reserved_min",
+                Long.class
+            );
 
-            if (!isTempDirStorageEnough(report.getHost().getTotalMcp(), report.getHost().getFreeMcp(), host.os)) {
+            if (
+                !isTempDirStorageEnough(
+                    report.getHost().getTotalMcp(),
+                    report.getHost().getFreeMcp(),
+                    host.getOs()
+                )
+            ) {
                 msg = String.format(
                     "%s doesn't have enough free space in the temporary directory (mcp), %dMB",
-                        host.name, (report.getHost().getFreeMcp()/1024));
-            }
-            else if (coresToReserve <= 0 || host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
-                msg = String.format("%s doesn't have enough idle cores, %d needs %d",
-                    host.name,  host.idleCores, Dispatcher.CORE_POINTS_RESERVED_MIN);
-            }
-            else if (host.idleMemory < memReservedMin) {
-                msg = String.format("%s doesn't have enough idle memory, %d needs %d",
-                        host.name,  host.idleMemory,  memReservedMin);
-            }
-            else if (report.getHost().getFreeMem() < CueUtil.MB512) {
-                msg = String.format("%s doesn't have enough free system mem, %d needs %d",
-                        host.name, report.getHost().getFreeMem(), memReservedMin);
-            }
-            else if(!host.hardwareState.equals(HardwareState.UP)) {
+                    host.name,
+                    (report.getHost().getFreeMcp() / 1024)
+                );
+            } else if (
+                coresToReserve <= 0 ||
+                host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN
+            ) {
+                msg = String.format(
+                    "%s doesn't have enough idle cores, %d needs %d",
+                    host.name,
+                    host.idleCores,
+                    Dispatcher.CORE_POINTS_RESERVED_MIN
+                );
+            } else if (host.idleMemory < memReservedMin) {
+                msg = String.format(
+                    "%s doesn't have enough idle memory, %d needs %d",
+                    host.name,
+                    host.idleMemory,
+                    memReservedMin
+                );
+            } else if (report.getHost().getFreeMem() < CueUtil.MB512) {
+                msg = String.format(
+                    "%s doesn't have enough free system mem, %d needs %d",
+                    host.name,
+                    report.getHost().getFreeMem(),
+                    memReservedMin
+                );
+            } else if (!host.hardwareState.equals(HardwareState.UP)) {
                 msg = host + " is not in the Up state.";
-            }
-            else if (host.lockState.equals(LockState.LOCKED)) {
+            } else if (host.lockState.equals(LockState.LOCKED)) {
                 msg = host + " is locked.";
-            }
-            else if (report.getHost().getNimbyLocked()) {
+            } else if (report.getHost().getNimbyLocked()) {
                 if (!hasLocalJob) {
                     msg = host + " is NIMBY locked.";
                 }
-            }
-            else if (!dispatchSupport.isCueBookable(host)) {
+            } else if (!dispatchSupport.isCueBookable(host)) {
                 msg = "The cue has no pending jobs";
             }
 
@@ -296,9 +343,7 @@ public class HostReportHandler {
              */
             if (msg != null) {
                 logger.trace(msg);
-            }
-            else {
-
+            } else {
                 // check again. The dangling local host assignment could be removed.
                 hasLocalJob = bookingManager.hasLocalHostAssignment(host);
 
@@ -308,8 +353,8 @@ public class HostReportHandler {
                 if (hasLocalJob) {
                     if (!bookingManager.hasResourceDeficit(host)) {
                         bookingQueue.execute(
-                                new DispatchBookHostLocal(
-                                        host, localDispatcher));
+                            new DispatchBookHostLocal(host, localDispatcher)
+                        );
                     }
                     return;
                 }
@@ -319,25 +364,38 @@ public class HostReportHandler {
                  * to that show first.
                  */
                 if (hostManager.isPreferShow(host)) {
-                    bookingQueue.execute(new DispatchBookHost(
-                            host, hostManager.getPreferredShow(host), dispatcher, env));
+                    bookingQueue.execute(
+                        new DispatchBookHost(
+                            host,
+                            hostManager.getPreferredShow(host),
+                            dispatcher,
+                            env
+                        )
+                    );
                     return;
                 }
 
-                bookingQueue.execute(new DispatchBookHost(host, dispatcher, env));
+                bookingQueue.execute(
+                    new DispatchBookHost(host, dispatcher, env)
+                );
             }
-
         } finally {
-            if (reportQueue.getQueue().size() > 0 ||
-                    System.currentTimeMillis() - startTime > 100) {
+            if (
+                reportQueue.getQueue().size() > 0 ||
+                System.currentTimeMillis() - startTime > 100
+            ) {
                 /*
                  * Write a log if the host report takes a long time to process.
                  */
-                CueUtil.logDuration(startTime, "host report " +
-                        report.getHost().getName() + " with " +
-                        report.getFramesCount() +
-                        " running frames, waiting: " +
-                        reportQueue.getQueue().size());
+                CueUtil.logDuration(
+                    startTime,
+                    "host report " +
+                    report.getHost().getName() +
+                    " with " +
+                    report.getFramesCount() +
+                    " running frames, waiting: " +
+                    reportQueue.getQueue().size()
+                );
             }
         }
     }
@@ -351,16 +409,28 @@ public class HostReportHandler {
      *
      * @param tempTotalStorage Total storage on the temp directory
      * @param tempFreeStorage Free storage on the temp directory
-     * @param hostOs Reported os
+     * @param hostOs Reported operational systems
      * @return
      */
-    private boolean isTempDirStorageEnough(Long tempTotalStorage, Long tempFreeStorage, String hostOs) {
+    private boolean isTempDirStorageEnough(
+        Long tempTotalStorage,
+        Long tempFreeStorage,
+        String[] hostOs
+    ) {
         // The minimum amount of free space in the temporary directory to book a host
         int minAvailableTempPercentage = env.getRequiredProperty(
-            "dispatcher.min_available_temp_storage_percentage", Integer.class);
+            "dispatcher.min_available_temp_storage_percentage",
+            Integer.class
+        );
 
-        return minAvailableTempPercentage == -1 || hostOs.equalsIgnoreCase(WINDOWS_OS) ||
-                (((tempFreeStorage * 100.0) / tempTotalStorage) >= minAvailableTempPercentage);
+        return (
+            minAvailableTempPercentage == -1 ||
+            // It is safe to assume multiple OSs imply windows is not the base OS,
+            // threfore Windows will always report a single hostOs
+            (hostOs.length == 1 && hostOs[0].equalsIgnoreCase(WINDOWS_OS)) ||
+            (((tempFreeStorage * 100.0) / tempTotalStorage) >=
+                minAvailableTempPercentage)
+        );
     }
 
     /**
@@ -376,7 +446,11 @@ public class HostReportHandler {
      * @param reportState
      * @param isBoot
      */
-    private void changeHardwareState(DispatchHost host, HardwareState reportState, boolean isBoot) {
+    private void changeHardwareState(
+        DispatchHost host,
+        HardwareState reportState,
+        boolean isBoot
+    ) {
         // If the states are the same there is no reason to do this update.
         if (host.hardwareState.equals(reportState)) {
             return;
@@ -402,7 +476,6 @@ public class HostReportHandler {
                 hostManager.setHostState(host, reportState);
                 host.hardwareState = reportState;
                 break;
-
         }
     }
 
@@ -421,23 +494,41 @@ public class HostReportHandler {
      * @param reportHost
      * @return
      */
-    private boolean changeStateForTempDirStorage(DispatchHost host, RenderHost reportHost) {
+    private boolean changeStateForTempDirStorage(
+        DispatchHost host,
+        RenderHost reportHost
+    ) {
         // The minimum amount of free space in the temporary directory to book a host
         int minAvailableTempPercentage = env.getRequiredProperty(
-            "dispatcher.min_available_temp_storage_percentage", Integer.class);
+            "dispatcher.min_available_temp_storage_percentage",
+            Integer.class
+        );
 
         // Prevent cue frames from booking on hosts with full temporary directories
-        boolean hasEnoughTempStorage = isTempDirStorageEnough(reportHost.getTotalMcp(), reportHost.getFreeMcp(), host.os);
+        boolean hasEnoughTempStorage = isTempDirStorageEnough(
+            reportHost.getTotalMcp(),
+            reportHost.getFreeMcp(),
+            host.getOs()
+        );
         if (!hasEnoughTempStorage && host.hardwareState == HardwareState.UP) {
             // Insert a comment indicating that the Host status = Repair with reason = Full temporary directory
             CommentDetail c = new CommentDetail();
             c.subject = SUBJECT_COMMENT_FULL_TEMP_DIR;
             c.user = CUEBOT_COMMENT_USER;
             c.timestamp = null;
-            long requiredTempMb = (long)((minAvailableTempPercentage / 100.0) * reportHost.getTotalMcp()/ 1024);
-            c.message = "Host " + host.getName() + " marked as REPAIR. The current amount of free space in the " +
-                    "temporary directory (mcp) is " + (reportHost.getFreeMcp()/1024) + "MB. It must have at least "
-                    + ((requiredTempMb)) + "MB of free space in temporary directory";
+            long requiredTempMb = (long) (((minAvailableTempPercentage /
+                        100.0) *
+                    reportHost.getTotalMcp()) /
+                1024);
+            c.message =
+                "Host " +
+                host.getName() +
+                " marked as REPAIR. The current amount of free space in the " +
+                "temporary directory (mcp) is " +
+                (reportHost.getFreeMcp() / 1024) +
+                "MB. It must have at least " +
+                ((requiredTempMb)) +
+                "MB of free space in temporary directory";
             commentManager.addComment(host, c);
 
             // Set the host state to REPAIR
@@ -445,11 +536,17 @@ public class HostReportHandler {
             host.hardwareState = HardwareState.REPAIR;
 
             return true;
-        } else if (hasEnoughTempStorage && host.hardwareState == HardwareState.REPAIR) {
+        } else if (
+            hasEnoughTempStorage && host.hardwareState == HardwareState.REPAIR
+        ) {
             // Check if the host with REPAIR status has comments with subject=SUBJECT_COMMENT_FULL_TEMP_DIR and
             // user=CUEBOT_COMMENT_USER and delete the comments, if they exist
-            boolean commentsDeleted = commentManager.deleteCommentByHostUserAndSubject(host,
-                    CUEBOT_COMMENT_USER, SUBJECT_COMMENT_FULL_TEMP_DIR);
+            boolean commentsDeleted =
+                commentManager.deleteCommentByHostUserAndSubject(
+                    host,
+                    CUEBOT_COMMENT_USER,
+                    SUBJECT_COMMENT_FULL_TEMP_DIR
+                );
 
             if (commentsDeleted) {
                 // Set the host state to UP
@@ -473,13 +570,20 @@ public class HostReportHandler {
         if (rh.getNimbyLocked()) {
             if (host.lockState.equals(LockState.OPEN)) {
                 host.lockState = LockState.NIMBY_LOCKED;
-                hostManager.setHostLock(host,LockState.NIMBY_LOCKED, new Source("NIMBY"));
+                hostManager.setHostLock(
+                    host,
+                    LockState.NIMBY_LOCKED,
+                    new Source("NIMBY")
+                );
             }
-        }
-        else {
+        } else {
             if (host.lockState.equals(LockState.NIMBY_LOCKED)) {
                 host.lockState = LockState.OPEN;
-                hostManager.setHostLock(host,LockState.OPEN, new Source("NIMBY"));
+                hostManager.setHostLock(
+                    host,
+                    LockState.OPEN,
+                    new Source("NIMBY")
+                );
             }
         }
     }
@@ -495,11 +599,19 @@ public class HostReportHandler {
         if (host.lockState == LockState.LOCKED) {
             if (coreInfo.getLockedCores() < coreInfo.getTotalCores()) {
                 host.lockState = LockState.OPEN;
-                hostManager.setHostLock(host, LockState.OPEN, new Source("cores"));
+                hostManager.setHostLock(
+                    host,
+                    LockState.OPEN,
+                    new Source("cores")
+                );
             }
         } else if (coreInfo.getLockedCores() >= coreInfo.getTotalCores()) {
             host.lockState = LockState.LOCKED;
-            hostManager.setHostLock(host, LockState.LOCKED, new Source("cores"));
+            hostManager.setHostLock(
+                host,
+                LockState.LOCKED,
+                new Source("cores")
+            );
         }
     }
 
@@ -519,53 +631,84 @@ public class HostReportHandler {
      * @param dispatchHost
      * @param report
      */
-    private void handleMemoryUsage(final DispatchHost dispatchHost, RenderHost renderHost,
-            List<RunningFrameInfo> runningFrames) {
+    private void handleMemoryUsage(
+        final DispatchHost dispatchHost,
+        RenderHost renderHost,
+        List<RunningFrameInfo> runningFrames
+    ) {
         // Don't keep memory balances on nimby hosts and hosts with invalid memory
         // information
         if (dispatchHost.isNimby || renderHost.getTotalMem() <= 0) {
             return;
         }
 
-        final double OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD = env
-                .getRequiredProperty("dispatcher.oom_max_safe_used_physical_memory_threshold", Double.class);
-        final double OOM_MAX_SAFE_USED_SWAP_THRESHOLD = env
-                .getRequiredProperty("dispatcher.oom_max_safe_used_swap_memory_threshold", Double.class);
-        final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD = env
-                .getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
+        final double OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD =
+            env.getRequiredProperty(
+                "dispatcher.oom_max_safe_used_physical_memory_threshold",
+                Double.class
+            );
+        final double OOM_MAX_SAFE_USED_SWAP_THRESHOLD = env.getRequiredProperty(
+            "dispatcher.oom_max_safe_used_swap_memory_threshold",
+            Double.class
+        );
+        final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD =
+            env.getRequiredProperty(
+                "dispatcher.oom_frame_overboard_allowed_threshold",
+                Double.class
+            );
 
-        Double physMemoryUsageRatio = renderHost.getTotalMem() > 0 ?
-            1.0 - renderHost.getFreeMem() / (double) renderHost.getTotalMem() :
-            0.0;
+        Double physMemoryUsageRatio = renderHost.getTotalMem() > 0
+            ? 1.0 - renderHost.getFreeMem() / (double) renderHost.getTotalMem()
+            : 0.0;
 
-        Double swapMemoryUsageRatio = renderHost.getTotalSwap() > 0 ?
-            1.0 - renderHost.getFreeSwap() / (double) renderHost.getTotalSwap() :
-            0.0;
+        Double swapMemoryUsageRatio = renderHost.getTotalSwap() > 0
+            ? 1.0 -
+            renderHost.getFreeSwap() / (double) renderHost.getTotalSwap()
+            : 0.0;
 
         // If checking for the swap threshold has been disabled, only memory usage is
         // taken into consideration.
         // If checking for memory has been disabled, checking for swap isolated is not
         // safe, therefore disabled
         boolean memoryWarning = false;
-        if (OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD > 0.0 && OOM_MAX_SAFE_USED_SWAP_THRESHOLD > 0.0 &&
-            !physMemoryUsageRatio.isNaN() && !swapMemoryUsageRatio.isNaN()) {
-            memoryWarning = physMemoryUsageRatio > OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD &&
+        if (
+            OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD > 0.0 &&
+            OOM_MAX_SAFE_USED_SWAP_THRESHOLD > 0.0 &&
+            !physMemoryUsageRatio.isNaN() &&
+            !swapMemoryUsageRatio.isNaN()
+        ) {
+            memoryWarning =
+                physMemoryUsageRatio > OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD &&
                 swapMemoryUsageRatio > OOM_MAX_SAFE_USED_SWAP_THRESHOLD;
-        } else if (OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD > 0.0 && !physMemoryUsageRatio.isNaN()) {
-            memoryWarning = physMemoryUsageRatio > OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD;
+        } else if (
+            OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD > 0.0 &&
+            !physMemoryUsageRatio.isNaN()
+        ) {
+            memoryWarning =
+                physMemoryUsageRatio > OOM_MAX_SAFE_USED_PHYSICAL_THRESHOLD;
         }
 
         if (memoryWarning) {
-            logger.warn("Memory warning(" + renderHost.getName() + "): physMemoryRatio: " +
-                    physMemoryUsageRatio + ", swapRatio: " + swapMemoryUsageRatio);
+            logger.warn(
+                "Memory warning(" +
+                renderHost.getName() +
+                "): physMemoryRatio: " +
+                physMemoryUsageRatio +
+                ", swapRatio: " +
+                swapMemoryUsageRatio
+            );
             // Try to kill frames using swap memory as they are probably performing poorly
-            long swapUsed = renderHost.getTotalSwap() - renderHost.getFreeSwap();
-            long maxSwapUsageAllowed = (long) (renderHost.getTotalSwap()
-                    * OOM_MAX_SAFE_USED_SWAP_THRESHOLD);
+            long swapUsed =
+                renderHost.getTotalSwap() - renderHost.getFreeSwap();
+            long maxSwapUsageAllowed = (long) (renderHost.getTotalSwap() *
+                OOM_MAX_SAFE_USED_SWAP_THRESHOLD);
 
             // Sort runningFrames bassed on how much swap they are using
-            runningFrames.sort(Comparator.comparingLong((RunningFrameInfo frame) ->
-                frame.getUsedSwapMemory()).reversed());
+            runningFrames.sort(
+                Comparator.comparingLong((RunningFrameInfo frame) ->
+                    frame.getUsedSwapMemory()
+                ).reversed()
+            );
 
             int killAttemptsRemaining = 5;
             for (RunningFrameInfo frame : runningFrames) {
@@ -573,16 +716,31 @@ public class HostReportHandler {
                 if (frame.getUsedSwapMemory() <= 0) {
                     break;
                 }
-                if (killProcForMemory(frame.getFrameId(), renderHost.getName(),
-                        KillCause.HostUnderOom)) {
+                if (
+                    killProcForMemory(
+                        frame.getFrameId(),
+                        renderHost.getName(),
+                        KillCause.HostUnderOom
+                    )
+                ) {
                     swapUsed -= frame.getUsedSwapMemory();
-                    logger.info("Memory warning(" + renderHost.getName() + "): " +
-                        "Killing frame on " + frame.getJobName() + "." +
-                        frame.getFrameName() + ", using too much swap.");
+                    logger.info(
+                        "Memory warning(" +
+                        renderHost.getName() +
+                        "): " +
+                        "Killing frame on " +
+                        frame.getJobName() +
+                        "." +
+                        frame.getFrameName() +
+                        ", using too much swap."
+                    );
                 }
 
                 killAttemptsRemaining -= 1;
-                if (killAttemptsRemaining <= 0 || swapUsed <= maxSwapUsageAllowed) {
+                if (
+                    killAttemptsRemaining <= 0 ||
+                    swapUsed <= maxSwapUsageAllowed
+                ) {
                     break;
                 }
             }
@@ -591,10 +749,20 @@ public class HostReportHandler {
             // if frames didn't go overboard, manage its reservations trying to increase
             // them accordingly
             for (final RunningFrameInfo frame : runningFrames) {
-                if (OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD > 0 && isFrameOverboard(frame)) {
-                    if (!killFrameOverusingMemory(frame, dispatchHost.getName())) {
-                        logger.warn("Frame " + frame.getJobName() + "." + frame.getFrameName() +
-                                " is overboard but could not be killed");
+                if (
+                    OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD > 0 &&
+                    isFrameOverboard(frame)
+                ) {
+                    if (
+                        !killFrameOverusingMemory(frame, dispatchHost.getName())
+                    ) {
+                        logger.warn(
+                            "Frame " +
+                            frame.getJobName() +
+                            "." +
+                            frame.getFrameName() +
+                            " is overboard but could not be killed"
+                        );
                     }
                 } else {
                     handleMemoryReservations(frame);
@@ -609,29 +777,45 @@ public class HostReportHandler {
         FrameTimedOut("Frame timed out"),
         FrameLluTimedOut("Frame LLU timed out"),
         FrameVerificationFailure("Frame failed to be verified on the database");
+
         private final String message;
 
         private KillCause(String message) {
             this.message = message;
         }
+
         @Override
         public String toString() {
             return message;
         }
     }
 
-    private boolean killFrameOverusingMemory(RunningFrameInfo frame, String hostname) {
+    private boolean killFrameOverusingMemory(
+        RunningFrameInfo frame,
+        String hostname
+    ) {
         try {
-            VirtualProc proc = hostManager.getVirtualProc(frame.getResourceId());
+            VirtualProc proc = hostManager.getVirtualProc(
+                frame.getResourceId()
+            );
 
             // Don't mess with localDispatch procs
             if (proc.isLocalDispatch) {
                 return false;
             }
-            boolean killed = killProcForMemory(proc.frameId, hostname, KillCause.FrameOverboard);
+            boolean killed = killProcForMemory(
+                proc.frameId,
+                hostname,
+                KillCause.FrameOverboard
+            );
             if (killed) {
-                logger.info("Killing frame on " + frame.getJobName() + "." + frame.getFrameName() +
-                        ", using too much memory.");
+                logger.info(
+                    "Killing frame on " +
+                    frame.getJobName() +
+                    "." +
+                    frame.getFrameName() +
+                    ", using too much memory."
+                );
             }
             return killed;
         } catch (EmptyResultDataAccessException e) {
@@ -641,8 +825,10 @@ public class HostReportHandler {
 
     private boolean getKillClearance(String hostname, String frameId) {
         String cacheKey = hostname + "-" + frameId;
-        final int FRAME_KILL_RETRY_LIMIT =
-                env.getRequiredProperty("dispatcher.frame_kill_retry_limit", Integer.class);
+        final int FRAME_KILL_RETRY_LIMIT = env.getRequiredProperty(
+            "dispatcher.frame_kill_retry_limit",
+            Integer.class
+        );
 
         // Cache frame+host receiving a killRequest and count how many times the request is being retried
         // meaning rqd is probably failing at attempting to kill the related proc
@@ -661,13 +847,18 @@ public class HostReportHandler {
                     FrameInterface frame = jobManager.getFrame(frameId);
                     JobInterface job = jobManager.getJob(frame.getJobId());
                     prometheusMetrics.incrementFrameKillFailureCounter(
-                            hostname,
-                            job.getName(),
-                            frame.getName(),
-                            frameId);
+                        hostname,
+                        job.getName(),
+                        frame.getName(),
+                        frameId
+                    );
                 } catch (EmptyResultDataAccessException e) {
                     logger.info(
-                            "Trying to kill a frame that no longer exists: host=" + hostname + " frameId=" + frameId);
+                        "Trying to kill a frame that no longer exists: host=" +
+                        hostname +
+                        " frameId=" +
+                        frameId
+                    );
                 }
             }
             return false;
@@ -675,7 +866,11 @@ public class HostReportHandler {
         return true;
     }
 
-    private boolean killProcForMemory(String frameId, String hostname, KillCause killCause) {
+    private boolean killProcForMemory(
+        String frameId,
+        String hostname,
+        KillCause killCause
+    ) {
         if (!getKillClearance(hostname, frameId)) {
             return false;
         }
@@ -683,15 +878,35 @@ public class HostReportHandler {
         FrameInterface frame = jobManager.getFrame(frameId);
         if (dispatcher.isTestMode()) {
             // Different threads don't share the same database state on the test environment
-            (new DispatchRqdKillFrameMemory(hostname, frame, killCause.toString(), rqdClient,
-                    dispatchSupport, dispatcher.isTestMode())).run();
+            (new DispatchRqdKillFrameMemory(
+                    hostname,
+                    frame,
+                    killCause.toString(),
+                    rqdClient,
+                    dispatchSupport,
+                    dispatcher.isTestMode()
+                )).run();
         } else {
             try {
-                killQueue.execute(new DispatchRqdKillFrameMemory(hostname, frame, killCause.toString(), rqdClient,
-                        dispatchSupport, dispatcher.isTestMode()));
-                prometheusMetrics.incrementFrameKilledCounter(hostname, killCause);
+                killQueue.execute(
+                    new DispatchRqdKillFrameMemory(
+                        hostname,
+                        frame,
+                        killCause.toString(),
+                        rqdClient,
+                        dispatchSupport,
+                        dispatcher.isTestMode()
+                    )
+                );
+                prometheusMetrics.incrementFrameKilledCounter(
+                    hostname,
+                    killCause
+                );
             } catch (TaskRejectedException e) {
-                logger.warn("Unable to add a DispatchRqdKillFrame request, task rejected, " + e);
+                logger.warn(
+                    "Unable to add a DispatchRqdKillFrame request, task rejected, " +
+                    e
+                );
                 return false;
             }
         }
@@ -699,23 +914,42 @@ public class HostReportHandler {
         return true;
     }
 
-    private boolean killFrame(String frameId, String hostname, KillCause killCause) {
+    private boolean killFrame(
+        String frameId,
+        String hostname,
+        KillCause killCause
+    ) {
         if (!getKillClearance(hostname, frameId)) {
             return false;
         }
 
         if (dispatcher.isTestMode()) {
             // Different threads don't share the same database state on the test environment
-            (new DispatchRqdKillFrame(hostname, frameId, killCause.toString(), rqdClient)).run();
+            (new DispatchRqdKillFrame(
+                    hostname,
+                    frameId,
+                    killCause.toString(),
+                    rqdClient
+                )).run();
         } else {
             try {
-                killQueue.execute(new DispatchRqdKillFrame(hostname,
+                killQueue.execute(
+                    new DispatchRqdKillFrame(
+                        hostname,
                         frameId,
                         killCause.toString(),
-                        rqdClient));
-                prometheusMetrics.incrementFrameKilledCounter(hostname, killCause);
+                        rqdClient
+                    )
+                );
+                prometheusMetrics.incrementFrameKilledCounter(
+                    hostname,
+                    killCause
+                );
             } catch (TaskRejectedException e) {
-                logger.warn("Unable to add a DispatchRqdKillFrame request, task rejected, " + e);
+                logger.warn(
+                    "Unable to add a DispatchRqdKillFrame request, task rejected, " +
+                    e
+                );
             }
         }
         DispatchSupport.killedOffenderProcs.incrementAndGet();
@@ -729,35 +963,62 @@ public class HostReportHandler {
      */
     private boolean isFrameOverboard(final RunningFrameInfo frame) {
         final double OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD =
-                env.getRequiredProperty("dispatcher.oom_frame_overboard_allowed_threshold", Double.class);
+            env.getRequiredProperty(
+                "dispatcher.oom_frame_overboard_allowed_threshold",
+                Double.class
+            );
 
         if (OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD < 0) {
             return false;
         }
 
-        double rss = (double)frame.getRss();
-        double maxRss = (double)frame.getMaxRss();
-        final double MAX_RSS_OVERBOARD_THRESHOLD = OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD * 2;
+        double rss = (double) frame.getRss();
+        double maxRss = (double) frame.getMaxRss();
+        final double MAX_RSS_OVERBOARD_THRESHOLD =
+            OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD * 2;
         final double RSS_AVAILABLE_FOR_MAX_RSS_TRIGGER = 0.1;
 
         try {
-            VirtualProc proc = hostManager.getVirtualProc(frame.getResourceId());
-            double reserved = (double)proc.memoryReserved;
+            VirtualProc proc = hostManager.getVirtualProc(
+                frame.getResourceId()
+            );
+            double reserved = (double) proc.memoryReserved;
 
             // Last memory report is higher than the threshold
-            if (isOverboard(rss, reserved, OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD)) {
+            if (
+                isOverboard(
+                    rss,
+                    reserved,
+                    OOM_FRAME_OVERBOARD_ALLOWED_THRESHOLD
+                )
+            ) {
                 return true;
             }
             // If rss is not overboard, handle the situation where the frame might be going overboard from
             // time to time but the last report wasn't during a spike. For this case, consider a combination
             // of rss and maxRss. maxRss > 2 * threshold and rss > 0.9
             else {
-                return isOverboard(maxRss, reserved, MAX_RSS_OVERBOARD_THRESHOLD) &&
-                        isOverboard(rss, reserved, -RSS_AVAILABLE_FOR_MAX_RSS_TRIGGER);
+                return (
+                    isOverboard(
+                        maxRss,
+                        reserved,
+                        MAX_RSS_OVERBOARD_THRESHOLD
+                    ) &&
+                    isOverboard(
+                        rss,
+                        reserved,
+                        -RSS_AVAILABLE_FOR_MAX_RSS_TRIGGER
+                    )
+                );
             }
         } catch (EmptyResultDataAccessException e) {
-            logger.info("HostReportHandler(isFrameOverboard): Virtual proc for frame " +
-                    frame.getFrameName() + " on job " + frame.getJobName() + " doesn't exist on the database");
+            logger.info(
+                "HostReportHandler(isFrameOverboard): Virtual proc for frame " +
+                frame.getFrameName() +
+                " on job " +
+                frame.getJobName() +
+                " doesn't exist on the database"
+            );
             // Not able to mark the frame overboard is it couldn't be found on the db.
             // Proc accounting (verifyRunningProc) should take care of it
             return false;
@@ -765,7 +1026,7 @@ public class HostReportHandler {
     }
 
     private boolean isOverboard(double value, double total, double threshold) {
-        return value/total >= (1 + threshold);
+        return value / total >= (1 + threshold);
     }
 
     /**
@@ -784,33 +1045,65 @@ public class HostReportHandler {
 
             if (dispatchSupport.increaseReservedMemory(proc, frame.getRss())) {
                 proc.memoryReserved = frame.getRss();
-                logger.info("frame " + frame.getFrameName() + " on job " + frame.getJobName()
-                        + " increased its reserved memory to " +
-                        CueUtil.KbToMb(frame.getRss()));
+                logger.info(
+                    "frame " +
+                    frame.getFrameName() +
+                    " on job " +
+                    frame.getJobName() +
+                    " increased its reserved memory to " +
+                    CueUtil.KbToMb(frame.getRss())
+                );
             }
         } catch (ResourceReservationFailureException e) {
             if (proc != null) {
                 long memNeeded = frame.getRss() - proc.memoryReserved;
-                logger.info("frame " + frame.getFrameName() + " on job " + frame.getJobName()
-                        + "was unable to reserve an additional " + CueUtil.KbToMb(memNeeded)
-                        + "on proc " + proc.getName() + ", " + e);
+                logger.info(
+                    "frame " +
+                    frame.getFrameName() +
+                    " on job " +
+                    frame.getJobName() +
+                    "was unable to reserve an additional " +
+                    CueUtil.KbToMb(memNeeded) +
+                    "on proc " +
+                    proc.getName() +
+                    ", " +
+                    e
+                );
                 try {
-                    if (dispatchSupport.balanceReservedMemory(proc, memNeeded)) {
+                    if (
+                        dispatchSupport.balanceReservedMemory(proc, memNeeded)
+                    ) {
                         proc.memoryReserved = frame.getRss();
-                        logger.info("was able to balance host: " + proc.getName());
+                        logger.info(
+                            "was able to balance host: " + proc.getName()
+                        );
                     } else {
-                        logger.info("failed to balance host: " + proc.getName());
+                        logger.info(
+                            "failed to balance host: " + proc.getName()
+                        );
                     }
                 } catch (Exception ex) {
-                    logger.warn("failed to balance host: " + proc.getName() + ", " + e);
+                    logger.warn(
+                        "failed to balance host: " + proc.getName() + ", " + e
+                    );
                 }
             } else {
-                logger.info("frame " + frame.getFrameName() + " on job " + frame.getJobName()
-                        + "was unable to reserve an additional memory. Proc could not be found");
+                logger.info(
+                    "frame " +
+                    frame.getFrameName() +
+                    " on job " +
+                    frame.getJobName() +
+                    "was unable to reserve an additional memory. Proc could not be found"
+                );
             }
         } catch (EmptyResultDataAccessException e) {
-            logger.info("HostReportHandler: Memory reservations for frame " + frame.getFrameName() +
-                    " on job " + frame.getJobName() + " proc could not be found");
+            logger.info(
+                "HostReportHandler: Memory reservations for frame " +
+                frame.getFrameName() +
+                " on job " +
+                frame.getJobName() +
+                " proc could not be found"
+            );
         }
     }
 
@@ -819,22 +1112,39 @@ public class HostReportHandler {
      *
      * @param rFrames
      */
-    private void killTimedOutFrames(List<RunningFrameInfo> runningFrames, String hostname) {
+    private void killTimedOutFrames(
+        List<RunningFrameInfo> runningFrames,
+        String hostname
+    ) {
         for (RunningFrameInfo frame : runningFrames) {
             String layerId = frame.getLayerId();
 
             try {
                 LayerDetail layer = layerDao.getLayerDetail(layerId);
-                long runtimeMinutes = ((System.currentTimeMillis() - frame.getStartTime()) / 1000l) / 60;
+                long runtimeMinutes =
+                    ((System.currentTimeMillis() - frame.getStartTime()) /
+                        1000l) /
+                    60;
 
                 if (layer.timeout != 0 && runtimeMinutes > layer.timeout) {
-                    killFrame(frame.getFrameId(), hostname, KillCause.FrameTimedOut);
+                    killFrame(
+                        frame.getFrameId(),
+                        hostname,
+                        KillCause.FrameTimedOut
+                    );
                 } else if (layer.timeout_llu != 0 && frame.getLluTime() != 0) {
                     long r = System.currentTimeMillis() / 1000;
                     long lastUpdate = (r - frame.getLluTime()) / 60;
 
-                    if (layer.timeout_llu != 0 && lastUpdate > (layer.timeout_llu - 1)) {
-                        killFrame(frame.getFrameId(), hostname, KillCause.FrameLluTimedOut);
+                    if (
+                        layer.timeout_llu != 0 &&
+                        lastUpdate > (layer.timeout_llu - 1)
+                    ) {
+                        killFrame(
+                            frame.getFrameId(),
+                            hostname,
+                            KillCause.FrameLluTimedOut
+                        );
                     }
                 }
             } catch (EmptyResultDataAccessException e) {
@@ -849,18 +1159,27 @@ public class HostReportHandler {
      * @param rFrames
      */
     private void updateMemoryUsageAndLluTime(List<RunningFrameInfo> rFrames) {
-
-        for (RunningFrameInfo rf: rFrames) {
+        for (RunningFrameInfo rf : rFrames) {
             FrameInterface frame = jobManager.getFrame(rf.getFrameId());
 
-            dispatchSupport.updateFrameMemoryUsageAndLluTime(frame,
-                    rf.getRss(), rf.getMaxRss(), rf.getLluTime());
+            dispatchSupport.updateFrameMemoryUsageAndLluTime(
+                frame,
+                rf.getRss(),
+                rf.getMaxRss(),
+                rf.getLluTime()
+            );
 
-            dispatchSupport.updateProcMemoryUsage(frame, rf.getRss(), rf.getMaxRss(),
-                    rf.getVsize(), rf.getMaxVsize(), rf.getUsedGpuMemory(),
-                    rf.getMaxUsedGpuMemory(), rf.getUsedSwapMemory(),
-                    rf.getChildren().toByteArray());
-
+            dispatchSupport.updateProcMemoryUsage(
+                frame,
+                rf.getRss(),
+                rf.getMaxRss(),
+                rf.getVsize(),
+                rf.getMaxVsize(),
+                rf.getUsedGpuMemory(),
+                rf.getMaxUsedGpuMemory(),
+                rf.getUsedSwapMemory(),
+                rf.getChildren().toByteArray()
+            );
         }
 
         updateJobMemoryUsage(rFrames);
@@ -873,23 +1192,22 @@ public class HostReportHandler {
      * @param frames
      */
     private void updateJobMemoryUsage(List<RunningFrameInfo> frames) {
+        final Map<JobEntity, Long> jobs = new HashMap<JobEntity, Long>(
+            frames.size()
+        );
 
-        final Map<JobEntity, Long> jobs =
-            new HashMap<JobEntity, Long>(frames.size());
-
-        for (RunningFrameInfo frame: frames) {
+        for (RunningFrameInfo frame : frames) {
             JobEntity job = new JobEntity(frame.getJobId());
             if (jobs.containsKey(job)) {
                 if (jobs.get(job) < frame.getMaxRss()) {
                     jobs.put(job, frame.getMaxRss());
                 }
-            }
-            else {
+            } else {
                 jobs.put(job, frame.getMaxRss());
             }
         }
 
-        for (Map.Entry<JobEntity,Long> set: jobs.entrySet()) {
+        for (Map.Entry<JobEntity, Long> set : jobs.entrySet()) {
             jobDao.updateMaxRSS(set.getKey(), set.getValue());
         }
     }
@@ -900,24 +1218,23 @@ public class HostReportHandler {
      * @param frames
      */
     private void updateLayerMemoryUsage(List<RunningFrameInfo> frames) {
+        final Map<LayerEntity, Long> layers = new HashMap<LayerEntity, Long>(
+            frames.size()
+        );
 
-        final Map<LayerEntity, Long> layers =
-            new HashMap<LayerEntity, Long>(frames.size());
-
-        for (RunningFrameInfo frame: frames) {
+        for (RunningFrameInfo frame : frames) {
             LayerEntity layer = new LayerEntity(frame.getLayerId());
             if (layers.containsKey(layer)) {
                 if (layers.get(layer) < frame.getMaxRss()) {
                     layers.put(layer, frame.getMaxRss());
                 }
-            }
-            else {
+            } else {
                 layers.put(layer, frame.getMaxRss());
             }
         }
 
         /* Attempt to update the max RSS value for the job **/
-        for (Map.Entry<LayerEntity,Long> set: layers.entrySet()) {
+        for (Map.Entry<LayerEntity, Long> set : layers.entrySet()) {
             layerDao.increaseLayerMinMemory(set.getKey(), set.getValue());
             layerDao.updateLayerMaxRSS(set.getKey(), set.getValue(), false);
         }
@@ -945,24 +1262,38 @@ public class HostReportHandler {
      * @param report
      */
     public List<RunningFrameInfo> verifyRunningFrameInfo(HostReport report) {
-        List<RunningFrameInfo> runningFrames = new ArrayList<RunningFrameInfo>(report.getFramesCount());
+        List<RunningFrameInfo> runningFrames = new ArrayList<RunningFrameInfo>(
+            report.getFramesCount()
+        );
 
-        for (RunningFrameInfo runningFrame: report.getFramesList()) {
-
-            long runtimeSeconds = (System.currentTimeMillis() -
-                runningFrame.getStartTime()) / 1000l;
+        for (RunningFrameInfo runningFrame : report.getFramesList()) {
+            long runtimeSeconds =
+                (System.currentTimeMillis() - runningFrame.getStartTime()) /
+                1000l;
 
             // Don't test frames that haven't been running long enough.
             if (runtimeSeconds < FRAME_VERIFICATION_GRACE_PERIOD_SECONDS) {
-                logger.info("verified " + runningFrame.getJobName() +
-                        "/" + runningFrame.getFrameName() + " on " +
-                        report.getHost().getName() + " by grace period " +
-                        runtimeSeconds + " seconds.");
+                logger.info(
+                    "verified " +
+                    runningFrame.getJobName() +
+                    "/" +
+                    runningFrame.getFrameName() +
+                    " on " +
+                    report.getHost().getName() +
+                    " by grace period " +
+                    runtimeSeconds +
+                    " seconds."
+                );
                 runningFrames.add(runningFrame);
                 continue;
             }
 
-            if (hostManager.verifyRunningProc(runningFrame.getResourceId(), runningFrame.getFrameId())) {
+            if (
+                hostManager.verifyRunningProc(
+                    runningFrame.getResourceId(),
+                    runningFrame.getFrameId()
+                )
+            ) {
                 runningFrames.add(runningFrame);
                 continue;
             }
@@ -978,11 +1309,14 @@ public class HostReportHandler {
 
             try {
                 proc = hostManager.getVirtualProc(runningFrame.getResourceId());
-                msg = "Virtual proc " + proc.getProcId() +
-                        "is assigned to " + proc.getFrameId() +
-                        " not " + runningFrame.getFrameId();
-            }
-            catch (Exception e) {
+                msg =
+                    "Virtual proc " +
+                    proc.getProcId() +
+                    "is assigned to " +
+                    proc.getFrameId() +
+                    " not " +
+                    runningFrame.getFrameId();
+            } catch (Exception e) {
                 /*
                  * This will happen if the host goes offline and then
                  * comes back.  In this case, we don't touch the frame
@@ -1001,27 +1335,53 @@ public class HostReportHandler {
             if (proc == null) {
                 // A frameCompleteReport might have been delivered before this report was
                 // processed
-                FrameDetail frameLatestVersion = jobManager.getFrameDetail(runningFrame.getFrameId());
+                FrameDetail frameLatestVersion = jobManager.getFrameDetail(
+                    runningFrame.getFrameId()
+                );
                 if (frameLatestVersion.state != FrameState.RUNNING) {
-                    logger.info("DelayedVerification, the proc " +
-                            runningFrame.getResourceId() + " on host " +
-                            report.getHost().getName() + " has already Completed " +
-                            runningFrame.getJobName() + "/" + runningFrame.getFrameName());
-                } else if (killFrame(runningFrame.getFrameId(),
+                    logger.info(
+                        "DelayedVerification, the proc " +
+                        runningFrame.getResourceId() +
+                        " on host " +
+                        report.getHost().getName() +
+                        " has already Completed " +
+                        runningFrame.getJobName() +
+                        "/" +
+                        runningFrame.getFrameName()
+                    );
+                } else if (
+                    killFrame(
+                        runningFrame.getFrameId(),
                         report.getHost().getName(),
-                        KillCause.FrameVerificationFailure)) {
-                    logger.info("FrameVerificationError, the proc " +
-                            runningFrame.getResourceId() + " on host " +
-                            report.getHost().getName() + " was running for " +
-                            (runtimeSeconds / 60.0f) + " minutes " +
-                            runningFrame.getJobName() + "/" + runningFrame.getFrameName() +
-                            " but the DB did not " +
-                            "reflect this. " +
-                            msg);
+                        KillCause.FrameVerificationFailure
+                    )
+                ) {
+                    logger.info(
+                        "FrameVerificationError, the proc " +
+                        runningFrame.getResourceId() +
+                        " on host " +
+                        report.getHost().getName() +
+                        " was running for " +
+                        (runtimeSeconds / 60.0f) +
+                        " minutes " +
+                        runningFrame.getJobName() +
+                        "/" +
+                        runningFrame.getFrameName() +
+                        " but the DB did not " +
+                        "reflect this. " +
+                        msg
+                    );
                 } else {
-                    logger.warn("FrameStuckWarning: frameId=" + runningFrame.getFrameId() +
-                            " render_node=" + report.getHost().getName() + " - " +
-                            runningFrame.getJobName() + "/" + runningFrame.getFrameName());
+                    logger.warn(
+                        "FrameStuckWarning: frameId=" +
+                        runningFrame.getFrameId() +
+                        " render_node=" +
+                        report.getHost().getName() +
+                        " - " +
+                        runningFrame.getJobName() +
+                        "/" +
+                        runningFrame.getFrameName()
+                    );
                 }
             }
         }
@@ -1115,6 +1475,7 @@ public class HostReportHandler {
     public void setLocalDispatcher(Dispatcher localDispatcher) {
         this.localDispatcher = localDispatcher;
     }
+
     public ThreadPoolExecutor getKillQueue() {
         return killQueue;
     }
@@ -1123,4 +1484,3 @@ public class HostReportHandler {
         this.killQueue = killQueue;
     }
 }
-

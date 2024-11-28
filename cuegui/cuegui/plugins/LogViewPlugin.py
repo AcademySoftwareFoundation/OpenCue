@@ -339,6 +339,7 @@ class LogLoader(QtCore.QRunnable):
 
     @QtCore.Slot()
     def run(self):
+        """Thread run action"""
         # pylint: disable=bare-except
         try:
             content, log_mtime = self.fn(*self.args, **self.kwargs)
@@ -1000,6 +1001,7 @@ class Highlighter(QtGui.QSyntaxHighlighter):
         self.completeFormat.setForeground(cuegui.Style.ColorTheme.LOG_COMPLETE)
 
     def highlightBlock(self, text):
+        """Handle blocks that should be highlighted"""
         if not self.on:
             return
 

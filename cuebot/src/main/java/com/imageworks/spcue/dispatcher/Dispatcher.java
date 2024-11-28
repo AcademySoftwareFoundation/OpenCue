@@ -82,6 +82,9 @@ public interface Dispatcher {
     // Upgrade the memory on the layer by 1g and retry.
     public static final int EXIT_STATUS_MEMORY_FAILURE = 33;
 
+    // Upgrade the memory on the layer by 1g and retry.
+    public static final int DOCKER_EXIT_STATUS_MEMORY_FAILURE = 137;
+
     // max retry time
     public static final int FRAME_TIME_NO_RETRY = 3600 * 8;
 
@@ -111,6 +114,9 @@ public interface Dispatcher {
     // The default minimum memory increase for when jobs fail due to not enough
     // memory
     public static final long MINIMUM_MEMORY_INCREASE = CueUtil.GB2;
+
+    public static final double SOFT_MEMORY_MULTIPLIER = 1.1;
+    public static final double HARD_MEMORY_MULTIPLIER = 1.4;
 
     /**
      * Dispatch a host to the facility.

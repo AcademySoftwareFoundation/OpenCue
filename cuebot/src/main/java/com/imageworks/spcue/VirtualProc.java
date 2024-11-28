@@ -85,7 +85,9 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
      * @param frame
      * @return
      */
-    public static final VirtualProc build(DispatchHost host, DispatchFrame frame, String... selfishServices) {
+    public static final VirtualProc build(DispatchHost host,
+                                          DispatchFrame frame,
+                                          String... selfishServices) {
         VirtualProc proc = new VirtualProc();
         proc.allocationId = host.getAllocationId();
         proc.hostId = host.getHostId();
@@ -94,14 +96,14 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.jobId = frame.getJobId();
         proc.showId = frame.getShowId();
         proc.facilityId = frame.getFacilityId();
-        proc.os = host.os;
+        proc.os = frame.os;
 
         proc.hostName = host.getName();
         proc.unbooked = false;
         proc.isLocalDispatch = host.isLocalDispatch;
 
         proc.coresReserved = frame.minCores;
-        proc.memoryReserved = frame.minMemory;
+        proc.memoryReserved = frame.getMinMemory();
         proc.gpusReserved = frame.minGpus;
         proc.gpuMemoryReserved = frame.minGpuMemory;
 
@@ -154,11 +156,11 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                         proc.coresReserved = wholeCores * 100;
                     }
                     else {
-                        if (host.idleMemory - frame.minMemory
+                        if (host.idleMemory - frame.getMinMemory()
                                 <= Dispatcher.MEM_STRANDED_THRESHHOLD) {
                             proc.coresReserved = wholeCores * 100;
                         } else {
-                            proc.coresReserved = getCoreSpan(host, frame.minMemory);
+                            proc.coresReserved = getCoreSpan(host, frame.getMinMemory());
                         }
                     }
                     if (host.threadMode == ThreadMode.VARIABLE_VALUE
@@ -238,14 +240,14 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.jobId = frame.getJobId();
         proc.showId = frame.getShowId();
         proc.facilityId = frame.getFacilityId();
-        proc.os = host.os;
+        proc.os = frame.os;
 
         proc.hostName = host.getName();
         proc.unbooked = false;
         proc.isLocalDispatch = host.isLocalDispatch;
 
         proc.coresReserved = lja.getThreads() * 100;
-        proc.memoryReserved = frame.minMemory;
+        proc.memoryReserved = frame.getMinMemory();
         proc.gpusReserved = frame.minGpus;
         proc.gpuMemoryReserved = frame.minGpuMemory;
 
