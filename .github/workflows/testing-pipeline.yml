@@ -2,9 +2,9 @@ name: OpenCue Testing Pipeline
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, cueweb ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, cueweb ]
 
 jobs:
   test_python_2022:
@@ -103,6 +103,101 @@ jobs:
       - uses: actions/checkout@v3
       - name: Run Sphinx build
         run: ci/build_sphinx_docs.sh
+
+  test_cueweb:
+    name: Run CueWeb Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 21.x
+      - name: install dependencies for cueweb
+        run: npm install
+        working-directory: ./cueweb
+      - name: Run tests in Docker container
+        run: npm test
+        working-directory: ./cueweb
+  test_rest_gateway:
+    name: Run Rest Gateway Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.21'
+      - name: Install Protobuf
+        run: |
+          sudo apt-get install -y protobuf-compiler
+          npm install -g protobuf-compiler
+        working-directory: ./rest_gateway/opencue_gateway
+      - name: Install dependencies
+        run: go mod init opencue_gateway && go mod tidy
+        working-directory: ./rest_gateway/opencue_gateway
+      - name: Install Go tools
+        run: |
+          go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
+          go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
+          go install github.com/golang-jwt/jwt/v5
+          go install google.golang.org/protobuf/cmd/protoc-gen-go
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
+        working-directory: ./rest_gateway/opencue_gateway
+      - name: Copy proto files
+        run: |
+          cp -r ./proto /app/proto
+      - name: Copy gateway files
+        run: |
+          cp -r ./rest_gateway/opencue_gateway /app/opencue_gateway
+      - name: Generate go grpc code
+        run: |
+          mkdir -p gen/go && \
+            protoc -I ../proto/ \
+            --go_out ./gen/go/ \
+            --go_opt paths=source_relative \
+            --go-grpc_out ./gen/go/ \
+            --go-grpc_opt paths=source_relative \
+            ../proto/*.proto
+        working-directory: ./rest_gateway/opencue_gateway
+      - name: Generate grpc-gateway handlers
+        run: |
+          protoc -I ../proto/ --grpc-gateway_out ./gen/go \
+          --grpc-gateway_opt paths=source_relative \
+          --grpc-gateway_opt generate_unbound_methods=true \
+          ../proto/*.proto
+        working-directory: ./rest_gateway/opencue_gateway
+      - name: Run Go Unit Tests
+        run: go test -v
+        working-directory: ./rest_gateway/opencue_gateway
+#  test_rest_gateway:
+#    name: Run Rest Gateway Tests
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout repository
+#        uses: actions/checkout@v2
+#      - name: Setup Go
+#        uses: actions/setup-go@v3
+#        with:
+#          go-version: '1.21'
+#      - name: Initialize go module and install dependencies
+#        run: |
+#          cd rest_gateway/opencue_gateway
+#          go mod init opencue_gateway && go mod tidy
+#      - name: Install protoc-gen-groc-gateway tool
+#        run: |
+#          go install \
+#          github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest \
+#          github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest \
+#          github.com/golang-jwt/jwt/v5@latest \
+#          google.golang.org/protobuf/cmd/protoc-gen-go@latest \
+#          google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+#      - name: Run rest gateway tests
+#        run: |
+#          cd rest_gateway/opencue_gateway
+#          go test -v ./...
 
   check_changed_files:
     name: Check Changed Files

@@ -3,14 +3,17 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
-
+	
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestJwtMiddleware(t *testing.T) {
+	os.Setenv("CUEBOT_ENDPOINT", "test_endpoint")
+	os.Setenv("REST_PORT", "test_port")
 	jwtSecret := []byte("test_secret")
 
 	// Set up a sample handler to use with the middleware
