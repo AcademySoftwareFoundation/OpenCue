@@ -40,6 +40,8 @@ OpenCue provides the following features to help manage rendering jobs at scale:
 For more information on installing, using, and administering OpenCue, visit
 [www.opencue.io](https://www.opencue.io).
 
+Watch YouTube videos on the [OpenCue Playlist](https://www.youtube.com/playlist?list=PL9dZxafYCWmzSBEwVT2AQinmZolYqBzdp) of the Academy Software Foundation (ASWF) to learn more.
+
 # Meeting notes
 
 Starting from May 2024, all Opencue meeting notes are stored on the [Opencue Confluence page](http://wiki.aswf.io/display/OPENCUE/OpenCue+Home).
