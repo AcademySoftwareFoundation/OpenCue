@@ -53,3 +53,5 @@ For meeting notes before May 2024, please refer to the Opencue repository in the
 To join the OpenCue discussion forum for users and admins, join the
 [opencue-user mailing list](https://lists.aswf.io/g/opencue-user) or email the
 group directly at <opencue-user@lists.aswf.io>.
+
+Join the [Opencue Slack channel](https://academysoftwarefdn.slack.com/archives/CMFPXV39Q).
