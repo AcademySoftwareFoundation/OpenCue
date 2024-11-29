@@ -350,7 +350,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "job.str_user,"+
             "job.int_uid,"+
             "job.str_log_dir,"+
-            "job.str_os,"+
+            "COALESCE(str_os, '') AS str_os, " +
             "job.b_loki_enabled,"+
             "job.str_loki_url,"+
             "frame.str_name AS frame_name, "+

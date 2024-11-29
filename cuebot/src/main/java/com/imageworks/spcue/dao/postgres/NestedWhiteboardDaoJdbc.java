@@ -94,7 +94,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             "job.b_paused, " +
             "job.b_autoeat, " +
             "job.b_comment, " +
-            "job.str_os, " +
+            "COALESCE(str_os, '') AS str_os, " +
             "job.int_frame_count, " +
             "job.int_layer_count, " +
             "job_stat.int_waiting_count, " +

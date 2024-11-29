@@ -530,7 +530,7 @@ public class DispatchQuery {
         "str_user, " +
         "int_uid, " +
         "str_log_dir, " +
-        "str_os, " +
+        "COALESCE(str_os, '') AS str_os, " +
         "b_loki_enabled, " +
         "str_loki_url, " +
         "frame_name, " +
