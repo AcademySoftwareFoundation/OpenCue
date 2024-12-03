@@ -86,6 +86,7 @@ public class FrameCompleteHandler {
     private WhiteboardDao whiteboardDao;
     private ServiceDao serviceDao;
     private ShowDao showDao;
+    private Environment env;
 
     /*
      * The last time a proc was unbooked for subscription or job balancing.
@@ -122,6 +123,7 @@ public class FrameCompleteHandler {
 
     @Autowired
     public FrameCompleteHandler(Environment env) {
+        this.env = env;
         satisfyDependOnlyOnFrameSuccess = env.getProperty(
             "depend.satisfy_only_on_frame_success", Boolean.class, true);
     }
@@ -318,14 +320,15 @@ public class FrameCompleteHandler {
             }
 
             /*
-             * An exit status of 33 indicates that the frame was killed by the
+             * Some exit statuses indicate that a frame was killed by the
              * application due to a memory issue and should be retried. In this
              * case, disable the optimizer and raise the memory by what is
              * specified in the show's service override, service or 2GB.
              */
             if (report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
                     || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                    || frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+                    || frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
+                    || report.getExitStatus() == Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE) {
                 long increase = CueUtil.GB2;
 
                 // since there can be multiple services, just going for the
@@ -460,7 +463,7 @@ public class FrameCompleteHandler {
                         && dispatchSupport.isCueBookable(job)) {
 
                     bookingQueue.execute(new DispatchBookHost(hostManager
-                            .getDispatchHost(proc.getHostId()), dispatcher));
+                            .getDispatchHost(proc.getHostId()), dispatcher, env));
                 }
 
                 if (job.state.equals(JobState.FINISHED)) {
@@ -509,7 +512,7 @@ public class FrameCompleteHandler {
                                         hostManager.getDispatchHost(proc.getHostId());
 
                                 bookingQueue.execute(
-                                        new DispatchBookHost(host, dispatcher));
+                                        new DispatchBookHost(host, dispatcher, env));
                                 return;
                             }
                         } catch (JobLookupException e) {
@@ -538,7 +541,7 @@ public class FrameCompleteHandler {
                         dispatchSupport.strandCores(host, stranded_cores);
                         dispatchSupport.unbookProc(proc);
                         bookingQueue.execute(new DispatchBookHost(host, job,
-                                dispatcher));
+                                dispatcher, env));
                         return;
                     }
                 }
@@ -639,7 +642,8 @@ public class FrameCompleteHandler {
                 newState = FrameState.DEAD;
             } else if (frame.retries >= job.maxRetries) {
                 if (!(report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                        || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE))
+                        || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
+                        || report.getExitStatus() == Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE))
                     newState = FrameState.DEAD;
             }
 

@@ -72,6 +72,9 @@ RQD_USE_PATH_ENV_VAR = False
 # Copy specific environment variable from the RQD host to the frame env.
 RQD_HOST_ENV_VARS = []
 
+RQD_CUSTOM_HOME_PREFIX = None
+RQD_CUSTOM_MAIL_PREFIX = None
+
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 SENTRY_DSN_PATH = None
@@ -153,6 +156,12 @@ else:
 
 SP_OS = platform.system()
 
+# Docker mode config
+RUN_ON_DOCKER = False
+DOCKER_IMAGES = {}
+DOCKER_MOUNTS = []
+DOCKER_SHELL_PATH = "/bin/sh"
+
 try:
     if os.path.isfile(CONFIG_FILE):
         # Hostname can come from here: rqutil.getHostname()
@@ -226,9 +235,90 @@ try:
             SENTRY_DSN_PATH = config.getint(__override_section, "SENTRY_DSN_PATH")
         if config.has_option(__override_section, "SP_OS"):
             SP_OS = config.get(__override_section, "SP_OS")
+        if config.has_option(__override_section, "RQD_CUSTOM_HOME_PREFIX"):
+            RQD_CUSTOM_HOME_PREFIX = config.get(__override_section, "RQD_CUSTOM_HOME_PREFIX")
+        if config.has_option(__override_section, "RQD_CUSTOM_MAIL_PREFIX"):
+            RQD_CUSTOM_MAIL_PREFIX = config.get(__override_section, "RQD_CUSTOM_MAIL_PREFIX")
 
         if config.has_section(__host_env_var_section):
             RQD_HOST_ENV_VARS = config.options(__host_env_var_section)
+
+        __docker_mounts = "docker.mounts"
+        __docker_config = "docker.config"
+        __docker_images = "docker.images"
+
+        if config.has_section(__docker_config):
+            RUN_ON_DOCKER = config.getboolean(__docker_config, "RUN_ON_DOCKER")
+            if RUN_ON_DOCKER:
+                import docker
+                import docker.models
+                import docker.types
+
+                # rqd needs to run as root to be able to run docker
+                RQD_UID = 0
+                RQD_GID = 0
+
+                # Path to the shell to be used in the frame environment
+                if config.has_option(__docker_config, "DOCKER_SHELL_PATH"):
+                    DOCKER_SHELL_PATH = config.get(
+                        __docker_config,
+                        "DOCKER_SHELL_PATH")
+
+                # Every key:value on the config file under docker.images
+                # is parsed as key=SP_OS and value=image_tag.
+                # SP_OS is set to a list of all available keys
+                # For example:
+                #
+                #   rqd.conf
+                #     [docker.images]
+                #     centos7=centos7.3:latest
+                #     rocky9=rocky9.3:latest
+                #
+                #   becomes:
+                #     SP_OS=centos7,rocky9
+                #     DOCKER_IMAGES={
+                #       "centos7": "centos7.3:latest",
+                #       "rocky9": "rocky9.3:latest"
+                #     }
+                keys = config.options(__docker_images)
+                DOCKER_IMAGES = {}
+                for key in keys:
+                    DOCKER_IMAGES[key] = config.get(__docker_images, key)
+                SP_OS = ",".join(keys)
+                if not DOCKER_IMAGES:
+                    raise RuntimeError("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
+                                       "least one image on DOCKER_IMAGES ([docker.images] "
+                                       "section of rqd.conf)")
+                def parse_mount(mount_string):
+                    """
+                    Parse mount definitions similar to a docker run command into a docker
+                    mount obj
+
+                    Format: type=bind,source=/tmp,target=/tmp,bind-propagation=slave
+                    """
+                    parsed_mounts = {}
+                    # bind-propagation defaults to None as only type=bind accepts it
+                    parsed_mounts["bind-propagation"] = None
+                    for item in mount_string.split(","):
+                        name, mount_path = item.split(":")
+                        parsed_mounts[name.strip()] = mount_path.strip()
+                    return parsed_mounts
+
+                # Parse values under the category docker.mounts into Mount objects
+                mounts = config.options(__docker_mounts)
+                for mount_name in mounts:
+                    mount_str = ""
+                    try:
+                        mount_str = config.get(__docker_mounts, mount_name)
+                        mount_dict = parse_mount(mount_str)
+                        mount = docker.types.Mount(mount_dict["target"],
+                                                  mount_dict["source"],
+                                                  type=mount_dict["type"],
+                                                  propagation=mount_dict["bind-propagation"])
+                        DOCKER_MOUNTS.append(mount)
+                    except KeyError as e:
+                        logging.exception("Failed to create Mount for key=%s, value=%s",
+                                          mount_name, mount_str)
 
 # pylint: disable=broad-except
 except Exception as e:

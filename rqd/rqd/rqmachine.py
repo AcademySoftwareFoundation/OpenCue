@@ -215,10 +215,23 @@ class Machine(object):
             frame.lluTime = int(stat)
 
     def _getStatFields(self, pidFilePath):
+        """ Read stats file and return list of values
+        Stats file can star with these formats:
+         - 105 name ...
+         - 105 (name) ...
+         - 105 (name with space) ...
+         - 105 (name with) (space and parenthesis) ...
+        """
         with open(pidFilePath, "r", encoding='utf-8') as statFile:
-            stats = statFile.read().split()
-            stats[1] = stats[1].strip('()')
-            return stats
+            txt = statFile.read()
+            try:
+                open_par_index = txt.index('(')
+                close_par_index = txt.rindex(')')
+                name = txt[open_par_index:close_par_index].strip("()")
+                reminder = (txt[0:open_par_index] + txt[close_par_index + 1:]).split()
+                return reminder[0:1] + [name] + reminder[1:]
+            except ValueError:
+                return txt.split()
 
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
@@ -269,6 +282,9 @@ class Machine(object):
                         # Fetch swap usage
                         "swap": self._getProcSwap(pid),
                     }
+
+                    # TODO: Improve this logic to avoid collecting data from all running procs.
+                    # instead, focus on the monitored procs hierarchy
                     # cmdline:
                     p = psutil.Process(int(pid))
                     pids[pid]["cmd_line"] = p.cmdline()
@@ -286,7 +302,7 @@ class Machine(object):
                         if re.search(r"\d+", child_statm_fields[1]) else -1
 
                 # pylint: disable=broad-except
-                except (OSError, IOError):
+                except (OSError, IOError, psutil.ZombieProcess):
                     # Many Linux processes are ephemeral and will disappear before we're able
                     # to read them. This is not typically indicative of a problem.
                     log.debug('Failed to read stat/statm file for pid %s', pid)
@@ -299,7 +315,7 @@ class Machine(object):
 
             values = list(frames.values())
             for frame in values:
-                if frame.pid > 0:
+                if frame.pid is not None and frame.pid > 0:
                     session = str(frame.pid)
                     rss = 0
                     vsize = 0
@@ -571,11 +587,11 @@ class Machine(object):
             self.__renderHost.tags.append("windows")
             return
 
-        if os.uname()[-1] in ("i386", "i686"):
+        if platform.uname()[-1] in ("i386", "i686"):
             self.__renderHost.tags.append("32bit")
-        elif os.uname()[-1] == "x86_64":
+        elif platform.uname()[-1] == "x86_64":
             self.__renderHost.tags.append("64bit")
-        self.__renderHost.tags.append(os.uname()[2].replace(".EL.spi", "").replace("smp", ""))
+        self.__renderHost.tags.append(platform.uname()[2].replace(".EL.spi", "").replace("smp", ""))
 
     def testInitMachineStats(self, pathCpuInfo):
         """Initializes machine stats outside of normal startup process. Used for testing."""
@@ -809,6 +825,7 @@ class Machine(object):
         self.__hostReport.host.CopyFrom(self.getHostInfo())
 
         self.__hostReport.ClearField('frames')
+        self.__rqCore.sanitizeFrames()
         for frameKey in self.__rqCore.getFrameKeys():
             try:
                 info = self.__rqCore.getFrame(frameKey).runningFrameInfo()
@@ -853,7 +870,7 @@ class Machine(object):
         if frameCores % 100:
             log.warning('Taskset: Can not reserveHT with fractional cores')
             return None
-        log.warning('Taskset: Requesting reserve of %d', (frameCores // 100))
+        log.info('Taskset: Requesting reserve of %d', (frameCores // 100))
 
         # Look for the most idle physical cpu.
         # Prefer to assign cores from the same physical cpu.

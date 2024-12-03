@@ -35,7 +35,8 @@ RUN python3.9 -m grpc_tools.protoc \
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-RUN 2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
+COPY ci/fix_compiled_proto.py ./ci/
+RUN python3.9 ci/fix_compiled_proto.py rqd/rqd/compiled_proto
 
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION

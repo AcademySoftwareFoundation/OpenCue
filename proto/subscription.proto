@@ -5,6 +5,8 @@ package subscription;
 option java_package = "com.imageworks.spcue.grpc.subscription";
 option java_multiple_files = true;
 
+option go_package = "opencue_gateway/gen/go";
+
 // Subscriptions
 // A subscription is what a show sets up when they want to use hosts in
 // an allocation.

@@ -28,6 +28,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
@@ -75,6 +76,9 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rule
     public AssumingPostgresEngine assumingPostgresEngine;
 
+    @Autowired
+    private Environment env;
+
     @Resource
     ProcDao procDao;
 
@@ -113,6 +117,9 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
     private static String PK_ALLOC = "00000000-0000-0000-0000-000000000000";
 
+    private long MEM_RESERVED_DEFAULT;
+    private long MEM_GPU_RESERVED_DEFAULT;
+
     public DispatchHost createHost() {
 
         RenderHost host = RenderHost.newBuilder()
@@ -149,6 +156,12 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void setDispatcherTestMode() {
         dispatcher.setTestMode(true);
         jobLauncher.testMode = true;
+        this.MEM_RESERVED_DEFAULT = env.getRequiredProperty(
+            "dispatcher.memory.mem_reserved_default",
+            Long.class);
+        this.MEM_GPU_RESERVED_DEFAULT = env.getRequiredProperty(
+            "dispatcher.memory.mem_gpu_reserved_default",
+            Long.class);
     }
 
     @Test
@@ -587,10 +600,10 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         procDao.insertVirtualProc(proc);
 
         VirtualProc _proc = procDao.findVirtualProc(frame);
-        assertEquals(Long.valueOf(Dispatcher.MEM_RESERVED_DEFAULT), jdbcTemplate.queryForObject(
+        assertEquals(Long.valueOf(this.MEM_RESERVED_DEFAULT), jdbcTemplate.queryForObject(
                         "SELECT int_mem_reserved FROM proc WHERE pk_proc=?",
                         Long.class, _proc.id));
-        assertEquals(Dispatcher.MEM_RESERVED_DEFAULT,
+        assertEquals(this.MEM_RESERVED_DEFAULT,
                 procDao.getReservedMemory(_proc));
     }
 
@@ -609,10 +622,10 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         procDao.insertVirtualProc(proc);
 
         VirtualProc _proc = procDao.findVirtualProc(frame);
-        assertEquals(Long.valueOf(Dispatcher.MEM_GPU_RESERVED_DEFAULT), jdbcTemplate.queryForObject(
+        assertEquals(Long.valueOf(this.MEM_GPU_RESERVED_DEFAULT), jdbcTemplate.queryForObject(
                         "SELECT int_gpu_mem_reserved FROM proc WHERE pk_proc=?",
                         Long.class, _proc.id));
-        assertEquals(Dispatcher.MEM_GPU_RESERVED_DEFAULT,
+        assertEquals(this.MEM_GPU_RESERVED_DEFAULT,
                 procDao.getReservedGpuMemory(_proc));
     }
 
@@ -655,18 +668,18 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         layerDao.updateLayerMaxRSS(frame3,300000, true);
 
         procDao.balanceUnderUtilizedProcs(proc3, 100000);
-        procDao.increaseReservedMemory(proc3, Dispatcher.MEM_RESERVED_DEFAULT + 100000);
+        procDao.increaseReservedMemory(proc3, this.MEM_RESERVED_DEFAULT + 100000);
 
         // Check the target proc
         VirtualProc targetProc = procDao.getVirtualProc(proc3.getId());
-        assertEquals( Dispatcher.MEM_RESERVED_DEFAULT+ 100000, targetProc.memoryReserved);
+        assertEquals( this.MEM_RESERVED_DEFAULT + 100000, targetProc.memoryReserved);
 
         // Check other procs
         VirtualProc firstProc = procDao.getVirtualProc(proc1.getId());
-        assertEquals( Dispatcher.MEM_RESERVED_DEFAULT - 50000 -1 , firstProc.memoryReserved);
+        assertEquals( this.MEM_RESERVED_DEFAULT - 50000 -1 , firstProc.memoryReserved);
 
         VirtualProc secondProc = procDao.getVirtualProc(proc2.getId());
-        assertEquals(Dispatcher.MEM_RESERVED_DEFAULT - 50000 -1, secondProc.memoryReserved);
+        assertEquals(this.MEM_RESERVED_DEFAULT - 50000 -1, secondProc.memoryReserved);
 
     }
 

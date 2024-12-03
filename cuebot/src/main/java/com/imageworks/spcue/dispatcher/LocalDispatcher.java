@@ -24,6 +24,8 @@ import java.util.List;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -41,6 +43,9 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
 
 public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
+
+    @Autowired
+    private Environment env;
 
     private static final Logger logger =
         LogManager.getLogger(LocalDispatcher.class);
@@ -111,7 +116,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
              * not move on.
              */
             if (!lha.hasAdditionalResources(lha.getThreads() * 100,
-                    frame.minMemory,
+                    frame.getMinMemory(),
                     frame.minGpus,
                     frame.minGpuMemory)) {
                 continue;
@@ -139,15 +144,21 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
 
                 procs.add(proc);
 
+                long memReservedMin = env.getRequiredProperty(
+                    "dispatcher.memory.mem_reserved_min",
+                    Long.class);
+                long memGpuReservedMin = env.getRequiredProperty(
+                    "dispatcher.memory.mem_gpu_reserved_min",
+                    Long.class);
                 /*
                  * This should stay here and not go into VirtualProc
                  * or else the count will be off if you fail to book.
                  */
                 lha.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved);
                 if (!lha.hasAdditionalResources(lha.getThreads() * 100,
-                        Dispatcher.MEM_RESERVED_MIN,
+                        memReservedMin,
                         Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                        memGpuReservedMin)) {
                     break;
                 }
 
@@ -198,7 +209,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
              * not move on.
              */
             if (!lha.hasAdditionalResources(lha.getThreads() * 100,
-                    frame.minMemory,
+                    frame.getMinMemory(),
                     frame.minGpus,
                     frame.minGpuMemory)) {
                 continue;
@@ -226,15 +237,22 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
 
                 procs.add(proc);
 
+                long memReservedMin = env.getRequiredProperty(
+                    "dispatcher.memory.mem_reserved_min",
+                    Long.class);
+                long memGpuReservedMin = env.getRequiredProperty(
+                    "dispatcher.memory.mem_gpu_reserved_min",
+                    Long.class);
+
                 /*
                  * This should stay here and not go into VirtualProc
                  * or else the count will be off if you fail to book.
                  */
                 lha.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved);
                 if (!lha.hasAdditionalResources(100,
-                        Dispatcher.MEM_RESERVED_MIN,
+                        memReservedMin,
                         Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                        memGpuReservedMin)) {
                     break;
                 }
 
@@ -276,7 +294,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
          */
         DispatchFrame dframe = jobManager.getDispatchFrame(frame.getId());
         if (!lha.hasAdditionalResources(lha.getMaxCoreUnits(),
-                dframe.minMemory,
+                dframe.getMinMemory(),
                 lha.getMaxGpuUnits(),
                 dframe.minGpuMemory)) {
             return procs;

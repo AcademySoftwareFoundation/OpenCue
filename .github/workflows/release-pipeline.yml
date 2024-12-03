@@ -8,7 +8,7 @@ on:
 
 jobs:
   preflight:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     name: Preflight
     steps:
       - name: Checkout code
@@ -37,7 +37,7 @@ jobs:
 
   release_docker_images:
     needs: preflight
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         component: [cuebot, rqd, pycue, pyoutline, cuegui, cuesubmit, cueadmin]
@@ -75,10 +75,18 @@ jobs:
           context: .
           push: true
 
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+          repository: opencue/${{ matrix.component }}
+          readme-filepath: ./${{ matrix.component }}/README.md
+
   create_release:
     needs: preflight
     name: Create Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v3

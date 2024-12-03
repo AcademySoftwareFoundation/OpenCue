@@ -30,6 +30,8 @@ import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
@@ -57,6 +59,9 @@ import com.imageworks.spcue.util.SqlUtil;
 
 
 public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
+
+    @Autowired
+    private Environment env;
 
     public static final RowMapper<HostEntity> HOST_DETAIL_MAPPER = new RowMapper<HostEntity>() {
         public HostEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -214,7 +219,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             host.isNimby = rs.getBoolean("b_nimby");
             host.threadMode = rs.getInt("int_thread_mode");
             host.tags = rs.getString("str_tags");
-            host.os = rs.getString("str_os");
+            host.setOs(rs.getString("str_os"));
             host.hardwareState =
                 HardwareState.valueOf(rs.getString("str_state"));
             return host;
@@ -324,9 +329,12 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         }
 
         long memUnits = convertMemoryUnits(host);
-        if (memUnits < Dispatcher.MEM_RESERVED_MIN) {
+        long memReserverMin = env.getRequiredProperty(
+            "dispatcher.memory.mem_reserved_min",
+            Long.class);
+        if (memUnits < memReserverMin) {
             throw new EntityCreationError("could not create host " + host.getName() + ", " +
-                    " must have at least " + Dispatcher.MEM_RESERVED_MIN + " free memory.");
+                    " must have at least " + memReserverMin + " free memory.");
         }
 
         String fqdn;
@@ -727,10 +735,10 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
         long memUnits;
         if (host.getTagsList().contains("64bit")) {
-            memUnits = CueUtil.convertKbToFakeKb64bit(host.getTotalMem());
+            memUnits = CueUtil.convertKbToFakeKb64bit(env, host.getTotalMem());
         }
         else {
-            memUnits = CueUtil.convertKbToFakeKb32bit(host.getTotalMem());
+            memUnits = CueUtil.convertKbToFakeKb32bit(env, host.getTotalMem());
         }
 
         /*
@@ -738,7 +746,10 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
          * so we don't annoy the user.
          */
         if (host.getNimbyEnabled()) {
-            memUnits = (long) (memUnits / 1.5) + Dispatcher.MEM_RESERVED_SYSTEM;
+            long memReservedSystem = env.getRequiredProperty(
+                "dispatcher.memory.mem_reserved_system",
+                Long.class);
+            memUnits = (long) (memUnits / 1.5) + memReservedSystem;
         }
 
         return memUnits;

@@ -24,8 +24,13 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.util.CueUtil;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 public class DispatchHost extends Entity
     implements HostInterface, FacilityInterface, ResourceContainer {
+
+    private static final Logger logger = LogManager.getLogger(DispatchHost.class);
 
     public String facilityId;
     public String allocationId;
@@ -46,7 +51,7 @@ public class DispatchHost extends Entity
     public long gpuMemory;
     public long idleGpuMemory;
     public String tags;
-    public String os;
+    private String os;
 
     public boolean isNimby;
     public boolean isLocalDispatch = false;
@@ -76,10 +81,59 @@ public class DispatchHost extends Entity
         return facilityId;
     }
 
+    public String[] getOs() {
+        return this.os.split(",");
+    }
+
+    public void setOs(String os) {
+        this.os = os;
+    }
+
+    public boolean canHandleNegativeCoresRequest(int requestedCores) {
+        // Request is positive, no need to test further.
+        if (requestedCores > 0) {
+            logger.debug(getName() + " can handle the job with " + requestedCores + " cores.");
+            return true;
+        }
+        // All cores are available, validate the request.
+        if (cores == idleCores) {
+            logger.debug(getName() + " can handle the job with " + requestedCores + " cores.");
+            return true;
+        }
+        // Some or all cores are busy, avoid booking again.
+        logger.debug(getName() + " cannot handle the job with " + requestedCores + " cores.");
+        return false;
+    }
+
+    public int handleNegativeCoresRequirement(int requestedCores) {
+        // If we request a <=0 amount of cores, return positive core count.
+        // Request -2 on a 24 core machine will return 22.
+
+        if (requestedCores > 0) {
+            // Do not process positive core requests.
+            logger.debug("Requested " + requestedCores + " cores.");
+            return requestedCores;
+        }
+        if (requestedCores <=0 && idleCores < cores) {
+            // If request is negative but cores are already used, return 0.
+            // We don't want to overbook the host.
+            logger.debug("Requested " + requestedCores + " cores, but the host is busy and cannot book more jobs.");
+            return 0;
+        }
+        // Book all cores minus the request
+        int totalCores = idleCores + requestedCores;
+        logger.debug("Requested " + requestedCores + " cores  <= 0, " +
+                     idleCores + " cores are free, booking " + totalCores + " cores");
+        return totalCores;
+    }
+
     @Override
     public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus, long minGpuMemory) {
-
+        minCores = handleNegativeCoresRequirement(minCores);
         if (idleCores < minCores) {
+            return false;
+        }
+        if (minCores <= 0) {
             return false;
         }
         else if (idleMemory <  minMemory) {

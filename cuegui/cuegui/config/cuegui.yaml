@@ -1,5 +1,16 @@
 # Default CueGUI config file
 
+# Configure how a version number should be acquired.
+#  - False, use the version number in VERSION.in
+#  - True, run the commands defined at cuegui.custom.cmd.version.beta (for beta) or cuegui.custom.cmd.version.stable (for stable) to acquire the version number
+cuegui.use.custom.version: False
+# Used to show the CueGUI beta version, if the environment variable OPENCUE_BETA = 1 (setenv OPENCUE_BETA 1)
+# If the CueGUI beta version is enabled, it's possible to run a shell command to get the cuegui version or any other
+# custom command specified in the environment configuration.
+cuegui.custom.cmd.version.beta: "echo 1.0.0"
+# Used to show the CueGUI stable version, if the environment variable OPENCUE_BETA = 0 (setenv OPENCUE_BETA 0)
+cuegui.custom.cmd.version.stable: "echo 1.0.1"
+
 logger.format: '%(levelname)-9s %(module)-10s %(message)s'
 logger.level: 'WARNING'
 
@@ -30,6 +41,7 @@ render_logs.root:
   darwin: '/Users/shots'
   linux: '/shots'
   rhel7: '/shots'
+  rocky9: '/shots'
 # Substrings which, when found in render logs, will cause that line to be highlighted.
 render_logs.highlight.error: [
   'error', 'aborted', 'fatal', 'failed', 'killed', 'command not found',
@@ -120,26 +132,24 @@ startup_notice.msg: ''
 # Memory usage above this level will be displayed in a different color.
 memory_warning_level: 5242880
 
-# Output Viewer config.
-# # ------------------------------------------------------------------------------------------------------
+# Output Viewers config.
 # Frame, Layer and Job objects have right click menu option for opening an output viewer
 # (eg. OpenRV)
-# output_viewer:
-#   # Text to be displayed at the menu action button
-#   action_text: "View Output in Itview"
+# output_viewers:
+#  # Text to be displayed at the menu action button
+#  - action_text: "View in OpenRV"
+#    # extract_args_regex: Regex to extract arguments from the output path produced by a job/layer/frame
+#    # cmd_pattern: Command pattern to be matched with the regex defined at extract_args_regex
+#    # if extract_args_regex is not provided, cmd_pattern is called directly with paths as arguments
+#    extract_args_regex: '/shots/(?P<show>\w+)/(?P<shot>shot\w+)/.*'
+#    cmd_pattern: "env SHOW={show} SHOT={shot} COLOR_IO=/{show}/home/colorspaces.xml OCIO=/{show}/home/config.ocio openrv {paths}"
+#
+#    # if provided, paths containing any of the two values are considered the same output and only one
+#    # of them will be passed to the viewer
+#    stereo_modifiers: "_rt_,_lf_"
 
-#   # extract_args_regex: Regex to extract arguments from the output path produced by a job/layer/frame
-#   # cmd_pattern: Command pattern to be matched with the regex defined at extract_args_regex
-#   # if extract_args_regex is not provided, cmd_pattern is called directly with paths as arguments
-#   extract_args_regex: '/shots/(?P<show>\w+)/(?P<shot>shot\w+)/.*'
-#   cmd_pattern: "env SHOW={show} SHOT={shot} COLOR_IO=/{show}/home/colorspaces.xml OCIO=/{show}/home/config.ocio openrv {paths}"
-#   # Pattern to call viewer cmd directly without extracting environment variables. Used for previewing frames
-#   direct_cmd_call: "openrv {paths}"
-
-#   # if provided, paths containing any of the two values are considered the same output and only one
-#   # of them will be passed to the viewer
-#   stereo_modifiers: "_rt_,_lf_"
-# # ------------------------------------------------------------------------------------------------------
+# Pattern to call viewer cmd directly without extracting environment variables. Used for previewing frames
+# output_viewer_direct_cmd_call: "openrv {paths}"
 
 # These flags determine whether or not layers/frames will be readonly when job is finished.
 # If flags are set as true, layers/frames cannot be retried, eaten, edited dependency on, etc.
@@ -152,3 +162,8 @@ finished_jobs_readonly.layer: True
 # MOVE_JOB_TO_GROUP, SET_ALL_RENDER_LAYER_MAX_CORES)
 # An empty string means all actions are active.
 filter_dialog.disabled_action_types: ''
+
+# Define whether or not new jobs should be appended to the current list of jobs on the JobMonitor widget
+#  - True: search result will append jobs to the current list of monitored jobs
+#  - False: repopulate the jobs table with the search result
+search_jobs.append_results: True

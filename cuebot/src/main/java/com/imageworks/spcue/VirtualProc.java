@@ -22,7 +22,12 @@ package com.imageworks.spcue;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 public class VirtualProc extends FrameEntity implements ProcInterface {
+
+    private static final Logger logger = LogManager.getLogger(VirtualProc.class);
 
     public String hostId;
     public String allocationId;
@@ -31,6 +36,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
     public String os;
     public byte[] childProcesses;
 
+    public boolean canHandleNegativeCoresRequest;
     public int coresReserved;
     public long memoryReserved;
     public long memoryUsed;
@@ -79,7 +85,9 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
      * @param frame
      * @return
      */
-    public static final VirtualProc build(DispatchHost host, DispatchFrame frame, String... selfishServices) {
+    public static final VirtualProc build(DispatchHost host,
+                                          DispatchFrame frame,
+                                          String... selfishServices) {
         VirtualProc proc = new VirtualProc();
         proc.allocationId = host.getAllocationId();
         proc.hostId = host.getHostId();
@@ -88,14 +96,14 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.jobId = frame.getJobId();
         proc.showId = frame.getShowId();
         proc.facilityId = frame.getFacilityId();
-        proc.os = host.os;
+        proc.os = frame.os;
 
         proc.hostName = host.getName();
         proc.unbooked = false;
         proc.isLocalDispatch = host.isLocalDispatch;
 
         proc.coresReserved = frame.minCores;
-        proc.memoryReserved = frame.minMemory;
+        proc.memoryReserved = frame.getMinMemory();
         proc.gpusReserved = frame.minGpus;
         proc.gpuMemoryReserved = frame.minGpuMemory;
 
@@ -111,7 +119,17 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
             proc.coresReserved = proc.coresReserved + host.strandedCores;
         }
 
-        if (proc.coresReserved >= 100) {
+        proc.canHandleNegativeCoresRequest = host.canHandleNegativeCoresRequest(proc.coresReserved);
+
+        if (proc.coresReserved == 0) {
+            logger.debug("Reserving all cores");
+            proc.coresReserved = host.cores;
+        }
+        else if (proc.coresReserved < 0) {
+            logger.debug("Reserving all cores minus " + proc.coresReserved);
+            proc.coresReserved = host.cores + proc.coresReserved;
+        }
+        else if (proc.coresReserved >= 100) {
 
             int originalCores = proc.coresReserved;
 
@@ -132,17 +150,17 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                 proc.coresReserved = wholeCores * 100;
             } else {
                 if (frame.threadable) {
-                    if (selfishServices != null && 
+                    if (selfishServices != null &&
                         frame.services != null &&
                         containsSelfishService(frame.services.split(","), selfishServices)){
                         proc.coresReserved = wholeCores * 100;
                     }
                     else {
-                        if (host.idleMemory - frame.minMemory
+                        if (host.idleMemory - frame.getMinMemory()
                                 <= Dispatcher.MEM_STRANDED_THRESHHOLD) {
                             proc.coresReserved = wholeCores * 100;
                         } else {
-                            proc.coresReserved = getCoreSpan(host, frame.minMemory);
+                            proc.coresReserved = getCoreSpan(host, frame.getMinMemory());
                         }
                     }
                     if (host.threadMode == ThreadMode.VARIABLE_VALUE
@@ -222,14 +240,14 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.jobId = frame.getJobId();
         proc.showId = frame.getShowId();
         proc.facilityId = frame.getFacilityId();
-        proc.os = host.os;
+        proc.os = frame.os;
 
         proc.hostName = host.getName();
         proc.unbooked = false;
         proc.isLocalDispatch = host.isLocalDispatch;
 
         proc.coresReserved = lja.getThreads() * 100;
-        proc.memoryReserved = frame.minMemory;
+        proc.memoryReserved = frame.getMinMemory();
         proc.gpusReserved = frame.minGpus;
         proc.gpuMemoryReserved = frame.minGpuMemory;
 

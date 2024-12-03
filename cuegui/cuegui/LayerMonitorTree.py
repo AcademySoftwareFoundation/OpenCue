@@ -20,6 +20,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import functools
 
 from qtpy import QtCore
 from qtpy import QtWidgets
@@ -67,10 +68,12 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda layer: displayRange(layer),
                        tip="The range of frames that the layer should render.")
         self.addColumn("Cores", 45, id=6,
-                       data=lambda layer: "%.2f" % layer.data.min_cores,
+                       data=lambda layer: self.labelCoresColumn(layer.data.min_cores),
                        sort=lambda layer: layer.data.min_cores,
                        tip="The number of cores that the frames in this layer\n"
-                           "will reserve as a minimum.")
+                           "will reserve as a minimum."
+                           "Zero or negative value indicate that the layer will use\n"
+                           "all available cores on the machine, minus this value.")
         self.addColumn("Memory", 60, id=7,
                        data=lambda layer: cuegui.Utils.memoryToString(layer.data.min_memory),
                        sort=lambda layer: layer.data.min_memory,
@@ -183,6 +186,14 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         since last updated"""
         self.ticksWithoutUpdate = 9999
 
+    def labelCoresColumn(self, reserved_cores):
+        """Returns the reserved cores for a job"""
+        if reserved_cores > 0:
+            return "%.2f" % reserved_cores
+        if reserved_cores == 0:
+            return "ALL"
+        return "ALL (%.2f)" % reserved_cores
+
     # pylint: disable=inconsistent-return-statements
     def setJob(self, job):
         """Sets the current job.
@@ -231,8 +242,15 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu = QtWidgets.QMenu()
 
         self.__menuActions.layers().addAction(menu, "view")
-        if cuegui.Constants.OUTPUT_VIEWER_CMD_PATTERN:
-            self.__menuActions.layers().addAction(menu, "viewOutput")
+
+        if (len(cuegui.Constants.OUTPUT_VIEWERS) > 0
+                and sum(len(layer.getOutputPaths()) for layer in __selectedObjects) > 0):
+            for viewer in cuegui.Constants.OUTPUT_VIEWERS:
+                menu.addAction(viewer['action_text'],
+                               functools.partial(cuegui.Utils.viewOutput,
+                                                 __selectedObjects,
+                                                 viewer['action_text']))
+
         depend_menu = QtWidgets.QMenu("&Dependencies", self)
         self.__menuActions.layers().addAction(depend_menu, "viewDepends")
         self.__menuActions.layers().addAction(depend_menu, "dependWizard")

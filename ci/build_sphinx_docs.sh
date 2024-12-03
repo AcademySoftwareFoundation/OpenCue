@@ -10,7 +10,7 @@ python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto 
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
+python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
 
 # Build the docs and treat warnings as errors
 ~/.local/bin/sphinx-build -W -b html -d docs/_build/doctrees docs docs/_build/html

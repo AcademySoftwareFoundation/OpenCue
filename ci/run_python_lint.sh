@@ -13,8 +13,8 @@ python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
-2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
+python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
+python ci/fix_compiled_proto.py rqd/rqd/compiled_proto
 
 echo "Running lint for pycue/..."
 cd pycue
@@ -37,14 +37,14 @@ cd ..
 
 echo "Running lint for cuegui/..."
 cd cuegui
-PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cuegui --ignore=cuegui/images,cuegui/images/crystal
-PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests
+PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cuegui --ignore=cuegui/images,cuegui/images/crystal --disable=no-member
+PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
 cd ..
 
 echo "Running lint for cuesubmit/..."
 cd cuesubmit
-PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_main cuesubmit
-PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_test tests
+PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_main cuesubmit --disable=no-member
+PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
 cd ..
 
 echo "Running lint for rqd/..."

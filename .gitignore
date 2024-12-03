@@ -9,8 +9,15 @@ venv*/
 .coverage
 coverage.xml
 htmlcov/
+rest_gateway/*.tar\.gz
 /.env
 .envrc
 .vscode
 .venv/
 .eggs/*
+/cuebot/bin/*
+/logs/*
+/.gradle/*
+cuebot/.settings/*
+cuebot/.classpath
+cuebot/.project
