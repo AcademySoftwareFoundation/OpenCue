@@ -18,8 +18,8 @@
 from qtpy import QtCore
 from qtpy import QtWidgets
 
-from NodeGraphQt import NodeGraph
-from NodeGraphQt.errors import NodeRegistrationError
+from NodeGraphQtPy import NodeGraph
+from NodeGraphQtPy.errors import NodeRegistrationError
 from cuegui.nodegraph import CueLayerNode
 from cuegui import app
 

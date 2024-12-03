@@ -15,7 +15,7 @@
 
 """Module defining custom widgets that appear on nodes in the nodegraph.
 
-The classes defined here inherit from NodeGraphQt base classes, therefore any
+The classes defined here inherit from NodeGraphQtPy base classes, therefore any
 snake_case methods defined here are overriding the base class and must remain
 snake_case to work properly.
 """
@@ -23,7 +23,7 @@ snake_case to work properly.
 
 from qtpy import QtWidgets
 from qtpy import QtCore
-from NodeGraphQt.widgets.node_widgets import NodeBaseWidget
+from NodeGraphQtPy.widgets.node_widgets import NodeBaseWidget
 
 
 class NodeProgressBar(NodeBaseWidget):
@@ -90,7 +90,7 @@ QProgressBar::chunk {
         """Get value from progress bar on node
         XXX: This property shouldn't be required as it's been superseded by get_value,
              however the progress bar doesn't update without it. Believe it may be
-             a bug in NodeGraphQt's `NodeObject.set_property`. We should remove this
+             a bug in NodeGraphQtPy's `NodeObject.set_property`. We should remove this
              once it's been resolved.
         @return: progress bar value
         @rtype:  int
@@ -102,7 +102,7 @@ QProgressBar::chunk {
         """Set value on progress bar
         XXX: This property shouldn't be required as it's been superseded by set_value,
              however the progress bar doesn't update without it. Believe it may be
-             a bug in NodeGraphQt's `NodeObject.set_property`. We should remove this
+             a bug in NodeGraphQtPy's `NodeObject.set_property`. We should remove this
              once it's been resolved.
         @param value: Value to set on progress bar
         @type  value: int

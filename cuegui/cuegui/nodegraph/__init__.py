@@ -13,9 +13,9 @@
 #  limitations under the License.
 
 
-"""nodegraph is an OpenCue specific extension of NodeGraphQt
+"""nodegraph is an OpenCue specific extension of NodeGraphQtPy
 
-The docs for NodeGraphQt can be found at:
+The docs for NodeGraphQtPy can be found at:
 http://chantasticvfx.com/nodeGraphQt/html/nodes.html
 """
 from .nodes import CueLayerNode

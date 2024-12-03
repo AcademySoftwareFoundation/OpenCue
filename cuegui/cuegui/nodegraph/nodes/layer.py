@@ -13,21 +13,21 @@
 #  limitations under the License.
 
 
-"""Implementation of a Cue Layer node that works with NodeGraphQt"""
+"""Implementation of a Cue Layer node that works with NodeGraphQtPy"""
 
 
 from __future__ import division
 import os
 from qtpy import QtGui
 import opencue
-import NodeGraphQt.qgraphics.node_base
+import NodeGraphQtPy.qgraphics.node_base
 import cuegui.images
 from cuegui.Constants import RGB_FRAME_STATE
 from cuegui.nodegraph.nodes.base import CueBaseNode
 
 
 class CueLayerNode(CueBaseNode):
-    """Implementation of a Cue Layer node that works with NodeGraphQt"""
+    """Implementation of a Cue Layer node that works with NodeGraphQtPy"""
 
     __identifier__ = "aswf.opencue"
 
@@ -38,7 +38,7 @@ class CueLayerNode(CueBaseNode):
 
         self.set_name(layerRpcObject.name())
 
-        NodeGraphQt.qgraphics.node_base.NODE_ICON_SIZE = 30
+        NodeGraphQtPy.qgraphics.node_base.NODE_ICON_SIZE = 30
         services = layerRpcObject.services()
         if services:
             app = services[0].name()
