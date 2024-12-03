@@ -61,12 +61,15 @@ class MonitorGraphDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         cuegui.app().unmonitor.connect(self.__unmonitor)
         cuegui.app().facility_changed.connect(self.__setJob)
 
+    # pylint: disable=missing-function-docstring
     def dragEnterEvent(self, event):
         cuegui.Utils.dragEnterEvent(event)
 
+    # pylint: disable=missing-function-docstring
     def dragMoveEvent(self, event):
         cuegui.Utils.dragMoveEvent(event)
 
+    # pylint: disable=missing-function-docstring
     def dropEvent(self, event):
         for jobName in cuegui.Utils.dropEvent(event):
             self.__setJob(jobName)
