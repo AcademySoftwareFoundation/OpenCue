@@ -531,6 +531,8 @@ public class DispatchQuery {
         "int_uid, " +
         "str_log_dir, " +
         "COALESCE(str_os, '') AS str_os, " +
+        "b_loki_enabled, " +
+        "str_loki_url, " +
         "frame_name, " +
         "frame_state, " +
         "pk_frame, " +
@@ -572,6 +574,8 @@ public class DispatchQuery {
                 "job.int_uid, " +
                 "job.str_log_dir, " +
                 "job.str_os, " +
+                "job.b_loki_enabled, " +
+                "job.str_loki_url, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -659,6 +663,8 @@ public class DispatchQuery {
                 "job.int_uid, " +
                 "job.str_log_dir, " +
                 "job.str_os, " +
+                "job.b_loki_enabled, " +
+                "job.str_loki_url, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -747,6 +753,8 @@ public class DispatchQuery {
                 "job.int_uid, " +
                 "job.str_log_dir, " +
                 "job.str_os, " +
+                "job.b_loki_enabled, " +
+                "job.str_loki_url, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -828,6 +836,8 @@ public class DispatchQuery {
                 "job.int_uid, " +
                 "job.str_log_dir, " +
                 "job.str_os, " +
+                "job.b_loki_enabled, " +
+                "job.str_loki_url, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -912,6 +922,8 @@ public class DispatchQuery {
                 "job.int_uid, " +
                 "job.str_log_dir, " +
                 "job.str_os, " +
+                "job.b_loki_enabled, " +
+                "job.str_loki_url, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -999,6 +1011,8 @@ public class DispatchQuery {
                 "job.int_uid, " +
                 "job.str_log_dir, " +
                 "job.str_os, " +
+                "job.b_loki_enabled, " +
+                "job.str_loki_url, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -1087,6 +1101,8 @@ public class DispatchQuery {
                 "job.int_uid, " +
                 "job.str_log_dir, " +
                 "job.str_os, " +
+                "job.b_loki_enabled, " +
+                "job.str_loki_url, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +
@@ -1168,6 +1184,8 @@ public class DispatchQuery {
                 "job.int_uid, " +
                 "job.str_log_dir, " +
                 "job.str_os, " +
+                "job.b_loki_enabled, " +
+                "job.str_loki_url, " +
                 "frame.str_name AS frame_name, " +
                 "frame.str_state AS frame_state, " +
                 "frame.pk_frame, " +

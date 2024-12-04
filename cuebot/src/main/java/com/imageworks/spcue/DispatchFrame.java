@@ -72,5 +72,9 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
     public long getMinMemory() {
         return this.minMemory;
     }
+
+    // Parameters to tell rqd whether or not to use Loki for frame logs and which base url to use
+    public boolean lokiEnabled;
+    public String lokiURL;
 }
 

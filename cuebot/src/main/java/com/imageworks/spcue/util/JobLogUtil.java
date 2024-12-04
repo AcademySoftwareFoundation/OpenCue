@@ -66,4 +66,12 @@ public class JobLogUtil {
             return env.getRequiredProperty("log.frame-log-root.default_os", String.class);
         }
     }
+
+    public Boolean getLokiIsEnabled() {
+        return env.getRequiredProperty("log.loki.enabled", Boolean.class);
+    }
+
+    public String getLokiURL() {
+        return env.getRequiredProperty("log.loki.url", String.class);
+    }
 }

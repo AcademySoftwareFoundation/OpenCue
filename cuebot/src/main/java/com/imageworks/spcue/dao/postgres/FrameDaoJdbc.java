@@ -332,6 +332,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.version = rs.getInt("int_version");
             frame.services = rs.getString("str_services");
             frame.os = rs.getString("str_os");
+            frame.lokiEnabled = rs.getBoolean("b_loki_enabled");
+            frame.lokiURL = rs.getString("str_loki_url");
             return frame;
         }
     };
@@ -349,6 +351,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "job.int_uid,"+
             "job.str_log_dir,"+
             "COALESCE(str_os, '') AS str_os, " +
+            "job.b_loki_enabled,"+
+            "job.str_loki_url,"+
             "frame.str_name AS frame_name, "+
             "frame.str_state AS frame_state, "+
             "frame.pk_frame, "+
