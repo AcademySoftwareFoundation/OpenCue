@@ -351,6 +351,7 @@ class JobRegexLoadEditBox(QtWidgets.QLineEdit):
         self.setToolTip(toolTip)
 
     def contextMenuEvent(self, e):
+        """Handle context menu events"""
         menu = QtWidgets.QMenu(self)
 
         menu.addAction(cuegui.Action.create(self,

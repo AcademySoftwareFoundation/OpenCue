@@ -113,6 +113,7 @@ class HostMonitor(QtWidgets.QWidget):
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setFixedWidth(24)
         layout.addWidget(btn)
+        # pylint: disable=no-member
         QtCore.QObject.connect(btn,
                                QtCore.SIGNAL('clicked()'),
                                self.__filterByHostNameClear)
@@ -149,6 +150,7 @@ class HostMonitor(QtWidgets.QWidget):
 
         menu = QtWidgets.QMenu(self)
         btn.setMenu(menu)
+        # pylint: disable=no-member
         QtCore.QObject.connect(menu,
                                QtCore.SIGNAL("triggered(QAction*)"),
                                self.__filterAllocationHandle)
@@ -210,12 +212,13 @@ class HostMonitor(QtWidgets.QWidget):
         btn.setContentsMargins(0, 0, 0, 0)
         btn.setFlat(True)
 
+        # pylint: disable=no-member
         menu = QtWidgets.QMenu(self)
         btn.setMenu(menu)
         QtCore.QObject.connect(menu,
                                QtCore.SIGNAL("triggered(QAction*)"),
                                self.__filterHardwareStateHandle)
-
+        # pylint: enable=no-member
         for item in ["Clear", None] + self.__filterHardwareStateList:
             if item:
                 a = QtWidgets.QAction(menu)
@@ -266,6 +269,7 @@ class HostMonitor(QtWidgets.QWidget):
     # Checkbox to toggle auto-refresh
     # ==============================================================================
     def __refreshToggleCheckBoxSetup(self, layout):
+        # pylint: disable=no-member
         checkBox = QtWidgets.QCheckBox("Auto-refresh", self)
         layout.addWidget(checkBox)
         if self.hostMonitorTree.enableRefresh:
@@ -274,6 +278,7 @@ class HostMonitor(QtWidgets.QWidget):
                                QtCore.SIGNAL('stateChanged(int)'),
                                self.__refreshToggleCheckBoxHandle)
         __refreshToggleCheckBoxCheckBox = checkBox
+        # pylint: enable=no-member
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.hostMonitorTree.enableRefresh = bool(state)
@@ -300,7 +305,7 @@ class HostMonitor(QtWidgets.QWidget):
     def __refreshButtonDisableHandle(self):
         """Called when the refresh button should be disabled"""
         self.btn_refresh.setEnabled(False)
-        QtCore.QTimer.singleShot(5000, self.__refreshButtonEnableHandle)
+        QtCore.QTimer.singleShot(5000, self.__refreshButtonEnableHandle) # pylint: disable=no-member
 
     # ==============================================================================
     # Button to clear all filters

@@ -1,4 +1,3 @@
-
 #  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -155,6 +154,7 @@ class GroupDialog(QtWidgets.QDialog):
         # pylint: enable=no-member
 
     def accept(self):
+        """Accept action"""
         __name = str(self._nameValue.text())
         if not __name:
             return
