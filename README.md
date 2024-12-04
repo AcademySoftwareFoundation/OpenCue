@@ -40,6 +40,8 @@ OpenCue provides the following features to help manage rendering jobs at scale:
 For more information on installing, using, and administering OpenCue, visit
 [www.opencue.io](https://www.opencue.io).
 
+Watch YouTube videos on the [OpenCue Playlist](https://www.youtube.com/playlist?list=PL9dZxafYCWmzSBEwVT2AQinmZolYqBzdp) of the Academy Software Foundation (ASWF) to learn more.
+
 # Meeting notes
 
 Starting from May 2024, all Opencue meeting notes are stored on the [Opencue Confluence page](http://wiki.aswf.io/display/OPENCUE/OpenCue+Home).
@@ -51,3 +53,7 @@ For meeting notes before May 2024, please refer to the Opencue repository in the
 To join the OpenCue discussion forum for users and admins, join the
 [opencue-user mailing list](https://lists.aswf.io/g/opencue-user) or email the
 group directly at <opencue-user@lists.aswf.io>.
+
+Join the [Opencue Slack channel](https://academysoftwarefdn.slack.com/archives/CMFPXV39Q).
+
+Working Group meets biweekly at 2pm PST on [Zoom](https://www.google.com/url?q=https://zoom-lfx.platform.linuxfoundation.org/meeting/95509555934?password%3Da8d65f0e-c5f0-44fb-b362-d3ed0c22b7c1&sa=D&source=calendar&ust=1717863981078692&usg=AOvVaw1zRcYz7VPAwfwOXeBPpoM6).
