@@ -49,6 +49,23 @@ jobs:
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
+  integration_test:
+    name: Run Integration Test
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Run test
+        run: ci/run_integration_test.sh
+
+      - name: Archive log files
+        uses: actions/upload-artifact@v3
+        if: ${{ always() }}
+        with:
+          name: test-logs
+          path: /tmp/opencue-test/*.log
+
   lint_python:
     name: Lint Python Code
     runs-on: ubuntu-22.04
