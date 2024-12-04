@@ -60,6 +60,8 @@ public class JobDetail extends JobEntity implements JobInterface, DepartmentInte
         return deptId;
     }
 
+    // Parameters to tell cuebot whether or not to Loki is used for frame logs of the job and which
+    // base url to use for querying them
     public Boolean logLokiEnabled;
     public String logLokiURL;
 }
