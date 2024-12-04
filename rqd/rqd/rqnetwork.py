@@ -57,7 +57,7 @@ class RunningFrame(object):
 
         self.killMessage = ""
 
-        self.pid = None
+        self.pid = runFrame.pid
         self.exitStatus = None
         self.frameAttendantThread = None
         self.exitSignal = 0

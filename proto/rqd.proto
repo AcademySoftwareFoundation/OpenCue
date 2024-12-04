@@ -115,6 +115,7 @@ message RunFrame {
     int32 num_gpus = 23;
     report.ChildrenProcStats children = 24;
     string os = 25;
+    int32 pid = 26;
 }
 
 message RunFrameSeq {

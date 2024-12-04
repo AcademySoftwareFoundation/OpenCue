@@ -162,6 +162,11 @@ DOCKER_IMAGES = {}
 DOCKER_MOUNTS = []
 DOCKER_SHELL_PATH = "/bin/sh"
 
+# Backup running frames cache. Backup cache is turned off if this path is set to
+# None or ""
+BACKUP_CACHE_PATH = "/tmp/opencue/running_frames_backup.dat"
+BACKUP_CACHE_TIME_TO_LIVE_SECONDS = 60
+
 try:
     if os.path.isfile(CONFIG_FILE):
         # Hostname can come from here: rqutil.getHostname()

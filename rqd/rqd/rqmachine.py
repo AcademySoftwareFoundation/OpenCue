@@ -257,9 +257,10 @@ class Machine(object):
         if platform.system() != 'Linux':
             return
 
+        frame_pids = []
         pids = {}
         for pid in os.listdir("/proc"):
-            if pid.isdigit():
+            if pid.isdigit() and pid in frame_pids:
                 try:
                     statFields = self._getStatFields(rqd.rqconstants.PATH_PROC_PID_STAT
                                                      .format(pid))
@@ -355,7 +356,8 @@ class Machine(object):
                                         pidPcpu = totalTime / seconds
                                         pcpu += pidPcpu
                                         pidData[pid] = totalTime, seconds, pidPcpu
-                                # only keep the highest recorded rss value
+                                # If children was already accounted for, only keep the highest
+                                # recorded rss value
                                 if pid in frame.childrenProcs:
                                     childRss = (int(data["rss"]) * resource.getpagesize()) // 1024
                                     if childRss > frame.childrenProcs[pid]['rss']:
