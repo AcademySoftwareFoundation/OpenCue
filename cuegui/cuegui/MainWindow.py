@@ -446,6 +446,7 @@ class MainWindow(QtWidgets.QMainWindow):
     ################################################################################
 
     def keyPressEvent(self, event):
+        """Handle keys being pressed"""
         if event.key() == QtCore.Qt.Key_Space:
             self.app.request_update.emit()
             event.accept()

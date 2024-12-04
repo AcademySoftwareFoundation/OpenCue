@@ -157,6 +157,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
     # QT event handlers and implementation details below this line.
 
     def mousePressEvent(self, mouseEvent):
+        """Event triggered by a mouse click"""
         hitTime = self.__getTimeFromLocalPoint(mouseEvent.x())
         if mouseEvent.buttons() & QtCore.Qt.LeftButton:
 
@@ -164,6 +165,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
             self.__selectionRange = (hitTime, hitTime)
 
     def mouseMoveEvent(self, mouseEvent):
+        """Event triggered by a mouse movement"""
         self.__floatTime = None
 
         hitTime = self.__getTimeFromLocalPoint(mouseEvent.x())
@@ -181,6 +183,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         self.update()
 
     def mouseReleaseEvent(self, mouseEvent):
+        """Event triggered when a mouse click is released"""
         if self.__double:
             self.__double = False
             self.setStartTime(self.__frameRange[0], True)
@@ -198,10 +201,12 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         self.update()
 
     def mouseDoubleClickEvent(self, mouseEvent):
+        """Event triggered by a double click"""
         del mouseEvent
         self.__double = True
 
     def paintEvent(self, paintEvent):
+        """Paint event"""
         del paintEvent
         painter = QtGui.QPainter(self)
         self.__paintBackground(painter)
@@ -217,15 +222,18 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         self.__paintEndTime(painter)
 
     def leaveEvent(self, event):
+        """Triggered at the end of any event"""
         del event
         self.__floatTime = None
         self.update()
 
     def __getTickAreaExtent(self):
+        """Return a QRect with the selectable area"""
         return QtCore.QRect(
             10, -self.height() // 2, self.width() - self.__right_margin - 20, self.height())
 
     def __getTickArea(self, time):
+        """Get a QRect with a tick area"""
         tickArea = self.__getTickAreaExtent()
         tickSpacing = (
                 float(self.__getTickAreaExtent().width()) /
@@ -234,6 +242,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
                         tickArea.top(), tickSpacing, tickArea.height())
 
     def __getTimeFromLocalPoint(self, x):
+        """Get time from a local point"""
         tickSpacing = (
                 float(self.__getTickAreaExtent().width()) /
                 max(1, (self.__frameRange[1] - self.__frameRange[0])))

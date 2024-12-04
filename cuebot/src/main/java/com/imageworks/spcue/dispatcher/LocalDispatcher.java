@@ -116,7 +116,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
              * not move on.
              */
             if (!lha.hasAdditionalResources(lha.getThreads() * 100,
-                    frame.minMemory,
+                    frame.getMinMemory(),
                     frame.minGpus,
                     frame.minGpuMemory)) {
                 continue;
@@ -209,7 +209,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
              * not move on.
              */
             if (!lha.hasAdditionalResources(lha.getThreads() * 100,
-                    frame.minMemory,
+                    frame.getMinMemory(),
                     frame.minGpus,
                     frame.minGpuMemory)) {
                 continue;
@@ -294,7 +294,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
          */
         DispatchFrame dframe = jobManager.getDispatchFrame(frame.getId());
         if (!lha.hasAdditionalResources(lha.getMaxCoreUnits(),
-                dframe.minMemory,
+                dframe.getMinMemory(),
                 lha.getMaxGpuUnits(),
                 dframe.minGpuMemory)) {
             return procs;

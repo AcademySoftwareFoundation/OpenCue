@@ -117,6 +117,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.setUpdateInterval(10)
 
     def closeEvent(self, event):
+        """Close Event"""
         if hasattr(self, '_timer'):
             self._timer.stop()
             del self._timer

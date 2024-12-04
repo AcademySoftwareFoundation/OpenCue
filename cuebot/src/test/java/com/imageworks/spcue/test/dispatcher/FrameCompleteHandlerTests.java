@@ -272,7 +272,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
                 (jobManager.isLayerComplete(layer1_0) ? 1 : 0) +
                 (jobManager.isLayerComplete(layer2_0) ? 1 : 0));
         assertEquals(1,
-                (jobManager.isJobComplete(job1) ? 1 : 0) + 
+                (jobManager.isJobComplete(job1) ? 1 : 0) +
                 (jobManager.isJobComplete(job2) ? 1 : 0));
     }
 
@@ -398,6 +398,63 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         FrameCompleteReport report = FrameCompleteReport.newBuilder()
                 .setFrame(info)
                 .setExitStatus(Dispatcher.EXIT_STATUS_MEMORY_FAILURE)
+                .build();
+
+        DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
+        DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+        FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
+        dispatchSupport.stopFrame(dispatchFrame, FrameState.DEAD, report.getExitStatus(),
+                report.getFrame().getMaxRss());
+        frameCompleteHandler.handlePostFrameCompleteOperations(proc,
+                report, dispatchJob, dispatchFrame, FrameState.WAITING, frameDetail);
+
+        assertFalse(jobManager.isLayerComplete(layer));
+
+        JobDetail ujob = jobManager.findJobDetail(jobName);
+        LayerDetail ulayer = layerDao.findLayerDetail(ujob, "test_layer");
+        assertEquals(expected, ulayer.getMinimumMemory());
+    }
+
+
+
+    private void executeMinMemIncreaseDocker(int expected, boolean override) {
+        if (override) {
+            ServiceOverrideEntity soe = new ServiceOverrideEntity();
+            soe.showId = "00000000-0000-0000-0000-000000000000";
+            soe.name = "apitest";
+            soe.threadable = false;
+            soe.minCores = 10;
+            soe.minMemory = (int) CueUtil.GB2;
+            soe.tags = new LinkedHashSet<>();
+            soe.tags.add("general");
+            soe.minMemoryIncrease = (int) CueUtil.GB8;
+
+            serviceManager.createService(soe);
+        }
+
+        String jobName = "pipe-default-testuser_min_mem_test";
+        JobDetail job = jobManager.findJobDetail(jobName);
+        LayerDetail layer = layerDao.findLayerDetail(job, "test_layer");
+        FrameDetail frame = frameDao.findFrameDetail(job, "0000-test_layer");
+        jobManager.setJobPaused(job, false);
+
+        DispatchHost host = getHost(HOSTNAME2);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+        assertEquals(job.getId(), proc.getJobId());
+        assertEquals(layer.getId(), proc.getLayerId());
+        assertEquals(frame.getId(), proc.getFrameId());
+
+        RunningFrameInfo info = RunningFrameInfo.newBuilder()
+                .setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId())
+                .setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId())
+                .build();
+        FrameCompleteReport report = FrameCompleteReport.newBuilder()
+                .setFrame(info)
+                .setExitStatus(Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE)
                 .build();
 
         DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
