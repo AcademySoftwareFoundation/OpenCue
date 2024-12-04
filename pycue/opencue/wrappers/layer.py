@@ -591,3 +591,10 @@ class Layer(object):
         :return: the layer's parent job
         """
         return opencue.api.getJob(self.data.parent_id)
+
+    def services(self):
+        """Returns list of services applied to this layer
+        :rtype: opencue.wrappers.service.Service
+        :return: the layer's services
+        """
+        return [opencue.api.getService(service) for service in self.data.services]
