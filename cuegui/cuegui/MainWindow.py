@@ -86,6 +86,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setAnimated(False)
         self.setDockNestingEnabled(True)
 
+        # Create checkable menuitem
+        self.saveWindowSettingsCheck = QtWidgets.QAction("Save Window Settings on Exit", self)
+        self.saveWindowSettingsCheck.setCheckable(True)
+
         # Register this window
         self.__windowOpened()
 
@@ -296,8 +300,6 @@ class MainWindow(QtWidgets.QMainWindow):
         menu.addAction(changeTitle)
 
         # Menu Bar: Window -> Save Window Settings on Exit
-        self.saveWindowSettingsCheck = QtWidgets.QAction("Save Window Settings on Exit", self)
-        self.saveWindowSettingsCheck.setCheckable(True)
         self.saveWindowSettingsCheck.triggered.connect(self.__saveSettingsToggle)  # pylint: disable=no-member
         menu.addAction(self.saveWindowSettingsCheck)
 
@@ -479,9 +481,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.move(self.settings.value("%s/Position" % self.name,
                                       QtCore.QPoint(0, 0)))
 
-        self.saveWindowSettingsCheck.setChecked(
-            True if self.settings.value("SaveOnExit", "true") == "true" else False
-        )
+        self.saveWindowSettingsCheck.setChecked(self.settings.value("SaveOnExit", "true") == "true")
 
     def __saveSettingsToggle(self, checked):
         """Toggles saving window settings on exit"""
