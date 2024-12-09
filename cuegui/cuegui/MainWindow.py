@@ -138,7 +138,9 @@ class MainWindow(QtWidgets.QMainWindow):
         """Save current state and close the application"""
         del sig
         del flag
-        self.__saveSettings()
+        # Only save settings on exit if toggled
+        if self.saveWindowSettingsCheck.isChecked():
+            self.__saveSettings()
         self.__windowCloseApplication()
 
     @staticmethod
@@ -293,6 +295,12 @@ class MainWindow(QtWidgets.QMainWindow):
         changeTitle.triggered.connect(self.__windowMenuHandleChangeTitle)  # pylint: disable=no-member
         menu.addAction(changeTitle)
 
+        # Menu Bar: Window -> Save Window Settings on Exit
+        self.saveWindowSettingsCheck = QtWidgets.QAction("Save Window Settings on Exit", self)
+        self.saveWindowSettingsCheck.setCheckable(True)
+        self.saveWindowSettingsCheck.triggered.connect(self.__saveSettingsToggle)  # pylint: disable=no-member
+        menu.addAction(self.saveWindowSettingsCheck)
+
         # Menu Bar: Window -> Save Window Settings
         saveWindowSettings = QtWidgets.QAction("Save Window Settings", self)
         saveWindowSettings.triggered.connect(self.__saveSettings)  # pylint: disable=no-member
@@ -402,9 +410,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowClosed(self):
         """Called from closeEvent on window close"""
 
-        # Save the fact that this window is open or not when the app closed
-        self.settings.setValue("%s/Open" % self.name, self.app.closingApp)
-
         # pylint: disable=bare-except
         try:
             self.windows.remove(self)
@@ -456,7 +461,9 @@ class MainWindow(QtWidgets.QMainWindow):
         @type  event: QEvent
         @param event: The close event"""
         del event
-        self.__saveSettings()
+        # Only save settings on exit if toggled
+        if self.saveWindowSettingsCheck.isChecked():
+            self.__saveSettings()
         self.__windowClosed()
 
     def __restoreSettings(self):
@@ -472,6 +479,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.move(self.settings.value("%s/Position" % self.name,
                                       QtCore.QPoint(0, 0)))
 
+        self.saveWindowSettingsCheck.setChecked(
+            True if self.settings.value("SaveOnExit", "true") == "true" else False
+        )
+
+    def __saveSettingsToggle(self, checked):
+        """Toggles saving window settings on exit"""
+
+        # Make sure that it has the same state in all windows
+        for window in self.windows:
+            window.saveWindowSettingsCheck.setChecked(checked)
+
     def __saveSettings(self):
         """Saves the windows settings"""
         logger.info('Saving: %s', self.settings.fileName())
@@ -479,6 +497,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.__plugins.saveState()
 
         # For populating the default state: print self.saveState().toBase64()
+
+        # Save the fact that this window is open or not
+        for windowName in self.windows_names:
+            for window in self.windows:
+                if window.name == windowName:
+                    self.settings.setValue("%s/Open" % windowName, True)
+                    break
+            else:
+                self.settings.setValue("%s/Open" % windowName, False)
 
         self.settings.setValue("Version", self.app_version)
 
@@ -490,6 +517,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                self.size())
         self.settings.setValue("%s/Position" % self.name,
                                self.pos())
+
+        self.settings.setValue("SaveOnExit", self.saveWindowSettingsCheck.isChecked())
 
     def __revertLayout(self):
         """Revert back to default window layout"""
