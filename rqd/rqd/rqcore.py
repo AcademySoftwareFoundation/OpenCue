@@ -106,9 +106,13 @@ class RqCore(object):
 
         self.backup_cache_path = None
         if rqd.rqconstants.BACKUP_CACHE_PATH:
-            self.backup_cache_path = rqd.rqconstants.BACKUP_CACHE_PATH
-            if not os.path.exists(os.path.dirname(self.backup_cache_path)):
-                os.makedirs(os.path.dirname(self.backup_cache_path))
+            if not rqd.rqconstants.RUN_ON_DOCKER:
+                log.warning("Cache backup is currently only available "
+                    "when RUN_ON_DOCKER mode")
+            else:
+                self.backup_cache_path = rqd.rqconstants.BACKUP_CACHE_PATH
+                if not os.path.exists(os.path.dirname(self.backup_cache_path)):
+                    os.makedirs(os.path.dirname(self.backup_cache_path))
 
         signal.signal(signal.SIGINT, self.handleExit)
         signal.signal(signal.SIGTERM, self.handleExit)
