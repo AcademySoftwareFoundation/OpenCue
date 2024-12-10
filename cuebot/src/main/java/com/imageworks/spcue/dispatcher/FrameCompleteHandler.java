@@ -320,14 +320,15 @@ public class FrameCompleteHandler {
             }
 
             /*
-             * An exit status of 33 indicates that the frame was killed by the
+             * Some exit statuses indicate that a frame was killed by the
              * application due to a memory issue and should be retried. In this
              * case, disable the optimizer and raise the memory by what is
              * specified in the show's service override, service or 2GB.
              */
             if (report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
                     || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                    || frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+                    || frameDetail.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
+                    || report.getExitStatus() == Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE) {
                 long increase = CueUtil.GB2;
 
                 // since there can be multiple services, just going for the
@@ -641,7 +642,8 @@ public class FrameCompleteHandler {
                 newState = FrameState.DEAD;
             } else if (frame.retries >= job.maxRetries) {
                 if (!(report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                        || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE))
+                        || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
+                        || report.getExitStatus() == Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE))
                     newState = FrameState.DEAD;
             }
 

@@ -396,6 +396,8 @@ public class DispatchSupportService implements DispatchSupport {
                 .setStartTime(System.currentTimeMillis())
                 .setIgnoreNimby(proc.isLocalDispatch)
                 .setOs(proc.os)
+                .setSoftMemoryLimit(frame.softMemoryLimit)
+                .setHardMemoryLimit(frame.hardMemoryLimit)
                 .putAllEnvironment(jobDao.getEnvironment(frame))
                 .putAllEnvironment(layerDao.getLayerEnvironment(frame))
                 .putEnvironment("CUE3", "1")

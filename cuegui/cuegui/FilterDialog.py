@@ -856,6 +856,7 @@ class NoWheelComboBox(QtWidgets.QComboBox):
         QtWidgets.QComboBox.__init__(self, parent)
 
     def wheelEvent(self, event):
+        """Handle wheel scroll event"""
         event.ignore()
 
 class NoWheelDoubleSpinBox(QtWidgets.QDoubleSpinBox):
@@ -865,6 +866,7 @@ class NoWheelDoubleSpinBox(QtWidgets.QDoubleSpinBox):
         QtWidgets.QDoubleSpinBox.__init__(self, parent)
 
     def wheelEvent(self, event):
+        """Handle wheel scroll event"""
         event.ignore()
 
 class NoWheelSpinBox(QtWidgets.QSpinBox):
@@ -874,4 +876,5 @@ class NoWheelSpinBox(QtWidgets.QSpinBox):
         QtWidgets.QSpinBox.__init__(self, parent)
 
     def wheelEvent(self, event):
+        """Handle wheel scroll event"""
         event.ignore()

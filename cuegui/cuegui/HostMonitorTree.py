@@ -284,9 +284,11 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cuegui.Utils.startDrag(self, dropActions, self.selectedObjects())
 
     def dragEnterEvent(self, event):
+        """Enter drag event"""
         cuegui.Utils.dragEnterEvent(event, "application/x-host-ids")
 
     def dragMoveEvent(self, event):
+        """Move drag event"""
         cuegui.Utils.dragMoveEvent(event, "application/x-host-ids")
 
 

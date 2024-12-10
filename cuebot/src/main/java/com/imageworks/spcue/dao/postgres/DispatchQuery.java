@@ -72,7 +72,7 @@ public class DispatchQuery {
                 "AND job.pk_facility                = ? " +
                 "AND " +
                     "(" +
-                        "job.str_os IS NULL OR job.str_os IN '' " +
+                        "job.str_os IS NULL OR job.str_os = '' " +
                     "OR " +
                         "job.str_os IN ? " +
                     ") " +
@@ -530,7 +530,7 @@ public class DispatchQuery {
         "str_user, " +
         "int_uid, " +
         "str_log_dir, " +
-        "str_os, " +
+        "COALESCE(str_os, '') AS str_os, " +
         "frame_name, " +
         "frame_state, " +
         "pk_frame, " +

@@ -68,6 +68,7 @@ def systemCpuCount():
         return 1
 
 
+# pylint: disable=no-member
 class ThreadPool(QtCore.QObject):
     """A general purpose work queue class."""
 
@@ -140,6 +141,7 @@ class ThreadPool(QtCore.QObject):
             self.__running = False
 
         # pylint: disable=protected-access
+        # pylint: disable=missing-function-docstring
         def run(self):
             self.__running = True
             while self.__running:
