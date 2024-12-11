@@ -113,6 +113,7 @@ class RqCore(object):
                 self.backup_cache_path = rqd.rqconstants.BACKUP_CACHE_PATH
                 if not os.path.exists(os.path.dirname(self.backup_cache_path)):
                     os.makedirs(os.path.dirname(self.backup_cache_path))
+                self.recoverCache()
 
         signal.signal(signal.SIGINT, self.handleExit)
         signal.signal(signal.SIGTERM, self.handleExit)
@@ -232,6 +233,7 @@ class RqCore(object):
                 # Ignore frames that failed to be parsed
                 try:
                     run_frame.ParseFromString(message_data)
+                    log.warning("Recovered frame %s.%s", run_frame.job_name, run_frame.frame_name)
                     running_frame = rqd.rqnetwork.RunningFrame(self, run_frame)
                     running_frame.frameAttendantThread = FrameAttendantThread(
                         self, run_frame, running_frame, recovery_mode=True)
@@ -1484,6 +1486,8 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             raise RuntimeError("Invalid state: recovered frame does't contain a container id")
         container_id = runFrame.attributes.get("container_id")
 
+        # Recovered frame will stream back logs into a new file, therefore write a new header
+        self.__writeHeader()
         try:
             log_stream = None
             with self.rqCore.docker_lock:

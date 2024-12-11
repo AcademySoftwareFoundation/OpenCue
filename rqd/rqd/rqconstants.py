@@ -164,7 +164,7 @@ DOCKER_SHELL_PATH = "/bin/sh"
 
 # Backup running frames cache. Backup cache is turned off if this path is set to
 # None or ""
-BACKUP_CACHE_PATH = "/tmp/opencue/running_frames_backup.dat"
+BACKUP_CACHE_PATH = ""
 BACKUP_CACHE_TIME_TO_LIVE_SECONDS = 60
 
 try:
@@ -247,6 +247,11 @@ try:
 
         if config.has_section(__host_env_var_section):
             RQD_HOST_ENV_VARS = config.options(__host_env_var_section)
+
+        if config.has_option(__override_section, "BACKUP_CACHE_PATH"):
+            BACKUP_CACHE_PATH = config.get(__override_section, "BACKUP_CACHE_PATH")
+        if config.has_option(__override_section, "BACKUP_CACHE_TIME_TO_LIVE_SECONDS"):
+            BACKUP_CACHE_TIME_TO_LIVE_SECONDS = config.getint(__override_section, "BACKUP_CACHE_TIME_TO_LIVE_SECONDS")
 
         __docker_mounts = "docker.mounts"
         __docker_config = "docker.config"
