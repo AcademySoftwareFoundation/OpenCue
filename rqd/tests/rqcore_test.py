@@ -598,9 +598,10 @@ class RqCoreBackupTests(pyfakefs.fake_filesystem_unittest.TestCase):
         """Test backupCache writes frame data when backup path is configured"""
         self.rqcore.backup_cache_path = '/tmp/rqd/cache.dat'
         frameId = 'frame123'
-        runFrame = mock.MagicMock()
-        runFrame.SerializeToString.return_value = b'serialized_frame_data'
-        self.rqcore.storeFrame(frameId, runFrame)
+        runningFrame = mock.MagicMock()
+        runningFrame.runFrame = mock.MagicMock()
+        runningFrame.runFrame.SerializeToString.return_value = b'serialized_frame_data'
+        self.rqcore.storeFrame(frameId, runningFrame)
 
         self.rqcore.backupCache()
 
@@ -663,7 +664,8 @@ class RqCoreBackupTests(pyfakefs.fake_filesystem_unittest.TestCase):
             frame_id = frameId,
             frame_name = "frame_name"
         )
-        self.rqcore.storeFrame(frameId, frame)
+        running_frame = rqd.rqnetwork.RunningFrame(self.rqcore, frame)
+        self.rqcore.storeFrame(frameId, running_frame)
         self.rqcore.backupCache()
         self.__cache = {}
         self.rqcore.recoverCache()

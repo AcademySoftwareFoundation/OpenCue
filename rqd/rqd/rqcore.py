@@ -203,7 +203,7 @@ class RqCore(object):
             return
         with open(self.backup_cache_path, "wb") as f:
             for item in list(self.__cache.values()):
-                serialized = item.SerializeToString()
+                serialized = item.runFrame.SerializeToString()
                 f.write(len(serialized).to_bytes(4, byteorder="big"))
                 f.write(serialized)
 
