@@ -652,8 +652,8 @@ class RqCoreBackupTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         self.assertEqual(len(self.rqcore._RqCore__cache), 0)
 
-
-    def test_recoverCache_validBackup(self):
+    @mock.patch("rqd.rqcore.FrameAttendantThread", autospec=True)
+    def test_recoverCache_validBackup(self, attendant_patch):
         """Test recoverCache skips frames that fail to parse"""
         self.rqcore.backup_cache_path = 'cache.dat'
 
@@ -662,14 +662,18 @@ class RqCoreBackupTests(pyfakefs.fake_filesystem_unittest.TestCase):
             job_id = "job_id",
             job_name = "job_name",
             frame_id = frameId,
-            frame_name = "frame_name"
+            frame_name = "frame_name",
+            num_cores = 4
         )
         running_frame = rqd.rqnetwork.RunningFrame(self.rqcore, frame)
+        self.rqcore.cores.idle_cores = 8
         self.rqcore.storeFrame(frameId, running_frame)
         self.rqcore.backupCache()
         self.__cache = {}
         self.rqcore.recoverCache()
         self.assertIn('frame123', self.rqcore._RqCore__cache)
+        self.assertEqual(4, self.rqcore.cores.idle_cores)
+        self.assertEqual(4, self.rqcore.cores.booked_cores)
 
     def test_recoverCache_invalidFrame(self):
         """Test recoverCache loads frame data from valid backup file"""

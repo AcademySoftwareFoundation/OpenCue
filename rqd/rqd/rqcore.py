@@ -237,6 +237,12 @@ class RqCore(object):
                     running_frame = rqd.rqnetwork.RunningFrame(self, run_frame)
                     running_frame.frameAttendantThread = FrameAttendantThread(
                         self, run_frame, running_frame, recovery_mode=True)
+                    # Make sure cores are accounted for
+                    # pylint: disable=no-member
+                    self.cores.idle_cores -= run_frame.num_cores
+                    self.cores.booked_cores += run_frame.num_cores
+                    # pylint: enable=no-member
+
                     running_frame.frameAttendantThread.start()
                 except:
                     pass
@@ -1487,7 +1493,9 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         container_id = runFrame.attributes.get("container_id")
 
         # Recovered frame will stream back logs into a new file, therefore write a new header
+        self.__createEnvVariables()
         self.__writeHeader()
+
         try:
             log_stream = None
             with self.rqCore.docker_lock:
@@ -1544,8 +1552,9 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             returncode = -1
             msg = "Failed to recover frame container"
             logging.exception(msg)
-            self.rqlog.write("%s - %s" % (msg, e),
-                                prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+            self.rqlog.write("%s - The frame might have finishes during rqd's reinitialization "
+                "- %s" % (msg, e),
+                prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
         finally:
             # Clear up container after if finishes
             if container:
@@ -1553,36 +1562,37 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                 container.remove()
             docker_client.close()
 
-        # Find exitStatus and exitSignal
-        if returncode < 0:
-            # Exited with a signal
-            frameInfo.exitStatus = 1
-            frameInfo.exitSignal = -returncode
-        else:
-            frameInfo.exitStatus = returncode
-            frameInfo.exitSignal = 0
+        if container:
+            # Find exitStatus and exitSignal
+            if returncode < 0:
+                # Exited with a signal
+                frameInfo.exitStatus = 1
+                frameInfo.exitSignal = -returncode
+            else:
+                frameInfo.exitStatus = returncode
+                frameInfo.exitSignal = 0
 
-        # Log frame start info
-        log.warning("Frame %s.%s(%s) with pid %s finished on container %s with exitStatus %s %s ",
-            runFrame.job_name,
-            runFrame.frame_name,
-            frameInfo.frameId,
-            frameInfo.pid,
-            container_id,
-            frameInfo.exitStatus,
-            "" if frameInfo.exitStatus == 0 else " - " + runFrame.log_dir_file)
+            # Log frame start info
+            log.warning("Frame %s.%s(%s) with pid %s finished on container %s with exitStatus %s %s ",
+                runFrame.job_name,
+                runFrame.frame_name,
+                frameInfo.frameId,
+                frameInfo.pid,
+                container_id,
+                frameInfo.exitStatus,
+                "" if frameInfo.exitStatus == 0 else " - " + runFrame.log_dir_file)
 
-        try:
-            with open(tempStatFile, "r", encoding='utf-8') as statFile:
-                frameInfo.realtime = statFile.readline().split()[1]
-                frameInfo.utime = statFile.readline().split()[1]
-                frameInfo.stime = statFile.readline().split()[1]
-                statFile.close()
-        # pylint: disable=broad-except
-        except Exception:
-            pass  # This happens when frames are killed
+            try:
+                with open(tempStatFile, "r", encoding='utf-8') as statFile:
+                    frameInfo.realtime = statFile.readline().split()[1]
+                    frameInfo.utime = statFile.readline().split()[1]
+                    frameInfo.stime = statFile.readline().split()[1]
+                    statFile.close()
+            # pylint: disable=broad-except
+            except Exception:
+                pass  # This happens when frames are killed
 
-        self.__writeFooter()
+            self.__writeFooter()
         self.__cleanup()
 
     def runRecovery(self):
