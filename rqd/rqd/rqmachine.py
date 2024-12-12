@@ -257,10 +257,9 @@ class Machine(object):
         if platform.system() != 'Linux':
             return
 
-        frame_pids = []
         pids = {}
         for pid in os.listdir("/proc"):
-            if pid.isdigit() and pid in frame_pids:
+            if pid.isdigit():
                 try:
                     statFields = self._getStatFields(rqd.rqconstants.PATH_PROC_PID_STAT
                                                      .format(pid))
