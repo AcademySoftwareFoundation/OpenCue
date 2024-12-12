@@ -251,7 +251,8 @@ try:
         if config.has_option(__override_section, "BACKUP_CACHE_PATH"):
             BACKUP_CACHE_PATH = config.get(__override_section, "BACKUP_CACHE_PATH")
         if config.has_option(__override_section, "BACKUP_CACHE_TIME_TO_LIVE_SECONDS"):
-            BACKUP_CACHE_TIME_TO_LIVE_SECONDS = config.getint(__override_section, "BACKUP_CACHE_TIME_TO_LIVE_SECONDS")
+            BACKUP_CACHE_TIME_TO_LIVE_SECONDS = config.getint(
+                __override_section, "BACKUP_CACHE_TIME_TO_LIVE_SECONDS")
 
         __docker_mounts = "docker.mounts"
         __docker_config = "docker.config"

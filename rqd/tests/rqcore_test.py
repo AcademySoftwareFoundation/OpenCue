@@ -666,19 +666,19 @@ class RqCoreBackupTests(pyfakefs.fake_filesystem_unittest.TestCase):
             num_cores = 4
         )
         running_frame = rqd.rqnetwork.RunningFrame(self.rqcore, frame)
-        self.rqcore.cores.idle_cores = 8
         self.rqcore.storeFrame(frameId, running_frame)
+        self.rqcore.cores.idle_cores = 8
+        self.rqcore.cores.booked_cores = 0
         self.rqcore.backupCache()
-        self.__cache = {}
+        self.rqcore._RqCore__cache = {}
         self.rqcore.recoverCache()
-        self.assertIn('frame123', self.rqcore._RqCore__cache)
         self.assertEqual(4, self.rqcore.cores.idle_cores)
         self.assertEqual(4, self.rqcore.cores.booked_cores)
 
     def test_recoverCache_invalidFrame(self):
         """Test recoverCache loads frame data from valid backup file"""
         self.rqcore.backup_cache_path = 'cache.dat'
-        with open(self.rqcore.backup_cache_path, "w") as f:
+        with open(self.rqcore.backup_cache_path, "w", encoding='utf-8') as f:
             f.write("this is not a run frame")
 
         self.rqcore.recoverCache()

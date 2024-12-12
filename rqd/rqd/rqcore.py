@@ -244,7 +244,8 @@ class RqCore(object):
                     # pylint: enable=no-member
 
                     running_frame.frameAttendantThread.start()
-                except:
+                # pylint: disable=broad-except
+                except Exception:
                     pass
                     # Ignore frames that got corrupted
 
@@ -1409,8 +1410,8 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             self.rqlog.waitForFile()
         # pylint: disable=broad-except
         except Exception as e:
-                err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
-                raise RuntimeError(err)
+            err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
+            raise RuntimeError(err)
         finally:
             rqd.rqutil.permissionsLow()
 
@@ -1422,7 +1423,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         """Thread initialization"""
         if self.recovery_mode:
             self.runRecovery()
-            return;
+            return
 
         log.info("Monitor frame started for frameId=%s", self.frameId)
 
@@ -1459,6 +1460,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             self.postFrameAction()
 
     def postFrameAction(self):
+        """Action to be executed after a frame completes its execution"""
         self.rqCore.releaseCores(self.runFrame.num_cores,
             self.runFrame.attributes.get('CPU_LIST'),
             self.runFrame.attributes.get('GPU_LIST')
@@ -1495,6 +1497,11 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         # Recovered frame will stream back logs into a new file, therefore write a new header
         self.__createEnvVariables()
         self.__writeHeader()
+
+        tempStatFile = "%srqd-stat-%s-%s" % (self.rqCore.machine.getTempPath(),
+                                             frameInfo.frameId,
+                                             time.time())
+        self._tempLocations.append(tempStatFile)
 
         try:
             log_stream = None
@@ -1551,7 +1558,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         except Exception as e:
             returncode = -1
             msg = "Failed to recover frame container"
-            logging.exception(msg)
+            logging.warn(msg)
             self.rqlog.write("%s - The frame might have finishes during rqd's reinitialization "
                 "- %s" % (msg, e),
                 prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
@@ -1573,7 +1580,8 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                 frameInfo.exitSignal = 0
 
             # Log frame start info
-            log.warning("Frame %s.%s(%s) with pid %s finished on container %s with exitStatus %s %s ",
+            log.warning(
+                "Frame %s.%s(%s) with pid %s finished on container %s with exitStatus %s %s",
                 runFrame.job_name,
                 runFrame.frame_name,
                 frameInfo.frameId,
@@ -1596,43 +1604,43 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         self.__cleanup()
 
     def runRecovery(self):
-       """Recover a frame that was running before this instance started"""
-       if not self.recovery_mode:
-           return;
+        """Recover a frame that was running before this instance started"""
+        if not self.recovery_mode:
+            return
 
-       log.info("Monitor recovered frame started for frameId=%s", self.frameId)
+        log.info("Monitor recovered frame started for frameId=%s", self.frameId)
 
-       runFrame = self.runFrame
-       run_on_docker = self.rqCore.docker is not None
+        runFrame = self.runFrame
+        run_on_docker = self.rqCore.docker is not None
 
-       # pylint: disable=too-many-nested-blocks
-       try:
-           self.setup()
-           # Store frame in cache and register servant
-           self.rqCore.storeFrame(runFrame.frame_id, self.frameInfo)
+        # pylint: disable=too-many-nested-blocks
+        try:
+            self.setup()
+            # Store frame in cache and register servant
+            self.rqCore.storeFrame(runFrame.frame_id, self.frameInfo)
 
-           if run_on_docker:
-               self.recoverDocker()
-           elif platform.system() == "Linux":
-               # TODO
-               pass
-           elif platform.system() == "Windows":
-               # TODO
-               pass
-           elif platform.system() == "Darwin":
-               # TODO
-               pass
-           else:
-               self.runUnknown()
+            if run_on_docker:
+                self.recoverDocker()
+            elif platform.system() == "Linux":
+                # TODO
+                pass
+            elif platform.system() == "Windows":
+                # TODO
+                pass
+            elif platform.system() == "Darwin":
+                # TODO
+                pass
+            else:
+                self.runUnknown()
 
-       # pylint: disable=broad-except
-       except Exception:
-           log.critical(
-               "Failed launchFrame: For %s due to: \n%s",
-               runFrame.frame_id, ''.join(traceback.format_exception(*sys.exc_info())))
-           # Notifies the cuebot that there was an error launching
-           self.frameInfo.exitStatus = rqd.rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
-           # Delay keeps the cuebot from spamming failing booking requests
-           time.sleep(10)
-       finally:
-           self.postFrameAction()
+        # pylint: disable=broad-except
+        except Exception:
+            log.critical(
+                "Failed launchFrame: For %s due to: \n%s",
+                runFrame.frame_id, ''.join(traceback.format_exception(*sys.exc_info())))
+            # Notifies the cuebot that there was an error launching
+            self.frameInfo.exitStatus = rqd.rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
+            # Delay keeps the cuebot from spamming failing booking requests
+            time.sleep(10)
+        finally:
+            self.postFrameAction()
