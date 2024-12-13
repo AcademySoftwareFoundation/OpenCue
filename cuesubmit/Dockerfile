@@ -1,11 +1,6 @@
-FROM --platform=linux/x86_64 centos:7
+FROM --platform=linux/x86_64 rockylinux:9.3
 
 WORKDIR /src
-
-# centos:7 repos moved to vault.centos
-RUN sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/CentOS-*.repo
-RUN sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/CentOS-*.repo
-RUN sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/CentOS-*.repo
 
 RUN yum -y install \
     epel-release \
@@ -14,18 +9,16 @@ RUN yum -y install \
     python-devel
 
 RUN yum -y install \
-    python36 \
-    python36-devel \
-    python36-pip
+    python \
+    python-pip
 
-RUN python3.6 -m pip install --upgrade pip
-RUN python3.6 -m pip install --upgrade setuptools
+RUN python -m pip install --upgrade pip
 
 COPY LICENSE ./
 COPY requirements.txt ./
 COPY requirements_gui.txt ./
 
-RUN python3.6 -m pip install -r requirements.txt -r requirements_gui.txt
+RUN python -m pip install -r requirements.txt -r requirements_gui.txt
 
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
@@ -34,7 +27,7 @@ COPY pycue/opencue ./pycue/opencue
 COPY pycue/FileSequence ./pycue/FileSequence
 COPY ci/fix_compiled_proto.py .
 
-RUN python3.6 -m grpc_tools.protoc \
+RUN python -m grpc_tools.protoc \
     -I=./proto \
     --python_out=./pycue/opencue/compiled_proto \
     --grpc_python_out=./pycue/opencue/compiled_proto \
@@ -42,7 +35,7 @@ RUN python3.6 -m grpc_tools.protoc \
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-RUN python3 ./fix_compiled_proto.py pycue/opencue/compiled_proto
+RUN python ./fix_compiled_proto.py pycue/opencue/compiled_proto
 
 COPY pyoutline/README.md ./pyoutline/
 COPY pyoutline/setup.py ./pyoutline/
@@ -59,9 +52,9 @@ COPY cuesubmit/cuesubmit ./cuesubmit/cuesubmit
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION
 
-RUN cd pycue && python3.6 setup.py install
-RUN cd pyoutline && python3.6 setup.py install
-RUN cd cuesubmit && python3.6 setup.py test
+RUN cd pycue && python setup.py install
+RUN cd pyoutline && python setup.py install
+RUN cd cuesubmit && python setup.py test
 
 RUN cp LICENSE requirements.txt requirements_gui.txt VERSION cuesubmit/
 
