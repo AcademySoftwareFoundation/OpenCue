@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2023
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -22,7 +22,7 @@ jobs:
     container:
       image: aswf/ci-opencue:2023
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build with Gradle
         run: |
           chown -R aswfuser:aswfgroup .
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -43,7 +43,7 @@ jobs:
     container:
       image: aswf/ci-opencue:2024
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build with Gradle
         run: |
           chown -R aswfuser:aswfgroup .
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run test
         run: ci/run_integration_test.sh
@@ -73,7 +73,7 @@ jobs:
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Lint Python Code
         run: ci/run_python_lint.sh
 
@@ -83,7 +83,7 @@ jobs:
     container:
       image: aswf/ci-opencue:2023
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run Sphinx build
         run: ci/build_sphinx_docs.sh
 
@@ -91,7 +91,7 @@ jobs:
     name: Check Changed Files
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Get Changed Files
         id: get_changed_files
         uses: tj-actions/changed-files@v41
@@ -102,7 +102,7 @@ jobs:
     name: Check Database Migration Files
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Check Migration Files
         run: ci/check_database_migrations.py
 
@@ -110,7 +110,7 @@ jobs:
     name: Check for Version Bump
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Get Changed Files
         id: get_changed_files
         uses: tj-actions/changed-files@v41
