@@ -8,15 +8,15 @@ RUN sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/CentOS-*.repo
 RUN sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/CentOS-*.repo
 
 RUN yum -y install \
-  epel-release \
-  gcc \
-  mesa-libGL \
-  python-devel
+    epel-release \
+    gcc \
+    mesa-libGL \
+    python-devel
 
 RUN yum -y install \
-  python36 \
-  python36-devel \
-  python36-pip
+    python36 \
+    python36-devel \
+    python36-pip
 
 RUN python3.6 -m pip install --upgrade pip
 RUN python3.6 -m pip install --upgrade setuptools
@@ -32,16 +32,17 @@ COPY pycue/README.md ./pycue/
 COPY pycue/setup.py ./pycue/
 COPY pycue/opencue ./pycue/opencue
 COPY pycue/FileSequence ./pycue/FileSequence
+COPY ci/fix_compiled_proto.py .
 
 RUN python3.6 -m grpc_tools.protoc \
-  -I=./proto \
-  --python_out=./pycue/opencue/compiled_proto \
-  --grpc_python_out=./pycue/opencue/compiled_proto \
-  ./proto/*.proto
+    -I=./proto \
+    --python_out=./pycue/opencue/compiled_proto \
+    --grpc_python_out=./pycue/opencue/compiled_proto \
+    ./proto/*.proto
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-RUN python3 ci/fix_compiled_proto.py pycue/opencue/compiled_proto
+RUN python3 ./fix_compiled_proto.py pycue/opencue/compiled_proto
 
 COPY pyoutline/README.md ./pyoutline/
 COPY pyoutline/setup.py ./pyoutline/
@@ -65,7 +66,7 @@ RUN cd cuesubmit && python3.6 setup.py test
 RUN cp LICENSE requirements.txt requirements_gui.txt VERSION cuesubmit/
 
 RUN versioned_name="cuesubmit-$(cat ./VERSION)-all" \
-  && mv cuesubmit "${versioned_name}" \
-  && tar -cvzf "${versioned_name}.tar.gz" ${versioned_name}/* \
-  && mkdir -p /opt/opencue \
-  && cp "${versioned_name}.tar.gz" /opt/opencue/
+    && mv cuesubmit "${versioned_name}" \
+    && tar -cvzf "${versioned_name}.tar.gz" ${versioned_name}/* \
+    && mkdir -p /opt/opencue \
+    && cp "${versioned_name}.tar.gz" /opt/opencue/
