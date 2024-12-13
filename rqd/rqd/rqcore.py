@@ -1558,7 +1558,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         except Exception as e:
             returncode = -1
             msg = "Failed to recover frame container"
-            logging.warn(msg)
+            logging.warning(msg)
             self.rqlog.write("%s - The frame might have finishes during rqd's reinitialization "
                 "- %s" % (msg, e),
                 prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
