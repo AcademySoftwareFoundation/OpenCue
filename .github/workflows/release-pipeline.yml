@@ -4,7 +4,7 @@ name: OpenCue Release Pipeline
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   preflight:
@@ -80,7 +80,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
-          repository: opencue/${{ matrix.component }}
+          repository: AcademySoftwareFoundation/OpenCue
           readme-filepath: ./${{ matrix.component }}/README.md
 
   create_release:
