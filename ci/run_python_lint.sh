@@ -51,4 +51,5 @@ echo "Running lint for rqd/..."
 cd rqd
 python -m pylint --rcfile=../ci/pylintrc_main rqd --ignore=rqd/compiled_proto
 python -m pylint --rcfile=../ci/pylintrc_test tests
+python -m pylint --rcfile=../ci/pylintrc_test pytests
 cd ..

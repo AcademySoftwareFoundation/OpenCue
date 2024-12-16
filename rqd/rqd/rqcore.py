@@ -1344,7 +1344,10 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
 
                     # Setup frame logging
                     try:
-                        self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)
+                        if self.runFrame.loki_enabled:
+                            self.rqlog = rqd.rqlogging.LokiLogger(self.runFrame.loki_url, runFrame)
+                        else:
+                            self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)
                         self.rqlog.waitForFile()
                     # pylint: disable=broad-except
                     except Exception as e:
