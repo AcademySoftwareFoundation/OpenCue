@@ -122,22 +122,24 @@ const initialColumnVisibility = {
   maxRss: false,
 }
 
-// Initial state
-const initialState: State = {
-  autoloadMine: getItemFromLocalStorage("autoloadMine", "true"),
-  tableData: getItemFromLocalStorage("tableData", "[]"),
-  tableDataUnfiltered: getItemFromLocalStorage("tableDataUnfiltered", "[]"),
-  sorting: getItemFromLocalStorage("sorting", "[]"),
-  columnFilters: getItemFromLocalStorage("columnFilters", "[]"),
-  stateSelectValue: getItemFromLocalStorage("stateSelectValue", JSON.stringify("All States")),
-  jobSearchResults: [],
-  filteredJobSearchResults: [],
-  searchQuery: "",
-  apiQuery: "",
-  rowSelection: {},
-  columnVisibility: getItemFromLocalStorage("columnVisibility", JSON.stringify(initialColumnVisibility)),
-  error: null,
-  username: UNKNOWN_USER,
+// The initial state of the data table on remount using local storage to preserve states
+function getInitialState(): State {
+  return {
+    autoloadMine: getItemFromLocalStorage("autoloadMine", "true"),
+    tableData: getItemFromLocalStorage("tableData", "[]"),
+    tableDataUnfiltered: getItemFromLocalStorage("tableDataUnfiltered", "[]"),
+    sorting: getItemFromLocalStorage("sorting", "[]"),
+    columnFilters: getItemFromLocalStorage("columnFilters", "[]"),
+    stateSelectValue: getItemFromLocalStorage("stateSelectValue", JSON.stringify("All States")),
+    jobSearchResults: [],
+    filteredJobSearchResults: [],
+    searchQuery: "",
+    apiQuery: "",
+    rowSelection: {},
+    columnVisibility: getItemFromLocalStorage("columnVisibility", JSON.stringify(initialColumnVisibility)),
+    error: null,
+    username: UNKNOWN_USER,
+  }
 };
 
 // Reducer function
@@ -174,10 +176,10 @@ function reducer(state: State, action: Action): State {
     case "RESET_COLUMN_VISIBILITY":
       return {
         ...state,
-        columnVisibility: initialState.columnVisibility,
+        columnVisibility: initialColumnVisibility,
       };
     case "RESET_STATE":
-      return initialState;
+      return getInitialState();
     default:
       return state;
   }
@@ -215,7 +217,11 @@ export function DataTable({ columns, username }: DataTableProps) {
   const { theme, setTheme } = useTheme();
 
   // useReducer hook to manage state
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, dispatch] = useReducer(reducer, getInitialState());
+
+  useEffect(() => {
+    dispatch({ type: "RESET_STATE"});
+  }, []);
 
   useEffect(() => {
     addUsersJobs();
@@ -380,7 +386,6 @@ export function DataTable({ columns, username }: DataTableProps) {
           // Filter out any of the old data in the data table which no longer exists (has been finished for over 48 hours)
           updatedTableDataUnfiltered = updatedTableDataUnfiltered.filter((oldJob: Job) => newData.some((newJob: Job) => oldJob.id === newJob.id));
           updatedTableData = updatedTableData.filter((oldJob: Job) => newData.some((newJob: Job) => oldJob.id === newJob.id));
-
           // Update table data as both a variable and in local storage
           dispatch({ type: "SET_TABLE_DATA_UNFILTERED", payload: updatedTableDataUnfiltered });
           dispatch({ type: "SET_TABLE_DATA", payload: updatedTableData });
@@ -388,9 +393,9 @@ export function DataTable({ columns, username }: DataTableProps) {
       };
 
       // Trigger table updates every 5000ms
-      interval = setInterval(() => {
+      interval = setInterval(async () => {
         updateData();
-        addUsersJobs();
+        await addUsersJobs();
       }, 5000);
     } catch (error) {
       handleError(error, "Error updating table");
@@ -633,9 +638,14 @@ export function DataTable({ columns, username }: DataTableProps) {
     const jobsToAdd = userJobs.filter(userJob => {
       return !state.tableData.some(existingJob => existingJob.name === userJob.name)
     });
-    
-    dispatch({ type: "SET_TABLE_DATA", payload: [...state.tableDataUnfiltered, ...jobsToAddUnfiltered] });
-    dispatch({ type: "SET_TABLE_DATA_UNFILTERED", payload: [...state.tableData, ...jobsToAdd] });
+
+    if (jobsToAddUnfiltered.length > 0) {
+      dispatch({ type: "SET_TABLE_DATA", payload: [...state.tableDataUnfiltered, ...jobsToAddUnfiltered] });
+    }
+
+    if (jobsToAdd.length > 0) {
+      dispatch({ type: "SET_TABLE_DATA_UNFILTERED", payload: [...state.tableData, ...jobsToAdd] });
+    }
   };
 
   const handleStateFiltering = (stateFilter: string) => {
