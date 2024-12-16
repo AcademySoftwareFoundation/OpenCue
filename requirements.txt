@@ -14,14 +14,16 @@ pylint==2.15.10;python_version>="3.7"
 pynput==1.7.6
 PyYAML==5.1
 six==1.16.0
-pytest==8.3.3
+pytest==7.0.1;python_version<"3.7"
+pytest==8.3.3;python_version>="3.7"
 urllib3==1.26.20;python_version<="3.9"
 urllib3==2.2.3;python_version>"3.9"
 
 # Optional requirements
 # Sentry support for rqd
 sentry-sdk==2.11.0
-
-docker==7.1.0
+# Docker support for rqd
+docker==5.0.3;python_version<"3.7"
+docker==7.1.0;python_version>="3.7"
 
 loki-urllib3-client==0.2.2
