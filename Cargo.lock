@@ -364,23 +364,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cuebot-config"
-version = "0.1.0"
-dependencies = [
- "config",
- "miette",
- "serde",
- "serde_derive",
- "serde_json",
- "thiserror",
- "tracing",
- "tracing-appender",
- "tracing-rolling-file",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
 name = "dashmap"
 version = "5.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1468,7 +1451,6 @@ dependencies = [
  "bytesize",
  "chrono",
  "config",
- "cuebot-config",
  "dashmap",
  "deadpool-postgres",
  "futures",
