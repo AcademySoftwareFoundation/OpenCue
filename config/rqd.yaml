@@ -1,0 +1,15 @@
+logging:
+  level: info
+grpc.rqd_port: 4778
+grpc.cuebot_url: "myserver.spimageworks:8082"
+machine:
+  facility: lax
+#   monitor_interval_seconds: 3
+#   use_ip_as_hostname: false
+#   nimby_mode: false
+#   override_real_values:
+#     cores: 4
+#     procs: 8
+#     memory: "2Gb"
+#     desktop_mode: true
+#     hostname: "some_host_name"

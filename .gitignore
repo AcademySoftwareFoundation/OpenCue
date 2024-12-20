@@ -1,0 +1,6 @@
+/target
+
+# Ignore modules still not ready to be shared
+/crates/cuebot-config
+/crates/dist-lock
+/crates/scheduler
