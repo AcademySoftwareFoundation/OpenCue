@@ -45,7 +45,7 @@ export async function getLayers(body: string): Promise<Layer[]> {
 
 // Fetch jobs for a specific user, including finished jobs
 export async function getJobsForUser(user: string): Promise<Job[]> {
-    const body = { r: { include_finished: true, users: [`${user}`] } };
+    const body = { r: { include_finished: false, users: [`${user}`] } };
     return await getJobs(JSON.stringify(body));
 }
 
