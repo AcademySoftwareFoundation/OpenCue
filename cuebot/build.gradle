@@ -178,6 +178,5 @@ spotless {
         targetExclude 'src/compiled_protobuf/**'
         toggleOffOn()
         eclipse().configFile('jdtls.xml')
-        indentWithSpaces(4)
     }
 }

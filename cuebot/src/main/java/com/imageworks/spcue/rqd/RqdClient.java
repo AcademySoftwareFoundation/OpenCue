@@ -23,78 +23,78 @@ import com.imageworks.spcue.grpc.rqd.RunFrame;
 
 public interface RqdClient {
 
-  /**
-   * Setting to true pretends all remote procedures execute perfectly.
-   *
-   * @param tests
-   */
-  public void setTestMode(boolean tests);
+    /**
+     * Setting to true pretends all remote procedures execute perfectly.
+     *
+     * @param tests
+     */
+    public void setTestMode(boolean tests);
 
-  /**
-   * Returns a RunningFrameInfo
-   *
-   * @param proc
-   * @return
-   */
-  RunningFrameInfo getFrameStatus(VirtualProc proc);
+    /**
+     * Returns a RunningFrameInfo
+     *
+     * @param proc
+     * @return
+     */
+    RunningFrameInfo getFrameStatus(VirtualProc proc);
 
-  /**
-   * Sets the host lock to the provided state.
-   *
-   * @param host
-   * @param lock
-   */
-  public void setHostLock(HostInterface host, LockState lock);
+    /**
+     * Sets the host lock to the provided state.
+     *
+     * @param host
+     * @param lock
+     */
+    public void setHostLock(HostInterface host, LockState lock);
 
-  /**
-   * Locks the host.
-   *
-   * @param host
-   */
-  public void lockHost(HostInterface host);
+    /**
+     * Locks the host.
+     *
+     * @param host
+     */
+    public void lockHost(HostInterface host);
 
-  /**
-   * Unlocks the host.
-   *
-   * @param host
-   */
-  public void unlockHost(HostInterface host);
+    /**
+     * Unlocks the host.
+     *
+     * @param host
+     */
+    public void unlockHost(HostInterface host);
 
-  /**
-   * Reboots the host now.
-   *
-   * @param host
-   */
-  public void rebootNow(HostInterface host);
+    /**
+     * Reboots the host now.
+     *
+     * @param host
+     */
+    public void rebootNow(HostInterface host);
 
-  /**
-   * Reboots the host when idle
-   *
-   * @param host
-   */
-  public void rebootWhenIdle(HostInterface host);
+    /**
+     * Reboots the host when idle
+     *
+     * @param host
+     */
+    public void rebootWhenIdle(HostInterface host);
 
-  /**
-   * Attempts to launch a frame
-   *
-   * @param frame
-   * @param resource
-   * @return RunningFramePrx
-   */
-  void launchFrame(RunFrame frame, VirtualProc proc);
+    /**
+     * Attempts to launch a frame
+     *
+     * @param frame
+     * @param resource
+     * @return RunningFramePrx
+     */
+    void launchFrame(RunFrame frame, VirtualProc proc);
 
-  /**
-   * Kills a running frame by resource
-   *
-   * @param resource
-   */
-  void killFrame(VirtualProc Proc, String message);
+    /**
+     * Kills a running frame by resource
+     *
+     * @param resource
+     */
+    void killFrame(VirtualProc Proc, String message);
 
-  /**
-   * Kills a running frame
-   *
-   * @param hostName
-   * @param frameId
-   */
-  void killFrame(String hostName, String frameId, String message);
+    /**
+     * Kills a running frame
+     *
+     * @param hostName
+     * @param frameId
+     */
+    void killFrame(String hostName, String frameId, String message);
 }

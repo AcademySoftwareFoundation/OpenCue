@@ -37,25 +37,25 @@ import static org.junit.Assert.assertTrue;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class WhiteboardTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  Whiteboard whiteboard;
+    @Resource
+    Whiteboard whiteboard;
 
-  @Resource
-  JobManager jobManager;
+    @Resource
+    JobManager jobManager;
 
-  @Resource
-  JobLauncher jobLauncher;
+    @Resource
+    JobLauncher jobLauncher;
 
-  public JobDetail launchJob() {
-    jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
-    return jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
-  }
+    public JobDetail launchJob() {
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        return jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testIsJobPending() {
-    JobDetail job = launchJob();
-    assertTrue(whiteboard.isJobPending(job.getName()));
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testIsJobPending() {
+        JobDetail job = launchJob();
+        assertTrue(whiteboard.isJobPending(job.getName()));
+    }
 }

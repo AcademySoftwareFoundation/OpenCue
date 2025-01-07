@@ -34,58 +34,58 @@ import org.springframework.context.annotation.PropertySource;
 
 @Configuration
 @ImportResource({"classpath:conf/spring/applicationContext-dbEngine.xml",
-    "classpath:conf/spring/applicationContext-grpc.xml",
-    "classpath:conf/spring/applicationContext-grpcServer.xml",
-    "classpath:conf/spring/applicationContext-service.xml",
-    "classpath:conf/spring/applicationContext-jms.xml",
-    "classpath:conf/spring/applicationContext-criteria.xml"})
+        "classpath:conf/spring/applicationContext-grpc.xml",
+        "classpath:conf/spring/applicationContext-grpcServer.xml",
+        "classpath:conf/spring/applicationContext-service.xml",
+        "classpath:conf/spring/applicationContext-jms.xml",
+        "classpath:conf/spring/applicationContext-criteria.xml"})
 @EnableConfigurationProperties
 @PropertySource({"classpath:opencue.properties"})
 public class AppConfig {
 
-  @Configuration
-  @Conditional(PostgresDatabaseCondition.class)
-  @ImportResource({"classpath:conf/spring/applicationContext-dao-postgres.xml"})
-  static class PostgresEngineConfig {
-  }
+    @Configuration
+    @Conditional(PostgresDatabaseCondition.class)
+    @ImportResource({"classpath:conf/spring/applicationContext-dao-postgres.xml"})
+    static class PostgresEngineConfig {
+    }
 
-  @Bean
-  @Primary
-  @ConfigurationProperties(prefix = "datasource.cue-data-source")
-  public DataSource cueDataSource() {
-    return DataSourceBuilder.create().build();
-  }
+    @Bean
+    @Primary
+    @ConfigurationProperties(prefix = "datasource.cue-data-source")
+    public DataSource cueDataSource() {
+        return DataSourceBuilder.create().build();
+    }
 
-  @Bean
-  public ServletRegistrationBean<JobLaunchServlet> jobLaunchServlet() {
-    ServletRegistrationBean<JobLaunchServlet> b = new ServletRegistrationBean<>();
-    b.addUrlMappings("/launch");
-    b.addInitParameter("contextConfigLocation",
-        "classpath:conf/spring/jobLaunchServlet-servlet.xml");
-    b.setServlet(new JobLaunchServlet());
-    return b;
-  }
+    @Bean
+    public ServletRegistrationBean<JobLaunchServlet> jobLaunchServlet() {
+        ServletRegistrationBean<JobLaunchServlet> b = new ServletRegistrationBean<>();
+        b.addUrlMappings("/launch");
+        b.addInitParameter("contextConfigLocation",
+                "classpath:conf/spring/jobLaunchServlet-servlet.xml");
+        b.setServlet(new JobLaunchServlet());
+        return b;
+    }
 
-  @Bean
-  public ServletRegistrationBean<HealthCheckServlet> healthCheckServlet() {
-    ServletRegistrationBean<HealthCheckServlet> b = new ServletRegistrationBean<>();
-    b.addUrlMappings("/health");
-    b.addInitParameter("contextConfigLocation",
-        "classpath:conf/spring/healthCheckServlet-servlet.xml");
-    b.setServlet(new HealthCheckServlet());
-    return b;
-  }
+    @Bean
+    public ServletRegistrationBean<HealthCheckServlet> healthCheckServlet() {
+        ServletRegistrationBean<HealthCheckServlet> b = new ServletRegistrationBean<>();
+        b.addUrlMappings("/health");
+        b.addInitParameter("contextConfigLocation",
+                "classpath:conf/spring/healthCheckServlet-servlet.xml");
+        b.setServlet(new HealthCheckServlet());
+        return b;
+    }
 
-  /**
-   * Registers the Prometheus MetricsServlet to expose metrics at /metrics endpoint
-   * 
-   * @return A ServletRegistrationBean for MetricsServlet
-   */
-  @Bean
-  public ServletRegistrationBean<MetricsServlet> prometheusServer() {
-    ServletRegistrationBean<MetricsServlet> b = new ServletRegistrationBean<>();
-    b.addUrlMappings("/metrics");
-    b.setServlet(new MetricsServlet());
-    return b;
-  }
+    /**
+     * Registers the Prometheus MetricsServlet to expose metrics at /metrics endpoint
+     * 
+     * @return A ServletRegistrationBean for MetricsServlet
+     */
+    @Bean
+    public ServletRegistrationBean<MetricsServlet> prometheusServer() {
+        ServletRegistrationBean<MetricsServlet> b = new ServletRegistrationBean<>();
+        b.addUrlMappings("/metrics");
+        b.setServlet(new MetricsServlet());
+        return b;
+    }
 }

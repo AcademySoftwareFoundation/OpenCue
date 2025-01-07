@@ -17,15 +17,15 @@ package com.imageworks.spcue;
 
 public class ShowEntity extends Entity implements ShowInterface {
 
-  public boolean active;
-  public boolean paused;
-  public int defaultMinCores;
-  public int defaultMaxCores;
-  public int defaultMinGpus;
-  public int defaultMaxGpus;
-  public String[] commentMail;
+    public boolean active;
+    public boolean paused;
+    public int defaultMinCores;
+    public int defaultMaxCores;
+    public int defaultMinGpus;
+    public int defaultMaxGpus;
+    public String[] commentMail;
 
-  public String getShowId() {
-    return id;
-  }
+    public String getShowId() {
+        return id;
+    }
 }

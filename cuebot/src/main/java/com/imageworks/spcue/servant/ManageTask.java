@@ -31,45 +31,45 @@ import com.imageworks.spcue.util.Convert;
 
 public class ManageTask extends TaskInterfaceGrpc.TaskInterfaceImplBase {
 
-  private DepartmentManager departmentManager;
+    private DepartmentManager departmentManager;
 
-  @Override
-  public void delete(TaskDeleteRequest request,
-      StreamObserver<TaskDeleteResponse> responseObserver) {
-    departmentManager.removeTask(getTaskDetail(request.getTask()));
-    TaskDeleteResponse response = TaskDeleteResponse.newBuilder().build();
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void delete(TaskDeleteRequest request,
+            StreamObserver<TaskDeleteResponse> responseObserver) {
+        departmentManager.removeTask(getTaskDetail(request.getTask()));
+        TaskDeleteResponse response = TaskDeleteResponse.newBuilder().build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void setMinCores(TaskSetMinCoresRequest request,
-      StreamObserver<TaskSetMinCoresResponse> responseObserver) {
-    departmentManager.setMinCores(getTaskDetail(request.getTask()),
-        Convert.coresToWholeCoreUnits(request.getNewMinCores()));
-    TaskSetMinCoresResponse response = TaskSetMinCoresResponse.newBuilder().build();
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void setMinCores(TaskSetMinCoresRequest request,
+            StreamObserver<TaskSetMinCoresResponse> responseObserver) {
+        departmentManager.setMinCores(getTaskDetail(request.getTask()),
+                Convert.coresToWholeCoreUnits(request.getNewMinCores()));
+        TaskSetMinCoresResponse response = TaskSetMinCoresResponse.newBuilder().build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void clearAdjustments(TaskClearAdjustmentsRequest request,
-      StreamObserver<TaskClearAdjustmentsResponse> responseObserver) {
-    departmentManager.clearTaskAdjustment(getTaskDetail(request.getTask()));
-    TaskClearAdjustmentsResponse response = TaskClearAdjustmentsResponse.newBuilder().build();
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void clearAdjustments(TaskClearAdjustmentsRequest request,
+            StreamObserver<TaskClearAdjustmentsResponse> responseObserver) {
+        departmentManager.clearTaskAdjustment(getTaskDetail(request.getTask()));
+        TaskClearAdjustmentsResponse response = TaskClearAdjustmentsResponse.newBuilder().build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  public DepartmentManager getDepartmentManager() {
-    return departmentManager;
-  }
+    public DepartmentManager getDepartmentManager() {
+        return departmentManager;
+    }
 
-  public void setDepartmentManager(DepartmentManager departmentManager) {
-    this.departmentManager = departmentManager;
-  }
+    public void setDepartmentManager(DepartmentManager departmentManager) {
+        this.departmentManager = departmentManager;
+    }
 
-  private TaskEntity getTaskDetail(Task task) {
-    return departmentManager.getTaskDetail(task.getName());
-  }
+    private TaskEntity getTaskDetail(Task task) {
+        return departmentManager.getTaskDetail(task.getName());
+    }
 }

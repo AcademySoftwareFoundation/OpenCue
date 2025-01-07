@@ -19,12 +19,12 @@ import io.grpc.stub.StreamObserver;
 
 public class FakeStreamObserver<T> implements StreamObserver<T> {
 
-  @Override
-  public void onNext(T value) {}
+    @Override
+    public void onNext(T value) {}
 
-  @Override
-  public void onError(Throwable t) {}
+    @Override
+    public void onError(Throwable t) {}
 
-  @Override
-  public void onCompleted() {}
+    @Override
+    public void onCompleted() {}
 }

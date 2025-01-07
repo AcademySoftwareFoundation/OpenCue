@@ -17,16 +17,16 @@ package com.imageworks.spcue;
 
 public class AllocationEntity extends Entity implements AllocationInterface {
 
-  public String tag;
-  public String facilityId;
+    public String tag;
+    public String facilityId;
 
-  public String getAllocationId() {
-    return id;
-  }
+    public String getAllocationId() {
+        return id;
+    }
 
-  @Override
-  public String getFacilityId() {
-    return facilityId;
-  }
+    @Override
+    public String getFacilityId() {
+        return facilityId;
+    }
 
 }

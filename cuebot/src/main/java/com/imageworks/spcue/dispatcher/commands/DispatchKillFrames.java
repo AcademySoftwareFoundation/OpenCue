@@ -26,23 +26,23 @@ import com.imageworks.spcue.service.JobManagerSupport;
  */
 public class DispatchKillFrames extends KeyRunnable {
 
-  private FrameSearchInterface search;
-  private JobManagerSupport jobManagerSupport;
-  private Source source;
+    private FrameSearchInterface search;
+    private JobManagerSupport jobManagerSupport;
+    private Source source;
 
-  public DispatchKillFrames(FrameSearchInterface search, Source source,
-      JobManagerSupport jobManagerSupport) {
-    super("disp_kill_frames_" + source.toString() + "_" + jobManagerSupport.hashCode());
-    this.search = search;
-    this.source = source;
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    public DispatchKillFrames(FrameSearchInterface search, Source source,
+            JobManagerSupport jobManagerSupport) {
+        super("disp_kill_frames_" + source.toString() + "_" + jobManagerSupport.hashCode());
+        this.search = search;
+        this.source = source;
+        this.jobManagerSupport = jobManagerSupport;
+    }
 
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        jobManagerSupport.killProcs(search, source, true);
-      }
-    }.execute();
-  }
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                jobManagerSupport.killProcs(search, source, true);
+            }
+        }.execute();
+    }
 }

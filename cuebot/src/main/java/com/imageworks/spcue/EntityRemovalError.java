@@ -18,28 +18,28 @@ package com.imageworks.spcue;
 @SuppressWarnings("serial")
 public class EntityRemovalError extends EntityException {
 
-  public EntityRemovalError() {
-    // TODO Auto-generated constructor stub
-  }
+    public EntityRemovalError() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityRemovalError(String message, EntityInterface entity) {
-    super("failed to create entity of type: " + entity.getClass() + " with name: "
-        + entity.getName() + " ," + message, entity);
-  }
+    public EntityRemovalError(String message, EntityInterface entity) {
+        super("failed to create entity of type: " + entity.getClass() + " with name: "
+                + entity.getName() + " ," + message, entity);
+    }
 
-  public EntityRemovalError(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityRemovalError(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityRemovalError(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityRemovalError(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityRemovalError(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityRemovalError(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

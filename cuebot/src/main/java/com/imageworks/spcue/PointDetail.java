@@ -17,25 +17,25 @@ package com.imageworks.spcue;
 
 public class PointDetail extends Entity implements PointInterface {
 
-  public String showId;
-  public String deptId;
+    public String showId;
+    public String deptId;
 
-  public int cores = 0;
-  public String tiTask = "";
-  public boolean tiManaged = false;
+    public int cores = 0;
+    public String tiTask = "";
+    public boolean tiManaged = false;
 
-  @Override
-  public String getDepartmentId() {
-    return deptId;
-  }
+    @Override
+    public String getDepartmentId() {
+        return deptId;
+    }
 
-  @Override
-  public String getShowId() {
-    return showId;
-  }
+    @Override
+    public String getShowId() {
+        return showId;
+    }
 
-  @Override
-  public String getPointId() {
-    return id;
-  }
+    @Override
+    public String getPointId() {
+        return id;
+    }
 }

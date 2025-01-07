@@ -25,33 +25,33 @@ import com.imageworks.spcue.rqd.RqdClientException;
 
 public class DispatchRqdKillFrame extends KeyRunnable {
 
-  private static final Logger logger = LogManager.getLogger(DispatchRqdKillFrame.class);
+    private static final Logger logger = LogManager.getLogger(DispatchRqdKillFrame.class);
 
-  private String message;
-  private String hostname;
-  private String frameId;
+    private String message;
+    private String hostname;
+    private String frameId;
 
-  private final RqdClient rqdClient;
+    private final RqdClient rqdClient;
 
-  public DispatchRqdKillFrame(String hostname, String frameId, String message,
-      RqdClient rqdClient) {
-    super("disp_rqd_kill_frame_" + hostname + "_" + frameId + "_" + rqdClient.toString());
-    this.hostname = hostname;
-    this.frameId = frameId;
-    this.message = message;
-    this.rqdClient = rqdClient;
-  }
-
-  @Override
-  public void run() {
-    long startTime = System.currentTimeMillis();
-    try {
-      rqdClient.killFrame(hostname, frameId, message);
-    } catch (RqdClientException e) {
-      logger.info("Failed to contact host " + hostname + ", " + e);
-    } finally {
-      long elapsedTime = System.currentTimeMillis() - startTime;
-      logger.info("RQD communication with " + hostname + " took " + elapsedTime + "ms");
+    public DispatchRqdKillFrame(String hostname, String frameId, String message,
+            RqdClient rqdClient) {
+        super("disp_rqd_kill_frame_" + hostname + "_" + frameId + "_" + rqdClient.toString());
+        this.hostname = hostname;
+        this.frameId = frameId;
+        this.message = message;
+        this.rqdClient = rqdClient;
     }
-  }
+
+    @Override
+    public void run() {
+        long startTime = System.currentTimeMillis();
+        try {
+            rqdClient.killFrame(hostname, frameId, message);
+        } catch (RqdClientException e) {
+            logger.info("Failed to contact host " + hostname + ", " + e);
+        } finally {
+            long elapsedTime = System.currentTimeMillis() - startTime;
+            logger.info("RQD communication with " + hostname + " took " + elapsedTime + "ms");
+        }
+    }
 }

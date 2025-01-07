@@ -17,27 +17,27 @@ package com.imageworks.spcue.depend;
 
 public interface DependVisitor {
 
-  void accept(JobOnJob depend);
+    void accept(JobOnJob depend);
 
-  void accept(JobOnLayer depend);
+    void accept(JobOnLayer depend);
 
-  void accept(JobOnFrame depend);
+    void accept(JobOnFrame depend);
 
-  void accept(LayerOnJob depend);
+    void accept(LayerOnJob depend);
 
-  void accept(LayerOnLayer depend);
+    void accept(LayerOnLayer depend);
 
-  void accept(LayerOnFrame depend);
+    void accept(LayerOnFrame depend);
 
-  void accept(FrameOnJob depend);
+    void accept(FrameOnJob depend);
 
-  void accept(FrameOnLayer depend);
+    void accept(FrameOnLayer depend);
 
-  void accept(FrameOnFrame depend);
+    void accept(FrameOnFrame depend);
 
-  void accept(FrameByFrame depend);
+    void accept(FrameByFrame depend);
 
-  void accept(PreviousFrame depend);
+    void accept(PreviousFrame depend);
 
-  void accept(LayerOnSimFrame depend);
+    void accept(LayerOnSimFrame depend);
 }

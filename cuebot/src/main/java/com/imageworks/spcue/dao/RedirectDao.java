@@ -22,46 +22,46 @@ import com.imageworks.spcue.Redirect;
 
 @Transactional(propagation = Propagation.MANDATORY)
 public interface RedirectDao {
-  /**
-   * Check for redirect existence.
-   *
-   * @param key Redirect key
-   *
-   * @return True if redirect exists
-   */
-  boolean containsKey(String key);
+    /**
+     * Check for redirect existence.
+     *
+     * @param key Redirect key
+     *
+     * @return True if redirect exists
+     */
+    boolean containsKey(String key);
 
-  /**
-   * Count redirects in a group.
-   *
-   * @param groupId the group to query
-   *
-   * @return count of redirects in group
-   */
-  int countRedirectsWithGroup(String groupId);
+    /**
+     * Count redirects in a group.
+     *
+     * @param groupId the group to query
+     *
+     * @return count of redirects in group
+     */
+    int countRedirectsWithGroup(String groupId);
 
-  /**
-   * Delete all expired redirects.
-   *
-   * @return number of redirects deleted
-   */
-  int deleteExpired();
+    /**
+     * Delete all expired redirects.
+     *
+     * @return number of redirects deleted
+     */
+    int deleteExpired();
 
-  /**
-   * Add redirect.
-   *
-   * @param key Redirect key
-   *
-   * @param r Redirect to add
-   */
-  void put(String key, Redirect r);
+    /**
+     * Add redirect.
+     *
+     * @param key Redirect key
+     *
+     * @param r Redirect to add
+     */
+    void put(String key, Redirect r);
 
-  /**
-   * Delete and return specified redirect.
-   *
-   * @param key Redirect key
-   *
-   * @return the redirect that was deleted or null
-   */
-  Redirect remove(String key);
+    /**
+     * Delete and return specified redirect.
+     *
+     * @param key Redirect key
+     *
+     * @return the redirect that was deleted or null
+     */
+    Redirect remove(String key);
 }

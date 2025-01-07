@@ -40,99 +40,99 @@ import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase {
 
-  private ServiceManager serviceManager;
-  private Whiteboard whiteboard;
+    private ServiceManager serviceManager;
+    private Whiteboard whiteboard;
 
-  @Override
-  public void createService(ServiceCreateServiceRequest request,
-      StreamObserver<ServiceCreateServiceResponse> responseObserver) {
-    ServiceEntity service = new ServiceEntity();
-    service.name = request.getData().getName();
-    service.minCores = request.getData().getMinCores();
-    service.maxCores = request.getData().getMaxCores();
-    service.minMemory = request.getData().getMinMemory();
-    service.minGpus = request.getData().getMinGpus();
-    service.maxGpus = request.getData().getMaxGpus();
-    service.minGpuMemory = request.getData().getMinGpuMemory();
-    service.tags = Sets.newLinkedHashSet(request.getData().getTagsList());
-    service.threadable = request.getData().getThreadable();
-    service.timeout = request.getData().getTimeout();
-    service.timeout_llu = request.getData().getTimeoutLlu();
-    service.minMemoryIncrease = request.getData().getMinMemoryIncrease();
-    serviceManager.createService(service);
-    responseObserver.onNext(ServiceCreateServiceResponse.newBuilder()
-        .setService(whiteboard.getService(service.getId())).build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void getDefaultServices(ServiceGetDefaultServicesRequest request,
-      StreamObserver<ServiceGetDefaultServicesResponse> responseObserver) {
-    responseObserver.onNext(ServiceGetDefaultServicesResponse.newBuilder()
-        .setServices(whiteboard.getDefaultServices()).build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void getService(ServiceGetServiceRequest request,
-      StreamObserver<ServiceGetServiceResponse> responseObserver) {
-    try {
-      responseObserver.onNext(ServiceGetServiceResponse.newBuilder()
-          .setService(whiteboard.getService(request.getName())).build());
-      responseObserver.onCompleted();
-    } catch (EmptyResultDataAccessException e) {
-      responseObserver.onError(
-          Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e).asRuntimeException());
+    @Override
+    public void createService(ServiceCreateServiceRequest request,
+            StreamObserver<ServiceCreateServiceResponse> responseObserver) {
+        ServiceEntity service = new ServiceEntity();
+        service.name = request.getData().getName();
+        service.minCores = request.getData().getMinCores();
+        service.maxCores = request.getData().getMaxCores();
+        service.minMemory = request.getData().getMinMemory();
+        service.minGpus = request.getData().getMinGpus();
+        service.maxGpus = request.getData().getMaxGpus();
+        service.minGpuMemory = request.getData().getMinGpuMemory();
+        service.tags = Sets.newLinkedHashSet(request.getData().getTagsList());
+        service.threadable = request.getData().getThreadable();
+        service.timeout = request.getData().getTimeout();
+        service.timeout_llu = request.getData().getTimeoutLlu();
+        service.minMemoryIncrease = request.getData().getMinMemoryIncrease();
+        serviceManager.createService(service);
+        responseObserver.onNext(ServiceCreateServiceResponse.newBuilder()
+                .setService(whiteboard.getService(service.getId())).build());
+        responseObserver.onCompleted();
     }
-  }
 
-  @Override
-  public void delete(ServiceDeleteRequest request,
-      StreamObserver<ServiceDeleteResponse> responseObserver) {
-    serviceManager.deleteService(toServiceEntity(request.getService()));
-    responseObserver.onNext(ServiceDeleteResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void getDefaultServices(ServiceGetDefaultServicesRequest request,
+            StreamObserver<ServiceGetDefaultServicesResponse> responseObserver) {
+        responseObserver.onNext(ServiceGetDefaultServicesResponse.newBuilder()
+                .setServices(whiteboard.getDefaultServices()).build());
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void update(ServiceUpdateRequest request,
-      StreamObserver<ServiceUpdateResponse> responseObserver) {
-    serviceManager.updateService(toServiceEntity(request.getService()));
-    responseObserver.onNext(ServiceUpdateResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void getService(ServiceGetServiceRequest request,
+            StreamObserver<ServiceGetServiceResponse> responseObserver) {
+        try {
+            responseObserver.onNext(ServiceGetServiceResponse.newBuilder()
+                    .setService(whiteboard.getService(request.getName())).build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
+                    .asRuntimeException());
+        }
+    }
 
-  public ServiceManager getServiceManager() {
-    return serviceManager;
-  }
+    @Override
+    public void delete(ServiceDeleteRequest request,
+            StreamObserver<ServiceDeleteResponse> responseObserver) {
+        serviceManager.deleteService(toServiceEntity(request.getService()));
+        responseObserver.onNext(ServiceDeleteResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public void setServiceManager(ServiceManager serviceManager) {
-    this.serviceManager = serviceManager;
-  }
+    @Override
+    public void update(ServiceUpdateRequest request,
+            StreamObserver<ServiceUpdateResponse> responseObserver) {
+        serviceManager.updateService(toServiceEntity(request.getService()));
+        responseObserver.onNext(ServiceUpdateResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public Whiteboard getWhiteboard() {
-    return whiteboard;
-  }
+    public ServiceManager getServiceManager() {
+        return serviceManager;
+    }
 
-  public void setWhiteboard(Whiteboard whiteboard) {
-    this.whiteboard = whiteboard;
-  }
+    public void setServiceManager(ServiceManager serviceManager) {
+        this.serviceManager = serviceManager;
+    }
 
-  private ServiceEntity toServiceEntity(Service service) {
-    ServiceEntity entity = new ServiceEntity();
-    entity.id = service.getId();
-    entity.name = service.getName();
-    entity.minCores = service.getMinCores();
-    entity.maxCores = service.getMaxCores();
-    entity.minMemory = service.getMinMemory();
-    entity.minGpus = service.getMinGpus();
-    entity.maxGpus = service.getMaxGpus();
-    entity.minGpuMemory = service.getMinGpuMemory();
-    entity.tags = new LinkedHashSet<>(service.getTagsList());
-    entity.threadable = service.getThreadable();
-    entity.timeout = service.getTimeout();
-    entity.timeout_llu = service.getTimeoutLlu();
-    entity.minMemoryIncrease = service.getMinMemoryIncrease();
-    return entity;
-  }
+    public Whiteboard getWhiteboard() {
+        return whiteboard;
+    }
+
+    public void setWhiteboard(Whiteboard whiteboard) {
+        this.whiteboard = whiteboard;
+    }
+
+    private ServiceEntity toServiceEntity(Service service) {
+        ServiceEntity entity = new ServiceEntity();
+        entity.id = service.getId();
+        entity.name = service.getName();
+        entity.minCores = service.getMinCores();
+        entity.maxCores = service.getMaxCores();
+        entity.minMemory = service.getMinMemory();
+        entity.minGpus = service.getMinGpus();
+        entity.maxGpus = service.getMaxGpus();
+        entity.minGpuMemory = service.getMinGpuMemory();
+        entity.tags = new LinkedHashSet<>(service.getTagsList());
+        entity.threadable = service.getThreadable();
+        entity.timeout = service.getTimeout();
+        entity.timeout_llu = service.getTimeoutLlu();
+        entity.minMemoryIncrease = service.getMinMemoryIncrease();
+        return entity;
+    }
 }

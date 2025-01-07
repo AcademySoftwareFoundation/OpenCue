@@ -24,12 +24,12 @@ import com.imageworks.spcue.dao.WhiteboardDao;
  */
 public interface Whiteboard extends WhiteboardDao, NestedWhiteboardDao {
 
-  /**
-   * Returns true if the job is pending.
-   *
-   * @param name
-   * @return
-   */
-  boolean isJobPending(String name);
+    /**
+     * Returns true if the job is pending.
+     *
+     * @param name
+     * @return
+     */
+    boolean isJobPending(String name);
 
 }

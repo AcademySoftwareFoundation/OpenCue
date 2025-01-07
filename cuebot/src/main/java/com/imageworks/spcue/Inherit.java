@@ -20,5 +20,5 @@ package com.imageworks.spcue;
  *
  */
 public enum Inherit {
-  Priority, MinCores, MaxCores, MinGpus, MaxGpus, All
+    Priority, MinCores, MaxCores, MinGpus, MaxGpus, All
 }

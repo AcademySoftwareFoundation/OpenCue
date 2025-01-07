@@ -27,34 +27,34 @@ import com.imageworks.spcue.service.CommentManager;
 
 public class ManageComment extends CommentInterfaceGrpc.CommentInterfaceImplBase {
 
-  private CommentManager commentManager;
+    private CommentManager commentManager;
 
-  @Override
-  public void delete(CommentDeleteRequest request,
-      StreamObserver<CommentDeleteResponse> responseObserver) {
-    commentManager.deleteComment(request.getComment().getId());
-    responseObserver.onNext(CommentDeleteResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void delete(CommentDeleteRequest request,
+            StreamObserver<CommentDeleteResponse> responseObserver) {
+        commentManager.deleteComment(request.getComment().getId());
+        responseObserver.onNext(CommentDeleteResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void save(CommentSaveRequest request,
-      StreamObserver<CommentSaveResponse> responseObserver) {
-    CommentDetail c = new CommentDetail();
-    c.id = request.getComment().getId();
-    c.message = request.getComment().getMessage();
-    c.subject = request.getComment().getSubject();
-    commentManager.saveComment(c);
-    CommentSaveResponse response = CommentSaveResponse.newBuilder().build();
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void save(CommentSaveRequest request,
+            StreamObserver<CommentSaveResponse> responseObserver) {
+        CommentDetail c = new CommentDetail();
+        c.id = request.getComment().getId();
+        c.message = request.getComment().getMessage();
+        c.subject = request.getComment().getSubject();
+        commentManager.saveComment(c);
+        CommentSaveResponse response = CommentSaveResponse.newBuilder().build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  public CommentManager getCommentManager() {
-    return commentManager;
-  }
+    public CommentManager getCommentManager() {
+        return commentManager;
+    }
 
-  public void setCommentManager(CommentManager commentManager) {
-    this.commentManager = commentManager;
-  }
+    public void setCommentManager(CommentManager commentManager) {
+        this.commentManager = commentManager;
+    }
 }

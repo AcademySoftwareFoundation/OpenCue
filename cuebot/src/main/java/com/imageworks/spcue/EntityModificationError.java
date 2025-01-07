@@ -18,28 +18,28 @@ package com.imageworks.spcue;
 @SuppressWarnings("serial")
 public class EntityModificationError extends EntityException {
 
-  public EntityModificationError() {
-    // TODO Auto-generated constructor stub
-  }
+    public EntityModificationError() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityModificationError(String message, EntityInterface e) {
-    super(message, e);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityModificationError(String message, EntityInterface e) {
+        super(message, e);
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityModificationError(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityModificationError(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityModificationError(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityModificationError(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityModificationError(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityModificationError(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

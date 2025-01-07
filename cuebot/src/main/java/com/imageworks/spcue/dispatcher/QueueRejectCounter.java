@@ -21,19 +21,19 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class QueueRejectCounter implements RejectedExecutionHandler {
 
-  private AtomicLong rejectCounter = new AtomicLong(0);
+    private AtomicLong rejectCounter = new AtomicLong(0);
 
-  @Override
-  public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-    rejectCounter.getAndIncrement();
-  }
+    @Override
+    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+        rejectCounter.getAndIncrement();
+    }
 
-  public long getRejectCount() {
-    return rejectCounter.get();
-  }
+    public long getRejectCount() {
+        return rejectCounter.get();
+    }
 
-  public void clear() {
-    rejectCounter.set(0);
-  }
+    public void clear() {
+        rejectCounter.set(0);
+    }
 
 }

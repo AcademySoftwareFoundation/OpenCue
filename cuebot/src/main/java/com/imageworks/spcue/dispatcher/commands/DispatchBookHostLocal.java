@@ -20,22 +20,22 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
 
 public class DispatchBookHostLocal extends KeyRunnable {
 
-  private DispatchHost host;
-  private Dispatcher dispatcher;
+    private DispatchHost host;
+    private Dispatcher dispatcher;
 
-  public DispatchBookHostLocal(DispatchHost host, Dispatcher d) {
-    super(host.getId());
+    public DispatchBookHostLocal(DispatchHost host, Dispatcher d) {
+        super(host.getId());
 
-    this.host = host;
-    this.dispatcher = d;
-  }
+        this.host = host;
+        this.dispatcher = d;
+    }
 
-  @Override
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        dispatcher.dispatchHost(host);
-      }
-    }.execute();
-  }
+    @Override
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                dispatcher.dispatchHost(host);
+            }
+        }.execute();
+    }
 }

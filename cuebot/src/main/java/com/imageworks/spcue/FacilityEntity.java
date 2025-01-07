@@ -17,13 +17,13 @@ package com.imageworks.spcue;
 
 public class FacilityEntity extends Entity implements FacilityInterface {
 
-  public FacilityEntity() {}
+    public FacilityEntity() {}
 
-  public FacilityEntity(String id) {
-    this.id = id;
-  }
+    public FacilityEntity(String id) {
+        this.id = id;
+    }
 
-  public String getFacilityId() {
-    return id;
-  }
+    public String getFacilityId() {
+        return id;
+    }
 }

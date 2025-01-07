@@ -20,23 +20,23 @@ import com.imageworks.spcue.SpcueRuntimeException;
 @SuppressWarnings("serial")
 public class DependException extends SpcueRuntimeException {
 
-  public DependException() {
-    // TODO Auto-generated constructor stub
-  }
+    public DependException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public DependException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public DependException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public DependException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public DependException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public DependException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public DependException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

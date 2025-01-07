@@ -17,31 +17,31 @@ package com.imageworks.spcue;
 
 public class LayerEntity extends Entity implements LayerInterface {
 
-  public String showId;
-  public String facilityId;
-  public String jobId;
+    public String showId;
+    public String facilityId;
+    public String jobId;
 
-  public LayerEntity() {}
+    public LayerEntity() {}
 
-  public LayerEntity(String id) {
-    this.id = id;
-  }
+    public LayerEntity(String id) {
+        this.id = id;
+    }
 
-  public String getLayerId() {
-    return id;
-  }
+    public String getLayerId() {
+        return id;
+    }
 
-  public String getJobId() {
-    return jobId;
-  }
+    public String getJobId() {
+        return jobId;
+    }
 
-  @Override
-  public String getShowId() {
-    return showId;
-  }
+    @Override
+    public String getShowId() {
+        return showId;
+    }
 
-  @Override
-  public String getFacilityId() {
-    return facilityId;
-  }
+    @Override
+    public String getFacilityId() {
+        return facilityId;
+    }
 }

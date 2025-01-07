@@ -17,5 +17,5 @@ package com.imageworks.spcue;
 
 public interface ShowInterface extends EntityInterface {
 
-  public String getShowId();
+    public String getShowId();
 }

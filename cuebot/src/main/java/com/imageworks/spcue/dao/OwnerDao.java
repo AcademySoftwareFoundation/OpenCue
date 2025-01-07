@@ -22,55 +22,55 @@ import com.imageworks.spcue.ShowInterface;
 
 public interface OwnerDao {
 
-  /**
-   * Return true if the given owner owns the particualar host.
-   *
-   * @param owner
-   * @param host
-   * @return
-   */
-  boolean isOwner(OwnerEntity owner, HostInterface host);
+    /**
+     * Return true if the given owner owns the particualar host.
+     *
+     * @param owner
+     * @param host
+     * @return
+     */
+    boolean isOwner(OwnerEntity owner, HostInterface host);
 
-  /**
-   * Get an owner record by ID.
-   *
-   * @param id
-   */
-  OwnerEntity getOwner(String id);
+    /**
+     * Get an owner record by ID.
+     *
+     * @param id
+     */
+    OwnerEntity getOwner(String id);
 
-  /**
-   * Return the owner of the given host.
-   *
-   * @param host
-   * @return
-   */
-  OwnerEntity getOwner(HostInterface host);
+    /**
+     * Return the owner of the given host.
+     *
+     * @param host
+     * @return
+     */
+    OwnerEntity getOwner(HostInterface host);
 
-  /**
-   * Return an owner record by name.
-   *
-   * @param name
-   */
-  OwnerEntity findOwner(String name);
+    /**
+     * Return an owner record by name.
+     *
+     * @param name
+     */
+    OwnerEntity findOwner(String name);
 
-  /**
-   * Delete the specified owner and all his/her deeds. Return true if the owner was actually
-   * deleted. False if not.
-   */
-  boolean deleteOwner(Entity owner);
+    /**
+     * Delete the specified owner and all his/her deeds. Return true if the owner was actually
+     * deleted. False if not.
+     */
+    boolean deleteOwner(Entity owner);
 
-  /**
-   * Insert a new owner record.
-   *
-   * @param owner
-   */
-  void insertOwner(OwnerEntity owner, ShowInterface show);
+    /**
+     * Insert a new owner record.
+     *
+     * @param owner
+     */
+    void insertOwner(OwnerEntity owner, ShowInterface show);
 
-  /**
-   * Set the owner's show. This can be null.
-   *
-   * @param owner
-   * @param show
-   */
-  void updateShow(Entity owner, ShowInterface show);
+    /**
+     * Set the owner's show. This can be null.
+     *
+     * @param owner
+     * @param show
+     */
+    void updateShow(Entity owner, ShowInterface show);
 }

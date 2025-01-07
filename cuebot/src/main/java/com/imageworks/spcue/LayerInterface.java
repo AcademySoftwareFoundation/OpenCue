@@ -17,6 +17,6 @@ package com.imageworks.spcue;
 
 public interface LayerInterface extends JobInterface {
 
-  public String getLayerId();
+    public String getLayerId();
 
 }

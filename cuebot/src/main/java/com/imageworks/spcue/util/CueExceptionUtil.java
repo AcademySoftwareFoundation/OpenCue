@@ -28,32 +28,32 @@ import org.apache.logging.log4j.LogManager;
  */
 public class CueExceptionUtil {
 
-  /**
-   * returns the stack track for an exception as a string.
-   *
-   * @param aThrowable
-   * @return String
-   */
-  public static String getStackTrace(Throwable aThrowable) {
-    final Writer result = new StringWriter();
-    final PrintWriter printWriter = new PrintWriter(result);
-    aThrowable.printStackTrace(printWriter);
-    return result.toString();
-  }
-
-  /**
-   * Creates an error message string which w/ a stack track and returns it.
-   *
-   * @param msg
-   * @param aThrowable
-   * @return String
-   */
-  public static void logStackTrace(String msg, Throwable aThrowable) {
-    Logger error_logger = LogManager.getLogger(CueExceptionUtil.class);
-    error_logger.info("Caught unexpected exception caused by: " + aThrowable);
-    error_logger.info("StackTrace: \n" + getStackTrace(aThrowable));
-    if (aThrowable.getCause() != null) {
-      error_logger.info("Caused By: " + getStackTrace(aThrowable.getCause()));
+    /**
+     * returns the stack track for an exception as a string.
+     *
+     * @param aThrowable
+     * @return String
+     */
+    public static String getStackTrace(Throwable aThrowable) {
+        final Writer result = new StringWriter();
+        final PrintWriter printWriter = new PrintWriter(result);
+        aThrowable.printStackTrace(printWriter);
+        return result.toString();
     }
-  }
+
+    /**
+     * Creates an error message string which w/ a stack track and returns it.
+     *
+     * @param msg
+     * @param aThrowable
+     * @return String
+     */
+    public static void logStackTrace(String msg, Throwable aThrowable) {
+        Logger error_logger = LogManager.getLogger(CueExceptionUtil.class);
+        error_logger.info("Caught unexpected exception caused by: " + aThrowable);
+        error_logger.info("StackTrace: \n" + getStackTrace(aThrowable));
+        if (aThrowable.getCause() != null) {
+            error_logger.info("Caused By: " + getStackTrace(aThrowable.getCause()));
+        }
+    }
 }

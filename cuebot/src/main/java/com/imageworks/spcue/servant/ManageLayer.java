@@ -127,480 +127,484 @@ import static com.imageworks.spcue.servant.ServantUtil.attemptChange;
 
 public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
 
-  private LayerDetail layer;
-  private FrameSearchInterface frameSearch;
-  private JobManager jobManager;
-  private DependManager dependManager;
-  private JobManagerSupport jobManagerSupport;
-  private LayerDao layerDao;
-  private DispatchQueue manageQueue;
-  private Whiteboard whiteboard;
-  private LocalBookingSupport localBookingSupport;
-  private FrameSearchFactory frameSearchFactory;
-  private final String property = "layer.finished_jobs_readonly";
-  @Autowired
-  private Environment env;
+    private LayerDetail layer;
+    private FrameSearchInterface frameSearch;
+    private JobManager jobManager;
+    private DependManager dependManager;
+    private JobManagerSupport jobManagerSupport;
+    private LayerDao layerDao;
+    private DispatchQueue manageQueue;
+    private Whiteboard whiteboard;
+    private LocalBookingSupport localBookingSupport;
+    private FrameSearchFactory frameSearchFactory;
+    private final String property = "layer.finished_jobs_readonly";
+    @Autowired
+    private Environment env;
 
-  @Override
-  public void findLayer(LayerFindLayerRequest request,
-      StreamObserver<LayerFindLayerResponse> responseObserver) {
-    try {
-      responseObserver.onNext(LayerFindLayerResponse.newBuilder()
-          .setLayer(whiteboard.findLayer(request.getJob(), request.getLayer())).build());
-      responseObserver.onCompleted();
-    } catch (EmptyResultDataAccessException e) {
-      responseObserver.onError(
-          Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e).asRuntimeException());
+    @Override
+    public void findLayer(LayerFindLayerRequest request,
+            StreamObserver<LayerFindLayerResponse> responseObserver) {
+        try {
+            responseObserver.onNext(LayerFindLayerResponse.newBuilder()
+                    .setLayer(whiteboard.findLayer(request.getJob(), request.getLayer())).build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
+                    .asRuntimeException());
+        }
     }
-  }
 
-  @Override
-  public void getLayer(LayerGetLayerRequest request,
-      StreamObserver<LayerGetLayerResponse> responseObserver) {
-    try {
-      responseObserver.onNext(LayerGetLayerResponse.newBuilder()
-          .setLayer(whiteboard.getLayer(request.getId())).build());
-      responseObserver.onCompleted();
-    } catch (EmptyResultDataAccessException e) {
-      responseObserver.onError(
-          Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e).asRuntimeException());
+    @Override
+    public void getLayer(LayerGetLayerRequest request,
+            StreamObserver<LayerGetLayerResponse> responseObserver) {
+        try {
+            responseObserver.onNext(LayerGetLayerResponse.newBuilder()
+                    .setLayer(whiteboard.getLayer(request.getId())).build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
+                    .asRuntimeException());
+        }
     }
-  }
 
-  @Override
-  public void eatFrames(LayerEatFramesRequest request,
-      StreamObserver<LayerEatFramesResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      manageQueue.execute(
-          new DispatchEatFrames(frameSearch, new Source(request.toString()), jobManagerSupport));
-      responseObserver.onNext(LayerEatFramesResponse.newBuilder().build());
-      responseObserver.onCompleted();
+    @Override
+    public void eatFrames(LayerEatFramesRequest request,
+            StreamObserver<LayerEatFramesResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            manageQueue.execute(new DispatchEatFrames(frameSearch, new Source(request.toString()),
+                    jobManagerSupport));
+            responseObserver.onNext(LayerEatFramesResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
     }
-  }
 
-  @Override
-  public void getFrames(LayerGetFramesRequest request,
-      StreamObserver<LayerGetFramesResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    FrameSeq frames = whiteboard.getFrames(frameSearchFactory.create(layer, request.getS()));
-    responseObserver.onNext(LayerGetFramesResponse.newBuilder().setFrames(frames).build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void killFrames(LayerKillFramesRequest request,
-      StreamObserver<LayerKillFramesResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    manageQueue.execute(
-        new DispatchKillFrames(frameSearch, new Source(request.toString(), request.getUsername(),
-            request.getPid(), request.getHostKill(), request.getReason()), jobManagerSupport));
-    responseObserver.onNext(LayerKillFramesResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void markdoneFrames(LayerMarkdoneFramesRequest request,
-      StreamObserver<LayerMarkdoneFramesResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      manageQueue.execute(new DispatchSatisfyDepends(layer, jobManagerSupport));
-      responseObserver.onNext(LayerMarkdoneFramesResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void retryFrames(LayerRetryFramesRequest request,
-      StreamObserver<LayerRetryFramesResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      manageQueue.execute(
-          new DispatchRetryFrames(frameSearch, new Source(request.toString()), jobManagerSupport));
-      responseObserver.onNext(LayerRetryFramesResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void setTags(LayerSetTagsRequest request,
-      StreamObserver<LayerSetTagsResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      layerDao.updateLayerTags(layer, new HashSet<>(request.getTagsList()));
-      responseObserver.onNext(LayerSetTagsResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void setMinCores(LayerSetMinCoresRequest request,
-      StreamObserver<LayerSetMinCoresResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      jobManager.setLayerMinCores(layer, Convert.coresToCoreUnits(request.getCores()));
-      responseObserver.onNext(LayerSetMinCoresResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void setMinGpus(LayerSetMinGpusRequest request,
-      StreamObserver<LayerSetMinGpusResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      jobManager.setLayerMinGpus(layer, request.getMinGpus());
-      responseObserver.onNext(LayerSetMinGpusResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void setMinMemory(LayerSetMinMemoryRequest request,
-      StreamObserver<LayerSetMinMemoryResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      layerDao.updateLayerMinMemory(layer, request.getMemory());
-      responseObserver.onNext(LayerSetMinMemoryResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void setMinGpuMemory(LayerSetMinGpuMemoryRequest request,
-      StreamObserver<LayerSetMinGpuMemoryResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      layerDao.updateLayerMinGpuMemory(layer, request.getGpuMemory());
-      responseObserver.onNext(LayerSetMinGpuMemoryResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void createDependencyOnFrame(LayerCreateDependOnFrameRequest request,
-      StreamObserver<LayerCreateDependOnFrameResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      LayerOnFrame depend =
-          new LayerOnFrame(layer, jobManager.getFrameDetail(request.getFrame().getId()));
-      dependManager.createDepend(depend);
-      responseObserver.onNext(LayerCreateDependOnFrameResponse.newBuilder()
-          .setDepend(whiteboard.getDepend(depend)).build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void createDependencyOnJob(LayerCreateDependOnJobRequest request,
-      StreamObserver<LayerCreateDependOnJobResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      LayerOnJob depend = new LayerOnJob(layer, jobManager.getJobDetail(request.getJob().getId()));
-      dependManager.createDepend(depend);
-      responseObserver.onNext(LayerCreateDependOnJobResponse.newBuilder()
-          .setDepend(whiteboard.getDepend(depend)).build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void createDependencyOnLayer(LayerCreateDependOnLayerRequest request,
-      StreamObserver<LayerCreateDependOnLayerResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      LayerOnLayer depend =
-          new LayerOnLayer(layer, jobManager.getLayerDetail(request.getDependOnLayer().getId()));
-      dependManager.createDepend(depend);
-      responseObserver.onNext(LayerCreateDependOnLayerResponse.newBuilder()
-          .setDepend(whiteboard.getDepend(depend)).build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void createFrameByFrameDependency(LayerCreateFrameByFrameDependRequest request,
-      StreamObserver<LayerCreateFrameByFrameDependResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      FrameByFrame depend =
-          new FrameByFrame(layer, jobManager.getLayerDetail(request.getDependLayer().getId()));
-      dependManager.createDepend(depend);
-      responseObserver.onNext(LayerCreateFrameByFrameDependResponse.newBuilder()
-          .setDepend(whiteboard.getDepend(depend)).build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void getWhatDependsOnThis(LayerGetWhatDependsOnThisRequest request,
-      StreamObserver<LayerGetWhatDependsOnThisResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    responseObserver.onNext(LayerGetWhatDependsOnThisResponse.newBuilder()
-        .setDepends(whiteboard.getWhatDependsOnThis(layer)).build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void getWhatThisDependsOn(LayerGetWhatThisDependsOnRequest request,
-      StreamObserver<LayerGetWhatThisDependsOnResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    responseObserver.onNext(LayerGetWhatThisDependsOnResponse.newBuilder()
-        .setDepends(whiteboard.getWhatThisDependsOn(layer)).build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void dropDepends(LayerDropDependsRequest request,
-      StreamObserver<LayerDropDependsResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      manageQueue.execute(new DispatchDropDepends(layer, request.getTarget(), dependManager));
-      responseObserver.onNext(LayerDropDependsResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void dropLimit(LayerDropLimitRequest request,
-      StreamObserver<LayerDropLimitResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      layerDao.dropLimit(layer, request.getLimitId());
-      responseObserver.onNext(LayerDropLimitResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void reorderFrames(LayerReorderFramesRequest request,
-      StreamObserver<LayerReorderFramesResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      manageQueue.execute(new DispatchReorderFrames(layer, new FrameSet(request.getRange()),
-          request.getOrder(), jobManagerSupport));
-      responseObserver.onNext(LayerReorderFramesResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void staggerFrames(LayerStaggerFramesRequest request,
-      StreamObserver<LayerStaggerFramesResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      manageQueue.execute(new DispatchStaggerFrames(layer, request.getRange(), request.getStagger(),
-          jobManagerSupport));
-      responseObserver.onNext(LayerStaggerFramesResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void setThreadable(LayerSetThreadableRequest request,
-      StreamObserver<LayerSetThreadableResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      layerDao.updateThreadable(layer, request.getThreadable());
-      responseObserver.onNext(LayerSetThreadableResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void setTimeout(LayerSetTimeoutRequest request,
-      StreamObserver<LayerSetTimeoutResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      layerDao.updateTimeout(layer, request.getTimeout());
-      responseObserver.onNext(LayerSetTimeoutResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void setTimeoutLLU(LayerSetTimeoutLLURequest request,
-      StreamObserver<LayerSetTimeoutLLUResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      layerDao.updateTimeoutLLU(layer, request.getTimeoutLlu());
-      responseObserver.onNext(LayerSetTimeoutLLUResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void addLimit(LayerAddLimitRequest request,
-      StreamObserver<LayerAddLimitResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      layerDao.addLimit(layer, request.getLimitId());
-      responseObserver.onNext(LayerAddLimitResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    }
-  }
-
-  @Override
-  public void addRenderPartition(LayerAddRenderPartitionRequest request,
-      StreamObserver<LayerAddRenderPartitionResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      LocalHostAssignment lha = new LocalHostAssignment();
-      lha.setThreads(request.getThreads());
-      lha.setMaxCoreUnits(request.getMaxCores() * 100);
-      lha.setMaxMemory(request.getMaxMemory());
-      lha.setMaxGpuUnits(request.getMaxGpus());
-      lha.setMaxGpuMemory(request.getMaxGpuMemory());
-      lha.setType(RenderPartitionType.LAYER_PARTITION);
-      if (localBookingSupport.bookLocal(layer, request.getHost(), request.getUsername(), lha)) {
-        RenderPartition partition = whiteboard.getRenderPartition(lha);
-        responseObserver.onNext(
-            LayerAddRenderPartitionResponse.newBuilder().setRenderPartition(partition).build());
+    @Override
+    public void getFrames(LayerGetFramesRequest request,
+            StreamObserver<LayerGetFramesResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        FrameSeq frames = whiteboard.getFrames(frameSearchFactory.create(layer, request.getS()));
+        responseObserver.onNext(LayerGetFramesResponse.newBuilder().setFrames(frames).build());
         responseObserver.onCompleted();
-      } else {
-        responseObserver.onError(Status.INTERNAL.withDescription("Failed to find suitable frames.")
-            .asRuntimeException());
-      }
     }
 
-  }
-
-  @Override
-  public void registerOutputPath(LayerRegisterOutputPathRequest request,
-      StreamObserver<LayerRegisterOutputPathResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      jobManager.registerLayerOutput(layer, request.getSpec());
-      responseObserver.onNext(LayerRegisterOutputPathResponse.newBuilder().build());
-      responseObserver.onCompleted();
+    @Override
+    public void killFrames(LayerKillFramesRequest request,
+            StreamObserver<LayerKillFramesResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        manageQueue
+                .execute(new DispatchKillFrames(
+                        frameSearch, new Source(request.toString(), request.getUsername(),
+                                request.getPid(), request.getHostKill(), request.getReason()),
+                        jobManagerSupport));
+        responseObserver.onNext(LayerKillFramesResponse.newBuilder().build());
+        responseObserver.onCompleted();
     }
-  }
 
-  @Override
-  public void getLimits(LayerGetLimitsRequest request,
-      StreamObserver<LayerGetLimitsResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    responseObserver.onNext(
-        LayerGetLimitsResponse.newBuilder().addAllLimits(whiteboard.getLimits(layer)).build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void getOutputPaths(LayerGetOutputPathsRequest request,
-      StreamObserver<LayerGetOutputPathsResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    responseObserver.onNext(LayerGetOutputPathsResponse.newBuilder()
-        .addAllOutputPaths(jobManager.getLayerOutputs(layer)).build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void enableMemoryOptimizer(LayerEnableMemoryOptimizerRequest request,
-      StreamObserver<LayerEnableMemoryOptimizerResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      jobManager.enableMemoryOptimizer(layer, request.getValue());
-      responseObserver.onNext(LayerEnableMemoryOptimizerResponse.newBuilder().build());
-      responseObserver.onCompleted();
+    @Override
+    public void markdoneFrames(LayerMarkdoneFramesRequest request,
+            StreamObserver<LayerMarkdoneFramesResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            manageQueue.execute(new DispatchSatisfyDepends(layer, jobManagerSupport));
+            responseObserver.onNext(LayerMarkdoneFramesResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
     }
-  }
 
-  @Override
-  public void setMaxCores(LayerSetMaxCoresRequest request,
-      StreamObserver<LayerSetMaxCoresResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    if (attemptChange(env, property, jobManager, layer, responseObserver)) {
-      jobManager.setLayerMaxCores(layer, Convert.coresToWholeCoreUnits(request.getCores()));
-      responseObserver.onNext(LayerSetMaxCoresResponse.newBuilder().build());
-      responseObserver.onCompleted();
+    @Override
+    public void retryFrames(LayerRetryFramesRequest request,
+            StreamObserver<LayerRetryFramesResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            manageQueue.execute(new DispatchRetryFrames(frameSearch, new Source(request.toString()),
+                    jobManagerSupport));
+            responseObserver.onNext(LayerRetryFramesResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
     }
-  }
 
-  @Override
-  public void setMaxGpus(LayerSetMaxGpusRequest request,
-      StreamObserver<LayerSetMaxGpusResponse> responseObserver) {
-    updateLayer(request.getLayer());
-    jobManager.setLayerMaxGpus(layer, request.getMaxGpus());
-    responseObserver.onNext(LayerSetMaxGpusResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void setTags(LayerSetTagsRequest request,
+            StreamObserver<LayerSetTagsResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            layerDao.updateLayerTags(layer, new HashSet<>(request.getTagsList()));
+            responseObserver.onNext(LayerSetTagsResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public DependManager getDependManager() {
-    return dependManager;
-  }
+    @Override
+    public void setMinCores(LayerSetMinCoresRequest request,
+            StreamObserver<LayerSetMinCoresResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            jobManager.setLayerMinCores(layer, Convert.coresToCoreUnits(request.getCores()));
+            responseObserver.onNext(LayerSetMinCoresResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public void setDependManager(DependManager dependManager) {
-    this.dependManager = dependManager;
-  }
+    @Override
+    public void setMinGpus(LayerSetMinGpusRequest request,
+            StreamObserver<LayerSetMinGpusResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            jobManager.setLayerMinGpus(layer, request.getMinGpus());
+            responseObserver.onNext(LayerSetMinGpusResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public DispatchQueue getManageQueue() {
-    return manageQueue;
-  }
+    @Override
+    public void setMinMemory(LayerSetMinMemoryRequest request,
+            StreamObserver<LayerSetMinMemoryResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            layerDao.updateLayerMinMemory(layer, request.getMemory());
+            responseObserver.onNext(LayerSetMinMemoryResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public void setManageQueue(DispatchQueue dispatchQueue) {
-    this.manageQueue = dispatchQueue;
-  }
+    @Override
+    public void setMinGpuMemory(LayerSetMinGpuMemoryRequest request,
+            StreamObserver<LayerSetMinGpuMemoryResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            layerDao.updateLayerMinGpuMemory(layer, request.getGpuMemory());
+            responseObserver.onNext(LayerSetMinGpuMemoryResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public JobManager getJobManager() {
-    return jobManager;
-  }
+    @Override
+    public void createDependencyOnFrame(LayerCreateDependOnFrameRequest request,
+            StreamObserver<LayerCreateDependOnFrameResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            LayerOnFrame depend =
+                    new LayerOnFrame(layer, jobManager.getFrameDetail(request.getFrame().getId()));
+            dependManager.createDepend(depend);
+            responseObserver.onNext(LayerCreateDependOnFrameResponse.newBuilder()
+                    .setDepend(whiteboard.getDepend(depend)).build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public void setJobManager(JobManager jobManager) {
-    this.jobManager = jobManager;
-  }
+    @Override
+    public void createDependencyOnJob(LayerCreateDependOnJobRequest request,
+            StreamObserver<LayerCreateDependOnJobResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            LayerOnJob depend =
+                    new LayerOnJob(layer, jobManager.getJobDetail(request.getJob().getId()));
+            dependManager.createDepend(depend);
+            responseObserver.onNext(LayerCreateDependOnJobResponse.newBuilder()
+                    .setDepend(whiteboard.getDepend(depend)).build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public LayerDetail getLayer() {
-    return layer;
-  }
+    @Override
+    public void createDependencyOnLayer(LayerCreateDependOnLayerRequest request,
+            StreamObserver<LayerCreateDependOnLayerResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            LayerOnLayer depend = new LayerOnLayer(layer,
+                    jobManager.getLayerDetail(request.getDependOnLayer().getId()));
+            dependManager.createDepend(depend);
+            responseObserver.onNext(LayerCreateDependOnLayerResponse.newBuilder()
+                    .setDepend(whiteboard.getDepend(depend)).build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public void setLayer(LayerDetail layer) {
-    this.layer = layer;
-  }
+    @Override
+    public void createFrameByFrameDependency(LayerCreateFrameByFrameDependRequest request,
+            StreamObserver<LayerCreateFrameByFrameDependResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            FrameByFrame depend = new FrameByFrame(layer,
+                    jobManager.getLayerDetail(request.getDependLayer().getId()));
+            dependManager.createDepend(depend);
+            responseObserver.onNext(LayerCreateFrameByFrameDependResponse.newBuilder()
+                    .setDepend(whiteboard.getDepend(depend)).build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public Whiteboard getWhiteboard() {
-    return whiteboard;
-  }
+    @Override
+    public void getWhatDependsOnThis(LayerGetWhatDependsOnThisRequest request,
+            StreamObserver<LayerGetWhatDependsOnThisResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        responseObserver.onNext(LayerGetWhatDependsOnThisResponse.newBuilder()
+                .setDepends(whiteboard.getWhatDependsOnThis(layer)).build());
+        responseObserver.onCompleted();
+    }
 
-  public void setWhiteboard(Whiteboard whiteboard) {
-    this.whiteboard = whiteboard;
-  }
+    @Override
+    public void getWhatThisDependsOn(LayerGetWhatThisDependsOnRequest request,
+            StreamObserver<LayerGetWhatThisDependsOnResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        responseObserver.onNext(LayerGetWhatThisDependsOnResponse.newBuilder()
+                .setDepends(whiteboard.getWhatThisDependsOn(layer)).build());
+        responseObserver.onCompleted();
+    }
 
-  public LayerDao getLayerDao() {
-    return layerDao;
-  }
+    @Override
+    public void dropDepends(LayerDropDependsRequest request,
+            StreamObserver<LayerDropDependsResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            manageQueue.execute(new DispatchDropDepends(layer, request.getTarget(), dependManager));
+            responseObserver.onNext(LayerDropDependsResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public void setLayerDao(LayerDao layerDao) {
-    this.layerDao = layerDao;
-  }
+    @Override
+    public void dropLimit(LayerDropLimitRequest request,
+            StreamObserver<LayerDropLimitResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            layerDao.dropLimit(layer, request.getLimitId());
+            responseObserver.onNext(LayerDropLimitResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public JobManagerSupport getJobManagerSupport() {
-    return jobManagerSupport;
-  }
+    @Override
+    public void reorderFrames(LayerReorderFramesRequest request,
+            StreamObserver<LayerReorderFramesResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            manageQueue.execute(new DispatchReorderFrames(layer, new FrameSet(request.getRange()),
+                    request.getOrder(), jobManagerSupport));
+            responseObserver.onNext(LayerReorderFramesResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public void setJobManagerSupport(JobManagerSupport jobManagerSupport) {
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    @Override
+    public void staggerFrames(LayerStaggerFramesRequest request,
+            StreamObserver<LayerStaggerFramesResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            manageQueue.execute(new DispatchStaggerFrames(layer, request.getRange(),
+                    request.getStagger(), jobManagerSupport));
+            responseObserver.onNext(LayerStaggerFramesResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public LocalBookingSupport getLocalBookingSupport() {
-    return localBookingSupport;
-  }
+    @Override
+    public void setThreadable(LayerSetThreadableRequest request,
+            StreamObserver<LayerSetThreadableResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            layerDao.updateThreadable(layer, request.getThreadable());
+            responseObserver.onNext(LayerSetThreadableResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public void setLocalBookingSupport(LocalBookingSupport localBookingSupport) {
-    this.localBookingSupport = localBookingSupport;
-  }
+    @Override
+    public void setTimeout(LayerSetTimeoutRequest request,
+            StreamObserver<LayerSetTimeoutResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            layerDao.updateTimeout(layer, request.getTimeout());
+            responseObserver.onNext(LayerSetTimeoutResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public FrameSearchFactory getFrameSearchFactory() {
-    return frameSearchFactory;
-  }
+    @Override
+    public void setTimeoutLLU(LayerSetTimeoutLLURequest request,
+            StreamObserver<LayerSetTimeoutLLUResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            layerDao.updateTimeoutLLU(layer, request.getTimeoutLlu());
+            responseObserver.onNext(LayerSetTimeoutLLUResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
-    this.frameSearchFactory = frameSearchFactory;
-  }
+    @Override
+    public void addLimit(LayerAddLimitRequest request,
+            StreamObserver<LayerAddLimitResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            layerDao.addLimit(layer, request.getLimitId());
+            responseObserver.onNext(LayerAddLimitResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
 
-  private void updateLayer(Layer layerData) {
-    setJobManager(jobManagerSupport.getJobManager());
-    setDependManager(jobManagerSupport.getDependManager());
-    layer = layerDao.getLayerDetail(layerData.getId());
-    frameSearch = frameSearchFactory.create(layer);
-  }
+    @Override
+    public void addRenderPartition(LayerAddRenderPartitionRequest request,
+            StreamObserver<LayerAddRenderPartitionResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            LocalHostAssignment lha = new LocalHostAssignment();
+            lha.setThreads(request.getThreads());
+            lha.setMaxCoreUnits(request.getMaxCores() * 100);
+            lha.setMaxMemory(request.getMaxMemory());
+            lha.setMaxGpuUnits(request.getMaxGpus());
+            lha.setMaxGpuMemory(request.getMaxGpuMemory());
+            lha.setType(RenderPartitionType.LAYER_PARTITION);
+            if (localBookingSupport.bookLocal(layer, request.getHost(), request.getUsername(),
+                    lha)) {
+                RenderPartition partition = whiteboard.getRenderPartition(lha);
+                responseObserver.onNext(LayerAddRenderPartitionResponse.newBuilder()
+                        .setRenderPartition(partition).build());
+                responseObserver.onCompleted();
+            } else {
+                responseObserver.onError(Status.INTERNAL
+                        .withDescription("Failed to find suitable frames.").asRuntimeException());
+            }
+        }
+
+    }
+
+    @Override
+    public void registerOutputPath(LayerRegisterOutputPathRequest request,
+            StreamObserver<LayerRegisterOutputPathResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            jobManager.registerLayerOutput(layer, request.getSpec());
+            responseObserver.onNext(LayerRegisterOutputPathResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
+
+    @Override
+    public void getLimits(LayerGetLimitsRequest request,
+            StreamObserver<LayerGetLimitsResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        responseObserver.onNext(LayerGetLimitsResponse.newBuilder()
+                .addAllLimits(whiteboard.getLimits(layer)).build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getOutputPaths(LayerGetOutputPathsRequest request,
+            StreamObserver<LayerGetOutputPathsResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        responseObserver.onNext(LayerGetOutputPathsResponse.newBuilder()
+                .addAllOutputPaths(jobManager.getLayerOutputs(layer)).build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void enableMemoryOptimizer(LayerEnableMemoryOptimizerRequest request,
+            StreamObserver<LayerEnableMemoryOptimizerResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            jobManager.enableMemoryOptimizer(layer, request.getValue());
+            responseObserver.onNext(LayerEnableMemoryOptimizerResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
+
+    @Override
+    public void setMaxCores(LayerSetMaxCoresRequest request,
+            StreamObserver<LayerSetMaxCoresResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        if (attemptChange(env, property, jobManager, layer, responseObserver)) {
+            jobManager.setLayerMaxCores(layer, Convert.coresToWholeCoreUnits(request.getCores()));
+            responseObserver.onNext(LayerSetMaxCoresResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+    }
+
+    @Override
+    public void setMaxGpus(LayerSetMaxGpusRequest request,
+            StreamObserver<LayerSetMaxGpusResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        jobManager.setLayerMaxGpus(layer, request.getMaxGpus());
+        responseObserver.onNext(LayerSetMaxGpusResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    public DependManager getDependManager() {
+        return dependManager;
+    }
+
+    public void setDependManager(DependManager dependManager) {
+        this.dependManager = dependManager;
+    }
+
+    public DispatchQueue getManageQueue() {
+        return manageQueue;
+    }
+
+    public void setManageQueue(DispatchQueue dispatchQueue) {
+        this.manageQueue = dispatchQueue;
+    }
+
+    public JobManager getJobManager() {
+        return jobManager;
+    }
+
+    public void setJobManager(JobManager jobManager) {
+        this.jobManager = jobManager;
+    }
+
+    public LayerDetail getLayer() {
+        return layer;
+    }
+
+    public void setLayer(LayerDetail layer) {
+        this.layer = layer;
+    }
+
+    public Whiteboard getWhiteboard() {
+        return whiteboard;
+    }
+
+    public void setWhiteboard(Whiteboard whiteboard) {
+        this.whiteboard = whiteboard;
+    }
+
+    public LayerDao getLayerDao() {
+        return layerDao;
+    }
+
+    public void setLayerDao(LayerDao layerDao) {
+        this.layerDao = layerDao;
+    }
+
+    public JobManagerSupport getJobManagerSupport() {
+        return jobManagerSupport;
+    }
+
+    public void setJobManagerSupport(JobManagerSupport jobManagerSupport) {
+        this.jobManagerSupport = jobManagerSupport;
+    }
+
+    public LocalBookingSupport getLocalBookingSupport() {
+        return localBookingSupport;
+    }
+
+    public void setLocalBookingSupport(LocalBookingSupport localBookingSupport) {
+        this.localBookingSupport = localBookingSupport;
+    }
+
+    public FrameSearchFactory getFrameSearchFactory() {
+        return frameSearchFactory;
+    }
+
+    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
+        this.frameSearchFactory = frameSearchFactory;
+    }
+
+    private void updateLayer(Layer layerData) {
+        setJobManager(jobManagerSupport.getJobManager());
+        setDependManager(jobManagerSupport.getDependManager());
+        layer = layerDao.getLayerDetail(layerData.getId());
+        frameSearch = frameSearchFactory.create(layer);
+    }
 }

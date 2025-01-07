@@ -17,6 +17,6 @@ package com.imageworks.spcue;
 
 public interface ProcInterface extends HostInterface, FrameInterface {
 
-  String getProcId();
+    String getProcId();
 
 }

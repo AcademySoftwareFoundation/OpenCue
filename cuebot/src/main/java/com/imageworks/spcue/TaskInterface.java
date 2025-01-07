@@ -16,10 +16,10 @@
 package com.imageworks.spcue;
 
 public interface TaskInterface extends EntityInterface, PointInterface {
-  /**
-   * Returns the unique Id of the task
-   *
-   * @return
-   */
-  public String getTaskId();
+    /**
+     * Returns the unique Id of the task
+     *
+     * @return
+     */
+    public String getTaskId();
 }

@@ -22,25 +22,25 @@ package com.imageworks.spcue.dao.criteria;
  */
 public class Phrase {
 
-  private final String column;
-  private final String comparison;
-  private final String value;
+    private final String column;
+    private final String comparison;
+    private final String value;
 
-  public Phrase(String column, String comparison, String value) {
-    this.column = column;
-    this.comparison = comparison;
-    this.value = value;
-  }
+    public Phrase(String column, String comparison, String value) {
+        this.column = column;
+        this.comparison = comparison;
+        this.value = value;
+    }
 
-  public String getColumn() {
-    return column;
-  }
+    public String getColumn() {
+        return column;
+    }
 
-  public String getComparison() {
-    return comparison;
-  }
+    public String getComparison() {
+        return comparison;
+    }
 
-  public String getValue() {
-    return value;
-  }
+    public String getValue() {
+        return value;
+    }
 }

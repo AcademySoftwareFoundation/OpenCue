@@ -47,214 +47,221 @@ import static org.junit.Assert.assertFalse;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Autowired
-  @Rule
-  public AssumingPostgresEngine assumingPostgresEngine;
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
-  @Resource
-  ShowDao showDao;
+    @Resource
+    ShowDao showDao;
 
-  @Resource
-  DepartmentDao departmentDao;
+    @Resource
+    DepartmentDao departmentDao;
 
-  @Resource
-  TaskDao taskDao;
+    @Resource
+    TaskDao taskDao;
 
-  @Resource
-  PointDao pointDao;
+    @Resource
+    PointDao pointDao;
 
-  @Resource
-  JobManager jobManager;
+    @Resource
+    JobManager jobManager;
 
-  @Resource
-  JobLauncher jobLauncher;
+    @Resource
+    JobLauncher jobLauncher;
 
-  @Before
-  public void testMode() {
-    jobLauncher.testMode = true;
-  }
+    @Before
+    public void testMode() {
+        jobLauncher.testMode = true;
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void insertTask() {
-    jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
-    JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void insertTask() {
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
 
-    String dept = jdbcTemplate.queryForObject("SELECT pk_dept FROM job WHERE pk_job=?",
-        String.class, job.getJobId());
+        String dept = jdbcTemplate.queryForObject("SELECT pk_dept FROM job WHERE pk_job=?",
+                String.class, job.getJobId());
 
-    // Add in a new task, the job should switch to using this task.
-    PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
-        departmentDao.getDepartment(dept));
+        // Add in a new task, the job should switch to using this task.
+        PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
+                departmentDao.getDepartment(dept));
 
-    TaskEntity t = new TaskEntity(p, "dev.foo", 100);
-    taskDao.insertTask(t);
+        TaskEntity t = new TaskEntity(p, "dev.foo", 100);
+        taskDao.insertTask(t);
 
-    t = taskDao.getTaskDetail(t.id);
-    taskDao.deleteTask(t);
-  }
+        t = taskDao.getTaskDetail(t.id);
+        taskDao.deleteTask(t);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void deleteTask() {
-    PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
-        departmentDao.getDefaultDepartment());
-    TaskEntity t = new TaskEntity(p, "dev.cue", 100);
-    taskDao.insertTask(t);
-    taskDao.deleteTask(t);
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void deleteTask() {
+        PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
+                departmentDao.getDefaultDepartment());
+        TaskEntity t = new TaskEntity(p, "dev.cue", 100);
+        taskDao.insertTask(t);
+        taskDao.deleteTask(t);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void deleteTasksByShowAndDepartment() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void deleteTasksByShowAndDepartment() {
 
-    PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
-        departmentDao.getDefaultDepartment());
+        PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
+                departmentDao.getDefaultDepartment());
 
-    int task_count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task WHERE pk_point=?",
-        Integer.class, p.getPointId());
+        int task_count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM task WHERE pk_point=?",
+                Integer.class, p.getPointId());
 
-    TaskEntity t = new TaskEntity(p, "dev.cue");
-    taskDao.insertTask(t);
+        TaskEntity t = new TaskEntity(p, "dev.cue");
+        taskDao.insertTask(t);
 
-    assertEquals(Integer.valueOf(task_count + 1), jdbcTemplate.queryForObject(
-        "SELECT COUNT(*) FROM task WHERE pk_point=?", Integer.class, p.getPointId()));
+        assertEquals(Integer.valueOf(task_count + 1), jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM task WHERE pk_point=?", Integer.class, p.getPointId()));
 
-    taskDao.deleteTasks(p);
+        taskDao.deleteTasks(p);
 
-    assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-        "SELECT COUNT(*) FROM task WHERE pk_point=?", Integer.class, p.getPointId()));
-  }
+        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM task WHERE pk_point=?", Integer.class, p.getPointId()));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void deleteTasksByDepartmentConfig() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void deleteTasksByDepartmentConfig() {
 
-    PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
-        departmentDao.getDefaultDepartment());
+        PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
+                departmentDao.getDefaultDepartment());
 
-    TaskEntity t = new TaskEntity(p, "dev.cue");
-    t.minCoreUnits = 100;
-    taskDao.insertTask(t);
+        TaskEntity t = new TaskEntity(p, "dev.cue");
+        t.minCoreUnits = 100;
+        taskDao.insertTask(t);
 
-    taskDao.deleteTasks(p);
+        taskDao.deleteTasks(p);
 
-    /**
-     * This is always
-     */
-    assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-        "SELECT COUNT(*) FROM task WHERE pk_point=?", Integer.class, p.getPointId()));
-  }
+        /**
+         * This is always
+         */
+        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM task WHERE pk_point=?", Integer.class, p.getPointId()));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void getTaskDetail() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void getTaskDetail() {
 
-    PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
-        departmentDao.getDefaultDepartment());
+        PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
+                departmentDao.getDefaultDepartment());
 
-    TaskEntity t = new TaskEntity(p, "dev.cue");
+        TaskEntity t = new TaskEntity(p, "dev.cue");
 
-    taskDao.insertTask(t);
-    TaskEntity newTask = taskDao.getTaskDetail(t.getTaskId());
-    assertEquals(newTask.id, t.id);
-  }
+        taskDao.insertTask(t);
+        TaskEntity newTask = taskDao.getTaskDetail(t.getTaskId());
+        assertEquals(newTask.id, t.id);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void getTaskDetailByDept() {
-    PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
-        departmentDao.getDefaultDepartment());
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void getTaskDetailByDept() {
+        PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
+                departmentDao.getDefaultDepartment());
 
-    TaskEntity t = new TaskEntity(p, "dev.cue");
+        TaskEntity t = new TaskEntity(p, "dev.cue");
 
-    taskDao.insertTask(t);
-    TaskEntity newTask = taskDao.getTaskDetail(departmentDao.getDefaultDepartment(), "dev.cue");
-    assertEquals(newTask.id, t.id);
-  }
+        taskDao.insertTask(t);
+        TaskEntity newTask = taskDao.getTaskDetail(departmentDao.getDefaultDepartment(), "dev.cue");
+        assertEquals(newTask.id, t.id);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void updateTaskMinProcs() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void updateTaskMinProcs() {
 
-    PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
-        departmentDao.getDefaultDepartment());
+        PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
+                departmentDao.getDefaultDepartment());
 
-    TaskEntity t = new TaskEntity(p, "dev.cue");
-    t.minCoreUnits = 100;
-    taskDao.insertTask(t);
-    TaskEntity newTask = taskDao.getTaskDetail(t.getTaskId());
-    taskDao.updateTaskMinCores(newTask, 100);
-    assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-        "SELECT int_min_cores FROM task WHERE pk_task=?", Integer.class, newTask.getTaskId()));
-  }
+        TaskEntity t = new TaskEntity(p, "dev.cue");
+        t.minCoreUnits = 100;
+        taskDao.insertTask(t);
+        TaskEntity newTask = taskDao.getTaskDetail(t.getTaskId());
+        taskDao.updateTaskMinCores(newTask, 100);
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject("SELECT int_min_cores FROM task WHERE pk_task=?",
+                        Integer.class, newTask.getTaskId()));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void adjustTaskMinProcs() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void adjustTaskMinProcs() {
 
-    PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
-        departmentDao.getDefaultDepartment());
+        PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
+                departmentDao.getDefaultDepartment());
 
-    TaskEntity t = new TaskEntity(p, "dev.cue");
-    t.minCoreUnits = 10;
-    taskDao.insertTask(t);
-    TaskEntity newTask = taskDao.getTaskDetail(t.getTaskId());
-    taskDao.updateTaskMinCores(newTask, 100);
-    assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-        "SELECT int_min_cores FROM task WHERE pk_task=?", Integer.class, newTask.getTaskId()));
+        TaskEntity t = new TaskEntity(p, "dev.cue");
+        t.minCoreUnits = 10;
+        taskDao.insertTask(t);
+        TaskEntity newTask = taskDao.getTaskDetail(t.getTaskId());
+        taskDao.updateTaskMinCores(newTask, 100);
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject("SELECT int_min_cores FROM task WHERE pk_task=?",
+                        Integer.class, newTask.getTaskId()));
 
-    taskDao.adjustTaskMinCores(t, 105);
+        taskDao.adjustTaskMinCores(t, 105);
 
-    assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-        "SELECT int_min_cores FROM task WHERE pk_task=?", Integer.class, newTask.getTaskId()));
-    assertEquals(Integer.valueOf(5), jdbcTemplate.queryForObject(
-        "SELECT int_adjust_cores FROM task WHERE pk_task=?", Integer.class, newTask.getTaskId()));
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject("SELECT int_min_cores FROM task WHERE pk_task=?",
+                        Integer.class, newTask.getTaskId()));
+        assertEquals(Integer.valueOf(5),
+                jdbcTemplate.queryForObject("SELECT int_adjust_cores FROM task WHERE pk_task=?",
+                        Integer.class, newTask.getTaskId()));
 
-    taskDao.adjustTaskMinCores(t, 50);
+        taskDao.adjustTaskMinCores(t, 50);
 
-    assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-        "SELECT int_min_cores FROM task WHERE pk_task=?", Integer.class, newTask.getTaskId()));
-    assertEquals(Integer.valueOf(-50), jdbcTemplate.queryForObject(
-        "SELECT int_adjust_cores FROM task WHERE pk_task=?", Integer.class, newTask.getTaskId()));
-  }
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject("SELECT int_min_cores FROM task WHERE pk_task=?",
+                        Integer.class, newTask.getTaskId()));
+        assertEquals(Integer.valueOf(-50),
+                jdbcTemplate.queryForObject("SELECT int_adjust_cores FROM task WHERE pk_task=?",
+                        Integer.class, newTask.getTaskId()));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void mergeTask() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void mergeTask() {
 
-    PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
-        departmentDao.getDefaultDepartment());
+        PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
+                departmentDao.getDefaultDepartment());
 
-    TaskEntity t = new TaskEntity(p, "dev.cue");
-    taskDao.insertTask(t);
+        TaskEntity t = new TaskEntity(p, "dev.cue");
+        taskDao.insertTask(t);
 
-    assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-        "SELECT int_min_cores FROM task WHERE pk_task=?", Integer.class, t.getTaskId()));
+        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
+                "SELECT int_min_cores FROM task WHERE pk_task=?", Integer.class, t.getTaskId()));
 
-    TaskEntity newTask = taskDao.getTaskDetail(t.getTaskId());
-    newTask.minCoreUnits = 200;
-    taskDao.mergeTask(newTask);
+        TaskEntity newTask = taskDao.getTaskDetail(t.getTaskId());
+        newTask.minCoreUnits = 200;
+        taskDao.mergeTask(newTask);
 
-    assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-        "SELECT int_min_cores FROM task WHERE pk_task=?", Integer.class, newTask.getTaskId()));
-  }
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_min_cores FROM task WHERE pk_task=?",
+                        Integer.class, newTask.getTaskId()));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void isJobManaged() {
-    jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
-    JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
-    assertFalse(taskDao.isManaged(job));
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void isJobManaged() {
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
+        assertFalse(taskDao.isManaged(job));
+    }
 }

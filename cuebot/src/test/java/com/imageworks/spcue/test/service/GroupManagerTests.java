@@ -46,67 +46,67 @@ import static org.junit.Assert.assertEquals;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class GroupManagerTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  GroupManager groupManager;
+    @Resource
+    GroupManager groupManager;
 
-  @Resource
-  JobManager jobManager;
+    @Resource
+    JobManager jobManager;
 
-  @Resource
-  JobLauncher jobLauncher;
+    @Resource
+    JobLauncher jobLauncher;
 
-  @Resource
-  GroupDao groupDao;
+    @Resource
+    GroupDao groupDao;
 
-  @Resource
-  JobDao jobDao;
+    @Resource
+    JobDao jobDao;
 
-  @Resource
-  DepartmentDao departmentDao;
+    @Resource
+    DepartmentDao departmentDao;
 
-  @Resource
-  ShowDao showDao;
+    @Resource
+    ShowDao showDao;
 
-  @Before
-  public void setTestMode() {
-    jobLauncher.testMode = true;
-  }
+    @Before
+    public void setTestMode() {
+        jobLauncher.testMode = true;
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void createGroup() {
-    ShowInterface pipe = showDao.findShowDetail("pipe");
-    GroupDetail group = new GroupDetail();
-    group.name = "testGroup";
-    group.showId = pipe.getId();
-    group.parentId = groupDao.getRootGroupDetail(pipe).getId();
-    group.deptId = departmentDao.getDefaultDepartment().getId();
-    groupManager.createGroup(group, null);
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void createGroup() {
+        ShowInterface pipe = showDao.findShowDetail("pipe");
+        GroupDetail group = new GroupDetail();
+        group.name = "testGroup";
+        group.showId = pipe.getId();
+        group.parentId = groupDao.getRootGroupDetail(pipe).getId();
+        group.deptId = departmentDao.getDefaultDepartment().getId();
+        groupManager.createGroup(group, null);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void setGroupDepartment() {
-    ShowInterface pipe = showDao.findShowDetail("pipe");
-    GroupDetail group = groupDao.getRootGroupDetail(pipe);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void setGroupDepartment() {
+        ShowInterface pipe = showDao.findShowDetail("pipe");
+        GroupDetail group = groupDao.getRootGroupDetail(pipe);
 
-    // Launch a test job
-    JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
-    jobLauncher.launch(spec);
-    JobInterface job = jobManager.getJob(spec.getJobs().get(0).detail.id);
+        // Launch a test job
+        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        jobLauncher.launch(spec);
+        JobInterface job = jobManager.getJob(spec.getJobs().get(0).detail.id);
 
-    // Set the group's department property to Lighting, it should
-    // currently be Unknown
-    DepartmentInterface dept = departmentDao.findDepartment("Lighting");
-    jobDao.updateParent(job, group);
+        // Set the group's department property to Lighting, it should
+        // currently be Unknown
+        DepartmentInterface dept = departmentDao.findDepartment("Lighting");
+        jobDao.updateParent(job, group);
 
-    // Update the group to the Lighting department
-    groupManager.setGroupDepartment(group, dept);
+        // Update the group to the Lighting department
+        groupManager.setGroupDepartment(group, dept);
 
-    // Now check if the job we launched was also updated to the lighting department
-    assertEquals(dept.getDepartmentId(), jobDao.getJobDetail(job.getJobId()).deptId);
-  }
+        // Now check if the job we launched was also updated to the lighting department
+        assertEquals(dept.getDepartmentId(), jobDao.getJobDetail(job.getJobId()).deptId);
+    }
 
 }

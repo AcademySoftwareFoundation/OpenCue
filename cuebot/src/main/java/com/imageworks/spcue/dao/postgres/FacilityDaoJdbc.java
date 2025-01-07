@@ -28,52 +28,53 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class FacilityDaoJdbc extends JdbcDaoSupport implements FacilityDao {
 
-  public static final RowMapper<FacilityInterface> FACILITY_MAPPER =
-      new RowMapper<FacilityInterface>() {
-        public FacilityInterface mapRow(ResultSet rs, int rowNum) throws SQLException {
-          FacilityEntity facility = new FacilityEntity();
-          facility.id = rs.getString("pk_facility");
-          facility.name = rs.getString("str_name");
-          return facility;
-        }
-      };
+    public static final RowMapper<FacilityInterface> FACILITY_MAPPER =
+            new RowMapper<FacilityInterface>() {
+                public FacilityInterface mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    FacilityEntity facility = new FacilityEntity();
+                    facility.id = rs.getString("pk_facility");
+                    facility.name = rs.getString("str_name");
+                    return facility;
+                }
+            };
 
-  public FacilityInterface getDefaultFacility() {
-    return getJdbcTemplate().queryForObject(
-        "SELECT pk_facility,str_name FROM facility WHERE b_default=true LIMIT 1", FACILITY_MAPPER);
-  }
+    public FacilityInterface getDefaultFacility() {
+        return getJdbcTemplate().queryForObject(
+                "SELECT pk_facility,str_name FROM facility WHERE b_default=true LIMIT 1",
+                FACILITY_MAPPER);
+    }
 
-  public FacilityInterface getFacility(String id) {
-    return getJdbcTemplate().queryForObject(
-        "SELECT pk_facility, str_name FROM facility WHERE pk_facility=? " + "OR str_name=?",
-        FACILITY_MAPPER, id, id);
-  }
+    public FacilityInterface getFacility(String id) {
+        return getJdbcTemplate().queryForObject(
+                "SELECT pk_facility, str_name FROM facility WHERE pk_facility=? " + "OR str_name=?",
+                FACILITY_MAPPER, id, id);
+    }
 
-  public boolean facilityExists(String name) {
-    return getJdbcTemplate().queryForObject("SELECT COUNT(1) FROM facility WHERE str_name=?",
-        Integer.class, name) > 0;
+    public boolean facilityExists(String name) {
+        return getJdbcTemplate().queryForObject("SELECT COUNT(1) FROM facility WHERE str_name=?",
+                Integer.class, name) > 0;
 
-  }
+    }
 
-  public FacilityInterface insertFacility(FacilityEntity facility) {
-    facility.id = SqlUtil.genKeyRandom();
+    public FacilityInterface insertFacility(FacilityEntity facility) {
+        facility.id = SqlUtil.genKeyRandom();
 
-    getJdbcTemplate().update("INSERT INTO facility (pk_facility, str_name) VALUES (?,?)",
-        facility.getId(), facility.getName());
+        getJdbcTemplate().update("INSERT INTO facility (pk_facility, str_name) VALUES (?,?)",
+                facility.getId(), facility.getName());
 
-    return facility;
-  }
+        return facility;
+    }
 
-  @Override
-  public int deleteFacility(FacilityInterface facility) {
-    return getJdbcTemplate().update("DELETE FROM facility WHERE pk_facility = ?",
-        facility.getFacilityId());
-  }
+    @Override
+    public int deleteFacility(FacilityInterface facility) {
+        return getJdbcTemplate().update("DELETE FROM facility WHERE pk_facility = ?",
+                facility.getFacilityId());
+    }
 
-  @Override
-  public int updateFacilityName(FacilityInterface facility, String name) {
-    return getJdbcTemplate().update("UPDATE facility SET str_name=? WHERE pk_facility = ?", name,
-        facility.getFacilityId());
-  }
+    @Override
+    public int updateFacilityName(FacilityInterface facility, String name) {
+        return getJdbcTemplate().update("UPDATE facility SET str_name=? WHERE pk_facility = ?",
+                name, facility.getFacilityId());
+    }
 
 }

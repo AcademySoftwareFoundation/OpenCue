@@ -36,73 +36,73 @@ import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
 
-  private static final Logger logger = LogManager.getLogger(ManageDepend.class);
+    private static final Logger logger = LogManager.getLogger(ManageDepend.class);
 
-  private DependManager dependManager;
-  private DispatchQueue manageQueue;
-  private Whiteboard whiteboard;
+    private DependManager dependManager;
+    private DispatchQueue manageQueue;
+    private Whiteboard whiteboard;
 
-  @Override
-  public void getDepend(DependGetDependRequest request,
-      StreamObserver<DependGetDependResponse> responseObserver) {
-    try {
-      responseObserver.onNext(DependGetDependResponse.newBuilder()
-          .setDepend(whiteboard.getDepend(request.getId())).build());
-      responseObserver.onCompleted();
-    } catch (EmptyResultDataAccessException e) {
-      responseObserver.onError(
-          Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e).asRuntimeException());
-    }
-  }
-
-  public void satisfy(DependSatisfyRequest request,
-      StreamObserver<DependSatisfyResponse> responseObserver) {
-
-    LightweightDependency depend = dependManager.getDepend(request.getDepend().getId());
-    String key = "manage_dep_sat_req_" + request.getDepend().getId();
-    manageQueue.execute(new KeyRunnable(key) {
-      public void run() {
+    @Override
+    public void getDepend(DependGetDependRequest request,
+            StreamObserver<DependGetDependResponse> responseObserver) {
         try {
-          logger.info("dropping dependency: " + depend.id);
-          dependManager.satisfyDepend(depend);
-        } catch (Exception e) {
-          logger.error("error satisfying dependency: " + depend.getId() + " , " + e);
+            responseObserver.onNext(DependGetDependResponse.newBuilder()
+                    .setDepend(whiteboard.getDepend(request.getId())).build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
+                    .asRuntimeException());
         }
-      }
-    });
-    responseObserver.onNext(DependSatisfyResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    }
 
-  public void unsatisfy(DependUnsatisfyRequest request,
-      StreamObserver<DependUnsatisfyResponse> responseObserver) {
-    LightweightDependency depend = dependManager.getDepend(request.getDepend().getId());
-    dependManager.unsatisfyDepend(depend);
-    responseObserver.onNext(DependUnsatisfyResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    public void satisfy(DependSatisfyRequest request,
+            StreamObserver<DependSatisfyResponse> responseObserver) {
 
-  public DependManager getDependManager() {
-    return dependManager;
-  }
+        LightweightDependency depend = dependManager.getDepend(request.getDepend().getId());
+        String key = "manage_dep_sat_req_" + request.getDepend().getId();
+        manageQueue.execute(new KeyRunnable(key) {
+            public void run() {
+                try {
+                    logger.info("dropping dependency: " + depend.id);
+                    dependManager.satisfyDepend(depend);
+                } catch (Exception e) {
+                    logger.error("error satisfying dependency: " + depend.getId() + " , " + e);
+                }
+            }
+        });
+        responseObserver.onNext(DependSatisfyResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public void setDependManager(DependManager dependManager) {
-    this.dependManager = dependManager;
-  }
+    public void unsatisfy(DependUnsatisfyRequest request,
+            StreamObserver<DependUnsatisfyResponse> responseObserver) {
+        LightweightDependency depend = dependManager.getDepend(request.getDepend().getId());
+        dependManager.unsatisfyDepend(depend);
+        responseObserver.onNext(DependUnsatisfyResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public DispatchQueue getManageQueue() {
-    return manageQueue;
-  }
+    public DependManager getDependManager() {
+        return dependManager;
+    }
 
-  public void setManageQueue(DispatchQueue manageQueue) {
-    this.manageQueue = manageQueue;
-  }
+    public void setDependManager(DependManager dependManager) {
+        this.dependManager = dependManager;
+    }
 
-  public Whiteboard getWhiteboard() {
-    return whiteboard;
-  }
+    public DispatchQueue getManageQueue() {
+        return manageQueue;
+    }
 
-  public void setWhiteboard(Whiteboard whiteboard) {
-    this.whiteboard = whiteboard;
-  }
+    public void setManageQueue(DispatchQueue manageQueue) {
+        this.manageQueue = manageQueue;
+    }
+
+    public Whiteboard getWhiteboard() {
+        return whiteboard;
+    }
+
+    public void setWhiteboard(Whiteboard whiteboard) {
+        this.whiteboard = whiteboard;
+    }
 }

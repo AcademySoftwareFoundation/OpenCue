@@ -20,14 +20,14 @@ import org.springframework.core.NestedRuntimeException;
 @SuppressWarnings("serial")
 public class DependencyManagerException extends NestedRuntimeException {
 
-  public DependencyManagerException(String arg0) {
-    super(arg0);
-    // TODO Auto-generated constructor stub
-  }
+    public DependencyManagerException(String arg0) {
+        super(arg0);
+        // TODO Auto-generated constructor stub
+    }
 
-  public DependencyManagerException(String arg0, Throwable arg1) {
-    super(arg0, arg1);
-    // TODO Auto-generated constructor stub
-  }
+    public DependencyManagerException(String arg0, Throwable arg1) {
+        super(arg0, arg1);
+        // TODO Auto-generated constructor stub
+    }
 
 }

@@ -36,64 +36,66 @@ import org.springframework.jms.core.MessageCreator;
 import com.imageworks.spcue.util.CueExceptionUtil;
 
 public class JmsMover extends ThreadPoolExecutor {
-  private static final Logger logger = LogManager.getLogger(JmsMover.class);
-  private final Gson gson = new GsonBuilder().serializeNulls().create();
+    private static final Logger logger = LogManager.getLogger(JmsMover.class);
+    private final Gson gson = new GsonBuilder().serializeNulls().create();
 
-  @Autowired
-  private Environment env;
-  private JmsTemplate template;
-  private Topic topic;
+    @Autowired
+    private Environment env;
+    private JmsTemplate template;
+    private Topic topic;
 
-  private static final int THREAD_POOL_SIZE_INITIAL = 1;
-  private static final int THREAD_POOL_SIZE_MAX = 1;
-  private static final int QUEUE_SIZE_INITIAL = 1000;
+    private static final int THREAD_POOL_SIZE_INITIAL = 1;
+    private static final int THREAD_POOL_SIZE_MAX = 1;
+    private static final int QUEUE_SIZE_INITIAL = 1000;
 
-  public JmsMover() {
-    super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10, TimeUnit.SECONDS,
-        new LinkedBlockingQueue<Runnable>(QUEUE_SIZE_INITIAL));
-  }
-
-  public void send(Object m) {
-    if (env.getRequiredProperty("messaging.enabled", Boolean.class)) {
-      try {
-        execute(new Runnable() {
-          @Override
-          public void run() {
-            try {
-              template.send(topic, new MessageCreator() {
-                @Override
-                public Message createMessage(Session session) throws javax.jms.JMSException {
-                  return session.createTextMessage(gson.toJson(m));
-                }
-              });
-            } catch (JmsException e) {
-              logger.warn("Failed to send JMS message");
-              CueExceptionUtil
-                  .logStackTrace("JmsProducer " + this.getClass().toString() + " caught error ", e);
-            }
-          }
-        });
-      } catch (RejectedExecutionException e) {
-        logger.warn("Outgoing JMS message queue is full!");
-        CueExceptionUtil
-            .logStackTrace("JmsProducer " + this.getClass().toString() + " caught error ", e);
-      }
+    public JmsMover() {
+        super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<Runnable>(QUEUE_SIZE_INITIAL));
     }
-  }
 
-  public JmsTemplate getTemplate() {
-    return template;
-  }
+    public void send(Object m) {
+        if (env.getRequiredProperty("messaging.enabled", Boolean.class)) {
+            try {
+                execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            template.send(topic, new MessageCreator() {
+                                @Override
+                                public Message createMessage(Session session)
+                                        throws javax.jms.JMSException {
+                                    return session.createTextMessage(gson.toJson(m));
+                                }
+                            });
+                        } catch (JmsException e) {
+                            logger.warn("Failed to send JMS message");
+                            CueExceptionUtil.logStackTrace(
+                                    "JmsProducer " + this.getClass().toString() + " caught error ",
+                                    e);
+                        }
+                    }
+                });
+            } catch (RejectedExecutionException e) {
+                logger.warn("Outgoing JMS message queue is full!");
+                CueExceptionUtil.logStackTrace(
+                        "JmsProducer " + this.getClass().toString() + " caught error ", e);
+            }
+        }
+    }
 
-  public void setTemplate(JmsTemplate template) {
-    this.template = template;
-  }
+    public JmsTemplate getTemplate() {
+        return template;
+    }
 
-  public Topic getTopic() {
-    return topic;
-  }
+    public void setTemplate(JmsTemplate template) {
+        this.template = template;
+    }
 
-  public void setTopic(Topic topic) {
-    this.topic = topic;
-  }
+    public Topic getTopic() {
+        return topic;
+    }
+
+    public void setTopic(Topic topic) {
+        this.topic = topic;
+    }
 }

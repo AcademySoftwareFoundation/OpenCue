@@ -19,13 +19,13 @@ import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 
 public interface JobSearchInterface extends CriteriaInterface {
-  JobSearchCriteria getCriteria();
+    JobSearchCriteria getCriteria();
 
-  void setCriteria(JobSearchCriteria criteria);
+    void setCriteria(JobSearchCriteria criteria);
 
-  void filterByShow(ShowInterface show);
+    void filterByShow(ShowInterface show);
 
-  static JobSearchCriteria criteriaFactory() {
-    return JobSearchCriteria.newBuilder().setIncludeFinished(false).build();
-  }
+    static JobSearchCriteria criteriaFactory() {
+        return JobSearchCriteria.newBuilder().setIncludeFinished(false).build();
+    }
 }

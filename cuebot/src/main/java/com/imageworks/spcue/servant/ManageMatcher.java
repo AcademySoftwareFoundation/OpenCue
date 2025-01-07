@@ -31,50 +31,50 @@ import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageMatcher extends MatcherInterfaceGrpc.MatcherInterfaceImplBase {
 
-  private FilterManager filterManager;
-  private Whiteboard whiteboard;
+    private FilterManager filterManager;
+    private Whiteboard whiteboard;
 
-  public void delete(MatcherDeleteRequest request,
-      StreamObserver<MatcherDeleteResponse> responseObserver) {
-    filterManager.deleteMatcher(filterManager.getMatcher(request.getMatcher().getId()));
-    responseObserver.onNext(MatcherDeleteResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    public void delete(MatcherDeleteRequest request,
+            StreamObserver<MatcherDeleteResponse> responseObserver) {
+        filterManager.deleteMatcher(filterManager.getMatcher(request.getMatcher().getId()));
+        responseObserver.onNext(MatcherDeleteResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public void getParentFilter(MatcherGetParentFilterRequest request,
-      StreamObserver<MatcherGetParentFilterResponse> responseObserver) {
-    MatcherEntity matcherEntity = filterManager.getMatcher(request.getMatcher().getId());
-    MatcherGetParentFilterResponse response = MatcherGetParentFilterResponse.newBuilder()
-        .setFilter(whiteboard.getFilter(matcherEntity)).build();
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+    public void getParentFilter(MatcherGetParentFilterRequest request,
+            StreamObserver<MatcherGetParentFilterResponse> responseObserver) {
+        MatcherEntity matcherEntity = filterManager.getMatcher(request.getMatcher().getId());
+        MatcherGetParentFilterResponse response = MatcherGetParentFilterResponse.newBuilder()
+                .setFilter(whiteboard.getFilter(matcherEntity)).build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  public void commit(MatcherCommitRequest request,
-      StreamObserver<MatcherCommitResponse> responseObserver) {
-    Matcher newMatcherData = request.getMatcher();
-    String id = newMatcherData.getId();
-    MatcherEntity oldMatcher = filterManager.getMatcher(id);
-    MatcherEntity newMatcher =
-        MatcherEntity.build(filterManager.getFilter(oldMatcher), newMatcherData, id);
-    filterManager.updateMatcher(newMatcher);
-    responseObserver.onNext(MatcherCommitResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    public void commit(MatcherCommitRequest request,
+            StreamObserver<MatcherCommitResponse> responseObserver) {
+        Matcher newMatcherData = request.getMatcher();
+        String id = newMatcherData.getId();
+        MatcherEntity oldMatcher = filterManager.getMatcher(id);
+        MatcherEntity newMatcher =
+                MatcherEntity.build(filterManager.getFilter(oldMatcher), newMatcherData, id);
+        filterManager.updateMatcher(newMatcher);
+        responseObserver.onNext(MatcherCommitResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public FilterManager getFilterManager() {
-    return filterManager;
-  }
+    public FilterManager getFilterManager() {
+        return filterManager;
+    }
 
-  public void setFilterManager(FilterManager filterManager) {
-    this.filterManager = filterManager;
-  }
+    public void setFilterManager(FilterManager filterManager) {
+        this.filterManager = filterManager;
+    }
 
-  public Whiteboard getWhiteboard() {
-    return whiteboard;
-  }
+    public Whiteboard getWhiteboard() {
+        return whiteboard;
+    }
 
-  public void setWhiteboard(Whiteboard whiteboard) {
-    this.whiteboard = whiteboard;
-  }
+    public void setWhiteboard(Whiteboard whiteboard) {
+        this.whiteboard = whiteboard;
+    }
 }

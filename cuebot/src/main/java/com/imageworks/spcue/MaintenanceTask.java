@@ -21,28 +21,28 @@ package com.imageworks.spcue;
  */
 public enum MaintenanceTask {
 
-  /**
-   * Lock the transfer of jobs to the historical table
-   */
-  LOCK_HISTORICAL_TRANSFER,
+    /**
+     * Lock the transfer of jobs to the historical table
+     */
+    LOCK_HISTORICAL_TRANSFER,
 
-  /**
-   * Lock the hardware start check
-   */
-  LOCK_HARDWARE_STATE_CHECK,
+    /**
+     * Lock the hardware start check
+     */
+    LOCK_HARDWARE_STATE_CHECK,
 
-  /**
-   * Lock the orphaned proc check
-   */
-  LOCK_ORPHANED_PROC_CHECK,
+    /**
+     * Lock the orphaned proc check
+     */
+    LOCK_ORPHANED_PROC_CHECK,
 
-  /**
-   * Lock for task updates
-   */
-  LOCK_TASK_UPDATE,
+    /**
+     * Lock for task updates
+     */
+    LOCK_TASK_UPDATE,
 
-  /**
-   * Lock the stale checkpoint task.
-   */
-  LOCK_STALE_CHECKPOINT
+    /**
+     * Lock the stale checkpoint task.
+     */
+    LOCK_STALE_CHECKPOINT
 }

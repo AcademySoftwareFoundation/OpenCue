@@ -23,49 +23,49 @@ import com.imageworks.spcue.DepartmentInterface;
  */
 public interface DepartmentDao {
 
-  /**
-   * Finds a department by name. Department objects contain only a name and a unique ID.
-   *
-   * @param name
-   * @return Department
-   */
-  public DepartmentInterface findDepartment(String name);
+    /**
+     * Finds a department by name. Department objects contain only a name and a unique ID.
+     *
+     * @param name
+     * @return Department
+     */
+    public DepartmentInterface findDepartment(String name);
 
-  /**
-   * Finds a department by id. Department objects contain only a name and a unique ID.
-   *
-   * @param id
-   * @return Department
-   */
-  public DepartmentInterface getDepartment(String id);
+    /**
+     * Finds a department by id. Department objects contain only a name and a unique ID.
+     *
+     * @param id
+     * @return Department
+     */
+    public DepartmentInterface getDepartment(String id);
 
-  /**
-   * Returns the cue's default department. The default department is assigned to any job that falls
-   * within a group that doesn't have a department. Usually this is Unassigned.
-   *
-   * @return Department
-   */
-  public DepartmentInterface getDefaultDepartment();
+    /**
+     * Returns the cue's default department. The default department is assigned to any job that
+     * falls within a group that doesn't have a department. Usually this is Unassigned.
+     *
+     * @return Department
+     */
+    public DepartmentInterface getDefaultDepartment();
 
-  /**
-   * Returns true if the department exists
-   *
-   * @param name
-   * @return
-   */
-  public boolean departmentExists(String name);
+    /**
+     * Returns true if the department exists
+     *
+     * @param name
+     * @return
+     */
+    public boolean departmentExists(String name);
 
-  /**
-   * Inserts a new department record. Departments are only a name and a unique ID.
-   *
-   * @param name
-   */
-  public void insertDepartment(String name);
+    /**
+     * Inserts a new department record. Departments are only a name and a unique ID.
+     *
+     * @param name
+     */
+    public void insertDepartment(String name);
 
-  /**
-   * Removes the specified department.
-   *
-   * @param d
-   */
-  public void deleteDepartment(DepartmentInterface d);
+    /**
+     * Removes the specified department.
+     *
+     * @param d
+     */
+    public void deleteDepartment(DepartmentInterface d);
 }

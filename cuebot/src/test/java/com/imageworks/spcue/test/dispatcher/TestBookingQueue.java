@@ -43,63 +43,64 @@ import com.imageworks.spcue.util.CueUtil;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  HostDao hostDao;
+    @Resource
+    HostDao hostDao;
 
-  @Resource
-  Dispatcher dispatcher;
+    @Resource
+    Dispatcher dispatcher;
 
-  @Resource
-  HostManager hostManager;
+    @Resource
+    HostManager hostManager;
 
-  @Resource
-  BookingQueue bookingQueue;
+    @Resource
+    BookingQueue bookingQueue;
 
-  @Autowired
-  Environment env;
+    @Autowired
+    Environment env;
 
-  private static final String HOSTNAME = "beta";
+    private static final String HOSTNAME = "beta";
 
-  @Before
-  public void create() {
-    RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
-        // The minimum amount of free space in the temporary directory to book a host.
-        .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
-        .setTotalMcp(CueUtil.GB4).setTotalMem(8173264).setTotalSwap(20960).setNimbyEnabled(false)
-        .setNumProcs(1).setCoresPerProc(100).setState(HardwareState.UP).setFacility("spi")
-        .addAllTags(ImmutableList.of("mcore", "4core", "8g")).setFreeGpuMem((int) CueUtil.MB512)
-        .setTotalGpuMem((int) CueUtil.MB512).build();
+    @Before
+    public void create() {
+        RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(8173264).setTotalSwap(20960)
+                .setNimbyEnabled(false).setNumProcs(1).setCoresPerProc(100)
+                .setState(HardwareState.UP).setFacility("spi")
+                .addAllTags(ImmutableList.of("mcore", "4core", "8g"))
+                .setFreeGpuMem((int) CueUtil.MB512).setTotalGpuMem((int) CueUtil.MB512).build();
 
-    hostManager.createHost(host);
-  }
-
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testBookingQueue() {
-
-    int healthThreshold = 10;
-    int minUnhealthyPeriodMin = 3;
-    int queueCapacity = 2000;
-    int corePoolSize = 10;
-    int maxPoolSize = 14;
-
-    DispatchHost host1 = hostDao.findDispatchHost(HOSTNAME);
-    host1.idleCores = 500;
-    DispatchHost host2 = hostDao.findDispatchHost(HOSTNAME);
-    DispatchHost host3 = hostDao.findDispatchHost(HOSTNAME);
-    BookingQueue queue = new BookingQueue(healthThreshold, minUnhealthyPeriodMin, queueCapacity,
-        corePoolSize, maxPoolSize);
-    bookingQueue.execute(new DispatchBookHost(host2, dispatcher, env));
-    bookingQueue.execute(new DispatchBookHost(host3, dispatcher, env));
-    bookingQueue.execute(new DispatchBookHost(host1, dispatcher, env));
-    try {
-      Thread.sleep(10000);
-    } catch (InterruptedException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+        hostManager.createHost(host);
     }
 
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testBookingQueue() {
+
+        int healthThreshold = 10;
+        int minUnhealthyPeriodMin = 3;
+        int queueCapacity = 2000;
+        int corePoolSize = 10;
+        int maxPoolSize = 14;
+
+        DispatchHost host1 = hostDao.findDispatchHost(HOSTNAME);
+        host1.idleCores = 500;
+        DispatchHost host2 = hostDao.findDispatchHost(HOSTNAME);
+        DispatchHost host3 = hostDao.findDispatchHost(HOSTNAME);
+        BookingQueue queue = new BookingQueue(healthThreshold, minUnhealthyPeriodMin, queueCapacity,
+                corePoolSize, maxPoolSize);
+        bookingQueue.execute(new DispatchBookHost(host2, dispatcher, env));
+        bookingQueue.execute(new DispatchBookHost(host3, dispatcher, env));
+        bookingQueue.execute(new DispatchBookHost(host1, dispatcher, env));
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+    }
 
 }

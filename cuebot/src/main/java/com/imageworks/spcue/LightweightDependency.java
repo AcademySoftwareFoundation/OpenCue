@@ -20,27 +20,27 @@ import com.imageworks.spcue.grpc.depend.DependType;
 
 public class LightweightDependency extends Entity implements DependInterface {
 
-  public DependType type;
-  public DependTarget target;
+    public DependType type;
+    public DependTarget target;
 
-  public String parent = null;
+    public String parent = null;
 
-  public String dependErJobId;
-  public String dependErLayerId;
-  public String dependErFrameId;
+    public String dependErJobId;
+    public String dependErLayerId;
+    public String dependErFrameId;
 
-  public String dependOnJobId;
-  public String dependOnLayerId;
-  public String dependOnFrameId;
+    public String dependOnJobId;
+    public String dependOnLayerId;
+    public String dependOnFrameId;
 
-  public boolean anyFrame;
-  public boolean active;
+    public boolean anyFrame;
+    public boolean active;
 
-  public String getName() {
-    return type.toString() + "/" + dependErJobId;
-  }
+    public String getName() {
+        return type.toString() + "/" + dependErJobId;
+    }
 
-  public String toString() {
-    return String.format("%s/%s", type.toString(), getId());
-  }
+    public String toString() {
+        return String.format("%s/%s", type.toString(), getId());
+    }
 }

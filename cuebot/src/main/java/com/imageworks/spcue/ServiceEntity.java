@@ -20,50 +20,50 @@ import java.util.LinkedHashSet;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 
 public class ServiceEntity extends Entity {
-  /**
-   * Determines if the service is threadable or not.
-   */
-  public boolean threadable = false;
+    /**
+     * Determines if the service is threadable or not.
+     */
+    public boolean threadable = false;
 
-  /**
-   * Determines the default minimum cores per frame.
-   */
-  public int minCores = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
+    /**
+     * Determines the default minimum cores per frame.
+     */
+    public int minCores = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
 
-  /**
-   * Determines the default minimum cores per frame. 0 indicates the feature is disabled.
-   */
-  public int maxCores = 0;
+    /**
+     * Determines the default minimum cores per frame. 0 indicates the feature is disabled.
+     */
+    public int maxCores = 0;
 
-  /**
-   * Determines the default minimum gpus per frame.
-   */
-  public int minGpus = 0;
+    /**
+     * Determines the default minimum gpus per frame.
+     */
+    public int minGpus = 0;
 
-  /**
-   * Determines the default minimum gpus per frame. 0 indicates the feature is disabled.
-   */
-  public int maxGpus = 0;
+    /**
+     * Determines the default minimum gpus per frame. 0 indicates the feature is disabled.
+     */
+    public int maxGpus = 0;
 
-  /**
-   * Determines the default minimum memory per frame.
-   */
-  public long minMemory = Dispatcher.MEM_SERVICE_RESERVED_DEFAULT;
+    /**
+     * Determines the default minimum memory per frame.
+     */
+    public long minMemory = Dispatcher.MEM_SERVICE_RESERVED_DEFAULT;
 
-  /**
-   * Determines the default minimum gpu per frame.
-   */
-  public long minGpuMemory = Dispatcher.MEM_SERVICE_GPU_RESERVED_DEFAULT;
+    /**
+     * Determines the default minimum gpu per frame.
+     */
+    public long minGpuMemory = Dispatcher.MEM_SERVICE_GPU_RESERVED_DEFAULT;
 
-  /**
-   * Determines the default tags.
-   */
-  public LinkedHashSet<String> tags = new LinkedHashSet<String>();
+    /**
+     * Determines the default tags.
+     */
+    public LinkedHashSet<String> tags = new LinkedHashSet<String>();
 
-  public int timeout = 0;
+    public int timeout = 0;
 
-  public int timeout_llu = 0;
+    public int timeout_llu = 0;
 
-  public long minMemoryIncrease = Dispatcher.MINIMUM_MEMORY_INCREASE;
+    public long minMemoryIncrease = Dispatcher.MINIMUM_MEMORY_INCREASE;
 
 }

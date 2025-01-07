@@ -16,13 +16,13 @@ package com.imageworks.spcue;
 
 public interface FrameInterface extends LayerInterface {
 
-  public String getFrameId();
+    public String getFrameId();
 
-  /**
-   * To change a frame state, you must have the same version of the frame that exists in the DB. If
-   * the version changes, any operation that changes the state will fail.
-   *
-   * @return the time stamp that represents the last time this frame was updated.
-   */
-  public int getVersion();
+    /**
+     * To change a frame state, you must have the same version of the frame that exists in the DB.
+     * If the version changes, any operation that changes the state will fail.
+     *
+     * @return the time stamp that represents the last time this frame was updated.
+     */
+    public int getVersion();
 }

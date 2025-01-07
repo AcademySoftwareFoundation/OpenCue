@@ -30,60 +30,62 @@ import static org.junit.Assert.assertEquals;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class JobLogUtilTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  private JobLogUtil jobLogUtil;
+    @Resource
+    private JobLogUtil jobLogUtil;
 
-  private String logRootDefault;
-  private String logRootSomeOs;
+    private String logRootDefault;
+    private String logRootSomeOs;
 
-  @Before
-  public void setUp() {
-    // The values should match what's defined in test/resources/opencue.properties.
-    logRootDefault = "/arbitraryLogDirectory";
-    logRootSomeOs = "/arbitrarySomeOsLogDirectory";
-  }
+    @Before
+    public void setUp() {
+        // The values should match what's defined in test/resources/opencue.properties.
+        logRootDefault = "/arbitraryLogDirectory";
+        logRootSomeOs = "/arbitrarySomeOsLogDirectory";
+    }
 
-  @Test
-  public void testGetJobLogRootDirDefault() {
-    assertEquals(logRootDefault, jobLogUtil.getJobLogRootDir("someUndefinedOs"));
-  }
+    @Test
+    public void testGetJobLogRootDirDefault() {
+        assertEquals(logRootDefault, jobLogUtil.getJobLogRootDir("someUndefinedOs"));
+    }
 
-  @Test
-  public void testGetJobLogRootSomeOs() {
-    assertEquals(logRootSomeOs, jobLogUtil.getJobLogRootDir("some_os"));
-  }
+    @Test
+    public void testGetJobLogRootSomeOs() {
+        assertEquals(logRootSomeOs, jobLogUtil.getJobLogRootDir("some_os"));
+    }
 
-  @Test
-  public void testGetJobLogDirDefault() {
-    assertEquals(logRootDefault + "/show/shot/logs",
-        jobLogUtil.getJobLogDir("show", "shot", "someUndefinedOs"));
-  }
+    @Test
+    public void testGetJobLogDirDefault() {
+        assertEquals(logRootDefault + "/show/shot/logs",
+                jobLogUtil.getJobLogDir("show", "shot", "someUndefinedOs"));
+    }
 
-  @Test
-  public void testGetJobLogDirSomeOs() {
-    assertEquals(logRootSomeOs + "/show/shot/logs",
-        jobLogUtil.getJobLogDir("show", "shot", "some_os"));
-  }
+    @Test
+    public void testGetJobLogDirSomeOs() {
+        assertEquals(logRootSomeOs + "/show/shot/logs",
+                jobLogUtil.getJobLogDir("show", "shot", "some_os"));
+    }
 
-  @Test
-  public void testGetJobLogPathDefault() {
-    JobDetail jobDetail = new JobDetail();
-    jobDetail.id = "id";
-    jobDetail.name = "name";
-    jobDetail.showName = "show";
-    jobDetail.shot = "shot";
-    jobDetail.os = "someUndefinedOs";
-    assertEquals(logRootDefault + "/show/shot/logs/name--id", jobLogUtil.getJobLogPath(jobDetail));
-  }
+    @Test
+    public void testGetJobLogPathDefault() {
+        JobDetail jobDetail = new JobDetail();
+        jobDetail.id = "id";
+        jobDetail.name = "name";
+        jobDetail.showName = "show";
+        jobDetail.shot = "shot";
+        jobDetail.os = "someUndefinedOs";
+        assertEquals(logRootDefault + "/show/shot/logs/name--id",
+                jobLogUtil.getJobLogPath(jobDetail));
+    }
 
-  @Test
-  public void testGetJobLogPathSomeOs() {
-    JobDetail jobDetail = new JobDetail();
-    jobDetail.id = "id";
-    jobDetail.name = "name";
-    jobDetail.showName = "show";
-    jobDetail.shot = "shot";
-    jobDetail.os = "some_os";
-    assertEquals(logRootSomeOs + "/show/shot/logs/name--id", jobLogUtil.getJobLogPath(jobDetail));
-  }
+    @Test
+    public void testGetJobLogPathSomeOs() {
+        JobDetail jobDetail = new JobDetail();
+        jobDetail.id = "id";
+        jobDetail.name = "name";
+        jobDetail.showName = "show";
+        jobDetail.shot = "shot";
+        jobDetail.os = "some_os";
+        assertEquals(logRootSomeOs + "/show/shot/logs/name--id",
+                jobLogUtil.getJobLogPath(jobDetail));
+    }
 }

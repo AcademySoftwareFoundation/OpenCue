@@ -17,51 +17,51 @@ package com.imageworks.spcue;
 
 public class Entity implements EntityInterface {
 
-  public String id = null;
-  public String name = "unknown";
+    public String id = null;
+    public String name = "unknown";
 
-  public Entity() {}
+    public Entity() {}
 
-  public Entity(String id) {
-    this.id = id;
-  }
-
-  public Entity(String id, String name) {
-    this.id = id;
-    this.name = name;
-  }
-
-  public String getId() {
-    return id;
-  }
-
-  public String getName() {
-    return name;
-  }
-
-  public boolean isNew() {
-    return id == null;
-  }
-
-  @Override
-  public String toString() {
-    return String.format("%s/%s", getName(), getId());
-  }
-
-  @Override
-  public int hashCode() {
-    if (id != null) {
-      return id.hashCode();
-    } else {
-      return super.hashCode();
+    public Entity(String id) {
+        this.id = id;
     }
-  }
 
-  @Override
-  public boolean equals(Object other) {
-    if (other == null) {
-      return false;
+    public Entity(String id, String name) {
+        this.id = id;
+        this.name = name;
     }
-    return this.toString().equals(other.toString());
-  }
+
+    public String getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public boolean isNew() {
+        return id == null;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s/%s", getName(), getId());
+    }
+
+    @Override
+    public int hashCode() {
+        if (id != null) {
+            return id.hashCode();
+        } else {
+            return super.hashCode();
+        }
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (other == null) {
+            return false;
+        }
+        return this.toString().equals(other.toString());
+    }
 }

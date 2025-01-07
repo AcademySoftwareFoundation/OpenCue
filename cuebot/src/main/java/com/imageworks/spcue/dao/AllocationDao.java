@@ -26,81 +26,81 @@ import com.imageworks.spcue.FacilityInterface;
  */
 public interface AllocationDao {
 
-  /**
-   * returns an AllocationEntity from its unique ID
-   *
-   * @param id
-   * @return AllocationEntity
-   */
-  AllocationEntity getAllocationEntity(String id);
+    /**
+     * returns an AllocationEntity from its unique ID
+     *
+     * @param id
+     * @return AllocationEntity
+     */
+    AllocationEntity getAllocationEntity(String id);
 
-  /**
-   * Return an AllocationEntity for the given facility and unique allocation name.
-   *
-   * @param name
-   * @return AllocationEntity
-   */
-  AllocationEntity findAllocationEntity(String facility, String name);
+    /**
+     * Return an AllocationEntity for the given facility and unique allocation name.
+     *
+     * @param name
+     * @return AllocationEntity
+     */
+    AllocationEntity findAllocationEntity(String facility, String name);
 
-  /**
-   * Return an AllocationEntity from its fully qualified name which should be formatted as
-   * facility.name.
-   *
-   * @param name
-   * @return
-   */
-  AllocationEntity findAllocationEntity(String name);
+    /**
+     * Return an AllocationEntity from its fully qualified name which should be formatted as
+     * facility.name.
+     *
+     * @param name
+     * @return
+     */
+    AllocationEntity findAllocationEntity(String name);
 
-  /**
-   * Creates a new allocation
-   *
-   * @param detail
-   */
-  void insertAllocation(FacilityInterface facility, AllocationEntity detail);
+    /**
+     * Creates a new allocation
+     *
+     * @param detail
+     */
+    void insertAllocation(FacilityInterface facility, AllocationEntity detail);
 
-  /**
-   * Deletes an allocation
-   *
-   * @param alloc
-   */
-  void deleteAllocation(AllocationInterface alloc);
+    /**
+     * Deletes an allocation
+     *
+     * @param alloc
+     */
+    void deleteAllocation(AllocationInterface alloc);
 
-  /**
-   * Updates the name of the allocation. This method also updates all child host allocation tags so
-   * you'll need to run allocDao.recalculateTags(alloc)
-   *
-   * @param alloc
-   * @param name
-   */
-  void updateAllocationName(AllocationInterface alloc, String name);
+    /**
+     * Updates the name of the allocation. This method also updates all child host allocation tags
+     * so you'll need to run allocDao.recalculateTags(alloc)
+     *
+     * @param alloc
+     * @param name
+     */
+    void updateAllocationName(AllocationInterface alloc, String name);
 
-  /**
-   * Updates the allocation tag. All hosts in the allocation are retagged.
-   *
-   * @param a
-   * @param tag
-   */
-  void updateAllocationTag(AllocationInterface a, String tag);
+    /**
+     * Updates the allocation tag. All hosts in the allocation are retagged.
+     *
+     * @param a
+     * @param tag
+     */
+    void updateAllocationTag(AllocationInterface a, String tag);
 
-  /**
-   * Sets the default allocation, AKA where procs go first.
-   *
-   * @param a
-   */
-  void setDefaultAllocation(AllocationInterface a);
+    /**
+     * Sets the default allocation, AKA where procs go first.
+     *
+     * @param a
+     */
+    void setDefaultAllocation(AllocationInterface a);
 
-  /**
-   * Returns the current default allocation.
-   *
-   * @return
-   */
-  AllocationEntity getDefaultAllocationEntity();
+    /**
+     * Returns the current default allocation.
+     *
+     * @return
+     */
+    AllocationEntity getDefaultAllocationEntity();
 
-  /**
-   * Set the allocation as billable or not billble.
-   *
-   * @param alloc
-   * @param value
-   */
-  void updateAllocationBillable(AllocationInterface alloc, boolean value);
+    /**
+     * Set the allocation as billable or not billble.
+     *
+     * @param alloc
+     * @param value
+     */
+    void updateAllocationBillable(AllocationInterface alloc, boolean value);
 }

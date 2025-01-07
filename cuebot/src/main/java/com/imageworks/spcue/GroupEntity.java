@@ -17,16 +17,16 @@ package com.imageworks.spcue;
 
 public class GroupEntity extends Entity implements GroupInterface {
 
-  public String showId;
+    public String showId;
 
-  @Override
-  public String getGroupId() {
-    return id;
-  }
+    @Override
+    public String getGroupId() {
+        return id;
+    }
 
-  @Override
-  public String getShowId() {
-    return showId;
-  }
+    @Override
+    public String getShowId() {
+        return showId;
+    }
 
 }

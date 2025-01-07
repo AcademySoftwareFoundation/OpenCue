@@ -23,28 +23,28 @@ import org.apache.logging.log4j.LogManager;
 import com.imageworks.spcue.JobInterface;
 
 public class HistoricalSupport {
-  private static final Logger logger = LogManager.getLogger(HistoricalSupport.class);
+    private static final Logger logger = LogManager.getLogger(HistoricalSupport.class);
 
-  private HistoricalManager historicalManager;
+    private HistoricalManager historicalManager;
 
-  public void archiveHistoricalJobData() {
-    logger.info("running historical job data transfer");
-    List<JobInterface> jobs = historicalManager.getFinishedJobs();
-    for (JobInterface j : jobs) {
-      logger.info("transfering job " + j.getId() + "/" + j.getName());
-      try {
-        historicalManager.transferJob(j);
-      } catch (Exception e) {
-        logger.warn("failed to transfer job, " + e);
-      }
+    public void archiveHistoricalJobData() {
+        logger.info("running historical job data transfer");
+        List<JobInterface> jobs = historicalManager.getFinishedJobs();
+        for (JobInterface j : jobs) {
+            logger.info("transfering job " + j.getId() + "/" + j.getName());
+            try {
+                historicalManager.transferJob(j);
+            } catch (Exception e) {
+                logger.warn("failed to transfer job, " + e);
+            }
+        }
     }
-  }
 
-  public HistoricalManager getHistoricalManager() {
-    return historicalManager;
-  }
+    public HistoricalManager getHistoricalManager() {
+        return historicalManager;
+    }
 
-  public void setHistoricalManager(HistoricalManager historicalManager) {
-    this.historicalManager = historicalManager;
-  }
+    public void setHistoricalManager(HistoricalManager historicalManager) {
+        this.historicalManager = historicalManager;
+    }
 }

@@ -20,51 +20,51 @@ import com.imageworks.spcue.FacilityInterface;
 
 public interface FacilityDao {
 
-  /**
-   * Returns the default facility
-   *
-   * @return
-   */
-  public FacilityInterface getDefaultFacility();
+    /**
+     * Returns the default facility
+     *
+     * @return
+     */
+    public FacilityInterface getDefaultFacility();
 
-  /**
-   * Gets a facility by Id
-   *
-   * @param id
-   * @return
-   */
-  public FacilityInterface getFacility(String id);
+    /**
+     * Gets a facility by Id
+     *
+     * @param id
+     * @return
+     */
+    public FacilityInterface getFacility(String id);
 
-  /**
-   * Returns true if a facility exists
-   *
-   * @param name
-   * @return
-   */
-  public boolean facilityExists(String name);
+    /**
+     * Returns true if a facility exists
+     *
+     * @param name
+     * @return
+     */
+    public boolean facilityExists(String name);
 
-  /**
-   * Insert and return a facility.
-   *
-   * @param name
-   * @return
-   */
-  public FacilityInterface insertFacility(FacilityEntity facility);
+    /**
+     * Insert and return a facility.
+     *
+     * @param name
+     * @return
+     */
+    public FacilityInterface insertFacility(FacilityEntity facility);
 
-  /**
-   * Deletes a facility record, if possible.
-   *
-   * @param facility
-   * @return
-   */
-  public int deleteFacility(FacilityInterface facility);
+    /**
+     * Deletes a facility record, if possible.
+     *
+     * @param facility
+     * @return
+     */
+    public int deleteFacility(FacilityInterface facility);
 
-  /**
-   * Rename the specified facility.
-   *
-   * @param facility
-   * @param name
-   * @return
-   */
-  int updateFacilityName(FacilityInterface facility, String name);
+    /**
+     * Rename the specified facility.
+     *
+     * @param facility
+     * @param name
+     * @return
+     */
+    int updateFacilityName(FacilityInterface facility, String name);
 }

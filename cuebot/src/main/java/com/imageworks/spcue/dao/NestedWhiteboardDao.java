@@ -26,19 +26,19 @@ import com.imageworks.spcue.grpc.job.NestedGroup;
  */
 public interface NestedWhiteboardDao {
 
-  /**
-   * returns a grouped whiteboard for specified show.
-   *
-   * @param show
-   * @return
-   */
-  NestedGroup getJobWhiteboard(ShowInterface show);
+    /**
+     * returns a grouped whiteboard for specified show.
+     *
+     * @param show
+     * @return
+     */
+    NestedGroup getJobWhiteboard(ShowInterface show);
 
-  /**
-   * get a list of hosts
-   *
-   * @return List<Host>
-   */
-  NestedHostSeq getHostWhiteboard();
+    /**
+     * get a list of hosts
+     *
+     * @return List<Host>
+     */
+    NestedHostSeq getHostWhiteboard();
 
 }

@@ -56,353 +56,369 @@ import static org.junit.Assert.assertTrue;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class BookingDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Autowired
-  @Rule
-  public AssumingPostgresEngine assumingPostgresEngine;
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
+
+    @Resource
+    HostManager hostManager;
+
+    @Resource
+    AdminManager adminManager;
+
+    @Resource
+    JobLauncher jobLauncher;
+
+    @Resource
+    JobManager jobManager;
+
+    @Resource
+    HostDao hostDao;
+
+    @Resource
+    BookingDao bookingDao;
+
+    @Resource
+    DispatcherDao dispatcherDao;
 
-  @Resource
-  HostManager hostManager;
+    @Resource
+    ProcDao procDao;
+
+    @Resource
+    Whiteboard whiteboard;
+
+    public DispatchHost createHost() {
+        RenderHost host = RenderHost.newBuilder().setName("test_host").setBootTime(1192369572)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB16)
+                .setTotalSwap((int) CueUtil.GB16).setNimbyEnabled(false).setNumProcs(2)
+                .setCoresPerProc(100).setState(HardwareState.UP).setFacility("spi")
+                .addTags("general").setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512).build();
+        DispatchHost dh = hostManager.createHost(host);
+        hostManager.setAllocation(dh, adminManager.findAllocationDetail("spi", "general"));
+
+        return dh;
+    }
+
+    public JobDetail launchJob() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        JobDetail d = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
+        jobManager.setJobPaused(d, false);
+        return d;
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void insertLocalJobAssignment() {
+
+        DispatchHost h = createHost();
+        JobDetail j = launchJob();
+
+        LocalHostAssignment lja = new LocalHostAssignment();
+        lja.setMaxCoreUnits(200);
+        lja.setMaxMemory(CueUtil.GB4);
+        lja.setMaxGpuMemory(1);
+        lja.setThreads(2);
+
+        bookingDao.insertLocalHostAssignment(h, j, lja);
+
+        assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
+                "SELECT int_threads FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
 
-  @Resource
-  AdminManager adminManager;
+        assertEquals(Integer.valueOf(1),
+                jdbcTemplate.queryForObject("SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
-  @Resource
-  JobLauncher jobLauncher;
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_cores_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
-  @Resource
-  JobManager jobManager;
+        assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
+                "SELECT int_mem_max FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
 
-  @Resource
-  HostDao hostDao;
+        assertEquals(Integer.valueOf(1),
+                jdbcTemplate.queryForObject("SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
-  @Resource
-  BookingDao bookingDao;
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_cores_idle FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
-  @Resource
-  DispatcherDao dispatcherDao;
+        assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
+                "SELECT int_mem_idle FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void insertLocalLayerAssignment() {
 
-  @Resource
-  ProcDao procDao;
+        DispatchHost h = createHost();
+        JobDetail j = launchJob();
+        LayerInterface layer = jobManager.getLayers(j).get(0);
 
-  @Resource
-  Whiteboard whiteboard;
+        LocalHostAssignment lja = new LocalHostAssignment();
+        lja.setMaxCoreUnits(200);
+        lja.setMaxMemory(CueUtil.GB4);
+        lja.setMaxGpuMemory(1);
+        lja.setThreads(2);
 
-  public DispatchHost createHost() {
-    RenderHost host = RenderHost.newBuilder().setName("test_host").setBootTime(1192369572)
-        // The minimum amount of free space in the temporary directory to book a host.
-        .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
-        .setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB16).setTotalSwap((int) CueUtil.GB16)
-        .setNimbyEnabled(false).setNumProcs(2).setCoresPerProc(100).setState(HardwareState.UP)
-        .setFacility("spi").addTags("general").setFreeGpuMem((int) CueUtil.MB512)
-        .setTotalGpuMem((int) CueUtil.MB512).build();
-    DispatchHost dh = hostManager.createHost(host);
-    hostManager.setAllocation(dh, adminManager.findAllocationDetail("spi", "general"));
+        bookingDao.insertLocalHostAssignment(h, layer, lja);
 
-    return dh;
-  }
+        assertEquals(layer.getLayerId(),
+                jdbcTemplate.queryForObject("SELECT pk_layer FROM host_local WHERE pk_host_local=?",
+                        String.class, lja.getId()));
 
-  public JobDetail launchJob() {
-    jobLauncher.testMode = true;
-    jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
-    JobDetail d = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
-    jobManager.setJobPaused(d, false);
-    return d;
-  }
+        assertEquals(RenderPartitionType.LAYER_PARTITION.toString(),
+                jdbcTemplate.queryForObject("SELECT str_type FROM host_local WHERE pk_host_local=?",
+                        String.class, lja.getId()));
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void insertLocalJobAssignment() {
+        assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
+                "SELECT int_threads FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
 
-    DispatchHost h = createHost();
-    JobDetail j = launchJob();
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_cores_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
-    LocalHostAssignment lja = new LocalHostAssignment();
-    lja.setMaxCoreUnits(200);
-    lja.setMaxMemory(CueUtil.GB4);
-    lja.setMaxGpuMemory(1);
-    lja.setThreads(2);
+        assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
+                "SELECT int_mem_max FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
 
-    bookingDao.insertLocalHostAssignment(h, j, lja);
+        assertEquals(Integer.valueOf(1),
+                jdbcTemplate.queryForObject("SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
-    assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-        "SELECT int_threads FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_cores_idle FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
-    assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-        "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+        assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
+                "SELECT int_mem_idle FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
+    }
 
-    assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-        "SELECT int_cores_max FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void insertLocalFrameAssignment() {
 
-    assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
-        "SELECT int_mem_max FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
+        DispatchHost h = createHost();
+        JobDetail j = launchJob();
+        LayerInterface layer = jobManager.getLayers(j).get(0);
+        FrameInterface frame = jobManager.findFrame(layer, 1);
 
-    assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-        "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+        LocalHostAssignment lja = new LocalHostAssignment();
+        lja.setMaxCoreUnits(200);
+        lja.setMaxMemory(CueUtil.GB4);
+        lja.setMaxGpuMemory(1);
+        lja.setThreads(2);
 
-    assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-        "SELECT int_cores_idle FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+        bookingDao.insertLocalHostAssignment(h, frame, lja);
 
-    assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
-        "SELECT int_mem_idle FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
-  }
+        assertEquals(frame.getFrameId(),
+                jdbcTemplate.queryForObject("SELECT pk_frame FROM host_local WHERE pk_host_local=?",
+                        String.class, lja.getId()));
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void insertLocalLayerAssignment() {
+        assertEquals(RenderPartitionType.FRAME_PARTITION.toString(),
+                jdbcTemplate.queryForObject("SELECT str_type FROM host_local WHERE pk_host_local=?",
+                        String.class, lja.getId()));
 
-    DispatchHost h = createHost();
-    JobDetail j = launchJob();
-    LayerInterface layer = jobManager.getLayers(j).get(0);
+        assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
+                "SELECT int_threads FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
 
-    LocalHostAssignment lja = new LocalHostAssignment();
-    lja.setMaxCoreUnits(200);
-    lja.setMaxMemory(CueUtil.GB4);
-    lja.setMaxGpuMemory(1);
-    lja.setThreads(2);
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_cores_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
-    bookingDao.insertLocalHostAssignment(h, layer, lja);
+        assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
+                "SELECT int_mem_max FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
 
-    assertEquals(layer.getLayerId(), jdbcTemplate.queryForObject(
-        "SELECT pk_layer FROM host_local WHERE pk_host_local=?", String.class, lja.getId()));
+        assertEquals(Integer.valueOf(1),
+                jdbcTemplate.queryForObject("SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
-    assertEquals(RenderPartitionType.LAYER_PARTITION.toString(), jdbcTemplate.queryForObject(
-        "SELECT str_type FROM host_local WHERE pk_host_local=?", String.class, lja.getId()));
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_cores_idle FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
-    assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-        "SELECT int_threads FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+        assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
+                "SELECT int_mem_idle FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetLocalJobAssignment() {
 
-    assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-        "SELECT int_cores_max FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+        DispatchHost h = createHost();
+        JobDetail j = launchJob();
 
-    assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
-        "SELECT int_mem_max FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
+        LocalHostAssignment lja = new LocalHostAssignment();
+        lja.setMaxCoreUnits(200);
+        lja.setMaxMemory(CueUtil.GB4);
+        lja.setThreads(2);
+        lja.setMaxGpuMemory(1);
 
-    assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-        "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+        bookingDao.insertLocalHostAssignment(h, j, lja);
 
-    assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-        "SELECT int_cores_idle FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+        LocalHostAssignment lja2 = bookingDao.getLocalJobAssignment(h.getHostId(), j.getJobId());
 
-    assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
-        "SELECT int_mem_idle FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
-  }
+        assertEquals(lja.getMaxCoreUnits(), lja2.getMaxCoreUnits());
+        assertEquals(lja.getMaxMemory(), lja2.getMaxMemory());
+        assertEquals(lja.getMaxGpuMemory(), lja2.getMaxGpuMemory());
+        assertEquals(lja.getThreads(), lja2.getThreads());
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void insertLocalFrameAssignment() {
+    }
 
-    DispatchHost h = createHost();
-    JobDetail j = launchJob();
-    LayerInterface layer = jobManager.getLayers(j).get(0);
-    FrameInterface frame = jobManager.findFrame(layer, 1);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetRenderPartition() {
 
-    LocalHostAssignment lja = new LocalHostAssignment();
-    lja.setMaxCoreUnits(200);
-    lja.setMaxMemory(CueUtil.GB4);
-    lja.setMaxGpuMemory(1);
-    lja.setThreads(2);
+        DispatchHost h = createHost();
+        JobDetail j = launchJob();
 
-    bookingDao.insertLocalHostAssignment(h, frame, lja);
+        LocalHostAssignment lja = new LocalHostAssignment();
+        lja.setMaxCoreUnits(200);
+        lja.setMaxMemory(CueUtil.GB4);
+        lja.setThreads(2);
+        lja.setMaxGpuMemory(1);
 
-    assertEquals(frame.getFrameId(), jdbcTemplate.queryForObject(
-        "SELECT pk_frame FROM host_local WHERE pk_host_local=?", String.class, lja.getId()));
+        bookingDao.insertLocalHostAssignment(h, j, lja);
 
-    assertEquals(RenderPartitionType.FRAME_PARTITION.toString(), jdbcTemplate.queryForObject(
-        "SELECT str_type FROM host_local WHERE pk_host_local=?", String.class, lja.getId()));
+        LocalHostAssignment lja2 = bookingDao.getLocalJobAssignment(h.getHostId(), j.getJobId());
 
-    assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-        "SELECT int_threads FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+        assertEquals(lja.getMaxCoreUnits(), lja2.getMaxCoreUnits());
+        assertEquals(lja.getMaxMemory(), lja2.getMaxMemory());
+        assertEquals(lja.getThreads(), lja2.getThreads());
+        assertEquals(lja.getMaxGpuMemory(), lja2.getMaxGpuMemory());
 
-    assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-        "SELECT int_cores_max FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+        RenderPartition rp = whiteboard.getRenderPartition(lja2);
 
-    assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
-        "SELECT int_mem_max FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
+        assertEquals(lja2.getMaxCoreUnits(), rp.getMaxCores());
+        assertEquals(lja2.getMaxMemory(), rp.getMaxMemory());
+        assertEquals(lja2.getThreads(), rp.getThreads());
+        logger.info("--------------------");
+        logger.info(lja2.getMaxGpuMemory());
+        logger.info(rp.getMaxGpuMemory());
+        assertEquals(lja2.getMaxGpuMemory(), rp.getMaxGpuMemory());
+        assertEquals(h.getName(), rp.getHost());
+        assertEquals(j.getName(), rp.getJob());
+    }
 
-    assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-        "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetProcs() {
 
-    assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-        "SELECT int_cores_idle FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
+        DispatchHost h = createHost();
+        JobDetail j = launchJob();
 
-    assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
-        "SELECT int_mem_idle FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
-  }
+        LocalHostAssignment lja = new LocalHostAssignment();
+        lja.setMaxCoreUnits(200);
+        lja.setMaxMemory(CueUtil.GB4);
+        lja.setThreads(2);
+        lja.setMaxGpuMemory(1);
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetLocalJobAssignment() {
+        bookingDao.insertLocalHostAssignment(h, j, lja);
 
-    DispatchHost h = createHost();
-    JobDetail j = launchJob();
+        assertEquals(0, procDao.findVirtualProcs(lja).size());
+    }
 
-    LocalHostAssignment lja = new LocalHostAssignment();
-    lja.setMaxCoreUnits(200);
-    lja.setMaxMemory(CueUtil.GB4);
-    lja.setThreads(2);
-    lja.setMaxGpuMemory(1);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void updateMaxCores() {
 
-    bookingDao.insertLocalHostAssignment(h, j, lja);
+        DispatchHost h = createHost();
+        JobDetail j = launchJob();
 
-    LocalHostAssignment lja2 = bookingDao.getLocalJobAssignment(h.getHostId(), j.getJobId());
+        LocalHostAssignment lja = new LocalHostAssignment();
+        lja.setMaxCoreUnits(200);
+        lja.setMaxMemory(CueUtil.GB4);
+        lja.setThreads(2);
+        lja.setMaxGpuMemory(1);
 
-    assertEquals(lja.getMaxCoreUnits(), lja2.getMaxCoreUnits());
-    assertEquals(lja.getMaxMemory(), lja2.getMaxMemory());
-    assertEquals(lja.getMaxGpuMemory(), lja2.getMaxGpuMemory());
-    assertEquals(lja.getThreads(), lja2.getThreads());
+        bookingDao.insertLocalHostAssignment(h, j, lja);
+        assertTrue(bookingDao.updateMaxCores(lja, 100));
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject("SELECT int_cores_max FROM host_local WHERE pk_host=?",
+                        Integer.class, h.getHostId()));
 
-  }
+        LocalHostAssignment lj2 = bookingDao.getLocalJobAssignment(lja.id);
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetRenderPartition() {
+        assertEquals(100, lj2.getIdleCoreUnits());
+        assertEquals(100, lj2.getMaxCoreUnits());
 
-    DispatchHost h = createHost();
-    JobDetail j = launchJob();
+        bookingDao.updateMaxCores(lja, 200);
 
-    LocalHostAssignment lja = new LocalHostAssignment();
-    lja.setMaxCoreUnits(200);
-    lja.setMaxMemory(CueUtil.GB4);
-    lja.setThreads(2);
-    lja.setMaxGpuMemory(1);
+        lj2 = bookingDao.getLocalJobAssignment(lja.id);
 
-    bookingDao.insertLocalHostAssignment(h, j, lja);
+        assertEquals(200, lj2.getIdleCoreUnits());
+        assertEquals(200, lj2.getMaxCoreUnits());
+    }
 
-    LocalHostAssignment lja2 = bookingDao.getLocalJobAssignment(h.getHostId(), j.getJobId());
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void updateMaxMemory() {
 
-    assertEquals(lja.getMaxCoreUnits(), lja2.getMaxCoreUnits());
-    assertEquals(lja.getMaxMemory(), lja2.getMaxMemory());
-    assertEquals(lja.getThreads(), lja2.getThreads());
-    assertEquals(lja.getMaxGpuMemory(), lja2.getMaxGpuMemory());
+        DispatchHost h = createHost();
+        JobDetail j = launchJob();
 
-    RenderPartition rp = whiteboard.getRenderPartition(lja2);
+        LocalHostAssignment lja = new LocalHostAssignment();
+        lja.setMaxCoreUnits(200);
+        lja.setMaxMemory(CueUtil.GB4);
+        lja.setThreads(2);
+        lja.setMaxGpuMemory(1);
 
-    assertEquals(lja2.getMaxCoreUnits(), rp.getMaxCores());
-    assertEquals(lja2.getMaxMemory(), rp.getMaxMemory());
-    assertEquals(lja2.getThreads(), rp.getThreads());
-    logger.info("--------------------");
-    logger.info(lja2.getMaxGpuMemory());
-    logger.info(rp.getMaxGpuMemory());
-    assertEquals(lja2.getMaxGpuMemory(), rp.getMaxGpuMemory());
-    assertEquals(h.getName(), rp.getHost());
-    assertEquals(j.getName(), rp.getJob());
-  }
+        bookingDao.insertLocalHostAssignment(h, j, lja);
+        bookingDao.updateMaxMemory(lja, CueUtil.GB2);
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetProcs() {
+        LocalHostAssignment lj2 = bookingDao.getLocalJobAssignment(lja.id);
 
-    DispatchHost h = createHost();
-    JobDetail j = launchJob();
+        assertEquals(CueUtil.GB2, lj2.getIdleMemory());
+        assertEquals(CueUtil.GB2, lj2.getMaxMemory());
 
-    LocalHostAssignment lja = new LocalHostAssignment();
-    lja.setMaxCoreUnits(200);
-    lja.setMaxMemory(CueUtil.GB4);
-    lja.setThreads(2);
-    lja.setMaxGpuMemory(1);
+        bookingDao.updateMaxMemory(lja, CueUtil.GB4);
 
-    bookingDao.insertLocalHostAssignment(h, j, lja);
+        lj2 = bookingDao.getLocalJobAssignment(lja.id);
 
-    assertEquals(0, procDao.findVirtualProcs(lja).size());
-  }
+        assertEquals(CueUtil.GB4, lj2.getIdleMemory());
+        assertEquals(CueUtil.GB4, lj2.getMaxMemory());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void updateMaxCores() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void updateMaxGpuMemory() {
 
-    DispatchHost h = createHost();
-    JobDetail j = launchJob();
+        DispatchHost h = createHost();
+        JobDetail j = launchJob();
 
-    LocalHostAssignment lja = new LocalHostAssignment();
-    lja.setMaxCoreUnits(200);
-    lja.setMaxMemory(CueUtil.GB4);
-    lja.setThreads(2);
-    lja.setMaxGpuMemory(1);
+        LocalHostAssignment lja = new LocalHostAssignment();
+        lja.setMaxCoreUnits(200);
+        lja.setMaxMemory(CueUtil.GB4);
+        lja.setThreads(2);
+        lja.setMaxGpuMemory(1);
 
-    bookingDao.insertLocalHostAssignment(h, j, lja);
-    assertTrue(bookingDao.updateMaxCores(lja, 100));
-    assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-        "SELECT int_cores_max FROM host_local WHERE pk_host=?", Integer.class, h.getHostId()));
+        bookingDao.insertLocalHostAssignment(h, j, lja);
+        bookingDao.updateMaxMemory(lja, CueUtil.GB2);
 
-    LocalHostAssignment lj2 = bookingDao.getLocalJobAssignment(lja.id);
+        LocalHostAssignment lj2 = bookingDao.getLocalJobAssignment(lja.id);
 
-    assertEquals(100, lj2.getIdleCoreUnits());
-    assertEquals(100, lj2.getMaxCoreUnits());
+        assertEquals(CueUtil.GB2, lj2.getIdleMemory());
+        assertEquals(CueUtil.GB2, lj2.getMaxMemory());
+        assertEquals(1, lj2.getMaxGpuMemory());
 
-    bookingDao.updateMaxCores(lja, 200);
+        bookingDao.updateMaxGpuMemory(lja, 2);
 
-    lj2 = bookingDao.getLocalJobAssignment(lja.id);
+        lj2 = bookingDao.getLocalJobAssignment(lja.id);
 
-    assertEquals(200, lj2.getIdleCoreUnits());
-    assertEquals(200, lj2.getMaxCoreUnits());
-  }
-
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void updateMaxMemory() {
-
-    DispatchHost h = createHost();
-    JobDetail j = launchJob();
-
-    LocalHostAssignment lja = new LocalHostAssignment();
-    lja.setMaxCoreUnits(200);
-    lja.setMaxMemory(CueUtil.GB4);
-    lja.setThreads(2);
-    lja.setMaxGpuMemory(1);
-
-    bookingDao.insertLocalHostAssignment(h, j, lja);
-    bookingDao.updateMaxMemory(lja, CueUtil.GB2);
-
-    LocalHostAssignment lj2 = bookingDao.getLocalJobAssignment(lja.id);
-
-    assertEquals(CueUtil.GB2, lj2.getIdleMemory());
-    assertEquals(CueUtil.GB2, lj2.getMaxMemory());
-
-    bookingDao.updateMaxMemory(lja, CueUtil.GB4);
-
-    lj2 = bookingDao.getLocalJobAssignment(lja.id);
-
-    assertEquals(CueUtil.GB4, lj2.getIdleMemory());
-    assertEquals(CueUtil.GB4, lj2.getMaxMemory());
-  }
-
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void updateMaxGpuMemory() {
-
-    DispatchHost h = createHost();
-    JobDetail j = launchJob();
-
-    LocalHostAssignment lja = new LocalHostAssignment();
-    lja.setMaxCoreUnits(200);
-    lja.setMaxMemory(CueUtil.GB4);
-    lja.setThreads(2);
-    lja.setMaxGpuMemory(1);
-
-    bookingDao.insertLocalHostAssignment(h, j, lja);
-    bookingDao.updateMaxMemory(lja, CueUtil.GB2);
-
-    LocalHostAssignment lj2 = bookingDao.getLocalJobAssignment(lja.id);
-
-    assertEquals(CueUtil.GB2, lj2.getIdleMemory());
-    assertEquals(CueUtil.GB2, lj2.getMaxMemory());
-    assertEquals(1, lj2.getMaxGpuMemory());
-
-    bookingDao.updateMaxGpuMemory(lja, 2);
-
-    lj2 = bookingDao.getLocalJobAssignment(lja.id);
-
-    assertEquals(CueUtil.GB2, lj2.getIdleMemory());
-    assertEquals(CueUtil.GB2, lj2.getMaxMemory());
-    assertEquals(2, lj2.getMaxGpuMemory());
-  }
+        assertEquals(CueUtil.GB2, lj2.getIdleMemory());
+        assertEquals(CueUtil.GB2, lj2.getMaxMemory());
+        assertEquals(2, lj2.getMaxGpuMemory());
+    }
 }

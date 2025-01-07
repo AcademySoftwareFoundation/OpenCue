@@ -25,28 +25,28 @@ import com.imageworks.spcue.util.CueUtil;
 
 public class CoreSaturationTests extends TestCase {
 
-  DispatchHost host;
+    DispatchHost host;
 
-  @Before
-  public void setUp() throws Exception {
-    host = new DispatchHost();
-    host.isNimby = false;
-  }
+    @Before
+    public void setUp() throws Exception {
+        host = new DispatchHost();
+        host.isNimby = false;
+    }
 
-  public void testCoreAndMemorySaturation1() {
-    host.memory = CueUtil.GB32;
-    host.idleMemory = CueUtil.GB8;
-    host.cores = 800;
-    host.idleCores = 700;
+    public void testCoreAndMemorySaturation1() {
+        host.memory = CueUtil.GB32;
+        host.idleMemory = CueUtil.GB8;
+        host.cores = 800;
+        host.idleCores = 700;
 
-    DispatchFrame frame = new DispatchFrame();
-    frame.services = "NOTarnold";
-    frame.minCores = 100;
-    frame.setMinMemory(CueUtil.GB * 7);
-    frame.threadable = true;
+        DispatchFrame frame = new DispatchFrame();
+        frame.services = "NOTarnold";
+        frame.minCores = 100;
+        frame.setMinMemory(CueUtil.GB * 7);
+        frame.threadable = true;
 
-    VirtualProc proc = VirtualProc.build(host, frame);
-    assertEquals(700, proc.coresReserved);
-    assertEquals(CueUtil.GB * 7, proc.memoryReserved);
-  }
+        VirtualProc proc = VirtualProc.build(host, frame);
+        assertEquals(700, proc.coresReserved);
+        assertEquals(CueUtil.GB * 7, proc.memoryReserved);
+    }
 }

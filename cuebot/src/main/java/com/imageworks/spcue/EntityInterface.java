@@ -17,7 +17,7 @@ package com.imageworks.spcue;
 
 public interface EntityInterface {
 
-  public String getName();
+    public String getName();
 
-  public String getId();
+    public String getId();
 }

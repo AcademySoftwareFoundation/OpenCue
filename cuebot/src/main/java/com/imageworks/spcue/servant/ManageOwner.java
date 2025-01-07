@@ -40,105 +40,105 @@ import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageOwner extends OwnerInterfaceGrpc.OwnerInterfaceImplBase {
 
-  private HostManager hostManager;
-  private OwnerManager ownerManager;
-  private Whiteboard whiteboard;
-  private AdminManager adminManager;
+    private HostManager hostManager;
+    private OwnerManager ownerManager;
+    private Whiteboard whiteboard;
+    private AdminManager adminManager;
 
-  @Override
-  public void getOwner(OwnerGetOwnerRequest request,
-      StreamObserver<OwnerGetOwnerResponse> responseObserver) {
-    try {
-      responseObserver.onNext(OwnerGetOwnerResponse.newBuilder()
-          .setOwner(whiteboard.getOwner(request.getName())).build());
-      responseObserver.onCompleted();
-    } catch (EmptyResultDataAccessException e) {
-      responseObserver.onError(
-          Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e).asRuntimeException());
+    @Override
+    public void getOwner(OwnerGetOwnerRequest request,
+            StreamObserver<OwnerGetOwnerResponse> responseObserver) {
+        try {
+            responseObserver.onNext(OwnerGetOwnerResponse.newBuilder()
+                    .setOwner(whiteboard.getOwner(request.getName())).build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
+                    .asRuntimeException());
+        }
     }
-  }
 
-  @Override
-  public void delete(OwnerDeleteRequest request,
-      StreamObserver<OwnerDeleteResponse> responseObserver) {
-    OwnerEntity owner = getOwnerById(request.getOwner().getId());
-    ownerManager.deleteOwner((owner));
-    OwnerDeleteResponse response = OwnerDeleteResponse.newBuilder().build();
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void delete(OwnerDeleteRequest request,
+            StreamObserver<OwnerDeleteResponse> responseObserver) {
+        OwnerEntity owner = getOwnerById(request.getOwner().getId());
+        ownerManager.deleteOwner((owner));
+        OwnerDeleteResponse response = OwnerDeleteResponse.newBuilder().build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void getDeeds(OwnerGetDeedsRequest request,
-      StreamObserver<OwnerGetDeedsResponse> responseObserver) {
-    OwnerEntity owner = getOwnerById(request.getOwner().getId());
-    OwnerGetDeedsResponse response =
-        OwnerGetDeedsResponse.newBuilder().setDeeds(whiteboard.getDeeds(owner)).build();
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void getDeeds(OwnerGetDeedsRequest request,
+            StreamObserver<OwnerGetDeedsResponse> responseObserver) {
+        OwnerEntity owner = getOwnerById(request.getOwner().getId());
+        OwnerGetDeedsResponse response =
+                OwnerGetDeedsResponse.newBuilder().setDeeds(whiteboard.getDeeds(owner)).build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void getHosts(OwnerGetHostsRequest request,
-      StreamObserver<OwnerGetHostsResponse> responseObserver) {
-    OwnerEntity owner = getOwnerById(request.getOwner().getId());
-    OwnerGetHostsResponse response =
-        OwnerGetHostsResponse.newBuilder().setHosts(whiteboard.getHosts(owner)).build();
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void getHosts(OwnerGetHostsRequest request,
+            StreamObserver<OwnerGetHostsResponse> responseObserver) {
+        OwnerEntity owner = getOwnerById(request.getOwner().getId());
+        OwnerGetHostsResponse response =
+                OwnerGetHostsResponse.newBuilder().setHosts(whiteboard.getHosts(owner)).build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void takeOwnership(OwnerTakeOwnershipRequest request,
-      StreamObserver<OwnerTakeOwnershipResponse> responseObserver) {
-    OwnerEntity owner = getOwnerById(request.getOwner().getId());
-    ownerManager.takeOwnership(owner, hostManager.findHost(request.getHost()));
-    responseObserver.onNext(OwnerTakeOwnershipResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void takeOwnership(OwnerTakeOwnershipRequest request,
+            StreamObserver<OwnerTakeOwnershipResponse> responseObserver) {
+        OwnerEntity owner = getOwnerById(request.getOwner().getId());
+        ownerManager.takeOwnership(owner, hostManager.findHost(request.getHost()));
+        responseObserver.onNext(OwnerTakeOwnershipResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void setShow(OwnerSetShowRequest request,
-      StreamObserver<OwnerSetShowResponse> responseObserver) {
-    OwnerEntity owner = getOwnerById(request.getOwner().getId());
-    ownerManager.setShow(owner, adminManager.findShowEntity(request.getShow()));
-    responseObserver.onNext(OwnerSetShowResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void setShow(OwnerSetShowRequest request,
+            StreamObserver<OwnerSetShowResponse> responseObserver) {
+        OwnerEntity owner = getOwnerById(request.getOwner().getId());
+        ownerManager.setShow(owner, adminManager.findShowEntity(request.getShow()));
+        responseObserver.onNext(OwnerSetShowResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public HostManager getHostManager() {
-    return hostManager;
-  }
+    public HostManager getHostManager() {
+        return hostManager;
+    }
 
-  public void setHostManager(HostManager hostManager) {
-    this.hostManager = hostManager;
-  }
+    public void setHostManager(HostManager hostManager) {
+        this.hostManager = hostManager;
+    }
 
-  public OwnerManager getOwnerManager() {
-    return ownerManager;
-  }
+    public OwnerManager getOwnerManager() {
+        return ownerManager;
+    }
 
-  public void setOwnerManager(OwnerManager ownerManager) {
-    this.ownerManager = ownerManager;
-  }
+    public void setOwnerManager(OwnerManager ownerManager) {
+        this.ownerManager = ownerManager;
+    }
 
-  public Whiteboard getWhiteboard() {
-    return whiteboard;
-  }
+    public Whiteboard getWhiteboard() {
+        return whiteboard;
+    }
 
-  public void setWhiteboard(Whiteboard whiteboard) {
-    this.whiteboard = whiteboard;
-  }
+    public void setWhiteboard(Whiteboard whiteboard) {
+        this.whiteboard = whiteboard;
+    }
 
-  public AdminManager getAdminManager() {
-    return adminManager;
-  }
+    public AdminManager getAdminManager() {
+        return adminManager;
+    }
 
-  public void setAdminManager(AdminManager adminManager) {
-    this.adminManager = adminManager;
-  }
+    public void setAdminManager(AdminManager adminManager) {
+        this.adminManager = adminManager;
+    }
 
-  private OwnerEntity getOwnerById(String id) {
-    return ownerManager.getOwner(id);
-  }
+    private OwnerEntity getOwnerById(String id) {
+        return ownerManager.getOwner(id);
+    }
 }

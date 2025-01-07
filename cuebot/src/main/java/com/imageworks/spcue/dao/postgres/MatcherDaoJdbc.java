@@ -32,56 +32,58 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class MatcherDaoJdbc extends JdbcDaoSupport implements MatcherDao {
 
-  private static final String INSERT_MATCHER = "INSERT INTO " + "matcher " + "( "
-      + "pk_matcher,pk_filter,str_subject,str_match,str_value" + ") VALUES (?,?,?,?,?)";
+    private static final String INSERT_MATCHER = "INSERT INTO " + "matcher " + "( "
+            + "pk_matcher,pk_filter,str_subject,str_match,str_value" + ") VALUES (?,?,?,?,?)";
 
-  public void insertMatcher(MatcherEntity matcher) {
-    matcher.id = SqlUtil.genKeyRandom();
+    public void insertMatcher(MatcherEntity matcher) {
+        matcher.id = SqlUtil.genKeyRandom();
 
-    getJdbcTemplate().update(INSERT_MATCHER, matcher.id, matcher.getFilterId(),
-        matcher.subject.toString(), matcher.type.toString(), matcher.value);
-  }
+        getJdbcTemplate().update(INSERT_MATCHER, matcher.id, matcher.getFilterId(),
+                matcher.subject.toString(), matcher.type.toString(), matcher.value);
+    }
 
-  public void deleteMatcher(MatcherInterface matcher) {
-    getJdbcTemplate().update("DELETE FROM matcher WHERE pk_matcher=?", matcher.getMatcherId());
-  }
+    public void deleteMatcher(MatcherInterface matcher) {
+        getJdbcTemplate().update("DELETE FROM matcher WHERE pk_matcher=?", matcher.getMatcherId());
+    }
 
-  private static final String GET_MATCHER = "SELECT " + "matcher.*, " + "filter.pk_show " + "FROM "
-      + "matcher, " + "filter " + "WHERE " + "matcher.pk_filter = filter.pk_filter";
+    private static final String GET_MATCHER = "SELECT " + "matcher.*, " + "filter.pk_show "
+            + "FROM " + "matcher, " + "filter " + "WHERE " + "matcher.pk_filter = filter.pk_filter";
 
-  public MatcherEntity getMatcher(String id) {
-    return getJdbcTemplate().queryForObject(GET_MATCHER + " AND matcher.pk_matcher=?",
-        MATCHER_DETAIL_MAPPER, id);
-  }
+    public MatcherEntity getMatcher(String id) {
+        return getJdbcTemplate().queryForObject(GET_MATCHER + " AND matcher.pk_matcher=?",
+                MATCHER_DETAIL_MAPPER, id);
+    }
 
-  public MatcherEntity getMatcher(MatcherInterface matcher) {
-    return getJdbcTemplate().queryForObject(GET_MATCHER + " AND matcher.pk_matcher=?",
-        MATCHER_DETAIL_MAPPER, matcher.getMatcherId());
-  }
+    public MatcherEntity getMatcher(MatcherInterface matcher) {
+        return getJdbcTemplate().queryForObject(GET_MATCHER + " AND matcher.pk_matcher=?",
+                MATCHER_DETAIL_MAPPER, matcher.getMatcherId());
+    }
 
-  public List<MatcherEntity> getMatchers(FilterInterface filter) {
-    return getJdbcTemplate().query(GET_MATCHER + " AND filter.pk_filter=? ORDER BY ts_created ASC",
-        MATCHER_DETAIL_MAPPER, filter.getFilterId());
-  }
+    public List<MatcherEntity> getMatchers(FilterInterface filter) {
+        return getJdbcTemplate().query(
+                GET_MATCHER + " AND filter.pk_filter=? ORDER BY ts_created ASC",
+                MATCHER_DETAIL_MAPPER, filter.getFilterId());
+    }
 
-  public void updateMatcher(MatcherEntity matcher) {
-    getJdbcTemplate().update(
-        "UPDATE matcher SET str_subject=?,str_match=?,str_value=? WHERE pk_matcher=?",
-        matcher.subject.toString(), matcher.type.toString(), matcher.value, matcher.getMatcherId());
-  }
+    public void updateMatcher(MatcherEntity matcher) {
+        getJdbcTemplate().update(
+                "UPDATE matcher SET str_subject=?,str_match=?,str_value=? WHERE pk_matcher=?",
+                matcher.subject.toString(), matcher.type.toString(), matcher.value,
+                matcher.getMatcherId());
+    }
 
-  public static final RowMapper<MatcherEntity> MATCHER_DETAIL_MAPPER =
-      new RowMapper<MatcherEntity>() {
-        public MatcherEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
-          MatcherEntity matcher = new MatcherEntity();
-          matcher.id = rs.getString("pk_matcher");
-          matcher.showId = rs.getString("pk_show");
-          matcher.filterId = rs.getString("pk_filter");
-          matcher.name = null;
-          matcher.subject = MatchSubject.valueOf(rs.getString("str_subject"));
-          matcher.type = MatchType.valueOf(rs.getString("str_match"));
-          matcher.value = rs.getString("str_value");
-          return matcher;
-        }
-      };
+    public static final RowMapper<MatcherEntity> MATCHER_DETAIL_MAPPER =
+            new RowMapper<MatcherEntity>() {
+                public MatcherEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    MatcherEntity matcher = new MatcherEntity();
+                    matcher.id = rs.getString("pk_matcher");
+                    matcher.showId = rs.getString("pk_show");
+                    matcher.filterId = rs.getString("pk_filter");
+                    matcher.name = null;
+                    matcher.subject = MatchSubject.valueOf(rs.getString("str_subject"));
+                    matcher.type = MatchType.valueOf(rs.getString("str_match"));
+                    matcher.value = rs.getString("str_value");
+                    return matcher;
+                }
+            };
 }

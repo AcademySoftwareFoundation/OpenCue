@@ -26,81 +26,81 @@ import com.imageworks.spcue.util.SqlUtil;
  */
 public class Redirect implements Serializable {
 
-  private static final long serialVersionUID = -6461503320817105280L;
+    private static final long serialVersionUID = -6461503320817105280L;
 
-  /**
-   * Track requests to redirect multiple procs together by assigning a group id.
-   */
-  private final String groupId;
-  private final RedirectType type;
-  private final String destinationId;
-  private final String name;
-  private final long creationTime;
+    /**
+     * Track requests to redirect multiple procs together by assigning a group id.
+     */
+    private final String groupId;
+    private final RedirectType type;
+    private final String destinationId;
+    private final String name;
+    private final long creationTime;
 
-  public static final long EXPIRE_TIME = TimeUnit.MILLISECONDS.convert(24, TimeUnit.HOURS);
+    public static final long EXPIRE_TIME = TimeUnit.MILLISECONDS.convert(24, TimeUnit.HOURS);
 
-  public Redirect(String groupId, RedirectType type, String destinationId, String name,
-      long creationTime) {
-    this.groupId = groupId;
-    this.type = type;
-    this.destinationId = destinationId;
-    this.name = name;
-    this.creationTime = creationTime;
-  }
+    public Redirect(String groupId, RedirectType type, String destinationId, String name,
+            long creationTime) {
+        this.groupId = groupId;
+        this.type = type;
+        this.destinationId = destinationId;
+        this.name = name;
+        this.creationTime = creationTime;
+    }
 
-  public Redirect(RedirectType type, String destinationId, String name) {
-    this.groupId = SqlUtil.genKeyRandom();
-    this.type = type;
-    this.destinationId = destinationId;
-    this.name = name;
-    this.creationTime = System.currentTimeMillis();
-  }
+    public Redirect(RedirectType type, String destinationId, String name) {
+        this.groupId = SqlUtil.genKeyRandom();
+        this.type = type;
+        this.destinationId = destinationId;
+        this.name = name;
+        this.creationTime = System.currentTimeMillis();
+    }
 
-  public Redirect(String groupId, JobInterface job) {
-    this.groupId = groupId;
-    this.type = RedirectType.JOB_REDIRECT;
-    this.destinationId = job.getJobId();
-    this.name = job.getName();
-    this.creationTime = System.currentTimeMillis();
-  }
+    public Redirect(String groupId, JobInterface job) {
+        this.groupId = groupId;
+        this.type = RedirectType.JOB_REDIRECT;
+        this.destinationId = job.getJobId();
+        this.name = job.getName();
+        this.creationTime = System.currentTimeMillis();
+    }
 
-  public Redirect(JobInterface job) {
-    this.groupId = SqlUtil.genKeyRandom();
-    this.type = RedirectType.JOB_REDIRECT;
-    this.destinationId = job.getJobId();
-    this.name = job.getName();
-    this.creationTime = System.currentTimeMillis();
-  }
+    public Redirect(JobInterface job) {
+        this.groupId = SqlUtil.genKeyRandom();
+        this.type = RedirectType.JOB_REDIRECT;
+        this.destinationId = job.getJobId();
+        this.name = job.getName();
+        this.creationTime = System.currentTimeMillis();
+    }
 
-  public Redirect(GroupInterface group) {
-    this.groupId = SqlUtil.genKeyRandom();
-    this.type = RedirectType.GROUP_REDIRECT;
-    this.destinationId = group.getGroupId();
-    this.name = group.getName();
-    this.creationTime = System.currentTimeMillis();
-  }
+    public Redirect(GroupInterface group) {
+        this.groupId = SqlUtil.genKeyRandom();
+        this.type = RedirectType.GROUP_REDIRECT;
+        this.destinationId = group.getGroupId();
+        this.name = group.getName();
+        this.creationTime = System.currentTimeMillis();
+    }
 
-  public String getGroupId() {
-    return groupId;
-  }
+    public String getGroupId() {
+        return groupId;
+    }
 
-  public RedirectType getType() {
-    return type;
-  }
+    public RedirectType getType() {
+        return type;
+    }
 
-  public String getDestinationId() {
-    return destinationId;
-  }
+    public String getDestinationId() {
+        return destinationId;
+    }
 
-  public String getDestinationName() {
-    return name;
-  }
+    public String getDestinationName() {
+        return name;
+    }
 
-  public boolean isExpired() {
-    return System.currentTimeMillis() - creationTime >= EXPIRE_TIME;
-  }
+    public boolean isExpired() {
+        return System.currentTimeMillis() - creationTime >= EXPIRE_TIME;
+    }
 
-  public long getCreationTime() {
-    return creationTime;
-  }
+    public long getCreationTime() {
+        return creationTime;
+    }
 }

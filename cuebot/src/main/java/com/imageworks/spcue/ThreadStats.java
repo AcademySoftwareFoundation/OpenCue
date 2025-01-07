@@ -17,23 +17,23 @@ package com.imageworks.spcue;
 
 public class ThreadStats {
 
-  private int threads;
-  private int avgFrameTime;
+    private int threads;
+    private int avgFrameTime;
 
-  public int getThreads() {
-    return threads;
-  }
+    public int getThreads() {
+        return threads;
+    }
 
-  public void setThreads(int threads) {
-    this.threads = threads;
-  }
+    public void setThreads(int threads) {
+        this.threads = threads;
+    }
 
-  public int getAvgFrameTime() {
-    return avgFrameTime;
-  }
+    public int getAvgFrameTime() {
+        return avgFrameTime;
+    }
 
-  public void setAvgFrameTime(int avgFrameTime) {
-    this.avgFrameTime = avgFrameTime;
-  }
+    public void setAvgFrameTime(int avgFrameTime) {
+        this.avgFrameTime = avgFrameTime;
+    }
 
 }

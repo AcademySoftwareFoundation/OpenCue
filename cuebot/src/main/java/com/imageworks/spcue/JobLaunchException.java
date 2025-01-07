@@ -18,23 +18,23 @@ package com.imageworks.spcue;
 @SuppressWarnings("serial")
 public class JobLaunchException extends SpcueRuntimeException {
 
-  public JobLaunchException() {
-    // TODO Auto-generated constructor stub
-  }
+    public JobLaunchException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public JobLaunchException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public JobLaunchException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public JobLaunchException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public JobLaunchException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public JobLaunchException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public JobLaunchException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

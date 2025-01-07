@@ -33,58 +33,58 @@ import org.springframework.core.env.Environment;
 
 public class ServantUtil {
 
-  public static List<LayerInterface> convertLayerFilterList(LayerSeq layers) {
-    final List<LayerInterface> result = new ArrayList<LayerInterface>();
-    for (final Layer layer : layers.getLayersList()) {
-      final String id = layer.getId();
-      result.add(new LayerInterface() {
-        String _id = id;
+    public static List<LayerInterface> convertLayerFilterList(LayerSeq layers) {
+        final List<LayerInterface> result = new ArrayList<LayerInterface>();
+        for (final Layer layer : layers.getLayersList()) {
+            final String id = layer.getId();
+            result.add(new LayerInterface() {
+                String _id = id;
 
-        public String getLayerId() {
-          return _id;
-        }
+                public String getLayerId() {
+                    return _id;
+                }
 
-        public String getJobId() {
-          throw new RuntimeException("not implemented");
-        }
+                public String getJobId() {
+                    throw new RuntimeException("not implemented");
+                }
 
-        public String getShowId() {
-          throw new RuntimeException("not implemented");
-        }
+                public String getShowId() {
+                    throw new RuntimeException("not implemented");
+                }
 
-        public String getId() {
-          return _id;
-        }
+                public String getId() {
+                    return _id;
+                }
 
-        public String getName() {
-          throw new RuntimeException("not implemented");
-        }
+                public String getName() {
+                    throw new RuntimeException("not implemented");
+                }
 
-        public String getFacilityId() {
-          throw new RuntimeException("not implemented");
+                public String getFacilityId() {
+                    throw new RuntimeException("not implemented");
+                }
+            });
         }
-      });
+        return result;
     }
-    return result;
-  }
 
-  private static boolean isJobFinished(Environment env, String property, JobManager jobManager,
-      JobInterface job) {
-    if (env.getProperty(property, String.class) != null
-        && Objects.equals(env.getProperty(property, String.class), "true")) {
-      JobDetail jobDetail = jobManager.getJobDetail(job.getJobId());
-      return jobDetail.state == JobState.FINISHED;
+    private static boolean isJobFinished(Environment env, String property, JobManager jobManager,
+            JobInterface job) {
+        if (env.getProperty(property, String.class) != null
+                && Objects.equals(env.getProperty(property, String.class), "true")) {
+            JobDetail jobDetail = jobManager.getJobDetail(job.getJobId());
+            return jobDetail.state == JobState.FINISHED;
+        }
+        return false;
     }
-    return false;
-  }
 
-  public static <T> boolean attemptChange(Environment env, String property, JobManager jobManager,
-      JobInterface job, StreamObserver<T> responseObserver) {
-    if (ServantUtil.isJobFinished(env, property, jobManager, job)) {
-      responseObserver.onError(Status.FAILED_PRECONDITION
-          .withDescription("Finished jobs are readonly").asRuntimeException());
-      return false;
+    public static <T> boolean attemptChange(Environment env, String property, JobManager jobManager,
+            JobInterface job, StreamObserver<T> responseObserver) {
+        if (ServantUtil.isJobFinished(env, property, jobManager, job)) {
+            responseObserver.onError(Status.FAILED_PRECONDITION
+                    .withDescription("Finished jobs are readonly").asRuntimeException());
+            return false;
+        }
+        return true;
     }
-    return true;
-  }
 }

@@ -22,59 +22,59 @@ import com.imageworks.spcue.grpc.depend.DependTarget;
  */
 public abstract class AbstractDepend {
 
-  private boolean launch = false;
-  private boolean active = true;
-  private boolean anyFrame = false;
+    private boolean launch = false;
+    private boolean active = true;
+    private boolean anyFrame = false;
 
-  /**
-   * True if the dependency is just a container for other depends and cannot be satisfied by frames
-   * completing. Its essentially a way to group related depends.
-   */
-  private boolean composite = false;
+    /**
+     * True if the dependency is just a container for other depends and cannot be satisfied by
+     * frames completing. Its essentially a way to group related depends.
+     */
+    private boolean composite = false;
 
-  private String id = null;
+    private String id = null;
 
-  public String getId() {
-    return id;
-  }
+    public String getId() {
+        return id;
+    }
 
-  public boolean isActive() {
-    return active;
-  }
+    public boolean isActive() {
+        return active;
+    }
 
-  public boolean isAnyFrame() {
-    return anyFrame;
-  }
+    public boolean isAnyFrame() {
+        return anyFrame;
+    }
 
-  public void setAnyFrame(boolean anyFrame) {
-    this.anyFrame = anyFrame;
-  }
+    public void setAnyFrame(boolean anyFrame) {
+        this.anyFrame = anyFrame;
+    }
 
-  public void setActive(boolean active) {
-    this.active = active;
-  }
+    public void setActive(boolean active) {
+        this.active = active;
+    }
 
-  public void setId(String id) {
-    this.id = id;
-  }
+    public void setId(String id) {
+        this.id = id;
+    }
 
-  public boolean isLaunchDepend() {
-    return launch;
-  }
+    public boolean isLaunchDepend() {
+        return launch;
+    }
 
-  public void setLaunchDepend(boolean launch) {
-    this.launch = launch;
-  }
+    public void setLaunchDepend(boolean launch) {
+        this.launch = launch;
+    }
 
-  public boolean isComposite() {
-    return composite;
-  }
+    public boolean isComposite() {
+        return composite;
+    }
 
-  public void setComposite(boolean composite) {
-    this.composite = composite;
-  }
+    public void setComposite(boolean composite) {
+        this.composite = composite;
+    }
 
-  public abstract String getSignature();
+    public abstract String getSignature();
 
-  public abstract DependTarget getTarget();
+    public abstract DependTarget getTarget();
 }

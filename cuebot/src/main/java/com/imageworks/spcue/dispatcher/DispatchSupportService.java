@@ -62,617 +62,622 @@ import com.imageworks.spcue.util.FrameSet;
 
 @Transactional(propagation = Propagation.REQUIRED)
 public class DispatchSupportService implements DispatchSupport {
-  private static final Logger logger = LogManager.getLogger(DispatchSupportService.class);
+    private static final Logger logger = LogManager.getLogger(DispatchSupportService.class);
 
-  private JobDao jobDao;
-  private FrameDao frameDao;
-  private LayerDao layerDao;
-  private ProcDao procDao;
-  private HostDao hostDao;
-  private ShowDao showDao;
-  private DispatcherDao dispatcherDao;
-  private DependManager dependManager;
-  private SubscriptionDao subscriptionDao;
-  private RqdClient rqdClient;
-  private RedirectManager redirectManager;
-  private BookingManager bookingManager;
-  private BookingDao bookingDao;
+    private JobDao jobDao;
+    private FrameDao frameDao;
+    private LayerDao layerDao;
+    private ProcDao procDao;
+    private HostDao hostDao;
+    private ShowDao showDao;
+    private DispatcherDao dispatcherDao;
+    private DependManager dependManager;
+    private SubscriptionDao subscriptionDao;
+    private RqdClient rqdClient;
+    private RedirectManager redirectManager;
+    private BookingManager bookingManager;
+    private BookingDao bookingDao;
 
-  private ConcurrentHashMap<String, StrandedCores> strandedCores =
-      new ConcurrentHashMap<String, StrandedCores>();
+    private ConcurrentHashMap<String, StrandedCores> strandedCores =
+            new ConcurrentHashMap<String, StrandedCores>();
 
-  @Override
-  public void pickupStrandedCores(DispatchHost host) {
-    logger.info(host + "picked up stranded cores");
-    pickedUpCoresCount.getAndIncrement();
-    strandedCores.remove(host.getHostId());
-  }
-
-  @Override
-  public boolean hasStrandedCores(HostInterface host) {
-    StrandedCores stranded = strandedCores.get(host.getHostId());
-    if (stranded == null) {
-      return false;
-    }
-    if (stranded.isExpired()) {
-      return false;
+    @Override
+    public void pickupStrandedCores(DispatchHost host) {
+        logger.info(host + "picked up stranded cores");
+        pickedUpCoresCount.getAndIncrement();
+        strandedCores.remove(host.getHostId());
     }
 
-    return true;
-  }
-
-  @Override
-  public void strandCores(DispatchHost host, int cores) {
-    logger.info(host + " found " + cores + ", stranded cores");
-    host.strandedCores = cores;
-    if (host.threadMode != ThreadMode.VARIABLE.getNumber()) {
-      host.threadMode = ThreadMode.ALL.getNumber();
-    }
-    strandedCores.putIfAbsent(host.getHostId(), new StrandedCores(cores));
-    strandedCoresCount.getAndIncrement();
-  }
-
-  @Transactional(readOnly = true)
-  public List<DispatchFrame> findNextDispatchFrames(JobInterface job, VirtualProc proc, int limit) {
-    return dispatcherDao.findNextDispatchFrames(job, proc, limit);
-  }
-
-  @Transactional(readOnly = true)
-  public List<DispatchFrame> findNextDispatchFrames(JobInterface job, DispatchHost host,
-      int limit) {
-    return dispatcherDao.findNextDispatchFrames(job, host, limit);
-  }
-
-  @Override
-  @Transactional(readOnly = true)
-  public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host,
-      int limit) {
-    return dispatcherDao.findNextDispatchFrames(layer, host, limit);
-  }
-
-  @Override
-  @Transactional(readOnly = true)
-  public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, VirtualProc proc,
-      int limit) {
-    return dispatcherDao.findNextDispatchFrames(layer, proc, limit);
-  }
-
-  @Transactional(readOnly = true)
-  public boolean findUnderProcedJob(JobInterface excludeJob, VirtualProc proc) {
-    return dispatcherDao.findUnderProcedJob(excludeJob, proc);
-  }
-
-  @Transactional(readOnly = true)
-  public boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc) {
-    return dispatcherDao.higherPriorityJobExists(baseJob, proc);
-  }
-
-  @Transactional(readOnly = true)
-  public Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
-    return dispatcherDao.findDispatchJobsForAllShows(host, numJobs);
-  }
-
-  @Transactional(readOnly = true)
-  public Set<String> findDispatchJobs(DispatchHost host, int numJobs) {
-    return dispatcherDao.findDispatchJobs(host, numJobs);
-  }
-
-  @Transactional(readOnly = true)
-  public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
-    return dispatcherDao.findDispatchJobs(host, g);
-  }
-
-  @Override
-  @Transactional(readOnly = true)
-  public Set<String> findLocalDispatchJobs(DispatchHost host) {
-    return dispatcherDao.findLocalDispatchJobs(host);
-  }
-
-  @Override
-  @Transactional(readOnly = true)
-  public Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs) {
-    return dispatcherDao.findDispatchJobs(host, show, numJobs);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public boolean increaseReservedMemory(ProcInterface p, long value) {
-    return procDao.increaseReservedMemory(p, value);
-  }
-
-  @Override
-  public boolean clearVirtualProcAssignement(ProcInterface proc) {
-    try {
-      return procDao.clearVirtualProcAssignment(proc);
-    } catch (DataAccessException e) {
-      return false;
-    }
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public boolean balanceReservedMemory(ProcInterface targetProc, long targetMem) {
-    boolean result = procDao.balanceUnderUtilizedProcs(targetProc, targetMem);
-    if (result) {
-      DispatchSupport.balanceSuccess.incrementAndGet();
-    } else {
-      DispatchSupport.balanceFailed.incrementAndGet();
-    }
-    return result;
-  }
-
-  @Transactional(propagation = Propagation.NEVER)
-  public void runFrame(VirtualProc proc, DispatchFrame frame) {
-    try {
-      rqdClient.launchFrame(prepareRqdRunFrame(proc, frame), proc);
-      dispatchedProcs.getAndIncrement();
-    } catch (Exception e) {
-      throw new DispatcherException(
-          proc.getName() + " could not be booked on " + frame.getName() + ", " + e);
-    }
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void startFrameAndProc(VirtualProc proc, DispatchFrame frame) {
-    logger.trace("starting frame: " + frame);
-
-    frameDao.updateFrameStarted(proc, frame);
-
-    reserveProc(proc, frame);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isCueBookable(FacilityInterface f) {
-    return jobDao.cueHasPendingJobs(f);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isJobDispatchable(JobInterface job, boolean local) {
-
-    if (!jobDao.hasPendingFrames(job)) {
-      return false;
-    }
-
-    if (!local && jobDao.isOverMaxCores(job)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isJobBookable(JobInterface job) {
-
-    if (!jobDao.hasPendingFrames(job)) {
-      return false;
-    }
-
-    if (jobDao.isAtMaxCores(job)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isJobBookable(JobInterface job, int coreUnits, int gpuUnits) {
-
-    if (!jobDao.hasPendingFrames(job)) {
-      return false;
-    }
-
-    if (jobDao.isOverMaxCores(job, coreUnits)) {
-      return false;
-    }
-
-    if (jobDao.isOverMaxGpus(job, gpuUnits)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean hasPendingFrames(JobInterface job) {
-
-    if (!jobDao.hasPendingFrames(job)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean hasPendingFrames(LayerInterface layer) {
-    return layerDao.isLayerDispatchable(layer);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isShowOverBurst(VirtualProc proc) {
-    return subscriptionDao.isShowOverBurst((ShowInterface) proc, (AllocationInterface) proc, 0);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isShowOverBurst(ShowInterface show, AllocationInterface alloc, int coreUnits) {
-    return subscriptionDao.isShowOverBurst(show, alloc, coreUnits);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isShowAtOrOverBurst(ShowInterface show, AllocationInterface alloc) {
-    return subscriptionDao.isShowAtOrOverBurst(show, alloc);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isShowOverSize(VirtualProc proc) {
-    return subscriptionDao.isShowOverSize(proc);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED)
-  public boolean stopFrame(FrameInterface frame, FrameState state, int exitStatus) {
-    logger.trace("stopping frame " + frame);
-    if (frameDao.updateFrameStopped(frame, state, exitStatus)) {
-      procDao.clearVirtualProcAssignment(frame);
-      return true;
-    }
-
-    return false;
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED)
-  public boolean stopFrame(FrameInterface frame, FrameState state, int exitStatus, long maxRss) {
-    logger.trace("stopping frame: " + frame);
-    if (frameDao.updateFrameStopped(frame, state, exitStatus, maxRss)) {
-      // Update max rss up the chain.
-      layerDao.updateLayerMaxRSS(frame, maxRss, false);
-      jobDao.updateMaxRSS(frame, maxRss);
-
-      procDao.clearVirtualProcAssignment(frame);
-      return true;
-    }
-
-    return false;
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void clearFrame(DispatchFrame frame) {
-    logger.trace("clearing frame: " + frame);
-    frameDao.updateFrameCleared(frame);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED)
-  public boolean updateFrameMemoryError(FrameInterface frame) {
-    return frameDao.updateFrameMemoryError(frame);
-  }
-
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public RunFrame prepareRqdRunFrame(VirtualProc proc, DispatchFrame frame) {
-    int threads = proc.coresReserved / 100;
-    if (threads < 1) {
-      threads = 1;
-    }
-
-    int frameNumber = Integer.valueOf(frame.name.substring(0, frame.name.indexOf("-")));
-    String zFrameNumber = String.format("%04d", frameNumber);
-
-    FrameSet fs = new FrameSet(frame.range);
-    int startFrameIndex = fs.index(frameNumber);
-    String frameSpec = fs.getChunk(startFrameIndex, frame.chunkSize);
-
-    FrameSet chunkFrameSet = new FrameSet(frameSpec);
-    int chunkEndFrame = chunkFrameSet.get(chunkFrameSet.size() - 1);
-
-    RunFrame.Builder builder = RunFrame.newBuilder().setShot(frame.shot).setShow(frame.show)
-        .setUserName(frame.owner).setLogDir(frame.logDir).setJobId(frame.jobId)
-        .setJobName(frame.jobName).setFrameId(frame.id).setFrameName(frame.name)
-        .setLayerId(frame.getLayerId()).setResourceId(proc.getProcId())
-        .setNumCores(proc.coresReserved).setNumGpus(proc.gpusReserved)
-        .setStartTime(System.currentTimeMillis()).setIgnoreNimby(proc.isLocalDispatch)
-        .setOs(proc.os).setSoftMemoryLimit(frame.softMemoryLimit)
-        .setHardMemoryLimit(frame.hardMemoryLimit).putAllEnvironment(jobDao.getEnvironment(frame))
-        .putAllEnvironment(layerDao.getLayerEnvironment(frame)).putEnvironment("CUE3", "1")
-        .putEnvironment("CUE_THREADS", String.valueOf(threads))
-        .putEnvironment("CUE_MEMORY", String.valueOf(proc.memoryReserved))
-        .putEnvironment("CUE_GPUS", String.valueOf(proc.gpusReserved))
-        .putEnvironment("CUE_GPU_MEMORY", String.valueOf(proc.gpuMemoryReserved))
-        .putEnvironment("CUE_LOG_PATH", frame.logDir).putEnvironment("CUE_RANGE", frame.range)
-        .putEnvironment("CUE_CHUNK", String.valueOf(frame.chunkSize))
-        .putEnvironment("CUE_IFRAME", String.valueOf(frameNumber))
-        .putEnvironment("CUE_LAYER", frame.layerName).putEnvironment("CUE_JOB", frame.jobName)
-        .putEnvironment("CUE_FRAME", frame.name).putEnvironment("CUE_SHOW", frame.show)
-        .putEnvironment("CUE_SHOT", frame.shot).putEnvironment("CUE_USER", frame.owner)
-        .putEnvironment("CUE_JOB_ID", frame.jobId).putEnvironment("CUE_LAYER_ID", frame.layerId)
-        .putEnvironment("CUE_FRAME_ID", frame.id)
-        .putEnvironment("CUE_THREADABLE", frame.threadable ? "1" : "0")
-        .setCommand(frame.command.replaceAll("#ZFRAME#", zFrameNumber)
-            .replaceAll("#IFRAME#", String.valueOf(frameNumber))
-            .replaceAll("#FRAME_START#", String.valueOf(frameNumber))
-            .replaceAll("#FRAME_END#", String.valueOf(chunkEndFrame))
-            .replaceAll("#FRAME_CHUNK#", String.valueOf(frame.chunkSize))
-            .replaceAll("#LAYER#", frame.layerName).replaceAll("#JOB#", frame.jobName)
-            .replaceAll("#FRAMESPEC#", frameSpec).replaceAll("#FRAME#", frame.name));
-    /*
-     * The special command tokens above (#ZFRAME# and others) are provided to the user in cuesubmit.
-     * see: cuesubmit/cuesubmit/Constants.py Update the Constant.py file when updating tokens here,
-     * they will appear in the cuesubmit tooltip popup.
-     */
-
-    frame.uid.ifPresent(builder::setUid);
-
-    return builder.build();
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void fixFrame(DispatchFrame frame) {
-    long numFixed = DispatchSupport.fixedFrames.incrementAndGet();
-
-    logger.trace("fixing frame #: " + numFixed + " ," + frame);
-
-    VirtualProc proc = null;
-    try {
-      proc = procDao.findVirtualProc(frame);
-    } catch (Exception e) {
-      // Can't even find the damn proc, which i'm
-      logger.info("attempted to fix a frame but the proc " + "wasn't found!");
-      return;
-    }
-
-    if (frameDao.updateFrameFixed(proc, frame)) {
-      logger.info("the frame " + frame.getId() + " was fixed.");
-    }
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void updateUsageCounters(FrameInterface frame, int exitStatus) {
-    try {
-      ResourceUsage usage = frameDao.getResourceUsage(frame);
-      showDao.updateFrameCounters(frame, exitStatus);
-      jobDao.updateUsage(frame, usage, exitStatus);
-      layerDao.updateUsage(frame, usage, exitStatus);
-    } catch (Exception e) {
-      logger.info("Unable to find and update resource usage for " + "frame, " + frame
-          + " while updating frame with " + "exit status " + exitStatus + "," + e);
-    }
-  }
-
-  private void reserveProc(VirtualProc proc, DispatchFrame frame) {
-
-    proc.jobId = frame.getJobId();
-    proc.frameId = frame.getFrameId();
-    proc.layerId = frame.getLayerId();
-    proc.showId = frame.getShowId();
-
-    if (proc.isNew()) {
-      logger.info("creating proc " + proc.getName() + " for " + frame.getName());
-      procDao.insertVirtualProc(proc);
-    } else {
-      logger.info("updated proc " + proc.getName() + " for " + frame.getName());
-      procDao.updateVirtualProcAssignment(proc);
-    }
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void unbookProc(VirtualProc proc) {
-    unbookProc(proc, "was unbooked");
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void unbookProc(VirtualProc proc, String reason) {
-    if (proc == null) {
-      return;
-    }
-    if (proc.isNew()) {
-      return;
-    }
-    proc.unbooked = true;
-    procDao.deleteVirtualProc(proc);
-    DispatchSupport.unbookedProcs.getAndIncrement();
-    logger.info(proc + " " + reason);
-
-    /*
-     * Remove the local dispatch record if it has gone inactive.
-     */
-    if (proc.isLocalDispatch) {
-      try {
-        bookingManager.removeInactiveLocalHostAssignment(
-            bookingDao.getLocalJobAssignment(proc.getHostId(), proc.getJobId()));
-      } catch (EmptyResultDataAccessException e) {
-        // Eat the exception.
-      }
-    }
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void lostProc(VirtualProc proc, String reason, int exitStatus) {
-    long numCleared = clearedProcs.incrementAndGet();
-
-    unbookProc(proc, "proc " + proc.getName() + " is #" + numCleared + " cleared: " + reason);
-
-    if (proc.frameId != null) {
-      FrameInterface f = frameDao.getFrame(proc.frameId);
-      /*
-       * Set the checkpoint state to disabled before stopping the the frame because it will go to
-       * the checkpoint state. This is not desirable when we're clearing off processes that were
-       * lost due to a machine crash.
-       */
-      frameDao.updateFrameCheckpointState(f, CheckpointState.DISABLED);
-      /*
-       * If the proc has a frame, stop the frame. Frames can only be stopped that are running.
-       */
-      if (frameDao.updateFrameStopped(f, FrameState.WAITING, exitStatus)) {
-        updateUsageCounters(proc, exitStatus);
-      }
-      /*
-       * If the frame is not running, check if frame is in dead state, frames that died due to host
-       * going down should be put back into WAITING status.
-       */
-      else {
-        FrameDetail frameDetail = frameDao.getFrameDetail(f);
-        if ((frameDetail.state == FrameState.DEAD)
-            && (Dispatcher.EXIT_STATUS_DOWN_HOST == exitStatus)) {
-          if (frameDao.updateFrameHostDown(f)) {
-            logger.info("update frame " + f.getFrameId() + "to WAITING status for down host");
-          }
+    @Override
+    public boolean hasStrandedCores(HostInterface host) {
+        StrandedCores stranded = strandedCores.get(host.getHostId());
+        if (stranded == null) {
+            return false;
         }
-      }
-    } else {
-      logger.info("Frame ID is NULL, not updating Frame state");
+        if (stranded.isExpired()) {
+            return false;
+        }
+
+        return true;
     }
-  }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss, long vsize,
-      long maxVsize, long usedGpuMemory, long maxUsedGpuMemory, long usedSwapMemory,
-      byte[] children) {
-    procDao.updateProcMemoryUsage(frame, rss, maxRss, vsize, maxVsize, usedGpuMemory,
-        maxUsedGpuMemory, usedSwapMemory, children);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void updateFrameMemoryUsageAndLluTime(FrameInterface frame, long rss, long maxRss,
-      long lluTime) {
-
-    try {
-      frameDao.updateFrameMemoryUsageAndLluTime(frame, maxRss, rss, lluTime);
-    } catch (FrameReservationException ex) {
-      // Eat this, the frame was not in the correct state or
-      // was locked by another thread. The only reason it would
-      // be locked by another thread would be if the state is
-      // changing.
-      logger.warn("failed to update memory usage and LLU time for frame: " + frame);
+    @Override
+    public void strandCores(DispatchHost host, int cores) {
+        logger.info(host + " found " + cores + ", stranded cores");
+        host.strandedCores = cores;
+        if (host.threadMode != ThreadMode.VARIABLE.getNumber()) {
+            host.threadMode = ThreadMode.ALL.getNumber();
+        }
+        strandedCores.putIfAbsent(host.getHostId(), new StrandedCores(cores));
+        strandedCoresCount.getAndIncrement();
     }
-  }
 
-  @Override
-  public void determineIdleCores(DispatchHost host, int load) {
-    int maxLoad = host.cores + ((host.cores / 100) * Dispatcher.CORE_LOAD_THRESHOLD);
-
-    int idleCores = maxLoad - load;
-    if (idleCores < host.idleCores) {
-      host.idleCores = idleCores;
+    @Transactional(readOnly = true)
+    public List<DispatchFrame> findNextDispatchFrames(JobInterface job, VirtualProc proc,
+            int limit) {
+        return dispatcherDao.findNextDispatchFrames(job, proc, limit);
     }
-  }
 
-  public DispatcherDao getDispatcherDao() {
-    return dispatcherDao;
-  }
+    @Transactional(readOnly = true)
+    public List<DispatchFrame> findNextDispatchFrames(JobInterface job, DispatchHost host,
+            int limit) {
+        return dispatcherDao.findNextDispatchFrames(job, host, limit);
+    }
 
-  public void setDispatcherDao(DispatcherDao dispatcherDao) {
-    this.dispatcherDao = dispatcherDao;
-  }
+    @Override
+    @Transactional(readOnly = true)
+    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host,
+            int limit) {
+        return dispatcherDao.findNextDispatchFrames(layer, host, limit);
+    }
 
-  public FrameDao getFrameDao() {
-    return frameDao;
-  }
+    @Override
+    @Transactional(readOnly = true)
+    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, VirtualProc proc,
+            int limit) {
+        return dispatcherDao.findNextDispatchFrames(layer, proc, limit);
+    }
 
-  public void setFrameDao(FrameDao frameDao) {
-    this.frameDao = frameDao;
-  }
+    @Transactional(readOnly = true)
+    public boolean findUnderProcedJob(JobInterface excludeJob, VirtualProc proc) {
+        return dispatcherDao.findUnderProcedJob(excludeJob, proc);
+    }
 
-  public JobDao getJobDao() {
-    return jobDao;
-  }
+    @Transactional(readOnly = true)
+    public boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc) {
+        return dispatcherDao.higherPriorityJobExists(baseJob, proc);
+    }
 
-  public void setJobDao(JobDao jobDao) {
-    this.jobDao = jobDao;
-  }
+    @Transactional(readOnly = true)
+    public Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
+        return dispatcherDao.findDispatchJobsForAllShows(host, numJobs);
+    }
 
-  public ProcDao getProcDao() {
-    return procDao;
-  }
+    @Transactional(readOnly = true)
+    public Set<String> findDispatchJobs(DispatchHost host, int numJobs) {
+        return dispatcherDao.findDispatchJobs(host, numJobs);
+    }
 
-  public void setProcDao(ProcDao procDao) {
-    this.procDao = procDao;
-  }
+    @Transactional(readOnly = true)
+    public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
+        return dispatcherDao.findDispatchJobs(host, g);
+    }
 
-  public DependManager getDependManager() {
-    return dependManager;
-  }
+    @Override
+    @Transactional(readOnly = true)
+    public Set<String> findLocalDispatchJobs(DispatchHost host) {
+        return dispatcherDao.findLocalDispatchJobs(host);
+    }
 
-  public void setDependManager(DependManager dependManager) {
-    this.dependManager = dependManager;
-  }
+    @Override
+    @Transactional(readOnly = true)
+    public Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs) {
+        return dispatcherDao.findDispatchJobs(host, show, numJobs);
+    }
 
-  public LayerDao getLayerDao() {
-    return layerDao;
-  }
+    @Transactional(propagation = Propagation.REQUIRED)
+    public boolean increaseReservedMemory(ProcInterface p, long value) {
+        return procDao.increaseReservedMemory(p, value);
+    }
 
-  public void setLayerDao(LayerDao layerDao) {
-    this.layerDao = layerDao;
-  }
+    @Override
+    public boolean clearVirtualProcAssignement(ProcInterface proc) {
+        try {
+            return procDao.clearVirtualProcAssignment(proc);
+        } catch (DataAccessException e) {
+            return false;
+        }
+    }
 
-  public HostDao getHostDao() {
-    return hostDao;
-  }
+    @Transactional(propagation = Propagation.REQUIRED)
+    public boolean balanceReservedMemory(ProcInterface targetProc, long targetMem) {
+        boolean result = procDao.balanceUnderUtilizedProcs(targetProc, targetMem);
+        if (result) {
+            DispatchSupport.balanceSuccess.incrementAndGet();
+        } else {
+            DispatchSupport.balanceFailed.incrementAndGet();
+        }
+        return result;
+    }
 
-  public void setHostDao(HostDao hostDao) {
-    this.hostDao = hostDao;
-  }
+    @Transactional(propagation = Propagation.NEVER)
+    public void runFrame(VirtualProc proc, DispatchFrame frame) {
+        try {
+            rqdClient.launchFrame(prepareRqdRunFrame(proc, frame), proc);
+            dispatchedProcs.getAndIncrement();
+        } catch (Exception e) {
+            throw new DispatcherException(
+                    proc.getName() + " could not be booked on " + frame.getName() + ", " + e);
+        }
+    }
 
-  public RqdClient getRqdClient() {
-    return rqdClient;
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void startFrameAndProc(VirtualProc proc, DispatchFrame frame) {
+        logger.trace("starting frame: " + frame);
 
-  public void setRqdClient(RqdClient rqdClient) {
-    this.rqdClient = rqdClient;
-  }
+        frameDao.updateFrameStarted(proc, frame);
 
-  public SubscriptionDao getSubscriptionDao() {
-    return subscriptionDao;
-  }
+        reserveProc(proc, frame);
+    }
 
-  public void setSubscriptionDao(SubscriptionDao subscriptionDao) {
-    this.subscriptionDao = subscriptionDao;
-  }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isCueBookable(FacilityInterface f) {
+        return jobDao.cueHasPendingJobs(f);
+    }
 
-  public RedirectManager getRedirectManager() {
-    return redirectManager;
-  }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isJobDispatchable(JobInterface job, boolean local) {
 
-  public void setRedirectManager(RedirectManager redirectManager) {
-    this.redirectManager = redirectManager;
-  }
+        if (!jobDao.hasPendingFrames(job)) {
+            return false;
+        }
 
-  public ShowDao getShowDao() {
-    return showDao;
-  }
+        if (!local && jobDao.isOverMaxCores(job)) {
+            return false;
+        }
 
-  public void setShowDao(ShowDao showDao) {
-    this.showDao = showDao;
-  }
+        return true;
+    }
 
-  public BookingManager getBookingManager() {
-    return bookingManager;
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isJobBookable(JobInterface job) {
 
-  public void setBookingManager(BookingManager bookingManager) {
-    this.bookingManager = bookingManager;
-  }
+        if (!jobDao.hasPendingFrames(job)) {
+            return false;
+        }
 
-  public BookingDao getBookingDao() {
-    return bookingDao;
-  }
+        if (jobDao.isAtMaxCores(job)) {
+            return false;
+        }
 
-  public void setBookingDao(BookingDao bookingDao) {
-    this.bookingDao = bookingDao;
-  }
+        return true;
+    }
 
-  @Override
-  public void clearCache() {
-    dispatcherDao.clearCache();
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isJobBookable(JobInterface job, int coreUnits, int gpuUnits) {
+
+        if (!jobDao.hasPendingFrames(job)) {
+            return false;
+        }
+
+        if (jobDao.isOverMaxCores(job, coreUnits)) {
+            return false;
+        }
+
+        if (jobDao.isOverMaxGpus(job, gpuUnits)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean hasPendingFrames(JobInterface job) {
+
+        if (!jobDao.hasPendingFrames(job)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean hasPendingFrames(LayerInterface layer) {
+        return layerDao.isLayerDispatchable(layer);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isShowOverBurst(VirtualProc proc) {
+        return subscriptionDao.isShowOverBurst((ShowInterface) proc, (AllocationInterface) proc, 0);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isShowOverBurst(ShowInterface show, AllocationInterface alloc, int coreUnits) {
+        return subscriptionDao.isShowOverBurst(show, alloc, coreUnits);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isShowAtOrOverBurst(ShowInterface show, AllocationInterface alloc) {
+        return subscriptionDao.isShowAtOrOverBurst(show, alloc);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isShowOverSize(VirtualProc proc) {
+        return subscriptionDao.isShowOverSize(proc);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public boolean stopFrame(FrameInterface frame, FrameState state, int exitStatus) {
+        logger.trace("stopping frame " + frame);
+        if (frameDao.updateFrameStopped(frame, state, exitStatus)) {
+            procDao.clearVirtualProcAssignment(frame);
+            return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public boolean stopFrame(FrameInterface frame, FrameState state, int exitStatus, long maxRss) {
+        logger.trace("stopping frame: " + frame);
+        if (frameDao.updateFrameStopped(frame, state, exitStatus, maxRss)) {
+            // Update max rss up the chain.
+            layerDao.updateLayerMaxRSS(frame, maxRss, false);
+            jobDao.updateMaxRSS(frame, maxRss);
+
+            procDao.clearVirtualProcAssignment(frame);
+            return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void clearFrame(DispatchFrame frame) {
+        logger.trace("clearing frame: " + frame);
+        frameDao.updateFrameCleared(frame);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public boolean updateFrameMemoryError(FrameInterface frame) {
+        return frameDao.updateFrameMemoryError(frame);
+    }
+
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public RunFrame prepareRqdRunFrame(VirtualProc proc, DispatchFrame frame) {
+        int threads = proc.coresReserved / 100;
+        if (threads < 1) {
+            threads = 1;
+        }
+
+        int frameNumber = Integer.valueOf(frame.name.substring(0, frame.name.indexOf("-")));
+        String zFrameNumber = String.format("%04d", frameNumber);
+
+        FrameSet fs = new FrameSet(frame.range);
+        int startFrameIndex = fs.index(frameNumber);
+        String frameSpec = fs.getChunk(startFrameIndex, frame.chunkSize);
+
+        FrameSet chunkFrameSet = new FrameSet(frameSpec);
+        int chunkEndFrame = chunkFrameSet.get(chunkFrameSet.size() - 1);
+
+        RunFrame.Builder builder = RunFrame.newBuilder().setShot(frame.shot).setShow(frame.show)
+                .setUserName(frame.owner).setLogDir(frame.logDir).setJobId(frame.jobId)
+                .setJobName(frame.jobName).setFrameId(frame.id).setFrameName(frame.name)
+                .setLayerId(frame.getLayerId()).setResourceId(proc.getProcId())
+                .setNumCores(proc.coresReserved).setNumGpus(proc.gpusReserved)
+                .setStartTime(System.currentTimeMillis()).setIgnoreNimby(proc.isLocalDispatch)
+                .setOs(proc.os).setSoftMemoryLimit(frame.softMemoryLimit)
+                .setHardMemoryLimit(frame.hardMemoryLimit)
+                .putAllEnvironment(jobDao.getEnvironment(frame))
+                .putAllEnvironment(layerDao.getLayerEnvironment(frame)).putEnvironment("CUE3", "1")
+                .putEnvironment("CUE_THREADS", String.valueOf(threads))
+                .putEnvironment("CUE_MEMORY", String.valueOf(proc.memoryReserved))
+                .putEnvironment("CUE_GPUS", String.valueOf(proc.gpusReserved))
+                .putEnvironment("CUE_GPU_MEMORY", String.valueOf(proc.gpuMemoryReserved))
+                .putEnvironment("CUE_LOG_PATH", frame.logDir)
+                .putEnvironment("CUE_RANGE", frame.range)
+                .putEnvironment("CUE_CHUNK", String.valueOf(frame.chunkSize))
+                .putEnvironment("CUE_IFRAME", String.valueOf(frameNumber))
+                .putEnvironment("CUE_LAYER", frame.layerName)
+                .putEnvironment("CUE_JOB", frame.jobName).putEnvironment("CUE_FRAME", frame.name)
+                .putEnvironment("CUE_SHOW", frame.show).putEnvironment("CUE_SHOT", frame.shot)
+                .putEnvironment("CUE_USER", frame.owner).putEnvironment("CUE_JOB_ID", frame.jobId)
+                .putEnvironment("CUE_LAYER_ID", frame.layerId)
+                .putEnvironment("CUE_FRAME_ID", frame.id)
+                .putEnvironment("CUE_THREADABLE", frame.threadable ? "1" : "0")
+                .setCommand(frame.command.replaceAll("#ZFRAME#", zFrameNumber)
+                        .replaceAll("#IFRAME#", String.valueOf(frameNumber))
+                        .replaceAll("#FRAME_START#", String.valueOf(frameNumber))
+                        .replaceAll("#FRAME_END#", String.valueOf(chunkEndFrame))
+                        .replaceAll("#FRAME_CHUNK#", String.valueOf(frame.chunkSize))
+                        .replaceAll("#LAYER#", frame.layerName).replaceAll("#JOB#", frame.jobName)
+                        .replaceAll("#FRAMESPEC#", frameSpec).replaceAll("#FRAME#", frame.name));
+        /*
+         * The special command tokens above (#ZFRAME# and others) are provided to the user in
+         * cuesubmit. see: cuesubmit/cuesubmit/Constants.py Update the Constant.py file when
+         * updating tokens here, they will appear in the cuesubmit tooltip popup.
+         */
+
+        frame.uid.ifPresent(builder::setUid);
+
+        return builder.build();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void fixFrame(DispatchFrame frame) {
+        long numFixed = DispatchSupport.fixedFrames.incrementAndGet();
+
+        logger.trace("fixing frame #: " + numFixed + " ," + frame);
+
+        VirtualProc proc = null;
+        try {
+            proc = procDao.findVirtualProc(frame);
+        } catch (Exception e) {
+            // Can't even find the damn proc, which i'm
+            logger.info("attempted to fix a frame but the proc " + "wasn't found!");
+            return;
+        }
+
+        if (frameDao.updateFrameFixed(proc, frame)) {
+            logger.info("the frame " + frame.getId() + " was fixed.");
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void updateUsageCounters(FrameInterface frame, int exitStatus) {
+        try {
+            ResourceUsage usage = frameDao.getResourceUsage(frame);
+            showDao.updateFrameCounters(frame, exitStatus);
+            jobDao.updateUsage(frame, usage, exitStatus);
+            layerDao.updateUsage(frame, usage, exitStatus);
+        } catch (Exception e) {
+            logger.info("Unable to find and update resource usage for " + "frame, " + frame
+                    + " while updating frame with " + "exit status " + exitStatus + "," + e);
+        }
+    }
+
+    private void reserveProc(VirtualProc proc, DispatchFrame frame) {
+
+        proc.jobId = frame.getJobId();
+        proc.frameId = frame.getFrameId();
+        proc.layerId = frame.getLayerId();
+        proc.showId = frame.getShowId();
+
+        if (proc.isNew()) {
+            logger.info("creating proc " + proc.getName() + " for " + frame.getName());
+            procDao.insertVirtualProc(proc);
+        } else {
+            logger.info("updated proc " + proc.getName() + " for " + frame.getName());
+            procDao.updateVirtualProcAssignment(proc);
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void unbookProc(VirtualProc proc) {
+        unbookProc(proc, "was unbooked");
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void unbookProc(VirtualProc proc, String reason) {
+        if (proc == null) {
+            return;
+        }
+        if (proc.isNew()) {
+            return;
+        }
+        proc.unbooked = true;
+        procDao.deleteVirtualProc(proc);
+        DispatchSupport.unbookedProcs.getAndIncrement();
+        logger.info(proc + " " + reason);
+
+        /*
+         * Remove the local dispatch record if it has gone inactive.
+         */
+        if (proc.isLocalDispatch) {
+            try {
+                bookingManager.removeInactiveLocalHostAssignment(
+                        bookingDao.getLocalJobAssignment(proc.getHostId(), proc.getJobId()));
+            } catch (EmptyResultDataAccessException e) {
+                // Eat the exception.
+            }
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void lostProc(VirtualProc proc, String reason, int exitStatus) {
+        long numCleared = clearedProcs.incrementAndGet();
+
+        unbookProc(proc, "proc " + proc.getName() + " is #" + numCleared + " cleared: " + reason);
+
+        if (proc.frameId != null) {
+            FrameInterface f = frameDao.getFrame(proc.frameId);
+            /*
+             * Set the checkpoint state to disabled before stopping the the frame because it will go
+             * to the checkpoint state. This is not desirable when we're clearing off processes that
+             * were lost due to a machine crash.
+             */
+            frameDao.updateFrameCheckpointState(f, CheckpointState.DISABLED);
+            /*
+             * If the proc has a frame, stop the frame. Frames can only be stopped that are running.
+             */
+            if (frameDao.updateFrameStopped(f, FrameState.WAITING, exitStatus)) {
+                updateUsageCounters(proc, exitStatus);
+            }
+            /*
+             * If the frame is not running, check if frame is in dead state, frames that died due to
+             * host going down should be put back into WAITING status.
+             */
+            else {
+                FrameDetail frameDetail = frameDao.getFrameDetail(f);
+                if ((frameDetail.state == FrameState.DEAD)
+                        && (Dispatcher.EXIT_STATUS_DOWN_HOST == exitStatus)) {
+                    if (frameDao.updateFrameHostDown(f)) {
+                        logger.info("update frame " + f.getFrameId()
+                                + "to WAITING status for down host");
+                    }
+                }
+            }
+        } else {
+            logger.info("Frame ID is NULL, not updating Frame state");
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss, long vsize,
+            long maxVsize, long usedGpuMemory, long maxUsedGpuMemory, long usedSwapMemory,
+            byte[] children) {
+        procDao.updateProcMemoryUsage(frame, rss, maxRss, vsize, maxVsize, usedGpuMemory,
+                maxUsedGpuMemory, usedSwapMemory, children);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updateFrameMemoryUsageAndLluTime(FrameInterface frame, long rss, long maxRss,
+            long lluTime) {
+
+        try {
+            frameDao.updateFrameMemoryUsageAndLluTime(frame, maxRss, rss, lluTime);
+        } catch (FrameReservationException ex) {
+            // Eat this, the frame was not in the correct state or
+            // was locked by another thread. The only reason it would
+            // be locked by another thread would be if the state is
+            // changing.
+            logger.warn("failed to update memory usage and LLU time for frame: " + frame);
+        }
+    }
+
+    @Override
+    public void determineIdleCores(DispatchHost host, int load) {
+        int maxLoad = host.cores + ((host.cores / 100) * Dispatcher.CORE_LOAD_THRESHOLD);
+
+        int idleCores = maxLoad - load;
+        if (idleCores < host.idleCores) {
+            host.idleCores = idleCores;
+        }
+    }
+
+    public DispatcherDao getDispatcherDao() {
+        return dispatcherDao;
+    }
+
+    public void setDispatcherDao(DispatcherDao dispatcherDao) {
+        this.dispatcherDao = dispatcherDao;
+    }
+
+    public FrameDao getFrameDao() {
+        return frameDao;
+    }
+
+    public void setFrameDao(FrameDao frameDao) {
+        this.frameDao = frameDao;
+    }
+
+    public JobDao getJobDao() {
+        return jobDao;
+    }
+
+    public void setJobDao(JobDao jobDao) {
+        this.jobDao = jobDao;
+    }
+
+    public ProcDao getProcDao() {
+        return procDao;
+    }
+
+    public void setProcDao(ProcDao procDao) {
+        this.procDao = procDao;
+    }
+
+    public DependManager getDependManager() {
+        return dependManager;
+    }
+
+    public void setDependManager(DependManager dependManager) {
+        this.dependManager = dependManager;
+    }
+
+    public LayerDao getLayerDao() {
+        return layerDao;
+    }
+
+    public void setLayerDao(LayerDao layerDao) {
+        this.layerDao = layerDao;
+    }
+
+    public HostDao getHostDao() {
+        return hostDao;
+    }
+
+    public void setHostDao(HostDao hostDao) {
+        this.hostDao = hostDao;
+    }
+
+    public RqdClient getRqdClient() {
+        return rqdClient;
+    }
+
+    public void setRqdClient(RqdClient rqdClient) {
+        this.rqdClient = rqdClient;
+    }
+
+    public SubscriptionDao getSubscriptionDao() {
+        return subscriptionDao;
+    }
+
+    public void setSubscriptionDao(SubscriptionDao subscriptionDao) {
+        this.subscriptionDao = subscriptionDao;
+    }
+
+    public RedirectManager getRedirectManager() {
+        return redirectManager;
+    }
+
+    public void setRedirectManager(RedirectManager redirectManager) {
+        this.redirectManager = redirectManager;
+    }
+
+    public ShowDao getShowDao() {
+        return showDao;
+    }
+
+    public void setShowDao(ShowDao showDao) {
+        this.showDao = showDao;
+    }
+
+    public BookingManager getBookingManager() {
+        return bookingManager;
+    }
+
+    public void setBookingManager(BookingManager bookingManager) {
+        this.bookingManager = bookingManager;
+    }
+
+    public BookingDao getBookingDao() {
+        return bookingDao;
+    }
+
+    public void setBookingDao(BookingDao bookingDao) {
+        this.bookingDao = bookingDao;
+    }
+
+    @Override
+    public void clearCache() {
+        dispatcherDao.clearCache();
+    }
 }

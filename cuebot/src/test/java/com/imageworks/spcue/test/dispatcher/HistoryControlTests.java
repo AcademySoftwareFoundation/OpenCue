@@ -51,119 +51,120 @@ import static org.junit.Assert.assertTrue;
 @ContextConfiguration
 public class HistoryControlTests extends TransactionalTest {
 
-  @Resource
-  AdminManager adminManager;
+    @Resource
+    AdminManager adminManager;
 
-  @Resource
-  FrameCompleteHandler frameCompleteHandler;
+    @Resource
+    FrameCompleteHandler frameCompleteHandler;
 
-  @Resource
-  HostManager hostManager;
+    @Resource
+    HostManager hostManager;
 
-  @Resource
-  JobLauncher jobLauncher;
+    @Resource
+    JobLauncher jobLauncher;
 
-  @Resource
-  JobManager jobManager;
+    @Resource
+    JobManager jobManager;
 
-  @Resource
-  LayerDao layerDao;
+    @Resource
+    LayerDao layerDao;
 
-  @Resource
-  Dispatcher dispatcher;
+    @Resource
+    Dispatcher dispatcher;
 
-  private static final String HOSTNAME = "beta";
-  private static final String DELETE_HISTORY =
-      "DELETE FROM frame_history; " + "DELETE FROM job_history; ";
-  private static final String DISABLE_HISTORY = "INSERT INTO " + "config (pk_config,str_key) "
-      + "VALUES " + "(uuid_generate_v1(),'DISABLE_HISTORY');";
+    private static final String HOSTNAME = "beta";
+    private static final String DELETE_HISTORY =
+            "DELETE FROM frame_history; " + "DELETE FROM job_history; ";
+    private static final String DISABLE_HISTORY = "INSERT INTO " + "config (pk_config,str_key) "
+            + "VALUES " + "(uuid_generate_v1(),'DISABLE_HISTORY');";
 
-  @Before
-  public void setTestMode() {
-    dispatcher.setTestMode(true);
-  }
+    @Before
+    public void setTestMode() {
+        dispatcher.setTestMode(true);
+    }
 
-  public void launchJob() {
-    jobLauncher.testMode = true;
-    jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_gpus_test.xml"));
-  }
+    public void launchJob() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_gpus_test.xml"));
+    }
 
-  @Before
-  public void createHost() {
-    RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
-        // The minimum amount of free space in the temporary directory to book a host.
-        .setFreeMcp(CueUtil.GB).setFreeMem((int) CueUtil.GB8).setFreeSwap(20760).setLoad(0)
-        .setTotalMcp(CueUtil.GB4).setTotalMem(CueUtil.GB8).setTotalSwap(CueUtil.GB2)
-        .setNimbyEnabled(false).setNumProcs(40).setCoresPerProc(100).setState(HardwareState.UP)
-        .setFacility("spi").putAttributes("SP_OS", "Linux").setNumGpus(8)
-        .setFreeGpuMem(CueUtil.GB16 * 8).setTotalGpuMem(CueUtil.GB16 * 8).build();
+    @Before
+    public void createHost() {
+        RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB).setFreeMem((int) CueUtil.GB8).setFreeSwap(20760).setLoad(0)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(CueUtil.GB8).setTotalSwap(CueUtil.GB2)
+                .setNimbyEnabled(false).setNumProcs(40).setCoresPerProc(100)
+                .setState(HardwareState.UP).setFacility("spi").putAttributes("SP_OS", "Linux")
+                .setNumGpus(8).setFreeGpuMem(CueUtil.GB16 * 8).setTotalGpuMem(CueUtil.GB16 * 8)
+                .build();
 
-    hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
-  }
+        hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
+    }
 
-  public DispatchHost getHost() {
-    return hostManager.findDispatchHost(HOSTNAME);
-  }
+    public DispatchHost getHost() {
+        return hostManager.findDispatchHost(HOSTNAME);
+    }
 
-  public void launchAndDeleteJob() {
-    launchJob();
+    public void launchAndDeleteJob() {
+        launchJob();
 
-    JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test0");
-    LayerDetail layer = layerDao.findLayerDetail(job, "layer0");
-    jobManager.setJobPaused(job, false);
+        JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test0");
+        LayerDetail layer = layerDao.findLayerDetail(job, "layer0");
+        jobManager.setJobPaused(job, false);
 
-    DispatchHost host = getHost();
-    List<VirtualProc> procs = dispatcher.dispatchHost(host);
-    VirtualProc proc = procs.get(0);
+        DispatchHost host = getHost();
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        VirtualProc proc = procs.get(0);
 
-    RunningFrameInfo info =
-        RunningFrameInfo.newBuilder().setJobId(proc.getJobId()).setLayerId(proc.getLayerId())
-            .setFrameId(proc.getFrameId()).setResourceId(proc.getProcId()).build();
-    FrameCompleteReport report =
-        FrameCompleteReport.newBuilder().setFrame(info).setExitStatus(0).build();
-    frameCompleteHandler.handleFrameCompleteReport(report);
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).build();
+        FrameCompleteReport report =
+                FrameCompleteReport.newBuilder().setFrame(info).setExitStatus(0).build();
+        frameCompleteHandler.handleFrameCompleteReport(report);
 
-    assertTrue(jobManager.isLayerComplete(layer));
-    assertTrue(jobManager.isJobComplete(job));
+        assertTrue(jobManager.isLayerComplete(layer));
+        assertTrue(jobManager.isJobComplete(job));
 
-    jdbcTemplate.update("DELETE FROM job WHERE pk_job=?", job.getId());
-  }
+        jdbcTemplate.update("DELETE FROM job WHERE pk_job=?", job.getId());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testEnabled() {
-    jdbcTemplate.update(DELETE_HISTORY);
-    assertEquals(Integer.valueOf(0),
-        jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
-    assertEquals(Integer.valueOf(0),
-        jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testEnabled() {
+        jdbcTemplate.update(DELETE_HISTORY);
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
 
-    launchAndDeleteJob();
+        launchAndDeleteJob();
 
-    assertEquals(Integer.valueOf(5),
-        jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
-    assertEquals(Integer.valueOf(1),
-        jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
-  }
+        assertEquals(Integer.valueOf(5),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
+        assertEquals(Integer.valueOf(1),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDisabled() {
-    jdbcTemplate.update(DELETE_HISTORY);
-    jdbcTemplate.update(DISABLE_HISTORY);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDisabled() {
+        jdbcTemplate.update(DELETE_HISTORY);
+        jdbcTemplate.update(DISABLE_HISTORY);
 
-    assertEquals(Integer.valueOf(0),
-        jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
-    assertEquals(Integer.valueOf(0),
-        jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
 
-    launchAndDeleteJob();
+        launchAndDeleteJob();
 
-    assertEquals(Integer.valueOf(0),
-        jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
-    assertEquals(Integer.valueOf(0),
-        jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
-  }
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
+    }
 }

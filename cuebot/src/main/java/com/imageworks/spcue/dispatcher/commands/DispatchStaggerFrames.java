@@ -21,40 +21,40 @@ import com.imageworks.spcue.service.JobManagerSupport;
 
 public class DispatchStaggerFrames extends KeyRunnable {
 
-  private JobInterface job = null;
-  private LayerInterface layer = null;
-  private String range;
-  private int stagger;
-  private JobManagerSupport jobManagerSupport;
+    private JobInterface job = null;
+    private LayerInterface layer = null;
+    private String range;
+    private int stagger;
+    private JobManagerSupport jobManagerSupport;
 
-  public DispatchStaggerFrames(JobInterface job, String range, int stagger,
-      JobManagerSupport jobManagerSupport) {
-    super("disp_stag_frames_" + job.getJobId() + "_" + range);
-    this.job = job;
-    this.range = range;
-    this.stagger = stagger;
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    public DispatchStaggerFrames(JobInterface job, String range, int stagger,
+            JobManagerSupport jobManagerSupport) {
+        super("disp_stag_frames_" + job.getJobId() + "_" + range);
+        this.job = job;
+        this.range = range;
+        this.stagger = stagger;
+        this.jobManagerSupport = jobManagerSupport;
+    }
 
-  public DispatchStaggerFrames(LayerInterface layer, String range, int stagger,
-      JobManagerSupport jobManagerSupport) {
-    super("disp_stag_frames_" + layer.getLayerId() + "_" + range);
-    this.layer = layer;
-    this.range = range;
-    this.stagger = stagger;
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    public DispatchStaggerFrames(LayerInterface layer, String range, int stagger,
+            JobManagerSupport jobManagerSupport) {
+        super("disp_stag_frames_" + layer.getLayerId() + "_" + range);
+        this.layer = layer;
+        this.range = range;
+        this.stagger = stagger;
+        this.jobManagerSupport = jobManagerSupport;
+    }
 
-  @Override
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        if (job != null) {
-          jobManagerSupport.staggerJob(job, range, stagger);
-        } else if (layer != null) {
-          jobManagerSupport.staggerJob(layer, range, stagger);
-        }
-      }
-    }.execute();
-  }
+    @Override
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                if (job != null) {
+                    jobManagerSupport.staggerJob(job, range, stagger);
+                } else if (layer != null) {
+                    jobManagerSupport.staggerJob(layer, range, stagger);
+                }
+            }
+        }.execute();
+    }
 }

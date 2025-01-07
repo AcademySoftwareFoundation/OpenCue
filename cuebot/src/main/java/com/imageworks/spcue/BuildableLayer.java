@@ -24,24 +24,24 @@ import java.util.Map;
  * @category Job Launching
  */
 public class BuildableLayer {
-  /**
-   * If the user manually set memory, this is updated to true.
-   */
-  public boolean isMemoryOverride = false;
+    /**
+     * If the user manually set memory, this is updated to true.
+     */
+    public boolean isMemoryOverride = false;
 
-  /**
-   * Stores the layer detail. LayerDetail is needed to actually insert the layer into the DB.
-   */
-  public LayerDetail layerDetail = new LayerDetail();
+    /**
+     * Stores the layer detail. LayerDetail is needed to actually insert the layer into the DB.
+     */
+    public LayerDetail layerDetail = new LayerDetail();
 
-  /**
-   * Map for storing environment vars
-   */
-  public Map<String, String> env = new HashMap<String, String>();
+    /**
+     * Map for storing environment vars
+     */
+    public Map<String, String> env = new HashMap<String, String>();
 
-  public BuildableLayer() {}
+    public BuildableLayer() {}
 
-  public BuildableLayer(LayerDetail detail) {
-    this.layerDetail = detail;
-  }
+    public BuildableLayer(LayerDetail detail) {
+        this.layerDetail = detail;
+    }
 }

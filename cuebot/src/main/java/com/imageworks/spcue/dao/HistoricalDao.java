@@ -21,19 +21,19 @@ import com.imageworks.spcue.JobInterface;
 
 public interface HistoricalDao {
 
-  /**
-   * Return all jobs that have been finished longer than the specified cut off in hours.
-   *
-   * @param cutoffHours
-   * @return
-   */
-  List<JobInterface> getFinishedJobs(int cutoffHours);
+    /**
+     * Return all jobs that have been finished longer than the specified cut off in hours.
+     *
+     * @param cutoffHours
+     * @return
+     */
+    List<JobInterface> getFinishedJobs(int cutoffHours);
 
-  /**
-   * Transfer a job from the live tables to the historical tables.
-   *
-   * @param job
-   */
-  void transferJob(JobInterface job);
+    /**
+     * Transfer a job from the live tables to the historical tables.
+     *
+     * @param job
+     */
+    void transferJob(JobInterface job);
 
 }

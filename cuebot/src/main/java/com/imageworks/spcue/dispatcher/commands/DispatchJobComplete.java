@@ -25,26 +25,26 @@ import com.imageworks.spcue.service.JobManagerSupport;
  * @category command
  */
 public class DispatchJobComplete extends KeyRunnable {
-  private JobInterface job;
-  private Source source;
-  private boolean isManualKill;
+    private JobInterface job;
+    private Source source;
+    private boolean isManualKill;
 
-  private JobManagerSupport jobManagerSupport;
+    private JobManagerSupport jobManagerSupport;
 
-  public DispatchJobComplete(JobInterface job, Source source, boolean isManualKill,
-      JobManagerSupport jobManagerSupport) {
-    super("disp_job_complete_" + job.getJobId() + "_" + source.toString());
-    this.job = job;
-    this.source = source;
-    this.isManualKill = isManualKill;
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    public DispatchJobComplete(JobInterface job, Source source, boolean isManualKill,
+            JobManagerSupport jobManagerSupport) {
+        super("disp_job_complete_" + job.getJobId() + "_" + source.toString());
+        this.job = job;
+        this.source = source;
+        this.isManualKill = isManualKill;
+        this.jobManagerSupport = jobManagerSupport;
+    }
 
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        jobManagerSupport.shutdownJob(job, source, isManualKill);
-      }
-    }.execute();
-  }
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                jobManagerSupport.shutdownJob(job, source, isManualKill);
+            }
+        }.execute();
+    }
 }

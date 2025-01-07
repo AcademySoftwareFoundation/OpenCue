@@ -46,153 +46,153 @@ import static org.junit.Assert.assertEquals;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class ActionDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Autowired
-  @Rule
-  public AssumingPostgresEngine assumingPostgresEngine;
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
-  @Resource
-  ActionDao actionDao;
+    @Resource
+    ActionDao actionDao;
 
-  @Resource
-  FilterDao filterDao;
+    @Resource
+    FilterDao filterDao;
 
-  @Resource
-  ShowDao showDao;
+    @Resource
+    ShowDao showDao;
 
-  @Resource
-  GroupDao groupDao;
+    @Resource
+    GroupDao groupDao;
 
-  @Resource
-  JobManager jobManager;
+    @Resource
+    JobManager jobManager;
 
-  private static String FILTER_NAME = "test_filter";
+    private static String FILTER_NAME = "test_filter";
 
-  public ShowInterface getShow() {
-    return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
-  }
+    public ShowInterface getShow() {
+        return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
+    }
 
-  public FilterEntity buildFilter() {
-    FilterEntity filter = new FilterEntity();
-    filter.name = FILTER_NAME;
-    filter.showId = "00000000-0000-0000-0000-000000000000";
-    filter.type = FilterType.MATCH_ANY;
-    filter.enabled = true;
+    public FilterEntity buildFilter() {
+        FilterEntity filter = new FilterEntity();
+        filter.name = FILTER_NAME;
+        filter.showId = "00000000-0000-0000-0000-000000000000";
+        filter.type = FilterType.MATCH_ANY;
+        filter.enabled = true;
 
-    return filter;
-  }
+        return filter;
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testCreateAction() {
-    FilterEntity f = buildFilter();
-    filterDao.insertFilter(f);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testCreateAction() {
+        FilterEntity f = buildFilter();
+        filterDao.insertFilter(f);
 
-    ActionEntity a1 = new ActionEntity();
-    a1.type = ActionType.PAUSE_JOB;
-    a1.filterId = f.getFilterId();
-    a1.booleanValue = true;
-    a1.valueType = ActionValueType.BOOLEAN_TYPE;
-    actionDao.createAction(a1);
+        ActionEntity a1 = new ActionEntity();
+        a1.type = ActionType.PAUSE_JOB;
+        a1.filterId = f.getFilterId();
+        a1.booleanValue = true;
+        a1.valueType = ActionValueType.BOOLEAN_TYPE;
+        actionDao.createAction(a1);
 
-    ActionEntity a2 = new ActionEntity();
-    a2.type = ActionType.MOVE_JOB_TO_GROUP;
-    a2.filterId = f.getFilterId();
-    a2.groupValue = groupDao.getRootGroupId(getShow());
-    a2.valueType = ActionValueType.GROUP_TYPE;
-    actionDao.createAction(a2);
+        ActionEntity a2 = new ActionEntity();
+        a2.type = ActionType.MOVE_JOB_TO_GROUP;
+        a2.filterId = f.getFilterId();
+        a2.groupValue = groupDao.getRootGroupId(getShow());
+        a2.valueType = ActionValueType.GROUP_TYPE;
+        actionDao.createAction(a2);
 
-    ActionEntity a3 = new ActionEntity();
-    a3.type = ActionType.SET_JOB_MAX_CORES;
-    a3.filterId = f.getFilterId();
-    a3.floatValue = 1f;
-    a3.valueType = ActionValueType.FLOAT_TYPE;
-    actionDao.createAction(a3);
+        ActionEntity a3 = new ActionEntity();
+        a3.type = ActionType.SET_JOB_MAX_CORES;
+        a3.filterId = f.getFilterId();
+        a3.floatValue = 1f;
+        a3.valueType = ActionValueType.FLOAT_TYPE;
+        actionDao.createAction(a3);
 
-    ActionEntity a4 = new ActionEntity();
-    a4.type = ActionType.SET_JOB_MIN_CORES;
-    a4.filterId = f.getFilterId();
-    a4.floatValue = 1;
-    a4.valueType = ActionValueType.FLOAT_TYPE;
-    actionDao.createAction(a4);
+        ActionEntity a4 = new ActionEntity();
+        a4.type = ActionType.SET_JOB_MIN_CORES;
+        a4.filterId = f.getFilterId();
+        a4.floatValue = 1;
+        a4.valueType = ActionValueType.FLOAT_TYPE;
+        actionDao.createAction(a4);
 
-    ActionEntity a5 = new ActionEntity();
-    a5.type = ActionType.STOP_PROCESSING;
-    a5.filterId = f.getFilterId();
-    a5.valueType = ActionValueType.NONE_TYPE;
-    actionDao.createAction(a5);
-  }
+        ActionEntity a5 = new ActionEntity();
+        a5.type = ActionType.STOP_PROCESSING;
+        a5.filterId = f.getFilterId();
+        a5.valueType = ActionValueType.NONE_TYPE;
+        actionDao.createAction(a5);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDeleteAction() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDeleteAction() {
 
-    FilterEntity f = buildFilter();
-    filterDao.insertFilter(f);
+        FilterEntity f = buildFilter();
+        filterDao.insertFilter(f);
 
-    ActionEntity a = new ActionEntity();
-    a.type = ActionType.STOP_PROCESSING;
-    a.filterId = f.getFilterId();
-    a.valueType = ActionValueType.NONE_TYPE;
-    actionDao.createAction(a);
-    actionDao.deleteAction(a);
-  }
+        ActionEntity a = new ActionEntity();
+        a.type = ActionType.STOP_PROCESSING;
+        a.filterId = f.getFilterId();
+        a.valueType = ActionValueType.NONE_TYPE;
+        actionDao.createAction(a);
+        actionDao.deleteAction(a);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetAction() {
-    FilterEntity f = buildFilter();
-    filterDao.insertFilter(f);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetAction() {
+        FilterEntity f = buildFilter();
+        filterDao.insertFilter(f);
 
-    ActionEntity a = new ActionEntity();
-    a.type = ActionType.STOP_PROCESSING;
-    a.filterId = f.getFilterId();
-    a.valueType = ActionValueType.NONE_TYPE;
-    actionDao.createAction(a);
-    actionDao.getAction(a);
-    actionDao.getAction(a.getActionId());
-  }
+        ActionEntity a = new ActionEntity();
+        a.type = ActionType.STOP_PROCESSING;
+        a.filterId = f.getFilterId();
+        a.valueType = ActionValueType.NONE_TYPE;
+        actionDao.createAction(a);
+        actionDao.getAction(a);
+        actionDao.getAction(a.getActionId());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testUpdateAction() {
-    FilterEntity f = buildFilter();
-    filterDao.insertFilter(f);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateAction() {
+        FilterEntity f = buildFilter();
+        filterDao.insertFilter(f);
 
-    ActionEntity a = new ActionEntity();
-    a.type = ActionType.STOP_PROCESSING;
-    a.filterId = f.getFilterId();
-    a.name = null;
-    a.valueType = ActionValueType.NONE_TYPE;
-    actionDao.createAction(a);
+        ActionEntity a = new ActionEntity();
+        a.type = ActionType.STOP_PROCESSING;
+        a.filterId = f.getFilterId();
+        a.name = null;
+        a.valueType = ActionValueType.NONE_TYPE;
+        actionDao.createAction(a);
 
-    a.floatValue = 1f;
-    a.type = ActionType.SET_JOB_MIN_CORES;
-    a.valueType = ActionValueType.FLOAT_TYPE;
+        a.floatValue = 1f;
+        a.type = ActionType.SET_JOB_MIN_CORES;
+        a.valueType = ActionValueType.FLOAT_TYPE;
 
-    actionDao.updateAction(a);
+        actionDao.updateAction(a);
 
-    assertEquals(Integer.valueOf(1), jdbcTemplate
-        .queryForObject("SELECT float_value FROM action WHERE pk_action=?", Integer.class, a.id));
-  }
+        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+                "SELECT float_value FROM action WHERE pk_action=?", Integer.class, a.id));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetActions() {
-    FilterEntity f = buildFilter();
-    filterDao.insertFilter(f);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetActions() {
+        FilterEntity f = buildFilter();
+        filterDao.insertFilter(f);
 
-    ActionEntity a = new ActionEntity();
-    a.type = ActionType.STOP_PROCESSING;
-    a.filterId = f.getFilterId();
-    a.name = null;
-    a.valueType = ActionValueType.NONE_TYPE;
-    actionDao.createAction(a);
+        ActionEntity a = new ActionEntity();
+        a.type = ActionType.STOP_PROCESSING;
+        a.filterId = f.getFilterId();
+        a.name = null;
+        a.valueType = ActionValueType.NONE_TYPE;
+        actionDao.createAction(a);
 
-    actionDao.getActions(f);
-  }
+        actionDao.getActions(f);
+    }
 }

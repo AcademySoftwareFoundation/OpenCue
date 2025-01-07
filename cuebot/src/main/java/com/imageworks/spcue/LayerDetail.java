@@ -23,143 +23,143 @@ import java.util.Set;
 import com.imageworks.spcue.grpc.job.LayerType;
 
 public class LayerDetail extends LayerEntity implements LayerInterface {
-  public String command;
-  public String range;
-  public LayerType type;
-  public int minimumCores;
-  public int maximumCores;
-  public int minimumGpus;
-  public int maximumGpus;
-  public boolean isThreadable;
-  public long minimumMemory;
-  public long minimumGpuMemory;
-  public int chunkSize;
-  public int timeout;
-  public int timeout_llu;
-  public int dispatchOrder;
-  public int totalFrameCount;
+    public String command;
+    public String range;
+    public LayerType type;
+    public int minimumCores;
+    public int maximumCores;
+    public int minimumGpus;
+    public int maximumGpus;
+    public boolean isThreadable;
+    public long minimumMemory;
+    public long minimumGpuMemory;
+    public int chunkSize;
+    public int timeout;
+    public int timeout_llu;
+    public int dispatchOrder;
+    public int totalFrameCount;
 
-  public Set<String> tags = new LinkedHashSet<String>();
-  public Set<String> services = new LinkedHashSet<String>();
-  public Set<String> limits = new LinkedHashSet<String>();
-  public Set<String> outputs = new LinkedHashSet<String>();
+    public Set<String> tags = new LinkedHashSet<String>();
+    public Set<String> services = new LinkedHashSet<String>();
+    public Set<String> limits = new LinkedHashSet<String>();
+    public Set<String> outputs = new LinkedHashSet<String>();
 
-  /*
-   *
-   */
-  public List<String> getServices() {
-    return new ArrayList<String>(services);
-  }
+    /*
+     *
+     */
+    public List<String> getServices() {
+        return new ArrayList<String>(services);
+    }
 
-  public String getCommand() {
-    return command;
-  }
+    public String getCommand() {
+        return command;
+    }
 
-  public void setCommand(String command) {
-    this.command = command;
-  }
+    public void setCommand(String command) {
+        this.command = command;
+    }
 
-  public String getRange() {
-    return range;
-  }
+    public String getRange() {
+        return range;
+    }
 
-  public void setRange(String range) {
-    this.range = range;
-  }
+    public void setRange(String range) {
+        this.range = range;
+    }
 
-  public LayerType getType() {
-    return type;
-  }
+    public LayerType getType() {
+        return type;
+    }
 
-  public void setType(LayerType type) {
-    this.type = type;
-  }
+    public void setType(LayerType type) {
+        this.type = type;
+    }
 
-  public int getMinimumCores() {
-    return minimumCores;
-  }
+    public int getMinimumCores() {
+        return minimumCores;
+    }
 
-  public void setMinimumCores(int minimumCores) {
-    this.minimumCores = minimumCores;
-  }
+    public void setMinimumCores(int minimumCores) {
+        this.minimumCores = minimumCores;
+    }
 
-  public boolean isThreadable() {
-    return isThreadable;
-  }
+    public boolean isThreadable() {
+        return isThreadable;
+    }
 
-  public void setThreadable(boolean isThreadable) {
-    this.isThreadable = isThreadable;
-  }
+    public void setThreadable(boolean isThreadable) {
+        this.isThreadable = isThreadable;
+    }
 
-  public int getTimeout() {
-    return timeout;
-  }
+    public int getTimeout() {
+        return timeout;
+    }
 
-  public void setTimeout(int timeout) {
-    this.timeout = timeout;
-  }
+    public void setTimeout(int timeout) {
+        this.timeout = timeout;
+    }
 
-  public int getTimeoutLLU() {
-    return timeout;
-  }
+    public int getTimeoutLLU() {
+        return timeout;
+    }
 
-  public void setTimeoutLLU(int timeout_llu) {
-    this.timeout_llu = timeout_llu;
-  }
+    public void setTimeoutLLU(int timeout_llu) {
+        this.timeout_llu = timeout_llu;
+    }
 
-  public long getMinimumMemory() {
-    return minimumMemory;
-  }
+    public long getMinimumMemory() {
+        return minimumMemory;
+    }
 
-  public void setMinimumMemory(long minimumMemory) {
-    this.minimumMemory = minimumMemory;
-  }
+    public void setMinimumMemory(long minimumMemory) {
+        this.minimumMemory = minimumMemory;
+    }
 
-  public int getMinimumGpus() {
-    return minimumGpus;
-  }
+    public int getMinimumGpus() {
+        return minimumGpus;
+    }
 
-  public void setMinimumGpus(int minimumGpus) {
-    this.minimumGpus = minimumGpus;
-  }
+    public void setMinimumGpus(int minimumGpus) {
+        this.minimumGpus = minimumGpus;
+    }
 
-  public long getMinimumGpuMemory() {
-    return minimumGpuMemory;
-  }
+    public long getMinimumGpuMemory() {
+        return minimumGpuMemory;
+    }
 
-  public void setMinimumGpuMemory(long minimumGpuMemory) {
-    this.minimumGpuMemory = minimumGpuMemory;
-  }
+    public void setMinimumGpuMemory(long minimumGpuMemory) {
+        this.minimumGpuMemory = minimumGpuMemory;
+    }
 
-  public int getChunkSize() {
-    return chunkSize;
-  }
+    public int getChunkSize() {
+        return chunkSize;
+    }
 
-  public void setChunkSize(int chunkSize) {
-    this.chunkSize = chunkSize;
-  }
+    public void setChunkSize(int chunkSize) {
+        this.chunkSize = chunkSize;
+    }
 
-  public int getDispatchOrder() {
-    return dispatchOrder;
-  }
+    public int getDispatchOrder() {
+        return dispatchOrder;
+    }
 
-  public void setDispatchOrder(int dispatchOrder) {
-    this.dispatchOrder = dispatchOrder;
-  }
+    public void setDispatchOrder(int dispatchOrder) {
+        this.dispatchOrder = dispatchOrder;
+    }
 
-  public int getTotalFrameCount() {
-    return totalFrameCount;
-  }
+    public int getTotalFrameCount() {
+        return totalFrameCount;
+    }
 
-  public void setTotalFrameCount(int totalFrameCount) {
-    this.totalFrameCount = totalFrameCount;
-  }
+    public void setTotalFrameCount(int totalFrameCount) {
+        this.totalFrameCount = totalFrameCount;
+    }
 
-  public Set<String> getTags() {
-    return tags;
-  }
+    public Set<String> getTags() {
+        return tags;
+    }
 
-  public void setTags(Set<String> tags) {
-    this.tags = tags;
-  }
+    public void setTags(Set<String> tags) {
+        this.tags = tags;
+    }
 }

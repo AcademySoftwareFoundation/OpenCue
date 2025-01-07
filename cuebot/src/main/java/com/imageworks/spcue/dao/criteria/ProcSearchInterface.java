@@ -26,29 +26,29 @@ import com.imageworks.spcue.grpc.criterion.LessThanIntegerSearchCriterion;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 
 public interface ProcSearchInterface extends CriteriaInterface {
-  ProcSearchCriteria getCriteria();
+    ProcSearchCriteria getCriteria();
 
-  void setCriteria(ProcSearchCriteria criteria);
+    void setCriteria(ProcSearchCriteria criteria);
 
-  void notJobs(List<JobInterface> jobs);
+    void notJobs(List<JobInterface> jobs);
 
-  void notGroups(List<GroupInterface> groups);
+    void notGroups(List<GroupInterface> groups);
 
-  void filterByDurationRange(LessThanIntegerSearchCriterion criterion);
+    void filterByDurationRange(LessThanIntegerSearchCriterion criterion);
 
-  void filterByDurationRange(GreaterThanIntegerSearchCriterion criterion);
+    void filterByDurationRange(GreaterThanIntegerSearchCriterion criterion);
 
-  void filterByDurationRange(InRangeIntegerSearchCriterion criterion);
+    void filterByDurationRange(InRangeIntegerSearchCriterion criterion);
 
-  void filterByHost(HostInterface host);
+    void filterByHost(HostInterface host);
 
-  void sortByHostName();
+    void sortByHostName();
 
-  void sortByDispatchedTime();
+    void sortByDispatchedTime();
 
-  void sortByBookedTime();
+    void sortByBookedTime();
 
-  static ProcSearchCriteria criteriaFactory() {
-    return ProcSearchCriteria.newBuilder().build();
-  }
+    static ProcSearchCriteria criteriaFactory() {
+        return ProcSearchCriteria.newBuilder().build();
+    }
 }

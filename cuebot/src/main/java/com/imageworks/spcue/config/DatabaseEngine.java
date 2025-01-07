@@ -1,9 +1,9 @@
 package com.imageworks.spcue.config;
 
 public enum DatabaseEngine {
-  POSTGRES;
+    POSTGRES;
 
-  public static DatabaseEngine fromEnv() {
-    return POSTGRES;
-  }
+    public static DatabaseEngine fromEnv() {
+        return POSTGRES;
+    }
 }

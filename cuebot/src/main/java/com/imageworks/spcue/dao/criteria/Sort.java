@@ -17,27 +17,27 @@ package com.imageworks.spcue.dao.criteria;
 
 public class Sort {
 
-  private final String col;
-  private final Direction dir;
+    private final String col;
+    private final Direction dir;
 
-  public Sort(String col, Direction dir) {
-    this.col = col;
-    this.dir = dir;
-  }
+    public Sort(String col, Direction dir) {
+        this.col = col;
+        this.dir = dir;
+    }
 
-  public static final Sort asc(String col) {
-    return new Sort(col, Direction.ASC);
-  }
+    public static final Sort asc(String col) {
+        return new Sort(col, Direction.ASC);
+    }
 
-  public static final Sort desc(String col) {
-    return new Sort(col, Direction.DESC);
-  }
+    public static final Sort desc(String col) {
+        return new Sort(col, Direction.DESC);
+    }
 
-  public String getColumn() {
-    return this.col;
-  }
+    public String getColumn() {
+        return this.col;
+    }
 
-  public Direction getDirection() {
-    return this.dir;
-  }
+    public Direction getDirection() {
+        return this.dir;
+    }
 }

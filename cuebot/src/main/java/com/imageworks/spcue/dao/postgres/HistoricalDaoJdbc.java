@@ -25,19 +25,19 @@ import com.imageworks.spcue.grpc.job.JobState;
 
 public class HistoricalDaoJdbc extends JdbcDaoSupport implements HistoricalDao {
 
-  private static final String GET_FINISHED_JOBS = JobDaoJdbc.GET_JOB + "WHERE "
-      + "job.str_state = ? " + "AND " + "current_timestamp - job.ts_stopped > ";
+    private static final String GET_FINISHED_JOBS = JobDaoJdbc.GET_JOB + "WHERE "
+            + "job.str_state = ? " + "AND " + "current_timestamp - job.ts_stopped > ";
 
-  public List<JobInterface> getFinishedJobs(int cutoffHours) {
-    String interval = "interval '" + cutoffHours + "' hour";
-    return getJdbcTemplate().query(GET_FINISHED_JOBS + interval, JobDaoJdbc.JOB_MAPPER,
-        JobState.FINISHED.toString());
-  }
+    public List<JobInterface> getFinishedJobs(int cutoffHours) {
+        String interval = "interval '" + cutoffHours + "' hour";
+        return getJdbcTemplate().query(GET_FINISHED_JOBS + interval, JobDaoJdbc.JOB_MAPPER,
+                JobState.FINISHED.toString());
+    }
 
-  public void transferJob(JobInterface job) {
-    /**
-     * All of the historical transfer happens inside of triggers
-     */
-    getJdbcTemplate().update("DELETE FROM job WHERE pk_job=?", job.getJobId());
-  }
+    public void transferJob(JobInterface job) {
+        /**
+         * All of the historical transfer happens inside of triggers
+         */
+        getJdbcTemplate().update("DELETE FROM job WHERE pk_job=?", job.getJobId());
+    }
 }

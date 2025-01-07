@@ -38,288 +38,289 @@ import com.imageworks.spcue.grpc.criterion.LessThanIntegerSearchCriterion;
 
 public abstract class Criteria implements CriteriaInterface {
 
-  List<StringBuilder> chunks = new ArrayList<StringBuilder>(12);
-  List<Object> values = new ArrayList<Object>(32);
-  Integer limit;
+    List<StringBuilder> chunks = new ArrayList<StringBuilder>(12);
+    List<Object> values = new ArrayList<Object>(32);
+    Integer limit;
 
-  boolean built = false;
-  private int firstResult = 1;
-  private int maxResults = 0;
-  private ArrayList<Sort> order = new ArrayList<Sort>();
+    boolean built = false;
+    private int firstResult = 1;
+    private int maxResults = 0;
+    private ArrayList<Sort> order = new ArrayList<Sort>();
 
-  abstract void buildWhereClause();
+    abstract void buildWhereClause();
 
-  public String toString() {
-    return this.getWhereClause();
-  }
-
-  public void setFirstResult(int firstResult) {
-    this.firstResult = Math.max(firstResult, 1);
-  }
-
-  public void setMaxResults(int maxResults) {
-    this.maxResults = maxResults;
-  }
-
-  public void addSort(Sort sort) {
-    this.order.add(sort);
-  }
-
-  public List<Object> getValues() {
-    return values;
-  }
-
-  public Object[] getValuesArray() {
-    return values.toArray();
-  }
-
-  public String getWhereClause() {
-    build();
-    return generateWhereClause();
-  }
-
-  public String getFilteredQuery(String query) {
-    build();
-    return queryWithPaging(query);
-  }
-
-  private void build() {
-    if (!built) {
-      buildWhereClause();
-    }
-    built = true;
-  }
-
-  private String generateWhereClause() {
-    return chunks.stream().map(StringBuilder::toString).collect(Collectors.joining(" AND "));
-  }
-
-  private String queryWithPaging(String query) {
-    if (firstResult > 1 || maxResults > 0) {
-      if (order.size() == 0) {
-        query = query.replaceFirst("SELECT ", "SELECT row_number() OVER () AS RN,");
-      } else {
-        query =
-            query.replaceFirst("SELECT ", "SELECT row_number() OVER (" + getOrder() + ") AS RN, ");
-      }
+    public String toString() {
+        return this.getWhereClause();
     }
 
-    StringBuilder sb = new StringBuilder(4096);
-    if (maxResults > 0 || firstResult > 1) {
-      sb.append("SELECT * FROM ( ");
+    public void setFirstResult(int firstResult) {
+        this.firstResult = Math.max(firstResult, 1);
     }
 
-    sb.append(query);
-    sb.append(" ");
-    if (chunks.size() > 0) {
-      sb.append("AND ");
-      sb.append(chunks.stream().map(StringBuilder::toString).collect(Collectors.joining(" AND ")));
+    public void setMaxResults(int maxResults) {
+        this.maxResults = maxResults;
     }
 
-    if (firstResult > 1 || maxResults > 0) {
-      sb.append(") AS getQueryT WHERE ");
+    public void addSort(Sort sort) {
+        this.order.add(sort);
     }
 
-    if (firstResult > 1) {
-      sb.append(" RN >= ? ");
-      values.add(firstResult);
+    public List<Object> getValues() {
+        return values;
     }
 
-    if (maxResults > 0) {
-      if (firstResult > 1) {
-        sb.append(" AND ");
-      }
-      sb.append(" RN < ? ");
-      values.add(firstResult + maxResults);
+    public Object[] getValuesArray() {
+        return values.toArray();
     }
 
-    if (limit != null) {
-      sb.append(" LIMIT ");
-      sb.append(limit);
-      sb.append(" ");
+    public String getWhereClause() {
+        build();
+        return generateWhereClause();
     }
 
-    return sb.toString();
-  }
-
-  private String getOrder() {
-    if (order.size() < 1) {
-      return "";
-    }
-    return " ORDER BY "
-        + order.stream().map(sort -> sort.getColumn() + " " + sort.getDirection().toString())
-            .collect(Collectors.joining(", "));
-  }
-
-  void addPhrase(String col, Collection<String> s) {
-    if (s == null || s.size() == 0) {
-      return;
+    public String getFilteredQuery(String query) {
+        build();
+        return queryWithPaging(query);
     }
 
-    StringBuilder sb = new StringBuilder(1024);
-    sb.append("(");
-    for (String w : s) {
-      sb.append(col);
-      sb.append("=?");
-      sb.append(" OR ");
-      values.add(w);
+    private void build() {
+        if (!built) {
+            buildWhereClause();
+        }
+        built = true;
     }
-    sb.delete(sb.length() - 4, sb.length());
-    sb.append(")");
-    chunks.add(sb);
-  }
 
-  void addPhrases(Collection<Phrase> phrases, String inclusion) {
-    if (phrases.size() == 0) {
-      return;
+    private String generateWhereClause() {
+        return chunks.stream().map(StringBuilder::toString).collect(Collectors.joining(" AND "));
     }
-    StringBuilder sb = new StringBuilder(1024);
-    sb.append("(");
-    for (Phrase p : phrases) {
-      sb.append(p.getColumn());
-      sb.append(p.getComparison());
-      sb.append("?");
-      sb.append(" ");
-      sb.append(inclusion);
-      sb.append(" ");
-      values.add(p.getValue());
+
+    private String queryWithPaging(String query) {
+        if (firstResult > 1 || maxResults > 0) {
+            if (order.size() == 0) {
+                query = query.replaceFirst("SELECT ", "SELECT row_number() OVER () AS RN,");
+            } else {
+                query = query.replaceFirst("SELECT ",
+                        "SELECT row_number() OVER (" + getOrder() + ") AS RN, ");
+            }
+        }
+
+        StringBuilder sb = new StringBuilder(4096);
+        if (maxResults > 0 || firstResult > 1) {
+            sb.append("SELECT * FROM ( ");
+        }
+
+        sb.append(query);
+        sb.append(" ");
+        if (chunks.size() > 0) {
+            sb.append("AND ");
+            sb.append(chunks.stream().map(StringBuilder::toString)
+                    .collect(Collectors.joining(" AND ")));
+        }
+
+        if (firstResult > 1 || maxResults > 0) {
+            sb.append(") AS getQueryT WHERE ");
+        }
+
+        if (firstResult > 1) {
+            sb.append(" RN >= ? ");
+            values.add(firstResult);
+        }
+
+        if (maxResults > 0) {
+            if (firstResult > 1) {
+                sb.append(" AND ");
+            }
+            sb.append(" RN < ? ");
+            values.add(firstResult + maxResults);
+        }
+
+        if (limit != null) {
+            sb.append(" LIMIT ");
+            sb.append(limit);
+            sb.append(" ");
+        }
+
+        return sb.toString();
     }
-    sb.delete(sb.length() - 4, sb.length());
-    sb.append(")");
-    chunks.add(sb);
-  }
 
-  void addPhrase(String col, String v) {
-    if (v == null) {
-      return;
+    private String getOrder() {
+        if (order.size() < 1) {
+            return "";
+        }
+        return " ORDER BY " + order.stream()
+                .map(sort -> sort.getColumn() + " " + sort.getDirection().toString())
+                .collect(Collectors.joining(", "));
     }
-    addPhrase(col, ImmutableList.of(v));
-  }
 
-  void addRegexPhrase(String col, Set<String> s) {
-    if (s == null) {
-      return;
+    void addPhrase(String col, Collection<String> s) {
+        if (s == null || s.size() == 0) {
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder(1024);
+        sb.append("(");
+        for (String w : s) {
+            sb.append(col);
+            sb.append("=?");
+            sb.append(" OR ");
+            values.add(w);
+        }
+        sb.delete(sb.length() - 4, sb.length());
+        sb.append(")");
+        chunks.add(sb);
     }
-    if (s.size() == 0) {
-      return;
+
+    void addPhrases(Collection<Phrase> phrases, String inclusion) {
+        if (phrases.size() == 0) {
+            return;
+        }
+        StringBuilder sb = new StringBuilder(1024);
+        sb.append("(");
+        for (Phrase p : phrases) {
+            sb.append(p.getColumn());
+            sb.append(p.getComparison());
+            sb.append("?");
+            sb.append(" ");
+            sb.append(inclusion);
+            sb.append(" ");
+            values.add(p.getValue());
+        }
+        sb.delete(sb.length() - 4, sb.length());
+        sb.append(")");
+        chunks.add(sb);
     }
-    StringBuilder sb = new StringBuilder(1024);
-    sb.append("(");
-    for (String w : s) {
-      sb.append(String.format("%s ~ ?", col));
-      sb.append(" OR ");
-      values.add(w);
+
+    void addPhrase(String col, String v) {
+        if (v == null) {
+            return;
+        }
+        addPhrase(col, ImmutableList.of(v));
     }
-    sb.delete(sb.length() - 4, sb.length());
-    sb.append(")");
-    chunks.add(sb);
-  }
 
-  void addLikePhrase(String col, Set<String> s) {
-    if (s == null) {
-      return;
+    void addRegexPhrase(String col, Set<String> s) {
+        if (s == null) {
+            return;
+        }
+        if (s.size() == 0) {
+            return;
+        }
+        StringBuilder sb = new StringBuilder(1024);
+        sb.append("(");
+        for (String w : s) {
+            sb.append(String.format("%s ~ ?", col));
+            sb.append(" OR ");
+            values.add(w);
+        }
+        sb.delete(sb.length() - 4, sb.length());
+        sb.append(")");
+        chunks.add(sb);
     }
-    if (s.size() == 0) {
-      return;
+
+    void addLikePhrase(String col, Set<String> s) {
+        if (s == null) {
+            return;
+        }
+        if (s.size() == 0) {
+            return;
+        }
+        StringBuilder sb = new StringBuilder(1024);
+        sb.append("(");
+        for (String w : s) {
+            sb.append(col);
+            sb.append(" LIKE ?");
+            sb.append(" OR ");
+            values.add("%" + w + "%");
+        }
+        sb.delete(sb.length() - 4, sb.length());
+        sb.append(")");
+        chunks.add(sb);
     }
-    StringBuilder sb = new StringBuilder(1024);
-    sb.append("(");
-    for (String w : s) {
-      sb.append(col);
-      sb.append(" LIKE ?");
-      sb.append(" OR ");
-      values.add("%" + w + "%");
+
+    void addGreaterThanTimestamp(String col, Timestamp timestamp) {
+        if (timestamp == null) {
+            return;
+        }
+        StringBuilder sb = new StringBuilder(128);
+        sb.append("(");
+        sb.append(col);
+        sb.append(" > ?");
+        sb.append(") ");
+        values.add(timestamp);
+        chunks.add(sb);
     }
-    sb.delete(sb.length() - 4, sb.length());
-    sb.append(")");
-    chunks.add(sb);
-  }
 
-  void addGreaterThanTimestamp(String col, Timestamp timestamp) {
-    if (timestamp == null) {
-      return;
+    void addLessThanTimestamp(String col, Timestamp timestamp) {
+        if (timestamp == null) {
+            return;
+        }
+        StringBuilder sb = new StringBuilder(128);
+        sb.append("(");
+        sb.append(col);
+        sb.append(" < ?");
+        sb.append(") ");
+        values.add(timestamp);
+        chunks.add(sb);
     }
-    StringBuilder sb = new StringBuilder(128);
-    sb.append("(");
-    sb.append(col);
-    sb.append(" > ?");
-    sb.append(") ");
-    values.add(timestamp);
-    chunks.add(sb);
-  }
 
-  void addLessThanTimestamp(String col, Timestamp timestamp) {
-    if (timestamp == null) {
-      return;
+    void addRangePhrase(String col, EqualsIntegerSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " = ?");
+        chunks.add(sb);
+        values.add(criterion.getValue());
     }
-    StringBuilder sb = new StringBuilder(128);
-    sb.append("(");
-    sb.append(col);
-    sb.append(" < ?");
-    sb.append(") ");
-    values.add(timestamp);
-    chunks.add(sb);
-  }
 
-  void addRangePhrase(String col, EqualsIntegerSearchCriterion criterion) {
-    StringBuilder sb = new StringBuilder(128);
-    sb.append(" " + col + " = ?");
-    chunks.add(sb);
-    values.add(criterion.getValue());
-  }
+    void addRangePhrase(String col, LessThanIntegerSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + "<=? ");
+        chunks.add(sb);
+        values.add(criterion.getValue());
+    }
 
-  void addRangePhrase(String col, LessThanIntegerSearchCriterion criterion) {
-    StringBuilder sb = new StringBuilder(128);
-    sb.append(" " + col + "<=? ");
-    chunks.add(sb);
-    values.add(criterion.getValue());
-  }
+    void addRangePhrase(String col, GreaterThanIntegerSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " >= ? ");
+        chunks.add(sb);
+        values.add(criterion.getValue());
+    }
 
-  void addRangePhrase(String col, GreaterThanIntegerSearchCriterion criterion) {
-    StringBuilder sb = new StringBuilder(128);
-    sb.append(" " + col + " >= ? ");
-    chunks.add(sb);
-    values.add(criterion.getValue());
-  }
+    void addRangePhrase(String col, InRangeIntegerSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " >= ? AND " + col + " <= ? ");
+        chunks.add(sb);
+        values.add(criterion.getMin());
+        values.add(criterion.getMax());
+    }
 
-  void addRangePhrase(String col, InRangeIntegerSearchCriterion criterion) {
-    StringBuilder sb = new StringBuilder(128);
-    sb.append(" " + col + " >= ? AND " + col + " <= ? ");
-    chunks.add(sb);
-    values.add(criterion.getMin());
-    values.add(criterion.getMax());
-  }
+    void addRangePhrase(String col, EqualsFloatSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " = ?");
+        chunks.add(sb);
+        values.add(criterion.getValue());
+    }
 
-  void addRangePhrase(String col, EqualsFloatSearchCriterion criterion) {
-    StringBuilder sb = new StringBuilder(128);
-    sb.append(" " + col + " = ?");
-    chunks.add(sb);
-    values.add(criterion.getValue());
-  }
+    void addRangePhrase(String col, LessThanFloatSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " <= ? ");
+        chunks.add(sb);
+        values.add(criterion.getValue());
+    }
 
-  void addRangePhrase(String col, LessThanFloatSearchCriterion criterion) {
-    StringBuilder sb = new StringBuilder(128);
-    sb.append(" " + col + " <= ? ");
-    chunks.add(sb);
-    values.add(criterion.getValue());
-  }
+    void addRangePhrase(String col, GreaterThanFloatSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " >= ? ");
+        chunks.add(sb);
+        values.add(criterion.getValue());
+    }
 
-  void addRangePhrase(String col, GreaterThanFloatSearchCriterion criterion) {
-    StringBuilder sb = new StringBuilder(128);
-    sb.append(" " + col + " >= ? ");
-    chunks.add(sb);
-    values.add(criterion.getValue());
-  }
+    void addRangePhrase(String col, InRangeFloatSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " >= ? ");
+        chunks.add(sb);
+        values.add(criterion.getMin());
+        values.add(criterion.getMax());
+    }
 
-  void addRangePhrase(String col, InRangeFloatSearchCriterion criterion) {
-    StringBuilder sb = new StringBuilder(128);
-    sb.append(" " + col + " >= ? ");
-    chunks.add(sb);
-    values.add(criterion.getMin());
-    values.add(criterion.getMax());
-  }
-
-  boolean isValid(String v) {
-    return v != null && !v.isEmpty();
-  }
+    boolean isValid(String v) {
+        return v != null && !v.isEmpty();
+    }
 }

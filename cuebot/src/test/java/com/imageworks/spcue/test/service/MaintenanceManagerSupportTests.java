@@ -30,16 +30,16 @@ import com.imageworks.spcue.service.MaintenanceManagerSupport;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class MaintenanceManagerSupportTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  MaintenanceManagerSupport maintenanceManager;
+    @Resource
+    MaintenanceManagerSupport maintenanceManager;
 
-  @Test
-  public void testCheckHardwareState() {
-    maintenanceManager.checkHardwareState();
-  }
+    @Test
+    public void testCheckHardwareState() {
+        maintenanceManager.checkHardwareState();
+    }
 
-  @Test
-  public void archiveFinishedJobs() {
-    maintenanceManager.archiveFinishedJobs();
-  }
+    @Test
+    public void archiveFinishedJobs() {
+        maintenanceManager.archiveFinishedJobs();
+    }
 }

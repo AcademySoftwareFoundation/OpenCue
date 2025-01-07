@@ -20,30 +20,30 @@ import com.imageworks.spcue.dao.criteria.postgres.ProcSearch;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 
 public class ProcSearchFactory {
-  private DatabaseEngine dbEngine;
+    private DatabaseEngine dbEngine;
 
-  public ProcSearchInterface create() {
-    return new ProcSearch();
-  }
+    public ProcSearchInterface create() {
+        return new ProcSearch();
+    }
 
-  public ProcSearchInterface create(ProcSearchCriteria criteria) {
-    ProcSearchInterface procSearch = create();
-    procSearch.setCriteria(criteria);
-    return procSearch;
-  }
+    public ProcSearchInterface create(ProcSearchCriteria criteria) {
+        ProcSearchInterface procSearch = create();
+        procSearch.setCriteria(criteria);
+        return procSearch;
+    }
 
-  public ProcSearchInterface create(ProcSearchCriteria criteria, Sort sort) {
-    ProcSearchInterface procSearch = create();
-    procSearch.setCriteria(criteria);
-    procSearch.addSort(sort);
-    return procSearch;
-  }
+    public ProcSearchInterface create(ProcSearchCriteria criteria, Sort sort) {
+        ProcSearchInterface procSearch = create();
+        procSearch.setCriteria(criteria);
+        procSearch.addSort(sort);
+        return procSearch;
+    }
 
-  public DatabaseEngine getDbEngine() {
-    return dbEngine;
-  }
+    public DatabaseEngine getDbEngine() {
+        return dbEngine;
+    }
 
-  public void setDbEngine(DatabaseEngine dbEngine) {
-    this.dbEngine = dbEngine;
-  }
+    public void setDbEngine(DatabaseEngine dbEngine) {
+        this.dbEngine = dbEngine;
+    }
 }

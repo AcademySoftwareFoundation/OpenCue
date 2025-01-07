@@ -27,99 +27,99 @@ import com.imageworks.spcue.SubscriptionInterface;
 
 public interface AdminManager {
 
-  /*
-   * Shows
-   */
-  boolean showExists(String name);
+    /*
+     * Shows
+     */
+    boolean showExists(String name);
 
-  void createShow(ShowEntity show);
+    void createShow(ShowEntity show);
 
-  ShowEntity findShowEntity(String name);
+    ShowEntity findShowEntity(String name);
 
-  ShowEntity getShowEntity(String id);
+    ShowEntity getShowEntity(String id);
 
-  void setShowActive(ShowInterface show, boolean value);
+    void setShowActive(ShowInterface show, boolean value);
 
-  void updateShowCommentEmail(ShowInterface s, String[] emails);
+    void updateShowCommentEmail(ShowInterface s, String[] emails);
 
-  void updateShowsStatus();
+    void updateShowsStatus();
 
-  /*
-   * Facilities
-   */
-  FacilityInterface createFacility(String name);
+    /*
+     * Facilities
+     */
+    FacilityInterface createFacility(String name);
 
-  void deleteFacility(FacilityInterface facility);
+    void deleteFacility(FacilityInterface facility);
 
-  void setFacilityName(FacilityInterface facility, String name);
+    void setFacilityName(FacilityInterface facility, String name);
 
-  FacilityInterface getFacility(String id);
+    FacilityInterface getFacility(String id);
 
-  FacilityInterface getDefaultFacility();
+    FacilityInterface getDefaultFacility();
 
-  /*
-   * Allocations
-   */
-  void createAllocation(FacilityInterface facility, AllocationEntity alloc);
+    /*
+     * Allocations
+     */
+    void createAllocation(FacilityInterface facility, AllocationEntity alloc);
 
-  void deleteAllocation(AllocationInterface alloc);
+    void deleteAllocation(AllocationInterface alloc);
 
-  void setAllocationName(AllocationInterface a, String name);
+    void setAllocationName(AllocationInterface a, String name);
 
-  void setAllocationTag(AllocationInterface a, String tag);
+    void setAllocationTag(AllocationInterface a, String tag);
 
-  AllocationEntity getDefaultAllocation();
+    AllocationEntity getDefaultAllocation();
 
-  void setDefaultAllocation(AllocationInterface a);
+    void setDefaultAllocation(AllocationInterface a);
 
-  AllocationEntity findAllocationDetail(String facility, String name);
+    AllocationEntity findAllocationDetail(String facility, String name);
 
-  AllocationEntity getAllocationDetail(String id);
+    AllocationEntity getAllocationDetail(String id);
 
-  void setAllocationBillable(AllocationInterface alloc, boolean value);
+    void setAllocationBillable(AllocationInterface alloc, boolean value);
 
-  /*
-   * Subscriptions
-   */
-  SubscriptionInterface createSubscription(ShowInterface show, AllocationInterface alloc, int size,
-      int burst);
+    /*
+     * Subscriptions
+     */
+    SubscriptionInterface createSubscription(ShowInterface show, AllocationInterface alloc,
+            int size, int burst);
 
-  SubscriptionInterface createSubscription(SubscriptionEntity sub);
+    SubscriptionInterface createSubscription(SubscriptionEntity sub);
 
-  void deleteSubscription(SubscriptionInterface sub);
+    void deleteSubscription(SubscriptionInterface sub);
 
-  void setSubscriptionBurst(SubscriptionInterface sub, int burst);
+    void setSubscriptionBurst(SubscriptionInterface sub, int burst);
 
-  void setSubscriptionSize(SubscriptionInterface sub, int size);
+    void setSubscriptionSize(SubscriptionInterface sub, int size);
 
-  SubscriptionEntity getSubscriptionDetail(String id);
+    SubscriptionEntity getSubscriptionDetail(String id);
 
-  /*
-   * Departments
-   */
-  DepartmentInterface findDepartment(String name);
+    /*
+     * Departments
+     */
+    DepartmentInterface findDepartment(String name);
 
-  DepartmentInterface getDefaultDepartment();
+    DepartmentInterface getDefaultDepartment();
 
-  DepartmentInterface getDepartment(DepartmentInterface d);
+    DepartmentInterface getDepartment(DepartmentInterface d);
 
-  DepartmentInterface createDepartment(String name);
+    DepartmentInterface createDepartment(String name);
 
-  void removeDepartment(DepartmentInterface d);
+    void removeDepartment(DepartmentInterface d);
 
-  /*
-   * Limits
-   */
-  String createLimit(String name, int maxValue);
+    /*
+     * Limits
+     */
+    String createLimit(String name, int maxValue);
 
-  void deleteLimit(LimitInterface limit);
+    void deleteLimit(LimitInterface limit);
 
-  LimitInterface findLimit(String name);
+    LimitInterface findLimit(String name);
 
-  LimitInterface getLimit(String id);
+    LimitInterface getLimit(String id);
 
-  void setLimitName(LimitInterface limit, String name);
+    void setLimitName(LimitInterface limit, String name);
 
-  void setLimitMaxValue(LimitInterface limit, int maxValue);
+    void setLimitMaxValue(LimitInterface limit, int maxValue);
 
 }

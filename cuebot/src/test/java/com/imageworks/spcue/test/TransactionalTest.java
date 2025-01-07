@@ -27,9 +27,9 @@ import com.imageworks.spcue.config.TestAppConfig;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class TransactionalTest extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Test
-  public void testInit() {
+    @Test
+    public void testInit() {
 
-  }
+    }
 
 }

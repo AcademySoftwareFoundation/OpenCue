@@ -29,73 +29,73 @@ import com.imageworks.spcue.dao.ServiceDao;
 @Transactional
 public class ServiceManagerService implements ServiceManager {
 
-  private ServiceDao serviceDao;
+    private ServiceDao serviceDao;
 
-  private static final String DEFAULT_SERVICE = "default";
+    private static final String DEFAULT_SERVICE = "default";
 
-  @Override
-  public void createService(ServiceEntity s) {
-    serviceDao.insert(s);
-  }
-
-  @Override
-  public void createService(ServiceOverrideEntity s) {
-    serviceDao.insert(s);
-  }
-
-  @Override
-  public void deleteService(ServiceEntity s) {
-    serviceDao.delete(s);
-  }
-
-  @Override
-  public void deleteService(ServiceOverrideEntity s) {
-    serviceDao.delete(s);
-  }
-
-  @Override
-  public void updateService(ServiceEntity s) {
-    serviceDao.update(s);
-  }
-
-  @Override
-  public void updateService(ServiceOverrideEntity s) {
-    serviceDao.update(s);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public ServiceEntity getService(String id, String show) {
-    try {
-      return serviceDao.getOverride(id, show);
-    } catch (EmptyResultDataAccessException e) {
-      return serviceDao.get(id);
+    @Override
+    public void createService(ServiceEntity s) {
+        serviceDao.insert(s);
     }
-  }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public ServiceOverrideEntity getServiceOverride(String id) {
-    return serviceDao.getOverride(id);
-  }
+    @Override
+    public void createService(ServiceOverrideEntity s) {
+        serviceDao.insert(s);
+    }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public ServiceEntity getService(String id) {
-    return serviceDao.get(id);
-  }
+    @Override
+    public void deleteService(ServiceEntity s) {
+        serviceDao.delete(s);
+    }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public ServiceEntity getDefaultService() {
-    return serviceDao.get(DEFAULT_SERVICE);
-  }
+    @Override
+    public void deleteService(ServiceOverrideEntity s) {
+        serviceDao.delete(s);
+    }
 
-  public ServiceDao getServiceDao() {
-    return serviceDao;
-  }
+    @Override
+    public void updateService(ServiceEntity s) {
+        serviceDao.update(s);
+    }
 
-  public void setServiceDao(ServiceDao serviceDao) {
-    this.serviceDao = serviceDao;
-  }
+    @Override
+    public void updateService(ServiceOverrideEntity s) {
+        serviceDao.update(s);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public ServiceEntity getService(String id, String show) {
+        try {
+            return serviceDao.getOverride(id, show);
+        } catch (EmptyResultDataAccessException e) {
+            return serviceDao.get(id);
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public ServiceOverrideEntity getServiceOverride(String id) {
+        return serviceDao.getOverride(id);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public ServiceEntity getService(String id) {
+        return serviceDao.get(id);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public ServiceEntity getDefaultService() {
+        return serviceDao.get(DEFAULT_SERVICE);
+    }
+
+    public ServiceDao getServiceDao() {
+        return serviceDao;
+    }
+
+    public void setServiceDao(ServiceDao serviceDao) {
+        this.serviceDao = serviceDao;
+    }
 }

@@ -21,29 +21,29 @@ import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 import com.imageworks.spcue.dao.criteria.postgres.JobSearch;
 
 public class JobSearchFactory {
-  private DatabaseEngine dbEngine;
+    private DatabaseEngine dbEngine;
 
-  public JobSearchInterface create() {
-    return new JobSearch();
-  }
+    public JobSearchInterface create() {
+        return new JobSearch();
+    }
 
-  public JobSearchInterface create(JobSearchCriteria criteria) {
-    JobSearchInterface jobSearch = create();
-    jobSearch.setCriteria(criteria);
-    return jobSearch;
-  }
+    public JobSearchInterface create(JobSearchCriteria criteria) {
+        JobSearchInterface jobSearch = create();
+        jobSearch.setCriteria(criteria);
+        return jobSearch;
+    }
 
-  public JobSearchInterface create(ShowInterface show) {
-    JobSearchInterface jobSearch = create();
-    jobSearch.filterByShow(show);
-    return jobSearch;
-  }
+    public JobSearchInterface create(ShowInterface show) {
+        JobSearchInterface jobSearch = create();
+        jobSearch.filterByShow(show);
+        return jobSearch;
+    }
 
-  public DatabaseEngine getDbEngine() {
-    return dbEngine;
-  }
+    public DatabaseEngine getDbEngine() {
+        return dbEngine;
+    }
 
-  public void setDbEngine(DatabaseEngine dbEngine) {
-    this.dbEngine = dbEngine;
-  }
+    public void setDbEngine(DatabaseEngine dbEngine) {
+        this.dbEngine = dbEngine;
+    }
 }

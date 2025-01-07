@@ -26,23 +26,23 @@ import com.imageworks.spcue.service.JobManagerSupport;
  */
 public class DispatchEatFrames extends KeyRunnable {
 
-  private FrameSearchInterface search;
-  private Source source;
-  private JobManagerSupport jobManagerSupport;
+    private FrameSearchInterface search;
+    private Source source;
+    private JobManagerSupport jobManagerSupport;
 
-  public DispatchEatFrames(FrameSearchInterface search, Source source,
-      JobManagerSupport jobManagerSupport) {
-    super("disp_eat_frames_job_" + search.hashCode() + "_" + jobManagerSupport.hashCode());
-    this.search = search;
-    this.source = source;
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    public DispatchEatFrames(FrameSearchInterface search, Source source,
+            JobManagerSupport jobManagerSupport) {
+        super("disp_eat_frames_job_" + search.hashCode() + "_" + jobManagerSupport.hashCode());
+        this.search = search;
+        this.source = source;
+        this.jobManagerSupport = jobManagerSupport;
+    }
 
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        jobManagerSupport.eatFrames(search, source);
-      }
-    }.execute();
-  }
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                jobManagerSupport.eatFrames(search, source);
+            }
+        }.execute();
+    }
 }

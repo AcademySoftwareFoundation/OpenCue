@@ -26,22 +26,22 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
  */
 public class DispatchNextFrame extends KeyRunnable {
 
-  private VirtualProc proc;
-  private DispatchJob job;
-  private Dispatcher dispatcher;
+    private VirtualProc proc;
+    private DispatchJob job;
+    private Dispatcher dispatcher;
 
-  public DispatchNextFrame(DispatchJob j, VirtualProc p, Dispatcher d) {
-    super("disp_next_frame_" + j.getJobId() + "_" + p.getProcId());
-    this.job = j;
-    this.proc = p;
-    this.dispatcher = d;
-  }
+    public DispatchNextFrame(DispatchJob j, VirtualProc p, Dispatcher d) {
+        super("disp_next_frame_" + j.getJobId() + "_" + p.getProcId());
+        this.job = j;
+        this.proc = p;
+        this.dispatcher = d;
+    }
 
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        dispatcher.dispatchProcToJob(proc, job);
-      }
-    }.execute();
-  }
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                dispatcher.dispatchProcToJob(proc, job);
+            }
+        }.execute();
+    }
 }

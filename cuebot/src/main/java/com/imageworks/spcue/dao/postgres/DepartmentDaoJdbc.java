@@ -28,48 +28,48 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class DepartmentDaoJdbc extends JdbcDaoSupport implements DepartmentDao {
 
-  public static final RowMapper<DepartmentInterface> DEPARTMENT_MAPPER =
-      new RowMapper<DepartmentInterface>() {
-        public DepartmentInterface mapRow(ResultSet rs, int rowNum) throws SQLException {
-          DepartmentEntity d = new DepartmentEntity();
-          d.id = rs.getString("pk_dept");
-          d.name = rs.getString("str_name");
-          return d;
-        }
-      };
+    public static final RowMapper<DepartmentInterface> DEPARTMENT_MAPPER =
+            new RowMapper<DepartmentInterface>() {
+                public DepartmentInterface mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    DepartmentEntity d = new DepartmentEntity();
+                    d.id = rs.getString("pk_dept");
+                    d.name = rs.getString("str_name");
+                    return d;
+                }
+            };
 
-  @Override
-  public boolean departmentExists(String name) {
-    return getJdbcTemplate().queryForObject("SELECT COUNT(1) FROM dept WHERE str_name=?",
-        Integer.class, name) > 0;
-  }
+    @Override
+    public boolean departmentExists(String name) {
+        return getJdbcTemplate().queryForObject("SELECT COUNT(1) FROM dept WHERE str_name=?",
+                Integer.class, name) > 0;
+    }
 
-  @Override
-  public DepartmentInterface findDepartment(String name) {
-    return getJdbcTemplate().queryForObject("SELECT pk_dept, str_name FROM dept WHERE str_name=?",
-        DEPARTMENT_MAPPER, name);
-  }
+    @Override
+    public DepartmentInterface findDepartment(String name) {
+        return getJdbcTemplate().queryForObject(
+                "SELECT pk_dept, str_name FROM dept WHERE str_name=?", DEPARTMENT_MAPPER, name);
+    }
 
-  @Override
-  public DepartmentInterface getDefaultDepartment() {
-    return getJdbcTemplate().queryForObject(
-        "SELECT pk_dept, str_name FROM dept WHERE b_default=true", DEPARTMENT_MAPPER);
-  }
+    @Override
+    public DepartmentInterface getDefaultDepartment() {
+        return getJdbcTemplate().queryForObject(
+                "SELECT pk_dept, str_name FROM dept WHERE b_default=true", DEPARTMENT_MAPPER);
+    }
 
-  @Override
-  public DepartmentInterface getDepartment(String id) {
-    return getJdbcTemplate().queryForObject("SELECT pk_dept, str_name FROM dept WHERE pk_dept=?",
-        DEPARTMENT_MAPPER, id);
-  }
+    @Override
+    public DepartmentInterface getDepartment(String id) {
+        return getJdbcTemplate().queryForObject(
+                "SELECT pk_dept, str_name FROM dept WHERE pk_dept=?", DEPARTMENT_MAPPER, id);
+    }
 
-  @Override
-  public void deleteDepartment(DepartmentInterface d) {
-    getJdbcTemplate().update("DELETE FROM dept WHERE pk_dept=?", d.getDepartmentId());
-  }
+    @Override
+    public void deleteDepartment(DepartmentInterface d) {
+        getJdbcTemplate().update("DELETE FROM dept WHERE pk_dept=?", d.getDepartmentId());
+    }
 
-  @Override
-  public void insertDepartment(String name) {
-    getJdbcTemplate().update("INSERT INTO dept (pk_dept,str_name) VALUES (?,?)",
-        SqlUtil.genKeyRandom(), name);
-  }
+    @Override
+    public void insertDepartment(String name) {
+        getJdbcTemplate().update("INSERT INTO dept (pk_dept,str_name) VALUES (?,?)",
+                SqlUtil.genKeyRandom(), name);
+    }
 }

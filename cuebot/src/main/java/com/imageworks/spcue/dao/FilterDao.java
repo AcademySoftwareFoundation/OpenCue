@@ -29,32 +29,32 @@ import com.imageworks.spcue.grpc.filter.FilterType;
  */
 public interface FilterDao {
 
-  List<FilterEntity> getActiveFilters(ShowInterface show);
+    List<FilterEntity> getActiveFilters(ShowInterface show);
 
-  List<FilterEntity> getFilters(ShowInterface show);
+    List<FilterEntity> getFilters(ShowInterface show);
 
-  void updateSetFilterEnabled(FilterInterface f, boolean enabled);
+    void updateSetFilterEnabled(FilterInterface f, boolean enabled);
 
-  void updateSetFilterName(FilterInterface f, String name);
+    void updateSetFilterName(FilterInterface f, String name);
 
-  void updateSetFilterType(FilterInterface f, FilterType type);
+    void updateSetFilterType(FilterInterface f, FilterType type);
 
-  void updateSetFilterOrder(FilterInterface f, double order);
+    void updateSetFilterOrder(FilterInterface f, double order);
 
-  void deleteFilter(FilterInterface f);
+    void deleteFilter(FilterInterface f);
 
-  void insertFilter(FilterEntity f);
+    void insertFilter(FilterEntity f);
 
-  void reorderFilters(ShowInterface s);
+    void reorderFilters(ShowInterface s);
 
-  void lowerFilterOrder(FilterInterface f, int by);
+    void lowerFilterOrder(FilterInterface f, int by);
 
-  void raiseFilterOrder(FilterInterface f, int by);
+    void raiseFilterOrder(FilterInterface f, int by);
 
-  FilterEntity getFilter(String id);
+    FilterEntity getFilter(String id);
 
-  FilterEntity getFilter(FilterInterface filter);
+    FilterEntity getFilter(FilterInterface filter);
 
-  FilterEntity findFilter(ShowInterface show, String name);
+    FilterEntity findFilter(ShowInterface show, String name);
 
 }

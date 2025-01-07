@@ -23,47 +23,47 @@ import com.imageworks.spcue.OwnerEntity;
 
 public interface DeedDao {
 
-  /**
-   * Create a new deed to the host.
-   */
-  DeedEntity insertDeed(OwnerEntity owner, HostInterface host);
+    /**
+     * Create a new deed to the host.
+     */
+    DeedEntity insertDeed(OwnerEntity owner, HostInterface host);
 
-  /**
-   * Delete the given deed. Return true if a row was actually deleted, false if one was not.
-   *
-   * @param deed
-   * @return
-   */
-  boolean deleteDeed(DeedEntity deed);
+    /**
+     * Delete the given deed. Return true if a row was actually deleted, false if one was not.
+     *
+     * @param deed
+     * @return
+     */
+    boolean deleteDeed(DeedEntity deed);
 
-  /**
-   * Delete the given deed. Return true if a row was actually deleted, false if one was not.
-   *
-   * @param deed
-   * @return
-   */
-  boolean deleteDeed(HostInterface host);
+    /**
+     * Delete the given deed. Return true if a row was actually deleted, false if one was not.
+     *
+     * @param deed
+     * @return
+     */
+    boolean deleteDeed(HostInterface host);
 
-  /**
-   * Return the deed by its given id.
-   *
-   * @param id
-   * @return
-   */
-  DeedEntity getDeed(String id);
+    /**
+     * Return the deed by its given id.
+     *
+     * @param id
+     * @return
+     */
+    DeedEntity getDeed(String id);
 
-  /**
-   * Return all deed's from the given owner.
-   *
-   * @param owner
-   * @return
-   */
-  List<DeedEntity> getDeeds(OwnerEntity owner);
+    /**
+     * Return all deed's from the given owner.
+     *
+     * @param owner
+     * @return
+     */
+    List<DeedEntity> getDeeds(OwnerEntity owner);
 
-  /**
-   *
-   *
-   * @param owner
-   */
-  void deleteDeeds(OwnerEntity owner);
+    /**
+     *
+     *
+     * @param owner
+     */
+    void deleteDeeds(OwnerEntity owner);
 }

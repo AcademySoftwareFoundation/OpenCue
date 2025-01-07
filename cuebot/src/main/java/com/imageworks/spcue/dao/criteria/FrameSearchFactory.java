@@ -25,55 +25,55 @@ import com.imageworks.spcue.dao.criteria.postgres.FrameSearch;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 
 public class FrameSearchFactory {
-  private DatabaseEngine dbEngine;
+    private DatabaseEngine dbEngine;
 
-  public FrameSearchInterface create() {
-    return new FrameSearch();
-  }
+    public FrameSearchInterface create() {
+        return new FrameSearch();
+    }
 
-  public FrameSearchInterface create(List<String> frameIds) {
-    FrameSearchInterface frameSearch = create();
-    frameSearch.filterByFrameIds(frameIds);
-    return frameSearch;
-  }
+    public FrameSearchInterface create(List<String> frameIds) {
+        FrameSearchInterface frameSearch = create();
+        frameSearch.filterByFrameIds(frameIds);
+        return frameSearch;
+    }
 
-  public FrameSearchInterface create(JobInterface job) {
-    FrameSearchInterface frameSearch = create();
-    frameSearch.filterByJob(job);
-    return frameSearch;
-  }
+    public FrameSearchInterface create(JobInterface job) {
+        FrameSearchInterface frameSearch = create();
+        frameSearch.filterByJob(job);
+        return frameSearch;
+    }
 
-  public FrameSearchInterface create(FrameInterface frame) {
-    FrameSearchInterface frameSearch = create();
-    frameSearch.filterByFrame(frame);
-    return frameSearch;
-  }
+    public FrameSearchInterface create(FrameInterface frame) {
+        FrameSearchInterface frameSearch = create();
+        frameSearch.filterByFrame(frame);
+        return frameSearch;
+    }
 
-  public FrameSearchInterface create(JobInterface job, FrameSearchCriteria criteria) {
-    FrameSearchInterface frameSearch = create();
-    frameSearch.setCriteria(criteria);
-    frameSearch.filterByJob(job);
-    return frameSearch;
-  }
+    public FrameSearchInterface create(JobInterface job, FrameSearchCriteria criteria) {
+        FrameSearchInterface frameSearch = create();
+        frameSearch.setCriteria(criteria);
+        frameSearch.filterByJob(job);
+        return frameSearch;
+    }
 
-  public FrameSearchInterface create(LayerInterface layer) {
-    FrameSearchInterface frameSearch = create();
-    frameSearch.filterByLayer(layer);
-    return frameSearch;
-  }
+    public FrameSearchInterface create(LayerInterface layer) {
+        FrameSearchInterface frameSearch = create();
+        frameSearch.filterByLayer(layer);
+        return frameSearch;
+    }
 
-  public FrameSearchInterface create(LayerInterface layer, FrameSearchCriteria criteria) {
-    FrameSearchInterface frameSearch = create();
-    frameSearch.setCriteria(criteria);
-    frameSearch.filterByLayer(layer);
-    return frameSearch;
-  }
+    public FrameSearchInterface create(LayerInterface layer, FrameSearchCriteria criteria) {
+        FrameSearchInterface frameSearch = create();
+        frameSearch.setCriteria(criteria);
+        frameSearch.filterByLayer(layer);
+        return frameSearch;
+    }
 
-  public DatabaseEngine getDbEngine() {
-    return dbEngine;
-  }
+    public DatabaseEngine getDbEngine() {
+        return dbEngine;
+    }
 
-  public void setDbEngine(DatabaseEngine dbEngine) {
-    this.dbEngine = dbEngine;
-  }
+    public void setDbEngine(DatabaseEngine dbEngine) {
+        this.dbEngine = dbEngine;
+    }
 }

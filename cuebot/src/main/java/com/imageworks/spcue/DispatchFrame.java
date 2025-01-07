@@ -22,50 +22,50 @@ import com.imageworks.spcue.grpc.job.FrameState;
 
 public class DispatchFrame extends FrameEntity implements FrameInterface {
 
-  public int retries;
-  public FrameState state;
+    public int retries;
+    public FrameState state;
 
-  public String show;
-  public String shot;
-  public String owner;
-  public Optional<Integer> uid;
-  public String logDir;
-  public String command;
-  public String range;
-  public int chunkSize;
+    public String show;
+    public String shot;
+    public String owner;
+    public Optional<Integer> uid;
+    public String logDir;
+    public String command;
+    public String range;
+    public int chunkSize;
 
-  public String layerName;
-  public String jobName;
+    public String layerName;
+    public String jobName;
 
-  public int minCores;
-  public int maxCores;
-  public boolean threadable;
-  public int minGpus;
-  public int maxGpus;
-  public long minGpuMemory;
+    public int minCores;
+    public int maxCores;
+    public boolean threadable;
+    public int minGpus;
+    public int maxGpus;
+    public long minGpuMemory;
 
-  // A comma separated list of services
-  public String services;
+    // A comma separated list of services
+    public String services;
 
-  // The Operational System this frame is expected to run in
-  public String os;
+    // The Operational System this frame is expected to run in
+    public String os;
 
-  // Memory requirement for this frame in bytes
-  private long minMemory;
+    // Memory requirement for this frame in bytes
+    private long minMemory;
 
-  // Soft limit to be enforced for this frame in bytes
-  public long softMemoryLimit;
+    // Soft limit to be enforced for this frame in bytes
+    public long softMemoryLimit;
 
-  // Hard limit to be enforced for this frame in bytes
-  public long hardMemoryLimit;
+    // Hard limit to be enforced for this frame in bytes
+    public long hardMemoryLimit;
 
-  public void setMinMemory(long minMemory) {
-    this.minMemory = minMemory;
-    this.softMemoryLimit = (long) (((double) minMemory) * Dispatcher.SOFT_MEMORY_MULTIPLIER);
-    this.hardMemoryLimit = (long) (((double) minMemory) * Dispatcher.HARD_MEMORY_MULTIPLIER);
-  }
+    public void setMinMemory(long minMemory) {
+        this.minMemory = minMemory;
+        this.softMemoryLimit = (long) (((double) minMemory) * Dispatcher.SOFT_MEMORY_MULTIPLIER);
+        this.hardMemoryLimit = (long) (((double) minMemory) * Dispatcher.HARD_MEMORY_MULTIPLIER);
+    }
 
-  public long getMinMemory() {
-    return this.minMemory;
-  }
+    public long getMinMemory() {
+        return this.minMemory;
+    }
 }

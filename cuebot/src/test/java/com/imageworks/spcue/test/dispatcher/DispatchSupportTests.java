@@ -44,102 +44,102 @@ import static org.junit.Assert.assertEquals;
 @ContextConfiguration
 public class DispatchSupportTests extends TransactionalTest {
 
-  @Resource
-  JobManager jobManager;
+    @Resource
+    JobManager jobManager;
 
-  @Resource
-  JobLauncher jobLauncher;
+    @Resource
+    JobLauncher jobLauncher;
 
-  @Resource
-  HostManager hostManager;
+    @Resource
+    HostManager hostManager;
 
-  @Resource
-  AdminManager adminManager;
+    @Resource
+    AdminManager adminManager;
 
-  @Resource
-  GroupManager groupManager;
+    @Resource
+    GroupManager groupManager;
 
-  @Resource
-  Dispatcher dispatcher;
+    @Resource
+    Dispatcher dispatcher;
 
-  @Resource
-  DispatchSupport dispatchSupport;
+    @Resource
+    DispatchSupport dispatchSupport;
 
-  @Resource
-  FrameDao frameDao;
+    @Resource
+    FrameDao frameDao;
 
-  private static final String HOSTNAME = "beta";
+    private static final String HOSTNAME = "beta";
 
-  private static final String JOBNAME = "pipe-dev.cue-testuser_shell_dispatch_test_v1";
+    private static final String JOBNAME = "pipe-dev.cue-testuser_shell_dispatch_test_v1";
 
-  private static final String TARGET_JOB = "pipe-dev.cue-testuser_shell_dispatch_test_v2";
+    private static final String TARGET_JOB = "pipe-dev.cue-testuser_shell_dispatch_test_v2";
 
-  @Before
-  public void launchJob() {
-    jobLauncher.testMode = true;
-    jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
-  }
+    @Before
+    public void launchJob() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
+    }
 
-  @Before
-  public void setTestMode() {
-    dispatcher.setTestMode(true);
-  }
+    @Before
+    public void setTestMode() {
+        dispatcher.setTestMode(true);
+    }
 
-  @Before
-  public void createHost() {
-    RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
-        // The minimum amount of free space in the temporary directory to book a host.
-        .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(0)
-        .setTotalMcp(CueUtil.GB4).setTotalMem(8173264).setTotalSwap(20960).setNimbyEnabled(false)
-        .setNumProcs(2).setCoresPerProc(400).addTags("test").setState(HardwareState.UP)
-        .setFacility("spi").putAttributes("SP_OS", "Linux").setFreeGpuMem((int) CueUtil.MB512)
-        .setTotalGpuMem((int) CueUtil.MB512).build();
+    @Before
+    public void createHost() {
+        RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(0)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(8173264).setTotalSwap(20960)
+                .setNimbyEnabled(false).setNumProcs(2).setCoresPerProc(400).addTags("test")
+                .setState(HardwareState.UP).setFacility("spi").putAttributes("SP_OS", "Linux")
+                .setFreeGpuMem((int) CueUtil.MB512).setTotalGpuMem((int) CueUtil.MB512).build();
 
-    hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
-  }
+        hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
+    }
 
-  public JobDetail getJob() {
-    return jobManager.findJobDetail(JOBNAME);
-  }
+    public JobDetail getJob() {
+        return jobManager.findJobDetail(JOBNAME);
+    }
 
-  public JobDetail getTargetJob() {
-    return jobManager.findJobDetail(TARGET_JOB);
-  }
+    public JobDetail getTargetJob() {
+        return jobManager.findJobDetail(TARGET_JOB);
+    }
 
-  public DispatchHost getHost() {
-    return hostManager.findDispatchHost(HOSTNAME);
-  }
+    public DispatchHost getHost() {
+        return hostManager.findDispatchHost(HOSTNAME);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDetermineIdleCores() {
-    DispatchHost host = getHost();
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDetermineIdleCores() {
+        DispatchHost host = getHost();
 
-    int grace_load = Dispatcher.CORE_LOAD_THRESHOLD * (host.cores / 100);
+        int grace_load = Dispatcher.CORE_LOAD_THRESHOLD * (host.cores / 100);
 
-    // Machine is idle, no load.
-    dispatchSupport.determineIdleCores(host, 0);
-    assertEquals(800, host.idleCores);
+        // Machine is idle, no load.
+        dispatchSupport.determineIdleCores(host, 0);
+        assertEquals(800, host.idleCores);
 
-    // Machine is idle but shows load of 200.
-    host.idleCores = 800;
-    dispatchSupport.determineIdleCores(host, 200);
-    assertEquals(grace_load + 600, host.idleCores);
+        // Machine is idle but shows load of 200.
+        host.idleCores = 800;
+        dispatchSupport.determineIdleCores(host, 200);
+        assertEquals(grace_load + 600, host.idleCores);
 
-    // Machine is idle but has the grace load.
-    host.idleCores = 800;
-    dispatchSupport.determineIdleCores(host, grace_load);
-    assertEquals(800, host.idleCores);
+        // Machine is idle but has the grace load.
+        host.idleCores = 800;
+        dispatchSupport.determineIdleCores(host, grace_load);
+        assertEquals(800, host.idleCores);
 
-    // Machine has 100 units idle, grace_load -1
-    host.idleCores = 100;
-    dispatchSupport.determineIdleCores(host, 700 + grace_load - 1);
-    assertEquals(100, host.idleCores);
+        // Machine has 100 units idle, grace_load -1
+        host.idleCores = 100;
+        dispatchSupport.determineIdleCores(host, 700 + grace_load - 1);
+        assertEquals(100, host.idleCores);
 
-    // Machine has 100 units idle, grace_load + 1
-    host.idleCores = 100;
-    dispatchSupport.determineIdleCores(host, 700 + grace_load + 1);
-    assertEquals(99, host.idleCores);
-  }
+        // Machine has 100 units idle, grace_load + 1
+        host.idleCores = 100;
+        dispatchSupport.determineIdleCores(host, 700 + grace_load + 1);
+        assertEquals(99, host.idleCores);
+    }
 }

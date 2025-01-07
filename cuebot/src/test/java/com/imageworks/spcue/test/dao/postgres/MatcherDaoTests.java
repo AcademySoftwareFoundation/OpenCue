@@ -43,92 +43,92 @@ import com.imageworks.spcue.test.AssumingPostgresEngine;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class MatcherDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Autowired
-  @Rule
-  public AssumingPostgresEngine assumingPostgresEngine;
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
-  @Resource
-  MatcherDao matcherDao;
+    @Resource
+    MatcherDao matcherDao;
 
-  @Resource
-  FilterDao filterDao;
+    @Resource
+    FilterDao filterDao;
 
-  @Resource
-  ShowDao showDao;
+    @Resource
+    ShowDao showDao;
 
-  @Resource
-  GroupDao groupDao;
+    @Resource
+    GroupDao groupDao;
 
-  private static String FILTER_NAME = "test_filter";
+    private static String FILTER_NAME = "test_filter";
 
-  public ShowEntity getShow() {
-    return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
-  }
+    public ShowEntity getShow() {
+        return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
+    }
 
-  public MatcherEntity createMatcher() {
-    FilterEntity filter = createFilter();
-    MatcherEntity matcher = new MatcherEntity();
-    matcher.filterId = filter.id;
-    matcher.name = null;
-    matcher.showId = getShow().getId();
-    matcher.subject = MatchSubject.JOB_NAME;
-    matcher.type = MatchType.CONTAINS;
-    matcher.value = "testuser";
-    matcherDao.insertMatcher(matcher);
-    return matcher;
-  }
+    public MatcherEntity createMatcher() {
+        FilterEntity filter = createFilter();
+        MatcherEntity matcher = new MatcherEntity();
+        matcher.filterId = filter.id;
+        matcher.name = null;
+        matcher.showId = getShow().getId();
+        matcher.subject = MatchSubject.JOB_NAME;
+        matcher.type = MatchType.CONTAINS;
+        matcher.value = "testuser";
+        matcherDao.insertMatcher(matcher);
+        return matcher;
+    }
 
-  public FilterEntity createFilter() {
-    FilterEntity filter = new FilterEntity();
-    filter.name = FILTER_NAME;
-    filter.showId = "00000000-0000-0000-0000-000000000000";
-    filter.type = FilterType.MATCH_ANY;
-    filter.enabled = true;
-    filterDao.insertFilter(filter);
-    return filter;
-  }
+    public FilterEntity createFilter() {
+        FilterEntity filter = new FilterEntity();
+        filter.name = FILTER_NAME;
+        filter.showId = "00000000-0000-0000-0000-000000000000";
+        filter.type = FilterType.MATCH_ANY;
+        filter.enabled = true;
+        filterDao.insertFilter(filter);
+        return filter;
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testInsertMatcher() {
-    createMatcher();
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testInsertMatcher() {
+        createMatcher();
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDeleteMatcher() {
-    MatcherEntity matcher = createMatcher();
-    matcherDao.deleteMatcher(matcher);
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDeleteMatcher() {
+        MatcherEntity matcher = createMatcher();
+        matcherDao.deleteMatcher(matcher);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testUpdateMatcher() {
-    MatcherEntity matcher = createMatcher();
-    matcher.subject = MatchSubject.USER;
-    matcher.value = "testuser";
-    matcher.type = MatchType.IS;
-    matcherDao.updateMatcher(matcher);
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateMatcher() {
+        MatcherEntity matcher = createMatcher();
+        matcher.subject = MatchSubject.USER;
+        matcher.value = "testuser";
+        matcher.type = MatchType.IS;
+        matcherDao.updateMatcher(matcher);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetMatcher() {
-    MatcherEntity matcher = createMatcher();
-    matcherDao.getMatcher(matcher);
-    matcherDao.getMatcher(matcher.getMatcherId());
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetMatcher() {
+        MatcherEntity matcher = createMatcher();
+        matcherDao.getMatcher(matcher);
+        matcherDao.getMatcher(matcher.getMatcherId());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetMatchers() {
-    MatcherEntity matcher = createMatcher();
-    matcherDao.getMatchers(matcher);
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetMatchers() {
+        MatcherEntity matcher = createMatcher();
+        matcherDao.getMatchers(matcher);
+    }
 
 }

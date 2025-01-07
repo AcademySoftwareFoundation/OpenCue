@@ -18,31 +18,31 @@ package com.imageworks.spcue;
 @SuppressWarnings("serial")
 public class EntityException extends SpcueRuntimeException {
 
-  @SuppressWarnings("unused")
-  private EntityInterface entity;
+    @SuppressWarnings("unused")
+    private EntityInterface entity;
 
-  public EntityException() {
-    // TODO Auto-generated constructor stub
-  }
+    public EntityException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityException(String message, EntityInterface e) {
-    super(message);
-    entity = e;
-  }
+    public EntityException(String message, EntityInterface e) {
+        super(message);
+        entity = e;
+    }
 
-  public EntityException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

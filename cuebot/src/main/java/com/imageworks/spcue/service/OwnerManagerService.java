@@ -30,88 +30,88 @@ import com.imageworks.spcue.dao.OwnerDao;
 @Transactional
 public class OwnerManagerService implements OwnerManager {
 
-  private OwnerDao ownerDao;
-  private DeedDao deedDao;
-  private HostDao hostDao;
+    private OwnerDao ownerDao;
+    private DeedDao deedDao;
+    private HostDao hostDao;
 
-  @Override
-  public OwnerEntity createOwner(String user, ShowInterface show) {
-    OwnerEntity owner = new OwnerEntity(user);
-    ownerDao.insertOwner(owner, show);
-    return owner;
-  }
-
-  @Override
-  public boolean deleteOwner(Entity owner) {
-    return ownerDao.deleteOwner(owner);
-  }
-
-  @Override
-  public OwnerEntity findOwner(String name) {
-    return ownerDao.findOwner(name);
-  }
-
-  @Override
-  public OwnerEntity getOwner(String id) {
-    return ownerDao.getOwner(id);
-  }
-
-  @Override
-  public void setShow(Entity owner, ShowInterface show) {
-    ownerDao.updateShow(owner, show);
-  }
-
-  @Override
-  public DeedEntity getDeed(String id) {
-    return deedDao.getDeed(id);
-  }
-
-  @Override
-  public DeedEntity takeOwnership(OwnerEntity owner, HostInterface host) {
-    if (!hostDao.isNimbyHost(host)) {
-      throw new SpcueRuntimeException("Cannot setup deeeds on non-NIMBY hosts.");
+    @Override
+    public OwnerEntity createOwner(String user, ShowInterface show) {
+        OwnerEntity owner = new OwnerEntity(user);
+        ownerDao.insertOwner(owner, show);
+        return owner;
     }
 
-    deedDao.deleteDeed(host);
-    return deedDao.insertDeed(owner, host);
-  }
+    @Override
+    public boolean deleteOwner(Entity owner) {
+        return ownerDao.deleteOwner(owner);
+    }
 
-  @Override
-  public void removeDeed(HostInterface host) {
-    deedDao.deleteDeed(host);
-  }
+    @Override
+    public OwnerEntity findOwner(String name) {
+        return ownerDao.findOwner(name);
+    }
 
-  @Override
-  public void removeDeed(DeedEntity deed) {
-    deedDao.deleteDeed(deed);
-  }
+    @Override
+    public OwnerEntity getOwner(String id) {
+        return ownerDao.getOwner(id);
+    }
 
-  @Override
-  public boolean isOwner(OwnerEntity owner, HostInterface host) {
-    return ownerDao.isOwner(owner, host);
-  }
+    @Override
+    public void setShow(Entity owner, ShowInterface show) {
+        ownerDao.updateShow(owner, show);
+    }
 
-  public OwnerDao getOwnerDao() {
-    return ownerDao;
-  }
+    @Override
+    public DeedEntity getDeed(String id) {
+        return deedDao.getDeed(id);
+    }
 
-  public void setOwnerDao(OwnerDao ownerDao) {
-    this.ownerDao = ownerDao;
-  }
+    @Override
+    public DeedEntity takeOwnership(OwnerEntity owner, HostInterface host) {
+        if (!hostDao.isNimbyHost(host)) {
+            throw new SpcueRuntimeException("Cannot setup deeeds on non-NIMBY hosts.");
+        }
 
-  public DeedDao getDeedDao() {
-    return deedDao;
-  }
+        deedDao.deleteDeed(host);
+        return deedDao.insertDeed(owner, host);
+    }
 
-  public void setDeedDao(DeedDao deedDao) {
-    this.deedDao = deedDao;
-  }
+    @Override
+    public void removeDeed(HostInterface host) {
+        deedDao.deleteDeed(host);
+    }
 
-  public HostDao getHostDao() {
-    return hostDao;
-  }
+    @Override
+    public void removeDeed(DeedEntity deed) {
+        deedDao.deleteDeed(deed);
+    }
 
-  public void setHostDao(HostDao hostDao) {
-    this.hostDao = hostDao;
-  }
+    @Override
+    public boolean isOwner(OwnerEntity owner, HostInterface host) {
+        return ownerDao.isOwner(owner, host);
+    }
+
+    public OwnerDao getOwnerDao() {
+        return ownerDao;
+    }
+
+    public void setOwnerDao(OwnerDao ownerDao) {
+        this.ownerDao = ownerDao;
+    }
+
+    public DeedDao getDeedDao() {
+        return deedDao;
+    }
+
+    public void setDeedDao(DeedDao deedDao) {
+        this.deedDao = deedDao;
+    }
+
+    public HostDao getHostDao() {
+        return hostDao;
+    }
+
+    public void setHostDao(HostDao hostDao) {
+        this.hostDao = hostDao;
+    }
 }

@@ -18,19 +18,19 @@ package com.imageworks.spcue.dao.criteria;
 import java.util.List;
 
 public interface CriteriaInterface {
-  String toString();
+    String toString();
 
-  void setFirstResult(int firstResult);
+    void setFirstResult(int firstResult);
 
-  void setMaxResults(int maxResults);
+    void setMaxResults(int maxResults);
 
-  void addSort(Sort o);
+    void addSort(Sort o);
 
-  String getWhereClause();
+    String getWhereClause();
 
-  String getFilteredQuery(String query);
+    String getFilteredQuery(String query);
 
-  List<Object> getValues();
+    List<Object> getValues();
 
-  Object[] getValuesArray();
+    Object[] getValuesArray();
 }

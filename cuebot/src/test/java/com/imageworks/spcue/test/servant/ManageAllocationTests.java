@@ -48,84 +48,84 @@ import static org.junit.Assert.fail;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class ManageAllocationTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  AllocationDao allocationDao;
+    @Resource
+    AllocationDao allocationDao;
 
-  @Resource
-  FacilityDao facilityDao;
+    @Resource
+    FacilityDao facilityDao;
 
-  @Resource
-  ManageAllocation manageAllocation;
+    @Resource
+    ManageAllocation manageAllocation;
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testCreate() {
-    Facility facility =
-        Facility.newBuilder().setName(facilityDao.getFacility("spi").getName()).build();
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testCreate() {
+        Facility facility =
+                Facility.newBuilder().setName(facilityDao.getFacility("spi").getName()).build();
 
-    // Use <facility>.<tag> name
-    AllocCreateRequest request = AllocCreateRequest.newBuilder().setName("spi.test_tag")
-        .setTag("test_tag").setFacility(facility).build();
+        // Use <facility>.<tag> name
+        AllocCreateRequest request = AllocCreateRequest.newBuilder().setName("spi.test_tag")
+                .setTag("test_tag").setFacility(facility).build();
 
-    FakeStreamObserver<AllocCreateResponse> responseObserver =
-        new FakeStreamObserver<AllocCreateResponse>();
-    manageAllocation.create(request, responseObserver);
+        FakeStreamObserver<AllocCreateResponse> responseObserver =
+                new FakeStreamObserver<AllocCreateResponse>();
+        manageAllocation.create(request, responseObserver);
 
-    allocationDao.findAllocationEntity("spi", "test_tag");
-  }
-
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDelete() {
-    Facility facility =
-        Facility.newBuilder().setName(facilityDao.getFacility("spi").getName()).build();
-
-    // Non <facility>.<tag> name should work too.
-    AllocCreateRequest createRequest = AllocCreateRequest.newBuilder().setName("test_tag")
-        .setTag("test_tag").setFacility(facility).build();
-
-    FakeStreamObserver<AllocCreateResponse> createResponseObserver =
-        new FakeStreamObserver<AllocCreateResponse>();
-    manageAllocation.create(createRequest, createResponseObserver);
-
-    Allocation allocation = Allocation.newBuilder().setName("spi.test_tag").setTag("test_tag")
-        .setFacility("spi").build();
-
-    AllocDeleteRequest deleteRequest =
-        AllocDeleteRequest.newBuilder().setAllocation(allocation).build();
-
-    FakeStreamObserver<AllocDeleteResponse> deleteResponseObserver =
-        new FakeStreamObserver<AllocDeleteResponse>();
-
-    manageAllocation.delete(deleteRequest, deleteResponseObserver);
-
-    try {
-      allocationDao.findAllocationEntity("spi", "test_tag");
-      fail("Expected exception");
-    } catch (EmptyResultDataAccessException e) {
-      assertEquals(e.getMessage(), "Incorrect result size: expected 1, actual 0");
+        allocationDao.findAllocationEntity("spi", "test_tag");
     }
-  }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testSetDefault() {
-    AllocationEntity alloc = allocationDao.getDefaultAllocationEntity();
-    assertEquals(alloc.getName(), "lax.unassigned");
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDelete() {
+        Facility facility =
+                Facility.newBuilder().setName(facilityDao.getFacility("spi").getName()).build();
 
-    Allocation allocation =
-        Allocation.newBuilder().setName("spi.general").setTag("general").setFacility("spi").build();
-    AllocSetDefaultRequest request =
-        AllocSetDefaultRequest.newBuilder().setAllocation(allocation).build();
+        // Non <facility>.<tag> name should work too.
+        AllocCreateRequest createRequest = AllocCreateRequest.newBuilder().setName("test_tag")
+                .setTag("test_tag").setFacility(facility).build();
 
-    FakeStreamObserver<AllocSetDefaultResponse> observer =
-        new FakeStreamObserver<AllocSetDefaultResponse>();
-    manageAllocation.setDefault(request, observer);
+        FakeStreamObserver<AllocCreateResponse> createResponseObserver =
+                new FakeStreamObserver<AllocCreateResponse>();
+        manageAllocation.create(createRequest, createResponseObserver);
 
-    alloc = allocationDao.getDefaultAllocationEntity();
-    assertEquals(alloc.getName(), "spi.general");
-  }
+        Allocation allocation = Allocation.newBuilder().setName("spi.test_tag").setTag("test_tag")
+                .setFacility("spi").build();
+
+        AllocDeleteRequest deleteRequest =
+                AllocDeleteRequest.newBuilder().setAllocation(allocation).build();
+
+        FakeStreamObserver<AllocDeleteResponse> deleteResponseObserver =
+                new FakeStreamObserver<AllocDeleteResponse>();
+
+        manageAllocation.delete(deleteRequest, deleteResponseObserver);
+
+        try {
+            allocationDao.findAllocationEntity("spi", "test_tag");
+            fail("Expected exception");
+        } catch (EmptyResultDataAccessException e) {
+            assertEquals(e.getMessage(), "Incorrect result size: expected 1, actual 0");
+        }
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testSetDefault() {
+        AllocationEntity alloc = allocationDao.getDefaultAllocationEntity();
+        assertEquals(alloc.getName(), "lax.unassigned");
+
+        Allocation allocation = Allocation.newBuilder().setName("spi.general").setTag("general")
+                .setFacility("spi").build();
+        AllocSetDefaultRequest request =
+                AllocSetDefaultRequest.newBuilder().setAllocation(allocation).build();
+
+        FakeStreamObserver<AllocSetDefaultResponse> observer =
+                new FakeStreamObserver<AllocSetDefaultResponse>();
+        manageAllocation.setDefault(request, observer);
+
+        alloc = allocationDao.getDefaultAllocationEntity();
+        assertEquals(alloc.getName(), "spi.general");
+    }
 }

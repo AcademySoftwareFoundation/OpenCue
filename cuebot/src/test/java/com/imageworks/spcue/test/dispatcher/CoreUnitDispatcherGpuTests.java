@@ -48,166 +48,167 @@ import static org.junit.Assert.assertEquals;
 @ContextConfiguration
 public class CoreUnitDispatcherGpuTests extends TransactionalTest {
 
-  @Resource
-  JobManager jobManager;
+    @Resource
+    JobManager jobManager;
 
-  @Resource
-  JobLauncher jobLauncher;
+    @Resource
+    JobLauncher jobLauncher;
 
-  @Resource
-  HostManager hostManager;
+    @Resource
+    HostManager hostManager;
 
-  @Resource
-  AdminManager adminManager;
+    @Resource
+    AdminManager adminManager;
 
-  @Resource
-  GroupManager groupManager;
+    @Resource
+    GroupManager groupManager;
 
-  @Resource
-  Dispatcher dispatcher;
+    @Resource
+    Dispatcher dispatcher;
 
-  @Resource
-  DispatchSupport dispatchSupport;
+    @Resource
+    DispatchSupport dispatchSupport;
 
-  @Resource
-  FrameDao frameDao;
+    @Resource
+    FrameDao frameDao;
 
-  private static final String HOSTNAME = "beta";
+    private static final String HOSTNAME = "beta";
 
-  private static final String JOBNAME = "pipe-dev.cue-testuser_shell_dispatch_test_v1";
+    private static final String JOBNAME = "pipe-dev.cue-testuser_shell_dispatch_test_v1";
 
-  private static final String TARGET_JOB = "pipe-dev.cue-testuser_shell_dispatch_test_v2";
+    private static final String TARGET_JOB = "pipe-dev.cue-testuser_shell_dispatch_test_v2";
 
-  @Before
-  public void launchJob() {
-    jobLauncher.testMode = true;
-    jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
-  }
+    @Before
+    public void launchJob() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
+    }
 
-  @Before
-  public void setTestMode() {
-    dispatcher.setTestMode(true);
-  }
+    @Before
+    public void setTestMode() {
+        dispatcher.setTestMode(true);
+    }
 
-  @Before
-  public void createHost() {
-    RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
-        // The minimum amount of free space in the temporary directory to book a host.
-        .setFreeMcp(CueUtil.GB).setFreeMem((int) CueUtil.GB8).setFreeSwap(20760).setLoad(1)
-        .setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB8).setTotalSwap((int) CueUtil.GB2)
-        .setNimbyEnabled(false).setNumProcs(1).setCoresPerProc(200).addTags("test")
-        .setState(HardwareState.UP).setFacility("spi").putAttributes("SP_OS", "Linux")
-        .setFreeGpuMem((int) CueUtil.MB512).setTotalGpuMem((int) CueUtil.MB512).build();
+    @Before
+    public void createHost() {
+        RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB).setFreeMem((int) CueUtil.GB8).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB8)
+                .setTotalSwap((int) CueUtil.GB2).setNimbyEnabled(false).setNumProcs(1)
+                .setCoresPerProc(200).addTags("test").setState(HardwareState.UP).setFacility("spi")
+                .putAttributes("SP_OS", "Linux").setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512).build();
 
-    hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
-  }
+        hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
+    }
 
-  public JobDetail getJob() {
-    return jobManager.findJobDetail(JOBNAME);
-  }
+    public JobDetail getJob() {
+        return jobManager.findJobDetail(JOBNAME);
+    }
 
-  public JobDetail getTargetJob() {
-    return jobManager.findJobDetail(TARGET_JOB);
-  }
+    public JobDetail getTargetJob() {
+        return jobManager.findJobDetail(TARGET_JOB);
+    }
 
-  public DispatchHost getHost() {
-    return hostManager.findDispatchHost(HOSTNAME);
-  }
+    public DispatchHost getHost() {
+        return hostManager.findDispatchHost(HOSTNAME);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDispatchHost() {
-    DispatchHost host = getHost();
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDispatchHost() {
+        DispatchHost host = getHost();
 
-    List<VirtualProc> procs = dispatcher.dispatchHost(host);
-    assertEquals(1, procs.size());
-  }
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDispatchGpuRemovedHostToNonGpuJob() {
-    DispatchHost host = getHost();
-    JobDetail job = getJob();
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDispatchGpuRemovedHostToNonGpuJob() {
+        DispatchHost host = getHost();
+        JobDetail job = getJob();
 
-    host.idleMemory = host.idleMemory - Math.min(CueUtil.GB4, host.idleMemory);
-    host.idleCores = host.idleCores - Math.min(100, host.idleCores);
-    host.idleGpuMemory = 0;
-    List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
-    assertEquals(1, procs.size());
-  }
+        host.idleMemory = host.idleMemory - Math.min(CueUtil.GB4, host.idleMemory);
+        host.idleCores = host.idleCores - Math.min(100, host.idleCores);
+        host.idleGpuMemory = 0;
+        List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
+        assertEquals(1, procs.size());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDispatchGpuHostToGroup() {
-    DispatchHost host = getHost();
-    JobDetail job = getJob();
-    GroupDetail group = groupManager.getGroupDetail(job);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDispatchGpuHostToGroup() {
+        DispatchHost host = getHost();
+        JobDetail job = getJob();
+        GroupDetail group = groupManager.getGroupDetail(job);
 
-    List<VirtualProc> procs = dispatcher.dispatchHost(host, group);
-    assertEquals(1, procs.size());
-  }
+        List<VirtualProc> procs = dispatcher.dispatchHost(host, group);
+        assertEquals(1, procs.size());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDispatchGpuHostToShowNoPrefer() {
-    DispatchHost host = getHost();
-    JobDetail job = getJob();
-    ShowEntity show = adminManager.findShowEntity("edu");
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDispatchGpuHostToShowNoPrefer() {
+        DispatchHost host = getHost();
+        JobDetail job = getJob();
+        ShowEntity show = adminManager.findShowEntity("edu");
 
-    List<VirtualProc> procs = dispatcher.dispatchHost(host);
-    assertEquals(1, procs.size());
-  }
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDispatchRemovedGpuHostToShowPrefer() {
-    DispatchHost host = getHost();
-    JobDetail job = getJob();
-    ShowEntity show = adminManager.findShowEntity("edu");
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDispatchRemovedGpuHostToShowPrefer() {
+        DispatchHost host = getHost();
+        JobDetail job = getJob();
+        ShowEntity show = adminManager.findShowEntity("edu");
 
-    List<VirtualProc> procs = dispatcher.dispatchHost(host, show);
-    assertEquals(0, procs.size());
-  }
+        List<VirtualProc> procs = dispatcher.dispatchHost(host, show);
+        assertEquals(0, procs.size());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDispatchHostRemoveRestoreGpu() {
-    DispatchHost host = getHost();
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDispatchHostRemoveRestoreGpu() {
+        DispatchHost host = getHost();
 
-    long idleMemoryOrig = host.idleMemory;
-    int idleCoresOrig = host.idleCores;
-    long idleGpuMemoryOrig = host.idleGpuMemory;
-    int idleGpusOrig = host.idleGpus;
+        long idleMemoryOrig = host.idleMemory;
+        int idleCoresOrig = host.idleCores;
+        long idleGpuMemoryOrig = host.idleGpuMemory;
+        int idleGpusOrig = host.idleGpus;
 
-    host.removeGpu();
-    assertEquals(0, host.idleGpuMemory);
-    assertEquals(0, host.idleGpus);
-    assertEquals(idleMemoryOrig - CueUtil.GB4, host.idleMemory);
-    assertEquals(idleCoresOrig - 100, host.idleCores);
+        host.removeGpu();
+        assertEquals(0, host.idleGpuMemory);
+        assertEquals(0, host.idleGpus);
+        assertEquals(idleMemoryOrig - CueUtil.GB4, host.idleMemory);
+        assertEquals(idleCoresOrig - 100, host.idleCores);
 
-    host.restoreGpu();
-    assertEquals(idleMemoryOrig, host.idleMemory);
-    assertEquals(idleCoresOrig, host.idleCores);
-    assertEquals(idleGpuMemoryOrig, host.idleGpuMemory);
-    assertEquals(idleGpusOrig, host.idleGpus);
-  }
+        host.restoreGpu();
+        assertEquals(idleMemoryOrig, host.idleMemory);
+        assertEquals(idleCoresOrig, host.idleCores);
+        assertEquals(idleGpuMemoryOrig, host.idleGpuMemory);
+        assertEquals(idleGpusOrig, host.idleGpus);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void dispatchProcToJob() {
-    DispatchHost host = getHost();
-    JobDetail job = getJob();
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void dispatchProcToJob() {
+        DispatchHost host = getHost();
+        JobDetail job = getJob();
 
-    host.idleGpuMemory = 0;
-    List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
-    VirtualProc proc = procs.get(0);
-    dispatcher.dispatchProcToJob(proc, job);
-  }
+        host.idleGpuMemory = 0;
+        List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
+        VirtualProc proc = procs.get(0);
+        dispatcher.dispatchProcToJob(proc, job);
+    }
 }

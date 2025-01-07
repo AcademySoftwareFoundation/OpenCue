@@ -18,24 +18,24 @@ package com.imageworks.spcue;
 @SuppressWarnings("serial")
 public class SpcueRuntimeException extends RuntimeException {
 
-  public SpcueRuntimeException() {
-    super();
-    // TODO Auto-generated constructor stub
-  }
+    public SpcueRuntimeException() {
+        super();
+        // TODO Auto-generated constructor stub
+    }
 
-  public SpcueRuntimeException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public SpcueRuntimeException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public SpcueRuntimeException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public SpcueRuntimeException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public SpcueRuntimeException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public SpcueRuntimeException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

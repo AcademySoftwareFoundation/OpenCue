@@ -17,6 +17,6 @@ package com.imageworks.spcue;
 
 public interface FilterInterface extends ShowInterface {
 
-  public String getFilterId();
+    public String getFilterId();
 
 }

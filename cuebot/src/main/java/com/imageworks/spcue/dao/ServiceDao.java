@@ -20,23 +20,23 @@ import com.imageworks.spcue.ServiceOverrideEntity;
 
 public interface ServiceDao {
 
-  void insert(ServiceEntity service);
+    void insert(ServiceEntity service);
 
-  void insert(ServiceOverrideEntity service);
+    void insert(ServiceOverrideEntity service);
 
-  ServiceEntity get(String identifier);
+    ServiceEntity get(String identifier);
 
-  void update(ServiceEntity service);
+    void update(ServiceEntity service);
 
-  void update(ServiceOverrideEntity service);
+    void update(ServiceOverrideEntity service);
 
-  void delete(ServiceOverrideEntity service);
+    void delete(ServiceOverrideEntity service);
 
-  void delete(ServiceEntity service);
+    void delete(ServiceEntity service);
 
-  ServiceOverrideEntity getOverride(String id);
+    ServiceOverrideEntity getOverride(String id);
 
-  ServiceOverrideEntity getOverride(String id, String show);
+    ServiceOverrideEntity getOverride(String id, String show);
 
-  boolean isOverridden(String service, String show);
+    boolean isOverridden(String service, String show);
 }

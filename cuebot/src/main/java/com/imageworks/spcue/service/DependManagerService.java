@@ -60,548 +60,557 @@ import com.imageworks.spcue.util.FrameSet;
 @Transactional
 public class DependManagerService implements DependManager {
 
-  private static final Logger logger = LogManager.getLogger(DependManagerService.class);
+    private static final Logger logger = LogManager.getLogger(DependManagerService.class);
 
-  private DependDao dependDao;
-  private JobDao jobDao;
-  private LayerDao layerDao;
-  private FrameDao frameDao;
-  private FrameSearchFactory frameSearchFactory;
+    private DependDao dependDao;
+    private JobDao jobDao;
+    private LayerDao layerDao;
+    private FrameDao frameDao;
+    private FrameSearchFactory frameSearchFactory;
 
-  /** Job Depends **/
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void createDepend(JobOnJob depend) {
-    if (jobDao.isJobComplete(depend.getDependOnJob())) {
-      throw new DependException("The job you are depending on is already complete.");
-    }
-    dependDao.insertDepend(depend);
-    updateDependCount(depend.getDependErJob());
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void createDepend(JobOnLayer depend) {
-    if (layerDao.isLayerComplete(depend.getDependOnLayer())) {
-      depend.setActive(false);
-    }
-    dependDao.insertDepend(depend);
-    if (depend.isActive()) {
-      updateDependCount(depend.getDependErJob());
-    }
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void createDepend(JobOnFrame depend) {
-    if (frameDao.isFrameComplete(depend.getDependOnFrame())) {
-      depend.setActive(false);
-    }
-    dependDao.insertDepend(depend);
-    if (depend.isActive()) {
-      updateDependCount(depend.getDependErJob());
-    }
-  }
-
-  /** Layer Depends **/
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void createDepend(LayerOnJob depend) {
-    if (jobDao.isJobComplete(depend.getDependOnJob())) {
-      throw new DependException("The job you are depending on is already complete.");
-    }
-    dependDao.insertDepend(depend);
-    updateDependCount(depend.getDependErLayer());
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void createDepend(LayerOnLayer depend) {
-    if (layerDao.isLayerComplete(depend.getDependOnLayer())) {
-      depend.setActive(false);
-    }
-    dependDao.insertDepend(depend);
-    if (depend.isActive()) {
-      updateDependCount(depend.getDependErLayer());
-    }
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void createDepend(LayerOnFrame depend) {
-    if (frameDao.isFrameComplete(depend.getDependOnFrame())) {
-      depend.setActive(false);
-    }
-    dependDao.insertDepend(depend);
-    if (depend.isActive()) {
-      updateDependCount(depend.getDependErLayer());
-    }
-  }
-
-  /** Frame Depends **/
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void createDepend(FrameOnJob depend) {
-    if (jobDao.isJobComplete(depend.getDependOnJob())) {
-      throw new DependException("The job you are depending on is already complete.");
-    }
-    dependDao.insertDepend(depend);
-    if (depend.isActive()) {
-      updateDependCounts(depend.getDependErFrame());
-    }
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void createDepend(FrameOnLayer depend) {
-    if (layerDao.isLayerComplete(depend.getDependOnLayer())) {
-      depend.setActive(false);
-    }
-    dependDao.insertDepend(depend);
-    if (depend.isActive()) {
-      updateDependCounts(depend.getDependErFrame());
-    }
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void createDepend(FrameOnFrame depend) {
-    if (frameDao.isFrameComplete(depend.getDependOnFrame())) {
-      depend.setActive(false);
-    }
-    dependDao.insertDepend(depend);
-    if (depend.isActive()) {
-      updateDependCounts(depend.getDependErFrame());
-    }
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void createDepend(LayerOnSimFrame depend) {
-
-    /*
-     * Need the frame range to make all the dependencies.
-     */
-    LayerDetail dependErLayer = layerDao.getLayerDetail(depend.getDependErLayer().getLayerId());
-
-    /*
-     * A normalized list of frames.
-     */
-    List<Integer> dependErFrameSet =
-        CueUtil.normalizeFrameRange(dependErLayer.range, dependErLayer.chunkSize);
-
-    int dependErFrameSetSize = dependErFrameSet.size();
-    for (int idx = 0; idx < dependErFrameSetSize; idx = idx + 1) {
-      /*
-       * Lookup the frame we need out of our depend-er layer.
-       */
-      int frameNum = dependErFrameSet.get(idx);
-
-      FrameInterface dependErFrame = frameDao.findFrame(dependErLayer, frameNum);
-      FrameOnFrame fofDepend = new FrameOnFrame(dependErFrame, depend.getDependOnFrame());
-      createDepend(fofDepend);
-    }
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void createDepend(FrameByFrame depend) {
-
-    /*
-     * Obtain the full layer record so we have access to the frame range and other properties.
-     */
-    LayerDetail dependErLayer = layerDao.getLayerDetail(depend.getDependErLayer().getLayerId());
-
-    LayerDetail dependOnLayer = layerDao.getLayerDetail(depend.getDependOnLayer().getLayerId());
-
-    /*
-     * Do not create external dependencies on tile layers.
-     */
-    if (depend.getTarget().equals(DependTarget.EXTERNAL)
-        && dependOnLayer.getName().contains("_tile_")) {
-      return;
-    }
-
-    /*
-     * Please note. The job frame ranges are not normalized in any way, there is going to be
-     * duplicates. (why a "Set" would allow dups is unknown). Anyways, When iterating over these
-     * frame sets, you must do so by chunk size and ignore duplicate frames.
-     */
-
-    List<Integer> dependErFrameSet =
-        CueUtil.normalizeFrameRange(dependErLayer.range, dependErLayer.chunkSize);
-
-    List<Integer> dependOnFrameSet =
-        CueUtil.normalizeFrameRange(dependOnLayer.range, dependOnLayer.chunkSize);
-
-    /*
-     * When a layer is chunked so large it contains only a single frame, any FrameByFrame depends
-     * to/from that that layer are converted to LayerOnLayer depends.
-     */
-    if ((dependOnFrameSet.size() == 1 && dependOnLayer.chunkSize > 1)
-        || (dependErFrameSet.size() == 1 && dependErLayer.chunkSize > 1)) {
-
-      LayerOnLayer lolDepend =
-          new LayerOnLayer(depend.getDependErLayer(), depend.getDependOnLayer());
-
-      createDepend(lolDepend);
-      depend.setId(lolDepend.getId());
-      return;
-    }
-
-    /*
-     * Create the parent depends.
-     */
-    try {
-      dependDao.insertDepend(depend);
-    } catch (DataIntegrityViolationException e) {
-      LightweightDependency originalDep = dependDao.getDependBySignature(depend.getSignature());
-      depend.setId(originalDep.getId());
-      if (!depend.isActive()) {
-        unsatisfyDepend(originalDep);
-      } else {
-        return;
-      }
-    }
-
-    int dependErFrameSetSize = dependErFrameSet.size();
-    for (int idx = 0; idx < dependErFrameSetSize; idx = idx + 1) {
-
-      Set<Integer> dependOnFrames = new HashSet<Integer>(dependOnFrameSet.size());
-
-      int dependErFrameNum = dependErFrameSet.get(idx);
-      /* The frame always depends on the corresponding frame. */
-      int dependOnFrameNum = dependErFrameNum;
-
-      /*
-       * Finds any additional frames the dependErFrame might need to depend on.
-       */
-      if (dependOnLayer.chunkSize > dependErLayer.chunkSize) {
-        dependOnFrameNum = CueUtil.findChunk(dependOnFrameSet, dependErFrameNum);
-        dependOnFrames.add(dependOnFrameNum);
-      } else if (dependOnLayer.chunkSize < dependErLayer.chunkSize) {
-        dependOnFrameNum = CueUtil.findChunk(dependOnFrameSet, dependErFrameNum);
-        dependOnFrames.add(dependOnFrameNum);
-
-        for (int i = 0; i <= dependErLayer.chunkSize - dependOnLayer.chunkSize; i++) {
-          int nextFrameIdx = dependOnFrameSet.indexOf(dependOnFrameNum) + i;
-          try {
-            dependOnFrames.add(dependOnFrameSet.get(nextFrameIdx));
-          } catch (java.lang.IndexOutOfBoundsException e) {
-            continue;
-          }
+    /** Job Depends **/
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void createDepend(JobOnJob depend) {
+        if (jobDao.isJobComplete(depend.getDependOnJob())) {
+            throw new DependException("The job you are depending on is already complete.");
         }
-      } else if (!dependErFrameSet.equals(dependOnFrameSet)) {
-        if (dependOnFrameSet.contains(dependErFrameNum)) {
-          dependOnFrames.add(dependErFrameNum);
-        } else {
-          continue;
+        dependDao.insertDepend(depend);
+        updateDependCount(depend.getDependErJob());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void createDepend(JobOnLayer depend) {
+        if (layerDao.isLayerComplete(depend.getDependOnLayer())) {
+            depend.setActive(false);
         }
-      } else {
-        dependOnFrames.add(dependErFrameNum);
-      }
-
-      /*
-       * Now we can finally start adding child dependencies.
-       */
-      try {
-        FrameInterface dependErFrame = frameDao.findFrame(dependErLayer, dependErFrameNum);
-        for (int frameNum : dependOnFrames) {
-          FrameInterface dependOnFrame = frameDao.findFrame(dependOnLayer, frameNum);
-          FrameOnFrame fofDepend = new FrameOnFrame(dependErFrame, dependOnFrame, depend);
-
-          createDepend(fofDepend);
-
+        dependDao.insertDepend(depend);
+        if (depend.isActive()) {
+            updateDependCount(depend.getDependErJob());
         }
-      } catch (DataRetrievalFailureException dre) {
-        logger.warn("failed to create frame by frame depend, " + "part of frame on frame depend: "
-            + depend.getId() + " reason: " + dre);
-      }
-    }
-  }
-
-  @Override
-  public void createDepend(PreviousFrame depend) {
-
-    /*
-     * Obtain the full layer record so we have access to the frame range and other properties.
-     */
-    LayerDetail dependErLayer = layerDao.getLayerDetail(depend.getDependErLayer().getLayerId());
-
-    LayerDetail dependOnLayer = layerDao.getLayerDetail(depend.getDependOnLayer().getLayerId());
-
-    FrameSet dependErFrameSet = new FrameSet(dependErLayer.range);
-    FrameSet dependOnFrameSet = new FrameSet(dependOnLayer.range);
-
-    dependDao.insertDepend(depend);
-    int dependErFrameSetSize = dependErFrameSet.size();
-    for (int idx = 1; idx < dependErFrameSetSize; idx = idx + 1) {
-
-      try {
-        FrameInterface dependErFrame = frameDao.findFrame(dependErLayer, dependErFrameSet.get(idx));
-
-        FrameInterface dependOnFrame =
-            frameDao.findFrame(dependOnLayer, dependOnFrameSet.get(idx - 1));
-
-        createDepend(new FrameOnFrame(dependErFrame, dependOnFrame, depend));
-      } catch (DataRetrievalFailureException dre) {
-        logger.warn("failed to create frame by frame depend, " + "part of a previous frame depend: "
-            + depend.getId() + " reason: " + dre);
-      }
-    }
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void createDepend(BuildableDependency depend) {
-
-    JobInterface onJob = null;
-    JobInterface erJob = null;
-
-    try {
-      onJob = jobDao.findJob(depend.getDependOnJobName());
-      erJob = jobDao.findJob(depend.getDependErJobName());
-    } catch (Exception e) {
-      throw new DependencyManagerException("failed to setup new dependency: "
-          + depend.getType().toString() + ", was unable to find job info for "
-          + depend.getDependOnJobName() + " or " + depend.getDependErJobName() + "," + e);
     }
 
-    switch (depend.getType()) {
-
-      case FRAME_BY_FRAME:
-        createDepend(new FrameByFrame(layerDao.findLayer(erJob, depend.getDependErLayerName()),
-            layerDao.findLayer(onJob, depend.getDependOnLayerName())));
-        break;
-
-      case JOB_ON_JOB:
-        createDepend(new JobOnJob(erJob, onJob));
-        break;
-
-      case JOB_ON_LAYER:
-        createDepend(
-            new JobOnLayer(erJob, layerDao.findLayer(onJob, depend.getDependOnLayerName())));
-        break;
-
-      case JOB_ON_FRAME:
-        createDepend(
-            new JobOnFrame(erJob, frameDao.findFrame(onJob, depend.getDependOnFrameName())));
-        break;
-
-      case LAYER_ON_JOB:
-        createDepend(
-            new LayerOnJob(layerDao.findLayer(erJob, depend.getDependErLayerName()), onJob));
-        break;
-
-      case LAYER_ON_LAYER:
-        LayerOnLayer lol =
-            new LayerOnLayer(layerDao.findLayer(erJob, depend.getDependErLayerName()),
-                layerDao.findLayer(onJob, depend.getDependOnLayerName()));
-        lol.setAnyFrame(depend.anyFrame);
-        createDepend(lol);
-        break;
-
-      case LAYER_ON_FRAME:
-        createDepend(new LayerOnFrame(layerDao.findLayer(erJob, depend.getDependErLayerName()),
-            frameDao.findFrame(onJob, depend.getDependOnLayerName())));
-        break;
-
-      case FRAME_ON_JOB:
-        createDepend(
-            new FrameOnJob(frameDao.findFrame(erJob, depend.getDependErFrameName()), onJob));
-        break;
-
-      case FRAME_ON_LAYER:
-        createDepend(new FrameOnLayer(frameDao.findFrame(erJob, depend.getDependErFrameName()),
-            layerDao.findLayer(onJob, depend.getDependOnLayerName())));
-        break;
-
-      case FRAME_ON_FRAME:
-        createDepend(new FrameOnFrame(frameDao.findFrame(erJob, depend.getDependErFrameName()),
-            frameDao.findFrame(onJob, depend.getDependOnFrameName())));
-        break;
-
-      case PREVIOUS_FRAME:
-        createDepend(new PreviousFrame(layerDao.findLayer(erJob, depend.getDependErLayerName()),
-            layerDao.findLayer(onJob, depend.getDependOnLayerName())));
-        break;
-
-      case LAYER_ON_SIM_FRAME:
-        createDepend(new LayerOnSimFrame(layerDao.findLayer(erJob, depend.getDependErLayerName()),
-            frameDao.findFrame(onJob, depend.getDependOnFrameName())));
-        break;
-    }
-  }
-
-  private void updateDependCount(LayerInterface layer) {
-    FrameSearchInterface r = frameSearchFactory.create(layer);
-    for (FrameInterface f : frameDao.findFrames(r)) {
-      updateDependCounts(f);
-    }
-  }
-
-  private void updateDependCount(JobInterface job) {
-    FrameSearchInterface r = frameSearchFactory.create(job);
-    for (FrameInterface f : frameDao.findFrames(r)) {
-      updateDependCounts(f);
-    }
-  }
-
-  private void updateDependCounts(FrameInterface f) {
-    dependDao.incrementDependCount(f);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public LightweightDependency getDepend(String id) {
-    return dependDao.getDepend(id);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void unsatisfyDepend(LightweightDependency depend) {
-
-    // Currently only handles FrameOnFrame and LayerOnLayer.
-    if (dependDao.setActive(depend)) {
-
-      switch (depend.type) {
-
-        case FRAME_ON_FRAME:
-          FrameInterface frame = frameDao.getFrame(depend.dependErFrameId);
-          updateDependCounts(frame);
-          break;
-
-        case LAYER_ON_LAYER:
-          updateDependCount(layerDao.getLayer(depend.dependErLayerId));
-          break;
-      }
-    }
-  }
-
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void satisfyDepend(LightweightDependency depend) {
-    /*
-     * Before setting the depend to in-active, obtain a list of frames and decrement the depend
-     * count on them.
-     */
-    if (DependType.FRAME_BY_FRAME.equals(depend.type)) {
-      List<LightweightDependency> children = dependDao.getChildDepends(depend);
-
-      for (LightweightDependency lwd : children) {
-        satisfyDepend(lwd);
-      }
-      return;
-    }
-
-    /*
-     * Only decrement the depend counts if the depend is actually set to inactive.
-     */
-    if (dependDao.setInactive(depend)) {
-      logger.info("satisfied depend: " + depend.getId());
-      for (FrameInterface f : frameDao.getDependentFrames(depend)) {
-        if (!dependDao.decrementDependCount(f)) {
-          logger.warn("warning, depend count for " + depend.getId() + "was not decremented "
-              + "for frame " + f + "because the count is " + "already 0.");
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void createDepend(JobOnFrame depend) {
+        if (frameDao.isFrameComplete(depend.getDependOnFrame())) {
+            depend.setActive(false);
         }
-      }
+        dependDao.insertDepend(depend);
+        if (depend.isActive()) {
+            updateDependCount(depend.getDependErJob());
+        }
     }
-  }
 
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<LightweightDependency> getWhatThisDependsOn(JobInterface job, DependTarget target) {
-    return dependDao.getWhatThisDependsOn(job, target);
-  }
+    /** Layer Depends **/
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void createDepend(LayerOnJob depend) {
+        if (jobDao.isJobComplete(depend.getDependOnJob())) {
+            throw new DependException("The job you are depending on is already complete.");
+        }
+        dependDao.insertDepend(depend);
+        updateDependCount(depend.getDependErLayer());
+    }
 
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<LightweightDependency> getWhatThisDependsOn(LayerInterface layer,
-      DependTarget target) {
-    return dependDao.getWhatThisDependsOn(layer, target);
-  }
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void createDepend(LayerOnLayer depend) {
+        if (layerDao.isLayerComplete(depend.getDependOnLayer())) {
+            depend.setActive(false);
+        }
+        dependDao.insertDepend(depend);
+        if (depend.isActive()) {
+            updateDependCount(depend.getDependErLayer());
+        }
+    }
 
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<LightweightDependency> getWhatThisDependsOn(FrameInterface frame,
-      DependTarget target) {
-    return dependDao.getWhatThisDependsOn(frame, target);
-  }
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void createDepend(LayerOnFrame depend) {
+        if (frameDao.isFrameComplete(depend.getDependOnFrame())) {
+            depend.setActive(false);
+        }
+        dependDao.insertDepend(depend);
+        if (depend.isActive()) {
+            updateDependCount(depend.getDependErLayer());
+        }
+    }
 
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public LightweightDependency getCurrentDepend(String id) {
-    return dependDao.getDepend(id);
-  }
+    /** Frame Depends **/
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void createDepend(FrameOnJob depend) {
+        if (jobDao.isJobComplete(depend.getDependOnJob())) {
+            throw new DependException("The job you are depending on is already complete.");
+        }
+        dependDao.insertDepend(depend);
+        if (depend.isActive()) {
+            updateDependCounts(depend.getDependErFrame());
+        }
+    }
 
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<LightweightDependency> getWhatDependsOn(JobInterface job) {
-    return dependDao.getWhatDependsOn(job);
-  }
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void createDepend(FrameOnLayer depend) {
+        if (layerDao.isLayerComplete(depend.getDependOnLayer())) {
+            depend.setActive(false);
+        }
+        dependDao.insertDepend(depend);
+        if (depend.isActive()) {
+            updateDependCounts(depend.getDependErFrame());
+        }
+    }
 
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<LightweightDependency> getWhatDependsOn(JobInterface job, DependTarget target) {
-    return dependDao.getWhatDependsOn(job, target);
-  }
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void createDepend(FrameOnFrame depend) {
+        if (frameDao.isFrameComplete(depend.getDependOnFrame())) {
+            depend.setActive(false);
+        }
+        dependDao.insertDepend(depend);
+        if (depend.isActive()) {
+            updateDependCounts(depend.getDependErFrame());
+        }
+    }
 
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<LightweightDependency> getWhatDependsOn(FrameInterface frame) {
-    return dependDao.getWhatDependsOn(frame);
-  }
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void createDepend(LayerOnSimFrame depend) {
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<LightweightDependency> getWhatDependsOn(FrameInterface frame, boolean active) {
-    return dependDao.getWhatDependsOn(frame, active);
-  }
+        /*
+         * Need the frame range to make all the dependencies.
+         */
+        LayerDetail dependErLayer = layerDao.getLayerDetail(depend.getDependErLayer().getLayerId());
 
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<LightweightDependency> getWhatDependsOn(LayerInterface layer) {
-    return dependDao.getWhatDependsOn(layer);
-  }
+        /*
+         * A normalized list of frames.
+         */
+        List<Integer> dependErFrameSet =
+                CueUtil.normalizeFrameRange(dependErLayer.range, dependErLayer.chunkSize);
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<LightweightDependency> getWhatDependsOn(LayerInterface layer, boolean active) {
-    return dependDao.getWhatDependsOn(layer, active);
-  }
+        int dependErFrameSetSize = dependErFrameSet.size();
+        for (int idx = 0; idx < dependErFrameSetSize; idx = idx + 1) {
+            /*
+             * Lookup the frame we need out of our depend-er layer.
+             */
+            int frameNum = dependErFrameSet.get(idx);
 
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void deleteDepend(LightweightDependency depend) {
-    dependDao.deleteDepend(depend);
-  }
+            FrameInterface dependErFrame = frameDao.findFrame(dependErLayer, frameNum);
+            FrameOnFrame fofDepend = new FrameOnFrame(dependErFrame, depend.getDependOnFrame());
+            createDepend(fofDepend);
+        }
+    }
 
-  public FrameDao getFrameDao() {
-    return frameDao;
-  }
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void createDepend(FrameByFrame depend) {
 
-  public void setFrameDao(FrameDao frameDao) {
-    this.frameDao = frameDao;
-  }
+        /*
+         * Obtain the full layer record so we have access to the frame range and other properties.
+         */
+        LayerDetail dependErLayer = layerDao.getLayerDetail(depend.getDependErLayer().getLayerId());
 
-  public JobDao getJobDao() {
-    return jobDao;
-  }
+        LayerDetail dependOnLayer = layerDao.getLayerDetail(depend.getDependOnLayer().getLayerId());
 
-  public void setJobDao(JobDao jobDao) {
-    this.jobDao = jobDao;
-  }
+        /*
+         * Do not create external dependencies on tile layers.
+         */
+        if (depend.getTarget().equals(DependTarget.EXTERNAL)
+                && dependOnLayer.getName().contains("_tile_")) {
+            return;
+        }
 
-  public LayerDao getLayerDao() {
-    return layerDao;
-  }
+        /*
+         * Please note. The job frame ranges are not normalized in any way, there is going to be
+         * duplicates. (why a "Set" would allow dups is unknown). Anyways, When iterating over these
+         * frame sets, you must do so by chunk size and ignore duplicate frames.
+         */
 
-  public void setLayerDao(LayerDao layerDao) {
-    this.layerDao = layerDao;
-  }
+        List<Integer> dependErFrameSet =
+                CueUtil.normalizeFrameRange(dependErLayer.range, dependErLayer.chunkSize);
 
-  public DependDao getDependDao() {
-    return dependDao;
-  }
+        List<Integer> dependOnFrameSet =
+                CueUtil.normalizeFrameRange(dependOnLayer.range, dependOnLayer.chunkSize);
 
-  public void setDependDao(DependDao workDao) {
-    this.dependDao = workDao;
-  }
+        /*
+         * When a layer is chunked so large it contains only a single frame, any FrameByFrame
+         * depends to/from that that layer are converted to LayerOnLayer depends.
+         */
+        if ((dependOnFrameSet.size() == 1 && dependOnLayer.chunkSize > 1)
+                || (dependErFrameSet.size() == 1 && dependErLayer.chunkSize > 1)) {
 
-  public FrameSearchFactory getFrameSearchFactory() {
-    return frameSearchFactory;
-  }
+            LayerOnLayer lolDepend =
+                    new LayerOnLayer(depend.getDependErLayer(), depend.getDependOnLayer());
 
-  public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
-    this.frameSearchFactory = frameSearchFactory;
-  }
+            createDepend(lolDepend);
+            depend.setId(lolDepend.getId());
+            return;
+        }
+
+        /*
+         * Create the parent depends.
+         */
+        try {
+            dependDao.insertDepend(depend);
+        } catch (DataIntegrityViolationException e) {
+            LightweightDependency originalDep =
+                    dependDao.getDependBySignature(depend.getSignature());
+            depend.setId(originalDep.getId());
+            if (!depend.isActive()) {
+                unsatisfyDepend(originalDep);
+            } else {
+                return;
+            }
+        }
+
+        int dependErFrameSetSize = dependErFrameSet.size();
+        for (int idx = 0; idx < dependErFrameSetSize; idx = idx + 1) {
+
+            Set<Integer> dependOnFrames = new HashSet<Integer>(dependOnFrameSet.size());
+
+            int dependErFrameNum = dependErFrameSet.get(idx);
+            /* The frame always depends on the corresponding frame. */
+            int dependOnFrameNum = dependErFrameNum;
+
+            /*
+             * Finds any additional frames the dependErFrame might need to depend on.
+             */
+            if (dependOnLayer.chunkSize > dependErLayer.chunkSize) {
+                dependOnFrameNum = CueUtil.findChunk(dependOnFrameSet, dependErFrameNum);
+                dependOnFrames.add(dependOnFrameNum);
+            } else if (dependOnLayer.chunkSize < dependErLayer.chunkSize) {
+                dependOnFrameNum = CueUtil.findChunk(dependOnFrameSet, dependErFrameNum);
+                dependOnFrames.add(dependOnFrameNum);
+
+                for (int i = 0; i <= dependErLayer.chunkSize - dependOnLayer.chunkSize; i++) {
+                    int nextFrameIdx = dependOnFrameSet.indexOf(dependOnFrameNum) + i;
+                    try {
+                        dependOnFrames.add(dependOnFrameSet.get(nextFrameIdx));
+                    } catch (java.lang.IndexOutOfBoundsException e) {
+                        continue;
+                    }
+                }
+            } else if (!dependErFrameSet.equals(dependOnFrameSet)) {
+                if (dependOnFrameSet.contains(dependErFrameNum)) {
+                    dependOnFrames.add(dependErFrameNum);
+                } else {
+                    continue;
+                }
+            } else {
+                dependOnFrames.add(dependErFrameNum);
+            }
+
+            /*
+             * Now we can finally start adding child dependencies.
+             */
+            try {
+                FrameInterface dependErFrame = frameDao.findFrame(dependErLayer, dependErFrameNum);
+                for (int frameNum : dependOnFrames) {
+                    FrameInterface dependOnFrame = frameDao.findFrame(dependOnLayer, frameNum);
+                    FrameOnFrame fofDepend = new FrameOnFrame(dependErFrame, dependOnFrame, depend);
+
+                    createDepend(fofDepend);
+
+                }
+            } catch (DataRetrievalFailureException dre) {
+                logger.warn("failed to create frame by frame depend, "
+                        + "part of frame on frame depend: " + depend.getId() + " reason: " + dre);
+            }
+        }
+    }
+
+    @Override
+    public void createDepend(PreviousFrame depend) {
+
+        /*
+         * Obtain the full layer record so we have access to the frame range and other properties.
+         */
+        LayerDetail dependErLayer = layerDao.getLayerDetail(depend.getDependErLayer().getLayerId());
+
+        LayerDetail dependOnLayer = layerDao.getLayerDetail(depend.getDependOnLayer().getLayerId());
+
+        FrameSet dependErFrameSet = new FrameSet(dependErLayer.range);
+        FrameSet dependOnFrameSet = new FrameSet(dependOnLayer.range);
+
+        dependDao.insertDepend(depend);
+        int dependErFrameSetSize = dependErFrameSet.size();
+        for (int idx = 1; idx < dependErFrameSetSize; idx = idx + 1) {
+
+            try {
+                FrameInterface dependErFrame =
+                        frameDao.findFrame(dependErLayer, dependErFrameSet.get(idx));
+
+                FrameInterface dependOnFrame =
+                        frameDao.findFrame(dependOnLayer, dependOnFrameSet.get(idx - 1));
+
+                createDepend(new FrameOnFrame(dependErFrame, dependOnFrame, depend));
+            } catch (DataRetrievalFailureException dre) {
+                logger.warn("failed to create frame by frame depend, "
+                        + "part of a previous frame depend: " + depend.getId() + " reason: " + dre);
+            }
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void createDepend(BuildableDependency depend) {
+
+        JobInterface onJob = null;
+        JobInterface erJob = null;
+
+        try {
+            onJob = jobDao.findJob(depend.getDependOnJobName());
+            erJob = jobDao.findJob(depend.getDependErJobName());
+        } catch (Exception e) {
+            throw new DependencyManagerException("failed to setup new dependency: "
+                    + depend.getType().toString() + ", was unable to find job info for "
+                    + depend.getDependOnJobName() + " or " + depend.getDependErJobName() + "," + e);
+        }
+
+        switch (depend.getType()) {
+
+            case FRAME_BY_FRAME:
+                createDepend(
+                        new FrameByFrame(layerDao.findLayer(erJob, depend.getDependErLayerName()),
+                                layerDao.findLayer(onJob, depend.getDependOnLayerName())));
+                break;
+
+            case JOB_ON_JOB:
+                createDepend(new JobOnJob(erJob, onJob));
+                break;
+
+            case JOB_ON_LAYER:
+                createDepend(new JobOnLayer(erJob,
+                        layerDao.findLayer(onJob, depend.getDependOnLayerName())));
+                break;
+
+            case JOB_ON_FRAME:
+                createDepend(new JobOnFrame(erJob,
+                        frameDao.findFrame(onJob, depend.getDependOnFrameName())));
+                break;
+
+            case LAYER_ON_JOB:
+                createDepend(new LayerOnJob(
+                        layerDao.findLayer(erJob, depend.getDependErLayerName()), onJob));
+                break;
+
+            case LAYER_ON_LAYER:
+                LayerOnLayer lol =
+                        new LayerOnLayer(layerDao.findLayer(erJob, depend.getDependErLayerName()),
+                                layerDao.findLayer(onJob, depend.getDependOnLayerName()));
+                lol.setAnyFrame(depend.anyFrame);
+                createDepend(lol);
+                break;
+
+            case LAYER_ON_FRAME:
+                createDepend(
+                        new LayerOnFrame(layerDao.findLayer(erJob, depend.getDependErLayerName()),
+                                frameDao.findFrame(onJob, depend.getDependOnLayerName())));
+                break;
+
+            case FRAME_ON_JOB:
+                createDepend(new FrameOnJob(
+                        frameDao.findFrame(erJob, depend.getDependErFrameName()), onJob));
+                break;
+
+            case FRAME_ON_LAYER:
+                createDepend(
+                        new FrameOnLayer(frameDao.findFrame(erJob, depend.getDependErFrameName()),
+                                layerDao.findLayer(onJob, depend.getDependOnLayerName())));
+                break;
+
+            case FRAME_ON_FRAME:
+                createDepend(
+                        new FrameOnFrame(frameDao.findFrame(erJob, depend.getDependErFrameName()),
+                                frameDao.findFrame(onJob, depend.getDependOnFrameName())));
+                break;
+
+            case PREVIOUS_FRAME:
+                createDepend(
+                        new PreviousFrame(layerDao.findLayer(erJob, depend.getDependErLayerName()),
+                                layerDao.findLayer(onJob, depend.getDependOnLayerName())));
+                break;
+
+            case LAYER_ON_SIM_FRAME:
+                createDepend(new LayerOnSimFrame(
+                        layerDao.findLayer(erJob, depend.getDependErLayerName()),
+                        frameDao.findFrame(onJob, depend.getDependOnFrameName())));
+                break;
+        }
+    }
+
+    private void updateDependCount(LayerInterface layer) {
+        FrameSearchInterface r = frameSearchFactory.create(layer);
+        for (FrameInterface f : frameDao.findFrames(r)) {
+            updateDependCounts(f);
+        }
+    }
+
+    private void updateDependCount(JobInterface job) {
+        FrameSearchInterface r = frameSearchFactory.create(job);
+        for (FrameInterface f : frameDao.findFrames(r)) {
+            updateDependCounts(f);
+        }
+    }
+
+    private void updateDependCounts(FrameInterface f) {
+        dependDao.incrementDependCount(f);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public LightweightDependency getDepend(String id) {
+        return dependDao.getDepend(id);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void unsatisfyDepend(LightweightDependency depend) {
+
+        // Currently only handles FrameOnFrame and LayerOnLayer.
+        if (dependDao.setActive(depend)) {
+
+            switch (depend.type) {
+
+                case FRAME_ON_FRAME:
+                    FrameInterface frame = frameDao.getFrame(depend.dependErFrameId);
+                    updateDependCounts(frame);
+                    break;
+
+                case LAYER_ON_LAYER:
+                    updateDependCount(layerDao.getLayer(depend.dependErLayerId));
+                    break;
+            }
+        }
+    }
+
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void satisfyDepend(LightweightDependency depend) {
+        /*
+         * Before setting the depend to in-active, obtain a list of frames and decrement the depend
+         * count on them.
+         */
+        if (DependType.FRAME_BY_FRAME.equals(depend.type)) {
+            List<LightweightDependency> children = dependDao.getChildDepends(depend);
+
+            for (LightweightDependency lwd : children) {
+                satisfyDepend(lwd);
+            }
+            return;
+        }
+
+        /*
+         * Only decrement the depend counts if the depend is actually set to inactive.
+         */
+        if (dependDao.setInactive(depend)) {
+            logger.info("satisfied depend: " + depend.getId());
+            for (FrameInterface f : frameDao.getDependentFrames(depend)) {
+                if (!dependDao.decrementDependCount(f)) {
+                    logger.warn(
+                            "warning, depend count for " + depend.getId() + "was not decremented "
+                                    + "for frame " + f + "because the count is " + "already 0.");
+                }
+            }
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<LightweightDependency> getWhatThisDependsOn(JobInterface job, DependTarget target) {
+        return dependDao.getWhatThisDependsOn(job, target);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<LightweightDependency> getWhatThisDependsOn(LayerInterface layer,
+            DependTarget target) {
+        return dependDao.getWhatThisDependsOn(layer, target);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<LightweightDependency> getWhatThisDependsOn(FrameInterface frame,
+            DependTarget target) {
+        return dependDao.getWhatThisDependsOn(frame, target);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public LightweightDependency getCurrentDepend(String id) {
+        return dependDao.getDepend(id);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<LightweightDependency> getWhatDependsOn(JobInterface job) {
+        return dependDao.getWhatDependsOn(job);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<LightweightDependency> getWhatDependsOn(JobInterface job, DependTarget target) {
+        return dependDao.getWhatDependsOn(job, target);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<LightweightDependency> getWhatDependsOn(FrameInterface frame) {
+        return dependDao.getWhatDependsOn(frame);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<LightweightDependency> getWhatDependsOn(FrameInterface frame, boolean active) {
+        return dependDao.getWhatDependsOn(frame, active);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<LightweightDependency> getWhatDependsOn(LayerInterface layer) {
+        return dependDao.getWhatDependsOn(layer);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<LightweightDependency> getWhatDependsOn(LayerInterface layer, boolean active) {
+        return dependDao.getWhatDependsOn(layer, active);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void deleteDepend(LightweightDependency depend) {
+        dependDao.deleteDepend(depend);
+    }
+
+    public FrameDao getFrameDao() {
+        return frameDao;
+    }
+
+    public void setFrameDao(FrameDao frameDao) {
+        this.frameDao = frameDao;
+    }
+
+    public JobDao getJobDao() {
+        return jobDao;
+    }
+
+    public void setJobDao(JobDao jobDao) {
+        this.jobDao = jobDao;
+    }
+
+    public LayerDao getLayerDao() {
+        return layerDao;
+    }
+
+    public void setLayerDao(LayerDao layerDao) {
+        this.layerDao = layerDao;
+    }
+
+    public DependDao getDependDao() {
+        return dependDao;
+    }
+
+    public void setDependDao(DependDao workDao) {
+        this.dependDao = workDao;
+    }
+
+    public FrameSearchFactory getFrameSearchFactory() {
+        return frameSearchFactory;
+    }
+
+    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
+        this.frameSearchFactory = frameSearchFactory;
+    }
 }

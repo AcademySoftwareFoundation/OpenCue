@@ -29,33 +29,33 @@ import com.imageworks.spcue.dao.HistoricalDao;
 @Transactional
 public class HistoricalManagerService implements HistoricalManager {
 
-  private HistoricalDao historicalDao;
+    private HistoricalDao historicalDao;
 
-  @Autowired
-  private Environment env;
+    @Autowired
+    private Environment env;
 
-  @Transactional(readOnly = true, isolation = Isolation.SERIALIZABLE)
-  public List<JobInterface> getFinishedJobs() {
-    return historicalDao.getFinishedJobs(
-        env.getRequiredProperty("history.archive_jobs_cutoff_hours", Integer.class));
-  }
-
-  @Transactional
-  public void transferJob(JobInterface job) {
-    try {
-      historicalDao.transferJob(job);
-    } catch (Exception e) {
-      throw new HistoricalJobTransferException(
-          "failed to transfer job " + job.getName() + " to historical table");
+    @Transactional(readOnly = true, isolation = Isolation.SERIALIZABLE)
+    public List<JobInterface> getFinishedJobs() {
+        return historicalDao.getFinishedJobs(
+                env.getRequiredProperty("history.archive_jobs_cutoff_hours", Integer.class));
     }
-  }
 
-  public HistoricalDao getHistoricalDao() {
-    return historicalDao;
-  }
+    @Transactional
+    public void transferJob(JobInterface job) {
+        try {
+            historicalDao.transferJob(job);
+        } catch (Exception e) {
+            throw new HistoricalJobTransferException(
+                    "failed to transfer job " + job.getName() + " to historical table");
+        }
+    }
 
-  public void setHistoricalDao(HistoricalDao historicalDao) {
-    this.historicalDao = historicalDao;
-  }
+    public HistoricalDao getHistoricalDao() {
+        return historicalDao;
+    }
+
+    public void setHistoricalDao(HistoricalDao historicalDao) {
+        this.historicalDao = historicalDao;
+    }
 
 }

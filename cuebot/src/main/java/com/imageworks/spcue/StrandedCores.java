@@ -17,23 +17,23 @@ package com.imageworks.spcue;
 
 public final class StrandedCores {
 
-  /**
-   * The maximum time this object should be valid.
-   */
-  private static final long MAX_AGE_MILLIS = 5000l;
+    /**
+     * The maximum time this object should be valid.
+     */
+    private static final long MAX_AGE_MILLIS = 5000l;
 
-  private final int cores;
-  private final long expireTime = System.currentTimeMillis() + MAX_AGE_MILLIS;
+    private final int cores;
+    private final long expireTime = System.currentTimeMillis() + MAX_AGE_MILLIS;
 
-  public StrandedCores(int cores) {
-    this.cores = cores;
-  }
+    public StrandedCores(int cores) {
+        this.cores = cores;
+    }
 
-  public int getCores() {
-    return this.cores;
-  }
+    public int getCores() {
+        return this.cores;
+    }
 
-  public boolean isExpired() {
-    return System.currentTimeMillis() > expireTime;
-  }
+    public boolean isExpired() {
+        return System.currentTimeMillis() > expireTime;
+    }
 }

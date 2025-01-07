@@ -22,45 +22,45 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class PreviousFrame extends AbstractDepend implements Depend {
 
-  public final LayerInterface dependErLayer;
-  public final LayerInterface dependOnLayer;
+    public final LayerInterface dependErLayer;
+    public final LayerInterface dependOnLayer;
 
-  public PreviousFrame(LayerInterface dependErLayer, LayerInterface dependOnLayer) {
-    this.dependErLayer = dependErLayer;
-    this.dependOnLayer = dependOnLayer;
-    setComposite(true);
-  }
-
-  @Override
-  public String getSignature() {
-    StringBuilder key = new StringBuilder(256);
-    key.append(DependType.PREVIOUS_FRAME.toString());
-    key.append(dependErLayer.getJobId());
-    key.append(dependOnLayer.getJobId());
-    key.append(dependErLayer.getLayerId());
-    key.append(dependOnLayer.getLayerId());
-    return SqlUtil.genKeyByName(key.toString());
-  }
-
-  @Override
-  public DependTarget getTarget() {
-    if (dependErLayer.getJobId().equals(dependOnLayer.getJobId())) {
-      return DependTarget.INTERNAL;
-    } else {
-      return DependTarget.EXTERNAL;
+    public PreviousFrame(LayerInterface dependErLayer, LayerInterface dependOnLayer) {
+        this.dependErLayer = dependErLayer;
+        this.dependOnLayer = dependOnLayer;
+        setComposite(true);
     }
-  }
 
-  @Override
-  public void accept(DependVisitor dependVisitor) {
-    dependVisitor.accept(this);
-  }
+    @Override
+    public String getSignature() {
+        StringBuilder key = new StringBuilder(256);
+        key.append(DependType.PREVIOUS_FRAME.toString());
+        key.append(dependErLayer.getJobId());
+        key.append(dependOnLayer.getJobId());
+        key.append(dependErLayer.getLayerId());
+        key.append(dependOnLayer.getLayerId());
+        return SqlUtil.genKeyByName(key.toString());
+    }
 
-  public LayerInterface getDependErLayer() {
-    return dependErLayer;
-  }
+    @Override
+    public DependTarget getTarget() {
+        if (dependErLayer.getJobId().equals(dependOnLayer.getJobId())) {
+            return DependTarget.INTERNAL;
+        } else {
+            return DependTarget.EXTERNAL;
+        }
+    }
 
-  public LayerInterface getDependOnLayer() {
-    return dependOnLayer;
-  }
+    @Override
+    public void accept(DependVisitor dependVisitor) {
+        dependVisitor.accept(this);
+    }
+
+    public LayerInterface getDependErLayer() {
+        return dependErLayer;
+    }
+
+    public LayerInterface getDependOnLayer() {
+        return dependOnLayer;
+    }
 }

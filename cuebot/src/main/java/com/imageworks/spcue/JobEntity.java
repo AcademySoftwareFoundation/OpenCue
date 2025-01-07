@@ -17,24 +17,24 @@ package com.imageworks.spcue;
 
 public class JobEntity extends Entity implements JobInterface {
 
-  public String showId;
-  public String facilityId;
+    public String showId;
+    public String facilityId;
 
-  public JobEntity() {}
+    public JobEntity() {}
 
-  public JobEntity(String id) {
-    this.id = id;
-  }
+    public JobEntity(String id) {
+        this.id = id;
+    }
 
-  public String getJobId() {
-    return id;
-  }
+    public String getJobId() {
+        return id;
+    }
 
-  public String getShowId() {
-    return showId;
-  }
+    public String getShowId() {
+        return showId;
+    }
 
-  public String getFacilityId() {
-    return facilityId;
-  }
+    public String getFacilityId() {
+        return facilityId;
+    }
 }

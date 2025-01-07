@@ -20,37 +20,37 @@ package com.imageworks.spcue;
  */
 public class ResourceUsage {
 
-  private final long coreTimeSeconds;
-  private final long gpuTimeSeconds;
-  private final long clockTimeSeconds;
+    private final long coreTimeSeconds;
+    private final long gpuTimeSeconds;
+    private final long clockTimeSeconds;
 
-  public ResourceUsage(long clockTime, int corePoints, int gpuPoints) {
+    public ResourceUsage(long clockTime, int corePoints, int gpuPoints) {
 
-    if (clockTime < 1) {
-      clockTime = 1;
+        if (clockTime < 1) {
+            clockTime = 1;
+        }
+
+        long coreTime = (long) (clockTime * (corePoints / 100f));
+        if (coreTime < 1) {
+            coreTime = 1;
+        }
+
+        long gpuTime = clockTime * gpuPoints;
+
+        clockTimeSeconds = clockTime;
+        coreTimeSeconds = coreTime;
+        gpuTimeSeconds = gpuTime;
     }
 
-    long coreTime = (long) (clockTime * (corePoints / 100f));
-    if (coreTime < 1) {
-      coreTime = 1;
+    public long getCoreTimeSeconds() {
+        return coreTimeSeconds;
     }
 
-    long gpuTime = clockTime * gpuPoints;
+    public long getGpuTimeSeconds() {
+        return gpuTimeSeconds;
+    }
 
-    clockTimeSeconds = clockTime;
-    coreTimeSeconds = coreTime;
-    gpuTimeSeconds = gpuTime;
-  }
-
-  public long getCoreTimeSeconds() {
-    return coreTimeSeconds;
-  }
-
-  public long getGpuTimeSeconds() {
-    return gpuTimeSeconds;
-  }
-
-  public long getClockTimeSeconds() {
-    return clockTimeSeconds;
-  }
+    public long getClockTimeSeconds() {
+        return clockTimeSeconds;
+    }
 }

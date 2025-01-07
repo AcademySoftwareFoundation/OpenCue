@@ -21,18 +21,18 @@ import com.imageworks.spcue.JobInterface;
 
 public interface HistoricalManager {
 
-  /**
-   * Returns a list of jobs ready to be archived.
-   *
-   * @return List<Job>
-   */
-  List<JobInterface> getFinishedJobs();
+    /**
+     * Returns a list of jobs ready to be archived.
+     *
+     * @return List<Job>
+     */
+    List<JobInterface> getFinishedJobs();
 
-  /**
-   * Transfers data from the live to the historical tables.
-   *
-   * @param job
-   */
-  void transferJob(JobInterface job);
+    /**
+     * Transfers data from the live to the historical tables.
+     *
+     * @param job
+     */
+    void transferJob(JobInterface job);
 
 }

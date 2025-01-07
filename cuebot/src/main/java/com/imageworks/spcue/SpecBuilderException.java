@@ -20,14 +20,14 @@ import org.springframework.core.NestedRuntimeException;
 @SuppressWarnings("serial")
 public class SpecBuilderException extends NestedRuntimeException {
 
-  public SpecBuilderException(String arg0) {
-    super(arg0);
-    // TODO Auto-generated constructor stub
-  }
+    public SpecBuilderException(String arg0) {
+        super(arg0);
+        // TODO Auto-generated constructor stub
+    }
 
-  public SpecBuilderException(String arg0, Throwable arg1) {
-    super(arg0, arg1);
-    // TODO Auto-generated constructor stub
-  }
+    public SpecBuilderException(String arg0, Throwable arg1) {
+        super(arg0, arg1);
+        // TODO Auto-generated constructor stub
+    }
 
 }

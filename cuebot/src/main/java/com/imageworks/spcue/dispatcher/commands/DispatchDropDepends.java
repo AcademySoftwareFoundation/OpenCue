@@ -29,54 +29,57 @@ import com.imageworks.spcue.service.DependManager;
  */
 public class DispatchDropDepends extends KeyRunnable {
 
-  JobInterface job;
-  LayerInterface layer;
-  FrameInterface frame;
+    JobInterface job;
+    LayerInterface layer;
+    FrameInterface frame;
 
-  DependTarget target;
-  DependManager dependManager;
+    DependTarget target;
+    DependManager dependManager;
 
-  public DispatchDropDepends(JobInterface job, DependTarget target, DependManager dependManager) {
-    super("disp_drop_dep_job_" + job.getJobId() + "_" + target.toString());
-    this.job = job;
-    this.target = target;
-    this.dependManager = dependManager;
-  }
+    public DispatchDropDepends(JobInterface job, DependTarget target, DependManager dependManager) {
+        super("disp_drop_dep_job_" + job.getJobId() + "_" + target.toString());
+        this.job = job;
+        this.target = target;
+        this.dependManager = dependManager;
+    }
 
-  public DispatchDropDepends(LayerInterface layer, DependTarget target,
-      DependManager dependManager) {
-    super("disp_drop_dep_layer_" + layer.getLayerId() + "_" + target.toString());
-    this.layer = layer;
-    this.target = target;
-    this.dependManager = dependManager;
-  }
+    public DispatchDropDepends(LayerInterface layer, DependTarget target,
+            DependManager dependManager) {
+        super("disp_drop_dep_layer_" + layer.getLayerId() + "_" + target.toString());
+        this.layer = layer;
+        this.target = target;
+        this.dependManager = dependManager;
+    }
 
-  public DispatchDropDepends(FrameInterface frame, DependTarget target,
-      DependManager dependManager) {
-    super("disp_drop_dep_frame_" + frame.getFrameId() + "_" + target.toString());
-    this.frame = frame;
-    this.target = target;
-    this.dependManager = dependManager;
-  }
+    public DispatchDropDepends(FrameInterface frame, DependTarget target,
+            DependManager dependManager) {
+        super("disp_drop_dep_frame_" + frame.getFrameId() + "_" + target.toString());
+        this.frame = frame;
+        this.target = target;
+        this.dependManager = dependManager;
+    }
 
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        if (job != null) {
-          for (LightweightDependency d : dependManager.getWhatThisDependsOn(job, target)) {
-            dependManager.satisfyDepend(d);
-          }
-        } else if (layer != null) {
-          for (LightweightDependency d : dependManager.getWhatThisDependsOn(layer, target)) {
-            dependManager.satisfyDepend(d);
-          }
-        } else if (frame != null) {
-          for (LightweightDependency d : dependManager.getWhatThisDependsOn(frame, target)) {
-            dependManager.satisfyDepend(d);
-          }
-        }
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                if (job != null) {
+                    for (LightweightDependency d : dependManager.getWhatThisDependsOn(job,
+                            target)) {
+                        dependManager.satisfyDepend(d);
+                    }
+                } else if (layer != null) {
+                    for (LightweightDependency d : dependManager.getWhatThisDependsOn(layer,
+                            target)) {
+                        dependManager.satisfyDepend(d);
+                    }
+                } else if (frame != null) {
+                    for (LightweightDependency d : dependManager.getWhatThisDependsOn(frame,
+                            target)) {
+                        dependManager.satisfyDepend(d);
+                    }
+                }
 
-      }
-    }.execute();
-  }
+            }
+        }.execute();
+    }
 }

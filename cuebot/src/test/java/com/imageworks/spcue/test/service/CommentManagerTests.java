@@ -36,37 +36,37 @@ import com.imageworks.spcue.service.JobManager;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class CommentManagerTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  JobLauncher jobLauncher;
+    @Resource
+    JobLauncher jobLauncher;
 
-  @Resource
-  JobManager jobManager;
+    @Resource
+    JobManager jobManager;
 
-  @Resource
-  CommentManager commentManager;
+    @Resource
+    CommentManager commentManager;
 
-  public JobDetail launchJob() {
-    jobLauncher.testMode = true;
-    jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
-    JobDetail d = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
-    jobManager.setJobPaused(d, false);
-    return d;
-  }
+    public JobDetail launchJob() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        JobDetail d = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
+        jobManager.setJobPaused(d, false);
+        return d;
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testJobComment() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testJobComment() {
 
-    JobDetail j = launchJob();
+        JobDetail j = launchJob();
 
-    CommentDetail c = new CommentDetail();
-    c.message = "A test comment";
-    c.subject = "A test subject";
-    c.user = "Mr. Bigglesworth";
-    c.timestamp = new java.sql.Timestamp(System.currentTimeMillis());
+        CommentDetail c = new CommentDetail();
+        c.message = "A test comment";
+        c.subject = "A test subject";
+        c.user = "Mr. Bigglesworth";
+        c.timestamp = new java.sql.Timestamp(System.currentTimeMillis());
 
-    commentManager.addComment(j, c);
+        commentManager.addComment(j, c);
 
-  }
+    }
 }

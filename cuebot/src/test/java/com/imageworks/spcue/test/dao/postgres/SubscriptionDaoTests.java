@@ -48,199 +48,203 @@ import static org.junit.Assert.assertTrue;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Autowired
-  @Rule
-  public AssumingPostgresEngine assumingPostgresEngine;
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
-  @Resource
-  AllocationDao allocDao;
+    @Resource
+    AllocationDao allocDao;
 
-  @Resource
-  SubscriptionDao subscriptionDao;
+    @Resource
+    SubscriptionDao subscriptionDao;
 
-  @Resource
-  AllocationDao allocationDao;
+    @Resource
+    AllocationDao allocationDao;
 
-  @Resource
-  ShowDao showDao;
+    @Resource
+    ShowDao showDao;
 
-  @Resource
-  FacilityDao facilityDao;
+    @Resource
+    FacilityDao facilityDao;
 
-  public static final String SUB_NAME = "test.pipe";
-  public static final String ALLOC_NAME = "test";
+    public static final String SUB_NAME = "test.pipe";
+    public static final String ALLOC_NAME = "test";
 
-  private AllocationEntity alloc;
+    private AllocationEntity alloc;
 
-  public ShowInterface getShow() {
-    return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
-  }
+    public ShowInterface getShow() {
+        return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
+    }
 
-  public SubscriptionEntity buildSubscription(ShowInterface t, AllocationInterface a) {
-    SubscriptionEntity s = new SubscriptionEntity();
-    s.allocationId = a.getId();
-    s.showId = t.getId();
-    s.burst = 500;
-    s.size = 100;
-    return s;
-  }
+    public SubscriptionEntity buildSubscription(ShowInterface t, AllocationInterface a) {
+        SubscriptionEntity s = new SubscriptionEntity();
+        s.allocationId = a.getId();
+        s.showId = t.getId();
+        s.burst = 500;
+        s.size = 100;
+        return s;
+    }
 
-  public AllocationEntity buildAllocation() {
-    AllocationEntity a = new AllocationEntity();
-    a.tag = "test";
-    a.name = ALLOC_NAME;
-    a.facilityId = facilityDao.getDefaultFacility().getFacilityId();
-    return a;
-  }
+    public AllocationEntity buildAllocation() {
+        AllocationEntity a = new AllocationEntity();
+        a.tag = "test";
+        a.name = ALLOC_NAME;
+        a.facilityId = facilityDao.getDefaultFacility().getFacilityId();
+        return a;
+    }
 
-  @Before
-  public void before() {
-    alloc = new AllocationEntity();
-    alloc.name = ALLOC_NAME;
-    alloc.tag = "test";
-    allocationDao.insertAllocation(facilityDao.getDefaultFacility(), alloc);
-  }
+    @Before
+    public void before() {
+        alloc = new AllocationEntity();
+        alloc.name = ALLOC_NAME;
+        alloc.tag = "test";
+        allocationDao.insertAllocation(facilityDao.getDefaultFacility(), alloc);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testHasRunningProcs() {
-    SubscriptionEntity s = buildSubscription(getShow(), alloc);
-    subscriptionDao.insertSubscription(s);
-    assertFalse(subscriptionDao.hasRunningProcs(s));
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHasRunningProcs() {
+        SubscriptionEntity s = buildSubscription(getShow(), alloc);
+        subscriptionDao.insertSubscription(s);
+        assertFalse(subscriptionDao.hasRunningProcs(s));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testIsShowOverSize() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testIsShowOverSize() {
 
-    SubscriptionEntity sub = buildSubscription(getShow(), alloc);
-    subscriptionDao.insertSubscription(sub);
+        SubscriptionEntity sub = buildSubscription(getShow(), alloc);
+        subscriptionDao.insertSubscription(sub);
 
-    assertFalse(this.subscriptionDao.isShowOverSize(getShow(), alloc));
+        assertFalse(this.subscriptionDao.isShowOverSize(getShow(), alloc));
 
-    jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 100,
-        sub.getSubscriptionId());
+        jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 100,
+                sub.getSubscriptionId());
 
-    assertFalse(subscriptionDao.isShowOverSize(getShow(), alloc));
+        assertFalse(subscriptionDao.isShowOverSize(getShow(), alloc));
 
-    jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 101,
-        sub.getSubscriptionId());
+        jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 101,
+                sub.getSubscriptionId());
 
-    assertEquals(true, subscriptionDao.isShowOverSize(getShow(), alloc));
-  }
+        assertEquals(true, subscriptionDao.isShowOverSize(getShow(), alloc));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testIsShowAtOrOverSize() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testIsShowAtOrOverSize() {
 
-    SubscriptionEntity sub = buildSubscription(getShow(), alloc);
-    subscriptionDao.insertSubscription(sub);
-    assertFalse(this.subscriptionDao.isShowAtOrOverSize(getShow(), alloc));
+        SubscriptionEntity sub = buildSubscription(getShow(), alloc);
+        subscriptionDao.insertSubscription(sub);
+        assertFalse(this.subscriptionDao.isShowAtOrOverSize(getShow(), alloc));
 
-    jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 100,
-        sub.getSubscriptionId());
+        jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 100,
+                sub.getSubscriptionId());
 
-    assertTrue(subscriptionDao.isShowAtOrOverSize(getShow(), alloc));
+        assertTrue(subscriptionDao.isShowAtOrOverSize(getShow(), alloc));
 
-    jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 200,
-        sub.getSubscriptionId());
+        jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 200,
+                sub.getSubscriptionId());
 
-    assertTrue(subscriptionDao.isShowAtOrOverSize(getShow(), alloc));
-  }
+        assertTrue(subscriptionDao.isShowAtOrOverSize(getShow(), alloc));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testIsShowOverBurst() {
-    subscriptionDao.insertSubscription(buildSubscription(getShow(), alloc));
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testIsShowOverBurst() {
+        subscriptionDao.insertSubscription(buildSubscription(getShow(), alloc));
 
-    // Burst is 500 so 600 would be over burst.
-    assertTrue(subscriptionDao.isShowOverBurst(getShow(), alloc, 600));
+        // Burst is 500 so 600 would be over burst.
+        assertTrue(subscriptionDao.isShowOverBurst(getShow(), alloc, 600));
 
-    // Burst is 500 so 300 would be under burst.
-    assertFalse(subscriptionDao.isShowOverBurst(getShow(), alloc, 300));
-  }
+        // Burst is 500 so 300 would be under burst.
+        assertFalse(subscriptionDao.isShowOverBurst(getShow(), alloc, 300));
+    }
 
-  @Test(expected = org.springframework.jdbc.UncategorizedSQLException.class)
-  @Transactional
-  @Rollback(true)
-  public void testIsShowAtOrOverBurst() {
+    @Test(expected = org.springframework.jdbc.UncategorizedSQLException.class)
+    @Transactional
+    @Rollback(true)
+    public void testIsShowAtOrOverBurst() {
 
-    SubscriptionEntity sub = buildSubscription(getShow(), alloc);
-    subscriptionDao.insertSubscription(sub);
-    assertFalse(subscriptionDao.isShowAtOrOverBurst(getShow(), alloc));
+        SubscriptionEntity sub = buildSubscription(getShow(), alloc);
+        subscriptionDao.insertSubscription(sub);
+        assertFalse(subscriptionDao.isShowAtOrOverBurst(getShow(), alloc));
 
-    jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 500,
-        sub.getSubscriptionId());
+        jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 500,
+                sub.getSubscriptionId());
 
-    assertTrue(subscriptionDao.isShowAtOrOverBurst(getShow(), alloc));
+        assertTrue(subscriptionDao.isShowAtOrOverBurst(getShow(), alloc));
 
-    jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 501,
-        sub.getSubscriptionId());
+        jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 501,
+                sub.getSubscriptionId());
 
-    assertTrue(subscriptionDao.isShowAtOrOverBurst(getShow(), alloc));
-  }
+        assertTrue(subscriptionDao.isShowAtOrOverBurst(getShow(), alloc));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetSubscriptionDetail() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetSubscriptionDetail() {
 
-    FacilityInterface f = facilityDao.getDefaultFacility();
+        FacilityInterface f = facilityDao.getDefaultFacility();
 
-    SubscriptionEntity s = buildSubscription(getShow(), alloc);
-    subscriptionDao.insertSubscription(s);
-    assertNotNull(s.id);
-    assertNotNull(s.getId());
+        SubscriptionEntity s = buildSubscription(getShow(), alloc);
+        subscriptionDao.insertSubscription(s);
+        assertNotNull(s.id);
+        assertNotNull(s.getId());
 
-    SubscriptionEntity s1 = subscriptionDao.getSubscriptionDetail(s.getSubscriptionId());
+        SubscriptionEntity s1 = subscriptionDao.getSubscriptionDetail(s.getSubscriptionId());
 
-    assertEquals(alloc.getName() + ".pipe", s1.name);
-    assertEquals(s.burst, s1.burst);
-    assertEquals(s.id, s1.id);
-    assertEquals(s.size, s1.size);
-    assertEquals(s.allocationId, s1.allocationId);
-  }
+        assertEquals(alloc.getName() + ".pipe", s1.name);
+        assertEquals(s.burst, s1.burst);
+        assertEquals(s.id, s1.id);
+        assertEquals(s.size, s1.size);
+        assertEquals(s.allocationId, s1.allocationId);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testInsertSubscription() {
-    SubscriptionEntity s = buildSubscription(getShow(), alloc);
-    subscriptionDao.insertSubscription(s);
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testInsertSubscription() {
+        SubscriptionEntity s = buildSubscription(getShow(), alloc);
+        subscriptionDao.insertSubscription(s);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDeleteSubscription() {
-    SubscriptionEntity s = buildSubscription(getShow(), alloc);
-    subscriptionDao.insertSubscription(s);
-    subscriptionDao.deleteSubscription(s);
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDeleteSubscription() {
+        SubscriptionEntity s = buildSubscription(getShow(), alloc);
+        subscriptionDao.insertSubscription(s);
+        subscriptionDao.deleteSubscription(s);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testUpdateSubscriptionSize() {
-    SubscriptionEntity s = buildSubscription(getShow(), alloc);
-    subscriptionDao.insertSubscription(s);
-    subscriptionDao.updateSubscriptionSize(s, 100);
-    assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-        "SELECT int_size FROM subscription WHERE pk_subscription=?", Integer.class, s.getId()));
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateSubscriptionSize() {
+        SubscriptionEntity s = buildSubscription(getShow(), alloc);
+        subscriptionDao.insertSubscription(s);
+        subscriptionDao.updateSubscriptionSize(s, 100);
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_size FROM subscription WHERE pk_subscription=?", Integer.class,
+                        s.getId()));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testUpdateSubscriptionBurst() {
-    SubscriptionEntity s = buildSubscription(getShow(), alloc);
-    subscriptionDao.insertSubscription(s);
-    subscriptionDao.updateSubscriptionBurst(s, 100);
-    assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-        "SELECT int_burst FROM subscription WHERE pk_subscription=?", Integer.class, s.getId()));
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateSubscriptionBurst() {
+        SubscriptionEntity s = buildSubscription(getShow(), alloc);
+        subscriptionDao.insertSubscription(s);
+        subscriptionDao.updateSubscriptionBurst(s, 100);
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_burst FROM subscription WHERE pk_subscription=?", Integer.class,
+                        s.getId()));
+    }
 }

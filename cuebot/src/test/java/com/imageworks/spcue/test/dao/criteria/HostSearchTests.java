@@ -46,60 +46,60 @@ import static org.junit.Assert.assertEquals;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class HostSearchTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  HostSearchFactory hostSearchFactory;
+    @Resource
+    HostSearchFactory hostSearchFactory;
 
-  @Resource
-  AdminManager adminManager;
+    @Resource
+    AdminManager adminManager;
 
-  @Resource
-  HostManager hostManager;
+    @Resource
+    HostManager hostManager;
 
-  @Resource
-  WhiteboardDao whiteboardDao;
+    @Resource
+    WhiteboardDao whiteboardDao;
 
-  private AllocationEntity createAlloc(FacilityInterface facility, String allocName) {
-    AllocationEntity alloc = new AllocationEntity();
-    alloc.name = allocName;
-    alloc.tag = "test-tag";
-    adminManager.createAllocation(facility, alloc);
-    return alloc;
-  }
+    private AllocationEntity createAlloc(FacilityInterface facility, String allocName) {
+        AllocationEntity alloc = new AllocationEntity();
+        alloc.name = allocName;
+        alloc.tag = "test-tag";
+        adminManager.createAllocation(facility, alloc);
+        return alloc;
+    }
 
-  private DispatchHost createHost(AllocationEntity alloc, String hostName) {
-    DispatchHost host = hostManager
-        .createHost(RenderHost.newBuilder().setName(hostName).setTotalMem(50000000).build());
-    hostManager.setAllocation(host, alloc);
-    return host;
-  }
+    private DispatchHost createHost(AllocationEntity alloc, String hostName) {
+        DispatchHost host = hostManager.createHost(
+                RenderHost.newBuilder().setName(hostName).setTotalMem(50000000).build());
+        hostManager.setAllocation(host, alloc);
+        return host;
+    }
 
-  @Test
-  @Transactional
-  @Rollback
-  public void testGetCriteria() {
-    HostSearchCriteria criteria = HostSearchInterface.criteriaFactory();
+    @Test
+    @Transactional
+    @Rollback
+    public void testGetCriteria() {
+        HostSearchCriteria criteria = HostSearchInterface.criteriaFactory();
 
-    HostSearchInterface hostSearch = hostSearchFactory.create(criteria);
+        HostSearchInterface hostSearch = hostSearchFactory.create(criteria);
 
-    assertEquals(criteria, hostSearch.getCriteria());
-  }
+        assertEquals(criteria, hostSearch.getCriteria());
+    }
 
-  @Test
-  @Transactional
-  @Rollback
-  public void testFilterByAlloc() {
-    FacilityInterface facility = adminManager.createFacility("test-facility");
-    AllocationEntity alloc1 = createAlloc(facility, "test-alloc-01");
-    AllocationEntity alloc2 = createAlloc(facility, "test-alloc-02");
-    DispatchHost expectedHost = createHost(alloc1, "test-host-01");
-    createHost(alloc2, "test-host-02");
-    HostSearchInterface hostSearch =
-        hostSearchFactory.create(HostSearchInterface.criteriaFactory());
-    hostSearch.filterByAlloc(alloc1);
+    @Test
+    @Transactional
+    @Rollback
+    public void testFilterByAlloc() {
+        FacilityInterface facility = adminManager.createFacility("test-facility");
+        AllocationEntity alloc1 = createAlloc(facility, "test-alloc-01");
+        AllocationEntity alloc2 = createAlloc(facility, "test-alloc-02");
+        DispatchHost expectedHost = createHost(alloc1, "test-host-01");
+        createHost(alloc2, "test-host-02");
+        HostSearchInterface hostSearch =
+                hostSearchFactory.create(HostSearchInterface.criteriaFactory());
+        hostSearch.filterByAlloc(alloc1);
 
-    List<Host> hosts = whiteboardDao.getHosts(hostSearch).getHostsList();
+        List<Host> hosts = whiteboardDao.getHosts(hostSearch).getHostsList();
 
-    assertThat(hosts.stream().map(Host::getId).collect(Collectors.toList()))
-        .containsOnly(expectedHost.getHostId());
-  }
+        assertThat(hosts.stream().map(Host::getId).collect(Collectors.toList()))
+                .containsOnly(expectedHost.getHostId());
+    }
 }

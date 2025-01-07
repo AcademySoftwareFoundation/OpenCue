@@ -29,198 +29,198 @@ import org.apache.logging.log4j.LogManager;
  */
 public class LocalHostAssignment extends Entity implements ResourceContainer {
 
-  private static final Logger logger = LogManager.getLogger(LocalHostAssignment.class);
+    private static final Logger logger = LogManager.getLogger(LocalHostAssignment.class);
 
-  private int idleCoreUnits;
-  private long idleMemory;
-  private int idleGpuUnits;
-  private long idleGpuMemory;
+    private int idleCoreUnits;
+    private long idleMemory;
+    private int idleGpuUnits;
+    private long idleGpuMemory;
 
-  private long maxMemory;
-  private long maxGpuMemory;
-  private int maxCoreUnits;
-  private int maxGpuUnits;
+    private long maxMemory;
+    private long maxGpuMemory;
+    private int maxCoreUnits;
+    private int maxGpuUnits;
 
-  private int threads;
+    private int threads;
 
-  private String hostId;
-  private String jobId = null;
-  private String layerId = null;
-  private String frameId = null;
+    private String hostId;
+    private String jobId = null;
+    private String layerId = null;
+    private String frameId = null;
 
-  private RenderPartitionType type;
+    private RenderPartitionType type;
 
-  public LocalHostAssignment() {}
+    public LocalHostAssignment() {}
 
-  public LocalHostAssignment(int maxCores, int threads, long maxMemory, int maxGpus,
-      long maxGpuMemory) {
-    this.maxCoreUnits = maxCores;
-    this.threads = threads;
-    this.maxMemory = maxMemory;
-    this.maxGpuUnits = maxGpus;
-    this.maxGpuMemory = maxGpuMemory;
-  }
-
-  public int handleNegativeCoresRequirement(int requestedCores) {
-    // If we request a <=0 amount of cores, return positive core count.
-    // Request -2 on a 24 core machine will return 22.
-
-    if (requestedCores > 0) {
-      // Do not process positive core requests.
-      logger.debug("Requested " + requestedCores + " cores.");
-      return requestedCores;
-    }
-    if (requestedCores <= 0 && idleCoreUnits < threads) {
-      // If request is negative but cores are already used, return 0.
-      // We don't want to overbook the host.
-      logger.debug("Requested " + requestedCores
-          + " cores, but the host is busy and cannot book more jobs.");
-      return 0;
-    }
-    // Book all cores minus the request
-    int totalCores = idleCoreUnits + requestedCores;
-    logger.debug("Requested " + requestedCores + " cores  <= 0, " + idleCoreUnits
-        + " cores are free, booking " + totalCores + " cores");
-    return totalCores;
-  }
-
-  @Override
-  public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus,
-      long minGpuMemory) {
-    minCores = handleNegativeCoresRequirement(minCores);
-    if (idleCoreUnits < minCores) {
-      return false;
-    }
-    if (minCores <= 0) {
-      return false;
-    } else if (idleMemory < minMemory) {
-      return false;
-    } else if (idleGpuUnits < minGpus) {
-      return false;
-    } else if (idleGpuMemory < minGpuMemory) {
-      return false;
+    public LocalHostAssignment(int maxCores, int threads, long maxMemory, int maxGpus,
+            long maxGpuMemory) {
+        this.maxCoreUnits = maxCores;
+        this.threads = threads;
+        this.maxMemory = maxMemory;
+        this.maxGpuUnits = maxGpus;
+        this.maxGpuMemory = maxGpuMemory;
     }
 
-    return true;
-  }
+    public int handleNegativeCoresRequirement(int requestedCores) {
+        // If we request a <=0 amount of cores, return positive core count.
+        // Request -2 on a 24 core machine will return 22.
 
-  @Override
-  public void useResources(int coreUnits, long memory, int gpuUnits, long gpuMemory) {
-    idleCoreUnits = idleCoreUnits - coreUnits;
-    idleMemory = idleMemory - memory;
-    idleGpuUnits = idleGpuUnits - gpuUnits;
-    idleGpuMemory = idleGpuMemory - gpuMemory;
-  }
+        if (requestedCores > 0) {
+            // Do not process positive core requests.
+            logger.debug("Requested " + requestedCores + " cores.");
+            return requestedCores;
+        }
+        if (requestedCores <= 0 && idleCoreUnits < threads) {
+            // If request is negative but cores are already used, return 0.
+            // We don't want to overbook the host.
+            logger.debug("Requested " + requestedCores
+                    + " cores, but the host is busy and cannot book more jobs.");
+            return 0;
+        }
+        // Book all cores minus the request
+        int totalCores = idleCoreUnits + requestedCores;
+        logger.debug("Requested " + requestedCores + " cores  <= 0, " + idleCoreUnits
+                + " cores are free, booking " + totalCores + " cores");
+        return totalCores;
+    }
 
-  public int getThreads() {
-    return threads;
-  }
+    @Override
+    public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus,
+            long minGpuMemory) {
+        minCores = handleNegativeCoresRequirement(minCores);
+        if (idleCoreUnits < minCores) {
+            return false;
+        }
+        if (minCores <= 0) {
+            return false;
+        } else if (idleMemory < minMemory) {
+            return false;
+        } else if (idleGpuUnits < minGpus) {
+            return false;
+        } else if (idleGpuMemory < minGpuMemory) {
+            return false;
+        }
 
-  public void setThreads(int threads) {
-    this.threads = threads;
-  }
+        return true;
+    }
 
-  public long getMaxMemory() {
-    return maxMemory;
-  }
+    @Override
+    public void useResources(int coreUnits, long memory, int gpuUnits, long gpuMemory) {
+        idleCoreUnits = idleCoreUnits - coreUnits;
+        idleMemory = idleMemory - memory;
+        idleGpuUnits = idleGpuUnits - gpuUnits;
+        idleGpuMemory = idleGpuMemory - gpuMemory;
+    }
 
-  public void setMaxMemory(long maxMemory) {
-    this.maxMemory = maxMemory;
-  }
+    public int getThreads() {
+        return threads;
+    }
 
-  public int getMaxCoreUnits() {
-    return maxCoreUnits;
-  }
+    public void setThreads(int threads) {
+        this.threads = threads;
+    }
 
-  public void setMaxCoreUnits(int maxCoreUnits) {
-    this.maxCoreUnits = maxCoreUnits;
-  }
+    public long getMaxMemory() {
+        return maxMemory;
+    }
 
-  public long getIdleMemory() {
-    return this.idleMemory;
-  }
+    public void setMaxMemory(long maxMemory) {
+        this.maxMemory = maxMemory;
+    }
 
-  public int getMaxGpuUnits() {
-    return maxGpuUnits;
-  }
+    public int getMaxCoreUnits() {
+        return maxCoreUnits;
+    }
 
-  public void setMaxGpuUnits(int maxGpuUnits) {
-    this.maxGpuUnits = maxGpuUnits;
-  }
+    public void setMaxCoreUnits(int maxCoreUnits) {
+        this.maxCoreUnits = maxCoreUnits;
+    }
 
-  public long getMaxGpuMemory() {
-    return maxGpuMemory;
-  }
+    public long getIdleMemory() {
+        return this.idleMemory;
+    }
 
-  public void setMaxGpuMemory(long maxGpuMemory) {
-    this.maxGpuMemory = maxGpuMemory;
-  }
+    public int getMaxGpuUnits() {
+        return maxGpuUnits;
+    }
 
-  public long getIdleGpuMemory() {
-    return this.idleGpuMemory;
-  }
+    public void setMaxGpuUnits(int maxGpuUnits) {
+        this.maxGpuUnits = maxGpuUnits;
+    }
 
-  public int getIdleCoreUnits() {
-    return this.idleCoreUnits;
-  }
+    public long getMaxGpuMemory() {
+        return maxGpuMemory;
+    }
 
-  public void setIdleCoreUnits(int idleCoreUnits) {
-    this.idleCoreUnits = idleCoreUnits;
-  }
+    public void setMaxGpuMemory(long maxGpuMemory) {
+        this.maxGpuMemory = maxGpuMemory;
+    }
 
-  public void setIdleMemory(long idleMemory) {
-    this.idleMemory = idleMemory;
-  }
+    public long getIdleGpuMemory() {
+        return this.idleGpuMemory;
+    }
 
-  public int getIdleGpuUnits() {
-    return this.idleGpuUnits;
-  }
+    public int getIdleCoreUnits() {
+        return this.idleCoreUnits;
+    }
 
-  public void setIdleGpuUnits(int idleGpuUnits) {
-    this.idleGpuUnits = idleGpuUnits;
-  }
+    public void setIdleCoreUnits(int idleCoreUnits) {
+        this.idleCoreUnits = idleCoreUnits;
+    }
 
-  public void setIdleGpuMemory(long idleGpuMemory) {
-    this.idleGpuMemory = idleGpuMemory;
-  }
+    public void setIdleMemory(long idleMemory) {
+        this.idleMemory = idleMemory;
+    }
 
-  public String getHostId() {
-    return hostId;
-  }
+    public int getIdleGpuUnits() {
+        return this.idleGpuUnits;
+    }
 
-  public void setHostId(String hostId) {
-    this.hostId = hostId;
-  }
+    public void setIdleGpuUnits(int idleGpuUnits) {
+        this.idleGpuUnits = idleGpuUnits;
+    }
 
-  public String getJobId() {
-    return jobId;
-  }
+    public void setIdleGpuMemory(long idleGpuMemory) {
+        this.idleGpuMemory = idleGpuMemory;
+    }
 
-  public void setJobId(String jobId) {
-    this.jobId = jobId;
-  }
+    public String getHostId() {
+        return hostId;
+    }
 
-  public String getLayerId() {
-    return layerId;
-  }
+    public void setHostId(String hostId) {
+        this.hostId = hostId;
+    }
 
-  public void setLayerId(String layerId) {
-    this.layerId = layerId;
-  }
+    public String getJobId() {
+        return jobId;
+    }
 
-  public String getFrameId() {
-    return frameId;
-  }
+    public void setJobId(String jobId) {
+        this.jobId = jobId;
+    }
 
-  public void setFrameId(String frameId) {
-    this.frameId = frameId;
-  }
+    public String getLayerId() {
+        return layerId;
+    }
 
-  public RenderPartitionType getType() {
-    return type;
-  }
+    public void setLayerId(String layerId) {
+        this.layerId = layerId;
+    }
 
-  public void setType(RenderPartitionType type) {
-    this.type = type;
-  }
+    public String getFrameId() {
+        return frameId;
+    }
+
+    public void setFrameId(String frameId) {
+        this.frameId = frameId;
+    }
+
+    public RenderPartitionType getType() {
+        return type;
+    }
+
+    public void setType(RenderPartitionType type) {
+        this.type = type;
+    }
 }

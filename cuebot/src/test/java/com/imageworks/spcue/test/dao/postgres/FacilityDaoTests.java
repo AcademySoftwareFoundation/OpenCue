@@ -38,36 +38,37 @@ import static org.junit.Assert.assertTrue;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class FacilityDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Autowired
-  @Rule
-  public AssumingPostgresEngine assumingPostgresEngine;
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
-  @Resource
-  FacilityDao facilityDao;
+    @Resource
+    FacilityDao facilityDao;
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetDetaultFacility() {
-    assertEquals(jdbcTemplate
-        .queryForObject("SELECT pk_facility FROM facility WHERE b_default=true", String.class),
-        facilityDao.getDefaultFacility().getId());
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetDetaultFacility() {
+        assertEquals(
+                jdbcTemplate.queryForObject("SELECT pk_facility FROM facility WHERE b_default=true",
+                        String.class),
+                facilityDao.getDefaultFacility().getId());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetFacility() {
-    String id = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA0";
-    assertEquals(id, facilityDao.getFacility(id).getId());
-    assertEquals(id, facilityDao.getFacility("spi").getId());
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetFacility() {
+        String id = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA0";
+        assertEquals(id, facilityDao.getFacility(id).getId());
+        assertEquals(id, facilityDao.getFacility("spi").getId());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testFacilityExists() {
-    assertTrue(facilityDao.facilityExists("spi"));
-    assertFalse(facilityDao.facilityExists("rambo"));
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFacilityExists() {
+        assertTrue(facilityDao.facilityExists("spi"));
+        assertFalse(facilityDao.facilityExists("rambo"));
+    }
 }

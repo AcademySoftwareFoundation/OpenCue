@@ -20,53 +20,53 @@ import com.imageworks.spcue.LimitInterface;
 
 public interface LimitDao {
 
-  /**
-   * Insert and return a facility.
-   *
-   * @param limit
-   * @return
-   */
-  public String createLimit(String name, int maxValue);
+    /**
+     * Insert and return a facility.
+     *
+     * @param limit
+     * @return
+     */
+    public String createLimit(String name, int maxValue);
 
-  /**
-   * Deletes a limit record, if possible.
-   *
-   * @param limit
-   * @return
-   */
-  public void deleteLimit(LimitInterface limit);
+    /**
+     * Deletes a limit record, if possible.
+     *
+     * @param limit
+     * @return
+     */
+    public void deleteLimit(LimitInterface limit);
 
-  /**
-   * Find a limit by it's name
-   *
-   * @param name
-   * @return LimitEntity
-   */
-  public LimitEntity findLimit(String name);
+    /**
+     * Find a limit by it's name
+     *
+     * @param name
+     * @return LimitEntity
+     */
+    public LimitEntity findLimit(String name);
 
-  /**
-   * Gets a limit by Id
-   *
-   * @param id
-   * @return LimitEntity
-   */
-  public LimitEntity getLimit(String id);
+    /**
+     * Gets a limit by Id
+     *
+     * @param id
+     * @return LimitEntity
+     */
+    public LimitEntity getLimit(String id);
 
-  /**
-   * Set the specified limit's name.
-   *
-   * @param limit
-   * @param name
-   * @return
-   */
-  public void setLimitName(LimitInterface limit, String name);
+    /**
+     * Set the specified limit's name.
+     *
+     * @param limit
+     * @param name
+     * @return
+     */
+    public void setLimitName(LimitInterface limit, String name);
 
-  /**
-   * Set the specified limit's max value.
-   *
-   * @param limit
-   * @param value
-   * @return
-   */
-  public void setMaxValue(LimitInterface limit, int value);
+    /**
+     * Set the specified limit's max value.
+     *
+     * @param limit
+     * @param value
+     * @return
+     */
+    public void setMaxValue(LimitInterface limit, int value);
 }

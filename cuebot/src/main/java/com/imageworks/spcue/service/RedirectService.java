@@ -34,95 +34,95 @@ import com.imageworks.spcue.dao.RedirectDao;
 @Transactional(isolation = Isolation.SERIALIZABLE, propagation = Propagation.REQUIRES_NEW)
 public class RedirectService {
 
-  private static final Logger logger = LogManager.getLogger(RedirectService.class);
+    private static final Logger logger = LogManager.getLogger(RedirectService.class);
 
-  @Resource
-  private PlatformTransactionManager txManager;
+    @Resource
+    private PlatformTransactionManager txManager;
 
-  private RedirectDao redirectDao;
+    private RedirectDao redirectDao;
 
-  public RedirectService(RedirectDao redirectDao) {
-    this.redirectDao = redirectDao;
-  }
-
-  /**
-   * Check for redirect existence.
-   *
-   * @param key Redirect key
-   *
-   * @return True if redirect exists
-   */
-  @Transactional(readOnly = true)
-  public boolean containsKey(String key) {
-    return redirectDao.containsKey(key);
-  }
-
-  /**
-   * Count redirects in a group.
-   *
-   * @param groupId the group to query
-   *
-   * @return count of redirects in group
-   */
-  @Transactional(readOnly = true)
-  public int countRedirectsWithGroup(String groupId) {
-    return redirectDao.countRedirectsWithGroup(groupId);
-  }
-
-  /**
-   * Delete all redirects that are past expiration age.
-   *
-   * @return count of redirects deleted
-   */
-  public int deleteExpired() {
-    return redirectDao.deleteExpired();
-  }
-
-  /**
-   * Add redirect.
-   *
-   * @param key Redirect key
-   *
-   * @param r Redirect to add
-   */
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void put(String key, Redirect r) {
-    DefaultTransactionDefinition def = new DefaultTransactionDefinition();
-    def.setPropagationBehavior(DefaultTransactionDefinition.PROPAGATION_REQUIRES_NEW);
-    def.setIsolationLevel(DefaultTransactionDefinition.ISOLATION_SERIALIZABLE);
-
-    while (true) {
-      TransactionStatus status = txManager.getTransaction(def);
-      try {
-        redirectDao.put(key, r);
-      } catch (CannotSerializeTransactionException e) {
-        // MERGE statement race lost; try again.
-        txManager.rollback(status);
-        continue;
-      } catch (DuplicateKeyException e) {
-        if (e.getMessage() != null && e.getMessage().contains("C_REDIRECT_PK")) {
-          // MERGE statement race lost; try again.
-          txManager.rollback(status);
-          continue;
-        }
-        throw e;
-      } catch (Exception e) {
-        txManager.rollback(status);
-        throw e;
-      }
-      txManager.commit(status);
-      break;
+    public RedirectService(RedirectDao redirectDao) {
+        this.redirectDao = redirectDao;
     }
-  }
 
-  /**
-   * Remove a redirect for a specific key.
-   *
-   * @param key
-   *
-   * @return The redirect that was removed, or null
-   */
-  public Redirect remove(String key) {
-    return redirectDao.remove(key);
-  }
+    /**
+     * Check for redirect existence.
+     *
+     * @param key Redirect key
+     *
+     * @return True if redirect exists
+     */
+    @Transactional(readOnly = true)
+    public boolean containsKey(String key) {
+        return redirectDao.containsKey(key);
+    }
+
+    /**
+     * Count redirects in a group.
+     *
+     * @param groupId the group to query
+     *
+     * @return count of redirects in group
+     */
+    @Transactional(readOnly = true)
+    public int countRedirectsWithGroup(String groupId) {
+        return redirectDao.countRedirectsWithGroup(groupId);
+    }
+
+    /**
+     * Delete all redirects that are past expiration age.
+     *
+     * @return count of redirects deleted
+     */
+    public int deleteExpired() {
+        return redirectDao.deleteExpired();
+    }
+
+    /**
+     * Add redirect.
+     *
+     * @param key Redirect key
+     *
+     * @param r Redirect to add
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void put(String key, Redirect r) {
+        DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+        def.setPropagationBehavior(DefaultTransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        def.setIsolationLevel(DefaultTransactionDefinition.ISOLATION_SERIALIZABLE);
+
+        while (true) {
+            TransactionStatus status = txManager.getTransaction(def);
+            try {
+                redirectDao.put(key, r);
+            } catch (CannotSerializeTransactionException e) {
+                // MERGE statement race lost; try again.
+                txManager.rollback(status);
+                continue;
+            } catch (DuplicateKeyException e) {
+                if (e.getMessage() != null && e.getMessage().contains("C_REDIRECT_PK")) {
+                    // MERGE statement race lost; try again.
+                    txManager.rollback(status);
+                    continue;
+                }
+                throw e;
+            } catch (Exception e) {
+                txManager.rollback(status);
+                throw e;
+            }
+            txManager.commit(status);
+            break;
+        }
+    }
+
+    /**
+     * Remove a redirect for a specific key.
+     *
+     * @param key
+     *
+     * @return The redirect that was removed, or null
+     */
+    public Redirect remove(String key) {
+        return redirectDao.remove(key);
+    }
 }

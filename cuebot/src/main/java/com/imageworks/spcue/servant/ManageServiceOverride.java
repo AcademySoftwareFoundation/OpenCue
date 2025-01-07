@@ -29,54 +29,54 @@ import com.imageworks.spcue.grpc.service.ServiceOverrideUpdateResponse;
 import com.imageworks.spcue.service.ServiceManager;
 
 public class ManageServiceOverride
-    extends ServiceOverrideInterfaceGrpc.ServiceOverrideInterfaceImplBase {
+        extends ServiceOverrideInterfaceGrpc.ServiceOverrideInterfaceImplBase {
 
-  private ServiceManager serviceManager;
+    private ServiceManager serviceManager;
 
-  @Override
-  public void delete(ServiceOverrideDeleteRequest request,
-      StreamObserver<ServiceOverrideDeleteResponse> responseObserver) {
-    // Passing null on showId as the interface doesn't require a showId in this
-    // situation
-    serviceManager.deleteService(toServiceOverrideEntity(request.getService(), null));
-    responseObserver.onNext(ServiceOverrideDeleteResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void delete(ServiceOverrideDeleteRequest request,
+            StreamObserver<ServiceOverrideDeleteResponse> responseObserver) {
+        // Passing null on showId as the interface doesn't require a showId in this
+        // situation
+        serviceManager.deleteService(toServiceOverrideEntity(request.getService(), null));
+        responseObserver.onNext(ServiceOverrideDeleteResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void update(ServiceOverrideUpdateRequest request,
-      StreamObserver<ServiceOverrideUpdateResponse> responseObserver) {
-    // Passing null on showId as the interface doesn't require a showId in this
-    // situation
-    serviceManager.updateService(toServiceOverrideEntity(request.getService(), null));
-    responseObserver.onNext(ServiceOverrideUpdateResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void update(ServiceOverrideUpdateRequest request,
+            StreamObserver<ServiceOverrideUpdateResponse> responseObserver) {
+        // Passing null on showId as the interface doesn't require a showId in this
+        // situation
+        serviceManager.updateService(toServiceOverrideEntity(request.getService(), null));
+        responseObserver.onNext(ServiceOverrideUpdateResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public ServiceManager getServiceManager() {
-    return serviceManager;
-  }
+    public ServiceManager getServiceManager() {
+        return serviceManager;
+    }
 
-  public void setServiceManager(ServiceManager serviceManager) {
-    this.serviceManager = serviceManager;
-  }
+    public void setServiceManager(ServiceManager serviceManager) {
+        this.serviceManager = serviceManager;
+    }
 
-  private ServiceOverrideEntity toServiceOverrideEntity(Service service, String showId) {
-    ServiceOverrideEntity entity = new ServiceOverrideEntity();
-    entity.id = service.getId();
-    entity.name = service.getName();
-    entity.minCores = service.getMinCores();
-    entity.maxCores = service.getMaxCores();
-    entity.minMemory = service.getMinMemory();
-    entity.minGpus = service.getMinGpus();
-    entity.maxGpus = service.getMaxGpus();
-    entity.minGpuMemory = service.getMinGpuMemory();
-    entity.tags = new LinkedHashSet<>(service.getTagsList());
-    entity.threadable = service.getThreadable();
-    entity.showId = showId;
-    entity.timeout = service.getTimeout();
-    entity.timeout_llu = service.getTimeoutLlu();
-    entity.minMemoryIncrease = service.getMinMemoryIncrease();
-    return entity;
-  }
+    private ServiceOverrideEntity toServiceOverrideEntity(Service service, String showId) {
+        ServiceOverrideEntity entity = new ServiceOverrideEntity();
+        entity.id = service.getId();
+        entity.name = service.getName();
+        entity.minCores = service.getMinCores();
+        entity.maxCores = service.getMaxCores();
+        entity.minMemory = service.getMinMemory();
+        entity.minGpus = service.getMinGpus();
+        entity.maxGpus = service.getMaxGpus();
+        entity.minGpuMemory = service.getMinGpuMemory();
+        entity.tags = new LinkedHashSet<>(service.getTagsList());
+        entity.threadable = service.getThreadable();
+        entity.showId = showId;
+        entity.timeout = service.getTimeout();
+        entity.timeout_llu = service.getTimeoutLlu();
+        entity.minMemoryIncrease = service.getMinMemoryIncrease();
+        return entity;
+    }
 }

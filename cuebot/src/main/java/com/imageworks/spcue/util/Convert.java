@@ -25,45 +25,45 @@ import java.util.Locale;
  */
 public final class Convert {
 
-  public static final int coresToCoreUnits(float cores) {
-    return new BigDecimal(cores * 100).setScale(2, RoundingMode.HALF_UP).intValue();
-  }
-
-  public static final int coresToCoreUnits(int cores) {
-    return cores * 100;
-  }
-
-  public static final int coresToWholeCoreUnits(float cores) {
-    if (cores == -1) {
-      return -1;
+    public static final int coresToCoreUnits(float cores) {
+        return new BigDecimal(cores * 100).setScale(2, RoundingMode.HALF_UP).intValue();
     }
-    return (int) (((cores * 100.0f) + 0.5f) / 100) * 100;
-  }
 
-  public static final float coreUnitsToCores(int coreUnits) {
-    if (coreUnits == -1) {
-      return -1f;
+    public static final int coresToCoreUnits(int cores) {
+        return cores * 100;
     }
-    return Float.valueOf(String.format(Locale.ROOT, "%6.2f", coreUnits / 100.0f));
-  }
 
-  public static final float coreUnitsToWholeCores(int coreUnits) {
-    if (coreUnits == -1) {
-      return -1f;
+    public static final int coresToWholeCoreUnits(float cores) {
+        if (cores == -1) {
+            return -1;
+        }
+        return (int) (((cores * 100.0f) + 0.5f) / 100) * 100;
     }
-    return Float.valueOf((int) ((coreUnits / 100.0f) + 0.5));
-  }
 
-  private static final List<String> MATCH_BOOL =
-      java.util.Arrays.asList(new String[] {"true", "yes", "1", "on"});
+    public static final float coreUnitsToCores(int coreUnits) {
+        if (coreUnits == -1) {
+            return -1f;
+        }
+        return Float.valueOf(String.format(Locale.ROOT, "%6.2f", coreUnits / 100.0f));
+    }
 
-  public static final boolean stringToBool(String value) {
-    if (value == null) {
-      return false;
+    public static final float coreUnitsToWholeCores(int coreUnits) {
+        if (coreUnits == -1) {
+            return -1f;
+        }
+        return Float.valueOf((int) ((coreUnits / 100.0f) + 0.5));
     }
-    if (MATCH_BOOL.contains(value.toLowerCase())) {
-      return true;
+
+    private static final List<String> MATCH_BOOL =
+            java.util.Arrays.asList(new String[] {"true", "yes", "1", "on"});
+
+    public static final boolean stringToBool(String value) {
+        if (value == null) {
+            return false;
+        }
+        if (MATCH_BOOL.contains(value.toLowerCase())) {
+            return true;
+        }
+        return false;
     }
-    return false;
-  }
 }

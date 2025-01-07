@@ -40,188 +40,189 @@ import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
  * Job launching functions.
  */
 public class JobLauncher implements ApplicationContextAware {
-  private static final Logger logger = LogManager.getLogger(JobLauncher.class);
-  private ApplicationContext context;
+    private static final Logger logger = LogManager.getLogger(JobLauncher.class);
+    private ApplicationContext context;
 
-  private JobManager jobManager;
-  private DepartmentManager departmentManager;
-  private AdminManager adminManager;
-  private ThreadPoolTaskExecutor launchQueue;
-  private EmailSupport emailSupport;
-  private JmsMover jmsMover;
-  private LocalBookingSupport localBookingSupport;
+    private JobManager jobManager;
+    private DepartmentManager departmentManager;
+    private AdminManager adminManager;
+    private ThreadPoolTaskExecutor launchQueue;
+    private EmailSupport emailSupport;
+    private JmsMover jmsMover;
+    private LocalBookingSupport localBookingSupport;
 
-  /**
-   * When true, disables log path creation and proc points sync.
-   */
-  public volatile boolean testMode = false;
+    /**
+     * When true, disables log path creation and proc points sync.
+     */
+    public volatile boolean testMode = false;
 
-  @Override
-  public void setApplicationContext(ApplicationContext context) throws BeansException {
-    this.context = context;
-  }
+    @Override
+    public void setApplicationContext(ApplicationContext context) throws BeansException {
+        this.context = context;
+    }
 
-  public JobSpec parse(String xml) {
-    JobSpec spec = (JobSpec) this.context.getBean("jobSpec");
-    spec.parse(xml);
-    return spec;
-  }
+    public JobSpec parse(String xml) {
+        JobSpec spec = (JobSpec) this.context.getBean("jobSpec");
+        spec.parse(xml);
+        return spec;
+    }
 
-  public JobSpec parse(File file) {
-    JobSpec spec = (JobSpec) this.context.getBean("jobSpec");
-    spec.parse(file);
-    return spec;
-  }
+    public JobSpec parse(File file) {
+        JobSpec spec = (JobSpec) this.context.getBean("jobSpec");
+        spec.parse(file);
+        return spec;
+    }
 
-  public void launch(String xml) {
-    JobSpec spec = (JobSpec) this.context.getBean("jobSpec");
-    spec.parse(xml);
-    launch(spec);
-  }
+    public void launch(String xml) {
+        JobSpec spec = (JobSpec) this.context.getBean("jobSpec");
+        spec.parse(xml);
+        launch(spec);
+    }
 
-  public void launch(File file) {
-    JobSpec spec = (JobSpec) this.context.getBean("jobSpec");
-    spec.parse(file);
-    launch(spec);
-  }
+    public void launch(File file) {
+        JobSpec spec = (JobSpec) this.context.getBean("jobSpec");
+        spec.parse(file);
+        launch(spec);
+    }
 
-  public void launch(final JobSpec spec) {
+    public void launch(final JobSpec spec) {
 
-    verifyJobSpec(spec);
+        verifyJobSpec(spec);
 
-    try {
-      jobManager.launchJobSpec(spec);
+        try {
+            jobManager.launchJobSpec(spec);
 
-      for (BuildableJob job : spec.getJobs()) {
-        /*
-         * If isLocal is set, need to create local host assignment.
-         */
-        JobDetail d = job.detail;
-        if (d.isLocal) {
-          logger.info(
-              d.localHostName + " will do local dispatch. " + d.getJobId() + " " + d.localHostName);
-          LocalHostAssignment lha = new LocalHostAssignment();
-          lha.setJobId(d.getJobId());
-          lha.setThreads(d.localThreadNumber);
-          lha.setMaxCoreUnits(d.localMaxCores * 100);
-          lha.setMaxMemory(d.localMaxMemory);
-          lha.setMaxGpuUnits(d.localMaxGpus);
-          lha.setMaxGpuMemory(d.localMaxGpuMemory);
-          lha.setType(RenderPartitionType.JOB_PARTITION);
+            for (BuildableJob job : spec.getJobs()) {
+                /*
+                 * If isLocal is set, need to create local host assignment.
+                 */
+                JobDetail d = job.detail;
+                if (d.isLocal) {
+                    logger.info(d.localHostName + " will do local dispatch. " + d.getJobId() + " "
+                            + d.localHostName);
+                    LocalHostAssignment lha = new LocalHostAssignment();
+                    lha.setJobId(d.getJobId());
+                    lha.setThreads(d.localThreadNumber);
+                    lha.setMaxCoreUnits(d.localMaxCores * 100);
+                    lha.setMaxMemory(d.localMaxMemory);
+                    lha.setMaxGpuUnits(d.localMaxGpus);
+                    lha.setMaxGpuMemory(d.localMaxGpuMemory);
+                    lha.setType(RenderPartitionType.JOB_PARTITION);
 
-          try {
-            localBookingSupport.bookLocal(d, d.localHostName, d.user, lha);
-          } catch (DataIntegrityViolationException e) {
-            logger.info(d.name + " failed to create host local assignment.");
-          }
-        }
-      }
-
-      /*
-       * This has to happen outside of the job launching transaction or else it can lock up booking
-       * because it updates the job_resource table. It can take quite some time to launch a job with
-       * dependencies, so the transaction should not touch any rows that are currently in the "live"
-       * data set.
-       */
-      if (!testMode) {
-        Set<String> depts = new HashSet<String>();
-        for (BuildableJob job : spec.getJobs()) {
-          JobDetail d = jobManager.getJobDetail(job.detail.id);
-          jmsMover.send(d);
-          if (departmentManager.isManaged(d)) {
-            if (!depts.contains(d.deptId)) {
-              departmentManager.syncJobsWithTask(d);
-              depts.add(d.deptId);
+                    try {
+                        localBookingSupport.bookLocal(d, d.localHostName, d.user, lha);
+                    } catch (DataIntegrityViolationException e) {
+                        logger.info(d.name + " failed to create host local assignment.");
+                    }
+                }
             }
-          }
+
+            /*
+             * This has to happen outside of the job launching transaction or else it can lock up
+             * booking because it updates the job_resource table. It can take quite some time to
+             * launch a job with dependencies, so the transaction should not touch any rows that are
+             * currently in the "live" data set.
+             */
+            if (!testMode) {
+                Set<String> depts = new HashSet<String>();
+                for (BuildableJob job : spec.getJobs()) {
+                    JobDetail d = jobManager.getJobDetail(job.detail.id);
+                    jmsMover.send(d);
+                    if (departmentManager.isManaged(d)) {
+                        if (!depts.contains(d.deptId)) {
+                            departmentManager.syncJobsWithTask(d);
+                            depts.add(d.deptId);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Catch anything and email the user a report as to
+            // why the job launch failed.
+            emailSupport.reportLaunchError(spec, e);
         }
-      }
-    } catch (Exception e) {
-      // Catch anything and email the user a report as to
-      // why the job launch failed.
-      emailSupport.reportLaunchError(spec, e);
-    }
-  }
-
-  public void verifyJobSpec(JobSpec spec) {
-
-    for (BuildableJob job : spec.getJobs()) {
-      if (jobManager.isJobPending(job.detail.name)) {
-        throw new EntityCreationError("The job " + job.detail.name + " is already pending");
-      }
     }
 
-    try {
-      ShowEntity s = adminManager.findShowEntity(spec.getShow());
-      if (!s.active) {
-        throw new EntityCreationError(
-            "The " + spec.getShow() + " show has been deactivated.  Please contact "
-                + "administrator of your OpenCue deployment to reactivate " + "this show.");
-      }
-    } catch (EmptyResultDataAccessException e) {
-      throw new EntityCreationError("The " + spec.getShow() + " does not exist. Please contact "
-          + "administrator of your OpenCue deployment to have this show " + "created.");
+    public void verifyJobSpec(JobSpec spec) {
+
+        for (BuildableJob job : spec.getJobs()) {
+            if (jobManager.isJobPending(job.detail.name)) {
+                throw new EntityCreationError("The job " + job.detail.name + " is already pending");
+            }
+        }
+
+        try {
+            ShowEntity s = adminManager.findShowEntity(spec.getShow());
+            if (!s.active) {
+                throw new EntityCreationError("The " + spec.getShow()
+                        + " show has been deactivated.  Please contact "
+                        + "administrator of your OpenCue deployment to reactivate " + "this show.");
+            }
+        } catch (EmptyResultDataAccessException e) {
+            throw new EntityCreationError("The " + spec.getShow()
+                    + " does not exist. Please contact "
+                    + "administrator of your OpenCue deployment to have this show " + "created.");
+        }
     }
-  }
 
-  public void queueAndLaunch(final JobSpec spec) {
-    verifyJobSpec(spec);
-    launchQueue.execute(new DispatchLaunchJob(spec, this));
-  }
+    public void queueAndLaunch(final JobSpec spec) {
+        verifyJobSpec(spec);
+        launchQueue.execute(new DispatchLaunchJob(spec, this));
+    }
 
-  public EmailSupport getEmailSupport() {
-    return emailSupport;
-  }
+    public EmailSupport getEmailSupport() {
+        return emailSupport;
+    }
 
-  public void setEmailSupport(EmailSupport emailSupport) {
-    this.emailSupport = emailSupport;
-  }
+    public void setEmailSupport(EmailSupport emailSupport) {
+        this.emailSupport = emailSupport;
+    }
 
-  public JobManager getJobManager() {
-    return jobManager;
-  }
+    public JobManager getJobManager() {
+        return jobManager;
+    }
 
-  public void setJobManager(JobManager jobManager) {
-    this.jobManager = jobManager;
-  }
+    public void setJobManager(JobManager jobManager) {
+        this.jobManager = jobManager;
+    }
 
-  public DepartmentManager getDepartmentManager() {
-    return departmentManager;
-  }
+    public DepartmentManager getDepartmentManager() {
+        return departmentManager;
+    }
 
-  public void setDepartmentManager(DepartmentManager departmentManager) {
-    this.departmentManager = departmentManager;
-  }
+    public void setDepartmentManager(DepartmentManager departmentManager) {
+        this.departmentManager = departmentManager;
+    }
 
-  public AdminManager getAdminManager() {
-    return adminManager;
-  }
+    public AdminManager getAdminManager() {
+        return adminManager;
+    }
 
-  public void setAdminManager(AdminManager adminManager) {
-    this.adminManager = adminManager;
-  }
+    public void setAdminManager(AdminManager adminManager) {
+        this.adminManager = adminManager;
+    }
 
-  public ThreadPoolTaskExecutor getLaunchQueue() {
-    return launchQueue;
-  }
+    public ThreadPoolTaskExecutor getLaunchQueue() {
+        return launchQueue;
+    }
 
-  public void setLaunchQueue(ThreadPoolTaskExecutor launchQueue) {
-    this.launchQueue = launchQueue;
-  }
+    public void setLaunchQueue(ThreadPoolTaskExecutor launchQueue) {
+        this.launchQueue = launchQueue;
+    }
 
-  public JmsMover getJmsMover() {
-    return jmsMover;
-  }
+    public JmsMover getJmsMover() {
+        return jmsMover;
+    }
 
-  public void setJmsMover(JmsMover jmsMover) {
-    this.jmsMover = jmsMover;
-  }
+    public void setJmsMover(JmsMover jmsMover) {
+        this.jmsMover = jmsMover;
+    }
 
-  public LocalBookingSupport getLocalBookingSupport() {
-    return localBookingSupport;
-  }
+    public LocalBookingSupport getLocalBookingSupport() {
+        return localBookingSupport;
+    }
 
-  public void setLocalBookingSupport(LocalBookingSupport localBookingSupport) {
-    this.localBookingSupport = localBookingSupport;
-  }
+    public void setLocalBookingSupport(LocalBookingSupport localBookingSupport) {
+        this.localBookingSupport = localBookingSupport;
+    }
 }

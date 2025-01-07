@@ -26,23 +26,23 @@ import com.imageworks.spcue.service.JobManagerSupport;
  * @category command
  */
 public class DispatchShutdownJobIfCompleted extends KeyRunnable {
-  private JobInterface job;
+    private JobInterface job;
 
-  private JobManagerSupport jobManagerSupport;
+    private JobManagerSupport jobManagerSupport;
 
-  public DispatchShutdownJobIfCompleted(JobInterface job, JobManagerSupport jobManagerSupport) {
-    super("disp_st_job_comp_" + job.getJobId());
-    this.job = job;
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    public DispatchShutdownJobIfCompleted(JobInterface job, JobManagerSupport jobManagerSupport) {
+        super("disp_st_job_comp_" + job.getJobId());
+        this.job = job;
+        this.jobManagerSupport = jobManagerSupport;
+    }
 
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        if (jobManagerSupport.isJobComplete(job)) {
-          jobManagerSupport.shutdownJob(job, new Source("natural"), false);
-        }
-      }
-    }.execute();
-  }
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                if (jobManagerSupport.isJobComplete(job)) {
+                    jobManagerSupport.shutdownJob(job, new Source("natural"), false);
+                }
+            }
+        }.execute();
+    }
 }

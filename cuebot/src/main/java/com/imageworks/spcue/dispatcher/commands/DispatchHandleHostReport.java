@@ -26,41 +26,41 @@ import com.imageworks.spcue.grpc.report.HostReport;
  */
 public class DispatchHandleHostReport extends KeyRunnable {
 
-  private HostReport hostReport;
-  private boolean isBootReport;
-  private HostReportHandler hostReportHandler;
-  public volatile int reportTime = (int) (System.currentTimeMillis() / 1000);
+    private HostReport hostReport;
+    private boolean isBootReport;
+    private HostReportHandler hostReportHandler;
+    public volatile int reportTime = (int) (System.currentTimeMillis() / 1000);
 
-  public DispatchHandleHostReport(HostReport report, HostReportHandler rqdReportManager) {
-    super("disp_handle_host_report_" + report.hashCode() + "_" + rqdReportManager.hashCode());
-    this.hostReport = report;
-    this.isBootReport = false;
-    this.hostReportHandler = rqdReportManager;
-  }
+    public DispatchHandleHostReport(HostReport report, HostReportHandler rqdReportManager) {
+        super("disp_handle_host_report_" + report.hashCode() + "_" + rqdReportManager.hashCode());
+        this.hostReport = report;
+        this.isBootReport = false;
+        this.hostReportHandler = rqdReportManager;
+    }
 
-  public DispatchHandleHostReport(BootReport report, HostReportHandler rqdReportManager) {
-    super("disp_handle_host_report_" + report.hashCode() + "_" + rqdReportManager.hashCode());
-    HostReport hostReport =
-        HostReport.newBuilder().setHost(report.getHost()).setCoreInfo(report.getCoreInfo()).build();
+    public DispatchHandleHostReport(BootReport report, HostReportHandler rqdReportManager) {
+        super("disp_handle_host_report_" + report.hashCode() + "_" + rqdReportManager.hashCode());
+        HostReport hostReport = HostReport.newBuilder().setHost(report.getHost())
+                .setCoreInfo(report.getCoreInfo()).build();
 
-    this.hostReport = hostReport;
-    this.isBootReport = true;
-    this.hostReportHandler = rqdReportManager;
-  }
+        this.hostReport = hostReport;
+        this.isBootReport = true;
+        this.hostReportHandler = rqdReportManager;
+    }
 
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        hostReportHandler.handleHostReport(hostReport, isBootReport);
-      }
-    }.execute();
-  }
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                hostReportHandler.handleHostReport(hostReport, isBootReport);
+            }
+        }.execute();
+    }
 
-  public synchronized void updateReportTime() {
-    reportTime = (int) (System.currentTimeMillis() / 1000);
-  }
+    public synchronized void updateReportTime() {
+        reportTime = (int) (System.currentTimeMillis() / 1000);
+    }
 
-  public HostReport getHostReport() {
-    return hostReport;
-  }
+    public HostReport getHostReport() {
+        return hostReport;
+    }
 }

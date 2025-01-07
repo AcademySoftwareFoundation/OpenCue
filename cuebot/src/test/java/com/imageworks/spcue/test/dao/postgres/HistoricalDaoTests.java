@@ -40,36 +40,36 @@ import static org.junit.Assert.assertEquals;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class HistoricalDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Autowired
-  @Rule
-  public AssumingPostgresEngine assumingPostgresEngine;
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
-  @Resource
-  private JobManager jobManager;
+    @Resource
+    private JobManager jobManager;
 
-  @Resource
-  private JobLauncher jobLauncher;
+    @Resource
+    private JobLauncher jobLauncher;
 
-  @Resource
-  private HistoricalDao historicalDao;
+    @Resource
+    private HistoricalDao historicalDao;
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetFinishedJobs() {
-    historicalDao.getFinishedJobs(24);
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetFinishedJobs() {
+        historicalDao.getFinishedJobs(24);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testTransferJob() {
-    jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
-    JobDetail j = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
-    jobManager.shutdownJob(j);
-    historicalDao.transferJob(j);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testTransferJob() {
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        JobDetail j = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
+        jobManager.shutdownJob(j);
+        historicalDao.transferJob(j);
 
-    assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-        "SELECT COUNT(*) FROM job_history WHERE pk_job=?", Integer.class, j.getJobId()));
-  }
+        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM job_history WHERE pk_job=?", Integer.class, j.getJobId()));
+    }
 }

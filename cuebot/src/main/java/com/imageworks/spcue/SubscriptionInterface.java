@@ -16,5 +16,5 @@
 package com.imageworks.spcue;
 
 public interface SubscriptionInterface extends ShowInterface, AllocationInterface {
-  public String getSubscriptionId();
+    public String getSubscriptionId();
 }

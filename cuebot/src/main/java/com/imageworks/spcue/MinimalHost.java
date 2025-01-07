@@ -17,30 +17,30 @@ package com.imageworks.spcue;
 
 public class MinimalHost extends Entity implements HostInterface {
 
-  public String allocId;
-  public String facilityId;
+    public String allocId;
+    public String facilityId;
 
-  public MinimalHost() {
-    // TODO Auto-generated constructor stub
-  }
+    public MinimalHost() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public String getHostId() {
-    return this.id;
-  }
+    public String getHostId() {
+        return this.id;
+    }
 
-  public String getAllocationId() {
-    return allocId;
-  }
+    public String getAllocationId() {
+        return allocId;
+    }
 
-  public String getId() {
-    return id;
-  }
+    public String getId() {
+        return id;
+    }
 
-  public String getName() {
-    return name;
-  }
+    public String getName() {
+        return name;
+    }
 
-  public String getFacilityId() {
-    return facilityId;
-  }
+    public String getFacilityId() {
+        return facilityId;
+    }
 }

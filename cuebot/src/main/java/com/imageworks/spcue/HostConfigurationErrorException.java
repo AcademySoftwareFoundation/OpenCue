@@ -18,24 +18,24 @@ package com.imageworks.spcue;
 @SuppressWarnings("serial")
 public class HostConfigurationErrorException extends SpcueRuntimeException {
 
-  public HostConfigurationErrorException() {
-    super();
-    // TODO Auto-generated constructor stub
-  }
+    public HostConfigurationErrorException() {
+        super();
+        // TODO Auto-generated constructor stub
+    }
 
-  public HostConfigurationErrorException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public HostConfigurationErrorException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public HostConfigurationErrorException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public HostConfigurationErrorException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public HostConfigurationErrorException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public HostConfigurationErrorException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

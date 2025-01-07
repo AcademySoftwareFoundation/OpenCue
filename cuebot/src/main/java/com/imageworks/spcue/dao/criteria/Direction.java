@@ -16,5 +16,5 @@
 package com.imageworks.spcue.dao.criteria;
 
 public enum Direction {
-  ASC, DESC
+    ASC, DESC
 }

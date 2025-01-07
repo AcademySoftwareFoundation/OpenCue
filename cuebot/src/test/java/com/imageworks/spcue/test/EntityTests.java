@@ -27,45 +27,45 @@ import junit.framework.TestCase;
  */
 public class EntityTests extends TestCase {
 
-  @Test
-  public void testEntityEquality() {
-    Entity a = new Entity("id", "name");
-    Entity b = new Entity("id", "name");
-    assertEquals(a, b);
+    @Test
+    public void testEntityEquality() {
+        Entity a = new Entity("id", "name");
+        Entity b = new Entity("id", "name");
+        assertEquals(a, b);
 
-    a = new Entity("id", "name");
-    b = new Entity("id_a", "name");
-    assertFalse(a.equals(b));
+        a = new Entity("id", "name");
+        b = new Entity("id_a", "name");
+        assertFalse(a.equals(b));
 
-    a = new Entity("id", "name");
-    b = new Entity("id_a", "name_a");
-    assertFalse(a.equals(b));
-  }
+        a = new Entity("id", "name");
+        b = new Entity("id_a", "name_a");
+        assertFalse(a.equals(b));
+    }
 
-  @Test
-  public void testEntityHashCode() {
+    @Test
+    public void testEntityHashCode() {
 
-    Entity a = new Entity("id", "name");
-    Entity b = new Entity("id", "name");
-    assertEquals(a.hashCode(), b.hashCode());
+        Entity a = new Entity("id", "name");
+        Entity b = new Entity("id", "name");
+        assertEquals(a.hashCode(), b.hashCode());
 
-    a = new Entity("id", "name");
-    b = new Entity("id_a", "name");
-    assertFalse(a.hashCode() == b.hashCode());
+        a = new Entity("id", "name");
+        b = new Entity("id_a", "name");
+        assertFalse(a.hashCode() == b.hashCode());
 
-    a = new Entity();
-    b = new Entity();
-    assertFalse(a.hashCode() == b.hashCode());
-  }
+        a = new Entity();
+        b = new Entity();
+        assertFalse(a.hashCode() == b.hashCode());
+    }
 
-  @Test
-  public void testEntityToString() {
-    Entity a = new Entity("id", "name");
-    Entity b = new Entity("id", "name");
-    assertEquals(a.toString(), b.toString());
+    @Test
+    public void testEntityToString() {
+        Entity a = new Entity("id", "name");
+        Entity b = new Entity("id", "name");
+        assertEquals(a.toString(), b.toString());
 
-    a = new Entity("id_a", "name");
-    b = new Entity("id", "name");
-    assertNotSame(a.toString(), b.toString());
-  }
+        a = new Entity("id_a", "name");
+        b = new Entity("id", "name");
+        assertNotSame(a.toString(), b.toString());
+    }
 }

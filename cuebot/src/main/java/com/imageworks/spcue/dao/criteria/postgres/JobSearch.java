@@ -22,38 +22,38 @@ import com.imageworks.spcue.dao.criteria.JobSearchInterface;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 
 public final class JobSearch extends Criteria implements JobSearchInterface {
-  private JobSearchCriteria criteria;
+    private JobSearchCriteria criteria;
 
-  public JobSearch() {
-    criteria = JobSearchInterface.criteriaFactory();
-  }
-
-  @Override
-  public JobSearchCriteria getCriteria() {
-    return criteria;
-  }
-
-  @Override
-  public void setCriteria(JobSearchCriteria criteria) {
-    this.criteria = criteria;
-  }
-
-  @Override
-  public void filterByShow(ShowInterface show) {
-    addPhrase("job.pk_show", show.getShowId());
-  }
-
-  @Override
-  void buildWhereClause() {
-    addPhrase("job.pk_job", criteria.getIdsList());
-    addPhrase("job.str_name", criteria.getJobsList());
-    addLikePhrase("job.str_name", new HashSet<>(criteria.getSubstrList()));
-    addRegexPhrase("job.str_name", new HashSet<>(criteria.getRegexList()));
-    addPhrase("job.str_shot", criteria.getShotsList());
-    addPhrase("show.str_name", criteria.getShowsList());
-    addPhrase("job.str_user", criteria.getUsersList());
-    if (!criteria.getIncludeFinished()) {
-      addPhrase("job.str_state", "PENDING");
+    public JobSearch() {
+        criteria = JobSearchInterface.criteriaFactory();
     }
-  }
+
+    @Override
+    public JobSearchCriteria getCriteria() {
+        return criteria;
+    }
+
+    @Override
+    public void setCriteria(JobSearchCriteria criteria) {
+        this.criteria = criteria;
+    }
+
+    @Override
+    public void filterByShow(ShowInterface show) {
+        addPhrase("job.pk_show", show.getShowId());
+    }
+
+    @Override
+    void buildWhereClause() {
+        addPhrase("job.pk_job", criteria.getIdsList());
+        addPhrase("job.str_name", criteria.getJobsList());
+        addLikePhrase("job.str_name", new HashSet<>(criteria.getSubstrList()));
+        addRegexPhrase("job.str_name", new HashSet<>(criteria.getRegexList()));
+        addPhrase("job.str_shot", criteria.getShotsList());
+        addPhrase("show.str_name", criteria.getShowsList());
+        addPhrase("job.str_user", criteria.getUsersList());
+        if (!criteria.getIncludeFinished()) {
+            addPhrase("job.str_state", "PENDING");
+        }
+    }
 }

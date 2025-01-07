@@ -24,14 +24,15 @@ import com.imageworks.spcue.util.CueExceptionUtil;
  */
 public abstract class DispatchCommandTemplate {
 
-  public abstract void wrapDispatchCommand();
+    public abstract void wrapDispatchCommand();
 
-  public void execute() {
-    try {
-      wrapDispatchCommand();
-    } catch (java.lang.Throwable t) {
-      CueExceptionUtil.logStackTrace(
-          "Dispatch command template " + this.getClass().toString() + " caught error ", t);
+    public void execute() {
+        try {
+            wrapDispatchCommand();
+        } catch (java.lang.Throwable t) {
+            CueExceptionUtil.logStackTrace(
+                    "Dispatch command template " + this.getClass().toString() + " caught error ",
+                    t);
+        }
     }
-  }
 }

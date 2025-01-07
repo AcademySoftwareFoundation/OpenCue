@@ -22,25 +22,25 @@ import com.imageworks.spcue.grpc.report.RenderHost;
 
 public class TagUtil {
 
-  /**
-   * This will take the RQD tags and convert them into something usable for now until the RQD tag
-   * standard is set.
-   *
-   * @param host
-   * @return
-   */
-  public static List<String> buildHardwareTags(RenderHost host) {
-    List<String> tags = new ArrayList<String>();
-    if (host.getTagsList().contains("linux")) {
-      tags.add("linux");
-    }
+    /**
+     * This will take the RQD tags and convert them into something usable for now until the RQD tag
+     * standard is set.
+     *
+     * @param host
+     * @return
+     */
+    public static List<String> buildHardwareTags(RenderHost host) {
+        List<String> tags = new ArrayList<String>();
+        if (host.getTagsList().contains("linux")) {
+            tags.add("linux");
+        }
 
-    if (host.getTagsList().contains("64bit")) {
-      tags.add("64bit");
-      tags.add("32bit");
-    } else {
-      tags.add("32bit");
+        if (host.getTagsList().contains("64bit")) {
+            tags.add("64bit");
+            tags.add("32bit");
+        } else {
+            tags.add("32bit");
+        }
+        return tags;
     }
-    return tags;
-  }
 }

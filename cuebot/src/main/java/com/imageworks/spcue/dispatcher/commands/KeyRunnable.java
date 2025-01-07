@@ -20,17 +20,17 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
 
 public abstract class KeyRunnable implements Runnable {
 
-  private String key;
+    private String key;
 
-  public KeyRunnable(String key) {
-    this.key = key;
-  }
+    public KeyRunnable(String key) {
+        this.key = key;
+    }
 
-  public String getKey() {
-    return key;
-  }
+    public String getKey() {
+        return key;
+    }
 
-  public void setKey(String key) {
-    this.key = key;
-  }
+    public void setKey(String key) {
+        this.key = key;
+    }
 }

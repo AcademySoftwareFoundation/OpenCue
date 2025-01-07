@@ -20,23 +20,23 @@ import com.imageworks.spcue.SpcueRuntimeException;
 @SuppressWarnings("serial")
 public class FrameLookupException extends SpcueRuntimeException {
 
-  public FrameLookupException() {
-    // TODO Auto-generated constructor stub
-  }
+    public FrameLookupException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public FrameLookupException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public FrameLookupException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public FrameLookupException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public FrameLookupException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public FrameLookupException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public FrameLookupException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

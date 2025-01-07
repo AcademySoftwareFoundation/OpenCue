@@ -17,6 +17,6 @@ package com.imageworks.spcue;
 
 public interface MatcherInterface extends FilterInterface {
 
-  public String getMatcherId();
+    public String getMatcherId();
 
 }

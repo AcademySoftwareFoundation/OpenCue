@@ -36,28 +36,28 @@ import com.imageworks.spcue.test.AssumingPostgresEngine;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class NestedWhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Autowired
-  @Rule
-  public AssumingPostgresEngine assumingPostgresEngine;
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
-  @Resource
-  NestedWhiteboardDao nestedWhiteboardDao;
+    @Resource
+    NestedWhiteboardDao nestedWhiteboardDao;
 
-  @Resource
-  ShowDao showDao;
+    @Resource
+    ShowDao showDao;
 
-  public ShowEntity getShow() {
-    return showDao.findShowDetail("pipe");
-  }
+    public ShowEntity getShow() {
+        return showDao.findShowDetail("pipe");
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetNestedJobWhiteboard() {
-    nestedWhiteboardDao.getJobWhiteboard(getShow());
-    nestedWhiteboardDao.getJobWhiteboard(getShow());
-    nestedWhiteboardDao.getJobWhiteboard(getShow());
-    nestedWhiteboardDao.getJobWhiteboard(getShow());
-    nestedWhiteboardDao.getJobWhiteboard(getShow());
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetNestedJobWhiteboard() {
+        nestedWhiteboardDao.getJobWhiteboard(getShow());
+        nestedWhiteboardDao.getJobWhiteboard(getShow());
+        nestedWhiteboardDao.getJobWhiteboard(getShow());
+        nestedWhiteboardDao.getJobWhiteboard(getShow());
+        nestedWhiteboardDao.getJobWhiteboard(getShow());
+    }
 }

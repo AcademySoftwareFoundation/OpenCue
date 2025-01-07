@@ -26,88 +26,89 @@ import org.springframework.core.env.Environment;
 
 public class BookingQueue implements QueueHealthCheck {
 
-  private final int healthThreshold;
-  private final int minUnhealthyPeriodMin;
-  private final int queueCapacity;
-  private final int corePoolSize;
-  private final int maxPoolSize;
-  // Base value for calculating the job sleep time
-  // this is used to slow down the booking queue to avoid racing conditions
-  private static final int BASE_SLEEP_TIME_MILLIS = 300;
+    private final int healthThreshold;
+    private final int minUnhealthyPeriodMin;
+    private final int queueCapacity;
+    private final int corePoolSize;
+    private final int maxPoolSize;
+    // Base value for calculating the job sleep time
+    // this is used to slow down the booking queue to avoid racing conditions
+    private static final int BASE_SLEEP_TIME_MILLIS = 300;
 
-  private static final Logger logger = LogManager.getLogger("HEALTH");
-  private HealthyThreadPool healthyThreadPool;
+    private static final Logger logger = LogManager.getLogger("HEALTH");
+    private HealthyThreadPool healthyThreadPool;
 
-  public BookingQueue(int healthThreshold, int minUnhealthyPeriodMin, int queueCapacity,
-      int corePoolSize, int maxPoolSize) {
-    this.healthThreshold = healthThreshold;
-    this.minUnhealthyPeriodMin = minUnhealthyPeriodMin;
-    this.queueCapacity = queueCapacity;
-    this.corePoolSize = corePoolSize;
-    this.maxPoolSize = maxPoolSize;
-    initThreadPool();
-  }
-
-  public void initThreadPool() {
-    healthyThreadPool = new HealthyThreadPool("BookingQueue", healthThreshold,
-        minUnhealthyPeriodMin, queueCapacity, corePoolSize, maxPoolSize, BASE_SLEEP_TIME_MILLIS);
-  }
-
-  public void shutdownUnhealthy() {
-    try {
-      if (!healthyThreadPool.shutdownUnhealthy()) {
-        logger.warn("BookingQueue: Unhealthy queue terminated, starting a new one");
+    public BookingQueue(int healthThreshold, int minUnhealthyPeriodMin, int queueCapacity,
+            int corePoolSize, int maxPoolSize) {
+        this.healthThreshold = healthThreshold;
+        this.minUnhealthyPeriodMin = minUnhealthyPeriodMin;
+        this.queueCapacity = queueCapacity;
+        this.corePoolSize = corePoolSize;
+        this.maxPoolSize = maxPoolSize;
         initThreadPool();
-      }
-    } catch (InterruptedException e) {
-      // TODO: evaluate crashing the whole springbook context here
-      // to force a container restart cycle
-      logger.error("Failed to restart BookingThreadPool", e);
     }
-  }
 
-  public boolean isHealthy() {
-    return healthyThreadPool.healthCheck();
-  }
+    public void initThreadPool() {
+        healthyThreadPool =
+                new HealthyThreadPool("BookingQueue", healthThreshold, minUnhealthyPeriodMin,
+                        queueCapacity, corePoolSize, maxPoolSize, BASE_SLEEP_TIME_MILLIS);
+    }
 
-  public void execute(KeyRunnable r) {
-    healthyThreadPool.execute(r);
-  }
+    public void shutdownUnhealthy() {
+        try {
+            if (!healthyThreadPool.shutdownUnhealthy()) {
+                logger.warn("BookingQueue: Unhealthy queue terminated, starting a new one");
+                initThreadPool();
+            }
+        } catch (InterruptedException e) {
+            // TODO: evaluate crashing the whole springbook context here
+            // to force a container restart cycle
+            logger.error("Failed to restart BookingThreadPool", e);
+        }
+    }
 
-  public long getRejectedTaskCount() {
-    return healthyThreadPool.getRejectedTaskCount();
-  }
+    public boolean isHealthy() {
+        return healthyThreadPool.healthCheck();
+    }
 
-  public int getQueueCapacity() {
-    return queueCapacity;
-  }
+    public void execute(KeyRunnable r) {
+        healthyThreadPool.execute(r);
+    }
 
-  public void shutdown() {
-    healthyThreadPool.shutdown();
-  }
+    public long getRejectedTaskCount() {
+        return healthyThreadPool.getRejectedTaskCount();
+    }
 
-  public int getSize() {
-    return healthyThreadPool.getQueue().size();
-  }
+    public int getQueueCapacity() {
+        return queueCapacity;
+    }
 
-  public int getRemainingCapacity() {
-    return healthyThreadPool.getQueue().remainingCapacity();
-  }
+    public void shutdown() {
+        healthyThreadPool.shutdown();
+    }
 
-  public int getActiveCount() {
-    return healthyThreadPool.getActiveCount();
-  }
+    public int getSize() {
+        return healthyThreadPool.getQueue().size();
+    }
 
-  public long getCompletedTaskCount() {
-    return healthyThreadPool.getCompletedTaskCount();
-  }
+    public int getRemainingCapacity() {
+        return healthyThreadPool.getQueue().remainingCapacity();
+    }
 
-  public long getCorePoolSize() {
-    return corePoolSize;
-  }
+    public int getActiveCount() {
+        return healthyThreadPool.getActiveCount();
+    }
 
-  public long getMaximumPoolSize() {
-    return maxPoolSize;
-  }
+    public long getCompletedTaskCount() {
+        return healthyThreadPool.getCompletedTaskCount();
+    }
+
+    public long getCorePoolSize() {
+        return corePoolSize;
+    }
+
+    public long getMaximumPoolSize() {
+        return maxPoolSize;
+    }
 
 }

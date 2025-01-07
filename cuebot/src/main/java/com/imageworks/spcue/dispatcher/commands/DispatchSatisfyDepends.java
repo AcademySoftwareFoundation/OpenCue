@@ -28,49 +28,50 @@ import com.imageworks.spcue.service.JobManagerSupport;
  */
 public class DispatchSatisfyDepends extends KeyRunnable {
 
-  private JobInterface job = null;
-  private LayerInterface layer = null;
-  private FrameInterface frame = null;
-  private FrameSearchInterface search;
-  private JobManagerSupport jobManagerSupport;
+    private JobInterface job = null;
+    private LayerInterface layer = null;
+    private FrameInterface frame = null;
+    private FrameSearchInterface search;
+    private JobManagerSupport jobManagerSupport;
 
-  public DispatchSatisfyDepends(JobInterface job, JobManagerSupport jobManagerSupport) {
-    super("disp_sat_deps_" + job.getJobId() + "_" + jobManagerSupport.toString());
-    this.job = job;
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    public DispatchSatisfyDepends(JobInterface job, JobManagerSupport jobManagerSupport) {
+        super("disp_sat_deps_" + job.getJobId() + "_" + jobManagerSupport.toString());
+        this.job = job;
+        this.jobManagerSupport = jobManagerSupport;
+    }
 
-  public DispatchSatisfyDepends(LayerInterface layer, JobManagerSupport jobManagerSupport) {
-    super("disp_sat_deps_" + layer.getLayerId() + "_" + jobManagerSupport.toString());
-    this.layer = layer;
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    public DispatchSatisfyDepends(LayerInterface layer, JobManagerSupport jobManagerSupport) {
+        super("disp_sat_deps_" + layer.getLayerId() + "_" + jobManagerSupport.toString());
+        this.layer = layer;
+        this.jobManagerSupport = jobManagerSupport;
+    }
 
-  public DispatchSatisfyDepends(FrameInterface frame, JobManagerSupport jobManagerSupport) {
-    super("disp_sat_deps_" + frame.getFrameId() + "_" + jobManagerSupport.toString());
-    this.frame = frame;
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    public DispatchSatisfyDepends(FrameInterface frame, JobManagerSupport jobManagerSupport) {
+        super("disp_sat_deps_" + frame.getFrameId() + "_" + jobManagerSupport.toString());
+        this.frame = frame;
+        this.jobManagerSupport = jobManagerSupport;
+    }
 
-  public DispatchSatisfyDepends(FrameSearchInterface search, JobManagerSupport jobManagerSupport) {
-    super("disp_sat_deps_" + search.hashCode() + "_" + jobManagerSupport.hashCode());
-    this.search = search;
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    public DispatchSatisfyDepends(FrameSearchInterface search,
+            JobManagerSupport jobManagerSupport) {
+        super("disp_sat_deps_" + search.hashCode() + "_" + jobManagerSupport.hashCode());
+        this.search = search;
+        this.jobManagerSupport = jobManagerSupport;
+    }
 
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        if (search != null) {
-          jobManagerSupport.satisfyWhatDependsOn(search);
-        } else if (frame != null) {
-          jobManagerSupport.satisfyWhatDependsOn(frame);
-        } else if (layer != null) {
-          jobManagerSupport.satisfyWhatDependsOn(layer);
-        } else {
-          jobManagerSupport.satisfyWhatDependsOn(job);
-        }
-      }
-    }.execute();
-  }
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                if (search != null) {
+                    jobManagerSupport.satisfyWhatDependsOn(search);
+                } else if (frame != null) {
+                    jobManagerSupport.satisfyWhatDependsOn(frame);
+                } else if (layer != null) {
+                    jobManagerSupport.satisfyWhatDependsOn(layer);
+                } else {
+                    jobManagerSupport.satisfyWhatDependsOn(job);
+                }
+            }
+        }.execute();
+    }
 }

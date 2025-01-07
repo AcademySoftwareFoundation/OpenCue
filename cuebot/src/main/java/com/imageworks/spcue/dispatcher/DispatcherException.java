@@ -20,14 +20,14 @@ import com.imageworks.spcue.SpcueRuntimeException;
 @SuppressWarnings("serial")
 public class DispatcherException extends SpcueRuntimeException {
 
-  public DispatcherException(String arg0) {
-    super(arg0);
-    // TODO Auto-generated constructor stub
-  }
+    public DispatcherException(String arg0) {
+        super(arg0);
+        // TODO Auto-generated constructor stub
+    }
 
-  public DispatcherException(String arg0, Throwable arg1) {
-    super(arg0, arg1);
-    // TODO Auto-generated constructor stub
-  }
+    public DispatcherException(String arg0, Throwable arg1) {
+        super(arg0, arg1);
+        // TODO Auto-generated constructor stub
+    }
 
 }

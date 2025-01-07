@@ -67,589 +67,593 @@ import com.imageworks.spcue.util.Convert;
 @Transactional
 public class JobManagerService implements JobManager {
 
-  private static final Logger logger = LogManager.getLogger(JobManagerService.class);
+    private static final Logger logger = LogManager.getLogger(JobManagerService.class);
 
-  private JobDao jobDao;
-  private ShowDao showDao;
-  private FrameDao frameDao;
-  private LayerDao layerDao;
-  private LimitDao limitDao;
-  private HostDao hostDao;
-  private DependManager dependManager;
-  private FilterManager filterManager;
-  private GroupDao groupDao;
-  private FacilityDao facilityDao;
-  private JobLogUtil jobLogUtil;
+    private JobDao jobDao;
+    private ShowDao showDao;
+    private FrameDao frameDao;
+    private LayerDao layerDao;
+    private LimitDao limitDao;
+    private HostDao hostDao;
+    private DependManager dependManager;
+    private FilterManager filterManager;
+    private GroupDao groupDao;
+    private FacilityDao facilityDao;
+    private JobLogUtil jobLogUtil;
 
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isJobComplete(JobInterface job) {
-    return jobDao.isJobComplete(job);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isLayerComplete(LayerInterface layer) {
-    return layerDao.isLayerComplete(layer);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isLayerThreadable(LayerInterface layer) {
-    return layerDao.isThreadable(layer);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isJobPending(String name) {
-    return jobDao.exists(name);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void removeJob(JobInterface job) {
-    jobDao.deleteJob(job);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public JobDetail getJobDetail(String id) {
-    return jobDao.getJobDetail(id);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public JobInterface getJob(String id) {
-    return jobDao.getJob(id);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public JobDetail findJobDetail(String name) {
-    return jobDao.findJobDetail(name);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public JobInterface findJob(String name) {
-    return jobDao.findJob(name);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public boolean isOverMinCores(JobInterface job) {
-    return jobDao.isOverMinCores(job);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public DispatchJob getDispatchJob(String id) {
-    return jobDao.getDispatchJob(id);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public FrameInterface getFrame(String id) {
-    return frameDao.getFrame(id);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public FrameInterface findFrame(LayerInterface layer, int number) {
-    return frameDao.findFrame(layer, number);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public DispatchFrame getDispatchFrame(String id) {
-    return frameDao.getDispatchFrame(id);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public JobDetail findLastJob(String name) {
-    return jobDao.findLastJob(name);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void setJobPaused(JobInterface job, boolean paused) {
-    jobDao.updatePaused(job, paused);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void launchJobSpec(JobSpec spec) {
-
-    for (BuildableJob job : spec.getJobs()) {
-
-      JobDetail d = createJob(job);
-      if (job.maxCoresOverride != null) {
-        jobDao.updateMaxCores(d, Convert.coresToWholeCoreUnits(job.maxCoresOverride.intValue()));
-      }
-      if (job.maxGpusOverride != null) {
-        jobDao.updateMaxGpus(d, job.maxGpusOverride.intValue());
-      }
-      if (job.getPostJob() != null) {
-        BuildableJob postJob = job.getPostJob();
-        postJob.env.put("CUE_PARENT_JOB_ID", d.id);
-        postJob.env.put("CUE_PARENT_JOB", d.name);
-        createJob(postJob);
-        jobDao.mapPostJob(job);
-      }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isJobComplete(JobInterface job) {
+        return jobDao.isJobComplete(job);
     }
 
-    for (BuildableDependency dep : spec.getDepends()) {
-      dep.setLaunchDepend(true);
-      dependManager.createDepend(dep);
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isLayerComplete(LayerInterface layer) {
+        return layerDao.isLayerComplete(layer);
     }
 
-    for (BuildableJob job : spec.getJobs()) {
-      jobDao.activateJob(job.detail, JobState.PENDING);
-      if (job.getPostJob() != null) {
-        jobDao.activateJob(job.getPostJob().detail, JobState.POSTED);
-      }
-    }
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public JobDetail createJob(BuildableJob buildableJob) {
-
-    logger.info("creating new job: " + buildableJob.detail.name);
-    long startTime = System.currentTimeMillis();
-
-    if (jobDao.exists(buildableJob.detail.name)) {
-      throw new JobLaunchException(
-          "error launching job, active job already exists: " + buildableJob.detail.name);
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isLayerThreadable(LayerInterface layer) {
+        return layerDao.isThreadable(layer);
     }
 
-    if (buildableJob.getBuildableLayers().size() < 1) {
-      throw new JobLaunchException("error launching job, there were no layers defined!");
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isJobPending(String name) {
+        return jobDao.exists(name);
     }
 
-    JobDetail job = buildableJob.detail;
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void removeJob(JobInterface job) {
+        jobDao.deleteJob(job);
+    }
 
-    try {
-      /*
-       * Get the last job with the same name and try to use the memory settings for that job. Do
-       * this before inserting the new job we'll find this job as the last job.
-       */
-      JobDetail lastJob = null;
-      try {
-        lastJob = findLastJob(job.name);
-        logger.info("Last job " + job.name + " was found as " + lastJob.name);
-      } catch (Exception e) {
-        logger.info("Last job " + job.name + " was NOT found");
-        // don't have another version of the job in the DB.
-      }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public JobDetail getJobDetail(String id) {
+        return jobDao.getJobDetail(id);
+    }
 
-      ShowEntity show = showDao.findShowDetail(job.showName);
-      if (!job.isPaused) {
-        job.isPaused = show.paused;
-      }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public JobInterface getJob(String id) {
+        return jobDao.getJob(id);
+    }
 
-      job.showId = show.id;
-      job.logDir = job.name;
+    @Transactional(propagation = Propagation.REQUIRED)
+    public JobDetail findJobDetail(String name) {
+        return jobDao.findJobDetail(name);
+    }
 
-      /*
-       * The job gets inserted into the root group and unknown department.
-       */
-      GroupDetail rootGroup = groupDao.getRootGroupDetail(job);
-      job.groupId = rootGroup.id;
-      job.deptId = rootGroup.deptId;
+    @Transactional(propagation = Propagation.REQUIRED)
+    public JobInterface findJob(String name) {
+        return jobDao.findJob(name);
+    }
 
-      resolveFacility(job);
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean isOverMinCores(JobInterface job) {
+        return jobDao.isOverMinCores(job);
+    }
 
-      jobDao.insertJob(job, jobLogUtil);
-      jobDao.insertEnvironment(job, buildableJob.env);
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public DispatchJob getDispatchJob(String id) {
+        return jobDao.getDispatchJob(id);
+    }
 
-      for (BuildableLayer buildableLayer : buildableJob.getBuildableLayers()) {
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public FrameInterface getFrame(String id) {
+        return frameDao.getFrame(id);
+    }
 
-        LayerDetail layer = buildableLayer.layerDetail;
-        layer.jobId = job.id;
-        layer.showId = show.id;
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public FrameInterface findFrame(LayerInterface layer, int number) {
+        return frameDao.findFrame(layer, number);
+    }
 
-        /** Not accurate anymore */
-        List<Integer> frames = CueUtil.normalizeFrameRange(layer.range, layer.chunkSize);
-        layer.totalFrameCount = frames.size();
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public DispatchFrame getDispatchFrame(String id) {
+        return frameDao.getDispatchFrame(id);
+    }
 
-        if (lastJob != null && !buildableLayer.isMemoryOverride) {
-          long pastMaxRSS = layerDao.findPastMaxRSS(lastJob, layer.name);
-          if (pastMaxRSS > 0) {
-            logger.info("found new maxRSS for layer: " + layer.name + " " + pastMaxRSS);
-            layer.minimumMemory = pastMaxRSS;
-          }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public JobDetail findLastJob(String name) {
+        return jobDao.findLastJob(name);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void setJobPaused(JobInterface job, boolean paused) {
+        jobDao.updatePaused(job, paused);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void launchJobSpec(JobSpec spec) {
+
+        for (BuildableJob job : spec.getJobs()) {
+
+            JobDetail d = createJob(job);
+            if (job.maxCoresOverride != null) {
+                jobDao.updateMaxCores(d,
+                        Convert.coresToWholeCoreUnits(job.maxCoresOverride.intValue()));
+            }
+            if (job.maxGpusOverride != null) {
+                jobDao.updateMaxGpus(d, job.maxGpusOverride.intValue());
+            }
+            if (job.getPostJob() != null) {
+                BuildableJob postJob = job.getPostJob();
+                postJob.env.put("CUE_PARENT_JOB_ID", d.id);
+                postJob.env.put("CUE_PARENT_JOB", d.name);
+                createJob(postJob);
+                jobDao.mapPostJob(job);
+            }
         }
 
-        if (layer.minimumCores > 0 && layer.minimumCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
-          layer.minimumCores = Dispatcher.CORE_POINTS_RESERVED_MIN;
+        for (BuildableDependency dep : spec.getDepends()) {
+            dep.setLaunchDepend(true);
+            dependManager.createDepend(dep);
         }
 
-        logger.info("creating layer " + layer.name + " range: " + layer.range);
-        layerDao.insertLayerDetail(layer);
-        layerDao.insertLayerEnvironment(layer, buildableLayer.env);
-        layer.limits.stream()
-            .forEach(ln -> addLayerLimit(layer, limitDao.findLimit(ln).getLimitId()));
-        layer.outputs.stream().forEach(ln -> registerLayerOutput(layer, ln));
-        frameDao.insertFrames(layer, frames);
-      }
-
-      // The priority of a job is set on it's resource entry.
-      // To update it we set the priority after it's been inserted.
-      jobDao.updatePriority(job, job.priority);
-
-      /*
-       * Finally, run any filters on the job which may set the job's priority.
-       */
-      filterManager.runFiltersOnJob(job);
-
-      CueUtil.logDuration(startTime, "created job " + job.getName() + " " + job.getId());
-      return job;
-
-    } catch (Exception e) {
-      logger.info("error launching job: " + job.name + "," + e);
-      throw new JobLaunchException("error launching job: " + job.name + "," + e, e);
+        for (BuildableJob job : spec.getJobs()) {
+            jobDao.activateJob(job.detail, JobState.PENDING);
+            if (job.getPostJob() != null) {
+                jobDao.activateJob(job.getPostJob().detail, JobState.POSTED);
+            }
+        }
     }
-  }
 
-  private void resolveFacility(JobDetail job) {
-    try {
-      if (job.facilityName == null) {
-        job.facilityId = facilityDao.getDefaultFacility().getId();
-      } else {
-        job.facilityId = facilityDao.getFacility(job.facilityName).getId();
-      }
-    } catch (Exception e) {
-      throw new EntityRetrievalException("failed to find facility: " + job.facilityName, e);
+    @Transactional(propagation = Propagation.REQUIRED)
+    public JobDetail createJob(BuildableJob buildableJob) {
+
+        logger.info("creating new job: " + buildableJob.detail.name);
+        long startTime = System.currentTimeMillis();
+
+        if (jobDao.exists(buildableJob.detail.name)) {
+            throw new JobLaunchException(
+                    "error launching job, active job already exists: " + buildableJob.detail.name);
+        }
+
+        if (buildableJob.getBuildableLayers().size() < 1) {
+            throw new JobLaunchException("error launching job, there were no layers defined!");
+        }
+
+        JobDetail job = buildableJob.detail;
+
+        try {
+            /*
+             * Get the last job with the same name and try to use the memory settings for that job.
+             * Do this before inserting the new job we'll find this job as the last job.
+             */
+            JobDetail lastJob = null;
+            try {
+                lastJob = findLastJob(job.name);
+                logger.info("Last job " + job.name + " was found as " + lastJob.name);
+            } catch (Exception e) {
+                logger.info("Last job " + job.name + " was NOT found");
+                // don't have another version of the job in the DB.
+            }
+
+            ShowEntity show = showDao.findShowDetail(job.showName);
+            if (!job.isPaused) {
+                job.isPaused = show.paused;
+            }
+
+            job.showId = show.id;
+            job.logDir = job.name;
+
+            /*
+             * The job gets inserted into the root group and unknown department.
+             */
+            GroupDetail rootGroup = groupDao.getRootGroupDetail(job);
+            job.groupId = rootGroup.id;
+            job.deptId = rootGroup.deptId;
+
+            resolveFacility(job);
+
+            jobDao.insertJob(job, jobLogUtil);
+            jobDao.insertEnvironment(job, buildableJob.env);
+
+            for (BuildableLayer buildableLayer : buildableJob.getBuildableLayers()) {
+
+                LayerDetail layer = buildableLayer.layerDetail;
+                layer.jobId = job.id;
+                layer.showId = show.id;
+
+                /** Not accurate anymore */
+                List<Integer> frames = CueUtil.normalizeFrameRange(layer.range, layer.chunkSize);
+                layer.totalFrameCount = frames.size();
+
+                if (lastJob != null && !buildableLayer.isMemoryOverride) {
+                    long pastMaxRSS = layerDao.findPastMaxRSS(lastJob, layer.name);
+                    if (pastMaxRSS > 0) {
+                        logger.info("found new maxRSS for layer: " + layer.name + " " + pastMaxRSS);
+                        layer.minimumMemory = pastMaxRSS;
+                    }
+                }
+
+                if (layer.minimumCores > 0
+                        && layer.minimumCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
+                    layer.minimumCores = Dispatcher.CORE_POINTS_RESERVED_MIN;
+                }
+
+                logger.info("creating layer " + layer.name + " range: " + layer.range);
+                layerDao.insertLayerDetail(layer);
+                layerDao.insertLayerEnvironment(layer, buildableLayer.env);
+                layer.limits.stream()
+                        .forEach(ln -> addLayerLimit(layer, limitDao.findLimit(ln).getLimitId()));
+                layer.outputs.stream().forEach(ln -> registerLayerOutput(layer, ln));
+                frameDao.insertFrames(layer, frames);
+            }
+
+            // The priority of a job is set on it's resource entry.
+            // To update it we set the priority after it's been inserted.
+            jobDao.updatePriority(job, job.priority);
+
+            /*
+             * Finally, run any filters on the job which may set the job's priority.
+             */
+            filterManager.runFiltersOnJob(job);
+
+            CueUtil.logDuration(startTime, "created job " + job.getName() + " " + job.getId());
+            return job;
+
+        } catch (Exception e) {
+            logger.info("error launching job: " + job.name + "," + e);
+            throw new JobLaunchException("error launching job: " + job.name + "," + e, e);
+        }
     }
-  }
 
-  @Transactional(propagation = Propagation.REQUIRED)
-  public boolean shutdownJob(JobInterface job) {
-    // See JobManagerSupport
-    if (jobDao.updateJobFinished(job)) {
-      logger.info("shutting down job: " + job.getName());
-      jobDao.activatePostJob(job);
-      logger.info("activating post jobs");
-      return true;
+    private void resolveFacility(JobDetail job) {
+        try {
+            if (job.facilityName == null) {
+                job.facilityId = facilityDao.getDefaultFacility().getId();
+            } else {
+                job.facilityId = facilityDao.getFacility(job.facilityName).getId();
+            }
+        } catch (Exception e) {
+            throw new EntityRetrievalException("failed to find facility: " + job.facilityName, e);
+        }
     }
-    return false;
-  }
 
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<FrameInterface> findFrames(FrameSearchInterface r) {
-    return frameDao.findFrames(r);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void updateFrameState(FrameInterface frame, FrameState state) {
-    frameDao.updateFrameState(frame, state);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public LayerDetail getLayerDetail(String id) {
-    return layerDao.getLayerDetail(id);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public LayerInterface getLayer(String id) {
-    return layerDao.getLayer(id);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void updateJobState(JobInterface job, JobState state) {
-    jobDao.updateState(job, state);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public FrameDetail getFrameDetail(String id) {
-    return frameDao.getFrameDetail(id);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void markFrameAsWaiting(FrameInterface frame) {
-    frameDao.markFrameAsWaiting(frame);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void markFrameAsDepend(FrameInterface frame) {
-    frameDao.markFrameAsDepend(frame);
-  }
-
-  /**
-   * Creates a new job log directory. This is only called when launching a job.
-   *
-   * @param job
-   */
-  @Transactional(propagation = Propagation.NEVER)
-  public void createJobLogDirectory(JobDetail job) {
-    if (!jobLogUtil.createJobLogDirectory(job.logDir)) {
-      throw new JobLaunchException("error launching job, unable to create log directory");
+    @Transactional(propagation = Propagation.REQUIRED)
+    public boolean shutdownJob(JobInterface job) {
+        // See JobManagerSupport
+        if (jobDao.updateJobFinished(job)) {
+            logger.info("shutting down job: " + job.getName());
+            jobDao.activatePostJob(job);
+            logger.info("activating post jobs");
+            return true;
+        }
+        return false;
     }
-  }
 
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<LayerInterface> getLayers(JobInterface job) {
-    return layerDao.getLayers(job);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void increaseLayerMemoryRequirement(LayerInterface layer, long memKb) {
-    layerDao.increaseLayerMinMemory(layer, memKb);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void reorderLayer(LayerInterface layer, FrameSet frameSet, Order order) {
-    switch (order) {
-      case FIRST:
-        frameDao.reorderFramesFirst(layer, frameSet);
-        break;
-      case LAST:
-        frameDao.reorderFramesLast(layer, frameSet);
-        break;
-      case REVERSE:
-        frameDao.reorderLayerReverse(layer, frameSet);
-        break;
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<FrameInterface> findFrames(FrameSearchInterface r) {
+        return frameDao.findFrames(r);
     }
-  }
 
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void staggerLayer(LayerInterface layer, String range, int stagger) {
-    frameDao.staggerLayer(layer, range, stagger);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<LayerDetail> getLayerDetails(JobInterface job) {
-    return layerDao.getLayerDetails(job);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<ThreadStats> getThreadStats(LayerInterface layer) {
-    return layerDao.getThreadStats(layer);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void optimizeLayer(LayerInterface layer, int cores, long maxRss, int runTime) {
-    layerDao.balanceLayerMinMemory(layer, maxRss);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void enableMemoryOptimizer(LayerInterface layer, boolean state) {
-    layerDao.enableMemoryOptimizer(layer, state);
-  }
-
-  @Override
-  public void appendLayerTag(LayerInterface layer, String tag) {
-    layerDao.appendLayerTags(layer, tag);
-  }
-
-  @Override
-  public void setLayerTag(LayerInterface layer, String tag) {
-    layerDao.updateLayerTags(layer, Sets.newHashSet(tag));
-  }
-
-  @Override
-  public void setLayerMinCores(LayerInterface layer, int coreUnits) {
-    layerDao.updateLayerMinCores(layer, coreUnits);
-  }
-
-  @Override
-  public void setLayerMaxCores(LayerInterface layer, int coreUnits) {
-    layerDao.updateLayerMaxCores(layer, coreUnits);
-  }
-
-  @Override
-  public void setLayerMinGpus(LayerInterface layer, int gpu) {
-    layerDao.updateLayerMinGpus(layer, gpu);
-  }
-
-  @Override
-  public void setLayerMaxGpus(LayerInterface layer, int gpu) {
-    layerDao.updateLayerMaxGpus(layer, gpu);
-  }
-
-  @Override
-  public void addLayerLimit(LayerInterface layer, String limitId) {
-    layerDao.addLimit(layer, limitId);
-  }
-
-  @Override
-  public void dropLayerLimit(LayerInterface layer, String limitId) {
-    layerDao.dropLimit(layer, limitId);
-  }
-
-  @Override
-  public List<LimitEntity> getLayerLimits(LayerInterface layer) {
-    return layerDao.getLimits(layer);
-  }
-
-  @Override
-  public void registerLayerOutput(LayerInterface layer, String filespec) {
-    try {
-      layerDao.insertLayerOutput(layer, filespec);
-    } catch (DataAccessException e) {
-      // Fail quietly but log it.
-      logger.warn("Failed to add layer output: " + filespec + "," + e);
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updateFrameState(FrameInterface frame, FrameState state) {
+        frameDao.updateFrameState(frame, state);
     }
-  }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<String> getLayerOutputs(LayerInterface layer) {
-    return layerDao.getLayerOutputs(layer);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.SUPPORTS)
-  public void updateCheckpointState(FrameInterface frame, CheckpointState state) {
-
-    if (frameDao.updateFrameCheckpointState(frame, state)) {
-      logger.info("Checkpoint state of frame " + frame.getId() + " set to " + state.toString());
-    } else {
-      logger.warn("Failed to set checkpoint state of " + frame.getId() + " to " + state.toString());
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public LayerDetail getLayerDetail(String id) {
+        return layerDao.getLayerDetail(id);
     }
-  }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public FrameDetail findHighestMemoryFrame(JobInterface job) {
-    return frameDao.findHighestMemoryFrame(job);
-  }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public LayerInterface getLayer(String id) {
+        return layerDao.getLayer(id);
+    }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public FrameDetail findLongestFrame(JobInterface job) {
-    return frameDao.findLongestFrame(job);
-  }
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updateJobState(JobInterface job, JobState state) {
+        jobDao.updateState(job, state);
+    }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public FrameDetail findLowestMemoryFrame(JobInterface job) {
-    return frameDao.findLowestMemoryFrame(job);
-  }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public FrameDetail getFrameDetail(String id) {
+        return frameDao.getFrameDetail(id);
+    }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public FrameDetail findShortestFrame(JobInterface job) {
-    return frameDao.findShortestFrame(job);
-  }
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void markFrameAsWaiting(FrameInterface frame) {
+        frameDao.markFrameAsWaiting(frame);
+    }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public ExecutionSummary getExecutionSummary(JobInterface job) {
-    return jobDao.getExecutionSummary(job);
-  }
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void markFrameAsDepend(FrameInterface frame) {
+        frameDao.markFrameAsDepend(frame);
+    }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public FrameStateTotals getFrameStateTotals(JobInterface job) {
-    return jobDao.getFrameStateTotals(job);
-  }
+    /**
+     * Creates a new job log directory. This is only called when launching a job.
+     *
+     * @param job
+     */
+    @Transactional(propagation = Propagation.NEVER)
+    public void createJobLogDirectory(JobDetail job) {
+        if (!jobLogUtil.createJobLogDirectory(job.logDir)) {
+            throw new JobLaunchException("error launching job, unable to create log directory");
+        }
+    }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public ExecutionSummary getExecutionSummary(LayerInterface layer) {
-    return layerDao.getExecutionSummary(layer);
-  }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<LayerInterface> getLayers(JobInterface job) {
+        return layerDao.getLayers(job);
+    }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public FrameStateTotals getFrameStateTotals(LayerInterface layer) {
-    return layerDao.getFrameStateTotals(layer);
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void increaseLayerMemoryRequirement(LayerInterface layer, long memKb) {
+        layerDao.increaseLayerMinMemory(layer, memKb);
+    }
 
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<FrameInterface> getStaleCheckpoints(int cutoffTimeSec) {
-    return frameDao.getStaleCheckpoints(cutoffTimeSec);
-  }
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void reorderLayer(LayerInterface layer, FrameSet frameSet, Order order) {
+        switch (order) {
+            case FIRST:
+                frameDao.reorderFramesFirst(layer, frameSet);
+                break;
+            case LAST:
+                frameDao.reorderFramesLast(layer, frameSet);
+                break;
+            case REVERSE:
+                frameDao.reorderLayerReverse(layer, frameSet);
+                break;
+        }
+    }
 
-  @Transactional(propagation = Propagation.REQUIRED)
-  public void updateEmail(JobInterface job, String email) {
-    jobDao.updateEmail(job, email);
-  }
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void staggerLayer(LayerInterface layer, String range, int stagger) {
+        frameDao.staggerLayer(layer, range, stagger);
+    }
 
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public String getEmail(JobInterface job) {
-    return jobDao.getEmail(job);
-  }
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<LayerDetail> getLayerDetails(JobInterface job) {
+        return layerDao.getLayerDetails(job);
+    }
 
-  public DependManager getDependManager() {
-    return dependManager;
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<ThreadStats> getThreadStats(LayerInterface layer) {
+        return layerDao.getThreadStats(layer);
+    }
 
-  public void setDependManager(DependManager dependManager) {
-    this.dependManager = dependManager;
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void optimizeLayer(LayerInterface layer, int cores, long maxRss, int runTime) {
+        layerDao.balanceLayerMinMemory(layer, maxRss);
+    }
 
-  public FrameDao getFrameDao() {
-    return frameDao;
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void enableMemoryOptimizer(LayerInterface layer, boolean state) {
+        layerDao.enableMemoryOptimizer(layer, state);
+    }
 
-  public void setFrameDao(FrameDao frameDao) {
-    this.frameDao = frameDao;
-  }
+    @Override
+    public void appendLayerTag(LayerInterface layer, String tag) {
+        layerDao.appendLayerTags(layer, tag);
+    }
 
-  public LayerDao getLayerDao() {
-    return layerDao;
-  }
+    @Override
+    public void setLayerTag(LayerInterface layer, String tag) {
+        layerDao.updateLayerTags(layer, Sets.newHashSet(tag));
+    }
 
-  public void setLayerDao(LayerDao layerDao) {
-    this.layerDao = layerDao;
-  }
+    @Override
+    public void setLayerMinCores(LayerInterface layer, int coreUnits) {
+        layerDao.updateLayerMinCores(layer, coreUnits);
+    }
 
-  public LimitDao getLimitDao() {
-    return limitDao;
-  }
+    @Override
+    public void setLayerMaxCores(LayerInterface layer, int coreUnits) {
+        layerDao.updateLayerMaxCores(layer, coreUnits);
+    }
 
-  public void setLimitDao(LimitDao limitDao) {
-    this.limitDao = limitDao;
-  }
+    @Override
+    public void setLayerMinGpus(LayerInterface layer, int gpu) {
+        layerDao.updateLayerMinGpus(layer, gpu);
+    }
 
-  public ShowDao getShowDao() {
-    return showDao;
-  }
+    @Override
+    public void setLayerMaxGpus(LayerInterface layer, int gpu) {
+        layerDao.updateLayerMaxGpus(layer, gpu);
+    }
 
-  public void setShowDao(ShowDao showDao) {
-    this.showDao = showDao;
-  }
+    @Override
+    public void addLayerLimit(LayerInterface layer, String limitId) {
+        layerDao.addLimit(layer, limitId);
+    }
 
-  public JobDao getJobDao() {
-    return jobDao;
-  }
+    @Override
+    public void dropLayerLimit(LayerInterface layer, String limitId) {
+        layerDao.dropLimit(layer, limitId);
+    }
 
-  public void setJobDao(JobDao workDao) {
-    this.jobDao = workDao;
-  }
+    @Override
+    public List<LimitEntity> getLayerLimits(LayerInterface layer) {
+        return layerDao.getLimits(layer);
+    }
 
-  public FilterManager getFilterManager() {
-    return filterManager;
-  }
+    @Override
+    public void registerLayerOutput(LayerInterface layer, String filespec) {
+        try {
+            layerDao.insertLayerOutput(layer, filespec);
+        } catch (DataAccessException e) {
+            // Fail quietly but log it.
+            logger.warn("Failed to add layer output: " + filespec + "," + e);
+        }
+    }
 
-  public void setFilterManager(FilterManager filterManager) {
-    this.filterManager = filterManager;
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<String> getLayerOutputs(LayerInterface layer) {
+        return layerDao.getLayerOutputs(layer);
+    }
 
-  public GroupDao getGroupDao() {
-    return groupDao;
-  }
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void updateCheckpointState(FrameInterface frame, CheckpointState state) {
 
-  public void setGroupDao(GroupDao groupDao) {
-    this.groupDao = groupDao;
-  }
+        if (frameDao.updateFrameCheckpointState(frame, state)) {
+            logger.info(
+                    "Checkpoint state of frame " + frame.getId() + " set to " + state.toString());
+        } else {
+            logger.warn("Failed to set checkpoint state of " + frame.getId() + " to "
+                    + state.toString());
+        }
+    }
 
-  public FacilityDao getFacilityDao() {
-    return facilityDao;
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public FrameDetail findHighestMemoryFrame(JobInterface job) {
+        return frameDao.findHighestMemoryFrame(job);
+    }
 
-  public void setFacilityDao(FacilityDao facilityDao) {
-    this.facilityDao = facilityDao;
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public FrameDetail findLongestFrame(JobInterface job) {
+        return frameDao.findLongestFrame(job);
+    }
 
-  public HostDao getHostDao() {
-    return hostDao;
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public FrameDetail findLowestMemoryFrame(JobInterface job) {
+        return frameDao.findLowestMemoryFrame(job);
+    }
 
-  public void setHostDao(HostDao hostDao) {
-    this.hostDao = hostDao;
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public FrameDetail findShortestFrame(JobInterface job) {
+        return frameDao.findShortestFrame(job);
+    }
 
-  public JobLogUtil getJobLogUtil() {
-    return jobLogUtil;
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public ExecutionSummary getExecutionSummary(JobInterface job) {
+        return jobDao.getExecutionSummary(job);
+    }
 
-  public void setJobLogUtil(JobLogUtil jobLogUtil) {
-    this.jobLogUtil = jobLogUtil;
-  }
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public FrameStateTotals getFrameStateTotals(JobInterface job) {
+        return jobDao.getFrameStateTotals(job);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public ExecutionSummary getExecutionSummary(LayerInterface layer) {
+        return layerDao.getExecutionSummary(layer);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public FrameStateTotals getFrameStateTotals(LayerInterface layer) {
+        return layerDao.getFrameStateTotals(layer);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<FrameInterface> getStaleCheckpoints(int cutoffTimeSec) {
+        return frameDao.getStaleCheckpoints(cutoffTimeSec);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updateEmail(JobInterface job, String email) {
+        jobDao.updateEmail(job, email);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public String getEmail(JobInterface job) {
+        return jobDao.getEmail(job);
+    }
+
+    public DependManager getDependManager() {
+        return dependManager;
+    }
+
+    public void setDependManager(DependManager dependManager) {
+        this.dependManager = dependManager;
+    }
+
+    public FrameDao getFrameDao() {
+        return frameDao;
+    }
+
+    public void setFrameDao(FrameDao frameDao) {
+        this.frameDao = frameDao;
+    }
+
+    public LayerDao getLayerDao() {
+        return layerDao;
+    }
+
+    public void setLayerDao(LayerDao layerDao) {
+        this.layerDao = layerDao;
+    }
+
+    public LimitDao getLimitDao() {
+        return limitDao;
+    }
+
+    public void setLimitDao(LimitDao limitDao) {
+        this.limitDao = limitDao;
+    }
+
+    public ShowDao getShowDao() {
+        return showDao;
+    }
+
+    public void setShowDao(ShowDao showDao) {
+        this.showDao = showDao;
+    }
+
+    public JobDao getJobDao() {
+        return jobDao;
+    }
+
+    public void setJobDao(JobDao workDao) {
+        this.jobDao = workDao;
+    }
+
+    public FilterManager getFilterManager() {
+        return filterManager;
+    }
+
+    public void setFilterManager(FilterManager filterManager) {
+        this.filterManager = filterManager;
+    }
+
+    public GroupDao getGroupDao() {
+        return groupDao;
+    }
+
+    public void setGroupDao(GroupDao groupDao) {
+        this.groupDao = groupDao;
+    }
+
+    public FacilityDao getFacilityDao() {
+        return facilityDao;
+    }
+
+    public void setFacilityDao(FacilityDao facilityDao) {
+        this.facilityDao = facilityDao;
+    }
+
+    public HostDao getHostDao() {
+        return hostDao;
+    }
+
+    public void setHostDao(HostDao hostDao) {
+        this.hostDao = hostDao;
+    }
+
+    public JobLogUtil getJobLogUtil() {
+        return jobLogUtil;
+    }
+
+    public void setJobLogUtil(JobLogUtil jobLogUtil) {
+        this.jobLogUtil = jobLogUtil;
+    }
 }

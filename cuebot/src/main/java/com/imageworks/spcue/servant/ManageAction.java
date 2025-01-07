@@ -35,61 +35,62 @@ import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageAction extends ActionInterfaceGrpc.ActionInterfaceImplBase {
 
-  private FilterManager filterManager;
-  private Whiteboard whiteboard;
+    private FilterManager filterManager;
+    private Whiteboard whiteboard;
 
-  @Override
-  public void delete(ActionDeleteRequest request,
-      StreamObserver<ActionDeleteResponse> responseObserver) {
-    Action requestAction = request.getAction();
-    ActionEntity existingAction = filterManager.getAction(requestAction.getId());
-    FilterEntity filterEntity = filterManager.getFilter(existingAction);
-    ActionEntity actionToDelete =
-        ActionEntity.build(filterEntity, requestAction, requestAction.getId());
-    filterManager.deleteAction(actionToDelete);
-    responseObserver.onNext(ActionDeleteResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void getParentFilter(ActionGetParentFilterRequest request,
-      StreamObserver<ActionGetParentFilterResponse> responseObserver) {
-    Filter filter = whiteboard.getFilter(ActionEntity.build(request.getAction()));
-    responseObserver.onNext(ActionGetParentFilterResponse.newBuilder().setFilter(filter).build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void commit(ActionCommitRequest request,
-      StreamObserver<ActionCommitResponse> responseObserver) {
-    Action requestAction = request.getAction();
-    // Getting an action to have filterId populated from the DB
-    try {
-      ActionEntity persistedAction = filterManager.getAction(requestAction.getId());
-      ActionEntity newAction =
-          ActionEntity.build(persistedAction, requestAction, requestAction.getId());
-      filterManager.updateAction(newAction);
-      responseObserver.onNext(ActionCommitResponse.newBuilder().build());
-      responseObserver.onCompleted();
-    } catch (EmptyResultDataAccessException e) {
-      throw new SpcueRuntimeException(
-          "Invalid actionId on Action commit: " + requestAction.getId());
+    @Override
+    public void delete(ActionDeleteRequest request,
+            StreamObserver<ActionDeleteResponse> responseObserver) {
+        Action requestAction = request.getAction();
+        ActionEntity existingAction = filterManager.getAction(requestAction.getId());
+        FilterEntity filterEntity = filterManager.getFilter(existingAction);
+        ActionEntity actionToDelete =
+                ActionEntity.build(filterEntity, requestAction, requestAction.getId());
+        filterManager.deleteAction(actionToDelete);
+        responseObserver.onNext(ActionDeleteResponse.newBuilder().build());
+        responseObserver.onCompleted();
     }
-  }
 
-  public FilterManager getFilterManager() {
-    return filterManager;
-  }
+    @Override
+    public void getParentFilter(ActionGetParentFilterRequest request,
+            StreamObserver<ActionGetParentFilterResponse> responseObserver) {
+        Filter filter = whiteboard.getFilter(ActionEntity.build(request.getAction()));
+        responseObserver
+                .onNext(ActionGetParentFilterResponse.newBuilder().setFilter(filter).build());
+        responseObserver.onCompleted();
+    }
 
-  public void setFilterManager(FilterManager filterManager) {
-    this.filterManager = filterManager;
-  }
+    @Override
+    public void commit(ActionCommitRequest request,
+            StreamObserver<ActionCommitResponse> responseObserver) {
+        Action requestAction = request.getAction();
+        // Getting an action to have filterId populated from the DB
+        try {
+            ActionEntity persistedAction = filterManager.getAction(requestAction.getId());
+            ActionEntity newAction =
+                    ActionEntity.build(persistedAction, requestAction, requestAction.getId());
+            filterManager.updateAction(newAction);
+            responseObserver.onNext(ActionCommitResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            throw new SpcueRuntimeException(
+                    "Invalid actionId on Action commit: " + requestAction.getId());
+        }
+    }
 
-  public Whiteboard getWhiteboard() {
-    return whiteboard;
-  }
+    public FilterManager getFilterManager() {
+        return filterManager;
+    }
 
-  public void setWhiteboard(Whiteboard whiteboard) {
-    this.whiteboard = whiteboard;
-  }
+    public void setFilterManager(FilterManager filterManager) {
+        this.filterManager = filterManager;
+    }
+
+    public Whiteboard getWhiteboard() {
+        return whiteboard;
+    }
+
+    public void setWhiteboard(Whiteboard whiteboard) {
+        this.whiteboard = whiteboard;
+    }
 }

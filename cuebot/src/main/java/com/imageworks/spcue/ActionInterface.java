@@ -17,6 +17,6 @@ package com.imageworks.spcue;
 
 public interface ActionInterface extends FilterInterface {
 
-  public String getActionId();
+    public String getActionId();
 
 }

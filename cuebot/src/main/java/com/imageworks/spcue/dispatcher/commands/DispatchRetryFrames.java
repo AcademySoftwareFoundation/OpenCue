@@ -26,23 +26,23 @@ import com.imageworks.spcue.service.JobManagerSupport;
  */
 public class DispatchRetryFrames extends KeyRunnable {
 
-  private FrameSearchInterface search;
-  private Source source;
-  private JobManagerSupport jobManagerSupport;
+    private FrameSearchInterface search;
+    private Source source;
+    private JobManagerSupport jobManagerSupport;
 
-  public DispatchRetryFrames(FrameSearchInterface search, Source source,
-      JobManagerSupport jobManagerSupport) {
-    super("disp_retry_frames_" + search.hashCode() + "_" + source.toString());
-    this.search = search;
-    this.source = source;
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    public DispatchRetryFrames(FrameSearchInterface search, Source source,
+            JobManagerSupport jobManagerSupport) {
+        super("disp_retry_frames_" + search.hashCode() + "_" + source.toString());
+        this.search = search;
+        this.source = source;
+        this.jobManagerSupport = jobManagerSupport;
+    }
 
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        jobManagerSupport.retryFrames(search, source);
-      }
-    }.execute();
-  }
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                jobManagerSupport.retryFrames(search, source);
+            }
+        }.execute();
+    }
 }

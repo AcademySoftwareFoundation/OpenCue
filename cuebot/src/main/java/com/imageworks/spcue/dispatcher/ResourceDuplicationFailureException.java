@@ -23,23 +23,23 @@ import com.imageworks.spcue.SpcueRuntimeException;
 @SuppressWarnings("serial")
 public class ResourceDuplicationFailureException extends SpcueRuntimeException {
 
-  public ResourceDuplicationFailureException() {
-    // TODO Auto-generated constructor stub
-  }
+    public ResourceDuplicationFailureException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public ResourceDuplicationFailureException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public ResourceDuplicationFailureException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public ResourceDuplicationFailureException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public ResourceDuplicationFailureException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public ResourceDuplicationFailureException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public ResourceDuplicationFailureException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

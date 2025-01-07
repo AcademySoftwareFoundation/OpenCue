@@ -22,23 +22,23 @@ import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 
 public class HostSearchFactory {
 
-  private DatabaseEngine dbEngine;
+    private DatabaseEngine dbEngine;
 
-  public HostSearchInterface create(HostSearchCriteria criteria) {
-    return new HostSearch(criteria);
-  }
+    public HostSearchInterface create(HostSearchCriteria criteria) {
+        return new HostSearch(criteria);
+    }
 
-  public HostSearchInterface create(AllocationEntity allocEntity) {
-    HostSearchInterface hostSearch = create(HostSearchInterface.criteriaFactory());
-    hostSearch.filterByAlloc(allocEntity);
-    return hostSearch;
-  }
+    public HostSearchInterface create(AllocationEntity allocEntity) {
+        HostSearchInterface hostSearch = create(HostSearchInterface.criteriaFactory());
+        hostSearch.filterByAlloc(allocEntity);
+        return hostSearch;
+    }
 
-  public DatabaseEngine getDbEngine() {
-    return dbEngine;
-  }
+    public DatabaseEngine getDbEngine() {
+        return dbEngine;
+    }
 
-  public void setDbEngine(DatabaseEngine dbEngine) {
-    this.dbEngine = dbEngine;
-  }
+    public void setDbEngine(DatabaseEngine dbEngine) {
+        this.dbEngine = dbEngine;
+    }
 }

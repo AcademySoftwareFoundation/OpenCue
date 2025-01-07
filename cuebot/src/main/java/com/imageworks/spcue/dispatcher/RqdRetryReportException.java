@@ -20,23 +20,23 @@ import com.imageworks.spcue.SpcueRuntimeException;
 @SuppressWarnings("serial")
 public class RqdRetryReportException extends SpcueRuntimeException {
 
-  public RqdRetryReportException() {
-    // TODO Auto-generated constructor stub
-  }
+    public RqdRetryReportException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public RqdRetryReportException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public RqdRetryReportException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public RqdRetryReportException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public RqdRetryReportException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public RqdRetryReportException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public RqdRetryReportException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

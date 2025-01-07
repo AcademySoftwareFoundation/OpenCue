@@ -22,62 +22,62 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class FrameOnFrame extends AbstractDepend implements Depend {
 
-  private final FrameInterface dependErFrame;
-  private final FrameInterface dependOnFrame;
-  private AbstractDepend parent = null;
+    private final FrameInterface dependErFrame;
+    private final FrameInterface dependOnFrame;
+    private AbstractDepend parent = null;
 
-  public FrameOnFrame(FrameInterface dependErFrame, FrameInterface dependOnFrame,
-      AbstractDepend parent) {
+    public FrameOnFrame(FrameInterface dependErFrame, FrameInterface dependOnFrame,
+            AbstractDepend parent) {
 
-    if (dependOnFrame.getFrameId().equals(dependErFrame.getFrameId())) {
-      throw new DependException(
-          "The frame " + dependErFrame.getName() + " cannot depend on itself.");
+        if (dependOnFrame.getFrameId().equals(dependErFrame.getFrameId())) {
+            throw new DependException(
+                    "The frame " + dependErFrame.getName() + " cannot depend on itself.");
+        }
+
+        this.dependErFrame = dependErFrame;
+        this.dependOnFrame = dependOnFrame;
+        this.parent = parent;
     }
 
-    this.dependErFrame = dependErFrame;
-    this.dependOnFrame = dependOnFrame;
-    this.parent = parent;
-  }
-
-  public FrameOnFrame(FrameInterface dependErFrame, FrameInterface dependOnFrame) {
-    this.dependErFrame = dependErFrame;
-    this.dependOnFrame = dependOnFrame;
-  }
-
-  public FrameInterface getDependErFrame() {
-    return dependErFrame;
-  }
-
-  public FrameInterface getDependOnFrame() {
-    return dependOnFrame;
-  }
-
-  public AbstractDepend getParent() {
-    return parent;
-  }
-
-  @Override
-  public void accept(DependVisitor dependVisitor) {
-    dependVisitor.accept(this);
-  }
-
-  @Override
-  public String getSignature() {
-    StringBuilder key = new StringBuilder(256);
-    key.append(DependType.FRAME_ON_FRAME.toString());
-    key.append(dependErFrame.getJobId());
-    key.append(dependOnFrame.getJobId());
-    key.append(dependErFrame.getFrameId());
-    key.append(dependOnFrame.getFrameId());
-    return SqlUtil.genKeyByName(key.toString());
-  }
-
-  @Override
-  public DependTarget getTarget() {
-    if (dependErFrame.getJobId().equals(dependOnFrame.getJobId())) {
-      return DependTarget.INTERNAL;
-    } else {
-      return DependTarget.EXTERNAL;
+    public FrameOnFrame(FrameInterface dependErFrame, FrameInterface dependOnFrame) {
+        this.dependErFrame = dependErFrame;
+        this.dependOnFrame = dependOnFrame;
     }
-  }
+
+    public FrameInterface getDependErFrame() {
+        return dependErFrame;
+    }
+
+    public FrameInterface getDependOnFrame() {
+        return dependOnFrame;
+    }
+
+    public AbstractDepend getParent() {
+        return parent;
+    }
+
+    @Override
+    public void accept(DependVisitor dependVisitor) {
+        dependVisitor.accept(this);
+    }
+
+    @Override
+    public String getSignature() {
+        StringBuilder key = new StringBuilder(256);
+        key.append(DependType.FRAME_ON_FRAME.toString());
+        key.append(dependErFrame.getJobId());
+        key.append(dependOnFrame.getJobId());
+        key.append(dependErFrame.getFrameId());
+        key.append(dependOnFrame.getFrameId());
+        return SqlUtil.genKeyByName(key.toString());
+    }
+
+    @Override
+    public DependTarget getTarget() {
+        if (dependErFrame.getJobId().equals(dependOnFrame.getJobId())) {
+            return DependTarget.INTERNAL;
+        } else {
+            return DependTarget.EXTERNAL;
+        }
+    }
 }

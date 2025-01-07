@@ -20,6 +20,6 @@ package com.imageworks.spcue.depend;
  */
 public interface Depend {
 
-  void accept(DependVisitor dependVisitor);
+    void accept(DependVisitor dependVisitor);
 
 }

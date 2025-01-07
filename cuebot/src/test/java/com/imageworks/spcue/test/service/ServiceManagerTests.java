@@ -47,132 +47,132 @@ import static org.junit.Assert.assertTrue;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  ServiceManager serviceManager;
+    @Resource
+    ServiceManager serviceManager;
 
-  @Resource
-  JobLauncher jobLauncher;
+    @Resource
+    JobLauncher jobLauncher;
 
-  @Resource
-  LayerDao layerDao;
+    @Resource
+    LayerDao layerDao;
 
-  @Before
-  public void setTestMode() {
-    jobLauncher.testMode = true;
-  }
+    @Before
+    public void setTestMode() {
+        jobLauncher.testMode = true;
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetDefaultService() {
-    ServiceEntity srv1 = serviceManager.getService("default");
-    ServiceEntity srv2 = serviceManager.getDefaultService();
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetDefaultService() {
+        ServiceEntity srv1 = serviceManager.getService("default");
+        ServiceEntity srv2 = serviceManager.getDefaultService();
 
-    assertEquals(srv1, srv2);
-  }
+        assertEquals(srv1, srv2);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testCreateService() {
-    ServiceEntity s = new ServiceEntity();
-    s.name = "dillweed";
-    s.minCores = 100;
-    s.minMemory = CueUtil.GB4;
-    s.minGpuMemory = CueUtil.GB2;
-    s.threadable = false;
-    s.timeout = 0;
-    s.timeout_llu = 0;
-    s.tags.addAll(Sets.newHashSet("general"));
-    serviceManager.createService(s);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testCreateService() {
+        ServiceEntity s = new ServiceEntity();
+        s.name = "dillweed";
+        s.minCores = 100;
+        s.minMemory = CueUtil.GB4;
+        s.minGpuMemory = CueUtil.GB2;
+        s.threadable = false;
+        s.timeout = 0;
+        s.timeout_llu = 0;
+        s.tags.addAll(Sets.newHashSet("general"));
+        serviceManager.createService(s);
 
-    ServiceEntity newService = serviceManager.getService(s.id);
-    assertEquals(s, newService);
-  }
+        ServiceEntity newService = serviceManager.getService(s.id);
+        assertEquals(s, newService);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testOverrideExistingService() {
-    ServiceOverrideEntity s = new ServiceOverrideEntity();
-    s.name = "arnold";
-    s.minCores = 400;
-    s.timeout = 10;
-    s.timeout_llu = 10;
-    s.minMemory = CueUtil.GB8;
-    s.minGpuMemory = CueUtil.GB2;
-    s.threadable = false;
-    s.tags.addAll(Sets.newHashSet("general"));
-    s.showId = "00000000-0000-0000-0000-000000000000";
-    serviceManager.createService(s);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testOverrideExistingService() {
+        ServiceOverrideEntity s = new ServiceOverrideEntity();
+        s.name = "arnold";
+        s.minCores = 400;
+        s.timeout = 10;
+        s.timeout_llu = 10;
+        s.minMemory = CueUtil.GB8;
+        s.minGpuMemory = CueUtil.GB2;
+        s.threadable = false;
+        s.tags.addAll(Sets.newHashSet("general"));
+        s.showId = "00000000-0000-0000-0000-000000000000";
+        serviceManager.createService(s);
 
-    // Check it was overridden
-    ServiceEntity newService = serviceManager.getService("arnold", s.showId);
-    assertEquals(s, newService);
-    assertEquals(400, newService.minCores);
-    assertEquals(10, newService.timeout);
-    assertEquals(10, newService.timeout_llu);
-    assertEquals(CueUtil.GB8, newService.minMemory);
-    assertEquals(CueUtil.GB2, newService.minGpuMemory);
-    assertFalse(newService.threadable);
-    assertTrue(s.tags.contains("general"));
+        // Check it was overridden
+        ServiceEntity newService = serviceManager.getService("arnold", s.showId);
+        assertEquals(s, newService);
+        assertEquals(400, newService.minCores);
+        assertEquals(10, newService.timeout);
+        assertEquals(10, newService.timeout_llu);
+        assertEquals(CueUtil.GB8, newService.minMemory);
+        assertEquals(CueUtil.GB2, newService.minGpuMemory);
+        assertFalse(newService.threadable);
+        assertTrue(s.tags.contains("general"));
 
-    serviceManager.deleteService(s);
+        serviceManager.deleteService(s);
 
-    // now check the original is back.
-    newService = serviceManager.getService("arnold", s.showId);
-    assertEquals(100, newService.minCores);
-    assertEquals(0, newService.minGpuMemory);
-  }
+        // now check the original is back.
+        newService = serviceManager.getService("arnold", s.showId);
+        assertEquals(100, newService.minCores);
+        assertEquals(0, newService.minGpuMemory);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testJobLaunch() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testJobLaunch() {
 
-    JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/services.xml"));
-    jobLauncher.launch(spec);
+        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/services.xml"));
+        jobLauncher.launch(spec);
 
-    ServiceEntity shell = serviceManager.getService("shell");
-    ServiceEntity prman = serviceManager.getService("prman");
-    ServiceEntity cuda = serviceManager.getService("cuda");
-    LayerDetail shellLayer =
-        layerDao.getLayerDetail(spec.getJobs().get(0).getBuildableLayers().get(0).layerDetail.id);
-    LayerDetail prmanLayer =
-        layerDao.getLayerDetail(spec.getJobs().get(0).getBuildableLayers().get(1).layerDetail.id);
-    LayerDetail cudaLayer =
-        layerDao.getLayerDetail(spec.getJobs().get(0).getBuildableLayers().get(3).layerDetail.id);
+        ServiceEntity shell = serviceManager.getService("shell");
+        ServiceEntity prman = serviceManager.getService("prman");
+        ServiceEntity cuda = serviceManager.getService("cuda");
+        LayerDetail shellLayer = layerDao
+                .getLayerDetail(spec.getJobs().get(0).getBuildableLayers().get(0).layerDetail.id);
+        LayerDetail prmanLayer = layerDao
+                .getLayerDetail(spec.getJobs().get(0).getBuildableLayers().get(1).layerDetail.id);
+        LayerDetail cudaLayer = layerDao
+                .getLayerDetail(spec.getJobs().get(0).getBuildableLayers().get(3).layerDetail.id);
 
-    assertEquals(shell.minCores, shellLayer.minimumCores);
-    assertEquals(shell.minMemory, shellLayer.minimumMemory);
-    assertEquals(shell.minGpuMemory, shellLayer.minimumGpuMemory);
-    assertFalse(shellLayer.isThreadable);
-    assertEquals(shell.tags, shellLayer.tags);
-    assertThat(shellLayer.services, contains("shell", "katana", "unknown"));
+        assertEquals(shell.minCores, shellLayer.minimumCores);
+        assertEquals(shell.minMemory, shellLayer.minimumMemory);
+        assertEquals(shell.minGpuMemory, shellLayer.minimumGpuMemory);
+        assertFalse(shellLayer.isThreadable);
+        assertEquals(shell.tags, shellLayer.tags);
+        assertThat(shellLayer.services, contains("shell", "katana", "unknown"));
 
-    assertEquals(prman.minCores, prmanLayer.minimumCores);
-    assertEquals(prman.minMemory, prmanLayer.minimumMemory);
-    assertFalse(prmanLayer.isThreadable);
-    assertEquals(prman.tags, prmanLayer.tags);
-    assertThat(prmanLayer.services, contains("prman", "katana"));
+        assertEquals(prman.minCores, prmanLayer.minimumCores);
+        assertEquals(prman.minMemory, prmanLayer.minimumMemory);
+        assertFalse(prmanLayer.isThreadable);
+        assertEquals(prman.tags, prmanLayer.tags);
+        assertThat(prmanLayer.services, contains("prman", "katana"));
 
-    assertEquals(cuda.minCores, cudaLayer.minimumCores);
-    assertEquals(cuda.minMemory, cudaLayer.minimumMemory);
-    assertEquals(cuda.minGpuMemory, cudaLayer.minimumGpuMemory);
-    assertFalse(cudaLayer.isThreadable);
-    assertEquals(cuda.tags, cudaLayer.tags);
-    assertThat(cudaLayer.services, contains("cuda"));
-  }
+        assertEquals(cuda.minCores, cudaLayer.minimumCores);
+        assertEquals(cuda.minMemory, cudaLayer.minimumMemory);
+        assertEquals(cuda.minGpuMemory, cudaLayer.minimumGpuMemory);
+        assertFalse(cudaLayer.isThreadable);
+        assertEquals(cuda.tags, cudaLayer.tags);
+        assertThat(cudaLayer.services, contains("cuda"));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testManualOverrideThreading() {
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testManualOverrideThreading() {
 
-    JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/services.xml"));
-    jobLauncher.launch(spec);
+        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/services.xml"));
+        jobLauncher.launch(spec);
 
-    assertFalse(
-        layerDao.findLayerDetail(spec.getJobs().get(0).detail, "arnold_layer").isThreadable);
-  }
+        assertFalse(layerDao.findLayerDetail(spec.getJobs().get(0).detail,
+                "arnold_layer").isThreadable);
+    }
 }

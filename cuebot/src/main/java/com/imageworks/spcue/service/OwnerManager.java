@@ -23,77 +23,77 @@ import com.imageworks.spcue.ShowInterface;
 
 public interface OwnerManager {
 
-  /**
-   * Return true if the given users owns the particular host.
-   *
-   * @param owner
-   * @param host
-   * @return
-   */
-  boolean isOwner(OwnerEntity owner, HostInterface host);
+    /**
+     * Return true if the given users owns the particular host.
+     *
+     * @param owner
+     * @param host
+     * @return
+     */
+    boolean isOwner(OwnerEntity owner, HostInterface host);
 
-  /**
-   * Create a new owner.
-   *
-   * @param user
-   * @param email
-   */
-  OwnerEntity createOwner(String user, ShowInterface show);
+    /**
+     * Create a new owner.
+     *
+     * @param user
+     * @param email
+     */
+    OwnerEntity createOwner(String user, ShowInterface show);
 
-  /**
-   * Get an owner record by ID.
-   *
-   * @param id
-   */
-  OwnerEntity getOwner(String id);
+    /**
+     * Get an owner record by ID.
+     *
+     * @param id
+     */
+    OwnerEntity getOwner(String id);
 
-  /**
-   * Return an owner record by name.
-   *
-   * @param name
-   */
-  OwnerEntity findOwner(String name);
+    /**
+     * Return an owner record by name.
+     *
+     * @param name
+     */
+    OwnerEntity findOwner(String name);
 
-  /**
-   * Delete the specified owner and all his/her deeds. Return true if the owner was actually
-   * deleted. False if not.
-   */
-  boolean deleteOwner(Entity owner);
+    /**
+     * Delete the specified owner and all his/her deeds. Return true if the owner was actually
+     * deleted. False if not.
+     */
+    boolean deleteOwner(Entity owner);
 
-  /**
-   * Set the show of the given user.
-   *
-   * @param owner
-   * @param show
-   */
-  void setShow(Entity owner, ShowInterface show);
+    /**
+     * Set the show of the given user.
+     *
+     * @param owner
+     * @param show
+     */
+    void setShow(Entity owner, ShowInterface show);
 
-  /**
-   * Assigns the given host to the owner.
-   *
-   * @param owner
-   * @param host
-   */
-  DeedEntity takeOwnership(OwnerEntity owner, HostInterface host);
+    /**
+     * Assigns the given host to the owner.
+     *
+     * @param owner
+     * @param host
+     */
+    DeedEntity takeOwnership(OwnerEntity owner, HostInterface host);
 
-  /**
-   *
-   * @param id
-   * @return
-   */
-  DeedEntity getDeed(String id);
+    /**
+     *
+     * @param id
+     * @return
+     */
+    DeedEntity getDeed(String id);
 
-  /**
-   * Deletes a deed for the specified host.
-   *
-   * @param host
-   */
-  void removeDeed(HostInterface host);
+    /**
+     * Deletes a deed for the specified host.
+     *
+     * @param host
+     */
+    void removeDeed(HostInterface host);
 
-  /**
-   * Remove the given deed.
-   *
-   * @param deed
-   */
-  void removeDeed(DeedEntity deed);
+    /**
+     * Remove the given deed.
+     *
+     * @param deed
+     */
+    void removeDeed(DeedEntity deed);
 }

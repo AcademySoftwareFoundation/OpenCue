@@ -17,33 +17,33 @@ package com.imageworks.spcue;
 
 public class GroupDetail extends Entity implements GroupInterface, DepartmentInterface {
 
-  public int jobMinCores = -1;
-  public int jobMaxCores = -1;
-  public int jobMinGpus = -1;
-  public int jobMaxGpus = -1;
-  public int jobPriority = -1;
+    public int jobMinCores = -1;
+    public int jobMaxCores = -1;
+    public int jobMinGpus = -1;
+    public int jobMaxGpus = -1;
+    public int jobPriority = -1;
 
-  public int minCores = -1;
-  public int maxCores = -1;
+    public int minCores = -1;
+    public int maxCores = -1;
 
-  public int minGpus = -1;
-  public int maxGpus = -1;
+    public int minGpus = -1;
+    public int maxGpus = -1;
 
-  public String parentId = null;
-  public String showId;
-  public String deptId;
+    public String parentId = null;
+    public String showId;
+    public String deptId;
 
-  @Override
-  public String getShowId() {
-    return showId;
-  }
+    @Override
+    public String getShowId() {
+        return showId;
+    }
 
-  public String getGroupId() {
-    return id;
-  }
+    public String getGroupId() {
+        return id;
+    }
 
-  @Override
-  public String getDepartmentId() {
-    return deptId;
-  }
+    @Override
+    public String getDepartmentId() {
+        return deptId;
+    }
 }

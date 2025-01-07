@@ -19,25 +19,25 @@ import com.imageworks.spcue.grpc.filter.FilterType;
 
 public class FilterEntity extends Entity implements FilterInterface {
 
-  public FilterType type;
-  public String showId;
-  public boolean enabled;
-  public float order;
+    public FilterType type;
+    public String showId;
+    public boolean enabled;
+    public float order;
 
-  public String getId() {
-    return id;
-  }
+    public String getId() {
+        return id;
+    }
 
-  public String getName() {
-    return name;
-  }
+    public String getName() {
+        return name;
+    }
 
-  public String getFilterId() {
-    return id;
-  }
+    public String getFilterId() {
+        return id;
+    }
 
-  public String getShowId() {
-    return showId;
-  }
+    public String getShowId() {
+        return showId;
+    }
 
 }

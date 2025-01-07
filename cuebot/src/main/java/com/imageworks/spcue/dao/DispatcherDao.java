@@ -32,154 +32,155 @@ import com.imageworks.spcue.VirtualProc;
  */
 public interface DispatcherDao {
 
-  /**
-   * Finds the next frame on the specified job that can utilize the free resources on the host.
-   *
-   * @param host
-   * @param job
-   * @return
-   */
-  DispatchFrame findNextDispatchFrame(JobInterface job, DispatchHost host);
+    /**
+     * Finds the next frame on the specified job that can utilize the free resources on the host.
+     *
+     * @param host
+     * @param job
+     * @return
+     */
+    DispatchFrame findNextDispatchFrame(JobInterface job, DispatchHost host);
 
-  /**
-   * Returns the next frame based on the supplied job
-   *
-   * @param job
-   * @param proc
-   * @return DispatchFrame
-   */
-  DispatchFrame findNextDispatchFrame(JobInterface job, VirtualProc proc);
+    /**
+     * Returns the next frame based on the supplied job
+     *
+     * @param job
+     * @param proc
+     * @return DispatchFrame
+     */
+    DispatchFrame findNextDispatchFrame(JobInterface job, VirtualProc proc);
 
-  /**
-   * Finds the next frame on the specified job that can utilize the free resources on the host.
-   *
-   * @param host
-   * @param job
-   * @return
-   */
-  List<DispatchFrame> findNextDispatchFrames(JobInterface job, DispatchHost host, int limit);
+    /**
+     * Finds the next frame on the specified job that can utilize the free resources on the host.
+     *
+     * @param host
+     * @param job
+     * @return
+     */
+    List<DispatchFrame> findNextDispatchFrames(JobInterface job, DispatchHost host, int limit);
 
-  /**
-   * Returns the next frame based on the supplied job
-   *
-   * @param job
-   * @param proc
-   * @return DispatchFrame
-   */
-  List<DispatchFrame> findNextDispatchFrames(JobInterface job, VirtualProc proc, int limit);
+    /**
+     * Returns the next frame based on the supplied job
+     *
+     * @param job
+     * @param proc
+     * @return DispatchFrame
+     */
+    List<DispatchFrame> findNextDispatchFrames(JobInterface job, VirtualProc proc, int limit);
 
-  /**
-   * Return a list of jobs which could use resources of the specified host. It does not consider
-   * show priority.
-   *
-   * @param host
-   * @param numJobs
-   * @return
-   */
-  Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs);
+    /**
+     * Return a list of jobs which could use resources of the specified host. It does not consider
+     * show priority.
+     *
+     * @param host
+     * @param numJobs
+     * @return
+     */
+    Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs);
 
-  /**
-   * Return a list of jobs which could use resources of the specified host
-   *
-   * @param host
-   * @param numJobs
-   * @return
-   */
-  Set<String> findDispatchJobs(DispatchHost host, int numJobs);
+    /**
+     * Return a list of jobs which could use resources of the specified host
+     *
+     * @param host
+     * @param numJobs
+     * @return
+     */
+    Set<String> findDispatchJobs(DispatchHost host, int numJobs);
 
-  /**
-   * Return a list of jobs which could use resources of the specified host that are in the specified
-   * group.
-   *
-   * @param host
-   * @param numJobs
-   * @return
-   */
-  Set<String> findDispatchJobs(DispatchHost host, GroupInterface g);
+    /**
+     * Return a list of jobs which could use resources of the specified host that are in the
+     * specified group.
+     *
+     * @param host
+     * @param numJobs
+     * @return
+     */
+    Set<String> findDispatchJobs(DispatchHost host, GroupInterface g);
 
-  /**
-   * Finds an under proced job if one exists and returns it, otherwise it returns null.
-   *
-   * @param excludeJob
-   * @param proc
-   * @return
-   */
-  boolean findUnderProcedJob(JobInterface excludeJob, VirtualProc proc);
+    /**
+     * Finds an under proced job if one exists and returns it, otherwise it returns null.
+     *
+     * @param excludeJob
+     * @param proc
+     * @return
+     */
+    boolean findUnderProcedJob(JobInterface excludeJob, VirtualProc proc);
 
-  /**
-   * Returns true if there exists a higher priority job than the base job
-   *
-   * @param baseJob
-   * @param proc
-   * @return boolean
-   */
-  boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc);
+    /**
+     * Returns true if there exists a higher priority job than the base job
+     *
+     * @param baseJob
+     * @param proc
+     * @return boolean
+     */
+    boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc);
 
-  /**
-   * Dispatch the given host to the specified show. Look for a max of numJobs.
-   *
-   * @param host
-   * @param show
-   * @param numJobs
-   * @return
-   */
-  Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
+    /**
+     * Dispatch the given host to the specified show. Look for a max of numJobs.
+     *
+     * @param host
+     * @param show
+     * @param numJobs
+     * @return
+     */
+    Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
 
-  /**
-   * Find a list of local dispatch jobs.
-   *
-   * @param host
-   * @return
-   */
-  Set<String> findLocalDispatchJobs(DispatchHost host);
+    /**
+     * Find a list of local dispatch jobs.
+     *
+     * @param host
+     * @return
+     */
+    Set<String> findLocalDispatchJobs(DispatchHost host);
 
-  /**
-   * Return a list of frames from the given layer.
-   *
-   * @param layer
-   * @param proc
-   * @param limit
-   * @return
-   */
-  List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, VirtualProc proc, int limit);
+    /**
+     * Return a list of frames from the given layer.
+     *
+     * @param layer
+     * @param proc
+     * @param limit
+     * @return
+     */
+    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, VirtualProc proc, int limit);
 
-  /**
-   * Return a list of frames from the given layer.
-   *
-   * @param layer
-   * @param host
-   * @param limit
-   * @return
-   */
-  List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host, int limit);
+    /**
+     * Return a list of frames from the given layer.
+     *
+     * @param layer
+     * @param host
+     * @param limit
+     * @return
+     */
+    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host, int limit);
 
-  /**
-   * Return Scheduling Mode selected
-   *
-   * @return
-   */
-  SchedulingMode getSchedulingMode();
+    /**
+     * Return Scheduling Mode selected
+     *
+     * @return
+     */
+    SchedulingMode getSchedulingMode();
 
-  /**
-   * Set Scheduling Mode.
-   *
-   * @param schedulingMode
-   */
-  void setSchedulingMode(SchedulingMode schedulingMode);
+    /**
+     * Set Scheduling Mode.
+     *
+     * @param schedulingMode
+     */
+    void setSchedulingMode(SchedulingMode schedulingMode);
 
-  /**
-   * - PRIORITY_ONLY: Sort by priority only - FIFO: Whether or not to enable FIFO scheduling in the
-   * same priority. - BALANCED: Use a rank formula that takes into account time waiting, and number
-   * of cores required: rank = priority + (100 * (1 - (job.cores/job.int_min_cores))) + age in days
-   */
-  enum SchedulingMode {
-    PRIORITY_ONLY, FIFO, BALANCED
-  }
+    /**
+     * - PRIORITY_ONLY: Sort by priority only - FIFO: Whether or not to enable FIFO scheduling in
+     * the same priority. - BALANCED: Use a rank formula that takes into account time waiting, and
+     * number of cores required: rank = priority + (100 * (1 - (job.cores/job.int_min_cores))) + age
+     * in days
+     */
+    enum SchedulingMode {
+        PRIORITY_ONLY, FIFO, BALANCED
+    }
 
-  /**
-   * Clear bookableShows cache
-   *
-   * @return
-   */
-  void clearCache();
+    /**
+     * Clear bookableShows cache
+     *
+     * @return
+     */
+    void clearCache();
 }

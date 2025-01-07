@@ -30,58 +30,59 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class DeedDaoJdbc extends JdbcDaoSupport implements DeedDao {
 
-  public static final RowMapper<DeedEntity> DEED_MAPPER = new RowMapper<DeedEntity>() {
-    public DeedEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
-      DeedEntity o = new DeedEntity();
-      o.id = rs.getString("pk_deed");
-      o.owner = rs.getString("str_username");
-      o.host = rs.getString("str_hostname");
-      return o;
+    public static final RowMapper<DeedEntity> DEED_MAPPER = new RowMapper<DeedEntity>() {
+        public DeedEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+            DeedEntity o = new DeedEntity();
+            o.id = rs.getString("pk_deed");
+            o.owner = rs.getString("str_username");
+            o.host = rs.getString("str_hostname");
+            return o;
+        }
+    };
+
+    @Override
+    public boolean deleteDeed(DeedEntity deed) {
+        return getJdbcTemplate().update("DELETE FROM deed WHERE pk_deed = ?", deed.getId()) > 0;
     }
-  };
 
-  @Override
-  public boolean deleteDeed(DeedEntity deed) {
-    return getJdbcTemplate().update("DELETE FROM deed WHERE pk_deed = ?", deed.getId()) > 0;
-  }
+    @Override
+    public boolean deleteDeed(HostInterface host) {
+        return getJdbcTemplate().update("DELETE FROM deed WHERE pk_host = ?", host.getHostId()) > 0;
+    }
 
-  @Override
-  public boolean deleteDeed(HostInterface host) {
-    return getJdbcTemplate().update("DELETE FROM deed WHERE pk_host = ?", host.getHostId()) > 0;
-  }
+    @Override
+    public void deleteDeeds(OwnerEntity owner) {
+        getJdbcTemplate().update("DELETE FROM deed WHERE pk_owner = ?", owner.getId());
+    }
 
-  @Override
-  public void deleteDeeds(OwnerEntity owner) {
-    getJdbcTemplate().update("DELETE FROM deed WHERE pk_owner = ?", owner.getId());
-  }
+    private static final String INSERT_DEED = "INSERT INTO " + "deed " + "(" + "pk_deed,"
+            + "pk_owner," + "pk_host " + ") " + "VALUES (?,?,?)";
 
-  private static final String INSERT_DEED = "INSERT INTO " + "deed " + "(" + "pk_deed,"
-      + "pk_owner," + "pk_host " + ") " + "VALUES (?,?,?)";
+    public DeedEntity insertDeed(OwnerEntity owner, HostInterface host) {
+        DeedEntity deed = new DeedEntity();
+        deed.id = SqlUtil.genKeyRandom();
+        deed.host = host.getName();
+        deed.owner = owner.name;
 
-  public DeedEntity insertDeed(OwnerEntity owner, HostInterface host) {
-    DeedEntity deed = new DeedEntity();
-    deed.id = SqlUtil.genKeyRandom();
-    deed.host = host.getName();
-    deed.owner = owner.name;
+        getJdbcTemplate().update(INSERT_DEED, deed.getId(), owner.getId(), host.getId());
 
-    getJdbcTemplate().update(INSERT_DEED, deed.getId(), owner.getId(), host.getId());
+        return deed;
+    }
 
-    return deed;
-  }
+    private static final String QUERY_FOR_DEED =
+            "SELECT " + "deed.pk_deed, " + "host.str_name as str_hostname, " + "owner.str_username "
+                    + "FROM " + "deed," + "host," + "owner " + "WHERE "
+                    + "deed.pk_owner = owner.pk_owner " + "AND " + "deed.pk_host = host.pk_host ";
 
-  private static final String QUERY_FOR_DEED =
-      "SELECT " + "deed.pk_deed, " + "host.str_name as str_hostname, " + "owner.str_username "
-          + "FROM " + "deed," + "host," + "owner " + "WHERE " + "deed.pk_owner = owner.pk_owner "
-          + "AND " + "deed.pk_host = host.pk_host ";
+    @Override
+    public DeedEntity getDeed(String id) {
+        return getJdbcTemplate().queryForObject(QUERY_FOR_DEED + " AND pk_deed = ?", DEED_MAPPER,
+                id);
+    }
 
-  @Override
-  public DeedEntity getDeed(String id) {
-    return getJdbcTemplate().queryForObject(QUERY_FOR_DEED + " AND pk_deed = ?", DEED_MAPPER, id);
-  }
-
-  @Override
-  public List<DeedEntity> getDeeds(OwnerEntity owner) {
-    return getJdbcTemplate().query(QUERY_FOR_DEED + " AND owner.pk_owner = ?", DEED_MAPPER,
-        owner.getId());
-  }
+    @Override
+    public List<DeedEntity> getDeeds(OwnerEntity owner) {
+        return getJdbcTemplate().query(QUERY_FOR_DEED + " AND owner.pk_owner = ?", DEED_MAPPER,
+                owner.getId());
+    }
 }

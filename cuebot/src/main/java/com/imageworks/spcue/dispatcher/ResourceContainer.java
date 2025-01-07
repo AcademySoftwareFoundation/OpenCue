@@ -17,26 +17,26 @@ package com.imageworks.spcue.dispatcher;
 
 public interface ResourceContainer {
 
-  /**
-   * Return true if the container can handle the given resource amounts. False if not.
-   *
-   * @param minCores
-   * @param minMemory
-   * @param minGpus
-   * @param minGpuMemory
-   * @return
-   */
-  public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus,
-      long minGpuMemory);
+    /**
+     * Return true if the container can handle the given resource amounts. False if not.
+     *
+     * @param minCores
+     * @param minMemory
+     * @param minGpus
+     * @param minGpuMemory
+     * @return
+     */
+    public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus,
+            long minGpuMemory);
 
-  /**
-   * Subtract the given resources from the grand totals.
-   *
-   * @param coreUnits
-   * @param memory
-   * @param gpuUnits
-   * @param gpuMemory
-   */
-  public void useResources(int coreUnits, long memory, int gpuUnits, long gpuMemory);
+    /**
+     * Subtract the given resources from the grand totals.
+     *
+     * @param coreUnits
+     * @param memory
+     * @param gpuUnits
+     * @param gpuMemory
+     */
+    public void useResources(int coreUnits, long memory, int gpuUnits, long gpuMemory);
 
 }

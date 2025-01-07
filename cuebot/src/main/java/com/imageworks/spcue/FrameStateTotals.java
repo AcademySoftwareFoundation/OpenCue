@@ -16,76 +16,76 @@
 package com.imageworks.spcue;
 
 public class FrameStateTotals {
-  public int waiting = 0;
-  public int running = 0;
-  public int depend = 0;
-  public int dead = 0;
-  public int eaten = 0;
-  public int succeeded = 0;
-  public int total = 0;
-  public int checkpoint = 0;
+    public int waiting = 0;
+    public int running = 0;
+    public int depend = 0;
+    public int dead = 0;
+    public int eaten = 0;
+    public int succeeded = 0;
+    public int total = 0;
+    public int checkpoint = 0;
 
-  public int getWaiting() {
-    return waiting;
-  }
+    public int getWaiting() {
+        return waiting;
+    }
 
-  public void setWaiting(int waiting) {
-    this.waiting = waiting;
-  }
+    public void setWaiting(int waiting) {
+        this.waiting = waiting;
+    }
 
-  public int getRunning() {
-    return running;
-  }
+    public int getRunning() {
+        return running;
+    }
 
-  public void setRunning(int running) {
-    this.running = running;
-  }
+    public void setRunning(int running) {
+        this.running = running;
+    }
 
-  public int getDepend() {
-    return depend;
-  }
+    public int getDepend() {
+        return depend;
+    }
 
-  public void setDepend(int depend) {
-    this.depend = depend;
-  }
+    public void setDepend(int depend) {
+        this.depend = depend;
+    }
 
-  public int getDead() {
-    return dead;
-  }
+    public int getDead() {
+        return dead;
+    }
 
-  public void setDead(int dead) {
-    this.dead = dead;
-  }
+    public void setDead(int dead) {
+        this.dead = dead;
+    }
 
-  public int getEaten() {
-    return eaten;
-  }
+    public int getEaten() {
+        return eaten;
+    }
 
-  public void setEaten(int eaten) {
-    this.eaten = eaten;
-  }
+    public void setEaten(int eaten) {
+        this.eaten = eaten;
+    }
 
-  public int getSucceeded() {
-    return succeeded;
-  }
+    public int getSucceeded() {
+        return succeeded;
+    }
 
-  public void setSucceeded(int succeeded) {
-    this.succeeded = succeeded;
-  }
+    public void setSucceeded(int succeeded) {
+        this.succeeded = succeeded;
+    }
 
-  public int getTotal() {
-    return total;
-  }
+    public int getTotal() {
+        return total;
+    }
 
-  public void setTotal(int total) {
-    this.total = total;
-  }
+    public void setTotal(int total) {
+        this.total = total;
+    }
 
-  public int getCheckpoint() {
-    return checkpoint;
-  }
+    public int getCheckpoint() {
+        return checkpoint;
+    }
 
-  public void setCheckpoint(int checkpoint) {
-    this.checkpoint = checkpoint;
-  }
+    public void setCheckpoint(int checkpoint) {
+        this.checkpoint = checkpoint;
+    }
 }

@@ -35,42 +35,42 @@ import com.imageworks.spcue.service.JobSpec;
 @SuppressWarnings("serial")
 public class JobLaunchServlet extends FrameworkServlet {
 
-  private static final Logger logger = LogManager.getLogger(JobLaunchServlet.class);
+    private static final Logger logger = LogManager.getLogger(JobLaunchServlet.class);
 
-  private JobLauncher jobLauncher;
+    private JobLauncher jobLauncher;
 
-  @Override
-  public void initFrameworkServlet() throws ServletException {
-    jobLauncher = (JobLauncher) Objects.requireNonNull(this.getWebApplicationContext())
-        .getBean("jobLauncher");
-  }
-
-  @Override
-  protected void doService(HttpServletRequest request, HttpServletResponse response)
-      throws Exception {
-
-    try {
-      JobSpec spec = jobLauncher.parse(request.getParameter("payload"));
-      jobLauncher.queueAndLaunch(spec);
-
-      StringBuilder sb = new StringBuilder(4096);
-      for (BuildableJob job : spec.getJobs()) {
-        sb.append(job.detail.name);
-        sb.append(",");
-      }
-      sendResponse(response, "SUCCESS " + sb.toString());
-    } catch (Exception e) {
-      logger.debug("Misc error", e);
-      sendResponse(response, "FAILED " + e.getMessage());
+    @Override
+    public void initFrameworkServlet() throws ServletException {
+        jobLauncher = (JobLauncher) Objects.requireNonNull(this.getWebApplicationContext())
+                .getBean("jobLauncher");
     }
-  }
 
-  private void sendResponse(HttpServletResponse response, String message) {
-    response.setContentLength(message.length());
-    try {
-      response.getOutputStream().println(message);
-    } catch (IOException e) {
-      // failed to send response, just eat it.
+    @Override
+    protected void doService(HttpServletRequest request, HttpServletResponse response)
+            throws Exception {
+
+        try {
+            JobSpec spec = jobLauncher.parse(request.getParameter("payload"));
+            jobLauncher.queueAndLaunch(spec);
+
+            StringBuilder sb = new StringBuilder(4096);
+            for (BuildableJob job : spec.getJobs()) {
+                sb.append(job.detail.name);
+                sb.append(",");
+            }
+            sendResponse(response, "SUCCESS " + sb.toString());
+        } catch (Exception e) {
+            logger.debug("Misc error", e);
+            sendResponse(response, "FAILED " + e.getMessage());
+        }
     }
-  }
+
+    private void sendResponse(HttpServletResponse response, String message) {
+        response.setContentLength(message.length());
+        try {
+            response.getOutputStream().println(message);
+        } catch (IOException e) {
+            // failed to send response, just eat it.
+        }
+    }
 }

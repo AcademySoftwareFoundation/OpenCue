@@ -17,10 +17,10 @@ package com.imageworks.spcue;
 
 public class OwnerEntity extends Entity {
 
-  public OwnerEntity() {}
+    public OwnerEntity() {}
 
-  public OwnerEntity(String name) {
-    this.name = name;
-  }
+    public OwnerEntity(String name) {
+        this.name = name;
+    }
 
 }

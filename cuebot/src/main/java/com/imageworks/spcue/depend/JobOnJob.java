@@ -22,43 +22,43 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class JobOnJob extends AbstractDepend implements Depend {
 
-  private final JobInterface dependErJob;
-  private final JobInterface dependOnJob;
+    private final JobInterface dependErJob;
+    private final JobInterface dependOnJob;
 
-  public JobOnJob(JobInterface dependErJob, JobInterface dependOnJob) {
+    public JobOnJob(JobInterface dependErJob, JobInterface dependOnJob) {
 
-    if (dependErJob.getJobId().equals(dependOnJob.getJobId())) {
-      throw new DependException("A job cannot depend on itself.");
+        if (dependErJob.getJobId().equals(dependOnJob.getJobId())) {
+            throw new DependException("A job cannot depend on itself.");
+        }
+
+        this.dependErJob = dependErJob;
+        this.dependOnJob = dependOnJob;
     }
 
-    this.dependErJob = dependErJob;
-    this.dependOnJob = dependOnJob;
-  }
+    public JobInterface getDependErJob() {
+        return dependErJob;
+    }
 
-  public JobInterface getDependErJob() {
-    return dependErJob;
-  }
+    public JobInterface getDependOnJob() {
+        return dependOnJob;
+    }
 
-  public JobInterface getDependOnJob() {
-    return dependOnJob;
-  }
+    @Override
+    public String getSignature() {
+        StringBuilder key = new StringBuilder(256);
+        key.append(DependType.JOB_ON_JOB.toString());
+        key.append(dependErJob.getJobId());
+        key.append(dependOnJob.getJobId());
+        return SqlUtil.genKeyByName(key.toString());
+    }
 
-  @Override
-  public String getSignature() {
-    StringBuilder key = new StringBuilder(256);
-    key.append(DependType.JOB_ON_JOB.toString());
-    key.append(dependErJob.getJobId());
-    key.append(dependOnJob.getJobId());
-    return SqlUtil.genKeyByName(key.toString());
-  }
+    @Override
+    public void accept(DependVisitor dependCreator) {
+        dependCreator.accept(this);
+    }
 
-  @Override
-  public void accept(DependVisitor dependCreator) {
-    dependCreator.accept(this);
-  }
-
-  @Override
-  public DependTarget getTarget() {
-    return DependTarget.EXTERNAL;
-  }
+    @Override
+    public DependTarget getTarget() {
+        return DependTarget.EXTERNAL;
+    }
 }

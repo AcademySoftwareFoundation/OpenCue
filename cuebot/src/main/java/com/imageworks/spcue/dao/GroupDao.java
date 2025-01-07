@@ -30,205 +30,205 @@ import com.imageworks.spcue.ShowInterface;
  */
 public interface GroupDao {
 
-  /**
-   * returns the group from its unique id
-   *
-   * @param id
-   * @return
-   */
-  GroupInterface getGroup(String id);
+    /**
+     * returns the group from its unique id
+     *
+     * @param id
+     * @return
+     */
+    GroupInterface getGroup(String id);
 
-  /**
-   * returns a list of groups using their unique ids
-   * 
-   * @param id
-   * @return
-   */
-  List<GroupInterface> getGroups(List<String> id);
+    /**
+     * returns a list of groups using their unique ids
+     * 
+     * @param id
+     * @return
+     */
+    List<GroupInterface> getGroups(List<String> id);
 
-  /**
-   *
-   * @param show
-   * @return
-   */
-  GroupDetail getRootGroupDetail(ShowInterface show);
+    /**
+     *
+     * @param show
+     * @return
+     */
+    GroupDetail getRootGroupDetail(ShowInterface show);
 
-  /**
-   * Returns the show's root group.
-   *
-   * @param show
-   * @return
-   */
-  String getRootGroupId(ShowInterface show);
+    /**
+     * Returns the show's root group.
+     *
+     * @param show
+     * @return
+     */
+    String getRootGroupId(ShowInterface show);
 
-  /**
-   * Insert group into specified parent
-   *
-   * @param group
-   */
-  void insertGroup(GroupDetail group, GroupInterface parent);
+    /**
+     * Insert group into specified parent
+     *
+     * @param group
+     */
+    void insertGroup(GroupDetail group, GroupInterface parent);
 
-  /**
-   *
-   * @param group
-   */
-  void insertGroup(GroupDetail group);
+    /**
+     *
+     * @param group
+     */
+    void insertGroup(GroupDetail group);
 
-  /**
-   * Updates the groups department.
-   *
-   * @param group
-   * @param dept
-   */
-  void updateDepartment(GroupInterface group, DepartmentInterface dept);
+    /**
+     * Updates the groups department.
+     *
+     * @param group
+     * @param dept
+     */
+    void updateDepartment(GroupInterface group, DepartmentInterface dept);
 
-  /**
-   * Removes the specified group. You cannot delete a group that contains jobs or other groups or
-   * the shows root folder.
-   *
-   * @param group
-   */
-  void deleteGroup(GroupInterface group);
+    /**
+     * Removes the specified group. You cannot delete a group that contains jobs or other groups or
+     * the shows root folder.
+     *
+     * @param group
+     */
+    void deleteGroup(GroupInterface group);
 
-  /**
-   * Sets the group's new parent. Triggers will handle any recursive level changes.
-   *
-   * @param group
-   * @param parent
-   *
-   * @throws EntityModificationError throws this if the group is the top level group which cannot be
-   *         parented to another group.
-   */
-  void updateGroupParent(GroupInterface group, GroupInterface parent);
+    /**
+     * Sets the group's new parent. Triggers will handle any recursive level changes.
+     *
+     * @param group
+     * @param parent
+     *
+     * @throws EntityModificationError throws this if the group is the top level group which cannot
+     *         be parented to another group.
+     */
+    void updateGroupParent(GroupInterface group, GroupInterface parent);
 
-  /**
-   * Sets the maximum number of procs the group should be running.
-   *
-   * @param group
-   * @param value
-   */
-  void updateDefaultJobMaxCores(GroupInterface group, int value);
+    /**
+     * Sets the maximum number of procs the group should be running.
+     *
+     * @param group
+     * @param value
+     */
+    void updateDefaultJobMaxCores(GroupInterface group, int value);
 
-  /**
-   * Sets the minimum number of procs the group should be running.
-   *
-   * @param group
-   * @param value
-   */
-  void updateDefaultJobMinCores(GroupInterface group, int value);
+    /**
+     * Sets the minimum number of procs the group should be running.
+     *
+     * @param group
+     * @param value
+     */
+    void updateDefaultJobMinCores(GroupInterface group, int value);
 
-  /**
-   * Sets the maximum number of cores for this group
-   *
-   * @param group
-   * @param value
-   */
-  public void updateMaxCores(GroupInterface group, int value);
+    /**
+     * Sets the maximum number of cores for this group
+     *
+     * @param group
+     * @param value
+     */
+    public void updateMaxCores(GroupInterface group, int value);
 
-  /**
-   * Set the minimum number of cores for this group
-   *
-   * @param group
-   * @param value
-   */
+    /**
+     * Set the minimum number of cores for this group
+     *
+     * @param group
+     * @param value
+     */
 
-  public void updateMinCores(GroupInterface group, int value);
+    public void updateMinCores(GroupInterface group, int value);
 
-  /**
-   * Sets the maximum number of gpus the group should be running.
-   *
-   * @param group
-   * @param value
-   */
-  void updateDefaultJobMaxGpus(GroupInterface group, int value);
+    /**
+     * Sets the maximum number of gpus the group should be running.
+     *
+     * @param group
+     * @param value
+     */
+    void updateDefaultJobMaxGpus(GroupInterface group, int value);
 
-  /**
-   * Sets the minimum number of gpus the group should be running.
-   *
-   * @param group
-   * @param value
-   */
-  void updateDefaultJobMinGpus(GroupInterface group, int value);
+    /**
+     * Sets the minimum number of gpus the group should be running.
+     *
+     * @param group
+     * @param value
+     */
+    void updateDefaultJobMinGpus(GroupInterface group, int value);
 
-  /**
-   * Sets the maximum number of gpus for this group
-   *
-   * @param group
-   * @param value
-   */
-  public void updateMaxGpus(GroupInterface group, int value);
+    /**
+     * Sets the maximum number of gpus for this group
+     *
+     * @param group
+     * @param value
+     */
+    public void updateMaxGpus(GroupInterface group, int value);
 
-  /**
-   * Set the minimum number of gpus for this group
-   *
-   * @param group
-   * @param value
-   */
+    /**
+     * Set the minimum number of gpus for this group
+     *
+     * @param group
+     * @param value
+     */
 
-  public void updateMinGpus(GroupInterface group, int value);
+    public void updateMinGpus(GroupInterface group, int value);
 
-  /**
-   * Renames the group
-   *
-   * @param group
-   * @param value
-   */
-  void updateName(GroupInterface group, String value);
+    /**
+     * Renames the group
+     *
+     * @param group
+     * @param value
+     */
+    void updateName(GroupInterface group, String value);
 
-  /**
-   * Updates a group's priority.
-   *
-   * @param group
-   * @param value
-   */
-  void updateDefaultJobPriority(GroupInterface group, int value);
+    /**
+     * Updates a group's priority.
+     *
+     * @param group
+     * @param value
+     */
+    void updateDefaultJobPriority(GroupInterface group, int value);
 
-  /**
-   * Returns a full GroupDetail object from its unique id
-   *
-   * @param id
-   * @return
-   */
-  GroupDetail getGroupDetail(String id);
+    /**
+     * Returns a full GroupDetail object from its unique id
+     *
+     * @param id
+     * @return
+     */
+    GroupDetail getGroupDetail(String id);
 
-  /**
-   * Returns a recursive list of a group's children
-   *
-   * @param group
-   * @return
-   */
-  List<GroupInterface> getChildrenRecursive(GroupInterface group);
+    /**
+     * Returns a recursive list of a group's children
+     *
+     * @param group
+     * @return
+     */
+    List<GroupInterface> getChildrenRecursive(GroupInterface group);
 
-  /**
-   *
-   * Returns a list of a groups immediate children
-   *
-   * @param group
-   * @return
-   */
-  List<GroupInterface> getChildren(GroupInterface group);
+    /**
+     *
+     * Returns a list of a groups immediate children
+     *
+     * @param group
+     * @return
+     */
+    List<GroupInterface> getChildren(GroupInterface group);
 
-  /**
-   * Returns true if the group of the specified job is at or over its min proc
-   *
-   * @param job
-   * @return
-   */
-  boolean isOverMinCores(JobInterface job);
+    /**
+     * Returns true if the group of the specified job is at or over its min proc
+     *
+     * @param job
+     * @return
+     */
+    boolean isOverMinCores(JobInterface job);
 
-  /**
-   * Returns true if the group is managed.
-   *
-   * @param group
-   * @return
-   */
-  boolean isManaged(GroupInterface group);
+    /**
+     * Returns true if the group is managed.
+     *
+     * @param group
+     * @return
+     */
+    boolean isManaged(GroupInterface group);
 
-  /**
-   * Return a GroupDetail for the specified job.
-   * 
-   * @param job
-   * @return
-   */
-  GroupDetail getGroupDetail(JobInterface job);
+    /**
+     * Return a GroupDetail for the specified job.
+     * 
+     * @param job
+     * @return
+     */
+    GroupDetail getGroupDetail(JobInterface job);
 }

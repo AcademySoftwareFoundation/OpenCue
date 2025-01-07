@@ -24,26 +24,26 @@ import com.imageworks.spcue.service.GroupManager;
 
 public class DispatchMoveJobs extends KeyRunnable {
 
-  private GroupDetail group;
-  private List<JobInterface> jobs;
-  private GroupManager groupManager;
+    private GroupDetail group;
+    private List<JobInterface> jobs;
+    private GroupManager groupManager;
 
-  public DispatchMoveJobs(GroupDetail group, List<JobInterface> jobs, GroupManager groupManager) {
-    super("disp_move_jobs_" + group.getGroupId() + "_dept_" + group.getDepartmentId() + "_show_"
-        + group.getShowId());
-    this.group = group;
-    this.jobs = jobs;
-    this.groupManager = groupManager;
-  }
+    public DispatchMoveJobs(GroupDetail group, List<JobInterface> jobs, GroupManager groupManager) {
+        super("disp_move_jobs_" + group.getGroupId() + "_dept_" + group.getDepartmentId() + "_show_"
+                + group.getShowId());
+        this.group = group;
+        this.jobs = jobs;
+        this.groupManager = groupManager;
+    }
 
-  @Override
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        for (JobInterface job : jobs) {
-          groupManager.reparentJob(job, group, new Inherit[] {Inherit.All});
-        }
-      }
-    }.execute();
-  }
+    @Override
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                for (JobInterface job : jobs) {
+                    groupManager.reparentJob(job, group, new Inherit[] {Inherit.All});
+                }
+            }
+        }.execute();
+    }
 }

@@ -20,23 +20,23 @@ import com.imageworks.spcue.SpcueRuntimeException;
 @SuppressWarnings("serial")
 public class DispatchQueueTaskRejectionException extends SpcueRuntimeException {
 
-  public DispatchQueueTaskRejectionException() {
-    // TODO Auto-generated constructor stub
-  }
+    public DispatchQueueTaskRejectionException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public DispatchQueueTaskRejectionException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public DispatchQueueTaskRejectionException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public DispatchQueueTaskRejectionException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public DispatchQueueTaskRejectionException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public DispatchQueueTaskRejectionException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public DispatchQueueTaskRejectionException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

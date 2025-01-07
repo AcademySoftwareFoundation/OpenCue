@@ -26,92 +26,92 @@ import com.imageworks.spcue.ShowInterface;
 
 public interface GroupManager {
 
-  void setGroupMaxCores(GroupInterface g, int coreUnits);
+    void setGroupMaxCores(GroupInterface g, int coreUnits);
 
-  void setGroupMinCores(GroupInterface g, int coreUnits);
+    void setGroupMinCores(GroupInterface g, int coreUnits);
 
-  void setGroupDefaultJobMinCores(GroupInterface g, int coreUnits);
+    void setGroupDefaultJobMinCores(GroupInterface g, int coreUnits);
 
-  void setGroupDefaultJobMaxCores(GroupInterface g, int coreUnits);
+    void setGroupDefaultJobMaxCores(GroupInterface g, int coreUnits);
 
-  void setGroupMaxGpus(GroupInterface g, int gpuUnits);
+    void setGroupMaxGpus(GroupInterface g, int gpuUnits);
 
-  void setGroupMinGpus(GroupInterface g, int gpuUnits);
+    void setGroupMinGpus(GroupInterface g, int gpuUnits);
 
-  void setGroupDefaultJobMinGpus(GroupInterface g, int gpuUnits);
+    void setGroupDefaultJobMinGpus(GroupInterface g, int gpuUnits);
 
-  void setGroupDefaultJobMaxGpus(GroupInterface g, int gpuUnits);
+    void setGroupDefaultJobMaxGpus(GroupInterface g, int gpuUnits);
 
-  void setGroupDefaultJobPriority(GroupInterface g, int priority);
+    void setGroupDefaultJobPriority(GroupInterface g, int priority);
 
-  /**
-   * Return the group from its unique ID
-   *
-   * @param id
-   * @return
-   */
-  GroupInterface getGroup(String id);
+    /**
+     * Return the group from its unique ID
+     *
+     * @param id
+     * @return
+     */
+    GroupInterface getGroup(String id);
 
-  /**
-   * Return the root group for the specified show.
-   *
-   * @param s
-   * @return
-   */
-  GroupDetail getRootGroupDetail(ShowInterface s);
+    /**
+     * Return the root group for the specified show.
+     *
+     * @param s
+     * @return
+     */
+    GroupDetail getRootGroupDetail(ShowInterface s);
 
-  /**
-   * Return the GroupDetail by job.
-   *
-   * @param j
-   * @return
-   */
-  GroupDetail getGroupDetail(JobInterface j);
+    /**
+     * Return the GroupDetail by job.
+     *
+     * @param j
+     * @return
+     */
+    GroupDetail getGroupDetail(JobInterface j);
 
-  /**
-   * Return a GroupDetail from its unique ID
-   *
-   * @param id
-   * @return
-   */
-  GroupDetail getGroupDetail(String id);
+    /**
+     * Return a GroupDetail from its unique ID
+     *
+     * @param id
+     * @return
+     */
+    GroupDetail getGroupDetail(String id);
 
-  void setGroupParent(GroupInterface group, GroupInterface newParent);
+    void setGroupParent(GroupInterface group, GroupInterface newParent);
 
-  void deleteGroup(GroupInterface group);
+    void deleteGroup(GroupInterface group);
 
-  void createGroup(GroupDetail group, GroupInterface parent);
+    void createGroup(GroupDetail group, GroupInterface parent);
 
-  /**
-   * Re-parent a job to the specified group.
-   *
-   * @param job
-   * @param group
-   * @param inherit
-   */
-  void reparentJob(JobInterface job, GroupDetail group, Inherit[] inherit);
+    /**
+     * Re-parent a job to the specified group.
+     *
+     * @param job
+     * @param group
+     * @param inherit
+     */
+    void reparentJob(JobInterface job, GroupDetail group, Inherit[] inherit);
 
-  /**
-   * Parents a list of groups to the specified group
-   *
-   * @param group
-   * @param groups
-   */
-  void reparentGroups(GroupInterface group, List<GroupInterface> groups);
+    /**
+     * Parents a list of groups to the specified group
+     *
+     * @param group
+     * @param groups
+     */
+    void reparentGroups(GroupInterface group, List<GroupInterface> groups);
 
-  /**
-   * Re-parent a list of unique group IDs.
-   *
-   * @param group
-   * @param groups
-   */
-  void reparentGroupIds(GroupInterface group, List<String> groups);
+    /**
+     * Re-parent a list of unique group IDs.
+     *
+     * @param group
+     * @param groups
+     */
+    void reparentGroupIds(GroupInterface group, List<String> groups);
 
-  /**
-   * Sets the group's department all all jobs in that group to the new department.
-   *
-   * @param group
-   * @param d
-   */
-  void setGroupDepartment(GroupInterface group, DepartmentInterface d);
+    /**
+     * Sets the group's department all all jobs in that group to the new department.
+     *
+     * @param group
+     * @param d
+     */
+    void setGroupDepartment(GroupInterface group, DepartmentInterface d);
 }

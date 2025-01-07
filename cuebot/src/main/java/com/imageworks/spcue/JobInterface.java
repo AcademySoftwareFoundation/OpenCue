@@ -17,5 +17,5 @@ package com.imageworks.spcue;
 
 public interface JobInterface extends ShowInterface, FacilityInterface {
 
-  public String getJobId();
+    public String getJobId();
 }

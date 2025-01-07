@@ -18,23 +18,23 @@ package com.imageworks.spcue.dao.criteria;
 @SuppressWarnings("serial")
 public class CriteriaException extends RuntimeException {
 
-  public CriteriaException() {
-    // TODO Auto-generated constructor stub
-  }
+    public CriteriaException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public CriteriaException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public CriteriaException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public CriteriaException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public CriteriaException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public CriteriaException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public CriteriaException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

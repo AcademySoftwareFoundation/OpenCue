@@ -20,23 +20,23 @@ import com.imageworks.spcue.SpcueRuntimeException;
 @SuppressWarnings("serial")
 public class ResourceCreationFailureException extends SpcueRuntimeException {
 
-  public ResourceCreationFailureException() {
-    // TODO Auto-generated constructor stub
-  }
+    public ResourceCreationFailureException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public ResourceCreationFailureException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public ResourceCreationFailureException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public ResourceCreationFailureException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public ResourceCreationFailureException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public ResourceCreationFailureException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public ResourceCreationFailureException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

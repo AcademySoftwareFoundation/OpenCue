@@ -19,69 +19,69 @@ import com.imageworks.spcue.service.DependManager;
 
 public class DependCreationVisitor implements DependVisitor {
 
-  DependManager dependManager;
+    DependManager dependManager;
 
-  public DependCreationVisitor(DependManager dependManager) {
-    this.dependManager = dependManager;
-  }
+    public DependCreationVisitor(DependManager dependManager) {
+        this.dependManager = dependManager;
+    }
 
-  @Override
-  public void accept(FrameOnFrame depend) {
-    dependManager.createDepend(depend);
-  }
+    @Override
+    public void accept(FrameOnFrame depend) {
+        dependManager.createDepend(depend);
+    }
 
-  @Override
-  public void accept(JobOnJob depend) {
-    dependManager.createDepend(depend);
-  }
+    @Override
+    public void accept(JobOnJob depend) {
+        dependManager.createDepend(depend);
+    }
 
-  @Override
-  public void accept(JobOnLayer depend) {
-    dependManager.createDepend(depend);
-  }
+    @Override
+    public void accept(JobOnLayer depend) {
+        dependManager.createDepend(depend);
+    }
 
-  @Override
-  public void accept(JobOnFrame depend) {
-    dependManager.createDepend(depend);
-  }
+    @Override
+    public void accept(JobOnFrame depend) {
+        dependManager.createDepend(depend);
+    }
 
-  @Override
-  public void accept(LayerOnJob depend) {
-    dependManager.createDepend(depend);
-  }
+    @Override
+    public void accept(LayerOnJob depend) {
+        dependManager.createDepend(depend);
+    }
 
-  @Override
-  public void accept(LayerOnLayer depend) {
-    dependManager.createDepend(depend);
-  }
+    @Override
+    public void accept(LayerOnLayer depend) {
+        dependManager.createDepend(depend);
+    }
 
-  @Override
-  public void accept(LayerOnFrame depend) {
-    dependManager.createDepend(depend);
-  }
+    @Override
+    public void accept(LayerOnFrame depend) {
+        dependManager.createDepend(depend);
+    }
 
-  @Override
-  public void accept(FrameOnJob depend) {
-    dependManager.createDepend(depend);
-  }
+    @Override
+    public void accept(FrameOnJob depend) {
+        dependManager.createDepend(depend);
+    }
 
-  @Override
-  public void accept(FrameOnLayer depend) {
-    dependManager.createDepend(depend);
-  }
+    @Override
+    public void accept(FrameOnLayer depend) {
+        dependManager.createDepend(depend);
+    }
 
-  @Override
-  public void accept(FrameByFrame depend) {
-    dependManager.createDepend(depend);
-  }
+    @Override
+    public void accept(FrameByFrame depend) {
+        dependManager.createDepend(depend);
+    }
 
-  @Override
-  public void accept(PreviousFrame depend) {
-    dependManager.createDepend(depend);
-  }
+    @Override
+    public void accept(PreviousFrame depend) {
+        dependManager.createDepend(depend);
+    }
 
-  @Override
-  public void accept(LayerOnSimFrame depend) {
-    dependManager.createDepend(depend);
-  }
+    @Override
+    public void accept(LayerOnSimFrame depend) {
+        dependManager.createDepend(depend);
+    }
 }

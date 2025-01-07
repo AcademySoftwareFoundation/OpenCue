@@ -17,11 +17,11 @@ package com.imageworks.spcue;
 
 public class DeedEntity extends Entity {
 
-  public String owner;
-  public String host;
-  public String show;
+    public String owner;
+    public String host;
+    public String show;
 
-  public String getName() {
-    return String.format("%s.%s", owner, host);
-  }
+    public String getName() {
+        return String.format("%s.%s", owner, host);
+    }
 }

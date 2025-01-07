@@ -18,23 +18,23 @@ package com.imageworks.spcue;
 @SuppressWarnings("serial")
 public class EntityRetrievalException extends RuntimeException {
 
-  public EntityRetrievalException() {
-    // TODO Auto-generated constructor stub
-  }
+    public EntityRetrievalException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityRetrievalException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityRetrievalException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityRetrievalException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityRetrievalException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityRetrievalException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityRetrievalException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

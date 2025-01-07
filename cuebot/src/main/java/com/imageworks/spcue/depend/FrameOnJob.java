@@ -23,43 +23,43 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class FrameOnJob extends AbstractDepend implements Depend {
 
-  private final FrameInterface dependErFrame;
-  private final JobInterface dependOnJob;
+    private final FrameInterface dependErFrame;
+    private final JobInterface dependOnJob;
 
-  public FrameOnJob(FrameInterface dependErFrame, JobInterface dependOnJob) {
+    public FrameOnJob(FrameInterface dependErFrame, JobInterface dependOnJob) {
 
-    if (dependErFrame.getJobId().equals(dependOnJob.getJobId())) {
-      throw new DependException("A frame cannot depend on its own job.");
+        if (dependErFrame.getJobId().equals(dependOnJob.getJobId())) {
+            throw new DependException("A frame cannot depend on its own job.");
+        }
+
+        this.dependErFrame = dependErFrame;
+        this.dependOnJob = dependOnJob;
     }
 
-    this.dependErFrame = dependErFrame;
-    this.dependOnJob = dependOnJob;
-  }
+    public FrameInterface getDependErFrame() {
+        return dependErFrame;
+    }
 
-  public FrameInterface getDependErFrame() {
-    return dependErFrame;
-  }
+    public JobInterface getDependOnJob() {
+        return dependOnJob;
+    }
 
-  public JobInterface getDependOnJob() {
-    return dependOnJob;
-  }
+    @Override
+    public String getSignature() {
+        StringBuilder key = new StringBuilder(256);
+        key.append(DependType.FRAME_BY_FRAME.toString());
+        key.append(dependErFrame.getFrameId());
+        key.append(dependOnJob.getJobId());
+        return SqlUtil.genKeyByName(key.toString());
+    }
 
-  @Override
-  public String getSignature() {
-    StringBuilder key = new StringBuilder(256);
-    key.append(DependType.FRAME_BY_FRAME.toString());
-    key.append(dependErFrame.getFrameId());
-    key.append(dependOnJob.getJobId());
-    return SqlUtil.genKeyByName(key.toString());
-  }
+    @Override
+    public void accept(DependVisitor dependVisitor) {
+        dependVisitor.accept(this);
+    }
 
-  @Override
-  public void accept(DependVisitor dependVisitor) {
-    dependVisitor.accept(this);
-  }
-
-  @Override
-  public DependTarget getTarget() {
-    return DependTarget.EXTERNAL;
-  }
+    @Override
+    public DependTarget getTarget() {
+        return DependTarget.EXTERNAL;
+    }
 }

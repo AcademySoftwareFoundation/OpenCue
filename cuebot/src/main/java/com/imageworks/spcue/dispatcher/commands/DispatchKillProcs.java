@@ -21,26 +21,26 @@ import com.imageworks.spcue.service.JobManagerSupport;
 import java.util.Collection;
 
 public class DispatchKillProcs extends KeyRunnable {
-  private Collection<VirtualProc> procs;
-  private JobManagerSupport jobManagerSupport;
-  private Source source;
+    private Collection<VirtualProc> procs;
+    private JobManagerSupport jobManagerSupport;
+    private Source source;
 
-  public DispatchKillProcs(Collection<VirtualProc> procs, Source source,
-      JobManagerSupport jobManagerSupport) {
-    super("disp_kill_procs_" + procs.hashCode() + "_" + source.toString() + "_"
-        + jobManagerSupport.hashCode());
-    this.procs = procs;
-    this.source = source;
-    this.jobManagerSupport = jobManagerSupport;
-  }
+    public DispatchKillProcs(Collection<VirtualProc> procs, Source source,
+            JobManagerSupport jobManagerSupport) {
+        super("disp_kill_procs_" + procs.hashCode() + "_" + source.toString() + "_"
+                + jobManagerSupport.hashCode());
+        this.procs = procs;
+        this.source = source;
+        this.jobManagerSupport = jobManagerSupport;
+    }
 
-  public void run() {
-    new DispatchCommandTemplate() {
-      public void wrapDispatchCommand() {
-        for (VirtualProc p : procs) {
-          jobManagerSupport.kill(p, source);
-        }
-      }
-    }.execute();
-  }
+    public void run() {
+        new DispatchCommandTemplate() {
+            public void wrapDispatchCommand() {
+                for (VirtualProc p : procs) {
+                    jobManagerSupport.kill(p, source);
+                }
+            }
+        }.execute();
+    }
 }

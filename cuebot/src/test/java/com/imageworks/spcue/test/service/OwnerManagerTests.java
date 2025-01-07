@@ -46,119 +46,120 @@ import static org.junit.Assert.assertTrue;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  OwnerManager ownerManager;
+    @Resource
+    OwnerManager ownerManager;
 
-  @Resource
-  AdminManager adminManager;
+    @Resource
+    AdminManager adminManager;
 
-  @Resource
-  HostManager hostManager;
+    @Resource
+    HostManager hostManager;
 
-  @Resource
-  DeedDao deedDao;
+    @Resource
+    DeedDao deedDao;
 
-  @Resource
-  Whiteboard whiteboard;
+    @Resource
+    Whiteboard whiteboard;
 
-  public DispatchHost createHost() {
+    public DispatchHost createHost() {
 
-    RenderHost host = RenderHost.newBuilder().setName("test_host").setBootTime(1192369572)
-        // The minimum amount of free space in the temporary directory to book a host.
-        .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
-        .setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB16).setTotalSwap((int) CueUtil.GB16)
-        .setNimbyEnabled(true).setNumProcs(2).setCoresPerProc(100).setState(HardwareState.UP)
-        .setFacility("spi").addTags("general").setFreeGpuMem((int) CueUtil.MB512)
-        .setTotalGpuMem((int) CueUtil.MB512).build();
+        RenderHost host = RenderHost.newBuilder().setName("test_host").setBootTime(1192369572)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB16)
+                .setTotalSwap((int) CueUtil.GB16).setNimbyEnabled(true).setNumProcs(2)
+                .setCoresPerProc(100).setState(HardwareState.UP).setFacility("spi")
+                .addTags("general").setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512).build();
 
-    DispatchHost dh = hostManager.createHost(host);
-    hostManager.setAllocation(dh, adminManager.findAllocationDetail("spi", "general"));
+        DispatchHost dh = hostManager.createHost(host);
+        hostManager.setAllocation(dh, adminManager.findAllocationDetail("spi", "general"));
 
-    return dh;
-  }
+        return dh;
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testCreateOwner() {
-    ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testCreateOwner() {
+        ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
 
-    OwnerEntity owner = ownerManager.findOwner("spongebob");
-    assertEquals(owner.name, "spongebob");
-  }
+        OwnerEntity owner = ownerManager.findOwner("spongebob");
+        assertEquals(owner.name, "spongebob");
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDeleteOwner() {
-    ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDeleteOwner() {
+        ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
 
-    assertTrue(ownerManager.deleteOwner(ownerManager.findOwner("spongebob")));
-  }
+        assertTrue(ownerManager.deleteOwner(ownerManager.findOwner("spongebob")));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetOwner() {
-    OwnerEntity o1 = ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetOwner() {
+        OwnerEntity o1 = ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
 
-    OwnerEntity o2 = ownerManager.getOwner(o1.id);
-    assertEquals(o1, o2);
-  }
+        OwnerEntity o2 = ownerManager.getOwner(o1.id);
+        assertEquals(o1, o2);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testFindOwner() {
-    OwnerEntity o1 = ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFindOwner() {
+        OwnerEntity o1 = ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
 
-    OwnerEntity o2 = ownerManager.findOwner(o1.name);
-    assertEquals(o1, o2);
-  }
+        OwnerEntity o2 = ownerManager.findOwner(o1.name);
+        assertEquals(o1, o2);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testSetShow() {
-    OwnerEntity o = ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testSetShow() {
+        OwnerEntity o = ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
 
-    ShowEntity newShow = adminManager.findShowEntity("edu");
-    ownerManager.setShow(o, newShow);
+        ShowEntity newShow = adminManager.findShowEntity("edu");
+        ownerManager.setShow(o, newShow);
 
-    assertEquals(newShow.name, whiteboard.getOwner(o.name).getShow());
-  }
+        assertEquals(newShow.name, whiteboard.getOwner(o.name).getShow());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testTakeOwnership() {
-    OwnerEntity o = ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testTakeOwnership() {
+        OwnerEntity o = ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
 
-    DispatchHost host = createHost();
-    ownerManager.takeOwnership(o, host);
-  }
+        DispatchHost host = createHost();
+        ownerManager.takeOwnership(o, host);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testGetDeed() {
-    OwnerEntity o = ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetDeed() {
+        OwnerEntity o = ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
 
-    DispatchHost host = createHost();
-    DeedEntity d = ownerManager.takeOwnership(o, host);
+        DispatchHost host = createHost();
+        DeedEntity d = ownerManager.takeOwnership(o, host);
 
-    assertEquals(d, ownerManager.getDeed(d.id));
-  }
+        assertEquals(d, ownerManager.getDeed(d.id));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testRemoveDeed() {
-    OwnerEntity o = ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testRemoveDeed() {
+        OwnerEntity o = ownerManager.createOwner("spongebob", adminManager.findShowEntity("pipe"));
 
-    DispatchHost host = createHost();
-    DeedEntity d = ownerManager.takeOwnership(o, host);
+        DispatchHost host = createHost();
+        DeedEntity d = ownerManager.takeOwnership(o, host);
 
-    ownerManager.removeDeed(d);
-  }
+        ownerManager.removeDeed(d);
+    }
 }

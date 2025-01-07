@@ -17,5 +17,5 @@ package com.imageworks.spcue;
 
 public interface DepartmentInterface extends EntityInterface {
 
-  public String getDepartmentId();
+    public String getDepartmentId();
 }

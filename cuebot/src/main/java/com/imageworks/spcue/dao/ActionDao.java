@@ -23,15 +23,15 @@ import com.imageworks.spcue.FilterInterface;
 
 public interface ActionDao {
 
-  void createAction(ActionEntity action);
+    void createAction(ActionEntity action);
 
-  void deleteAction(ActionInterface action);
+    void deleteAction(ActionInterface action);
 
-  ActionEntity getAction(String id);
+    ActionEntity getAction(String id);
 
-  ActionEntity getAction(ActionInterface action);
+    ActionEntity getAction(ActionInterface action);
 
-  void updateAction(ActionEntity action);
+    void updateAction(ActionEntity action);
 
-  List<ActionEntity> getActions(FilterInterface filter);
+    List<ActionEntity> getActions(FilterInterface filter);
 }

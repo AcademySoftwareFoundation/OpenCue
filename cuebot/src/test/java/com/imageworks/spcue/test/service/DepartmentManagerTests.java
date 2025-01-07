@@ -42,55 +42,55 @@ import static org.junit.Assert.assertTrue;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  DepartmentManager departmentManager;
+    @Resource
+    DepartmentManager departmentManager;
 
-  @Resource
-  ShowDao showDao;
+    @Resource
+    ShowDao showDao;
 
-  @Resource
-  DepartmentDao departmentDao;
+    @Resource
+    DepartmentDao departmentDao;
 
-  @Resource
-  AdminManager adminManager;
+    @Resource
+    AdminManager adminManager;
 
-  @Resource
-  PointDao pointDao;
+    @Resource
+    PointDao pointDao;
 
-  private static final String TEST_TI_TASK_NAME = "RINT";
+    private static final String TEST_TI_TASK_NAME = "RINT";
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void enableTiManaged() {
-    ShowInterface show = showDao.findShowDetail("pipe");
-    DepartmentInterface dept = departmentDao.getDefaultDepartment();
-    PointInterface rp = pointDao.getPointConfigDetail(show, dept);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void enableTiManaged() {
+        ShowInterface show = showDao.findShowDetail("pipe");
+        DepartmentInterface dept = departmentDao.getDefaultDepartment();
+        PointInterface rp = pointDao.getPointConfigDetail(show, dept);
 
-    departmentManager.disableTiManaged(rp);
-    departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
-  }
-
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void updateTiManagedTasks() {
-    ShowInterface show = showDao.findShowDetail("pipe");
-    DepartmentInterface dept = departmentDao.getDefaultDepartment();
-    PointInterface rp;
-
-    try {
-      rp = pointDao.getPointConfigDetail(show, dept);
-    } catch (org.springframework.dao.DataRetrievalFailureException e) {
-      pointDao.insertPointConf(show, dept);
-      rp = pointDao.getPointConfigDetail(show, dept);
+        departmentManager.disableTiManaged(rp);
+        departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
     }
-    departmentManager.disableTiManaged(rp);
-    departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
 
-    departmentManager.updateManagedTasks(rp);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void updateTiManagedTasks() {
+        ShowInterface show = showDao.findShowDetail("pipe");
+        DepartmentInterface dept = departmentDao.getDefaultDepartment();
+        PointInterface rp;
 
-    departmentManager.disableTiManaged(rp);
+        try {
+            rp = pointDao.getPointConfigDetail(show, dept);
+        } catch (org.springframework.dao.DataRetrievalFailureException e) {
+            pointDao.insertPointConf(show, dept);
+            rp = pointDao.getPointConfigDetail(show, dept);
+        }
+        departmentManager.disableTiManaged(rp);
+        departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
 
-  }
+        departmentManager.updateManagedTasks(rp);
+
+        departmentManager.disableTiManaged(rp);
+
+    }
 }

@@ -25,183 +25,185 @@ import com.imageworks.spcue.LocalHostAssignment;
 
 public interface BookingDao {
 
-  /**
-   * Updates the maximum number of cores the given local host assignment should use.
-   *
-   * @param l
-   * @return
-   */
-  boolean updateMaxCores(LocalHostAssignment l, int maxCoreUnits);
+    /**
+     * Updates the maximum number of cores the given local host assignment should use.
+     *
+     * @param l
+     * @return
+     */
+    boolean updateMaxCores(LocalHostAssignment l, int maxCoreUnits);
 
-  /**
-   * Updates the maximum number of gpus the given local host assignment should use.
-   *
-   * @param l
-   * @return
-   */
-  boolean updateMaxGpus(LocalHostAssignment l, int gpus);
+    /**
+     * Updates the maximum number of gpus the given local host assignment should use.
+     *
+     * @param l
+     * @return
+     */
+    boolean updateMaxGpus(LocalHostAssignment l, int gpus);
 
-  /**
-   * Updates the maximum amount of memory a given local host assignment should use.
-   *
-   * @param l
-   * @return
-   */
-  boolean updateMaxMemory(LocalHostAssignment l, long maxMemory);
+    /**
+     * Updates the maximum amount of memory a given local host assignment should use.
+     *
+     * @param l
+     * @return
+     */
+    boolean updateMaxMemory(LocalHostAssignment l, long maxMemory);
 
-  /**
-   * Updates the maximum amount of gpu memory a given local host assignment should use.
-   *
-   * @param l
-   * @return
-   */
-  boolean updateMaxGpuMemory(LocalHostAssignment l, long maxGpuMemory);
+    /**
+     * Updates the maximum amount of gpu memory a given local host assignment should use.
+     *
+     * @param l
+     * @return
+     */
+    boolean updateMaxGpuMemory(LocalHostAssignment l, long maxGpuMemory);
 
-  /**
-   * Create a new LocalHostAssignment attached to the given job.
-   *
-   * @param host
-   * @param job
-   * @param lha
-   */
-  void insertLocalHostAssignment(HostInterface host, JobInterface job, LocalHostAssignment lha);
+    /**
+     * Create a new LocalHostAssignment attached to the given job.
+     *
+     * @param host
+     * @param job
+     * @param lha
+     */
+    void insertLocalHostAssignment(HostInterface host, JobInterface job, LocalHostAssignment lha);
 
-  /**
-   * Create a new LocalHostAssignment attached to the given layer.
-   *
-   * @param host
-   * @param layer
-   * @param lha
-   */
-  void insertLocalHostAssignment(HostInterface host, LayerInterface layer, LocalHostAssignment lha);
+    /**
+     * Create a new LocalHostAssignment attached to the given layer.
+     *
+     * @param host
+     * @param layer
+     * @param lha
+     */
+    void insertLocalHostAssignment(HostInterface host, LayerInterface layer,
+            LocalHostAssignment lha);
 
-  /**
-   * Create a new LocalHostAssignment attached to the given frame.
-   *
-   * @param host
-   * @param frame
-   * @param lha
-   */
-  void insertLocalHostAssignment(HostInterface host, FrameInterface frame, LocalHostAssignment lha);
+    /**
+     * Create a new LocalHostAssignment attached to the given frame.
+     *
+     * @param host
+     * @param frame
+     * @param lha
+     */
+    void insertLocalHostAssignment(HostInterface host, FrameInterface frame,
+            LocalHostAssignment lha);
 
-  /**
-   * Return the host + jobs local booking assignment properties.
-   * 
-   * @param host
-   * @param job
-   * @return
-   */
-  List<LocalHostAssignment> getLocalJobAssignment(HostInterface host);
+    /**
+     * Return the host + jobs local booking assignment properties.
+     * 
+     * @param host
+     * @param job
+     * @return
+     */
+    List<LocalHostAssignment> getLocalJobAssignment(HostInterface host);
 
-  /**
-   * Return the host + jobs local booking assignment properties.
-   * 
-   * @param host
-   * @param job
-   * @return
-   */
-  LocalHostAssignment getLocalJobAssignment(String id);
+    /**
+     * Return the host + jobs local booking assignment properties.
+     * 
+     * @param host
+     * @param job
+     * @return
+     */
+    LocalHostAssignment getLocalJobAssignment(String id);
 
-  /**
-   * Return the host + jobs local booking assignment properties.
-   * 
-   * @param hostId
-   * @param jobId
-   * @return
-   */
-  LocalHostAssignment getLocalJobAssignment(String hostId, String jobId);
+    /**
+     * Return the host + jobs local booking assignment properties.
+     * 
+     * @param hostId
+     * @param jobId
+     * @return
+     */
+    LocalHostAssignment getLocalJobAssignment(String hostId, String jobId);
 
-  /**
-   * Return true if the host has a local job assignment.
-   *
-   * @param host
-   * @return
-   */
-  boolean hasLocalJob(HostInterface host);
+    /**
+     * Return true if the host has a local job assignment.
+     *
+     * @param host
+     * @return
+     */
+    boolean hasLocalJob(HostInterface host);
 
-  /**
-   * Returns true if the host has an active local booking.
-   *
-   * @param host
-   * @return
-   */
-  boolean hasActiveLocalJob(HostInterface host);
+    /**
+     * Returns true if the host has an active local booking.
+     *
+     * @param host
+     * @return
+     */
+    boolean hasActiveLocalJob(HostInterface host);
 
-  /**
-   * Delete the given LocalHostAssignment.
-   *
-   * @param e
-   */
-  boolean deleteLocalJobAssignment(LocalHostAssignment lha);
+    /**
+     * Delete the given LocalHostAssignment.
+     *
+     * @param e
+     */
+    boolean deleteLocalJobAssignment(LocalHostAssignment lha);
 
-  /**
-   * Deactivate the given LocalHostAssignment.
-   *
-   * @param l
-   */
-  boolean deactivate(LocalHostAssignment l);
+    /**
+     * Deactivate the given LocalHostAssignment.
+     *
+     * @param l
+     */
+    boolean deactivate(LocalHostAssignment l);
 
-  /**
-   * Return the difference between the number of assigned cores and the given coreUnits.
-   *
-   * @param l
-   * @param coreUnits
-   * @return
-   */
-  int getCoreUsageDifference(LocalHostAssignment l, int coreUnits);
+    /**
+     * Return the difference between the number of assigned cores and the given coreUnits.
+     *
+     * @param l
+     * @param coreUnits
+     * @return
+     */
+    int getCoreUsageDifference(LocalHostAssignment l, int coreUnits);
 
-  /**
-   * Return the difference between the number of assigned gpus and the given gpuUnits.
-   *
-   * @param l
-   * @param gpuUnits
-   * @return
-   */
-  int getGpuUsageDifference(LocalHostAssignment l, int gpuUnits);
+    /**
+     * Return the difference between the number of assigned gpus and the given gpuUnits.
+     *
+     * @param l
+     * @param gpuUnits
+     * @return
+     */
+    int getGpuUsageDifference(LocalHostAssignment l, int gpuUnits);
 
-  /**
-   * Allocate additional cores from the given host.
-   *
-   * @param h
-   * @param cores
-   * @return
-   */
-  boolean allocateCoresFromHost(HostInterface h, int cores);
+    /**
+     * Allocate additional cores from the given host.
+     *
+     * @param h
+     * @param cores
+     * @return
+     */
+    boolean allocateCoresFromHost(HostInterface h, int cores);
 
-  /**
-   * Deallocate cores from the given host, returning them to its pool.
-   *
-   * @param h
-   * @param cores
-   * @return
-   */
-  boolean deallocateCoresFromHost(HostInterface h, int cores);
+    /**
+     * Deallocate cores from the given host, returning them to its pool.
+     *
+     * @param h
+     * @param cores
+     * @return
+     */
+    boolean deallocateCoresFromHost(HostInterface h, int cores);
 
-  /**
-   * Allocate additional gpus from the given host.
-   *
-   * @param h
-   * @param gpus
-   * @return
-   */
-  boolean allocateGpusFromHost(HostInterface h, int gpus);
+    /**
+     * Allocate additional gpus from the given host.
+     *
+     * @param h
+     * @param gpus
+     * @return
+     */
+    boolean allocateGpusFromHost(HostInterface h, int gpus);
 
-  /**
-   * Deallocate gpu from the given host, returning them to its pool.
-   *
-   * @param h
-   * @param gpus
-   * @return
-   */
-  boolean deallocateGpusFromHost(HostInterface h, int gpus);
+    /**
+     * Deallocate gpu from the given host, returning them to its pool.
+     *
+     * @param h
+     * @param gpus
+     * @return
+     */
+    boolean deallocateGpusFromHost(HostInterface h, int gpus);
 
-  /**
-   * Return true if the Host has a resource deficit. A deficit can occur if there are more resources
-   * in use than the maximum allowed due to changes from the user.
-   *
-   * @param l
-   * @return
-   */
-  boolean hasResourceDeficit(HostInterface host);
+    /**
+     * Return true if the Host has a resource deficit. A deficit can occur if there are more
+     * resources in use than the maximum allowed due to changes from the user.
+     *
+     * @param l
+     * @return
+     */
+    boolean hasResourceDeficit(HostInterface host);
 
 }

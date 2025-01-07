@@ -17,16 +17,16 @@ package com.imageworks.spcue.depend;
 
 public class QueueDependOperation implements Runnable {
 
-  private DependVisitor visitor;
-  private Depend depend;
+    private DependVisitor visitor;
+    private Depend depend;
 
-  public QueueDependOperation(Depend depend, DependVisitor visitor) {
-    this.depend = depend;
-    this.visitor = visitor;
-  }
+    public QueueDependOperation(Depend depend, DependVisitor visitor) {
+        this.depend = depend;
+        this.visitor = visitor;
+    }
 
-  @Override
-  public void run() {
-    depend.accept(visitor);
-  }
+    @Override
+    public void run() {
+        depend.accept(visitor);
+    }
 }

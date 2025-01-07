@@ -17,6 +17,6 @@ package com.imageworks.spcue;
 
 public interface GroupInterface extends ShowInterface {
 
-  public String getGroupId();
+    public String getGroupId();
 
 }

@@ -18,8 +18,8 @@ package com.imageworks.spcue;
 import java.sql.Timestamp;
 
 public class CommentDetail extends Entity {
-  public Timestamp timestamp;
-  public String subject;
-  public String message;
-  public String user;
+    public Timestamp timestamp;
+    public String subject;
+    public String message;
+    public String user;
 }

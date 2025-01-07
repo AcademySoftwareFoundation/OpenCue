@@ -17,22 +17,22 @@ package com.imageworks.spcue;
 
 @SuppressWarnings("serial")
 public class JobDispatchException extends SpcueRuntimeException {
-  public JobDispatchException() {
-    // TODO Auto-generated constructor stub
-  }
+    public JobDispatchException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public JobDispatchException(String message) {
-    super(message);
-  }
+    public JobDispatchException(String message) {
+        super(message);
+    }
 
-  public JobDispatchException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public JobDispatchException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public JobDispatchException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public JobDispatchException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

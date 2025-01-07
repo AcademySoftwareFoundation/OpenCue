@@ -19,19 +19,19 @@ import com.imageworks.spcue.grpc.limit.Limit;
 
 public class LimitEntity extends Entity implements LimitInterface {
 
-  public int maxValue;
-  public int currentRunning;
+    public int maxValue;
+    public int currentRunning;
 
-  public LimitEntity() {}
+    public LimitEntity() {}
 
-  public LimitEntity(Limit grpcLimit) {
-    this.id = grpcLimit.getId();
-    this.name = grpcLimit.getName();
-    this.maxValue = grpcLimit.getMaxValue();
-    this.currentRunning = grpcLimit.getCurrentRunning();
-  }
+    public LimitEntity(Limit grpcLimit) {
+        this.id = grpcLimit.getId();
+        this.name = grpcLimit.getName();
+        this.maxValue = grpcLimit.getMaxValue();
+        this.currentRunning = grpcLimit.getCurrentRunning();
+    }
 
-  public String getLimitId() {
-    return id;
-  }
+    public String getLimitId() {
+        return id;
+    }
 }

@@ -24,37 +24,37 @@ import com.imageworks.spcue.MaintenanceTask;
  */
 public interface MaintenanceDao {
 
-  /**
-   * Set hosts to the down state that have not pinged in within 5 minutes and return the number
-   * hosts that failed the check.
-   *
-   * @return int
-   */
-  int setUpHostsToDown();
+    /**
+     * Set hosts to the down state that have not pinged in within 5 minutes and return the number
+     * hosts that failed the check.
+     *
+     * @return int
+     */
+    int setUpHostsToDown();
 
-  /**
-   * Lock specified task
-   *
-   * @param task
-   * @return
-   */
-  boolean lockTask(MaintenanceTask task);
+    /**
+     * Lock specified task
+     *
+     * @param task
+     * @return
+     */
+    boolean lockTask(MaintenanceTask task);
 
-  /**
-   * Locks a test for the specified number of minutes. No other thread will execute this task, even
-   * if the task is unlocked for N amount of time.
-   *
-   * @param task
-   * @param minutes
-   * @return
-   */
-  public boolean lockTask(MaintenanceTask task, int minutes);
+    /**
+     * Locks a test for the specified number of minutes. No other thread will execute this task,
+     * even if the task is unlocked for N amount of time.
+     *
+     * @param task
+     * @param minutes
+     * @return
+     */
+    public boolean lockTask(MaintenanceTask task, int minutes);
 
-  /**
-   * Unlock specified task
-   *
-   * @param task
-   */
-  void unlockTask(MaintenanceTask task);
+    /**
+     * Unlock specified task
+     *
+     * @param task
+     */
+    void unlockTask(MaintenanceTask task);
 
 }

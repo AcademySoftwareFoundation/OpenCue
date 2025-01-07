@@ -20,23 +20,23 @@ import com.imageworks.spcue.SpcueRuntimeException;
 @SuppressWarnings("serial")
 public class JobLookupException extends SpcueRuntimeException {
 
-  public JobLookupException() {
-    // TODO Auto-generated constructor stub
-  }
+    public JobLookupException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public JobLookupException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public JobLookupException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public JobLookupException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public JobLookupException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public JobLookupException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public JobLookupException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

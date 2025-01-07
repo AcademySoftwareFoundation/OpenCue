@@ -43,240 +43,240 @@ import com.imageworks.spcue.util.CueUtil;
 @Transactional
 public class DepartmentManagerService implements DepartmentManager {
 
-  @Autowired
-  private Environment env;
+    @Autowired
+    private Environment env;
 
-  private PointDao pointDao;
-  private TaskDao taskDao;
-  private ShowDao showDao;
-  private JobDao jobDao;
+    private PointDao pointDao;
+    private TaskDao taskDao;
+    private ShowDao showDao;
+    private JobDao jobDao;
 
-  @Override
-  public void createDepartmentConfig(PointDetail renderPoint) {
-    pointDao.insertPointConf(renderPoint);
-  }
-
-  @Override
-  public boolean departmentConfigExists(ShowInterface show, DepartmentInterface dept) {
-    return pointDao.pointConfExists(show, dept);
-  }
-
-  @Override
-  public void createTask(TaskEntity t) {
-    taskDao.insertTask(t);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public TaskEntity getTaskDetail(String id) {
-    return taskDao.getTaskDetail(id);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public PointDetail getDepartmentConfigDetail(String id) {
-    return pointDao.getPointConfDetail(id);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public PointDetail getDepartmentConfigDetail(ShowInterface show, DepartmentInterface dept) {
-    return pointDao.getPointConfigDetail(show, dept);
-  }
-
-  @Override
-  public void removeTask(TaskInterface t) {
-    taskDao.deleteTask(t);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void setMinCores(TaskInterface t, int coreUnits) {
-    if (taskDao.isManaged(t)) {
-      taskDao.adjustTaskMinCores(t, coreUnits);
-    } else {
-      taskDao.updateTaskMinCores(t, coreUnits);
-    }
-    this.syncJobsWithTask(taskDao.getTaskDetail(t.getTaskId()));
-  }
-
-  @Override
-  public PointInterface createDepartmentConfig(ShowInterface show, DepartmentInterface dept) {
-    return pointDao.insertPointConf(show, dept);
-  }
-
-  @Override
-  public void clearTasks(PointInterface cdept) {
-    taskDao.deleteTasks(cdept);
-  }
-
-  @Override
-  public void clearTasks(ShowInterface show, DepartmentInterface dept) {
-    taskDao.deleteTasks(show, dept);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void clearTaskAdjustment(TaskInterface t) {
-    taskDao.clearTaskAdjustment(t);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void disableTiManaged(PointInterface cdept) {
-    pointDao.updateDisableManaged(cdept);
-    clearTasks(cdept);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void enableTiManaged(PointInterface p, String tiTask, int cores) {
-    pointDao.updateEnableManaged(p, tiTask, cores);
-    updateManagedTasks(p);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void setManagedCores(PointInterface p, int cores) {
-    pointDao.updateManagedCores(p, cores);
-    if (pointDao.isManaged(p, p)) {
-      updateManagedTasks(p);
-    }
-  }
-
-  @Override
-  public void clearTaskAdjustments(PointInterface cdept) {
-    taskDao.clearTaskAdjustments(cdept);
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-  public List<PointDetail> getManagedPointConfs() {
-    return pointDao.getManagedPointConfs();
-  }
-
-  /**
-   * Any task with one of these as the production status is considered in progress.
-   */
-  private static final Set<String> IN_PROGRESS_TASK_STATUS = new HashSet<String>();
-  static {
-    IN_PROGRESS_TASK_STATUS
-        .addAll(java.util.Arrays.asList(new String[] {"I/P", "Kicked To", "CBB", "Blocked"}));
-  }
-
-  @Override
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void updateManagedTasks(PointInterface pd) {}
-
-  @Override
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void syncJobsWithTask(TaskEntity t) {
-
-    List<JobInterface> jobs = jobDao.getJobs(t);
-    if (jobs.size() == 0) {
-      return;
+    @Override
+    public void createDepartmentConfig(PointDetail renderPoint) {
+        pointDao.insertPointConf(renderPoint);
     }
 
-    if (jobs.size() == 1) {
-      jobDao.updateMinCores(jobs.get(0), t.minCoreUnits);
-      return;
+    @Override
+    public boolean departmentConfigExists(ShowInterface show, DepartmentInterface dept) {
+        return pointDao.pointConfExists(show, dept);
     }
 
-    int core_units_per_job = t.minCoreUnits / (jobs.size() * 100);
-    int core_units_left_over = (t.minCoreUnits % (jobs.size() * 100) / 100);
-
-    /*
-     * Calculate a base for each job
-     */
-    Map<JobInterface, Integer[]> minCores = new HashMap<JobInterface, Integer[]>(jobs.size());
-    int core_units_unalloc = 0;
-
-    for (JobInterface j : jobs) {
-      FrameStateTotals totals = jobDao.getFrameStateTotals(j);
-      if (totals.waiting < core_units_per_job) {
-        core_units_unalloc = core_units_unalloc + (core_units_per_job - totals.waiting);
-        minCores.put(j, new Integer[] {totals.waiting, totals.waiting});
-      } else {
-        minCores.put(j, new Integer[] {core_units_per_job, totals.waiting});
-      }
+    @Override
+    public void createTask(TaskEntity t) {
+        taskDao.insertTask(t);
     }
 
-    /*
-     * Apply any left over core units. If the job doesn't have waiting frames to apply them to then
-     * don't do anything.
-     */
-    core_units_left_over = core_units_left_over + core_units_unalloc;
-    while (core_units_left_over > 0) {
-      boolean applied = false;
-      for (JobInterface j : jobs) {
-        if (core_units_left_over < 1) {
-          break;
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public TaskEntity getTaskDetail(String id) {
+        return taskDao.getTaskDetail(id);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public PointDetail getDepartmentConfigDetail(String id) {
+        return pointDao.getPointConfDetail(id);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public PointDetail getDepartmentConfigDetail(ShowInterface show, DepartmentInterface dept) {
+        return pointDao.getPointConfigDetail(show, dept);
+    }
+
+    @Override
+    public void removeTask(TaskInterface t) {
+        taskDao.deleteTask(t);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void setMinCores(TaskInterface t, int coreUnits) {
+        if (taskDao.isManaged(t)) {
+            taskDao.adjustTaskMinCores(t, coreUnits);
+        } else {
+            taskDao.updateTaskMinCores(t, coreUnits);
         }
-        if (minCores.get(j)[1] - minCores.get(j)[0] > 0) {
-          minCores.get(j)[0] = minCores.get(j)[0] + 1;
-          core_units_left_over = core_units_left_over - 1;
-          applied = true;
+        this.syncJobsWithTask(taskDao.getTaskDetail(t.getTaskId()));
+    }
+
+    @Override
+    public PointInterface createDepartmentConfig(ShowInterface show, DepartmentInterface dept) {
+        return pointDao.insertPointConf(show, dept);
+    }
+
+    @Override
+    public void clearTasks(PointInterface cdept) {
+        taskDao.deleteTasks(cdept);
+    }
+
+    @Override
+    public void clearTasks(ShowInterface show, DepartmentInterface dept) {
+        taskDao.deleteTasks(show, dept);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void clearTaskAdjustment(TaskInterface t) {
+        taskDao.clearTaskAdjustment(t);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void disableTiManaged(PointInterface cdept) {
+        pointDao.updateDisableManaged(cdept);
+        clearTasks(cdept);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void enableTiManaged(PointInterface p, String tiTask, int cores) {
+        pointDao.updateEnableManaged(p, tiTask, cores);
+        updateManagedTasks(p);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void setManagedCores(PointInterface p, int cores) {
+        pointDao.updateManagedCores(p, cores);
+        if (pointDao.isManaged(p, p)) {
+            updateManagedTasks(p);
         }
-      }
-      if (!applied) {
-        break;
-      }
     }
 
-    /*
-     * Update the DB
+    @Override
+    public void clearTaskAdjustments(PointInterface cdept) {
+        taskDao.clearTaskAdjustments(cdept);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<PointDetail> getManagedPointConfs() {
+        return pointDao.getManagedPointConfs();
+    }
+
+    /**
+     * Any task with one of these as the production status is considered in progress.
      */
-    for (JobInterface j : jobs) {
-      jobDao.updateMinCores(j, minCores.get(j)[0] * 100);
+    private static final Set<String> IN_PROGRESS_TASK_STATUS = new HashSet<String>();
+    static {
+        IN_PROGRESS_TASK_STATUS.addAll(
+                java.util.Arrays.asList(new String[] {"I/P", "Kicked To", "CBB", "Blocked"}));
     }
-  }
 
-  @Override
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void syncJobsWithTask(DepartmentInterface d, String shot) {
-    syncJobsWithTask(taskDao.getTaskDetail(d, shot));
-  }
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void updateManagedTasks(PointInterface pd) {}
 
-  @Override
-  @Transactional(propagation = Propagation.NOT_SUPPORTED)
-  public void syncJobsWithTask(JobInterface job) {
-    syncJobsWithTask(taskDao.getTaskDetail(job));
-  }
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void syncJobsWithTask(TaskEntity t) {
 
-  @Override
-  public boolean isManaged(JobInterface j) {
-    return taskDao.isManaged(j);
-  }
+        List<JobInterface> jobs = jobDao.getJobs(t);
+        if (jobs.size() == 0) {
+            return;
+        }
 
-  public TaskDao getTaskDao() {
-    return taskDao;
-  }
+        if (jobs.size() == 1) {
+            jobDao.updateMinCores(jobs.get(0), t.minCoreUnits);
+            return;
+        }
 
-  public void setTaskDao(TaskDao taskDao) {
-    this.taskDao = taskDao;
-  }
+        int core_units_per_job = t.minCoreUnits / (jobs.size() * 100);
+        int core_units_left_over = (t.minCoreUnits % (jobs.size() * 100) / 100);
 
-  public ShowDao getShowDao() {
-    return showDao;
-  }
+        /*
+         * Calculate a base for each job
+         */
+        Map<JobInterface, Integer[]> minCores = new HashMap<JobInterface, Integer[]>(jobs.size());
+        int core_units_unalloc = 0;
 
-  public void setShowDao(ShowDao showDao) {
-    this.showDao = showDao;
-  }
+        for (JobInterface j : jobs) {
+            FrameStateTotals totals = jobDao.getFrameStateTotals(j);
+            if (totals.waiting < core_units_per_job) {
+                core_units_unalloc = core_units_unalloc + (core_units_per_job - totals.waiting);
+                minCores.put(j, new Integer[] {totals.waiting, totals.waiting});
+            } else {
+                minCores.put(j, new Integer[] {core_units_per_job, totals.waiting});
+            }
+        }
 
-  public PointDao getPointDao() {
-    return pointDao;
-  }
+        /*
+         * Apply any left over core units. If the job doesn't have waiting frames to apply them to
+         * then don't do anything.
+         */
+        core_units_left_over = core_units_left_over + core_units_unalloc;
+        while (core_units_left_over > 0) {
+            boolean applied = false;
+            for (JobInterface j : jobs) {
+                if (core_units_left_over < 1) {
+                    break;
+                }
+                if (minCores.get(j)[1] - minCores.get(j)[0] > 0) {
+                    minCores.get(j)[0] = minCores.get(j)[0] + 1;
+                    core_units_left_over = core_units_left_over - 1;
+                    applied = true;
+                }
+            }
+            if (!applied) {
+                break;
+            }
+        }
 
-  public void setPointDao(PointDao pointDao) {
-    this.pointDao = pointDao;
-  }
+        /*
+         * Update the DB
+         */
+        for (JobInterface j : jobs) {
+            jobDao.updateMinCores(j, minCores.get(j)[0] * 100);
+        }
+    }
 
-  public JobDao getJobDao() {
-    return jobDao;
-  }
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void syncJobsWithTask(DepartmentInterface d, String shot) {
+        syncJobsWithTask(taskDao.getTaskDetail(d, shot));
+    }
 
-  public void setJobDao(JobDao jobDao) {
-    this.jobDao = jobDao;
-  }
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void syncJobsWithTask(JobInterface job) {
+        syncJobsWithTask(taskDao.getTaskDetail(job));
+    }
+
+    @Override
+    public boolean isManaged(JobInterface j) {
+        return taskDao.isManaged(j);
+    }
+
+    public TaskDao getTaskDao() {
+        return taskDao;
+    }
+
+    public void setTaskDao(TaskDao taskDao) {
+        this.taskDao = taskDao;
+    }
+
+    public ShowDao getShowDao() {
+        return showDao;
+    }
+
+    public void setShowDao(ShowDao showDao) {
+        this.showDao = showDao;
+    }
+
+    public PointDao getPointDao() {
+        return pointDao;
+    }
+
+    public void setPointDao(PointDao pointDao) {
+        this.pointDao = pointDao;
+    }
+
+    public JobDao getJobDao() {
+        return jobDao;
+    }
+
+    public void setJobDao(JobDao jobDao) {
+        this.jobDao = jobDao;
+    }
 }

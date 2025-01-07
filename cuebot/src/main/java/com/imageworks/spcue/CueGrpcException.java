@@ -18,14 +18,14 @@ import org.springframework.core.NestedRuntimeException;
 
 public class CueGrpcException extends NestedRuntimeException {
 
-  private static final long serialVersionUID = -3215497096936812369L;
+    private static final long serialVersionUID = -3215497096936812369L;
 
-  public CueGrpcException(String message) {
-    super(message);
-  }
+    public CueGrpcException(String message) {
+        super(message);
+    }
 
-  public CueGrpcException(String message, Throwable cause) {
-    super(message, cause);
-  }
+    public CueGrpcException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
 }

@@ -22,14 +22,14 @@ import java.sql.Date;
  */
 public class TrackitTaskDetail {
 
-  public String show;
-  public String shot;
-  public String task;
-  public String status;
-  public Date startDate;
-  public Date endDate;
-  public String cgSup;
-  public int frameCount;
-  public int points;
-  public int weeks;
+    public String show;
+    public String shot;
+    public String task;
+    public String status;
+    public Date startDate;
+    public Date endDate;
+    public String cgSup;
+    public int frameCount;
+    public int points;
+    public int weeks;
 }

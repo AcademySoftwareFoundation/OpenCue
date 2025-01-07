@@ -25,42 +25,43 @@ import java.io.File;
 @Component
 public class JobLogUtil {
 
-  @Autowired
-  private Environment env;
+    @Autowired
+    private Environment env;
 
-  public boolean createJobLogDirectory(String path) {
-    File f = new File(path);
-    f.mkdir();
-    f.setWritable(true, false);
-    return f.isDirectory();
-  }
-
-  public String getJobLogDir(String show, String shot, String os) {
-    StringBuilder sb = new StringBuilder(512);
-    sb.append(getJobLogRootDir(os));
-    sb.append("/");
-    sb.append(show);
-    sb.append("/");
-    sb.append(shot);
-    sb.append("/logs");
-    return sb.toString();
-  }
-
-  public String getJobLogPath(JobDetail job) {
-    StringBuilder sb = new StringBuilder(512);
-    sb.append(getJobLogDir(job.showName, job.shot, job.os));
-    sb.append("/");
-    sb.append(job.name);
-    sb.append("--");
-    sb.append(job.id);
-    return sb.toString();
-  }
-
-  public String getJobLogRootDir(String os) {
-    try {
-      return env.getRequiredProperty(String.format("log.frame-log-root.%s", os), String.class);
-    } catch (IllegalStateException e) {
-      return env.getRequiredProperty("log.frame-log-root.default_os", String.class);
+    public boolean createJobLogDirectory(String path) {
+        File f = new File(path);
+        f.mkdir();
+        f.setWritable(true, false);
+        return f.isDirectory();
     }
-  }
+
+    public String getJobLogDir(String show, String shot, String os) {
+        StringBuilder sb = new StringBuilder(512);
+        sb.append(getJobLogRootDir(os));
+        sb.append("/");
+        sb.append(show);
+        sb.append("/");
+        sb.append(shot);
+        sb.append("/logs");
+        return sb.toString();
+    }
+
+    public String getJobLogPath(JobDetail job) {
+        StringBuilder sb = new StringBuilder(512);
+        sb.append(getJobLogDir(job.showName, job.shot, job.os));
+        sb.append("/");
+        sb.append(job.name);
+        sb.append("--");
+        sb.append(job.id);
+        return sb.toString();
+    }
+
+    public String getJobLogRootDir(String os) {
+        try {
+            return env.getRequiredProperty(String.format("log.frame-log-root.%s", os),
+                    String.class);
+        } catch (IllegalStateException e) {
+            return env.getRequiredProperty("log.frame-log-root.default_os", String.class);
+        }
+    }
 }

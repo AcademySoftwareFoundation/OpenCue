@@ -18,23 +18,23 @@ package com.imageworks.spcue;
 @SuppressWarnings("serial")
 public class HistoricalJobTransferException extends SpcueRuntimeException {
 
-  public HistoricalJobTransferException() {
-    // TODO Auto-generated constructor stub
-  }
+    public HistoricalJobTransferException() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public HistoricalJobTransferException(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public HistoricalJobTransferException(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public HistoricalJobTransferException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public HistoricalJobTransferException(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public HistoricalJobTransferException(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public HistoricalJobTransferException(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

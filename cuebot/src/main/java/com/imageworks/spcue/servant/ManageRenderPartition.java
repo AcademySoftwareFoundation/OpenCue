@@ -27,38 +27,38 @@ import com.imageworks.spcue.grpc.renderpartition.RenderPartitionInterfaceGrpc;
 import com.imageworks.spcue.service.BookingManager;
 
 public class ManageRenderPartition
-    extends RenderPartitionInterfaceGrpc.RenderPartitionInterfaceImplBase {
+        extends RenderPartitionInterfaceGrpc.RenderPartitionInterfaceImplBase {
 
-  private BookingManager bookingManager;
+    private BookingManager bookingManager;
 
-  @Override
-  public void delete(RenderPartDeleteRequest request,
-      StreamObserver<RenderPartDeleteResponse> responseObserver) {
-    bookingManager
-        .deactivateLocalHostAssignment(getLocalHostAssignment(request.getRenderPartition()));
-    responseObserver.onNext(RenderPartDeleteResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void delete(RenderPartDeleteRequest request,
+            StreamObserver<RenderPartDeleteResponse> responseObserver) {
+        bookingManager.deactivateLocalHostAssignment(
+                getLocalHostAssignment(request.getRenderPartition()));
+        responseObserver.onNext(RenderPartDeleteResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void setMaxResources(RenderPartSetMaxResourcesRequest request,
-      StreamObserver<RenderPartSetMaxResourcesResponse> responseObserver) {
-    LocalHostAssignment localJobAssign = getLocalHostAssignment(request.getRenderPartition());
-    bookingManager.setMaxResources(localJobAssign, request.getCores(), request.getMemory(),
-        request.getGpus(), request.getGpuMemory());
-    responseObserver.onNext(RenderPartSetMaxResourcesResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
+    @Override
+    public void setMaxResources(RenderPartSetMaxResourcesRequest request,
+            StreamObserver<RenderPartSetMaxResourcesResponse> responseObserver) {
+        LocalHostAssignment localJobAssign = getLocalHostAssignment(request.getRenderPartition());
+        bookingManager.setMaxResources(localJobAssign, request.getCores(), request.getMemory(),
+                request.getGpus(), request.getGpuMemory());
+        responseObserver.onNext(RenderPartSetMaxResourcesResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public BookingManager getBookingManager() {
-    return bookingManager;
-  }
+    public BookingManager getBookingManager() {
+        return bookingManager;
+    }
 
-  public void setBookingManager(BookingManager bookingManager) {
-    this.bookingManager = bookingManager;
-  }
+    public void setBookingManager(BookingManager bookingManager) {
+        this.bookingManager = bookingManager;
+    }
 
-  private LocalHostAssignment getLocalHostAssignment(RenderPartition renderPartition) {
-    return bookingManager.getLocalHostAssignment(renderPartition.getId());
-  }
+    private LocalHostAssignment getLocalHostAssignment(RenderPartition renderPartition) {
+        return bookingManager.getLocalHostAssignment(renderPartition.getId());
+    }
 }

@@ -16,5 +16,5 @@
 package com.imageworks.spcue;
 
 public interface PointInterface extends DepartmentInterface, ShowInterface {
-  public String getPointId();
+    public String getPointId();
 }

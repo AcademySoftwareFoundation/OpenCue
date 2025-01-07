@@ -17,6 +17,6 @@ package com.imageworks.spcue;
 
 public interface LimitInterface extends EntityInterface {
 
-  public String getLimitId();
+    public String getLimitId();
 
 }

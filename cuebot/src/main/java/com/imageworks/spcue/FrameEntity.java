@@ -17,24 +17,24 @@ package com.imageworks.spcue;
 
 public class FrameEntity extends LayerEntity implements FrameInterface {
 
-  public String layerId;
-  public int version;
+    public String layerId;
+    public int version;
 
-  public FrameEntity() {}
+    public FrameEntity() {}
 
-  public FrameEntity(String id) {
-    this.id = id;
-  }
+    public FrameEntity(String id) {
+        this.id = id;
+    }
 
-  public String getFrameId() {
-    return id;
-  }
+    public String getFrameId() {
+        return id;
+    }
 
-  public String getLayerId() {
-    return layerId;
-  }
+    public String getLayerId() {
+        return layerId;
+    }
 
-  public int getVersion() {
-    return version;
-  }
+    public int getVersion() {
+        return version;
+    }
 }

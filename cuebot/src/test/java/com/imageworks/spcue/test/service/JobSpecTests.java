@@ -40,83 +40,84 @@ import static org.junit.Assert.fail;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  JobLauncher jobLauncher;
+    @Resource
+    JobLauncher jobLauncher;
 
-  private static String readJobSpec(String name) {
-    String path = "src/test/resources/conf/jobspec/" + name;
-    byte[] encoded = null;
+    private static String readJobSpec(String name) {
+        String path = "src/test/resources/conf/jobspec/" + name;
+        byte[] encoded = null;
 
-    try {
-      encoded = Files.readAllBytes(Paths.get(path));
-    } catch (IOException e) {
-      fail("readJobSpec should succeed to read jobspec file");
+        try {
+            encoded = Files.readAllBytes(Paths.get(path));
+        } catch (IOException e) {
+            fail("readJobSpec should succeed to read jobspec file");
+        }
+
+        return new String(encoded, StandardCharsets.UTF_8);
     }
 
-    return new String(encoded, StandardCharsets.UTF_8);
-  }
-
-  @Test
-  public void testParseSuccess() {
-    String xml = readJobSpec("jobspec_1_10.xml");
-    JobSpec spec = jobLauncher.parse(xml);
-    assertEquals(spec.getDoc().getDocType().getPublicID(), "SPI Cue Specification Language");
-    assertEquals(spec.getDoc().getDocType().getSystemID(),
-        "http://localhost:8080/spcue/dtd/cjsl-1.10.dtd");
-    assertEquals(spec.getJobs().size(), 1);
-    assertEquals(spec.getJobs().get(0).detail.name, "testing-default-testuser_test");
-  }
-
-  @Test
-  public void testParseNonExistent() {
-    String xml = readJobSpec("jobspec_nonexistent_dtd.xml");
-    try {
-      jobLauncher.parse(xml);
-      fail("Expected exception");
-    } catch (SpecBuilderException e) {
-      assertTrue(e.getMessage()
-          .startsWith("Failed to parse job spec XML, java.net.MalformedURLException"));
+    @Test
+    public void testParseSuccess() {
+        String xml = readJobSpec("jobspec_1_10.xml");
+        JobSpec spec = jobLauncher.parse(xml);
+        assertEquals(spec.getDoc().getDocType().getPublicID(), "SPI Cue Specification Language");
+        assertEquals(spec.getDoc().getDocType().getSystemID(),
+                "http://localhost:8080/spcue/dtd/cjsl-1.10.dtd");
+        assertEquals(spec.getJobs().size(), 1);
+        assertEquals(spec.getJobs().get(0).detail.name, "testing-default-testuser_test");
     }
-  }
 
-  @Test
-  public void testParseInvalidShot() {
-    String xml = readJobSpec("jobspec_invalid_shot.xml");
-    try {
-      jobLauncher.parse(xml);
-      fail("Expected exception");
-    } catch (SpecBuilderException e) {
-      assertEquals(e.getMessage(), "The shot name: invalid/shot is not in the proper format.  "
-          + "Shot names must be alpha numeric, no dashes or punctuation.");
+    @Test
+    public void testParseNonExistent() {
+        String xml = readJobSpec("jobspec_nonexistent_dtd.xml");
+        try {
+            jobLauncher.parse(xml);
+            fail("Expected exception");
+        } catch (SpecBuilderException e) {
+            assertTrue(e.getMessage()
+                    .startsWith("Failed to parse job spec XML, java.net.MalformedURLException"));
+        }
     }
-  }
 
-  @Test
-  public void testParseGpuSuccess() {
-    String xml = readJobSpec("jobspec_1_12.xml");
-    JobSpec spec = jobLauncher.parse(xml);
-    assertEquals(spec.getDoc().getDocType().getPublicID(), "SPI Cue Specification Language");
-    assertEquals(spec.getDoc().getDocType().getSystemID(),
-        "http://localhost:8080/spcue/dtd/cjsl-1.12.dtd");
-    assertEquals(spec.getJobs().size(), 1);
-    BuildableJob job = spec.getJobs().get(0);
-    assertEquals(job.detail.name, "testing-default-testuser_test");
-    LayerDetail layer = job.getBuildableLayers().get(0).layerDetail;
-    assertEquals(layer.getMinimumGpus(), 1);
-    assertEquals(layer.getMinimumGpuMemory(), 1048576);
-  }
+    @Test
+    public void testParseInvalidShot() {
+        String xml = readJobSpec("jobspec_invalid_shot.xml");
+        try {
+            jobLauncher.parse(xml);
+            fail("Expected exception");
+        } catch (SpecBuilderException e) {
+            assertEquals(e.getMessage(),
+                    "The shot name: invalid/shot is not in the proper format.  "
+                            + "Shot names must be alpha numeric, no dashes or punctuation.");
+        }
+    }
 
-  @Test
-  public void testParseMaxCoresAndMaxGpus() {
-    String xml = readJobSpec("jobspec_1_13.xml");
-    JobSpec spec = jobLauncher.parse(xml);
-    assertEquals(spec.getDoc().getDocType().getPublicID(), "SPI Cue Specification Language");
-    assertEquals(spec.getDoc().getDocType().getSystemID(),
-        "http://localhost:8080/spcue/dtd/cjsl-1.13.dtd");
-    assertEquals(spec.getJobs().size(), 1);
-    BuildableJob job = spec.getJobs().get(0);
-    assertEquals(job.maxCoresOverride, Integer.valueOf(420));
-    assertEquals(job.maxGpusOverride, Integer.valueOf(42));
-  }
+    @Test
+    public void testParseGpuSuccess() {
+        String xml = readJobSpec("jobspec_1_12.xml");
+        JobSpec spec = jobLauncher.parse(xml);
+        assertEquals(spec.getDoc().getDocType().getPublicID(), "SPI Cue Specification Language");
+        assertEquals(spec.getDoc().getDocType().getSystemID(),
+                "http://localhost:8080/spcue/dtd/cjsl-1.12.dtd");
+        assertEquals(spec.getJobs().size(), 1);
+        BuildableJob job = spec.getJobs().get(0);
+        assertEquals(job.detail.name, "testing-default-testuser_test");
+        LayerDetail layer = job.getBuildableLayers().get(0).layerDetail;
+        assertEquals(layer.getMinimumGpus(), 1);
+        assertEquals(layer.getMinimumGpuMemory(), 1048576);
+    }
+
+    @Test
+    public void testParseMaxCoresAndMaxGpus() {
+        String xml = readJobSpec("jobspec_1_13.xml");
+        JobSpec spec = jobLauncher.parse(xml);
+        assertEquals(spec.getDoc().getDocType().getPublicID(), "SPI Cue Specification Language");
+        assertEquals(spec.getDoc().getDocType().getSystemID(),
+                "http://localhost:8080/spcue/dtd/cjsl-1.13.dtd");
+        assertEquals(spec.getJobs().size(), 1);
+        BuildableJob job = spec.getJobs().get(0);
+        assertEquals(job.maxCoresOverride, Integer.valueOf(420));
+        assertEquals(job.maxGpusOverride, Integer.valueOf(42));
+    }
 
 }

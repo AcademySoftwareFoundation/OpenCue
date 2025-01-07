@@ -17,9 +17,9 @@ package com.imageworks.spcue;
 
 public class ServiceOverrideEntity extends ServiceEntity {
 
-  /**
-   * The show that wants to override the service.
-   */
-  public String showId;
+    /**
+     * The show that wants to override the service.
+     */
+    public String showId;
 
 }

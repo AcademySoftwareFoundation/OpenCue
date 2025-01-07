@@ -72,230 +72,231 @@ import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
 
-  private Whiteboard whiteboard;
-  private FilterManager filterManager;
-  private FilterDao filterDao;
-  private GroupDao groupDao;
-  private DispatchQueue manageQueue;
+    private Whiteboard whiteboard;
+    private FilterManager filterManager;
+    private FilterDao filterDao;
+    private GroupDao groupDao;
+    private DispatchQueue manageQueue;
 
-  @Override
-  public void findFilter(FilterFindFilterRequest request,
-      StreamObserver<FilterFindFilterResponse> responseObserver) {
-    try {
-      responseObserver.onNext(FilterFindFilterResponse.newBuilder()
-          .setFilter(whiteboard.findFilter(request.getShow(), request.getName())).build());
-      responseObserver.onCompleted();
-    } catch (EmptyResultDataAccessException e) {
-      responseObserver.onError(
-          Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e).asRuntimeException());
+    @Override
+    public void findFilter(FilterFindFilterRequest request,
+            StreamObserver<FilterFindFilterResponse> responseObserver) {
+        try {
+            responseObserver.onNext(FilterFindFilterResponse.newBuilder()
+                    .setFilter(whiteboard.findFilter(request.getShow(), request.getName()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
+                    .asRuntimeException());
+        }
     }
-  }
 
-  @Override
-  public void createAction(FilterCreateActionRequest request,
-      StreamObserver<FilterCreateActionResponse> responseObserver) {
-    ActionEntity actionDetail =
-        ActionEntity.build(getFilterEntity(request.getFilter()), request.getData());
-    filterManager.createAction(actionDetail);
-    Action action = whiteboard.getAction(actionDetail);
-    FilterCreateActionResponse response =
-        FilterCreateActionResponse.newBuilder().setAction(action).build();
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void createMatcher(FilterCreateMatcherRequest request,
-      StreamObserver<FilterCreateMatcherResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    MatcherEntity matcherDetail = MatcherEntity.build(filter, request.getData());
-    matcherDetail.filterId = filter.id;
-    filterManager.createMatcher(matcherDetail);
-    Matcher newMatcher = whiteboard.getMatcher(matcherDetail);
-    FilterCreateMatcherResponse response =
-        FilterCreateMatcherResponse.newBuilder().setMatcher(newMatcher).build();
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void delete(FilterDeleteRequest request,
-      StreamObserver<FilterDeleteResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    String key = "manage_filter_del_req_" + filter.getId();
-    manageQueue.execute(new KeyRunnable(key) {
-      public void run() {
-        filterManager.deleteFilter(filter);
-      }
-    });
-    responseObserver.onNext(FilterDeleteResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void getActions(FilterGetActionsRequest request,
-      StreamObserver<FilterGetActionsResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    FilterGetActionsResponse response =
-        FilterGetActionsResponse.newBuilder().setActions(whiteboard.getActions(filter)).build();
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void getMatchers(FilterGetMatchersRequest request,
-      StreamObserver<FilterGetMatchersResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    FilterGetMatchersResponse response =
-        FilterGetMatchersResponse.newBuilder().setMatchers(whiteboard.getMatchers(filter)).build();
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void lowerOrder(FilterLowerOrderRequest request,
-      StreamObserver<FilterLowerOrderResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    filterManager.lowerFilterOrder(filter);
-    responseObserver.onNext(FilterLowerOrderResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void raiseOrder(FilterRaiseOrderRequest request,
-      StreamObserver<FilterRaiseOrderResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    filterManager.raiseFilterOrder(filter);
-    responseObserver.onNext(FilterRaiseOrderResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void orderFirst(FilterOrderFirstRequest request,
-      StreamObserver<FilterOrderFirstResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    filterManager.setFilterOrder(filter, 0);
-    responseObserver.onNext(FilterOrderFirstResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void orderLast(FilterOrderLastRequest request,
-      StreamObserver<FilterOrderLastResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    filterManager.setFilterOrder(filter, 9999);
-    responseObserver.onNext(FilterOrderLastResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void runFilterOnGroup(FilterRunFilterOnGroupRequest request,
-      StreamObserver<FilterRunFilterOnGroupResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    filterManager.runFilterOnGroup(filter, groupDao.getGroup(request.getGroup().getId()));
-    responseObserver.onNext(FilterRunFilterOnGroupResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void setEnabled(FilterSetEnabledRequest request,
-      StreamObserver<FilterSetEnabledResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    filterDao.updateSetFilterEnabled(filter, request.getEnabled());
-    responseObserver.onNext(FilterSetEnabledResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void setName(FilterSetNameRequest request,
-      StreamObserver<FilterSetNameResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    filterDao.updateSetFilterName(filter, request.getName());
-    responseObserver.onNext(FilterSetNameResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
-
-  @Override
-  public void setType(FilterSetTypeRequest request,
-      StreamObserver<FilterSetTypeResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    filterDao.updateSetFilterType(filter, request.getType());
-    responseObserver.onNext(FilterSetTypeResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
-
-  public void setOrder(FilterSetOrderRequest request,
-      StreamObserver<FilterSetOrderResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    filterManager.setFilterOrder(filter, (double) request.getOrder());
-    responseObserver.onNext(FilterSetOrderResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
-
-  public void runFilterOnJobs(FilterRunFilterOnJobsRequest request,
-      StreamObserver<FilterRunFilterOnJobsResponse> responseObserver) {
-    FilterEntity filter = getFilterEntity(request.getFilter());
-    for (Job job : request.getJobs().getJobsList()) {
-      filterManager.runFilterOnJob(filter, job.getId());
+    @Override
+    public void createAction(FilterCreateActionRequest request,
+            StreamObserver<FilterCreateActionResponse> responseObserver) {
+        ActionEntity actionDetail =
+                ActionEntity.build(getFilterEntity(request.getFilter()), request.getData());
+        filterManager.createAction(actionDetail);
+        Action action = whiteboard.getAction(actionDetail);
+        FilterCreateActionResponse response =
+                FilterCreateActionResponse.newBuilder().setAction(action).build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
     }
-    responseObserver.onNext(FilterRunFilterOnJobsResponse.newBuilder().build());
-    responseObserver.onCompleted();
-  }
 
-  public FilterDao getFilterDao() {
-    return filterDao;
-  }
+    @Override
+    public void createMatcher(FilterCreateMatcherRequest request,
+            StreamObserver<FilterCreateMatcherResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        MatcherEntity matcherDetail = MatcherEntity.build(filter, request.getData());
+        matcherDetail.filterId = filter.id;
+        filterManager.createMatcher(matcherDetail);
+        Matcher newMatcher = whiteboard.getMatcher(matcherDetail);
+        FilterCreateMatcherResponse response =
+                FilterCreateMatcherResponse.newBuilder().setMatcher(newMatcher).build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  public void setFilterDao(FilterDao filterDao) {
-    this.filterDao = filterDao;
-  }
+    @Override
+    public void delete(FilterDeleteRequest request,
+            StreamObserver<FilterDeleteResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        String key = "manage_filter_del_req_" + filter.getId();
+        manageQueue.execute(new KeyRunnable(key) {
+            public void run() {
+                filterManager.deleteFilter(filter);
+            }
+        });
+        responseObserver.onNext(FilterDeleteResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public FilterManager getFilterManager() {
-    return filterManager;
-  }
+    @Override
+    public void getActions(FilterGetActionsRequest request,
+            StreamObserver<FilterGetActionsResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        FilterGetActionsResponse response = FilterGetActionsResponse.newBuilder()
+                .setActions(whiteboard.getActions(filter)).build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  public void setFilterManager(FilterManager filterManager) {
-    this.filterManager = filterManager;
-  }
+    @Override
+    public void getMatchers(FilterGetMatchersRequest request,
+            StreamObserver<FilterGetMatchersResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        FilterGetMatchersResponse response = FilterGetMatchersResponse.newBuilder()
+                .setMatchers(whiteboard.getMatchers(filter)).build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  public GroupDao getGroupDao() {
-    return groupDao;
-  }
+    @Override
+    public void lowerOrder(FilterLowerOrderRequest request,
+            StreamObserver<FilterLowerOrderResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        filterManager.lowerFilterOrder(filter);
+        responseObserver.onNext(FilterLowerOrderResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public void setGroupDao(GroupDao groupDao) {
-    this.groupDao = groupDao;
-  }
+    @Override
+    public void raiseOrder(FilterRaiseOrderRequest request,
+            StreamObserver<FilterRaiseOrderResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        filterManager.raiseFilterOrder(filter);
+        responseObserver.onNext(FilterRaiseOrderResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public DispatchQueue getManageQueue() {
-    return manageQueue;
-  }
+    @Override
+    public void orderFirst(FilterOrderFirstRequest request,
+            StreamObserver<FilterOrderFirstResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        filterManager.setFilterOrder(filter, 0);
+        responseObserver.onNext(FilterOrderFirstResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public void setManageQueue(DispatchQueue manageQueue) {
-    this.manageQueue = manageQueue;
-  }
+    @Override
+    public void orderLast(FilterOrderLastRequest request,
+            StreamObserver<FilterOrderLastResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        filterManager.setFilterOrder(filter, 9999);
+        responseObserver.onNext(FilterOrderLastResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public Whiteboard getWhiteboard() {
-    return whiteboard;
-  }
+    @Override
+    public void runFilterOnGroup(FilterRunFilterOnGroupRequest request,
+            StreamObserver<FilterRunFilterOnGroupResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        filterManager.runFilterOnGroup(filter, groupDao.getGroup(request.getGroup().getId()));
+        responseObserver.onNext(FilterRunFilterOnGroupResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  public void setWhiteboard(Whiteboard whiteboard) {
-    this.whiteboard = whiteboard;
-  }
+    @Override
+    public void setEnabled(FilterSetEnabledRequest request,
+            StreamObserver<FilterSetEnabledResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        filterDao.updateSetFilterEnabled(filter, request.getEnabled());
+        responseObserver.onNext(FilterSetEnabledResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  private FilterEntity getFilterEntity(Filter filter) {
-    return filterManager.getFilter(filter.getId());
-  }
+    @Override
+    public void setName(FilterSetNameRequest request,
+            StreamObserver<FilterSetNameResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        filterDao.updateSetFilterName(filter, request.getName());
+        responseObserver.onNext(FilterSetNameResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
-  private ActionEntity toActionEntity(Action action) {
-    ActionEntity entity = new ActionEntity();
-    entity.id = action.getId();
-    entity.type = action.getType();
-    entity.valueType = action.getValueType();
-    entity.groupValue = action.getGroupValue();
-    entity.stringValue = action.getStringValue();
-    entity.intValue = action.getIntegerValue();
-    entity.floatValue = action.getFloatValue();
-    entity.booleanValue = action.getBooleanValue();
-    return entity;
-  }
+    @Override
+    public void setType(FilterSetTypeRequest request,
+            StreamObserver<FilterSetTypeResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        filterDao.updateSetFilterType(filter, request.getType());
+        responseObserver.onNext(FilterSetTypeResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    public void setOrder(FilterSetOrderRequest request,
+            StreamObserver<FilterSetOrderResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        filterManager.setFilterOrder(filter, (double) request.getOrder());
+        responseObserver.onNext(FilterSetOrderResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    public void runFilterOnJobs(FilterRunFilterOnJobsRequest request,
+            StreamObserver<FilterRunFilterOnJobsResponse> responseObserver) {
+        FilterEntity filter = getFilterEntity(request.getFilter());
+        for (Job job : request.getJobs().getJobsList()) {
+            filterManager.runFilterOnJob(filter, job.getId());
+        }
+        responseObserver.onNext(FilterRunFilterOnJobsResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    public FilterDao getFilterDao() {
+        return filterDao;
+    }
+
+    public void setFilterDao(FilterDao filterDao) {
+        this.filterDao = filterDao;
+    }
+
+    public FilterManager getFilterManager() {
+        return filterManager;
+    }
+
+    public void setFilterManager(FilterManager filterManager) {
+        this.filterManager = filterManager;
+    }
+
+    public GroupDao getGroupDao() {
+        return groupDao;
+    }
+
+    public void setGroupDao(GroupDao groupDao) {
+        this.groupDao = groupDao;
+    }
+
+    public DispatchQueue getManageQueue() {
+        return manageQueue;
+    }
+
+    public void setManageQueue(DispatchQueue manageQueue) {
+        this.manageQueue = manageQueue;
+    }
+
+    public Whiteboard getWhiteboard() {
+        return whiteboard;
+    }
+
+    public void setWhiteboard(Whiteboard whiteboard) {
+        this.whiteboard = whiteboard;
+    }
+
+    private FilterEntity getFilterEntity(Filter filter) {
+        return filterManager.getFilter(filter.getId());
+    }
+
+    private ActionEntity toActionEntity(Action action) {
+        ActionEntity entity = new ActionEntity();
+        entity.id = action.getId();
+        entity.type = action.getType();
+        entity.valueType = action.getValueType();
+        entity.groupValue = action.getGroupValue();
+        entity.stringValue = action.getStringValue();
+        entity.intValue = action.getIntegerValue();
+        entity.floatValue = action.getFloatValue();
+        entity.booleanValue = action.getBooleanValue();
+        return entity;
+    }
 }

@@ -21,14 +21,14 @@ import com.imageworks.spcue.TrackitTaskDetail;
 
 public interface TrackitDao {
 
-  /**
-   * Downloads a list of all tasks for the specified department and inserts them into the Task
-   * table.
-   *
-   * @param show
-   * @param department
-   * @return
-   */
-  List<TrackitTaskDetail> getTasks(String show, String dept);
+    /**
+     * Downloads a list of all tasks for the specified department and inserts them into the Task
+     * table.
+     *
+     * @param show
+     * @param department
+     * @return
+     */
+    List<TrackitTaskDetail> getTasks(String show, String dept);
 
 }

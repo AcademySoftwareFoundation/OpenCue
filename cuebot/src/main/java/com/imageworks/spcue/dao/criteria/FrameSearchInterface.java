@@ -24,37 +24,37 @@ import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
 
 public interface FrameSearchInterface extends CriteriaInterface {
-  int DEFAULT_PAGE = 1;
-  int DEFAULT_LIMIT = 1000;
+    int DEFAULT_PAGE = 1;
+    int DEFAULT_LIMIT = 1000;
 
-  FrameSearchCriteria getCriteria();
+    FrameSearchCriteria getCriteria();
 
-  void setCriteria(FrameSearchCriteria criteria);
+    void setCriteria(FrameSearchCriteria criteria);
 
-  String getSortedQuery(String query);
+    String getSortedQuery(String query);
 
-  void filterByFrameIds(List<String> frameIds);
+    void filterByFrameIds(List<String> frameIds);
 
-  void filterByJob(JobInterface job);
+    void filterByJob(JobInterface job);
 
-  void filterByFrame(FrameInterface frame);
+    void filterByFrame(FrameInterface frame);
 
-  void filterByLayer(LayerInterface layer);
+    void filterByLayer(LayerInterface layer);
 
-  void filterByLayers(List<LayerInterface> layers);
+    void filterByLayers(List<LayerInterface> layers);
 
-  void filterByFrameStates(List<FrameState> frameStates);
+    void filterByFrameStates(List<FrameState> frameStates);
 
-  void filterByFrameSet(String frameSet);
+    void filterByFrameSet(String frameSet);
 
-  void filterByMemoryRange(String range);
+    void filterByMemoryRange(String range);
 
-  void filterByDurationRange(String range);
+    void filterByDurationRange(String range);
 
-  void filterByChangeDate(int changeDate);
+    void filterByChangeDate(int changeDate);
 
-  static FrameSearchCriteria criteriaFactory() {
-    return FrameSearchCriteria.newBuilder().setPage(DEFAULT_PAGE).setLimit(DEFAULT_LIMIT)
-        .setChangeDate(0).build();
-  }
+    static FrameSearchCriteria criteriaFactory() {
+        return FrameSearchCriteria.newBuilder().setPage(DEFAULT_PAGE).setLimit(DEFAULT_LIMIT)
+                .setChangeDate(0).build();
+    }
 }

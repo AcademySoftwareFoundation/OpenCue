@@ -44,75 +44,75 @@ import com.imageworks.spcue.service.JobSpec;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Resource
-  JobLauncher jobLauncher;
+    @Resource
+    JobLauncher jobLauncher;
 
-  @Resource
-  EmailSupport emailSupport;
+    @Resource
+    EmailSupport emailSupport;
 
-  @Resource
-  JobDao jobDao;
+    @Resource
+    JobDao jobDao;
 
-  @Resource
-  FrameDao frameDao;
+    @Resource
+    FrameDao frameDao;
 
-  @Resource
-  DependDao dependDao;
+    @Resource
+    DependDao dependDao;
 
-  @Resource
-  LayerDao layerDao;
+    @Resource
+    LayerDao layerDao;
 
-  @Resource
-  DependManager dependManager;
+    @Resource
+    DependManager dependManager;
 
-  @Resource
-  FrameSearchFactory frameSearchFactory;
+    @Resource
+    FrameSearchFactory frameSearchFactory;
 
-  @Before
-  public void setTestMode() {
-    jobLauncher.testMode = true;
-  }
+    @Before
+    public void setTestMode() {
+        jobLauncher.testMode = true;
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testJobCompleteEmailSuccess() {
-    JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
-    jobLauncher.launch(spec);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testJobCompleteEmailSuccess() {
+        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        jobLauncher.launch(spec);
 
-    JobDetail job = spec.getJobs().get(0).detail;
+        JobDetail job = spec.getJobs().get(0).detail;
 
-    jobDao.updateEmail(job, System.getProperty("user.name"));
+        jobDao.updateEmail(job, System.getProperty("user.name"));
 
-    // Satisfy all dependencies, this will allow us to mark frames as complete.
-    layerDao.getLayers(job)
-        .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.ANY_TARGET)
-            .forEach(dep -> dependManager.satisfyDepend(dep)));
+        // Satisfy all dependencies, this will allow us to mark frames as complete.
+        layerDao.getLayers(job)
+                .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.ANY_TARGET)
+                        .forEach(dep -> dependManager.satisfyDepend(dep)));
 
-    frameDao.findFrames(frameSearchFactory.create(job)).forEach(frame -> frameDao
-        .updateFrameState(frameDao.getFrame(frame.getFrameId()), FrameState.SUCCEEDED));
+        frameDao.findFrames(frameSearchFactory.create(job)).forEach(frame -> frameDao
+                .updateFrameState(frameDao.getFrame(frame.getFrameId()), FrameState.SUCCEEDED));
 
-    emailSupport.sendShutdownEmail(job);
-  }
+        emailSupport.sendShutdownEmail(job);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testJobCompleteEmailFail() {
-    JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
-    jobLauncher.launch(spec);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testJobCompleteEmailFail() {
+        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        jobLauncher.launch(spec);
 
-    JobDetail job = spec.getJobs().get(0).detail;
+        JobDetail job = spec.getJobs().get(0).detail;
 
-    jobDao.updateEmail(job, System.getProperty("user.name"));
+        jobDao.updateEmail(job, System.getProperty("user.name"));
 
-    layerDao.getLayers(job)
-        .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.ANY_TARGET)
-            .forEach(dep -> dependManager.satisfyDepend(dep)));
+        layerDao.getLayers(job)
+                .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.ANY_TARGET)
+                        .forEach(dep -> dependManager.satisfyDepend(dep)));
 
-    frameDao.findFrames(frameSearchFactory.create(job)).forEach(
-        frame -> frameDao.updateFrameState(frameDao.getFrame(frame.getFrameId()), FrameState.DEAD));
+        frameDao.findFrames(frameSearchFactory.create(job)).forEach(frame -> frameDao
+                .updateFrameState(frameDao.getFrame(frame.getFrameId()), FrameState.DEAD));
 
-    emailSupport.sendShutdownEmail(job);
-  }
+        emailSupport.sendShutdownEmail(job);
+    }
 }

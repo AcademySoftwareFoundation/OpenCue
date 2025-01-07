@@ -24,31 +24,31 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 
 public class HostSearch extends Criteria implements HostSearchInterface {
-  private HostSearchCriteria criteria;
+    private HostSearchCriteria criteria;
 
-  public HostSearch(HostSearchCriteria criteria) {
-    this.criteria = criteria;
-  }
-
-  public HostSearchCriteria getCriteria() {
-    return this.criteria;
-  }
-
-  public void filterByAlloc(AllocationInterface alloc) {
-    addPhrase("host.pk_alloc", alloc.getAllocationId());
-  }
-
-  @Override
-  public void buildWhereClause() {
-    addPhrase("host.pk_host", criteria.getIdsList());
-    addPhrase("host.str_name", criteria.getHostsList());
-    addLikePhrase("host.str_name", new HashSet<>(criteria.getSubstrList()));
-    addRegexPhrase("host.str_name", new HashSet<>(criteria.getRegexList()));
-    addPhrase("alloc.str_name", criteria.getAllocsList());
-    Set<String> items = new HashSet<>(criteria.getStates().getStateCount());
-    for (HardwareState w : criteria.getStates().getStateList()) {
-      items.add(w.toString());
+    public HostSearch(HostSearchCriteria criteria) {
+        this.criteria = criteria;
     }
-    addPhrase("host_stat.str_state", items);
-  }
+
+    public HostSearchCriteria getCriteria() {
+        return this.criteria;
+    }
+
+    public void filterByAlloc(AllocationInterface alloc) {
+        addPhrase("host.pk_alloc", alloc.getAllocationId());
+    }
+
+    @Override
+    public void buildWhereClause() {
+        addPhrase("host.pk_host", criteria.getIdsList());
+        addPhrase("host.str_name", criteria.getHostsList());
+        addLikePhrase("host.str_name", new HashSet<>(criteria.getSubstrList()));
+        addRegexPhrase("host.str_name", new HashSet<>(criteria.getRegexList()));
+        addPhrase("alloc.str_name", criteria.getAllocsList());
+        Set<String> items = new HashSet<>(criteria.getStates().getStateCount());
+        for (HardwareState w : criteria.getStates().getStateList()) {
+            items.add(w.toString());
+        }
+        addPhrase("host_stat.str_state", items);
+    }
 }

@@ -6,14 +6,14 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 
 public class PostgresDatabaseCondition implements Condition {
 
-  @Override
-  public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
-    String dbEngine = System.getenv("CUEBOT_DB_ENGINE");
-    if (dbEngine == null) {
-      return true;
+    @Override
+    public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
+        String dbEngine = System.getenv("CUEBOT_DB_ENGINE");
+        if (dbEngine == null) {
+            return true;
+        }
+        DatabaseEngine selectedDatabaseEngine = DatabaseEngine.valueOf(dbEngine.toUpperCase());
+        return selectedDatabaseEngine.equals(DatabaseEngine.POSTGRES);
     }
-    DatabaseEngine selectedDatabaseEngine = DatabaseEngine.valueOf(dbEngine.toUpperCase());
-    return selectedDatabaseEngine.equals(DatabaseEngine.POSTGRES);
-  }
 
 }

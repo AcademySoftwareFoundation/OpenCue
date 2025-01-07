@@ -23,16 +23,16 @@ import com.imageworks.spcue.MatcherInterface;
 
 public interface MatcherDao {
 
-  void insertMatcher(MatcherEntity matcher);
+    void insertMatcher(MatcherEntity matcher);
 
-  void deleteMatcher(MatcherInterface matcher);
+    void deleteMatcher(MatcherInterface matcher);
 
-  void updateMatcher(MatcherEntity matcher);
+    void updateMatcher(MatcherEntity matcher);
 
-  MatcherEntity getMatcher(String id);
+    MatcherEntity getMatcher(String id);
 
-  MatcherEntity getMatcher(MatcherInterface matcher);
+    MatcherEntity getMatcher(MatcherInterface matcher);
 
-  List<MatcherEntity> getMatchers(FilterInterface filter);
+    List<MatcherEntity> getMatchers(FilterInterface filter);
 
 }

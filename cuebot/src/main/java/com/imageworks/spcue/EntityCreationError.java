@@ -18,28 +18,28 @@ package com.imageworks.spcue;
 @SuppressWarnings("serial")
 public class EntityCreationError extends EntityException {
 
-  public EntityCreationError() {
-    // TODO Auto-generated constructor stub
-  }
+    public EntityCreationError() {
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityCreationError(String message, EntityInterface entity) {
-    super("failed to create entity of type: " + entity.getClass() + " with name: "
-        + entity.getName() + " ," + message, entity);
-  }
+    public EntityCreationError(String message, EntityInterface entity) {
+        super("failed to create entity of type: " + entity.getClass() + " with name: "
+                + entity.getName() + " ," + message, entity);
+    }
 
-  public EntityCreationError(String message, Throwable cause) {
-    super(message, cause);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityCreationError(String message, Throwable cause) {
+        super(message, cause);
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityCreationError(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityCreationError(String message) {
+        super(message);
+        // TODO Auto-generated constructor stub
+    }
 
-  public EntityCreationError(Throwable cause) {
-    super(cause);
-    // TODO Auto-generated constructor stub
-  }
+    public EntityCreationError(Throwable cause) {
+        super(cause);
+        // TODO Auto-generated constructor stub
+    }
 
 }

@@ -20,41 +20,41 @@ import java.util.Optional;
 import com.imageworks.spcue.grpc.job.JobState;
 
 public class JobDetail extends JobEntity implements JobInterface, DepartmentInterface {
-  public String groupId;
-  public String deptId;
-  public JobState state;
-  public String shot;
-  public String user;
-  public String email;
-  public Optional<Integer> uid;
-  public String logDir;
-  public boolean isPaused;
-  public boolean isAutoEat;
-  public int totalFrames;
-  public int totalLayers;
-  public int startTime;
-  public int stopTime;
-  public int maxRetries;
+    public String groupId;
+    public String deptId;
+    public JobState state;
+    public String shot;
+    public String user;
+    public String email;
+    public Optional<Integer> uid;
+    public String logDir;
+    public boolean isPaused;
+    public boolean isAutoEat;
+    public int totalFrames;
+    public int totalLayers;
+    public int startTime;
+    public int stopTime;
+    public int maxRetries;
 
-  public String os;
-  public String facilityName;
-  public String deptName;
-  public String showName;
+    public String os;
+    public String facilityName;
+    public String deptName;
+    public String showName;
 
-  public int priority = 1;
-  public int minCoreUnits = 100;
-  public int maxCoreUnits = 200000;
-  public int minGpuUnits = 0;
-  public int maxGpuUnits = 1000;
-  public boolean isLocal = false;
-  public String localHostName;
-  public int localMaxCores;
-  public long localMaxMemory;
-  public int localThreadNumber;
-  public int localMaxGpus;
-  public long localMaxGpuMemory;
+    public int priority = 1;
+    public int minCoreUnits = 100;
+    public int maxCoreUnits = 200000;
+    public int minGpuUnits = 0;
+    public int maxGpuUnits = 1000;
+    public boolean isLocal = false;
+    public String localHostName;
+    public int localMaxCores;
+    public long localMaxMemory;
+    public int localThreadNumber;
+    public int localMaxGpus;
+    public long localMaxGpuMemory;
 
-  public String getDepartmentId() {
-    return deptId;
-  }
+    public String getDepartmentId() {
+        return deptId;
+    }
 }

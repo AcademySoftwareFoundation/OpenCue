@@ -126,1557 +126,1658 @@ import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
-  @SuppressWarnings("unused")
-  private static final Logger logger = LogManager.getLogger(WhiteboardDaoJdbc.class);
+    @SuppressWarnings("unused")
+    private static final Logger logger = LogManager.getLogger(WhiteboardDaoJdbc.class);
 
-  private FrameSearchFactory frameSearchFactory;
-  private ProcSearchFactory procSearchFactory;
+    private FrameSearchFactory frameSearchFactory;
+    private ProcSearchFactory procSearchFactory;
 
-  @Override
-  public Service getService(String id) {
-    return getJdbcTemplate().queryForObject(GET_SERVICE + " WHERE (pk_service=? or str_name=?)",
-        SERVICE_MAPPER, id, id);
-  }
+    @Override
+    public Service getService(String id) {
+        return getJdbcTemplate().queryForObject(GET_SERVICE + " WHERE (pk_service=? or str_name=?)",
+                SERVICE_MAPPER, id, id);
+    }
 
-  @Override
-  public Service findService(String name) {
-    return getJdbcTemplate().queryForObject(GET_SERVICE + " WHERE service.str_name=?",
-        SERVICE_MAPPER, name);
-  }
+    @Override
+    public Service findService(String name) {
+        return getJdbcTemplate().queryForObject(GET_SERVICE + " WHERE service.str_name=?",
+                SERVICE_MAPPER, name);
+    }
 
-  @Override
-  public ServiceSeq getDefaultServices() {
-    List<Service> services = getJdbcTemplate().query(GET_SERVICE, SERVICE_MAPPER);
-    return ServiceSeq.newBuilder().addAllServices(services).build();
-  }
+    @Override
+    public ServiceSeq getDefaultServices() {
+        List<Service> services = getJdbcTemplate().query(GET_SERVICE, SERVICE_MAPPER);
+        return ServiceSeq.newBuilder().addAllServices(services).build();
+    }
 
-  @Override
-  public ServiceOverrideSeq getServiceOverrides(ShowInterface show) {
-    return ServiceOverrideSeq.newBuilder()
-        .addAllServiceOverrides(
-            getJdbcTemplate().query(GET_SERVICE_OVERRIDE + " AND show_service.pk_show = ?",
-                SERVICE_OVERRIDE_MAPPER, show.getId()))
-        .build();
-  }
+    @Override
+    public ServiceOverrideSeq getServiceOverrides(ShowInterface show) {
+        return ServiceOverrideSeq.newBuilder()
+                .addAllServiceOverrides(getJdbcTemplate().query(
+                        GET_SERVICE_OVERRIDE + " AND show_service.pk_show = ?",
+                        SERVICE_OVERRIDE_MAPPER, show.getId()))
+                .build();
+    }
 
-  @Override
-  public ServiceOverride getServiceOverride(ShowInterface show, String name) {
-    return getJdbcTemplate().queryForObject(
-        GET_SERVICE_OVERRIDE + " AND show_service.pk_show=? AND (show_service.str_name=? OR"
-            + " show_service.pk_show_service=?)",
-        SERVICE_OVERRIDE_MAPPER, show.getId(), name, name);
-  }
+    @Override
+    public ServiceOverride getServiceOverride(ShowInterface show, String name) {
+        return getJdbcTemplate().queryForObject(
+                GET_SERVICE_OVERRIDE + " AND show_service.pk_show=? AND (show_service.str_name=? OR"
+                        + " show_service.pk_show_service=?)",
+                SERVICE_OVERRIDE_MAPPER, show.getId(), name, name);
+    }
 
-  @Override
-  public Filter getFilter(FilterInterface filter) {
-    return getJdbcTemplate().queryForObject(GET_FILTER + " AND pk_filter=?", FILTER_MAPPER,
-        filter.getFilterId());
-  }
+    @Override
+    public Filter getFilter(FilterInterface filter) {
+        return getJdbcTemplate().queryForObject(GET_FILTER + " AND pk_filter=?", FILTER_MAPPER,
+                filter.getFilterId());
+    }
 
-  @Override
-  public Filter findFilter(ShowInterface show, String name) {
-    return getJdbcTemplate().queryForObject(
-        GET_FILTER + " AND filter.pk_show=? AND filter.str_name=?", FILTER_MAPPER, show.getShowId(),
-        name);
-  }
+    @Override
+    public Filter findFilter(ShowInterface show, String name) {
+        return getJdbcTemplate().queryForObject(
+                GET_FILTER + " AND filter.pk_show=? AND filter.str_name=?", FILTER_MAPPER,
+                show.getShowId(), name);
+    }
 
-  @Override
-  public Filter findFilter(String show, String name) {
-    return getJdbcTemplate().queryForObject(
-        GET_FILTER + " AND show.str_name=? AND filter.str_name=?", FILTER_MAPPER, show, name);
-  }
+    @Override
+    public Filter findFilter(String show, String name) {
+        return getJdbcTemplate().queryForObject(
+                GET_FILTER + " AND show.str_name=? AND filter.str_name=?", FILTER_MAPPER, show,
+                name);
+    }
 
-  @Override
-  public FilterSeq getFilters(ShowInterface show) {
-    return FilterSeq.newBuilder()
-        .addAllFilters(
-            getJdbcTemplate().query(GET_FILTER + " AND show.pk_show=? ORDER BY f_order ASC",
-                FILTER_MAPPER, show.getShowId()))
-        .build();
-  }
+    @Override
+    public FilterSeq getFilters(ShowInterface show) {
+        return FilterSeq.newBuilder()
+                .addAllFilters(getJdbcTemplate().query(
+                        GET_FILTER + " AND show.pk_show=? ORDER BY f_order ASC", FILTER_MAPPER,
+                        show.getShowId()))
+                .build();
+    }
 
-  @Override
-  public ActionSeq getActions(FilterInterface filter) {
-    return ActionSeq.newBuilder()
-        .addAllActions(getJdbcTemplate().query(
-            GET_ACTION + " AND filter.pk_filter=? ORDER BY b_stop ASC, ts_created ASC ",
-            ACTION_MAPPER, filter.getFilterId()))
-        .build();
-  }
+    @Override
+    public ActionSeq getActions(FilterInterface filter) {
+        return ActionSeq.newBuilder()
+                .addAllActions(getJdbcTemplate().query(
+                        GET_ACTION + " AND filter.pk_filter=? ORDER BY b_stop ASC, ts_created ASC ",
+                        ACTION_MAPPER, filter.getFilterId()))
+                .build();
+    }
 
-  @Override
-  public MatcherSeq getMatchers(FilterInterface filter) {
-    return MatcherSeq.newBuilder()
-        .addAllMatchers(
-            getJdbcTemplate().query(GET_MATCHER + " AND filter.pk_filter=? ORDER BY ts_created ASC",
-                MATCHER_MAPPER, filter.getFilterId()))
-        .build();
-  }
+    @Override
+    public MatcherSeq getMatchers(FilterInterface filter) {
+        return MatcherSeq.newBuilder()
+                .addAllMatchers(getJdbcTemplate().query(
+                        GET_MATCHER + " AND filter.pk_filter=? ORDER BY ts_created ASC",
+                        MATCHER_MAPPER, filter.getFilterId()))
+                .build();
+    }
 
-  @Override
-  public Action getAction(ActionInterface action) {
-    return getJdbcTemplate().queryForObject(GET_ACTION + " AND action.pk_action=?", ACTION_MAPPER,
-        action.getActionId());
-  }
+    @Override
+    public Action getAction(ActionInterface action) {
+        return getJdbcTemplate().queryForObject(GET_ACTION + " AND action.pk_action=?",
+                ACTION_MAPPER, action.getActionId());
+    }
 
-  @Override
-  public Matcher getMatcher(MatcherInterface matcher) {
-    return getJdbcTemplate().queryForObject(GET_MATCHER + " AND matcher.pk_matcher=?",
-        MATCHER_MAPPER, matcher.getMatcherId());
-  }
+    @Override
+    public Matcher getMatcher(MatcherInterface matcher) {
+        return getJdbcTemplate().queryForObject(GET_MATCHER + " AND matcher.pk_matcher=?",
+                MATCHER_MAPPER, matcher.getMatcherId());
+    }
 
-  @Override
-  public Show getShow(String id) {
-    return getJdbcTemplate().queryForObject(GET_SHOW + " AND show.pk_show=?", SHOW_MAPPER, id);
-  }
+    @Override
+    public Show getShow(String id) {
+        return getJdbcTemplate().queryForObject(GET_SHOW + " AND show.pk_show=?", SHOW_MAPPER, id);
+    }
 
-  @Override
-  public ShowSeq getShows() {
-    List<Show> shows = getJdbcTemplate().query(GET_SHOW, SHOW_MAPPER);
-    return ShowSeq.newBuilder().addAllShows(shows).build();
-  }
+    @Override
+    public ShowSeq getShows() {
+        List<Show> shows = getJdbcTemplate().query(GET_SHOW, SHOW_MAPPER);
+        return ShowSeq.newBuilder().addAllShows(shows).build();
+    }
 
-  @Override
-  public ShowSeq getActiveShows() {
-    List<Show> shows = getJdbcTemplate().query(GET_SHOW + " AND b_active=?", SHOW_MAPPER, true);
-    return ShowSeq.newBuilder().addAllShows(shows).build();
-  }
+    @Override
+    public ShowSeq getActiveShows() {
+        List<Show> shows = getJdbcTemplate().query(GET_SHOW + " AND b_active=?", SHOW_MAPPER, true);
+        return ShowSeq.newBuilder().addAllShows(shows).build();
+    }
 
-  @Override
-  public Show findShow(String name) {
-    return getJdbcTemplate().queryForObject(GET_SHOW + " AND show.str_name=?", SHOW_MAPPER, name);
-  }
+    @Override
+    public Show findShow(String name) {
+        return getJdbcTemplate().queryForObject(GET_SHOW + " AND show.str_name=?", SHOW_MAPPER,
+                name);
+    }
 
-  @Override
-  public Subscription getSubscription(String id) {
-    return getJdbcTemplate().queryForObject(
-        GET_SUBSCRIPTION + " AND subscription.pk_subscription=?", SUBSCRIPTION_MAPPER, id);
-  }
+    @Override
+    public Subscription getSubscription(String id) {
+        return getJdbcTemplate().queryForObject(
+                GET_SUBSCRIPTION + " AND subscription.pk_subscription=?", SUBSCRIPTION_MAPPER, id);
+    }
 
-  @Override
-  public Subscription findSubscription(String show, String alloc) {
-    return getJdbcTemplate().queryForObject(
-        GET_SUBSCRIPTION + " AND show.str_name=? AND alloc.str_name=?", SUBSCRIPTION_MAPPER, show,
-        alloc);
-  }
+    @Override
+    public Subscription findSubscription(String show, String alloc) {
+        return getJdbcTemplate().queryForObject(
+                GET_SUBSCRIPTION + " AND show.str_name=? AND alloc.str_name=?", SUBSCRIPTION_MAPPER,
+                show, alloc);
+    }
 
-  @Override
-  public SubscriptionSeq getSubscriptions(ShowInterface show) {
-    List<Subscription> subscriptions = getJdbcTemplate()
-        .query(GET_SUBSCRIPTION + " AND show.pk_show=?", SUBSCRIPTION_MAPPER, show.getShowId());
-    return SubscriptionSeq.newBuilder().addAllSubscriptions(subscriptions).build();
-  }
+    @Override
+    public SubscriptionSeq getSubscriptions(ShowInterface show) {
+        List<Subscription> subscriptions = getJdbcTemplate().query(
+                GET_SUBSCRIPTION + " AND show.pk_show=?", SUBSCRIPTION_MAPPER, show.getShowId());
+        return SubscriptionSeq.newBuilder().addAllSubscriptions(subscriptions).build();
+    }
 
-  @Override
-  public SubscriptionSeq getSubscriptions(AllocationInterface alloc) {
-    List<Subscription> subscriptions =
-        getJdbcTemplate().query(GET_SUBSCRIPTION + " AND subscription.pk_alloc=?",
-            SUBSCRIPTION_MAPPER, alloc.getAllocationId());
-    return SubscriptionSeq.newBuilder().addAllSubscriptions(subscriptions).build();
-  }
+    @Override
+    public SubscriptionSeq getSubscriptions(AllocationInterface alloc) {
+        List<Subscription> subscriptions =
+                getJdbcTemplate().query(GET_SUBSCRIPTION + " AND subscription.pk_alloc=?",
+                        SUBSCRIPTION_MAPPER, alloc.getAllocationId());
+        return SubscriptionSeq.newBuilder().addAllSubscriptions(subscriptions).build();
+    }
 
-  @Override
-  public Allocation findAllocation(String name) {
-    return getJdbcTemplate().queryForObject(GET_ALLOCATION + " AND alloc.str_name=?",
-        ALLOCATION_MAPPER, name);
-  }
+    @Override
+    public Allocation findAllocation(String name) {
+        return getJdbcTemplate().queryForObject(GET_ALLOCATION + " AND alloc.str_name=?",
+                ALLOCATION_MAPPER, name);
+    }
 
-  @Override
-  public Allocation getAllocation(String id) {
-    return getJdbcTemplate().queryForObject(GET_ALLOCATION + " AND alloc.pk_alloc=?",
-        ALLOCATION_MAPPER, id);
-  }
+    @Override
+    public Allocation getAllocation(String id) {
+        return getJdbcTemplate().queryForObject(GET_ALLOCATION + " AND alloc.pk_alloc=?",
+                ALLOCATION_MAPPER, id);
+    }
 
-  @Override
-  public AllocationSeq getAllocations() {
-    return AllocationSeq.newBuilder().addAllAllocations(
-        getJdbcTemplate().query(GET_ALLOCATION + " ORDER BY alloc.str_name ", ALLOCATION_MAPPER))
-        .build();
-  }
+    @Override
+    public AllocationSeq getAllocations() {
+        return AllocationSeq.newBuilder()
+                .addAllAllocations(getJdbcTemplate()
+                        .query(GET_ALLOCATION + " ORDER BY alloc.str_name ", ALLOCATION_MAPPER))
+                .build();
+    }
 
-  @Override
-  public AllocationSeq getAllocations(com.imageworks.spcue.FacilityInterface facility) {
-    return AllocationSeq.newBuilder()
-        .addAllAllocations(getJdbcTemplate().query(GET_ALLOCATION + " AND alloc.pk_facility = ?",
-            ALLOCATION_MAPPER, facility.getFacilityId()))
-        .build();
-  }
+    @Override
+    public AllocationSeq getAllocations(com.imageworks.spcue.FacilityInterface facility) {
+        return AllocationSeq.newBuilder()
+                .addAllAllocations(
+                        getJdbcTemplate().query(GET_ALLOCATION + " AND alloc.pk_facility = ?",
+                                ALLOCATION_MAPPER, facility.getFacilityId()))
+                .build();
+    }
 
-  @Override
-  public JobSeq getJobs(GroupInterface group) {
-    List<Job> jobs =
-        getJdbcTemplate().query(GET_PENDING_JOBS + " AND job.pk_folder=? ORDER BY job.str_name ASC",
-            JOB_MAPPER, group.getId());
-    return JobSeq.newBuilder().addAllJobs(jobs).build();
-  }
+    @Override
+    public JobSeq getJobs(GroupInterface group) {
+        List<Job> jobs = getJdbcTemplate().query(
+                GET_PENDING_JOBS + " AND job.pk_folder=? ORDER BY job.str_name ASC", JOB_MAPPER,
+                group.getId());
+        return JobSeq.newBuilder().addAllJobs(jobs).build();
+    }
 
-  @Override
-  public List<String> getJobNames(JobSearchInterface r) {
-    return getJdbcTemplate().query(r.getFilteredQuery(GET_JOB_NAMES), new RowMapper<String>() {
-      public String mapRow(ResultSet rs, int rowNum) throws SQLException {
-        return rs.getString(1);
-      }
-    }, r.getValuesArray());
-  }
+    @Override
+    public List<String> getJobNames(JobSearchInterface r) {
+        return getJdbcTemplate().query(r.getFilteredQuery(GET_JOB_NAMES), new RowMapper<String>() {
+            public String mapRow(ResultSet rs, int rowNum) throws SQLException {
+                return rs.getString(1);
+            }
+        }, r.getValuesArray());
+    }
 
-  @Override
-  public JobSeq getJobs(JobSearchInterface r) {
-    List<Job> jobs = getJdbcTemplate().query(
-        r.getFilteredQuery(GET_JOB) + "ORDER BY job.str_name ASC", JOB_MAPPER, r.getValuesArray());
-    return JobSeq.newBuilder().addAllJobs(jobs).build();
-  }
+    @Override
+    public JobSeq getJobs(JobSearchInterface r) {
+        List<Job> jobs =
+                getJdbcTemplate().query(r.getFilteredQuery(GET_JOB) + "ORDER BY job.str_name ASC",
+                        JOB_MAPPER, r.getValuesArray());
+        return JobSeq.newBuilder().addAllJobs(jobs).build();
+    }
 
-  @Override
-  public Job findJob(String name) {
-    return getJdbcTemplate().queryForObject(GET_PENDING_JOBS + " AND job.str_name=?", JOB_MAPPER,
-        name.toLowerCase());
-  }
+    @Override
+    public Job findJob(String name) {
+        return getJdbcTemplate().queryForObject(GET_PENDING_JOBS + " AND job.str_name=?",
+                JOB_MAPPER, name.toLowerCase());
+    }
 
-  @Override
-  public Job getJob(String id) {
-    return getJdbcTemplate().queryForObject(GET_JOB + " AND job.pk_job=?", JOB_MAPPER, id);
-  }
+    @Override
+    public Job getJob(String id) {
+        return getJdbcTemplate().queryForObject(GET_JOB + " AND job.pk_job=?", JOB_MAPPER, id);
+    }
 
-  @Override
-  public Layer getLayer(String id) {
-    return getJdbcTemplate().queryForObject(GET_LAYER_WITH_LIMITS + " WHERE layer.pk_layer=?",
-        LAYER_MAPPER, id);
-  }
+    @Override
+    public Layer getLayer(String id) {
+        return getJdbcTemplate().queryForObject(GET_LAYER_WITH_LIMITS + " WHERE layer.pk_layer=?",
+                LAYER_MAPPER, id);
+    }
 
-  @Override
-  public Layer findLayer(String job, String layer) {
-    return getJdbcTemplate().queryForObject(
-        GET_LAYER_WITH_LIMITS
-            + " WHERE job.str_state='PENDING' AND job.str_name=? AND layer.str_name=?",
-        LAYER_MAPPER, job, layer);
-  }
+    @Override
+    public Layer findLayer(String job, String layer) {
+        return getJdbcTemplate().queryForObject(
+                GET_LAYER_WITH_LIMITS
+                        + " WHERE job.str_state='PENDING' AND job.str_name=? AND layer.str_name=?",
+                LAYER_MAPPER, job, layer);
+    }
 
-  @Override
-  public LayerSeq getLayers(JobInterface job) {
-    String query =
-        GET_LAYER_WITH_LIMITS + " WHERE layer.pk_job=? ORDER BY layer.int_dispatch_order ASC";
-    List<Layer> layers = getJdbcTemplate().query(query, LAYER_MAPPER, job.getJobId());
-    return LayerSeq.newBuilder().addAllLayers(layers).build();
-  }
+    @Override
+    public LayerSeq getLayers(JobInterface job) {
+        String query = GET_LAYER_WITH_LIMITS
+                + " WHERE layer.pk_job=? ORDER BY layer.int_dispatch_order ASC";
+        List<Layer> layers = getJdbcTemplate().query(query, LAYER_MAPPER, job.getJobId());
+        return LayerSeq.newBuilder().addAllLayers(layers).build();
+    }
 
-  public Layer addLimitNames(Layer layer) {
-    return layer.toBuilder().addAllLimits(getLimitNames(layer.getId())).build();
-  }
+    public Layer addLimitNames(Layer layer) {
+        return layer.toBuilder().addAllLimits(getLimitNames(layer.getId())).build();
+    }
 
-  public List<String> getLimitNames(String layerId) {
-    return getJdbcTemplate().query(GET_LIMIT_NAMES, LIMIT_NAME_MAPPER, layerId);
-  }
+    public List<String> getLimitNames(String layerId) {
+        return getJdbcTemplate().query(GET_LIMIT_NAMES, LIMIT_NAME_MAPPER, layerId);
+    }
 
-  @Override
-  public List<Limit> getLimits(LayerInterface layer) {
-    List<Limit> limits =
-        getJdbcTemplate().query(GET_LIMIT_FROM_LAYER_ID, LIMIT_MAPPER, layer.getLayerId());
-    return limits;
-  }
+    @Override
+    public List<Limit> getLimits(LayerInterface layer) {
+        List<Limit> limits =
+                getJdbcTemplate().query(GET_LIMIT_FROM_LAYER_ID, LIMIT_MAPPER, layer.getLayerId());
+        return limits;
+    }
 
-  @Override
-  public GroupSeq getGroups(ShowInterface show) {
-    List<Group> groups = getJdbcTemplate().query(
-        GET_GROUPS
-            + " AND folder.pk_show=? ORDER BY folder_level.int_level ASC, folder.str_name ASC ",
-        GROUP_MAPPER, show.getShowId());
-    return GroupSeq.newBuilder().addAllGroups(groups).build();
-  }
+    @Override
+    public GroupSeq getGroups(ShowInterface show) {
+        List<Group> groups = getJdbcTemplate().query(GET_GROUPS
+                + " AND folder.pk_show=? ORDER BY folder_level.int_level ASC, folder.str_name ASC ",
+                GROUP_MAPPER, show.getShowId());
+        return GroupSeq.newBuilder().addAllGroups(groups).build();
+    }
 
-  @Override
-  public GroupSeq getGroups(GroupInterface group) {
-    List<Group> groups = getJdbcTemplate().query(GET_GROUPS
-        + " AND folder.pk_parent_folder=? ORDER BY folder_level.int_level ASC, folder.f_order DESC, folder.str_name ASC ",
-        GROUP_MAPPER, group.getGroupId());
-    return GroupSeq.newBuilder().addAllGroups(groups).build();
-  }
+    @Override
+    public GroupSeq getGroups(GroupInterface group) {
+        List<Group> groups = getJdbcTemplate().query(GET_GROUPS
+                + " AND folder.pk_parent_folder=? ORDER BY folder_level.int_level ASC, folder.f_order DESC, folder.str_name ASC ",
+                GROUP_MAPPER, group.getGroupId());
+        return GroupSeq.newBuilder().addAllGroups(groups).build();
+    }
 
-  @Override
-  public Group getGroup(String id) {
-    return getJdbcTemplate().queryForObject(GET_GROUPS + " AND folder.pk_folder=?", GROUP_MAPPER,
-        id);
-  }
+    @Override
+    public Group getGroup(String id) {
+        return getJdbcTemplate().queryForObject(GET_GROUPS + " AND folder.pk_folder=?",
+                GROUP_MAPPER, id);
+    }
 
-  @Override
-  public Group getRootGroup(ShowInterface show) {
-    return getJdbcTemplate().queryForObject(
-        GET_GROUPS + " AND show.pk_show=? AND folder.b_default=?", GROUP_MAPPER, show.getShowId(),
-        true);
-  }
+    @Override
+    public Group getRootGroup(ShowInterface show) {
+        return getJdbcTemplate().queryForObject(
+                GET_GROUPS + " AND show.pk_show=? AND folder.b_default=?", GROUP_MAPPER,
+                show.getShowId(), true);
+    }
 
-  @Override
-  public Frame findFrame(String job, String layer, int frame) {
-    return getJdbcTemplate().queryForObject(FIND_FRAME, FRAME_MAPPER, job, layer, frame);
-  }
+    @Override
+    public Frame findFrame(String job, String layer, int frame) {
+        return getJdbcTemplate().queryForObject(FIND_FRAME, FRAME_MAPPER, job, layer, frame);
+    }
 
-  @Override
-  public Frame getFrame(String id) {
-    return getJdbcTemplate().queryForObject(GET_FRAME + " AND frame.pk_frame=?", FRAME_MAPPER, id);
-  }
+    @Override
+    public Frame getFrame(String id) {
+        return getJdbcTemplate().queryForObject(GET_FRAME + " AND frame.pk_frame=?", FRAME_MAPPER,
+                id);
+    }
 
-  @Override
-  public FrameSeq getFrames(FrameSearchInterface r) {
-    List<Frame> frames = getJdbcTemplate().query(r.getSortedQuery(GET_FRAMES_CRITERIA),
-        FRAME_MAPPER, r.getValuesArray());
-    return FrameSeq.newBuilder().addAllFrames(frames).build();
-  }
+    @Override
+    public FrameSeq getFrames(FrameSearchInterface r) {
+        List<Frame> frames = getJdbcTemplate().query(r.getSortedQuery(GET_FRAMES_CRITERIA),
+                FRAME_MAPPER, r.getValuesArray());
+        return FrameSeq.newBuilder().addAllFrames(frames).build();
+    }
 
-  @Override
-  public Depend getDepend(DependInterface depend) {
-    return getJdbcTemplate().queryForObject(GET_DEPEND + " WHERE pk_depend=?", DEPEND_MAPPER,
-        depend.getId());
-  }
+    @Override
+    public Depend getDepend(DependInterface depend) {
+        return getJdbcTemplate().queryForObject(GET_DEPEND + " WHERE pk_depend=?", DEPEND_MAPPER,
+                depend.getId());
+    }
 
-  @Override
-  public Depend getDepend(com.imageworks.spcue.depend.AbstractDepend depend) {
-    return getJdbcTemplate().queryForObject(GET_DEPEND + " WHERE pk_depend=?", DEPEND_MAPPER,
-        depend.getId());
-  }
+    @Override
+    public Depend getDepend(com.imageworks.spcue.depend.AbstractDepend depend) {
+        return getJdbcTemplate().queryForObject(GET_DEPEND + " WHERE pk_depend=?", DEPEND_MAPPER,
+                depend.getId());
+    }
 
-  @Override
-  public DependSeq getWhatDependsOnThis(JobInterface job) {
-    List<Depend> depends =
-        getJdbcTemplate().query(GET_DEPEND + " WHERE pk_parent IS NULL AND pk_job_depend_on=?",
-            DEPEND_MAPPER, job.getJobId());
-    return DependSeq.newBuilder().addAllDepends(depends).build();
-  }
+    @Override
+    public DependSeq getWhatDependsOnThis(JobInterface job) {
+        List<Depend> depends = getJdbcTemplate().query(
+                GET_DEPEND + " WHERE pk_parent IS NULL AND pk_job_depend_on=?", DEPEND_MAPPER,
+                job.getJobId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
+    }
 
-  @Override
-  public DependSeq getWhatDependsOnThis(LayerInterface layer) {
-    List<Depend> depends =
-        getJdbcTemplate().query(GET_DEPEND + " WHERE pk_parent IS NULL AND pk_layer_depend_on=?",
-            DEPEND_MAPPER, layer.getLayerId());
-    return DependSeq.newBuilder().addAllDepends(depends).build();
+    @Override
+    public DependSeq getWhatDependsOnThis(LayerInterface layer) {
+        List<Depend> depends = getJdbcTemplate().query(
+                GET_DEPEND + " WHERE pk_parent IS NULL AND pk_layer_depend_on=?", DEPEND_MAPPER,
+                layer.getLayerId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
 
-  }
+    }
 
-  @Override
-  public DependSeq getWhatDependsOnThis(FrameInterface frame) {
-    List<Depend> depends = getJdbcTemplate().query(GET_DEPEND + " WHERE pk_frame_depend_on=?",
-        DEPEND_MAPPER, frame.getFrameId());
-    return DependSeq.newBuilder().addAllDepends(depends).build();
-  }
+    @Override
+    public DependSeq getWhatDependsOnThis(FrameInterface frame) {
+        List<Depend> depends = getJdbcTemplate().query(GET_DEPEND + " WHERE pk_frame_depend_on=?",
+                DEPEND_MAPPER, frame.getFrameId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
+    }
 
-  @Override
-  public DependSeq getWhatThisDependsOn(JobInterface job) {
-    List<Depend> depends =
-        getJdbcTemplate().query(
-            GET_DEPEND + " WHERE pk_parent IS NULL AND pk_layer_depend_er IS NULL AND "
-                + "pk_frame_depend_er IS NULL AND pk_job_depend_er=?",
-            DEPEND_MAPPER, job.getJobId());
-    return DependSeq.newBuilder().addAllDepends(depends).build();
-  }
+    @Override
+    public DependSeq getWhatThisDependsOn(JobInterface job) {
+        List<Depend> depends = getJdbcTemplate().query(
+                GET_DEPEND + " WHERE pk_parent IS NULL AND pk_layer_depend_er IS NULL AND "
+                        + "pk_frame_depend_er IS NULL AND pk_job_depend_er=?",
+                DEPEND_MAPPER, job.getJobId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
+    }
 
-  @Override
-  public DependSeq getWhatThisDependsOn(LayerInterface layer) {
-    List<Depend> depends =
-        getJdbcTemplate().query(GET_DEPEND + " WHERE pk_parent IS NULL AND pk_layer_depend_er=?",
-            DEPEND_MAPPER, layer.getLayerId());
-    return DependSeq.newBuilder().addAllDepends(depends).build();
-  }
+    @Override
+    public DependSeq getWhatThisDependsOn(LayerInterface layer) {
+        List<Depend> depends = getJdbcTemplate().query(
+                GET_DEPEND + " WHERE pk_parent IS NULL AND pk_layer_depend_er=?", DEPEND_MAPPER,
+                layer.getLayerId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
+    }
 
-  @Override
-  public DependSeq getWhatThisDependsOn(FrameInterface frame) {
+    @Override
+    public DependSeq getWhatThisDependsOn(FrameInterface frame) {
+        /*
+         * This should show anything that is making the frame dependent.
+         */
+        List<Depend> depends = getJdbcTemplate().query(GET_DEPEND + " WHERE "
+                + "(pk_job_depend_er=? AND str_type IN ('JOB_ON_JOB','JOB_ON_LAYER','JOB_ON_FRAME')) OR "
+                + "(pk_layer_depend_er=? AND str_type IN ('LAYER_ON_JOB','LAYER_ON_LAYER','LAYER_ON_FRAME')) "
+                + "OR (pk_frame_depend_er=?)", DEPEND_MAPPER, frame.getJobId(), frame.getLayerId(),
+                frame.getFrameId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
+    }
+
+    @Override
+    public DependSeq getDepends(JobInterface job) {
+        List<Depend> depends = getJdbcTemplate().query(
+                GET_DEPEND + " WHERE pk_job_depend_er=? AND str_type != 'FRAME_ON_FRAME'",
+                DEPEND_MAPPER, job.getJobId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
+    }
+
+    @Override
+    public Depend getDepend(String id) {
+        return getJdbcTemplate().queryForObject(GET_DEPEND + " WHERE pk_depend=?", DEPEND_MAPPER,
+                id);
+    }
+
+    @Override
+    public Group findGroup(String show, String group) {
+        return getJdbcTemplate().queryForObject(
+                GET_GROUPS + " AND show.str_name=? AND folder.str_name=?", GROUP_MAPPER, show,
+                group);
+    }
+
+    @Override
+    public Host findHost(String name) {
+        return getJdbcTemplate().queryForObject(GET_HOST + " AND host.str_name=?", HOST_MAPPER,
+                name);
+    }
+
+    @Override
+    public HostSeq getHosts(HostSearchInterface r) {
+        List<Host> hosts = getJdbcTemplate().query(r.getFilteredQuery(GET_HOST), HOST_MAPPER,
+                r.getValuesArray());
+        return HostSeq.newBuilder().addAllHosts(hosts).build();
+    }
+
+    @Override
+    public Host getHost(String id) {
+        return getJdbcTemplate().queryForObject(GET_HOST + " AND host.pk_host=?", HOST_MAPPER, id);
+    }
+
+    @Override
+    public ProcSeq getProcs(HostInterface host) {
+        ProcSearchInterface r = procSearchFactory.create();
+        r.filterByHost(host);
+        r.sortByHostName();
+        r.sortByDispatchedTime();
+        return ProcSeq.newBuilder().addAllProcs(getProcs(r).getProcsList()).build();
+    }
+
+    @Override
+    public ProcSeq getProcs(ProcSearchInterface p) {
+        p.sortByHostName();
+        p.sortByDispatchedTime();
+        List<Proc> procs = getJdbcTemplate().query(p.getFilteredQuery(GET_PROC), PROC_MAPPER,
+                p.getValuesArray());
+        return ProcSeq.newBuilder().addAllProcs(procs).build();
+    }
+
+    @Override
+    public CommentSeq getComments(HostInterface h) {
+        List<Comment> comments =
+                getJdbcTemplate().query(GET_HOST_COMMENTS, COMMENT_MAPPER, h.getHostId());
+        return CommentSeq.newBuilder().addAllComments(comments).build();
+    }
+
+    @Override
+    public CommentSeq getComments(JobInterface j) {
+        List<Comment> comments =
+                getJdbcTemplate().query(GET_JOB_COMMENTS, COMMENT_MAPPER, j.getJobId());
+        return CommentSeq.newBuilder().addAllComments(comments).build();
+    }
+
+    @Override
+    public UpdatedFrameCheckResult getUpdatedFrames(JobInterface job, List<LayerInterface> layers,
+            int epochSeconds) {
+
+        long timeDiff = (System.currentTimeMillis() / 1000) - epochSeconds;
+        if (timeDiff > 60) {
+            throw new IllegalArgumentException("the last update timestamp cannot be over "
+                    + "a minute off the current time, difference was: " + timeDiff);
+        }
+
+        UpdatedFrameCheckResult.Builder resultBuilder = UpdatedFrameCheckResult.newBuilder();
+        resultBuilder.setState(JobState.valueOf(getJdbcTemplate().queryForObject(
+                "SELECT str_state FROM job WHERE pk_job=?", String.class, job.getJobId())));
+
+        FrameSearchInterface r = frameSearchFactory.create(job);
+        r.filterByLayers(layers);
+        r.filterByChangeDate(epochSeconds);
+        r.setMaxResults(100);
+
+        List<UpdatedFrame> updatedFrameList = getJdbcTemplate().query(
+                r.getFilteredQuery(GET_UPDATED_FRAME), UPDATED_FRAME_MAPPER, r.getValuesArray());
+        resultBuilder.setUpdatedFrames(
+                UpdatedFrameSeq.newBuilder().addAllUpdatedFrames(updatedFrameList).build());
+        resultBuilder.setServerTime((int) (System.currentTimeMillis() / 1000) - 1);
+
+        return resultBuilder.build();
+    }
+
+    @Override
+    public Department getDepartment(ShowInterface show, String name) {
+        return getJdbcTemplate().queryForObject(GET_DEPARTMENT, DEPARTMENT_MAPPER, show.getShowId(),
+                name);
+    }
+
+    @Override
+    public DepartmentSeq getDepartments(ShowInterface show) {
+        List<Department> departments =
+                getJdbcTemplate().query(GET_DEPARTMENTS, DEPARTMENT_MAPPER, show.getShowId());
+        return DepartmentSeq.newBuilder().addAllDepartments(departments).build();
+    }
+
+    @Override
+    public List<String> getDepartmentNames() {
+        return getJdbcTemplate().query("SELECT str_name FROM dept ORDER BY str_name ASC",
+                new RowMapper<String>() {
+                    public String mapRow(ResultSet rs, int row) throws SQLException {
+                        return rs.getString("str_name");
+                    }
+                });
+    }
+
+    @Override
+    public Task getTask(ShowInterface show, DepartmentInterface dept, String shot) {
+        return getJdbcTemplate().queryForObject(
+                GET_TASK + " AND point.pk_show=? AND point.pk_dept=? AND task.str_shot=?",
+                TASK_MAPPER, show.getShowId(), dept.getDepartmentId(), shot);
+    }
+
+    @Override
+    public TaskSeq getTasks(ShowInterface show, DepartmentInterface dept) {
+        if (dept == null) {
+            return TaskSeq.newBuilder()
+                    .addAllTasks(getJdbcTemplate().query(
+                            GET_TASK + " AND point.pk_show=? ORDER BY task.str_shot", TASK_MAPPER,
+                            show.getShowId()))
+                    .build();
+        } else {
+            return TaskSeq.newBuilder()
+                    .addAllTasks(getJdbcTemplate().query(GET_TASK
+                            + " AND point.pk_show=? AND point.pk_dept=? ORDER BY task.str_shot",
+                            TASK_MAPPER, show.getShowId(), dept.getDepartmentId()))
+                    .build();
+        }
+    }
+
+    @Override
+    public DeedSeq getDeeds(OwnerEntity owner) {
+        List<Deed> deeds = getJdbcTemplate().query(QUERY_FOR_DEED + " AND owner.pk_owner=?",
+                DEED_MAPPER, owner.getId());
+        return DeedSeq.newBuilder().addAllDeeds(deeds).build();
+    }
+
+    @Override
+    public DeedSeq getDeeds(ShowInterface show) {
+        List<Deed> deeds = getJdbcTemplate().query(QUERY_FOR_DEED + " AND show.pk_show=?",
+                DEED_MAPPER, show.getId());
+        return DeedSeq.newBuilder().addAllDeeds(deeds).build();
+    }
+
+    @Override
+    public Host getHost(DeedEntity deed) {
+        return getJdbcTemplate().queryForObject(GET_HOST + " AND host.pk_host=?", HOST_MAPPER,
+                deed.id);
+    }
+
+    @Override
+    public Deed getDeed(HostInterface host) {
+        return getJdbcTemplate().queryForObject(QUERY_FOR_DEED + " AND host.pk_host=?", DEED_MAPPER,
+                host.getHostId());
+    }
+
+    @Override
+    public HostSeq getHosts(OwnerEntity owner) {
+        StringBuilder sb = new StringBuilder(4096);
+        String query = GET_HOST;
+        query = query.replace("FROM ", "FROM owner, deed,");
+        sb.append(query);
+        sb.append("AND deed.pk_host = host.pk_host ");
+        sb.append("AND deed.pk_owner = owner.pk_owner ");
+        sb.append("AND owner.pk_owner = ?");
+
+        List<Host> hosts = getJdbcTemplate().query(sb.toString(), HOST_MAPPER, owner.getId());
+        return HostSeq.newBuilder().addAllHosts(hosts).build();
+    }
+
+    @Override
+    public Owner getOwner(DeedEntity deed) {
+        return getJdbcTemplate().queryForObject(QUERY_FOR_OWNER + " AND "
+                + "pk_owner = (SELECT deed.pk_owner FROM deed " + "WHERE pk_deed=?)", OWNER_MAPPER,
+                deed.getId());
+    }
+
+    @Override
+    public Owner getOwner(HostInterface host) {
+        return getJdbcTemplate().queryForObject(QUERY_FOR_OWNER + " AND "
+                + "pk_owner = (SELECT deed.pk_owner FROM deed " + "WHERE pk_host=?)", OWNER_MAPPER,
+                host.getHostId());
+    }
+
+    @Override
+    public List<Owner> getOwners(ShowInterface show) {
+        return getJdbcTemplate().query(QUERY_FOR_OWNER + " AND owner.pk_show=?", OWNER_MAPPER,
+                show.getShowId());
+    }
+
+    @Override
+    public RenderPartition getRenderPartition(LocalHostAssignment l) {
+        return getJdbcTemplate().queryForObject(
+                QUERY_FOR_RENDER_PART + "WHERE host_local.pk_host_local = ?", RENDER_PARTION_MAPPER,
+                l.getId());
+    }
+
+    @Override
+    public RenderPartitionSeq getRenderPartitions(HostInterface host) {
+        List<RenderPartition> partitions =
+                getJdbcTemplate().query(QUERY_FOR_RENDER_PART + "WHERE host_local.pk_host = ?",
+                        RENDER_PARTION_MAPPER, host.getHostId());
+        return RenderPartitionSeq.newBuilder().addAllRenderPartitions(partitions).build();
+    }
+
+    @Override
+    public Owner getOwner(String name) {
+        return getJdbcTemplate().queryForObject(QUERY_FOR_OWNER + " AND " + "("
+                + "owner.str_username = ? " + "OR " + "owner.pk_owner = ?" + ")", OWNER_MAPPER,
+                name, name);
+    }
+
+    @Override
+    public Facility getFacility(String name) {
+        return getJdbcTemplate().queryForObject(
+                QUERY_FOR_FACILITY + " WHERE facility.pk_facility = ? OR facility.str_name = ?",
+                FACILITY_MAPPER, name, name);
+    }
+
+    @Override
+    public FacilitySeq getFacilities() {
+        return FacilitySeq.newBuilder()
+                .addAllFacilities(getJdbcTemplate().query(QUERY_FOR_FACILITY, FACILITY_MAPPER))
+                .build();
+    }
+
+    @Override
+    public Limit findLimit(String name) {
+        String findLimitQuery = QUERY_FOR_LIMIT + " WHERE limit_record.str_name = ? " + "GROUP BY "
+                + "limit_record.str_name, " + "limit_record.pk_limit_record, "
+                + "limit_record.int_max_value";
+        return getJdbcTemplate().queryForObject(findLimitQuery, LIMIT_MAPPER, name);
+    }
+
+    @Override
+    public Limit getLimit(String id) {
+        String getLimitQuery = QUERY_FOR_LIMIT + " WHERE limit_record.pk_limit_record = ? "
+                + "GROUP BY " + "limit_record.str_name, " + "limit_record.pk_limit_record, "
+                + "limit_record.int_max_value";
+        return getJdbcTemplate().queryForObject(getLimitQuery, LIMIT_MAPPER, id);
+    }
+
+    @Override
+    public List<Limit> getLimits() {
+        String getLimitsQuery = QUERY_FOR_LIMIT + " GROUP BY " + "limit_record.str_name, "
+                + "limit_record.pk_limit_record, " + "limit_record.int_max_value";
+        return getJdbcTemplate().query(getLimitsQuery, LIMIT_MAPPER);
+    }
+
     /*
-     * This should show anything that is making the frame dependent.
+     * Row Mappers
      */
-    List<Depend> depends = getJdbcTemplate().query(GET_DEPEND + " WHERE "
-        + "(pk_job_depend_er=? AND str_type IN ('JOB_ON_JOB','JOB_ON_LAYER','JOB_ON_FRAME')) OR "
-        + "(pk_layer_depend_er=? AND str_type IN ('LAYER_ON_JOB','LAYER_ON_LAYER','LAYER_ON_FRAME')) "
-        + "OR (pk_frame_depend_er=?)", DEPEND_MAPPER, frame.getJobId(), frame.getLayerId(),
-        frame.getFrameId());
-    return DependSeq.newBuilder().addAllDepends(depends).build();
-  }
 
-  @Override
-  public DependSeq getDepends(JobInterface job) {
-    List<Depend> depends = getJdbcTemplate().query(
-        GET_DEPEND + " WHERE pk_job_depend_er=? AND str_type != 'FRAME_ON_FRAME'", DEPEND_MAPPER,
-        job.getJobId());
-    return DependSeq.newBuilder().addAllDepends(depends).build();
-  }
+    public static final RowMapper<Limit> LIMIT_MAPPER = new RowMapper<Limit>() {
+        public Limit mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return Limit.newBuilder().setId(SqlUtil.getString(rs, "pk_limit_record"))
+                    .setName(SqlUtil.getString(rs, "str_name"))
+                    .setMaxValue(rs.getInt("int_max_value"))
+                    .setCurrentRunning(rs.getInt("int_current_running")).build();
+        }
+    };
 
-  @Override
-  public Depend getDepend(String id) {
-    return getJdbcTemplate().queryForObject(GET_DEPEND + " WHERE pk_depend=?", DEPEND_MAPPER, id);
-  }
+    public static final RowMapper<Matcher> MATCHER_MAPPER = new RowMapper<Matcher>() {
+        public Matcher mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return Matcher.newBuilder().setId(SqlUtil.getString(rs, "pk_matcher"))
+                    .setInput(SqlUtil.getString(rs, "str_value"))
+                    .setSubject(MatchSubject.valueOf(SqlUtil.getString(rs, "str_subject")))
+                    .setType(MatchType.valueOf(SqlUtil.getString(rs, "str_match"))).build();
+        }
+    };
 
-  @Override
-  public Group findGroup(String show, String group) {
-    return getJdbcTemplate().queryForObject(
-        GET_GROUPS + " AND show.str_name=? AND folder.str_name=?", GROUP_MAPPER, show, group);
-  }
+    public static final RowMapper<Filter> FILTER_MAPPER = new RowMapper<Filter>() {
+        public Filter mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return Filter.newBuilder().setId(SqlUtil.getString(rs, "pk_filter"))
+                    .setType(FilterType.valueOf(SqlUtil.getString(rs, "str_type")))
+                    .setOrder(rs.getFloat("f_order")).setName(SqlUtil.getString(rs, "str_name"))
+                    .setEnabled(rs.getBoolean("b_enabled")).build();
+        }
+    };
 
-  @Override
-  public Host findHost(String name) {
-    return getJdbcTemplate().queryForObject(GET_HOST + " AND host.str_name=?", HOST_MAPPER, name);
-  }
+    public static final RowMapper<Action> ACTION_MAPPER = new RowMapper<Action>() {
+        public Action mapRow(ResultSet rs, int rowNum) throws SQLException {
+            Action.Builder builder = Action.newBuilder().setId(SqlUtil.getString(rs, "pk_action"))
+                    .setBooleanValue(false).setIntegerValue(0).setFloatValue(0f).setStringValue("")
+                    .setType(ActionType.valueOf(SqlUtil.getString(rs, "str_action")))
+                    .setValueType(ActionValueType.valueOf(SqlUtil.getString(rs, "str_value_type")));
 
-  @Override
-  public HostSeq getHosts(HostSearchInterface r) {
-    List<Host> hosts =
-        getJdbcTemplate().query(r.getFilteredQuery(GET_HOST), HOST_MAPPER, r.getValuesArray());
-    return HostSeq.newBuilder().addAllHosts(hosts).build();
-  }
+            switch (builder.getValueType()) {
+                case GROUP_TYPE:
+                    builder.setGroupValue(SqlUtil.getString(rs, "pk_folder"));
+                    break;
+                case STRING_TYPE:
+                    builder.setStringValue(SqlUtil.getString(rs, "str_value"));
+                    break;
+                case INTEGER_TYPE:
+                    builder.setIntegerValue(rs.getInt("int_value"));
+                    break;
+                case FLOAT_TYPE:
+                    builder.setFloatValue(rs.getFloat("float_value"));
+                    break;
+                case BOOLEAN_TYPE:
+                    builder.setBooleanValue(rs.getBoolean("b_value"));
+                    break;
+            }
+            return builder.build();
+        }
+    };
 
-  @Override
-  public Host getHost(String id) {
-    return getJdbcTemplate().queryForObject(GET_HOST + " AND host.pk_host=?", HOST_MAPPER, id);
-  }
+    public static final RowMapper<Facility> FACILITY_MAPPER = new RowMapper<Facility>() {
+        public Facility mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return Facility.newBuilder().setName(rs.getString("str_name"))
+                    .setId(rs.getString("pk_facility")).build();
+        }
+    };
 
-  @Override
-  public ProcSeq getProcs(HostInterface host) {
-    ProcSearchInterface r = procSearchFactory.create();
-    r.filterByHost(host);
-    r.sortByHostName();
-    r.sortByDispatchedTime();
-    return ProcSeq.newBuilder().addAllProcs(getProcs(r).getProcsList()).build();
-  }
+    public static final RowMapper<Deed> DEED_MAPPER = new RowMapper<Deed>() {
+        public Deed mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return Deed.newBuilder().setId(SqlUtil.getString(rs, "pk_deed"))
+                    .setHost(SqlUtil.getString(rs, "str_host"))
+                    .setOwner(SqlUtil.getString(rs, "str_username")).build();
+        }
+    };
 
-  @Override
-  public ProcSeq getProcs(ProcSearchInterface p) {
-    p.sortByHostName();
-    p.sortByDispatchedTime();
-    List<Proc> procs =
-        getJdbcTemplate().query(p.getFilteredQuery(GET_PROC), PROC_MAPPER, p.getValuesArray());
-    return ProcSeq.newBuilder().addAllProcs(procs).build();
-  }
+    public static final RowMapper<RenderPartition> RENDER_PARTION_MAPPER =
+            new RowMapper<RenderPartition>() {
+                public RenderPartition mapRow(ResultSet rs, int rowNum) throws SQLException {
 
-  @Override
-  public CommentSeq getComments(HostInterface h) {
-    List<Comment> comments =
-        getJdbcTemplate().query(GET_HOST_COMMENTS, COMMENT_MAPPER, h.getHostId());
-    return CommentSeq.newBuilder().addAllComments(comments).build();
-  }
+                    RenderPartition.Builder builder = RenderPartition.newBuilder()
+                            .setId(SqlUtil.getString(rs, "pk_host_local"))
+                            .setCores(rs.getInt("int_cores_max") - rs.getInt("int_cores_idle"))
+                            .setMaxCores(rs.getInt("int_cores_max"))
+                            .setThreads(rs.getInt("int_threads"))
+                            .setMaxMemory(rs.getLong("int_mem_max"))
+                            .setMemory(rs.getLong("int_mem_max") - rs.getLong("int_mem_idle"))
+                            .setGpus(rs.getInt("int_gpus_max") - rs.getInt("int_gpus_idle"))
+                            .setMaxGpus(rs.getInt("int_gpus_max"))
+                            .setGpuMemory(
+                                    rs.getLong("int_gpu_mem_max") - rs.getLong("int_gpu_mem_idle"))
+                            .setMaxGpuMemory(rs.getLong("int_gpu_mem_max"))
+                            .setHost(SqlUtil.getString(rs, "str_host_name"))
+                            .setJob(SqlUtil.getString(rs, "str_job_name"))
+                            .setRenderPartType(
+                                    RenderPartitionType.valueOf(SqlUtil.getString(rs, "str_type")))
+                            .setLayer("").setFrame("");
 
-  @Override
-  public CommentSeq getComments(JobInterface j) {
-    List<Comment> comments =
-        getJdbcTemplate().query(GET_JOB_COMMENTS, COMMENT_MAPPER, j.getJobId());
-    return CommentSeq.newBuilder().addAllComments(comments).build();
-  }
+                    if (SqlUtil.getString(rs, "str_layer_name") != null) {
+                        builder.setLayer(SqlUtil.getString(rs, "str_layer_name"));
+                    }
 
-  @Override
-  public UpdatedFrameCheckResult getUpdatedFrames(JobInterface job, List<LayerInterface> layers,
-      int epochSeconds) {
+                    if (SqlUtil.getString(rs, "str_frame_name") != null) {
+                        builder.setFrame(SqlUtil.getString(rs, "str_frame_name"));
+                    }
 
-    long timeDiff = (System.currentTimeMillis() / 1000) - epochSeconds;
-    if (timeDiff > 60) {
-      throw new IllegalArgumentException("the last update timestamp cannot be over "
-          + "a minute off the current time, difference was: " + timeDiff);
+                    return builder.build();
+
+                }
+            };
+
+    public static final RowMapper<Owner> OWNER_MAPPER = new RowMapper<Owner>() {
+        public Owner mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return Owner.newBuilder().setName(SqlUtil.getString(rs, "str_username"))
+                    .setId(SqlUtil.getString(rs, "pk_owner"))
+                    .setShow(SqlUtil.getString(rs, "str_show"))
+                    .setHostCount(rs.getInt("host_count")).build();
+        }
+    };
+
+    public static final RowMapper<Department> DEPARTMENT_MAPPER = new RowMapper<Department>() {
+        public Department mapRow(ResultSet rs, int row) throws SQLException {
+            return Department.newBuilder().setId(SqlUtil.getString(rs, "pk_point"))
+                    .setName(SqlUtil.getString(rs, "str_name"))
+                    .setDept(SqlUtil.getString(rs, "str_dept"))
+                    .setTiManaged(rs.getBoolean("b_managed"))
+                    .setTiTask(SqlUtil.getString(rs, "str_ti_task"))
+                    .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores"))).build();
+        }
+    };
+
+    public static final RowMapper<Proc> PROC_MAPPER = new RowMapper<Proc>() {
+        public Proc mapRow(ResultSet rs, int row) throws SQLException {
+            return Proc.newBuilder().setId(SqlUtil.getString(rs, "pk_proc"))
+                    .setName(CueUtil.buildProcName(SqlUtil.getString(rs, "host_name"),
+                            rs.getInt("int_cores_reserved"), rs.getInt("int_gpus_reserved")))
+                    .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores_reserved")))
+                    .setReservedMemory(rs.getLong("int_mem_reserved"))
+                    .setReservedGpus(rs.getInt("int_gpus_reserved"))
+                    .setReservedGpuMemory(rs.getLong("int_gpu_mem_reserved"))
+                    .setUsedMemory(rs.getLong("int_mem_used"))
+                    .setUsedGpuMemory(rs.getLong("int_gpu_mem_used"))
+                    .setFrameName(SqlUtil.getString(rs, "frame_name"))
+                    .setJobName(SqlUtil.getString(rs, "job_name"))
+                    .setGroupName(SqlUtil.getString(rs, "folder_name"))
+                    .setShowName(SqlUtil.getString(rs, "show_name"))
+                    .setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000))
+                    .setBookedTime((int) (rs.getTimestamp("ts_booked").getTime() / 1000))
+                    .setDispatchTime((int) (rs.getTimestamp("ts_dispatched").getTime() / 1000))
+                    .setUnbooked(rs.getBoolean("b_unbooked"))
+                    .setLogPath(String.format("%s/%s.%s.rqlog",
+                            SqlUtil.getString(rs, "str_log_dir"), SqlUtil.getString(rs, "job_name"),
+                            SqlUtil.getString(rs, "frame_name")))
+                    .setRedirectTarget(SqlUtil.getString(rs, "str_redirect"))
+                    .setChildProcesses(SqlUtil.getByteString(rs, "bytea_children"))
+                    .addAllServices(Arrays.asList(SqlUtil.getString(rs, "str_services").split(",")))
+                    .build();
+        }
+    };
+
+    public static final RowMapper<Task> TASK_MAPPER = new RowMapper<Task>() {
+        public Task mapRow(ResultSet rs, int row) throws SQLException {
+            return Task.newBuilder().setId(SqlUtil.getString(rs, "pk_task"))
+                    .setDept(SqlUtil.getString(rs, "str_dept"))
+                    .setShot(SqlUtil.getString(rs, "str_shot"))
+                    .setMinCores(Convert.coreUnitsToWholeCores(rs.getInt("int_min_cores")))
+                    .setAdjustCores(Convert.coreUnitsToWholeCores(rs.getInt("int_adjust_cores")))
+                    .build();
+        }
+    };
+
+    public static final RowMapper<Comment> COMMENT_MAPPER = new RowMapper<Comment>() {
+
+        public Comment mapRow(ResultSet rs, int row) throws SQLException {
+            return Comment.newBuilder().setId(SqlUtil.getString(rs, "pk_comment"))
+                    .setMessage(SqlUtil.getString(rs, "str_message"))
+                    .setSubject(SqlUtil.getString(rs, "str_subject"))
+                    .setTimestamp((int) (rs.getTimestamp("ts_created").getTime() / 1000))
+                    .setUser(SqlUtil.getString(rs, "str_user")).build();
+        }
+    };
+
+    public static NestedHost.Builder mapNestedHostBuilder(ResultSet rs) throws SQLException {
+        NestedHost.Builder builder = NestedHost.newBuilder().setId(SqlUtil.getString(rs, "pk_host"))
+                .setName(SqlUtil.getString(rs, "host_name"))
+                .setAllocName(SqlUtil.getString(rs, "alloc_name"))
+                .setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000))
+                .setFreeMcp(rs.getLong("int_mcp_free")).setFreeMemory(rs.getLong("int_mem_free"))
+                .setFreeSwap(rs.getLong("int_swap_free"))
+                .setFreeGpuMemory(rs.getLong("int_gpu_mem_free")).setLoad(rs.getInt("int_load"))
+                .setNimbyEnabled(rs.getBoolean("b_nimby"))
+                .setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                .setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_cores_idle")))
+                .setMemory(rs.getLong("int_mem")).setIdleMemory(rs.getLong("int_mem_idle"))
+                .setGpus(rs.getInt("int_gpus")).setIdleGpus(rs.getInt("int_gpus_idle"))
+                .setGpuMemory(rs.getLong("int_gpu_mem"))
+                .setIdleGpuMemory(rs.getLong("int_gpu_mem_idle"))
+                .setState(HardwareState.valueOf(SqlUtil.getString(rs, "host_state")))
+                .setTotalMcp(rs.getLong("int_mcp_total"))
+                .setTotalMemory(rs.getLong("int_mem_total"))
+                .setTotalSwap(rs.getLong("int_swap_total"))
+                .setTotalGpuMemory(rs.getLong("int_gpu_mem_total"))
+                .setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000))
+                .setLockState(LockState.valueOf(SqlUtil.getString(rs, "str_lock_state")))
+                .setHasComment(rs.getBoolean("b_comment"))
+                .setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")])
+                .setOs(SqlUtil.getString(rs, "str_os"));
+
+        String tags = SqlUtil.getString(rs, "str_tags");
+        if (tags != null)
+            builder.addAllTags(Arrays.asList(tags.split(" ")));
+        return builder;
     }
 
-    UpdatedFrameCheckResult.Builder resultBuilder = UpdatedFrameCheckResult.newBuilder();
-    resultBuilder.setState(JobState.valueOf(getJdbcTemplate()
-        .queryForObject("SELECT str_state FROM job WHERE pk_job=?", String.class, job.getJobId())));
+    public static Host.Builder mapHostBuilder(ResultSet rs) throws SQLException {
+        Host.Builder builder = Host.newBuilder();
+        builder.setId(SqlUtil.getString(rs, "pk_host"));
+        builder.setName(SqlUtil.getString(rs, "host_name"));
+        builder.setAllocName(SqlUtil.getString(rs, "alloc_name"));
+        builder.setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000));
+        builder.setFreeMcp(rs.getLong("int_mcp_free"));
+        builder.setFreeMemory(rs.getLong("int_mem_free"));
+        builder.setFreeSwap(rs.getLong("int_swap_free"));
+        builder.setFreeGpuMemory(rs.getLong("int_gpu_mem_free"));
+        builder.setLoad(rs.getInt("int_load"));
+        builder.setNimbyEnabled(rs.getBoolean("b_nimby"));
+        builder.setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")));
+        builder.setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_cores_idle")));
+        builder.setMemory(rs.getLong("int_mem"));
+        builder.setIdleMemory(rs.getLong("int_mem_idle"));
+        builder.setGpus(rs.getInt("int_gpus"));
+        builder.setIdleGpus(rs.getInt("int_gpus_idle"));
+        builder.setGpuMemory(rs.getLong("int_gpu_mem"));
+        builder.setIdleGpuMemory(rs.getLong("int_gpu_mem_idle"));
+        builder.setState(HardwareState.valueOf(SqlUtil.getString(rs, "host_state")));
+        builder.setTotalMcp(rs.getLong("int_mcp_total"));
+        builder.setTotalMemory(rs.getLong("int_mem_total"));
+        builder.setTotalSwap(rs.getLong("int_swap_total"));
+        builder.setTotalGpuMemory(rs.getLong("int_gpu_mem_total"));
+        builder.setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000));
+        builder.setLockState(LockState.valueOf(SqlUtil.getString(rs, "str_lock_state")));
+        builder.setHasComment(rs.getBoolean("b_comment"));
+        builder.setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")]);
+        builder.setOs(SqlUtil.getString(rs, "str_os"));
 
-    FrameSearchInterface r = frameSearchFactory.create(job);
-    r.filterByLayers(layers);
-    r.filterByChangeDate(epochSeconds);
-    r.setMaxResults(100);
+        String tags = SqlUtil.getString(rs, "str_tags");
+        if (tags != null)
+            builder.addAllTags(Arrays.asList(tags.split(" ")));
+        return builder;
+    }
 
-    List<UpdatedFrame> updatedFrameList = getJdbcTemplate()
-        .query(r.getFilteredQuery(GET_UPDATED_FRAME), UPDATED_FRAME_MAPPER, r.getValuesArray());
-    resultBuilder.setUpdatedFrames(
-        UpdatedFrameSeq.newBuilder().addAllUpdatedFrames(updatedFrameList).build());
-    resultBuilder.setServerTime((int) (System.currentTimeMillis() / 1000) - 1);
+    public static final RowMapper<Host> HOST_MAPPER = new RowMapper<Host>() {
+        public Host mapRow(ResultSet rs, int row) throws SQLException {
+            Host.Builder builder = mapHostBuilder(rs);
+            return builder.build();
+        }
+    };
 
-    return resultBuilder.build();
-  }
+    public static final RowMapper<Depend> DEPEND_MAPPER = new RowMapper<Depend>() {
+        public Depend mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return Depend.newBuilder().setId(SqlUtil.getString(rs, "pk_depend"))
+                    .setActive(rs.getBoolean("b_active")).setAnyFrame(rs.getBoolean("b_any"))
+                    .setDependErFrame(SqlUtil.getString(rs, "depend_er_frame"))
+                    .setDependErLayer(SqlUtil.getString(rs, "depend_er_layer"))
+                    .setDependErJob(SqlUtil.getString(rs, "depend_er_job"))
+                    .setDependOnFrame(SqlUtil.getString(rs, "depend_on_frame"))
+                    .setDependOnLayer(SqlUtil.getString(rs, "depend_on_layer"))
+                    .setDependOnJob(SqlUtil.getString(rs, "depend_on_job"))
+                    .setType(DependType.valueOf(SqlUtil.getString(rs, "str_type")))
+                    .setTarget(DependTarget.valueOf(SqlUtil.getString(rs, "str_target"))).build();
+        }
+    };
 
-  @Override
-  public Department getDepartment(ShowInterface show, String name) {
-    return getJdbcTemplate().queryForObject(GET_DEPARTMENT, DEPARTMENT_MAPPER, show.getShowId(),
-        name);
-  }
+    public static final RowMapper<Allocation> ALLOCATION_MAPPER = new RowMapper<Allocation>() {
+        public Allocation mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return Allocation.newBuilder().setId(rs.getString("pk_alloc"))
+                    .setName(rs.getString("str_name")).setFacility(rs.getString("facility_name"))
+                    .setTag(rs.getString("str_tag")).setBillable(rs.getBoolean("b_billable"))
+                    .setStats(AllocationStats.newBuilder()
+                            .setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                            .setAvailableCores(
+                                    Convert.coreUnitsToCores(rs.getInt("int_available_cores")))
+                            .setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_idle_cores")))
+                            .setRunningCores(
+                                    Convert.coreUnitsToCores(rs.getInt("int_running_cores")))
+                            .setLockedCores(Convert.coreUnitsToCores(rs.getInt("int_locked_cores")))
+                            .setGpus(rs.getInt("int_gpus"))
+                            .setAvailableGpus(rs.getInt("int_available_gpus"))
+                            .setIdleGpus(rs.getInt("int_idle_gpus"))
+                            .setRunningGpus(rs.getInt("int_running_gpus"))
+                            .setLockedGpus(rs.getInt("int_locked_gpus"))
+                            .setHosts(rs.getInt("int_hosts"))
+                            .setDownHosts(rs.getInt("int_down_hosts"))
+                            .setLockedHosts(rs.getInt("int_locked_hosts")).build())
+                    .build();
+        }
+    };
 
-  @Override
-  public DepartmentSeq getDepartments(ShowInterface show) {
-    List<Department> departments =
-        getJdbcTemplate().query(GET_DEPARTMENTS, DEPARTMENT_MAPPER, show.getShowId());
-    return DepartmentSeq.newBuilder().addAllDepartments(departments).build();
-  }
+    private static final RowMapper<Group> GROUP_MAPPER = new RowMapper<Group>() {
 
-  @Override
-  public List<String> getDepartmentNames() {
-    return getJdbcTemplate().query("SELECT str_name FROM dept ORDER BY str_name ASC",
-        new RowMapper<String>() {
-          public String mapRow(ResultSet rs, int row) throws SQLException {
+        public Group mapRow(ResultSet rs, int rowNum) throws SQLException {
+            GroupStats stats = GroupStats.newBuilder().setDeadFrames(rs.getInt("int_dead_count"))
+                    .setRunningFrames(rs.getInt("int_running_count"))
+                    .setWaitingFrames(rs.getInt("int_waiting_count"))
+                    .setDependFrames(rs.getInt("int_depend_count"))
+                    .setPendingJobs(rs.getInt("int_job_count"))
+                    .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                    .setReservedGpus(rs.getInt("int_gpus")).build();
+            return Group.newBuilder().setId(SqlUtil.getString(rs, "pk_folder"))
+                    .setName(SqlUtil.getString(rs, "group_name"))
+                    .setDepartment(SqlUtil.getString(rs, "str_dept"))
+                    .setDefaultJobPriority(rs.getInt("int_job_priority"))
+                    .setDefaultJobMinCores(Convert.coreUnitsToCores(rs.getInt("int_job_min_cores")))
+                    .setDefaultJobMaxCores(Convert.coreUnitsToCores(rs.getInt("int_job_max_cores")))
+                    .setDefaultJobMinGpus(rs.getInt("int_job_min_gpus"))
+                    .setDefaultJobMaxGpus(rs.getInt("int_job_max_gpus"))
+                    .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
+                    .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
+                    .setMaxGpus(rs.getInt("int_max_gpus")).setMinGpus(rs.getInt("int_min_gpus"))
+                    .setLevel(rs.getInt("int_level"))
+                    .setParentId(SqlUtil.getString(rs, "pk_parent_folder")).setGroupStats(stats)
+                    .build();
+        }
+    };
+
+    public static final RowMapper<Job> JOB_MAPPER = new RowMapper<Job>() {
+        public Job mapRow(ResultSet rs, int rowNum) throws SQLException {
+            Job.Builder jobBuilder = Job.newBuilder().setId(SqlUtil.getString(rs, "pk_job"))
+                    .setLogDir(SqlUtil.getString(rs, "str_log_dir"))
+                    .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
+                    .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
+                    .setMaxGpus(rs.getInt("int_max_gpus")).setMinGpus(rs.getInt("int_min_gpus"))
+                    .setName(SqlUtil.getString(rs, "str_name"))
+                    .setPriority(rs.getInt("int_priority"))
+                    .setShot(SqlUtil.getString(rs, "str_shot"))
+                    .setShow(SqlUtil.getString(rs, "str_show"))
+                    .setFacility(SqlUtil.getString(rs, "facility_name"))
+                    .setGroup(SqlUtil.getString(rs, "group_name"))
+                    .setState(JobState.valueOf(SqlUtil.getString(rs, "str_state")))
+                    .setUser(SqlUtil.getString(rs, "str_user"))
+                    .setIsPaused(rs.getBoolean("b_paused"))
+                    .setHasComment(rs.getBoolean("b_comment"))
+                    .setAutoEat(rs.getBoolean("b_autoeat"))
+                    .setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000))
+                    .setOs(SqlUtil.getString(rs, "str_os"));
+
+            int uid = rs.getInt("int_uid");
+            if (!rs.wasNull()) {
+                jobBuilder.setUid(uid);
+            }
+
+            Timestamp ts = rs.getTimestamp("ts_stopped");
+            if (ts != null) {
+                jobBuilder.setStopTime((int) (ts.getTime() / 1000));
+            } else {
+                jobBuilder.setStopTime(0);
+            }
+
+            jobBuilder.setJobStats(mapJobStats(rs));
+            return jobBuilder.build();
+        }
+    };
+
+    public static JobStats mapJobStats(ResultSet rs) throws SQLException {
+
+        JobStats.Builder statsBuilder = JobStats.newBuilder()
+                .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                .setReservedGpus(rs.getInt("int_gpus")).setMaxRss(rs.getLong("int_max_rss"))
+                .setTotalFrames(rs.getInt("int_frame_count"))
+                .setTotalLayers(rs.getInt("int_layer_count"))
+                .setWaitingFrames(rs.getInt("int_waiting_count"))
+                .setRunningFrames(rs.getInt("int_running_count"))
+                .setDeadFrames(rs.getInt("int_dead_count"))
+                .setSucceededFrames(rs.getInt("int_succeeded_count"))
+                .setEatenFrames(rs.getInt("int_eaten_count"))
+                .setDependFrames(rs.getInt("int_depend_count"))
+                .setPendingFrames(rs.getInt("int_waiting_count") + rs.getInt("int_depend_count"))
+                .setFailedCoreSec(rs.getLong("int_core_time_fail"))
+                .setRenderedCoreSec(rs.getLong("int_core_time_success"))
+                .setTotalCoreSec(
+                        rs.getLong("int_core_time_fail") + rs.getLong("int_core_time_success"))
+                .setFailedGpuSec(rs.getLong("int_gpu_time_fail"))
+                .setRenderedGpuSec(rs.getLong("int_gpu_time_success"))
+                .setTotalGpuSec(
+                        rs.getLong("int_gpu_time_fail") + rs.getLong("int_gpu_time_success"))
+                .setRenderedFrameCount(rs.getLong("int_frame_success_count"))
+                .setFailedFrameCount(rs.getLong("int_frame_fail_count"))
+                .setHighFrameSec(rs.getInt("int_clock_time_high"));
+
+        if (statsBuilder.getRenderedFrameCount() > 0) {
+            statsBuilder.setAvgCoreSec((int) (rs.getLong("int_clock_time_success")
+                    / statsBuilder.getRenderedFrameCount()));
+            statsBuilder.setAvgCoreSec((int) (statsBuilder.getRenderedCoreSec()
+                    / statsBuilder.getRenderedFrameCount()));
+            statsBuilder.setRemainingCoreSec(
+                    (long) statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
+        } else {
+            statsBuilder.setAvgFrameSec(0);
+            statsBuilder.setAvgCoreSec(0);
+            statsBuilder.setRemainingCoreSec(0);
+        }
+        return statsBuilder.build();
+    }
+
+    public static final RowMapper<Layer> LAYER_MAPPER = new RowMapper<Layer>() {
+        public Layer mapRow(ResultSet rs, int rowNum) throws SQLException {
+            Layer.Builder builder = Layer.newBuilder().setId(SqlUtil.getString(rs, "pk_layer"))
+                    .setParentId(SqlUtil.getString(rs, "pk_job"))
+                    .setChunkSize(rs.getInt("int_chunk_size"))
+                    .setDispatchOrder(rs.getInt("int_dispatch_order"))
+                    .setName(SqlUtil.getString(rs, "str_name"))
+                    .setCommand(SqlUtil.getString(rs, "str_cmd"))
+                    .setRange(SqlUtil.getString(rs, "str_range"))
+                    .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_cores_min")))
+                    .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_cores_max")))
+                    .setIsThreadable(rs.getBoolean("b_threadable"))
+                    .setMinMemory(rs.getLong("int_mem_min")).setMinGpus(rs.getInt("int_gpus_min"))
+                    .setMaxGpus(rs.getInt("int_gpus_max"))
+                    .setMinGpuMemory(rs.getLong("int_gpu_mem_min"))
+                    .setType(LayerType.valueOf(SqlUtil.getString(rs, "str_type")))
+                    .addAllTags(Sets.newHashSet(
+                            SqlUtil.getString(rs, "str_tags").replaceAll(" ", "").split("\\|")))
+                    .addAllServices(Arrays.asList(SqlUtil.getString(rs, "str_services").split(",")))
+                    .addAllLimits(
+                            Arrays.asList(SqlUtil.getString(rs, "str_limit_names").split(",")))
+                    .setMemoryOptimizerEnabled(rs.getBoolean("b_optimize"))
+                    .setTimeout(rs.getInt("int_timeout"))
+                    .setTimeoutLlu(rs.getInt("int_timeout_llu"));
+
+            LayerStats.Builder statsBuilder = LayerStats.newBuilder()
+                    .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                    .setReservedGpus(rs.getInt("int_gpus")).setMaxRss(rs.getLong("int_max_rss"))
+                    .setTotalFrames(rs.getInt("int_total_count"))
+                    .setWaitingFrames(rs.getInt("int_waiting_count"))
+                    .setRunningFrames(rs.getInt("int_running_count"))
+                    .setDeadFrames(rs.getInt("int_dead_count"))
+                    .setSucceededFrames(rs.getInt("int_succeeded_count"))
+                    .setEatenFrames(rs.getInt("int_eaten_count"))
+                    .setDependFrames(rs.getInt("int_depend_count"))
+                    .setPendingFrames(
+                            rs.getInt("int_waiting_count") + rs.getInt("int_depend_count"))
+                    .setFailedCoreSec(rs.getLong("int_core_time_fail"))
+                    .setRenderedCoreSec(rs.getLong("int_core_time_success"))
+                    .setTotalCoreSec(
+                            rs.getLong("int_core_time_fail") + rs.getLong("int_core_time_success"))
+                    .setFailedGpuSec(rs.getLong("int_gpu_time_fail"))
+                    .setRenderedGpuSec(rs.getLong("int_gpu_time_success"))
+                    .setTotalGpuSec(
+                            rs.getLong("int_gpu_time_fail") + rs.getLong("int_gpu_time_success"))
+                    .setRenderedFrameCount(rs.getLong("int_frame_success_count"))
+                    .setFailedFrameCount(rs.getLong("int_frame_fail_count"))
+                    .setHighFrameSec(rs.getInt("int_clock_time_high"))
+                    .setLowFrameSec(rs.getInt("int_clock_time_low"));
+
+            if (statsBuilder.getRenderedFrameCount() > 0) {
+                statsBuilder.setAvgFrameSec((int) (rs.getLong("int_clock_time_success")
+                        / statsBuilder.getRenderedFrameCount()));
+                statsBuilder.setAvgCoreSec((int) (statsBuilder.getRenderedCoreSec()
+                        / statsBuilder.getRenderedFrameCount()));
+                statsBuilder.setRemainingCoreSec(
+                        (long) statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
+            } else {
+                statsBuilder.setAvgFrameSec(0);
+                statsBuilder.setAvgCoreSec(0);
+                statsBuilder.setRemainingCoreSec(0);
+            }
+            builder.setLayerStats(statsBuilder.build());
+            return builder.build();
+        }
+    };
+
+    private static final RowMapper<String> LIMIT_NAME_MAPPER = new RowMapper<String>() {
+        public String mapRow(ResultSet rs, int rowNum) throws SQLException {
             return rs.getString("str_name");
-          }
-        });
-  }
-
-  @Override
-  public Task getTask(ShowInterface show, DepartmentInterface dept, String shot) {
-    return getJdbcTemplate().queryForObject(
-        GET_TASK + " AND point.pk_show=? AND point.pk_dept=? AND task.str_shot=?", TASK_MAPPER,
-        show.getShowId(), dept.getDepartmentId(), shot);
-  }
-
-  @Override
-  public TaskSeq getTasks(ShowInterface show, DepartmentInterface dept) {
-    if (dept == null) {
-      return TaskSeq.newBuilder()
-          .addAllTasks(
-              getJdbcTemplate().query(GET_TASK + " AND point.pk_show=? ORDER BY task.str_shot",
-                  TASK_MAPPER, show.getShowId()))
-          .build();
-    } else {
-      return TaskSeq.newBuilder()
-          .addAllTasks(getJdbcTemplate().query(
-              GET_TASK + " AND point.pk_show=? AND point.pk_dept=? ORDER BY task.str_shot",
-              TASK_MAPPER, show.getShowId(), dept.getDepartmentId()))
-          .build();
-    }
-  }
-
-  @Override
-  public DeedSeq getDeeds(OwnerEntity owner) {
-    List<Deed> deeds = getJdbcTemplate().query(QUERY_FOR_DEED + " AND owner.pk_owner=?",
-        DEED_MAPPER, owner.getId());
-    return DeedSeq.newBuilder().addAllDeeds(deeds).build();
-  }
-
-  @Override
-  public DeedSeq getDeeds(ShowInterface show) {
-    List<Deed> deeds =
-        getJdbcTemplate().query(QUERY_FOR_DEED + " AND show.pk_show=?", DEED_MAPPER, show.getId());
-    return DeedSeq.newBuilder().addAllDeeds(deeds).build();
-  }
-
-  @Override
-  public Host getHost(DeedEntity deed) {
-    return getJdbcTemplate().queryForObject(GET_HOST + " AND host.pk_host=?", HOST_MAPPER, deed.id);
-  }
-
-  @Override
-  public Deed getDeed(HostInterface host) {
-    return getJdbcTemplate().queryForObject(QUERY_FOR_DEED + " AND host.pk_host=?", DEED_MAPPER,
-        host.getHostId());
-  }
-
-  @Override
-  public HostSeq getHosts(OwnerEntity owner) {
-    StringBuilder sb = new StringBuilder(4096);
-    String query = GET_HOST;
-    query = query.replace("FROM ", "FROM owner, deed,");
-    sb.append(query);
-    sb.append("AND deed.pk_host = host.pk_host ");
-    sb.append("AND deed.pk_owner = owner.pk_owner ");
-    sb.append("AND owner.pk_owner = ?");
-
-    List<Host> hosts = getJdbcTemplate().query(sb.toString(), HOST_MAPPER, owner.getId());
-    return HostSeq.newBuilder().addAllHosts(hosts).build();
-  }
-
-  @Override
-  public Owner getOwner(DeedEntity deed) {
-    return getJdbcTemplate().queryForObject(QUERY_FOR_OWNER + " AND "
-        + "pk_owner = (SELECT deed.pk_owner FROM deed " + "WHERE pk_deed=?)", OWNER_MAPPER,
-        deed.getId());
-  }
-
-  @Override
-  public Owner getOwner(HostInterface host) {
-    return getJdbcTemplate().queryForObject(QUERY_FOR_OWNER + " AND "
-        + "pk_owner = (SELECT deed.pk_owner FROM deed " + "WHERE pk_host=?)", OWNER_MAPPER,
-        host.getHostId());
-  }
-
-  @Override
-  public List<Owner> getOwners(ShowInterface show) {
-    return getJdbcTemplate().query(QUERY_FOR_OWNER + " AND owner.pk_show=?", OWNER_MAPPER,
-        show.getShowId());
-  }
-
-  @Override
-  public RenderPartition getRenderPartition(LocalHostAssignment l) {
-    return getJdbcTemplate().queryForObject(
-        QUERY_FOR_RENDER_PART + "WHERE host_local.pk_host_local = ?", RENDER_PARTION_MAPPER,
-        l.getId());
-  }
-
-  @Override
-  public RenderPartitionSeq getRenderPartitions(HostInterface host) {
-    List<RenderPartition> partitions =
-        getJdbcTemplate().query(QUERY_FOR_RENDER_PART + "WHERE host_local.pk_host = ?",
-            RENDER_PARTION_MAPPER, host.getHostId());
-    return RenderPartitionSeq.newBuilder().addAllRenderPartitions(partitions).build();
-  }
-
-  @Override
-  public Owner getOwner(String name) {
-    return getJdbcTemplate().queryForObject(QUERY_FOR_OWNER + " AND " + "("
-        + "owner.str_username = ? " + "OR " + "owner.pk_owner = ?" + ")", OWNER_MAPPER, name, name);
-  }
-
-  @Override
-  public Facility getFacility(String name) {
-    return getJdbcTemplate().queryForObject(
-        QUERY_FOR_FACILITY + " WHERE facility.pk_facility = ? OR facility.str_name = ?",
-        FACILITY_MAPPER, name, name);
-  }
-
-  @Override
-  public FacilitySeq getFacilities() {
-    return FacilitySeq.newBuilder()
-        .addAllFacilities(getJdbcTemplate().query(QUERY_FOR_FACILITY, FACILITY_MAPPER)).build();
-  }
-
-  @Override
-  public Limit findLimit(String name) {
-    String findLimitQuery = QUERY_FOR_LIMIT + " WHERE limit_record.str_name = ? " + "GROUP BY "
-        + "limit_record.str_name, " + "limit_record.pk_limit_record, "
-        + "limit_record.int_max_value";
-    return getJdbcTemplate().queryForObject(findLimitQuery, LIMIT_MAPPER, name);
-  }
-
-  @Override
-  public Limit getLimit(String id) {
-    String getLimitQuery = QUERY_FOR_LIMIT + " WHERE limit_record.pk_limit_record = ? "
-        + "GROUP BY " + "limit_record.str_name, " + "limit_record.pk_limit_record, "
-        + "limit_record.int_max_value";
-    return getJdbcTemplate().queryForObject(getLimitQuery, LIMIT_MAPPER, id);
-  }
-
-  @Override
-  public List<Limit> getLimits() {
-    String getLimitsQuery = QUERY_FOR_LIMIT + " GROUP BY " + "limit_record.str_name, "
-        + "limit_record.pk_limit_record, " + "limit_record.int_max_value";
-    return getJdbcTemplate().query(getLimitsQuery, LIMIT_MAPPER);
-  }
-
-  /*
-   * Row Mappers
-   */
-
-  public static final RowMapper<Limit> LIMIT_MAPPER = new RowMapper<Limit>() {
-    public Limit mapRow(ResultSet rs, int rowNum) throws SQLException {
-      return Limit.newBuilder().setId(SqlUtil.getString(rs, "pk_limit_record"))
-          .setName(SqlUtil.getString(rs, "str_name")).setMaxValue(rs.getInt("int_max_value"))
-          .setCurrentRunning(rs.getInt("int_current_running")).build();
-    }
-  };
-
-  public static final RowMapper<Matcher> MATCHER_MAPPER = new RowMapper<Matcher>() {
-    public Matcher mapRow(ResultSet rs, int rowNum) throws SQLException {
-      return Matcher.newBuilder().setId(SqlUtil.getString(rs, "pk_matcher"))
-          .setInput(SqlUtil.getString(rs, "str_value"))
-          .setSubject(MatchSubject.valueOf(SqlUtil.getString(rs, "str_subject")))
-          .setType(MatchType.valueOf(SqlUtil.getString(rs, "str_match"))).build();
-    }
-  };
-
-  public static final RowMapper<Filter> FILTER_MAPPER = new RowMapper<Filter>() {
-    public Filter mapRow(ResultSet rs, int rowNum) throws SQLException {
-      return Filter.newBuilder().setId(SqlUtil.getString(rs, "pk_filter"))
-          .setType(FilterType.valueOf(SqlUtil.getString(rs, "str_type")))
-          .setOrder(rs.getFloat("f_order")).setName(SqlUtil.getString(rs, "str_name"))
-          .setEnabled(rs.getBoolean("b_enabled")).build();
-    }
-  };
-
-  public static final RowMapper<Action> ACTION_MAPPER = new RowMapper<Action>() {
-    public Action mapRow(ResultSet rs, int rowNum) throws SQLException {
-      Action.Builder builder = Action.newBuilder().setId(SqlUtil.getString(rs, "pk_action"))
-          .setBooleanValue(false).setIntegerValue(0).setFloatValue(0f).setStringValue("")
-          .setType(ActionType.valueOf(SqlUtil.getString(rs, "str_action")))
-          .setValueType(ActionValueType.valueOf(SqlUtil.getString(rs, "str_value_type")));
-
-      switch (builder.getValueType()) {
-        case GROUP_TYPE:
-          builder.setGroupValue(SqlUtil.getString(rs, "pk_folder"));
-          break;
-        case STRING_TYPE:
-          builder.setStringValue(SqlUtil.getString(rs, "str_value"));
-          break;
-        case INTEGER_TYPE:
-          builder.setIntegerValue(rs.getInt("int_value"));
-          break;
-        case FLOAT_TYPE:
-          builder.setFloatValue(rs.getFloat("float_value"));
-          break;
-        case BOOLEAN_TYPE:
-          builder.setBooleanValue(rs.getBoolean("b_value"));
-          break;
-      }
-      return builder.build();
-    }
-  };
-
-  public static final RowMapper<Facility> FACILITY_MAPPER = new RowMapper<Facility>() {
-    public Facility mapRow(ResultSet rs, int rowNum) throws SQLException {
-      return Facility.newBuilder().setName(rs.getString("str_name"))
-          .setId(rs.getString("pk_facility")).build();
-    }
-  };
-
-  public static final RowMapper<Deed> DEED_MAPPER = new RowMapper<Deed>() {
-    public Deed mapRow(ResultSet rs, int rowNum) throws SQLException {
-      return Deed.newBuilder().setId(SqlUtil.getString(rs, "pk_deed"))
-          .setHost(SqlUtil.getString(rs, "str_host"))
-          .setOwner(SqlUtil.getString(rs, "str_username")).build();
-    }
-  };
-
-  public static final RowMapper<RenderPartition> RENDER_PARTION_MAPPER =
-      new RowMapper<RenderPartition>() {
-        public RenderPartition mapRow(ResultSet rs, int rowNum) throws SQLException {
-
-          RenderPartition.Builder builder =
-              RenderPartition.newBuilder().setId(SqlUtil.getString(rs, "pk_host_local"))
-                  .setCores(rs.getInt("int_cores_max") - rs.getInt("int_cores_idle"))
-                  .setMaxCores(rs.getInt("int_cores_max")).setThreads(rs.getInt("int_threads"))
-                  .setMaxMemory(rs.getLong("int_mem_max"))
-                  .setMemory(rs.getLong("int_mem_max") - rs.getLong("int_mem_idle"))
-                  .setGpus(rs.getInt("int_gpus_max") - rs.getInt("int_gpus_idle"))
-                  .setMaxGpus(rs.getInt("int_gpus_max"))
-                  .setGpuMemory(rs.getLong("int_gpu_mem_max") - rs.getLong("int_gpu_mem_idle"))
-                  .setMaxGpuMemory(rs.getLong("int_gpu_mem_max"))
-                  .setHost(SqlUtil.getString(rs, "str_host_name"))
-                  .setJob(SqlUtil.getString(rs, "str_job_name"))
-                  .setRenderPartType(RenderPartitionType.valueOf(SqlUtil.getString(rs, "str_type")))
-                  .setLayer("").setFrame("");
-
-          if (SqlUtil.getString(rs, "str_layer_name") != null) {
-            builder.setLayer(SqlUtil.getString(rs, "str_layer_name"));
-          }
-
-          if (SqlUtil.getString(rs, "str_frame_name") != null) {
-            builder.setFrame(SqlUtil.getString(rs, "str_frame_name"));
-          }
-
-          return builder.build();
-
         }
-      };
+    };
 
-  public static final RowMapper<Owner> OWNER_MAPPER = new RowMapper<Owner>() {
-    public Owner mapRow(ResultSet rs, int rowNum) throws SQLException {
-      return Owner.newBuilder().setName(SqlUtil.getString(rs, "str_username"))
-          .setId(SqlUtil.getString(rs, "pk_owner")).setShow(SqlUtil.getString(rs, "str_show"))
-          .setHostCount(rs.getInt("host_count")).build();
-    }
-  };
+    public static final RowMapper<Subscription> SUBSCRIPTION_MAPPER =
+            new RowMapper<Subscription>() {
+                public Subscription mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    return Subscription.newBuilder().setId(SqlUtil.getString(rs, "pk_subscription"))
+                            .setBurst(rs.getInt("int_burst")).setName(rs.getString("name"))
+                            .setReservedCores(rs.getInt("int_cores"))
+                            .setReservedGpus(rs.getInt("int_gpus")).setSize(rs.getInt("int_size"))
+                            .setAllocationName(rs.getString("alloc_name"))
+                            .setShowName(rs.getString("show_name"))
+                            .setFacility(rs.getString("facility_name")).build();
+                }
+            };
 
-  public static final RowMapper<Department> DEPARTMENT_MAPPER = new RowMapper<Department>() {
-    public Department mapRow(ResultSet rs, int row) throws SQLException {
-      return Department.newBuilder().setId(SqlUtil.getString(rs, "pk_point"))
-          .setName(SqlUtil.getString(rs, "str_name")).setDept(SqlUtil.getString(rs, "str_dept"))
-          .setTiManaged(rs.getBoolean("b_managed")).setTiTask(SqlUtil.getString(rs, "str_ti_task"))
-          .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores"))).build();
-    }
-  };
+    public static final RowMapper<UpdatedFrame> UPDATED_FRAME_MAPPER =
+            new RowMapper<UpdatedFrame>() {
+                public UpdatedFrame mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    UpdatedFrame.Builder builder =
+                            UpdatedFrame.newBuilder().setId(SqlUtil.getString(rs, "pk_frame"))
+                                    .setExitStatus(rs.getInt("int_exit_status"))
+                                    .setMaxRss(rs.getInt("int_mem_max_used"))
+                                    .setRetryCount(rs.getInt("int_retries"))
+                                    .setState(
+                                            FrameState.valueOf(SqlUtil.getString(rs, "str_state")))
+                                    .setUsedMemory(rs.getInt("int_mem_used"));
 
-  public static final RowMapper<Proc> PROC_MAPPER = new RowMapper<Proc>() {
-    public Proc mapRow(ResultSet rs, int row) throws SQLException {
-      return Proc.newBuilder().setId(SqlUtil.getString(rs, "pk_proc"))
-          .setName(CueUtil.buildProcName(SqlUtil.getString(rs, "host_name"),
-              rs.getInt("int_cores_reserved"), rs.getInt("int_gpus_reserved")))
-          .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores_reserved")))
-          .setReservedMemory(rs.getLong("int_mem_reserved"))
-          .setReservedGpus(rs.getInt("int_gpus_reserved"))
-          .setReservedGpuMemory(rs.getLong("int_gpu_mem_reserved"))
-          .setUsedMemory(rs.getLong("int_mem_used"))
-          .setUsedGpuMemory(rs.getLong("int_gpu_mem_used"))
-          .setFrameName(SqlUtil.getString(rs, "frame_name"))
-          .setJobName(SqlUtil.getString(rs, "job_name"))
-          .setGroupName(SqlUtil.getString(rs, "folder_name"))
-          .setShowName(SqlUtil.getString(rs, "show_name"))
-          .setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000))
-          .setBookedTime((int) (rs.getTimestamp("ts_booked").getTime() / 1000))
-          .setDispatchTime((int) (rs.getTimestamp("ts_dispatched").getTime() / 1000))
-          .setUnbooked(rs.getBoolean("b_unbooked"))
-          .setLogPath(String.format("%s/%s.%s.rqlog", SqlUtil.getString(rs, "str_log_dir"),
-              SqlUtil.getString(rs, "job_name"), SqlUtil.getString(rs, "frame_name")))
-          .setRedirectTarget(SqlUtil.getString(rs, "str_redirect"))
-          .setChildProcesses(SqlUtil.getByteString(rs, "bytea_children"))
-          .addAllServices(Arrays.asList(SqlUtil.getString(rs, "str_services").split(","))).build();
-    }
-  };
+                    if (SqlUtil.getString(rs, "str_host") != null) {
+                        builder.setLastResource(String.format(Locale.ROOT, "%s/%2.2f/%d",
+                                SqlUtil.getString(rs, "str_host"),
+                                Convert.coreUnitsToCores(rs.getInt("int_cores")),
+                                rs.getInt("int_gpus")));
+                    } else {
+                        builder.setLastResource("");
+                    }
 
-  public static final RowMapper<Task> TASK_MAPPER = new RowMapper<Task>() {
-    public Task mapRow(ResultSet rs, int row) throws SQLException {
-      return Task.newBuilder().setId(SqlUtil.getString(rs, "pk_task"))
-          .setDept(SqlUtil.getString(rs, "str_dept")).setShot(SqlUtil.getString(rs, "str_shot"))
-          .setMinCores(Convert.coreUnitsToWholeCores(rs.getInt("int_min_cores")))
-          .setAdjustCores(Convert.coreUnitsToWholeCores(rs.getInt("int_adjust_cores"))).build();
-    }
-  };
+                    java.sql.Timestamp ts_started = rs.getTimestamp("ts_started");
+                    if (ts_started != null) {
+                        builder.setStartTime(
+                                (int) (rs.getTimestamp("ts_started").getTime() / 1000));
+                    } else {
+                        builder.setStartTime(0);
+                    }
+                    java.sql.Timestamp ts_stopped = rs.getTimestamp("ts_stopped");
+                    if (ts_stopped != null) {
+                        builder.setStopTime((int) (ts_stopped.getTime() / 1000));
+                    } else {
+                        builder.setStopTime(0);
+                    }
 
-  public static final RowMapper<Comment> COMMENT_MAPPER = new RowMapper<Comment>() {
+                    if (rs.getString("pk_frame_override") != null) {
+                        String[] rgb = rs.getString("str_rgb").split(",");
+                        FrameStateDisplayOverride override = FrameStateDisplayOverride.newBuilder()
+                                .setState(FrameState.valueOf(rs.getString("str_frame_state")))
+                                .setText(rs.getString("str_override_text"))
+                                .setColor(FrameStateDisplayOverride.RGB.newBuilder()
+                                        .setRed(Integer.parseInt(rgb[0]))
+                                        .setGreen(Integer.parseInt(rgb[1]))
+                                        .setBlue(Integer.parseInt(rgb[2])).build())
+                                .build();
+                        builder.setFrameStateDisplayOverride(override);
+                    }
 
-    public Comment mapRow(ResultSet rs, int row) throws SQLException {
-      return Comment.newBuilder().setId(SqlUtil.getString(rs, "pk_comment"))
-          .setMessage(SqlUtil.getString(rs, "str_message"))
-          .setSubject(SqlUtil.getString(rs, "str_subject"))
-          .setTimestamp((int) (rs.getTimestamp("ts_created").getTime() / 1000))
-          .setUser(SqlUtil.getString(rs, "str_user")).build();
-    }
-  };
+                    return builder.build();
+                }
+            };
 
-  public static NestedHost.Builder mapNestedHostBuilder(ResultSet rs) throws SQLException {
-    NestedHost.Builder builder = NestedHost.newBuilder().setId(SqlUtil.getString(rs, "pk_host"))
-        .setName(SqlUtil.getString(rs, "host_name"))
-        .setAllocName(SqlUtil.getString(rs, "alloc_name"))
-        .setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000))
-        .setFreeMcp(rs.getLong("int_mcp_free")).setFreeMemory(rs.getLong("int_mem_free"))
-        .setFreeSwap(rs.getLong("int_swap_free")).setFreeGpuMemory(rs.getLong("int_gpu_mem_free"))
-        .setLoad(rs.getInt("int_load")).setNimbyEnabled(rs.getBoolean("b_nimby"))
-        .setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
-        .setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_cores_idle")))
-        .setMemory(rs.getLong("int_mem")).setIdleMemory(rs.getLong("int_mem_idle"))
-        .setGpus(rs.getInt("int_gpus")).setIdleGpus(rs.getInt("int_gpus_idle"))
-        .setGpuMemory(rs.getLong("int_gpu_mem")).setIdleGpuMemory(rs.getLong("int_gpu_mem_idle"))
-        .setState(HardwareState.valueOf(SqlUtil.getString(rs, "host_state")))
-        .setTotalMcp(rs.getLong("int_mcp_total")).setTotalMemory(rs.getLong("int_mem_total"))
-        .setTotalSwap(rs.getLong("int_swap_total"))
-        .setTotalGpuMemory(rs.getLong("int_gpu_mem_total"))
-        .setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000))
-        .setLockState(LockState.valueOf(SqlUtil.getString(rs, "str_lock_state")))
-        .setHasComment(rs.getBoolean("b_comment"))
-        .setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")])
-        .setOs(SqlUtil.getString(rs, "str_os"));
+    public static final RowMapper<Frame> FRAME_MAPPER = new RowMapper<Frame>() {
+        public Frame mapRow(ResultSet rs, int rowNum) throws SQLException {
+            Frame.Builder builder = Frame.newBuilder().setId(SqlUtil.getString(rs, "pk_frame"))
+                    .setName(SqlUtil.getString(rs, "str_name"))
+                    .setExitStatus(rs.getInt("int_exit_status"))
+                    .setMaxRss(rs.getLong("int_mem_max_used")).setNumber(rs.getInt("int_number"))
+                    .setDispatchOrder(rs.getInt("int_dispatch_order"))
+                    .setRetryCount(rs.getInt("int_retries"))
+                    .setState(FrameState.valueOf(SqlUtil.getString(rs, "str_state")))
+                    .setLayerName(SqlUtil.getString(rs, "layer_name"))
+                    .setUsedMemory(rs.getLong("int_mem_used"))
+                    .setReservedMemory(rs.getLong("int_mem_reserved"))
+                    .setReservedGpuMemory(rs.getLong("int_gpu_mem_reserved"))
+                    .setCheckpointState(
+                            CheckpointState.valueOf(SqlUtil.getString(rs, "str_checkpoint_state")))
+                    .setCheckpointCount(rs.getInt("int_checkpoint_count"));
 
-    String tags = SqlUtil.getString(rs, "str_tags");
-    if (tags != null)
-      builder.addAllTags(Arrays.asList(tags.split(" ")));
-    return builder;
-  }
+            if (SqlUtil.getString(rs, "str_host") != null) {
+                builder.setLastResource(CueUtil.buildProcName(SqlUtil.getString(rs, "str_host"),
+                        rs.getInt("int_cores"), rs.getInt("int_gpus")));
+            } else {
+                builder.setLastResource("");
+            }
 
-  public static Host.Builder mapHostBuilder(ResultSet rs) throws SQLException {
-    Host.Builder builder = Host.newBuilder();
-    builder.setId(SqlUtil.getString(rs, "pk_host"));
-    builder.setName(SqlUtil.getString(rs, "host_name"));
-    builder.setAllocName(SqlUtil.getString(rs, "alloc_name"));
-    builder.setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000));
-    builder.setFreeMcp(rs.getLong("int_mcp_free"));
-    builder.setFreeMemory(rs.getLong("int_mem_free"));
-    builder.setFreeSwap(rs.getLong("int_swap_free"));
-    builder.setFreeGpuMemory(rs.getLong("int_gpu_mem_free"));
-    builder.setLoad(rs.getInt("int_load"));
-    builder.setNimbyEnabled(rs.getBoolean("b_nimby"));
-    builder.setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")));
-    builder.setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_cores_idle")));
-    builder.setMemory(rs.getLong("int_mem"));
-    builder.setIdleMemory(rs.getLong("int_mem_idle"));
-    builder.setGpus(rs.getInt("int_gpus"));
-    builder.setIdleGpus(rs.getInt("int_gpus_idle"));
-    builder.setGpuMemory(rs.getLong("int_gpu_mem"));
-    builder.setIdleGpuMemory(rs.getLong("int_gpu_mem_idle"));
-    builder.setState(HardwareState.valueOf(SqlUtil.getString(rs, "host_state")));
-    builder.setTotalMcp(rs.getLong("int_mcp_total"));
-    builder.setTotalMemory(rs.getLong("int_mem_total"));
-    builder.setTotalSwap(rs.getLong("int_swap_total"));
-    builder.setTotalGpuMemory(rs.getLong("int_gpu_mem_total"));
-    builder.setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000));
-    builder.setLockState(LockState.valueOf(SqlUtil.getString(rs, "str_lock_state")));
-    builder.setHasComment(rs.getBoolean("b_comment"));
-    builder.setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")]);
-    builder.setOs(SqlUtil.getString(rs, "str_os"));
+            java.sql.Timestamp ts_started = rs.getTimestamp("ts_started");
+            if (ts_started != null) {
+                builder.setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000));
+            } else {
+                builder.setStartTime(0);
+            }
+            java.sql.Timestamp ts_stopped = rs.getTimestamp("ts_stopped");
+            if (ts_stopped != null) {
+                builder.setStopTime((int) (ts_stopped.getTime() / 1000));
+            } else {
+                builder.setStopTime(0);
+            }
+            java.sql.Timestamp ts_llu = rs.getTimestamp("ts_llu");
+            if (ts_llu != null) {
+                builder.setLluTime((int) (ts_llu.getTime() / 1000));
+            } else {
+                builder.setLluTime(0);
+            }
 
-    String tags = SqlUtil.getString(rs, "str_tags");
-    if (tags != null)
-      builder.addAllTags(Arrays.asList(tags.split(" ")));
-    return builder;
-  }
+            builder.setTotalCoreTime(rs.getInt("int_total_past_core_time"));
+            builder.setTotalGpuTime(rs.getInt("int_total_past_gpu_time"));
+            if (builder.getState() == FrameState.RUNNING) {
+                builder.setTotalCoreTime(builder.getTotalCoreTime()
+                        + (int) (System.currentTimeMillis() / 1000 - builder.getStartTime())
+                                * rs.getInt("int_cores") / 100);
+                builder.setTotalGpuTime(builder.getTotalGpuTime()
+                        + (int) (System.currentTimeMillis() / 1000 - builder.getStartTime())
+                                * rs.getInt("int_gpus"));
+            }
 
-  public static final RowMapper<Host> HOST_MAPPER = new RowMapper<Host>() {
-    public Host mapRow(ResultSet rs, int row) throws SQLException {
-      Host.Builder builder = mapHostBuilder(rs);
-      return builder.build();
-    }
-  };
+            if (rs.getString("pk_frame_override") != null) {
+                String[] rgb = rs.getString("str_rgb").split(",");
+                FrameStateDisplayOverride override = FrameStateDisplayOverride.newBuilder()
+                        .setState(FrameState.valueOf(rs.getString("str_frame_state")))
+                        .setText(rs.getString("str_override_text"))
+                        .setColor(FrameStateDisplayOverride.RGB.newBuilder()
+                                .setRed(Integer.parseInt(rgb[0])).setGreen(Integer.parseInt(rgb[1]))
+                                .setBlue(Integer.parseInt(rgb[2])).build())
+                        .build();
+                builder.setFrameStateDisplayOverride(override);
+            }
 
-  public static final RowMapper<Depend> DEPEND_MAPPER = new RowMapper<Depend>() {
-    public Depend mapRow(ResultSet rs, int rowNum) throws SQLException {
-      return Depend.newBuilder().setId(SqlUtil.getString(rs, "pk_depend"))
-          .setActive(rs.getBoolean("b_active")).setAnyFrame(rs.getBoolean("b_any"))
-          .setDependErFrame(SqlUtil.getString(rs, "depend_er_frame"))
-          .setDependErLayer(SqlUtil.getString(rs, "depend_er_layer"))
-          .setDependErJob(SqlUtil.getString(rs, "depend_er_job"))
-          .setDependOnFrame(SqlUtil.getString(rs, "depend_on_frame"))
-          .setDependOnLayer(SqlUtil.getString(rs, "depend_on_layer"))
-          .setDependOnJob(SqlUtil.getString(rs, "depend_on_job"))
-          .setType(DependType.valueOf(SqlUtil.getString(rs, "str_type")))
-          .setTarget(DependTarget.valueOf(SqlUtil.getString(rs, "str_target"))).build();
-    }
-  };
-
-  public static final RowMapper<Allocation> ALLOCATION_MAPPER = new RowMapper<Allocation>() {
-    public Allocation mapRow(ResultSet rs, int rowNum) throws SQLException {
-      return Allocation.newBuilder().setId(rs.getString("pk_alloc"))
-          .setName(rs.getString("str_name")).setFacility(rs.getString("facility_name"))
-          .setTag(rs.getString("str_tag")).setBillable(rs.getBoolean("b_billable"))
-          .setStats(AllocationStats.newBuilder()
-              .setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
-              .setAvailableCores(Convert.coreUnitsToCores(rs.getInt("int_available_cores")))
-              .setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_idle_cores")))
-              .setRunningCores(Convert.coreUnitsToCores(rs.getInt("int_running_cores")))
-              .setLockedCores(Convert.coreUnitsToCores(rs.getInt("int_locked_cores")))
-              .setGpus(rs.getInt("int_gpus")).setAvailableGpus(rs.getInt("int_available_gpus"))
-              .setIdleGpus(rs.getInt("int_idle_gpus")).setRunningGpus(rs.getInt("int_running_gpus"))
-              .setLockedGpus(rs.getInt("int_locked_gpus")).setHosts(rs.getInt("int_hosts"))
-              .setDownHosts(rs.getInt("int_down_hosts"))
-              .setLockedHosts(rs.getInt("int_locked_hosts")).build())
-          .build();
-    }
-  };
-
-  private static final RowMapper<Group> GROUP_MAPPER = new RowMapper<Group>() {
-
-    public Group mapRow(ResultSet rs, int rowNum) throws SQLException {
-      GroupStats stats = GroupStats.newBuilder().setDeadFrames(rs.getInt("int_dead_count"))
-          .setRunningFrames(rs.getInt("int_running_count"))
-          .setWaitingFrames(rs.getInt("int_waiting_count"))
-          .setDependFrames(rs.getInt("int_depend_count")).setPendingJobs(rs.getInt("int_job_count"))
-          .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
-          .setReservedGpus(rs.getInt("int_gpus")).build();
-      return Group.newBuilder().setId(SqlUtil.getString(rs, "pk_folder"))
-          .setName(SqlUtil.getString(rs, "group_name"))
-          .setDepartment(SqlUtil.getString(rs, "str_dept"))
-          .setDefaultJobPriority(rs.getInt("int_job_priority"))
-          .setDefaultJobMinCores(Convert.coreUnitsToCores(rs.getInt("int_job_min_cores")))
-          .setDefaultJobMaxCores(Convert.coreUnitsToCores(rs.getInt("int_job_max_cores")))
-          .setDefaultJobMinGpus(rs.getInt("int_job_min_gpus"))
-          .setDefaultJobMaxGpus(rs.getInt("int_job_max_gpus"))
-          .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
-          .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
-          .setMaxGpus(rs.getInt("int_max_gpus")).setMinGpus(rs.getInt("int_min_gpus"))
-          .setLevel(rs.getInt("int_level")).setParentId(SqlUtil.getString(rs, "pk_parent_folder"))
-          .setGroupStats(stats).build();
-    }
-  };
-
-  public static final RowMapper<Job> JOB_MAPPER = new RowMapper<Job>() {
-    public Job mapRow(ResultSet rs, int rowNum) throws SQLException {
-      Job.Builder jobBuilder = Job.newBuilder().setId(SqlUtil.getString(rs, "pk_job"))
-          .setLogDir(SqlUtil.getString(rs, "str_log_dir"))
-          .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
-          .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
-          .setMaxGpus(rs.getInt("int_max_gpus")).setMinGpus(rs.getInt("int_min_gpus"))
-          .setName(SqlUtil.getString(rs, "str_name")).setPriority(rs.getInt("int_priority"))
-          .setShot(SqlUtil.getString(rs, "str_shot")).setShow(SqlUtil.getString(rs, "str_show"))
-          .setFacility(SqlUtil.getString(rs, "facility_name"))
-          .setGroup(SqlUtil.getString(rs, "group_name"))
-          .setState(JobState.valueOf(SqlUtil.getString(rs, "str_state")))
-          .setUser(SqlUtil.getString(rs, "str_user")).setIsPaused(rs.getBoolean("b_paused"))
-          .setHasComment(rs.getBoolean("b_comment")).setAutoEat(rs.getBoolean("b_autoeat"))
-          .setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000))
-          .setOs(SqlUtil.getString(rs, "str_os"));
-
-      int uid = rs.getInt("int_uid");
-      if (!rs.wasNull()) {
-        jobBuilder.setUid(uid);
-      }
-
-      Timestamp ts = rs.getTimestamp("ts_stopped");
-      if (ts != null) {
-        jobBuilder.setStopTime((int) (ts.getTime() / 1000));
-      } else {
-        jobBuilder.setStopTime(0);
-      }
-
-      jobBuilder.setJobStats(mapJobStats(rs));
-      return jobBuilder.build();
-    }
-  };
-
-  public static JobStats mapJobStats(ResultSet rs) throws SQLException {
-
-    JobStats.Builder statsBuilder = JobStats.newBuilder()
-        .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
-        .setReservedGpus(rs.getInt("int_gpus")).setMaxRss(rs.getLong("int_max_rss"))
-        .setTotalFrames(rs.getInt("int_frame_count")).setTotalLayers(rs.getInt("int_layer_count"))
-        .setWaitingFrames(rs.getInt("int_waiting_count"))
-        .setRunningFrames(rs.getInt("int_running_count")).setDeadFrames(rs.getInt("int_dead_count"))
-        .setSucceededFrames(rs.getInt("int_succeeded_count"))
-        .setEatenFrames(rs.getInt("int_eaten_count")).setDependFrames(rs.getInt("int_depend_count"))
-        .setPendingFrames(rs.getInt("int_waiting_count") + rs.getInt("int_depend_count"))
-        .setFailedCoreSec(rs.getLong("int_core_time_fail"))
-        .setRenderedCoreSec(rs.getLong("int_core_time_success"))
-        .setTotalCoreSec(rs.getLong("int_core_time_fail") + rs.getLong("int_core_time_success"))
-        .setFailedGpuSec(rs.getLong("int_gpu_time_fail"))
-        .setRenderedGpuSec(rs.getLong("int_gpu_time_success"))
-        .setTotalGpuSec(rs.getLong("int_gpu_time_fail") + rs.getLong("int_gpu_time_success"))
-        .setRenderedFrameCount(rs.getLong("int_frame_success_count"))
-        .setFailedFrameCount(rs.getLong("int_frame_fail_count"))
-        .setHighFrameSec(rs.getInt("int_clock_time_high"));
-
-    if (statsBuilder.getRenderedFrameCount() > 0) {
-      statsBuilder.setAvgCoreSec(
-          (int) (rs.getLong("int_clock_time_success") / statsBuilder.getRenderedFrameCount()));
-      statsBuilder.setAvgCoreSec(
-          (int) (statsBuilder.getRenderedCoreSec() / statsBuilder.getRenderedFrameCount()));
-      statsBuilder.setRemainingCoreSec(
-          (long) statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
-    } else {
-      statsBuilder.setAvgFrameSec(0);
-      statsBuilder.setAvgCoreSec(0);
-      statsBuilder.setRemainingCoreSec(0);
-    }
-    return statsBuilder.build();
-  }
-
-  public static final RowMapper<Layer> LAYER_MAPPER = new RowMapper<Layer>() {
-    public Layer mapRow(ResultSet rs, int rowNum) throws SQLException {
-      Layer.Builder builder = Layer.newBuilder().setId(SqlUtil.getString(rs, "pk_layer"))
-          .setParentId(SqlUtil.getString(rs, "pk_job")).setChunkSize(rs.getInt("int_chunk_size"))
-          .setDispatchOrder(rs.getInt("int_dispatch_order"))
-          .setName(SqlUtil.getString(rs, "str_name")).setCommand(SqlUtil.getString(rs, "str_cmd"))
-          .setRange(SqlUtil.getString(rs, "str_range"))
-          .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_cores_min")))
-          .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_cores_max")))
-          .setIsThreadable(rs.getBoolean("b_threadable")).setMinMemory(rs.getLong("int_mem_min"))
-          .setMinGpus(rs.getInt("int_gpus_min")).setMaxGpus(rs.getInt("int_gpus_max"))
-          .setMinGpuMemory(rs.getLong("int_gpu_mem_min"))
-          .setType(LayerType.valueOf(SqlUtil.getString(rs, "str_type")))
-          .addAllTags(
-              Sets.newHashSet(SqlUtil.getString(rs, "str_tags").replaceAll(" ", "").split("\\|")))
-          .addAllServices(Arrays.asList(SqlUtil.getString(rs, "str_services").split(",")))
-          .addAllLimits(Arrays.asList(SqlUtil.getString(rs, "str_limit_names").split(",")))
-          .setMemoryOptimizerEnabled(rs.getBoolean("b_optimize"))
-          .setTimeout(rs.getInt("int_timeout")).setTimeoutLlu(rs.getInt("int_timeout_llu"));
-
-      LayerStats.Builder statsBuilder = LayerStats.newBuilder()
-          .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
-          .setReservedGpus(rs.getInt("int_gpus")).setMaxRss(rs.getLong("int_max_rss"))
-          .setTotalFrames(rs.getInt("int_total_count"))
-          .setWaitingFrames(rs.getInt("int_waiting_count"))
-          .setRunningFrames(rs.getInt("int_running_count"))
-          .setDeadFrames(rs.getInt("int_dead_count"))
-          .setSucceededFrames(rs.getInt("int_succeeded_count"))
-          .setEatenFrames(rs.getInt("int_eaten_count"))
-          .setDependFrames(rs.getInt("int_depend_count"))
-          .setPendingFrames(rs.getInt("int_waiting_count") + rs.getInt("int_depend_count"))
-          .setFailedCoreSec(rs.getLong("int_core_time_fail"))
-          .setRenderedCoreSec(rs.getLong("int_core_time_success"))
-          .setTotalCoreSec(rs.getLong("int_core_time_fail") + rs.getLong("int_core_time_success"))
-          .setFailedGpuSec(rs.getLong("int_gpu_time_fail"))
-          .setRenderedGpuSec(rs.getLong("int_gpu_time_success"))
-          .setTotalGpuSec(rs.getLong("int_gpu_time_fail") + rs.getLong("int_gpu_time_success"))
-          .setRenderedFrameCount(rs.getLong("int_frame_success_count"))
-          .setFailedFrameCount(rs.getLong("int_frame_fail_count"))
-          .setHighFrameSec(rs.getInt("int_clock_time_high"))
-          .setLowFrameSec(rs.getInt("int_clock_time_low"));
-
-      if (statsBuilder.getRenderedFrameCount() > 0) {
-        statsBuilder.setAvgFrameSec(
-            (int) (rs.getLong("int_clock_time_success") / statsBuilder.getRenderedFrameCount()));
-        statsBuilder.setAvgCoreSec(
-            (int) (statsBuilder.getRenderedCoreSec() / statsBuilder.getRenderedFrameCount()));
-        statsBuilder.setRemainingCoreSec(
-            (long) statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
-      } else {
-        statsBuilder.setAvgFrameSec(0);
-        statsBuilder.setAvgCoreSec(0);
-        statsBuilder.setRemainingCoreSec(0);
-      }
-      builder.setLayerStats(statsBuilder.build());
-      return builder.build();
-    }
-  };
-
-  private static final RowMapper<String> LIMIT_NAME_MAPPER = new RowMapper<String>() {
-    public String mapRow(ResultSet rs, int rowNum) throws SQLException {
-      return rs.getString("str_name");
-    }
-  };
-
-  public static final RowMapper<Subscription> SUBSCRIPTION_MAPPER = new RowMapper<Subscription>() {
-    public Subscription mapRow(ResultSet rs, int rowNum) throws SQLException {
-      return Subscription.newBuilder().setId(SqlUtil.getString(rs, "pk_subscription"))
-          .setBurst(rs.getInt("int_burst")).setName(rs.getString("name"))
-          .setReservedCores(rs.getInt("int_cores")).setReservedGpus(rs.getInt("int_gpus"))
-          .setSize(rs.getInt("int_size")).setAllocationName(rs.getString("alloc_name"))
-          .setShowName(rs.getString("show_name")).setFacility(rs.getString("facility_name"))
-          .build();
-    }
-  };
-
-  public static final RowMapper<UpdatedFrame> UPDATED_FRAME_MAPPER = new RowMapper<UpdatedFrame>() {
-    public UpdatedFrame mapRow(ResultSet rs, int rowNum) throws SQLException {
-      UpdatedFrame.Builder builder = UpdatedFrame.newBuilder()
-          .setId(SqlUtil.getString(rs, "pk_frame")).setExitStatus(rs.getInt("int_exit_status"))
-          .setMaxRss(rs.getInt("int_mem_max_used")).setRetryCount(rs.getInt("int_retries"))
-          .setState(FrameState.valueOf(SqlUtil.getString(rs, "str_state")))
-          .setUsedMemory(rs.getInt("int_mem_used"));
-
-      if (SqlUtil.getString(rs, "str_host") != null) {
-        builder.setLastResource(
-            String.format(Locale.ROOT, "%s/%2.2f/%d", SqlUtil.getString(rs, "str_host"),
-                Convert.coreUnitsToCores(rs.getInt("int_cores")), rs.getInt("int_gpus")));
-      } else {
-        builder.setLastResource("");
-      }
-
-      java.sql.Timestamp ts_started = rs.getTimestamp("ts_started");
-      if (ts_started != null) {
-        builder.setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000));
-      } else {
-        builder.setStartTime(0);
-      }
-      java.sql.Timestamp ts_stopped = rs.getTimestamp("ts_stopped");
-      if (ts_stopped != null) {
-        builder.setStopTime((int) (ts_stopped.getTime() / 1000));
-      } else {
-        builder.setStopTime(0);
-      }
-
-      if (rs.getString("pk_frame_override") != null) {
-        String[] rgb = rs.getString("str_rgb").split(",");
-        FrameStateDisplayOverride override = FrameStateDisplayOverride.newBuilder()
-            .setState(FrameState.valueOf(rs.getString("str_frame_state")))
-            .setText(rs.getString("str_override_text"))
-            .setColor(FrameStateDisplayOverride.RGB.newBuilder().setRed(Integer.parseInt(rgb[0]))
-                .setGreen(Integer.parseInt(rgb[1])).setBlue(Integer.parseInt(rgb[2])).build())
-            .build();
-        builder.setFrameStateDisplayOverride(override);
-      }
-
-      return builder.build();
-    }
-  };
-
-  public static final RowMapper<Frame> FRAME_MAPPER = new RowMapper<Frame>() {
-    public Frame mapRow(ResultSet rs, int rowNum) throws SQLException {
-      Frame.Builder builder = Frame.newBuilder().setId(SqlUtil.getString(rs, "pk_frame"))
-          .setName(SqlUtil.getString(rs, "str_name")).setExitStatus(rs.getInt("int_exit_status"))
-          .setMaxRss(rs.getLong("int_mem_max_used")).setNumber(rs.getInt("int_number"))
-          .setDispatchOrder(rs.getInt("int_dispatch_order")).setRetryCount(rs.getInt("int_retries"))
-          .setState(FrameState.valueOf(SqlUtil.getString(rs, "str_state")))
-          .setLayerName(SqlUtil.getString(rs, "layer_name"))
-          .setUsedMemory(rs.getLong("int_mem_used"))
-          .setReservedMemory(rs.getLong("int_mem_reserved"))
-          .setReservedGpuMemory(rs.getLong("int_gpu_mem_reserved"))
-          .setCheckpointState(
-              CheckpointState.valueOf(SqlUtil.getString(rs, "str_checkpoint_state")))
-          .setCheckpointCount(rs.getInt("int_checkpoint_count"));
-
-      if (SqlUtil.getString(rs, "str_host") != null) {
-        builder.setLastResource(CueUtil.buildProcName(SqlUtil.getString(rs, "str_host"),
-            rs.getInt("int_cores"), rs.getInt("int_gpus")));
-      } else {
-        builder.setLastResource("");
-      }
-
-      java.sql.Timestamp ts_started = rs.getTimestamp("ts_started");
-      if (ts_started != null) {
-        builder.setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000));
-      } else {
-        builder.setStartTime(0);
-      }
-      java.sql.Timestamp ts_stopped = rs.getTimestamp("ts_stopped");
-      if (ts_stopped != null) {
-        builder.setStopTime((int) (ts_stopped.getTime() / 1000));
-      } else {
-        builder.setStopTime(0);
-      }
-      java.sql.Timestamp ts_llu = rs.getTimestamp("ts_llu");
-      if (ts_llu != null) {
-        builder.setLluTime((int) (ts_llu.getTime() / 1000));
-      } else {
-        builder.setLluTime(0);
-      }
-
-      builder.setTotalCoreTime(rs.getInt("int_total_past_core_time"));
-      builder.setTotalGpuTime(rs.getInt("int_total_past_gpu_time"));
-      if (builder.getState() == FrameState.RUNNING) {
-        builder.setTotalCoreTime(builder.getTotalCoreTime()
-            + (int) (System.currentTimeMillis() / 1000 - builder.getStartTime())
-                * rs.getInt("int_cores") / 100);
-        builder.setTotalGpuTime(builder.getTotalGpuTime()
-            + (int) (System.currentTimeMillis() / 1000 - builder.getStartTime())
-                * rs.getInt("int_gpus"));
-      }
-
-      if (rs.getString("pk_frame_override") != null) {
-        String[] rgb = rs.getString("str_rgb").split(",");
-        FrameStateDisplayOverride override = FrameStateDisplayOverride.newBuilder()
-            .setState(FrameState.valueOf(rs.getString("str_frame_state")))
-            .setText(rs.getString("str_override_text"))
-            .setColor(FrameStateDisplayOverride.RGB.newBuilder().setRed(Integer.parseInt(rgb[0]))
-                .setGreen(Integer.parseInt(rgb[1])).setBlue(Integer.parseInt(rgb[2])).build())
-            .build();
-        builder.setFrameStateDisplayOverride(override);
-      }
-
-      return builder.build();
-    }
-  };
-
-  private static final RowMapper<Service> SERVICE_MAPPER = new RowMapper<Service>() {
-    public Service mapRow(ResultSet rs, int rowNum) throws SQLException {
-      return Service.newBuilder().setId(SqlUtil.getString(rs, "pk_service"))
-          .setName(SqlUtil.getString(rs, "str_name")).setThreadable(rs.getBoolean("b_threadable"))
-          .setMinCores(rs.getInt("int_cores_min")).setMaxCores(rs.getInt("int_cores_max"))
-          .setMinMemory(rs.getInt("int_mem_min")).setMinGpus(rs.getInt("int_gpus_min"))
-          .setMaxGpus(rs.getInt("int_gpus_max")).setMinGpuMemory(rs.getInt("int_gpu_mem_min"))
-          .addAllTags(
-              Lists.newArrayList(ServiceDaoJdbc.splitTags(SqlUtil.getString(rs, "str_tags"))))
-          .setTimeout(rs.getInt("int_timeout")).setTimeoutLlu(rs.getInt("int_timeout_llu"))
-          .setMinMemoryIncrease(rs.getInt("int_min_memory_increase")).build();
-    }
-  };
-
-  private static final RowMapper<ServiceOverride> SERVICE_OVERRIDE_MAPPER =
-      new RowMapper<ServiceOverride>() {
-        public ServiceOverride mapRow(ResultSet rs, int rowNum) throws SQLException {
-          Service data = Service.newBuilder().setId(SqlUtil.getString(rs, "pk_show_service"))
-              .setName(SqlUtil.getString(rs, "str_name"))
-              .setThreadable(rs.getBoolean("b_threadable")).setMinCores(rs.getInt("int_cores_min"))
-              .setMaxCores(rs.getInt("int_cores_max")).setMinMemory(rs.getInt("int_mem_min"))
-              .setMinGpus(rs.getInt("int_gpus_min")).setMaxGpus(rs.getInt("int_gpus_max"))
-              .setMinGpuMemory(rs.getInt("int_gpu_mem_min"))
-              .addAllTags(
-                  Lists.newArrayList(ServiceDaoJdbc.splitTags(SqlUtil.getString(rs, "str_tags"))))
-              .setTimeout(rs.getInt("int_timeout")).setTimeoutLlu(rs.getInt("int_timeout_llu"))
-              .setMinMemoryIncrease(rs.getInt("int_min_memory_increase")).build();
-          return ServiceOverride.newBuilder().setId(SqlUtil.getString(rs, "pk_show_service"))
-              .setData(data).build();
+            return builder.build();
         }
-      };
+    };
 
-  public static final RowMapper<Show> SHOW_MAPPER = new RowMapper<Show>() {
-    public Show mapRow(ResultSet rs, int rowNum) throws SQLException {
-      ShowStats stats = ShowStats.newBuilder().setPendingFrames(rs.getInt("int_pending_count"))
-          .setRunningFrames(rs.getInt("int_running_count"))
-          .setDeadFrames(rs.getInt("int_dead_count"))
-          .setCreatedFrameCount(rs.getLong("int_frame_insert_count"))
-          .setCreatedJobCount(rs.getLong("int_job_insert_count"))
-          .setRenderedFrameCount(rs.getLong("int_frame_success_count"))
-          .setFailedFrameCount(rs.getLong("int_frame_fail_count"))
-          .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
-          .setReservedGpus(rs.getInt("int_gpus")).setPendingJobs(rs.getInt("int_job_count"))
-          .build();
-      return Show.newBuilder().setId(SqlUtil.getString(rs, "pk_show"))
-          .setName(SqlUtil.getString(rs, "str_name")).setActive(rs.getBoolean("b_active"))
-          .setDefaultMaxCores(Convert.coreUnitsToCores(rs.getInt("int_default_max_cores")))
-          .setDefaultMinCores(Convert.coreUnitsToCores(rs.getInt("int_default_min_cores")))
-          .setDefaultMaxGpus(rs.getInt("int_default_max_gpus"))
-          .setDefaultMinGpus(rs.getInt("int_default_min_gpus"))
-          .setBookingEnabled(rs.getBoolean("b_booking_enabled"))
-          .setDispatchEnabled(rs.getBoolean("b_dispatch_enabled"))
-          .setCommentEmail(SqlUtil.getString(rs, "str_comment_email")).setShowStats(stats).build();
+    private static final RowMapper<Service> SERVICE_MAPPER = new RowMapper<Service>() {
+        public Service mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return Service.newBuilder().setId(SqlUtil.getString(rs, "pk_service"))
+                    .setName(SqlUtil.getString(rs, "str_name"))
+                    .setThreadable(rs.getBoolean("b_threadable"))
+                    .setMinCores(rs.getInt("int_cores_min")).setMaxCores(rs.getInt("int_cores_max"))
+                    .setMinMemory(rs.getInt("int_mem_min")).setMinGpus(rs.getInt("int_gpus_min"))
+                    .setMaxGpus(rs.getInt("int_gpus_max"))
+                    .setMinGpuMemory(rs.getInt("int_gpu_mem_min"))
+                    .addAllTags(Lists.newArrayList(
+                            ServiceDaoJdbc.splitTags(SqlUtil.getString(rs, "str_tags"))))
+                    .setTimeout(rs.getInt("int_timeout"))
+                    .setTimeoutLlu(rs.getInt("int_timeout_llu"))
+                    .setMinMemoryIncrease(rs.getInt("int_min_memory_increase")).build();
+        }
+    };
+
+    private static final RowMapper<ServiceOverride> SERVICE_OVERRIDE_MAPPER =
+            new RowMapper<ServiceOverride>() {
+                public ServiceOverride mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    Service data = Service.newBuilder()
+                            .setId(SqlUtil.getString(rs, "pk_show_service"))
+                            .setName(SqlUtil.getString(rs, "str_name"))
+                            .setThreadable(rs.getBoolean("b_threadable"))
+                            .setMinCores(rs.getInt("int_cores_min"))
+                            .setMaxCores(rs.getInt("int_cores_max"))
+                            .setMinMemory(rs.getInt("int_mem_min"))
+                            .setMinGpus(rs.getInt("int_gpus_min"))
+                            .setMaxGpus(rs.getInt("int_gpus_max"))
+                            .setMinGpuMemory(rs.getInt("int_gpu_mem_min"))
+                            .addAllTags(Lists.newArrayList(
+                                    ServiceDaoJdbc.splitTags(SqlUtil.getString(rs, "str_tags"))))
+                            .setTimeout(rs.getInt("int_timeout"))
+                            .setTimeoutLlu(rs.getInt("int_timeout_llu"))
+                            .setMinMemoryIncrease(rs.getInt("int_min_memory_increase")).build();
+                    return ServiceOverride.newBuilder()
+                            .setId(SqlUtil.getString(rs, "pk_show_service")).setData(data).build();
+                }
+            };
+
+    public static final RowMapper<Show> SHOW_MAPPER = new RowMapper<Show>() {
+        public Show mapRow(ResultSet rs, int rowNum) throws SQLException {
+            ShowStats stats =
+                    ShowStats.newBuilder().setPendingFrames(rs.getInt("int_pending_count"))
+                            .setRunningFrames(rs.getInt("int_running_count"))
+                            .setDeadFrames(rs.getInt("int_dead_count"))
+                            .setCreatedFrameCount(rs.getLong("int_frame_insert_count"))
+                            .setCreatedJobCount(rs.getLong("int_job_insert_count"))
+                            .setRenderedFrameCount(rs.getLong("int_frame_success_count"))
+                            .setFailedFrameCount(rs.getLong("int_frame_fail_count"))
+                            .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                            .setReservedGpus(rs.getInt("int_gpus"))
+                            .setPendingJobs(rs.getInt("int_job_count")).build();
+            return Show.newBuilder().setId(SqlUtil.getString(rs, "pk_show"))
+                    .setName(SqlUtil.getString(rs, "str_name")).setActive(rs.getBoolean("b_active"))
+                    .setDefaultMaxCores(
+                            Convert.coreUnitsToCores(rs.getInt("int_default_max_cores")))
+                    .setDefaultMinCores(
+                            Convert.coreUnitsToCores(rs.getInt("int_default_min_cores")))
+                    .setDefaultMaxGpus(rs.getInt("int_default_max_gpus"))
+                    .setDefaultMinGpus(rs.getInt("int_default_min_gpus"))
+                    .setBookingEnabled(rs.getBoolean("b_booking_enabled"))
+                    .setDispatchEnabled(rs.getBoolean("b_dispatch_enabled"))
+                    .setCommentEmail(SqlUtil.getString(rs, "str_comment_email")).setShowStats(stats)
+                    .build();
+        }
+    };
+    /*
+     * Queries
+     */
+
+    private static final String GET_JOB_NAMES =
+            "SELECT " + "job.str_name " + "FROM " + "job," + "show " + "WHERE "
+                    + "job.pk_show = show.pk_show " + "AND " + "job.str_state = 'PENDING' ";
+
+    private static final String GET_HOST_COMMENTS = "SELECT " + "* " + "FROM " + "comments "
+            + "WHERE " + "pk_host=? " + "ORDER BY " + "ts_created ASC";
+
+    private static final String GET_FILTER = "SELECT " + "filter.* " + "FROM " + "filter," + "show "
+            + "WHERE " + "filter.pk_show = show.pk_show";
+
+    private static final String GET_FRAME = "SELECT " + "frame.pk_frame, "
+            + "frame.int_exit_status," + "frame.str_name," + "frame.int_number,"
+            + "frame.int_dispatch_order," + "frame.ts_started," + "frame.ts_stopped,"
+            + "frame.ts_llu," + "frame.int_retries," + "frame.str_state," + "frame.str_host,"
+            + "frame.int_cores," + "frame.int_gpus," + "frame.int_mem_max_used,"
+            + "frame.int_mem_used, " + "frame.int_mem_reserved, " + "frame.int_gpu_mem_reserved, "
+            + "frame.str_checkpoint_state," + "frame.int_checkpoint_count,"
+            + "frame.int_total_past_core_time," + "frame.int_total_past_gpu_time,"
+            + "layer.str_name AS layer_name," + "job.str_name AS job_name,"
+            + "frame_state_display_overrides.* " + "FROM " + "job, " + "layer, " + "frame "
+            + "LEFT JOIN frame_state_display_overrides ON "
+            + "(frame.pk_frame = frame_state_display_overrides.pk_frame AND "
+            + "frame.str_state = frame_state_display_overrides.str_frame_state) " + "WHERE "
+            + "frame.pk_layer = layer.pk_layer " + "AND " + "frame.pk_job= job.pk_job";
+
+    private static final String FIND_FRAME =
+            GET_FRAME + " " + "AND " + "job.str_state='PENDING' " + "AND " + "job.str_name=? "
+                    + "AND " + "layer.str_name=? " + "AND " + "frame.int_number=?";
+
+    private static final String GET_PROC = "SELECT " + "host.str_name AS host_name, "
+            + "job.str_name AS job_name, " + "job.str_log_dir, "
+            + "folder.str_name as folder_name, " + "show.str_name AS show_name, "
+            + "frame.str_name AS frame_name, " + "layer.str_services, " + "proc.pk_proc, "
+            + "proc.pk_host, " + "proc.int_cores_reserved, " + "proc.int_mem_reserved, "
+            + "proc.int_mem_used, " + "proc.int_mem_max_used, " + "proc.int_gpus_reserved, "
+            + "proc.int_gpu_mem_reserved, " + "proc.int_gpu_mem_used, "
+            + "proc.int_gpu_mem_max_used, " + "proc.ts_ping, " + "proc.ts_booked, "
+            + "proc.ts_dispatched, " + "proc.b_unbooked, " + "proc.bytea_children, "
+            + "redirect.str_name AS str_redirect " + "FROM proc "
+            + "JOIN host ON proc.pk_host = host.pk_host "
+            + "JOIN alloc ON host.pk_alloc = alloc.pk_alloc "
+            + "JOIN frame ON proc.pk_frame = frame.pk_frame "
+            + "JOIN layer ON proc.pk_layer = layer.pk_layer "
+            + "JOIN job ON proc.pk_job = job.pk_job "
+            + "JOIN folder ON job.pk_folder = folder.pk_folder "
+            + "JOIN show ON proc.pk_show = show.pk_show "
+            + "LEFT JOIN redirect ON proc.pk_proc = redirect.pk_proc " + "WHERE true ";
+
+    private static final String GET_JOB_COMMENTS = "SELECT " + "* " + "FROM " + "comments "
+            + "WHERE " + "pk_job=? " + "ORDER BY " + "ts_created ASC";
+
+    private static final String GET_UPDATED_FRAME =
+            "SELECT " + "frame.pk_frame, " + "frame.int_exit_status," + "frame.ts_started,"
+                    + "frame.ts_stopped," + "frame.int_retries," + "frame.str_state,"
+                    + "frame.str_host," + "frame.int_cores," + "frame.int_gpus," + "frame.ts_llu,"
+                    + "COALESCE(proc.int_mem_max_used, frame.int_mem_max_used) AS int_mem_max_used,"
+                    + "COALESCE(proc.int_mem_used, frame.int_mem_used) AS int_mem_used,"
+                    + "frame_state_display_overrides.* " + "FROM " + "job, " + "layer," + "frame "
+                    + "LEFT JOIN proc ON (proc.pk_frame = frame.pk_frame) "
+                    + "LEFT JOIN frame_state_display_overrides ON "
+                    + "(frame.pk_frame = frame_state_display_overrides.pk_frame AND "
+                    + "frame.str_state = frame_state_display_overrides.str_frame_state) " + "WHERE "
+                    + "frame.pk_layer = layer.pk_layer " + "AND " + "frame.pk_job= job.pk_job";
+
+    private static final String GET_ALLOCATION = "SELECT " + "alloc.pk_alloc, " + "alloc.str_name, "
+            + "alloc.str_tag, " + "alloc.b_billable," + "facility.str_name AS facility_name,"
+            + "vs_alloc_usage.int_cores," + "vs_alloc_usage.int_idle_cores,"
+            + "vs_alloc_usage.int_running_cores," + "vs_alloc_usage.int_available_cores,"
+            + "vs_alloc_usage.int_locked_cores," + "vs_alloc_usage.int_gpus,"
+            + "vs_alloc_usage.int_idle_gpus," + "vs_alloc_usage.int_running_gpus,"
+            + "vs_alloc_usage.int_available_gpus," + "vs_alloc_usage.int_locked_gpus,"
+            + "vs_alloc_usage.int_hosts," + "vs_alloc_usage.int_locked_hosts,"
+            + "vs_alloc_usage.int_down_hosts " + "FROM " + "alloc, " + "facility, "
+            + "vs_alloc_usage " + "WHERE " + "alloc.pk_alloc = vs_alloc_usage.pk_alloc " + "AND "
+            + "alloc.pk_facility = facility.pk_facility " + "AND " + "alloc.b_enabled = true";
+
+    private static final String GET_MATCHER = "SELECT " + "filter.pk_show," + "matcher.* " + "FROM "
+            + "filter," + "matcher " + "WHERE " + "filter.pk_filter = matcher.pk_filter";
+
+    private static final String GET_DEPARTMENT = "SELECT " + "dept.str_name AS str_dept,"
+            + "show.str_name || '.' || dept.str_name AS str_name, " + "pk_point," + "str_ti_task,"
+            + "int_cores," + "int_min_cores," + "int_gpus," + "int_min_gpus," + "b_managed "
+            + "FROM " + "point," + "dept," + "show " + "WHERE " + "point.pk_show = show.pk_show "
+            + "AND " + "point.pk_dept = dept.pk_dept " + "AND " + "point.pk_show = ? " + "AND "
+            + "dept.str_name = ?";
+
+    private static final String GET_DEPARTMENTS = "SELECT " + "dept.str_name AS str_dept,"
+            + "show.str_name || '.' || dept.str_name AS str_name, " + "pk_point," + "str_ti_task,"
+            + "int_cores," + "int_min_cores," + "int_gpus," + "int_min_gpus," + "b_managed "
+            + "FROM " + "point," + "dept," + "show " + "WHERE " + "point.pk_show = show.pk_show "
+            + "AND " + "point.pk_dept = dept.pk_dept " + "AND " + "point.pk_show = ? ";
+
+    private static final String QUERY_FOR_OWNER =
+            "SELECT " + "owner.pk_owner," + "owner.str_username," + "show.str_name AS str_show, "
+                    + "(SELECT COUNT(1) FROM deed WHERE deed.pk_owner = owner.pk_owner) "
+                    + " AS host_count " + "FROM " + "owner, " + "show " + "WHERE "
+                    + "owner.pk_show = show.pk_show";
+
+    private static final String QUERY_FOR_RENDER_PART = "SELECT " + "host_local.pk_host_local,"
+            + "host_local.int_cores_idle," + "host_local.int_cores_max,"
+            + "host_local.int_gpus_idle," + "host_local.int_gpus_max," + "host_local.int_threads,"
+            + "host_local.int_mem_idle," + "host_local.int_mem_max,"
+            + "host_local.int_gpu_mem_idle," + "host_local.int_gpu_mem_max,"
+            + "host_local.str_type,"
+            + "(SELECT str_name FROM host WHERE host.pk_host = host_local.pk_host) "
+            + "AS str_host_name,"
+            + "(SELECT str_name FROM job WHERE job.pk_job = host_local.pk_job) "
+            + "AS str_job_name,"
+            + "(SELECT str_name FROM layer WHERE layer.pk_layer = host_local.pk_layer) "
+            + "AS str_layer_name,"
+            + "(SELECT str_name FROM frame WHERE frame.pk_frame = host_local.pk_frame) "
+            + "AS str_frame_name " + "FROM " + "host_local ";
+
+    private static final String QUERY_FOR_FACILITY =
+            "SELECT " + "facility.pk_facility," + "facility.str_name " + "FROM " + "facility ";
+
+    private static final String QUERY_FOR_LIMIT = "SELECT " + "limit_record.pk_limit_record, "
+            + "limit_record.str_name, " + "limit_record.int_max_value, "
+            + "SUM(layer_stat.int_running_count) AS int_current_running " + "FROM "
+            + "limit_record " + "LEFT JOIN "
+            + "layer_limit ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
+            + "LEFT JOIN " + "layer ON layer.pk_layer = layer_limit.pk_layer " + "LEFT JOIN "
+            + "layer_stat ON layer_stat.pk_layer = layer.pk_layer ";
+
+    private static final String GET_LIMIT_FROM_LAYER_ID = "SELECT "
+            + "limit_record.pk_limit_record, " + "limit_record.str_name, "
+            + "limit_record.int_max_value, "
+            + "SUM(layer_stat.int_running_count) AS int_current_running " + "FROM "
+            + "limit_record " + "LEFT JOIN "
+            + "layer_limit ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
+            + "LEFT JOIN " + "layer ON layer.pk_layer = layer_limit.pk_layer " + "LEFT JOIN "
+            + "layer_stat ON layer_stat.pk_layer = layer.pk_layer " + "WHERE "
+            + "layer_limit.pk_layer = ? " + "GROUP BY " + "limit_record.str_name, "
+            + "limit_record.pk_limit_record, " + "limit_record.int_max_value";
+
+    public static final String GET_GROUPS = "SELECT " + "show.pk_show, "
+            + "show.str_name AS str_show," + "dept.str_name AS str_dept," + "folder.pk_folder,"
+            + "folder.pk_parent_folder," + "folder.str_name AS group_name,"
+            + "folder.int_job_priority," + "folder.int_job_min_cores," + "folder.int_job_max_cores,"
+            + "folder_resource.int_min_cores," + "folder_resource.int_max_cores,"
+            + "folder.int_job_min_gpus," + "folder.int_job_max_gpus,"
+            + "folder_resource.int_min_gpus," + "folder_resource.int_max_gpus,"
+            + "folder.b_default, " + "folder_level.int_level, " + "c.int_waiting_count, "
+            + "c.int_depend_count, " + "c.int_running_count," + "c.int_dead_count,"
+            + "c.int_job_count," + "c.int_cores," + "c.int_gpus " + "FROM " + "folder, "
+            + "folder_level," + "folder_resource, " + "vs_folder_counts c, " + "show," + "dept "
+            + "WHERE " + "show.pk_show = folder.pk_show " + "AND "
+            + "folder.pk_folder = folder_level.pk_folder " + "AND "
+            + "folder.pk_folder = folder_resource.pk_folder " + "AND "
+            + "folder.pk_folder = c.pk_folder " + "AND " + "folder.pk_dept = dept.pk_dept ";
+
+    private static final String GET_ACTION = "SELECT " + "filter.pk_show," + "action.* " + "FROM "
+            + "filter," + "action " + "WHERE " + "filter.pk_filter = action.pk_filter ";
+
+    private static final String GET_JOB = "SELECT " + "job.pk_job," + "job.str_log_dir,"
+            + "job_resource.int_max_cores," + "job_resource.int_min_cores,"
+            + "job_resource.int_max_gpus," + "job_resource.int_min_gpus," + "job.str_name,"
+            + "job.str_shot," + "job.str_state," + "job.int_uid," + "job.str_user,"
+            + "job.b_paused," + "job.ts_started," + "job.ts_stopped," + "job.b_comment,"
+            + "job.b_autoeat," + "job.str_os," + "job_resource.int_priority,"
+            + "job.int_frame_count, " + "job.int_layer_count, " + "show.str_name as str_show,"
+            + "show.pk_show as id_show," + "facility.str_name AS facility_name,"
+            + "folder.str_name AS group_name," + "job_stat.int_waiting_count, "
+            + "job_stat.int_running_count, " + "job_stat.int_dead_count, "
+            + "job_stat.int_eaten_count," + "job_stat.int_depend_count, "
+            + "job_stat.int_succeeded_count, " + "job_usage.int_core_time_success, "
+            + "job_usage.int_core_time_fail, " + "job_usage.int_gpu_time_success, "
+            + "job_usage.int_gpu_time_fail, " + "job_usage.int_frame_success_count, "
+            + "job_usage.int_frame_fail_count, " + "job_usage.int_clock_time_high,"
+            + "job_usage.int_clock_time_success," + "job_mem.int_max_rss,"
+            + "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores,"
+            + "(job_resource.int_gpus + job_resource.int_local_gpus) AS int_gpus " + "FROM "
+            + "job," + "folder," + "show," + "facility," + "job_stat," + "job_resource, "
+            + "job_mem, " + "job_usage " + "WHERE " + "job.pk_show = show.pk_show " + "AND "
+            + "job.pk_folder = folder.pk_folder " + "AND "
+            + "job.pk_facility = facility.pk_facility " + "AND " + "job.pk_job = job_stat.pk_job "
+            + "AND " + "job.pk_job = job_resource.pk_job " + "AND " + "job.pk_job = job_mem.pk_job "
+            + "AND " + "job.pk_job = job_usage.pk_job ";
+
+    private static final String GET_LAYER = "SELECT " + "layer.*," + "layer_stat.int_total_count,"
+            + "layer_stat.int_waiting_count," + "layer_stat.int_running_count,"
+            + "layer_stat.int_dead_count," + "layer_stat.int_depend_count,"
+            + "layer_stat.int_eaten_count," + "layer_stat.int_succeeded_count,"
+            + "layer_usage.int_core_time_success," + "layer_usage.int_core_time_fail, "
+            + "layer_usage.int_gpu_time_success," + "layer_usage.int_gpu_time_fail, "
+            + "layer_usage.int_frame_success_count, " + "layer_usage.int_frame_fail_count, "
+            + "layer_usage.int_clock_time_low, " + "layer_usage.int_clock_time_high,"
+            + "layer_usage.int_clock_time_success," + "layer_usage.int_clock_time_fail,"
+            + "layer_mem.int_max_rss," + "layer_resource.int_cores," + "layer_resource.int_gpus "
+            + "FROM " + "layer, " + "job," + "layer_stat, " + "layer_resource, " + "layer_usage, "
+            + "layer_mem " + "WHERE " + "layer.pk_job = job.pk_job " + "AND "
+            + "layer.pk_layer = layer_stat.pk_layer " + "AND "
+            + "layer.pk_layer = layer_resource.pk_layer " + "AND "
+            + "layer.pk_layer = layer_usage.pk_layer " + "AND "
+            + "layer.pk_layer = layer_mem.pk_layer";
+
+    private static final String GET_LAYER_WITH_LIMITS = "SELECT " + "layer.*, "
+            + "layer_stat.int_total_count, " + "layer_stat.int_waiting_count, "
+            + "layer_stat.int_running_count, " + "layer_stat.int_dead_count, "
+            + "layer_stat.int_depend_count, " + "layer_stat.int_eaten_count, "
+            + "layer_stat.int_succeeded_count, " + "layer_usage.int_core_time_success, "
+            + "layer_usage.int_core_time_fail, " + "layer_usage.int_gpu_time_success, "
+            + "layer_usage.int_gpu_time_fail, " + "layer_usage.int_frame_success_count, "
+            + "layer_usage.int_frame_fail_count, " + "layer_usage.int_clock_time_low, "
+            + "layer_usage.int_clock_time_high, " + "layer_usage.int_clock_time_success, "
+            + "layer_usage.int_clock_time_fail, " + "layer_mem.int_max_rss, "
+            + "layer_resource.int_cores, " + "layer_resource.int_gpus, "
+            + "limit_names.str_limit_names " + "FROM " + "layer " + "JOIN "
+            + "job ON layer.pk_job = job.pk_job " + "JOIN "
+            + "layer_stat ON layer.pk_layer = layer_stat.pk_layer " + "JOIN "
+            + "layer_resource ON layer.pk_layer = layer_resource.pk_layer " + "JOIN "
+            + "layer_usage ON layer.pk_layer = layer_usage.pk_layer " + "JOIN "
+            + "layer_mem ON layer.pk_layer = layer_mem.pk_layer " + "LEFT JOIN " + "(" + "SELECT "
+            + "layer_limit.pk_layer, "
+            + "string_agg(limit_record.str_name, ',') AS str_limit_names " + "FROM "
+            + "limit_record, " + "layer_limit " + "WHERE "
+            + "layer_limit.pk_limit_record = limit_record.pk_limit_record " + "GROUP BY "
+            + "layer_limit.pk_layer) AS limit_names " + "ON layer.pk_layer = limit_names.pk_layer ";
+
+    private static final String GET_LIMIT_NAMES = "SELECT " + "limit_record.str_name " + "FROM "
+            + "layer_limit, " + "limit_record " + "WHERE " + "layer_limit.pk_layer = ? " + "AND "
+            + "limit_record.pk_limit_record = layer_limit.pk_limit_record ";
+
+    private static final String GET_SHOW = "SELECT " + "show.pk_show," + "show.str_name,"
+            + "show.b_paused," + "show.int_default_min_cores," + "show.int_default_max_cores,"
+            + "show.int_default_min_gpus," + "show.int_default_max_gpus,"
+            + "show.b_booking_enabled," + "show.b_dispatch_enabled," + "show.b_active,"
+            + "show.str_comment_email," + "show_stats.int_frame_insert_count,"
+            + "show_stats.int_job_insert_count," + "show_stats.int_frame_success_count,"
+            + "show_stats.int_frame_fail_count,"
+            + "COALESCE(vs_show_stat.int_pending_count,0) AS int_pending_count,"
+            + "COALESCE(vs_show_stat.int_running_count,0) AS int_running_count,"
+            + "COALESCE(vs_show_stat.int_dead_count,0) AS int_dead_count,"
+            + "COALESCE(vs_show_resource.int_cores,0) AS int_cores, "
+            + "COALESCE(vs_show_resource.int_gpus,0) AS int_gpus, "
+            + "COALESCE(vs_show_stat.int_job_count,0) AS int_job_count " + "FROM " + "show "
+            + "JOIN show_stats ON (show.pk_show = show_stats.pk_show) "
+            + "LEFT JOIN vs_show_stat ON (vs_show_stat.pk_show = show.pk_show) "
+            + "LEFT JOIN vs_show_resource ON (vs_show_resource.pk_show=show.pk_show) " + "WHERE "
+            + "1 = 1 ";
+
+    private static final String GET_SERVICE =
+            "SELECT " + "service.pk_service," + "service.str_name," + "service.b_threadable,"
+                    + "service.int_cores_min," + "service.int_cores_max," + "service.int_mem_min,"
+                    + "service.int_gpus_min," + "service.int_gpus_max," + "service.int_gpu_mem_min,"
+                    + "service.str_tags," + "service.int_timeout," + "service.int_timeout_llu,"
+                    + "service.int_min_memory_increase " + "FROM " + "service ";
+
+    private static final String GET_SERVICE_OVERRIDE = "SELECT " + "show_service.pk_show_service,"
+            + "show_service.str_name," + "show_service.b_threadable,"
+            + "show_service.int_cores_min," + "show_service.int_cores_max,"
+            + "show_service.int_mem_min," + "show_service.int_gpus_min,"
+            + "show_service.int_gpus_max," + "show_service.int_gpu_mem_min,"
+            + "show_service.str_tags," + "show_service.int_timeout,"
+            + "show_service.int_timeout_llu," + "show_service.int_min_memory_increase " + "FROM "
+            + "show_service, " + "show " + "WHERE " + "show_service.pk_show = show.pk_show ";
+
+    private static final String GET_TASK = "SELECT " + "task.pk_task," + "task.str_shot,"
+            + "task.int_min_cores + task.int_adjust_cores AS int_min_cores, "
+            + "task.int_adjust_cores, "
+            + "task.int_min_gpus + task.int_adjust_gpus AS int_min_gpus, "
+            + "task.int_adjust_gpus, " + "dept.str_name AS str_dept " + "FROM " + "task," + "dept, "
+            + "point " + "WHERE " + "task.pk_point = point.pk_point " + "AND "
+            + "point.pk_dept = dept.pk_dept ";
+
+    private static final String GET_HOST = "SELECT " + "host.pk_host, "
+            + "host.str_name AS host_name," + "host_stat.str_state AS host_state," + "host.b_nimby,"
+            + "host_stat.ts_booted," + "host_stat.ts_ping," + "host.int_cores,"
+            + "host.int_cores_idle," + "host.int_mem," + "host.int_mem_idle," + "host.int_gpus,"
+            + "host.int_gpus_idle," + "host.int_gpu_mem," + "host.int_gpu_mem_idle,"
+            + "host.str_tags," + "host.str_lock_state," + "host.b_comment,"
+            + "host.int_thread_mode," + "host_stat.str_os," + "host_stat.int_mem_total,"
+            + "host_stat.int_mem_free," + "host_stat.int_swap_total," + "host_stat.int_swap_free,"
+            + "host_stat.int_mcp_total," + "host_stat.int_mcp_free,"
+            + "host_stat.int_gpu_mem_total," + "host_stat.int_gpu_mem_free,"
+            + "host_stat.int_load, " + "alloc.str_name AS alloc_name " + "FROM " + "alloc,"
+            + "facility, " + "host_stat," + "host " + "WHERE " + "host.pk_alloc = alloc.pk_alloc "
+            + "AND " + "facility.pk_facility = alloc.pk_facility " + "AND "
+            + "host.pk_host = host_stat.pk_host ";
+
+    private static final String GET_DEPEND = "SELECT " + "depend.pk_depend, " + "depend.str_type, "
+            + "depend.b_active, " + "depend.b_any, " + "depend.str_target, "
+            + "(SELECT str_name FROM job j WHERE j.pk_job = depend.pk_job_depend_on) AS depend_on_job, "
+            + "(SELECT str_name FROM job j WHERE j.pk_job = depend.pk_job_depend_er) AS depend_er_job, "
+            + "(SELECT str_name FROM layer l WHERE l.pk_layer = depend.pk_layer_depend_on) AS depend_on_layer, "
+            + "(SELECT str_name FROM layer l WHERE l.pk_layer = depend.pk_layer_depend_er) AS depend_er_layer, "
+            + "(SELECT str_name FROM frame f WHERE f.pk_frame = depend.pk_frame_depend_on) AS depend_on_frame, "
+            + "(SELECT str_name FROM frame f WHERE f.pk_frame = depend.pk_frame_depend_er) AS depend_er_frame "
+            + "FROM " + "depend ";
+
+    private static final String GET_SUBSCRIPTION = "SELECT " + "subscription.pk_subscription, "
+            + "(alloc.str_name || '.' || show.str_name) AS name, " + "subscription.int_burst, "
+            + "subscription.int_size, " + "subscription.int_cores, " + "subscription.int_gpus, "
+            + "show.str_name AS show_name, " + "alloc.str_name AS alloc_name, "
+            + "facility.str_name AS facility_name " + "FROM " + "show, " + "alloc, " + "facility,"
+            + "subscription " + "WHERE " + "subscription.pk_show = show.pk_show " + "AND "
+            + "subscription.pk_alloc = alloc.pk_alloc " + "AND "
+            + "alloc.pk_facility = facility.pk_facility ";
+
+    private static final String GET_PENDING_JOBS = GET_JOB + "AND " + "job.str_state = 'PENDING' ";
+
+    private static final String GET_FRAMES_CRITERIA =
+
+            "SELECT " + "frame.pk_frame, " + "frame.int_exit_status," + "frame.str_name,"
+                    + "frame.int_number," + "frame.int_dispatch_order," + "frame.ts_started,"
+                    + "frame.ts_stopped," + "frame.ts_llu," + "frame.int_retries,"
+                    + "frame.str_state," + "frame.str_host," + "frame.int_cores,"
+                    + "frame.int_mem_max_used," + "frame.int_mem_used, "
+                    + "frame.int_mem_reserved, " + "frame.int_gpus,"
+                    + "frame.int_gpu_mem_max_used, " + "frame.int_gpu_mem_used, "
+                    + "frame.int_gpu_mem_reserved, " + "frame.str_checkpoint_state,"
+                    + "frame.int_checkpoint_count," + "frame.int_total_past_core_time,"
+                    + "frame.int_total_past_gpu_time," + "layer.str_name AS layer_name,"
+                    + "job.str_name AS job_name, " + "frame_state_display_overrides.*, "
+                    + "ROW_NUMBER() OVER "
+                    + "(ORDER BY frame.int_dispatch_order ASC, layer.int_dispatch_order ASC) AS row_number "
+                    + "FROM " + "job, " + "layer," + "frame "
+                    + "LEFT JOIN frame_state_display_overrides ON "
+                    + "(frame.pk_frame = frame_state_display_overrides.pk_frame AND "
+                    + "frame.str_state = frame_state_display_overrides.str_frame_state) " + "WHERE "
+                    + "frame.pk_layer = layer.pk_layer " + "AND " + "frame.pk_job= job.pk_job ";
+
+    private static final String QUERY_FOR_DEED = "SELECT " + "host.str_name AS str_host,"
+            + "show.str_name AS str_show," + "owner.str_username," + "deed.pk_deed " + "FROM "
+            + "deed," + "owner," + "host," + "show " + "WHERE " + "deed.pk_host = host.pk_host "
+            + "AND " + "deed.pk_owner = owner.pk_owner " + "AND " + "owner.pk_show = show.pk_show ";
+
+    public FrameSearchFactory getFrameSearchFactory() {
+        return frameSearchFactory;
     }
-  };
-  /*
-   * Queries
-   */
 
-  private static final String GET_JOB_NAMES = "SELECT " + "job.str_name " + "FROM " + "job,"
-      + "show " + "WHERE " + "job.pk_show = show.pk_show " + "AND " + "job.str_state = 'PENDING' ";
+    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
+        this.frameSearchFactory = frameSearchFactory;
+    }
 
-  private static final String GET_HOST_COMMENTS = "SELECT " + "* " + "FROM " + "comments "
-      + "WHERE " + "pk_host=? " + "ORDER BY " + "ts_created ASC";
+    public ProcSearchFactory getProcSearchFactory() {
+        return procSearchFactory;
+    }
 
-  private static final String GET_FILTER = "SELECT " + "filter.* " + "FROM " + "filter," + "show "
-      + "WHERE " + "filter.pk_show = show.pk_show";
-
-  private static final String GET_FRAME = "SELECT " + "frame.pk_frame, " + "frame.int_exit_status,"
-      + "frame.str_name," + "frame.int_number," + "frame.int_dispatch_order," + "frame.ts_started,"
-      + "frame.ts_stopped," + "frame.ts_llu," + "frame.int_retries," + "frame.str_state,"
-      + "frame.str_host," + "frame.int_cores," + "frame.int_gpus," + "frame.int_mem_max_used,"
-      + "frame.int_mem_used, " + "frame.int_mem_reserved, " + "frame.int_gpu_mem_reserved, "
-      + "frame.str_checkpoint_state," + "frame.int_checkpoint_count,"
-      + "frame.int_total_past_core_time," + "frame.int_total_past_gpu_time,"
-      + "layer.str_name AS layer_name," + "job.str_name AS job_name,"
-      + "frame_state_display_overrides.* " + "FROM " + "job, " + "layer, " + "frame "
-      + "LEFT JOIN frame_state_display_overrides ON "
-      + "(frame.pk_frame = frame_state_display_overrides.pk_frame AND "
-      + "frame.str_state = frame_state_display_overrides.str_frame_state) " + "WHERE "
-      + "frame.pk_layer = layer.pk_layer " + "AND " + "frame.pk_job= job.pk_job";
-
-  private static final String FIND_FRAME = GET_FRAME + " " + "AND " + "job.str_state='PENDING' "
-      + "AND " + "job.str_name=? " + "AND " + "layer.str_name=? " + "AND " + "frame.int_number=?";
-
-  private static final String GET_PROC = "SELECT " + "host.str_name AS host_name, "
-      + "job.str_name AS job_name, " + "job.str_log_dir, " + "folder.str_name as folder_name, "
-      + "show.str_name AS show_name, " + "frame.str_name AS frame_name, " + "layer.str_services, "
-      + "proc.pk_proc, " + "proc.pk_host, " + "proc.int_cores_reserved, "
-      + "proc.int_mem_reserved, " + "proc.int_mem_used, " + "proc.int_mem_max_used, "
-      + "proc.int_gpus_reserved, " + "proc.int_gpu_mem_reserved, " + "proc.int_gpu_mem_used, "
-      + "proc.int_gpu_mem_max_used, " + "proc.ts_ping, " + "proc.ts_booked, "
-      + "proc.ts_dispatched, " + "proc.b_unbooked, " + "proc.bytea_children, "
-      + "redirect.str_name AS str_redirect " + "FROM proc "
-      + "JOIN host ON proc.pk_host = host.pk_host "
-      + "JOIN alloc ON host.pk_alloc = alloc.pk_alloc "
-      + "JOIN frame ON proc.pk_frame = frame.pk_frame "
-      + "JOIN layer ON proc.pk_layer = layer.pk_layer " + "JOIN job ON proc.pk_job = job.pk_job "
-      + "JOIN folder ON job.pk_folder = folder.pk_folder "
-      + "JOIN show ON proc.pk_show = show.pk_show "
-      + "LEFT JOIN redirect ON proc.pk_proc = redirect.pk_proc " + "WHERE true ";
-
-  private static final String GET_JOB_COMMENTS = "SELECT " + "* " + "FROM " + "comments " + "WHERE "
-      + "pk_job=? " + "ORDER BY " + "ts_created ASC";
-
-  private static final String GET_UPDATED_FRAME =
-      "SELECT " + "frame.pk_frame, " + "frame.int_exit_status," + "frame.ts_started,"
-          + "frame.ts_stopped," + "frame.int_retries," + "frame.str_state," + "frame.str_host,"
-          + "frame.int_cores," + "frame.int_gpus," + "frame.ts_llu,"
-          + "COALESCE(proc.int_mem_max_used, frame.int_mem_max_used) AS int_mem_max_used,"
-          + "COALESCE(proc.int_mem_used, frame.int_mem_used) AS int_mem_used,"
-          + "frame_state_display_overrides.* " + "FROM " + "job, " + "layer," + "frame "
-          + "LEFT JOIN proc ON (proc.pk_frame = frame.pk_frame) "
-          + "LEFT JOIN frame_state_display_overrides ON "
-          + "(frame.pk_frame = frame_state_display_overrides.pk_frame AND "
-          + "frame.str_state = frame_state_display_overrides.str_frame_state) " + "WHERE "
-          + "frame.pk_layer = layer.pk_layer " + "AND " + "frame.pk_job= job.pk_job";
-
-  private static final String GET_ALLOCATION = "SELECT " + "alloc.pk_alloc, " + "alloc.str_name, "
-      + "alloc.str_tag, " + "alloc.b_billable," + "facility.str_name AS facility_name,"
-      + "vs_alloc_usage.int_cores," + "vs_alloc_usage.int_idle_cores,"
-      + "vs_alloc_usage.int_running_cores," + "vs_alloc_usage.int_available_cores,"
-      + "vs_alloc_usage.int_locked_cores," + "vs_alloc_usage.int_gpus,"
-      + "vs_alloc_usage.int_idle_gpus," + "vs_alloc_usage.int_running_gpus,"
-      + "vs_alloc_usage.int_available_gpus," + "vs_alloc_usage.int_locked_gpus,"
-      + "vs_alloc_usage.int_hosts," + "vs_alloc_usage.int_locked_hosts,"
-      + "vs_alloc_usage.int_down_hosts " + "FROM " + "alloc, " + "facility, " + "vs_alloc_usage "
-      + "WHERE " + "alloc.pk_alloc = vs_alloc_usage.pk_alloc " + "AND "
-      + "alloc.pk_facility = facility.pk_facility " + "AND " + "alloc.b_enabled = true";
-
-  private static final String GET_MATCHER = "SELECT " + "filter.pk_show," + "matcher.* " + "FROM "
-      + "filter," + "matcher " + "WHERE " + "filter.pk_filter = matcher.pk_filter";
-
-  private static final String GET_DEPARTMENT = "SELECT " + "dept.str_name AS str_dept,"
-      + "show.str_name || '.' || dept.str_name AS str_name, " + "pk_point," + "str_ti_task,"
-      + "int_cores," + "int_min_cores," + "int_gpus," + "int_min_gpus," + "b_managed " + "FROM "
-      + "point," + "dept," + "show " + "WHERE " + "point.pk_show = show.pk_show " + "AND "
-      + "point.pk_dept = dept.pk_dept " + "AND " + "point.pk_show = ? " + "AND "
-      + "dept.str_name = ?";
-
-  private static final String GET_DEPARTMENTS = "SELECT " + "dept.str_name AS str_dept,"
-      + "show.str_name || '.' || dept.str_name AS str_name, " + "pk_point," + "str_ti_task,"
-      + "int_cores," + "int_min_cores," + "int_gpus," + "int_min_gpus," + "b_managed " + "FROM "
-      + "point," + "dept," + "show " + "WHERE " + "point.pk_show = show.pk_show " + "AND "
-      + "point.pk_dept = dept.pk_dept " + "AND " + "point.pk_show = ? ";
-
-  private static final String QUERY_FOR_OWNER =
-      "SELECT " + "owner.pk_owner," + "owner.str_username," + "show.str_name AS str_show, "
-          + "(SELECT COUNT(1) FROM deed WHERE deed.pk_owner = owner.pk_owner) " + " AS host_count "
-          + "FROM " + "owner, " + "show " + "WHERE " + "owner.pk_show = show.pk_show";
-
-  private static final String QUERY_FOR_RENDER_PART = "SELECT " + "host_local.pk_host_local,"
-      + "host_local.int_cores_idle," + "host_local.int_cores_max," + "host_local.int_gpus_idle,"
-      + "host_local.int_gpus_max," + "host_local.int_threads," + "host_local.int_mem_idle,"
-      + "host_local.int_mem_max," + "host_local.int_gpu_mem_idle," + "host_local.int_gpu_mem_max,"
-      + "host_local.str_type,"
-      + "(SELECT str_name FROM host WHERE host.pk_host = host_local.pk_host) " + "AS str_host_name,"
-      + "(SELECT str_name FROM job WHERE job.pk_job = host_local.pk_job) " + "AS str_job_name,"
-      + "(SELECT str_name FROM layer WHERE layer.pk_layer = host_local.pk_layer) "
-      + "AS str_layer_name,"
-      + "(SELECT str_name FROM frame WHERE frame.pk_frame = host_local.pk_frame) "
-      + "AS str_frame_name " + "FROM " + "host_local ";
-
-  private static final String QUERY_FOR_FACILITY =
-      "SELECT " + "facility.pk_facility," + "facility.str_name " + "FROM " + "facility ";
-
-  private static final String QUERY_FOR_LIMIT = "SELECT " + "limit_record.pk_limit_record, "
-      + "limit_record.str_name, " + "limit_record.int_max_value, "
-      + "SUM(layer_stat.int_running_count) AS int_current_running " + "FROM " + "limit_record "
-      + "LEFT JOIN " + "layer_limit ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-      + "LEFT JOIN " + "layer ON layer.pk_layer = layer_limit.pk_layer " + "LEFT JOIN "
-      + "layer_stat ON layer_stat.pk_layer = layer.pk_layer ";
-
-  private static final String GET_LIMIT_FROM_LAYER_ID = "SELECT " + "limit_record.pk_limit_record, "
-      + "limit_record.str_name, " + "limit_record.int_max_value, "
-      + "SUM(layer_stat.int_running_count) AS int_current_running " + "FROM " + "limit_record "
-      + "LEFT JOIN " + "layer_limit ON layer_limit.pk_limit_record = limit_record.pk_limit_record "
-      + "LEFT JOIN " + "layer ON layer.pk_layer = layer_limit.pk_layer " + "LEFT JOIN "
-      + "layer_stat ON layer_stat.pk_layer = layer.pk_layer " + "WHERE "
-      + "layer_limit.pk_layer = ? " + "GROUP BY " + "limit_record.str_name, "
-      + "limit_record.pk_limit_record, " + "limit_record.int_max_value";
-
-  public static final String GET_GROUPS = "SELECT " + "show.pk_show, "
-      + "show.str_name AS str_show," + "dept.str_name AS str_dept," + "folder.pk_folder,"
-      + "folder.pk_parent_folder," + "folder.str_name AS group_name," + "folder.int_job_priority,"
-      + "folder.int_job_min_cores," + "folder.int_job_max_cores," + "folder_resource.int_min_cores,"
-      + "folder_resource.int_max_cores," + "folder.int_job_min_gpus," + "folder.int_job_max_gpus,"
-      + "folder_resource.int_min_gpus," + "folder_resource.int_max_gpus," + "folder.b_default, "
-      + "folder_level.int_level, " + "c.int_waiting_count, " + "c.int_depend_count, "
-      + "c.int_running_count," + "c.int_dead_count," + "c.int_job_count," + "c.int_cores,"
-      + "c.int_gpus " + "FROM " + "folder, " + "folder_level," + "folder_resource, "
-      + "vs_folder_counts c, " + "show," + "dept " + "WHERE " + "show.pk_show = folder.pk_show "
-      + "AND " + "folder.pk_folder = folder_level.pk_folder " + "AND "
-      + "folder.pk_folder = folder_resource.pk_folder " + "AND " + "folder.pk_folder = c.pk_folder "
-      + "AND " + "folder.pk_dept = dept.pk_dept ";
-
-  private static final String GET_ACTION = "SELECT " + "filter.pk_show," + "action.* " + "FROM "
-      + "filter," + "action " + "WHERE " + "filter.pk_filter = action.pk_filter ";
-
-  private static final String GET_JOB = "SELECT " + "job.pk_job," + "job.str_log_dir,"
-      + "job_resource.int_max_cores," + "job_resource.int_min_cores," + "job_resource.int_max_gpus,"
-      + "job_resource.int_min_gpus," + "job.str_name," + "job.str_shot," + "job.str_state,"
-      + "job.int_uid," + "job.str_user," + "job.b_paused," + "job.ts_started," + "job.ts_stopped,"
-      + "job.b_comment," + "job.b_autoeat," + "job.str_os," + "job_resource.int_priority,"
-      + "job.int_frame_count, " + "job.int_layer_count, " + "show.str_name as str_show,"
-      + "show.pk_show as id_show," + "facility.str_name AS facility_name,"
-      + "folder.str_name AS group_name," + "job_stat.int_waiting_count, "
-      + "job_stat.int_running_count, " + "job_stat.int_dead_count, " + "job_stat.int_eaten_count,"
-      + "job_stat.int_depend_count, " + "job_stat.int_succeeded_count, "
-      + "job_usage.int_core_time_success, " + "job_usage.int_core_time_fail, "
-      + "job_usage.int_gpu_time_success, " + "job_usage.int_gpu_time_fail, "
-      + "job_usage.int_frame_success_count, " + "job_usage.int_frame_fail_count, "
-      + "job_usage.int_clock_time_high," + "job_usage.int_clock_time_success,"
-      + "job_mem.int_max_rss,"
-      + "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores,"
-      + "(job_resource.int_gpus + job_resource.int_local_gpus) AS int_gpus " + "FROM " + "job,"
-      + "folder," + "show," + "facility," + "job_stat," + "job_resource, " + "job_mem, "
-      + "job_usage " + "WHERE " + "job.pk_show = show.pk_show " + "AND "
-      + "job.pk_folder = folder.pk_folder " + "AND " + "job.pk_facility = facility.pk_facility "
-      + "AND " + "job.pk_job = job_stat.pk_job " + "AND " + "job.pk_job = job_resource.pk_job "
-      + "AND " + "job.pk_job = job_mem.pk_job " + "AND " + "job.pk_job = job_usage.pk_job ";
-
-  private static final String GET_LAYER = "SELECT " + "layer.*," + "layer_stat.int_total_count,"
-      + "layer_stat.int_waiting_count," + "layer_stat.int_running_count,"
-      + "layer_stat.int_dead_count," + "layer_stat.int_depend_count,"
-      + "layer_stat.int_eaten_count," + "layer_stat.int_succeeded_count,"
-      + "layer_usage.int_core_time_success," + "layer_usage.int_core_time_fail, "
-      + "layer_usage.int_gpu_time_success," + "layer_usage.int_gpu_time_fail, "
-      + "layer_usage.int_frame_success_count, " + "layer_usage.int_frame_fail_count, "
-      + "layer_usage.int_clock_time_low, " + "layer_usage.int_clock_time_high,"
-      + "layer_usage.int_clock_time_success," + "layer_usage.int_clock_time_fail,"
-      + "layer_mem.int_max_rss," + "layer_resource.int_cores," + "layer_resource.int_gpus "
-      + "FROM " + "layer, " + "job," + "layer_stat, " + "layer_resource, " + "layer_usage, "
-      + "layer_mem " + "WHERE " + "layer.pk_job = job.pk_job " + "AND "
-      + "layer.pk_layer = layer_stat.pk_layer " + "AND "
-      + "layer.pk_layer = layer_resource.pk_layer " + "AND "
-      + "layer.pk_layer = layer_usage.pk_layer " + "AND " + "layer.pk_layer = layer_mem.pk_layer";
-
-  private static final String GET_LAYER_WITH_LIMITS = "SELECT " + "layer.*, "
-      + "layer_stat.int_total_count, " + "layer_stat.int_waiting_count, "
-      + "layer_stat.int_running_count, " + "layer_stat.int_dead_count, "
-      + "layer_stat.int_depend_count, " + "layer_stat.int_eaten_count, "
-      + "layer_stat.int_succeeded_count, " + "layer_usage.int_core_time_success, "
-      + "layer_usage.int_core_time_fail, " + "layer_usage.int_gpu_time_success, "
-      + "layer_usage.int_gpu_time_fail, " + "layer_usage.int_frame_success_count, "
-      + "layer_usage.int_frame_fail_count, " + "layer_usage.int_clock_time_low, "
-      + "layer_usage.int_clock_time_high, " + "layer_usage.int_clock_time_success, "
-      + "layer_usage.int_clock_time_fail, " + "layer_mem.int_max_rss, "
-      + "layer_resource.int_cores, " + "layer_resource.int_gpus, " + "limit_names.str_limit_names "
-      + "FROM " + "layer " + "JOIN " + "job ON layer.pk_job = job.pk_job " + "JOIN "
-      + "layer_stat ON layer.pk_layer = layer_stat.pk_layer " + "JOIN "
-      + "layer_resource ON layer.pk_layer = layer_resource.pk_layer " + "JOIN "
-      + "layer_usage ON layer.pk_layer = layer_usage.pk_layer " + "JOIN "
-      + "layer_mem ON layer.pk_layer = layer_mem.pk_layer " + "LEFT JOIN " + "(" + "SELECT "
-      + "layer_limit.pk_layer, " + "string_agg(limit_record.str_name, ',') AS str_limit_names "
-      + "FROM " + "limit_record, " + "layer_limit " + "WHERE "
-      + "layer_limit.pk_limit_record = limit_record.pk_limit_record " + "GROUP BY "
-      + "layer_limit.pk_layer) AS limit_names " + "ON layer.pk_layer = limit_names.pk_layer ";
-
-  private static final String GET_LIMIT_NAMES = "SELECT " + "limit_record.str_name " + "FROM "
-      + "layer_limit, " + "limit_record " + "WHERE " + "layer_limit.pk_layer = ? " + "AND "
-      + "limit_record.pk_limit_record = layer_limit.pk_limit_record ";
-
-  private static final String GET_SHOW = "SELECT " + "show.pk_show," + "show.str_name,"
-      + "show.b_paused," + "show.int_default_min_cores," + "show.int_default_max_cores,"
-      + "show.int_default_min_gpus," + "show.int_default_max_gpus," + "show.b_booking_enabled,"
-      + "show.b_dispatch_enabled," + "show.b_active," + "show.str_comment_email,"
-      + "show_stats.int_frame_insert_count," + "show_stats.int_job_insert_count,"
-      + "show_stats.int_frame_success_count," + "show_stats.int_frame_fail_count,"
-      + "COALESCE(vs_show_stat.int_pending_count,0) AS int_pending_count,"
-      + "COALESCE(vs_show_stat.int_running_count,0) AS int_running_count,"
-      + "COALESCE(vs_show_stat.int_dead_count,0) AS int_dead_count,"
-      + "COALESCE(vs_show_resource.int_cores,0) AS int_cores, "
-      + "COALESCE(vs_show_resource.int_gpus,0) AS int_gpus, "
-      + "COALESCE(vs_show_stat.int_job_count,0) AS int_job_count " + "FROM " + "show "
-      + "JOIN show_stats ON (show.pk_show = show_stats.pk_show) "
-      + "LEFT JOIN vs_show_stat ON (vs_show_stat.pk_show = show.pk_show) "
-      + "LEFT JOIN vs_show_resource ON (vs_show_resource.pk_show=show.pk_show) " + "WHERE "
-      + "1 = 1 ";
-
-  private static final String GET_SERVICE = "SELECT " + "service.pk_service," + "service.str_name,"
-      + "service.b_threadable," + "service.int_cores_min," + "service.int_cores_max,"
-      + "service.int_mem_min," + "service.int_gpus_min," + "service.int_gpus_max,"
-      + "service.int_gpu_mem_min," + "service.str_tags," + "service.int_timeout,"
-      + "service.int_timeout_llu," + "service.int_min_memory_increase " + "FROM " + "service ";
-
-  private static final String GET_SERVICE_OVERRIDE = "SELECT " + "show_service.pk_show_service,"
-      + "show_service.str_name," + "show_service.b_threadable," + "show_service.int_cores_min,"
-      + "show_service.int_cores_max," + "show_service.int_mem_min," + "show_service.int_gpus_min,"
-      + "show_service.int_gpus_max," + "show_service.int_gpu_mem_min," + "show_service.str_tags,"
-      + "show_service.int_timeout," + "show_service.int_timeout_llu,"
-      + "show_service.int_min_memory_increase " + "FROM " + "show_service, " + "show " + "WHERE "
-      + "show_service.pk_show = show.pk_show ";
-
-  private static final String GET_TASK = "SELECT " + "task.pk_task," + "task.str_shot,"
-      + "task.int_min_cores + task.int_adjust_cores AS int_min_cores, " + "task.int_adjust_cores, "
-      + "task.int_min_gpus + task.int_adjust_gpus AS int_min_gpus, " + "task.int_adjust_gpus, "
-      + "dept.str_name AS str_dept " + "FROM " + "task," + "dept, " + "point " + "WHERE "
-      + "task.pk_point = point.pk_point " + "AND " + "point.pk_dept = dept.pk_dept ";
-
-  private static final String GET_HOST = "SELECT " + "host.pk_host, "
-      + "host.str_name AS host_name," + "host_stat.str_state AS host_state," + "host.b_nimby,"
-      + "host_stat.ts_booted," + "host_stat.ts_ping," + "host.int_cores," + "host.int_cores_idle,"
-      + "host.int_mem," + "host.int_mem_idle," + "host.int_gpus," + "host.int_gpus_idle,"
-      + "host.int_gpu_mem," + "host.int_gpu_mem_idle," + "host.str_tags," + "host.str_lock_state,"
-      + "host.b_comment," + "host.int_thread_mode," + "host_stat.str_os,"
-      + "host_stat.int_mem_total," + "host_stat.int_mem_free," + "host_stat.int_swap_total,"
-      + "host_stat.int_swap_free," + "host_stat.int_mcp_total," + "host_stat.int_mcp_free,"
-      + "host_stat.int_gpu_mem_total," + "host_stat.int_gpu_mem_free," + "host_stat.int_load, "
-      + "alloc.str_name AS alloc_name " + "FROM " + "alloc," + "facility, " + "host_stat," + "host "
-      + "WHERE " + "host.pk_alloc = alloc.pk_alloc " + "AND "
-      + "facility.pk_facility = alloc.pk_facility " + "AND " + "host.pk_host = host_stat.pk_host ";
-
-  private static final String GET_DEPEND = "SELECT " + "depend.pk_depend, " + "depend.str_type, "
-      + "depend.b_active, " + "depend.b_any, " + "depend.str_target, "
-      + "(SELECT str_name FROM job j WHERE j.pk_job = depend.pk_job_depend_on) AS depend_on_job, "
-      + "(SELECT str_name FROM job j WHERE j.pk_job = depend.pk_job_depend_er) AS depend_er_job, "
-      + "(SELECT str_name FROM layer l WHERE l.pk_layer = depend.pk_layer_depend_on) AS depend_on_layer, "
-      + "(SELECT str_name FROM layer l WHERE l.pk_layer = depend.pk_layer_depend_er) AS depend_er_layer, "
-      + "(SELECT str_name FROM frame f WHERE f.pk_frame = depend.pk_frame_depend_on) AS depend_on_frame, "
-      + "(SELECT str_name FROM frame f WHERE f.pk_frame = depend.pk_frame_depend_er) AS depend_er_frame "
-      + "FROM " + "depend ";
-
-  private static final String GET_SUBSCRIPTION = "SELECT " + "subscription.pk_subscription, "
-      + "(alloc.str_name || '.' || show.str_name) AS name, " + "subscription.int_burst, "
-      + "subscription.int_size, " + "subscription.int_cores, " + "subscription.int_gpus, "
-      + "show.str_name AS show_name, " + "alloc.str_name AS alloc_name, "
-      + "facility.str_name AS facility_name " + "FROM " + "show, " + "alloc, " + "facility,"
-      + "subscription " + "WHERE " + "subscription.pk_show = show.pk_show " + "AND "
-      + "subscription.pk_alloc = alloc.pk_alloc " + "AND "
-      + "alloc.pk_facility = facility.pk_facility ";
-
-  private static final String GET_PENDING_JOBS = GET_JOB + "AND " + "job.str_state = 'PENDING' ";
-
-  private static final String GET_FRAMES_CRITERIA =
-
-      "SELECT " + "frame.pk_frame, " + "frame.int_exit_status," + "frame.str_name,"
-          + "frame.int_number," + "frame.int_dispatch_order," + "frame.ts_started,"
-          + "frame.ts_stopped," + "frame.ts_llu," + "frame.int_retries," + "frame.str_state,"
-          + "frame.str_host," + "frame.int_cores," + "frame.int_mem_max_used,"
-          + "frame.int_mem_used, " + "frame.int_mem_reserved, " + "frame.int_gpus,"
-          + "frame.int_gpu_mem_max_used, " + "frame.int_gpu_mem_used, "
-          + "frame.int_gpu_mem_reserved, " + "frame.str_checkpoint_state,"
-          + "frame.int_checkpoint_count," + "frame.int_total_past_core_time,"
-          + "frame.int_total_past_gpu_time," + "layer.str_name AS layer_name,"
-          + "job.str_name AS job_name, " + "frame_state_display_overrides.*, "
-          + "ROW_NUMBER() OVER "
-          + "(ORDER BY frame.int_dispatch_order ASC, layer.int_dispatch_order ASC) AS row_number "
-          + "FROM " + "job, " + "layer," + "frame " + "LEFT JOIN frame_state_display_overrides ON "
-          + "(frame.pk_frame = frame_state_display_overrides.pk_frame AND "
-          + "frame.str_state = frame_state_display_overrides.str_frame_state) " + "WHERE "
-          + "frame.pk_layer = layer.pk_layer " + "AND " + "frame.pk_job= job.pk_job ";
-
-  private static final String QUERY_FOR_DEED = "SELECT " + "host.str_name AS str_host,"
-      + "show.str_name AS str_show," + "owner.str_username," + "deed.pk_deed " + "FROM " + "deed,"
-      + "owner," + "host," + "show " + "WHERE " + "deed.pk_host = host.pk_host " + "AND "
-      + "deed.pk_owner = owner.pk_owner " + "AND " + "owner.pk_show = show.pk_show ";
-
-  public FrameSearchFactory getFrameSearchFactory() {
-    return frameSearchFactory;
-  }
-
-  public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
-    this.frameSearchFactory = frameSearchFactory;
-  }
-
-  public ProcSearchFactory getProcSearchFactory() {
-    return procSearchFactory;
-  }
-
-  public void setProcSearchFactory(ProcSearchFactory procSearchFactory) {
-    this.procSearchFactory = procSearchFactory;
-  }
+    public void setProcSearchFactory(ProcSearchFactory procSearchFactory) {
+        this.procSearchFactory = procSearchFactory;
+    }
 }

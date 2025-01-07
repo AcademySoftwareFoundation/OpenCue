@@ -20,32 +20,32 @@ package com.imageworks.spcue;
  */
 public class Source {
 
-  public String source = "unknown";
-  public String username = "";
-  public String pid = "";
-  public String host_kill = "";
-  public String reason = "";
+    public String source = "unknown";
+    public String username = "";
+    public String pid = "";
+    public String host_kill = "";
+    public String reason = "";
 
-  public Source() {}
+    public Source() {}
 
-  public Source(String source) {
-    this.source = source;
-  }
+    public Source(String source) {
+        this.source = source;
+    }
 
-  public Source(String source, String username, String pid, String host_kill, String reason) {
-    this.source = source;
-    this.username = username;
-    this.pid = pid;
-    this.host_kill = host_kill;
-    this.reason = reason;
-  }
+    public Source(String source, String username, String pid, String host_kill, String reason) {
+        this.source = source;
+        this.username = username;
+        this.pid = pid;
+        this.host_kill = host_kill;
+        this.reason = reason;
+    }
 
-  public String getReason() {
-    return this.reason;
-  }
+    public String getReason() {
+        return this.reason;
+    }
 
-  public String toString() {
-    return "User: " + this.username + ", Pid: " + this.pid + ", Hostname: " + this.host_kill
-        + ", Reason: " + this.reason + "\n" + this.source;
-  }
+    public String toString() {
+        return "User: " + this.username + ", Pid: " + this.pid + ", Hostname: " + this.host_kill
+                + ", Reason: " + this.reason + "\n" + this.source;
+    }
 }

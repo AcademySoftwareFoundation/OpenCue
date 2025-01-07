@@ -53,197 +53,199 @@ import static org.junit.Assert.assertTrue;
 @ContextConfiguration
 public class CoreUnitDispatcherGpusJobTests extends TransactionalTest {
 
-  @Resource
-  JobManager jobManager;
+    @Resource
+    JobManager jobManager;
 
-  @Resource
-  JobLauncher jobLauncher;
+    @Resource
+    JobLauncher jobLauncher;
 
-  @Resource
-  HostManager hostManager;
+    @Resource
+    HostManager hostManager;
 
-  @Resource
-  AdminManager adminManager;
+    @Resource
+    AdminManager adminManager;
 
-  @Resource
-  Dispatcher dispatcher;
+    @Resource
+    Dispatcher dispatcher;
 
-  @Resource
-  DispatchSupport dispatchSupport;
+    @Resource
+    DispatchSupport dispatchSupport;
 
-  @Resource
-  LayerDao layerDao;
+    @Resource
+    LayerDao layerDao;
 
-  @Resource
-  FrameDao frameDao;
+    @Resource
+    FrameDao frameDao;
 
-  @Resource
-  FrameSearchFactory frameSearchFactory;
+    @Resource
+    FrameSearchFactory frameSearchFactory;
 
-  @Resource
-  DependManager dependManager;
+    @Resource
+    DependManager dependManager;
 
-  private static final String HOSTNAME = "beta";
+    private static final String HOSTNAME = "beta";
 
-  private static final String CPU_JOB = "pipe-default-testuser_test_cpu";
+    private static final String CPU_JOB = "pipe-default-testuser_test_cpu";
 
-  private static final String GPU_JOB = "pipe-default-testuser_test_gpu";
+    private static final String GPU_JOB = "pipe-default-testuser_test_gpu";
 
-  private static final String GPU_OVERBOOK_JOB = "pipe-default-testuser_test_gpu_overbook";
+    private static final String GPU_OVERBOOK_JOB = "pipe-default-testuser_test_gpu_overbook";
 
-  @Before
-  public void launchJob() {
-    jobLauncher.testMode = true;
-    jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_gpus_test.xml"));
-  }
+    @Before
+    public void launchJob() {
+        jobLauncher.testMode = true;
+        jobLauncher
+                .launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_gpus_test.xml"));
+    }
 
-  @Before
-  public void setTestMode() {
-    dispatcher.setTestMode(true);
-  }
+    @Before
+    public void setTestMode() {
+        dispatcher.setTestMode(true);
+    }
 
-  @Before
-  public void createHost() {
-    RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
-        // The minimum amount of free space in the temporary directory to book a host.
-        .setFreeMcp(CueUtil.GB).setFreeMem((int) CueUtil.GB8).setFreeSwap(20760).setLoad(0)
-        .setTotalMcp(CueUtil.GB4).setTotalMem(CueUtil.GB8).setTotalSwap(CueUtil.GB2)
-        .setNimbyEnabled(false).setNumProcs(40).setCoresPerProc(100).addTags("test")
-        .setState(HardwareState.UP).setFacility("spi").putAttributes("SP_OS", "Linux").setNumGpus(8)
-        .setFreeGpuMem(CueUtil.GB32).setTotalGpuMem(CueUtil.GB32).build();
+    @Before
+    public void createHost() {
+        RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB).setFreeMem((int) CueUtil.GB8).setFreeSwap(20760).setLoad(0)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(CueUtil.GB8).setTotalSwap(CueUtil.GB2)
+                .setNimbyEnabled(false).setNumProcs(40).setCoresPerProc(100).addTags("test")
+                .setState(HardwareState.UP).setFacility("spi").putAttributes("SP_OS", "Linux")
+                .setNumGpus(8).setFreeGpuMem(CueUtil.GB32).setTotalGpuMem(CueUtil.GB32).build();
 
-    hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
-  }
+        hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
+    }
 
-  public DispatchHost getHost() {
-    return hostManager.findDispatchHost(HOSTNAME);
-  }
+    public DispatchHost getHost() {
+        return hostManager.findDispatchHost(HOSTNAME);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDispatchHost() {
-    DispatchHost host = getHost();
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDispatchHost() {
+        DispatchHost host = getHost();
 
-    List<VirtualProc> procs = dispatcher.dispatchHost(host);
-    // All jobs are paused. procs should be empty.
-    assertTrue(procs.isEmpty());
-  }
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        // All jobs are paused. procs should be empty.
+        assertTrue(procs.isEmpty());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDispatchCpuJob() {
-    JobDetail job = jobManager.findJobDetail(CPU_JOB);
-    jobManager.setJobPaused(job, false);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDispatchCpuJob() {
+        JobDetail job = jobManager.findJobDetail(CPU_JOB);
+        jobManager.setJobPaused(job, false);
 
-    DispatchHost host = getHost();
-    List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
-    // Cuebot doesn't dispatch non-GPU job to GPU host. procs should be empty.
-    assertTrue(procs.isEmpty());
-  }
+        DispatchHost host = getHost();
+        List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
+        // Cuebot doesn't dispatch non-GPU job to GPU host. procs should be empty.
+        assertTrue(procs.isEmpty());
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDispatchGpuJob() {
-    JobDetail job = jobManager.findJobDetail(GPU_JOB);
-    jobManager.setJobPaused(job, false);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDispatchGpuJob() {
+        JobDetail job = jobManager.findJobDetail(GPU_JOB);
+        jobManager.setJobPaused(job, false);
 
-    DispatchHost host = getHost();
-    List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
+        DispatchHost host = getHost();
+        List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
 
-    /*
-     * The job contains 4 layers. - test_gpus_0_layer gpus=0 gpu_memory=1 - test_gpu_memory_0_layer
-     * gpus=1 gpu_memory=0 - test_gpus_1_layer gpus=1 gpu_memory=1 - test_gpus_4_kayer gpus=4
-     * gpu_memory=7g
-     *
-     * Cuebot doesn't dispatch test_gpu_memory_0_layer because gpu_memory is 0. Also
-     * job_frame_dispatch_max is 2, the procs should be test_gpus_0_layer and test_gpus_1_layer.
-     */
-    assertEquals(2, procs.size());
+        /*
+         * The job contains 4 layers. - test_gpus_0_layer gpus=0 gpu_memory=1 -
+         * test_gpu_memory_0_layer gpus=1 gpu_memory=0 - test_gpus_1_layer gpus=1 gpu_memory=1 -
+         * test_gpus_4_kayer gpus=4 gpu_memory=7g
+         *
+         * Cuebot doesn't dispatch test_gpu_memory_0_layer because gpu_memory is 0. Also
+         * job_frame_dispatch_max is 2, the procs should be test_gpus_0_layer and test_gpus_1_layer.
+         */
+        assertEquals(2, procs.size());
 
-    VirtualProc proc0 = procs.get(0);
-    LayerDetail layer0 = layerDao.findLayerDetail(job, "test_gpus_0_layer");
-    assertEquals(layer0.id, proc0.layerId);
-    assertEquals(100, proc0.coresReserved);
-    assertEquals(3355443, proc0.memoryReserved);
-    assertEquals(0, proc0.gpusReserved);
-    assertEquals(1048576, proc0.gpuMemoryReserved);
+        VirtualProc proc0 = procs.get(0);
+        LayerDetail layer0 = layerDao.findLayerDetail(job, "test_gpus_0_layer");
+        assertEquals(layer0.id, proc0.layerId);
+        assertEquals(100, proc0.coresReserved);
+        assertEquals(3355443, proc0.memoryReserved);
+        assertEquals(0, proc0.gpusReserved);
+        assertEquals(1048576, proc0.gpuMemoryReserved);
 
-    VirtualProc proc1 = procs.get(1);
-    LayerDetail layer1 = layerDao.findLayerDetail(job, "test_gpus_1_layer");
-    assertEquals(layer1.id, proc1.layerId);
-    assertEquals(100, proc1.coresReserved);
-    assertEquals(3355443, proc1.memoryReserved);
-    assertEquals(1, proc1.gpusReserved);
-    assertEquals(1048576, proc0.gpuMemoryReserved);
-  }
+        VirtualProc proc1 = procs.get(1);
+        LayerDetail layer1 = layerDao.findLayerDetail(job, "test_gpus_1_layer");
+        assertEquals(layer1.id, proc1.layerId);
+        assertEquals(100, proc1.coresReserved);
+        assertEquals(3355443, proc1.memoryReserved);
+        assertEquals(1, proc1.gpusReserved);
+        assertEquals(1048576, proc0.gpuMemoryReserved);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDispatchGpuJobWithDependency() {
-    JobDetail job = jobManager.findJobDetail(GPU_JOB);
-    LayerDetail dl0 = layerDao.findLayerDetail(job, "test_gpus_0_layer");
-    LayerDetail dl1 = layerDao.findLayerDetail(job, "test_gpu_memory_0_layer");
-    LayerOnLayer depend = new LayerOnLayer(dl0, dl1);
-    dependManager.createDepend(depend);
-    jobManager.setJobPaused(job, false);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDispatchGpuJobWithDependency() {
+        JobDetail job = jobManager.findJobDetail(GPU_JOB);
+        LayerDetail dl0 = layerDao.findLayerDetail(job, "test_gpus_0_layer");
+        LayerDetail dl1 = layerDao.findLayerDetail(job, "test_gpu_memory_0_layer");
+        LayerOnLayer depend = new LayerOnLayer(dl0, dl1);
+        dependManager.createDepend(depend);
+        jobManager.setJobPaused(job, false);
 
-    DispatchHost host = getHost();
-    List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
+        DispatchHost host = getHost();
+        List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
 
-    /*
-     * The job contains 4 layers. - test_gpus_0_layer gpus=0 gpu_memory=1 - test_gpu_memory_0_layer
-     * gpus=1 gpu_memory=0 - test_gpus_1_layer gpus=1 gpu_memory=1 - test_gpus_4_kayer gpus=4
-     * gpu_memory=7g
-     *
-     * Cuebot doesn't dispatch test_gpu_memory_0_layer because gpu_memory is 0. And
-     * test_gpus_0_layer depends on test_gpu_memory_0_layer. So the procs should be
-     * test_gpus_1_layer and test_gpus_4_layer.
-     */
-    assertEquals(2, procs.size());
+        /*
+         * The job contains 4 layers. - test_gpus_0_layer gpus=0 gpu_memory=1 -
+         * test_gpu_memory_0_layer gpus=1 gpu_memory=0 - test_gpus_1_layer gpus=1 gpu_memory=1 -
+         * test_gpus_4_kayer gpus=4 gpu_memory=7g
+         *
+         * Cuebot doesn't dispatch test_gpu_memory_0_layer because gpu_memory is 0. And
+         * test_gpus_0_layer depends on test_gpu_memory_0_layer. So the procs should be
+         * test_gpus_1_layer and test_gpus_4_layer.
+         */
+        assertEquals(2, procs.size());
 
-    VirtualProc proc0 = procs.get(0);
-    LayerDetail layer0 = layerDao.findLayerDetail(job, "test_gpus_1_layer");
-    assertEquals(layer0.id, proc0.layerId);
-    assertEquals(100, proc0.coresReserved);
-    assertEquals(3355443, proc0.memoryReserved);
-    assertEquals(1, proc0.gpusReserved);
-    assertEquals(1048576, proc0.gpuMemoryReserved);
+        VirtualProc proc0 = procs.get(0);
+        LayerDetail layer0 = layerDao.findLayerDetail(job, "test_gpus_1_layer");
+        assertEquals(layer0.id, proc0.layerId);
+        assertEquals(100, proc0.coresReserved);
+        assertEquals(3355443, proc0.memoryReserved);
+        assertEquals(1, proc0.gpusReserved);
+        assertEquals(1048576, proc0.gpuMemoryReserved);
 
-    VirtualProc proc1 = procs.get(1);
-    LayerDetail layer1 = layerDao.findLayerDetail(job, "test_gpus_4_layer");
-    assertEquals(layer1.id, proc1.layerId);
-    assertEquals(100, proc1.coresReserved);
-    assertEquals(3355443, proc1.memoryReserved);
-    assertEquals(4, proc1.gpusReserved);
-    assertEquals(7340032, proc1.gpuMemoryReserved);
-  }
+        VirtualProc proc1 = procs.get(1);
+        LayerDetail layer1 = layerDao.findLayerDetail(job, "test_gpus_4_layer");
+        assertEquals(layer1.id, proc1.layerId);
+        assertEquals(100, proc1.coresReserved);
+        assertEquals(3355443, proc1.memoryReserved);
+        assertEquals(4, proc1.gpusReserved);
+        assertEquals(7340032, proc1.gpuMemoryReserved);
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testDispatchGpuOverbookJob() {
-    JobDetail job = jobManager.findJobDetail(GPU_OVERBOOK_JOB);
-    jobManager.setJobPaused(job, false);
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDispatchGpuOverbookJob() {
+        JobDetail job = jobManager.findJobDetail(GPU_OVERBOOK_JOB);
+        jobManager.setJobPaused(job, false);
 
-    DispatchHost host = getHost();
-    List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
+        DispatchHost host = getHost();
+        List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
 
-    /*
-     * The job contains 2 layers. - test_gpus_6_layer gpus=6 gpu_memory=1 - test_gpus_3_layer gpus=3
-     * gpu_memory=1 the procs should be only test_gpus_6_layer since host only has 8 GPUs.
-     */
-    assertEquals(1, procs.size());
+        /*
+         * The job contains 2 layers. - test_gpus_6_layer gpus=6 gpu_memory=1 - test_gpus_3_layer
+         * gpus=3 gpu_memory=1 the procs should be only test_gpus_6_layer since host only has 8
+         * GPUs.
+         */
+        assertEquals(1, procs.size());
 
-    VirtualProc proc0 = procs.get(0);
-    LayerDetail layer0 = layerDao.findLayerDetail(job, "test_gpus_6_layer");
-    assertEquals(layer0.id, proc0.layerId);
-    assertEquals(100, proc0.coresReserved);
-    assertEquals(3355443, proc0.memoryReserved);
-    assertEquals(6, proc0.gpusReserved);
-    assertEquals(1048576, proc0.gpuMemoryReserved);
-  }
+        VirtualProc proc0 = procs.get(0);
+        LayerDetail layer0 = layerDao.findLayerDetail(job, "test_gpus_6_layer");
+        assertEquals(layer0.id, proc0.layerId);
+        assertEquals(100, proc0.coresReserved);
+        assertEquals(3355443, proc0.memoryReserved);
+        assertEquals(6, proc0.gpusReserved);
+        assertEquals(1048576, proc0.gpuMemoryReserved);
+    }
 }

@@ -23,48 +23,48 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class FrameOnLayer extends AbstractDepend implements Depend {
 
-  private final FrameInterface dependErFrame;
-  private final LayerInterface dependOnLayer;
+    private final FrameInterface dependErFrame;
+    private final LayerInterface dependOnLayer;
 
-  public FrameOnLayer(FrameInterface dependErFrame, LayerInterface dependOnLayer) {
+    public FrameOnLayer(FrameInterface dependErFrame, LayerInterface dependOnLayer) {
 
-    if (dependErFrame.getLayerId().equals(dependOnLayer.getLayerId())) {
-      throw new DependException(
-          "The frame " + dependErFrame.getName() + " cannot depend " + " on its own layer.");
+        if (dependErFrame.getLayerId().equals(dependOnLayer.getLayerId())) {
+            throw new DependException("The frame " + dependErFrame.getName() + " cannot depend "
+                    + " on its own layer.");
+        }
+
+        this.dependErFrame = dependErFrame;
+        this.dependOnLayer = dependOnLayer;
     }
 
-    this.dependErFrame = dependErFrame;
-    this.dependOnLayer = dependOnLayer;
-  }
-
-  public FrameInterface getDependErFrame() {
-    return dependErFrame;
-  }
-
-  public LayerInterface getDependOnLayer() {
-    return dependOnLayer;
-  }
-
-  @Override
-  public String getSignature() {
-    StringBuilder key = new StringBuilder(256);
-    key.append(DependType.FRAME_BY_FRAME.toString());
-    key.append(dependErFrame.getFrameId());
-    key.append(dependOnLayer.getLayerId());
-    return SqlUtil.genKeyByName(key.toString());
-  }
-
-  @Override
-  public void accept(DependVisitor dependVisitor) {
-    dependVisitor.accept(this);
-  }
-
-  @Override
-  public DependTarget getTarget() {
-    if (dependErFrame.getJobId().equals(dependOnLayer.getJobId())) {
-      return DependTarget.INTERNAL;
-    } else {
-      return DependTarget.EXTERNAL;
+    public FrameInterface getDependErFrame() {
+        return dependErFrame;
     }
-  }
+
+    public LayerInterface getDependOnLayer() {
+        return dependOnLayer;
+    }
+
+    @Override
+    public String getSignature() {
+        StringBuilder key = new StringBuilder(256);
+        key.append(DependType.FRAME_BY_FRAME.toString());
+        key.append(dependErFrame.getFrameId());
+        key.append(dependOnLayer.getLayerId());
+        return SqlUtil.genKeyByName(key.toString());
+    }
+
+    @Override
+    public void accept(DependVisitor dependVisitor) {
+        dependVisitor.accept(this);
+    }
+
+    @Override
+    public DependTarget getTarget() {
+        if (dependErFrame.getJobId().equals(dependOnLayer.getJobId())) {
+            return DependTarget.INTERNAL;
+        } else {
+            return DependTarget.EXTERNAL;
+        }
+    }
 }

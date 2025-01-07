@@ -38,33 +38,33 @@ import static org.junit.Assert.assertTrue;
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class MaintenanceDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-  @Autowired
-  @Rule
-  public AssumingPostgresEngine assumingPostgresEngine;
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
-  @Resource
-  MaintenanceDao maintenanceDao;
+    @Resource
+    MaintenanceDao maintenanceDao;
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testSetUpHostsToDown() {
-    maintenanceDao.setUpHostsToDown();
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testSetUpHostsToDown() {
+        maintenanceDao.setUpHostsToDown();
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testLockHistoricalTask() {
-    assertTrue(maintenanceDao.lockTask(MaintenanceTask.LOCK_HISTORICAL_TRANSFER));
-    assertFalse(maintenanceDao.lockTask(MaintenanceTask.LOCK_HISTORICAL_TRANSFER));
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testLockHistoricalTask() {
+        assertTrue(maintenanceDao.lockTask(MaintenanceTask.LOCK_HISTORICAL_TRANSFER));
+        assertFalse(maintenanceDao.lockTask(MaintenanceTask.LOCK_HISTORICAL_TRANSFER));
+    }
 
-  @Test
-  @Transactional
-  @Rollback(true)
-  public void testUnlockHistoricalTask() {
-    assertTrue(maintenanceDao.lockTask(MaintenanceTask.LOCK_HISTORICAL_TRANSFER));
-    maintenanceDao.unlockTask(MaintenanceTask.LOCK_HISTORICAL_TRANSFER);
-  }
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUnlockHistoricalTask() {
+        assertTrue(maintenanceDao.lockTask(MaintenanceTask.LOCK_HISTORICAL_TRANSFER));
+        maintenanceDao.unlockTask(MaintenanceTask.LOCK_HISTORICAL_TRANSFER);
+    }
 }

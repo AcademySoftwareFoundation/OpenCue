@@ -17,27 +17,27 @@ package com.imageworks.spcue;
 
 public class SubscriptionEntity extends Entity implements SubscriptionInterface {
 
-  public String showId;
-  public String allocationId;
-  public String facilityId;
+    public String showId;
+    public String allocationId;
+    public String facilityId;
 
-  public int size;
-  public int burst;
+    public int size;
+    public int burst;
 
-  public String getShowId() {
-    return showId;
-  }
+    public String getShowId() {
+        return showId;
+    }
 
-  public String getAllocationId() {
-    return allocationId;
-  }
+    public String getAllocationId() {
+        return allocationId;
+    }
 
-  public String getSubscriptionId() {
-    return id;
-  }
+    public String getSubscriptionId() {
+        return id;
+    }
 
-  @Override
-  public String getFacilityId() {
-    return facilityId;
-  }
+    @Override
+    public String getFacilityId() {
+        return facilityId;
+    }
 }

@@ -28,20 +28,20 @@ import org.springframework.context.annotation.PropertySource;
 
 @Configuration
 @ImportResource({"classpath:conf/spring/applicationContext-assumptions.xml",
-    "classpath:conf/spring/applicationContext-dbEngine.xml",
-    "classpath:conf/spring/applicationContext-grpc.xml",
-    "classpath:conf/spring/applicationContext-grpcServer.xml",
-    "classpath:conf/spring/applicationContext-service.xml",
-    "classpath:conf/spring/applicationContext-jms.xml",
-    "classpath:conf/spring/applicationContext-criteria.xml"})
+        "classpath:conf/spring/applicationContext-dbEngine.xml",
+        "classpath:conf/spring/applicationContext-grpc.xml",
+        "classpath:conf/spring/applicationContext-grpcServer.xml",
+        "classpath:conf/spring/applicationContext-service.xml",
+        "classpath:conf/spring/applicationContext-jms.xml",
+        "classpath:conf/spring/applicationContext-criteria.xml"})
 @EnableConfigurationProperties
 @PropertySource({"classpath:opencue.properties"})
 public class TestAppConfig {
 
-  @Configuration
-  @Conditional(PostgresDatabaseCondition.class)
-  @ImportResource({"classpath:conf/spring/applicationContext-postgres-datasource.xml",
-      "classpath:conf/spring/applicationContext-dao-postgres.xml"})
-  static class PostgresEngineConfig {
-  }
+    @Configuration
+    @Conditional(PostgresDatabaseCondition.class)
+    @ImportResource({"classpath:conf/spring/applicationContext-postgres-datasource.xml",
+            "classpath:conf/spring/applicationContext-dao-postgres.xml"})
+    static class PostgresEngineConfig {
+    }
 }

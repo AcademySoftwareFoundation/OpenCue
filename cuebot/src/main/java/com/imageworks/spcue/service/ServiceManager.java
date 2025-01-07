@@ -20,24 +20,24 @@ import com.imageworks.spcue.ServiceOverrideEntity;
 
 public interface ServiceManager {
 
-  public ServiceEntity getService(String id);
+    public ServiceEntity getService(String id);
 
-  public ServiceEntity getDefaultService();
+    public ServiceEntity getDefaultService();
 
-  public void createService(ServiceEntity s);
+    public void createService(ServiceEntity s);
 
-  void createService(ServiceOverrideEntity s);
+    void createService(ServiceOverrideEntity s);
 
-  void updateService(ServiceOverrideEntity s);
+    void updateService(ServiceOverrideEntity s);
 
-  void updateService(ServiceEntity s);
+    void updateService(ServiceEntity s);
 
-  void deleteService(ServiceOverrideEntity s);
+    void deleteService(ServiceOverrideEntity s);
 
-  void deleteService(ServiceEntity s);
+    void deleteService(ServiceEntity s);
 
-  ServiceOverrideEntity getServiceOverride(String id);
+    ServiceOverrideEntity getServiceOverride(String id);
 
-  ServiceEntity getService(String id, String show);
+    ServiceEntity getService(String id, String show);
 
 }
