@@ -23,6 +23,8 @@ import org.apache.logging.log4j.LogManager;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
@@ -276,10 +278,9 @@ public class RedirectManager {
      * @param proc
      * @return
      */
+    @Transactional(propagation = Propagation.REQUIRED)
     public boolean redirect(VirtualProc proc) {
-
         try {
-
             Redirect r = redirectService.remove(proc.getProcId());
             if (r == null) {
                 logger.info("Failed to find redirect for proc " + proc);
@@ -309,34 +310,21 @@ public class RedirectManager {
             switch (r.getType()) {
 
                 case JOB_REDIRECT:
-                    logger.info("attempting a job redirect to " + r.getDestinationId());
                     JobInterface job = jobDao.getJob(r.getDestinationId());
                     logger.info("redirecting proc " + proc + " to job " + job.getName());
-
-                    if (dispatcher.isTestMode()) {
-                        dispatcher.dispatchHost(host, job);
-                    } else {
-                        bookingQueue.execute(new DispatchBookHost(host, job, dispatcher, env));
-                    }
+                    dispatcher.dispatchHost(host, job);
                     return true;
 
                 case GROUP_REDIRECT:
-                    logger.info("attempting a group redirect to " + r.getDestinationId());
                     GroupInterface group = groupDao.getGroup(r.getDestinationId());
                     logger.info("redirecting group " + proc + " to job " + group.getName());
-
-                    if (dispatcher.isTestMode()) {
-                        dispatcher.dispatchHost(host, group);
-                    } else {
-                        bookingQueue.execute(new DispatchBookHost(host, group, dispatcher, env));
-                    }
+                    dispatcher.dispatchHost(host, group);
                     return true;
 
                 default:
                     logger.info("redirect failed, invalid redirect type: " + r.getType());
                     return false;
             }
-
         } catch (Exception e) {
             /*
              * If anything fails the redirect fails, so just return false after logging.
