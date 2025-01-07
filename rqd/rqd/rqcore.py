@@ -1532,7 +1532,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                                                             self.rqCore.updateRss)
                 self.rqCore.updateRssThread.start()
 
-            # Atatch to the job and follow the logs
+            # Attach to the job and follow the logs
             for line in log_stream:
                 self.rqlog.write(line, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
 
