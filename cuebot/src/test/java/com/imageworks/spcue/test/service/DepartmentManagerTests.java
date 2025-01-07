@@ -2,19 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 
 package com.imageworks.spcue.test.service;
 
@@ -41,62 +38,59 @@ import com.imageworks.spcue.service.DepartmentManager;
 
 import static org.junit.Assert.assertTrue;
 
-
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-    @Resource
-    DepartmentManager departmentManager;
+  @Resource
+  DepartmentManager departmentManager;
 
-    @Resource
-    ShowDao showDao;
+  @Resource
+  ShowDao showDao;
 
-    @Resource
-    DepartmentDao departmentDao;
+  @Resource
+  DepartmentDao departmentDao;
 
-    @Resource
-    AdminManager adminManager;
+  @Resource
+  AdminManager adminManager;
 
-    @Resource
-    PointDao pointDao;
+  @Resource
+  PointDao pointDao;
 
-    private static final String TEST_TI_TASK_NAME = "RINT";
+  private static final String TEST_TI_TASK_NAME = "RINT";
 
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void enableTiManaged() {
-        ShowInterface show = showDao.findShowDetail("pipe");
-        DepartmentInterface dept = departmentDao.getDefaultDepartment();
-        PointInterface rp = pointDao.getPointConfigDetail(show, dept);
+  @Test
+  @Transactional
+  @Rollback(true)
+  public void enableTiManaged() {
+    ShowInterface show = showDao.findShowDetail("pipe");
+    DepartmentInterface dept = departmentDao.getDefaultDepartment();
+    PointInterface rp = pointDao.getPointConfigDetail(show, dept);
 
-        departmentManager.disableTiManaged(rp);
-        departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
+    departmentManager.disableTiManaged(rp);
+    departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
+  }
+
+  @Test
+  @Transactional
+  @Rollback(true)
+  public void updateTiManagedTasks() {
+    ShowInterface show = showDao.findShowDetail("pipe");
+    DepartmentInterface dept = departmentDao.getDefaultDepartment();
+    PointInterface rp;
+
+    try {
+      rp = pointDao.getPointConfigDetail(show, dept);
+    } catch (org.springframework.dao.DataRetrievalFailureException e) {
+      pointDao.insertPointConf(show, dept);
+      rp = pointDao.getPointConfigDetail(show, dept);
     }
+    departmentManager.disableTiManaged(rp);
+    departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
 
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void updateTiManagedTasks() {
-        ShowInterface show = showDao.findShowDetail("pipe");
-        DepartmentInterface dept = departmentDao.getDefaultDepartment();
-        PointInterface rp;
+    departmentManager.updateManagedTasks(rp);
 
-        try {
-            rp = pointDao.getPointConfigDetail(show, dept);
-        }
-        catch (org.springframework.dao.DataRetrievalFailureException e) {
-            pointDao.insertPointConf(show, dept);
-            rp = pointDao.getPointConfigDetail(show,dept);
-        }
-        departmentManager.disableTiManaged(rp);
-        departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
+    departmentManager.disableTiManaged(rp);
 
-        departmentManager.updateManagedTasks(rp);
-
-        departmentManager.disableTiManaged(rp);
-
-    }
+  }
 }
-

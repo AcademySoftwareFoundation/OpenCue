@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -44,207 +40,202 @@ import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.job.JobState;
 
-
 @Transactional
 public class BookingManagerService implements BookingManager {
 
-    @SuppressWarnings("unused")
-    private static final Logger logger =
-        LogManager.getLogger(BookingManagerService.class);
+  @SuppressWarnings("unused")
+  private static final Logger logger = LogManager.getLogger(BookingManagerService.class);
 
-    private BookingQueue bookingQueue;
-    private BookingDao bookingDao;
-    private Dispatcher localDispatcher;
-    private JobManager jobManager;
-    private JobManagerSupport jobManagerSupport;
-    private JobDao jobDao;
-    private HostDao hostDao;
-    private ProcDao procDao;
+  private BookingQueue bookingQueue;
+  private BookingDao bookingDao;
+  private Dispatcher localDispatcher;
+  private JobManager jobManager;
+  private JobManagerSupport jobManagerSupport;
+  private JobDao jobDao;
+  private HostDao hostDao;
+  private ProcDao procDao;
 
-    @Override
-    public boolean hasLocalHostAssignment(HostInterface host) {
-        return bookingDao.hasLocalJob(host);
+  @Override
+  public boolean hasLocalHostAssignment(HostInterface host) {
+    return bookingDao.hasLocalJob(host);
+  }
+
+  @Override
+  public boolean hasActiveLocalFrames(HostInterface host) {
+    return bookingDao.hasActiveLocalJob(host);
+  }
+
+  @Override
+  public void setMaxResources(LocalHostAssignment l, int maxCoreUnits, long maxMemory,
+      int maxGpuUnits, long maxGpuMemory) {
+
+    HostInterface host = hostDao.getHost(l.getHostId());
+
+    if (maxCoreUnits > 0) {
+      bookingDao.updateMaxCores(l, maxCoreUnits);
     }
 
-    @Override
-    public boolean hasActiveLocalFrames(HostInterface host) {
-        return bookingDao.hasActiveLocalJob(host);
+    if (maxMemory > 0) {
+      bookingDao.updateMaxMemory(l, maxMemory);
     }
 
-    @Override
-    public void setMaxResources(LocalHostAssignment l, int maxCoreUnits,
-            long maxMemory, int maxGpuUnits, long maxGpuMemory) {
-
-        HostInterface host = hostDao.getHost(l.getHostId());
-
-        if (maxCoreUnits > 0) {
-            bookingDao.updateMaxCores(l, maxCoreUnits);
-        }
-
-        if (maxMemory > 0) {
-            bookingDao.updateMaxMemory(l, maxMemory);
-        }
-
-        if (maxGpuUnits > 0) {
-            bookingDao.updateMaxGpus(l, maxGpuUnits);
-        }
-
-        if (maxGpuMemory > 0) {
-            bookingDao.updateMaxGpuMemory(l, maxGpuMemory);
-        }
+    if (maxGpuUnits > 0) {
+      bookingDao.updateMaxGpus(l, maxGpuUnits);
     }
 
-    @Override
-    @Transactional(propagation = Propagation.SUPPORTS)
-    public void removeInactiveLocalHostAssignment(LocalHostAssignment lha) {
-        String jobId = lha.getJobId();
-        try {
-            JobDetail jobDetail = jobDao.getJobDetail(jobId);
-            if (jobManager.isJobComplete(jobDetail) || jobDetail.state.equals(JobState.FINISHED)) {
-                removeLocalHostAssignment(lha);
-            }
-        }
-        catch (EmptyResultDataAccessException e) {
-            removeLocalHostAssignment(lha);
-        }
+    if (maxGpuMemory > 0) {
+      bookingDao.updateMaxGpuMemory(l, maxGpuMemory);
     }
+  }
 
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED)
-    public void removeLocalHostAssignment(LocalHostAssignment l) {
-
-        LocalHostAssignment lja = bookingDao.getLocalJobAssignment(l.id);
-        HostInterface host = hostDao.getHost(l.getHostId());
-
-        bookingDao.deleteLocalJobAssignment(lja);
+  @Override
+  @Transactional(propagation = Propagation.SUPPORTS)
+  public void removeInactiveLocalHostAssignment(LocalHostAssignment lha) {
+    String jobId = lha.getJobId();
+    try {
+      JobDetail jobDetail = jobDao.getJobDetail(jobId);
+      if (jobManager.isJobComplete(jobDetail) || jobDetail.state.equals(JobState.FINISHED)) {
+        removeLocalHostAssignment(lha);
+      }
+    } catch (EmptyResultDataAccessException e) {
+      removeLocalHostAssignment(lha);
     }
+  }
 
-    @Override
-    @Transactional(propagation = Propagation.SUPPORTS)
-    public void deactivateLocalHostAssignment(LocalHostAssignment l) {
+  @Override
+  @Transactional(propagation = Propagation.REQUIRED)
+  public void removeLocalHostAssignment(LocalHostAssignment l) {
 
-        /*
-         * De-activate the local booking and unbook procs.
-         * The last proc to report in should remove the LHA.
-         */
-        bookingDao.deactivate(l);
+    LocalHostAssignment lja = bookingDao.getLocalJobAssignment(l.id);
+    HostInterface host = hostDao.getHost(l.getHostId());
 
-        List<VirtualProc> procs = procDao.findVirtualProcs(l);
-        for (VirtualProc p: procs) {
-            jobManagerSupport.unbookProc(p, true, new
-                    Source("user cleared local jobs"));
-        }
-        removeLocalHostAssignment(l);
-    }
+    bookingDao.deleteLocalJobAssignment(lja);
+  }
 
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<LocalHostAssignment> getLocalHostAssignment(HostInterface host) {
-        return bookingDao.getLocalJobAssignment(host);
-    }
+  @Override
+  @Transactional(propagation = Propagation.SUPPORTS)
+  public void deactivateLocalHostAssignment(LocalHostAssignment l) {
 
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public LocalHostAssignment getLocalHostAssignment(String id) {
-        return bookingDao.getLocalJobAssignment(id);
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public LocalHostAssignment getLocalHostAssignment(String hostId, String jobId) {
-        return bookingDao.getLocalJobAssignment(hostId, jobId);
-    }
-
-    /**
-     * Create LocalHostAssignments
+    /*
+     * De-activate the local booking and unbook procs. The last proc to report in should remove the
+     * LHA.
      */
+    bookingDao.deactivate(l);
 
-    @Override
-    public void createLocalHostAssignment(DispatchHost host, JobInterface job,
-            LocalHostAssignment lja) {
-        bookingDao.insertLocalHostAssignment(host, job, lja);
+    List<VirtualProc> procs = procDao.findVirtualProcs(l);
+    for (VirtualProc p : procs) {
+      jobManagerSupport.unbookProc(p, true, new Source("user cleared local jobs"));
     }
+    removeLocalHostAssignment(l);
+  }
 
-    @Override
-    public void createLocalHostAssignment(DispatchHost host, LayerInterface layer,
-            LocalHostAssignment lja) {
-        bookingDao.insertLocalHostAssignment(host, layer, lja);
-    }
+  @Override
+  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+  public List<LocalHostAssignment> getLocalHostAssignment(HostInterface host) {
+    return bookingDao.getLocalJobAssignment(host);
+  }
 
-    @Override
-    public void createLocalHostAssignment(DispatchHost host, FrameInterface frame,
-            LocalHostAssignment lja) {
-        bookingDao.insertLocalHostAssignment(host, frame, lja);
-    }
+  @Override
+  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+  public LocalHostAssignment getLocalHostAssignment(String id) {
+    return bookingDao.getLocalJobAssignment(id);
+  }
 
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean hasResourceDeficit(HostInterface host) {
-        return bookingDao.hasResourceDeficit(host);
-    }
+  @Override
+  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+  public LocalHostAssignment getLocalHostAssignment(String hostId, String jobId) {
+    return bookingDao.getLocalJobAssignment(hostId, jobId);
+  }
 
-    public BookingQueue getBookingQueue() {
-        return bookingQueue;
-    }
+  /**
+   * Create LocalHostAssignments
+   */
 
-    public void setBookingQueue(BookingQueue bookingQueue) {
-        this.bookingQueue = bookingQueue;
-    }
+  @Override
+  public void createLocalHostAssignment(DispatchHost host, JobInterface job,
+      LocalHostAssignment lja) {
+    bookingDao.insertLocalHostAssignment(host, job, lja);
+  }
 
-    public BookingDao getBookingDao() {
-        return bookingDao;
-    }
+  @Override
+  public void createLocalHostAssignment(DispatchHost host, LayerInterface layer,
+      LocalHostAssignment lja) {
+    bookingDao.insertLocalHostAssignment(host, layer, lja);
+  }
 
-    public void setBookingDao(BookingDao bookingDao) {
-        this.bookingDao = bookingDao;
-    }
+  @Override
+  public void createLocalHostAssignment(DispatchHost host, FrameInterface frame,
+      LocalHostAssignment lja) {
+    bookingDao.insertLocalHostAssignment(host, frame, lja);
+  }
 
-    public Dispatcher getLocalDispatcher() {
-        return localDispatcher;
-    }
+  @Override
+  @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+  public boolean hasResourceDeficit(HostInterface host) {
+    return bookingDao.hasResourceDeficit(host);
+  }
 
-    public void setLocalDispatcher(Dispatcher localDispatcher) {
-        this.localDispatcher = localDispatcher;
-    }
+  public BookingQueue getBookingQueue() {
+    return bookingQueue;
+  }
 
-    public JobManagerSupport getJobManagerSupport() {
-        return jobManagerSupport;
-    }
+  public void setBookingQueue(BookingQueue bookingQueue) {
+    this.bookingQueue = bookingQueue;
+  }
 
-    public void setJobManagerSupport(JobManagerSupport jobManagerSupport) {
-        this.jobManagerSupport = jobManagerSupport;
-    }
+  public BookingDao getBookingDao() {
+    return bookingDao;
+  }
 
-    public JobManager getJobManager() {
-        return jobManager;
-    }
+  public void setBookingDao(BookingDao bookingDao) {
+    this.bookingDao = bookingDao;
+  }
 
-    public void setJobManager(JobManager jobManager) {
-        this.jobManager = jobManager;
-    }
+  public Dispatcher getLocalDispatcher() {
+    return localDispatcher;
+  }
 
-    public JobDao getJobDao() {
-        return jobDao;
-    }
+  public void setLocalDispatcher(Dispatcher localDispatcher) {
+    this.localDispatcher = localDispatcher;
+  }
 
-    public void setJobDao(JobDao jobDao) {
-        this.jobDao = jobDao;
-    }
+  public JobManagerSupport getJobManagerSupport() {
+    return jobManagerSupport;
+  }
 
-    public HostDao getHostDao() {
-        return hostDao;
-    }
+  public void setJobManagerSupport(JobManagerSupport jobManagerSupport) {
+    this.jobManagerSupport = jobManagerSupport;
+  }
 
-    public void setHostDao(HostDao hostDao) {
-        this.hostDao = hostDao;
-    }
+  public JobManager getJobManager() {
+    return jobManager;
+  }
 
-    public ProcDao getProcDao() {
-        return procDao;
-    }
+  public void setJobManager(JobManager jobManager) {
+    this.jobManager = jobManager;
+  }
 
-    public void setProcDao(ProcDao procDao) {
-        this.procDao = procDao;
-    }
+  public JobDao getJobDao() {
+    return jobDao;
+  }
+
+  public void setJobDao(JobDao jobDao) {
+    this.jobDao = jobDao;
+  }
+
+  public HostDao getHostDao() {
+    return hostDao;
+  }
+
+  public void setHostDao(HostDao hostDao) {
+    this.hostDao = hostDao;
+  }
+
+  public ProcDao getProcDao() {
+    return procDao;
+  }
+
+  public void setProcDao(ProcDao procDao) {
+    this.procDao = procDao;
+  }
 }
-

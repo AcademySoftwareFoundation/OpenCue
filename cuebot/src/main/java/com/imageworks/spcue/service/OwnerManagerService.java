@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -34,90 +30,88 @@ import com.imageworks.spcue.dao.OwnerDao;
 @Transactional
 public class OwnerManagerService implements OwnerManager {
 
-    private OwnerDao ownerDao;
-    private DeedDao deedDao;
-    private HostDao hostDao;
+  private OwnerDao ownerDao;
+  private DeedDao deedDao;
+  private HostDao hostDao;
 
-    @Override
-    public OwnerEntity createOwner(String user, ShowInterface show) {
-        OwnerEntity owner = new OwnerEntity(user);
-        ownerDao.insertOwner(owner, show);
-        return owner;
+  @Override
+  public OwnerEntity createOwner(String user, ShowInterface show) {
+    OwnerEntity owner = new OwnerEntity(user);
+    ownerDao.insertOwner(owner, show);
+    return owner;
+  }
+
+  @Override
+  public boolean deleteOwner(Entity owner) {
+    return ownerDao.deleteOwner(owner);
+  }
+
+  @Override
+  public OwnerEntity findOwner(String name) {
+    return ownerDao.findOwner(name);
+  }
+
+  @Override
+  public OwnerEntity getOwner(String id) {
+    return ownerDao.getOwner(id);
+  }
+
+  @Override
+  public void setShow(Entity owner, ShowInterface show) {
+    ownerDao.updateShow(owner, show);
+  }
+
+  @Override
+  public DeedEntity getDeed(String id) {
+    return deedDao.getDeed(id);
+  }
+
+  @Override
+  public DeedEntity takeOwnership(OwnerEntity owner, HostInterface host) {
+    if (!hostDao.isNimbyHost(host)) {
+      throw new SpcueRuntimeException("Cannot setup deeeds on non-NIMBY hosts.");
     }
 
-    @Override
-    public boolean deleteOwner(Entity owner) {
-        return ownerDao.deleteOwner(owner);
-    }
+    deedDao.deleteDeed(host);
+    return deedDao.insertDeed(owner, host);
+  }
 
-    @Override
-    public OwnerEntity findOwner(String name) {
-        return ownerDao.findOwner(name);
-    }
+  @Override
+  public void removeDeed(HostInterface host) {
+    deedDao.deleteDeed(host);
+  }
 
-    @Override
-    public OwnerEntity getOwner(String id) {
-        return ownerDao.getOwner(id);
-    }
+  @Override
+  public void removeDeed(DeedEntity deed) {
+    deedDao.deleteDeed(deed);
+  }
 
-    @Override
-    public void setShow(Entity owner, ShowInterface show) {
-        ownerDao.updateShow(owner, show);
-    }
+  @Override
+  public boolean isOwner(OwnerEntity owner, HostInterface host) {
+    return ownerDao.isOwner(owner, host);
+  }
 
-    @Override
-    public DeedEntity getDeed(String id) {
-        return deedDao.getDeed(id);
-    }
+  public OwnerDao getOwnerDao() {
+    return ownerDao;
+  }
 
-    @Override
-    public DeedEntity takeOwnership(OwnerEntity owner, HostInterface host) {
-        if (!hostDao.isNimbyHost(host)) {
-            throw new SpcueRuntimeException(
-                    "Cannot setup deeeds on non-NIMBY hosts.");
-        }
+  public void setOwnerDao(OwnerDao ownerDao) {
+    this.ownerDao = ownerDao;
+  }
 
-        deedDao.deleteDeed(host);
-        return deedDao.insertDeed(owner, host);
-    }
+  public DeedDao getDeedDao() {
+    return deedDao;
+  }
 
-    @Override
-    public void removeDeed(HostInterface host) {
-        deedDao.deleteDeed(host);
-    }
+  public void setDeedDao(DeedDao deedDao) {
+    this.deedDao = deedDao;
+  }
 
-    @Override
-    public void removeDeed(DeedEntity deed) {
-        deedDao.deleteDeed(deed);
-    }
+  public HostDao getHostDao() {
+    return hostDao;
+  }
 
-    @Override
-    public boolean isOwner(OwnerEntity owner, HostInterface host) {
-        return ownerDao.isOwner(owner, host);
-    }
-
-    public OwnerDao getOwnerDao() {
-        return ownerDao;
-    }
-
-    public void setOwnerDao(OwnerDao ownerDao) {
-        this.ownerDao = ownerDao;
-    }
-
-    public DeedDao getDeedDao() {
-        return deedDao;
-    }
-
-    public void setDeedDao(DeedDao deedDao) {
-        this.deedDao = deedDao;
-    }
-
-    public HostDao getHostDao() {
-        return hostDao;
-    }
-
-    public void setHostDao(HostDao hostDao) {
-        this.hostDao = hostDao;
-    }
+  public void setHostDao(HostDao hostDao) {
+    this.hostDao = hostDao;
+  }
 }
-

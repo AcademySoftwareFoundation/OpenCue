@@ -7,6 +7,7 @@ plugins {
     id('com.google.protobuf') version "0.9.1"
     id('jacoco')
     id('org.sonarqube') version "2.8"
+    id('com.diffplug.spotless') version "5.16.0"
 }
 
 sourceCompatibility = 11
@@ -170,4 +171,13 @@ test {
             exceptionFormat = 'full'
         }
    }
+}
+
+spotless {
+    java {
+        targetExclude 'src/compiled_protobuf/**'
+        toggleOffOn()
+        eclipse().configFile('jdtls.xml')
+        indentWithSpaces(4)
+    }
 }

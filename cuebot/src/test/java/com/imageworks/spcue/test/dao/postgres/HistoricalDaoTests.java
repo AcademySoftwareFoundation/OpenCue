@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -41,42 +37,39 @@ import com.imageworks.spcue.test.AssumingPostgresEngine;
 import static org.junit.Assert.assertEquals;
 
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class HistoricalDaoTests extends
-        AbstractTransactionalJUnit4SpringContextTests {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class HistoricalDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-    @Autowired
-    @Rule
-    public AssumingPostgresEngine assumingPostgresEngine;
+  @Autowired
+  @Rule
+  public AssumingPostgresEngine assumingPostgresEngine;
 
-    @Resource
-    private JobManager jobManager;
+  @Resource
+  private JobManager jobManager;
 
-    @Resource
-    private JobLauncher jobLauncher;
+  @Resource
+  private JobLauncher jobLauncher;
 
-    @Resource
-    private HistoricalDao historicalDao;
+  @Resource
+  private HistoricalDao historicalDao;
 
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testGetFinishedJobs() {
-        historicalDao.getFinishedJobs(24);
-    }
+  @Test
+  @Transactional
+  @Rollback(true)
+  public void testGetFinishedJobs() {
+    historicalDao.getFinishedJobs(24);
+  }
 
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testTransferJob() {
-        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
-        JobDetail j = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
-        jobManager.shutdownJob(j);
-        historicalDao.transferJob(j);
+  @Test
+  @Transactional
+  @Rollback(true)
+  public void testTransferJob() {
+    jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+    JobDetail j = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
+    jobManager.shutdownJob(j);
+    historicalDao.transferJob(j);
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM job_history WHERE pk_job=?",
-                Integer.class, j.getJobId()));
-    }
+    assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        "SELECT COUNT(*) FROM job_history WHERE pk_job=?", Integer.class, j.getJobId()));
+  }
 }
-

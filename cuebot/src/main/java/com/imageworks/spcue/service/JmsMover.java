@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -40,68 +36,64 @@ import org.springframework.jms.core.MessageCreator;
 import com.imageworks.spcue.util.CueExceptionUtil;
 
 public class JmsMover extends ThreadPoolExecutor {
-    private static final Logger logger = LogManager.getLogger(JmsMover.class);
-    private final Gson gson = new GsonBuilder().serializeNulls().create();
+  private static final Logger logger = LogManager.getLogger(JmsMover.class);
+  private final Gson gson = new GsonBuilder().serializeNulls().create();
 
-    @Autowired
-    private Environment env;
-    private JmsTemplate template;
-    private Topic topic;
+  @Autowired
+  private Environment env;
+  private JmsTemplate template;
+  private Topic topic;
 
-    private static final int THREAD_POOL_SIZE_INITIAL = 1;
-    private static final int THREAD_POOL_SIZE_MAX = 1;
-    private static final int QUEUE_SIZE_INITIAL = 1000;
+  private static final int THREAD_POOL_SIZE_INITIAL = 1;
+  private static final int THREAD_POOL_SIZE_MAX = 1;
+  private static final int QUEUE_SIZE_INITIAL = 1000;
 
-    public JmsMover() {
-        super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10 , TimeUnit.SECONDS,
-                new LinkedBlockingQueue<Runnable>(QUEUE_SIZE_INITIAL));
-    }
+  public JmsMover() {
+    super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10, TimeUnit.SECONDS,
+        new LinkedBlockingQueue<Runnable>(QUEUE_SIZE_INITIAL));
+  }
 
-    public void send(Object m) {
-        if (env.getRequiredProperty("messaging.enabled", Boolean.class)) {
+  public void send(Object m) {
+    if (env.getRequiredProperty("messaging.enabled", Boolean.class)) {
+      try {
+        execute(new Runnable() {
+          @Override
+          public void run() {
             try {
-                execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            template.send(topic, new MessageCreator() {
-                                @Override
-                                public Message createMessage(Session session)
-                                    throws javax.jms.JMSException {
-                                    return session.createTextMessage(gson.toJson(m));
-                                }
-                            });
-                        } catch (JmsException e) {
-                            logger.warn("Failed to send JMS message");
-                            CueExceptionUtil.logStackTrace(
-                                "JmsProducer " + this.getClass().toString() +
-                                    " caught error ", e);
-                        }
-                    }
-                });
-            } catch (RejectedExecutionException e) {
-                logger.warn("Outgoing JMS message queue is full!");
-                CueExceptionUtil.logStackTrace(
-                    "JmsProducer " + this.getClass().toString() +
-                        " caught error ", e);
+              template.send(topic, new MessageCreator() {
+                @Override
+                public Message createMessage(Session session) throws javax.jms.JMSException {
+                  return session.createTextMessage(gson.toJson(m));
+                }
+              });
+            } catch (JmsException e) {
+              logger.warn("Failed to send JMS message");
+              CueExceptionUtil
+                  .logStackTrace("JmsProducer " + this.getClass().toString() + " caught error ", e);
             }
-        }
+          }
+        });
+      } catch (RejectedExecutionException e) {
+        logger.warn("Outgoing JMS message queue is full!");
+        CueExceptionUtil
+            .logStackTrace("JmsProducer " + this.getClass().toString() + " caught error ", e);
+      }
     }
+  }
 
-    public JmsTemplate getTemplate() {
-        return template;
-    }
+  public JmsTemplate getTemplate() {
+    return template;
+  }
 
-    public void setTemplate(JmsTemplate template) {
-        this.template = template;
-    }
+  public void setTemplate(JmsTemplate template) {
+    this.template = template;
+  }
 
-    public Topic getTopic() {
-        return topic;
-    }
+  public Topic getTopic() {
+    return topic;
+  }
 
-    public void setTopic(Topic topic) {
-        this.topic = topic;
-    }
+  public void setTopic(Topic topic) {
+    this.topic = topic;
+  }
 }
-

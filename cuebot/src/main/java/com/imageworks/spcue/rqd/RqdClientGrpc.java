@@ -2,17 +2,15 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package com.imageworks.spcue.rqd;
@@ -50,187 +48,171 @@ import com.imageworks.spcue.grpc.rqd.RunningFrameStatusRequest;
 import com.imageworks.spcue.grpc.rqd.RunningFrameStatusResponse;
 
 public final class RqdClientGrpc implements RqdClient {
-    private static final Logger logger = LogManager.getLogger(RqdClientGrpc.class);
+  private static final Logger logger = LogManager.getLogger(RqdClientGrpc.class);
 
-    private final int rqdCacheSize;
-    private final int rqdCacheExpiration;
-    private final int rqdCacheConcurrency;
-    private final int rqdServerPort;
-    private final int rqdTaskDeadlineSeconds;
-    private LoadingCache<String, ManagedChannel> channelCache;
+  private final int rqdCacheSize;
+  private final int rqdCacheExpiration;
+  private final int rqdCacheConcurrency;
+  private final int rqdServerPort;
+  private final int rqdTaskDeadlineSeconds;
+  private LoadingCache<String, ManagedChannel> channelCache;
 
-    private boolean testMode = false;
+  private boolean testMode = false;
 
+  public RqdClientGrpc(int rqdServerPort, int rqdCacheSize, int rqdCacheExpiration,
+      int rqdCacheConcurrency, int rqdTaskDeadline) {
+    this.rqdServerPort = rqdServerPort;
+    this.rqdCacheSize = rqdCacheSize;
+    this.rqdCacheExpiration = rqdCacheExpiration;
+    this.rqdCacheConcurrency = rqdCacheConcurrency;
+    this.rqdTaskDeadlineSeconds = rqdTaskDeadline;
+  }
 
-    public RqdClientGrpc(int rqdServerPort, int rqdCacheSize, int rqdCacheExpiration,
-                         int rqdCacheConcurrency, int rqdTaskDeadline) {
-        this.rqdServerPort = rqdServerPort;
-        this.rqdCacheSize = rqdCacheSize;
-        this.rqdCacheExpiration = rqdCacheExpiration;
-        this.rqdCacheConcurrency = rqdCacheConcurrency;
-        this.rqdTaskDeadlineSeconds = rqdTaskDeadline;
+  private void buildChannelCache() {
+    this.channelCache =
+        CacheBuilder.newBuilder().maximumSize(rqdCacheSize).concurrencyLevel(rqdCacheConcurrency)
+            .expireAfterAccess(rqdCacheExpiration, TimeUnit.MINUTES)
+            .removalListener(new RemovalListener<String, ManagedChannel>() {
+              @Override
+              public void onRemoval(RemovalNotification<String, ManagedChannel> removal) {
+                ManagedChannel conn = removal.getValue();
+                conn.shutdown();
+              }
+            }).build(new CacheLoader<String, ManagedChannel>() {
+              @Override
+              public ManagedChannel load(String host) throws Exception {
+                ManagedChannelBuilder<?> channelBuilder =
+                    ManagedChannelBuilder.forAddress(host, rqdServerPort).usePlaintext();
+                return channelBuilder.build();
+              }
+            });
+  }
+
+  private RqdInterfaceGrpc.RqdInterfaceBlockingStub getStub(String host) throws ExecutionException {
+    if (channelCache == null) {
+      buildChannelCache();
+    }
+    ManagedChannel channel = channelCache.get(host);
+    return RqdInterfaceGrpc.newBlockingStub(channel).withDeadlineAfter(rqdTaskDeadlineSeconds,
+        TimeUnit.SECONDS);
+  }
+
+  private RunningFrameGrpc.RunningFrameBlockingStub getRunningFrameStub(String host)
+      throws ExecutionException {
+    if (channelCache == null) {
+      buildChannelCache();
+    }
+    ManagedChannel channel = channelCache.get(host);
+    return RunningFrameGrpc.newBlockingStub(channel).withDeadlineAfter(rqdTaskDeadlineSeconds,
+        TimeUnit.SECONDS);
+  }
+
+  public void setHostLock(HostInterface host, LockState lock) {
+    if (lock == LockState.OPEN) {
+      logger.debug("Unlocking RQD host");
+      unlockHost(host);
+    } else if (lock == LockState.LOCKED) {
+      logger.debug("Locking RQD host");
+      lockHost(host);
+    } else {
+      logger.debug("Unknown LockState passed to setHostLock.");
+    }
+  }
+
+  public void lockHost(HostInterface host) {
+    RqdStaticLockAllRequest request = RqdStaticLockAllRequest.newBuilder().build();
+
+    try {
+      getStub(host.getName()).lockAll(request);
+    } catch (StatusRuntimeException | ExecutionException e) {
+      throw new RqdClientException("failed to lock host: " + host.getName(), e);
+    }
+  }
+
+  public void unlockHost(HostInterface host) {
+    RqdStaticUnlockAllRequest request = RqdStaticUnlockAllRequest.newBuilder().build();
+
+    try {
+      getStub(host.getName()).unlockAll(request);
+    } catch (StatusRuntimeException | ExecutionException e) {
+      throw new RqdClientException("failed to unlock host: " + host.getName(), e);
+    }
+  }
+
+  public void rebootNow(HostInterface host) {
+    RqdStaticRebootNowRequest request = RqdStaticRebootNowRequest.newBuilder().build();
+
+    try {
+      getStub(host.getName()).rebootNow(request);
+    } catch (StatusRuntimeException | ExecutionException e) {
+      throw new RqdClientException("failed to reboot host: " + host.getName(), e);
+    }
+  }
+
+  public void rebootWhenIdle(HostInterface host) {
+    RqdStaticRebootIdleRequest request = RqdStaticRebootIdleRequest.newBuilder().build();
+
+    if (testMode) {
+      return;
     }
 
-    private void buildChannelCache() {
-        this.channelCache = CacheBuilder.newBuilder()
-                .maximumSize(rqdCacheSize)
-                .concurrencyLevel(rqdCacheConcurrency)
-                .expireAfterAccess(rqdCacheExpiration, TimeUnit.MINUTES)
-                .removalListener(new RemovalListener<String, ManagedChannel>() {
-                    @Override
-                    public void onRemoval(RemovalNotification<String, ManagedChannel> removal){
-                        ManagedChannel conn = removal.getValue();
-                        conn.shutdown();
-                    }
-                })
-                .build(
-                        new CacheLoader<String, ManagedChannel>() {
-                            @Override
-                            public ManagedChannel load(String host) throws Exception {
-                                ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder
-                                        .forAddress(host, rqdServerPort)
-                                        .usePlaintext();
-                                return channelBuilder.build();
-                            }
-                        });
+    try {
+      getStub(host.getName()).rebootIdle(request);
+    } catch (StatusRuntimeException | ExecutionException e) {
+      throw new RqdClientException("failed to reboot host: " + host.getName(), e);
+    }
+  }
+
+  public void killFrame(VirtualProc proc, String message) {
+    killFrame(proc.hostName, proc.frameId, message);
+  }
+
+  public void killFrame(String host, String frameId, String message) {
+    RqdStaticKillRunningFrameRequest request = RqdStaticKillRunningFrameRequest.newBuilder()
+        .setFrameId(frameId).setMessage(message).build();
+
+    if (testMode) {
+      return;
     }
 
-    private RqdInterfaceGrpc.RqdInterfaceBlockingStub getStub(String host) throws ExecutionException {
-        if (channelCache == null) {
-            buildChannelCache();
-        }
-        ManagedChannel channel = channelCache.get(host);
-        return RqdInterfaceGrpc
-                .newBlockingStub(channel)
-                .withDeadlineAfter(rqdTaskDeadlineSeconds, TimeUnit.SECONDS);
+    try {
+      logger.info("killing frame on " + host + ", source: " + message);
+      getStub(host).killRunningFrame(request);
+    } catch (StatusRuntimeException | ExecutionException e) {
+      throw new RqdClientException("failed to kill frame " + frameId, e);
+    }
+  }
+
+  public RunningFrameInfo getFrameStatus(VirtualProc proc) {
+    try {
+      RqdStaticGetRunFrameResponse getRunFrameResponse = getStub(proc.hostName)
+          .getRunFrame(RqdStaticGetRunFrameRequest.newBuilder().setFrameId(proc.frameId).build());
+      RunningFrameStatusResponse frameStatusResponse =
+          getRunningFrameStub(proc.hostName).status(RunningFrameStatusRequest.newBuilder()
+              .setRunFrame(getRunFrameResponse.getRunFrame()).build());
+      return frameStatusResponse.getRunningFrameInfo();
+    } catch (StatusRuntimeException | ExecutionException e) {
+      throw new RqdClientException("failed to obtain status for frame " + proc.frameId, e);
+    }
+  }
+
+  public void launchFrame(final RunFrame frame, final VirtualProc proc) {
+    RqdStaticLaunchFrameRequest request =
+        RqdStaticLaunchFrameRequest.newBuilder().setRunFrame(frame).build();
+
+    if (testMode) {
+      return;
     }
 
-    private RunningFrameGrpc.RunningFrameBlockingStub getRunningFrameStub(String host) throws ExecutionException {
-        if (channelCache == null) {
-            buildChannelCache();
-        }
-        ManagedChannel channel = channelCache.get(host);
-        return RunningFrameGrpc
-                .newBlockingStub(channel)
-                .withDeadlineAfter(rqdTaskDeadlineSeconds, TimeUnit.SECONDS);
+    try {
+      getStub(proc.hostName).launchFrame(request);
+    } catch (StatusRuntimeException | ExecutionException e) {
+      throw new RqdClientException("failed to launch frame", e);
     }
+  }
 
-    public void setHostLock(HostInterface host, LockState lock) {
-        if (lock == LockState.OPEN) {
-            logger.debug("Unlocking RQD host");
-            unlockHost(host);
-        } else if (lock == LockState.LOCKED) {
-            logger.debug("Locking RQD host");
-            lockHost(host);
-        } else {
-            logger.debug("Unknown LockState passed to setHostLock.");
-        }
-    }
-
-    public void lockHost(HostInterface host) {
-        RqdStaticLockAllRequest request = RqdStaticLockAllRequest.newBuilder().build();
-
-        try {
-            getStub(host.getName()).lockAll(request);
-        } catch (StatusRuntimeException | ExecutionException e) {
-            throw new RqdClientException("failed to lock host: " + host.getName(), e);
-        }
-    }
-
-    public void unlockHost(HostInterface host) {
-        RqdStaticUnlockAllRequest request = RqdStaticUnlockAllRequest.newBuilder().build();
-
-        try {
-            getStub(host.getName()).unlockAll(request);
-        } catch (StatusRuntimeException | ExecutionException e) {
-            throw new RqdClientException("failed to unlock host: " + host.getName(), e);
-        }
-    }
-
-    public void rebootNow(HostInterface host) {
-        RqdStaticRebootNowRequest request = RqdStaticRebootNowRequest.newBuilder().build();
-
-        try {
-            getStub(host.getName()).rebootNow(request);
-        } catch (StatusRuntimeException | ExecutionException e) {
-            throw new RqdClientException("failed to reboot host: " + host.getName(), e);
-        }
-    }
-
-    public void rebootWhenIdle(HostInterface host) {
-        RqdStaticRebootIdleRequest request = RqdStaticRebootIdleRequest.newBuilder().build();
-
-        if (testMode) {
-            return;
-        }
-
-        try {
-            getStub(host.getName()).rebootIdle(request);
-        } catch (StatusRuntimeException | ExecutionException e) {
-            throw new RqdClientException("failed to reboot host: " + host.getName(), e);
-        }
-    }
-
-    public void killFrame(VirtualProc proc, String message) {
-        killFrame(proc.hostName, proc.frameId, message);
-    }
-
-    public void killFrame(String host, String frameId, String message) {
-        RqdStaticKillRunningFrameRequest request =
-                RqdStaticKillRunningFrameRequest.newBuilder()
-                .setFrameId(frameId)
-                .setMessage(message)
-                .build();
-
-        if (testMode) {
-            return;
-        }
-
-        try {
-            logger.info("killing frame on " + host + ", source: " + message);
-            getStub(host).killRunningFrame(request);
-        } catch(StatusRuntimeException | ExecutionException e) {
-            throw new RqdClientException("failed to kill frame " + frameId, e);
-        }
-    }
-
-    public RunningFrameInfo getFrameStatus(VirtualProc proc) {
-        try {
-            RqdStaticGetRunFrameResponse getRunFrameResponse =
-                    getStub(proc.hostName)
-                            .getRunFrame(
-                                    RqdStaticGetRunFrameRequest.newBuilder()
-                                            .setFrameId(proc.frameId)
-                                            .build());
-            RunningFrameStatusResponse frameStatusResponse =
-                    getRunningFrameStub(proc.hostName)
-                            .status(RunningFrameStatusRequest.newBuilder()
-                                    .setRunFrame(getRunFrameResponse.getRunFrame())
-                                    .build());
-            return frameStatusResponse.getRunningFrameInfo();
-        } catch(StatusRuntimeException | ExecutionException e) {
-            throw new RqdClientException("failed to obtain status for frame " + proc.frameId, e);
-        }
-    }
-
-    public void launchFrame(final RunFrame frame, final VirtualProc proc) {
-        RqdStaticLaunchFrameRequest request =
-                RqdStaticLaunchFrameRequest.newBuilder().setRunFrame(frame).build();
-
-        if (testMode) {
-            return;
-        }
-
-        try {
-            getStub(proc.hostName).launchFrame(request);
-        } catch (StatusRuntimeException | ExecutionException e) {
-            throw new RqdClientException("failed to launch frame", e);
-        }
-    }
-
-    @Override
-    public void setTestMode(boolean testMode) {
-        this.testMode = testMode;
-    }
+  @Override
+  public void setTestMode(boolean testMode) {
+    this.testMode = testMode;
+  }
 }
-

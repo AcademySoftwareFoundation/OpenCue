@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -42,211 +38,211 @@ import com.imageworks.spcue.grpc.report.RenderHost;
 
 public interface HostManager {
 
-    void rebootWhenIdle(HostInterface host);
-    void rebootNow(HostInterface host);
+  void rebootWhenIdle(HostInterface host);
 
-    /**
-     * Lock/unlock the specified host.
-     *
-     * @param host
-     * @param state
-     * @param source
-     */
-    void setHostLock(HostInterface host, LockState state, Source source);
+  void rebootNow(HostInterface host);
 
-    /**
-     * Updates the state of a host.
-     *
-     * @param host HostInterface
-     * @param state HardwareState
-     */
-    void setHostState(HostInterface host, HardwareState state);
+  /**
+   * Lock/unlock the specified host.
+   *
+   * @param host
+   * @param state
+   * @param source
+   */
+  void setHostLock(HostInterface host, LockState state, Source source);
 
-    /**
-     * Updates the free temporary directory (mcp) of a host.
-     *
-     * @param host HostInterface
-     * @param freeTempDir Long
-     */
-    void setHostFreeTempDir(HostInterface host, Long freeTempDir);
+  /**
+   * Updates the state of a host.
+   *
+   * @param host HostInterface
+   * @param state HardwareState
+   */
+  void setHostState(HostInterface host, HardwareState state);
 
-    DispatchHost createHost(HostReport report);
-    DispatchHost createHost(RenderHost host);
+  /**
+   * Updates the free temporary directory (mcp) of a host.
+   *
+   * @param host HostInterface
+   * @param freeTempDir Long
+   */
+  void setHostFreeTempDir(HostInterface host, Long freeTempDir);
 
-    /**
-     * Create a host and move it into the specified allocation.
-     *
-     * @param rhost
-     * @param alloc
-     * @return
-     */
-    DispatchHost createHost(RenderHost rhost, AllocationEntity alloc);
+  DispatchHost createHost(HostReport report);
 
+  DispatchHost createHost(RenderHost host);
 
-    HostInterface getHost(String id);
-    HostInterface findHost(String name);
+  /**
+   * Create a host and move it into the specified allocation.
+   *
+   * @param rhost
+   * @param alloc
+   * @return
+   */
+  DispatchHost createHost(RenderHost rhost, AllocationEntity alloc);
 
-    DispatchHost getDispatchHost(String id);
-    DispatchHost findDispatchHost(String name);
+  HostInterface getHost(String id);
 
-    HostEntity getHostDetail(HostInterface host);
-    HostEntity getHostDetail(String id);
-    HostEntity findHostDetail(String name);
+  HostInterface findHost(String name);
 
-    /**
-     * Returns true of the LockState is not Open.
-     *
-     * @param host
-     * @return
-     */
-    boolean isLocked(HostInterface host);
+  DispatchHost getDispatchHost(String id);
 
-    /**
-     * Set all host statistics.
-     *
-     * @param host
-     * @param totalMemory
-     * @param freeMemory
-     * @param totalSwap
-     * @param freeSwap
-     * @param totalMcp
-     * @param freeMcp
-     * @param totalGpuMemory
-     * @param freeGpuMemory
-     * @param load
-     * @param bootTime
-     * @param os
-     */
-    void setHostStatistics(HostInterface host,
-            long totalMemory, long freeMemory,
-            long totalSwap, long freeSwap,
-            long totalMcp, long freeMcp,
-            long totalGpuMemory, long freeGpuMemory,
-            int load, Timestamp bootTime, String os);
+  DispatchHost findDispatchHost(String name);
 
+  HostEntity getHostDetail(HostInterface host);
 
-    void deleteHost(HostInterface host);
+  HostEntity getHostDetail(String id);
 
-    AllocationInterface getDefaultAllocationDetail();
+  HostEntity findHostDetail(String name);
 
-    void setAllocation(HostInterface host, AllocationInterface alloc);
+  /**
+   * Returns true of the LockState is not Open.
+   *
+   * @param host
+   * @return
+   */
+  boolean isLocked(HostInterface host);
 
-    void addTags(HostInterface host, String[] tags);
-    void removeTags(HostInterface host, String[] tags);
-    void renameTag(HostInterface host, String oldTag, String newTag);
+  /**
+   * Set all host statistics.
+   *
+   * @param host
+   * @param totalMemory
+   * @param freeMemory
+   * @param totalSwap
+   * @param freeSwap
+   * @param totalMcp
+   * @param freeMcp
+   * @param totalGpuMemory
+   * @param freeGpuMemory
+   * @param load
+   * @param bootTime
+   * @param os
+   */
+  void setHostStatistics(HostInterface host, long totalMemory, long freeMemory, long totalSwap,
+      long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory, long freeGpuMemory, int load,
+      Timestamp bootTime, String os);
 
-    /**
-     * Verify that the given proc and frame IDs are assigned
-     * to each other in the database.
-     *
-     * @param procId
-     * @param frameId
-     * @return
-     */
-    boolean verifyRunningProc(String procId, String frameId);
+  void deleteHost(HostInterface host);
 
-    /**
-     * Returns a list of VirtualProcs that match
-     * the specified criteria.
-     *
-     * @param r
-     * @return a list of VirtualProcs that match the criteria
-     */
-    List<VirtualProc> findVirtualProcs(ProcSearchInterface r);
+  AllocationInterface getDefaultAllocationDetail();
 
-    List<VirtualProc> findVirtualProcs(FrameSearchInterface r);
-    VirtualProc findVirtualProc(FrameInterface frame);
-    List<VirtualProc> findVirtualProcs(HardwareState state);
+  void setAllocation(HostInterface host, AllocationInterface alloc);
 
-    /**
-     * Returns a list of booked procs.  When a proc is "booked", that means
-     * it plans on staying on the same job after it completes the current
-     * frame.  If a proc is unbooked, it aways tries to find work to do
-     * on another job.
-     *
-     * @param r
-     * @return
-     */
-    List<VirtualProc> findBookedVirtualProcs(ProcSearchInterface r);
+  void addTags(HostInterface host, String[] tags);
 
-    void unbookVirtualProcs(List<VirtualProc> procs);
-    void unbookProc(ProcInterface proc);
+  void removeTags(HostInterface host, String[] tags);
 
-    /**
-     * Return the Virtual proc with the specified unique ID.
-     *
-     * @param id
-     * @return
-     */
-    VirtualProc getVirtualProc(String id);
+  void renameTag(HostInterface host, String oldTag, String newTag);
 
-    /**
-     * Return true if the given host is in the Up state.  Other
-     * states are Down, Rebooting, RebootWhenIdle, etc.  Only hosts
-     * in the Up state should be booked or dispatched.
-     *
-     * @param host
-     * @return
-     */
-    boolean isHostUp(HostInterface host);
+  /**
+   * Verify that the given proc and frame IDs are assigned to each other in the database.
+   *
+   * @param procId
+   * @param frameId
+   * @return
+   */
+  boolean verifyRunningProc(String procId, String frameId);
 
-    /**
-     * Return true if the proc is an orphan.  An orphan has not
-     * had a ping in 5 minutes.
-     *
-     * @param proc
-     * @return
-     */
-    boolean isOprhan(ProcInterface proc);
+  /**
+   * Returns a list of VirtualProcs that match the specified criteria.
+   *
+   * @param r
+   * @return a list of VirtualProcs that match the criteria
+   */
+  List<VirtualProc> findVirtualProcs(ProcSearchInterface r);
 
-    /**
-     * Return the number of stranded cores on the host.
-     */
-    int getStrandedCoreUnits(HostInterface h);
+  List<VirtualProc> findVirtualProcs(FrameSearchInterface r);
 
-    /**
-     * Return the number of stranded cores on the host.
-     */
-    int getStrandedGpuUnits(HostInterface h);
+  VirtualProc findVirtualProc(FrameInterface frame);
 
-    /**
-     * Return true of the host prefers a particular show.
-     *
-     * @param host
-     * @return
-     */
-    boolean isPreferShow(HostInterface host);
+  List<VirtualProc> findVirtualProcs(HardwareState state);
 
-    /**
-     * Return a host's preferred show.
-     *
-     * @param host
-     * @return
-     */
-    ShowInterface getPreferredShow(HostInterface host);
+  /**
+   * Returns a list of booked procs. When a proc is "booked", that means it plans on staying on the
+   * same job after it completes the current frame. If a proc is unbooked, it aways tries to find
+   * work to do on another job.
+   *
+   * @param r
+   * @return
+   */
+  List<VirtualProc> findBookedVirtualProcs(ProcSearchInterface r);
 
-    /**
-     * Return all running procs for the given host.
-     *
-     * @param host
-     * @return
-     */
-    List<VirtualProc> findVirtualProcs(HostInterface host);
+  void unbookVirtualProcs(List<VirtualProc> procs);
 
-    /**
-     * Return all running procs for the given LocalHostAssignment.
-     *
-     * @param l
-     * @return
-     */
-    List<VirtualProc> findVirtualProcs(LocalHostAssignment l);
+  void unbookProc(ProcInterface proc);
 
-    /**
-     * Set the hosts available idle cores and memory.
-     *
-     * @param host
-     * @param report
-     */
-    void setHostResources(DispatchHost host, HostReport report);
+  /**
+   * Return the Virtual proc with the specified unique ID.
+   *
+   * @param id
+   * @return
+   */
+  VirtualProc getVirtualProc(String id);
+
+  /**
+   * Return true if the given host is in the Up state. Other states are Down, Rebooting,
+   * RebootWhenIdle, etc. Only hosts in the Up state should be booked or dispatched.
+   *
+   * @param host
+   * @return
+   */
+  boolean isHostUp(HostInterface host);
+
+  /**
+   * Return true if the proc is an orphan. An orphan has not had a ping in 5 minutes.
+   *
+   * @param proc
+   * @return
+   */
+  boolean isOprhan(ProcInterface proc);
+
+  /**
+   * Return the number of stranded cores on the host.
+   */
+  int getStrandedCoreUnits(HostInterface h);
+
+  /**
+   * Return the number of stranded cores on the host.
+   */
+  int getStrandedGpuUnits(HostInterface h);
+
+  /**
+   * Return true of the host prefers a particular show.
+   *
+   * @param host
+   * @return
+   */
+  boolean isPreferShow(HostInterface host);
+
+  /**
+   * Return a host's preferred show.
+   *
+   * @param host
+   * @return
+   */
+  ShowInterface getPreferredShow(HostInterface host);
+
+  /**
+   * Return all running procs for the given host.
+   *
+   * @param host
+   * @return
+   */
+  List<VirtualProc> findVirtualProcs(HostInterface host);
+
+  /**
+   * Return all running procs for the given LocalHostAssignment.
+   *
+   * @param l
+   * @return
+   */
+  List<VirtualProc> findVirtualProcs(LocalHostAssignment l);
+
+  /**
+   * Set the hosts available idle cores and memory.
+   *
+   * @param host
+   * @param report
+   */
+  void setHostResources(DispatchHost host, HostReport report);
 }
-

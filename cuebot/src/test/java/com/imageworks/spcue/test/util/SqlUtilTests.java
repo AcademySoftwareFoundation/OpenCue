@@ -7,12 +7,12 @@ import static org.junit.Assert.assertEquals;
 
 public class SqlUtilTests {
 
-    @Test
-    public void testBuildBindVariableArray() {
-        String colName = "arbitrary-column-name";
+  @Test
+  public void testBuildBindVariableArray() {
+    String colName = "arbitrary-column-name";
 
-        String queryString = buildBindVariableArray(colName, 6);
+    String queryString = buildBindVariableArray(colName, 6);
 
-        assertEquals(colName + " IN (?,?,?,?,?,?)", queryString);
-    }
+    assertEquals(colName + " IN (?,?,?,?,?,?)", queryString);
+  }
 }

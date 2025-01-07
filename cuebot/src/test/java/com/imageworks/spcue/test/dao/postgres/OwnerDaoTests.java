@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -41,91 +37,87 @@ import com.imageworks.spcue.test.AssumingPostgresEngine;
 import static org.junit.Assert.assertEquals;
 
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class OwnerDaoTests  extends AbstractTransactionalJUnit4SpringContextTests {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class OwnerDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-    @Autowired
-    @Rule
-    public AssumingPostgresEngine assumingPostgresEngine;
+  @Autowired
+  @Rule
+  public AssumingPostgresEngine assumingPostgresEngine;
 
-    @Resource
-    OwnerDao ownerDao;
+  @Resource
+  OwnerDao ownerDao;
 
-    @Resource
-    AdminManager adminManager;
+  @Resource
+  AdminManager adminManager;
 
-    @Resource
-    HostManager hostManager;
+  @Resource
+  HostManager hostManager;
 
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testInsertOwner() {
-        ShowInterface show = adminManager.findShowEntity("pipe");
-        OwnerEntity o = new OwnerEntity();
-        o.name = "spongebob";
-        ownerDao.insertOwner(o, show);
-    }
+  @Test
+  @Transactional
+  @Rollback(true)
+  public void testInsertOwner() {
+    ShowInterface show = adminManager.findShowEntity("pipe");
+    OwnerEntity o = new OwnerEntity();
+    o.name = "spongebob";
+    ownerDao.insertOwner(o, show);
+  }
 
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testIsOwner() {
-        ShowInterface show = adminManager.findShowEntity("pipe");
-        OwnerEntity o = new OwnerEntity();
-        o.name = "spongebob";
-        ownerDao.insertOwner(o, show);
-    }
+  @Test
+  @Transactional
+  @Rollback(true)
+  public void testIsOwner() {
+    ShowInterface show = adminManager.findShowEntity("pipe");
+    OwnerEntity o = new OwnerEntity();
+    o.name = "spongebob";
+    ownerDao.insertOwner(o, show);
+  }
 
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testGetOwner() {
-        ShowInterface show = adminManager.findShowEntity("pipe");
-        OwnerEntity o = new OwnerEntity();
-        o.name = "spongebob";
-        ownerDao.insertOwner(o, show);
+  @Test
+  @Transactional
+  @Rollback(true)
+  public void testGetOwner() {
+    ShowInterface show = adminManager.findShowEntity("pipe");
+    OwnerEntity o = new OwnerEntity();
+    o.name = "spongebob";
+    ownerDao.insertOwner(o, show);
 
-        assertEquals(o, ownerDao.findOwner("spongebob"));
-        assertEquals(o, ownerDao.getOwner(o.id));
-    }
+    assertEquals(o, ownerDao.findOwner("spongebob"));
+    assertEquals(o, ownerDao.getOwner(o.id));
+  }
 
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testDeleteOwner() {
-        ShowInterface show = adminManager.findShowEntity("pipe");
-        OwnerEntity o = new OwnerEntity();
-        o.name = "spongebob";
-        ownerDao.insertOwner(o, show);
+  @Test
+  @Transactional
+  @Rollback(true)
+  public void testDeleteOwner() {
+    ShowInterface show = adminManager.findShowEntity("pipe");
+    OwnerEntity o = new OwnerEntity();
+    o.name = "spongebob";
+    ownerDao.insertOwner(o, show);
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM owner WHERE pk_owner=?",
-                Integer.class, o.id));
+    assertEquals(Integer.valueOf(1), jdbcTemplate
+        .queryForObject("SELECT COUNT(*) FROM owner WHERE pk_owner=?", Integer.class, o.id));
 
-        ownerDao.deleteOwner(o);
+    ownerDao.deleteOwner(o);
 
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM owner WHERE pk_owner=?",
-                Integer.class, o.id));
-    }
+    assertEquals(Integer.valueOf(0), jdbcTemplate
+        .queryForObject("SELECT COUNT(*) FROM owner WHERE pk_owner=?", Integer.class, o.id));
+  }
 
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testUpdateShow() {
-        ShowInterface show = adminManager.findShowEntity("pipe");
-        OwnerEntity o = new OwnerEntity();
-        o.name = "spongebob";
-        ownerDao.insertOwner(o, show);
+  @Test
+  @Transactional
+  @Rollback(true)
+  public void testUpdateShow() {
+    ShowInterface show = adminManager.findShowEntity("pipe");
+    OwnerEntity o = new OwnerEntity();
+    o.name = "spongebob";
+    ownerDao.insertOwner(o, show);
 
-        ShowInterface newShow = adminManager.findShowEntity("edu");
+    ShowInterface newShow = adminManager.findShowEntity("edu");
 
-        ownerDao.updateShow(o, newShow);
+    ownerDao.updateShow(o, newShow);
 
-        assertEquals(newShow.getShowId(), jdbcTemplate.queryForObject(
-                "SELECT pk_show FROM owner WHERE pk_owner=?",
-                String.class, o.id));
-    }
+    assertEquals(newShow.getShowId(), jdbcTemplate
+        .queryForObject("SELECT pk_show FROM owner WHERE pk_owner=?", String.class, o.id));
+  }
 }
-
