@@ -39,9 +39,8 @@ pub struct MachineMonitor {
     maching_config: MachineConfig,
     report_client: Arc<ReportClient>,
     stats_collector: MachineStatT,
-    pub host_state: Arc<Mutex<RenderHost>>,
-    pub core_state: Arc<Mutex<CoreDetail>>,
     pub running_frames_cache: Arc<RunningFrameCache>,
+    core_state: Arc<Mutex<Option<CoreDetail>>>,
 }
 
 impl MachineMonitor {
@@ -53,18 +52,17 @@ impl MachineMonitor {
         running_frames_cache: Arc<RunningFrameCache>,
     ) -> Result<Self> {
         let stats_collector: MachineStatT = Box::new(LinuxMachineStat::init(&config.machine)?);
-        let host_state = Arc::new(Mutex::new(Self::inspect_host_state(
-            &config.machine,
-            &stats_collector,
-        )?));
+        // let host_state = Arc::new(Mutex::new(Self::inspect_host_state(
+        //     &config.machine,
+        //     &stats_collector,
+        // )?));
         // TODO: identify which OS is running and initialize stats_collector accordingly
         Ok(Self {
             maching_config: config.machine.clone(),
             report_client,
             stats_collector,
-            host_state,
-            core_state: Arc::new(Mutex::new(Self::init_core_state()?)),
             running_frames_cache,
+            core_state: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -72,11 +70,25 @@ impl MachineMonitor {
     pub async fn start(&self) -> Result<()> {
         let report_client = self.report_client.clone();
 
+        let host_state = Self::inspect_host_state(&self.maching_config, &self.stats_collector)?;
+        let total_cores = host_state.num_procs * self.maching_config.core_multiplier as i32;
+        let initial_core_state = CoreDetail {
+            total_cores,
+            idle_cores: total_cores,
+            locked_cores: 0,
+            booked_cores: 0,
+            reserved_cores: HashMap::default(),
+        };
+        {
+            // Setup initial state
+            self.core_state
+                .lock()
+                .await
+                .replace(initial_core_state.clone());
+        }
+
         report_client
-            .send_start_up_report(
-                (*self.host_state).lock().await.clone(),
-                self.core_state.lock().await.clone(),
-            )
+            .send_start_up_report(host_state, initial_core_state)
             .await?;
 
         let mut interval = time::interval(time::Duration::from_secs(
@@ -84,22 +96,21 @@ impl MachineMonitor {
         ));
         for _i in 0..5 {
             interval.tick().await;
-            self.refresh_state().await?;
+            let host_state = Self::inspect_host_state(&self.maching_config, &self.stats_collector)?;
+
+            let core_state_guard = self.core_state.lock().await;
+            let core_state = core_state_guard
+                .as_ref()
+                .expect("A state must be set at this point");
+
             report_client
                 .send_host_report(
-                    self.host_state.lock().await.clone(),
+                    host_state,
                     Arc::clone(&self.running_frames_cache).into_running_frame_vec(),
-                    self.core_state.lock().await.clone(),
+                    core_state.clone(),
                 )
                 .await?;
         }
-        Ok(())
-    }
-
-    /// Update machine state objects
-    async fn refresh_state(&self) -> Result<()> {
-        let mut host_state_ref = self.host_state.lock().await;
-        *host_state_ref = Self::inspect_host_state(&self.maching_config, &self.stats_collector)?;
         Ok(())
     }
 
@@ -108,7 +119,7 @@ impl MachineMonitor {
         stats_collector: &MachineStatT,
     ) -> Result<RenderHost> {
         let static_stats = stats_collector.static_stats();
-        let dynamic_stats = stats_collector.collect_dynamic_stats();
+        let dynamic_stats = stats_collector.collect_dynamic_stats()?;
         let gpu_stats = stats_collector.collect_gpu_stats();
 
         Ok(RenderHost {
@@ -133,10 +144,6 @@ impl MachineMonitor {
             free_gpu_mem: gpu_stats.free_memory as i64,
             total_gpu_mem: gpu_stats.total_memory as i64,
         })
-    }
-
-    fn init_core_state() -> Result<CoreDetail> {
-        todo!()
     }
 }
 
@@ -177,7 +184,7 @@ pub trait MachineStat {
     /// Returns static information about this machine
     fn static_stats(&self) -> MachineStaticInfo;
     /// Collects live information about the status of this machine
-    fn collect_dynamic_stats(&self) -> MachineDynamicInfo;
+    fn collect_dynamic_stats(&self) -> Result<MachineDynamicInfo>;
     /// Collects live information about the gpus on this machine
     fn collect_gpu_stats(&self) -> MachineGpuStats;
     fn hardware_state(&self) -> &HardwareState;

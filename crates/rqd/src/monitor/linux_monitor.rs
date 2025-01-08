@@ -460,10 +460,14 @@ impl MachineStat for LinuxMachineStat {
         self.static_info.clone()
     }
 
-    fn collect_dynamic_stats(&self) -> MachineDynamicInfo {
-        todo!()
+    fn collect_dynamic_stats(&self) -> Result<MachineDynamicInfo> {
+        self.read_dynamic_stat()
     }
 
+    /// Returns the current hardware state of the machine.
+    ///
+    /// # Returns
+    /// * The hardware state enum value indicating whether the machine is UP/DOWN/etc
     fn hardware_state(&self) -> &HardwareState {
         &self.hardware_state
     }
