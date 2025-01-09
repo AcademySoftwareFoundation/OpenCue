@@ -441,7 +441,7 @@ class Machine(object):
             with open(rqd.rqconstants.PATH_LOADAVG, "r", encoding='utf-8') as loadAvgFile:
                 loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
                 if self.__enabledHT():
-                    loadAvg = loadAvg // self.__getHyperthreadingMultiplier()
+                    loadAvg = loadAvg // self.getHyperthreadingMultiplier()
                 loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
                 loadAvg = max(loadAvg, 0)
                 return loadAvg
@@ -893,7 +893,7 @@ class Machine(object):
     def __enabledHT(self):
         return 'hyperthreadingMultiplier' in self.__renderHost.attributes
 
-    def __getHyperthreadingMultiplier(self):
+    def getHyperthreadingMultiplier(self):
         return int(self.__renderHost.attributes['hyperthreadingMultiplier'])
 
     def setupTaskset(self):

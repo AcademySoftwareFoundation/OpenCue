@@ -735,7 +735,10 @@ class FrameAttendantThread(threading.Thread):
             self.frameEnv['CUE_THREADS'] = str(max(
                 int(self.frameEnv['CUE_THREADS']),
                 len(self.runFrame.attributes['CPU_LIST'].split(','))))
-            self.frameEnv['CUE_HT'] = "True"
+            if self.rqCore.machine.getHyperthreadingMultiplier() > 1:
+                self.frameEnv['CUE_HT'] = "True"
+            else:
+                self.frameEnv['CUE_HT'] = "False"
 
         # Add GPU's to use all assigned GPU cores
         if 'GPU_LIST' in self.runFrame.attributes:
