@@ -3,23 +3,25 @@ use std::{
     fs::File,
     io::{BufRead, BufReader},
     net::ToSocketAddrs,
-    path::Path,
+    sync::{Arc, Mutex},
 };
 
 use itertools::Itertools;
 use miette::{miette, IntoDiagnostic, Result};
 use opencue_proto::host::HardwareState;
+use sysinfo::{DiskRefreshKind, Disks, System};
 
 use crate::config::config::MachineConfig;
 
-use super::machine_monitor::{MachineDynamicInfo, MachineStat, MachineStaticInfo};
+use super::machine_monitor::{MachineGpuStats, MachineStat, MachineStatCollector};
 
 pub struct LinuxMachineStat {
     config: MachineConfig,
+    sysinfo: Arc<Mutex<System>>,
+    diskinfo: Arc<Mutex<Disks>>,
     procid_by_physid_and_core_id: HashMap<u32, HashMap<u32, u32>>,
     physid_and_coreid_by_procid: HashMap<u32, (u32, u32)>,
     static_info: MachineStaticInfo,
-    // dynamic_info: Option<MachineDynamicInfo>,
     hardware_state: HardwareState,
     attributes: HashMap<String, String>,
 }
@@ -38,16 +40,39 @@ struct ProcessorInfoData {
     cores_per_proc: u32,
 }
 
-struct TempStorageStats {
-    total_temp_storage: u64,
-    free_temp_storage: u64,
+struct MachineStaticInfo {
+    pub hostname: String,
+    /// Number of proc units (also known as virtual cores)
+    pub num_procs: u32,
+    pub total_memory: u64,
+    pub total_swap: u64,
+    /// Number of sockets (also know as physical cores)
+    pub num_sockets: u32,
+    pub cores_per_proc: u32,
+    // Unlike the python counterpart, the multiplier is not automatically applied to total_procs
+    pub hyperthreading_multiplier: u32,
+    pub boot_time: u32,
+    pub tags: Vec<String>,
+}
+
+pub struct MachineDynamicInfo {
+    pub free_memory: u64,
+    pub free_swap: u64,
+    pub total_temp_storage: u64,
+    pub free_temp_storage: u64,
+    pub load: u32,
 }
 
 impl LinuxMachineStat {
     /// Initialize the linux stats collector which reads Cpu and Memory information from
     /// the Os.
-    pub fn init(config: &MachineConfig) -> Result<Self> {
-        let meminfo_data = Self::read_meminfo(&config.meminfo_path)?;
+    ///
+    /// sysinfo and diskinfo need to have been initialized.
+    pub fn init(
+        config: &MachineConfig,
+        sysinfo: Arc<Mutex<System>>,
+        diskinfo: Arc<Mutex<Disks>>,
+    ) -> Result<Self> {
         let (processor_info, procid_by_physid_and_core_id, physid_and_coreid_by_procid) =
             Self::read_cpuinfo(&config.cpuinfo_path)?;
 
@@ -59,15 +84,24 @@ impl LinuxMachineStat {
                 Self::read_distro(&config.distro_release_path).unwrap_or("linux".to_string())
             });
 
+        let sysinfo_guard = sysinfo
+            .lock()
+            .map_err(|err| miette!("Failed to acquire sysinfo lock {}", err))?;
+        let total_memory = sysinfo_guard.total_memory();
+        let total_swap = sysinfo_guard.total_swap();
+        drop(sysinfo_guard);
+
         Ok(Self {
             config: config.clone(),
+            sysinfo,
+            diskinfo,
             procid_by_physid_and_core_id,
             physid_and_coreid_by_procid,
             static_info: MachineStaticInfo {
                 hostname: Self::get_hostname(config.use_ip_as_hostname)?,
                 num_procs: processor_info.num_procs,
-                total_memory: meminfo_data.total_memory,
-                total_swap: meminfo_data.total_swap,
+                total_memory,
+                total_swap,
                 num_sockets: processor_info.num_sockets,
                 cores_per_proc: processor_info.cores_per_proc,
                 hyperthreading_multiplier: processor_info.hyperthreading_multiplier,
@@ -200,84 +234,6 @@ impl LinuxMachineStat {
         }
     }
 
-    /// Reads the memory information from the specified `meminfo_path` file and extracts
-    /// the total memory and total swap size.
-    ///
-    /// # Arguments
-    ///
-    /// * `meminfo_path` - A string slice that holds the path to the meminfo file.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` containing a `MemInfoData` struct with the total memory and total swap size.
-    fn read_meminfo(meminfo_path: &str) -> Result<MemInfoData> {
-        let cpuinfo = File::open(meminfo_path).into_diagnostic()?;
-        let reader = BufReader::new(cpuinfo);
-        let mut mem_total: Option<u64> = None;
-        let mut mem_free: Option<u64> = None;
-        let mut mem_cached: Option<u64> = None;
-        let mut swap_total: Option<u64> = None;
-        let mut swap_free: Option<u64> = None;
-        for line_res in reader.lines().into_iter() {
-            if let Ok(line) = line_res {
-                if line.trim().starts_with("MemTotal") {
-                    // MemTotal:     134217728 kB
-                    mem_total = line.split_once(":").and_then(|(_, val)| {
-                        val.trim()
-                            .split_once(" ")
-                            .and_then(|(num, _)| num.parse().ok())
-                    });
-                }
-                if line.trim().starts_with("MemFree") {
-                    // MemFree:     134217728 kB
-                    mem_free = line.split_once(":").and_then(|(_, val)| {
-                        val.trim()
-                            .split_once(" ")
-                            .and_then(|(num, _)| num.parse().ok())
-                    });
-                }
-                if line.trim().starts_with("Cached") {
-                    // Cached:     134217728 kB
-                    mem_cached = line.split_once(":").and_then(|(_, val)| {
-                        val.trim()
-                            .split_once(" ")
-                            .and_then(|(num, _)| num.parse().ok())
-                    });
-                }
-                if line.trim().starts_with("SwapTotal") {
-                    // SwapTotal:     134217728 kB
-                    swap_total = line.split_once(":").and_then(|(_, val)| {
-                        val.trim()
-                            .split_once(" ")
-                            .and_then(|(num, _)| num.parse().ok())
-                    });
-                }
-                if line.trim().starts_with("SwapFree") {
-                    // SwapFree:     134217728 kB
-                    swap_free = line.split_once(":").and_then(|(_, val)| {
-                        val.trim()
-                            .split_once(" ")
-                            .and_then(|(num, _)| num.parse().ok())
-                    });
-                }
-            }
-        }
-        if let (Some(m), Some(mf), Some(mc), Some(s), Some(fs)) =
-            (mem_total, mem_free, mem_cached, swap_total, swap_free)
-        {
-            Ok(MemInfoData {
-                total_memory: m,
-                free_memory: mf - mc,
-                total_swap: s,
-                free_swap: fs,
-            })
-        } else {
-            Err(miette!(
-                "meminfo doesn't contain required MemTotal and/or SwapTotal field"
-            ))
-        }
-    }
-
     /// Retrieves the hostname of the machine based on the configuration parameters.
     /// If `use_ip_as_hostname` is set to true, it attempts to find the IP address linked to the hostname.
     ///
@@ -289,12 +245,8 @@ impl LinuxMachineStat {
     ///
     /// A `Result` containing a `String` representing the hostname or IP address of the machine.
     fn get_hostname(use_ip_as_hostname: bool) -> Result<String> {
-        let hostname = format!(
-            "{}",
-            gethostname::gethostname()
-                .to_str()
-                .ok_or_else(|| miette::miette!("Failed to get hostname"))?
-        );
+        let hostname =
+            System::host_name().ok_or_else(|| miette::miette!("Failed to get hostname"))?;
         if use_ip_as_hostname {
             let mut addrs_iter = format!("{}:443", hostname)
                 .to_socket_addrs()
@@ -406,15 +358,19 @@ impl LinuxMachineStat {
 
     fn read_dynamic_stat(&self) -> Result<MachineDynamicInfo> {
         let config = &self.config;
-        let mem_info = Self::read_meminfo(&config.meminfo_path)?;
         let load = Self::read_load_avg(&config.proc_loadavg_path)?;
-        let temp_storage = Self::read_temp_storage(&config.temp_path)?;
+        let (total_space, available_space) = self.read_temp_storage()?;
+        let mut sysinfo_guard = self
+            .sysinfo
+            .lock()
+            .map_err(|err| miette!("Failed to acquire sysinfo lock {}", err))?;
+        sysinfo_guard.refresh_memory();
 
         Ok(MachineDynamicInfo {
-            free_memory: mem_info.free_memory,
-            free_swap: mem_info.free_swap,
-            total_temp_storage: temp_storage.total_temp_storage,
-            free_temp_storage: temp_storage.free_temp_storage,
+            free_memory: sysinfo_guard.free_memory(),
+            free_swap: sysinfo_guard.free_swap(),
+            total_temp_storage: total_space,
+            free_temp_storage: available_space,
             load: ((load.0 * 100.0).round() as u32 / self.static_info.hyperthreading_multiplier),
         })
     }
@@ -450,18 +406,56 @@ impl LinuxMachineStat {
         load_val.ok_or(miette!("Couldn't find load average"))
     }
 
-    fn read_temp_storage(temp_path: &str) -> Result<TempStorageStats> {
-        todo!()
+    /// Reads storage information from the temporary mount point and extracts
+    /// the total space and available space.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a tuple of total space and available space in bytes.
+    fn read_temp_storage(&self) -> Result<(u64, u64)> {
+        let mut diskinfo_guard = self
+            .diskinfo
+            .lock()
+            .map_err(|err| miette!("Failed to acquire diskinfo lock. {}", err))?;
+        let tmp_disk = diskinfo_guard.list_mut().iter_mut().find(|disk| {
+            self.config.temp_path.starts_with(
+                disk.mount_point()
+                    .to_str()
+                    .unwrap_or("invalid_path_will_never_match"),
+            )
+        });
+        match tmp_disk {
+            Some(disk) => {
+                disk.refresh_specifics(DiskRefreshKind::nothing().with_storage());
+                Ok((disk.total_space(), disk.available_space()))
+            }
+            None => Err(miette!(
+                "Could not locate disk for temp path {}",
+                self.config.temp_path
+            )),
+        }
     }
 }
 
-impl MachineStat for LinuxMachineStat {
-    fn static_stats(&self) -> MachineStaticInfo {
-        self.static_info.clone()
-    }
-
-    fn collect_dynamic_stats(&self) -> Result<MachineDynamicInfo> {
-        self.read_dynamic_stat()
+impl MachineStatCollector for LinuxMachineStat {
+    fn collect_stats(&self) -> Result<MachineStat> {
+        let dinamic_stat = self.read_dynamic_stat()?;
+        Ok(MachineStat {
+            hostname: self.static_info.hostname.clone(),
+            num_procs: self.static_info.num_procs,
+            total_memory: self.static_info.total_memory,
+            total_swap: self.static_info.total_swap,
+            num_sockets: self.static_info.num_sockets,
+            cores_per_proc: self.static_info.cores_per_proc,
+            hyperthreading_multiplier: self.static_info.hyperthreading_multiplier,
+            boot_time: self.static_info.boot_time,
+            tags: self.static_info.tags.clone(),
+            free_memory: dinamic_stat.free_memory,
+            free_swap: dinamic_stat.free_swap,
+            total_temp_storage: dinamic_stat.total_temp_storage,
+            free_temp_storage: dinamic_stat.free_temp_storage,
+            load: dinamic_stat.load,
+        })
     }
 
     /// Returns the current hardware state of the machine.
@@ -477,17 +471,29 @@ impl MachineStat for LinuxMachineStat {
     }
 
     fn init_nimby(&self) -> Result<bool> {
-        todo!()
+        // TODO: missing implementation, returning dummy val
+        Ok(true)
     }
 
     fn collect_gpu_stats(&self) -> super::machine_monitor::MachineGpuStats {
-        todo!()
+        // TODO: missing implementation, returning dummy val
+        MachineGpuStats {
+            count: 0,
+            total_memory: 0,
+            free_memory: 0,
+            used_memory_by_unit: HashMap::default(),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{
+        fs,
+        sync::{Arc, Mutex},
+    };
+
+    use sysinfo::{Disks, System};
 
     use crate::config::config::MachineConfig;
 
@@ -501,13 +507,14 @@ mod tests {
 
         let mut config = MachineConfig::default();
         config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
-        config.meminfo_path = format!("{}/resources/meminfo/meminfo", project_dir);
         config.distro_release_path = "".to_string();
         config.proc_stat_path = "".to_string();
         config.inittab_path = "".to_string();
         config.core_multiplier = 1;
+        let sysinfo = Arc::new(Mutex::new(System::new()));
+        let diskinfo = Arc::new(Mutex::new(Disks::new()));
 
-        let linux_monitor = LinuxMachineStat::init(&config)
+        let linux_monitor = LinuxMachineStat::init(&config, sysinfo, diskinfo)
             .expect("Initializing LinuxMachineStat failed")
             .static_info;
         assert_eq!(4, linux_monitor.num_procs);
@@ -619,18 +626,18 @@ mod tests {
 
         let mut config = MachineConfig::default();
         config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
-        config.meminfo_path = format!("{}/resources/meminfo/meminfo", project_dir);
         config.distro_release_path = format!("{}/resources/distro-release/centos", project_dir);
         config.proc_stat_path = format!("{}/resources/proc/stat", project_dir);
         config.proc_loadavg_path = format!("{}/resources/proc/loadavg", project_dir);
         config.inittab_path = "".to_string();
         config.core_multiplier = 1;
 
-        let stat = LinuxMachineStat::init(&config).expect("Initializing LinuxMachineStat failed");
+        let sysinfo = Arc::new(Mutex::new(System::new()));
+        let diskinfo = Arc::new(Mutex::new(Disks::new()));
+
+        let stat = LinuxMachineStat::init(&config, sysinfo, diskinfo)
+            .expect("Initializing LinuxMachineStat failed");
         let static_info = stat.static_info;
-        // Memory
-        assert_eq!(16777216, static_info.total_memory);
-        assert_eq!(134217728, static_info.total_swap);
 
         // Proc
         assert_eq!(4, static_info.num_procs);
@@ -643,16 +650,6 @@ mod tests {
 
         // boot time
         assert_eq!(1720194269, static_info.boot_time);
-    }
-
-    #[test]
-    fn test_read_meminfo() {
-        let project_dir = env!("CARGO_MANIFEST_DIR");
-        let path = format!("{}/resources/meminfo/meminfo", project_dir);
-
-        let memory_info = LinuxMachineStat::read_meminfo(&path).expect("Failed ");
-        assert_eq!(16777216, memory_info.total_memory);
-        assert_eq!(134217728, memory_info.total_swap);
     }
 
     #[test]

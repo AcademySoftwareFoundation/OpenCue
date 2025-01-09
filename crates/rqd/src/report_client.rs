@@ -60,8 +60,11 @@ impl ReportInterface for ReportClient {
             host: Some(render_host),
             core_info: Some(core_detail),
         });
-        client.report_rqd_startup(request).await.into_diagnostic()?;
-        Ok(())
+        client
+            .report_rqd_startup(request)
+            .await
+            .into_diagnostic()
+            .and(Ok(()))
     }
 
     async fn send_frame_complete_report(
@@ -84,8 +87,8 @@ impl ReportInterface for ReportClient {
         client
             .report_running_frame_completion(request)
             .await
-            .into_diagnostic()?;
-        Ok(())
+            .into_diagnostic()
+            .and(Ok(()))
     }
 
     async fn send_host_report(
@@ -101,7 +104,10 @@ impl ReportInterface for ReportClient {
             frames: running_frames,
             core_info: Some(core_detail),
         });
-        client.report_status(request).await.into_diagnostic()?;
-        Ok(())
+        client
+            .report_status(request)
+            .await
+            .into_diagnostic()
+            .and(Ok(()))
     }
 }

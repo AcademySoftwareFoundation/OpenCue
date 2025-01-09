@@ -1,11 +1,16 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex as SyncMutex},
+};
 
 use miette::Result;
 use opencue_proto::{
     host::HardwareState,
     report::{CoreDetail, RenderHost},
 };
+use sysinfo::{Disks, System};
 use tokio::{sync::Mutex, time};
+use tracing::debug;
 
 use crate::{
     config::config::{Config, MachineConfig},
@@ -15,7 +20,7 @@ use crate::{
 
 use super::linux_monitor::LinuxMachineStat;
 
-type MachineStatT = Box<dyn MachineStat + Sync + Send>;
+type MachineStatT = Box<dyn MachineStatCollector + Sync + Send>;
 
 /// Constantly monitor the state of this machine and report back to Cuebot
 ///
@@ -50,12 +55,11 @@ impl MachineMonitor {
         config: &Config,
         report_client: Arc<ReportClient>,
         running_frames_cache: Arc<RunningFrameCache>,
+        sysinfo: Arc<SyncMutex<System>>,
+        diskinfo: Arc<SyncMutex<Disks>>,
     ) -> Result<Self> {
-        let stats_collector: MachineStatT = Box::new(LinuxMachineStat::init(&config.machine)?);
-        // let host_state = Arc::new(Mutex::new(Self::inspect_host_state(
-        //     &config.machine,
-        //     &stats_collector,
-        // )?));
+        let stats_collector: MachineStatT =
+            Box::new(LinuxMachineStat::init(&config.machine, sysinfo, diskinfo)?);
         // TODO: identify which OS is running and initialize stats_collector accordingly
         Ok(Self {
             maching_config: config.machine.clone(),
@@ -86,7 +90,7 @@ impl MachineMonitor {
                 .await
                 .replace(initial_core_state.clone());
         }
-
+        debug!("Sending start report: {:?}", host_state);
         report_client
             .send_start_up_report(host_state, initial_core_state)
             .await?;
@@ -103,6 +107,7 @@ impl MachineMonitor {
                 .as_ref()
                 .expect("A state must be set at this point");
 
+            debug!("Sending host report: {:?}", host_state);
             report_client
                 .send_host_report(
                     host_state,
@@ -118,26 +123,25 @@ impl MachineMonitor {
         config: &MachineConfig,
         stats_collector: &MachineStatT,
     ) -> Result<RenderHost> {
-        let static_stats = stats_collector.static_stats();
-        let dynamic_stats = stats_collector.collect_dynamic_stats()?;
+        let stats = stats_collector.collect_stats()?;
         let gpu_stats = stats_collector.collect_gpu_stats();
 
         Ok(RenderHost {
-            name: static_stats.hostname,
+            name: stats.hostname,
             nimby_enabled: stats_collector.init_nimby()?,
             nimby_locked: false, // TODO: implement nimby lock
             facility: config.facility.clone(),
-            num_procs: static_stats.num_procs as i32,
-            cores_per_proc: (static_stats.num_sockets / static_stats.cores_per_proc) as i32,
-            total_swap: static_stats.total_swap as i64,
-            total_mem: static_stats.total_memory as i64,
-            total_mcp: dynamic_stats.total_temp_storage as i64,
-            free_swap: dynamic_stats.free_swap as i64,
-            free_mem: dynamic_stats.free_memory as i64,
-            free_mcp: dynamic_stats.free_temp_storage as i64,
-            load: dynamic_stats.load as i32,
-            boot_time: static_stats.boot_time as i32,
-            tags: static_stats.tags,
+            num_procs: stats.num_procs as i32,
+            cores_per_proc: (stats.num_sockets / stats.cores_per_proc) as i32,
+            total_swap: stats.total_swap as i64,
+            total_mem: stats.total_memory as i64,
+            total_mcp: stats.total_temp_storage as i64,
+            free_swap: stats.free_swap as i64,
+            free_mem: stats.free_memory as i64,
+            free_mcp: stats.free_temp_storage as i64,
+            load: stats.load as i32,
+            boot_time: stats.boot_time as i32,
+            tags: stats.tags,
             state: stats_collector.hardware_state().clone() as i32,
             attributes: stats_collector.attributes().clone(),
             num_gpus: gpu_stats.count as i32,
@@ -150,7 +154,7 @@ impl MachineMonitor {
 /// Represents attributes on a machine that should never change withour restarting the
 /// entire servive
 #[derive(Clone)]
-pub struct MachineStaticInfo {
+pub struct MachineStat {
     pub hostname: String,
     /// Number of proc units (also known as virtual cores)
     pub num_procs: u32,
@@ -163,9 +167,6 @@ pub struct MachineStaticInfo {
     pub hyperthreading_multiplier: u32,
     pub boot_time: u32,
     pub tags: Vec<String>,
-}
-
-pub struct MachineDynamicInfo {
     pub free_memory: u64,
     pub free_swap: u64,
     pub total_temp_storage: u64,
@@ -174,17 +175,15 @@ pub struct MachineDynamicInfo {
 }
 
 pub struct MachineGpuStats {
-    count: u32,
-    total_memory: u64,
-    free_memory: u64,
-    used_memory_by_unit: HashMap<u32, u64>,
+    pub count: u32,
+    pub total_memory: u64,
+    pub free_memory: u64,
+    pub used_memory_by_unit: HashMap<u32, u64>,
 }
 
-pub trait MachineStat {
-    /// Returns static information about this machine
-    fn static_stats(&self) -> MachineStaticInfo;
+pub trait MachineStatCollector {
     /// Collects live information about the status of this machine
-    fn collect_dynamic_stats(&self) -> Result<MachineDynamicInfo>;
+    fn collect_stats(&self) -> Result<MachineStat>;
     /// Collects live information about the gpus on this machine
     fn collect_gpu_stats(&self) -> MachineGpuStats;
     fn hardware_state(&self) -> &HardwareState;
