@@ -122,7 +122,8 @@ impl LinuxMachineStat {
     }
     /// Reads the CPU information from the specified `cpuinfo_path` file and extracts
     /// the number of processors, sockets, cores per processor, and hyperthreading multiplier.
-    /// It returns a tuple containing ProcessorInfoData, procid_by_physid_and_core_id, and physid_and_coreid_by_procid.
+    /// It returns a tuple containing ProcessorInfoData, procid_by_physid_and_core_id, and
+    /// physid_and_coreid_by_procid.
     ///
     /// # Arguments
     ///
@@ -131,7 +132,9 @@ impl LinuxMachineStat {
     /// # Returns
     ///
     /// A `Result` containing a tuple with the following information:
-    /// 1. `ProcessorInfoData` - Structure holding information about the processor like hyperthreading multiplier, number of processors, number of sockets, and cores per processor.
+    /// 1. `ProcessorInfoData` - Structure holding information about the processor like
+    ///     hyperthreading multiplier, number of processors, number of sockets, and cores per
+    ///     processor.
     /// 2. `HashMap<u32, HashMap<u32, u32>>` - Mapping of processor id to physical id and core id.
     /// 3. `HashMap<u32, (u32, u32)>` - Mapping of processor id to physical id and core id.
     fn read_cpuinfo(
@@ -393,7 +396,6 @@ impl LinuxMachineStat {
         let mut load_val: Option<(f32, f32, f32)> = None;
         for line_res in reader.lines().into_iter() {
             if let Ok(line) = line_res {
-                println!("line = {}", line);
                 load_val = line
                     .split_whitespace()
                     .take(3)

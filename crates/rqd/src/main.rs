@@ -18,7 +18,7 @@ mod report_client;
 mod running_frame;
 mod servant;
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 8)]
 async fn main() -> miette::Result<()> {
     let config = Config::load()?;
 
@@ -68,5 +68,7 @@ async fn main() -> miette::Result<()> {
     });
 
     // Initialize rqd grpc servant
-    servant::serve(&config, Arc::clone(&running_frame_cache)).into_diagnostic()
+    servant::serve(&config, Arc::clone(&running_frame_cache))
+        .await
+        .into_diagnostic()
 }

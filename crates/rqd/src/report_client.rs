@@ -17,7 +17,10 @@ impl ReportClient {
             RqdReportInterfaceClient::connect(format!("http://{}", config.grpc.cuebot_url))
                 .await
                 .into_diagnostic()
-                .wrap_err("Failed to connect to Cuebot Report Server")?;
+                .wrap_err(format!(
+                    "Failed to connect to Cuebot Report Server: {}",
+                    config.grpc.cuebot_url
+                ))?;
         Ok(Self {
             client: Arc::new(Mutex::new(client)),
         })

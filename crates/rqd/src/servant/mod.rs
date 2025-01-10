@@ -17,7 +17,6 @@ pub mod running_frame_servant;
 
 pub type Result<T> = core::result::Result<T, tonic::Status>;
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 20)]
 pub async fn serve(config: &Config, running_frame_cache: Arc<RunningFrameCache>) -> Result<()> {
     let address: SocketAddr =
         SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), config.grpc.rqd_port);
@@ -30,7 +29,5 @@ pub async fn serve(config: &Config, running_frame_cache: Arc<RunningFrameCache>)
         .add_service(RqdInterfaceServer::new(rqd_servant))
         .serve(address)
         .await
-        .map_err(|err| tonic::Status::from_error(Box::new(err)))?;
-
-    Ok(())
+        .map_err(|err| tonic::Status::from_error(Box::new(err)))
 }
