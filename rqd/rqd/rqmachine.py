@@ -894,6 +894,10 @@ class Machine(object):
         return 'hyperthreadingMultiplier' in self.__renderHost.attributes
 
     def getHyperthreadingMultiplier(self):
+        """
+        Multiplied used to compute the number of threads that can be allocated simultaneously
+        on a core
+        """
         return int(self.__renderHost.attributes['hyperthreadingMultiplier'])
 
     def setupTaskset(self):
