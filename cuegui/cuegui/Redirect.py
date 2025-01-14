@@ -152,7 +152,7 @@ class JobBox(QtWidgets.QLineEdit):
         slist = opencue.api.getJobNames()
         slist.sort()
 
-        self.__c = QtWidgets.QCompleter(slist, self)
+        self.__c = QtWidgets.QCompleter(list(slist), self)
         self.__c.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self.setCompleter(self.__c)
 
@@ -808,21 +808,26 @@ class RedirectWidget(QtWidgets.QWidget):
                 if proc.data.group_name not in groupFilter:
                     continue
 
-            name = proc.data.name.split("/")[0]
-            lluTime = cuegui.Utils.getLLU(proc)
-            job = proc.getJob()
-            logLines = cuegui.Utils.getLastLine(proc.data.log_path) or ""
+            # pylint: disable=broad-except
+            try:
+                name = proc.data.name.split("/")[0]
+                lluTime = cuegui.Utils.getLLU(proc)
+                job = proc.getJob()
+                logLines = cuegui.Utils.getLastLine(proc.data.log_path) or ""
 
-            if name not in hosts:
-                cue_host = opencue.api.findHost(name)
-                hosts[name] = {
-                               "host": cue_host,
-                               "procs": [],
-                               "mem": cue_host.data.idle_memory,
-                               "cores": int(cue_host.data.idle_cores),
-                               "time": 0,
-                               "ok": False,
-                               'alloc': cue_host.data.alloc_name}
+                if name not in hosts:
+                    cue_host = opencue.api.findHost(name)
+                    hosts[name] = {
+                                "host": cue_host,
+                                "procs": [],
+                                "mem": cue_host.data.idle_memory,
+                                "cores": int(cue_host.data.idle_cores),
+                                "time": 0,
+                                "ok": False,
+                                'alloc': cue_host.data.alloc_name}
+            except Exception:
+                # Ignore dangling procs (not bound to a job through a VirtualProc)
+                continue
 
             host = hosts[name]
             if host["ok"]:
