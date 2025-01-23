@@ -411,7 +411,7 @@ class RedirectWidget(QtWidgets.QWidget):
     """
 
     HEADERS = ["Name", "Cores", "Memory", "PrcTime", "Group", "Service",
-               "Job Cores", "Pending", "LLU", "Log"]
+               "Job Cores", "Waiting Frames", "LLU", "Log"]
 
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
@@ -604,7 +604,7 @@ class RedirectWidget(QtWidgets.QWidget):
     @classmethod
     def __isAllowed(cls, procs, targetJob):
         """Checks if the follow criteria are met to allow redirect to target job:
-            - if source/target job have pending frames
+            - if source/target job have waiting frames
             - if target job hasn't reached maximum cores
             - check if adding frames will push target job over it's max cores
 
@@ -626,18 +626,18 @@ class RedirectWidget(QtWidgets.QWidget):
                                                targetJob.coresReserved(),
                                                targetJob.maxCores())
 
-        # Case 2: 1. Check target job for pending frames
-        #         2. Check source procs for pending frames
+        # Case 2: 1. Check target job for waiting frames
+        #         2. Check source procs for waiting frames
         if allowed and targetJob.waitingFrames() <= 0:
             allowed = False
-            errMsg = "Target job %s has no pending (waiting) frames" % targetJob.name()
+            errMsg = "Target job %s has no waiting frames" % targetJob.name()
 
         if allowed:
             for proc in procs:
                 job = proc.getJob()
                 if job.waitingFrames() <= 0:
                     allowed = False
-                    errMsg = "Source job %s has no pending (waiting) frames" % job.name()
+                    errMsg = "Source job %s has no waiting frames" % job.name()
                     break
 
         # Case 3: Check if each proc or summed up procs will
@@ -840,7 +840,7 @@ class RedirectWidget(QtWidgets.QWidget):
             host["llu"] = cuegui.Utils.numFormat(lluTime, "t")
             host["log"] = logLines
             host['job_cores'] = job.data.job_stats.reserved_cores
-            host['waiting'] = job.pendingFrames() or 0
+            host['waiting'] = job.waitingFrames() or 0
 
             if host["cores"] >= self.__controls.getCores() and \
                     host["cores"] <= self.__controls.getMaxCores() and \
