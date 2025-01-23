@@ -308,7 +308,6 @@ public class RedirectManager {
             DispatchHost host = hostManager.getDispatchHost(proc.getHostId());
 
             switch (r.getType()) {
-
                 case JOB_REDIRECT:
                     JobInterface job = jobDao.getJob(r.getDestinationId());
                     logger.info("redirecting proc " + proc + " to job " + job.getName());
