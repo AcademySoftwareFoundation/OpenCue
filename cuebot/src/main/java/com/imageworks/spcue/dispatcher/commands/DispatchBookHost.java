@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dispatcher.commands;
 
@@ -62,7 +58,8 @@ public class DispatchBookHost extends KeyRunnable {
         this.env = env;
     }
 
-    public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d, Environment env) {
+    public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d,
+            Environment env) {
         super(host.getId() + "_group_" + group.getGroupId());
         this.host = host;
         this.group = group;
@@ -83,34 +80,24 @@ public class DispatchBookHost extends KeyRunnable {
             public void wrapDispatchCommand() {
                 if (show != null) {
                     dispatcher.dispatchHost(host, show);
-                }
-                else if (group != null) {
+                } else if (group != null) {
                     dispatcher.dispatchHost(host, group);
-                }
-                else if (job != null) {
+                } else if (job != null) {
                     dispatcher.dispatchHost(host, job);
                 }
-                long memReservedMin = env.getRequiredProperty(
-                    "dispatcher.memory.mem_reserved_min",
-                    Long.class);
-                long memGpuReservedMin = env.getRequiredProperty(
-                    "dispatcher.memory.mem_gpu_reserved_min",
-                    Long.class);
+                long memReservedMin =
+                        env.getRequiredProperty("dispatcher.memory.mem_reserved_min", Long.class);
+                long memGpuReservedMin = env
+                        .getRequiredProperty("dispatcher.memory.mem_gpu_reserved_min", Long.class);
 
                 // Try to book any remaining resources
-                if (host.hasAdditionalResources(
-                        Dispatcher.CORE_POINTS_RESERVED_MIN,
-                        memReservedMin,
-                        Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        memGpuReservedMin)) {
+                if (host.hasAdditionalResources(Dispatcher.CORE_POINTS_RESERVED_MIN, memReservedMin,
+                        Dispatcher.GPU_UNITS_RESERVED_MIN, memGpuReservedMin)) {
                     dispatcher.dispatchHost(host);
                 }
 
-                if (host.hasAdditionalResources(
-                        Dispatcher.CORE_POINTS_RESERVED_MIN,
-                        memReservedMin,
-                        Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        memGpuReservedMin)) {
+                if (host.hasAdditionalResources(Dispatcher.CORE_POINTS_RESERVED_MIN, memReservedMin,
+                        Dispatcher.GPU_UNITS_RESERVED_MIN, memGpuReservedMin)) {
                     dispatcher.dispatchHostToAllShows(host);
                 }
             }
@@ -119,7 +106,7 @@ public class DispatchBookHost extends KeyRunnable {
 
     @Override
     public int hashCode() {
-       return host.name.hashCode();
+        return host.name.hashCode();
     };
 
     @Override
@@ -134,4 +121,3 @@ public class DispatchBookHost extends KeyRunnable {
         return that.host.name.equals(host.name);
     };
 }
-

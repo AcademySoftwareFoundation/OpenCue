@@ -2,19 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 
 package com.imageworks.spcue.test.servant;
 
@@ -47,10 +44,9 @@ import com.imageworks.spcue.servant.ManageAllocation;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class ManageAllocationTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class ManageAllocationTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
     AllocationDao allocationDao;
@@ -65,16 +61,12 @@ public class ManageAllocationTests extends AbstractTransactionalJUnit4SpringCont
     @Transactional
     @Rollback(true)
     public void testCreate() {
-        Facility facility = Facility.newBuilder()
-                .setName(facilityDao.getFacility("spi").getName())
-                .build();
+        Facility facility =
+                Facility.newBuilder().setName(facilityDao.getFacility("spi").getName()).build();
 
         // Use <facility>.<tag> name
-        AllocCreateRequest request = AllocCreateRequest.newBuilder()
-                .setName("spi.test_tag")
-                .setTag("test_tag")
-                .setFacility(facility)
-                .build();
+        AllocCreateRequest request = AllocCreateRequest.newBuilder().setName("spi.test_tag")
+                .setTag("test_tag").setFacility(facility).build();
 
         FakeStreamObserver<AllocCreateResponse> responseObserver =
                 new FakeStreamObserver<AllocCreateResponse>();
@@ -87,30 +79,22 @@ public class ManageAllocationTests extends AbstractTransactionalJUnit4SpringCont
     @Transactional
     @Rollback(true)
     public void testDelete() {
-        Facility facility = Facility.newBuilder()
-                .setName(facilityDao.getFacility("spi").getName())
-                .build();
+        Facility facility =
+                Facility.newBuilder().setName(facilityDao.getFacility("spi").getName()).build();
 
         // Non <facility>.<tag> name should work too.
-        AllocCreateRequest createRequest = AllocCreateRequest.newBuilder()
-                .setName("test_tag")
-                .setTag("test_tag")
-                .setFacility(facility)
-                .build();
+        AllocCreateRequest createRequest = AllocCreateRequest.newBuilder().setName("test_tag")
+                .setTag("test_tag").setFacility(facility).build();
 
         FakeStreamObserver<AllocCreateResponse> createResponseObserver =
                 new FakeStreamObserver<AllocCreateResponse>();
         manageAllocation.create(createRequest, createResponseObserver);
 
-        Allocation allocation = Allocation.newBuilder()
-                .setName("spi.test_tag")
-                .setTag("test_tag")
-                .setFacility("spi")
-                .build();
+        Allocation allocation = Allocation.newBuilder().setName("spi.test_tag").setTag("test_tag")
+                .setFacility("spi").build();
 
-        AllocDeleteRequest deleteRequest = AllocDeleteRequest.newBuilder()
-                .setAllocation(allocation)
-                .build();
+        AllocDeleteRequest deleteRequest =
+                AllocDeleteRequest.newBuilder().setAllocation(allocation).build();
 
         FakeStreamObserver<AllocDeleteResponse> deleteResponseObserver =
                 new FakeStreamObserver<AllocDeleteResponse>();
@@ -121,8 +105,7 @@ public class ManageAllocationTests extends AbstractTransactionalJUnit4SpringCont
             allocationDao.findAllocationEntity("spi", "test_tag");
             fail("Expected exception");
         } catch (EmptyResultDataAccessException e) {
-            assertEquals(e.getMessage(),
-                    "Incorrect result size: expected 1, actual 0");
+            assertEquals(e.getMessage(), "Incorrect result size: expected 1, actual 0");
         }
     }
 
@@ -133,14 +116,10 @@ public class ManageAllocationTests extends AbstractTransactionalJUnit4SpringCont
         AllocationEntity alloc = allocationDao.getDefaultAllocationEntity();
         assertEquals(alloc.getName(), "lax.unassigned");
 
-        Allocation allocation = Allocation.newBuilder()
-                .setName("spi.general")
-                .setTag("general")
-                .setFacility("spi")
-                .build();
-        AllocSetDefaultRequest request = AllocSetDefaultRequest.newBuilder()
-                .setAllocation(allocation)
-                .build();
+        Allocation allocation = Allocation.newBuilder().setName("spi.general").setTag("general")
+                .setFacility("spi").build();
+        AllocSetDefaultRequest request =
+                AllocSetDefaultRequest.newBuilder().setAllocation(allocation).build();
 
         FakeStreamObserver<AllocSetDefaultResponse> observer =
                 new FakeStreamObserver<AllocSetDefaultResponse>();
@@ -150,5 +129,3 @@ public class ManageAllocationTests extends AbstractTransactionalJUnit4SpringCont
         assertEquals(alloc.getName(), "spi.general");
     }
 }
-
-

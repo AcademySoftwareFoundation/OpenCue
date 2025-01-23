@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -54,33 +50,33 @@ public class GroupManagerService implements GroupManager {
 
     @Override
     public void setGroupDefaultJobMaxCores(GroupInterface g, int coreUnits) {
-        groupDao.updateDefaultJobMaxCores(g,coreUnits);
+        groupDao.updateDefaultJobMaxCores(g, coreUnits);
         if (coreUnits != CueUtil.FEATURE_DISABLED && !groupDao.isManaged(g)) {
-            jobDao.updateMaxCores(g,coreUnits);
+            jobDao.updateMaxCores(g, coreUnits);
         }
     }
 
     @Override
     public void setGroupDefaultJobMinCores(GroupInterface g, int coreUnits) {
-        groupDao.updateDefaultJobMinCores(g,coreUnits);
+        groupDao.updateDefaultJobMinCores(g, coreUnits);
         if (coreUnits != CueUtil.FEATURE_DISABLED && !groupDao.isManaged(g)) {
-            jobDao.updateMinCores(g,coreUnits);
+            jobDao.updateMinCores(g, coreUnits);
         }
     }
 
     @Override
     public void setGroupMaxCores(GroupInterface g, int coreUnits) {
-        groupDao.updateMaxCores(g,coreUnits);
+        groupDao.updateMaxCores(g, coreUnits);
     }
 
     @Override
     public void setGroupMinCores(GroupInterface g, int coreUnits) {
-        groupDao.updateMinCores(g,coreUnits);
+        groupDao.updateMinCores(g, coreUnits);
     }
 
     @Override
     public void setGroupDefaultJobMaxGpus(GroupInterface g, int gpuUnits) {
-        groupDao.updateDefaultJobMaxGpus(g,gpuUnits);
+        groupDao.updateDefaultJobMaxGpus(g, gpuUnits);
         if (gpuUnits != CueUtil.FEATURE_DISABLED && !groupDao.isManaged(g)) {
             jobDao.updateMaxGpus(g, gpuUnits);
         }
@@ -88,7 +84,7 @@ public class GroupManagerService implements GroupManager {
 
     @Override
     public void setGroupDefaultJobMinGpus(GroupInterface g, int gpuUnits) {
-        groupDao.updateDefaultJobMinGpus(g,gpuUnits);
+        groupDao.updateDefaultJobMinGpus(g, gpuUnits);
         if (gpuUnits != CueUtil.FEATURE_DISABLED && !groupDao.isManaged(g)) {
             jobDao.updateMinGpus(g, gpuUnits);
         }
@@ -120,8 +116,7 @@ public class GroupManagerService implements GroupManager {
         if (group.getDepartmentId() == null) {
             d = departmentDao.getDefaultDepartment();
             group.deptId = d.getId();
-        }
-        else {
+        } else {
             d = departmentDao.getDepartment(group.getDepartmentId());
         }
         groupDao.insertGroup(group, parent);
@@ -151,8 +146,8 @@ public class GroupManagerService implements GroupManager {
     @Override
     public void setGroupDepartment(GroupInterface group, DepartmentInterface dept) {
         /*
-         * If this is the first time the show is using this department
-         * a department configuration is created.
+         * If this is the first time the show is using this department a department configuration is
+         * created.
          */
         if (!departmentManager.departmentConfigExists(group, dept)) {
             departmentManager.createDepartmentConfig(group, dept);
@@ -162,25 +157,25 @@ public class GroupManagerService implements GroupManager {
     }
 
     @Override
-    @Transactional(propagation=Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public GroupInterface getGroup(String id) {
         return groupDao.getGroup(id);
     }
 
     @Override
-    @Transactional(propagation=Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public GroupDetail getGroupDetail(String id) {
         return groupDao.getGroupDetail(id);
     }
 
     @Override
-    @Transactional(propagation=Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public GroupDetail getRootGroupDetail(ShowInterface s) {
         return groupDao.getRootGroupDetail(s);
     }
 
     @Override
-    @Transactional(propagation=Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public GroupDetail getGroupDetail(JobInterface j) {
         return groupDao.getGroupDetail(j);
     }
@@ -217,4 +212,3 @@ public class GroupManagerService implements GroupManager {
         this.departmentManager = departmentManager;
     }
 }
-

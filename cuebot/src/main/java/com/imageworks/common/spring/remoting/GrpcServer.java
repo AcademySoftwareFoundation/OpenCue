@@ -38,7 +38,6 @@ import com.imageworks.spcue.servant.ManageSubscription;
 import com.imageworks.spcue.servant.ManageTask;
 import com.imageworks.spcue.servant.RqdReportStatic;
 
-
 public class GrpcServer implements ApplicationContextAware {
 
     private static final Logger logger = LogManager.getLogger(GrpcServer.class);
@@ -72,8 +71,7 @@ public class GrpcServer implements ApplicationContextAware {
     }
 
     public void start() throws IOException {
-        server = ServerBuilder
-                .forPort(this.port)
+        server = ServerBuilder.forPort(this.port)
                 .addService(applicationContext.getBean("rqdReportStatic", RqdReportStatic.class))
                 .addService(applicationContext.getBean("cueStaticServant", CueStatic.class))
                 .addService(applicationContext.getBean("manageAction", ManageAction.class))
@@ -93,14 +91,16 @@ public class GrpcServer implements ApplicationContextAware {
                 .addService(applicationContext.getBean("manageMatcher", ManageMatcher.class))
                 .addService(applicationContext.getBean("manageOwner", ManageOwner.class))
                 .addService(applicationContext.getBean("manageProc", ManageProc.class))
-                .addService(applicationContext.getBean("manageRenderPartition", ManageRenderPartition.class))
+                .addService(applicationContext.getBean("manageRenderPartition",
+                        ManageRenderPartition.class))
                 .addService(applicationContext.getBean("manageService", ManageService.class))
-                .addService(applicationContext.getBean("manageServiceOverride", ManageServiceOverride.class))
+                .addService(applicationContext.getBean("manageServiceOverride",
+                        ManageServiceOverride.class))
                 .addService(applicationContext.getBean("manageShow", ManageShow.class))
-                .addService(applicationContext.getBean("manageSubscription", ManageSubscription.class))
+                .addService(
+                        applicationContext.getBean("manageSubscription", ManageSubscription.class))
                 .addService(applicationContext.getBean("manageTask", ManageTask.class))
-                .maxInboundMessageSize(maxMessageBytes)
-                .intercept(new CueServerInterceptor())
+                .maxInboundMessageSize(maxMessageBytes).intercept(new CueServerInterceptor())
                 .build();
         server.start();
         logger.info("gRPC server started on " + this.name + " at port " + this.port + " !");

@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -62,8 +58,8 @@ public interface BookingManager {
      * @param job
      * @param lja
      */
-    public void createLocalHostAssignment(DispatchHost host,
-                                          JobInterface job, LocalHostAssignment lja);
+    public void createLocalHostAssignment(DispatchHost host, JobInterface job,
+            LocalHostAssignment lja);
 
     /**
      * Create a local host assignment for the given layer.
@@ -72,8 +68,8 @@ public interface BookingManager {
      * @param layer
      * @param lja
      */
-    public void createLocalHostAssignment(DispatchHost host,
-                                          LayerInterface layer, LocalHostAssignment lja);
+    public void createLocalHostAssignment(DispatchHost host, LayerInterface layer,
+            LocalHostAssignment lja);
 
     /**
      * Create a local host assignment for the given frame.
@@ -82,8 +78,8 @@ public interface BookingManager {
      * @param frame
      * @param lja
      */
-    public void createLocalHostAssignment(DispatchHost host,
-                                          FrameInterface frame, LocalHostAssignment lja);
+    public void createLocalHostAssignment(DispatchHost host, FrameInterface frame,
+            LocalHostAssignment lja);
 
     /**
      * Return true if the host as a local assignment.
@@ -109,8 +105,7 @@ public interface BookingManager {
     void removeLocalHostAssignment(LocalHostAssignment lha);
 
     /**
-     * Deactivate the the given LocalHostAssignment.  Deactivated entries
-     * will not book procs.
+     * Deactivate the the given LocalHostAssignment. Deactivated entries will not book procs.
      *
      * @param lha
      */
@@ -125,7 +120,8 @@ public interface BookingManager {
      * @param maxGpuUnits
      * @param maxGpuMemory
      */
-    void setMaxResources(LocalHostAssignment l, int maxCoreUnits, long maxMemory, int maxGpuUnits, long maxGpuMemory);
+    void setMaxResources(LocalHostAssignment l, int maxCoreUnits, long maxMemory, int maxGpuUnits,
+            long maxGpuMemory);
 
     /**
      * Remove a LocalHostAssignment if there are no procs assigned to it.
@@ -142,4 +138,3 @@ public interface BookingManager {
      */
     boolean hasResourceDeficit(HostInterface host);
 }
-

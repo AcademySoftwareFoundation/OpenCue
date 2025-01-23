@@ -29,134 +29,89 @@ public class PrometheusMetricsCollector {
     private boolean enabled;
 
     // BookingQueue bookingQueue
-    private static final Gauge bookingWaitingTotal = Gauge.build()
-            .name("cue_booking_waiting_total")
-            .help("Booking Queue number of waiting tasks")
-            .labelNames("env", "cuebot_hosts")
+    private static final Gauge bookingWaitingTotal = Gauge.build().name("cue_booking_waiting_total")
+            .help("Booking Queue number of waiting tasks").labelNames("env", "cuebot_hosts")
             .register();
     private static final Gauge bookingRemainingCapacityTotal = Gauge.build()
-            .name("cue_booking_remaining_capacity_total")
-            .help("Booking Queue remaining capacity")
-            .labelNames("env", "cuebot_hosts")
-            .register();
-    private static final Gauge bookingThreadsTotal = Gauge.build()
-            .name("cue_booking_threads_total")
-            .help("Booking Queue number of active threads")
-            .labelNames("env", "cuebot_hosts")
+            .name("cue_booking_remaining_capacity_total").help("Booking Queue remaining capacity")
+            .labelNames("env", "cuebot_hosts").register();
+    private static final Gauge bookingThreadsTotal = Gauge.build().name("cue_booking_threads_total")
+            .help("Booking Queue number of active threads").labelNames("env", "cuebot_hosts")
             .register();
     private static final Gauge bookingExecutedTotal = Gauge.build()
-            .name("cue_booking_executed_total")
-            .help("Booking Queue number of executed tasks")
-            .labelNames("env", "cuebot_hosts")
-            .register();
+            .name("cue_booking_executed_total").help("Booking Queue number of executed tasks")
+            .labelNames("env", "cuebot_hosts").register();
     private static final Gauge bookingRejectedTotal = Gauge.build()
-            .name("cue_booking_rejected_total")
-            .help("Booking Queue number of rejected tasks")
-            .labelNames("env", "cuebot_hosts")
-            .register();
+            .name("cue_booking_rejected_total").help("Booking Queue number of rejected tasks")
+            .labelNames("env", "cuebot_hosts").register();
 
     // DispatchQueue manageQueue
-    private static final Gauge manageWaitingTotal = Gauge.build()
-            .name("cue_manage_waiting_total")
-            .help("Manage Queue number of waiting tasks")
-            .labelNames("env", "cuebot_hosts")
+    private static final Gauge manageWaitingTotal = Gauge.build().name("cue_manage_waiting_total")
+            .help("Manage Queue number of waiting tasks").labelNames("env", "cuebot_hosts")
             .register();
     private static final Gauge manageRemainingCapacityTotal = Gauge.build()
-            .name("cue_manage_remaining_capacity_total")
-            .help("Manage Queue remaining capacity")
-            .labelNames("env", "cuebot_hosts")
+            .name("cue_manage_remaining_capacity_total").help("Manage Queue remaining capacity")
+            .labelNames("env", "cuebot_hosts").register();
+    private static final Gauge manageThreadsTotal = Gauge.build().name("cue_manage_threads_total")
+            .help("Manage Queue number of active threads").labelNames("env", "cuebot_hosts")
             .register();
-    private static final Gauge manageThreadsTotal = Gauge.build()
-            .name("cue_manage_threads_total")
-            .help("Manage Queue number of active threads")
-            .labelNames("env", "cuebot_hosts")
+    private static final Gauge manageExecutedTotal = Gauge.build().name("cue_manage_executed_total")
+            .help("Manage Queue number of executed tasks").labelNames("env", "cuebot_hosts")
             .register();
-    private static final Gauge manageExecutedTotal = Gauge.build()
-            .name("cue_manage_executed_total")
-            .help("Manage Queue number of executed tasks")
-            .labelNames("env", "cuebot_hosts")
-            .register();
-    private static final Gauge manageRejectedTotal = Gauge.build()
-            .name("cue_manage_rejected_total")
-            .help("Manage Queue number of rejected tasks")
-            .labelNames("env", "cuebot_hosts")
+    private static final Gauge manageRejectedTotal = Gauge.build().name("cue_manage_rejected_total")
+            .help("Manage Queue number of rejected tasks").labelNames("env", "cuebot_hosts")
             .register();
 
     // DispatchQueue dispatchQueue
     private static final Gauge dispatchWaitingTotal = Gauge.build()
-            .name("cue_dispatch_waiting_total")
-            .help("Dispatch Queue number of waiting tasks")
-            .labelNames("env", "cuebot_hosts")
-            .register();
+            .name("cue_dispatch_waiting_total").help("Dispatch Queue number of waiting tasks")
+            .labelNames("env", "cuebot_hosts").register();
     private static final Gauge dispatchRemainingCapacityTotal = Gauge.build()
-            .name("cue_dispatch_remaining_capacity_total")
-            .help("Dispatch Queue remaining capacity")
-            .labelNames("env", "cuebot_hosts")
-            .register();
+            .name("cue_dispatch_remaining_capacity_total").help("Dispatch Queue remaining capacity")
+            .labelNames("env", "cuebot_hosts").register();
     private static final Gauge dispatchThreadsTotal = Gauge.build()
-            .name("cue_dispatch_threads_total")
-            .help("Dispatch Queue number of active threads")
-            .labelNames("env", "cuebot_hosts")
-            .register();
+            .name("cue_dispatch_threads_total").help("Dispatch Queue number of active threads")
+            .labelNames("env", "cuebot_hosts").register();
     private static final Gauge dispatchExecutedTotal = Gauge.build()
-            .name("cue_dispatch_executed_total")
-            .help("Dispatch Queue number of executed tasks")
-            .labelNames("env", "cuebot_hosts")
-            .register();
+            .name("cue_dispatch_executed_total").help("Dispatch Queue number of executed tasks")
+            .labelNames("env", "cuebot_hosts").register();
     private static final Gauge dispatchRejectedTotal = Gauge.build()
-            .name("cue_dispatch_rejected_total")
-            .help("Dispatch Queue number of rejected tasks")
-            .labelNames("env", "cuebot_hosts")
-            .register();
+            .name("cue_dispatch_rejected_total").help("Dispatch Queue number of rejected tasks")
+            .labelNames("env", "cuebot_hosts").register();
 
     // HostReportQueue reportQueue
     private static final Gauge reportQueueWaitingTotal = Gauge.build()
-            .name("cue_report_waiting_total")
-            .help("Report Queue number of waiting tasks")
-            .labelNames("env", "cuebot_hosts")
-            .register();
+            .name("cue_report_waiting_total").help("Report Queue number of waiting tasks")
+            .labelNames("env", "cuebot_hosts").register();
     private static final Gauge reportQueueRemainingCapacityTotal = Gauge.build()
-            .name("cue_report_remaining_capacity_total")
-            .help("Report Queue remaining capacity")
-            .labelNames("env", "cuebot_hosts")
-            .register();
+            .name("cue_report_remaining_capacity_total").help("Report Queue remaining capacity")
+            .labelNames("env", "cuebot_hosts").register();
     private static final Gauge reportQueueThreadsTotal = Gauge.build()
-            .name("cue_report_threads_total")
-            .help("Report Queue number of active threads")
-            .labelNames("env", "cuebot_hosts")
-            .register();
+            .name("cue_report_threads_total").help("Report Queue number of active threads")
+            .labelNames("env", "cuebot_hosts").register();
     private static final Gauge reportQueueExecutedTotal = Gauge.build()
-            .name("cue_report_executed_total")
-            .help("Report Queue number of executed tasks")
-            .labelNames("env", "cuebot_hosts")
-            .register();
+            .name("cue_report_executed_total").help("Report Queue number of executed tasks")
+            .labelNames("env", "cuebot_hosts").register();
     private static final Gauge reportQueueRejectedTotal = Gauge.build()
-            .name("cue_report_rejected_total")
-            .help("Report Queue number of rejected tasks")
-            .labelNames("env", "cuebot_hosts")
-            .register();
+            .name("cue_report_rejected_total").help("Report Queue number of rejected tasks")
+            .labelNames("env", "cuebot_hosts").register();
 
-    private static final Counter findJobsByShowQueryCountMetric = Counter.build()
-            .name("cue_find_jobs_by_show_count")
-            .help("Count the occurrences of the query FIND_JOBS_BY_SHOW.")
-            .labelNames("env", "cuebot_hosts")
-            .register();
-    private static final Gauge bookingDurationMillisMetric = Gauge.build()
-            .name("cue_booking_durations_in_millis")
-            .help("Register duration of booking steps in milliseconds.")
-            .labelNames("env", "cuebot_host", "stage_desc")
-            .register();
-    private static final Histogram bookingDurationMillisHistogramMetric = Histogram.build()
-            .name("cue_booking_durations_histogram_in_millis")
-            .help("Register a summary of duration of booking steps in milliseconds.")
-            .labelNames("env", "cuebot_host", "stage_desc")
-            .register();
+    private static final Counter findJobsByShowQueryCountMetric =
+            Counter.build().name("cue_find_jobs_by_show_count")
+                    .help("Count the occurrences of the query FIND_JOBS_BY_SHOW.")
+                    .labelNames("env", "cuebot_hosts").register();
+    private static final Gauge bookingDurationMillisMetric =
+            Gauge.build().name("cue_booking_durations_in_millis")
+                    .help("Register duration of booking steps in milliseconds.")
+                    .labelNames("env", "cuebot_host", "stage_desc").register();
+    private static final Histogram bookingDurationMillisHistogramMetric =
+            Histogram.build().name("cue_booking_durations_histogram_in_millis")
+                    .help("Register a summary of duration of booking steps in milliseconds.")
+                    .labelNames("env", "cuebot_host", "stage_desc").register();
 
     private static final Counter frameKilledCounter = Counter.build()
-            .name("cue_frame_killed_counter")
-            .help("Number of frames kill requests processed")
-            .labelNames("env", "cuebot_host", "render_node", "cause")
-            .register();
+            .name("cue_frame_killed_counter").help("Number of frames kill requests processed")
+            .labelNames("env", "cuebot_host", "render_node", "cause").register();
 
     private static final Counter frameKillFailureCounter = Counter.build()
             .name("cue_frame_kill_failure_counter")
@@ -173,8 +128,8 @@ public class PrometheusMetricsCollector {
             throw new SpcueRuntimeException("Env not defined");
         }
         this.enabled = env.getProperty("metrics.prometheus.collector", Boolean.class, false);
-        String envKey = env.getProperty("metrics.prometheus.environment_id.environment_variable", String.class,
-                "DEPLOYMENT_ENVIRONMENT");
+        String envKey = env.getProperty("metrics.prometheus.environment_id.environment_variable",
+                String.class, "DEPLOYMENT_ENVIRONMENT");
 
         this.cuebot_host = getHostNameFromEnv();
         // Get environment id from environment variable
@@ -218,7 +173,8 @@ public class PrometheusMetricsCollector {
     public void collectPrometheusMetrics() {
         if (this.enabled) {
             // BookingQueue bookingQueue
-            bookingWaitingTotal.labels(this.deployment_environment, this.cuebot_host).set(bookingQueue.getSize());
+            bookingWaitingTotal.labels(this.deployment_environment, this.cuebot_host)
+                    .set(bookingQueue.getSize());
             bookingRemainingCapacityTotal.labels(this.deployment_environment, this.cuebot_host)
                     .set(bookingQueue.getRemainingCapacity());
             bookingThreadsTotal.labels(this.deployment_environment, this.cuebot_host)
@@ -229,17 +185,20 @@ public class PrometheusMetricsCollector {
                     .set(bookingQueue.getRejectedTaskCount());
 
             // DispatchQueue manageQueue
-            manageWaitingTotal.labels(this.deployment_environment, this.cuebot_host).set(manageQueue.getSize());
+            manageWaitingTotal.labels(this.deployment_environment, this.cuebot_host)
+                    .set(manageQueue.getSize());
             manageRemainingCapacityTotal.labels(this.deployment_environment, this.cuebot_host)
                     .set(manageQueue.getRemainingCapacity());
-            manageThreadsTotal.labels(this.deployment_environment, this.cuebot_host).set(manageQueue.getActiveCount());
+            manageThreadsTotal.labels(this.deployment_environment, this.cuebot_host)
+                    .set(manageQueue.getActiveCount());
             manageExecutedTotal.labels(this.deployment_environment, this.cuebot_host)
                     .set(manageQueue.getCompletedTaskCount());
             manageRejectedTotal.labels(this.deployment_environment, this.cuebot_host)
                     .set(manageQueue.getRejectedTaskCount());
 
             // DispatchQueue dispatchQueue
-            dispatchWaitingTotal.labels(this.deployment_environment, this.cuebot_host).set(dispatchQueue.getSize());
+            dispatchWaitingTotal.labels(this.deployment_environment, this.cuebot_host)
+                    .set(dispatchQueue.getSize());
             dispatchRemainingCapacityTotal.labels(this.deployment_environment, this.cuebot_host)
                     .set(dispatchQueue.getRemainingCapacity());
             dispatchThreadsTotal.labels(this.deployment_environment, this.cuebot_host)
@@ -270,8 +229,10 @@ public class PrometheusMetricsCollector {
      * @param value value to set
      */
     public void setBookingDurationMetric(String stage_desc, double value) {
-        bookingDurationMillisMetric.labels(this.deployment_environment, this.cuebot_host, stage_desc).set(value);
-        bookingDurationMillisHistogramMetric.labels(this.deployment_environment, this.cuebot_host, stage_desc).observe(value);
+        bookingDurationMillisMetric
+                .labels(this.deployment_environment, this.cuebot_host, stage_desc).set(value);
+        bookingDurationMillisHistogramMetric
+                .labels(this.deployment_environment, this.cuebot_host, stage_desc).observe(value);
     }
 
     /**
@@ -287,8 +248,11 @@ public class PrometheusMetricsCollector {
      * @param renderNode hostname of the render node receiving the kill request
      * @param killCause cause assigned to the request
      */
-    public void incrementFrameKilledCounter(String renderNode, HostReportHandler.KillCause killCause) {
-        frameKilledCounter.labels(this.deployment_environment, this.cuebot_host, renderNode, killCause.name()).inc();
+    public void incrementFrameKilledCounter(String renderNode,
+            HostReportHandler.KillCause killCause) {
+        frameKilledCounter
+                .labels(this.deployment_environment, this.cuebot_host, renderNode, killCause.name())
+                .inc();
     }
 
     /**
@@ -299,13 +263,10 @@ public class PrometheusMetricsCollector {
      * @param frameName
      * @param frameId
      */
-    public void incrementFrameKillFailureCounter(String hostname, String jobName, String frameName, String frameId) {
-        frameKillFailureCounter.labels(this.deployment_environment,
-                this.cuebot_host,
-                hostname,
-                jobName,
-                frameName,
-                frameId).inc();
+    public void incrementFrameKillFailureCounter(String hostname, String jobName, String frameName,
+            String frameId) {
+        frameKillFailureCounter.labels(this.deployment_environment, this.cuebot_host, hostname,
+                jobName, frameName, frameId).inc();
     }
 
     // Setters used for dependency injection

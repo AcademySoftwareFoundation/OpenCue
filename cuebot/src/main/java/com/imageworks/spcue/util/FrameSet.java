@@ -15,8 +15,8 @@ public class FrameSet {
     /**
      * Construct a FrameSet object by parsing a spec.
      *
-     * See FrameRange for the supported syntax. A FrameSet follows the same syntax,
-     * with the addition that it may be a comma-separated list of different FrameRanges.
+     * See FrameRange for the supported syntax. A FrameSet follows the same syntax, with the
+     * addition that it may be a comma-separated list of different FrameRanges.
      */
     public FrameSet(String frameRange) {
         frameList = parseFrameRange(frameRange);
@@ -24,6 +24,7 @@ public class FrameSet {
 
     /**
      * Gets the number of frames contained in this sequence.
+     * 
      * @return
      */
     public int size() {
@@ -32,6 +33,7 @@ public class FrameSet {
 
     /**
      * Gets an individual entry in the sequence, by numerical position.
+     * 
      * @param idx
      * @return
      */
@@ -41,6 +43,7 @@ public class FrameSet {
 
     /**
      * Query index of frame number in frame set.
+     * 
      * @param idx
      * @return Index of frame. -1 if frame set does not contain frame.
      */
@@ -50,6 +53,7 @@ public class FrameSet {
 
     /**
      * Gets the full numerical sequence.
+     * 
      * @return
      */
     public ImmutableList<Integer> getAll() {
@@ -66,15 +70,17 @@ public class FrameSet {
 
     /**
      * Return a sub-FrameSet object starting at startFrame with max chunkSize members
+     * 
      * @param startFrameIndex Index of frame to start at; not the frame itself
-     * @param chunkSize       Max number of frames per chunk
-     * @return                String representation of the chunk, e.g. 1-1001x3
+     * @param chunkSize Max number of frames per chunk
+     * @return String representation of the chunk, e.g. 1-1001x3
      */
     public String getChunk(int startFrameIndex, int chunkSize) {
         if (frameList.size() <= startFrameIndex || startFrameIndex < 0) {
             String sf = String.valueOf(startFrameIndex);
             String sz = String.valueOf(frameList.size() - 1);
-            throw new IllegalArgumentException("startFrameIndex " + sf + " is not in range 0-" + sz);
+            throw new IllegalArgumentException(
+                    "startFrameIndex " + sf + " is not in range 0-" + sz);
         }
         if (chunkSize == 1) {
             // Chunksize of 1 so the FrameSet is just the startFrame
@@ -87,17 +93,18 @@ public class FrameSet {
             endFrameIndex = finalFrameIndex;
         }
 
-        return framesToFrameRanges(frameList.subList(startFrameIndex, endFrameIndex+1));
+        return framesToFrameRanges(frameList.subList(startFrameIndex, endFrameIndex + 1));
     }
 
     /**
      * Return a string representation of a subset of a frame range.
      *
      * This approach was adapted from https://pypi.org/project/Fileseq/
+     * 
      * @param startFrame Start frame
-     * @param endFrame   End frame
-     * @param step       The step between frames
-     * @return           String representation of the frame range, e.g. 1-1001x3
+     * @param endFrame End frame
+     * @param step The step between frames
+     * @return String representation of the frame range, e.g. 1-1001x3
      */
     private String buildFrangePart(int startFrame, int endFrame, int step) {
         if (startFrame == endFrame) {
@@ -111,8 +118,9 @@ public class FrameSet {
 
     /**
      * Return a String representation of a frame range based on a list of literal integer frame IDs.
-     * @param frames  List of integers representing frame IDs,
-     * @return        String representation of a frameset, e.g. '1-10,12-100x2'
+     * 
+     * @param frames List of integers representing frame IDs,
+     * @return String representation of a frameset, e.g. '1-10,12-100x2'
      */
     private String framesToFrameRanges(ImmutableList<Integer> frames) {
         int l = frames.size();

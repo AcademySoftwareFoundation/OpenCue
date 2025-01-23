@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dao;
 
@@ -113,7 +109,7 @@ public interface WhiteboardDao {
      * @param r JobSearchInterface
      * @return JobSeq
      */
-    JobSeq getJobs(JobSearchInterface  r);
+    JobSeq getJobs(JobSearchInterface r);
 
     /**
      * Returns a list of job names
@@ -122,7 +118,7 @@ public interface WhiteboardDao {
      * @return List of Strings
      */
 
-    List<String> getJobNames(JobSearchInterface  r);
+    List<String> getJobNames(JobSearchInterface r);
 
     /**
      * Returns the comments for the specified job
@@ -270,7 +266,7 @@ public interface WhiteboardDao {
     /**
      * Returns a list of layers for the specified job.
      *
-     * @param  job JobInterface
+     * @param job JobInterface
      * @return LayerSeq
      */
     LayerSeq getLayers(JobInterface job);
@@ -278,7 +274,7 @@ public interface WhiteboardDao {
     /**
      * Returns a layer from its unique ID
      *
-     * @param  id String
+     * @param id String
      * @return Layer
      */
     Layer getLayer(String id);
@@ -286,7 +282,7 @@ public interface WhiteboardDao {
     /**
      * Returns a list of limits for the specified layer.
      *
-     * @param  id String
+     * @param id String
      * @return Layer
      */
     List<Limit> getLimits(LayerInterface layer);
@@ -395,14 +391,13 @@ public interface WhiteboardDao {
     AllocationSeq getAllocations();
 
     /**
-    *
-    * return the current list of allocations
-    *
-    * @param facility FacilityInterface
-    * @return List of Allocations
-    */
-   AllocationSeq getAllocations(FacilityInterface facility);
-
+     *
+     * return the current list of allocations
+     *
+     * @param facility FacilityInterface
+     * @return List of Allocations
+     */
+    AllocationSeq getAllocations(FacilityInterface facility);
 
     /**
      *
@@ -421,7 +416,7 @@ public interface WhiteboardDao {
     /**
      * Finds a group by show name and group name
      *
-     * @param show  String
+     * @param show String
      * @param group String
      * @return Group
      */
@@ -442,10 +437,9 @@ public interface WhiteboardDao {
      */
     GroupSeq getGroups(GroupInterface group);
 
-
     /**
      *
-     * @param job   String
+     * @param job String
      * @param layer String
      * @return Layer
      */
@@ -453,31 +447,30 @@ public interface WhiteboardDao {
 
     /**
      *
-     * @param job   String
+     * @param job String
      * @param layer String
      * @param frame int
      * @return Frame
      */
     Frame findFrame(String job, String layer, int frame);
 
-
     /**
      * returns an UpdatedFrameCheckResult which contains an array of updated frames.
      *
-     * @param job        JobInterface
-     * @param layers     List of LayerInterfaces
+     * @param job JobInterface
+     * @param layers List of LayerInterfaces
      * @param lastUpdate int
      * @return UpdatedFrameCheckResult
      */
-    UpdatedFrameCheckResult getUpdatedFrames(JobInterface job,
-                                             List<LayerInterface> layers, int lastUpdate);
+    UpdatedFrameCheckResult getUpdatedFrames(JobInterface job, List<LayerInterface> layers,
+            int lastUpdate);
 
     /**
      *
      * @param show ShowInterface
      * @return DepartmentSeq
      */
-    DepartmentSeq getDepartments (ShowInterface show);
+    DepartmentSeq getDepartments(ShowInterface show);
 
     /**
      *
@@ -696,9 +689,8 @@ public interface WhiteboardDao {
     /**
      * Returns a list of all limits.
      *
-     * @param  id String
+     * @param id String
      * @return Layer
      */
     List<Limit> getLimits();
 }
-

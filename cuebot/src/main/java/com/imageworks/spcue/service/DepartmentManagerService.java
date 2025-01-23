@@ -2,19 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 
 package com.imageworks.spcue.service;
 
@@ -43,7 +40,6 @@ import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.TaskDao;
 import com.imageworks.spcue.util.CueUtil;
 
-
 @Transactional
 public class DepartmentManagerService implements DepartmentManager {
 
@@ -71,19 +67,19 @@ public class DepartmentManagerService implements DepartmentManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public TaskEntity getTaskDetail(String id) {
         return taskDao.getTaskDetail(id);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public PointDetail getDepartmentConfigDetail(String id) {
         return pointDao.getPointConfDetail(id);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public PointDetail getDepartmentConfigDetail(ShowInterface show, DepartmentInterface dept) {
         return pointDao.getPointConfigDetail(show, dept);
     }
@@ -154,26 +150,23 @@ public class DepartmentManagerService implements DepartmentManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<PointDetail> getManagedPointConfs() {
         return pointDao.getManagedPointConfs();
     }
 
-
     /**
-     * Any task with one of these as the production status is
-     * considered in progress.
+     * Any task with one of these as the production status is considered in progress.
      */
     private static final Set<String> IN_PROGRESS_TASK_STATUS = new HashSet<String>();
-    static  {
-        IN_PROGRESS_TASK_STATUS.addAll(java.util.Arrays.asList(
-                new String[] {"I/P","Kicked To","CBB","Blocked"}));
+    static {
+        IN_PROGRESS_TASK_STATUS.addAll(
+                java.util.Arrays.asList(new String[] {"I/P", "Kicked To", "CBB", "Blocked"}));
     }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void updateManagedTasks(PointInterface pd) {
-    }
+    public void updateManagedTasks(PointInterface pd) {}
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -189,35 +182,33 @@ public class DepartmentManagerService implements DepartmentManager {
             return;
         }
 
-        int core_units_per_job =  t.minCoreUnits / (jobs.size() * 100);
+        int core_units_per_job = t.minCoreUnits / (jobs.size() * 100);
         int core_units_left_over = (t.minCoreUnits % (jobs.size() * 100) / 100);
 
         /*
          * Calculate a base for each job
          */
-        Map<JobInterface,Integer[]> minCores = new HashMap<JobInterface,Integer[]>(jobs.size());
+        Map<JobInterface, Integer[]> minCores = new HashMap<JobInterface, Integer[]>(jobs.size());
         int core_units_unalloc = 0;
 
-        for (JobInterface j: jobs) {
+        for (JobInterface j : jobs) {
             FrameStateTotals totals = jobDao.getFrameStateTotals(j);
-            if (totals.waiting  < core_units_per_job) {
-                core_units_unalloc= core_units_unalloc
-                    + (core_units_per_job - totals.waiting);
+            if (totals.waiting < core_units_per_job) {
+                core_units_unalloc = core_units_unalloc + (core_units_per_job - totals.waiting);
                 minCores.put(j, new Integer[] {totals.waiting, totals.waiting});
-            }
-            else {
+            } else {
                 minCores.put(j, new Integer[] {core_units_per_job, totals.waiting});
             }
         }
 
         /*
-         * Apply any left over core units. If the job doesn't have
-         * waiting frames to apply them to then don't do anything.
+         * Apply any left over core units. If the job doesn't have waiting frames to apply them to
+         * then don't do anything.
          */
         core_units_left_over = core_units_left_over + core_units_unalloc;
         while (core_units_left_over > 0) {
             boolean applied = false;
-            for (JobInterface j: jobs) {
+            for (JobInterface j : jobs) {
                 if (core_units_left_over < 1) {
                     break;
                 }
@@ -235,7 +226,7 @@ public class DepartmentManagerService implements DepartmentManager {
         /*
          * Update the DB
          */
-        for (JobInterface j: jobs) {
+        for (JobInterface j : jobs) {
             jobDao.updateMinCores(j, minCores.get(j)[0] * 100);
         }
     }
@@ -289,4 +280,3 @@ public class DepartmentManagerService implements DepartmentManager {
         this.jobDao = jobDao;
     }
 }
-

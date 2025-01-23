@@ -2,17 +2,15 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package com.imageworks.spcue.dao.criteria.postgres;
@@ -51,7 +49,9 @@ public abstract class Criteria implements CriteriaInterface {
 
     abstract void buildWhereClause();
 
-    public String toString() { return this.getWhereClause(); }
+    public String toString() {
+        return this.getWhereClause();
+    }
 
     public void setFirstResult(int firstResult) {
         this.firstResult = Math.max(firstResult, 1);
@@ -91,9 +91,7 @@ public abstract class Criteria implements CriteriaInterface {
     }
 
     private String generateWhereClause() {
-        return chunks.stream()
-                .map(StringBuilder::toString)
-                .collect(Collectors.joining(" AND "));
+        return chunks.stream().map(StringBuilder::toString).collect(Collectors.joining(" AND "));
     }
 
     private String queryWithPaging(String query) {
@@ -101,7 +99,8 @@ public abstract class Criteria implements CriteriaInterface {
             if (order.size() == 0) {
                 query = query.replaceFirst("SELECT ", "SELECT row_number() OVER () AS RN,");
             } else {
-                query = query.replaceFirst("SELECT ", "SELECT row_number() OVER (" + getOrder() + ") AS RN, ");
+                query = query.replaceFirst("SELECT ",
+                        "SELECT row_number() OVER (" + getOrder() + ") AS RN, ");
             }
         }
 
@@ -114,10 +113,8 @@ public abstract class Criteria implements CriteriaInterface {
         sb.append(" ");
         if (chunks.size() > 0) {
             sb.append("AND ");
-            sb.append(
-                    chunks.stream()
-                            .map(StringBuilder::toString)
-                            .collect(Collectors.joining(" AND ")));
+            sb.append(chunks.stream().map(StringBuilder::toString)
+                    .collect(Collectors.joining(" AND ")));
         }
 
         if (firstResult > 1 || maxResults > 0) {
@@ -125,7 +122,7 @@ public abstract class Criteria implements CriteriaInterface {
         }
 
         if (firstResult > 1) {
-            sb.append (" RN >= ? ");
+            sb.append(" RN >= ? ");
             values.add(firstResult);
         }
 
@@ -156,26 +153,30 @@ public abstract class Criteria implements CriteriaInterface {
     }
 
     void addPhrase(String col, Collection<String> s) {
-        if (s == null || s.size() == 0) { return; }
+        if (s == null || s.size() == 0) {
+            return;
+        }
 
         StringBuilder sb = new StringBuilder(1024);
         sb.append("(");
-        for (String w: s) {
+        for (String w : s) {
             sb.append(col);
             sb.append("=?");
             sb.append(" OR ");
             values.add(w);
         }
-        sb.delete(sb.length()-4, sb.length());
+        sb.delete(sb.length() - 4, sb.length());
         sb.append(")");
         chunks.add(sb);
     }
 
     void addPhrases(Collection<Phrase> phrases, String inclusion) {
-        if (phrases.size() == 0) { return; }
+        if (phrases.size() == 0) {
+            return;
+        }
         StringBuilder sb = new StringBuilder(1024);
         sb.append("(");
-        for (Phrase p: phrases) {
+        for (Phrase p : phrases) {
             sb.append(p.getColumn());
             sb.append(p.getComparison());
             sb.append("?");
@@ -184,49 +185,61 @@ public abstract class Criteria implements CriteriaInterface {
             sb.append(" ");
             values.add(p.getValue());
         }
-        sb.delete(sb.length()-4, sb.length());
+        sb.delete(sb.length() - 4, sb.length());
         sb.append(")");
         chunks.add(sb);
     }
 
     void addPhrase(String col, String v) {
-        if (v == null) { return; }
+        if (v == null) {
+            return;
+        }
         addPhrase(col, ImmutableList.of(v));
     }
 
     void addRegexPhrase(String col, Set<String> s) {
-        if (s == null) { return; }
-        if (s.size() == 0) { return; }
+        if (s == null) {
+            return;
+        }
+        if (s.size() == 0) {
+            return;
+        }
         StringBuilder sb = new StringBuilder(1024);
         sb.append("(");
-        for (String w: s) {
+        for (String w : s) {
             sb.append(String.format("%s ~ ?", col));
             sb.append(" OR ");
             values.add(w);
         }
-        sb.delete(sb.length()-4, sb.length());
+        sb.delete(sb.length() - 4, sb.length());
         sb.append(")");
         chunks.add(sb);
     }
 
     void addLikePhrase(String col, Set<String> s) {
-        if (s == null) { return; }
-        if (s.size() == 0) { return; }
+        if (s == null) {
+            return;
+        }
+        if (s.size() == 0) {
+            return;
+        }
         StringBuilder sb = new StringBuilder(1024);
         sb.append("(");
-        for (String w: s) {
+        for (String w : s) {
             sb.append(col);
             sb.append(" LIKE ?");
             sb.append(" OR ");
             values.add("%" + w + "%");
         }
-        sb.delete(sb.length()-4, sb.length());
+        sb.delete(sb.length() - 4, sb.length());
         sb.append(")");
         chunks.add(sb);
     }
 
     void addGreaterThanTimestamp(String col, Timestamp timestamp) {
-        if (timestamp == null) { return; }
+        if (timestamp == null) {
+            return;
+        }
         StringBuilder sb = new StringBuilder(128);
         sb.append("(");
         sb.append(col);
@@ -237,7 +250,9 @@ public abstract class Criteria implements CriteriaInterface {
     }
 
     void addLessThanTimestamp(String col, Timestamp timestamp) {
-        if (timestamp == null) { return; }
+        if (timestamp == null) {
+            return;
+        }
         StringBuilder sb = new StringBuilder(128);
         sb.append("(");
         sb.append(col);
