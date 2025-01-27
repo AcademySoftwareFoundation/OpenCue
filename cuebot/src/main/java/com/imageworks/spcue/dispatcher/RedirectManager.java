@@ -23,8 +23,6 @@ import org.apache.logging.log4j.LogManager;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
@@ -278,7 +276,6 @@ public class RedirectManager {
      * @param proc
      * @return
      */
-    @Transactional(propagation = Propagation.REQUIRED)
     public boolean redirect(VirtualProc proc) {
         try {
             Redirect r = redirectService.remove(proc.getProcId());
