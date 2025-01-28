@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -69,8 +65,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     @Rule
@@ -122,27 +118,15 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
     public DispatchHost createHost() {
 
-        RenderHost host = RenderHost.newBuilder()
-                .setName("beta")
-                .setBootTime(1192369572)
+        RenderHost host = RenderHost.newBuilder().setName("beta").setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(CueUtil.GB)
-                .setFreeMem(53500)
-                .setFreeSwap(20760)
-                .setLoad(1)
-                .setTotalMcp(CueUtil.GB4)
-                .setTotalMem((int) CueUtil.GB32)
-                .setTotalSwap(20960)
-                .setNimbyEnabled(false)
-                .setNumProcs(8)
-                .setCoresPerProc(100)
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .build();
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB32).setTotalSwap(20960)
+                .setNimbyEnabled(false).setNumProcs(8).setCoresPerProc(100)
+                .setState(HardwareState.UP).setFacility("spi").build();
 
         DispatchHost dh = hostManager.createHost(host);
-        hostManager.setAllocation(dh,
-                adminManager.findAllocationDetail("spi", "general"));
+        hostManager.setAllocation(dh, adminManager.findAllocationDetail("spi", "general"));
 
         return hostDao.findDispatchHost("beta");
     }
@@ -156,12 +140,10 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void setDispatcherTestMode() {
         dispatcher.setTestMode(true);
         jobLauncher.testMode = true;
-        this.MEM_RESERVED_DEFAULT = env.getRequiredProperty(
-            "dispatcher.memory.mem_reserved_default",
-            Long.class);
-        this.MEM_GPU_RESERVED_DEFAULT = env.getRequiredProperty(
-            "dispatcher.memory.mem_gpu_reserved_default",
-            Long.class);
+        this.MEM_RESERVED_DEFAULT =
+                env.getRequiredProperty("dispatcher.memory.mem_reserved_default", Long.class);
+        this.MEM_GPU_RESERVED_DEFAULT =
+                env.getRequiredProperty("dispatcher.memory.mem_gpu_reserved_default", Long.class);
     }
 
     @Test
@@ -177,16 +159,13 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         // Confirm was have a running frame.
         assertEquals("RUNNING", jdbcTemplate.queryForObject(
-                "SELECT str_state FROM frame WHERE pk_frame=?",
-                String.class, frame.id));
+                "SELECT str_state FROM frame WHERE pk_frame=?", String.class, frame.id));
 
         assertTrue(procDao.verifyRunningProc(proc.getId(), frame.getId()));
         jobManager.shutdownJob(job);
 
-       int result =  jdbcTemplate.update(
-                "UPDATE job SET ts_stopped = " +
-                "current_timestamp - interval '10' minute " +
-                "WHERE pk_job=?", job.id);
+        int result = jdbcTemplate.update("UPDATE job SET ts_stopped = "
+                + "current_timestamp - interval '10' minute " + "WHERE pk_job=?", job.id);
 
         assertEquals(1, result);
         assertFalse(procDao.verifyRunningProc(proc.getId(), frame.getId()));
@@ -287,7 +266,6 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertTrue(procDao.clearVirtualProcAssignment(frame));
     }
 
-
     @Test
     @Transactional
     @Rollback(true)
@@ -352,8 +330,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         DispatchHost host = createHost();
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM host WHERE pk_host=?",
-                Integer.class, host.id));
+                "SELECT COUNT(*) FROM host WHERE pk_host=?", Integer.class, host.id));
 
         JobDetail job = launchJob();
         FrameDetail fd = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
@@ -365,9 +342,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertTrue(procDao.verifyRunningProc(proc.getId(), frame.getId()));
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM proc WHERE pk_proc=?",
-                Integer.class, proc.id));
-
+                "SELECT COUNT(*) FROM proc WHERE pk_proc=?", Integer.class, proc.id));
 
         VirtualProc verifyProc = procDao.getVirtualProc(proc.getId());
         assertEquals(host.allocationId, verifyProc.allocationId);
@@ -388,8 +363,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         DispatchHost host = createHost();
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM host WHERE pk_host=?",
-                Integer.class, host.id));
+                "SELECT COUNT(*) FROM host WHERE pk_host=?", Integer.class, host.id));
 
         JobDetail job = launchJob();
         FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
@@ -416,8 +390,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         DispatchHost host = createHost();
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM host WHERE pk_host=?",
-                Integer.class, host.id));
+                "SELECT COUNT(*) FROM host WHERE pk_host=?", Integer.class, host.id));
 
         JobDetail job = launchJob();
         FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
@@ -438,7 +411,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertEquals(1, procDao.findVirtualProcs(job).size());
         assertEquals(1, procDao.findVirtualProcs(frame).size());
         assertEquals(1, procDao.findVirtualProcs(frameSearchFactory.create(job)).size());
-        assertEquals(1, procDao.findVirtualProcs(frameSearchFactory.create((LayerInterface) frame)).size());
+        assertEquals(1,
+                procDao.findVirtualProcs(frameSearchFactory.create((LayerInterface) frame)).size());
     }
 
     @Test
@@ -448,8 +422,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         DispatchHost host = createHost();
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM host WHERE pk_host=?",
-                Integer.class, host.id));
+                "SELECT COUNT(*) FROM host WHERE pk_host=?", Integer.class, host.id));
 
         JobDetail job = launchJob();
         FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
@@ -468,10 +441,9 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertEquals(0, procDao.findOrphanedVirtualProcs().size());
 
         /**
-        * This is destructive to running jobs
-        */
-        jdbcTemplate.update(
-        "UPDATE proc SET ts_ping = (current_timestamp - interval '30' day)");
+         * This is destructive to running jobs
+         */
+        jdbcTemplate.update("UPDATE proc SET ts_ping = (current_timestamp - interval '30' day)");
 
         assertEquals(1, procDao.findOrphanedVirtualProcs().size());
         assertTrue(procDao.isOrphan(proc));
@@ -499,8 +471,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         procDao.insertVirtualProc(proc);
 
         procDao.unbookProc(proc);
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_unbooked FROM proc WHERE pk_proc=?",
+        assertTrue(jdbcTemplate.queryForObject("SELECT b_unbooked FROM proc WHERE pk_proc=?",
                 Boolean.class, proc.id));
     }
 
@@ -525,19 +496,16 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc.showId = frame.showId;
         procDao.insertVirtualProc(proc);
 
-
         List<VirtualProc> procs = new ArrayList<VirtualProc>();
         procs.add(proc);
 
         procDao.unbookVirtualProcs(procs);
 
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_unbooked FROM proc WHERE pk_proc=?",
+        assertTrue(jdbcTemplate.queryForObject("SELECT b_unbooked FROM proc WHERE pk_proc=?",
                 Boolean.class, proc.id));
     }
 
-
-    @Test(expected=ResourceReservationFailureException.class)
+    @Test(expected = ResourceReservationFailureException.class)
     @Transactional
     @Rollback(true)
     public void testIncreaseReservedMemoryFail() {
@@ -601,10 +569,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         VirtualProc _proc = procDao.findVirtualProc(frame);
         assertEquals(Long.valueOf(this.MEM_RESERVED_DEFAULT), jdbcTemplate.queryForObject(
-                        "SELECT int_mem_reserved FROM proc WHERE pk_proc=?",
-                        Long.class, _proc.id));
-        assertEquals(this.MEM_RESERVED_DEFAULT,
-                procDao.getReservedMemory(_proc));
+                "SELECT int_mem_reserved FROM proc WHERE pk_proc=?", Long.class, _proc.id));
+        assertEquals(this.MEM_RESERVED_DEFAULT, procDao.getReservedMemory(_proc));
     }
 
     @Test
@@ -623,10 +589,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         VirtualProc _proc = procDao.findVirtualProc(frame);
         assertEquals(Long.valueOf(this.MEM_GPU_RESERVED_DEFAULT), jdbcTemplate.queryForObject(
-                        "SELECT int_gpu_mem_reserved FROM proc WHERE pk_proc=?",
-                        Long.class, _proc.id));
-        assertEquals(this.MEM_GPU_RESERVED_DEFAULT,
-                procDao.getReservedGpuMemory(_proc));
+                "SELECT int_gpu_mem_reserved FROM proc WHERE pk_proc=?", Long.class, _proc.id));
+        assertEquals(this.MEM_GPU_RESERVED_DEFAULT, procDao.getReservedGpuMemory(_proc));
     }
 
     @Test
@@ -654,7 +618,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc2.frameId = frame2.id;
         procDao.insertVirtualProc(proc2);
 
-        procDao.updateProcMemoryUsage(frame2, 255000, 255000,255000, 255000, 0, 0, 0, children);
+        procDao.updateProcMemoryUsage(frame2, 255000, 255000, 255000, 255000, 0, 0, 0, children);
         layerDao.updateLayerMaxRSS(frame2, 255000, true);
 
         FrameDetail frameDetail3 = frameDao.findFrameDetail(job, "0003-pass_1");
@@ -664,22 +628,23 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc3.frameId = frame3.id;
         procDao.insertVirtualProc(proc3);
 
-        procDao.updateProcMemoryUsage(frame3, 3145728, 3145728,3145728, 3145728, 0, 0, 0, children);
-        layerDao.updateLayerMaxRSS(frame3,300000, true);
+        procDao.updateProcMemoryUsage(frame3, 3145728, 3145728, 3145728, 3145728, 0, 0, 0,
+                children);
+        layerDao.updateLayerMaxRSS(frame3, 300000, true);
 
         procDao.balanceUnderUtilizedProcs(proc3, 100000);
         procDao.increaseReservedMemory(proc3, this.MEM_RESERVED_DEFAULT + 100000);
 
         // Check the target proc
         VirtualProc targetProc = procDao.getVirtualProc(proc3.getId());
-        assertEquals( this.MEM_RESERVED_DEFAULT + 100000, targetProc.memoryReserved);
+        assertEquals(this.MEM_RESERVED_DEFAULT + 100000, targetProc.memoryReserved);
 
         // Check other procs
         VirtualProc firstProc = procDao.getVirtualProc(proc1.getId());
-        assertEquals( this.MEM_RESERVED_DEFAULT - 50000 -1 , firstProc.memoryReserved);
+        assertEquals(this.MEM_RESERVED_DEFAULT - 50000 - 1, firstProc.memoryReserved);
 
         VirtualProc secondProc = procDao.getVirtualProc(proc2.getId());
-        assertEquals(this.MEM_RESERVED_DEFAULT - 50000 -1, secondProc.memoryReserved);
+        assertEquals(this.MEM_RESERVED_DEFAULT - 50000 - 1, secondProc.memoryReserved);
 
     }
 
@@ -764,8 +729,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         /*
          * Book 5 procs.
          */
-        for (int i=1; i<6; i++) {
-            FrameDetail f = frameDao.findFrameDetail(job, String.format("%04d-pass_1",i));
+        for (int i = 1; i < 6; i++) {
+            FrameDetail f = frameDao.findFrameDetail(job, String.format("%04d-pass_1", i));
             VirtualProc proc = new VirtualProc();
             proc.allocationId = null;
             proc.coresReserved = 100;
@@ -785,7 +750,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
          * Search for all 5 running procs
          */
         r = procSearchFactory.create();
-        r.addSort(new Sort("proc.ts_booked",Direction.ASC));
+        r.addSort(new Sort("proc.ts_booked", Direction.ASC));
         ProcSearchCriteria criteriaA = r.getCriteria();
         r.setCriteria(criteriaA.toBuilder().addShows("pipe").build());
         assertEquals(5, procDao.findVirtualProcs(r).size());
@@ -799,13 +764,12 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertEquals(1, procDao.findVirtualProcs(r).size());
 
         /*
-         * Change the first result to 1, which should limt
-         * the result to 4.
+         * Change the first result to 1, which should limt the result to 4.
          */
         r = procSearchFactory.create();
         ProcSearchCriteria criteriaC = r.getCriteria();
         r.setCriteria(criteriaC.toBuilder().addShows("pipe").setFirstResult(2).build());
-        r.addSort(new Sort("proc.ts_booked",Direction.ASC));
+        r.addSort(new Sort("proc.ts_booked", Direction.ASC));
         assertEquals(4, procDao.findVirtualProcs(r).size());
 
         /*
@@ -813,11 +777,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
          */
         r = procSearchFactory.create();
         ProcSearchCriteria criteriaD = r.getCriteria();
-        r.setCriteria(criteriaD.toBuilder()
-                .addShows("pipe")
-                .setFirstResult(3)
-                .addMaxResults(2)
-                .build());
+        r.setCriteria(
+                criteriaD.toBuilder().addShows("pipe").setFirstResult(3).addMaxResults(2).build());
         assertEquals(2, procDao.findVirtualProcs(r).size());
 
     }
@@ -842,11 +803,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc = VirtualProc.build(host, frame);
         assertEquals(250, proc.coresReserved);
 
-
         // Frame with a selfish service
         proc = VirtualProc.build(host, frame, "shell", "something-else");
         assertEquals(800, proc.coresReserved);
     }
 }
-
-

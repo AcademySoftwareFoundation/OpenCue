@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dao.postgres;
 
@@ -36,43 +32,29 @@ import com.imageworks.spcue.grpc.filter.ActionType;
 import com.imageworks.spcue.grpc.filter.ActionValueType;
 import com.imageworks.spcue.util.SqlUtil;
 
-public class ActionDaoJdbc extends JdbcDaoSupport  implements ActionDao {
+public class ActionDaoJdbc extends JdbcDaoSupport implements ActionDao {
 
-    public static final String INSERT_ACTION =
-        "INSERT INTO " +
-            "action " +
-        "(" +
-            "pk_action,pk_filter,str_action,str_value_type,b_stop" +
-        ") VALUES (?,?,?,?,?)";
+    public static final String INSERT_ACTION = "INSERT INTO " + "action " + "("
+            + "pk_action,pk_filter,str_action,str_value_type,b_stop" + ") VALUES (?,?,?,?,?)";
 
     public void createAction(ActionEntity action) {
         action.id = SqlUtil.genKeyRandom();
         boolean stopAction = ActionType.STOP_PROCESSING.equals(action.type);
-        getJdbcTemplate().update(INSERT_ACTION,
-                action.id, action.filterId,action.type.toString(),
+        getJdbcTemplate().update(INSERT_ACTION, action.id, action.filterId, action.type.toString(),
                 action.valueType.toString(), stopAction);
         updateAction(action);
     }
 
-    private static final String GET_ACTION =
-        "SELECT "+
-            "action.*," +
-            "filter.pk_show "+
-        "FROM " +
-            "action,"+
-            "filter " +
-        "WHERE " +
-            "action.pk_filter = filter.pk_filter";
+    private static final String GET_ACTION = "SELECT " + "action.*," + "filter.pk_show " + "FROM "
+            + "action," + "filter " + "WHERE " + "action.pk_filter = filter.pk_filter";
 
     public ActionEntity getAction(String id) {
-        return getJdbcTemplate().queryForObject(
-                GET_ACTION + " AND pk_action=?",
+        return getJdbcTemplate().queryForObject(GET_ACTION + " AND pk_action=?",
                 ACTION_DETAIL_MAPPER, id);
     }
 
     public ActionEntity getAction(ActionInterface action) {
-        return getJdbcTemplate().queryForObject(
-                GET_ACTION + " AND pk_action=?",
+        return getJdbcTemplate().queryForObject(GET_ACTION + " AND pk_action=?",
                 ACTION_DETAIL_MAPPER, action.getActionId());
     }
 
@@ -100,7 +82,7 @@ public class ActionDaoJdbc extends JdbcDaoSupport  implements ActionDao {
         args.add(action.type.toString());
         args.add(action.valueType.toString());
 
-        switch(action.valueType) {
+        switch (action.valueType) {
             case GROUP_TYPE:
                 query.append(",pk_folder=?  WHERE pk_action=?");
                 args.add(action.groupValue);
@@ -135,30 +117,29 @@ public class ActionDaoJdbc extends JdbcDaoSupport  implements ActionDao {
         }
 
         args.add(action.id);
-        getJdbcTemplate().update(query.toString(),
-                args.toArray());
+        getJdbcTemplate().update(query.toString(), args.toArray());
 
     }
 
     public void deleteAction(ActionInterface action) {
-        getJdbcTemplate().update("DELETE FROM action WHERE pk_action=?",action.getActionId());
+        getJdbcTemplate().update("DELETE FROM action WHERE pk_action=?", action.getActionId());
     }
 
-    public static final RowMapper<ActionEntity> ACTION_DETAIL_MAPPER = new RowMapper<ActionEntity>() {
-        public ActionEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
-            ActionEntity action = new ActionEntity();
-            action.id = rs.getString("pk_action");
-            action.showId = rs.getString("pk_show");
-            action.filterId = rs.getString("pk_filter");
-            action.booleanValue = rs.getBoolean("b_value");
-            action.groupValue = rs.getString("pk_folder");
-            action.intValue = rs.getLong("int_value");
-            action.floatValue = rs.getFloat("float_value");
-            action.type = ActionType.valueOf(rs.getString("str_action"));
-            action.valueType = ActionValueType.valueOf(rs.getString("str_value_type"));
-            action.stringValue = rs.getString("str_value");
-            return action;
-        }
-    };
+    public static final RowMapper<ActionEntity> ACTION_DETAIL_MAPPER =
+            new RowMapper<ActionEntity>() {
+                public ActionEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    ActionEntity action = new ActionEntity();
+                    action.id = rs.getString("pk_action");
+                    action.showId = rs.getString("pk_show");
+                    action.filterId = rs.getString("pk_filter");
+                    action.booleanValue = rs.getBoolean("b_value");
+                    action.groupValue = rs.getString("pk_folder");
+                    action.intValue = rs.getLong("int_value");
+                    action.floatValue = rs.getFloat("float_value");
+                    action.type = ActionType.valueOf(rs.getString("str_action"));
+                    action.valueType = ActionValueType.valueOf(rs.getString("str_value_type"));
+                    action.stringValue = rs.getString("str_value");
+                    return action;
+                }
+            };
 }
-

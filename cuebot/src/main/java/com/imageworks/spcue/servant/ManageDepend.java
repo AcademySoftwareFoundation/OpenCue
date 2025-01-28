@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.servant;
 
@@ -47,21 +43,20 @@ public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
     private Whiteboard whiteboard;
 
     @Override
-    public void getDepend(DependGetDependRequest request, StreamObserver<DependGetDependResponse> responseObserver) {
+    public void getDepend(DependGetDependRequest request,
+            StreamObserver<DependGetDependResponse> responseObserver) {
         try {
             responseObserver.onNext(DependGetDependResponse.newBuilder()
-                    .setDepend(whiteboard.getDepend(request.getId()))
-                    .build());
+                    .setDepend(whiteboard.getDepend(request.getId())).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription(e.getMessage())
-                    .withCause(e)
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
                     .asRuntimeException());
         }
     }
 
-    public void satisfy(DependSatisfyRequest request, StreamObserver<DependSatisfyResponse> responseObserver) {
+    public void satisfy(DependSatisfyRequest request,
+            StreamObserver<DependSatisfyResponse> responseObserver) {
 
         LightweightDependency depend = dependManager.getDepend(request.getDepend().getId());
         String key = "manage_dep_sat_req_" + request.getDepend().getId();
@@ -71,8 +66,7 @@ public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
                     logger.info("dropping dependency: " + depend.id);
                     dependManager.satisfyDepend(depend);
                 } catch (Exception e) {
-                    logger.error("error satisfying dependency: "
-                            + depend.getId() + " , " + e);
+                    logger.error("error satisfying dependency: " + depend.getId() + " , " + e);
                 }
             }
         });
@@ -80,7 +74,8 @@ public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
         responseObserver.onCompleted();
     }
 
-    public void unsatisfy(DependUnsatisfyRequest request, StreamObserver<DependUnsatisfyResponse> responseObserver) {
+    public void unsatisfy(DependUnsatisfyRequest request,
+            StreamObserver<DependUnsatisfyResponse> responseObserver) {
         LightweightDependency depend = dependManager.getDepend(request.getDepend().getId());
         dependManager.unsatisfyDepend(depend);
         responseObserver.onNext(DependUnsatisfyResponse.newBuilder().build());
@@ -111,4 +106,3 @@ public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
         this.whiteboard = whiteboard;
     }
 }
-

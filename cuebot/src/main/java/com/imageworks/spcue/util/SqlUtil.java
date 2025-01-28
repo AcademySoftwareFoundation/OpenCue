@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.util;
 
@@ -40,8 +36,8 @@ public class SqlUtil {
     }
 
     /**
-     * returns a 32 character UUID string that will be identical everytime its
-     * generated based on the name passed in.
+     * returns a 32 character UUID string that will be identical everytime its generated based on
+     * the name passed in.
      *
      * @param name String
      * @return String
@@ -51,8 +47,8 @@ public class SqlUtil {
     }
 
     /**
-     * returns a 32 character UUID string that will be identical everytime its
-     * generated based on the name passed in.
+     * returns a 32 character UUID string that will be identical everytime its generated based on
+     * the name passed in.
      *
      * @param name String
      * @return String
@@ -74,8 +70,8 @@ public class SqlUtil {
     }
 
     /**
-     * returns a 36 character UUID string that will be identical everytime its
-     * generated based on the name passed in.
+     * returns a 36 character UUID string that will be identical everytime its generated based on
+     * the name passed in.
      *
      * @param name String
      * @return String
@@ -85,8 +81,7 @@ public class SqlUtil {
     }
 
     /**
-     * returns a 36 character UUID string that is based on the name and the time
-     * the UUID is created
+     * returns a 36 character UUID string that is based on the name and the time the UUID is created
      *
      * @param name String
      * @return String
@@ -100,8 +95,8 @@ public class SqlUtil {
     }
 
     /**
-     * returns a 36 character UUID string that is based on time and the IP
-     * address of the primary network interface and the time
+     * returns a 36 character UUID string that is based on time and the IP address of the primary
+     * network interface and the time
      *
      * @return String
      */
@@ -111,8 +106,9 @@ public class SqlUtil {
     }
 
     /**
-     * SQL ResultSet.getString method returns a null, but we want to initialize our
-     * message builders with an empty string. Call rs.getString but return an empty string instead of null.]
+     * SQL ResultSet.getString method returns a null, but we want to initialize our message builders
+     * with an empty string. Call rs.getString but return an empty string instead of null.]
+     * 
      * @param rs ResultSet
      * @param field String
      * @return String
@@ -144,4 +140,3 @@ public class SqlUtil {
         }
     }
 }
-

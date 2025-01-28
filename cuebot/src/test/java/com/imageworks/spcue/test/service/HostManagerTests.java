@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.service;
 
@@ -61,8 +57,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
     AdminManager adminManager;
@@ -98,30 +94,16 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
 
     public DispatchHost createHost() {
 
-        RenderHost host = RenderHost.newBuilder()
-                .setName(HOST_NAME)
-                .setBootTime(1192369572)
+        RenderHost host = RenderHost.newBuilder().setName(HOST_NAME).setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(CueUtil.GB)
-                .setFreeMem(15290520)
-                .setFreeSwap(2076)
-                .setLoad(1)
-                .setTotalMcp(CueUtil.GB4)
-                .setTotalMem((int) CueUtil.GB16)
-                .setTotalSwap(2076)
-                .setNimbyEnabled(true)
-                .setNumProcs(2)
-                .setCoresPerProc(400)
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .addAllTags(ImmutableList.of("linux", "64bit"))
-                .setFreeGpuMem((int) CueUtil.MB512)
-                .setTotalGpuMem((int) CueUtil.MB512)
-                .build();
+                .setFreeMcp(CueUtil.GB).setFreeMem(15290520).setFreeSwap(2076).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB16).setTotalSwap(2076)
+                .setNimbyEnabled(true).setNumProcs(2).setCoresPerProc(400)
+                .setState(HardwareState.UP).setFacility("spi")
+                .addAllTags(ImmutableList.of("linux", "64bit")).setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512).build();
 
-        hostDao.insertRenderHost(host,
-                adminManager.findAllocationDetail("spi", "general"),
-                false);
+        hostDao.insertRenderHost(host, adminManager.findAllocationDetail("spi", "general"), false);
 
         return hostDao.findDispatchHost(HOST_NAME);
     }
@@ -139,16 +121,14 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
     @Rollback(true)
     public void setAllocation() {
         HostInterface h = createHost();
-        hostManager.setAllocation(h,
-                allocationDao.findAllocationEntity("spi", "general"));
+        hostManager.setAllocation(h, allocationDao.findAllocationEntity("spi", "general"));
     }
 
     /**
-     * This test ensures you can't transfer a host that has a proc
-     * assigned to a show without a subscription to the destination
-     * allocation.
+     * This test ensures you can't transfer a host that has a proc assigned to a show without a
+     * subscription to the destination allocation.
      */
-    @Test(expected=EntityModificationError.class)
+    @Test(expected = EntityModificationError.class)
     @Transactional
     @Rollback(true)
     public void setBadAllocation() {
@@ -160,8 +140,7 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
 
         DispatchHost h = createHost();
 
-        AllocationEntity ad =
-            allocationDao.findAllocationEntity("spi", "desktop");
+        AllocationEntity ad = allocationDao.findAllocationEntity("spi", "desktop");
 
         VirtualProc proc = VirtualProc.build(h, frame);
         proc.frameId = frame.id;
@@ -206,4 +185,3 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
     }
 
 }
-

@@ -563,7 +563,7 @@ class ServiceBox(QtWidgets.QLineEdit):
         """Refreshes the show list."""
         slist = opencue.api.getDefaultServices()
         slist.sort(key=lambda s: s.name())
-        self.__c = QtWidgets.QCompleter(slist, self)
+        self.__c = QtWidgets.QCompleter(list(slist), self)
         self.__c.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self.setCompleter(self.__c)
 

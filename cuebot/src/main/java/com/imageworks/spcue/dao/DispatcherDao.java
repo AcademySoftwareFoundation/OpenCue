@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dao;
 
@@ -32,13 +28,12 @@ import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.VirtualProc;
 
 /**
-* DispatcherDao provides DAO methods used by the DispatchService
-*/
+ * DispatcherDao provides DAO methods used by the DispatchService
+ */
 public interface DispatcherDao {
 
     /**
-     * Finds the next frame on the specified job that can utilize
-     * the free resources on the host.
+     * Finds the next frame on the specified job that can utilize the free resources on the host.
      *
      * @param host
      * @param job
@@ -56,8 +51,7 @@ public interface DispatcherDao {
     DispatchFrame findNextDispatchFrame(JobInterface job, VirtualProc proc);
 
     /**
-     * Finds the next frame on the specified job that can utilize
-     * the free resources on the host.
+     * Finds the next frame on the specified job that can utilize the free resources on the host.
      *
      * @param host
      * @param job
@@ -75,8 +69,8 @@ public interface DispatcherDao {
     List<DispatchFrame> findNextDispatchFrames(JobInterface job, VirtualProc proc, int limit);
 
     /**
-     * Return a list of jobs which could use resources of the specified
-     * host. It does not consider show priority.
+     * Return a list of jobs which could use resources of the specified host. It does not consider
+     * show priority.
      *
      * @param host
      * @param numJobs
@@ -85,8 +79,7 @@ public interface DispatcherDao {
     Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs);
 
     /**
-     * Return a list of jobs which could use resources of the specified
-     * host
+     * Return a list of jobs which could use resources of the specified host
      *
      * @param host
      * @param numJobs
@@ -95,18 +88,17 @@ public interface DispatcherDao {
     Set<String> findDispatchJobs(DispatchHost host, int numJobs);
 
     /**
-    * Return a list of jobs which could use resources of the specified
-    * host that are in the specified group.
-    *
-    * @param host
-    * @param numJobs
-    * @return
-    */
+     * Return a list of jobs which could use resources of the specified host that are in the
+     * specified group.
+     *
+     * @param host
+     * @param numJobs
+     * @return
+     */
     Set<String> findDispatchJobs(DispatchHost host, GroupInterface g);
 
     /**
-     * Finds an under proced job if one exists and returns it,
-     * otherwise it returns null.
+     * Finds an under proced job if one exists and returns it, otherwise it returns null.
      *
      * @param excludeJob
      * @param proc
@@ -124,69 +116,65 @@ public interface DispatcherDao {
     boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc);
 
     /**
-    * Dispatch the given host to the specified show.  Look for a max of numJobs.
-    *
-    * @param host
-    * @param show
-    * @param numJobs
-    * @return
-    */
-   Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
-
-   /**
-    * Find a list of local dispatch jobs.
-    *
-    * @param host
-    * @return
-    */
-   Set<String> findLocalDispatchJobs(DispatchHost host);
-
-   /**
-    * Return a list of frames from the given layer.
-    *
-    * @param layer
-    * @param proc
-    * @param limit
-    * @return
-    */
-   List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, VirtualProc proc,
-                                              int limit);
-
-   /**
-    * Return a list of frames from the given layer.
-    *
-    * @param layer
-    * @param host
-    * @param limit
-    * @return
-    */
-   List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host,
-                                              int limit);
-
-   /**
-    * Return Scheduling Mode selected
-    *
-    * @return
-    */
-   SchedulingMode getSchedulingMode();
-
-   /**
-    * Set Scheduling Mode.
-    *
-    * @param schedulingMode
-    */
-   void setSchedulingMode(SchedulingMode schedulingMode);
+     * Dispatch the given host to the specified show. Look for a max of numJobs.
+     *
+     * @param host
+     * @param show
+     * @param numJobs
+     * @return
+     */
+    Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
 
     /**
-     *  - PRIORITY_ONLY: Sort by priority only
-     *  - FIFO: Whether or not to enable FIFO scheduling in the same priority.
-     *  - BALANCED: Use a rank formula that takes into account time waiting, and number
-     *      of cores required: rank = priority + (100 * (1 - (job.cores/job.int_min_cores))) + age in days
+     * Find a list of local dispatch jobs.
+     *
+     * @param host
+     * @return
+     */
+    Set<String> findLocalDispatchJobs(DispatchHost host);
+
+    /**
+     * Return a list of frames from the given layer.
+     *
+     * @param layer
+     * @param proc
+     * @param limit
+     * @return
+     */
+    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, VirtualProc proc, int limit);
+
+    /**
+     * Return a list of frames from the given layer.
+     *
+     * @param layer
+     * @param host
+     * @param limit
+     * @return
+     */
+    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host, int limit);
+
+    /**
+     * Return Scheduling Mode selected
+     *
+     * @return
+     */
+    SchedulingMode getSchedulingMode();
+
+    /**
+     * Set Scheduling Mode.
+     *
+     * @param schedulingMode
+     */
+    void setSchedulingMode(SchedulingMode schedulingMode);
+
+    /**
+     * - PRIORITY_ONLY: Sort by priority only - FIFO: Whether or not to enable FIFO scheduling in
+     * the same priority. - BALANCED: Use a rank formula that takes into account time waiting, and
+     * number of cores required: rank = priority + (100 * (1 - (job.cores/job.int_min_cores))) + age
+     * in days
      */
     enum SchedulingMode {
-        PRIORITY_ONLY,
-        FIFO,
-        BALANCED
+        PRIORITY_ONLY, FIFO, BALANCED
     }
 
     /**
@@ -196,6 +184,3 @@ public interface DispatcherDao {
      */
     void clearCache();
 }
-
-
-
