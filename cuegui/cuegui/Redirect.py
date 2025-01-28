@@ -604,7 +604,7 @@ class RedirectWidget(QtWidgets.QWidget):
     @classmethod
     def __isAllowed(cls, procs, targetJob):
         """Checks if the follow criteria are met to allow redirect to target job:
-            - if source/target job have waiting frames
+            - if target job have waiting frames
             - if target job hasn't reached maximum cores
             - check if adding frames will push target job over it's max cores
 
@@ -627,18 +627,9 @@ class RedirectWidget(QtWidgets.QWidget):
                                                targetJob.maxCores())
 
         # Case 2: 1. Check target job for waiting frames
-        #         2. Check source procs for waiting frames
         if allowed and targetJob.waitingFrames() <= 0:
             allowed = False
             errMsg = "Target job %s has no waiting frames" % targetJob.name()
-
-        if allowed:
-            for proc in procs:
-                job = proc.getJob()
-                if job.waitingFrames() <= 0:
-                    allowed = False
-                    errMsg = "Source job %s has no waiting frames" % job.name()
-                    break
 
         # Case 3: Check if each proc or summed up procs will
         #         push targetJob over it's max cores
