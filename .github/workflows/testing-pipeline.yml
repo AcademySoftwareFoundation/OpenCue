@@ -2,9 +2,9 @@ name: OpenCue Testing Pipeline
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   test_python_2023:
@@ -60,7 +60,7 @@ jobs:
         run: ci/run_integration_test.sh
 
       - name: Archive log files
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
           name: test-logs
