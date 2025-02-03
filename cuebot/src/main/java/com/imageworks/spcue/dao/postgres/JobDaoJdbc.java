@@ -181,10 +181,10 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
 
     private static final String GET_JOB_DETAIL = "SELECT " + "job.pk_job," + "job.pk_show,"
             + "job.pk_facility," + "job.pk_dept," + "job.pk_folder," + "job.str_log_dir,"
-            + "job.b_loki_enabled," + "job.str_loki_url,"
-            + "job.str_name," + "job.str_shot," + "job.str_state," + "job.int_uid,"
-            + "job.str_user," + "job.str_email," + "job.int_frame_count," + "job.int_layer_count,"
-            + "job.ts_started," + "job.ts_stopped," + "job.b_paused," + "job.int_max_retries,"
+            + "job.b_loki_enabled," + "job.str_loki_url," + "job.str_name," + "job.str_shot,"
+            + "job.str_state," + "job.int_uid," + "job.str_user," + "job.str_email,"
+            + "job.int_frame_count," + "job.int_layer_count," + "job.ts_started,"
+            + "job.ts_stopped," + "job.b_paused," + "job.int_max_retries,"
             + "job_resource.int_max_cores," + "job_resource.int_min_cores,"
             + "job_resource.int_max_gpus," + "job_resource.int_min_gpus,"
             + "job_resource.int_priority," + "show.str_name AS show_name, "
@@ -381,9 +381,9 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     private static final String INSERT_JOB = "INSERT INTO " + "job " + "(" + "pk_job," + "pk_show,"
             + "pk_folder," + "pk_facility," + "pk_dept," + "str_name," + "str_visible_name,"
             + "str_show," + "str_shot," + "str_user," + "str_email," + "str_state," + "str_log_dir,"
-            + "str_os, " + "int_uid," + "b_paused," + "b_autoeat," + "int_max_retries "
+            + "str_os, " + "int_uid," + "b_paused," + "b_autoeat," + "int_max_retries, "
             + "b_loki_enabled," + "str_loki_url " + ") "
-            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insertJob(JobDetail j, JobLogUtil jobLogUtil) {
@@ -397,7 +397,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
 
         getJdbcTemplate().update(INSERT_JOB, j.id, j.showId, j.groupId, j.facilityId, j.deptId,
                 j.name, j.name, j.showName, j.shot, j.user, j.email, j.state.toString(), j.logDir,
-                j.os, j.uid.orElse(null), j.isPaused, j.isAutoEat, j.maxRetries, j.logLokiEnabled, j.logLokiURL);
+                j.os, j.uid.orElse(null), j.isPaused, j.isAutoEat, j.maxRetries, j.logLokiEnabled,
+                j.logLokiURL);
     }
 
     private static final String JOB_EXISTS = "SELECT " + "1 " + "FROM " + "job " + "WHERE "
