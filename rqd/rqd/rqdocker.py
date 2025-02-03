@@ -1,19 +1,39 @@
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+"""Docker container integration for Rqd"""
 
 from typing import Tuple
-import docker
-import docker.models
-from docker import DockerClient
-from docker.models.containers import Container
 from configparser import RawConfigParser
 import logging
-import docker.types
 import threading
+
+import docker
+import docker.models
+import docker.types
+from docker import DockerClient
+from docker.models.containers import Container
 from docker.errors import APIError, ImageNotFound
 
 log = logging.getLogger(__name__)
 
 
 class RqDocker:
+    """Docker container integration for Rqd.
+    Handles launching Docker containers for running frame commands. Provides configuration
+    management for container images, mounts, resource limits, and GPU support.
+    """
     DOCKER_MOUNTS = "docker.mounts"
     DOCKER_CONFIG = "docker.config"
     DOCKER_IMAGES = "docker.images"
@@ -201,8 +221,8 @@ class RqDocker:
             # Similar to gpu=all on the cli counterpart
             device_requests.append(docker.types.DeviceRequest(count=-1, capabilities=["gpu"]))
         try:
-            # Use a lock to prevent multiple thread from trying to create containers at the same time.
-            # Experimenting without a lock put the docker daemon in a fail state
+            # Use a lock to prevent multiple thread from trying to create containers at the same
+            # time. Experiments without a lock resulted on a fail state
             with self.docker_lock:
                 container = docker_client.containers.run(image=image,
                     detach=True,

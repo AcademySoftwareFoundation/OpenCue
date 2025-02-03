@@ -257,7 +257,7 @@ try:
 
         if config.has_section(__docker_config):
             if config.getboolean(__docker_config, "RUN_ON_DOCKER"):
-                from rqdocker import RqDocker
+                from rqd.rqdocker import RqDocker
 
                 # Set config attribute for docker_gpu_mode. Configuration is made available
                 # from both the config file or an environment variable, the later takes precedency

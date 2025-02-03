@@ -99,7 +99,7 @@ class RqCore(object):
 
         self.backup_cache_path = None
         if rqd.rqconstants.BACKUP_CACHE_PATH:
-            if not rqd.rqconstants.RUN_ON_DOCKER:
+            if not rqd.rqconstants.DOCKER_AGENT:
                 log.warning("Cache backup is currently only available "
                     "when RUN_ON_DOCKER mode")
             else:
@@ -1021,7 +1021,7 @@ class FrameAttendantThread(threading.Thread):
         """The steps required to handle a frame under a docker container"""
         # pylint: disable=import-outside-toplevel
         from docker.errors import APIError
-        from rqd.rqd.rqdocker import InvalidFrameOsError
+        from rqd.rqdocker import InvalidFrameOsError
 
         frameInfo = self.frameInfo
         runFrame = self.runFrame
@@ -1070,7 +1070,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             gid,
             tempPassword,
             runFrame.user_name,
-            rqd.rqconstants.DOCKER_SHELL_PATH,
+            self.docker_agent.docker_shell_path,
             runFrame.user_name,
             tempStatFile,
             tasksetCmd,
