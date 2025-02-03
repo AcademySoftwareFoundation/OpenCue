@@ -117,8 +117,9 @@ message RunFrame {
     string os = 25;
     int64 soft_memory_limit = 26;
     int64 hard_memory_limit = 27;
-    bool loki_enabled = 28;
-    string loki_url = 29;
+    int32 pid = 28;
+    bool loki_enabled = 29;
+    string loki_url = 30;
 }
 
 message RunFrameSeq {

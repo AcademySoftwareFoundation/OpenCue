@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -44,13 +40,11 @@ import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.job.JobState;
 
-
 @Transactional
 public class BookingManagerService implements BookingManager {
 
     @SuppressWarnings("unused")
-    private static final Logger logger =
-        LogManager.getLogger(BookingManagerService.class);
+    private static final Logger logger = LogManager.getLogger(BookingManagerService.class);
 
     private BookingQueue bookingQueue;
     private BookingDao bookingDao;
@@ -72,8 +66,8 @@ public class BookingManagerService implements BookingManager {
     }
 
     @Override
-    public void setMaxResources(LocalHostAssignment l, int maxCoreUnits,
-            long maxMemory, int maxGpuUnits, long maxGpuMemory) {
+    public void setMaxResources(LocalHostAssignment l, int maxCoreUnits, long maxMemory,
+            int maxGpuUnits, long maxGpuMemory) {
 
         HostInterface host = hostDao.getHost(l.getHostId());
 
@@ -103,8 +97,7 @@ public class BookingManagerService implements BookingManager {
             if (jobManager.isJobComplete(jobDetail) || jobDetail.state.equals(JobState.FINISHED)) {
                 removeLocalHostAssignment(lha);
             }
-        }
-        catch (EmptyResultDataAccessException e) {
+        } catch (EmptyResultDataAccessException e) {
             removeLocalHostAssignment(lha);
         }
     }
@@ -124,33 +117,32 @@ public class BookingManagerService implements BookingManager {
     public void deactivateLocalHostAssignment(LocalHostAssignment l) {
 
         /*
-         * De-activate the local booking and unbook procs.
-         * The last proc to report in should remove the LHA.
+         * De-activate the local booking and unbook procs. The last proc to report in should remove
+         * the LHA.
          */
         bookingDao.deactivate(l);
 
         List<VirtualProc> procs = procDao.findVirtualProcs(l);
-        for (VirtualProc p: procs) {
-            jobManagerSupport.unbookProc(p, true, new
-                    Source("user cleared local jobs"));
+        for (VirtualProc p : procs) {
+            jobManagerSupport.unbookProc(p, true, new Source("user cleared local jobs"));
         }
         removeLocalHostAssignment(l);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<LocalHostAssignment> getLocalHostAssignment(HostInterface host) {
         return bookingDao.getLocalJobAssignment(host);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public LocalHostAssignment getLocalHostAssignment(String id) {
         return bookingDao.getLocalJobAssignment(id);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public LocalHostAssignment getLocalHostAssignment(String hostId, String jobId) {
         return bookingDao.getLocalJobAssignment(hostId, jobId);
     }
@@ -178,7 +170,7 @@ public class BookingManagerService implements BookingManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public boolean hasResourceDeficit(HostInterface host) {
         return bookingDao.hasResourceDeficit(host);
     }
@@ -247,4 +239,3 @@ public class BookingManagerService implements BookingManager {
         this.procDao = procDao;
     }
 }
-

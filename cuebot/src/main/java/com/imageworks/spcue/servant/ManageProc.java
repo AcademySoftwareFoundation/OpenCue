@@ -2,17 +2,15 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package com.imageworks.spcue.servant;
@@ -78,57 +76,54 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
     private ProcSearchFactory procSearchFactory;
 
     @Override
-    public void getProcs(ProcGetProcsRequest request, StreamObserver<ProcGetProcsResponse> responseObserver) {
+    public void getProcs(ProcGetProcsRequest request,
+            StreamObserver<ProcGetProcsResponse> responseObserver) {
         responseObserver.onNext(ProcGetProcsResponse.newBuilder()
-                .setProcs(whiteboard.getProcs(procSearchFactory.create(request.getR())))
-                .build());
+                .setProcs(whiteboard.getProcs(procSearchFactory.create(request.getR()))).build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void unbookProcs(ProcUnbookProcsRequest request, StreamObserver<ProcUnbookProcsResponse> responseObserver) {
+    public void unbookProcs(ProcUnbookProcsRequest request,
+            StreamObserver<ProcUnbookProcsResponse> responseObserver) {
         ProcSearchInterface procSearch = procSearchFactory.create(request.getR());
         procSearch.sortByBookedTime();
-        responseObserver.onNext(ProcUnbookProcsResponse.newBuilder()
-                .setNumProcs(
-                        jobManagerSupport.unbookProcs(
-                                procSearch, request.getKill(), new Source(request.toString())))
+        responseObserver.onNext(ProcUnbookProcsResponse.newBuilder().setNumProcs(jobManagerSupport
+                .unbookProcs(procSearch, request.getKill(), new Source(request.toString())))
                 .build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void unbookToGroup(ProcUnbookToGroupRequest request, StreamObserver<ProcUnbookToGroupResponse> responseObserver) {
+    public void unbookToGroup(ProcUnbookToGroupRequest request,
+            StreamObserver<ProcUnbookToGroupResponse> responseObserver) {
         if (request.getR().getMaxResultsCount() == 0) {
-            throw new RuntimeException(
-                    "You must specify the number of procs to unbook " +
-                            "within the ProcSearchCriteria.");
+            throw new RuntimeException("You must specify the number of procs to unbook "
+                    + "within the ProcSearchCriteria.");
         }
 
         GroupInterface g = groupManager.getGroup(request.getGroup().getId());
-        List<VirtualProc> procs = redirectManager.addRedirect(request.getR(),
-                g, request.getKill(), new Source(request.toString()));
-        responseObserver.onNext(ProcUnbookToGroupResponse.newBuilder()
-                .setNumProcs(procs.size())
-                .build());
+        List<VirtualProc> procs = redirectManager.addRedirect(request.getR(), g, request.getKill(),
+                new Source(request.toString()));
+        responseObserver
+                .onNext(ProcUnbookToGroupResponse.newBuilder().setNumProcs(procs.size()).build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void unbookToJob(ProcUnbookToJobRequest request, StreamObserver<ProcUnbookToJobResponse> responseObserver) {
+    public void unbookToJob(ProcUnbookToJobRequest request,
+            StreamObserver<ProcUnbookToJobResponse> responseObserver) {
         if (request.getR().getMaxResultsCount() == 0) {
-            throw new RuntimeException(
-                    "You must specify the number of procs to unbook " +
-                            "within the ProcSearchCriteria.");
+            throw new RuntimeException("You must specify the number of procs to unbook "
+                    + "within the ProcSearchCriteria.");
         }
 
         List<JobInterface> jobs = new ArrayList<JobInterface>(request.getJobs().getJobsCount());
 
-        for (Job job: request.getJobs().getJobsList()) {
+        for (Job job : request.getJobs().getJobsList()) {
             try {
                 jobs.add(jobManager.getJob(job.getId()));
-            }
-            catch (EmptyResultDataAccessException e) {
+            } catch (EmptyResultDataAccessException e) {
                 // just eat it, just eat it.
                 // Open up your mouth and feed it.
                 // Have a banana. Have a whole bunch.
@@ -142,62 +137,58 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
         if (jobs.size() == 0) {
             returnVal = 0;
         } else {
-            List<VirtualProc> procs = redirectManager.addRedirect(request.getR(),
-                    jobs, request.getKill(), new Source(request.toString()));
+            List<VirtualProc> procs = redirectManager.addRedirect(request.getR(), jobs,
+                    request.getKill(), new Source(request.toString()));
 
             returnVal = procs.size();
         }
-        responseObserver.onNext(ProcUnbookToJobResponse.newBuilder()
-                .setNumProcs(returnVal)
-                .build());
+        responseObserver
+                .onNext(ProcUnbookToJobResponse.newBuilder().setNumProcs(returnVal).build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void getFrame(ProcGetFrameRequest request, StreamObserver<ProcGetFrameResponse> responseObserver) {
+    public void getFrame(ProcGetFrameRequest request,
+            StreamObserver<ProcGetFrameResponse> responseObserver) {
         VirtualProc proc = getVirtualProc(request.getProc());
         Frame frame = whiteboard.getFrame(procDao.getCurrentFrameId(proc));
-        ProcGetFrameResponse response = ProcGetFrameResponse.newBuilder()
-                .setFrame(frame)
-                .build();
+        ProcGetFrameResponse response = ProcGetFrameResponse.newBuilder().setFrame(frame).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
-    public void getHost(ProcGetHostRequest request, StreamObserver<ProcGetHostResponse> responseObserver) {
+    public void getHost(ProcGetHostRequest request,
+            StreamObserver<ProcGetHostResponse> responseObserver) {
         VirtualProc proc = getVirtualProc(request.getProc());
         ProcGetHostResponse response = ProcGetHostResponse.newBuilder()
-                .setHost(whiteboard.getHost(proc.getHostId()))
-                .build();
+                .setHost(whiteboard.getHost(proc.getHostId())).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
-    public void getJob(ProcGetJobRequest request, StreamObserver<ProcGetJobResponse> responseObserver) {
+    public void getJob(ProcGetJobRequest request,
+            StreamObserver<ProcGetJobResponse> responseObserver) {
         try {
             VirtualProc proc = getVirtualProc(request.getProc());
             ProcGetJobResponse response = ProcGetJobResponse.newBuilder()
-                    .setJob(whiteboard.getJob(procDao.getCurrentJobId(proc)))
-                    .build();
+                    .setJob(whiteboard.getJob(procDao.getCurrentJobId(proc))).build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
 
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription(e.getMessage())
-                    .withCause(e)
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
                     .asRuntimeException());
         }
     }
 
     @Override
-    public void getLayer(ProcGetLayerRequest request, StreamObserver<ProcGetLayerResponse> responseObserver) {
+    public void getLayer(ProcGetLayerRequest request,
+            StreamObserver<ProcGetLayerResponse> responseObserver) {
         VirtualProc proc = getVirtualProc(request.getProc());
         ProcGetLayerResponse response = ProcGetLayerResponse.newBuilder()
-                .setLayer(whiteboard.getLayer(procDao.getCurrentLayerId(proc)))
-                .build();
+                .setLayer(whiteboard.getLayer(procDao.getCurrentLayerId(proc))).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
@@ -206,20 +197,21 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
     public void kill(ProcKillRequest request, StreamObserver<ProcKillResponse> responseObserver) {
         VirtualProc proc = getVirtualProc(request.getProc());
         String message = "Kill Proc on " + proc.getProcId();
-        jobManagerSupport.unbookProc(procDao.getVirtualProc(proc.getProcId()),
-                true, new Source(message));
+        jobManagerSupport.unbookProc(procDao.getVirtualProc(proc.getProcId()), true,
+                new Source(message));
         responseObserver.onNext(ProcKillResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void unbook(ProcUnbookRequest request, StreamObserver<ProcUnbookResponse> responseObserver) {
+    public void unbook(ProcUnbookRequest request,
+            StreamObserver<ProcUnbookResponse> responseObserver) {
         VirtualProc proc = getVirtualProc(request.getProc());
         procDao.unbookProc(proc);
         if (request.getKill()) {
             String message = "Kill Proc on " + proc.getProcId();
-            jobManagerSupport.unbookProc(procDao.getVirtualProc(proc.getProcId()),
-                    true, new Source(message));
+            jobManagerSupport.unbookProc(procDao.getVirtualProc(proc.getProcId()), true,
+                    new Source(message));
         }
         responseObserver.onNext(ProcUnbookResponse.newBuilder().build());
         responseObserver.onCompleted();
@@ -227,11 +219,12 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
 
     @Override
     public void redirectToGroup(ProcRedirectToGroupRequest request,
-                                StreamObserver<ProcRedirectToGroupResponse> responseObserver) {
+            StreamObserver<ProcRedirectToGroupResponse> responseObserver) {
         VirtualProc proc = getVirtualProc(request.getProc());
         VirtualProc p = procDao.getVirtualProc(proc.getProcId());
         GroupInterface g = groupManager.getGroup(request.getGroupId());
-        String message = "redirectToGroup called on " + proc.getProcId() + " with Group " + g.getGroupId();
+        String message =
+                "redirectToGroup called on " + proc.getProcId() + " with Group " + g.getGroupId();
         boolean value = redirectManager.addRedirect(p, g, request.getKill(), new Source(message));
         responseObserver.onNext(ProcRedirectToGroupResponse.newBuilder().setValue(value).build());
         responseObserver.onCompleted();
@@ -239,11 +232,12 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
 
     @Override
     public void redirectToJob(ProcRedirectToJobRequest request,
-                              StreamObserver<ProcRedirectToJobResponse> responseObserver) {
+            StreamObserver<ProcRedirectToJobResponse> responseObserver) {
         VirtualProc proc = getVirtualProc(request.getProc());
         VirtualProc p = procDao.getVirtualProc(proc.getId());
         JobInterface j = jobManager.getJob(request.getJobId());
-        String message = "redirectToJob called on " + proc.getProcId() + " with Job " + j.getJobId();
+        String message =
+                "redirectToJob called on " + proc.getProcId() + " with Job " + j.getJobId();
         boolean value = redirectManager.addRedirect(p, j, request.getKill(), new Source(message));
         responseObserver.onNext(ProcRedirectToJobResponse.newBuilder().setValue(value).build());
         responseObserver.onCompleted();
@@ -251,7 +245,7 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
 
     @Override
     public void clearRedirect(ProcClearRedirectRequest request,
-                              StreamObserver<ProcClearRedirectResponse> responseObserver) {
+            StreamObserver<ProcClearRedirectResponse> responseObserver) {
         VirtualProc proc = getVirtualProc(request.getProc());
         procDao.setUnbookState(proc, false);
         boolean value = redirectManager.removeRedirect(proc);
@@ -319,4 +313,3 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
         this.procSearchFactory = procSearchFactory;
     }
 }
-

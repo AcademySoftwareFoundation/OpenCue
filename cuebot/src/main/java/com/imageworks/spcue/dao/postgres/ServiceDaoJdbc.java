@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dao.postgres;
 
@@ -41,8 +37,8 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
 
     public static LinkedHashSet<String> splitTags(String tags) {
         LinkedHashSet<String> set = Sets.newLinkedHashSet();
-        for(String s: tags.split(SPLITTER)) {
-           set.add(s.replaceAll(" ", ""));
+        for (String s : tags.split(SPLITTER)) {
+            set.add(s.replaceAll(" ", ""));
         }
         return set;
     }
@@ -51,8 +47,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
         return StringUtils.join(tags, JOINER);
     }
 
-    public static final RowMapper<ServiceEntity> SERVICE_MAPPER =
-        new RowMapper<ServiceEntity>() {
+    public static final RowMapper<ServiceEntity> SERVICE_MAPPER = new RowMapper<ServiceEntity>() {
         public ServiceEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
             ServiceEntity s = new ServiceEntity();
             s.id = rs.getString("pk_service");
@@ -73,90 +68,63 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
     };
 
     public static final RowMapper<ServiceOverrideEntity> SERVICE_OVERRIDE_MAPPER =
-        new RowMapper<ServiceOverrideEntity>() {
-        public ServiceOverrideEntity mapRow(ResultSet rs, int rowNum)
-                throws SQLException {
-            ServiceOverrideEntity s = new ServiceOverrideEntity();
-            s.id = rs.getString("pk_show_service");
-            s.name = rs.getString("str_name");
-            s.minCores = rs.getInt("int_cores_min");
-            s.maxCores = rs.getInt("int_cores_max");
-            s.minMemory = rs.getLong("int_mem_min");
-            s.minGpus = rs.getInt("int_gpus_min");
-            s.maxGpus = rs.getInt("int_gpus_max");
-            s.minGpuMemory = rs.getLong("int_gpu_mem_min");
-            s.threadable = rs.getBoolean("b_threadable");
-            s.tags = splitTags(rs.getString("str_tags"));
-            s.showId = rs.getString("pk_show");
-            s.timeout = rs.getInt("int_timeout");
-            s.timeout_llu = rs.getInt("int_timeout_llu");
-            s.minMemoryIncrease = rs.getLong("int_min_memory_increase");
-            return s;
-        }
-    };
+            new RowMapper<ServiceOverrideEntity>() {
+                public ServiceOverrideEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    ServiceOverrideEntity s = new ServiceOverrideEntity();
+                    s.id = rs.getString("pk_show_service");
+                    s.name = rs.getString("str_name");
+                    s.minCores = rs.getInt("int_cores_min");
+                    s.maxCores = rs.getInt("int_cores_max");
+                    s.minMemory = rs.getLong("int_mem_min");
+                    s.minGpus = rs.getInt("int_gpus_min");
+                    s.maxGpus = rs.getInt("int_gpus_max");
+                    s.minGpuMemory = rs.getLong("int_gpu_mem_min");
+                    s.threadable = rs.getBoolean("b_threadable");
+                    s.tags = splitTags(rs.getString("str_tags"));
+                    s.showId = rs.getString("pk_show");
+                    s.timeout = rs.getInt("int_timeout");
+                    s.timeout_llu = rs.getInt("int_timeout_llu");
+                    s.minMemoryIncrease = rs.getLong("int_min_memory_increase");
+                    return s;
+                }
+            };
 
     private static final String QUERY_FOR_SERVICE =
-        "SELECT " +
-            "service.pk_service," +
-            "service.str_name," +
-            "service.b_threadable," +
-            "service.int_cores_min," +
-            "service.int_cores_max," +
-            "service.int_mem_min," +
-            "service.int_gpus_min," +
-            "service.int_gpus_max," +
-            "service.int_gpu_mem_min," +
-            "service.str_tags, " +
-            "service.int_timeout, " +
-            "service.int_timeout_llu, " +
-            "service.int_min_memory_increase " +
-        "FROM " +
-            "service ";
+            "SELECT " + "service.pk_service," + "service.str_name," + "service.b_threadable,"
+                    + "service.int_cores_min," + "service.int_cores_max," + "service.int_mem_min,"
+                    + "service.int_gpus_min," + "service.int_gpus_max," + "service.int_gpu_mem_min,"
+                    + "service.str_tags, " + "service.int_timeout, " + "service.int_timeout_llu, "
+                    + "service.int_min_memory_increase " + "FROM " + "service ";
 
     @Override
     public ServiceEntity get(String id) {
         return getJdbcTemplate().queryForObject(
-                QUERY_FOR_SERVICE + " WHERE (pk_service=? OR str_name=?)",
-                SERVICE_MAPPER, id, id);
+                QUERY_FOR_SERVICE + " WHERE (pk_service=? OR str_name=?)", SERVICE_MAPPER, id, id);
     }
 
     private static final String QUERY_FOR_SERVICE_OVER =
-        "SELECT " +
-            "show_service.pk_show_service," +
-            "show_service.str_name," +
-            "show_service.b_threadable," +
-            "show_service.int_cores_min," +
-            "show_service.int_cores_max, "+
-            "show_service.int_mem_min," +
-            "show_service.int_gpus_min," +
-            "show_service.int_gpus_max, "+
-            "show_service.int_gpu_mem_min," +
-            "show_service.str_tags," +
-            "show_service.int_timeout," +
-            "show_service.int_timeout_llu," +
-            "show_service.int_min_memory_increase," +
-            "show.pk_show " +
-         "FROM " +
-            "show_service," +
-            "show " +
-         "WHERE " +
-             "show_service.pk_show = show.pk_show ";
+            "SELECT " + "show_service.pk_show_service," + "show_service.str_name,"
+                    + "show_service.b_threadable," + "show_service.int_cores_min,"
+                    + "show_service.int_cores_max, " + "show_service.int_mem_min,"
+                    + "show_service.int_gpus_min," + "show_service.int_gpus_max, "
+                    + "show_service.int_gpu_mem_min," + "show_service.str_tags,"
+                    + "show_service.int_timeout," + "show_service.int_timeout_llu,"
+                    + "show_service.int_min_memory_increase," + "show.pk_show " + "FROM "
+                    + "show_service," + "show " + "WHERE " + "show_service.pk_show = show.pk_show ";
 
     @Override
     public ServiceOverrideEntity getOverride(String id, String show) {
-        return getJdbcTemplate()
-                .queryForObject(
-                        QUERY_FOR_SERVICE_OVER
-                                + " AND (show_service.pk_show_service=? OR show_service.str_name=?)"
-                                + " AND (show.str_name=? OR show.pk_show=?)",
-                        SERVICE_OVERRIDE_MAPPER, id, id, show, show);
+        return getJdbcTemplate().queryForObject(
+                QUERY_FOR_SERVICE_OVER
+                        + " AND (show_service.pk_show_service=? OR show_service.str_name=?)"
+                        + " AND (show.str_name=? OR show.pk_show=?)",
+                SERVICE_OVERRIDE_MAPPER, id, id, show, show);
     }
 
     @Override
     public ServiceOverrideEntity getOverride(String id) {
-        return getJdbcTemplate().queryForObject(
-                QUERY_FOR_SERVICE_OVER + " AND (show_service.pk_show_service=? " +
-                        "OR show_service.str_name=?)",
+        return getJdbcTemplate().queryForObject(QUERY_FOR_SERVICE_OVER
+                + " AND (show_service.pk_show_service=? " + "OR show_service.str_name=?)",
                 SERVICE_OVERRIDE_MAPPER, id, id);
     }
 
@@ -169,134 +137,73 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
                 Integer.class, service, show) > 0;
     }
 
-    private static final String INSERT_SERVICE =
-        "INSERT INTO " +
-            "service " +
-         "(" +
-             "pk_service," +
-             "str_name," +
-             "b_threadable," +
-             "int_cores_min," +
-             "int_cores_max, "+
-             "int_mem_min," +
-             "int_gpus_min," +
-             "int_gpus_max, "+
-             "int_gpu_mem_min," +
-             "str_tags," +
-             "int_timeout," +
-             "int_timeout_llu, " +
-             "int_min_memory_increase " +
-         ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    private static final String INSERT_SERVICE = "INSERT INTO " + "service " + "(" + "pk_service,"
+            + "str_name," + "b_threadable," + "int_cores_min," + "int_cores_max, " + "int_mem_min,"
+            + "int_gpus_min," + "int_gpus_max, " + "int_gpu_mem_min," + "str_tags," + "int_timeout,"
+            + "int_timeout_llu, " + "int_min_memory_increase "
+            + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insert(ServiceEntity service) {
         service.id = SqlUtil.genKeyRandom();
-        getJdbcTemplate().update(INSERT_SERVICE, service.id,
-                service.name, service.threadable, service.minCores,
-                service.maxCores, service.minMemory,
-                service.minGpus, service.maxGpus, service.minGpuMemory,
-                StringUtils.join(service.tags.toArray(), " | "),
-                service.timeout, service.timeout_llu,
-                service.minMemoryIncrease);
+        getJdbcTemplate().update(INSERT_SERVICE, service.id, service.name, service.threadable,
+                service.minCores, service.maxCores, service.minMemory, service.minGpus,
+                service.maxGpus, service.minGpuMemory,
+                StringUtils.join(service.tags.toArray(), " | "), service.timeout,
+                service.timeout_llu, service.minMemoryIncrease);
     }
 
-    private static final String INSERT_SERVICE_WITH_SHOW =
-        "INSERT INTO " +
-            "show_service " +
-        "(" +
-            "pk_show_service," +
-            "pk_show, " +
-            "str_name," +
-            "b_threadable," +
-            "int_cores_min," +
-            "int_cores_max," +
-            "int_mem_min," +
-            "int_gpus_min," +
-            "int_gpus_max," +
-            "int_gpu_mem_min," +
-            "str_tags," +
-            "int_timeout," +
-            "int_timeout_llu, " +
-            "int_min_memory_increase " +
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    private static final String INSERT_SERVICE_WITH_SHOW = "INSERT INTO " + "show_service " + "("
+            + "pk_show_service," + "pk_show, " + "str_name," + "b_threadable," + "int_cores_min,"
+            + "int_cores_max," + "int_mem_min," + "int_gpus_min," + "int_gpus_max,"
+            + "int_gpu_mem_min," + "str_tags," + "int_timeout," + "int_timeout_llu, "
+            + "int_min_memory_increase " + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insert(ServiceOverrideEntity service) {
         service.id = SqlUtil.genKeyRandom();
-        getJdbcTemplate().update(INSERT_SERVICE_WITH_SHOW, service.id,
-                service.showId, service.name, service.threadable,
-                service.minCores, service.maxCores, service.minMemory,
+        getJdbcTemplate().update(INSERT_SERVICE_WITH_SHOW, service.id, service.showId, service.name,
+                service.threadable, service.minCores, service.maxCores, service.minMemory,
                 service.minGpus, service.maxGpus, service.minGpuMemory, joinTags(service.tags),
                 service.timeout, service.timeout_llu, service.minMemoryIncrease);
     }
 
-    private static final String UPDATE_SERVICE =
-        "UPDATE " +
-            "service " +
-        "SET " +
-            "str_name=?," +
-            "b_threadable=?," +
-            "int_cores_min=?," +
-            "int_cores_max=?,"+
-            "int_mem_min=?," +
-            "int_gpus_min=?," +
-            "int_gpus_max=?," +
-            "int_gpu_mem_min=?," +
-            "str_tags=?," +
-            "int_timeout=?," +
-            "int_timeout_llu=?, " +
-            "int_min_memory_increase=? " +
-        "WHERE " +
-            "pk_service = ?";
+    private static final String UPDATE_SERVICE = "UPDATE " + "service " + "SET " + "str_name=?,"
+            + "b_threadable=?," + "int_cores_min=?," + "int_cores_max=?," + "int_mem_min=?,"
+            + "int_gpus_min=?," + "int_gpus_max=?," + "int_gpu_mem_min=?," + "str_tags=?,"
+            + "int_timeout=?," + "int_timeout_llu=?, " + "int_min_memory_increase=? " + "WHERE "
+            + "pk_service = ?";
 
     @Override
     public void update(ServiceEntity service) {
-        getJdbcTemplate().update(UPDATE_SERVICE, service.name,
-                service.threadable, service.minCores, service.maxCores,
-                service.minMemory, service.minGpus, service.maxGpus, service.minGpuMemory, joinTags(service.tags),
-                service.timeout, service.timeout_llu, service.minMemoryIncrease,
-                service.getId());
+        getJdbcTemplate().update(UPDATE_SERVICE, service.name, service.threadable, service.minCores,
+                service.maxCores, service.minMemory, service.minGpus, service.maxGpus,
+                service.minGpuMemory, joinTags(service.tags), service.timeout, service.timeout_llu,
+                service.minMemoryIncrease, service.getId());
     }
 
-    private static final String UPDATE_SERVICE_WITH_SHOW =
-        "UPDATE " +
-            "show_service " +
-        "SET " +
-            "str_name=?," +
-            "b_threadable=?," +
-            "int_cores_min=?," +
-            "int_cores_max=?," +
-            "int_mem_min=?," +
-            "int_gpus_min=?," +
-            "int_gpus_max=?," +
-            "int_gpu_mem_min=?," +
-            "str_tags=?," +
-            "int_timeout=?," +
-            "int_timeout_llu=?, " +
-            "int_min_memory_increase=? " +
-        "WHERE " +
-            "pk_show_service = ?";
+    private static final String UPDATE_SERVICE_WITH_SHOW = "UPDATE " + "show_service " + "SET "
+            + "str_name=?," + "b_threadable=?," + "int_cores_min=?," + "int_cores_max=?,"
+            + "int_mem_min=?," + "int_gpus_min=?," + "int_gpus_max=?," + "int_gpu_mem_min=?,"
+            + "str_tags=?," + "int_timeout=?," + "int_timeout_llu=?, "
+            + "int_min_memory_increase=? " + "WHERE " + "pk_show_service = ?";
 
     @Override
     public void update(ServiceOverrideEntity service) {
-        getJdbcTemplate().update(UPDATE_SERVICE_WITH_SHOW, service.name,
-                service.threadable, service.minCores, service.maxCores,
-                service.minMemory, service.minGpus, service.maxGpus, service.minGpuMemory, joinTags(service.tags),
-                service.timeout, service.timeout_llu, service.minMemoryIncrease,
-                service.getId());
+        getJdbcTemplate().update(UPDATE_SERVICE_WITH_SHOW, service.name, service.threadable,
+                service.minCores, service.maxCores, service.minMemory, service.minGpus,
+                service.maxGpus, service.minGpuMemory, joinTags(service.tags), service.timeout,
+                service.timeout_llu, service.minMemoryIncrease, service.getId());
     }
 
     @Override
     public void delete(ServiceEntity service) {
-        getJdbcTemplate().update(
-                "DELETE FROM service WHERE pk_service=?", service.getId());
+        getJdbcTemplate().update("DELETE FROM service WHERE pk_service=?", service.getId());
     }
 
     @Override
     public void delete(ServiceOverrideEntity service) {
-        getJdbcTemplate().update(
-                "DELETE FROM show_service WHERE pk_show_service=?",
+        getJdbcTemplate().update("DELETE FROM show_service WHERE pk_show_service=?",
                 service.getId());
     }
 }
-

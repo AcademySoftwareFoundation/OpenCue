@@ -159,6 +159,7 @@ class RqCoreTests(unittest.TestCase):
         self.rqcore.storeFrame(
             "frame-id", mock.MagicMock(spec=rqd.rqnetwork.RunningFrame)
         )
+        self.rqcore.backup_cache_path = None
 
         self.rqcore.updateRss()
 
@@ -586,6 +587,103 @@ class RqCoreTests(unittest.TestCase):
             )
         )
 
+
+class RqCoreBackupTests(pyfakefs.fake_filesystem_unittest.TestCase):
+    def setUp(self):
+        self.rqcore = rqd.rqcore.RqCore()
+        self.setUpPyfakefs()
+
+    @mock.patch('builtins.open', new_callable=mock.mock_open)
+    def test_backupCache_withPath(self, mockOpen):
+        """Test backupCache writes frame data when backup path is configured"""
+        self.rqcore.backup_cache_path = '/tmp/rqd/cache.dat'
+        frameId = 'frame123'
+        runningFrame = mock.MagicMock()
+        runningFrame.runFrame = mock.MagicMock()
+        runningFrame.runFrame.SerializeToString.return_value = b'serialized_frame_data'
+        self.rqcore.storeFrame(frameId, runningFrame)
+
+        self.rqcore.backupCache()
+
+        mockOpen.assert_called_once_with('/tmp/rqd/cache.dat', 'wb')
+        handle = mockOpen()
+        handle.write.assert_called_with(b'serialized_frame_data')
+
+    def test_backupCache_noPath(self):
+        """Test backupCache does nothing when no backup path configured"""
+        self.rqcore.backup_cache_path = None
+        frameId = 'frame123'
+        runFrame = mock.MagicMock()
+        self.rqcore.storeFrame(frameId, runFrame)
+
+        self.rqcore.backupCache()
+
+        runFrame.SerializeToString.assert_not_called()
+
+    def test_recoverCache_noPath(self):
+        """Test recoverCache does nothing when no backup path configured"""
+        self.rqcore.backup_cache_path = None
+
+        self.rqcore.recoverCache()
+
+        self.assertEqual(len(self.rqcore._RqCore__cache), 0)
+
+    @mock.patch('os.path.exists')
+    def test_recoverCache_noFile(self, mockExists):
+        """Test recoverCache does nothing when backup file doesn't exist"""
+        self.rqcore.backup_cache_path = '/tmp/rqd/cache.dat'
+        mockExists.return_value = False
+
+        self.rqcore.recoverCache()
+
+        self.assertEqual(len(self.rqcore._RqCore__cache), 0)
+
+    @mock.patch('os.path.getmtime')
+    @mock.patch('time.time')
+    @mock.patch('os.path.exists')
+    def test_recoverCache_expiredFile(self, mockExists, mockTime, mockGetmtime):
+        """Test recoverCache does nothing when backup file is too old"""
+        self.rqcore.backup_cache_path = '/tmp/rqd/cache.dat'
+        mockExists.return_value = True
+        mockTime.return_value = 1000
+        mockGetmtime.return_value = 1 # Very old file
+
+        self.rqcore.recoverCache()
+
+        self.assertEqual(len(self.rqcore._RqCore__cache), 0)
+
+    @mock.patch("rqd.rqcore.FrameAttendantThread", autospec=True)
+    def test_recoverCache_validBackup(self, attendant_patch):
+        """Test recoverCache skips frames that fail to parse"""
+        self.rqcore.backup_cache_path = 'cache.dat'
+
+        frameId = 'frame123'
+        frame = rqd.compiled_proto.rqd_pb2.RunFrame(
+            job_id = "job_id",
+            job_name = "job_name",
+            frame_id = frameId,
+            frame_name = "frame_name",
+            num_cores = 4
+        )
+        running_frame = rqd.rqnetwork.RunningFrame(self.rqcore, frame)
+        self.rqcore.storeFrame(frameId, running_frame)
+        self.rqcore.cores.idle_cores = 8
+        self.rqcore.cores.booked_cores = 0
+        self.rqcore.backupCache()
+        self.rqcore._RqCore__cache = {}
+        self.rqcore.recoverCache()
+        self.assertEqual(4, self.rqcore.cores.idle_cores)
+        self.assertEqual(4, self.rqcore.cores.booked_cores)
+
+    def test_recoverCache_invalidFrame(self):
+        """Test recoverCache loads frame data from valid backup file"""
+        self.rqcore.backup_cache_path = 'cache.dat'
+        with open(self.rqcore.backup_cache_path, "w", encoding='utf-8') as f:
+            f.write("this is not a run frame")
+
+        self.rqcore.recoverCache()
+
+        self.assertNotIn('frame123', self.rqcore._RqCore__cache)
 
 @mock.patch("rqd.rqutil.checkAndCreateUser", new=mock.MagicMock())
 @mock.patch("rqd.rqutil.permissionsHigh", new=mock.MagicMock())

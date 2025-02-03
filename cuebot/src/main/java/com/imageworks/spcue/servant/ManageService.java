@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.servant;
 
@@ -49,7 +45,7 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
 
     @Override
     public void createService(ServiceCreateServiceRequest request,
-                              StreamObserver<ServiceCreateServiceResponse> responseObserver) {
+            StreamObserver<ServiceCreateServiceResponse> responseObserver) {
         ServiceEntity service = new ServiceEntity();
         service.name = request.getData().getName();
         service.minCores = request.getData().getMinCores();
@@ -65,45 +61,42 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
         service.minMemoryIncrease = request.getData().getMinMemoryIncrease();
         serviceManager.createService(service);
         responseObserver.onNext(ServiceCreateServiceResponse.newBuilder()
-                .setService(whiteboard.getService(service.getId()))
-                .build());
+                .setService(whiteboard.getService(service.getId())).build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void getDefaultServices(ServiceGetDefaultServicesRequest request,
-                                   StreamObserver<ServiceGetDefaultServicesResponse> responseObserver) {
+            StreamObserver<ServiceGetDefaultServicesResponse> responseObserver) {
         responseObserver.onNext(ServiceGetDefaultServicesResponse.newBuilder()
-                .setServices(whiteboard.getDefaultServices())
-                .build());
+                .setServices(whiteboard.getDefaultServices()).build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void getService(ServiceGetServiceRequest request,
-                           StreamObserver<ServiceGetServiceResponse> responseObserver) {
+            StreamObserver<ServiceGetServiceResponse> responseObserver) {
         try {
             responseObserver.onNext(ServiceGetServiceResponse.newBuilder()
-                    .setService(whiteboard.getService(request.getName()))
-                    .build());
+                    .setService(whiteboard.getService(request.getName())).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription(e.getMessage())
-                    .withCause(e)
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
                     .asRuntimeException());
         }
     }
 
     @Override
-    public void delete(ServiceDeleteRequest request, StreamObserver<ServiceDeleteResponse> responseObserver) {
+    public void delete(ServiceDeleteRequest request,
+            StreamObserver<ServiceDeleteResponse> responseObserver) {
         serviceManager.deleteService(toServiceEntity(request.getService()));
         responseObserver.onNext(ServiceDeleteResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void update(ServiceUpdateRequest request, StreamObserver<ServiceUpdateResponse> responseObserver) {
+    public void update(ServiceUpdateRequest request,
+            StreamObserver<ServiceUpdateResponse> responseObserver) {
         serviceManager.updateService(toServiceEntity(request.getService()));
         responseObserver.onNext(ServiceUpdateResponse.newBuilder().build());
         responseObserver.onCompleted();
@@ -135,7 +128,7 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
         entity.minGpus = service.getMinGpus();
         entity.maxGpus = service.getMaxGpus();
         entity.minGpuMemory = service.getMinGpuMemory();
-        entity.tags = new LinkedHashSet<> (service.getTagsList());
+        entity.tags = new LinkedHashSet<>(service.getTagsList());
         entity.threadable = service.getThreadable();
         entity.timeout = service.getTimeout();
         entity.timeout_llu = service.getTimeoutLlu();

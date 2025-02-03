@@ -25,42 +25,41 @@ public class ManageFacility extends FacilityInterfaceGrpc.FacilityInterfaceImplB
     // TODO(bcipriano) Add error handling. (Issue #59)
 
     @Override
-    public void create(FacilityCreateRequest request, StreamObserver<FacilityCreateResponse> responseObserver) {
+    public void create(FacilityCreateRequest request,
+            StreamObserver<FacilityCreateResponse> responseObserver) {
         adminManager.createFacility(request.getName());
         FacilityCreateResponse response = FacilityCreateResponse.newBuilder()
-                .setFacility(whiteboard.getFacility(request.getName()))
-                .build();
+                .setFacility(whiteboard.getFacility(request.getName())).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
-    public void get(FacilityGetRequest request, StreamObserver<FacilityGetResponse> responseObserver) {
+    public void get(FacilityGetRequest request,
+            StreamObserver<FacilityGetResponse> responseObserver) {
         try {
             FacilityGetResponse response = FacilityGetResponse.newBuilder()
-                    .setFacility(whiteboard.getFacility(request.getName()))
-                    .build();
+                    .setFacility(whiteboard.getFacility(request.getName())).build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription(e.getMessage())
-                    .withCause(e)
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
                     .asRuntimeException());
         }
     }
 
     @Override
-    public void rename(FacilityRenameRequest request, StreamObserver<FacilityRenameResponse> responseObserver) {
-        adminManager.setFacilityName(
-                adminManager.getFacility(request.getFacility().getName()),
+    public void rename(FacilityRenameRequest request,
+            StreamObserver<FacilityRenameResponse> responseObserver) {
+        adminManager.setFacilityName(adminManager.getFacility(request.getFacility().getName()),
                 request.getNewName());
         responseObserver.onNext(FacilityRenameResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void delete(FacilityDeleteRequest request, StreamObserver<FacilityDeleteResponse> responseObserver) {
+    public void delete(FacilityDeleteRequest request,
+            StreamObserver<FacilityDeleteResponse> responseObserver) {
         adminManager.deleteFacility(adminManager.getFacility(request.getName()));
         responseObserver.onNext(FacilityDeleteResponse.newBuilder().build());
         responseObserver.onCompleted();

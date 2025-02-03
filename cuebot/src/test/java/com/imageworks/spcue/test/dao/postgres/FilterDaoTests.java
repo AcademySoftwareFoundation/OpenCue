@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -45,8 +41,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     @Rule
@@ -105,12 +101,10 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         FilterEntity f = buildFilter(createShow());
         filterDao.insertFilter(f);
         filterDao.updateSetFilterEnabled(f, false);
-        assertFalse(jdbcTemplate.queryForObject(
-                "SELECT b_enabled FROM filter WHERE pk_filter=?",
+        assertFalse(jdbcTemplate.queryForObject("SELECT b_enabled FROM filter WHERE pk_filter=?",
                 Boolean.class, f.getFilterId()));
         filterDao.updateSetFilterEnabled(f, true);
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_enabled FROM filter WHERE pk_filter=?",
+        assertTrue(jdbcTemplate.queryForObject("SELECT b_enabled FROM filter WHERE pk_filter=?",
                 Boolean.class, f.getFilterId()));
     }
 
@@ -121,14 +115,10 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         FilterEntity f = buildFilter(createShow());
         filterDao.insertFilter(f);
         assertEquals(FILTER_NAME, jdbcTemplate.queryForObject(
-                "SELECT str_name FROM filter WHERE pk_filter=?",
-                String.class,
-                f.getFilterId()));
+                "SELECT str_name FROM filter WHERE pk_filter=?", String.class, f.getFilterId()));
         filterDao.updateSetFilterName(f, "TEST");
         assertEquals("TEST", jdbcTemplate.queryForObject(
-                "SELECT str_name FROM filter WHERE pk_filter=?",
-                String.class,
-                f.getFilterId()));
+                "SELECT str_name FROM filter WHERE pk_filter=?", String.class, f.getFilterId()));
     }
 
     @Test
@@ -138,14 +128,10 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         FilterEntity f = buildFilter(createShow());
         filterDao.insertFilter(f);
         assertEquals(FilterType.MATCH_ANY.toString(), jdbcTemplate.queryForObject(
-                "SELECT str_type FROM filter WHERE pk_filter=?",
-                String.class,
-                f.getFilterId()));
+                "SELECT str_type FROM filter WHERE pk_filter=?", String.class, f.getFilterId()));
         filterDao.updateSetFilterType(f, FilterType.MATCH_ALL);
         assertEquals(FilterType.MATCH_ALL.toString(), jdbcTemplate.queryForObject(
-                "SELECT str_type FROM filter WHERE pk_filter=?",
-                String.class,
-                f.getFilterId()));
+                "SELECT str_type FROM filter WHERE pk_filter=?", String.class, f.getFilterId()));
     }
 
     @Test
@@ -155,8 +141,7 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         ShowInterface show = createShow();
         int currentFilters = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM filter WHERE pk_show=?",
-                Integer.class, show.getShowId());
+                "SELECT COUNT(*) FROM filter WHERE pk_show=?", Integer.class, show.getShowId());
 
         FilterEntity f1 = buildFilter(show);
         filterDao.insertFilter(f1);
@@ -165,19 +150,16 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         f2.name = "TEST";
         filterDao.insertFilter(f2);
 
-        assertEquals(Integer.valueOf(currentFilters+1), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
-                Integer.class, f1.getFilterId()));
+        assertEquals(Integer.valueOf(currentFilters + 1), jdbcTemplate.queryForObject(
+                "SELECT f_order FROM filter WHERE pk_filter=?", Integer.class, f1.getFilterId()));
 
-        assertEquals(Integer.valueOf(currentFilters+2), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
-                Integer.class, f2.getFilterId()));
+        assertEquals(Integer.valueOf(currentFilters + 2), jdbcTemplate.queryForObject(
+                "SELECT f_order FROM filter WHERE pk_filter=?", Integer.class, f2.getFilterId()));
 
-        filterDao.updateSetFilterOrder(f2,1);
+        filterDao.updateSetFilterOrder(f2, 1);
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
-                Integer.class, f2.getFilterId()));
+                "SELECT f_order FROM filter WHERE pk_filter=?", Integer.class, f2.getFilterId()));
     }
 
     @Test
@@ -219,27 +201,22 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         f2.name = "TEST";
         filterDao.insertFilter(f2);
 
-
         /**
          * These could fail if the test DB has other filters.
          */
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
-                Integer.class, f1.getFilterId()));
+                "SELECT f_order FROM filter WHERE pk_filter=?", Integer.class, f1.getFilterId()));
 
         assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
-                Integer.class, f2.getFilterId()));
+                "SELECT f_order FROM filter WHERE pk_filter=?", Integer.class, f2.getFilterId()));
 
-        filterDao.lowerFilterOrder(f2,1);
+        filterDao.lowerFilterOrder(f2, 1);
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
-                Integer.class, f1.getFilterId()));
+                "SELECT f_order FROM filter WHERE pk_filter=?", Integer.class, f1.getFilterId()));
 
         assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
-                Integer.class, f2.getFilterId()));
+                "SELECT f_order FROM filter WHERE pk_filter=?", Integer.class, f2.getFilterId()));
     }
 
     @Test
@@ -260,22 +237,18 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
          * These could fail if the test DB has other filters.
          */
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
-                Integer.class, f1.getFilterId()));
+                "SELECT f_order FROM filter WHERE pk_filter=?", Integer.class, f1.getFilterId()));
 
         assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
-                Integer.class, f2.getFilterId()));
+                "SELECT f_order FROM filter WHERE pk_filter=?", Integer.class, f2.getFilterId()));
 
         filterDao.raiseFilterOrder(f1, 1);
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
-                Integer.class, f1.getFilterId()));
+                "SELECT f_order FROM filter WHERE pk_filter=?", Integer.class, f1.getFilterId()));
 
         assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
-                Integer.class, f2.getFilterId()));
+                "SELECT f_order FROM filter WHERE pk_filter=?", Integer.class, f2.getFilterId()));
     }
 
     @Test
@@ -300,5 +273,3 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     }
 
 }
-
-

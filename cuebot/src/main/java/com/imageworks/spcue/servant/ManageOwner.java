@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.servant;
 
@@ -50,22 +46,21 @@ public class ManageOwner extends OwnerInterfaceGrpc.OwnerInterfaceImplBase {
     private AdminManager adminManager;
 
     @Override
-    public void getOwner(OwnerGetOwnerRequest request, StreamObserver<OwnerGetOwnerResponse> responseObserver) {
+    public void getOwner(OwnerGetOwnerRequest request,
+            StreamObserver<OwnerGetOwnerResponse> responseObserver) {
         try {
             responseObserver.onNext(OwnerGetOwnerResponse.newBuilder()
-                    .setOwner(whiteboard.getOwner(request.getName()))
-                    .build());
+                    .setOwner(whiteboard.getOwner(request.getName())).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription(e.getMessage())
-                    .withCause(e)
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
                     .asRuntimeException());
         }
     }
 
     @Override
-    public void delete(OwnerDeleteRequest request, StreamObserver<OwnerDeleteResponse> responseObserver) {
+    public void delete(OwnerDeleteRequest request,
+            StreamObserver<OwnerDeleteResponse> responseObserver) {
         OwnerEntity owner = getOwnerById(request.getOwner().getId());
         ownerManager.deleteOwner((owner));
         OwnerDeleteResponse response = OwnerDeleteResponse.newBuilder().build();
@@ -74,28 +69,28 @@ public class ManageOwner extends OwnerInterfaceGrpc.OwnerInterfaceImplBase {
     }
 
     @Override
-    public void getDeeds(OwnerGetDeedsRequest request, StreamObserver<OwnerGetDeedsResponse> responseObserver) {
+    public void getDeeds(OwnerGetDeedsRequest request,
+            StreamObserver<OwnerGetDeedsResponse> responseObserver) {
         OwnerEntity owner = getOwnerById(request.getOwner().getId());
-        OwnerGetDeedsResponse response = OwnerGetDeedsResponse.newBuilder()
-                .setDeeds(whiteboard.getDeeds(owner))
-                .build();
+        OwnerGetDeedsResponse response =
+                OwnerGetDeedsResponse.newBuilder().setDeeds(whiteboard.getDeeds(owner)).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
-    public void getHosts(OwnerGetHostsRequest request, StreamObserver<OwnerGetHostsResponse> responseObserver) {
+    public void getHosts(OwnerGetHostsRequest request,
+            StreamObserver<OwnerGetHostsResponse> responseObserver) {
         OwnerEntity owner = getOwnerById(request.getOwner().getId());
-        OwnerGetHostsResponse response = OwnerGetHostsResponse.newBuilder()
-                .setHosts(whiteboard.getHosts(owner))
-                .build();
+        OwnerGetHostsResponse response =
+                OwnerGetHostsResponse.newBuilder().setHosts(whiteboard.getHosts(owner)).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
     public void takeOwnership(OwnerTakeOwnershipRequest request,
-                              StreamObserver<OwnerTakeOwnershipResponse> responseObserver) {
+            StreamObserver<OwnerTakeOwnershipResponse> responseObserver) {
         OwnerEntity owner = getOwnerById(request.getOwner().getId());
         ownerManager.takeOwnership(owner, hostManager.findHost(request.getHost()));
         responseObserver.onNext(OwnerTakeOwnershipResponse.newBuilder().build());
@@ -103,7 +98,8 @@ public class ManageOwner extends OwnerInterfaceGrpc.OwnerInterfaceImplBase {
     }
 
     @Override
-    public void setShow(OwnerSetShowRequest request, StreamObserver<OwnerSetShowResponse> responseObserver) {
+    public void setShow(OwnerSetShowRequest request,
+            StreamObserver<OwnerSetShowResponse> responseObserver) {
         OwnerEntity owner = getOwnerById(request.getOwner().getId());
         ownerManager.setShow(owner, adminManager.findShowEntity(request.getShow()));
         responseObserver.onNext(OwnerSetShowResponse.newBuilder().build());
@@ -146,4 +142,3 @@ public class ManageOwner extends OwnerInterfaceGrpc.OwnerInterfaceImplBase {
         return ownerManager.getOwner(id);
     }
 }
-

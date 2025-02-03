@@ -1,22 +1,19 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
-
-
 package com.imageworks.spcue.dispatcher;
+
 import java.util.List;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -65,14 +62,12 @@ public interface Dispatcher {
     public static final int EXIT_STATUS_FRAME_CLEARED = 299;
 
     /*
-     * An orphan proc occurs when a proc is left with
-     * no frame assignment.
+     * An orphan proc occurs when a proc is left with no frame assignment.
      */
     public static final int EXIT_STATUS_FRAME_ORPHAN = 301;
 
     /*
-     * A failed kill occurs when a user tries to kill a frame
-     * and RQD throws an exception.
+     * A failed kill occurs when a user tries to kill a frame and RQD throws an exception.
      */
     public static final int EXIT_STATUS_FAILED_KILL = 302;
 
@@ -135,8 +130,8 @@ public interface Dispatcher {
     List<VirtualProc> dispatchHost(DispatchHost host);
 
     /**
-     * Dispatch a host to the specified group and specify the maximum
-     * number of frames to dispatch from the host.
+     * Dispatch a host to the specified group and specify the maximum number of frames to dispatch
+     * from the host.
      *
      * @param host
      * @param g
@@ -205,8 +200,7 @@ public interface Dispatcher {
      * @param proc
      *
      * @throws FrameReservationException if the frame cannot be reserved.
-     * @throws ResourceReservationFailureException if resources cannot
-     *         be reserved.
+     * @throws ResourceReservationFailureException if resources cannot be reserved.
      * @throws RqdClientException if communication with RQD fails.
      */
     void dispatch(DispatchFrame frame, VirtualProc proc);
@@ -220,4 +214,3 @@ public interface Dispatcher {
      */
     List<VirtualProc> dispatchHost(DispatchHost host, ShowInterface show);
 }
-

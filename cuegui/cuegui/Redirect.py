@@ -152,7 +152,7 @@ class JobBox(QtWidgets.QLineEdit):
         slist = opencue.api.getJobNames()
         slist.sort()
 
-        self.__c = QtWidgets.QCompleter(slist, self)
+        self.__c = QtWidgets.QCompleter(list(slist), self)
         self.__c.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self.setCompleter(self.__c)
 
@@ -411,7 +411,7 @@ class RedirectWidget(QtWidgets.QWidget):
     """
 
     HEADERS = ["Name", "Cores", "Memory", "PrcTime", "Group", "Service",
-               "Job Cores", "Pending", "LLU", "Log"]
+               "Job Cores", "Waiting Frames", "LLU", "Log"]
 
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
@@ -604,7 +604,7 @@ class RedirectWidget(QtWidgets.QWidget):
     @classmethod
     def __isAllowed(cls, procs, targetJob):
         """Checks if the follow criteria are met to allow redirect to target job:
-            - if source/target job have pending frames
+            - if target job have waiting frames
             - if target job hasn't reached maximum cores
             - check if adding frames will push target job over it's max cores
 
@@ -626,19 +626,10 @@ class RedirectWidget(QtWidgets.QWidget):
                                                targetJob.coresReserved(),
                                                targetJob.maxCores())
 
-        # Case 2: 1. Check target job for pending frames
-        #         2. Check source procs for pending frames
+        # Case 2: 1. Check target job for waiting frames
         if allowed and targetJob.waitingFrames() <= 0:
             allowed = False
-            errMsg = "Target job %s has no pending (waiting) frames" % targetJob.name()
-
-        if allowed:
-            for proc in procs:
-                job = proc.getJob()
-                if job.waitingFrames() <= 0:
-                    allowed = False
-                    errMsg = "Source job %s has no pending (waiting) frames" % job.name()
-                    break
+            errMsg = "Target job %s has no waiting frames" % targetJob.name()
 
         # Case 3: Check if each proc or summed up procs will
         #         push targetJob over it's max cores
@@ -808,21 +799,26 @@ class RedirectWidget(QtWidgets.QWidget):
                 if proc.data.group_name not in groupFilter:
                     continue
 
-            name = proc.data.name.split("/")[0]
-            lluTime = cuegui.Utils.getLLU(proc)
-            job = proc.getJob()
-            logLines = cuegui.Utils.getLastLine(proc.data.log_path) or ""
+            # pylint: disable=broad-except
+            try:
+                name = proc.data.name.split("/")[0]
+                lluTime = cuegui.Utils.getLLU(proc)
+                job = proc.getJob()
+                logLines = cuegui.Utils.getLastLine(proc.data.log_path) or ""
 
-            if name not in hosts:
-                cue_host = opencue.api.findHost(name)
-                hosts[name] = {
-                               "host": cue_host,
-                               "procs": [],
-                               "mem": cue_host.data.idle_memory,
-                               "cores": int(cue_host.data.idle_cores),
-                               "time": 0,
-                               "ok": False,
-                               'alloc': cue_host.data.alloc_name}
+                if name not in hosts:
+                    cue_host = opencue.api.findHost(name)
+                    hosts[name] = {
+                                "host": cue_host,
+                                "procs": [],
+                                "mem": cue_host.data.idle_memory,
+                                "cores": int(cue_host.data.idle_cores),
+                                "time": 0,
+                                "ok": False,
+                                'alloc': cue_host.data.alloc_name}
+            except Exception:
+                # Ignore dangling procs (not bound to a job through a VirtualProc)
+                continue
 
             host = hosts[name]
             if host["ok"]:
@@ -835,7 +831,7 @@ class RedirectWidget(QtWidgets.QWidget):
             host["llu"] = cuegui.Utils.numFormat(lluTime, "t")
             host["log"] = logLines
             host['job_cores'] = job.data.job_stats.reserved_cores
-            host['waiting'] = job.pendingFrames() or 0
+            host['waiting'] = job.waitingFrames() or 0
 
             if host["cores"] >= self.__controls.getCores() and \
                     host["cores"] <= self.__controls.getMaxCores() and \

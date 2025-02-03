@@ -7,9 +7,8 @@ import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
-
+import org.apache.logging.log4j.Logger;
 
 public class CueServerInterceptor implements ServerInterceptor {
 
@@ -17,12 +16,10 @@ public class CueServerInterceptor implements ServerInterceptor {
     private static final Logger accessLogger = LogManager.getLogger("API");
 
     @Override
-    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
-            ServerCall<ReqT, RespT> serverCall, Metadata metadata,
-            ServerCallHandler<ReqT, RespT> serverCallHandler) {
-        accessLogger.info("gRPC [" +
-                serverCall.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR) +
-                "]: " + serverCall.getMethodDescriptor().getFullMethodName());
+    public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> serverCall,
+            Metadata metadata, ServerCallHandler<ReqT, RespT> serverCallHandler) {
+        accessLogger.info("gRPC [" + serverCall.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR)
+                + "]: " + serverCall.getMethodDescriptor().getFullMethodName());
 
         ServerCall.Listener<ReqT> delegate = serverCallHandler.startCall(serverCall, metadata);
         return new SimpleForwardingServerCallListener<ReqT>(delegate) {
@@ -32,10 +29,8 @@ public class CueServerInterceptor implements ServerInterceptor {
                     super.onHalfClose();
                 } catch (Exception e) {
                     logger.error("Caught an unexpected error.", e);
-                    serverCall.close(Status.INTERNAL
-                            .withCause(e)
-                            .withDescription(e.toString() + "\n" + e.getMessage()),
-                            new Metadata());
+                    serverCall.close(Status.INTERNAL.withCause(e)
+                            .withDescription(e.toString() + "\n" + e.getMessage()), new Metadata());
                 }
             }
 

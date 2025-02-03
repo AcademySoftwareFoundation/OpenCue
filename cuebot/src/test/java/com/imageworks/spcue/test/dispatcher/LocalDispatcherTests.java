@@ -2,19 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 
 package com.imageworks.spcue.test.dispatcher;
 
@@ -49,7 +46,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-
 @ContextConfiguration
 public class LocalDispatcherTests extends TransactionalTest {
 
@@ -73,11 +69,9 @@ public class LocalDispatcherTests extends TransactionalTest {
 
     private static final String HOSTNAME = "beta";
 
-    private static final String JOBNAME =
-        "pipe-dev.cue-testuser_shell_dispatch_test_v1";
+    private static final String JOBNAME = "pipe-dev.cue-testuser_shell_dispatch_test_v1";
 
-    private static final String TARGET_JOB =
-        "pipe-dev.cue-testuser_shell_dispatch_test_v2";
+    private static final String TARGET_JOB = "pipe-dev.cue-testuser_shell_dispatch_test_v2";
 
     @Before
     public void launchJob() {
@@ -92,30 +86,16 @@ public class LocalDispatcherTests extends TransactionalTest {
 
     @Before
     public void createHost() {
-        RenderHost host = RenderHost.newBuilder()
-                .setName(HOSTNAME)
-                .setBootTime(1192369572)
+        RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(CueUtil.GB)
-                .setFreeMem(53500)
-                .setFreeSwap(20760)
-                .setLoad(0)
-                .setTotalMcp(CueUtil.GB4)
-                .setTotalMem(8173264)
-                .setTotalSwap(20960)
-                .setNimbyEnabled(false)
-                .setNumProcs(2)
-                .setCoresPerProc(400)
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .addTags("test")
-                .putAttributes("SP_OS", "Linux")
-                .setFreeGpuMem((int) CueUtil.MB512)
-                .setTotalGpuMem((int) CueUtil.MB512)
-                .build();
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(0)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(8173264).setTotalSwap(20960)
+                .setNimbyEnabled(false).setNumProcs(2).setCoresPerProc(400)
+                .setState(HardwareState.UP).setFacility("spi").addTags("test")
+                .putAttributes("SP_OS", "Linux").setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512).build();
 
-        hostManager.createHost(host,
-                adminManager.findAllocationDetail("spi", "general"));
+        hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
     }
 
     public JobDetail getJob() {
@@ -143,7 +123,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         lja.setMaxCoreUnits(200);
         bookingManager.createLocalHostAssignment(host, job, lja);
 
-        List<VirtualProc> procs =  localDispatcher.dispatchHost(host);
+        List<VirtualProc> procs = localDispatcher.dispatchHost(host);
 
         // Should have 2 procs.
         assertEquals(2, procs.size());
@@ -152,16 +132,12 @@ public class LocalDispatcherTests extends TransactionalTest {
         /*
          * Check to ensure the procs are marked as local.
          */
-        assertTrue(procs
-                .stream()
-                .allMatch(proc -> proc.isLocalDispatch));
+        assertTrue(procs.stream().allMatch(proc -> proc.isLocalDispatch));
 
         /*
          * Check to ensure the right job was booked.
          */
-        assertTrue(procs
-                .stream()
-                .allMatch(proc -> proc.jobId.equals(job.getId())));
+        assertTrue(procs.stream().allMatch(proc -> proc.jobId.equals(job.getId())));
     }
 
     @Test
@@ -175,7 +151,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         LocalHostAssignment lba = new LocalHostAssignment(300, 1, CueUtil.GB8, 0, 0);
         bookingManager.createLocalHostAssignment(host, layer, lba);
 
-        List<VirtualProc> procs =  localDispatcher.dispatchHost(host);
+        List<VirtualProc> procs = localDispatcher.dispatchHost(host);
 
         // Should have 2 procs.
         assertEquals(3, procs.size());
@@ -184,16 +160,12 @@ public class LocalDispatcherTests extends TransactionalTest {
         /*
          * Check that they are all marked local.
          */
-        assertTrue(procs
-                .stream()
-                .allMatch(proc -> proc.isLocalDispatch));
+        assertTrue(procs.stream().allMatch(proc -> proc.isLocalDispatch));
 
         /*
          * Check that they are all frame the same layer.
          */
-        assertTrue(procs
-                .stream()
-                .allMatch(proc -> proc.layerId.equals(layer.getId())));
+        assertTrue(procs.stream().allMatch(proc -> proc.layerId.equals(layer.getId())));
 
     }
 
@@ -239,16 +211,12 @@ public class LocalDispatcherTests extends TransactionalTest {
         assertTrue(bookingManager.hasActiveLocalFrames(host));
 
         // Check that they are local.
-        assertTrue(procs
-                .stream()
-                .allMatch(proc -> proc.isLocalDispatch));
+        assertTrue(procs.stream().allMatch(proc -> proc.isLocalDispatch));
 
         /*
          * Check to ensure the right job was booked.
          */
-        assertTrue(procs
-                .stream()
-                .allMatch(proc -> proc.jobId.equals(job.getId())));
+        assertTrue(procs.stream().allMatch(proc -> proc.jobId.equals(job.getId())));
     }
 
     @Test
@@ -271,16 +239,12 @@ public class LocalDispatcherTests extends TransactionalTest {
         /*
          * Check that they are all marked local.
          */
-        assertTrue(procs
-                .stream()
-                .allMatch(proc -> proc.isLocalDispatch));
+        assertTrue(procs.stream().allMatch(proc -> proc.isLocalDispatch));
 
         /*
          * Check that they are all frame the same layer.
          */
-        assertTrue(procs
-                .stream()
-                .allMatch(proc -> proc.layerId.equals(layer.getId())));
+        assertTrue(procs.stream().allMatch(proc -> proc.layerId.equals(layer.getId())));
 
     }
 
@@ -321,7 +285,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 0, 0);
         bookingManager.createLocalHostAssignment(host, frame, lba);
 
-        List<VirtualProc> procs =  localDispatcher.dispatchHost(host, frame);
+        List<VirtualProc> procs = localDispatcher.dispatchHost(host, frame);
 
         /*
          * Should always be 1 or 0 procs, in this case 1.
@@ -331,7 +295,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         /*
          * Dispatch again.
          */
-        procs =  localDispatcher.dispatchHost(host, frame);
+        procs = localDispatcher.dispatchHost(host, frame);
 
         /*
          * Should always be 1 or 0 procs, in this case 0.
@@ -349,7 +313,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 0, 0);
         bookingManager.createLocalHostAssignment(host, job, lba);
 
-        List<VirtualProc> procs =  localDispatcher.dispatchHost(host, job);
+        List<VirtualProc> procs = localDispatcher.dispatchHost(host, job);
 
         // Should have 1 proc.
         assertEquals(1, procs.size());
@@ -370,4 +334,3 @@ public class LocalDispatcherTests extends TransactionalTest {
         assertTrue(bookingManager.hasResourceDeficit(host));
     }
 }
-
