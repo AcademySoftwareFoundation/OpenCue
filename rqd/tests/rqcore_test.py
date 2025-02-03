@@ -853,16 +853,10 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         # then
         cmd_file = os.path.join(tempDir, 'rqd-cmd-%s-%s' % (runFrame.frame_id, currentTime))
-        rqCore.docker.from_env.return_value.containers.run.assert_called_with(
-            image="centos7_image",
-            detach=True,
+        rqCore.docker_agent.runContainer.assert_called_with(
+            image_key="centos7",
             environment=mock.ANY,
             working_dir=jobTempPath,
-            mounts=rqCore.docker_mounts,
-            privileged=True,
-            pid_mode="host",
-            network="host",
-            stderr=True,
             hostname=mock.ANY,
             mem_reservation=softLimit*1000,
             mem_limit=hardLimit*1000,
@@ -898,16 +892,10 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         # then
         cmd_file = os.path.join(tempDir, 'rqd-cmd-%s-%s' % (runFrame.frame_id, currentTime))
-        rqCore.docker.from_env.return_value.containers.run.assert_called_with(
-            image="centos7_image",
-            detach=True,
+        rqCore.docker_agent.runContainer.assert_called_with(
+            image_key="centos7",
             environment=mock.ANY,
             working_dir=jobTempPath,
-            mounts=rqCore.docker_mounts,
-            privileged=True,
-            pid_mode="host",
-            network="host",
-            stderr=True,
             hostname=mock.ANY,
             mem_reservation="1GB",
             mem_limit="2GB",
