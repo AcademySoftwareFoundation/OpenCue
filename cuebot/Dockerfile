@@ -47,7 +47,7 @@ FROM openjdk:18-slim-buster
 # Install curl for healthchecking
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 # Healthcheck that returns exit 0 when succesful
-HEALTHCHECK --start-period=15s --timeout=5s CMD curl --http2-prior-knowledge -H 'Content-Type: application/grpc' -H 'te: trailers' --data '' http://localhost:8443/cue.CueInterface/GetSystemStats
+HEALTHCHECK --interval=10s --start-period=20s --timeout=5s CMD curl --http2-prior-knowledge -H 'Content-Type: application/grpc' -H 'te: trailers' --data '' http://localhost:8443/cue.CueInterface/GetSystemStats
 
 ARG CUEBOT_GRPC_CUE_PORT=8443
 ARG CUEBOT_GRPC_RQD_PORT=8444
