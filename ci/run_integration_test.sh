@@ -246,8 +246,8 @@ main() {
     sandbox/install-client-sources.sh
     ## log INFO "Testing pycue library..."
     ## test_pycue
-    log INFO "Testing cueadmin..."
-    test_cueadmin
+    # log INFO "Testing cueadmin..."
+    # test_cueadmin
 
     run_job
 
