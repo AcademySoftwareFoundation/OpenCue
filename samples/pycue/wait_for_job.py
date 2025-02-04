@@ -39,7 +39,7 @@ def wait_for_job(job_name, timeout_sec=None):
         jobs = opencue.api.getJobs(job=[job_name], include_finished=True)
         hosts = opencue.api.getHosts()
         for host in hosts:
-            logging.info("Host %s %s %s", host.name(), host.isUp(), host.state())
+            logging.info("Host %s %s %s %s %s", host.name(), host.isUp(), host.state(), host.isLocked(), host.pingLast())
         if not jobs:
             logging.error("Job %s not found", job_name)
             return False
