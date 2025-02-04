@@ -266,5 +266,9 @@ class RqDocker:
             docker_client.close()
             raise e
 
+    def new_client(self) -> DockerClient:
+        """A wrapper around the creation of a new client instance"""
+        return docker.from_env()
+
 class InvalidFrameOsError(RuntimeError):
     """Invalid setup for frame container"""

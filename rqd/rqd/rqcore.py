@@ -1340,7 +1340,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
     def setup(self):
         """Setup for running or recovering a frame"""
         runFrame = self.runFrame
-        run_on_docker = self.rqCore.docker is not None
+        run_on_docker = self.rqCore.docker_agent is not None
 
         runFrame.job_temp_dir = os.path.join(self.rqCore.machine.getTempPath(),
                                                 runFrame.job_name)
@@ -1384,7 +1384,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         log.info("Monitor frame started for frameId=%s", self.frameId)
 
         runFrame = self.runFrame
-        run_on_docker = self.rqCore.docker is not None
+        run_on_docker = self.rqCore.docker_agent is not None
 
         # pylint: disable=too-many-nested-blocks
         try:
@@ -1439,17 +1439,17 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         frameInfo = self.frameInfo
         runFrame = self.runFrame
         container = None
-        docker_client = self.rqCore.docker.from_env()
 
         # Ensure Nullable attributes have been initialized
         if not self.rqlog:
             raise RuntimeError("Invalid state. rqlog has not been initialized")
-        if not self.rqCore.docker:
-            raise RuntimeError("Invalid state: docker_client must have been initialized.")
+        if not self.rqCore.docker_agent:
+            raise RuntimeError("Invalid state: docker_agent must have been initialized.")
         if not runFrame.attributes.get("container_id"):
             raise RuntimeError("Invalid state: recovered frame does't contain a container id")
         container_id = runFrame.attributes.get("container_id")
 
+        docker_client = self.rqCore.docker_agent.new_client()
         # Recovered frame will stream back logs into a new file, therefore write a new header
         self.__createEnvVariables()
         self.__writeHeader()
@@ -1461,7 +1461,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
 
         try:
             log_stream = None
-            with self.rqCore.docker_lock:
+            with self.rqCore.docker_agent.docker_lock:
                 container = docker_client.containers.get(container_id)
             log_stream = container.logs(stream=True)
 
@@ -1567,7 +1567,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         log.info("Monitor recovered frame started for frameId=%s", self.frameId)
 
         runFrame = self.runFrame
-        run_on_docker = self.rqCore.docker is not None
+        run_on_docker = self.rqCore.docker_agent is not None
 
         # pylint: disable=too-many-nested-blocks
         try:
