@@ -14,6 +14,7 @@
 
 """Docker container integration for Rqd"""
 
+import os
 from typing import Tuple
 from configparser import RawConfigParser
 import logging
@@ -39,6 +40,7 @@ class RqDocker:
     DOCKER_IMAGES = "docker.images"
     DOCKER_GPU_MODE = "DOCKER_GPU_MODE"
     DOCKER_SHELL_PATH = "DOCKER_SHELL_PATH"
+    OVERRIDE_DOCKER_IMAGES = "OVERRIDE_DOCKER_IMAGES"
 
     @classmethod
     def fromConfig(cls, config: RawConfigParser):
@@ -82,46 +84,46 @@ class RqDocker:
             gpu_mode = any(value in config.get(cls.DOCKER_CONFIG, cls.DOCKER_GPU_MODE)
                 for value in ["true", "True", "yes", "Yes", "1"])
 
-        # Every key:value on the config file under docker.images
-        # is parsed as key=SP_OS and value=image_tag.
-        # SP_OS is set to a list of all available keys
-        # For example:
-        #
-        #   rqd.conf
-        #     [docker.images]
-        #     centos7=centos7.3:latest
-        #     rocky9=rocky9.3:latest
-        #
-        #   becomes:
-        #     SP_OS=centos7,rocky9
-        #     DOCKER_IMAGES={
-        #       "centos7": "centos7.3:latest",
-        #       "rocky9": "rocky9.3:latest"
-        #     }
-        keys = config.options(cls.DOCKER_IMAGES)
         docker_images = {}
-        for key in keys:
-            docker_images[key] = config.get(cls.DOCKER_IMAGES, key)
-        sp_os = ",".join(keys)
+        if cls.OVERRIDE_DOCKER_IMAGES in os.environ:
+            # The OVERRIDE_DOCKER_IMAGES environment variable can be used to
+            # override the dic of images to be used by the rqd container. Passing
+            # and env is handy for docker swarm and kubernetes setups.
+            # Format: A key=value comma-separated list
+            #   centos7=centos7.3:latest,rocky9=rocky9.3:latest
+            images = os.environ[cls.OVERRIDE_DOCKER_IMAGES].strip().split(",")
+            keys = []
+            for val in images:
+                key, image_tag = val.split("=")
+                keys.append(key)
+                docker_images[key.strip()] = image_tag.strip()
+            sp_os = ",".join(keys)
+        else:
+            # Every key:value on the config file under docker.images
+            # is parsed as key=SP_OS and value=image_tag.
+            # SP_OS is set to a list of all available keys
+            # For example:
+            #
+            #   rqd.conf
+            #     [docker.images]
+            #     centos7=centos7.3:latest
+            #     rocky9=rocky9.3:latest
+            #
+            #   becomes:
+            #     SP_OS=centos7,rocky9
+            #     DOCKER_IMAGES={
+            #       "centos7": "centos7.3:latest",
+            #       "rocky9": "rocky9.3:latest"
+            #     }
+            keys = config.options(cls.DOCKER_IMAGES)
+            for key in keys:
+                docker_images[key] = config.get(cls.DOCKER_IMAGES, key)
+            sp_os = ",".join(keys)
 
         if not docker_images:
             raise RuntimeError("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
                                 "least one image on DOCKER_IMAGES ([docker.images] "
                                 "section of rqd.conf)")
-        def parse_mount(mount_string):
-            """
-            Parse mount definitions similar to a docker run command into a docker
-            mount obj
-
-            Format: type:bind,source:/tmp,target:/tmp,bind-propagation:slave
-            """
-            parsed_mounts = {}
-            # bind-propagation defaults to None as only type=bind accepts it
-            parsed_mounts["bind-propagation"] = None
-            for item in mount_string.split(","):
-                name, mount_path = item.split(":")
-                parsed_mounts[name.strip()] = mount_path.strip()
-            return parsed_mounts
 
         # Parse values under the category docker.mounts into Mount objects
         mounts = config.options(cls.DOCKER_MOUNTS)
@@ -130,7 +132,7 @@ class RqDocker:
             mount_str = ""
             try:
                 mount_str = config.get(cls.DOCKER_MOUNTS, mount_name)
-                mount_dict = parse_mount(mount_str)
+                mount_dict = RqDocker.parse_mount(mount_str)
                 mount = docker.types.Mount(mount_dict["target"],
                                             mount_dict["source"],
                                             type=mount_dict["type"],
@@ -151,6 +153,22 @@ class RqDocker:
         self.docker_shell_path = docker_shell_path
         self.docker_lock = threading.Lock()
         self.gpu_mode=gpu_mode
+
+    @staticmethod
+    def parse_mount(mount_string):
+        """
+        Parse mount definitions similar to a docker run command into a docker
+        mount obj
+
+        Format: type:bind,source:/tmp,target:/tmp,bind-propagation:slave
+        """
+        parsed_mounts = {}
+        # bind-propagation defaults to None as only type=bind accepts it
+        parsed_mounts["bind-propagation"] = None
+        for item in mount_string.split(","):
+            name, mount_path = item.split(":")
+            parsed_mounts[name.strip()] = mount_path.strip()
+        return parsed_mounts
 
     def refreshFrameImages(self):
         """
