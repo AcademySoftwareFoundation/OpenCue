@@ -76,7 +76,6 @@ create_rqd_root() {
 
   mkdir -p "${RQD_ROOT}/logs"
   mkdir "${RQD_ROOT}/shots"
-  chmod uog+rwX "${RQD_ROOT}/logs"
 }
 
 wait_for_service_state() {

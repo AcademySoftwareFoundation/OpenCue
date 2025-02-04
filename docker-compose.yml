@@ -41,10 +41,6 @@ services:
     environment:
       - CUE_FRAME_LOG_DIR=/tmp/rqd/logs
     command: --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot --datasource.cue-data-source.username=cuebot --datasource.cue-data-source.password=cuebot_password
-#    healthcheck:
-#      test: "curl --http2-prior-knowledge -H 'Content-Type: application/grpc' -H 'te: trailers' --data '' http://cuebot:8443/cue.CueInterface/GetSystemStats"
-#      interval: 15s
-#      timeout: 1m
 
   rqd:
     image: opencue/rqd
