@@ -45,7 +45,8 @@ services:
     environment:
       - CUEBOT_HOSTNAME=cuebot
     depends_on:
-      - cuebot
+      cuebot:
+        condition: service_healthy
     links:
       - cuebot
     ports:
