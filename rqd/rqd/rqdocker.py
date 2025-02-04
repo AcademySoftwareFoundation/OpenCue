@@ -237,7 +237,7 @@ class RqDocker:
         device_requests = []
         if self.gpu_mode:
             # Similar to gpu=all on the cli counterpart
-            device_requests.append(docker.types.DeviceRequest(count=-1, capabilities=["gpu"]))
+            device_requests.append(docker.types.DeviceRequest(count=-1, capabilities=[["gpu"]]))
         try:
             # Use a lock to prevent multiple thread from trying to create containers at the same
             # time. Experiments without a lock resulted on a fail state

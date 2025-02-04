@@ -735,7 +735,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
-        rqCore.docker = None
+        rqCore.docker_agent = None
         children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
@@ -816,18 +816,6 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
-
-        # Setup mock docker client
-        rqCore.docker.from_env.return_value.\
-            containers.run.return_value.wait.return_value = {"StatusCode": returnCode}
-        rqCore.docker_images = {
-            "centos7": "centos7_image",
-            "rocky9": "rocky9_image",
-        }
-        rqCore.docker_mounts = {
-            "vol1": "/vol1/mount",
-            "vol2": "/vol2/mount",
-        }
 
         children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
@@ -1006,7 +994,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
-        rqCore.docker = None
+        rqCore.docker_agent = None
         children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
