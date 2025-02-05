@@ -72,7 +72,7 @@ def systemCpuCount():
 class ThreadPool(QtCore.QObject):
     """A general purpose work queue class."""
 
-    def __init__(self, num_threads, max_queue=20, parent=None):
+    def __init__(self, num_threads=10, max_queue=250, parent=None):
         QtCore.QObject.__init__(self, parent=parent)
         self.app = cuegui.app()
         self.__threads = []
@@ -105,24 +105,31 @@ class ThreadPool(QtCore.QObject):
         if len(self._q_queue) <= self.__max_queue:
             self._q_queue.append((callable_to_queue, callback, comment, args))
         else:
-            logger.warning("Queue length exceeds %s", self.__max_queue)
+            logger.warning("Queue length exceeds %s. Dropping task: %s", self.__max_queue, comment)
         self._q_mutex.unlock()
         self._q_empty.wakeAll()
 
     def local(self, callable_to_queue, callback, comment, *args):
         """Executes a callable then immediately executes a callback, if given."""
         work = (callable_to_queue, callback, comment, args)
-        if work[3]:
-            result = work[0](*work[3])
-        else:
-            result = work[0]()
-        if work[1]:
-            self.runCallback(work, result)
+        try:
+            if work[3]:
+                result = work[0](*work[3])
+            else:
+                result = work[0]()
+            if work[1]:
+                self.runCallback(work, result)
+        except Exception as e:
+            logger.error("Error executing local task '%s': %s", comment, e)
 
     def runCallback(self, work, result):
         """Runs the callback function."""
         if work[1]:
-            work[1](work, result)
+            try:
+                work[1](work, result)
+            except Exception as e:
+                # Log the error with the task description (work[2]) for better debugging
+                logger.error("Error in callback function for '%s': %s", work[2], e)
 
     class WorkerThread(QtCore.QThread):
         """A thread for parsing job log files.
@@ -148,13 +155,13 @@ class ThreadPool(QtCore.QObject):
 
                 work = None
                 self.__parent._q_mutex.lock()
-                # pylint: disable=bare-except
                 try:
-                    work = self.__parent._q_queue.pop(0)
-                except:
-                    self.__parent._q_empty.wait(self.__parent._q_mutex)
-                # pylint: enable=bare-except
-
+                    if self.__parent._q_queue:
+                        work = self.__parent._q_queue.pop(0)
+                    else:
+                        self.__parent._q_empty.wait(self.__parent._q_mutex)
+                except Exception as e:
+                    logger.error("Error fetching work from queue: %s", e)
                 self.__parent._q_mutex.unlock()
 
                 if not work:
