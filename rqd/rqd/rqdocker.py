@@ -20,12 +20,14 @@ from configparser import RawConfigParser
 import logging
 import threading
 
+# pylint: disable=import-error
 import docker
 import docker.models
 import docker.types
 from docker import DockerClient
 from docker.models.containers import Container
 from docker.errors import APIError, ImageNotFound
+# pylint: enable=import-error
 
 log = logging.getLogger(__name__)
 

@@ -1020,6 +1020,7 @@ class FrameAttendantThread(threading.Thread):
     def runDocker(self):
         """The steps required to handle a frame under a docker container"""
         # pylint: disable=import-outside-toplevel
+        # pylint: disable=import-error
         from docker.errors import APIError
         from rqd.rqdocker import InvalidFrameOsError
 
