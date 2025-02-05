@@ -12,7 +12,6 @@ use sysinfo::{Disks, MemoryRefreshKind, RefreshKind, System};
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
 mod config;
-mod frame_thread;
 mod monitor;
 mod report_client;
 mod running_frame;

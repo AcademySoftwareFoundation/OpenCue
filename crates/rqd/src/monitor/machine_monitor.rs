@@ -155,38 +155,59 @@ impl MachineMonitor {
 /// entire servive
 #[derive(Clone)]
 pub struct MachineStat {
+    /// Machine name
     pub hostname: String,
-    /// Number of proc units (also known as virtual cores)
+    /// Total number of processing units (also known as virtual cores)
     pub num_procs: u32,
+    /// Total amount of memory on the machine
     pub total_memory: u64,
+    /// Total amount of swap space on the machine
     pub total_swap: u64,
-    /// Number of sockets (also know as physical cores)
+    /// Total number of physical cores (also known as sockets)
     pub num_sockets: u32,
+    /// Number of cores per processor unit
     pub cores_per_proc: u32,
-    // Unlike the python counterpart, the multiplier is not automatically applied to total_procs
+    /// Multiplier value for hyper-threading, does not apply to total_procs unlike in python version
     pub hyperthreading_multiplier: u32,
+    /// Timestamp for when the machine was booted up
     pub boot_time: u32,
+    /// List of tags associated with this machine
     pub tags: Vec<String>,
+    /// Amount of free memory on the machine
     pub free_memory: u64,
+    /// Amount of free swap space on the machine
     pub free_swap: u64,
+    /// Total temporary storage available on the machine
     pub total_temp_storage: u64,
+    /// Amount of free temporary storage on the machine
     pub free_temp_storage: u64,
+    /// Current load on the machine
     pub load: u32,
 }
 
 pub struct MachineGpuStats {
+    /// Count of GPUs
     pub count: u32,
+    /// Total memory of all GPUs
     pub total_memory: u64,
+    /// Available free memory of all GPUs
     pub free_memory: u64,
+    /// Used memory by unit of each GPU, where the key in the HashMap is the unit ID, and the value is the used memory
     pub used_memory_by_unit: HashMap<u32, u64>,
 }
-
 pub trait MachineStatCollector {
-    /// Collects live information about the status of this machine
+    /// Collects information about the status of this machine
     fn collect_stats(&self) -> Result<MachineStat>;
-    /// Collects live information about the gpus on this machine
+
+    /// Collects information about the gpus on this machine
     fn collect_gpu_stats(&self) -> MachineGpuStats;
+
+    /// Up, Down, Rebooting...
     fn hardware_state(&self) -> &HardwareState;
+
+    /// List of attributes collected from the machine. Eg. SP_OS
     fn attributes(&self) -> &HashMap<String, String>;
+
+    /// Init NotInMyBackyard logic
     fn init_nimby(&self) -> Result<bool>;
 }

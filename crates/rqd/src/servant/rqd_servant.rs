@@ -1,6 +1,7 @@
+use std::panic::catch_unwind;
 use std::sync::Arc;
 
-use crate::frame_thread::FrameThread;
+use crate::running_frame::RunningFrame;
 use crate::running_frame::RunningFrameCache;
 use crate::servant::Result;
 use opencue_proto::rqd::{
@@ -19,6 +20,7 @@ use opencue_proto::rqd::{
     RqdStaticUnlockResponse,
 };
 use tonic::{async_trait, Request, Response};
+use tracing::error;
 
 /// Servant for the grpc Rqd interface
 pub struct RqdServant {
@@ -56,17 +58,32 @@ impl RqdInterface for RqdServant {
     ) -> Result<Response<RqdStaticKillRunningFrameResponse>> {
         todo!()
     }
+
     /// Launch a new running frame
     async fn launch_frame(
         &self,
         request: Request<RqdStaticLaunchFrameRequest>,
     ) -> Result<Response<RqdStaticLaunchFrameResponse>> {
-        let t = tokio::task::spawn_blocking(|| {
-            let frame_thread = FrameThread {};
-            frame_thread.run()
+        let run_frame = request
+            .into_inner()
+            .run_frame
+            .ok_or_else(|| tonic::Status::invalid_argument("Missing run_frame in request"))?;
+
+        let running_frame: Arc<RunningFrame> = Arc::new(run_frame.into());
+        self.running_frame_cache
+            .insert_running_frame(Arc::clone(&running_frame));
+
+        // Fire and forget
+        let _t = tokio::task::spawn_blocking(move || {
+            if let Err(e) = catch_unwind(|| running_frame.run()) {
+                error!("Panicked while trying to run a frame {:?}", e);
+                // TODO: Trigger frame clean up logic
+            }
         });
-        todo!("t should be awaited and handled")
+        // Don't wait for frame to complete to return a response
+        Ok(Response::new(RqdStaticLaunchFrameResponse {}))
     }
+
     /// Lock a number of cores
     async fn lock(
         &self,

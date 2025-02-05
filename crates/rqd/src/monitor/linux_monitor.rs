@@ -19,8 +19,11 @@ pub struct LinuxMachineStat {
     config: MachineConfig,
     sysinfo: Arc<Mutex<System>>,
     diskinfo: Arc<Mutex<Disks>>,
+    /// Map of procids indexed by physid and coreid
     procid_by_physid_and_core_id: HashMap<u32, HashMap<u32, u32>>,
+    /// The inverse map of procid_by_physid_and_core_id
     physid_and_coreid_by_procid: HashMap<u32, (u32, u32)>,
+    // Information colleced once at init time
     static_info: MachineStaticInfo,
     hardware_state: HardwareState,
     attributes: HashMap<String, String>,
