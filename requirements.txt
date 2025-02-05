@@ -19,7 +19,7 @@ pytest==8.3.3;python_version>="3.7"
 
 # Optional requirements
 # Sentry support for rqd
-sentry-sdk==2.11.0
+# sentry-sdk==2.11.0
 # Docker support for rqd
-docker==5.0.3;python_version<"3.7"
-docker==7.1.0;python_version>="3.7"
+# docker==5.0.3;python_version<"3.7"
+# docker==7.1.0;python_version>="3.7"
