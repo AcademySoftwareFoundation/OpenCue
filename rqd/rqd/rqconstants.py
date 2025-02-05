@@ -260,7 +260,7 @@ try:
                 from rqd.rqdocker import RqDocker
 
                 # Set config attribute for docker_gpu_mode. Configuration is made available
-                # from both the config file or an environment variable, the later takes precedency
+                # from both the config file and an environment variable, the latter takes precedence
                 if __docker_gpu_mode in os.environ:
                     config[__docker_config][__docker_gpu_mode] = os.environ[__docker_gpu_mode]
 

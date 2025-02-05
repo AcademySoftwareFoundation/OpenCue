@@ -90,7 +90,7 @@ class RqDocker:
         if cls.OVERRIDE_DOCKER_IMAGES in os.environ:
             # The OVERRIDE_DOCKER_IMAGES environment variable can be used to
             # override the dic of images to be used by the rqd container. Passing
-            # and env is handy for docker swarm and kubernetes setups.
+            # and env are handy for Docker Swarm and Kubernetes setups.
             # Format: A key=value comma-separated list
             #   centos7=centos7.3:latest,rocky9=rocky9.3:latest
             images = os.environ[cls.OVERRIDE_DOCKER_IMAGES].strip().split(",")
@@ -205,7 +205,7 @@ class RqDocker:
                     "section of rqd.conf for more information." % frame_os)
             return image
         if self.docker_images:
-            # If a frame doesn't require an specic OS, default to the first configured OS on
+            # If a frame doesn't require an specific OS, default to the first configured OS on
             # [docker.images]
             return list(self.docker_images.values())[0]
 
@@ -218,7 +218,7 @@ class RqDocker:
         """Creates and runs a new Docker container with the given parameters.
 
         Args:
-            image_key: OS key to lookup Docker image (e.g. 'centos7')
+            image_key: OS key to look up Docker image (e.g. 'centos7')
             environment: Dictionary of environment variables to set in container
             working_dir: Working directory path inside container
             hostname: Hostname to set for container
@@ -241,8 +241,8 @@ class RqDocker:
             # Similar to gpu=all on the cli counterpart
             device_requests.append(docker.types.DeviceRequest(count=-1, capabilities=[["gpu"]]))
         try:
-            # Use a lock to prevent multiple thread from trying to create containers at the same
-            # time. Experiments without a lock resulted on a fail state
+            # Use a lock to prevent multiple threads from trying to create containers at the same
+            # time. Experiments without a lock resulted in a fail state
             with self.docker_lock:
                 container = docker_client.containers.run(image=image,
                     detach=True,
@@ -262,7 +262,7 @@ class RqDocker:
         # pylint: disable=broad-except
         except Exception as e:
             # Purposedly not closing the connection on a finally here
-            # as the caller might need to interect with the daemon to collect
+            # as the caller might need to interact with the daemon to collect
             # logs and status. This portion only handles closing the connection in
             # case docker.run crashes
             docker_client.close()
