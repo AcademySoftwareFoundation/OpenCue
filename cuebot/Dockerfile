@@ -44,6 +44,11 @@ RUN chmod +x create_rpm.sh && ./create_rpm.sh cuebot "$(cat VERSION)"
 # -----------------
 FROM openjdk:18-slim-buster
 
+# Install curl for healthchecking
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Healthcheck that returns exit 0 when succesful
+HEALTHCHECK --interval=10s --start-period=20s --timeout=5s CMD curl --http2-prior-knowledge -H 'Content-Type: application/grpc' -H 'te: trailers' --data '' http://localhost:8443/cue.CueInterface/GetSystemStats
+
 ARG CUEBOT_GRPC_CUE_PORT=8443
 ARG CUEBOT_GRPC_RQD_PORT=8444
 
@@ -53,10 +58,6 @@ COPY --from=build /home/gradle/cuebot/build/libs/cuebot-*-all.jar ./
 COPY --from=rpm /home/rpmbuilder/rpmbuild/RPMS/noarch/opencue-cuebot-*.noarch.rpm ./
 
 RUN ln -s $(ls ./cuebot-*-all.jar) ./cuebot-latest.jar
-
-# TODO(bcipriano) Implement a new GRPC-based health check.
-# https://github.com/imageworks/OpenCue/issues/73
-# HEALTHCHECK --start-period=30s --timeout=5s CMD python check_ice.py localhost CueStatic 9019
 
 VOLUME ["/opt/opencue/logs"]
 
