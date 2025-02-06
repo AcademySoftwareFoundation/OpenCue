@@ -72,7 +72,7 @@ def systemCpuCount():
 class ThreadPool(QtCore.QObject):
     """A general purpose work queue class."""
 
-    def __init__(self, num_threads=10, max_queue=250, parent=None):
+    def __init__(self, num_threads=8, max_queue=500, parent=None):
         QtCore.QObject.__init__(self, parent=parent)
         self.app = cuegui.app()
         self.__threads = []
