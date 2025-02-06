@@ -138,7 +138,8 @@ class ThreadPool(QtCore.QObject):
             except ValueError as e:
                 logger.error("ValueError in callback function for '%s': %s", work[2], e)
             except AttributeError as e:
-                logger.error("AttributeError: Callback function missing or not callable for '%s': %s", work[2], e)
+                logger.error("AttributeError: Callback function missing or not callable for "
+                             "'%s': %s", work[2], e)
             except RuntimeError as e:
                 logger.error("RuntimeError in callback function for '%s': %s", work[2], e)
 
