@@ -117,19 +117,30 @@ class ThreadPool(QtCore.QObject):
                 result = work[0](*work[3])
             else:
                 result = work[0]()
-            if work[1]:
-                self.runCallback(work, result)
-        except Exception as e:
+        except (TypeError, ValueError, RuntimeError) as e:
             logger.error("Error executing local task '%s': %s", comment, e)
+            # Exit early to avoid calling the callback with an invalid result
+            return
+
+        if work[1]:
+            try:
+                self.runCallback(work, result)
+            except AttributeError as e:
+                logger.error("Error executing callback for task '%s': %s", comment, e)
 
     def runCallback(self, work, result):
         """Runs the callback function."""
-        if work[1]:
+        if work[1]:  # Ensure callback exists
             try:
-                work[1](work, result)
-            except Exception as e:
-                # Log the error with the task description (work[2]) for better debugging
-                logger.error("Error in callback function for '%s': %s", work[2], e)
+                work[1](work, result)  # Execute the callback function
+            except TypeError as e:
+                logger.error("TypeError in callback function for '%s': %s", work[2], e)
+            except ValueError as e:
+                logger.error("ValueError in callback function for '%s': %s", work[2], e)
+            except AttributeError as e:
+                logger.error("AttributeError: Callback function missing or not callable for '%s': %s", work[2], e)
+            except RuntimeError as e:
+                logger.error("RuntimeError in callback function for '%s': %s", work[2], e)
 
     class WorkerThread(QtCore.QThread):
         """A thread for parsing job log files.
@@ -160,14 +171,19 @@ class ThreadPool(QtCore.QObject):
                         work = self.__parent._q_queue.pop(0)
                     else:
                         self.__parent._q_empty.wait(self.__parent._q_mutex)
+                except IndexError as e:
+                    logger.error("IndexError: Tried to pop from an empty queue: %s", e)
+                except RuntimeError as e:
+                    logger.error("RuntimeError: Threading issue while waiting for queue: %s", e)
+                # Fallback for unexpected issues
                 except Exception as e:
-                    logger.error("Error fetching work from queue: %s", e)
-                self.__parent._q_mutex.unlock()
+                    logger.error("Unexpected error fetching work from queue: %s", e)
+                finally:
+                    self.__parent._q_mutex.unlock()
 
                 if not work:
                     continue
 
-                # pylint: disable=broad-except
                 try:
                     if work[3]:
                         result = work[0](*work[3])
@@ -176,9 +192,15 @@ class ThreadPool(QtCore.QObject):
                     if work[1]:
                         self.workComplete.emit(work, result)
                         del result
+                except TypeError as e:
+                    logger.error("TypeError in work processing for '%s': %s", work[2], e)
+                except ValueError as e:
+                    logger.error("ValueError in work processing for '%s': %s", work[2], e)
+                except RuntimeError as e:
+                    logger.error("RuntimeError in work processing for '%s': %s", work[2], e)
                 except Exception as e:
-                    logger.info("Error processing work:' %s ', %s" , work[2], e)
-                # pylint: enable=broad-except
+                    logger.error("Unexpected error processing work for '%s': %s", work[2], e)
+
                 logger.info("Done:' %s '", work[2])
             logger.debug("Thread Stopping")
 
