@@ -691,7 +691,7 @@ class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 class FrameLogDataBuffer(object):
     """A cached and threaded interface to reading the last log line"""
     maxCacheTime = 5
-    maxThreads = 2
+    maxThreads = 10
     maxQueue = 500
 
     # Position of data from getLastLineData
@@ -803,7 +803,7 @@ class FrameEtaDataBuffer(object):
     """A cached and threaded interface to reading the last log line"""
 
     maxCacheTime = 60
-    maxThreads = 2
+    maxThreads = 10
     maxQueue = 501
 
     def __init__(self):
