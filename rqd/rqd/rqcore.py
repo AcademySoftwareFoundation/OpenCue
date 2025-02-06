@@ -1451,7 +1451,8 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         container_id = runFrame.attributes.get("container_id")
 
         docker_client = self.rqCore.docker_agent.new_client()
-        # The recovered frame will stream back the logs into a new file, therefore, write a new header
+        # The recovered frame will stream back the logs into a new file,
+        # therefore, write a new header
         self.__createEnvVariables()
         self.__writeHeader()
 
