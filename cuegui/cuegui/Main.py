@@ -69,7 +69,7 @@ def startup(app_name, app_version, argv):
     app.setApplicationName(app_name)
     app.lastWindowClosed.connect(app.quit)  # pylint: disable=no-member
 
-    app.threadpool = cuegui.ThreadPool.ThreadPool(8, 500, parent=app)
+    app.threadpool = cuegui.ThreadPool.ThreadPool(3, parent=app)
 
     settings = cuegui.Layout.startup(app_name)
     app.settings = settings
