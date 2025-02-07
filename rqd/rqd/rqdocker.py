@@ -13,6 +13,8 @@
 #  limitations under the License.
 
 """Docker container integration for Rqd"""
+# TODO Remove after this program no longer support Python 3.8.*
+from __future__ import annotations
 
 import os
 from typing import Tuple
