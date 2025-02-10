@@ -30,6 +30,6 @@ layer2.depend_on(layer1)
 # Add the layer to the job
 job.add_layer(layer2)
 
-# Submit the job to cuebot. It will not use the cureun wrapper and mail notification is disabled.
+# Submit the job to cuebot. It will not use the cuerun wrapper and mail notification is disabled.
 outline.cuerun.launch(job, use_pycuerun=False, os="Linux", nomail=True)
 ```
