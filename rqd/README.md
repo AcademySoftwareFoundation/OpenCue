@@ -47,7 +47,7 @@ FILE_LOG_LEVEL = ERROR
 
 # Number of seconds to wait before checking if the user has become idle.
 CHECK_INTERVAL_LOCKED = 60
-# Seconds of idle time required before nimby unlocks.
+# Seconds of idle time required before NIMBY (Not In My BackYard) unlocks.
 MINIMUM_IDLE = 900
 
 # Whether or not to prefix each line in the log with a timestamp
