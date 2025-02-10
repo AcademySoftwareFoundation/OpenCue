@@ -38,7 +38,7 @@ Example `rqd.conf` file :
 
 ```toml
 [Override]
-## Variable that decided if rqd should switch to the user of the job running. Requires root
+## Variable that decided if RQD should switch to the user of the job running. Requires root
 RQD_BECOME_JOB_USER = False 
 
 # Log levels for rqd
