@@ -14,7 +14,7 @@ import outline.modules.shell
 job = outline.Outline("test-job", shot='test', show='testing', user='jimmy')
 
 # Create a layer that can later be associated with a job. The command can use internal variables that are  
-# replaced at runtime (eg. #IFRAME# which is the current frame renderging)
+# replaced at runtime (eg. #IFRAME# which is the current frame rendering)
 layer1 = outline.modules.shell.Shell("layer1", type="Render", command=["echo #IFRAME#"], range="1-100")
 
 # Adds the layer to the job
