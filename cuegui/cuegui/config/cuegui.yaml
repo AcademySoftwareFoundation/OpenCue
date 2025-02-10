@@ -86,8 +86,8 @@ resources:
   #   - layer-properties
   #   - redirect plugin
   #   - service properties
-  max_cores: 32
-  max_memory: 128
+  max_cores: 256
+  max_memory: 512
   max_gpus: 8
   max_gpu_memory: 128
   # Redirect Plugin maximum allowed core-hour cutoff.
