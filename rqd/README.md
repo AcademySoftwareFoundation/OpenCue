@@ -21,7 +21,7 @@ RQD.
 python3 -m venv OpenCue-venv
 # Activate virtual environment
 source OpenCue-venv/bin/activate
-# Change directory to opencue source
+# Change directory to Opencue source
 cd <OpenCueSourceDir>
 # Install requirements into the virtual environment
 python3 -m pip install -r requirements.txt
