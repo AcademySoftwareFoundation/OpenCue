@@ -41,7 +41,7 @@ Example `rqd.conf` file :
 ## Variable that decided if RQD should switch to the user of the job running. Requires root
 RQD_BECOME_JOB_USER = False 
 
-# Log levels for rqd
+# Log levels for RQD
 CONSOLE_LOG_LEVEL = INFO
 FILE_LOG_LEVEL = ERROR
 
