@@ -28,7 +28,7 @@ python3 -m pip install -r requirements.txt
 # Generate protobuf python files for RQD
 python3 -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc_python_out=rqd/rqd/compiled_proto proto/*.proto
 python3 ci/fix_compiled_proto.py rqd/rqd/compiled_proto
-# Install rqd into the virtual environment
+# Install RQD into the virtual environment
 cd rqd
 python3 setup.py install
 ```
