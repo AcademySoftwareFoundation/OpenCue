@@ -95,7 +95,7 @@ class LayerPropertiesDialogTests(unittest.TestCase):
             self.layer_properties_dialog._LayerPropertiesDialog__mem.slider.maximum())
         # Layer with the higher min_memory determines the initial value.
         self.assertEqual(
-            6291456, self.layer_properties_dialog._LayerPropertiesDialog__mem.slider.value())
+            6144, self.layer_properties_dialog._LayerPropertiesDialog__mem.slider.value())
 
         # Is memory optimizer is on for any layer, it shows as checked in the dialog.
         self.assertTrue(self.layer_properties_dialog._LayerPropertiesDialog__mem_opt.isChecked())
@@ -156,12 +156,12 @@ class LayerPropertiesDialogTests(unittest.TestCase):
 
     def test__should_fail_on_memory_too_high(self):
         self.layer_properties_dialog._LayerPropertiesDialog__mem.slider.setValue(
-            self.layer_properties_dialog.mem_max_kb + 1)
+            self.layer_properties_dialog.mem_max_mb * 2)
         self.assertFalse(self.layer_properties_dialog.verify())
 
     def test__should_fail_on_memory_too_low(self):
         self.layer_properties_dialog._LayerPropertiesDialog__mem.slider.setValue(
-            self.layer_properties_dialog.mem_min_kb / 3)
+            self.layer_properties_dialog.mem_min_mb / 3)
         self.assertFalse(self.layer_properties_dialog.verify())
 
     def test__should_fail_on_gpu_too_high(self):
@@ -185,7 +185,7 @@ class LayerPropertiesDialogTests(unittest.TestCase):
         self.layer_properties_dialog._LayerPropertiesDialog__limits._LayerLimitsWidget__layers = [
             layer1_mock, layer2_mock]
 
-        new_mem_value = self.layer_properties_dialog.mem_max_kb
+        new_mem_value = self.layer_properties_dialog.mem_max_mb
         self.layer_properties_dialog._LayerPropertiesDialog__mem.parent().parent().enable(True)
         self.layer_properties_dialog._LayerPropertiesDialog__mem.slider.setValue(new_mem_value)
 
