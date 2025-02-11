@@ -36,10 +36,10 @@ python3 setup.py install
 ### Create rqd.conf
 Example `rqd.conf` file :
 
-```toml
+```ini
 [Override]
-## Variable that decided if RQD should switch to the user of the job running. Requires root
-RQD_BECOME_JOB_USER = False 
+# Variable that decided if RQD should switch to the user of the job running. Requires root
+RQD_BECOME_JOB_USER = False
 
 # Log levels for RQD
 CONSOLE_LOG_LEVEL = INFO
