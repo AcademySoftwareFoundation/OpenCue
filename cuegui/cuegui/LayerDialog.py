@@ -116,8 +116,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
 
         self.mem_max_gb = float(self._cfg().get('max_memory', 80.0))
         self.mem_min_gb = 0.25
-        self.mem_max_kb = int(self.mem_max_gb * 1024 * 1024)
-        self.mem_min_kb = int(self.mem_min_gb * 1024 * 1024)
+        self.mem_max_mb = int(self.mem_max_gb * 1024)
+        self.mem_min_mb = int(self.mem_min_gb * 1024)
 
         self.gpu_mem_max_kb = 256 * 1024 * 1024
         self.gpu_mem_min_kb = 0
@@ -131,9 +131,9 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         # Memory
         self.__mem = SlideSpinner(self)
         self.__mem.slider.setMinimumWidth(200)
-        self.__mem.slider.setRange(self.mem_min_kb, self.mem_max_kb)
-        self.__mem.slider.setTickInterval(self.mem_min_kb)
-        self.__mem.slider.setSingleStep(self.mem_min_kb)
+        self.__mem.slider.setRange(self.mem_min_mb, self.mem_max_mb)
+        self.__mem.slider.setTickInterval(128 * self.mem_min_mb)
+        self.__mem.slider.setSingleStep(128 * self.mem_min_mb)
         self.__mem.spinner.setSuffix(" GB")
         self.__mem.spinner.setRange(self.mem_min_gb, self.mem_max_gb)
 
@@ -301,7 +301,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
             return
         # Verify our own values.
         mem_value = self.__mem.slider.value()
-        if mem_value < self.mem_min_kb or mem_value > self.mem_max_kb:
+        if mem_value < self.mem_min_mb or mem_value > self.mem_max_mb:
             warning("The memory setting is too high.")
             return False
         gpu_mem_value = self.__gpu_mem.slider.value()
@@ -317,7 +317,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         """
         for layer in self.__layers:
             if self.__mem.isEnabled():
-                layer.setMinMemory(self.__mem.slider.value())
+                layer.setMinMemory(self.__mem.slider.value() * 1024)
             if self.__mem_opt.isEnabled():
                 layer.enableMemoryOptimizer(self.__mem_opt.isChecked())
             if self.__core.isEnabled():
@@ -348,7 +348,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         for layer in self.__layers:
             if layer.data.min_memory > result:
                 result = layer.data.min_memory
-        return result
+        return result / 1024.0
 
     def getMaxGpuMemory(self):
         """Gets the layer max GPU memory."""
@@ -422,10 +422,10 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         return result
 
     def __translateToMemSpinbox(self, value):
-        self.__mem.spinner.setValue(float(value) / 1048576.0)
+        self.__mem.spinner.setValue(float(value) / 1024.0)
 
     def __translateToMemSlider(self, value):
-        self.__mem.slider.setValue(int(value * 1048576.0))
+        self.__mem.slider.setValue(int(value * 1024.0))
 
     def __translateToGpuMemSpinbox(self, value):
         self.__gpu_mem.spinner.setValue(float(value * self.gpu_mem_tick_kb) / 1024.0 / 1024.0)
