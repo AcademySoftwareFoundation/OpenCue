@@ -88,10 +88,10 @@ class LayerPropertiesDialogTests(unittest.TestCase):
         default_config = cuegui.Utils.getResourceConfig()
 
         self.assertEqual(
-            int(self.layer_properties_dialog.mem_min_gb * 1024 * 1024),
+            int(self.layer_properties_dialog.mem_min_gb * 1024),
             self.layer_properties_dialog._LayerPropertiesDialog__mem.slider.minimum())
         self.assertEqual(
-            default_config['max_memory'] * 1024 * 1024,
+            default_config['max_memory'] * 1024,
             self.layer_properties_dialog._LayerPropertiesDialog__mem.slider.maximum())
         # Layer with the higher min_memory determines the initial value.
         self.assertEqual(
