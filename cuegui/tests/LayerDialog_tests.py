@@ -156,7 +156,7 @@ class LayerPropertiesDialogTests(unittest.TestCase):
 
     def test__should_fail_on_memory_too_high(self):
         self.layer_properties_dialog._LayerPropertiesDialog__mem.slider.setValue(
-            self.layer_properties_dialog.mem_max_kb * 2)
+            self.layer_properties_dialog.mem_max_kb + 1)
         self.assertFalse(self.layer_properties_dialog.verify())
 
     def test__should_fail_on_memory_too_low(self):
