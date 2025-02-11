@@ -232,8 +232,8 @@ class LayerPropertiesDialogTests(unittest.TestCase):
             limits_to_enable=new_limits)
 
         self.layer_properties_dialog.apply()
-        layer1_mock.setMinMemory.assert_called_with(new_mem_value)
-        layer2_mock.setMinMemory.assert_called_with(new_mem_value)
+        layer1_mock.setMinMemory.assert_called_with(new_mem_value * 1024)
+        layer2_mock.setMinMemory.assert_called_with(new_mem_value * 1024)
         layer1_mock.enableMemoryOptimizer.assert_called_with(new_mem_opt_is_enabled)
         layer2_mock.enableMemoryOptimizer.assert_called_with(new_mem_opt_is_enabled)
         layer1_mock.setMinCores.assert_called_with(100 * new_min_cores)
