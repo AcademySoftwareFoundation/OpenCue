@@ -65,10 +65,6 @@ public class JobLogUtil {
         }
     }
 
-    public Boolean getLokiIsEnabled() {
-        return env.getRequiredProperty("log.loki.enabled", Boolean.class);
-    }
-
     public String getLokiURL() {
         return env.getRequiredProperty("log.loki.url", String.class);
     }

@@ -1100,7 +1100,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .setAutoEat(rs.getBoolean("b_autoeat"))
                     .setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000))
                     .setOs(SqlUtil.getString(rs, "str_os"))
-                    .setLokiEnabled(rs.getBoolean("b_loki_enabled"))
                     .setLokiUrl(SqlUtil.getString(rs, "str_loki_url"));
 
             int uid = rs.getInt("int_uid");
@@ -1612,7 +1611,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             + "job_usage.int_clock_time_success," + "job_mem.int_max_rss,"
             + "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores,"
             + "(job_resource.int_gpus + job_resource.int_local_gpus) AS int_gpus, "
-            + "job.b_loki_enabled," + "job.str_loki_url " + "FROM " + "job," + "folder," + "show,"
+            + "job.str_loki_url " + "FROM " + "job," + "folder," + "show,"
             + "facility," + "job_stat," + "job_resource, " + "job_mem, " + "job_usage " + "WHERE "
             + "job.pk_show = show.pk_show " + "AND " + "job.pk_folder = folder.pk_folder " + "AND "
             + "job.pk_facility = facility.pk_facility " + "AND " + "job.pk_job = job_stat.pk_job "
