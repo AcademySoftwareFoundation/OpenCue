@@ -74,10 +74,10 @@ class UtilsTests(unittest.TestCase):
         result = cuegui.Utils.getResourceConfig()
 
         self.assertEqual({
-            'max_cores': 32,
+            'max_cores': 256,
             'max_gpu_memory': 128,
             'max_gpus': 8,
-            'max_memory': 128,
+            'max_memory': 512,
             'max_proc_hour_cutoff': 30,
             'redirect_wasted_cores_threshold': 100,
         }, result)
