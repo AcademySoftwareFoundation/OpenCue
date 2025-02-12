@@ -180,11 +180,10 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
 
     private static final String GET_JOB_DETAIL = "SELECT " + "job.pk_job," + "job.pk_show,"
             + "job.pk_facility," + "job.pk_dept," + "job.pk_folder," + "job.str_log_dir,"
-            + "job.str_loki_url," + "job.str_name," + "job.str_shot,"
-            + "job.str_state," + "job.int_uid," + "job.str_user," + "job.str_email,"
-            + "job.int_frame_count," + "job.int_layer_count," + "job.ts_started,"
-            + "job.ts_stopped," + "job.b_paused," + "job.int_max_retries,"
-            + "job_resource.int_max_cores," + "job_resource.int_min_cores,"
+            + "job.str_loki_url," + "job.str_name," + "job.str_shot," + "job.str_state,"
+            + "job.int_uid," + "job.str_user," + "job.str_email," + "job.int_frame_count,"
+            + "job.int_layer_count," + "job.ts_started," + "job.ts_stopped," + "job.b_paused,"
+            + "job.int_max_retries," + "job_resource.int_max_cores," + "job_resource.int_min_cores,"
             + "job_resource.int_max_gpus," + "job_resource.int_min_gpus,"
             + "job_resource.int_priority," + "show.str_name AS show_name, "
             + "dept.str_name AS dept_name, " + "facility.str_name AS facility_name " + "FROM "
@@ -381,8 +380,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             + "pk_folder," + "pk_facility," + "pk_dept," + "str_name," + "str_visible_name,"
             + "str_show," + "str_shot," + "str_user," + "str_email," + "str_state," + "str_log_dir,"
             + "str_os, " + "int_uid," + "b_paused," + "b_autoeat," + "int_max_retries, "
-            + "str_loki_url " + ") "
-            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            + "str_loki_url " + ") " + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insertJob(JobDetail j, JobLogUtil jobLogUtil) {
