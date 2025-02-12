@@ -1369,7 +1369,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                     rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
 
             # Setup frame logging
-            if self.runFrame.loki_url is not None:
+            if self.runFrame.loki_url:
                 self.rqlog = rqd.rqlogging.LokiLogger(self.runFrame.loki_url, runFrame)
             else:
                 self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)
