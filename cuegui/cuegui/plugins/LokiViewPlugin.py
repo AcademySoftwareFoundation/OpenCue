@@ -24,8 +24,6 @@ from qtpy import QtWidgets
 
 from opencue.wrappers import job, frame
 
-from loki_urllib3_client import LokiClient
-
 import cuegui.Constants
 import cuegui.AbstractDockWidget
 
@@ -44,6 +42,14 @@ class LokiViewWidget(QtWidgets.QWidget):
         super().__init__(parent)
         self.app = cuegui.app()
         self.verticalLayout = QtWidgets.QVBoxLayout(self)
+        try:
+            # pylint: disable=import-outside-toplevel
+            from loki_urllib3_client import LokiClient
+        except ImportError:
+            errorLabel = QtWidgets.QLabel(self)
+            errorLabel.setText('Loki client is not installed')
+            self.verticalLayout.addWidget(errorLabel)
+            return
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.frameNameLabel = QtWidgets.QLabel(self)
         self.horizontalLayout.addWidget(self.frameNameLabel)
