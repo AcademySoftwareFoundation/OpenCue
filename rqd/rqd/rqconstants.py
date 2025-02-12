@@ -274,6 +274,8 @@ try:
                 RQD_UID = 0
                 RQD_GID = 0
 
+                # Make sure sp_os is updated with the versions configured on DOCKER_AGENT
+                SP_OS = DOCKER_AGENT.sp_os
 
 # pylint: disable=broad-except
 except Exception as e:
