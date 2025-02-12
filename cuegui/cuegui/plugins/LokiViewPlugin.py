@@ -85,7 +85,7 @@ class LokiViewWidget(QtWidgets.QWidget):
         frameName = frameObj.name()
         frameId = frameObj.id()
         self.frameLogCombo.clear()
-        if jobObj.lokiEnabled():
+        if jobObj.lokiURL() is not None:
             self.frameNameLabel.setText(f"{jobName}.{frameName}")
             self.client = LokiClient(jobObj.lokiURL())
             maxTries = 5
