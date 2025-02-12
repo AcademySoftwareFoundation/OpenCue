@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dispatcher;
 
@@ -106,58 +102,31 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     @Before
     public void launchJob() {
         jobLauncher.testMode = true;
-        jobLauncher.launch(
-                new File("src/test/resources/conf/jobspec/jobspec_gpus_test.xml"));
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_gpus_test.xml"));
     }
 
     @Before
     public void createHost() {
-        RenderHost host = RenderHost.newBuilder()
-                .setName(HOSTNAME)
-                .setBootTime(1192369572)
+        RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(CueUtil.GB)
-                .setFreeMem((int) CueUtil.GB8)
-                .setFreeSwap(20760)
-                .setLoad(0)
-                .setTotalMcp(CueUtil.GB4)
-                .setTotalMem(CueUtil.GB8)
-                .setTotalSwap(CueUtil.GB2)
-                .setNimbyEnabled(false)
-                .setNumProcs(40)
-                .setCoresPerProc(100)
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .putAttributes("SP_OS", "Linux")
-                .setNumGpus(8)
-                .setFreeGpuMem(CueUtil.GB16 * 8)
-                .setTotalGpuMem(CueUtil.GB16 * 8)
+                .setFreeMcp(CueUtil.GB).setFreeMem((int) CueUtil.GB8).setFreeSwap(20760).setLoad(0)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(CueUtil.GB8).setTotalSwap(CueUtil.GB2)
+                .setNimbyEnabled(false).setNumProcs(40).setCoresPerProc(100)
+                .setState(HardwareState.UP).setFacility("spi").putAttributes("SP_OS", "Linux")
+                .setNumGpus(8).setFreeGpuMem(CueUtil.GB16 * 8).setTotalGpuMem(CueUtil.GB16 * 8)
                 .build();
 
-        hostManager.createHost(host,
-                adminManager.findAllocationDetail("spi", "general"));
+        hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
 
-        RenderHost host2 = RenderHost.newBuilder()
-                .setName(HOSTNAME2)
-                .setBootTime(1192369572)
+        RenderHost host2 = RenderHost.newBuilder().setName(HOSTNAME2).setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(CueUtil.GB)
-                .setFreeMem((int) CueUtil.GB4)
-                .setFreeSwap((int) CueUtil.GB4)
-                .setLoad(0)
-                .setTotalMcp(CueUtil.GB4)
-                .setTotalMem((int) CueUtil.GB8)
-                .setTotalSwap((int) CueUtil.GB8)
-                .setNimbyEnabled(false)
-                .setNumProcs(8)
-                .setCoresPerProc(100)
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .putAttributes("SP_OS", "Linux")
-                .build();
+                .setFreeMcp(CueUtil.GB).setFreeMem((int) CueUtil.GB4).setFreeSwap((int) CueUtil.GB4)
+                .setLoad(0).setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB8)
+                .setTotalSwap((int) CueUtil.GB8).setNimbyEnabled(false).setNumProcs(8)
+                .setCoresPerProc(100).setState(HardwareState.UP).setFacility("spi")
+                .putAttributes("SP_OS", "Linux").build();
 
-        hostManager.createHost(host2,
-                adminManager.findAllocationDetail("spi", "general"));
+        hostManager.createHost(host2, adminManager.findAllocationDetail("spi", "general"));
     }
 
     public DispatchHost getHost(String hostname) {
@@ -180,16 +149,11 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         assertEquals(7, host.idleGpus);
         assertEquals(CueUtil.GB16 * 8 - CueUtil.GB, host.idleGpuMemory);
 
-        RunningFrameInfo info = RunningFrameInfo.newBuilder()
-                .setJobId(proc.getJobId())
-                .setLayerId(proc.getLayerId())
-                .setFrameId(proc.getFrameId())
-                .setResourceId(proc.getProcId())
-                .build();
-        FrameCompleteReport report = FrameCompleteReport.newBuilder()
-                .setFrame(info)
-                .setExitStatus(0)
-                .build();
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).build();
+        FrameCompleteReport report =
+                FrameCompleteReport.newBuilder().setFrame(info).setExitStatus(0).build();
         frameCompleteHandler.handleFrameCompleteReport(report);
 
         assertTrue(jobManager.isLayerComplete(layer));
@@ -216,16 +180,11 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         assertEquals(CueUtil.GB16 * 8 - CueUtil.GB2, host.idleGpuMemory);
 
         for (VirtualProc proc : procs) {
-            RunningFrameInfo info = RunningFrameInfo.newBuilder()
-                    .setJobId(proc.getJobId())
-                    .setLayerId(proc.getLayerId())
-                    .setFrameId(proc.getFrameId())
-                    .setResourceId(proc.getProcId())
-                    .build();
-            FrameCompleteReport report = FrameCompleteReport.newBuilder()
-                    .setFrame(info)
-                    .setExitStatus(0)
-                    .build();
+            RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                    .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                    .setResourceId(proc.getProcId()).build();
+            FrameCompleteReport report =
+                    FrameCompleteReport.newBuilder().setFrame(info).setExitStatus(0).build();
             frameCompleteHandler.handleFrameCompleteReport(report);
         }
 
@@ -255,29 +214,22 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         assertEquals(CueUtil.GB16 * 8 - CueUtil.GB, host.idleGpuMemory);
 
         for (VirtualProc proc : procs) {
-            RunningFrameInfo info = RunningFrameInfo.newBuilder()
-                    .setJobId(proc.getJobId())
-                    .setLayerId(proc.getLayerId())
-                    .setFrameId(proc.getFrameId())
-                    .setResourceId(proc.getProcId())
-                    .build();
-            FrameCompleteReport report = FrameCompleteReport.newBuilder()
-                    .setFrame(info)
-                    .setExitStatus(0)
-                    .build();
+            RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                    .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                    .setResourceId(proc.getProcId()).build();
+            FrameCompleteReport report =
+                    FrameCompleteReport.newBuilder().setFrame(info).setExitStatus(0).build();
             frameCompleteHandler.handleFrameCompleteReport(report);
         }
 
-        assertEquals(1,
-                (jobManager.isLayerComplete(layer1_0) ? 1 : 0) +
-                (jobManager.isLayerComplete(layer2_0) ? 1 : 0));
-        assertEquals(1,
-                (jobManager.isJobComplete(job1) ? 1 : 0) +
-                (jobManager.isJobComplete(job2) ? 1 : 0));
+        assertEquals(1, (jobManager.isLayerComplete(layer1_0) ? 1 : 0)
+                + (jobManager.isLayerComplete(layer2_0) ? 1 : 0));
+        assertEquals(1, (jobManager.isJobComplete(job1) ? 1 : 0)
+                + (jobManager.isJobComplete(job2) ? 1 : 0));
     }
 
-    private void executeDepend(
-            FrameState frameState, int exitStatus, int dependCount, FrameState dependState) {
+    private void executeDepend(FrameState frameState, int exitStatus, int dependCount,
+            FrameState dependState) {
         JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test_depend");
         LayerDetail layerFirst = layerDao.findLayerDetail(job, "layer_first");
         LayerDetail layerSecond = layerDao.findLayerDetail(job, "layer_second");
@@ -297,24 +249,19 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         assertEquals(layerFirst.getId(), proc.getLayerId());
         assertEquals(frameFirst.getId(), proc.getFrameId());
 
-        RunningFrameInfo info = RunningFrameInfo.newBuilder()
-                .setJobId(proc.getJobId())
-                .setLayerId(proc.getLayerId())
-                .setFrameId(proc.getFrameId())
-                .setResourceId(proc.getProcId())
-                .build();
-        FrameCompleteReport report = FrameCompleteReport.newBuilder()
-                .setFrame(info)
-                .setExitStatus(exitStatus)
-                .build();
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).build();
+        FrameCompleteReport report =
+                FrameCompleteReport.newBuilder().setFrame(info).setExitStatus(exitStatus).build();
 
         DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
         DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
         FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
         dispatchSupport.stopFrame(dispatchFrame, frameState, report.getExitStatus(),
-            report.getFrame().getMaxRss());
-        frameCompleteHandler.handlePostFrameCompleteOperations(proc,
-            report, dispatchJob, dispatchFrame, frameState, frameDetail);
+                report.getFrame().getMaxRss());
+        frameCompleteHandler.handlePostFrameCompleteOperations(proc, report, dispatchJob,
+                dispatchFrame, frameState, frameDetail);
 
         assertTrue(jobManager.isLayerComplete(layerFirst));
         assertFalse(jobManager.isLayerComplete(layerSecond));
@@ -389,24 +336,19 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         assertEquals(layer.getId(), proc.getLayerId());
         assertEquals(frame.getId(), proc.getFrameId());
 
-        RunningFrameInfo info = RunningFrameInfo.newBuilder()
-                .setJobId(proc.getJobId())
-                .setLayerId(proc.getLayerId())
-                .setFrameId(proc.getFrameId())
-                .setResourceId(proc.getProcId())
-                .build();
-        FrameCompleteReport report = FrameCompleteReport.newBuilder()
-                .setFrame(info)
-                .setExitStatus(Dispatcher.EXIT_STATUS_MEMORY_FAILURE)
-                .build();
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).build();
+        FrameCompleteReport report = FrameCompleteReport.newBuilder().setFrame(info)
+                .setExitStatus(Dispatcher.EXIT_STATUS_MEMORY_FAILURE).build();
 
         DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
         DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
         FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
         dispatchSupport.stopFrame(dispatchFrame, FrameState.DEAD, report.getExitStatus(),
                 report.getFrame().getMaxRss());
-        frameCompleteHandler.handlePostFrameCompleteOperations(proc,
-                report, dispatchJob, dispatchFrame, FrameState.WAITING, frameDetail);
+        frameCompleteHandler.handlePostFrameCompleteOperations(proc, report, dispatchJob,
+                dispatchFrame, FrameState.WAITING, frameDetail);
 
         assertFalse(jobManager.isLayerComplete(layer));
 
@@ -414,8 +356,6 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         LayerDetail ulayer = layerDao.findLayerDetail(ujob, "test_layer");
         assertEquals(expected, ulayer.getMinimumMemory());
     }
-
-
 
     private void executeMinMemIncreaseDocker(int expected, boolean override) {
         if (override) {
@@ -446,24 +386,19 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         assertEquals(layer.getId(), proc.getLayerId());
         assertEquals(frame.getId(), proc.getFrameId());
 
-        RunningFrameInfo info = RunningFrameInfo.newBuilder()
-                .setJobId(proc.getJobId())
-                .setLayerId(proc.getLayerId())
-                .setFrameId(proc.getFrameId())
-                .setResourceId(proc.getProcId())
-                .build();
-        FrameCompleteReport report = FrameCompleteReport.newBuilder()
-                .setFrame(info)
-                .setExitStatus(Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE)
-                .build();
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).build();
+        FrameCompleteReport report = FrameCompleteReport.newBuilder().setFrame(info)
+                .setExitStatus(Dispatcher.DOCKER_EXIT_STATUS_MEMORY_FAILURE).build();
 
         DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
         DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
         FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
         dispatchSupport.stopFrame(dispatchFrame, FrameState.DEAD, report.getExitStatus(),
                 report.getFrame().getMaxRss());
-        frameCompleteHandler.handlePostFrameCompleteOperations(proc,
-                report, dispatchJob, dispatchFrame, FrameState.WAITING, frameDetail);
+        frameCompleteHandler.handlePostFrameCompleteOperations(proc, report, dispatchJob,
+                dispatchFrame, FrameState.WAITING, frameDetail);
 
         assertFalse(jobManager.isLayerComplete(layer));
 

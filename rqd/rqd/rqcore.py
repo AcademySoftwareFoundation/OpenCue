@@ -37,11 +37,11 @@ import traceback
 import select
 import uuid
 
-from docker.errors import APIError, ImageNotFound
-
 import rqd.compiled_proto.host_pb2
 import rqd.compiled_proto.report_pb2
+import rqd.compiled_proto.rqd_pb2
 import rqd.rqconstants
+from rqd.rqconstants import DOCKER_AGENT
 import rqd.rqexceptions
 import rqd.rqmachine
 import rqd.rqnetwork
@@ -83,7 +83,7 @@ class RqCore(object):
         self.__cache = {}
         self.updateRssThread = None
         self.onIntervalThread = None
-        self.intervalStartTime = None
+        self.intervalStartTime = 0
         self.intervalSleepTime = rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC
 
         #  pylint: disable=unused-private-member
@@ -91,17 +91,22 @@ class RqCore(object):
         self.__session = None
         self.__stmt = None
 
-        self.docker = None
-        self.docker_mounts = []
-        self.docker_images = {}
-        self.docker_lock = threading.Lock()
-        if rqd.rqconstants.RUN_ON_DOCKER:
-            # pylint: disable=import-outside-toplevel
-            import docker
-            self.docker = docker
-            self.docker_images = rqd.rqconstants.DOCKER_IMAGES
-            self.docker_mounts = rqd.rqconstants.DOCKER_MOUNTS
-            self.handleFrameImages()
+        self.docker_agent = None
+
+        if DOCKER_AGENT:
+            self.docker_agent = DOCKER_AGENT
+            self.docker_agent.refreshFrameImages()
+
+        self.backup_cache_path = None
+        if rqd.rqconstants.BACKUP_CACHE_PATH:
+            if not rqd.rqconstants.DOCKER_AGENT:
+                log.warning("Cache backup is currently only available "
+                    "when RUN_ON_DOCKER mode")
+            else:
+                self.backup_cache_path = rqd.rqconstants.BACKUP_CACHE_PATH
+                if not os.path.exists(os.path.dirname(self.backup_cache_path)):
+                    os.makedirs(os.path.dirname(self.backup_cache_path))
+                self.recoverCache()
 
         signal.signal(signal.SIGINT, self.handleExit)
         signal.signal(signal.SIGTERM, self.handleExit)
@@ -178,10 +183,64 @@ class RqCore(object):
         if self.__cache:
             try:
                 self.machine.rssUpdate(self.__cache)
+                if self.backup_cache_path:
+                    self.backupCache()
             finally:
                 self.updateRssThread = threading.Timer(
                     rqd.rqconstants.RSS_UPDATE_INTERVAL, self.updateRss)
                 self.updateRssThread.start()
+
+    def backupCache(self):
+        """Backs up a copy of the running frames cache for a possible recovery.
+        each backup is destructive and erases the last known state"""
+        if not self.backup_cache_path:
+            return
+        with open(self.backup_cache_path, "wb") as f:
+            for item in list(self.__cache.values()):
+                serialized = item.runFrame.SerializeToString()
+                f.write(len(serialized).to_bytes(4, byteorder="big"))
+                f.write(serialized)
+
+    def recoverCache(self):
+        """Reload the running frames from the latest backup. The backup file
+        will be rejected if it hasn't been updated recently
+        (rqconstants.BACKUP_CACHE_TIME_TO_LIVE_SECONDS)
+        """
+        if not self.backup_cache_path or \
+            not os.path.exists(self.backup_cache_path) or \
+            (time.time() - os.path.getmtime(self.backup_cache_path) > \
+                rqd.rqconstants.BACKUP_CACHE_TIME_TO_LIVE_SECONDS):
+            return
+        with open(self.backup_cache_path, "rb") as f:
+            while True:
+                # Read length (4 bytes)
+                length_bytes = f.read(4)
+                if not length_bytes:
+                    break  # End of file
+
+                length = int.from_bytes(length_bytes, byteorder='big')
+                # Read the message data
+                message_data = f.read(length)
+
+                run_frame = rqd.compiled_proto.rqd_pb2.RunFrame()
+                # Ignore frames that failed to be parsed
+                try:
+                    run_frame.ParseFromString(message_data)
+                    log.warning("Recovered frame %s.%s", run_frame.job_name, run_frame.frame_name)
+                    running_frame = rqd.rqnetwork.RunningFrame(self, run_frame)
+                    running_frame.frameAttendantThread = FrameAttendantThread(
+                        self, run_frame, running_frame, recovery_mode=True)
+                    # Make sure cores are accounted for
+                    # pylint: disable=no-member
+                    self.cores.idle_cores -= run_frame.num_cores
+                    self.cores.booked_cores += run_frame.num_cores
+                    # pylint: enable=no-member
+
+                    running_frame.frameAttendantThread.start()
+                # pylint: disable=broad-except
+                except Exception:
+                    pass
+                    # Ignore frames that got corrupted
 
     def getFrame(self, frameId):
         """Gets a frame from the cache based on frameId
@@ -633,28 +692,12 @@ class RqCore(object):
                                   runningFrame.runFrame.job_name,
                                   runningFrame.runFrame.frame_name)
 
-    def handleFrameImages(self):
-        """
-        Download docker images to be used by frames running on this host
-        """
-        if self.docker:
-            docker_client = self.docker.from_env()
-            for image in self.docker_images.values():
-                log.info("Downloading frame image: %s", image)
-                try:
-                    name, tag = image.split(":")
-                    docker_client.images.pull(name, tag)
-                except (ImageNotFound, APIError) as e:
-                    raise RuntimeError("Failed to download frame docker image for %s:%s - %s" %
-                                       (name, tag, e))
-            log.info("Finished downloading frame images")
-
 
 class FrameAttendantThread(threading.Thread):
     """Once a frame has been received and checked by RQD, this class handles
        the launching, waiting on, and cleanup work related to running the
        frame."""
-    def __init__(self, rqCore: RqCore, runFrame, frameInfo):
+    def __init__(self, rqCore: RqCore, runFrame, frameInfo, recovery_mode=False):
         """FrameAttendantThread class initialization
            @type    rqCore: RqCore
            @param   rqCore: Main RQD Object
@@ -662,9 +705,12 @@ class FrameAttendantThread(threading.Thread):
            @param  runFrame: rqd_pb2.RunFrame
            @type  frameInfo: rqd.rqnetwork.RunningFrame
            @param frameInfo: Servant for running frame
+           @type  recovery_mode: bool
+           @param recovery_mode: Run in frame recovery mode
         """
         threading.Thread.__init__(self)
         self.rqCore = rqCore
+        self.docker_agent = rqCore.docker_agent
         self.frameId = runFrame.frame_id
         self.runFrame = runFrame
         self.startTime = 0
@@ -672,6 +718,7 @@ class FrameAttendantThread(threading.Thread):
         self.frameInfo = frameInfo
         self._tempLocations = []
         self.rqlog = None
+        self.recovery_mode = recovery_mode
 
     def __createEnvVariables(self):
         """Define the environmental variables for the frame"""
@@ -924,7 +971,7 @@ class FrameAttendantThread(threading.Thread):
         finally:
             rqd.rqutil.permissionsLow()
 
-        frameInfo.pid = frameInfo.forkedCommand.pid
+        frameInfo.pid = runFrame.pid = frameInfo.forkedCommand.pid
 
         if not self.rqCore.updateRssThread.is_alive():
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
@@ -975,21 +1022,19 @@ class FrameAttendantThread(threading.Thread):
 
     def runDocker(self):
         """The steps required to handle a frame under a docker container"""
+        # pylint: disable=import-outside-toplevel
+        # pylint: disable=import-error
+        from docker.errors import APIError
+        from rqd.rqdocker import InvalidFrameOsError
+
         frameInfo = self.frameInfo
         runFrame = self.runFrame
 
         # Ensure Nullable attributes have been initialized
         if not self.rqlog:
             raise RuntimeError("Invalid state. rqlog has not been initialized")
-        if not self.rqCore.docker:
-            raise RuntimeError("Invalid state: docker_client must have been initialized.")
-
-        try:
-            image = self.__getFrameImage(runFrame.os)
-        except RuntimeError as e:
-            self.__writeHeader()
-            self.rqlog.write(str(e), prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
-            raise e
+        if not self.docker_agent:
+            raise RuntimeError("Invalid state: docker_agent must have been initialized.")
 
         self.__createEnvVariables()
         self.__writeHeader()
@@ -1000,14 +1045,20 @@ class FrameAttendantThread(threading.Thread):
         self._tempLocations.append(tempStatFile)
 
         # Prevent frame from attempting to run as ROOT
+        gid = runFrame.gid
         if runFrame.gid <= 0:
             gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
-        else:
-            gid = runFrame.gid
+
+        # Prevent invalid uids, fallback to daemon uid
+        uid = runFrame.uid
+        if uid < rqd.rqconstants.RQD_MIN_UID or uid > rqd.rqconstants.RQD_MAX_UID:
+            msg = "Frame launched with an invalid uid=%s. Falling back to daemon uid" % runFrame.uid
+            self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+            uid = rqd.rqconstants.RQD_DAEMON_UID
 
         # Never give frame ROOT permissions
-        if runFrame.uid == 0 or gid == 0:
-            msg = ("Frame %s cannot run as ROOT" % frameInfo.frameId)
+        if uid == 0 or gid == 0:
+            msg = "Frame %s cannot run as ROOT" % frameInfo.frameId
             self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
             raise RuntimeError(msg)
 
@@ -1025,11 +1076,11 @@ class FrameAttendantThread(threading.Thread):
 useradd -u %s -g %s -p %s %s >& /dev/null || true;
 exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
 """ % (
-            runFrame.uid,
+            uid,
             gid,
             tempPassword,
             runFrame.user_name,
-            rqd.rqconstants.DOCKER_SHELL_PATH,
+            self.docker_agent.docker_shell_path,
             runFrame.user_name,
             tempStatFile,
             tasksetCmd,
@@ -1041,6 +1092,9 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             # Mask password
             command.replace(tempPassword, "[password]").replace(";", "\n"),
             prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+
+        if self.docker_agent.gpu_mode:
+            self.rqlog.write("GPU_MODE activated")
 
         # Handle memory limits. Cuebot users KB docker uses Bytes.
         # Docker min requirement is 6MB, if request is bellow limit, give the frame a reasonable
@@ -1058,26 +1112,20 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
 
         # Write command to a file on the job tmpdir to simplify replaying a frame
         command = self._createCommandFile(command)
-        docker_client = self.rqCore.docker.from_env()
         container = None
+        docker_client = None
         container_id = "00000000"
         frameInfo.pid = -1
         try:
             log_stream = None
-            with self.rqCore.docker_lock:
-                container = docker_client.containers.run(image=image,
-                    detach=True,
-                    environment=self.frameEnv,
-                    working_dir=self.rqCore.machine.getTempPath(),
-                    mounts=self.rqCore.docker_mounts,
-                    privileged=True,
-                    pid_mode="host",
-                    network="host",
-                    stderr=True,
-                    hostname=self.frameEnv["jobhost"],
-                    mem_reservation=soft_memory_limit,
-                    mem_limit=hard_memory_limit,
-                    entrypoint=command)
+            docker_client, container = self.docker_agent.runContainer(
+                image_key=runFrame.os,
+                environment=self.frameEnv,
+                working_dir=self.rqCore.machine.getTempPath(),
+                hostname=self.frameEnv["jobhost"],
+                mem_reservation=soft_memory_limit,
+                mem_limit=hard_memory_limit,
+                entrypoint=command)
 
             log_stream = container.logs(stream=True)
 
@@ -1093,7 +1141,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                 # Docker SDK type hint states that `top` returns an str
                 # when in reality it returns a Dict {"Processes": [[]], "Columns": [[]]}
                 container_top: dict = container.top()
-                frameInfo.pid = int(container_top["Processes"][0][1])
+                frameInfo.pid = runFrame.pid = int(container_top["Processes"][0][1])
             except (APIError, TypeError):
                 for first_line in log_stream:
                     frameInfo.pid = int(first_line)
@@ -1116,6 +1164,8 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                                                             self.rqCore.updateRss)
                 self.rqCore.updateRssThread.start()
 
+            # Store container id in case this frame needs to be restored from the backup
+            runFrame.attributes["container_id"] = container.short_id
             # Atatch to the job and follow the logs
             for line in log_stream:
                 self.rqlog.write(line, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
@@ -1138,6 +1188,11 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                     frameInfo.frameId)
                 logging.error(msg)
                 self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+        except InvalidFrameOsError as e:
+            # Frame container didn't get created
+            returncode = -1
+            self.__writeHeader()
+            self.rqlog.write(str(e), prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
         # pylint: disable=broad-except
         except Exception as e:
             returncode = -1
@@ -1150,7 +1205,8 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             if container:
                 container_id = container.short_id
                 container.remove()
-            docker_client.close()
+            if docker_client:
+                docker_client.close()
 
         # Find exitStatus and exitSignal
         if returncode < 0:
@@ -1184,28 +1240,6 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         self.__writeFooter()
         self.__cleanup()
 
-    def __getFrameImage(self, frame_os=None):
-        """
-        Get the pre-configured image for the given frame_os.
-
-        Raises:
-            RuntimeError - if a suitable image cannot be found
-        """
-        if frame_os:
-            image = self.rqCore.docker_images.get(frame_os)
-            if image is None:
-                raise RuntimeError("This rqd is not configured to run an image "
-                    "for this frame OS: %s. Check the [docker.images] "
-                    "section of rqd.conf for more information." % frame_os)
-            return image
-        if self.rqCore.docker_images:
-            # If a frame doesn't require an specic OS, default to the first configured OS on
-            # [docker.images]
-            return list(self.rqCore.docker_images.values())[0]
-
-        raise RuntimeError("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
-                "least one image on DOCKER_IMAGES ([docker.images] section of rqd.conf)")
-
     def runWindows(self):
         """The steps required to handle a frame under windows"""
         frameInfo = self.frameInfo
@@ -1230,7 +1264,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                 "Failed subprocess.Popen: Due to: \n%s",
                 ''.join(traceback.format_exception(*sys.exc_info())))
 
-        frameInfo.pid = frameInfo.forkedCommand.pid
+        frameInfo.pid = runFrame.pid = frameInfo.forkedCommand.pid
 
         if not self.rqCore.updateRssThread.is_alive():
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
@@ -1313,86 +1347,267 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
         self.__writeFooter()
         self.__cleanup()
 
+    def setup(self):
+        """Setup for running or recovering a frame"""
+        runFrame = self.runFrame
+        run_on_docker = self.rqCore.docker_agent is not None
+
+        runFrame.job_temp_dir = os.path.join(self.rqCore.machine.getTempPath(),
+                                                runFrame.job_name)
+        runFrame.frame_temp_dir = os.path.join(runFrame.job_temp_dir,
+                                                runFrame.frame_name)
+        runFrame.log_file = "%s.%s.rqlog" % (runFrame.job_name,
+                                                runFrame.frame_name)
+        runFrame.log_dir_file = os.path.join(runFrame.log_dir, runFrame.log_file)
+
+        # Ensure permissions return to Low after this block
+        try:
+            if rqd.rqconstants.RQD_CREATE_USER_IF_NOT_EXISTS and runFrame.HasField("uid"):
+                rqd.rqutil.checkAndCreateUser(runFrame.user_name,
+                                                runFrame.uid,
+                                                runFrame.gid)
+                if not run_on_docker:
+                    # Do everything as launching user:
+                    runFrame.gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
+                    rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
+
+            # Setup frame logging
+            self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)
+            self.rqlog.waitForFile()
+        # pylint: disable=broad-except
+        except Exception as e:
+            err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
+            raise RuntimeError(err)
+        finally:
+            rqd.rqutil.permissionsLow()
+
+
     def runUnknown(self):
         """The steps required to handle a frame under an unknown OS."""
 
     def run(self):
         """Thread initialization"""
+        if self.recovery_mode:
+            self.runRecovery()
+            return
+
         log.info("Monitor frame started for frameId=%s", self.frameId)
 
         runFrame = self.runFrame
-        run_on_docker = self.rqCore.docker is not None
+        run_on_docker = self.rqCore.docker_agent is not None
 
         # pylint: disable=too-many-nested-blocks
         try:
-            runFrame.job_temp_dir = os.path.join(self.rqCore.machine.getTempPath(),
-                                                 runFrame.job_name)
-            runFrame.frame_temp_dir = os.path.join(runFrame.job_temp_dir,
-                                                   runFrame.frame_name)
-            runFrame.log_file = "%s.%s.rqlog" % (runFrame.job_name,
-                                                 runFrame.frame_name)
-            runFrame.log_dir_file = os.path.join(runFrame.log_dir, runFrame.log_file)
+            self.setup()
+            # Store frame in cache and register servant
+            self.rqCore.storeFrame(runFrame.frame_id, self.frameInfo)
 
-            try:  # Exception block for all exceptions
-                # Ensure permissions return to Low after this block
-                try:
-                    if rqd.rqconstants.RQD_CREATE_USER_IF_NOT_EXISTS and runFrame.HasField("uid"):
-                        rqd.rqutil.checkAndCreateUser(runFrame.user_name,
-                                                      runFrame.uid,
-                                                      runFrame.gid)
-                        if not run_on_docker:
-                            # Do everything as launching user:
-                            runFrame.gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
-                            rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
+            if run_on_docker:
+                self.runDocker()
+            elif platform.system() == "Linux":
+                self.runLinux()
+            elif platform.system() == "Windows":
+                self.runWindows()
+            elif platform.system() == "Darwin":
+                self.runDarwin()
+            else:
+                self.runUnknown()
 
-                    # Setup frame logging
-                    try:
-                        self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)
-                        self.rqlog.waitForFile()
-                    # pylint: disable=broad-except
-                    except Exception as e:
-                        err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
-                        raise RuntimeError(err)
-
-                finally:
-                    rqd.rqutil.permissionsLow()
-
-                # Store frame in cache and register servant
-                self.rqCore.storeFrame(runFrame.frame_id, self.frameInfo)
-
-                if run_on_docker:
-                    self.runDocker()
-                elif platform.system() == "Linux":
-                    self.runLinux()
-                elif platform.system() == "Windows":
-                    self.runWindows()
-                elif platform.system() == "Darwin":
-                    self.runDarwin()
-                else:
-                    self.runUnknown()
-
-            # pylint: disable=broad-except
-            except Exception:
-                log.critical(
-                    "Failed launchFrame: For %s due to: \n%s",
-                    runFrame.frame_id, ''.join(traceback.format_exception(*sys.exc_info())))
-                # Notifies the cuebot that there was an error launching
-                self.frameInfo.exitStatus = rqd.rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
-                # Delay keeps the cuebot from spamming failing booking requests
-                time.sleep(10)
+        # pylint: disable=broad-except
+        except Exception:
+            log.critical(
+                "Failed launchFrame: For %s due to: \n%s",
+                runFrame.frame_id, ''.join(traceback.format_exception(*sys.exc_info())))
+            # Notifies the cuebot that there was an error launching
+            self.frameInfo.exitStatus = rqd.rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
+            # Delay keeps the cuebot from spamming failing booking requests
+            time.sleep(10)
         finally:
-            self.rqCore.releaseCores(self.runFrame.num_cores, runFrame.attributes.get('CPU_LIST'),
-                runFrame.attributes.get('GPU_LIST')
+            self.postFrameAction()
+
+    def postFrameAction(self):
+        """Action to be executed after a frame completes its execution"""
+        self.rqCore.releaseCores(self.runFrame.num_cores,
+            self.runFrame.attributes.get('CPU_LIST'),
+            self.runFrame.attributes.get('GPU_LIST')
                 if 'GPU_LIST' in self.runFrame.attributes else None)
 
-            self.rqCore.deleteFrame(self.runFrame.frame_id)
+        self.rqCore.deleteFrame(self.runFrame.frame_id)
 
-            self.rqCore.sendFrameCompleteReport(self.frameInfo)
-            time_till_next = (
-                    (self.rqCore.intervalStartTime + self.rqCore.intervalSleepTime) - time.time())
-            if time_till_next > (2 * rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC):
-                self.rqCore.onIntervalThread.cancel()
-                self.rqCore.onInterval(rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC)
+        self.rqCore.sendFrameCompleteReport(self.frameInfo)
+        time_till_next = (
+                (self.rqCore.intervalStartTime + self.rqCore.intervalSleepTime) - time.time())
+        if time_till_next > (2 * rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC):
+            self.rqCore.onIntervalThread.cancel()
+            self.rqCore.onInterval(rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC)
 
-            log.info("Monitor frame ended for frameId=%s",
-                     self.runFrame.frame_id)
+        log.info("Monitor frame ended for frameId=%s",
+                    self.runFrame.frame_id)
+
+    def recoverDocker(self):
+        """The steps required to handle a frame under a docker container"""
+        frameInfo = self.frameInfo
+        runFrame = self.runFrame
+        container = None
+
+        # Ensure Nullable attributes have been initialized
+        if not self.rqlog:
+            raise RuntimeError("Invalid state. rqlog has not been initialized")
+        if not self.rqCore.docker_agent:
+            raise RuntimeError("Invalid state: docker_agent must have been initialized.")
+        if not runFrame.attributes.get("container_id"):
+            raise RuntimeError("Invalid state: recovered frame does't contain a container id")
+        container_id = runFrame.attributes.get("container_id")
+
+        docker_client = self.rqCore.docker_agent.new_client()
+        # The recovered frame will stream back the logs into a new file,
+        # therefore, write a new header
+        self.__createEnvVariables()
+        self.__writeHeader()
+
+        tempStatFile = "%srqd-stat-%s-%s" % (self.rqCore.machine.getTempPath(),
+                                             frameInfo.frameId,
+                                             time.time())
+        self._tempLocations.append(tempStatFile)
+
+        try:
+            log_stream = None
+            with self.rqCore.docker_agent.docker_lock:
+                container = docker_client.containers.get(container_id)
+            log_stream = container.logs(stream=True)
+
+            if not container or not log_stream:
+                raise RuntimeError("Failed to recover container for %s.%s(%s)" % (
+                    runFrame.job_name,
+                    runFrame.frame_name,
+                    frameInfo.frameId))
+
+            # Log frame start info
+            msg = "Container %s recovered for %s.%s(%s) with pid %s" % (
+                container.short_id,
+                runFrame.job_name,
+                runFrame.frame_name,
+                frameInfo.frameId,
+                frameInfo.pid)
+
+            log.info(msg)
+            self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+
+            # Ping rss thread on rqCore
+            if self.rqCore.updateRssThread and not self.rqCore.updateRssThread.is_alive():
+                self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
+                                                            self.rqCore.updateRss)
+                self.rqCore.updateRssThread.start()
+
+            # Attach to the job and follow the logs
+            for line in log_stream:
+                self.rqlog.write(line, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+
+            output = container.wait()
+            returncode = output["StatusCode"]
+        except StopIteration:
+            # This exception can happen when a container is interrupted
+            # If frame pid is set it means the container has started successfully
+            if frameInfo.pid and container:
+                output = container.wait()
+                returncode = output["StatusCode"]
+            else:
+                returncode = -1
+                container_id = container.short_id if container else -1
+                msg = "Failed to read frame container logs on %s for %s.%s(%s)" % (
+                    container_id,
+                    runFrame.job_name,
+                    runFrame.frame_name,
+                    frameInfo.frameId)
+                logging.error(msg)
+                self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+        # pylint: disable=broad-except
+        except Exception as e:
+            returncode = -1
+            msg = "Failed to recover frame container"
+            logging.warning(msg)
+            self.rqlog.write("%s - The frame might have finishes during rqd's reinitialization "
+                "- %s" % (msg, e),
+                prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+        finally:
+            # Clear up container after if finishes
+            if container:
+                container_id = container.short_id
+                container.remove()
+            docker_client.close()
+
+        if container:
+            # Find exitStatus and exitSignal
+            if returncode < 0:
+                # Exited with a signal
+                frameInfo.exitStatus = 1
+                frameInfo.exitSignal = -returncode
+            else:
+                frameInfo.exitStatus = returncode
+                frameInfo.exitSignal = 0
+
+            # Log frame start info
+            log.warning(
+                "Frame %s.%s(%s) with pid %s finished on container %s with exitStatus %s %s",
+                runFrame.job_name,
+                runFrame.frame_name,
+                frameInfo.frameId,
+                frameInfo.pid,
+                container_id,
+                frameInfo.exitStatus,
+                "" if frameInfo.exitStatus == 0 else " - " + runFrame.log_dir_file)
+
+            try:
+                with open(tempStatFile, "r", encoding='utf-8') as statFile:
+                    frameInfo.realtime = statFile.readline().split()[1]
+                    frameInfo.utime = statFile.readline().split()[1]
+                    frameInfo.stime = statFile.readline().split()[1]
+                    statFile.close()
+            # pylint: disable=broad-except
+            except Exception:
+                pass  # This happens when frames are killed
+
+            self.__writeFooter()
+        self.__cleanup()
+
+    def runRecovery(self):
+        """Recover a frame that was running before this instance started"""
+        if not self.recovery_mode:
+            return
+
+        log.info("Monitor recovered frame started for frameId=%s", self.frameId)
+
+        runFrame = self.runFrame
+        run_on_docker = self.rqCore.docker_agent is not None
+
+        # pylint: disable=too-many-nested-blocks
+        try:
+            self.setup()
+            # Store frame in cache and register servant
+            self.rqCore.storeFrame(runFrame.frame_id, self.frameInfo)
+
+            if run_on_docker:
+                self.recoverDocker()
+            elif platform.system() == "Linux":
+                # TODO
+                pass
+            elif platform.system() == "Windows":
+                # TODO
+                pass
+            elif platform.system() == "Darwin":
+                # TODO
+                pass
+            else:
+                self.runUnknown()
+
+        # pylint: disable=broad-except
+        except Exception:
+            log.critical(
+                "Failed launchFrame: For %s due to: \n%s",
+                runFrame.frame_id, ''.join(traceback.format_exception(*sys.exc_info())))
+            # Notifies the cuebot that there was an error launching
+            self.frameInfo.exitStatus = rqd.rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
+            # Delay keeps the cuebot from spamming failing booking requests
+            time.sleep(10)
+        finally:
+            self.postFrameAction()

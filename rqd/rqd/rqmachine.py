@@ -355,7 +355,8 @@ class Machine(object):
                                         pidPcpu = totalTime / seconds
                                         pcpu += pidPcpu
                                         pidData[pid] = totalTime, seconds, pidPcpu
-                                # only keep the highest recorded rss value
+                                # If children was already accounted for, only keep the highest
+                                # recorded rss value
                                 if pid in frame.childrenProcs:
                                     childRss = (int(data["rss"]) * resource.getpagesize()) // 1024
                                     if childRss > frame.childrenProcs[pid]['rss']:

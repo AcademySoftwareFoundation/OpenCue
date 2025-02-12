@@ -2,19 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 
 package com.imageworks.spcue.test.service;
 
@@ -72,10 +69,9 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
     JobManager jobManager;
@@ -125,28 +121,16 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
     public DispatchHost createHost() {
 
-        RenderHost host = RenderHost.newBuilder()
-                .setName("test_host")
-                .setBootTime(1192369572)
+        RenderHost host = RenderHost.newBuilder().setName("test_host").setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(CueUtil.GB)
-                .setFreeMem(53500)
-                .setFreeSwap(20760)
-                .setLoad(1)
-                .setTotalMcp(CueUtil.GB4)
-                .setTotalMem((int) CueUtil.GB16)
-                .setTotalSwap((int) CueUtil.GB16)
-                .setNimbyEnabled(false)
-                .setNumProcs(2)
-                .setCoresPerProc(100)
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .addTags("general")
-                .build();
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB16)
+                .setTotalSwap((int) CueUtil.GB16).setNimbyEnabled(false).setNumProcs(2)
+                .setCoresPerProc(100).setState(HardwareState.UP).setFacility("spi")
+                .addTags("general").build();
 
         DispatchHost dh = hostManager.createHost(host);
-        hostManager.setAllocation(dh,
-                adminManager.findAllocationDetail("spi", "general"));
+        hostManager.setAllocation(dh, adminManager.findAllocationDetail("spi", "general"));
 
         return dh;
     }
@@ -165,7 +149,8 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
             }
         }
 
-        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
+        JobSpec spec = jobLauncher
+                .parse(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
         jobLauncher.launch(spec);
 
         spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
@@ -249,18 +234,19 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testAutoNameJob() {
-        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_autoname.xml"));
+        JobSpec spec =
+                jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_autoname.xml"));
         jobLauncher.launch(spec);
 
         assertEquals(JobState.PENDING, jobDao.findJobDetail(spec.conformJobName("autoname")).state);
     }
 
-
     @Test
     @Transactional
     @Rollback(true)
     public void testShowAlias() {
-        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/show_alias.xml"));
+        JobSpec spec =
+                jobLauncher.parse(new File("src/test/resources/conf/jobspec/show_alias.xml"));
         jobLauncher.launch(spec);
     }
 
@@ -268,32 +254,35 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testMisNamedJob() {
-        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_misnamed.xml"));
-        assertEquals("pipe-dev.cue-testuser_pipe_dev.cue_testuser_blah_blah_v1",spec.getJobs().get(0).detail.name);
+        JobSpec spec =
+                jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_misnamed.xml"));
+        assertEquals("pipe-dev.cue-testuser_pipe_dev.cue_testuser_blah_blah_v1",
+                spec.getJobs().get(0).detail.name);
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testMisNamedJob2() {
-        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_misnamed.xml"));
+        JobSpec spec =
+                jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_misnamed.xml"));
 
-        assertEquals(spec.conformJobName("blah_____blah_v1"),
-                                         "pipe-dev.cue-testuser_blah_blah_v1");
+        assertEquals(spec.conformJobName("blah_____blah_v1"), "pipe-dev.cue-testuser_blah_blah_v1");
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testNonExistentShow() {
-        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_nonexistent_show.xml"));
+        JobSpec spec = jobLauncher
+                .parse(new File("src/test/resources/conf/jobspec/jobspec_nonexistent_show.xml"));
         try {
             jobLauncher.launch(spec);
             fail("Expected exception");
         } catch (EntityCreationError e) {
             assertEquals(e.getMessage(),
-                    "The nonexistentshow does not exist. Please contact administrator of your " +
-                    "OpenCue deployment to have this show created.");
+                    "The nonexistentshow does not exist. Please contact administrator of your "
+                            + "OpenCue deployment to have this show created.");
         }
     }
 
@@ -301,7 +290,8 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testPostFrameJobLaunch() {
-        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_postframes.xml"));
+        JobSpec spec = jobLauncher
+                .parse(new File("src/test/resources/conf/jobspec/jobspec_postframes.xml"));
         jobLauncher.launch(spec);
 
         String jobId = spec.getJobs().get(0).detail.id;
@@ -312,7 +302,6 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         assertEquals(JobState.FINISHED, jobDao.getJobDetail(jobId).state);
         assertEquals(JobState.PENDING, jobDao.getJobDetail(postJobId).state);
     }
-
 
     @Test
     @Transactional
@@ -338,13 +327,11 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         DispatchHost host = createHost();
         jobManager.setJobPaused(job, false);
 
-        String[] order = new String[] {
-                "0005-pass_2","0006-pass_2","0007-pass_2","0008-pass_2",
-                "0009-pass_2","0010-pass_2","0001-pass_1","0001-pass_2"
-        };
+        String[] order = new String[] {"0005-pass_2", "0006-pass_2", "0007-pass_2", "0008-pass_2",
+                "0009-pass_2", "0010-pass_2", "0001-pass_1", "0001-pass_2"};
 
-        for (String f: order) {
-            DispatchFrame frame =  dispatcherDao.findNextDispatchFrame(job, host);
+        for (String f : order) {
+            DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job, host);
             frameDao.updateFrameState(frame, FrameState.SUCCEEDED);
             assertEquals(f, frame.getName());
         }
@@ -369,12 +356,10 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         DispatchHost host = createHost();
         jobManager.setJobPaused(job, false);
 
-        String[] order = new String[] {
-                "0001-pass_2","0002-pass_2","0003-pass_2","0004-pass_2",
-                "0005-pass_2","0006-pass_1","0006-pass_2","0007-pass_1"
-        };
+        String[] order = new String[] {"0001-pass_2", "0002-pass_2", "0003-pass_2", "0004-pass_2",
+                "0005-pass_2", "0006-pass_1", "0006-pass_2", "0007-pass_1"};
 
-        for (String f: order) {
+        for (String f : order) {
             DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job, host);
             frameDao.updateFrameState(frame, FrameState.SUCCEEDED);
             assertEquals(f, frame.getName());
@@ -406,13 +391,11 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         JobDetail job = getJob1();
         LayerInterface layer = layerDao.findLayer(job, "pass_1");
         FrameSet staggeredFrameSet = new FrameSet("1-10:2");
-        jobManager.staggerLayer(layer,"1-10",2);
+        jobManager.staggerLayer(layer, "1-10", 2);
 
-        for (int i=0; i < staggeredFrameSet.size(); i++) {
-            assertEquals(
-                    staggeredFrameSet.get(i),
-                    frameDao.findFrameDetail(
-                            job, CueUtil.buildFrameName(layer, staggeredFrameSet.get(i))).number);
+        for (int i = 0; i < staggeredFrameSet.size(); i++) {
+            assertEquals(staggeredFrameSet.get(i), frameDao.findFrameDetail(job,
+                    CueUtil.buildFrameName(layer, staggeredFrameSet.get(i))).number);
         }
 
     }
@@ -434,16 +417,11 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         LayerInterface layer = layerDao.findLayer(job, "pass_1");
         FrameSearchInterface r = frameSearchFactory.create(layer);
         FrameSearchCriteria criteria = r.getCriteria();
-        r.setCriteria(criteria.toBuilder()
-                .setPage(1)
-                .setLimit(5)
-                .build());
+        r.setCriteria(criteria.toBuilder().setPage(1).setLimit(5).build());
         jobManagerSupport.eatFrames(r, new Source());
 
-        assertTrue(
-                frameDao.findFrameDetails(frameSearchFactory.create(layer))
-                        .stream()
-                        .allMatch(frame -> frame.state == FrameState.EATEN));
+        assertTrue(frameDao.findFrameDetails(frameSearchFactory.create(layer)).stream()
+                .allMatch(frame -> frame.state == FrameState.EATEN));
     }
 
     @Test
@@ -463,17 +441,14 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         /*
          * Make sure the layer is optimizable.
          */
-        frameDao.findFrames(frameSearchFactory.create(layer))
-                .stream()
-                .limit(5)
+        frameDao.findFrames(frameSearchFactory.create(layer)).stream().limit(5)
                 .forEach(frame -> frameDao.updateFrameState(frame, FrameState.SUCCEEDED));
         layerDao.updateUsage(layer, new ResourceUsage(100, 3500 * 5, 0), 0);
 
         // Test to make sure our optimization
         jobManager.optimizeLayer(layer, 100, CueUtil.MB512, 120);
 
-        assertEquals(
-                CueUtil.MB512 + CueUtil.MB256,
+        assertEquals(CueUtil.MB512 + CueUtil.MB256,
                 layerDao.findLayerDetail(job, "pass_1").minimumMemory);
     }
 
@@ -495,7 +470,6 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         LayerInterface layer = layerDao.findLayer(job, "pass_1");
         assertEquals(layer, jobManager.getLayer(layer.getId()));
     }
-
 
     @Test
     @Transactional

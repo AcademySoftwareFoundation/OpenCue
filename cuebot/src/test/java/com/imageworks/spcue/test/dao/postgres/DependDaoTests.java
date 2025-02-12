@@ -2,19 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -62,10 +59,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     @Rule
@@ -257,7 +253,7 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         LayerInterface layer = layerDao.findLayer(job_a, "pass_1");
         FrameDetail frame = frameDao.findFrameDetail(job_b, "0001-pass_1");
 
-        FrameOnLayer depend = new FrameOnLayer(frame,layer);
+        FrameOnLayer depend = new FrameOnLayer(frame, layer);
         dependDao.insertDepend(depend);
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
@@ -374,7 +370,6 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         assertEquals(0, dependDao.getWhatDependsOn(job_a).size());
     }
 
-
     @Test
     @Transactional
     @Rollback(true)
@@ -452,4 +447,3 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         assertEquals(0, dependDao.getWhatDependsOn(frame_a, true).size());
     }
 }
-

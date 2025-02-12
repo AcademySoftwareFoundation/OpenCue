@@ -20,8 +20,8 @@ rqd_dir = os.path.abspath(os.path.dirname(__file__))
 
 version = 'unknown'
 possible_version_paths = [
-    os.path.join(rqd_dir, 'VERSION'),
-    os.path.join(os.path.dirname(rqd_dir), 'VERSION'),
+    os.path.join(rqd_dir, 'VERSION.in'),
+    os.path.join(os.path.dirname(rqd_dir), 'VERSION.in'),
 ]
 for possible_version_path in possible_version_paths:
     if os.path.exists(possible_version_path):

@@ -2,17 +2,15 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package com.imageworks.spcue.service;
@@ -157,8 +155,7 @@ public class EmailSupport {
             sb.append("\n");
         }
         sb.append("\n\n");
-        sb.append(new XMLOutputter(
-                Format.getPrettyFormat()).outputString(spec.getDoc()));
+        sb.append(new XMLOutputter(Format.getPrettyFormat()).outputString(spec.getDoc()));
         sb.append("\n\n");
         sb.append(CueExceptionUtil.getStackTrace(t));
 
@@ -233,10 +230,9 @@ public class EmailSupport {
             context.put("eatenFrames", jts.eaten);
             context.put("failedFrames", jts.dead + jts.eaten + jts.waiting);
             context.put("checkpointFrames", jts.checkpoint);
-            context.put("maxRSS", String.format(Locale.ROOT, "%.1fGB",
-                    exj.highMemoryKb / 1024.0 / 1024.0));
-            context.put("coreTime", String.format(Locale.ROOT, "%.1f",
-                    exj.coreTime / 3600.0));
+            context.put("maxRSS",
+                    String.format(Locale.ROOT, "%.1fGB", exj.highMemoryKb / 1024.0 / 1024.0));
+            context.put("coreTime", String.format(Locale.ROOT, "%.1f", exj.coreTime / 3600.0));
 
             Template t = ve.getTemplate("/conf/webapp/html/email_template.html");
 
@@ -255,7 +251,8 @@ public class EmailSupport {
                     stats.setExecutionSummary(jobManager.getExecutionSummary(layer));
                     stats.setFrameStateTotals(jobManager.getFrameStateTotals(layer));
                     stats.setThreadStats(jobManager.getThreadStats(layer));
-                    stats.setOutputs(jobManager.getLayerOutputs(layer).stream().sorted().collect(Collectors.toList()));
+                    stats.setOutputs(jobManager.getLayerOutputs(layer).stream().sorted()
+                            .collect(Collectors.toList()));
                     layerStats.add(stats);
                     if (stats.getOutputs().size() > 3)
                         shouldCreateFile = true;
@@ -283,11 +280,8 @@ public class EmailSupport {
                     output = new BufferedWriter(new FileWriter(file));
                     for (LayerDetail layer : layers) {
                         if (layer.type.equals(LayerType.RENDER)) {
-                            List<String> sortedNames = jobManager
-                                    .getLayerOutputs(layer)
-                                    .stream()
-                                    .sorted()
-                                    .collect(Collectors.toList());
+                            List<String> sortedNames = jobManager.getLayerOutputs(layer).stream()
+                                    .sorted().collect(Collectors.toList());
                             output.write(layer.name + "\n" + String.join("\n", sortedNames) + "\n");
                         }
                     }
@@ -306,8 +300,8 @@ public class EmailSupport {
 
             for (String email : d.email.split(",")) {
                 try {
-                    CueUtil.sendmail(email, this.emailFromAddress, subject, new StringBuilder(w.toString()), imageMap,
-                            file);
+                    CueUtil.sendmail(email, this.emailFromAddress, subject,
+                            new StringBuilder(w.toString()), imageMap, file);
                 } catch (Exception e) {
                     // just log and eat if the mail server is down or something
                     // of that nature.

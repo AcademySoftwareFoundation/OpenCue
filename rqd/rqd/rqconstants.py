@@ -85,9 +85,14 @@ KILL_SIGNAL = 9
 if platform.system() == 'Linux':
     RQD_UID = pwd.getpwnam("daemon")[2]
     RQD_GID = pwd.getpwnam("daemon")[3]
+    # Linux's default uid limits are documented at
+    #  https://www.man7.org/linux/man-pages/man5/login.defs.5.html
+    RQD_MIN_UID = 1000
+    RQD_MAX_UID = 60000
 else:
     RQD_UID = 0
     RQD_GID = 0
+RQD_DAEMON_UID = RQD_UID
 
 # Nimby behavior:
 # Number of seconds to wait before checking if the user has become idle.
@@ -157,10 +162,13 @@ else:
 SP_OS = platform.system()
 
 # Docker mode config
-RUN_ON_DOCKER = False
-DOCKER_IMAGES = {}
-DOCKER_MOUNTS = []
-DOCKER_SHELL_PATH = "/bin/sh"
+DOCKER_AGENT = None
+DOCKER_GPU_MODE = False
+
+# Backup running frames cache. Backup cache is turned off if this path is set to
+# None or ""
+BACKUP_CACHE_PATH = ""
+BACKUP_CACHE_TIME_TO_LIVE_SECONDS = 60
 
 try:
     if os.path.isfile(CONFIG_FILE):
@@ -243,82 +251,29 @@ try:
         if config.has_section(__host_env_var_section):
             RQD_HOST_ENV_VARS = config.options(__host_env_var_section)
 
-        __docker_mounts = "docker.mounts"
+        if config.has_option(__override_section, "BACKUP_CACHE_PATH"):
+            BACKUP_CACHE_PATH = config.get(__override_section, "BACKUP_CACHE_PATH")
+        if config.has_option(__override_section, "BACKUP_CACHE_TIME_TO_LIVE_SECONDS"):
+            BACKUP_CACHE_TIME_TO_LIVE_SECONDS = config.getint(
+                __override_section, "BACKUP_CACHE_TIME_TO_LIVE_SECONDS")
+
         __docker_config = "docker.config"
-        __docker_images = "docker.images"
+        __docker_gpu_mode = "DOCKER_GPU_MODE"
 
         if config.has_section(__docker_config):
-            RUN_ON_DOCKER = config.getboolean(__docker_config, "RUN_ON_DOCKER")
-            if RUN_ON_DOCKER:
-                import docker
-                import docker.models
-                import docker.types
+            if config.getboolean(__docker_config, "RUN_ON_DOCKER"):
+                from rqd.rqdocker import RqDocker
 
+                # Set config attribute for docker_gpu_mode. Configuration is made available
+                # from both the config file and an environment variable, the latter takes precedence
+                if __docker_gpu_mode in os.environ:
+                    config[__docker_config][__docker_gpu_mode] = os.environ[__docker_gpu_mode]
+
+                DOCKER_AGENT = RqDocker.fromConfig(config)
                 # rqd needs to run as root to be able to run docker
                 RQD_UID = 0
                 RQD_GID = 0
 
-                # Path to the shell to be used in the frame environment
-                if config.has_option(__docker_config, "DOCKER_SHELL_PATH"):
-                    DOCKER_SHELL_PATH = config.get(
-                        __docker_config,
-                        "DOCKER_SHELL_PATH")
-
-                # Every key:value on the config file under docker.images
-                # is parsed as key=SP_OS and value=image_tag.
-                # SP_OS is set to a list of all available keys
-                # For example:
-                #
-                #   rqd.conf
-                #     [docker.images]
-                #     centos7=centos7.3:latest
-                #     rocky9=rocky9.3:latest
-                #
-                #   becomes:
-                #     SP_OS=centos7,rocky9
-                #     DOCKER_IMAGES={
-                #       "centos7": "centos7.3:latest",
-                #       "rocky9": "rocky9.3:latest"
-                #     }
-                keys = config.options(__docker_images)
-                DOCKER_IMAGES = {}
-                for key in keys:
-                    DOCKER_IMAGES[key] = config.get(__docker_images, key)
-                SP_OS = ",".join(keys)
-                if not DOCKER_IMAGES:
-                    raise RuntimeError("Misconfigured rqd. RUN_ON_DOCKER=True requires at "
-                                       "least one image on DOCKER_IMAGES ([docker.images] "
-                                       "section of rqd.conf)")
-                def parse_mount(mount_string):
-                    """
-                    Parse mount definitions similar to a docker run command into a docker
-                    mount obj
-
-                    Format: type=bind,source=/tmp,target=/tmp,bind-propagation=slave
-                    """
-                    parsed_mounts = {}
-                    # bind-propagation defaults to None as only type=bind accepts it
-                    parsed_mounts["bind-propagation"] = None
-                    for item in mount_string.split(","):
-                        name, mount_path = item.split(":")
-                        parsed_mounts[name.strip()] = mount_path.strip()
-                    return parsed_mounts
-
-                # Parse values under the category docker.mounts into Mount objects
-                mounts = config.options(__docker_mounts)
-                for mount_name in mounts:
-                    mount_str = ""
-                    try:
-                        mount_str = config.get(__docker_mounts, mount_name)
-                        mount_dict = parse_mount(mount_str)
-                        mount = docker.types.Mount(mount_dict["target"],
-                                                  mount_dict["source"],
-                                                  type=mount_dict["type"],
-                                                  propagation=mount_dict["bind-propagation"])
-                        DOCKER_MOUNTS.append(mount)
-                    except KeyError as e:
-                        logging.exception("Failed to create Mount for key=%s, value=%s",
-                                          mount_name, mount_str)
 
 # pylint: disable=broad-except
 except Exception as e:
