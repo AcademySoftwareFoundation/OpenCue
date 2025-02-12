@@ -85,9 +85,14 @@ KILL_SIGNAL = 9
 if platform.system() == 'Linux':
     RQD_UID = pwd.getpwnam("daemon")[2]
     RQD_GID = pwd.getpwnam("daemon")[3]
+    # Linux's defaul uid limits are documented at
+    #  https://www.man7.org/linux/man-pages/man5/login.defs.5.html
+    RQD_MIN_UID = 1000
+    RQD_MAX_UID = 60000
 else:
     RQD_UID = 0
     RQD_GID = 0
+RQD_DAEMON_UID = RQD_UID
 
 # Nimby behavior:
 # Number of seconds to wait before checking if the user has become idle.

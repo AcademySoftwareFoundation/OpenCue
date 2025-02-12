@@ -1042,14 +1042,21 @@ class FrameAttendantThread(threading.Thread):
         self._tempLocations.append(tempStatFile)
 
         # Prevent frame from attempting to run as ROOT
+        gid = runFrame.gid
         if runFrame.gid <= 0:
             gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
-        else:
-            gid = runFrame.gid
+
+        # Prevent invalid uids, fallback to daemon uid
+        uid = runFrame.uid
+        if not (uid >= rqd.rqconstants.RQD_MIN_UID
+            and uid <= rqd.rqconstants.RQD_MAX_UID):
+            msg = "Frame launched with an invalid uid=%s. Falling back to daemon uid" % runFrame.uid
+            self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+            uid = rqd.rqconstants.RQD_DAEMON_UID
 
         # Never give frame ROOT permissions
-        if runFrame.uid == 0 or gid == 0:
-            msg = ("Frame %s cannot run as ROOT" % frameInfo.frameId)
+        if uid == 0 or gid == 0:
+            msg = "Frame %s cannot run as ROOT" % frameInfo.frameId
             self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
             raise RuntimeError(msg)
 
@@ -1067,7 +1074,7 @@ class FrameAttendantThread(threading.Thread):
 useradd -u %s -g %s -p %s %s >& /dev/null || true;
 exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
 """ % (
-            runFrame.uid,
+            uid,
             gid,
             tempPassword,
             runFrame.user_name,
