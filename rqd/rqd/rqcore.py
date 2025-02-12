@@ -1048,8 +1048,7 @@ class FrameAttendantThread(threading.Thread):
 
         # Prevent invalid uids, fallback to daemon uid
         uid = runFrame.uid
-        if not (uid >= rqd.rqconstants.RQD_MIN_UID
-            and uid <= rqd.rqconstants.RQD_MAX_UID):
+        if uid < rqd.rqconstants.RQD_MIN_UID or uid > rqd.rqconstants.RQD_MAX_UID:
             msg = "Frame launched with an invalid uid=%s. Falling back to daemon uid" % runFrame.uid
             self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
             uid = rqd.rqconstants.RQD_DAEMON_UID
