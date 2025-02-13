@@ -135,8 +135,11 @@ class RqdLogger(object):
 class LokiLogger(object):
     """Class for logging to a loki server. It mimics a file object as much as possible"""
     def __init__(self, lokiURL, runFrame):
-        # pylint: disable=import-outside-toplevel
-        from loki_urllib3_client import LokiClient
+        try:
+            # pylint: disable=import-outside-toplevel
+            from loki_urllib3_client import LokiClient
+        except ImportError:
+            return
         self.client = LokiClient(url=lokiURL)
         self.runFrame = runFrame
         self.sessionStartTime = datetime.datetime.now().timestamp()
