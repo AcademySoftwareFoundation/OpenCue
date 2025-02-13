@@ -1370,6 +1370,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
 
             # Setup frame logging
             if self.runFrame.loki_url:
+                log.info("Logging with Loki")
                 self.rqlog = rqd.rqlogging.LokiLogger(self.runFrame.loki_url, runFrame)
             else:
                 self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)

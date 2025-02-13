@@ -33,6 +33,13 @@ PLUGIN_DESCRIPTION = 'Displays Frame Log from Loki'
 PLUGIN_PROVIDES = 'LokiViewPlugin'
 PRINTABLE = set(string.printable)
 
+try:
+    # pylint: disable=import-outside-toplevel
+    from loki_urllib3_client import LokiClient
+    LOKI_CLIENT_ENABLED = True
+except ImportError:
+    LOKI_CLIENT_ENABLED = False
+
 class LokiViewWidget(QtWidgets.QWidget):
     """
     Displays the log file for the selected frame
@@ -42,10 +49,7 @@ class LokiViewWidget(QtWidgets.QWidget):
         super().__init__(parent)
         self.app = cuegui.app()
         self.verticalLayout = QtWidgets.QVBoxLayout(self)
-        try:
-            # pylint: disable=import-outside-toplevel
-            from loki_urllib3_client import LokiClient
-        except ImportError:
+        if LOKI_CLIENT_ENABLED is False:
             errorLabel = QtWidgets.QLabel(self)
             errorLabel.setText('Loki client is not installed')
             self.verticalLayout.addWidget(errorLabel)
@@ -91,7 +95,7 @@ class LokiViewWidget(QtWidgets.QWidget):
         frameName = frameObj.name()
         frameId = frameObj.id()
         self.frameLogCombo.clear()
-        if jobObj.lokiURL() is not None:
+        if jobObj.lokiURL():
             self.frameNameLabel.setText(f"{jobName}.{frameName}")
             self.client = LokiClient(jobObj.lokiURL())
             maxTries = 5
