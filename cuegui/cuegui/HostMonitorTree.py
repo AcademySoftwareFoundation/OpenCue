@@ -131,11 +131,15 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "a report from the host. A host is configured to report\n"
                            "in every 60 seconds so a number larger than this\n"
                            "indicates a problem")
-        self.addColumn("Hardware", 70, id=17,
+        self.addColumn("Boot Time", 100, id=17,
+                       data=lambda host: cuegui.Utils.dateToMMDDHHMM(host.data.boot_time),
+                       sort=lambda host: host.data.boot_time,
+                       tip="The time when the host was last booted.")
+        self.addColumn("Hardware", 70, id=18,
                        data=lambda host: HardwareState.Name(host.data.state),
                        tip="The state of the hardware as Up or Down.\n\n"
                            "On a frame it is the amount of memory used.")
-        self.addColumn("Locked", 90, id=18,
+        self.addColumn("Locked", 90, id=19,
                        data=lambda host: LockState.Name(host.data.lock_state),
                        tip="A host can be:\n"
                            "Locked \t\t It was manually locked to prevent booking\n"
@@ -143,15 +147,15 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "NimbyLocked \t It is a desktop machine and there is\n"
                            "\t\t someone actively using it or not enough \n"
                            "\t\t resources are available on a desktop.")
-        self.addColumn("ThreadMode", 80, id=19,
+        self.addColumn("ThreadMode", 80, id=20,
                        data=lambda host: ThreadMode.Name(host.data.thread_mode),
                        tip="A frame that runs on this host will:\n"
                            "All:  Use all cores.\n"
                            "Auto: Use the number of cores as decided by the cuebot.\n")
-        self.addColumn("OS", 50, id=20,
+        self.addColumn("OS", 50, id=21,
                        data=lambda host: host.data.os,
                        tip="Host operational system or distro.")
-        self.addColumn("Tags/Job", 50, id=21,
+        self.addColumn("Tags/Job", 50, id=22,
                        data=lambda host: ",".join(host.data.tags),
                        tip="The tags applied to the host.\n\n"
                            "On a frame it is the name of the job.")

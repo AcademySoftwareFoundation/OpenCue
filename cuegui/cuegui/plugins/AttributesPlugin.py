@@ -410,7 +410,7 @@ class HostAttributes(AbstractAttributes):
                 "state": str(host.data.state),
                 "lock": str(host.data.lock_state),
                 "load": "%.2f" % (host.data.load/float(100)),
-                "bootTime": cuegui.Utils.dateToMMDDHHMM(host.data.boot_time),
+                "bootTime": cuegui.Utils.dateToMMDDYYYYHHMM(host.data.boot_time),
                 "pingTime": cuegui.Utils.dateToMMDDHHMM(host.data.ping_time),
                 "pingLast": int(time.time() - host.data.ping_time),
                 "tags": ",".join(host.data.tags),
