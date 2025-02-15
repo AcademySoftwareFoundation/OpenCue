@@ -4,3 +4,6 @@ pyfakefs==5.2.3;python_version>="3.7"
 pynput==1.7.6
 pytest==8.3.3
 docker==7.1.0
+urllib3==1.26.20;python_version<="3.9"
+urllib3==2.2.3;python_version>"3.9"
+loki-urllib3-client==0.2.2
