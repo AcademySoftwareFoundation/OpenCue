@@ -1372,7 +1372,11 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                     rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
 
             # Setup frame logging
-            self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)
+            if self.runFrame.loki_url:
+                log.info("Logging with Loki")
+                self.rqlog = rqd.rqlogging.LokiLogger(self.runFrame.loki_url, runFrame)
+            else:
+                self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)
             self.rqlog.waitForFile()
         # pylint: disable=broad-except
         except Exception as e:

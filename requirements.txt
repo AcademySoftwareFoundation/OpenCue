@@ -23,3 +23,7 @@ pytest==8.3.3;python_version>="3.7"
 # Docker support for rqd
 # docker==5.0.3;python_version<"3.7"
 # docker==7.1.0;python_version>="3.7"
+# Loki support for rqd and cuegui
+# urllib3==1.26.20;python_version<="3.9"
+# urllib3==2.2.3;python_version>"3.9"
+# loki-urllib3-client==0.2.2
