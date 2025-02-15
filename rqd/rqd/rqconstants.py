@@ -75,7 +75,7 @@ RQD_HOST_ENV_VARS = []
 RQD_CUSTOM_HOME_PREFIX = None
 RQD_CUSTOM_MAIL_PREFIX = None
 
-RQD_BECOME_JOB_USER = True
+RQD_BECOME_JOB_USER = False
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 SENTRY_DSN_PATH = None
 RQD_TAGS = ''
@@ -85,9 +85,14 @@ KILL_SIGNAL = 9
 if platform.system() == 'Linux':
     RQD_UID = pwd.getpwnam("daemon")[2]
     RQD_GID = pwd.getpwnam("daemon")[3]
+    # Linux's default uid limits are documented at
+    #  https://www.man7.org/linux/man-pages/man5/login.defs.5.html
+    RQD_MIN_UID = 1000
+    RQD_MAX_UID = 60000
 else:
     RQD_UID = 0
     RQD_GID = 0
+RQD_DAEMON_UID = RQD_UID
 
 # Nimby behavior:
 # Number of seconds to wait before checking if the user has become idle.
@@ -269,6 +274,8 @@ try:
                 RQD_UID = 0
                 RQD_GID = 0
 
+                # Make sure sp_os is updated with the versions configured on DOCKER_AGENT
+                SP_OS = DOCKER_AGENT.sp_os
 
 # pylint: disable=broad-except
 except Exception as e:

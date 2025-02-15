@@ -387,6 +387,15 @@ def dateToMMDDHHMM(sec):
     return time.strftime("%m/%d %H:%M", time.localtime(sec))
 
 
+def dateToMMDDYYYYHHMM(sec):
+    """Returns date in the format %m/%d/%Y %H:%M
+    @rtype:  str
+    @return: Date in the format %m/%d/%Y %H:%M"""
+    if sec == 0:
+        return "--/-- --:--"
+    return time.strftime("%m/%d/%Y %H:%M", time.localtime(sec))
+
+
 def memoryToString(kmem, unit=None):
     """Returns an amount of memory in a human-friendly string."""
     k = 1024

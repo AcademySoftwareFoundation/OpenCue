@@ -782,7 +782,10 @@ class FrameAttendantThread(threading.Thread):
             self.frameEnv['CUE_THREADS'] = str(max(
                 int(self.frameEnv['CUE_THREADS']),
                 len(self.runFrame.attributes['CPU_LIST'].split(','))))
-            self.frameEnv['CUE_HT'] = "True"
+            if self.rqCore.machine.getHyperthreadingMultiplier() > 1:
+                self.frameEnv['CUE_HT'] = "True"
+            else:
+                self.frameEnv['CUE_HT'] = "False"
 
         # Add GPU's to use all assigned GPU cores
         if 'GPU_LIST' in self.runFrame.attributes:
@@ -1042,14 +1045,20 @@ class FrameAttendantThread(threading.Thread):
         self._tempLocations.append(tempStatFile)
 
         # Prevent frame from attempting to run as ROOT
+        gid = runFrame.gid
         if runFrame.gid <= 0:
             gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
-        else:
-            gid = runFrame.gid
+
+        # Prevent invalid uids, fallback to daemon uid
+        uid = runFrame.uid
+        if uid < rqd.rqconstants.RQD_MIN_UID or uid > rqd.rqconstants.RQD_MAX_UID:
+            msg = "Frame launched with an invalid uid=%s. Falling back to daemon uid" % runFrame.uid
+            self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+            uid = rqd.rqconstants.RQD_DAEMON_UID
 
         # Never give frame ROOT permissions
-        if runFrame.uid == 0 or gid == 0:
-            msg = ("Frame %s cannot run as ROOT" % frameInfo.frameId)
+        if uid == 0 or gid == 0:
+            msg = "Frame %s cannot run as ROOT" % frameInfo.frameId
             self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
             raise RuntimeError(msg)
 
@@ -1067,7 +1076,7 @@ class FrameAttendantThread(threading.Thread):
 useradd -u %s -g %s -p %s %s >& /dev/null || true;
 exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
 """ % (
-            runFrame.uid,
+            uid,
             gid,
             tempPassword,
             runFrame.user_name,
@@ -1363,7 +1372,11 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                     rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
 
             # Setup frame logging
-            self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)
+            if self.runFrame.loki_url:
+                log.info("Logging with Loki")
+                self.rqlog = rqd.rqlogging.LokiLogger(self.runFrame.loki_url, runFrame)
+            else:
+                self.rqlog = rqd.rqlogging.RqdLogger(runFrame.log_dir_file)
             self.rqlog.waitForFile()
         # pylint: disable=broad-except
         except Exception as e:
