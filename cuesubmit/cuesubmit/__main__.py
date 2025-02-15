@@ -38,6 +38,8 @@ class CueSubmitApp(QtWidgets.QApplication):
     def __init__(self, args):
         super(CueSubmitApp, self).__init__(args)
         self.mainWindow = CueSubmitMainWindow(Constants.SUBMIT_APP_WINDOW_TITLE)
+        self.icon = QtGui.QPixmap('{}/images/OpenCue.png'.format(Constants.DIR_PATH))
+        self.setWindowIcon(self.icon)
 
     def startup(self):
         """Initializes the application and makes it appear on screen."""
