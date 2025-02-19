@@ -180,6 +180,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__dependentJobs = {}
         self._dependent_items = {}
         self.__reverseDependents = {}
+        self.local_plugin_saved_values = {}
         # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
@@ -408,6 +409,46 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def setUserColors(self, state):
         """Sets the colored jobs that were saved"""
         self.__userColors = pickle.loads(bytes(state))
+    
+    def getLocalPluginNumFrames(self):
+        """Gets default values for the Local Plugin fields"""
+        return self.local_plugin_saved_values["num_frames"]
+
+    def setLocalPluginNumFrames(self, value):
+        """Sets default values for the Local Plugin fields"""
+        self.local_plugin_saved_values["num_frames"] = value
+
+    def getLocalPluginNumThreads(self):
+        """Gets default values for the Local Plugin fields"""
+        return self.local_plugin_saved_values["num_threads"]
+
+    def setLocalPluginNumThreads(self, value):
+        """Sets default values for the Local Plugin fields"""
+        self.local_plugin_saved_values["num_threads"] = value
+
+    def getLocalPluginNumGpus(self):
+        """Gets default values for the Local Plugin fields"""
+        return self.local_plugin_saved_values["num_gpus"]
+
+    def setLocalPluginNumGpus(self, value):
+        """Sets default values for the LocalPlugin fields"""
+        self.local_plugin_saved_values["num_gpus"] = value
+
+    def getLocalPluginNumMem(self):
+        """Gets default values for the LocalPlugin fields"""
+        return self.local_plugin_saved_values["num_mem"]
+
+    def setLocalPluginNumMem(self, value):
+        """Sets default values for the LocalPlugin fields"""
+        self.local_plugin_saved_values["num_mem"] = value
+        
+    def getLocalNumGpuMem(self):
+        """Gets default values for the LocalPlugin fields"""
+        return self.local_plugin_saved_values["num_gpu_mem"]
+
+    def setLocalNumGpuMem(self, value):
+        """Sets default values for the LocalPlugin fields"""
+        self.local_plugin_saved_values["num_gpu_mem"] = value
 
     def contextMenuEvent(self, e):
         """Creates a context menu when an item is right clicked.

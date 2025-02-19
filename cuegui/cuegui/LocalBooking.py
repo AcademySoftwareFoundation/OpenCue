@@ -78,6 +78,16 @@ class LocalBookingWidget(QtWidgets.QWidget):
             self.layout().addWidget(self.__deed_button)
             self.__deed_button.pressed.connect(self.deedLocalhost)  # pylint: disable=no-member
             self.__lba_group.setDisabled(True)
+        
+        default_values = {
+            "num_frames": 1,
+            "num_threads": 1,
+            "num_gpus": 0,
+            "num_mem": 4,
+            "num_gpu_mem": 0,
+        }
+        if hasattr(parent, "local_plugin_saved_values") and parent.local_plugin_saved_values:
+            default_values.update(parent.local_plugin_saved_values)
 
         self.__text_target = QtWidgets.QLabel(self.__target.data.name, self)
 
@@ -89,34 +99,34 @@ class LocalBookingWidget(QtWidgets.QWidget):
         self.__num_cores.setReadOnly(True)
 
         self.__num_frames = QtWidgets.QSpinBox(self)
-        self.__num_frames.setValue(1)
+        self.__num_frames.setValue(default_values["num_frames"])
 
         self.__frame_warn = QtWidgets.QLabel(self)
 
         self.__num_mem = QtWidgets.QSlider(self)
-        self.__num_mem.setValue(4)
+        self.__num_mem.setValue(default_values["num_mem"])
         self.__num_mem.setMaximum(256)
         self.__num_mem.setOrientation(QtCore.Qt.Horizontal)
         self.__num_mem.setTickPosition(QtWidgets.QSlider.TicksBelow)
         self.__num_mem.setTickInterval(1)
 
         self.__text_num_mem = QtWidgets.QSpinBox(self)
-        self.__text_num_mem.setValue(4)
+        self.__text_num_mem.setValue(default_values["num_mem"])
         self.__text_num_mem.setSuffix("GB")
 
         self.__num_gpu_mem = QtWidgets.QSlider(self)
-        self.__num_gpu_mem.setValue(0)
+        self.__num_gpu_mem.setValue(default_values["num_gpu_mem"])
         self.__num_gpu_mem.setMaximum(256)
         self.__num_gpu_mem.setOrientation(QtCore.Qt.Horizontal)
         self.__num_gpu_mem.setTickPosition(QtWidgets.QSlider.TicksBelow)
         self.__num_gpu_mem.setTickInterval(1)
 
         self.__text_num_gpu_mem = QtWidgets.QSpinBox(self)
-        self.__text_num_gpu_mem.setValue(0)
+        self.__text_num_gpu_mem.setValue(default_values["num_gpu_mem"])
         self.__text_num_gpu_mem.setSuffix("GB")
 
         self.__num_gpus = QtWidgets.QLineEdit(self)
-        self.__num_gpus.setText("0")
+        self.__num_gpus.setText(str(default_values["num_gpus"]))
 
         #
         # Next layout is if the deed is in use.
@@ -359,7 +369,16 @@ class LocalBookingWidget(QtWidgets.QWidget):
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def bookCurrentHost(self):
-        """Books the current host."""
+        """Books the current host"""
+
+        # Save fields on user preferences
+        self.__parent.local_plugin_saved_values.update({
+            "num_frames": int(self.__num_frames.text()),
+            "num_threads": self.__num_threads.value(),
+            "num_gpus": int(self.__num_gpus.text()),
+            "num_mem": self.__num_mem.value(),
+            "num_gpu_mem": self.__num_gpu_mem.value(),
+        })
 
         if self.__hasError():
             return
