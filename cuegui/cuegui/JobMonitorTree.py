@@ -409,7 +409,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def setUserColors(self, state):
         """Sets the colored jobs that were saved"""
         self.__userColors = pickle.loads(bytes(state))
-    
+
     def getLocalPluginNumFrames(self):
         """Gets default values for the Local Plugin fields"""
         return self.local_plugin_saved_values["num_frames"]
@@ -441,7 +441,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def setLocalPluginNumMem(self, value):
         """Sets default values for the LocalPlugin fields"""
         self.local_plugin_saved_values["num_mem"] = value
-        
+
     def getLocalNumGpuMem(self):
         """Gets default values for the LocalPlugin fields"""
         return self.local_plugin_saved_values["num_gpu_mem"]

@@ -78,7 +78,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
             self.layout().addWidget(self.__deed_button)
             self.__deed_button.pressed.connect(self.deedLocalhost)  # pylint: disable=no-member
             self.__lba_group.setDisabled(True)
-        
+
         default_values = {
             "num_frames": 1,
             "num_threads": 1,
