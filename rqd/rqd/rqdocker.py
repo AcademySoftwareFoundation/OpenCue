@@ -45,6 +45,7 @@ class RqDocker:
     DOCKER_GPU_MODE = "DOCKER_GPU_MODE"
     DOCKER_SHELL_PATH = "DOCKER_SHELL_PATH"
     OVERRIDE_DOCKER_IMAGES = "OVERRIDE_DOCKER_IMAGES"
+    DOCKER_READ_ONLY = "DOCKER_READ_ONLY"
 
     @classmethod
     def fromConfig(cls, config: RawConfigParser):
@@ -90,9 +91,9 @@ class RqDocker:
 
         docker_images = {}
         if cls.OVERRIDE_DOCKER_IMAGES in os.environ:
-            # The OVERRIDE_DOCKER_IMAGES environment variable can be used to
-            # override the dic of images to be used by the rqd container. Passing
-            # and env are handy for Docker Swarm and Kubernetes setups.
+            # The OVERRIDE_DOCKER_IMAGES environment variable can be used to override the
+            # dict of images being used by the rqd container. Passing images as envvars is
+            # handy for Docker Swarm and Kubernetes setups.
             # Format: A key=value comma-separated list
             #   centos7=centos7.3:latest,rocky9=rocky9.3:latest
             images = os.environ[cls.OVERRIDE_DOCKER_IMAGES].strip().split(",")
@@ -145,18 +146,24 @@ class RqDocker:
             except KeyError:
                 logging.exception("Failed to create Mount for key=%s, value=%s",
                                     mount_name, mount_str)
+        read_only = False
+        if config.has_option(cls.DOCKER_CONFIG, cls.DOCKER_READ_ONLY):
+                    read_only = config.getboolean(
+                        cls.DOCKER_CONFIG, cls.DOCKER_READ_ONLY)
 
-        return cls(sp_os, docker_images, docker_mounts, docker_shell_path, gpu_mode)
+        return cls(sp_os, docker_images, docker_mounts, docker_shell_path, gpu_mode, read_only)
 
     def __init__(self, sp_os:str, docker_images: dict[str, str],
         docker_mounts: list[docker.types.Mount], docker_shell_path: str,
-        gpu_mode: bool):
+        gpu_mode: bool,
+        read_only: bool):
         self.sp_os = sp_os
         self.docker_images = docker_images
         self.docker_mounts = docker_mounts
         self.docker_shell_path = docker_shell_path
         self.docker_lock = threading.Lock()
         self.gpu_mode=gpu_mode
+        self.read_only=read_only
 
     @staticmethod
     def parse_mount(mount_string):
@@ -259,7 +266,8 @@ class RqDocker:
                     mem_reservation=mem_reservation,
                     mem_limit=mem_limit,
                     entrypoint=entrypoint,
-                    device_requests=device_requests)
+                    device_requests=device_requests,
+                    read_only=self.read_only)
             return (docker_client, container)
         # pylint: disable=broad-except
         except Exception as e:
