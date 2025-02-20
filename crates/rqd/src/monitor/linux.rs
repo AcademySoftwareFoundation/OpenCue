@@ -1,8 +1,9 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::File,
     io::{BufRead, BufReader},
     net::ToSocketAddrs,
+    process::Command,
     sync::{Arc, Mutex},
 };
 
@@ -10,12 +11,13 @@ use itertools::Itertools;
 use miette::{miette, IntoDiagnostic, Result};
 use opencue_proto::host::HardwareState;
 use sysinfo::{DiskRefreshKind, Disks, System};
+use uuid::Uuid;
 
 use crate::config::config::MachineConfig;
 
-use super::machine_monitor::{MachineGpuStats, MachineStat, MachineStatCollector};
+use super::system::{CpuStat, MachineGpuStats, MachineStat, ReservationError, SystemController};
 
-pub struct LinuxMachineStat {
+pub struct LinuxSystem {
     config: MachineConfig,
     sysinfo: Arc<Mutex<System>>,
     diskinfo: Arc<Mutex<Disks>>,
@@ -23,6 +25,7 @@ pub struct LinuxMachineStat {
     procid_by_physid_and_core_id: HashMap<u32, HashMap<u32, u32>>,
     /// The inverse map of procid_by_physid_and_core_id
     physid_and_coreid_by_procid: HashMap<u32, (u32, u32)>,
+    cpu_stat: CpuStat,
     // Information colleced once at init time
     static_info: MachineStaticInfo,
     hardware_state: HardwareState,
@@ -66,7 +69,7 @@ pub struct MachineDynamicInfo {
     pub load: u32,
 }
 
-impl LinuxMachineStat {
+impl LinuxSystem {
     /// Initialize the linux stats collector which reads Cpu and Memory information from
     /// the Os.
     ///
@@ -93,6 +96,11 @@ impl LinuxMachineStat {
         let total_memory = sysinfo_guard.total_memory();
         let total_swap = sysinfo_guard.total_swap();
         drop(sysinfo_guard);
+        let available_core_count = procid_by_physid_and_core_id
+            .values()
+            .map(|sockets| sockets.iter().count())
+            .reduce(|a, b| a + b)
+            .unwrap_or(0) as u32;
 
         Ok(Self {
             config: config.clone(),
@@ -121,8 +129,13 @@ impl LinuxMachineStat {
                 ),
                 // SwapOut is an aditional attribute that is missing on this implementation
             ]),
+            cpu_stat: CpuStat {
+                reserved_cores_by_physid: HashMap::new(),
+                available_cores: available_core_count,
+            },
         })
     }
+
     /// Reads the CPU information from the specified `cpuinfo_path` file and extracts
     /// the number of processors, sockets, cores per processor, and hyperthreading multiplier.
     /// It returns a tuple containing ProcessorInfoData, procid_by_physid_and_core_id, and
@@ -440,9 +453,22 @@ impl LinuxMachineStat {
             )),
         }
     }
+
+    fn reserve_core(&mut self, phys_id: u32, core_id: u32) -> Result<(), ReservationError> {
+        if self.cpu_stat.available_cores <= 0 {
+            Err(ReservationError::NotEnoughResourcesAvailable)?
+        }
+        self.cpu_stat
+            .reserved_cores_by_physid
+            .entry(phys_id)
+            .or_insert_with(HashSet::new)
+            .insert(core_id);
+        self.cpu_stat.available_cores -= 1;
+        Ok(())
+    }
 }
 
-impl MachineStatCollector for LinuxMachineStat {
+impl SystemController for LinuxSystem {
     fn collect_stats(&self) -> Result<MachineStat> {
         let dinamic_stat = self.read_dynamic_stat()?;
         Ok(MachineStat {
@@ -480,13 +506,122 @@ impl MachineStatCollector for LinuxMachineStat {
         Ok(true)
     }
 
-    fn collect_gpu_stats(&self) -> super::machine_monitor::MachineGpuStats {
+    fn collect_gpu_stats(&self) -> super::system::MachineGpuStats {
         // TODO: missing implementation, returning dummy val
         MachineGpuStats {
             count: 0,
             total_memory: 0,
             free_memory: 0,
             used_memory_by_unit: HashMap::default(),
+        }
+    }
+
+    fn cpu_stat(&self) -> super::system::CpuStat {
+        self.cpu_stat.clone()
+    }
+
+    fn release_core(&mut self, core_id: &u32) -> Result<(), ReservationError> {
+        if self.cpu_stat.available_cores <= 0 {
+            Err(ReservationError::NotEnoughResourcesAvailable)?
+        }
+        self.cpu_stat
+            .reserved_cores_by_physid
+            .iter_mut()
+            .find_map(|(_, core_ids)| core_ids.remove(core_id).then_some(()))
+            .ok_or(ReservationError::NotFoundError(core_id.clone()))
+    }
+
+    fn reserve_cores(&mut self, count: u32) -> Result<Vec<u32>, ReservationError> {
+        if count > self.cpu_stat.available_cores {
+            Err(ReservationError::NotEnoughResourcesAvailable)?
+        }
+        let mut selected_cores = Vec::with_capacity(count as usize);
+        let reserved_cores = &self.cpu_stat.reserved_cores_by_physid;
+        let all_cores_map = self.procid_by_physid_and_core_id.clone();
+
+        // Iterate over all phys_id=>core_id's and filter out cores that have been reserved
+        let available_cores = all_cores_map
+            .into_iter()
+            // .map(|(k, v)| (k, v.keys()))
+            .filter_map(
+                |(phys_id, core_ids_map)| match reserved_cores.get(&phys_id) {
+                    Some(reserved_core_ids) => {
+                        // Filter out cores that are present in any of the sockets on the
+                        // reserved_cores map
+                        let available_cores: Vec<u32> = core_ids_map
+                            .keys()
+                            .cloned()
+                            .filter(|core_id| !reserved_core_ids.contains(core_id))
+                            .collect();
+                        // Filter out sockets that are completelly reserved
+                        if available_cores.len() > 0 {
+                            Some((phys_id, available_cores))
+                        } else {
+                            None
+                        }
+                    }
+                    // If the phys_id doesn't on the reserved_cores map, consider the sockets available
+                    None => Some((phys_id, core_ids_map.keys().copied().collect())),
+                },
+            )
+            // Sort sockets with more available cores first
+            .sorted_by(|a, b| Ord::cmp(&b.1.len(), &a.1.len()));
+
+        for (phys_id, core_ids) in available_cores {
+            for core_id in core_ids {
+                if selected_cores.len() >= count as usize {
+                    break;
+                }
+                self.reserve_core(phys_id, core_id)?;
+                selected_cores.push(core_id);
+            }
+        }
+
+        // Not having all cores reserved at this point is an unconsistent state, as it has been
+        // initially checked if the system had enough cores for this reservation
+        assert_eq!(
+            count,
+            selected_cores.len() as u32,
+            "Not having all cores reserved at this point is an unconsistent state, as we haves
+            initially checked if there are cores availabLe for this reservation"
+        );
+        if count != selected_cores.len() as u32 {
+            Err(ReservationError::NotEnoughResourcesAvailable)?
+        }
+
+        Ok(selected_cores)
+    }
+
+    fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32> {
+        // First check if the user already exists
+        if let Some(user) = users::get_user_by_name(username) {
+            return Ok(user.uid());
+        }
+
+        // User doesn't exist, create it using useradd
+        let output = Command::new("useradd")
+            .arg("-p")
+            .arg(Uuid::new_v4().to_string())
+            .arg("--uid")
+            .arg(uid.to_string())
+            .arg("--gid")
+            .arg(gid.to_string())
+            .arg(username)
+            .output()
+            .into_diagnostic()?;
+
+        if !output.status.success() {
+            return Err(miette!(
+                "Failed to create user {}: {}",
+                username,
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+
+        // Verify the user was created
+        match users::get_user_by_name(username) {
+            Some(user) => Ok(user.uid()),
+            None => Err(miette!("Failed to verify user {} was created", username)),
         }
     }
 }
@@ -502,7 +637,7 @@ mod tests {
 
     use crate::config::config::MachineConfig;
 
-    use super::LinuxMachineStat;
+    use super::LinuxSystem;
 
     #[test]
     /// Use this unit test to quickly exercice a single cpuinfo file by changing the path on the
@@ -519,7 +654,7 @@ mod tests {
         let sysinfo = Arc::new(Mutex::new(System::new()));
         let diskinfo = Arc::new(Mutex::new(Disks::new()));
 
-        let linux_monitor = LinuxMachineStat::init(&config, sysinfo, diskinfo)
+        let linux_monitor = LinuxSystem::init(&config, sysinfo, diskinfo)
             .expect("Initializing LinuxMachineStat failed")
             .static_info;
         assert_eq!(4, linux_monitor.num_procs);
@@ -582,7 +717,7 @@ mod tests {
             };
 
             let (cpuinfo, procid_by_physid_and_core_id, physid_and_coreid_by_procid) =
-                LinuxMachineStat::read_cpuinfo(&file_path).expect("Failed to read file");
+                LinuxSystem::read_cpuinfo(&file_path).expect("Failed to read file");
             // Assert that the mapping between processor ID, physical ID, and core ID is correct
             let mut found_mapping = false;
             println!(
@@ -640,7 +775,7 @@ mod tests {
         let sysinfo = Arc::new(Mutex::new(System::new()));
         let diskinfo = Arc::new(Mutex::new(Disks::new()));
 
-        let stat = LinuxMachineStat::init(&config, sysinfo, diskinfo)
+        let stat = LinuxSystem::init(&config, sysinfo, diskinfo)
             .expect("Initializing LinuxMachineStat failed");
         let static_info = stat.static_info;
 
@@ -679,7 +814,7 @@ mod tests {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
         let path = format!("{}/resources/distro-release/{}", project_dir, id);
-        let release = LinuxMachineStat::read_distro(&path).expect("Failed to read release");
+        let release = LinuxSystem::read_distro(&path).expect("Failed to read release");
 
         assert_eq!(id.to_string(), release);
     }
@@ -689,7 +824,7 @@ mod tests {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
         let path = format!("{}/resources/proc/stat", project_dir);
-        let boot_time = LinuxMachineStat::read_boot_time(&path).expect("Failed to read boot time");
+        let boot_time = LinuxSystem::read_boot_time(&path).expect("Failed to read boot time");
         assert_eq!(1720194269, boot_time);
     }
 
@@ -701,23 +836,170 @@ mod tests {
         // Test successful case
         let mut temp_file = NamedTempFile::new().unwrap();
         writeln!(temp_file, "1.00 2.00 3.00 4/512 12345").unwrap();
-        let result = LinuxMachineStat::read_load_avg(temp_file.path().to_str().unwrap());
+        let result = LinuxSystem::read_load_avg(temp_file.path().to_str().unwrap());
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), (1.0, 2.0, 3.0));
 
         // Test empty file
         let empty_file = NamedTempFile::new().unwrap();
-        let result = LinuxMachineStat::read_load_avg(empty_file.path().to_str().unwrap());
+        let result = LinuxSystem::read_load_avg(empty_file.path().to_str().unwrap());
         assert!(result.is_err());
 
         // Test invalid format
         let mut invalid_file = NamedTempFile::new().unwrap();
         writeln!(invalid_file, "invalid format").unwrap();
-        let result = LinuxMachineStat::read_load_avg(invalid_file.path().to_str().unwrap());
+        let result = LinuxSystem::read_load_avg(invalid_file.path().to_str().unwrap());
         assert!(result.is_err());
 
         // Test non-existent file
-        let result = LinuxMachineStat::read_load_avg("nonexistent_file");
+        let result = LinuxSystem::read_load_avg("nonexistent_file");
         assert!(result.is_err());
+    }
+
+    #[cfg(test)]
+    mod tests {
+        // ... existing imports ...
+
+        use std::{
+            collections::{HashMap, HashSet},
+            sync::{Arc, Mutex},
+        };
+
+        use itertools::Itertools;
+        use opencue_proto::host::HardwareState;
+
+        use crate::{
+            config::config::MachineConfig,
+            monitor::{
+                linux::{LinuxSystem, MachineStaticInfo},
+                system::{CpuStat, ReservationError, SystemController},
+            },
+        };
+
+        #[test]
+        fn test_reserve_cores_success() {
+            let mut system = setup_test_system(4, 2); // 4 cores total, 2 physical CPUs
+
+            // Reserve 2 cores
+            let result = system.reserve_cores(2);
+
+            assert!(result.is_ok());
+            let reserved = result.unwrap();
+            assert_eq!(reserved.len(), 2);
+            assert_eq!(system.cpu_stat.available_cores, 2);
+        }
+
+        #[test]
+        fn test_reserve_cores_insufficient_resources() {
+            let mut system = setup_test_system(4, 2);
+
+            // Try to reserve more cores than available
+            let result = system.reserve_cores(5);
+            assert!(matches!(
+                result,
+                Err(ReservationError::NotEnoughResourcesAvailable)
+            ));
+            assert_eq!(system.cpu_stat.available_cores, 4); // Should remain unchanged
+        }
+
+        #[test]
+        fn test_reserve_cores_all_available() {
+            let mut system = setup_test_system(4, 2);
+
+            // Reserve all cores
+            let result = system.reserve_cores(4);
+            assert!(result.is_ok());
+            let reserved = result.unwrap();
+            assert_eq!(reserved.len(), 4);
+            assert_eq!(system.cpu_stat.available_cores, 0);
+        }
+
+        #[test]
+        fn test_reserve_cores_affinity() {
+            let mut system = setup_test_system(12, 3);
+
+            // Reserve 2 cores
+            let result = system.reserve_cores(7);
+            assert!(result.is_ok());
+
+            // Check that cores are distributed across physical CPUs when possible
+            let reserved_count_per_socket: Vec<usize> = system
+                .cpu_stat
+                .reserved_cores_by_physid
+                .iter()
+                .map(|(_, proc_ids)| proc_ids.len())
+                .sorted()
+                .collect();
+            assert_eq!(
+                vec![3, 4],
+                reserved_count_per_socket,
+                "Cores should be grouped as much as possible into physical CPUs",
+            );
+        }
+
+        #[test]
+        fn test_reserve_cores_sequential_reservations() {
+            let mut system = setup_test_system(4, 2);
+
+            // First reservation
+            let result1 = system.reserve_cores(2);
+            assert!(result1.is_ok());
+            assert_eq!(system.cpu_stat.available_cores, 2);
+
+            // Second reservation
+            let result2 = system.reserve_cores(1);
+            assert!(result2.is_ok());
+            assert_eq!(system.cpu_stat.available_cores, 1);
+
+            // Third reservation - should fail
+            let result3 = system.reserve_cores(2);
+            assert!(matches!(
+                result3,
+                Err(ReservationError::NotEnoughResourcesAvailable)
+            ));
+        }
+
+        // Helper function to create a test system with specified configuration
+        fn setup_test_system(total_cores: u32, physical_cpus: u32) -> LinuxSystem {
+            let mut procid_by_physid_and_core_id = HashMap::new();
+            let mut physid_and_coreid_by_procid = HashMap::new();
+
+            // Set up CPU topology
+            let cores_per_cpu = total_cores / physical_cpus;
+            for phys_id in 0..physical_cpus {
+                let mut core_map = HashMap::new();
+                for core_id in 0..cores_per_cpu {
+                    let proc_id = phys_id * cores_per_cpu + core_id;
+                    core_map.insert(core_id, proc_id);
+                    physid_and_coreid_by_procid.insert(proc_id, (phys_id, core_id));
+                }
+                procid_by_physid_and_core_id.insert(phys_id, core_map);
+            }
+
+            LinuxSystem {
+                config: MachineConfig::default(),
+                sysinfo: Arc::new(Mutex::new(sysinfo::System::new())),
+                diskinfo: Arc::new(Mutex::new(sysinfo::Disks::new())),
+                procid_by_physid_and_core_id,
+                physid_and_coreid_by_procid,
+                cpu_stat: CpuStat {
+                    reserved_cores_by_physid: HashMap::new(),
+                    available_cores: total_cores,
+                },
+                static_info: MachineStaticInfo {
+                    hostname: "test".to_string(),
+                    num_procs: total_cores,
+                    total_memory: 0,
+                    total_swap: 0,
+                    num_sockets: physical_cpus,
+                    cores_per_proc: cores_per_cpu,
+                    hyperthreading_multiplier: 1,
+                    boot_time: 0,
+                    tags: vec![],
+                },
+                hardware_state: HardwareState::Up,
+                attributes: HashMap::new(),
+            }
+        }
     }
 }

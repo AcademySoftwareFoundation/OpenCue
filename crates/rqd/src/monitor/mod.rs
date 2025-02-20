@@ -1,2 +1,2 @@
-pub mod linux_monitor;
-pub mod machine_monitor;
+pub mod linux;
+pub mod system;

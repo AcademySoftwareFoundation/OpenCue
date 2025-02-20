@@ -5,10 +5,11 @@ use std::{
 
 use config::config::Config;
 use miette::IntoDiagnostic;
-use monitor::machine_monitor::MachineMonitor;
+use monitor::system::MachineMonitor;
 use report_client::ReportClient;
 use running_frame::RunningFrameCache;
 use sysinfo::{Disks, MemoryRefreshKind, RefreshKind, System};
+use tracing::error;
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
 mod config;
@@ -55,19 +56,22 @@ async fn main() -> miette::Result<()> {
     let diskinfo = Arc::new(Mutex::new(Disks::new_with_refreshed_list()));
 
     // Initialize rqd machine monitor
+    let machine_monitor = Arc::new(MachineMonitor::init(
+        &config_clone,
+        report_client,
+        Arc::clone(&running_frame_cache_clone),
+        sysinfo,
+        diskinfo,
+    )?);
+    let mm_clone = Arc::clone(&machine_monitor);
     tokio::spawn(async move {
-        let machine_monitor = MachineMonitor::init(
-            &config_clone,
-            report_client,
-            Arc::clone(&running_frame_cache_clone),
-            sysinfo,
-            diskinfo,
-        )?;
-        machine_monitor.start().await
+        if let Err(e) = machine_monitor.start().await {
+            panic!("MachineMonitor loop crashed. {e}")
+        }
     });
 
     // Initialize rqd grpc servant
-    servant::serve(&config, Arc::clone(&running_frame_cache))
+    servant::serve(config, Arc::clone(&running_frame_cache), mm_clone)
         .await
         .into_diagnostic()
 }

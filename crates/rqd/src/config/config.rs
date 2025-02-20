@@ -85,6 +85,22 @@ impl Default for MachineConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(default)]
+pub struct RunnerConfig {
+    pub run_on_docker: bool,
+    pub default_uid: u32,
+}
+
+impl Default for RunnerConfig {
+    fn default() -> Self {
+        Self {
+            run_on_docker: false,
+            default_uid: 1000,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
 pub struct OverrideConfig {
     pub cores: Option<u64>,
     pub procs: Option<u64>,
@@ -127,6 +143,7 @@ pub struct Config {
     pub logging: LoggingConfig,
     pub grpc: GrpcConfig,
     pub machine: MachineConfig,
+    pub runner: RunnerConfig,
 }
 
 impl Config {

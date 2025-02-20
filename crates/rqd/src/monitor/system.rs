@@ -1,14 +1,16 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex as SyncMutex},
 };
 
-use miette::Result;
+use async_trait::async_trait;
+use miette::{miette, Diagnostic, IntoDiagnostic, Result};
 use opencue_proto::{
     host::HardwareState,
-    report::{CoreDetail, RenderHost},
+    report::{CoreDetail, CoreId, RenderHost},
 };
 use sysinfo::{Disks, System};
+use thiserror::Error;
 use tokio::{sync::Mutex, time};
 use tracing::debug;
 
@@ -18,9 +20,9 @@ use crate::{
     running_frame::RunningFrameCache,
 };
 
-use super::linux_monitor::LinuxMachineStat;
+use super::linux::LinuxSystem;
 
-type MachineStatT = Box<dyn MachineStatCollector + Sync + Send>;
+type SystemControllerType = Box<dyn SystemController + Sync + Send>;
 
 /// Constantly monitor the state of this machine and report back to Cuebot
 ///
@@ -43,9 +45,10 @@ type MachineStatT = Box<dyn MachineStatCollector + Sync + Send>;
 pub struct MachineMonitor {
     maching_config: MachineConfig,
     report_client: Arc<ReportClient>,
-    stats_collector: MachineStatT,
+    pub system_controller: Mutex<SystemControllerType>,
     pub running_frames_cache: Arc<RunningFrameCache>,
     core_state: Arc<Mutex<Option<CoreDetail>>>,
+    host_state: Arc<Mutex<Option<RenderHost>>>,
 }
 
 impl MachineMonitor {
@@ -58,15 +61,16 @@ impl MachineMonitor {
         sysinfo: Arc<SyncMutex<System>>,
         diskinfo: Arc<SyncMutex<Disks>>,
     ) -> Result<Self> {
-        let stats_collector: MachineStatT =
-            Box::new(LinuxMachineStat::init(&config.machine, sysinfo, diskinfo)?);
+        let system_controller: SystemControllerType =
+            Box::new(LinuxSystem::init(&config.machine, sysinfo, diskinfo)?);
         // TODO: identify which OS is running and initialize stats_collector accordingly
         Ok(Self {
             maching_config: config.machine.clone(),
             report_client,
-            stats_collector,
+            system_controller: Mutex::new(system_controller),
             running_frames_cache,
             core_state: Arc::new(Mutex::new(None)),
+            host_state: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -74,7 +78,11 @@ impl MachineMonitor {
     pub async fn start(&self) -> Result<()> {
         let report_client = self.report_client.clone();
 
-        let host_state = Self::inspect_host_state(&self.maching_config, &self.stats_collector)?;
+        let stats_collector_lock = self.system_controller.lock().await;
+        let host_state = Self::inspect_host_state(&self.maching_config, &stats_collector_lock)?;
+        drop(stats_collector_lock);
+
+        self.host_state.lock().await.replace(host_state.clone());
         let total_cores = host_state.num_procs * self.maching_config.core_multiplier as i32;
         let initial_core_state = CoreDetail {
             total_cores,
@@ -100,7 +108,9 @@ impl MachineMonitor {
         ));
         for _i in 0..5 {
             interval.tick().await;
-            let host_state = Self::inspect_host_state(&self.maching_config, &self.stats_collector)?;
+            let stats_collector_lock = self.system_controller.lock().await;
+            let host_state = Self::inspect_host_state(&self.maching_config, &stats_collector_lock)?;
+            drop(stats_collector_lock);
 
             let core_state_guard = self.core_state.lock().await;
             let core_state = core_state_guard
@@ -121,7 +131,7 @@ impl MachineMonitor {
 
     fn inspect_host_state(
         config: &MachineConfig,
-        stats_collector: &MachineStatT,
+        stats_collector: &SystemControllerType,
     ) -> Result<RenderHost> {
         let stats = stats_collector.collect_stats()?;
         let gpu_stats = stats_collector.collect_gpu_stats();
@@ -148,6 +158,71 @@ impl MachineMonitor {
             free_gpu_mem: gpu_stats.free_memory as i64,
             total_gpu_mem: gpu_stats.total_memory as i64,
         })
+    }
+}
+
+#[async_trait]
+pub trait Machine {
+    async fn hardware_state(&self) -> Option<HardwareState>;
+    async fn nimby_locked(&self) -> bool;
+
+    /// Reserve CPU cores
+    ///
+    /// # Argument
+    ///
+    /// * `num_cores` - The number of cores to reserve
+    ///
+    /// # Returns
+    ///
+    /// List of procs (Argument called cpu-list in the unix taskset cmd) reserved
+    /// by this request
+    async fn reserve_cpus(&self, num_cores: u32) -> Result<Vec<u32>>;
+
+    /// Reserve GPU units
+    ///
+    /// # Argument
+    ///
+    /// * `num_gpus` - Number of gpu units to be reserved
+    ///
+    /// # Returns
+    ///
+    /// List of gpu units
+    async fn reserve_gpus(&self, num_gpus: u32) -> Result<Vec<u32>>;
+
+    async fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32>;
+}
+
+#[async_trait]
+impl Machine for MachineMonitor {
+    async fn hardware_state(&self) -> Option<HardwareState> {
+        self.host_state
+            .lock()
+            .await
+            .as_ref()
+            .map(|hs| hs.state().clone())
+    }
+
+    async fn nimby_locked(&self) -> bool {
+        self.host_state
+            .lock()
+            .await
+            .as_ref()
+            .map(|hs| hs.nimby_locked)
+            .unwrap_or(false)
+    }
+
+    async fn reserve_cpus(&self, num_cores: u32) -> Result<Vec<u32>> {
+        let mut stats_collector = self.system_controller.lock().await;
+        stats_collector.reserve_cores(num_cores).into_diagnostic()
+    }
+
+    async fn reserve_gpus(&self, num_gpus: u32) -> Result<Vec<u32>> {
+        todo!()
+    }
+
+    async fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32> {
+        let stats_collector = self.system_controller.lock().await;
+        stats_collector.create_user_if_unexisting(username, uid, gid)
     }
 }
 
@@ -195,7 +270,7 @@ pub struct MachineGpuStats {
     /// Used memory by unit of each GPU, where the key in the HashMap is the unit ID, and the value is the used memory
     pub used_memory_by_unit: HashMap<u32, u64>,
 }
-pub trait MachineStatCollector {
+pub trait SystemController {
     /// Collects information about the status of this machine
     fn collect_stats(&self) -> Result<MachineStat>;
 
@@ -210,4 +285,36 @@ pub trait MachineStatCollector {
 
     /// Init NotInMyBackyard logic
     fn init_nimby(&self) -> Result<bool>;
+
+    /// Returns a map of cores per socket that are not reserved
+    fn cpu_stat(&self) -> CpuStat;
+
+    /// Reserver a number of cores.
+    ///
+    /// # Returns:
+    ///
+    /// * Vector of core ids
+    fn reserve_cores(&mut self, count: u32) -> Result<Vec<u32>, ReservationError>;
+
+    /// Release a core
+    fn release_core(&mut self, core_id: &u32) -> Result<(), ReservationError>;
+
+    /// Creates an user if it doesn't already exist
+    fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32>;
+}
+
+#[derive(Debug, Clone, Diagnostic, Error)]
+pub enum ReservationError {
+    #[error("No resources available to be reserved")]
+    NotEnoughResourcesAvailable,
+
+    #[error("Could not find resource with provided key: {0}")]
+    NotFoundError(u32),
+}
+
+#[derive(Debug, Clone)]
+pub struct CpuStat {
+    /// List of cores currently reserved
+    pub reserved_cores_by_physid: HashMap<u32, HashSet<u32>>,
+    pub available_cores: u32,
 }
