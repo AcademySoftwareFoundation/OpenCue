@@ -148,8 +148,7 @@ class RqDocker:
                                     mount_name, mount_str)
         read_only = False
         if config.has_option(cls.DOCKER_CONFIG, cls.DOCKER_READ_ONLY):
-                    read_only = config.getboolean(
-                        cls.DOCKER_CONFIG, cls.DOCKER_READ_ONLY)
+            read_only = config.getboolean(cls.DOCKER_CONFIG, cls.DOCKER_READ_ONLY)
 
         return cls(sp_os, docker_images, docker_mounts, docker_shell_path, gpu_mode, read_only)
 
