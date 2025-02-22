@@ -5,18 +5,15 @@ use std::{
 
 use config::config::Config;
 use miette::IntoDiagnostic;
-use monitor::system::MachineMonitor;
 use report_client::ReportClient;
-use running_frame::RunningFrameCache;
 use sysinfo::{Disks, MemoryRefreshKind, RefreshKind, System};
-use tracing::error;
+use system::{machine::MachineMonitor, running_frame::RunningFrameCache};
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
 mod config;
-mod monitor;
 mod report_client;
-mod running_frame;
 mod servant;
+mod system;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 8)]
 async fn main() -> miette::Result<()> {

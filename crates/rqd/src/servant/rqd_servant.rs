@@ -1,12 +1,15 @@
 use std::panic::catch_unwind;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::config::config::Config;
-use crate::monitor::system::Machine;
-use crate::running_frame::RunningFrame;
-use crate::running_frame::RunningFrameCache;
 use crate::servant::Result;
+use crate::system::logging::FrameFileLogger;
+use crate::system::machine::Machine;
+use crate::system::running_frame::{RunningFrame, RunningFrameCache};
 use opencue_proto::host::HardwareState;
+use opencue_proto::job::nested_job::UidOptional;
+use opencue_proto::rqd::run_frame;
+use opencue_proto::rqd::RunFrame;
 use opencue_proto::rqd::{
     rqd_interface_server::RqdInterface, RqdStaticGetRunFrameRequest, RqdStaticGetRunFrameResponse,
     RqdStaticGetRunningFrameStatusRequest, RqdStaticGetRunningFrameStatusResponse,
@@ -47,29 +50,37 @@ impl RqdServant {
         }
     }
 
-    fn validate_frame(&self, running_frame: &RunningFrame) -> Result<()> {
+    fn validate_frame(&self, run_frame: &RunFrame) -> Result<()> {
         // Frame is already running
-        if self.running_frame_cache.contains(&running_frame) {
+        if self.running_frame_cache.contains(&run_frame.frame_id()) {
             Err(tonic::Status::already_exists(format!(
                 "Not lauching, frame is already running on this host {}",
-                running_frame.frame_id
+                run_frame.frame_id()
             )))?
         }
         // Trying to run as root
-        if running_frame.requested_uid.unwrap_or(1) <= 0 {
+        if run_frame
+            .uid_optional
+            .clone()
+            .map(|o| match o {
+                run_frame::UidOptional::Uid(v) => v,
+            })
+            .unwrap_or(1)
+            <= 0
+        {
             Err(tonic::Status::invalid_argument(format!(
-                "Not launching, will not run frame as uid = {}",
-                running_frame.requested_uid.unwrap_or(1)
+                "Not launching, will not run frame as uid = {:?}",
+                run_frame.uid_optional
             )))?
         }
         // Invalid number of cores
-        if running_frame.num_cores <= 0 {
+        if run_frame.num_cores <= 0 {
             Err(tonic::Status::invalid_argument(
                 "Not launching, num_cores must be positive",
             ))?
         }
         // Fractional cpu cores are not allowed
-        if running_frame.num_cores % 100 != 0 {
+        if run_frame.num_cores % 100 != 0 {
             Err(tonic::Status::invalid_argument(
                 "Not launching, num_cores must be multiple of 100 (Fractional Cores are not allowed)"
             ))?
@@ -133,64 +144,77 @@ impl RqdInterface for RqdServant {
             .run_frame
             .ok_or_else(|| tonic::Status::invalid_argument("Missing run_frame in request"))?;
 
-        let running_frame: RunningFrame = run_frame.into();
+        // Validate machine state
+        self.validate_frame(&run_frame)?;
+        self.validate_machine_state(run_frame.ignore_nimby).await?;
 
-        // Validate frame and machine state
-        self.validate_frame(&running_frame)?;
-        self.validate_machine_state(running_frame.ignore_nimby)
-            .await?;
-
-        // On cuebot, num_cores are multiplied by 100 to account for fractional reservations
-        // rqd doesn't follow the same concept
-        let cpu_request = running_frame.num_cores as u32 / 100;
-        let cpu_list = self
-            .machine
-            .reserve_cpus(cpu_request)
-            .await
-            .map_err(|err| {
-                tonic::Status::aborted(format!(
-                    "Not launching, failed to reserve cpu resources {:?}",
-                    err
-                ))
-            })?;
+        // Cuebot unfortunatelly uses a hardcoded frame environment variable to signal if
+        // a frame is hyperthreaded. Rqd should only reserve cores if a frame is hyperthreaded.
+        let hyperthreaded = run_frame
+            .environment
+            .get("CUE_THREADABLE")
+            .map_or(false, |v| v == "1");
+        let cpu_list = match hyperthreaded {
+            true => {
+                // On cuebot, num_cores are multiplied by 100 to account for fractional reservations
+                // rqd doesn't follow the same concept
+                let cpu_request = run_frame.num_cores as u32 / 100;
+                Some(
+                    self.machine
+                        .reserve_cpus(cpu_request)
+                        .await
+                        .map_err(|err| {
+                            tonic::Status::aborted(format!(
+                                "Not launching, failed to reserve cpu resources {:?}",
+                                err
+                            ))
+                        })?,
+                )
+            }
+            false => None,
+        };
 
         // Although num_gpus is not required on a frame, the field is not optional on the proto
         // layer. =0 means None, !=0 means Some
-        let gpu_list = match running_frame.num_gpus {
-            0 => Vec::new(),
-            _ => self
-                .machine
-                .reserve_gpus(running_frame.num_gpus as u32)
-                .await
-                .map_err(|err| {
-                    tonic::Status::aborted(format!(
-                        "Not launching, insufficient resources {:?}",
-                        err
-                    ))
-                })?,
+        let gpu_list = match run_frame.num_gpus {
+            0 => None,
+            _ => Some(
+                self.machine
+                    .reserve_gpus(run_frame.num_gpus as u32)
+                    .await
+                    .map_err(|err| {
+                        tonic::Status::aborted(format!(
+                            "Not launching, insufficient resources {:?}",
+                            err
+                        ))
+                    })?,
+            ),
         };
 
         // Create user if required. uid and gid ranges have already been verified
-        let uid = match running_frame.requested_uid {
+        let uid = match run_frame.uid_optional.as_ref().map(|o| match o {
+            run_frame::UidOptional::Uid(v) => *v as u32,
+        }) {
             Some(uid) => self
                 .machine
-                .create_user_if_unexisting(&running_frame.user_name, uid, running_frame.gid)
+                .create_user_if_unexisting(&run_frame.user_name, uid, run_frame.gid as u32)
                 .await
                 .map_err(|err| {
                     tonic::Status::aborted(format!(
                         "Not launching, user {}({}:{}) could not be created. {:?}",
-                        running_frame.user_name, uid, running_frame.gid, err
+                        run_frame.user_name, uid, run_frame.gid, err
                     ))
                 })?,
             None => self.config.runner.default_uid,
         };
 
-        // Update resource values on running_frame
-        let running_frame = Arc::new(running_frame.with_resources(
-            self.config.runner.clone(),
+        let running_frame = Arc::new(RunningFrame::init(
+            run_frame,
             uid,
+            self.config.runner.clone(),
             cpu_list,
             gpu_list,
+            self.machine.get_host_name().await,
         ));
 
         self.running_frame_cache

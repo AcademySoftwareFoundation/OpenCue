@@ -1,7 +1,7 @@
 use crate::config::error::RqdConfigError;
 use bytesize::ByteSize;
 use config::{Config as ConfigBase, Environment, File};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{env, sync::Arc};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
@@ -86,8 +86,20 @@ impl Default for MachineConfig {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(default)]
 pub struct RunnerConfig {
+    // TODO: Add config items to sample file and document their usage
     pub run_on_docker: bool,
     pub default_uid: u32,
+    pub logger: LoggerType,
+    pub prepend_timestamp: bool,
+    pub use_host_path_env_var: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum LoggerType {
+    #[serde(rename = "file")]
+    File,
+    // #[serde(rename = "loki")]
+    // Loki,
 }
 
 impl Default for RunnerConfig {
@@ -95,6 +107,9 @@ impl Default for RunnerConfig {
         Self {
             run_on_docker: false,
             default_uid: 1000,
+            logger: LoggerType::File,
+            prepend_timestamp: true,
+            use_host_path_env_var: false,
         }
     }
 }

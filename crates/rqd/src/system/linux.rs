@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::config::config::MachineConfig;
 
-use super::system::{CpuStat, MachineGpuStats, MachineStat, ReservationError, SystemController};
+use super::machine::{CpuStat, MachineGpuStats, MachineStat, ReservationError, SystemController};
 
 pub struct LinuxSystem {
     config: MachineConfig,
@@ -506,7 +506,7 @@ impl SystemController for LinuxSystem {
         Ok(true)
     }
 
-    fn collect_gpu_stats(&self) -> super::system::MachineGpuStats {
+    fn collect_gpu_stats(&self) -> super::machine::MachineGpuStats {
         // TODO: missing implementation, returning dummy val
         MachineGpuStats {
             count: 0,
@@ -516,7 +516,7 @@ impl SystemController for LinuxSystem {
         }
     }
 
-    fn cpu_stat(&self) -> super::system::CpuStat {
+    fn cpu_stat(&self) -> super::machine::CpuStat {
         self.cpu_stat.clone()
     }
 
@@ -542,7 +542,6 @@ impl SystemController for LinuxSystem {
         // Iterate over all phys_id=>core_id's and filter out cores that have been reserved
         let available_cores = all_cores_map
             .into_iter()
-            // .map(|(k, v)| (k, v.keys()))
             .filter_map(
                 |(phys_id, core_ids_map)| match reserved_cores.get(&phys_id) {
                     Some(reserved_core_ids) => {
@@ -870,9 +869,9 @@ mod tests {
 
         use crate::{
             config::config::MachineConfig,
-            monitor::{
+            system::{
                 linux::{LinuxSystem, MachineStaticInfo},
-                system::{CpuStat, ReservationError, SystemController},
+                machine::{CpuStat, ReservationError, SystemController},
             },
         };
 
