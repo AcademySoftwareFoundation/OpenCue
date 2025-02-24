@@ -95,7 +95,7 @@ html_baseurl = 'https://www.opencue.io/'
 #
 html_theme_options = {
     'logo_only': True,
-    'display_version': True,
+    'show_version': True,
     'prev_next_buttons_location': 'bottom',
     'style_external_links': True,
     'style_nav_header_background': 'white',
@@ -199,7 +199,7 @@ epub_exclude_files = ['search.html']
 # -- Options for intersphinx extension ---------------------------------------
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/': None}
+# intersphinx_mapping = {'https://docs.python.org/': None}
 
 # -- Options for todo extension ----------------------------------------------
 
