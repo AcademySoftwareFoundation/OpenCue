@@ -95,7 +95,6 @@ html_baseurl = 'https://www.opencue.io/'
 #
 html_theme_options = {
     'logo_only': True,
-    'show_version': True,
     'prev_next_buttons_location': 'bottom',
     'style_external_links': True,
     'style_nav_header_background': 'white',
