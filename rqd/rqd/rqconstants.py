@@ -222,7 +222,7 @@ try:
                                                          "RQD_USE_IPV6_AS_HOSTNAME")
         if config.has_option(__override_section, "RQD_USE_PATH_ENV_VAR"):
             RQD_USE_PATH_ENV_VAR = config.getboolean(__override_section, "RQD_USE_PATH_ENV_VAR")
-        if config.has_option(__section, "RQD_n_ENV_VARS"):
+        if config.has_option(__section, "RQD_USE_HOST_ENV_VARS"):
             RQD_USE_HOST_ENV_VARS = config.getboolean(__section, "RQD_USE_HOST_ENV_VARS")
         if config.has_option(__override_section, "RQD_BECOME_JOB_USER"):
             RQD_BECOME_JOB_USER = config.getboolean(__override_section, "RQD_BECOME_JOB_USER")
