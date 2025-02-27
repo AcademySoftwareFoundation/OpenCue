@@ -77,15 +77,6 @@ class RqCore(object):
         self.nimby = rqd.rqnimby.NimbyFactory.getNimby(self)
 
         self.machine = rqd.rqmachine.Machine(self, self.cores)
-
-        # Add host environment variables
-        if rqd.rqconstants.RQD_USE_HOST_ENV_VARS:
-            for key, value in os.environ.items():
-                if "PATH" in key and key in self.frameEnv:
-                    self.frameEnv[key] += os.pathsep + value
-
-                self.frameEnv[key] = value
-
         self.network = rqd.rqnetwork.Network(self)
         self.__threadLock = threading.Lock()
         self.__cache = {}
@@ -779,6 +770,13 @@ class FrameAttendantThread(threading.Thread):
             # Fallback to empty string, easy to spot what is missing in the log
             self.frameEnv[variable] = os.environ.get(variable, '')
 
+        # Add host environment variables
+        if rqd.rqconstants.RQD_USE_HOST_ENV_VARS:
+            for key, value in os.environ.items():
+                if "PATH" in key and key in self.frameEnv:
+                    self.frameEnv[key] += os.pathsep + value
+                self.frameEnv[key] = value
+        
         for key, value in self.runFrame.environment.items():
             if key == 'PATH':
                 self.frameEnv[key] += os.pathsep + value
