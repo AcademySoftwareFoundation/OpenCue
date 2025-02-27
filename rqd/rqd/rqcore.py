@@ -770,7 +770,7 @@ class FrameAttendantThread(threading.Thread):
             for variable in rqd.rqconstants.RQD_HOST_ENV_VARS:
                 # Fallback to empty string, easy to spot what is missing in the log
                 self.frameEnv[variable] = os.environ.get(variable, '')
-        elif rqd.rqconstants.RQD_USE_HOST_ENV_VARS:
+        elif rqd.rqconstants.RQD_USE_ALL_HOST_ENV_VARS:
             # Add host environment variables
             for key, value in os.environ.items():
                 # Merge frame PATH with host PATH

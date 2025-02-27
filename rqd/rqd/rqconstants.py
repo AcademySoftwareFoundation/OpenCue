@@ -78,7 +78,7 @@ RQD_HOST_ENV_VARS = []
 # However, the handling of the PATH variable is unique: its value from the frame 
 # is merged with the host's value, with the frame's value taking precedence in the 
 # final result. If any var is defined at RQD_HOST_ENV_VARS, this attribute is considered False.
-RQD_USE_HOST_ENV_VARS = False
+RQD_USE_ALL_HOST_ENV_VARS = False
 
 RQD_CUSTOM_HOME_PREFIX = None
 RQD_CUSTOM_MAIL_PREFIX = None
@@ -227,8 +227,8 @@ try:
                                                          "RQD_USE_IPV6_AS_HOSTNAME")
         if config.has_option(__override_section, "RQD_USE_PATH_ENV_VAR"):
             RQD_USE_PATH_ENV_VAR = config.getboolean(__override_section, "RQD_USE_PATH_ENV_VAR")
-        if config.has_option(__override_section, "RQD_USE_HOST_ENV_VARS"):
-            RQD_USE_HOST_ENV_VARS = config.getboolean(__override_section, "RQD_USE_HOST_ENV_VARS")
+        if config.has_option(__override_section, "RQD_USE_ALL_HOST_ENV_VARS"):
+            RQD_USE_HOST_ENV_VARS = config.getboolean(__override_section, "RQD_USE_ALL_HOST_ENV_VARS")
         if config.has_option(__override_section, "RQD_BECOME_JOB_USER"):
             RQD_BECOME_JOB_USER = config.getboolean(__override_section, "RQD_BECOME_JOB_USER")
         if config.has_option(__override_section, "RQD_TAGS"):
