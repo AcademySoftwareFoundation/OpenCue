@@ -72,7 +72,12 @@ RQD_USE_PATH_ENV_VAR = False
 # Copy specific environment variable from the RQD host to the frame env.
 RQD_HOST_ENV_VARS = []
 
-# Use the environment variables from the RQD host.
+# Use the environment variables from the RQD host. For variables that exist 
+# In cases where a variable exists on both the host and the frame object (which are 
+# copied during initialization), the value from the host will take precedence. 
+# However, the handling of the PATH variable is unique: its value from the frame 
+# is merged with the host's value, with the frame's value taking precedence in the 
+# final result.
 RQD_USE_HOST_ENV_VARS = False
 
 RQD_CUSTOM_HOME_PREFIX = None
