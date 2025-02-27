@@ -775,7 +775,8 @@ class FrameAttendantThread(threading.Thread):
             for key, value in os.environ.items():
                 if "PATH" in key and key in self.frameEnv:
                     self.frameEnv[key] += os.pathsep + value
-                self.frameEnv[key] = value
+                else:
+                    self.frameEnv[key] = value
         
         for key, value in self.runFrame.environment.items():
             if key == 'PATH':
