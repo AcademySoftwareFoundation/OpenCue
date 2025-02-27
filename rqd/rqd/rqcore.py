@@ -77,7 +77,6 @@ class RqCore(object):
         self.nimby = rqd.rqnimby.NimbyFactory.getNimby(self)
 
         self.machine = rqd.rqmachine.Machine(self, self.cores)
-
         self.network = rqd.rqnetwork.Network(self)
         self.__threadLock = threading.Lock()
         self.__cache = {}
@@ -767,10 +766,18 @@ class FrameAttendantThread(threading.Thread):
             for variable in ["SYSTEMROOT", "APPDATA", "TMP", "COMMONPROGRAMFILES", "SYSTEMDRIVE"]:
                 if variable in os.environ:
                     self.frameEnv[variable] = os.environ[variable]
-        for variable in rqd.rqconstants.RQD_HOST_ENV_VARS:
-            # Fallback to empty string, easy to spot what is missing in the log
-            self.frameEnv[variable] = os.environ.get(variable, '')
-
+        if rqd.rqconstants.RQD_HOST_ENV_VARS:
+            for variable in rqd.rqconstants.RQD_HOST_ENV_VARS:
+                # Fallback to empty string, easy to spot what is missing in the log
+                self.frameEnv[variable] = os.environ.get(variable, '')
+        elif rqd.rqconstants.RQD_USE_ALL_HOST_ENV_VARS:
+            # Add host environment variables
+            for key, value in os.environ.items():
+                # Merge frame PATH with host PATH
+                if "PATH" == key and key in self.frameEnv:
+                    self.frameEnv[key] += os.pathsep + value
+                else:
+                    self.frameEnv[key] = value
         for key, value in self.runFrame.environment.items():
             if key == 'PATH':
                 self.frameEnv[key] += os.pathsep + value
