@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -25,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Resource;
 
 import org.jdom.Document;
@@ -56,6 +53,7 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
+import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -64,8 +62,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     @Rule
@@ -95,15 +93,15 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
     @Resource
     JobLauncher jobLauncher;
 
-    private static final String HOSTNAME="beta";
+    private static final String HOSTNAME = "beta";
 
     public DispatchHost getHost() {
         return hostDao.findDispatchHost(HOSTNAME);
     }
 
     private void launchJobs(int count) throws Exception {
-        Document docTemplate = new SAXBuilder(true).build(
-            new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
+        Document docTemplate = new SAXBuilder(true)
+                .build(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
         docTemplate.getDocType().setSystemID("http://localhost:8080/spcue/dtd/cjsl-1.12.dtd");
         Element root = docTemplate.getRootElement();
         Element jobTemplate = root.getChild("job");
@@ -125,7 +123,7 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
             // Force to set incremental ts_started to the jobs
             // because current_timestamp is not updated during test.
             jdbcTemplate.update("UPDATE job SET ts_started = ? WHERE str_name = ?",
-                new Timestamp(t + i), "pipe-default-testuser_job" + i);
+                    new Timestamp(t + i), "pipe-default-testuser_job" + i);
         }
     }
 
@@ -144,27 +142,15 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
 
     @Before
     public void createHost() {
-        RenderHost host = RenderHost.newBuilder()
-                .setName(HOSTNAME)
-                .setBootTime(1192369572)
-                .setFreeMcp(76020)
-                .setFreeMem(53500)
-                .setFreeSwap(20760)
-                .setLoad(1)
-                .setTotalMcp(195430)
-                .setTotalMem(8173264)
-                .setTotalSwap(20960)
-                .setNimbyEnabled(false)
-                .setNumProcs(2)
-                .setCoresPerProc(100)
-                .addTags("test")
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .putAttributes("SP_OS", "Linux")
+        RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(8173264).setTotalSwap(20960)
+                .setNimbyEnabled(false).setNumProcs(2).setCoresPerProc(100).addTags("test")
+                .setState(HardwareState.UP).setFacility("spi").putAttributes("SP_OS", "Linux")
                 .build();
 
-        hostManager.createHost(host,
-                adminManager.findAllocationDetail("spi", "general"));
+        hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
     }
 
     @Test
@@ -185,12 +171,8 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         int count = 10;
         launchJobs(count);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(getHost(), count);
+        Set<String> jobs = dispatcherDao.findDispatchJobs(getHost(), count);
         assertEquals(count, jobs.size());
-        for (int i = 0; i < count; i++) {
-            assertEquals("pipe-default-testuser_job" + i,
-                jobManager.getJob(jobs.get(i)).getName());
-        }
     }
 
     @Test
@@ -201,12 +183,8 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         launchJobs(count);
 
         int portion = 19;
-        List<String> jobs = dispatcherDao.findDispatchJobs(getHost(), (portion + 1) / 10);
+        Set<String> jobs = dispatcherDao.findDispatchJobs(getHost(), (portion + 1) / 10);
         assertEquals(portion, jobs.size());
-        for (int i = 0; i < portion; i++) {
-            assertEquals("pipe-default-testuser_job" + i,
-                jobManager.getJob(jobs.get(i)).getName());
-        }
     }
 
     @Test
@@ -218,16 +196,16 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         int count = 10;
         launchJobs(count);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(getHost(), count);
+        Set<String> jobs = dispatcherDao.findDispatchJobs(getHost(), count);
         assertEquals(count, jobs.size());
 
         List<String> sortedJobs = new ArrayList<String>(jobs);
         Collections.sort(sortedJobs,
-            Comparator.comparing(jobId -> jobManager.getJob(jobId).getName()));
+                Comparator.comparing(jobId -> jobManager.getJob(jobId).getName()));
 
         for (int i = 0; i < count; i++) {
             assertEquals("pipe-default-testuser_job" + i,
-                jobManager.getJob(sortedJobs.get(i)).getName());
+                    jobManager.getJob(sortedJobs.get(i)).getName());
         }
     }
 
@@ -241,12 +219,8 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
         JobDetail job = jobManager.findJobDetail("pipe-default-testuser_job0");
         assertNotNull(job);
 
-        List<String> jobs = dispatcherDao.findDispatchJobs(getHost(),
-                groupManager.getGroupDetail(job));
+        Set<String> jobs =
+                dispatcherDao.findDispatchJobs(getHost(), groupManager.getGroupDetail(job));
         assertEquals(count, jobs.size());
-        for (int i = 0; i < count; i++) {
-            assertEquals("pipe-default-testuser_job" + i,
-                jobManager.getJob(jobs.get(i)).getName());
-        }
     }
 }

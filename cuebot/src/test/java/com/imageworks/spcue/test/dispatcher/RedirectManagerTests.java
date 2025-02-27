@@ -2,19 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 
 package com.imageworks.spcue.test.dispatcher;
 
@@ -60,6 +57,7 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.RedirectService;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
+import com.imageworks.spcue.util.CueUtil;
 
 import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.is;
@@ -68,14 +66,12 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
-
 /**
  * Tests for the redirect manager.
  */
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class RedirectManagerTests
-    extends AbstractTransactionalJUnit4SpringContextTests {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class RedirectManagerTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
     RedirectManager redirectManager;
@@ -109,17 +105,15 @@ public class RedirectManagerTests
 
     @Resource
     Whiteboard whiteboard;
-    
+
     @Resource
     ProcSearchFactory procSearchFactory;
 
     private static final String HOSTNAME = "beta";
 
-    private static final String JOBNAME =
-        "pipe-dev.cue-testuser_shell_dispatch_test_v1";
+    private static final String JOBNAME = "pipe-dev.cue-testuser_shell_dispatch_test_v1";
 
-    private static final String TARGET_JOB =
-        "pipe-dev.cue-testuser_shell_dispatch_test_v2";
+    private static final String TARGET_JOB = "pipe-dev.cue-testuser_shell_dispatch_test_v2";
 
     @Before
     public void launchJob() {
@@ -134,27 +128,15 @@ public class RedirectManagerTests
 
     @Before
     public void createHost() {
-        RenderHost host = RenderHost.newBuilder()
-                .setName(HOSTNAME)
-                .setBootTime(1192369572)
-                .setFreeMcp(76020)
-                .setFreeMem(53500)
-                .setFreeSwap(20760)
-                .setLoad(1)
-                .setTotalMcp(195430)
-                .setTotalMem(8173264)
-                .setTotalSwap(20960)
-                .setNimbyEnabled(false)
-                .setNumProcs(1)
-                .setCoresPerProc(100)
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .addTags("test")
-                .putAttributes("SP_OS", "Linux")
-                .build();
+        RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(8173264).setTotalSwap(20960)
+                .setNimbyEnabled(false).setNumProcs(1).setCoresPerProc(100)
+                .setState(HardwareState.UP).setFacility("spi").addTags("test")
+                .putAttributes("SP_OS", "Linux").build();
 
-        hostManager.createHost(host,
-                adminManager.findAllocationDetail("spi", "general"));
+        hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
     }
 
     public JobDetail getJob() {
@@ -164,7 +146,6 @@ public class RedirectManagerTests
     public JobDetail getTargetJob() {
         return jobManager.findJobDetail(TARGET_JOB);
     }
-
 
     public DispatchHost getHost() {
         return hostManager.findDispatchHost(HOSTNAME);
@@ -191,11 +172,7 @@ public class RedirectManagerTests
         jobs.add(jobManager.findJob(TARGET_JOB));
 
         /* Now redirect this proc to the other job */
-        redirectManager.addRedirect(
-                search.getCriteria(),
-                jobs,
-                false,
-                new Source());
+        redirectManager.addRedirect(search.getCriteria(), jobs, false, new Source());
 
         /* Test that the redirect was added properly. */
         assertTrue(redirectManager.hasRedirect(procs.get(0)));
@@ -205,9 +182,7 @@ public class RedirectManagerTests
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertThat(
-                whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
-                is(emptyString()));
+        assertThat(whiteboard.getProcs(search).getProcs(0).getRedirectTarget(), is(emptyString()));
     }
 
     @Test
@@ -230,7 +205,7 @@ public class RedirectManagerTests
         ProcSearchCriteria criteria = search.getCriteria();
         search.setCriteria(criteria.toBuilder().addJobs(job.getName()).build());
 
-        GroupInterface root  = groupManager.getRootGroupDetail(job);
+        GroupInterface root = groupManager.getRootGroupDetail(job);
         GroupDetail group = new GroupDetail();
         group.name = "Foo";
         group.showId = root.getShowId();
@@ -238,11 +213,7 @@ public class RedirectManagerTests
         groupManager.createGroup(group, root);
 
         /* Now redirect this proc to the other job */
-        redirectManager.addRedirect(
-                search.getCriteria(),
-                group,
-                false,
-                new Source());
+        redirectManager.addRedirect(search.getCriteria(), group, false, new Source());
 
         /* Test that the redirect was added properly. */
         assertTrue(redirectManager.hasRedirect(procs.get(0)));
@@ -252,9 +223,7 @@ public class RedirectManagerTests
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertThat(
-                whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
-                is(emptyString()));
+        assertThat(whiteboard.getProcs(search).getProcs(0).getRedirectTarget(), is(emptyString()));
     }
 
     @Test
@@ -273,17 +242,14 @@ public class RedirectManagerTests
         ProcSearchInterface search = procSearchFactory.create();
         search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
 
-        assertTrue(redirectManager.addRedirect(proc, target,
-                false, new Source()));
+        assertTrue(redirectManager.addRedirect(proc, target, false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
         assertEquals(TARGET_JOB, whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertThat(
-                whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
-                is(emptyString()));
+        assertThat(whiteboard.getProcs(search).getProcs(0).getRedirectTarget(), is(emptyString()));
     }
 
     @Test
@@ -297,12 +263,9 @@ public class RedirectManagerTests
 
         /* Find the root group and move our target job there. */
         GroupDetail group = groupManager.getRootGroupDetail(job);
-        groupManager.reparentJob(target,
-                group,
-                new Inherit[] { });
+        groupManager.reparentJob(target, group, new Inherit[] {});
 
-        assertEquals(group.getId(),
-                groupManager.getGroupDetail(target).getId());
+        assertEquals(group.getId(), groupManager.getGroupDetail(target).getId());
 
         List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
         assertEquals(1, procs.size());
@@ -320,9 +283,7 @@ public class RedirectManagerTests
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertThat(
-                whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
-                is(emptyString()));
+        assertThat(whiteboard.getProcs(search).getProcs(0).getRedirectTarget(), is(emptyString()));
     }
 
     @Test
@@ -341,18 +302,15 @@ public class RedirectManagerTests
         ProcSearchInterface search = procSearchFactory.create();
         search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
 
-        assertTrue(redirectManager.addRedirect(proc, target,
-                false, new Source()));
+        assertTrue(redirectManager.addRedirect(proc, target, false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
         assertEquals(TARGET_JOB, whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         assertTrue(redirectManager.redirect(proc));
 
-        assertEquals(
-                Convert.coreUnitsToCores(100),
-                whiteboard.getJob(target.getJobId()).getJobStats().getReservedCores(),
-                0);
+        assertEquals(Convert.coreUnitsToCores(100),
+                whiteboard.getJob(target.getJobId()).getJobStats().getReservedCores(), 0);
     }
 
     @Test
@@ -366,12 +324,9 @@ public class RedirectManagerTests
 
         /* Find the root group and move our target job there. */
         GroupDetail group = groupManager.getRootGroupDetail(job);
-        groupManager.reparentJob(target,
-                group,
-                new Inherit[] { });
+        groupManager.reparentJob(target, group, new Inherit[] {});
 
-        assertEquals(group.getId(),
-                groupManager.getGroupDetail(target).getId());
+        assertEquals(group.getId(), groupManager.getGroupDetail(target).getId());
 
         List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
         assertEquals(1, procs.size());
@@ -382,19 +337,15 @@ public class RedirectManagerTests
 
         assertEquals(group.getGroupId(), jobDao.getJobDetail(target.getJobId()).groupId);
 
-        assertTrue(redirectManager.addRedirect(proc, group,
-                false, new Source()));
+        assertTrue(redirectManager.addRedirect(proc, group, false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(
-                group.getName(), whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
+        assertEquals(group.getName(), whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.redirect(proc);
 
-        assertEquals(
-                Convert.coreUnitsToCores(100),
-                whiteboard.getGroup(group.getGroupId()).getGroupStats().getReservedCores(),
-                0);
+        assertEquals(Convert.coreUnitsToCores(100),
+                whiteboard.getGroup(group.getGroupId()).getGroupStats().getReservedCores(), 0);
     }
 
     @Test
@@ -415,8 +366,8 @@ public class RedirectManagerTests
     }
 
     /**
-     * Test that parallel attempts to save a redirect with the
-     * same key succeed without throwing an exception.
+     * Test that parallel attempts to save a redirect with the same key succeed without throwing an
+     * exception.
      */
     @Test
     @Transactional
@@ -438,15 +389,13 @@ public class RedirectManagerTests
                     try {
                         try {
                             startSignal.await();
-                        }
-                        catch (InterruptedException e) {
+                        } catch (InterruptedException e) {
                             throw new RuntimeException("Failed to wait for start signal", e);
                         }
 
                         // This should not throw anything...
                         redirectService.put(redirect_key, redirect);
-                    }
-                    finally {
+                    } finally {
                         stopSignal.countDown();
                     }
                 }
@@ -458,15 +407,12 @@ public class RedirectManagerTests
             startSignal.countDown();
             try {
                 stopSignal.await();
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 throw new RuntimeException("Failed to wait for stop signal", e);
             }
-        }
-        finally {
+        } finally {
             // Clean up after test.
             redirectService.remove(redirect_key);
         }
     }
 }
-

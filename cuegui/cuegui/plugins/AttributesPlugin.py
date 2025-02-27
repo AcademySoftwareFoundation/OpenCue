@@ -240,7 +240,6 @@ class LayerAttributes(AbstractAttributes):
         """Prepopulates needed layer information."""
         return {"depends": layer.getWhatThisDependsOn()}
 
-    # pylint: disable=no-self-use
     def dataSource(self, layer, preload):
         """Returns layer information structured as needed for the attributes list."""
         d = {
@@ -248,10 +247,13 @@ class LayerAttributes(AbstractAttributes):
                 "layer": layer.data.name,
                 "services": layer.data.services,
                 "type": str(layer.data.type),
+                "command": str(layer.data.command),
                 "range": layer.data.range,
                 "tags": layer.data.tags,
                 "threadable": str(layer.data.is_threadable),
                 "minCores": "%0.2f" % layer.data.min_cores,
+                "maxCores": "%0.2f" % layer.data.max_cores,
+                "memory optimizer enabled": str(layer.data.memory_optimizer_enabled),
                 "minMemory": "%0.2fMB" % (layer.data.min_memory / 1024.0),
                 "outputs": {},
                 "frames": {
@@ -280,9 +282,9 @@ class LayerAttributes(AbstractAttributes):
                           "Running frames": layer.data.layer_stats.running_frames,
                           "maxRss": int(layer.data.layer_stats.max_rss)
                 },
-                "__childOrder":["id","layer","services","type","range","tags",
-                                "threadable","minCores","minMemory","outputs",
-                                "depends", "frames","resources"],
+                "__childOrder":["id","layer","services","type","command","range","tags",
+                                "threadable","minCores","maxCores","memory optimizer enabled",
+                                "minMemory","outputs", "depends", "frames","resources"],
                 "depends": getDependsForm(preload["depends"]),
                 }
 
@@ -314,7 +316,6 @@ class JobAttributes(AbstractAttributes):
         """Prepopulates needed job information."""
         return {"depends": jobObject.getWhatThisDependsOn()}
 
-    # pylint: disable=no-self-use
     def dataSource(self, job, preload):
         """Returns job information structured as needed for the attributes list."""
         if isinstance(job, opencue.wrappers.job.NestedJob):
@@ -398,7 +399,6 @@ class HostAttributes(AbstractAttributes):
 
     NAME = "Host"
 
-    # pylint: disable=no-self-use
     def dataSource(self, host, preload):
         """Returns host information structured as needed for the attributes list."""
         del preload
@@ -410,7 +410,7 @@ class HostAttributes(AbstractAttributes):
                 "state": str(host.data.state),
                 "lock": str(host.data.lock_state),
                 "load": "%.2f" % (host.data.load/float(100)),
-                "bootTime": cuegui.Utils.dateToMMDDHHMM(host.data.boot_time),
+                "bootTime": cuegui.Utils.dateToMMDDYYYYHHMM(host.data.boot_time),
                 "pingTime": cuegui.Utils.dateToMMDDHHMM(host.data.ping_time),
                 "pingLast": int(time.time() - host.data.ping_time),
                 "tags": ",".join(host.data.tags),

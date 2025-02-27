@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -108,7 +104,7 @@ public class AdminManagerService implements AdminManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public AllocationEntity getDefaultAllocation() {
         return allocationDao.getDefaultAllocationEntity();
     }
@@ -119,13 +115,13 @@ public class AdminManagerService implements AdminManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public ShowEntity findShowEntity(String name) {
         return showDao.findShowDetail(name);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public ShowEntity getShowEntity(String id) {
         return showDao.getShowDetail(id);
     }
@@ -147,7 +143,7 @@ public class AdminManagerService implements AdminManager {
     }
 
     public SubscriptionInterface createSubscription(ShowInterface show, AllocationInterface alloc,
-                                                    int size, int burst) {
+            int size, int burst) {
         SubscriptionEntity s = new SubscriptionEntity();
         s.size = size;
         s.burst = burst;
@@ -158,13 +154,13 @@ public class AdminManagerService implements AdminManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public AllocationEntity findAllocationDetail(String facility, String name) {
         return allocationDao.findAllocationEntity(facility, name);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public AllocationEntity getAllocationDetail(String id) {
         return allocationDao.getAllocationEntity(id);
     }
@@ -182,25 +178,25 @@ public class AdminManagerService implements AdminManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public SubscriptionEntity getSubscriptionDetail(String id) {
-        return  subscriptionDao.getSubscriptionDetail(id);
+        return subscriptionDao.getSubscriptionDetail(id);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public DepartmentInterface findDepartment(String name) {
         return departmentDao.findDepartment(name);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public DepartmentInterface getDefaultDepartment() {
         return departmentDao.getDefaultDepartment();
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public DepartmentInterface getDepartment(DepartmentInterface d) {
         return departmentDao.getDepartment(d.getDepartmentId());
     }
@@ -229,7 +225,7 @@ public class AdminManagerService implements AdminManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public FacilityInterface getFacility(String id) {
         return facilityDao.getFacility(id);
     }
@@ -240,7 +236,7 @@ public class AdminManagerService implements AdminManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public FacilityInterface getDefaultFacility() {
         return facilityDao.getDefaultFacility();
     }
@@ -265,12 +261,12 @@ public class AdminManagerService implements AdminManager {
     }
 
     @Override
-    public LimitInterface getLimit(String id){
+    public LimitInterface getLimit(String id) {
         return limitDao.getLimit(id);
     }
 
     @Override
-    public void setLimitName(LimitInterface limit, String name){
+    public void setLimitName(LimitInterface limit, String name) {
         limitDao.setLimitName(limit, name);
     }
 
@@ -335,4 +331,3 @@ public class AdminManagerService implements AdminManager {
         this.limitDao = limitDao;
     }
 }
-

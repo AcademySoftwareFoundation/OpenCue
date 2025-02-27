@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -49,8 +45,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class DeedDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     @Rule
@@ -70,29 +66,17 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
 
     public DispatchHost createHost() {
 
-        RenderHost host = RenderHost.newBuilder()
-                .setName("test_host")
-                .setBootTime(1192369572)
-                .setFreeMcp(76020)
-                .setFreeMem(15290520)
-                .setFreeSwap(2076)
-                .setLoad(1)
-                .setTotalMcp(19543)
-                .setTotalMem((int) CueUtil.GB16)
-                .setTotalSwap((int) CueUtil.GB16)
-                .setNimbyEnabled(false)
-                .setNumProcs(2)
-                .setCoresPerProc(100)
-                .addTags("general")
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .setFreeGpuMem((int) CueUtil.MB512)
-                .setTotalGpuMem((int) CueUtil.MB512)
-                .build();
+        RenderHost host = RenderHost.newBuilder().setName("test_host").setBootTime(1192369572)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB).setFreeMem(15290520).setFreeSwap(2076).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB16)
+                .setTotalSwap((int) CueUtil.GB16).setNimbyEnabled(false).setNumProcs(2)
+                .setCoresPerProc(100).addTags("general").setState(HardwareState.UP)
+                .setFacility("spi").setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512).build();
 
         DispatchHost dh = hostManager.createHost(host);
-        hostManager.setAllocation(dh,
-                adminManager.findAllocationDetail("spi", "general"));
+        hostManager.setAllocation(dh, adminManager.findAllocationDetail("spi", "general"));
 
         return dh;
     }
@@ -108,8 +92,7 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
         DeedEntity d = deedDao.insertDeed(o, host);
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM deed WHERE pk_deed=?",
-                Integer.class, d.getId()));
+                "SELECT COUNT(1) FROM deed WHERE pk_deed=?", Integer.class, d.getId()));
 
         assertEquals(host.getName(), d.host);
     }
@@ -125,14 +108,12 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
         DeedEntity d = deedDao.insertDeed(o, host);
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM deed WHERE pk_deed=?",
-                Integer.class, d.getId()));
+                "SELECT COUNT(1) FROM deed WHERE pk_deed=?", Integer.class, d.getId()));
 
         assertTrue(deedDao.deleteDeed(d));
 
         assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM deed WHERE pk_deed=?",
-                Integer.class, d.getId()));
+                "SELECT COUNT(1) FROM deed WHERE pk_deed=?", Integer.class, d.getId()));
 
         assertFalse(deedDao.deleteDeed(d));
     }
@@ -166,4 +147,3 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
         assertEquals(d, deedDao.getDeeds(o).get(0));
     }
 }
-

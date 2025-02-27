@@ -15,12 +15,15 @@
 """Module for classes related to jobs."""
 
 import enum
+import getpass
 import os
+import platform
 import time
 
 from opencue import Cuebot
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import job_pb2
+import opencue.api
 import opencue.search
 import opencue.wrappers.comment
 import opencue.wrappers.depend
@@ -44,9 +47,17 @@ class Job(object):
         self.stub = Cuebot.getStub('job')
         self.__frameStateTotals = {}
 
-    def kill(self):
+    def kill(self, username=None, pid=None, host_kill=None, reason=None):
         """Kills the job."""
-        self.stub.Kill(job_pb2.JobKillRequest(job=self.data), timeout=Cuebot.Timeout)
+        username = username if username else getpass.getuser()
+        pid = pid if pid else os.getpid()
+        host_kill = host_kill if host_kill else platform.uname()[1]
+        self.stub.Kill(job_pb2.JobKillRequest(job=self.data,
+                                              username=username,
+                                              pid=str(pid),
+                                              host_kill=host_kill,
+                                              reason=reason),
+                       timeout=Cuebot.Timeout)
 
     def pause(self):
         """Pauses the job."""
@@ -56,15 +67,23 @@ class Job(object):
         """Resumes the job."""
         self.stub.Resume(job_pb2.JobResumeRequest(job=self.data), timeout=Cuebot.Timeout)
 
-    def killFrames(self, **request):
+    def killFrames(self, username=None, pid=None, host_kill=None, reason=None, **request):
         """Kills all frames that match the FrameSearch.
 
         :type  request: Dict
         :param request: FrameSearch parameters
         """
+        username = username if username else getpass.getuser()
+        pid = pid if pid else os.getpid()
+        host_kill = host_kill if host_kill else platform.uname()[1]
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**request)
-        self.stub.KillFrames(job_pb2.JobKillFramesRequest(job=self.data, req=criteria),
-                             timeout=Cuebot.Timeout)
+        self.stub.KillFrames(job_pb2.JobKillFramesRequest(job=self.data,
+                                                          req=criteria,
+                                                          username=username,
+                                                          pid=str(pid),
+                                                          host_kill=host_kill,
+                                                          reason=reason),
+                            timeout=Cuebot.Timeout)
 
     def eatFrames(self, **request):
         """Eats all frames that match the FrameSearch.
@@ -169,6 +188,14 @@ class Job(object):
                                        timeout=Cuebot.Timeout)
         layerSeq = response.layers
         return [opencue.wrappers.layer.Layer(lyr) for lyr in layerSeq.layers]
+
+    def getLayer(self, layerName):
+        """ Returns the layer with the specified name
+        :type:   layername: str
+        :rtype:  opencue.wrappers.layer.Layer
+        :return: specific layer in the job
+        """
+        return opencue.api.findLayer(self.name(), layerName)
 
     def getFrames(self, **options):
         """Returns the list of up to 1000 frames from within the job.
@@ -405,6 +432,15 @@ class Job(object):
         self.stub.StaggerFrames(
             job_pb2.JobStaggerFramesRequest(job=self.data, range=frame_range, stagger=stagger),
             timeout=Cuebot.Timeout)
+
+    def addSubscriber(self, subscriber):
+        """Adds email subscriber to status change for the job
+
+        :type subscriber: string
+        :param subscriber: email address to send update when the job finishes
+        """
+        self.stub.AddSubscriber(job_pb2.JobAddSubscriberRequest(job=self.data,
+                                                                subscriber=subscriber))
 
     def facility(self):
         """Returns the facility that the job must run in.
@@ -778,6 +814,13 @@ class Job(object):
         self.stub.ShutdownIfCompleted(job_pb2.JobShutdownIfCompletedRequest(job=self.data),
                                       timeout=Cuebot.Timeout)
 
+    def lokiURL(self):
+        """Returns url for loki server on the job
+
+        :rtype: str
+        :return: Return URL of loki server of the job
+        """
+        return self.data.loki_url
 
 class NestedJob(Job):
     """This class contains information and actions related to a nested job."""
@@ -791,9 +834,9 @@ class NestedJob(Job):
         """Returns all job children."""
         return self.__children
 
-    def kill(self):
+    def kill(self, username=None, pid=None, host_kill=None, reason=None):
         """Kills the job."""
-        self.asJob().kill()
+        self.asJob().kill(username, pid, host_kill, reason)
 
     def pause(self):
         """Pauses the job."""
@@ -803,13 +846,13 @@ class NestedJob(Job):
         """Resumes the job."""
         self.asJob().resume()
 
-    def killFrames(self, **request):
+    def killFrames(self, username=None, pid=None, host_kill=None, reason=None, **request):
         """Kills all frames that match the FrameSearch.
 
         :type  request: Dict
         :param request: FrameSearch parameters
         """
-        self.asJob().killFrames(**request)
+        self.asJob().killFrames(username, pid, host_kill, reason, **request)
 
     def eatFrames(self, **request):
         """Eats all frames that match the FrameSearch.

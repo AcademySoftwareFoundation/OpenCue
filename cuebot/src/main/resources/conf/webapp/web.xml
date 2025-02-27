@@ -65,10 +65,30 @@
    		<servlet-class>com.imageworks.spcue.servlet.JobLaunchServlet</servlet-class>
  	</servlet>
 
+ 	<!--  Servlet for checking cue health status -->
+	<servlet>
+		<servlet-name>health</servlet-name>
+   		<servlet-class>com.imageworks.spcue.servlet.HealthCheckServlet</servlet-class>
+ 	</servlet>
+
  	<servlet-mapping>
  		<servlet-name>launch</servlet-name>
  		<url-pattern>/launch/*</url-pattern>
  	</servlet-mapping>
+
+ 	<servlet-mapping>
+ 		<servlet-name>health</servlet-name>
+ 		<url-pattern>/health</url-pattern>
+ 	</servlet-mapping>
+
+	<servlet>
+		<servlet-name>PrometheusServer</servlet-name>
+		<servlet-class>io.prometheus.client.exporter.MetricsServlet</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>PrometheusServer</servlet-name>
+		<url-pattern>/metrics</url-pattern>
+	</servlet-mapping>
 
 </web-app>
 

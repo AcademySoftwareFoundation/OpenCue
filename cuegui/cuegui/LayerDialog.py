@@ -71,10 +71,12 @@ class LayerPropertiesItem(QtWidgets.QWidget):
     """An key/value widget for populating a dialog box."""
     def __init__(self, label, widget, stretch=True, help_widget=None, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
+        # pylint: disable=unused-private-member
         self.__label = label
         self.__widget = widget
 
         layout = QtWidgets.QHBoxLayout(self)
+        layout.setContentsMargins(1, 1, 1, 1)
         if label:
             layout.addWidget(QtWidgets.QLabel(label, self))
         if stretch:
@@ -114,8 +116,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
 
         self.mem_max_gb = float(self._cfg().get('max_memory', 80.0))
         self.mem_min_gb = 0.25
-        self.mem_max_kb = int(self.mem_max_gb * 1024 * 1024)
-        self.mem_min_kb = int(self.mem_min_gb * 1024 * 1024)
+        self.mem_max_mb = int(self.mem_max_gb * 1024)
+        self.mem_min_mb = int(self.mem_min_gb * 1024)
 
         self.gpu_mem_max_kb = 256 * 1024 * 1024
         self.gpu_mem_min_kb = 0
@@ -129,9 +131,9 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         # Memory
         self.__mem = SlideSpinner(self)
         self.__mem.slider.setMinimumWidth(200)
-        self.__mem.slider.setRange(self.mem_min_kb, self.mem_max_kb)
-        self.__mem.slider.setTickInterval(self.mem_min_kb)
-        self.__mem.slider.setSingleStep(self.mem_min_kb)
+        self.__mem.slider.setRange(self.mem_min_mb, self.mem_max_mb)
+        self.__mem.slider.setTickInterval(128 * self.mem_min_mb)
+        self.__mem.slider.setSingleStep(128 * self.mem_min_mb)
         self.__mem.spinner.setSuffix(" GB")
         self.__mem.spinner.setRange(self.mem_min_gb, self.mem_max_gb)
 
@@ -227,14 +229,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__timeout.setValue(self.getTimeout())
         self.__timeout_llu.setValue(self.getTimeoutLLU())
 
-        topLayout = QtWidgets.QVBoxLayout()
-        topWidget = QtWidgets.QWidget()
-        topWidget.setLayout(topLayout)
-        scrollArea = QtWidgets.QScrollArea(widgetResizable=True)
-        scrollArea.setWidget(topWidget)
-
         QtWidgets.QVBoxLayout(self)
-        self.layout().addWidget(scrollArea)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(EnableableItem(LayerPropertiesItem("Minimum Memory:",
@@ -280,10 +275,10 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         layout.addStretch()
         self.__group.setLayout(layout)
 
-        topLayout.addWidget(EnableableItem(self.__tags, multiSelect))
-        topLayout.addWidget(EnableableItem(self.__limits, multiSelect))
-        topLayout.addWidget(self.__group)
-        topLayout.addWidget(self.__buttons)
+        self.layout().addWidget(EnableableItem(self.__tags, multiSelect))
+        self.layout().addWidget(EnableableItem(self.__limits, multiSelect))
+        self.layout().addWidget(self.__group)
+        self.layout().addWidget(self.__buttons)
 
     def _cfg(self):
         """
@@ -306,7 +301,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
             return
         # Verify our own values.
         mem_value = self.__mem.slider.value()
-        if mem_value < self.mem_min_kb or mem_value > self.mem_max_kb:
+        if mem_value < self.mem_min_mb or mem_value > self.mem_max_mb:
             warning("The memory setting is too high.")
             return False
         gpu_mem_value = self.__gpu_mem.slider.value()
@@ -322,7 +317,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         """
         for layer in self.__layers:
             if self.__mem.isEnabled():
-                layer.setMinMemory(self.__mem.slider.value())
+                layer.setMinMemory(self.__mem.slider.value() * 1024)
             if self.__mem_opt.isEnabled():
                 layer.enableMemoryOptimizer(self.__mem_opt.isChecked())
             if self.__core.isEnabled():
@@ -353,10 +348,11 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         for layer in self.__layers:
             if layer.data.min_memory > result:
                 result = layer.data.min_memory
-        return result
+        return result / 1024.0
 
     def getMaxGpuMemory(self):
         """Gets the layer max GPU memory."""
+        # pylint: disable=consider-using-generator
         return max([layer.data.min_gpu_memory // self.gpu_mem_tick_kb for layer in self.__layers])
 
     def getMinCores(self):
@@ -426,10 +422,10 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         return result
 
     def __translateToMemSpinbox(self, value):
-        self.__mem.spinner.setValue(float(value) / 1048576.0)
+        self.__mem.spinner.setValue(float(value) / 1024.0)
 
     def __translateToMemSlider(self, value):
-        self.__mem.slider.setValue(int(value * 1048576.0))
+        self.__mem.slider.setValue(int(value * 1024.0))
 
     def __translateToGpuMemSpinbox(self, value):
         self.__gpu_mem.spinner.setValue(float(value * self.gpu_mem_tick_kb) / 1024.0 / 1024.0)
@@ -524,6 +520,7 @@ class LayerTagsDialog(QtWidgets.QDialog):
         QtWidgets.QDialog.__init__(self, parent)
         self._tags_widget = LayerTagsWidget(layers=layers,
                                             parent=parent)
+        # pylint: disable=unused-private-member
         self.__warning = QtWidgets.QLabel(
             'Warning: Changing these tags may cause your job to not run any frames')
         self.__buttons = QtWidgets.QDialogButtonBox(
@@ -537,5 +534,6 @@ class LayerTagsDialog(QtWidgets.QDialog):
         # pylint: enable=no-member
 
     def accept(self):
+        """Accept action"""
         self._tags_widget.apply()
         self.close()

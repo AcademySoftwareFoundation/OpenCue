@@ -140,7 +140,7 @@ class Session(object):
             raise outline.exception.SessionException(msg % session)
 
         logger.info("loading session: %s", session)
-        with open(session) as file_object:
+        with open(session, encoding='utf-8') as file_object:
             try:
                 data = yaml.load(file_object, Loader=yaml.FullLoader)
             except Exception as exp:
@@ -163,11 +163,8 @@ class Session(object):
     def save(self):
         """Save the current session file."""
 
-        fp = open("%s/session" % self.get_path(), "w")
-        try:
+        with open(f"{self.get_path()}/session", "w", encoding="utf-8") as fp:
             fp.write(self.__name)
-        finally:
-            fp.close()
 
     @staticmethod
     def __layer_name(layer):
@@ -323,11 +320,8 @@ class Session(object):
             raise outline.exception.SessionException("There is already data being \
                 stored under this name.")
 
-        fp = open(path, "w")
-        try:
+        with open(path, "w", encoding="utf-8") as fp:
             fp.write(yaml.dump(data))
-        finally:
-            fp.close()
 
     def get_data(self, name, layer=None):
         """
@@ -349,7 +343,7 @@ class Session(object):
                 stored under that name.")
 
         logger.debug("opening data path for %s : %s", name, path)
-        with open(path) as file_object:
+        with open(path, encoding='utf-8') as file_object:
             try:
                 return yaml.load(file_object, Loader=yaml.FullLoader)
             except Exception as exp:

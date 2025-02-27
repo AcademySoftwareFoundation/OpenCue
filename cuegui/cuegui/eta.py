@@ -55,7 +55,8 @@ class FrameEtaGenerator(object):
         """Gets ETA for the given frame."""
         self.log = opencue.util.logPath(job, frame)
         if os.path.isfile(self.log):
-            self.log_lines = len(open(self.log).readlines())
+            with open(self.log, encoding='utf-8') as fp:
+                self.log_lines = len(fp.readlines())
             self.GetFrameBuildTime(frame)
         try:
             layer = opencue.api.findLayer(job.data.name, frame.data.layer_name)
@@ -120,21 +121,22 @@ class FrameEtaGenerator(object):
         del frame
         if os.path.isfile(self.log):
             line = ''
-            for line in reversed(open(self.log).readlines()):
-                # Checks log directory for a percentage complete in reverse to limit time in log.
-                if 'Running generator batch' in line:
-                    # pylint: disable=bare-except
-                    try:
-                        time_on_log = self.GetSeconds(line)
-                        line = line.split(' ')
-                        current = float(line[16])
-                        total = float(line[18].split('\n')[0])
-                        percent = float(current / total) * 100
-                        self.percents.append((percent, time_on_log))
-                        if len(self.percents) > 1:
-                            break
-                    except:
-                        pass
+            with open(self.log, encoding='utf-8') as fp:
+                for line in reversed(fp.readlines()):
+                    # Checks log directory for a percentage complete in reverse to limit time in log
+                    if 'Running generator batch' in line:
+                        # pylint: disable=bare-except
+                        try:
+                            time_on_log = self.GetSeconds(line)
+                            line = line.split(' ')
+                            current = float(line[16])
+                            total = float(line[18].split('\n')[0])
+                            percent = float(current / total) * 100
+                            self.percents.append((percent, time_on_log))
+                            if len(self.percents) > 1:
+                                break
+                        except:
+                            pass
             if len(self.percents) > 1:
                 self.percents = sorted(self.percents, reverse=True)
                 self.total_completion = (
@@ -186,10 +188,11 @@ class FrameEtaGenerator(object):
             return self.startTimeCache[key]
         # Read the logFile here for time.
         result = ''
-        for line in open(self.log):
-            if '% done' in line:
-                result = line
-                break
+        with open(self.log, encoding='utf-8') as fp:
+            for line in fp:
+                if '% done' in line:
+                    result = line
+                    break
         if not result:
             return result
         self.startTimeCache[key] = result
@@ -202,10 +205,11 @@ class FrameEtaGenerator(object):
             return self.buildTimeCache[key]
         # Read the logFile here for time.
         result_line = None
-        for line in open(self.log):
-            if 'Building scene done' in line:
-                result_line = line
-                break
+        with open(self.log, encoding='utf-8') as fp:
+            for line in fp:
+                if 'Building scene done' in line:
+                    result_line = line
+                    break
         if result_line is not None:
             result = {
                 'scene_build_seconds': self.GetSeconds(result_line),

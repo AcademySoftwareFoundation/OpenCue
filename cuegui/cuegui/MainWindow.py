@@ -25,8 +25,11 @@ from __future__ import division
 
 from builtins import str
 from builtins import range
+
+import os
 import sys
 import time
+import yaml
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -45,6 +48,9 @@ logger = cuegui.Logger.getLogger(__file__)
 
 class MainWindow(QtWidgets.QMainWindow):
     """The main window of the application. Multiple windows may exist."""
+
+    # Message to be displayed when a change requires an application restart
+    USER_CONFIRM_RESTART = "You must restart for this action to take effect, close window?: "
 
     windows = []
     windows_names = []
@@ -68,6 +74,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.name = window_name
         else:
             self.name = self.windows_names[0]
+        self.__isEnabled = yaml.safe_load(self.app.settings.value("EnableJobInteraction", "False"))
 
         # Provides a location for widgets to the right of the menu
         menuLayout = QtWidgets.QHBoxLayout()
@@ -78,6 +85,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setMinimumSize(600, 400)
         self.setAnimated(False)
         self.setDockNestingEnabled(True)
+
+        # Create checkable menuitem
+        self.saveWindowSettingsCheck = QtWidgets.QAction("Save Window Settings on Exit", self)
+        self.saveWindowSettingsCheck.setCheckable(True)
 
         # Register this window
         self.__windowOpened()
@@ -112,10 +123,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def displayAbout(self):
         """Displays about text."""
-        msg = self.app_name + "\n\nA opencue tool\n\n"
-        msg += "Qt:\n%s\n\n" % QtCore.qVersion()
-        msg += "Python:\n%s\n\n" % sys.version
+        msg = f"{self.app_name}\n\nA opencue tool\n\n"
+        msg += f"CueGUI:\n{cuegui.Constants.VERSION}\n\n"
+
+        # Only show the labels (Beta or Stable) if OPENCUE_BETA exists
+        opencue_beta = os.getenv('OPENCUE_BETA')
+        if opencue_beta:
+            if opencue_beta == '1':
+                msg += "(Beta Version)\n\n"
+            else:
+                msg += "(Stable Version)\n\n"
+
+        msg += f"Qt:\n{QtCore.qVersion()}\n\n"
+        msg += f"Python:\n{sys.version}\n\n"
         QtWidgets.QMessageBox.about(self, "About", msg)
+
+    def handleExit(self, sig, flag):
+        """Save current state and close the application"""
+        del sig
+        del flag
+        # Only save settings on exit if toggled
+        if self.saveWindowSettingsCheck.isChecked():
+            self.__saveSettings()
+        self.__windowCloseApplication()
 
     @staticmethod
     def openSuggestionPage():
@@ -147,7 +177,9 @@ class MainWindow(QtWidgets.QMainWindow):
         menu.triggered.connect(self.__facilityMenuHandle)
 
         cue_config = opencue.Cuebot.getConfig()
-        self.facility_default = cue_config.get("cuebot.facility_default")
+        self.facility_default = os.getenv(
+            "CUEBOT_FACILITY",
+            cue_config.get("cuebot.facility_default"))
         self.facility_dict = cue_config.get("cuebot.facility")
 
         for facility in self.facility_dict:
@@ -172,13 +204,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.__actions_facility[self.facility_default].setChecked(True)
         # Uncheck all other facilities if one is checked
         else:
-            for facility in self.__actions_facility:
+            for facility, facvalue in self.__actions_facility.items():
                 if facility != action.text():
-                    self.__actions_facility[facility].setChecked(False)
+                    facvalue.setChecked(False)
 
         for facility in list(self.__actions_facility.values()):
             if facility.isChecked():
-                opencue.Cuebot.setFacility(str(facility.text()))
+                opencue.Cuebot.setHostWithFacility(str(facility.text()))
                 self.app.facility_changed.emit()
                 return
 
@@ -190,10 +222,26 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Menu bar
         self.fileMenu = self.menuBar().addMenu("&File")
-        self.facilityMenu = self.__facilityMenuSetup(self.menuBar().addMenu("&Cuebot"))
+        self.facilityMenu = self.__facilityMenuSetup(self.menuBar().addMenu("&Cuebot Facility"))
         self.PluginMenu = self.menuBar().addMenu("&Views/Plugins")
         self.windowMenu = self.menuBar().addMenu("&Window")
         self.helpMenu = self.menuBar().addMenu("&Help")
+
+        if self.__isEnabled is False:
+            # Menu Bar: File -> Enable Job Interaction
+            enableJobInteraction = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'),
+                                                     '&Enable Job Interaction', self)
+            enableJobInteraction.setStatusTip('Enable Job Interaction')
+            enableJobInteraction.triggered.connect(self.__enableJobInteraction)
+            self.fileMenu.addAction(enableJobInteraction)
+        # allow user to disable the job interaction
+        else:
+            # Menu Bar: File -> Disable Job Interaction
+            enableJobInteraction = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'),
+                                                     '&Disable Job Interaction', self)
+            enableJobInteraction.setStatusTip('Disable Job Interaction')
+            enableJobInteraction.triggered.connect(self.__enableJobInteraction)
+            self.fileMenu.addAction(enableJobInteraction)
 
         # Menu Bar: File -> Close Window
         close = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), '&Close Window', self)
@@ -251,6 +299,10 @@ class MainWindow(QtWidgets.QMainWindow):
         changeTitle.triggered.connect(self.__windowMenuHandleChangeTitle)  # pylint: disable=no-member
         menu.addAction(changeTitle)
 
+        # Menu Bar: Window -> Save Window Settings on Exit
+        self.saveWindowSettingsCheck.triggered.connect(self.__saveSettingsToggle)  # pylint: disable=no-member
+        menu.addAction(self.saveWindowSettingsCheck)
+
         # Menu Bar: Window -> Save Window Settings
         saveWindowSettings = QtWidgets.QAction("Save Window Settings", self)
         saveWindowSettings.triggered.connect(self.__saveSettings)  # pylint: disable=no-member
@@ -300,12 +352,13 @@ class MainWindow(QtWidgets.QMainWindow):
         action_title = str(action.text())
         if action_title.startswith("Open Window: "):
             window_title = action_title.replace("Open Window: ","")
+            # pylint: disable=consider-using-dict-items
             for name in self.windows_titles:
                 if self.windows_titles[name] == window_title:
                     self.windowMenuOpenWindow(name)
 
         elif action_title.endswith("Add new window") and len(action_title) == 18:
-            number = int(action_title[1:].split(")")[0]) - 1
+            number = int(action_title[1:].split(")", maxsplit=1)[0]) - 1
             self.windowMenuOpenWindow(self.windows_names[number])
 
         elif action_title.startswith("Raise Window: "):
@@ -359,12 +412,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowClosed(self):
         """Called from closeEvent on window close"""
 
-        # Disconnect to avoid multiple attempts to close a window
-        self.app.quit.connect(self.close)
-
-        # Save the fact that this window is open or not when the app closed
-        self.settings.setValue("%s/Open" % self.name, self.app.closingApp)
-
         # pylint: disable=bare-except
         try:
             self.windows.remove(self)
@@ -381,6 +428,8 @@ class MainWindow(QtWidgets.QMainWindow):
         to exit."""
         self.app.closingApp = True
         self.app.quit.emit()
+        # Give the application some time to save the state
+        time.sleep(4)
 
     ################################################################################
 
@@ -404,6 +453,7 @@ class MainWindow(QtWidgets.QMainWindow):
     ################################################################################
 
     def keyPressEvent(self, event):
+        """Handle keys being pressed"""
         if event.key() == QtCore.Qt.Key_Space:
             self.app.request_update.emit()
             event.accept()
@@ -413,7 +463,9 @@ class MainWindow(QtWidgets.QMainWindow):
         @type  event: QEvent
         @param event: The close event"""
         del event
-        self.__saveSettings()
+        # Only save settings on exit if toggled
+        if self.saveWindowSettingsCheck.isChecked():
+            self.__saveSettings()
         self.__windowClosed()
 
     def __restoreSettings(self):
@@ -429,6 +481,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.move(self.settings.value("%s/Position" % self.name,
                                       QtCore.QPoint(0, 0)))
 
+        self.saveWindowSettingsCheck.setChecked(self.settings.value("SaveOnExit", "true") == "true")
+
+    def __saveSettingsToggle(self, checked):
+        """Toggles saving window settings on exit"""
+
+        # Make sure that it has the same state in all windows
+        for window in self.windows:
+            window.saveWindowSettingsCheck.setChecked(checked)
+
     def __saveSettings(self):
         """Saves the windows settings"""
         logger.info('Saving: %s', self.settings.fileName())
@@ -436,6 +497,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.__plugins.saveState()
 
         # For populating the default state: print self.saveState().toBase64()
+
+        # Save the fact that this window is open or not
+        for windowName in self.windows_names:
+            for window in self.windows:
+                if window.name == windowName:
+                    self.settings.setValue("%s/Open" % windowName, True)
+                    break
+            else:
+                self.settings.setValue("%s/Open" % windowName, False)
 
         self.settings.setValue("Version", self.app_version)
 
@@ -448,14 +518,33 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings.setValue("%s/Position" % self.name,
                                self.pos())
 
+        self.settings.setValue("SaveOnExit", self.saveWindowSettingsCheck.isChecked())
+
     def __revertLayout(self):
         """Revert back to default window layout"""
         result = QtWidgets.QMessageBox.question(
                     self,
                     "Restart required ",
-                    "You must restart for this action to take effect, close window?: ",
+                    MainWindow.USER_CONFIRM_RESTART,
                     QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
 
         if result == QtWidgets.QMessageBox.Yes:
             self.settings.setValue("RevertLayout", True)
             self.__windowCloseApplication()
+
+    def __enableJobInteraction(self):
+        """ Enable/Disable user job interaction """
+        result = QtWidgets.QMessageBox.question(
+                    self,
+                    "Job Interaction Settings ",
+                    MainWindow.USER_CONFIRM_RESTART,
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+
+        if result == QtWidgets.QMessageBox.Yes:
+            # currently not enabled, user wants to enable
+            if self.__isEnabled is False:
+                self.settings.setValue("EnableJobInteraction", 1)
+                self.__windowCloseApplication()
+            else:
+                self.settings.setValue("EnableJobInteraction", 0)
+                self.__windowCloseApplication()

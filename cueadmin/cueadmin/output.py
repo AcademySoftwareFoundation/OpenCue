@@ -141,16 +141,19 @@ def displaySubscriptions(subscriptions, show):
     sub_format = "%-30s %-12s %6s %8s %8s %8s"
     print(sub_format % ("Allocation", "Show", "Size", "Burst", "Run", "Used"))
     for s in subscriptions:
+        size = s.data.size/100
+        burst = s.data.burst/100
+        run = s.data.reserved_cores/100
         if s.data.size:
             perc = float(s.data.reserved_cores) / s.data.size * 100.0
         else:
-            perc = s.data.reserved_cores * 100.0
+            perc = run
 
         print(sub_format % (s.data.allocation_name,
                             s.data.show_name,
-                            s.data.size,
-                            s.data.burst,
-                            "%0.2f" % s.data.reserved_cores,
+                            size,
+                            burst,
+                            "%0.2f" % run,
                             "%0.2f%%" % perc))
 
 

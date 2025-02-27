@@ -133,7 +133,6 @@ class LimitsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         item = LimitWidgetItem(rpcObject, self)
         return item
 
-    # pylint: disable=no-self-use
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
         try:
@@ -149,7 +148,7 @@ class LimitsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu.addSeparator()
         self.__menuActions.limits().addAction(menu, "delete")
         self.__menuActions.limits().addAction(menu, "rename")
-        menu.exec_(QtCore.QPoint(e.globalX(), e.globalY()))
+        menu.exec_(QtCore.QPoint(e.globalX(), e.globalY())) # pylint: disable=no-member
 
     def tick(self):
         pass

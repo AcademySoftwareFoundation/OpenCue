@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dao;
 
@@ -33,13 +29,14 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverride;
+import com.imageworks.spcue.grpc.job.FrameStateDisplayOverrideSeq;
 import com.imageworks.spcue.util.FrameSet;
 
 public interface FrameDao {
 
     /**
-     * finds the frame in the job that used the lowest
-     * amount of memory
+     * finds the frame in the job that used the lowest amount of memory
      *
      * @param job
      * @return
@@ -47,8 +44,7 @@ public interface FrameDao {
     public FrameDetail findLowestMemoryFrame(JobInterface job);
 
     /**
-     * finds the frame in the job that used the highest
-     * amount of memory,
+     * finds the frame in the job that used the highest amount of memory,
      *
      * @param job
      * @return
@@ -72,9 +68,8 @@ public interface FrameDao {
     public FrameDetail findLongestFrame(JobInterface job);
 
     /**
-     * Checks to see how many retries a frame has.  If that number
-     * is greater than or equal to the jobs max retries, the frame
-     * is marked as dead.
+     * Checks to see how many retries a frame has. If that number is greater than or equal to the
+     * jobs max retries, the frame is marked as dead.
      *
      * @param frame
      */
@@ -173,8 +168,7 @@ public interface FrameDao {
     void updateFrameStarted(VirtualProc proc, FrameInterface frame);
 
     /**
-     * Updates a frame to the stopped state.  The frame MUST be
-     * in the Running state to be stopped.
+     * Updates a frame to the stopped state. The frame MUST be in the Running state to be stopped.
      *
      * @param proc
      * @param frame
@@ -183,8 +177,7 @@ public interface FrameDao {
     boolean updateFrameStopped(FrameInterface frame, FrameState state, int exitStatus);
 
     /**
-     * Updates a frame to the stopped state.  The frame MUST be
-     * in the Running state to be stopped.
+     * Updates a frame to the stopped state. The frame MUST be in the Running state to be stopped.
      *
      * @param frame
      * @param state
@@ -192,8 +185,7 @@ public interface FrameDao {
      * @param maxRss
      * @return
      */
-    boolean updateFrameStopped(FrameInterface frame, FrameState state, int exitStatus,
-                               long maxRss);
+    boolean updateFrameStopped(FrameInterface frame, FrameState state, int exitStatus, long maxRss);
 
     /**
      * Sets a frame to an unreserved waiting state.
@@ -202,6 +194,14 @@ public interface FrameDao {
      * @return
      */
     boolean updateFrameCleared(FrameInterface frame);
+
+    /**
+     * Sets a frame exitStatus to EXIT_STATUS_MEMORY_FAILURE
+     *
+     * @param frame
+     * @return whether the frame has been updated
+     */
+    boolean updateFrameMemoryError(FrameInterface frame);
 
     /**
      * Sets a frame to an unreserved waiting state.
@@ -220,25 +220,24 @@ public interface FrameDao {
     DispatchFrame getDispatchFrame(String uuid);
 
     /**
-     * Set the specified frame to the Waiting state and its
-     * depend count to 0.
+     * Set the specified frame to the Waiting state and its depend count to 0.
      *
      * @param frame
      */
     void markFrameAsWaiting(FrameInterface frame);
 
     /**
-     * If the specified frame has active dependencies, reset
-     * the dependency count and set the frame state to Depend
+     * If the specified frame has active dependencies, reset the dependency count and set the frame
+     * state to Depend
      *
      * @param frame
      */
     void markFrameAsDepend(FrameInterface frame);
 
     /**
-     * Reverses the specified frame range. The revese layer implementation is
-     * is more intensive than other reorder operations because we look up
-     * the dispatch order for each frame and then switch them.
+     * Reverses the specified frame range. The revese layer implementation is is more intensive than
+     * other reorder operations because we look up the dispatch order for each frame and then switch
+     * them.
      *
      * @param layer
      * @param frameSet
@@ -247,10 +246,9 @@ public interface FrameDao {
 
     /**
      *
-     * Reorders specified frames to the end of the dispatch order.
-     * This works by finding the frame with the highest dispatch
-     * value, and updating the specified frames with higher values.
-     * The rest of the frames in the layer are not touched.
+     * Reorders specified frames to the end of the dispatch order. This works by finding the frame
+     * with the highest dispatch value, and updating the specified frames with higher values. The
+     * rest of the frames in the layer are not touched.
      *
      * @param layer
      * @param frameSet
@@ -258,10 +256,9 @@ public interface FrameDao {
     public void reorderFramesLast(LayerInterface layer, FrameSet frameSet);
 
     /**
-     * Reorders specified frames to the top of the dispatch order.
-     * This works by finding the frame with the lowest dispatch
-     * order and updating targeted frames with even lower dispatcher orders,
-     * negative numbers are allowed.
+     * Reorders specified frames to the top of the dispatch order. This works by finding the frame
+     * with the lowest dispatch order and updating targeted frames with even lower dispatcher
+     * orders, negative numbers are allowed.
      *
      * @param layer
      * @param frameSet
@@ -269,9 +266,8 @@ public interface FrameDao {
     public void reorderFramesFirst(LayerInterface layer, FrameSet frameSet);
 
     /**
-     * This would reorder frames so that it would render the specified
-     * sequence on a staggered frame range.  The frame set must be
-     * a staggered range.
+     * This would reorder frames so that it would render the specified sequence on a staggered frame
+     * range. The frame set must be a staggered range.
      *
      * @param layer
      * @param frameSet
@@ -279,17 +275,16 @@ public interface FrameDao {
     public void staggerLayer(LayerInterface layer, String range, int stagger);
 
     /**
-     * Returns a list of Running frames that have not had a proc
-     * assigned to them in over 5 min.  This can happen when an
-     * operation aborts due to a deadlock.
+     * Returns a list of Running frames that have not had a proc assigned to them in over 5 min.
+     * This can happen when an operation aborts due to a deadlock.
      *
      * @return
      */
     List<FrameInterface> getOrphanedFrames();
 
     /**
-     * Return a list of all frames that have positive dependency
-     * counts for the specified dependency.
+     * Return a list of all frames that have positive dependency counts for the specified
+     * dependency.
      *
      * @param depend
      * @return
@@ -305,8 +300,8 @@ public interface FrameDao {
     public boolean isFrameComplete(FrameInterface f);
 
     /**
-     * Attempts to fix the case where a proc is assigned to a frame
-     * but the frame is in the waiting state.
+     * Attempts to fix the case where a proc is assigned to a frame but the frame is in the waiting
+     * state.
      *
      * @param proc
      * @param frame
@@ -315,8 +310,8 @@ public interface FrameDao {
     boolean updateFrameFixed(VirtualProc proc, FrameInterface frame);
 
     /**
-     * Return a ResourceUsage object which repesents the amount
-     * of clock and core time the frame has used up until this point.
+     * Return a ResourceUsage object which repesents the amount of clock and core time the frame has
+     * used up until this point.
      *
      * @param f
      * @return
@@ -324,28 +319,25 @@ public interface FrameDao {
     ResourceUsage getResourceUsage(FrameInterface f);
 
     /**
-     * Update memory usage values and LLU time for the given frame.  The
-     * frame must be in the Running state.  If the frame
-     * is locked by another thread, the process is aborted because
-     * we'll most likely get a new update one minute later.
+     * Update memory usage values and LLU time for the given frame. The frame must be in the Running
+     * state. If the frame is locked by another thread, the process is aborted because we'll most
+     * likely get a new update one minute later.
      *
      * @param f
      * @param maxRss
      * @param rss
      * @param lluTime
-     * @throws FrameReservationException if the frame is locked
-     *         by another thread.
+     * @throws FrameReservationException if the frame is locked by another thread.
      */
     void updateFrameMemoryUsageAndLluTime(FrameInterface f, long maxRss, long rss, long lluTime);
 
     /**
-     * Attempt to put a exclusive row lock on the given
-     * frame. The frame must be in the specified state.
+     * Attempt to put a exclusive row lock on the given frame. The frame must be in the specified
+     * state.
      *
      * @param frame
      * @param state
-     * @throws FrameReservationException if the frame changes state before
-     *         the lock can be applied.
+     * @throws FrameReservationException if the frame changes state before the lock can be applied.
      */
     void lockFrameForUpdate(FrameInterface frame, FrameState state);
 
@@ -367,12 +359,34 @@ public interface FrameDao {
     boolean updateFrameCheckpointState(FrameInterface frame, CheckpointState state);
 
     /**
-     * Return a list of checkpoints that have failed to report back in
-     * within a certain cutoff time.
+     * Return a list of checkpoints that have failed to report back in within a certain cutoff time.
      *
      * @param cutoffTime
      * @return
      */
     List<FrameInterface> getStaleCheckpoints(int cutoffTimeMs);
-}
 
+    /**
+     * Create a frame state display override.
+     *
+     * @param frameId String
+     * @param override FrameStateDisplayOverride
+     */
+    void setFrameStateDisplayOverride(String frameId, FrameStateDisplayOverride override);
+
+    /**
+     * Get the frame overrides for a specific frame
+     *
+     * @param frameId
+     * @return List<FrameStateDisplayOverride>
+     */
+    FrameStateDisplayOverrideSeq getFrameStateDisplayOverrides(String frameId);
+
+    /**
+     * Update a frame override with new text/color
+     *
+     * @param frameId
+     * @param override FrameStateDisplayOverride
+     */
+    void updateFrameStateDisplayOverride(String frameId, FrameStateDisplayOverride override);
+}

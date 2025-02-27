@@ -63,7 +63,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         try:
             owner = opencue.api.getOwner(os.environ["USER"])
             for host in owner.getHosts():
-                if host.data.lockState != opencue.api.host_pb2.OPEN:
+                if host.lockState() != opencue.api.host_pb2.OPEN:
                     self.__select_host.addItem(host.data.name)
         except opencue.exception.CueException:
             pass
@@ -79,6 +79,16 @@ class LocalBookingWidget(QtWidgets.QWidget):
             self.__deed_button.pressed.connect(self.deedLocalhost)  # pylint: disable=no-member
             self.__lba_group.setDisabled(True)
 
+        default_values = {
+            "num_frames": 1,
+            "num_threads": 1,
+            "num_gpus": 0,
+            "num_mem": 4,
+            "num_gpu_mem": 0,
+        }
+        if hasattr(parent, "local_plugin_saved_values") and parent.local_plugin_saved_values:
+            default_values.update(parent.local_plugin_saved_values)
+
         self.__text_target = QtWidgets.QLabel(self.__target.data.name, self)
 
         self.__num_threads = QtWidgets.QSpinBox(self)
@@ -89,19 +99,34 @@ class LocalBookingWidget(QtWidgets.QWidget):
         self.__num_cores.setReadOnly(True)
 
         self.__num_frames = QtWidgets.QSpinBox(self)
-        self.__num_frames.setValue(1)
+        self.__num_frames.setValue(default_values["num_frames"])
 
         self.__frame_warn = QtWidgets.QLabel(self)
 
         self.__num_mem = QtWidgets.QSlider(self)
-        self.__num_mem.setValue(4)
+        self.__num_mem.setValue(default_values["num_mem"])
+        self.__num_mem.setMaximum(256)
         self.__num_mem.setOrientation(QtCore.Qt.Horizontal)
         self.__num_mem.setTickPosition(QtWidgets.QSlider.TicksBelow)
         self.__num_mem.setTickInterval(1)
 
         self.__text_num_mem = QtWidgets.QSpinBox(self)
-        self.__text_num_mem.setValue(4)
+        self.__text_num_mem.setValue(default_values["num_mem"])
         self.__text_num_mem.setSuffix("GB")
+
+        self.__num_gpu_mem = QtWidgets.QSlider(self)
+        self.__num_gpu_mem.setValue(default_values["num_gpu_mem"])
+        self.__num_gpu_mem.setMaximum(256)
+        self.__num_gpu_mem.setOrientation(QtCore.Qt.Horizontal)
+        self.__num_gpu_mem.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        self.__num_gpu_mem.setTickInterval(1)
+
+        self.__text_num_gpu_mem = QtWidgets.QSpinBox(self)
+        self.__text_num_gpu_mem.setValue(default_values["num_gpu_mem"])
+        self.__text_num_gpu_mem.setSuffix("GB")
+
+        self.__num_gpus = QtWidgets.QLineEdit(self)
+        self.__num_gpus.setText(str(default_values["num_gpus"]))
 
         #
         # Next layout is if the deed is in use.
@@ -114,6 +139,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
 
         self.__run_mem = QtWidgets.QSlider(self)
         self.__run_mem.setValue(4)
+        self.__run_mem.setMaximum(256)
         self.__run_mem.setOrientation(QtCore.Qt.Horizontal)
         self.__run_mem.setTickPosition(QtWidgets.QSlider.TicksBelow)
         self.__run_mem.setTickInterval(1)
@@ -134,6 +160,8 @@ class LocalBookingWidget(QtWidgets.QWidget):
         self.__num_frames.valueChanged.connect(self.__calculateCores)
         self.__run_mem.valueChanged.connect(self.__text_run_mem.setValue)
         self.__text_run_mem.valueChanged.connect(self.__run_mem.setValue)
+        self.__num_gpu_mem.valueChanged.connect(self.__text_num_gpu_mem.setValue)
+        self.__text_num_gpu_mem.valueChanged.connect(self.__num_gpu_mem.setValue)
         # pylint: enable=no-member
 
         self.layout().addWidget(QtWidgets.QLabel("Target Host:"))
@@ -152,10 +180,16 @@ class LocalBookingWidget(QtWidgets.QWidget):
         layout.addWidget(self.__num_cores, 3, 1)
         layout.addWidget(self.__frame_warn, 3, 2, 1, 2)
 
-        layout.addWidget(QtWidgets.QLabel("Memory (GB): "), 4, 0)
+        layout.addWidget(QtWidgets.QLabel("GPU Cores: "), 4, 0)
+        layout.addWidget(self.__num_gpus, 4, 1)
 
-        layout.addWidget(self.__num_mem, 4, 1, 1, 2)
-        layout.addWidget(self.__text_num_mem, 4, 3)
+        layout.addWidget(QtWidgets.QLabel("Memory (GB): "), 5, 0)
+        layout.addWidget(self.__num_mem, 5, 1, 1, 2)
+        layout.addWidget(self.__text_num_mem, 5, 3)
+
+        layout.addWidget(QtWidgets.QLabel("GPU Memory (GB): "), 6, 0)
+        layout.addWidget(self.__num_gpu_mem, 6, 1, 1, 2)
+        layout.addWidget(self.__text_num_gpu_mem, 6, 3)
 
         #
         # Layout 2
@@ -206,24 +240,32 @@ class LocalBookingWidget(QtWidgets.QWidget):
             return
         host = opencue.api.findHost(str(hostname))
         try:
-            rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
+            rp = [r for r in host.getRenderPartitions() if r.data.job == self.jobName]
 
             if rp:
                 rp = rp[0]
                 self.__stack.setCurrentIndex(1)
                 self.__btn_clear.setText("Clear")
                 self.__btn_clear.setDisabled(False)
-                self.__run_cores.setRange(1, int(host.data.idleCores) + rp.maxCores // 100)
-                self.__run_cores.setValue(rp.maxCores // 100)
-                self.__run_mem.setRange(1, int(host.data.totalMemory / 1024 / 1024))
-                self.__run_mem.setValue(int(rp.maxMemory / 1024 / 1024))
+                self.__run_cores.setRange(1, int(host.data.idle_cores) + rp.data.max_cores // 100)
+                self.__run_cores.setValue(rp.data.max_cores // 100)
+                self.__run_mem.setRange(1, int(host.data.total_memory / 1024 / 1024))
+                self.__run_mem.setValue(int(rp.data.max_memory / 1024 / 1024))
 
             else:
                 self.__stack.setCurrentIndex(0)
-                self.__num_frames.setRange(1, host.data.idleCores)
-                self.__num_threads.setRange(1, host.data.idleCores)
-                self.__num_mem.setRange(1, int(host.data.totalMemory / 1024 / 1024))
-                self.__num_threads.setRange(1, host.data.idleCores)
+                self.__num_frames.setRange(1, host.data.idle_cores)
+                self.__num_threads.setRange(1, host.data.idle_cores)
+                self.__num_mem.setRange(1, int(host.data.total_memory / 1024 / 1024))
+
+                # Automatically disable num_gpus field if the host is not reporting GPU
+                gpu_memory_available = int(host.data.total_gpu_memory / 1024 / 1024)
+                if gpu_memory_available == 0:
+                    self.__num_gpus.setText("0")
+                    self.__num_gpus.setReadOnly(True)
+
+                self.__num_gpu_mem.setRange(0, gpu_memory_available)
+                self.__num_threads.setRange(1, host.data.idle_cores)
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
@@ -242,7 +284,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         user = os.environ["USER"]
         try:
             owner = opencue.api.getOwner(user)
-        except opencue.EntityNotFoundException as e:
+        except opencue.EntityNotFoundException:
             # Owner does not exist
             owner = _show.createOwner(user)
 
@@ -306,7 +348,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
             self.__btn_clear.setDisabled(True)
             host = opencue.api.findHost(str(hostname))
 
-            rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
+            rp = [r for r in host.getRenderPartitions() if r.data.job == self.jobName]
             if rp:
                 rp = rp[0]
 
@@ -316,7 +358,8 @@ class LocalBookingWidget(QtWidgets.QWidget):
                 for _ in range(0, 10):
                     # pylint: disable=broad-except
                     try:
-                        rp = [r for r in host.getRenderPartitions() if r.job == self.jobName][0]
+                        rp = [r for r in host.getRenderPartitions()
+                            if r.data.job == self.jobName][0]
                         time.sleep(1)
                     except Exception:
                         break
@@ -326,22 +369,35 @@ class LocalBookingWidget(QtWidgets.QWidget):
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def bookCurrentHost(self):
-        """Books the current host."""
+        """Books the current host"""
+
+        # Save fields on user preferences
+        self.__parent.local_plugin_saved_values.update({
+            "num_frames": int(self.__num_frames.text()),
+            "num_threads": self.__num_threads.value(),
+            "num_gpus": int(self.__num_gpus.text()),
+            "num_mem": self.__num_mem.value(),
+            "num_gpu_mem": self.__num_gpu_mem.value(),
+        })
 
         if self.__hasError():
             return
 
         host = opencue.api.findHost(str(self.__select_host.currentText()))
-        rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
+        rp = [r for r in host.getRenderPartitions() if r.data.job == self.jobName]
         if rp:
             # A render partition already exists on this hosts and user is modifying
             rp[0].setMaxResources(int(self.__run_cores.value() * 100),
-                                        int(self.__run_mem.value()) * 1024 * 1024,
-                                        0)
+                int(self.__run_mem.value()) * 1024 * 1024,
+                0, 0)
         else:
             self.__target.addRenderPartition(
-                str(self.__select_host.currentText()), int(self.__num_threads.value()),
-                int(self.__num_cores.text()), int(self.__num_mem.value() * 1048576), 0)
+                str(self.__select_host.currentText()),
+                int(self.__num_threads.value()),
+                int(self.__num_cores.text()),
+                int(self.__num_mem.value() * 1048576),
+                int(self.__num_gpu_mem.value() * 1048576),
+                int(self.__num_gpus.text()))
 
 
 class LocalBookingDialog(QtWidgets.QDialog):

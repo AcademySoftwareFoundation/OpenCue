@@ -118,9 +118,9 @@ def setup_local_cores(e):
 def get_half_host_memory():
     """Returns half of the amount of RAM the local machine has."""
 
-    pipe = subprocess.Popen("vmstat -s",
-                            shell=True, bufsize=1000, stdout=subprocess.PIPE).stdout
-    data = pipe.read().strip()
-    data = int(data[0:data.find(" ")])
-    data = data / 2
-    return str(data)
+    with subprocess.Popen("vmstat -s", shell=True,
+                          bufsize=1000, stdout=subprocess.PIPE).stdout as pipe:
+        data = pipe.read().strip()
+        data = int(data[0:data.find(" ")])
+        data = data / 2
+        return str(data)

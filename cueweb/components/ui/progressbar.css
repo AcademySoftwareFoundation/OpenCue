@@ -1,0 +1,12 @@
+.progressVisualFull {
+  display: flex;
+  /* change the value if you want different thickness */
+  height: 12px;
+  width: 200px;
+  margin: 20px 0;
+}
+
+.progressVisualPart {
+  /* Number of the seconds for complete animation */
+  transition: width 2s;
+}

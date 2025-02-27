@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dao;
 
@@ -42,8 +38,7 @@ import com.imageworks.spcue.util.JobLogUtil;
 public interface JobDao {
 
     /**
-     * Updates all jobs in the speficed group to the
-     * max cores value.
+     * Updates all jobs in the speficed group to the max cores value.
      *
      * @param g
      * @param cores
@@ -51,8 +46,7 @@ public interface JobDao {
     public void updateMaxCores(GroupInterface g, int cores);
 
     /**
-     * Updates all jobs in the specifid group to the
-     * min cores value.
+     * Updates all jobs in the specifid group to the min cores value.
      *
      * @param g
      * @param cores
@@ -60,8 +54,7 @@ public interface JobDao {
     public void updateMinCores(GroupInterface g, int cores);
 
     /**
-     * Updates all jobs in the speficed group to the
-     * max gpu value.
+     * Updates all jobs in the speficed group to the max gpu value.
      *
      * @param g
      * @param gpu
@@ -69,8 +62,7 @@ public interface JobDao {
     public void updateMaxGpus(GroupInterface g, int gpus);
 
     /**
-     * Updates all jobs in the specifid group to the
-     * min gpu value.
+     * Updates all jobs in the specifid group to the min gpu value.
      *
      * @param g
      * @param gpu
@@ -78,8 +70,7 @@ public interface JobDao {
     public void updateMinGpus(GroupInterface g, int gpus);
 
     /**
-     * Updates all jobs in the specified group to the
-     * set priority.
+     * Updates all jobs in the specified group to the set priority.
      *
      * @param g
      * @param priority
@@ -103,8 +94,7 @@ public interface JobDao {
     ExecutionSummary getExecutionSummary(JobInterface job);
 
     /**
-     * returns a FrameStateTotals object with all of the
-     * job's frame state totals.
+     * returns a FrameStateTotals object with all of the job's frame state totals.
      *
      * @param job
      * @return
@@ -120,8 +110,7 @@ public interface JobDao {
     DispatchJob getDispatchJob(String uuid);
 
     /**
-     * Returns true if the job has no more frames that
-     * can possibly be dispatched.
+     * Returns true if the job has no more frames that can possibly be dispatched.
      *
      * @param job
      * @return
@@ -129,16 +118,14 @@ public interface JobDao {
     boolean isJobComplete(JobInterface job);
 
     /**
-     * Inserts a JobDetail.  The job will not be pending until its
-     * activated.
+     * Inserts a JobDetail. The job will not be pending until its activated.
      *
      * @param j
      */
     void insertJob(JobDetail j, JobLogUtil jobLogUtil);
 
     /**
-     * Finds a Job from its name.  This method returns only
-     * the current running job.
+     * Finds a Job from its name. This method returns only the current running job.
      *
      * @param name
      * @return
@@ -146,8 +133,7 @@ public interface JobDao {
     JobInterface findJob(String name);
 
     /**
-     * Finds a JobDetail from its name.  This method returns only
-     * the current running job.
+     * Finds a JobDetail from its name. This method returns only the current running job.
      *
      * @param name
      * @return
@@ -224,8 +210,7 @@ public interface JobDao {
     void updateState(JobInterface job, JobState state);
 
     /**
-     * updates a job to the finished state. returns true
-     * if the job was updated
+     * updates a job to the finished state. returns true if the job was updated
      *
      * @param job
      */
@@ -264,8 +249,7 @@ public interface JobDao {
     boolean isAtMaxCores(JobInterface job);
 
     /**
-     * Return true if adding given core units to the job
-     * will set the job over its max core value.
+     * Return true if adding given core units to the job will set the job over its max core value.
      *
      * @param job
      * @param coreUnits
@@ -290,8 +274,7 @@ public interface JobDao {
     boolean isAtMaxGpus(JobInterface job);
 
     /**
-     * Return true if adding given gpus to the job
-     * will set the job over its max gpus value.
+     * Return true if adding given gpus to the job will set the job over its max gpus value.
      *
      * @param job
      * @param gpus
@@ -356,10 +339,8 @@ public interface JobDao {
     void updateAutoEat(JobInterface j, boolean b);
 
     /**
-     * Updates the int_max_retries column with the value of
-     * max_retries.  Checks to make sure max_retries
-     * is greater than 0 and less than or equal to
-     * MAX_FRAME_RETRIES
+     * Updates the int_max_retries column with the value of max_retries. Checks to make sure
+     * max_retries is greater than 0 and less than or equal to MAX_FRAME_RETRIES
      *
      * @param Job
      * @param max_retries
@@ -373,11 +354,11 @@ public interface JobDao {
      * @param job
      * @param env
      */
-    void insertEnvironment(JobInterface job, Map<String,String> env);
+    void insertEnvironment(JobInterface job, Map<String, String> env);
 
     /**
-     * Update jobs max RSS.  Only updates if the passed in value
-     * is greater than the current value of int_max_rss
+     * Update jobs max RSS. Only updates if the passed in value is greater than the current value of
+     * int_max_rss
      *
      * @param job
      * @param env
@@ -399,11 +380,10 @@ public interface JobDao {
      * @param job
      * @return
      */
-    Map<String,String> getEnvironment(JobInterface job);
+    Map<String, String> getEnvironment(JobInterface job);
 
     /**
-     * Updates the job's log path in the DB.  This doesn't touch the file
-     * system.
+     * Updates the job's log path in the DB. This doesn't touch the file system.
      *
      * @param job
      * @param path
@@ -454,8 +434,7 @@ public interface JobDao {
     void activatePostJob(JobInterface job);
 
     /**
-     * Update all jobs in the specified group to the
-     * specified department.
+     * Update all jobs in the specified group to the specified department.
      *
      * @param group
      */
@@ -469,8 +448,8 @@ public interface JobDao {
     void updateDepartment(JobInterface job, DepartmentInterface dept);
 
     /**
-     * Set the job's new parent.  The job will automatically
-     * inherit all relevant settings from the group.
+     * Set the job's new parent. The job will automatically inherit all relevant settings from the
+     * group.
      *
      * @param job
      * @param dest
@@ -478,8 +457,8 @@ public interface JobDao {
     void updateParent(JobInterface job, GroupDetail dest);
 
     /**
-     * Update layer usage with processor time usage.
-     * This happens when the proc has completed or failed some work.
+     * Update layer usage with processor time usage. This happens when the proc has completed or
+     * failed some work.
      *
      * @param proc
      * @param newState
@@ -495,5 +474,7 @@ public interface JobDao {
     boolean isLaunching(JobInterface j);
 
     void updateEmail(JobInterface job, String email);
-}
 
+    String getEmail(JobInterface job);
+
+}

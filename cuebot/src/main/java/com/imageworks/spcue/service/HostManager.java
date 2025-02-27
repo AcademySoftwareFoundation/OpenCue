@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -43,6 +39,7 @@ import com.imageworks.spcue.grpc.report.RenderHost;
 public interface HostManager {
 
     void rebootWhenIdle(HostInterface host);
+
     void rebootNow(HostInterface host);
 
     /**
@@ -63,15 +60,15 @@ public interface HostManager {
     void setHostState(HostInterface host, HardwareState state);
 
     /**
-     * Return true if the host is swapping hard enough
-     * that killing frames will save the entire machine.
+     * Updates the free temporary directory (mcp) of a host.
      *
-     * @param host
-     * @return
+     * @param host HostInterface
+     * @param freeTempDir Long
      */
-    boolean isSwapping(HostInterface host);
+    void setHostFreeTempDir(HostInterface host, Long freeTempDir);
 
     DispatchHost createHost(HostReport report);
+
     DispatchHost createHost(RenderHost host);
 
     /**
@@ -83,15 +80,18 @@ public interface HostManager {
      */
     DispatchHost createHost(RenderHost rhost, AllocationEntity alloc);
 
-
     HostInterface getHost(String id);
+
     HostInterface findHost(String name);
 
     DispatchHost getDispatchHost(String id);
+
     DispatchHost findDispatchHost(String name);
 
     HostEntity getHostDetail(HostInterface host);
+
     HostEntity getHostDetail(String id);
+
     HostEntity findHostDetail(String name);
 
     /**
@@ -118,13 +118,9 @@ public interface HostManager {
      * @param bootTime
      * @param os
      */
-    void setHostStatistics(HostInterface host,
-            long totalMemory, long freeMemory,
-            long totalSwap, long freeSwap,
-            long totalMcp, long freeMcp,
-            long totalGpuMemory, long freeGpuMemory,
+    void setHostStatistics(HostInterface host, long totalMemory, long freeMemory, long totalSwap,
+            long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory, long freeGpuMemory,
             int load, Timestamp bootTime, String os);
-
 
     void deleteHost(HostInterface host);
 
@@ -133,12 +129,13 @@ public interface HostManager {
     void setAllocation(HostInterface host, AllocationInterface alloc);
 
     void addTags(HostInterface host, String[] tags);
+
     void removeTags(HostInterface host, String[] tags);
+
     void renameTag(HostInterface host, String oldTag, String newTag);
 
     /**
-     * Verify that the given proc and frame IDs are assigned
-     * to each other in the database.
+     * Verify that the given proc and frame IDs are assigned to each other in the database.
      *
      * @param procId
      * @param frameId
@@ -147,8 +144,7 @@ public interface HostManager {
     boolean verifyRunningProc(String procId, String frameId);
 
     /**
-     * Returns a list of VirtualProcs that match
-     * the specified criteria.
+     * Returns a list of VirtualProcs that match the specified criteria.
      *
      * @param r
      * @return a list of VirtualProcs that match the criteria
@@ -156,14 +152,15 @@ public interface HostManager {
     List<VirtualProc> findVirtualProcs(ProcSearchInterface r);
 
     List<VirtualProc> findVirtualProcs(FrameSearchInterface r);
+
     VirtualProc findVirtualProc(FrameInterface frame);
+
     List<VirtualProc> findVirtualProcs(HardwareState state);
 
     /**
-     * Returns a list of booked procs.  When a proc is "booked", that means
-     * it plans on staying on the same job after it completes the current
-     * frame.  If a proc is unbooked, it aways tries to find work to do
-     * on another job.
+     * Returns a list of booked procs. When a proc is "booked", that means it plans on staying on
+     * the same job after it completes the current frame. If a proc is unbooked, it aways tries to
+     * find work to do on another job.
      *
      * @param r
      * @return
@@ -171,14 +168,8 @@ public interface HostManager {
     List<VirtualProc> findBookedVirtualProcs(ProcSearchInterface r);
 
     void unbookVirtualProcs(List<VirtualProc> procs);
-    void unbookProc(ProcInterface proc);
 
-    /**
-     * Returns the proc who is most deliquent on memory allocation
-     * @param h
-     * @return
-     */
-    VirtualProc getWorstMemoryOffender(HostInterface h);
+    void unbookProc(ProcInterface proc);
 
     /**
      * Return the Virtual proc with the specified unique ID.
@@ -189,9 +180,8 @@ public interface HostManager {
     VirtualProc getVirtualProc(String id);
 
     /**
-     * Return true if the given host is in the Up state.  Other
-     * states are Down, Rebooting, RebootWhenIdle, etc.  Only hosts
-     * in the Up state should be booked or dispatched.
+     * Return true if the given host is in the Up state. Other states are Down, Rebooting,
+     * RebootWhenIdle, etc. Only hosts in the Up state should be booked or dispatched.
      *
      * @param host
      * @return
@@ -199,8 +189,7 @@ public interface HostManager {
     boolean isHostUp(HostInterface host);
 
     /**
-     * Return true if the proc is an orphan.  An orphan has not
-     * had a ping in 5 minutes.
+     * Return true if the proc is an orphan. An orphan has not had a ping in 5 minutes.
      *
      * @param proc
      * @return
@@ -257,4 +246,3 @@ public interface HostManager {
      */
     void setHostResources(DispatchHost host, HostReport report);
 }
-

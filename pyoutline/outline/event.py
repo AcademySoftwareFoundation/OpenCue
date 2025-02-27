@@ -53,6 +53,7 @@ class EventHandler(object):
     EventHandler keeps track of who is listening for which events.
     """
     def __init__(self, component):
+        # pylint: disable=unused-private-member
         self.__component = component
         self.__listeners = {}
 
@@ -87,7 +88,7 @@ class EventHandler(object):
         try:
             return self.__listeners[event_type]
         except KeyError:
-            return list()
+            return []
 
 
 class LaunchEvent(object):

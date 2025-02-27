@@ -189,7 +189,7 @@ class JobTests(unittest.TestCase):
             jobs=job_pb2.JobSeq(jobs=[job_pb2.Job(name=TEST_JOB_NAME)]))
         getStubMock.return_value = stubMock
 
-        jobsByShow = opencue.api.getJobs(show=[TEST_SHOW_NAME], all=True)
+        jobsByShow = opencue.api.getJobs(show=[TEST_SHOW_NAME])
 
         stubMock.GetJobs.assert_called_with(
             job_pb2.JobGetJobsRequest(
@@ -205,6 +205,25 @@ class JobTests(unittest.TestCase):
                     jobs=[TEST_JOB_NAME], shows=[TEST_SHOW_NAME])), timeout=mock.ANY)
         self.assertEqual(1, len(jobsByName))
         self.assertEqual(TEST_JOB_NAME, jobsByName[0].name())
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetAllJobs(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetJobs.return_value = job_pb2.JobGetJobsResponse(
+            jobs=job_pb2.JobSeq(jobs=[job_pb2.Job(name=TEST_JOB_NAME)]))
+        getStubMock.return_value = stubMock
+
+        jobs = opencue.api.getJobs()
+
+        stubMock.GetJobs.assert_called_with(
+            job_pb2.JobGetJobsRequest(
+                r=job_pb2.JobSearchCriteria()), timeout=mock.ANY)
+        self.assertEqual(1, len(jobs))
+        self.assertEqual(TEST_JOB_NAME, jobs[0].name())
+
+    def testRaiseExceptionOnBadCriteriaSearch(self):
+        with self.assertRaises(Exception) as context:
+            opencue.api.getJobs(bad_criteria=["00000000-0000-0000-0000-012345678980"])
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testGetJob(self, getStubMock):
@@ -340,11 +359,12 @@ class FrameTests(unittest.TestCase):
         getStubMock.return_value = stubMock
 
         frames = opencue.api.getFrames(TEST_JOB_NAME, range="1-5")
+        framePageLimit = opencue.api.search.FrameSearch.limit
 
         stubMock.GetFrames.assert_called_with(
             job_pb2.FrameGetFramesRequest(
                 job=TEST_JOB_NAME, r=job_pb2.FrameSearchCriteria(
-                    frame_range="1-5", page=1, limit=1000)),
+                    frame_range="1-5", page=1, limit=framePageLimit)),
             timeout=mock.ANY)
         self.assertEqual(5, len(frames))
         self.assertTrue(all((frame.layer() == TEST_LAYER_NAME for frame in frames)))

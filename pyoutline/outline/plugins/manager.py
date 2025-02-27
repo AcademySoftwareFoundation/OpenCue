@@ -57,7 +57,7 @@ class PluginManager(object):
                                 [module_name])
             try:
                 module.loaded()
-            except AttributeError as e:
+            except AttributeError:
                 pass
             cls.registered_plugins.append(module)
 
@@ -72,7 +72,7 @@ class PluginManager(object):
             plugin = __import__(module_name, globals(), locals(), [module_name])
             try:
                 plugin.init(layer)
-            except AttributeError as e:
+            except AttributeError:
                 pass
         except ImportError as e:
             sys.stderr.write("Warning: plugin load failed: %s\n" % e)

@@ -2,19 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 
 package com.imageworks.spcue.dispatcher;
 
@@ -23,6 +20,9 @@ import java.util.List;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
@@ -44,7 +44,6 @@ import com.imageworks.spcue.service.RedirectService;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
-
 public class RedirectManager {
 
     private static final Logger logger = LogManager.getLogger(RedirectManager.class);
@@ -59,8 +58,11 @@ public class RedirectManager {
     private DispatchSupport dispatchSupport;
     private RedirectService redirectService;
     private ProcSearchFactory procSearchFactory;
+    private Environment env;
 
-    public RedirectManager(RedirectService redirectService) {
+    @Autowired
+    public RedirectManager(RedirectService redirectService, Environment env) {
+        this.env = env;
         this.redirectService = redirectService;
     }
 
@@ -84,8 +86,7 @@ public class RedirectManager {
     }
 
     /**
-     * Return true if a redirect for a specific Proc
-     * exists.  False if it does not.
+     * Return true if a redirect for a specific Proc exists. False if it does not.
      *
      * @param proc
      * @return
@@ -95,8 +96,7 @@ public class RedirectManager {
     }
 
     /**
-     * Redirects procs found by the ProcSearchCriteria
-     * to the specified group.
+     * Redirects procs found by the ProcSearchCriteria to the specified group.
      *
      * @param criteria
      * @param group
@@ -104,8 +104,8 @@ public class RedirectManager {
      * @param source
      * @return
      */
-    public List<VirtualProc> addRedirect(ProcSearchCriteria criteria,
-                                         GroupInterface group, boolean kill, Source source) {
+    public List<VirtualProc> addRedirect(ProcSearchCriteria criteria, GroupInterface group,
+            boolean kill, Source source) {
 
         List<GroupInterface> groups = new ArrayList<GroupInterface>(1);
         groups.add(group);
@@ -119,15 +119,13 @@ public class RedirectManager {
             return procs;
         }
 
-        for (VirtualProc proc: procs) {
-            logger.info("Adding redirect from " + proc + " to group "
-                    + group.getName());
+        for (VirtualProc proc : procs) {
+            logger.info("Adding redirect from " + proc + " to group " + group.getName());
 
             Redirect r = new Redirect(group);
             if (procDao.setRedirectTarget(proc, r)) {
                 redirectService.put(proc.getProcId(), r);
-            }
-            else {
+            } else {
                 procs.remove(proc);
             }
         }
@@ -140,8 +138,7 @@ public class RedirectManager {
     }
 
     /**
-     * Redirects procs found by the proc search criteria to
-     * an array of jobs.
+     * Redirects procs found by the proc search criteria to an array of jobs.
      *
      * @param criteria
      * @param jobs
@@ -149,8 +146,8 @@ public class RedirectManager {
      * @param source
      * @return
      */
-    public List<VirtualProc> addRedirect(ProcSearchCriteria criteria,
-                                         List<JobInterface> jobs, boolean kill, Source source) {
+    public List<VirtualProc> addRedirect(ProcSearchCriteria criteria, List<JobInterface> jobs,
+            boolean kill, Source source) {
         int index = 0;
 
         ProcSearchInterface procSearch = procSearchFactory.create(criteria);
@@ -160,20 +157,18 @@ public class RedirectManager {
             return procs;
         }
 
-        for (VirtualProc proc: procs) {
+        for (VirtualProc proc : procs) {
             if (index >= jobs.size()) {
                 index = 0;
             }
 
-            logger.info("Adding redirect from " + proc + " to job "
-                    + jobs.get(index).getName());
+            logger.info("Adding redirect from " + proc + " to job " + jobs.get(index).getName());
 
             Redirect r = new Redirect(jobs.get(index));
             if (procDao.setRedirectTarget(proc, r)) {
                 redirectService.put(proc.getProcId(), r);
                 index++;
-            }
-            else {
+            } else {
                 procs.remove(proc);
             }
         }
@@ -183,31 +178,29 @@ public class RedirectManager {
 
         return procs;
     }
+
     /**
-     * Redirect a list of procs to the specified job. Using
-     * redirect counters, the redirect only happens one
-     * all procs have reported in.  This gives users the
-     * ability to kill multiple frames and open up large
-     * amounts of memory and cores.
+     * Redirect a list of procs to the specified job. Using redirect counters, the redirect only
+     * happens one all procs have reported in. This gives users the ability to kill multiple frames
+     * and open up large amounts of memory and cores.
      *
      * @param procs
      * @param job
      * @param source
      * @return true if the redirect succeeds.
      */
-    public boolean addRedirect(List<VirtualProc> procs, JobInterface job,
-            Source source) {
+    public boolean addRedirect(List<VirtualProc> procs, JobInterface job, Source source) {
 
         String redirectGroupId = SqlUtil.genKeyRandom();
 
-        for (VirtualProc proc: procs) {
+        for (VirtualProc proc : procs) {
             Redirect r = new Redirect(redirectGroupId, job);
             if (procDao.setRedirectTarget(proc, r)) {
                 redirectService.put(proc.getProcId(), r);
             }
         }
 
-        for (VirtualProc proc: procs) {
+        for (VirtualProc proc : procs) {
             jobManagerSupport.kill(proc, source);
         }
 
@@ -223,11 +216,9 @@ public class RedirectManager {
      * @param source
      * @return true if the redirect succeeds.
      */
-    public boolean addRedirect(VirtualProc proc, JobInterface job,
-            boolean kill, Source source) {
+    public boolean addRedirect(VirtualProc proc, JobInterface job, boolean kill, Source source) {
 
-        if (dispatchSupport.findNextDispatchFrames(
-                job, proc, 1).size() < 1) {
+        if (dispatchSupport.findNextDispatchFrames(job, proc, 1).size() < 1) {
             return false;
         }
 
@@ -252,8 +243,8 @@ public class RedirectManager {
      * @param source
      * @return true if the redirect succeeds.
      */
-    public boolean addRedirect(VirtualProc proc, GroupInterface group,
-            boolean kill, Source source) {
+    public boolean addRedirect(VirtualProc proc, GroupInterface group, boolean kill,
+            Source source) {
 
         // Test a dispatch
         DispatchHost host = hostManager.getDispatchHost(proc.getHostId());
@@ -280,8 +271,7 @@ public class RedirectManager {
     }
 
     /**
-     * Redirect the specified proc to its redirect
-     * destination;
+     * Redirect the specified proc to its redirect destination;
      *
      * @param proc
      * @return
@@ -297,72 +287,59 @@ public class RedirectManager {
             }
 
             int other_redirects_with_same_group =
-                redirectService.countRedirectsWithGroup(r.getGroupId());
+                    redirectService.countRedirectsWithGroup(r.getGroupId());
 
             if (other_redirects_with_same_group > 0) {
-                logger.warn("Redirect waiting on " + other_redirects_with_same_group + " more frames.");
+                logger.warn(
+                        "Redirect waiting on " + other_redirects_with_same_group + " more frames.");
                 return false;
             }
 
             /*
-             * The proc must be unbooked before its resources can be
-             * redirected.
+             * The proc must be unbooked before its resources can be redirected.
              */
             dispatchSupport.unbookProc(proc, "is being redirected");
 
             /*
-             * Set the free cores and memory to the exact amount
-             * on the proc we just unbooked so we don't stomp on
-             * other redirects.
+             * Set the free cores and memory to the exact amount on the proc we just unbooked so we
+             * don't stomp on other redirects.
              */
-            DispatchHost host = hostManager.getDispatchHost(
-                    proc.getHostId());
+            DispatchHost host = hostManager.getDispatchHost(proc.getHostId());
 
             switch (r.getType()) {
 
                 case JOB_REDIRECT:
-                    logger.info("attempting a job redirect to " +
-                            r.getDestinationId());
+                    logger.info("attempting a job redirect to " + r.getDestinationId());
                     JobInterface job = jobDao.getJob(r.getDestinationId());
-                    logger.info("redirecting proc " + proc
-                            + " to job " + job.getName());
+                    logger.info("redirecting proc " + proc + " to job " + job.getName());
 
                     if (dispatcher.isTestMode()) {
                         dispatcher.dispatchHost(host, job);
-                    }
-                    else {
-                        bookingQueue.execute(new
-                                DispatchBookHost(host, job, dispatcher));
+                    } else {
+                        bookingQueue.execute(new DispatchBookHost(host, job, dispatcher, env));
                     }
                     return true;
 
                 case GROUP_REDIRECT:
-                    logger.info("attempting a group redirect to " +
-                            r.getDestinationId());
+                    logger.info("attempting a group redirect to " + r.getDestinationId());
                     GroupInterface group = groupDao.getGroup(r.getDestinationId());
-                    logger.info("redirecting group " + proc +
-                            " to job " + group.getName());
+                    logger.info("redirecting group " + proc + " to job " + group.getName());
 
                     if (dispatcher.isTestMode()) {
                         dispatcher.dispatchHost(host, group);
-                    }
-                    else {
-                        bookingQueue.execute(new DispatchBookHost(host,
-                                group, dispatcher));
+                    } else {
+                        bookingQueue.execute(new DispatchBookHost(host, group, dispatcher, env));
                     }
                     return true;
 
                 default:
-                    logger.info("redirect failed, invalid redirect type: "
-                            + r.getType());
+                    logger.info("redirect failed, invalid redirect type: " + r.getType());
                     return false;
             }
 
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             /*
-             * If anything fails the redirect fails, so just
-             * return false after logging.
+             * If anything fails the redirect fails, so just return false after logging.
              */
             CueExceptionUtil.logStackTrace("redirect failed", e);
             return false;
@@ -441,4 +418,3 @@ public class RedirectManager {
         this.procSearchFactory = procSearchFactory;
     }
 }
-

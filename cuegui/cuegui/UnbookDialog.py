@@ -195,6 +195,7 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
         return [result]
 
     def accept(self):
+        """Accept Unbook action"""
         if not self.__jobs:
             self.close()
 
@@ -405,6 +406,7 @@ class KillConfirmationDialog(QtWidgets.QDialog):
         self.setFixedWidth(500)
         self.setWindowTitle("Unbook and kill frames?")
 
+        # pylint: disable=unused-private-member
         self.__procSearch = procSearch
         self.__procs = opencue.api.getProcs(**procSearch.options)
         self.__amount = len(self.__procs)

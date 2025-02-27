@@ -126,7 +126,6 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if selected:
             QtWidgets.QApplication.clipboard().setText(",".join(selected))
 
-    # pylint: disable=no-self-use
     def __itemDoubleClickedViewLog(self, item, col):
         """Called when a proc is double clicked
         @type  item: QTreeWidgetItem

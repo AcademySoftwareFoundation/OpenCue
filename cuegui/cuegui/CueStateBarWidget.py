@@ -57,8 +57,8 @@ class CueStateBarWidget(QtWidgets.QWidget):
         self.__sourceTree = weakref.proxy(sourceTree)
         self.__colors = []
         self.__baseColor = self.app.palette().color(QtGui.QPalette.Base)
-        self.__colorsLock = QtCore.QReadWriteLock()
-        self.__timer = QtCore.QTimer(self)
+        self.__colorsLock = QtCore.QReadWriteLock() # pylint: disable=no-member
+        self.__timer = QtCore.QTimer(self) # pylint: disable=no-member
         self.__lastUpdate = 0
 
         self.__timer.timeout.connect(self.updateColors)  # pylint: disable=no-member
@@ -94,7 +94,7 @@ class CueStateBarWidget(QtWidgets.QWidget):
         @type  event: QEvent
         @param event: The draw event"""
         del event
-        assert threading.currentThread().getName() == "MainThread"
+        assert threading.current_thread().name == "MainThread"
         self.__colorsLock.lockForWrite()
         try:
             if not self.__colors:
@@ -136,7 +136,7 @@ class CueStateBarWidget(QtWidgets.QWidget):
         @param colors: List of job background colors"""
         # Could draw it the max size and allow the resize on drawPixmap
         # that way the same buffer is always used
-        assert threading.currentThread().getName() == "MainThread"
+        assert threading.current_thread().name == "MainThread"
         buffer = QtGui.QPixmap(self.contentsRect().size())
         buffer.fill(self.__baseColor)
 
@@ -173,7 +173,7 @@ class CueStateBarWidget(QtWidgets.QWidget):
     def __updateColors(self):
         """Calls __processUpdateColors in 1 second"""
         self.__lastUpdate = time.time()
-        QtCore.QTimer.singleShot(1000, self.__processUpdateColors)
+        QtCore.QTimer.singleShot(1000, self.__processUpdateColors) # pylint: disable=no-member
 
     def __processUpdateColors(self):
         """Updates the list of colors to display

@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dao;
 
@@ -57,16 +53,8 @@ public interface ProcDao {
     long getReservedGpuMemory(ProcInterface proc);
 
     /**
-     * Return the proc that has exceeded its reserved memory by the largest factor.
-     *
-     * @param host
-     * @return
-     */
-    VirtualProc getWorstMemoryOffender(HostInterface host);
-
-    /**
-     * Removes a little bit of reserved memory from every other running frame
-     * in order to give some to the target proc.
+     * Removes a little bit of reserved memory from every other running frame in order to give some
+     * to the target proc.
      *
      * @param targetProc
      * @param targetMem
@@ -116,18 +104,15 @@ public interface ProcDao {
     boolean deleteVirtualProc(VirtualProc proc);
 
     /**
-     * Clears a virtual proc assignement.  This keeps the proc
-     * around but sets pk_frame to null.  This would normally
-     * happen after a frame completes and before the proc is
-     * dispatched again.
+     * Clears a virtual proc assignement. This keeps the proc around but sets pk_frame to null. This
+     * would normally happen after a frame completes and before the proc is dispatched again.
      *
      * @param proc
      */
     boolean clearVirtualProcAssignment(ProcInterface proc);
 
     /**
-     * Clear a proc assignment by frame id.  Return true
-     * if an assignment was cleared.
+     * Clear a proc assignment by frame id. Return true if an assignment was cleared.
      *
      * @param frame
      * @return
@@ -142,16 +127,14 @@ public interface ProcDao {
     void updateVirtualProcAssignment(VirtualProc proc);
 
     /**
-     * Update a procs memory usage based on the given
-     * frame it should be running.
+     * Update a procs memory usage based on the given frame it should be running.
      *
      * @param proc
      * @param usedKb
      * @param maxKb
      */
-    void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss,
-                               long vsize, long maxVsize, long usedGpuMemory,
-                               long maxUsedGpuMemory, byte[] children);
+    void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss, long vsize, long maxVsize,
+            long usedGpuMemory, long maxUsedGpuMemory, long usedSwapMemory, byte[] children);
 
     /**
      * get aq virual proc from its unique id
@@ -195,7 +178,7 @@ public interface ProcDao {
     List<VirtualProc> findVirtualProcs(LayerInterface layer);
 
     /**
-     * find all procs  booked on specified job
+     * find all procs booked on specified job
      *
      * @param job
      * @return
@@ -311,12 +294,10 @@ public interface ProcDao {
     boolean isOrphan(ProcInterface proc);
 
     /**
-     * Return a list of all procs that are booked as part
-     * of the given local job assignment.
+     * Return a list of all procs that are booked as part of the given local job assignment.
      *
      * @param l
      * @return
      */
     List<VirtualProc> findVirtualProcs(LocalHostAssignment l);
 }
-

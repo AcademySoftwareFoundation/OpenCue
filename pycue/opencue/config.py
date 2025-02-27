@@ -70,7 +70,7 @@ def load_config_from_file():
     :rtype: dict
     :return: config settings
     """
-    with open(__DEFAULT_CONFIG_FILE) as file_object:
+    with open(__DEFAULT_CONFIG_FILE, encoding="utf-8") as file_object:
         config = yaml.load(file_object, Loader=yaml.SafeLoader)
 
     user_config_file = None
@@ -90,7 +90,7 @@ def load_config_from_file():
 
     if user_config_file:
         logger.info('Loading opencue config from %s', user_config_file)
-        with open(user_config_file) as file_object:
+        with open(user_config_file, encoding="utf-8") as file_object:
             config.update(yaml.load(file_object, Loader=yaml.SafeLoader))
 
     return config

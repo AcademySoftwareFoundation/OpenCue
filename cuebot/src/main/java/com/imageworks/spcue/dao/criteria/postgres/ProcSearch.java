@@ -2,17 +2,15 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package com.imageworks.spcue.dao.criteria.postgres;
@@ -51,14 +49,14 @@ public class ProcSearch extends Criteria implements ProcSearchInterface {
     }
 
     public void notJobs(List<JobInterface> jobs) {
-        for (JobInterface job: jobs) {
-            notJobs.add(new Phrase("proc.pk_job","!=", job.getJobId()));
+        for (JobInterface job : jobs) {
+            notJobs.add(new Phrase("proc.pk_job", "!=", job.getJobId()));
         }
     }
 
     public void notGroups(List<GroupInterface> groups) {
-        for (GroupInterface group: groups) {
-            notGroups.add(new Phrase("folder.pk_folder","!=", group.getGroupId()));
+        for (GroupInterface group : groups) {
+            notGroups.add(new Phrase("folder.pk_folder", "!=", group.getGroupId()));
         }
     }
 
@@ -114,6 +112,15 @@ public class ProcSearch extends Criteria implements ProcSearchInterface {
         if (criteria.getMemoryRangeCount() > 0) {
             addRangePhrase("proc.int_mem_reserved", criteria.getMemoryRange(0));
         }
+
+        if (criteria.getMemoryLessThanCount() > 0) {
+            addRangePhrase("proc.int_mem_reserved", criteria.getMemoryLessThan(0));
+        }
+
+        if (criteria.getMemoryGreaterThanCount() > 0) {
+            addRangePhrase("proc.int_mem_reserved", criteria.getMemoryGreaterThan(0));
+        }
+
         if (criteria.getDurationRangeCount() > 0) {
             filterByDurationRange(criteria.getDurationRange(0));
         }

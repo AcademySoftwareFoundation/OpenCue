@@ -5,13 +5,12 @@ FROM opencue/rqd
 RUN yum -y update
 RUN yum -y install \
         bzip2 \
-        libfreetype6 \
-        libgl1-mesa-dev \
         libXi-devel  \
         mesa-libGLU-devel \
         zlib-devel \
         libXinerama-devel \
-        libXrandr-devel
+        libXrandr-devel \
+        xz
 
 # Set Blender install directory
 ARG BLENDER_INSTALL_DIR=/usr/local/blender
@@ -30,5 +29,11 @@ RUN tar -xvf blender.tar.xz \
 
 RUN rm blender.tar.xz
 
+# Add Blender path as environment variable
+ENV PATH=$PATH:${BLENDER_INSTALL_DIR}
+
+# Allows RQD to read Blender install directory in PATH env. variable
+RUN echo "RQD_USE_PATH_ENV_VAR=true" >> /etc/opencue/rqd.conf
+
 # Verify Blender installation
-RUN ${BLENDER_INSTALL_DIR}/blender --version
+RUN blender --version

@@ -48,9 +48,14 @@ COLUMN_DELEGATE = 4
 COLUMN_TOOLTIP = 5
 COLUMN_INFO_LENGTH = 6
 
-DEFAULT_LAMBDA = lambda s: ""
 DEFAULT_NAME = ""
 DEFAULT_WIDTH = 0
+
+
+# pylint: disable=unused-argument
+def DEFAULT_LAMBDA(s):
+    """Dummy function to return something"""
+    return ""
 
 
 class AbstractTreeWidget(QtWidgets.QTreeWidget):
@@ -112,6 +117,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.setUpdateInterval(10)
 
     def closeEvent(self, event):
+        """Close Event"""
         if hasattr(self, '_timer'):
             self._timer.stop()
             del self._timer

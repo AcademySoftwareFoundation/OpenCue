@@ -69,48 +69,49 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "indication that a frame is using more cores than it\n"
                            "reserved. If all cores are reserved and the percentage\n"
                            "is way below 100% then the cpu is underutilized.")
-        self.addColumn("Swap", 60, id=4,
+        self.addColumn("Swap", 70, id=4,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_swap),
                        sort=lambda host: host.data.free_swap,
                        delegate=cuegui.ItemDelegate.HostSwapBarDelegate,
                        tip="The amount of used swap (red) vs available swap (green)")
-        self.addColumn("Memory", 60, id=5,
+        self.addColumn("Physical", 70, id=5,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_memory),
                        sort=lambda host: host.data.free_memory,
-                       tip="The amount of used memory (red) vs available gpu memory (green)")
-        self.addColumn("GPU Memory", 60, id=6,
+                       delegate=cuegui.ItemDelegate.HostMemBarDelegate,
+                       tip="The amount of used memory (red) vs available phys memory (green)")
+        self.addColumn("GPU Memory", 70, id=6,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_gpu_memory),
                        sort=lambda host: host.data.free_gpu_memory,
                        delegate=cuegui.ItemDelegate.HostGpuBarDelegate,
                        tip="The amount of used gpu memory (red) vs available gpu memory (green)")
-        self.addColumn("freeMcp", 60, id=7,
+        self.addColumn("Total Memory", 60, id=7,
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.memory),
+                       sort=lambda host: host.data.total_memory,
+                       tip="The total amount of available memory.\n\n"
+                           "Takes into consideration free memory and cached memory.")
+        self.addColumn("Idle Memory", 60, id=8,
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.idle_memory),
+                       sort=lambda host: host.data.idle_memory,
+                       tip="The amount of unreserved memory.")
+        self.addColumn("Temp available", 70, id=9,
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_mcp),
                        sort=lambda host: host.data.free_mcp,
                        tip="The amount of free space in /mcp/")
-        self.addColumn("Cores", 45, id=8,
+        self.addColumn("Cores", 60, id=10,
                        data=lambda host: "%.2f" % host.data.cores,
                        sort=lambda host: host.data.cores,
                        tip="The total number of cores.\n\n"
                            "On a frame it is the number of cores reserved.")
-        self.addColumn("Idle", 40, id=9,
+        self.addColumn("Idle Cores", 60, id=11,
                        data=lambda host: "%.2f" % host.data.idle_cores,
                        sort=lambda host: host.data.idle_cores,
                        tip="The number of cores that are not reserved.")
-        self.addColumn("Mem", 50, id=10,
-                       data=lambda host: cuegui.Utils.memoryToString(host.data.memory),
-                       sort=lambda host: host.data.memory,
-                       tip="The total amount of reservable memory.\n\n"
-                           "On a frame it is the amount of memory reserved.")
-        self.addColumn("Idle", 50, id=11,
-                       data=lambda host: cuegui.Utils.memoryToString(host.data.idle_memory),
-                       sort=lambda host: host.data.idle_memory,
-                       tip="The amount of unreserved memory.")
         self.addColumn("GPUs", 50, id=12,
                        data=lambda host: "%d" % host.data.gpus,
                        sort=lambda host: host.data.gpus,
                        tip="The total number of gpus.\n\n"
                            "On a frame it is the number of gpus reserved.")
-        self.addColumn("Idle GPUs", 40, id=13,
+        self.addColumn("Idle GPUs", 50, id=13,
                        data=lambda host: "%d" % host.data.idle_gpus,
                        sort=lambda host: host.data.idle_gpus,
                        tip="The number of gpus that are not reserved.")
@@ -130,11 +131,15 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "a report from the host. A host is configured to report\n"
                            "in every 60 seconds so a number larger than this\n"
                            "indicates a problem")
-        self.addColumn("Hardware", 70, id=17,
+        self.addColumn("Boot Time", 100, id=17,
+                       data=lambda host: cuegui.Utils.dateToMMDDHHMM(host.data.boot_time),
+                       sort=lambda host: host.data.boot_time,
+                       tip="The time when the host was last booted.")
+        self.addColumn("Hardware", 70, id=18,
                        data=lambda host: HardwareState.Name(host.data.state),
                        tip="The state of the hardware as Up or Down.\n\n"
                            "On a frame it is the amount of memory used.")
-        self.addColumn("Locked", 90, id=18,
+        self.addColumn("Locked", 90, id=19,
                        data=lambda host: LockState.Name(host.data.lock_state),
                        tip="A host can be:\n"
                            "Locked \t\t It was manually locked to prevent booking\n"
@@ -142,12 +147,15 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "NimbyLocked \t It is a desktop machine and there is\n"
                            "\t\t someone actively using it or not enough \n"
                            "\t\t resources are available on a desktop.")
-        self.addColumn("ThreadMode", 80, id=19,
+        self.addColumn("ThreadMode", 80, id=20,
                        data=lambda host: ThreadMode.Name(host.data.thread_mode),
                        tip="A frame that runs on this host will:\n"
                            "All:  Use all cores.\n"
                            "Auto: Use the number of cores as decided by the cuebot.\n")
-        self.addColumn("Tags/Job", 50, id=20,
+        self.addColumn("OS", 50, id=21,
+                       data=lambda host: host.data.os,
+                       tip="Host operational system or distro.")
+        self.addColumn("Tags/Job", 50, id=22,
                        data=lambda host: ",".join(host.data.tags),
                        tip="The tags applied to the host.\n\n"
                            "On a frame it is the name of the job.")
@@ -280,9 +288,11 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cuegui.Utils.startDrag(self, dropActions, self.selectedObjects())
 
     def dragEnterEvent(self, event):
+        """Enter drag event"""
         cuegui.Utils.dragEnterEvent(event, "application/x-host-ids")
 
     def dragMoveEvent(self, event):
+        """Move drag event"""
         cuegui.Utils.dragMoveEvent(event, "application/x-host-ids")
 
 
@@ -301,6 +311,8 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
             self.__class__.__dyingColor = cuegui.Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
+            self.__class__.__hostRebootWhenIdleColor = (
+                cuegui.Style.ColorTheme.COLOR_HOST_REBOOT_WHEN_IDLE)
             self.__class__.__type = cuegui.Constants.TYPE_HOST
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
             self, cuegui.Constants.TYPE_HOST, rpcObject, parent)
@@ -323,6 +335,8 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             return self.__foregroundColor
 
         if role == QtCore.Qt.BackgroundRole:
+            if self.rpcObject.data.state == opencue.api.host_pb2.REBOOT_WHEN_IDLE:
+                return self.__hostRebootWhenIdleColor
             if not self.rpcObject.data.state == opencue.api.host_pb2.UP:
                 return self.__dyingColor
             if self.rpcObject.data.lock_state == opencue.api.host_pb2.LOCKED:

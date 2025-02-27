@@ -84,7 +84,7 @@ class ShellModuleTest(unittest.TestCase):
 
             scriptContents = '# !/bin/sh\necho zoom zoom zoom'
 
-            with open(scriptFile.name, 'w') as fp:
+            with open(scriptFile.name, 'w', encoding='utf-8') as fp:
                 fp.write(scriptContents)
 
             outln = outline.Outline()
@@ -97,7 +97,7 @@ class ShellModuleTest(unittest.TestCase):
             shellScript._setup()
             shellScript._execute(FrameSet('5-6'))
 
-            with open(expectedSessionPath) as fp:
+            with open(expectedSessionPath, encoding='utf-8') as fp:
                 sessionScriptContents = fp.read()
 
             self.assertEqual(scriptContents, sessionScriptContents)

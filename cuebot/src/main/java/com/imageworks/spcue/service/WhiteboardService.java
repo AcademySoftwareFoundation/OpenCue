@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -95,19 +91,17 @@ import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
 import com.imageworks.spcue.grpc.task.Task;
 import com.imageworks.spcue.grpc.task.TaskSeq;
 
-
 /**
-* Traditionally the "Whiteboard" was an actually whiteboard the PSTs used to
-* use to track jobs.  Over time that term has come to mean an interface
-* from which you can query cue data.  The WhiteboardService defines
-* all the methods from which clients can obtain data.  All grpc servants
-* that return something go through here.
-*
-* The whiteboard is a ready only transaction with a SERIALIZABLE transaction
-* level.  Moving the SERIALIZABLE actually makes the requests run faster
-* because the readers view of the DB is fixed throughout the transaction.
-*
-*/
+ * Traditionally the "Whiteboard" was an actually whiteboard the PSTs used to use to track jobs.
+ * Over time that term has come to mean an interface from which you can query cue data. The
+ * WhiteboardService defines all the methods from which clients can obtain data. All grpc servants
+ * that return something go through here.
+ *
+ * The whiteboard is a ready only transaction with a SERIALIZABLE transaction level. Moving the
+ * SERIALIZABLE actually makes the requests run faster because the readers view of the DB is fixed
+ * throughout the transaction.
+ *
+ */
 @Transactional(readOnly = true, propagation = Propagation.REQUIRED)
 public class WhiteboardService implements Whiteboard {
 
@@ -165,7 +159,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     public Show getShow(String id) {
-        return  whiteboardDao.getShow(id);
+        return whiteboardDao.getShow(id);
     }
 
     public ShowSeq getShows() {
@@ -297,7 +291,8 @@ public class WhiteboardService implements Whiteboard {
         return whiteboardDao.findLayer(job, layer);
     }
 
-    public Host findHost(String name) { return whiteboardDao.findHost(name);
+    public Host findHost(String name) {
+        return whiteboardDao.findHost(name);
     }
 
     public Depend getDepend(String id) {
@@ -312,8 +307,8 @@ public class WhiteboardService implements Whiteboard {
         return whiteboardDao.findFilter(show, name);
     }
 
-    public UpdatedFrameCheckResult getUpdatedFrames(JobInterface job,
-                                                    List<LayerInterface> layers, int epochTime) {
+    public UpdatedFrameCheckResult getUpdatedFrames(JobInterface job, List<LayerInterface> layers,
+            int epochTime) {
         return whiteboardDao.getUpdatedFrames(job, layers, epochTime);
     }
 
@@ -325,8 +320,7 @@ public class WhiteboardService implements Whiteboard {
         return whiteboardDao.getComments(h);
     }
 
-    public SubscriptionSeq getSubscriptions(
-            AllocationInterface alloc) {
+    public SubscriptionSeq getSubscriptions(AllocationInterface alloc) {
         return whiteboardDao.getSubscriptions(alloc);
     }
 
@@ -350,14 +344,12 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public Department getDepartment(
-            ShowInterface show, String name) {
+    public Department getDepartment(ShowInterface show, String name) {
         return whiteboardDao.getDepartment(show, name);
     }
 
     @Override
-    public DepartmentSeq getDepartments(
-            ShowInterface show) {
+    public DepartmentSeq getDepartments(ShowInterface show) {
         return whiteboardDao.getDepartments(show);
     }
 
@@ -412,14 +404,12 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public DeedSeq getDeeds(
-            OwnerEntity owner) {
+    public DeedSeq getDeeds(OwnerEntity owner) {
         return whiteboardDao.getDeeds(owner);
     }
 
     @Override
-    public DeedSeq getDeeds(
-            ShowInterface show) {
+    public DeedSeq getDeeds(ShowInterface show) {
         return whiteboardDao.getDeeds(show);
     }
 
@@ -454,8 +444,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public RenderPartitionSeq getRenderPartitions(
-            HostInterface host) {
+    public RenderPartitionSeq getRenderPartitions(HostInterface host) {
         return whiteboardDao.getRenderPartitions(host);
     }
 
@@ -470,8 +459,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public AllocationSeq getAllocations(
-            com.imageworks.spcue.FacilityInterface facility) {
+    public AllocationSeq getAllocations(com.imageworks.spcue.FacilityInterface facility) {
         return whiteboardDao.getAllocations(facility);
     }
 
@@ -496,14 +484,12 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public ServiceOverrideSeq getServiceOverrides(
-            ShowInterface show) {
+    public ServiceOverrideSeq getServiceOverrides(ShowInterface show) {
         return whiteboardDao.getServiceOverrides(show);
     }
 
     @Override
-    public ServiceOverride getServiceOverride(ShowInterface show,
-            String name) {
+    public ServiceOverride getServiceOverride(ShowInterface show, String name) {
         return whiteboardDao.getServiceOverride(show, name);
     }
 
@@ -527,4 +513,3 @@ public class WhiteboardService implements Whiteboard {
         return whiteboardDao.getLimits(layer);
     }
 }
-

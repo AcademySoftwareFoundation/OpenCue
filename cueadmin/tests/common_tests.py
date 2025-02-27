@@ -72,7 +72,7 @@ class CommonArgTests(unittest.TestCase):
 
         setHostsMock.assert_called_with([serverName])
 
-    @mock.patch('opencue.Cuebot.setFacility')
+    @mock.patch('opencue.Cuebot.setHostWithFacility')
     def testSetFacility(self, setFacilityMock):
         args = self.parser.parse_args(['-facility', TEST_FACILITY])
 

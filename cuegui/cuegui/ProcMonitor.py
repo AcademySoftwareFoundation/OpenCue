@@ -111,6 +111,7 @@ class ProcMonitor(QtWidgets.QWidget):
         btn.setFixedWidth(24)
         layout.addWidget(btn)
         btn.clicked.connect(self.__filterByHostNameClear)  # pylint: disable=no-member
+        # pylint: disable=unused-private-member
         self.__filterByHostNameClearBtn = btn
 
         self.__filterByHostNameLastInput = None

@@ -3,6 +3,11 @@ ENV PYTHONUNBUFFERED 1
 
 WORKDIR /opt/opencue
 
+# centos:7 repos moved to vault.centos
+RUN sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/CentOS-*.repo
+RUN sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/CentOS-*.repo
+RUN sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/CentOS-*.repo
+
 RUN yum -y install \
   epel-release \
   gcc \
@@ -43,7 +48,7 @@ RUN python -m grpc_tools.protoc \
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-RUN 2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
+RUN python3 ci/fix_compiled_proto.py pycue/opencue/compiled_proto
 
 RUN cd pycue && python setup.py install
 

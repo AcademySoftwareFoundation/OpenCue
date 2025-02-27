@@ -5,6 +5,8 @@ package report;
 option java_package = "com.imageworks.spcue.grpc.report";
 option java_multiple_files = true;
 
+option go_package = "opencue_gateway/gen/go";
+
 import "host.proto";
 
 // Interface to handle RQD pings.
@@ -101,6 +103,7 @@ message RunningFrameInfo {
     int64 max_used_gpu_memory = 16; // kB
     int64 used_gpu_memory = 17; // kB
     ChildrenProcStats children = 18; //additional data about the running frame's child processes
+    int64 used_swap_memory = 19; // kB
 };
 
 message ChildrenProcStats {

@@ -15,8 +15,10 @@
 """Module for classes related to frames."""
 
 import enum
+import getpass
 import time
 import os
+import platform
 
 from opencue import Cuebot
 from opencue.compiled_proto import job_pb2
@@ -50,6 +52,17 @@ class Frame(object):
         EATEN = job_pb2.EATEN
         CHECKPOINT = job_pb2.CHECKPOINT
 
+    STATUS_COLOR = {
+        "RED": (255, 0, 0),
+        "GREEN": (0, 255, 0),
+        "BLUE": (0, 128, 255),
+        "YELLOW": (255, 255, 0),
+        "ORANGE": (255, 128, 0),
+        "PURPLE": (127, 0, 255),
+        "PINK": (255, 51, 255)
+    }
+
+
     def __init__(self, frame=None):
         self.data = frame
         self.stub = Cuebot.getStub('frame')
@@ -59,17 +72,25 @@ class Frame(object):
         if self.data.state != job_pb2.FrameState.Value('EATEN'):
             self.stub.Eat(job_pb2.FrameEatRequest(frame=self.data), timeout=Cuebot.Timeout)
 
-    def kill(self):
+    def kill(self, username=None, pid=None, host_kill=None, reason=None):
         """Kills the frame."""
+        username = username if username else getpass.getuser()
+        pid = pid if pid else os.getpid()
+        host_kill = host_kill if host_kill else platform.uname()[1]
         if self.data.state == job_pb2.FrameState.Value('RUNNING'):
-            self.stub.Kill(job_pb2.FrameKillRequest(frame=self.data), timeout=Cuebot.Timeout)
+            self.stub.Kill(job_pb2.FrameKillRequest(frame=self.data,
+                                                    username=username,
+                                                    pid=str(pid),
+                                                    host_kill=host_kill,
+                                                    reason=reason),
+                           timeout=Cuebot.Timeout)
 
     def retry(self):
         """Retries the frame."""
         if self.data.state != job_pb2.FrameState.Value('WAITING'):
             self.stub.Retry(job_pb2.FrameRetryRequest(frame=self.data), timeout=Cuebot.Timeout)
 
-    def addRenderPartition(self, hostname, threads, max_cores, num_mem, max_gpu):
+    def addRenderPartition(self, hostname, threads, max_cores, max_mem, max_gpu_memory, max_gpus):
         """Adds a render partition to the frame.
 
         :type  hostname: str
@@ -78,10 +99,12 @@ class Frame(object):
         :param threads: number of threads of the partition
         :type  max_cores: int
         :param max_cores: max cores enabled for the partition
-        :type  num_mem: int
-        :param num_mem: amount of memory reserved for the partition
-        :type  max_gpu: int
-        :param max_gpu: max gpu cores enabled for the partition
+        :type  max_mem: int
+        :param max_mem: amount of memory reserved for the partition
+        :type  max_gpu_memory: int
+        :param max_gpu_memory: max gpu memory enabled for the partition
+        :type  max_gpus: int
+        :param max_gpus: max number of gpus enabled for the partition
         """
         self.stub.AddRenderPartition(
             job_pb2.FrameAddRenderPartitionRequest(
@@ -89,9 +112,10 @@ class Frame(object):
                 host=hostname,
                 threads=threads,
                 max_cores=max_cores,
-                max_memory=num_mem,
-                max_gpu=max_gpu,
-                username=os.getenv("USER", "unknown")))
+                max_memory=max_mem,
+                max_gpu_memory=max_gpu_memory,
+                username=os.getenv("USER", "unknown"),
+                max_gpu=max_gpus))
 
     def getWhatDependsOnThis(self):
         """Returns a list of dependencies that depend directly on this frame.
@@ -149,10 +173,11 @@ class Frame(object):
         :rtype:  opencue.wrappers.depend.Depend
         :return: the new dependency
         """
+        frame_dep = frame.data if isinstance(frame, type(self)) else frame
         response = self.stub.CreateDependencyOnFrame(
             job_pb2.FrameCreateDependencyOnFrameRequest(frame=self.data,
-                                                        depend_on_frame=frame.data),
-            timeout=Cuebot.Timeout)
+                                                        depend_on_frame=frame_dep),
+                                                        timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
 
     def dropDepends(self, target):
@@ -178,6 +203,50 @@ class Frame(object):
         """
         self.stub.SetCheckpointState(
             job_pb2.FrameSetCheckpointStateRequest(frame=self.data, state=checkPointState))
+
+    def setFrameStateDisplayOverride(self, status, override_text, override_rgb):
+        """
+        Override the displayed text of a frame status.
+        If an override already exists for the frame-state combo, the existing
+        override will be updated to the new text and color values.
+        If the override is identical to an existing override, no-op.
+
+        :param status: the job_pb2.FrameState to override
+        :param override_text: the text to display
+        :param override_rgb: tuple containing the RGB int values e.g.(255, 0, 0)
+        :return:
+        """
+        override = job_pb2.FrameStateDisplayOverride(state=status,
+                                text=override_text,
+                                color=job_pb2.FrameStateDisplayOverride.RGB(
+                                    red=override_rgb[0],
+                                    green=override_rgb[1],
+                                    blue=override_rgb[2]))
+        self.stub.SetFrameStateDisplayOverride(
+            job_pb2.FrameStateDisplayOverrideRequest(frame=self.data,
+                                                     override=override))
+
+    def getFrameStateDisplayOverrides(self):
+        """
+        Retrieve all frame state display overrides for the frame
+
+        :rtype: list
+        :return: overrides for the frame
+        """
+        response = self.stub.GetFrameStateDisplayOverrides(
+            job_pb2.GetFrameStateDisplayOverridesRequest(frame=self.data))
+        return response.overrides.overrides
+
+    def hasFrameStateDisplayOverride(self):
+        """
+        Check if frame has state override
+
+        :rtype: boolean
+        :return:  if a frame has any state overrides or not
+        """
+        if self.data.HasField("frame_state_display_override"):
+            return True
+        return False
 
     def id(self):
         """Returns the id of the frame.
@@ -312,3 +381,14 @@ class Frame(object):
         if self.data.stop_time == 0:
             return int(time.time() - self.data.start_time)
         return self.data.stop_time - self.data.start_time
+
+    def frameStateDisplayOverride(self):
+        """ Returns the frame state display override if there is one.
+            Meant to be used in conjunction with "hasFrameStateDisplayOverride"
+
+            :rtype: job_pb2.FrameStateDisplayOverride
+            :return: frame state display override or None
+        """
+        if self.hasFrameStateDisplayOverride():
+            return self.data.frame_state_display_override
+        return None

@@ -40,7 +40,7 @@ def getConfigValues():
     if not configFile:
         configFile = os.path.join(opencue.config.config_base_directory(), 'cuesubmit.yaml')
     if os.path.exists(configFile):
-        with open(configFile, 'r') as data:
+        with open(configFile, 'r', encoding='utf-8') as data:
             try:
                 configData = yaml.load(data, Loader=yaml.SafeLoader)
             except yaml.YAMLError:

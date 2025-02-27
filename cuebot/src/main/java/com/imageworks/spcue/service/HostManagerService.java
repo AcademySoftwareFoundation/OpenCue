@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -68,7 +64,7 @@ public class HostManagerService implements HostManager {
     private SubscriptionDao subscriptionDao;
     private AllocationDao allocationDao;
 
-    public HostManagerService() { }
+    public HostManagerService() {}
 
     @Override
     public void setHostLock(HostInterface host, LockState lock, Source source) {
@@ -77,13 +73,13 @@ public class HostManagerService implements HostManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public boolean isLocked(HostInterface host) {
         return hostDao.isHostLocked(host);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public boolean isHostUp(HostInterface host) {
         return hostDao.isHostUp(host);
     }
@@ -94,17 +90,15 @@ public class HostManagerService implements HostManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isSwapping(HostInterface host) {
-        return hostDao.isKillMode(host);
+    public void setHostFreeTempDir(HostInterface host, Long freeTempDir) {
+        hostDao.updateHostFreeTempDir(host, freeTempDir);
     }
 
     public void rebootWhenIdle(HostInterface host) {
         try {
             hostDao.updateHostState(host, HardwareState.REBOOT_WHEN_IDLE);
             rqdClient.rebootWhenIdle(host);
-        }
-        catch (RqdClientException e) {
+        } catch (RqdClientException e) {
             logger.info("failed to contact host: " + host.getName() + " for reboot");
         }
     }
@@ -113,36 +107,27 @@ public class HostManagerService implements HostManager {
         try {
             hostDao.updateHostState(host, HardwareState.REBOOTING);
             rqdClient.rebootNow(host);
-        }
-        catch (RqdClientException e) {
+        } catch (RqdClientException e) {
             logger.info("failed to contact host: " + host.getName() + " for reboot");
             hostDao.updateHostState(host, HardwareState.DOWN);
         }
     }
 
     @Override
-    public void setHostStatistics(HostInterface host,
-            long totalMemory, long freeMemory,
-            long totalSwap, long freeSwap,
-            long totalMcp, long freeMcp,
-            long totalGpuMemory, long freeGpuMemory,
-            int load, Timestamp bootTime,
-            String os) {
+    public void setHostStatistics(HostInterface host, long totalMemory, long freeMemory,
+            long totalSwap, long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory,
+            long freeGpuMemory, int load, Timestamp bootTime, String os) {
 
-        hostDao.updateHostStats(host,
-                totalMemory, freeMemory,
-                totalSwap, freeSwap,
-                totalMcp, freeMcp,
-                totalGpuMemory, freeGpuMemory,
-                load, bootTime, os);
+        hostDao.updateHostStats(host, totalMemory, freeMemory, totalSwap, freeSwap, totalMcp,
+                freeMcp, totalGpuMemory, freeGpuMemory, load, bootTime, os);
     }
 
-    @Transactional(propagation = Propagation.SUPPORTS, readOnly=true)
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public HostInterface findHost(String name) {
         return hostDao.findHost(name);
     }
 
-    @Transactional(propagation = Propagation.SUPPORTS, readOnly=true)
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public HostInterface getHost(String id) {
         return hostDao.getHost(id);
     }
@@ -161,19 +146,17 @@ public class HostManagerService implements HostManager {
             for (String tag : rhost.getTagsList()) {
                 try {
                     alloc = allocationDao.findAllocationEntity(facility, tag);
-                    logger.info("set " + rhost.getName() +
-                            " to the given allocation " + alloc.getName());
+                    logger.info("set " + rhost.getName() + " to the given allocation "
+                            + alloc.getName());
                     break;
-                }
-                catch (EmptyResultDataAccessException e) {
+                } catch (EmptyResultDataAccessException e) {
                     // Allocation doesn't exist. ignore.
                 }
             }
         }
         if (alloc == null) {
             alloc = getDefaultAllocationDetail();
-            logger.info("set " + rhost.getName() +
-                    " to the default allocation " + alloc.getName());
+            logger.info("set " + rhost.getName() + " to the default allocation " + alloc.getName());
         }
         return createHost(rhost, alloc);
     }
@@ -200,27 +183,27 @@ public class HostManagerService implements HostManager {
         return host;
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public DispatchHost findDispatchHost(String name) {
         return hostDao.findDispatchHost(name);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public HostEntity findHostDetail(String name) {
         return hostDao.findHostDetail(name);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public DispatchHost getDispatchHost(String id) {
         return hostDao.getDispatchHost(id);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public HostEntity getHostDetail(HostInterface host) {
         return hostDao.getHostDetail(host);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public HostEntity getHostDetail(String id) {
         return hostDao.getHostDetail(id);
     }
@@ -232,15 +215,19 @@ public class HostManagerService implements HostManager {
 
     public void addTags(HostInterface host, String[] tags) {
         for (String tag : tags) {
-            if (tag == null) { continue; }
-            if (tag.length() == 0) { continue; }
+            if (tag == null) {
+                continue;
+            }
+            if (tag.length() == 0) {
+                continue;
+            }
             hostDao.tagHost(host, tag, HostTagType.MANUAL);
         }
         hostDao.recalcuateTags(host.getHostId());
     }
 
     public void removeTags(HostInterface host, String[] tags) {
-        for (String tag: tags) {
+        for (String tag : tags) {
             hostDao.removeTag(host, tag);
         }
         hostDao.recalcuateTags(host.getHostId());
@@ -254,8 +241,8 @@ public class HostManagerService implements HostManager {
     public void setAllocation(HostInterface host, AllocationInterface alloc) {
 
         if (procDao.findVirtualProcs(host).size() > 0) {
-            throw new EntityModificationError("You cannot move hosts with " +
-            		"running procs between allocations.");
+            throw new EntityModificationError(
+                    "You cannot move hosts with " + "running procs between allocations.");
         }
 
         hostDao.lockForUpdate(host);
@@ -264,65 +251,65 @@ public class HostManagerService implements HostManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public int getStrandedCoreUnits(HostInterface h) {
         return hostDao.getStrandedCoreUnits(h);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public int getStrandedGpuUnits(HostInterface h) {
         return hostDao.getStrandedGpus(h);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public boolean verifyRunningProc(String procId, String frameId) {
         return procDao.verifyRunningProc(procId, frameId);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<VirtualProc> findVirtualProcs(FrameSearchInterface request) {
         return procDao.findVirtualProcs(request);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public VirtualProc findVirtualProc(FrameInterface frame) {
         return procDao.findVirtualProc(frame);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<VirtualProc> findVirtualProcs(HardwareState state) {
         return procDao.findVirtualProcs(state);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<VirtualProc> findVirtualProcs(LocalHostAssignment l) {
         return procDao.findVirtualProcs(l);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<VirtualProc> findVirtualProcs(ProcSearchInterface r) {
         return procDao.findVirtualProcs(r);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<VirtualProc> findVirtualProcs(HostInterface host) {
         return procDao.findVirtualProcs(host);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<VirtualProc> findBookedVirtualProcs(ProcSearchInterface r) {
         return procDao.findBookedVirtualProcs(r);
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void unbookVirtualProcs(List<VirtualProc> procs) {
-        for (VirtualProc proc: procs) {
+        for (VirtualProc proc : procs) {
             unbookProc(proc);
         }
     }
@@ -339,31 +326,25 @@ public class HostManagerService implements HostManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public VirtualProc getWorstMemoryOffender(HostInterface h) {
-        return procDao.getWorstMemoryOffender(h);
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public VirtualProc getVirtualProc(String id) {
         return procDao.getVirtualProc(id);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public boolean isOprhan(ProcInterface proc) {
         return procDao.isOrphan(proc);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public boolean isPreferShow(HostInterface host) {
         return hostDao.isPreferShow(host);
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public ShowInterface getPreferredShow(HostInterface host) {
         return showDao.getShowDetail(host);
     }
@@ -428,4 +409,3 @@ public class HostManagerService implements HostManager {
         this.subscriptionDao = subscriptionDao;
     }
 }
-

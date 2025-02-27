@@ -21,9 +21,10 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import range
-from PySide2 import QtCore, QtGui, QtWidgets
+from qtpy import QtCore, QtGui, QtWidgets
 
 from cuesubmit import Layer
+from cuesubmit.ui import Style
 
 
 class CueJobWidget(QtWidgets.QWidget):
@@ -60,6 +61,7 @@ class CueJobWidget(QtWidgets.QWidget):
         self.table.setModel(self.model)
         header = self.table.header()
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+        header.setStyleSheet(Style.HEADER_VIEW)
         self.model.appendRow(self.jobRow)
         self.mainLayout.addWidget(self.table)
         self.buttonLayout.addWidget(self.downButton)
@@ -309,6 +311,7 @@ class CueJobTree(QtWidgets.QTreeView):
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.setUniformRowHeights(True)
         self.setMinimumHeight(100)
+        self.setStyleSheet(Style.TREE_VIEW)
 
 
 class CueJobModel(QtGui.QStandardItemModel):

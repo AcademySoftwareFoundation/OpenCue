@@ -165,6 +165,7 @@ class CreateShowDialog(QtWidgets.QDialog):
 
         return False
 
+    # pylint: disable=inconsistent-return-statements
     def tryCreateShow(self):
         """Try to create the show in OpenCue
 

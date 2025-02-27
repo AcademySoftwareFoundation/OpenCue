@@ -18,7 +18,7 @@
 
 
 
-<!DOCTYPE spec SYSTEM "../dtd/cjsl-1.5.dtd">
+<!DOCTYPE spec SYSTEM "../dtd/cjsl-1.14.dtd">
 <spec>
 
     <facility>spi</facility>
@@ -30,9 +30,10 @@
 
     <job name="pipe-dev.cue-testuser_shell_dispatch_test_v1">
         <paused>false</paused>
+        <os>Linux</os>
         <layers>
 
-            <layer name="pass_1" type="RENDER">
+            <layer name="pass_1" type="Render">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>
@@ -44,7 +45,7 @@
                 </services>
             </layer>
 
-            <layer name="pass_2" type="RENDER">
+            <layer name="pass_2" type="Render">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>
@@ -61,9 +62,10 @@
 
     <job name="pipe-dev.cue-testuser_shell_dispatch_test_v2">
         <paused>false</paused>
+        <os>Linux</os>
         <layers>
 
-            <layer name="pass_1" type="RENDER">
+            <layer name="pass_1" type="Render">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>

@@ -2,17 +2,15 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package com.imageworks.spcue.test.dao.criteria;
@@ -50,13 +48,14 @@ import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
+import com.imageworks.spcue.util.CueUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
 @Transactional
-@ContextConfiguration(classes= TestAppConfig.class, loader= AnnotationConfigContextLoader.class)
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     private static final String FIRST_HOST = "beta01";
@@ -110,10 +109,8 @@ public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback
     public void testSetCriteria() {
-        ProcSearchCriteria criteria = ProcSearchInterface.criteriaFactory()
-                .toBuilder()
-                .addHosts("test-host")
-                .build();
+        ProcSearchCriteria criteria =
+                ProcSearchInterface.criteriaFactory().toBuilder().addHosts("test-host").build();
         ProcSearchInterface procSearch = procSearchFactory.create();
 
         // Ensure we can distinguish between the default and non-default criteria.
@@ -137,8 +134,7 @@ public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTes
         List<Proc> foundProcs = whiteboardDao.getProcs(procSearch).getProcsList();
 
         assertEquals(1, foundProcs.size());
-        assertThat(
-                foundProcs.stream().map(Proc::getJobName).collect(Collectors.toList()))
+        assertThat(foundProcs.stream().map(Proc::getJobName).collect(Collectors.toList()))
                 .containsOnly(SECOND_JOB);
     }
 
@@ -159,8 +155,7 @@ public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTes
         List<Proc> foundProcs = whiteboardDao.getProcs(procSearch).getProcsList();
 
         assertEquals(1, foundProcs.size());
-        assertThat(
-                foundProcs.stream().map(Proc::getGroupName).collect(Collectors.toList()))
+        assertThat(foundProcs.stream().map(Proc::getGroupName).collect(Collectors.toList()))
                 .containsOnly(DEFAULT_GROUP_NAME);
     }
 
@@ -177,10 +172,8 @@ public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTes
 
         assertEquals(1, foundProcs.size());
         assertThat(
-                foundProcs.stream().map(
-                        proc -> hostManager.getVirtualProc(proc.getId()).hostName)
-                        .collect(Collectors.toList()))
-                .containsOnly(FIRST_HOST);
+                foundProcs.stream().map(proc -> hostManager.getVirtualProc(proc.getId()).hostName)
+                        .collect(Collectors.toList())).containsOnly(FIRST_HOST);
     }
 
     // TODO: test by duration range
@@ -207,36 +200,20 @@ public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTes
     }
 
     private RenderHost.Builder buildRenderHost() {
-        return RenderHost.newBuilder()
-                .setBootTime(1192369572)
-                .setFreeMcp(76020)
-                .setFreeMem(53500)
-                .setFreeSwap(20760)
-                .setLoad(1)
-                .setTotalMcp(195430)
-                .setTotalMem(8173264)
-                .setTotalSwap(20960)
-                .setNimbyEnabled(false)
-                .setNumProcs(1)
-                .setCoresPerProc(100)
-                .addTags("test")
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .putAttributes("SP_OS", "Linux");
+        return RenderHost.newBuilder().setBootTime(1192369572)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(8173264).setTotalSwap(20960)
+                .setNimbyEnabled(false).setNumProcs(1).setCoresPerProc(100).addTags("test")
+                .setState(HardwareState.UP).setFacility("spi").putAttributes("SP_OS", "Linux");
     }
 
     private void createHosts() {
-        RenderHost host1 = buildRenderHost()
-                .setName(FIRST_HOST)
-                .build();
-        RenderHost host2 = buildRenderHost()
-                .setName(SECOND_HOST)
-                .build();
+        RenderHost host1 = buildRenderHost().setName(FIRST_HOST).build();
+        RenderHost host2 = buildRenderHost().setName(SECOND_HOST).build();
 
-        hostManager.createHost(host1,
-                adminManager.findAllocationDetail("spi", "general"));
-        hostManager.createHost(host2,
-                adminManager.findAllocationDetail("spi", "general"));
+        hostManager.createHost(host1, adminManager.findAllocationDetail("spi", "general"));
+        hostManager.createHost(host2, adminManager.findAllocationDetail("spi", "general"));
     }
 
     private GroupDetail createGroup(Show show) {
@@ -244,7 +221,7 @@ public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTes
         newGroupDetail.name = NEW_GROUP_NAME;
         newGroupDetail.showId = show.getId();
         groupManager.createGroup(newGroupDetail, null);
-        return groupManager.getGroupDetail(
-                whiteboardDao.findGroup(show.getName(), NEW_GROUP_NAME).getId());
+        return groupManager
+                .getGroupDetail(whiteboardDao.findGroup(show.getName(), NEW_GROUP_NAME).getId());
     }
 }

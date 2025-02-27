@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -42,8 +38,8 @@ import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.util.FrameSet;
 
 /**
- * JobManager pretty much handles all job management functions. From launching
- * killing jobs, to managing the layers, frames, etc within jobs.
+ * JobManager pretty much handles all job management functions. From launching killing jobs, to
+ * managing the layers, frames, etc within jobs.
  */
 public interface JobManager {
 
@@ -70,8 +66,7 @@ public interface JobManager {
     public DispatchFrame getDispatchFrame(String id);
 
     /**
-     * Returns true if there is a pending job with the specifed
-     * name on the cue.
+     * Returns true if there is a pending job with the specifed name on the cue.
      *
      * @param name
      * @return
@@ -79,8 +74,7 @@ public interface JobManager {
     boolean isJobPending(String name);
 
     /**
-     * Returns true if the job has no more frames that
-     * can possibly be dispatched.
+     * Returns true if the job has no more frames that can possibly be dispatched.
      *
      * @return
      */
@@ -110,19 +104,17 @@ public interface JobManager {
     JobDetail createJob(BuildableJob job);
 
     /**
-     * Removes an existing job entry.  The job must be in the
-     * Finished state before it can be removed.
+     * Removes an existing job entry. The job must be in the Finished state before it can be
+     * removed.
      *
      * @param JobDetail job
      */
     void removeJob(JobInterface job);
 
     /**
-     * Shutting down a job will signal RQD to kill all frames
-     * and drop all dependencies for specified job.  Job is
-     * put into Shutdown state which should be commited
-     * before any other operations are done on the job.
-     * When shutdown is complete, the job shoud be marked Finished.
+     * Shutting down a job will signal RQD to kill all frames and drop all dependencies for
+     * specified job. Job is put into Shutdown state which should be commited before any other
+     * operations are done on the job. When shutdown is complete, the job shoud be marked Finished.
      *
      * @param JobDetail job
      */
@@ -168,12 +160,12 @@ public interface JobManager {
     LayerDetail getLayerDetail(String id);
 
     /**
-    * Return a layer by its unique ID.
-    *
-    * @param id
-    * @return LayerDetail
-    */
-   LayerInterface getLayer(String id);
+     * Return a layer by its unique ID.
+     *
+     * @param id
+     * @return LayerDetail
+     */
+    LayerInterface getLayer(String id);
 
     /**
      *
@@ -191,19 +183,17 @@ public interface JobManager {
     FrameInterface getFrame(String id);
 
     /**
-     * Marks a specific frame as waiting, setting its dependency
-     * count to 0 in the process even though it has active
-     * dependencies.
+     * Marks a specific frame as waiting, setting its dependency count to 0 in the process even
+     * though it has active dependencies.
      *
      * @param frame
      */
     public void markFrameAsWaiting(FrameInterface frame);
 
     /**
-     * Marks a specific frame as Depend if the frame has
-     * active dependencies.  This will pretty much undo
-     * a markFrameAsWaiting.  If the frame has no active
-     * depends this call should have no effect.
+     * Marks a specific frame as Depend if the frame has active dependencies. This will pretty much
+     * undo a markFrameAsWaiting. If the frame has no active depends this call should have no
+     * effect.
      *
      * @param frame
      */
@@ -233,7 +223,6 @@ public interface JobManager {
      * @param state
      */
     public void updateJobState(JobInterface job, JobState state);
-
 
     /**
      * Reorders the specified layer.
@@ -267,16 +256,14 @@ public interface JobManager {
     public List<LayerDetail> getLayerDetails(JobInterface job);
 
     /**
-     * Creates the job log directory.  The JobDetail object
-     * must have the logDir property populated.
+     * Creates the job log directory. The JobDetail object must have the logDir property populated.
      *
      * @param newJob
      */
     public void createJobLogDirectory(JobDetail newJob);
 
     /**
-     * Optimizes layer settings based on the specified maxRss
-     * and run time.
+     * Optimizes layer settings based on the specified maxRss and run time.
      *
      * @param layer
      * @param maxRss
@@ -405,8 +392,7 @@ public interface JobManager {
     void updateCheckpointState(FrameInterface frame, CheckpointState state);
 
     /**
-     * Return a list of frames that failed to checkpoint within
-     * the given checkpoint point.
+     * Return a list of frames that failed to checkpoint within the given checkpoint point.
      *
      * @param cutoffTimeMs
      * @return
@@ -491,5 +477,19 @@ public interface JobManager {
      * @param layer
      */
     List<LimitEntity> getLayerLimits(LayerInterface layer);
-}
 
+    /**
+     * Update email(s) of subscribers for job
+     *
+     * @param job
+     * @param email
+     */
+    void updateEmail(JobInterface job, String email);
+
+    /**
+     * Return a list of limits for the given layer.
+     *
+     * @param job
+     */
+    String getEmail(JobInterface job);
+}

@@ -5,6 +5,8 @@ package limit;
 option java_package = "com.imageworks.spcue.grpc.limit";
 option java_multiple_files = true;
 
+option go_package = "opencue_gateway/gen/go";
+
 // The Limit class contains data that allows users to place limits
 // on the maximum number of running frames for a certain type of layer.
 

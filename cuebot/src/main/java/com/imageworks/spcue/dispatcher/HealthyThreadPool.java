@@ -16,11 +16,10 @@ import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
-
-/***
- * A ThreadPoolExecutor with two additional features:
- *  - Handles repeated tasks by always keeping the latest version
- *  - With isHealthyOrShutdown, the threadpool will drain and clear resources when unhealthy
+/**
+ * A ThreadPoolExecutor with two additional features: - Handles repeated tasks by always keeping the
+ * latest version - With isHealthyOrShutdown, the threadpool will drain and clear resources when
+ * unhealthy
  *
  */
 public class HealthyThreadPool extends ThreadPoolExecutor {
@@ -40,6 +39,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
 
     /**
      * Start a thread pool
+     *
      * @param name For logging purposes
      * @param healthThreshold Percentage that should be available to consider healthy
      * @param minUnhealthyPeriodMin Period in min to consider a queue unhealthy
@@ -47,14 +47,10 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
      * @param threadsMinimum Minimum number of threads
      * @param threadsMaximum Maximum number of threads to grow to
      */
-    public HealthyThreadPool(String name,
-                             int healthThreshold,
-                             int minUnhealthyPeriodMin,
-                             int poolSize,
-                             int threadsMinimum,
-                             int threadsMaximum) {
-        this(name, healthThreshold, minUnhealthyPeriodMin, poolSize,
-                threadsMinimum, threadsMaximum, 0);
+    public HealthyThreadPool(String name, int healthThreshold, int minUnhealthyPeriodMin,
+            int poolSize, int threadsMinimum, int threadsMaximum) {
+        this(name, healthThreshold, minUnhealthyPeriodMin, poolSize, threadsMinimum, threadsMaximum,
+                0);
     }
 
     /**
@@ -68,15 +64,10 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
      * @param threadsMaximum Maximum number of threads to grow to
      * @param baseSleepTimeMillis Time a thread should sleep when the service is not under pressure
      */
-    public HealthyThreadPool(String name,
-                             int healthThreshold,
-                             int minUnhealthyPeriodMin,
-                             int poolSize,
-                             int threadsMinimum,
-                             int threadsMaximum,
-                             int baseSleepTimeMillis) {
-        super(threadsMinimum, threadsMaximum, 10,
-                TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(poolSize));
+    public HealthyThreadPool(String name, int healthThreshold, int minUnhealthyPeriodMin,
+            int poolSize, int threadsMinimum, int threadsMaximum, int baseSleepTimeMillis) {
+        super(threadsMinimum, threadsMaximum, 10, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<Runnable>(poolSize));
 
         logger.debug(name + ": Starting a new HealthyThreadPool");
         this.name = name;
@@ -86,12 +77,10 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
         this.baseSleepTimeMillis = baseSleepTimeMillis;
         this.setRejectedExecutionHandler(rejectCounter);
 
-        this.taskCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(3, TimeUnit.MINUTES)
-                // Invalidate entries that got executed by the threadPool and lost their reference
-                .weakValues()
-                .concurrencyLevel(threadsMaximum)
-                .build();
+        this.taskCache = CacheBuilder.newBuilder().expireAfterWrite(3, TimeUnit.MINUTES)
+                // Invalidate entries that got executed by the threadPool and lost their
+                // reference
+                .weakValues().concurrencyLevel(threadsMaximum).build();
     }
 
     public void execute(KeyRunnable r) {
@@ -99,7 +88,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
             logger.info(name + ": Task ignored, queue on hold or shutdown");
             return;
         }
-        if (taskCache.getIfPresent(r.getKey()) == null){
+        if (taskCache.getIfPresent(r.getKey()) == null) {
             taskCache.put(r.getKey(), r);
             super.execute(r);
         }
@@ -112,40 +101,34 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
     /**
      * Monitor if the queue is unhealthy for MIN_UNHEALTHY_PERIOD_MIN
      *
-     * If unhealthy, the service will start the shutdown process and the
-     * caller is responsible for starting a new instance after the lock on
-     * awaitTermination is released.
+     * If unhealthy, the service will start the shutdown process and the caller is responsible for
+     * starting a new instance after the lock on awaitTermination is released.
      */
-    protected boolean isHealthyOrShutdown() throws InterruptedException {
+    protected boolean shutdownUnhealthy() throws InterruptedException {
         Date now = new Date();
-        if (diffInMinutes(lastCheck, now) > minUnhealthyPeriodMin){
+        if (diffInMinutes(lastCheck, now) > minUnhealthyPeriodMin) {
             this.wasHealthy = healthCheck();
             this.lastCheck = now;
         }
 
-        if(healthCheck() || wasHealthy) {
-            logger.debug(name + ": healthy (" +
-                    "Remaining Capacity: " + this.getQueue().remainingCapacity() +
-                    ", Running: " + this.getActiveCount() +
-                    ", Total Executed: " + this.getCompletedTaskCount() +
-                    ")");
+        if (healthCheck() || wasHealthy) {
+            logger.debug(name + ": healthy (" + "Remaining Capacity: "
+                    + this.getQueue().remainingCapacity() + ", Running: " + this.getActiveCount()
+                    + ", Total Executed: " + this.getCompletedTaskCount() + ")");
             return true;
-        }
-        else if (isShutdown.get()) {
+        } else if (isShutdown.get()) {
             logger.warn("Queue shutting down");
             return false;
-        }
-        else {
+        } else {
             logger.warn(name + ": unhealthy, starting shutdown)");
             threadDump();
 
             isShutdown.set(true);
             super.shutdownNow();
             logger.warn(name + ": Awaiting unhealthy queue termination");
-            if (super.awaitTermination(1, TimeUnit.MINUTES)){
+            if (super.awaitTermination(1, TimeUnit.MINUTES)) {
                 logger.info(name + ": Terminated successfully");
-            }
-            else {
+            } else {
                 logger.warn(name + ": Failed to terminate");
             }
             // Threads will eventually terminate, proceed
@@ -156,16 +139,14 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
 
     private void threadDump() {
         ThreadMXBean mx = ManagementFactory.getThreadMXBean();
-        for(ThreadInfo info : mx.dumpAllThreads(true, true)){
+        for (ThreadInfo info : mx.dumpAllThreads(true, true)) {
             logger.debug(info.toString());
         }
     }
 
     private static long diffInMinutes(Date dateStart, Date dateEnd) {
-        return TimeUnit.MINUTES.convert(
-                dateEnd.getTime() - dateStart.getTime(),
-                TimeUnit.MILLISECONDS
-        );
+        return TimeUnit.MINUTES.convert(dateEnd.getTime() - dateStart.getTime(),
+                TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -175,8 +156,9 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
      */
     public int sleepTime() {
         if (!isShutdown.get()) {
-            int sleep = (int) (baseSleepTimeMillis - (((this.getQueue().size () /
-                    (float) this.poolSize) * baseSleepTimeMillis)) * 2);
+            int sleep = (int) (baseSleepTimeMillis
+                    - (((this.getQueue().size() / (float) this.poolSize) * baseSleepTimeMillis))
+                            * 2);
             if (sleep < 0) {
                 sleep = 0;
             }
@@ -186,6 +168,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
         }
     }
 
+    @Override
     protected void beforeExecute(Thread t, Runnable r) {
         super.beforeExecute(t, r);
         if (isShutdown()) {
@@ -201,29 +184,31 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
         }
     }
 
+    @Override
     protected void afterExecute(Runnable r, Throwable t) {
         super.afterExecute(r, t);
 
-        // Invalidate cache to avoid having to wait for GC to mark processed entries collectible
-        KeyRunnable h = (KeyRunnable)r;
+        // Invalidate cache to avoid having to wait for GC to mark processed entries
+        // collectible
+        KeyRunnable h = (KeyRunnable) r;
         taskCache.invalidate(h.getKey());
     }
 
     protected boolean healthCheck() {
-        return (this.getQueue().remainingCapacity() > 0) ||
-                (getRejectedTaskCount() < this.poolSize / healthThreshold);
+        return (this.getQueue().remainingCapacity() > 0)
+                || (getRejectedTaskCount() < this.poolSize / healthThreshold);
     }
 
     public void shutdown() {
         if (!isShutdown.getAndSet(true)) {
-            logger.info("Shutting down thread pool " + name + ", currently "
-                    + getActiveCount() + " active threads.");
+            logger.info("Shutting down thread pool " + name + ", currently " + getActiveCount()
+                    + " active threads.");
             final long startTime = System.currentTimeMillis();
             while (this.getQueue().size() != 0 && this.getActiveCount() != 0) {
                 try {
                     if (System.currentTimeMillis() - startTime > 10000) {
-                        throw new InterruptedException(name
-                                + " thread pool failed to shutdown properly");
+                        throw new InterruptedException(
+                                name + " thread pool failed to shutdown properly");
                     }
                     Thread.sleep(250);
                 } catch (InterruptedException e) {

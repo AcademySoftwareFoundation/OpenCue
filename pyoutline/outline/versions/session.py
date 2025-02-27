@@ -181,6 +181,7 @@ class Session(with_metaclass(Singleton, object)):
     # pylint: disable=broad-except,import-outside-toplevel
     @staticmethod
     def __run_manifest(path):
+        # pylint: disable=deprecated-module
         import imp
         try:
             fob, path, desc = imp.find_module('manifest', [path])

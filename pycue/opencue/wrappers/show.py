@@ -19,6 +19,7 @@ from opencue.cuebot import Cuebot
 import opencue.wrappers.filter
 import opencue.wrappers.group
 import opencue.wrappers.subscription
+from opencue.wrappers.service import ServiceOverride
 
 
 class Show(object):
@@ -66,30 +67,28 @@ class Show(object):
 
     def createServiceOverride(self, data):
         """Creates a Service Override at the show level.
-
-        :type  data: service_pb2.Service
-        :param data: service data, typically from opencue.wrappers.service.Service.data
+        :type data: opencue.wrapper.service.Service
+        :param data: Service.data object
         """
 
         # min_memory_increase has to be greater than 0.
         if data.min_memory_increase <= 0:
             raise ValueError("Minimum memory increase must be > 0")
-
-        self.stub.CreateServiceOverride(
-            show_pb2.ShowCreateServiceOverrideRequest(show=self.data, service=data),
-            timeout=Cuebot.Timeout)
+        self.stub.CreateServiceOverride(show_pb2.ShowCreateServiceOverrideRequest(
+                                        show=self.data, service=data),
+                                        timeout=Cuebot.Timeout)
 
     def getServiceOverride(self, serviceName):
-        """Returns a service override for a show.
+        """
+        Returns a service override for a show
 
-        :type  serviceName: str
         :param serviceName: name of the service for the show
-        :rtype:  service_pb2.ServiceOverride
         :return: service override object
         """
-        return self.stub.GetServiceOverride(
-            show_pb2.ShowGetServiceOverrideRequest(show=self.data, name=serviceName),
-            timeout=Cuebot.Timeout).service_override
+        serviceOverride = self.stub.GetServiceOverride(show_pb2.ShowGetServiceOverrideRequest(
+                                                       show=self.data, name=serviceName),
+                                                       timeout=Cuebot.Timeout).service_override
+        return ServiceOverride(serviceOverride)
 
     def getServiceOverrides(self):
         """Returns a list of service overrides on the show.
@@ -100,7 +99,7 @@ class Show(object):
         serviceOverrideSeq = self.stub.GetServiceOverrides(
             show_pb2.ShowGetServiceOverridesRequest(show=self.data),
             timeout=Cuebot.Timeout).service_overrides
-        return serviceOverrideSeq.service_overrides
+        return [ServiceOverride(override) for override in serviceOverrideSeq.service_overrides]
 
     def getSubscriptions(self):
         """Returns a list of all subscriptions the show has.

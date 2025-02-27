@@ -20,8 +20,8 @@ rqd_dir = os.path.abspath(os.path.dirname(__file__))
 
 version = 'unknown'
 possible_version_paths = [
-    os.path.join(rqd_dir, 'VERSION'),
-    os.path.join(os.path.dirname(rqd_dir), 'VERSION'),
+    os.path.join(rqd_dir, 'VERSION.in'),
+    os.path.join(os.path.dirname(rqd_dir), 'VERSION.in'),
 ]
 for possible_version_path in possible_version_paths:
     if os.path.exists(possible_version_path):
@@ -41,8 +41,6 @@ setup(
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
 
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
@@ -61,7 +59,8 @@ setup(
         'grpcio',
         'grpcio-tools',
         'psutil',
-        'pywin32; platform_system == "Windows"'
+        'pywin32==301; platform_system == "Windows"',
+        'wmi==1.5.1; platform_system == "Windows"'
     ]
 )
 

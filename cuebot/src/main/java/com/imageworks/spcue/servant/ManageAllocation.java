@@ -62,8 +62,8 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     public ManageAllocation() {}
 
     @Override
-    public void create(
-            AllocCreateRequest request, StreamObserver<AllocCreateResponse> responseObserver) {
+    public void create(AllocCreateRequest request,
+            StreamObserver<AllocCreateResponse> responseObserver) {
         String new_name = request.getName();
         // If they pass name in the format <facility>.<name>, just remove the facility.
         if (CueUtil.verifyAllocationNameFormat(request.getName())) {
@@ -73,39 +73,30 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
         AllocationEntity detail = new AllocationEntity();
         detail.name = new_name;
         detail.tag = request.getTag();
-        adminManager.createAllocation(
-                adminManager.getFacility(request.getFacility().getName()), detail);
+        adminManager.createAllocation(adminManager.getFacility(request.getFacility().getName()),
+                detail);
 
-        responseObserver.onNext(
-                AllocCreateResponse.newBuilder()
-                        .setAllocation(whiteboard.getAllocation(detail.id))
-                        .build());
+        responseObserver.onNext(AllocCreateResponse.newBuilder()
+                .setAllocation(whiteboard.getAllocation(detail.id)).build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void getAll(
-            AllocGetAllRequest request, StreamObserver<AllocGetAllResponse> responseObserver) {
-        responseObserver.onNext(
-                AllocGetAllResponse.newBuilder()
-                    .setAllocations(whiteboard.getAllocations())
-                    .build());
+    public void getAll(AllocGetAllRequest request,
+            StreamObserver<AllocGetAllResponse> responseObserver) {
+        responseObserver.onNext(AllocGetAllResponse.newBuilder()
+                .setAllocations(whiteboard.getAllocations()).build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void find(
-            AllocFindRequest request, StreamObserver<AllocFindResponse> responseObserver) {
+    public void find(AllocFindRequest request, StreamObserver<AllocFindResponse> responseObserver) {
         try {
-            responseObserver.onNext(
-                    AllocFindResponse.newBuilder()
-                            .setAllocation(whiteboard.findAllocation(request.getName()))
-                            .build());
+            responseObserver.onNext(AllocFindResponse.newBuilder()
+                    .setAllocation(whiteboard.findAllocation(request.getName())).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription(e.getMessage())
-                    .withCause(e)
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
                     .asRuntimeException());
         }
     }
@@ -113,15 +104,11 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     @Override
     public void get(AllocGetRequest request, StreamObserver<AllocGetResponse> responseObserver) {
         try {
-            responseObserver.onNext(
-                    AllocGetResponse.newBuilder()
-                        .setAllocation(whiteboard.findAllocation(request.getId()))
-                        .build());
+            responseObserver.onNext(AllocGetResponse.newBuilder()
+                    .setAllocation(whiteboard.findAllocation(request.getId())).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription(e.getMessage())
-                    .withCause(e)
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
                     .asRuntimeException());
         }
     }
@@ -135,113 +122,100 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     }
 
     @Override
-    public void delete(
-            AllocDeleteRequest request, StreamObserver<AllocDeleteResponse> responseObserver) {
-        AllocationEntity alloc = findAllocationDetail(
-                request.getAllocation().getFacility(), request.getAllocation().getName());
+    public void delete(AllocDeleteRequest request,
+            StreamObserver<AllocDeleteResponse> responseObserver) {
+        AllocationEntity alloc = findAllocationDetail(request.getAllocation().getFacility(),
+                request.getAllocation().getName());
         adminManager.deleteAllocation(alloc);
         responseObserver.onNext(AllocDeleteResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void findHosts(
-            AllocFindHostsRequest request,
+    public void findHosts(AllocFindHostsRequest request,
             StreamObserver<AllocFindHostsResponse> responseObserver) {
-        HostSearchCriteria searchCriteria = request.getR().toBuilder()
-                .addAllocs(request.getAllocation().getId())
-                .build();
+        HostSearchCriteria searchCriteria =
+                request.getR().toBuilder().addAllocs(request.getAllocation().getId()).build();
         responseObserver.onNext(AllocFindHostsResponse.newBuilder()
-                .setHosts(whiteboard.getHosts(hostSearchFactory.create(searchCriteria)))
-                .build());
+                .setHosts(whiteboard.getHosts(hostSearchFactory.create(searchCriteria))).build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void getHosts(
-            AllocGetHostsRequest request, StreamObserver<AllocGetHostsResponse> responseObserver) {
+    public void getHosts(AllocGetHostsRequest request,
+            StreamObserver<AllocGetHostsResponse> responseObserver) {
         responseObserver.onNext(AllocGetHostsResponse.newBuilder()
-                .setHosts(
-                        whiteboard.getHosts(
-                                hostSearchFactory.create(
-                                        toAllocationEntity(request.getAllocation()))))
+                .setHosts(whiteboard.getHosts(
+                        hostSearchFactory.create(toAllocationEntity(request.getAllocation()))))
                 .build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void getSubscriptions(
-            AllocGetSubscriptionsRequest request,
+    public void getSubscriptions(AllocGetSubscriptionsRequest request,
             StreamObserver<AllocGetSubscriptionsResponse> responseObserver) {
         AllocationEntity allocEntity = toAllocationEntity(request.getAllocation());
         responseObserver.onNext(AllocGetSubscriptionsResponse.newBuilder()
-                .setSubscriptions(whiteboard.getSubscriptions(allocEntity))
-                .build());
+                .setSubscriptions(whiteboard.getSubscriptions(allocEntity)).build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void reparentHosts(
-            AllocReparentHostsRequest request,
+    public void reparentHosts(AllocReparentHostsRequest request,
             StreamObserver<AllocReparentHostsResponse> responseObserver) {
         AllocationEntity allocEntity = toAllocationEntity(request.getAllocation());
         List<Host> hosts = request.getHosts().getHostsList();
-        List<HostInterface> hostEntities = hosts.stream()
-                .map(HostEntity::new)
-                .collect(Collectors.toList());
+        List<HostInterface> hostEntities =
+                hosts.stream().map(HostEntity::new).collect(Collectors.toList());
         manageQueue.execute(new ManageReparentHosts(allocEntity, hostEntities, hostManager));
         responseObserver.onNext(AllocReparentHostsResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void setBillable(
-            AllocSetBillableRequest request,
+    public void setBillable(AllocSetBillableRequest request,
             StreamObserver<AllocSetBillableResponse> responseObserver) {
-        AllocationEntity alloc = findAllocationDetail(
-                request.getAllocation().getFacility(), request.getAllocation().getName());
+        AllocationEntity alloc = findAllocationDetail(request.getAllocation().getFacility(),
+                request.getAllocation().getName());
         adminManager.setAllocationBillable(alloc, request.getValue());
         responseObserver.onNext(AllocSetBillableResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void setName(
-            AllocSetNameRequest request, StreamObserver<AllocSetNameResponse> responseObserver) {
-        AllocationEntity alloc = findAllocationDetail(
-                request.getAllocation().getFacility(), request.getAllocation().getName());
+    public void setName(AllocSetNameRequest request,
+            StreamObserver<AllocSetNameResponse> responseObserver) {
+        AllocationEntity alloc = findAllocationDetail(request.getAllocation().getFacility(),
+                request.getAllocation().getName());
         adminManager.setAllocationName(alloc, request.getName());
         responseObserver.onNext(AllocSetNameResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void setTag(
-            AllocSetTagRequest request, StreamObserver<AllocSetTagResponse> responseObserver) {
-        AllocationEntity alloc = findAllocationDetail(
-                request.getAllocation().getFacility(), request.getAllocation().getName());
+    public void setTag(AllocSetTagRequest request,
+            StreamObserver<AllocSetTagResponse> responseObserver) {
+        AllocationEntity alloc = findAllocationDetail(request.getAllocation().getFacility(),
+                request.getAllocation().getName());
         adminManager.setAllocationTag(alloc, request.getTag());
         responseObserver.onNext(AllocSetTagResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void getDefault(
-            AllocGetDefaultRequest request,
+    public void getDefault(AllocGetDefaultRequest request,
             StreamObserver<AllocGetDefaultResponse> responseObserver) {
         AllocationEntity alloc = adminManager.getDefaultAllocation();
         responseObserver.onNext(AllocGetDefaultResponse.newBuilder()
-                .setAllocation(whiteboard.getAllocation(alloc.id))
-                .build());
+                .setAllocation(whiteboard.getAllocation(alloc.id)).build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void setDefault(
-            AllocSetDefaultRequest request,
+    public void setDefault(AllocSetDefaultRequest request,
             StreamObserver<AllocSetDefaultResponse> responseObserver) {
-        AllocationEntity alloc = findAllocationDetail(
-                request.getAllocation().getFacility(), request.getAllocation().getName());
+        AllocationEntity alloc = findAllocationDetail(request.getAllocation().getFacility(),
+                request.getAllocation().getName());
         adminManager.setDefaultAllocation(alloc);
         responseObserver.onNext(AllocSetDefaultResponse.newBuilder().build());
         responseObserver.onCompleted();

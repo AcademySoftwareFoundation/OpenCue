@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dao;
 
@@ -59,7 +55,7 @@ public interface LayerDao {
     public List<LayerDetail> getLayerDetails(JobInterface job);
 
     /**
-     * Returns true if supplied layer is compelte.
+     * Returns true if supplied layer is complete.
      *
      * @param layer
      * @return boolean
@@ -82,7 +78,7 @@ public interface LayerDao {
     void insertLayerDetail(LayerDetail l);
 
     /**
-     * gets a layer detail from an object that implments layer
+     * gets a layer detail from an object that implements layer
      *
      * @param layer
      * @return LayerDetail
@@ -131,7 +127,6 @@ public interface LayerDao {
      */
     void updateLayerMinCores(LayerInterface layer, int val);
 
-
     /**
      * update the number of gpus the layer requires
      *
@@ -141,8 +136,7 @@ public interface LayerDao {
     void updateLayerMinGpus(LayerInterface layer, int val);
 
     /**
-     * update the amount of memory required by all subsequent
-     * running frames in the specified layer.
+     * update the amount of memory required by all subsequent running frames in the specified layer.
      *
      * @param layer
      * @param val
@@ -150,8 +144,8 @@ public interface LayerDao {
     void updateLayerMinMemory(LayerInterface layer, long kb);
 
     /**
-     * update the amount of gpu memory in kb required by all subsequent
-     * running frames in the specified layer.
+     * update the amount of gpu memory in kb required by all subsequent running frames in the
+     * specified layer.
      *
      * @param layer
      * @param val
@@ -167,7 +161,7 @@ public interface LayerDao {
     void updateLayerTags(LayerInterface layer, Set<String> tags);
 
     /**
-     * Insert a key/valye pair into the layer environment
+     * Insert a key/value pair into the layer environment
      *
      * @param layer
      * @param key
@@ -181,7 +175,7 @@ public interface LayerDao {
      * @param layer
      * @param env
      */
-    void insertLayerEnvironment(LayerInterface layer, Map<String,String> env);
+    void insertLayerEnvironment(LayerInterface layer, Map<String, String> env);
 
     /**
      * Get the layer environment map
@@ -189,13 +183,12 @@ public interface LayerDao {
      * @param layer
      * @return
      */
-    Map<String,String> getLayerEnvironment(LayerInterface layer);
+    Map<String, String> getLayerEnvironment(LayerInterface layer);
 
     /**
-     * Updated the layers MaxRSS value.  If force is true then the
-     * value is updated no matter what the current value is.  If force
-     * is false, the value is only updated the val is greater than than
-     * the existing value.
+     * Updated the layers MaxRSS value. If force is true then the value is updated no matter what
+     * the current value is. If force is false, the value is only updated the val is greater than
+     * than the existing value.
      *
      * @param layer
      * @param val
@@ -203,8 +196,8 @@ public interface LayerDao {
     void updateLayerMaxRSS(LayerInterface layer, long val, boolean force);
 
     /**
-     * Increases the value of the minimum memory when the supplied
-     * value is larger than the current value
+     * Increases the value of the minimum memory when the supplied value is larger than the current
+     * value
      *
      * @param layer
      * @param val
@@ -212,8 +205,8 @@ public interface LayerDao {
     void increaseLayerMinMemory(LayerInterface layer, long val);
 
     /**
-     * Increases the value of the minimum gpu when the supplied
-     * value is larger than the current value
+     * Increases the value of the minimum gpu when the supplied value is larger than the current
+     * value
      *
      * @param layer
      * @param val
@@ -221,9 +214,8 @@ public interface LayerDao {
     void increaseLayerMinGpuMemory(LayerInterface layer, long val);
 
     /**
-     * Tries to find a max RSS value for layer in the specified job. The
-     * layer must have at least 25% of its pending frames completed
-     * for this to return a valid result.  If the layer cannot be
+     * Tries to find a max RSS value for layer in the specified job. The layer must have at least
+     * 25% of its pending frames completed for this to return a valid result. If the layer cannot be
      * found then 0 is returned.
      *
      * @param job
@@ -241,8 +233,7 @@ public interface LayerDao {
     public List<LayerInterface> getLayers(JobInterface job);
 
     /**
-     * Update all layers of the set type in specified job
-     * with the new tags.
+     * Update all layers of the set type in specified job with the new tags.
      *
      * @param job
      * @param tags
@@ -251,8 +242,7 @@ public interface LayerDao {
     void updateTags(JobInterface job, String tags, LayerType type);
 
     /**
-     * Update all layers of the set type in the specified
-     * job with the new memory requirement.
+     * Update all layers of the set type in the specified job with the new memory requirement.
      *
      * @param job
      * @param mem
@@ -261,8 +251,7 @@ public interface LayerDao {
     void updateMinMemory(JobInterface job, long mem, LayerType type);
 
     /**
-     * Update all layers of the set type in the specified
-     * job with the new gpu requirement.
+     * Update all layers of the set type in the specified job with the new gpu requirement.
      *
      * @param job
      * @param mem
@@ -271,8 +260,7 @@ public interface LayerDao {
     void updateMinGpuMemory(JobInterface job, long mem, LayerType type);
 
     /**
-     * Update all layers of the set type in the specified job
-     * with the new max cores requirement.
+     * Update all layers of the set type in the specified job with the new max cores requirement.
      *
      * @param job
      * @param cores
@@ -281,8 +269,7 @@ public interface LayerDao {
     void updateMaxCores(JobInterface job, int cores, LayerType type);
 
     /**
-     * Update all layers of the set type in the specified job
-     * with the new min cores requirement.
+     * Update all layers of the set type in the specified job with the new min cores requirement.
      *
      * @param job
      * @param cores
@@ -291,8 +278,7 @@ public interface LayerDao {
     void updateMinCores(JobInterface job, int cores, LayerType type);
 
     /**
-     * Update all layers of the set type in the specified job
-     * with the new min cores requirement.
+     * Update all layers of the set type in the specified job with the new min gpu requirement.
      *
      * @param job
      * @param gpus
@@ -301,37 +287,33 @@ public interface LayerDao {
     void updateMinGpus(JobInterface job, int gpus, LayerType type);
 
     /**
-     * Update a layer's max cores value, which limits how
-     * much threading can go on.
+     * Update a layer's max cores value, which limits how much threading can go on.
      *
-     * @param job
-     * @param cores
-     * @param type
+     * @param layer
+     * @param threadable
      */
     void updateThreadable(LayerInterface layer, boolean threadable);
 
     /**
-     * Update a layer's timeout value, which limits how
-     * much the frame can run on a host.
+     * Update a layer's timeout value, which limits how much the frame can run on a host.
      *
-     * @param job
+     * @param layer
      * @param timeout
      */
     void updateTimeout(LayerInterface layer, int timeout);
 
     /**
-     * Update a layer's LLU timeout value, which limits how
-     * much the frame can run on a host without updates in the log file.
+     * Update a layer's LLU timeout value, which limits how much the frame can run on a host without
+     * updates in the log file.
      *
-     * @param job
-     * @param timeout
+     * @param layer
+     * @param timeout_llu
      */
     void updateTimeoutLLU(LayerInterface layer, int timeout_llu);
 
     /**
-     * Lowers the minimum memory on a layer if the layer
-     * is using less memory and the currnet min memory is
-     * the dispatcher default.
+     * Lowers the minimum memory on a layer if the layer is using less memory and the currnet min
+     * memory is the dispatcher default.
      *
      * @param layer
      * @param val
@@ -340,8 +322,7 @@ public interface LayerDao {
     boolean balanceLayerMinMemory(LayerInterface layer, long val);
 
     /**
-     * Appends a tag to the current set of tags.  If the tag
-     * already exists than nothing happens.
+     * Appends a tag to the current set of tags. If the tag already exists then nothing happens.
      *
      * @param layer
      * @param val
@@ -349,8 +330,7 @@ public interface LayerDao {
     void appendLayerTags(LayerInterface layer, String val);
 
     /**
-     * Returns true if the layer can be optimized to use
-     * util based on the specified criteria.
+     * Returns true if the layer can be optimized to use util based on the specified criteria.
      *
      * @param l
      * @param succeeded
@@ -360,11 +340,12 @@ public interface LayerDao {
     boolean isOptimizable(LayerInterface l, int succeeded, float avg);
 
     /**
-     * Update layer usage with processor time usage.
-     * This happens when the proc has completed or failed some work.
+     * Update layer usage with processor time usage. This happens when the proc has completed or
+     * failed some work.
      *
-     * @param proc
+     * @param layer
      * @param newState
+     * @param exitStatus
      */
     void updateUsage(LayerInterface layer, ResourceUsage usage, int exitStatus);
 
@@ -377,8 +358,7 @@ public interface LayerDao {
     boolean isLaunching(LayerInterface l);
 
     /**
-     * Return true if the application running in the given layer
-     * is threadable.
+     * Return true if the application running in the given layer is threadable.
      *
      * @param l
      * @return
@@ -387,6 +367,9 @@ public interface LayerDao {
 
     /**
      * Enable/disable memory optimizer.
+     *
+     * @param layer
+     * @param state
      */
     void enableMemoryOptimizer(LayerInterface layer, boolean state);
 
@@ -415,9 +398,8 @@ public interface LayerDao {
     List<ThreadStats> getThreadStats(LayerInterface layer);
 
     /**
-     * Set the layer's max cores value to the given int.  The
-     * max cores value will not allow the dispatcher to
-     * book over the given number of cores.
+     * Set the layer's max cores value to the given int. The max cores value will not allow the
+     * dispatcher to book over the given number of cores.
      *
      * @param layer
      * @param val
@@ -425,9 +407,8 @@ public interface LayerDao {
     void updateLayerMaxCores(LayerInterface layer, int val);
 
     /**
-     * Set the layer's max gpus value to the given int.  The
-     * max gpu value will not allow the dispatcher to
-     * book over the given number of gpu.
+     * Set the layer's max gpus value to the given int. The max gpu value will not allow the
+     * dispatcher to book over the given number of gpu.
      *
      * @param layer
      * @param val
@@ -465,4 +446,3 @@ public interface LayerDao {
     List<String> getLimitNames(LayerInterface layer);
 
 }
-

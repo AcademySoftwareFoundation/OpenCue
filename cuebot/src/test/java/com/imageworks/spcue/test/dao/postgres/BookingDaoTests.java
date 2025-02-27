@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -56,10 +52,9 @@ import com.imageworks.spcue.util.CueUtil;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTests {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class BookingDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     @Rule
@@ -93,28 +88,16 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
     Whiteboard whiteboard;
 
     public DispatchHost createHost() {
-        RenderHost host = RenderHost.newBuilder()
-                .setName("test_host")
-                .setBootTime(1192369572)
-                .setFreeMcp(76020)
-                .setFreeMem(53500)
-                .setFreeSwap(20760)
-                .setLoad(1)
-                .setTotalMcp(195430)
-                .setTotalMem((int) CueUtil.GB16)
-                .setTotalSwap((int) CueUtil.GB16)
-                .setNimbyEnabled(false)
-                .setNumProcs(2)
-                .setCoresPerProc(100)
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .addTags("general")
-                .setFreeGpuMem((int) CueUtil.MB512)
-                .setTotalGpuMem((int) CueUtil.MB512)
-                .build();
+        RenderHost host = RenderHost.newBuilder().setName("test_host").setBootTime(1192369572)
+                // The minimum amount of free space in the temporary directory to book a host.
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB16)
+                .setTotalSwap((int) CueUtil.GB16).setNimbyEnabled(false).setNumProcs(2)
+                .setCoresPerProc(100).setState(HardwareState.UP).setFacility("spi")
+                .addTags("general").setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512).build();
         DispatchHost dh = hostManager.createHost(host);
-        hostManager.setAllocation(dh,
-                adminManager.findAllocationDetail("spi", "general"));
+        hostManager.setAllocation(dh, adminManager.findAllocationDetail("spi", "general"));
 
         return dh;
     }
@@ -143,34 +126,30 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         bookingDao.insertLocalHostAssignment(h, j, lja);
 
-
         assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT int_threads FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
+                "SELECT int_threads FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
+        assertEquals(Integer.valueOf(1),
+                jdbcTemplate.queryForObject("SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
-        assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-                "SELECT int_cores_max FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
-
-        assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
-                "SELECT int_mem_max FROM host_local WHERE pk_job=?",
-                Long.class, j.getJobId()));
-
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
-
-        assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-                "SELECT int_cores_idle FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_cores_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
         assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
-                "SELECT int_mem_idle FROM host_local WHERE pk_job=?",
-                Long.class, j.getJobId()));
+                "SELECT int_mem_max FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
+
+        assertEquals(Integer.valueOf(1),
+                jdbcTemplate.queryForObject("SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
+
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_cores_idle FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
+
+        assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
+                "SELECT int_mem_idle FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
     }
 
     @Test
@@ -190,38 +169,34 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         bookingDao.insertLocalHostAssignment(h, layer, lja);
 
-        assertEquals(layer.getLayerId(), jdbcTemplate.queryForObject(
-                "SELECT pk_layer FROM host_local WHERE pk_host_local=?",
-                String.class, lja.getId()));
+        assertEquals(layer.getLayerId(),
+                jdbcTemplate.queryForObject("SELECT pk_layer FROM host_local WHERE pk_host_local=?",
+                        String.class, lja.getId()));
 
         assertEquals(RenderPartitionType.LAYER_PARTITION.toString(),
-                jdbcTemplate.queryForObject(
-                "SELECT str_type FROM host_local WHERE pk_host_local=?",
-                String.class, lja.getId()));
+                jdbcTemplate.queryForObject("SELECT str_type FROM host_local WHERE pk_host_local=?",
+                        String.class, lja.getId()));
 
         assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT int_threads FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
+                "SELECT int_threads FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
 
-        assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-                "SELECT int_cores_max FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
-
-        assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
-                "SELECT int_mem_max FROM host_local WHERE pk_job=?",
-                Long.class, j.getJobId()));
-
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
-
-        assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-                "SELECT int_cores_idle FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_cores_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
         assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
-                "SELECT int_mem_idle FROM host_local WHERE pk_job=?",
-                Long.class, j.getJobId()));
+                "SELECT int_mem_max FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
+
+        assertEquals(Integer.valueOf(1),
+                jdbcTemplate.queryForObject("SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
+
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_cores_idle FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
+
+        assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
+                "SELECT int_mem_idle FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
     }
 
     @Test
@@ -242,38 +217,34 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         bookingDao.insertLocalHostAssignment(h, frame, lja);
 
-        assertEquals(frame.getFrameId(), jdbcTemplate.queryForObject(
-                "SELECT pk_frame FROM host_local WHERE pk_host_local=?",
-                String.class, lja.getId()));
+        assertEquals(frame.getFrameId(),
+                jdbcTemplate.queryForObject("SELECT pk_frame FROM host_local WHERE pk_host_local=?",
+                        String.class, lja.getId()));
 
         assertEquals(RenderPartitionType.FRAME_PARTITION.toString(),
-                jdbcTemplate.queryForObject(
-                "SELECT str_type FROM host_local WHERE pk_host_local=?",
-                String.class, lja.getId()));
+                jdbcTemplate.queryForObject("SELECT str_type FROM host_local WHERE pk_host_local=?",
+                        String.class, lja.getId()));
 
         assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT int_threads FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
+                "SELECT int_threads FROM host_local WHERE pk_job=?", Integer.class, j.getJobId()));
 
-        assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-                "SELECT int_cores_max FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
-
-        assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
-                "SELECT int_mem_max FROM host_local WHERE pk_job=?",
-                Long.class, j.getJobId()));
-
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
-
-        assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-                "SELECT int_cores_idle FROM host_local WHERE pk_job=?",
-                Integer.class, j.getJobId()));
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_cores_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
 
         assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
-                "SELECT int_mem_idle FROM host_local WHERE pk_job=?",
-                Long.class, j.getJobId()));
+                "SELECT int_mem_max FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
+
+        assertEquals(Integer.valueOf(1),
+                jdbcTemplate.queryForObject("SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
+
+        assertEquals(Integer.valueOf(200),
+                jdbcTemplate.queryForObject("SELECT int_cores_idle FROM host_local WHERE pk_job=?",
+                        Integer.class, j.getJobId()));
+
+        assertEquals(Long.valueOf(CueUtil.GB4), jdbcTemplate.queryForObject(
+                "SELECT int_mem_idle FROM host_local WHERE pk_job=?", Long.class, j.getJobId()));
     }
 
     @Test
@@ -292,8 +263,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         bookingDao.insertLocalHostAssignment(h, j, lja);
 
-        LocalHostAssignment lja2 = bookingDao.getLocalJobAssignment(h.getHostId(),
-                                                                    j.getJobId());
+        LocalHostAssignment lja2 = bookingDao.getLocalJobAssignment(h.getHostId(), j.getJobId());
 
         assertEquals(lja.getMaxCoreUnits(), lja2.getMaxCoreUnits());
         assertEquals(lja.getMaxMemory(), lja2.getMaxMemory());
@@ -318,8 +288,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         bookingDao.insertLocalHostAssignment(h, j, lja);
 
-        LocalHostAssignment lja2 = bookingDao.getLocalJobAssignment(h.getHostId(),
-                                                                    j.getJobId());
+        LocalHostAssignment lja2 = bookingDao.getLocalJobAssignment(h.getHostId(), j.getJobId());
 
         assertEquals(lja.getMaxCoreUnits(), lja2.getMaxCoreUnits());
         assertEquals(lja.getMaxMemory(), lja2.getMaxMemory());
@@ -374,9 +343,9 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         bookingDao.insertLocalHostAssignment(h, j, lja);
         assertTrue(bookingDao.updateMaxCores(lja, 100));
-        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-                "SELECT int_cores_max FROM host_local WHERE pk_host=?",
-                Integer.class, h.getHostId()));
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject("SELECT int_cores_max FROM host_local WHERE pk_host=?",
+                        Integer.class, h.getHostId()));
 
         LocalHostAssignment lj2 = bookingDao.getLocalJobAssignment(lja.id);
 
@@ -419,7 +388,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         assertEquals(CueUtil.GB4, lj2.getIdleMemory());
         assertEquals(CueUtil.GB4, lj2.getMaxMemory());
-}
+    }
 
     @Test
     @Transactional
@@ -453,4 +422,3 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         assertEquals(2, lj2.getMaxGpuMemory());
     }
 }
-
