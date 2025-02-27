@@ -778,7 +778,6 @@ class FrameAttendantThread(threading.Thread):
                     self.frameEnv[key] += os.pathsep + value
                 else:
                     self.frameEnv[key] = value
-        
         for key, value in self.runFrame.environment.items():
             if key == 'PATH':
                 self.frameEnv[key] += os.pathsep + value
