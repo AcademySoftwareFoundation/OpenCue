@@ -77,7 +77,7 @@ RQD_HOST_ENV_VARS = []
 # copied during initialization), the value from the host will take precedence. 
 # However, the handling of the PATH variable is unique: its value from the frame 
 # is merged with the host's value, with the frame's value taking precedence in the 
-# final result.
+# final result. If any var is defined at RQD_HOST_ENV_VARS, this attribute is considered False.
 RQD_USE_HOST_ENV_VARS = False
 
 RQD_CUSTOM_HOME_PREFIX = None
