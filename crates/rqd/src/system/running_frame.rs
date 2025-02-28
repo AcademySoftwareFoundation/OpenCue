@@ -9,7 +9,7 @@ use std::{
         unix::process::CommandExt,
     },
     path::Path,
-    sync::{mpsc::Receiver, Arc, Mutex},
+    sync::{Arc, Mutex, mpsc::Receiver},
     thread::JoinHandle,
     time::Duration,
 };
@@ -18,7 +18,7 @@ use std::{process::Stdio, thread};
 use tracing::{error, warn};
 
 use dashmap::DashMap;
-use miette::{miette, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, miette};
 use opencue_proto::{
     report::{ChildrenProcStats, RunningFrameInfo},
     rqd::RunFrame,
@@ -312,9 +312,7 @@ impl RunningFrame {
             {
                 let msg = format!(
                     "Failed to follow_log: {}.\nPlease check the raw stdout and stderr:\n - {}\n - {}",
-                    e,
-                    raw_stdout_path,
-                    raw_stderr_path
+                    e, raw_stdout_path, raw_stderr_path
                 );
                 error!(msg);
             }
@@ -541,7 +539,7 @@ impl RunningFrameCache {
 
 #[cfg(test)]
 mod tests {
-    use opencue_proto::rqd::{run_frame::UidOptional, RunFrame};
+    use opencue_proto::rqd::{RunFrame, run_frame::UidOptional};
     use std::collections::HashMap;
     use std::sync::Arc;
     use uuid::Uuid;
@@ -616,5 +614,146 @@ mod tests {
         assert_eq!(0, status.unwrap());
         assert_eq!("stderr test", logger.pop().unwrap());
         assert_eq!("stdout test", logger.pop().unwrap());
+    }
+
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn test_run_failed() {
+        use crate::system::logging::TestLogger;
+
+        let mut env = HashMap::with_capacity(1);
+        env.insert("TEST_ENV".to_string(), "test".to_string());
+        let running_frame = create_running_frame(r#"echo "stdout $TEST_ENV" && exit 1"#, 1, 1, env);
+
+        let logger = Arc::new(TestLogger::init());
+        let status = running_frame
+            .run_inner(Arc::clone(&logger) as Arc<dyn FrameLoggerT + Send + Sync + 'static>);
+        assert!(status.is_ok());
+        assert_eq!(1, status.unwrap());
+        assert_eq!("stdout test", logger.pop().unwrap());
+    }
+
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn test_run_multiline_stdout() {
+        use crate::system::logging::TestLogger;
+
+        let running_frame = create_running_frame(
+            r#"echo "line1" && echo "line2" && echo "line3""#,
+            1,
+            1,
+            HashMap::new(),
+        );
+
+        let logger = Arc::new(TestLogger::init());
+        let status = running_frame
+            .run_inner(Arc::clone(&logger) as Arc<dyn FrameLoggerT + Send + Sync + 'static>);
+        assert!(status.is_ok());
+        assert_eq!(0, status.unwrap());
+        assert_eq!("line3", logger.pop().unwrap());
+        assert_eq!("line2", logger.pop().unwrap());
+        assert_eq!("line1", logger.pop().unwrap());
+    }
+
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn test_run_env_variables() {
+        use crate::system::logging::TestLogger;
+
+        let mut env = HashMap::new();
+        env.insert("VAR1".to_string(), "value1".to_string());
+        env.insert("VAR2".to_string(), "value2".to_string());
+
+        let running_frame = create_running_frame(r#"echo "$VAR1 $VAR2""#, 1, 1, env);
+
+        let logger = Arc::new(TestLogger::init());
+        let status = running_frame
+            .run_inner(Arc::clone(&logger) as Arc<dyn FrameLoggerT + Send + Sync + 'static>);
+        assert!(status.is_ok());
+        assert_eq!(0, status.unwrap());
+        assert_eq!("value1 value2", logger.pop().unwrap());
+    }
+
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn test_run_command_not_found() {
+        use crate::system::logging::TestLogger;
+
+        let running_frame =
+            create_running_frame(r#"command_that_does_not_exist"#, 1, 1, HashMap::new());
+
+        let logger = Arc::new(TestLogger::init());
+        let status = running_frame
+            .run_inner(Arc::clone(&logger) as Arc<dyn FrameLoggerT + Send + Sync + 'static>);
+        assert!(status.is_ok());
+        // The exact exit code might vary by system, but it should be non-zero
+        assert_ne!(0, status.unwrap());
+    }
+
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn test_run_sleep_command() {
+        use crate::system::logging::TestLogger;
+        use std::time::{Duration, Instant};
+
+        let running_frame =
+            create_running_frame(r#"sleep 0.5 && echo "Done sleeping""#, 1, 1, HashMap::new());
+
+        let logger = Arc::new(TestLogger::init());
+        let start = Instant::now();
+        let status = running_frame
+            .run_inner(Arc::clone(&logger) as Arc<dyn FrameLoggerT + Send + Sync + 'static>);
+        let elapsed = start.elapsed();
+
+        assert!(status.is_ok());
+        assert_eq!(0, status.unwrap());
+        assert!(
+            elapsed >= Duration::from_millis(500),
+            "Command didn't run for expected duration"
+        );
+        assert_eq!("Done sleeping", logger.pop().unwrap());
+    }
+
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn test_run_interleaved_stdout_stderr() {
+        use crate::system::logging::TestLogger;
+
+        let running_frame = create_running_frame(
+            r#"echo "stdout1" && echo "stderr1" >&2 && echo "stdout2" && echo "stderr2" >&2"#,
+            1,
+            1,
+            HashMap::new(),
+        );
+
+        let logger = Arc::new(TestLogger::init());
+        let status = running_frame
+            .run_inner(Arc::clone(&logger) as Arc<dyn FrameLoggerT + Send + Sync + 'static>);
+        assert!(status.is_ok());
+        assert_eq!(0, status.unwrap());
+
+        let logs = logger.all();
+        assert!(logs.contains(&"stdout1".to_string()));
+        assert!(logs.contains(&"stderr1".to_string()));
+        assert!(logs.contains(&"stdout2".to_string()));
+        assert!(logs.contains(&"stderr2".to_string()));
+    }
+
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn test_run_with_special_characters() {
+        use crate::system::logging::TestLogger;
+
+        let mut env = HashMap::new();
+        env.insert("SPECIAL".to_string(), "!@#$%^&*()".to_string());
+
+        let running_frame = create_running_frame(r#"echo "Special chars: $SPECIAL""#, 1, 1, env);
+
+        let logger = Arc::new(TestLogger::init());
+        let status = running_frame
+            .run_inner(Arc::clone(&logger) as Arc<dyn FrameLoggerT + Send + Sync + 'static>);
+        assert!(status.is_ok());
+        assert_eq!(0, status.unwrap());
+        assert_eq!("Special chars: !@#$%^&*()", logger.pop().unwrap());
     }
 }

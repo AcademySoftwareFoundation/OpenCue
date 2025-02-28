@@ -3,7 +3,7 @@ members = ["crates/opencue-proto", "crates/rqd", "crates/dummy-cuebot"]
 
 [workspace.package]
 authors = ["Diego Tavares <dtavares@imageworks.com"]
-edition = "2021"
+edition = "2024"
 version = "0.1.0"
 
 [workspace.dependencies]

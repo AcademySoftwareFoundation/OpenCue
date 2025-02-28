@@ -1,6 +1,6 @@
 use crate::config::config::{LoggerType, RunnerConfig};
 use chrono::Utc;
-use miette::{miette, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, miette};
 use std::{
     fs::{self, File, Permissions},
     io::Write,
@@ -116,6 +116,10 @@ impl TestLogger {
 
     pub fn pop(&self) -> Option<String> {
         self.lines.lock().unwrap().pop()
+    }
+
+    pub fn all(&self) -> Vec<String> {
+        self.lines.lock().unwrap().clone()
     }
 }
 
