@@ -627,16 +627,13 @@ impl SystemController for LinuxSystem {
 
 #[cfg(test)]
 mod tests {
+    use super::LinuxSystem;
+    use crate::config::config::MachineConfig;
     use std::{
         fs,
         sync::{Arc, Mutex},
     };
-
     use sysinfo::{Disks, System};
-
-    use crate::config::config::MachineConfig;
-
-    use super::LinuxSystem;
 
     #[test]
     /// Use this unit test to quickly exercice a single cpuinfo file by changing the path on the

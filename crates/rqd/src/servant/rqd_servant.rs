@@ -219,18 +219,22 @@ impl RqdInterface for RqdServant {
 
         self.running_frame_cache
             .insert_running_frame(Arc::clone(&running_frame));
-
+        let running_frame_ref = Arc::clone(&running_frame);
         // Fire and forget
-        let _t = tokio::task::spawn_blocking(move || {
-            if let Err(e) = catch_unwind(|| {
-                if let Err(e) = running_frame.run() {
-                    error!("Failed to run frame {:?}", e);
-                }
-            }) {
-                error!("Panicked while trying to run a frame {:?}", e);
-                // TODO: Trigger frame clean up logic
+        let thread_handle = std::thread::spawn(move || {
+            let result = std::panic::catch_unwind(|| running_frame.run());
+            if let Err(panic_info) = result {
+                running_frame.update_exit_code(1);
+                error!("Run thread panicked: {:?}", panic_info);
             }
         });
+        // Another option would be to use a blocking context from tokio.
+        // let _t = tokio::task::spawn_blocking(move || running_frame.run());
+
+        // Store the thread handle for bookeeping
+        // TODO: Implement logic that checks if the thread is alive during monitoring
+        running_frame_ref.update_launch_thread_handle(thread_handle);
+
         // Don't wait for frame to complete to return a response
         Ok(Response::new(RqdStaticLaunchFrameResponse {}))
     }

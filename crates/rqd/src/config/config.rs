@@ -92,6 +92,10 @@ pub struct RunnerConfig {
     pub logger: LoggerType,
     pub prepend_timestamp: bool,
     pub use_host_path_env_var: bool,
+    pub desktop_mode: bool,
+    pub run_as_user: bool,
+    pub temp_path: String,
+    pub shell_path: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -110,6 +114,10 @@ impl Default for RunnerConfig {
             logger: LoggerType::File,
             prepend_timestamp: true,
             use_host_path_env_var: false,
+            desktop_mode: false,
+            run_as_user: true,
+            temp_path: std::env::temp_dir().to_str().unwrap_or("/tmp").to_string(),
+            shell_path: "/bin/bash".to_string(),
         }
     }
 }
