@@ -340,6 +340,9 @@ def _setOptions(criteria, options):
         elif k == "state" and isinstance(criteria, host_pb2.HostSearchCriteria):
             raiseIfNotList(k, v)
             criteria.states.state.extend(v)
+        elif k == "lock_state" and isinstance(criteria, host_pb2.HostSearchCriteria):
+            raiseIfNotList(k, v)
+            criteria.lock_states.state.extend(v)
         elif k == "layer":
             raiseIfNotList(k, v)
             criteria.layers.extend(v)
