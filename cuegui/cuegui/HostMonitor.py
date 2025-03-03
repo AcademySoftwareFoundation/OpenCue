@@ -312,23 +312,49 @@ class HostMonitor(QtWidgets.QWidget):
         @type  action: QAction"""
         __hostSearch = self.hostMonitorTree.hostSearch
         if action.text() == "Clear":
-            for item in self.__filterLockStateButton.menu().actions():
-                if item.isChecked():
-                    if item.text() != "Clear":
-                        __hostSearch.options['lock_state'].remove(
-                            getattr(opencue.api.host_pb2, str(item.text())))
-                    item.setChecked(False)
-        else:
-            lock_states = __hostSearch.options.get('lock_state', [])
-            if action.isChecked():
-                lock_states.append(getattr(opencue.api.host_pb2, str(action.text())))
-            elif lock_states is not None:
-                lock_states.remove(getattr(opencue.api.host_pb2, str(action.text())))
-            else:
-                lock_states = []
-            __hostSearch.options['lock_state'] = lock_states
+            self.__clearLockStateFilter(__hostSearch)
+            return
+
+        self.__updateLockStateFilter(__hostSearch, action)
 
         self.hostMonitorTree.updateRequest()
+
+    def __clearLockStateFilter(self, __hostSearch):
+        """
+        Clears the currently selected lock state menu items and updates the search options.
+        @param __hostSearch: The host search criteria object to update.
+        @type __hostSearch: HostSearchCriteria
+        """
+        for item in self.__filterLockStateButton.menu().actions():
+            if item.isChecked() and item.text() != "Clear":
+                # Remove the lock state from the search options
+                __hostSearch.options['lock_state'].remove(
+                    getattr(opencue.api.host_pb2, str(item.text())))
+            # Uncheck the menu item
+            item.setChecked(False)
+
+    def __updateLockStateFilter(self, __hostSearch, action):
+        """
+        Updates the lock state filter based on the selected action.
+        @param __hostSearch: The host search criteria object to update.
+        @type __hostSearch: HostSearchCriteria
+        @param action: The action that was triggered.
+        @type action: QAction
+        """
+        # Get the current lock states from the search options
+        lock_states = __hostSearch.options.get('lock_state', [])
+        # Get the lock state corresponding to the action text
+        lock_state = getattr(opencue.api.host_pb2, str(action.text()))
+
+        if action.isChecked():
+            # Add the lock state if the action is checked
+            lock_states.append(lock_state)
+        else:
+            # Remove the lock state if the action is unchecked
+            lock_states.remove(lock_state)
+
+        # Update the search options with the new lock states
+        __hostSearch.options['lock_state'] = lock_states
 
     # ==============================================================================
     # Checkbox to toggle auto-refresh
