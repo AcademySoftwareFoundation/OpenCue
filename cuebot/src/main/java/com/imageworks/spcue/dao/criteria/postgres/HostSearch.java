@@ -21,6 +21,7 @@ import java.util.Set;
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.dao.criteria.HostSearchInterface;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 
 public class HostSearch extends Criteria implements HostSearchInterface {
@@ -45,10 +46,16 @@ public class HostSearch extends Criteria implements HostSearchInterface {
         addLikePhrase("host.str_name", new HashSet<>(criteria.getSubstrList()));
         addRegexPhrase("host.str_name", new HashSet<>(criteria.getRegexList()));
         addPhrase("alloc.str_name", criteria.getAllocsList());
-        Set<String> items = new HashSet<>(criteria.getStates().getStateCount());
-        for (HardwareState w : criteria.getStates().getStateList()) {
-            items.add(w.toString());
+        Set<String> hardwareStateItems = new HashSet<>(criteria.getStates().getStateCount());
+        for (HardwareState state : criteria.getStates().getStateList()) {
+            hardwareStateItems.add(state.toString());
         }
-        addPhrase("host_stat.str_state", items);
+        addPhrase("host_stat.str_state", hardwareStateItems);
+
+        Set<String> lockStateItems = new HashSet<>(criteria.getLockStates().getStateCount());
+        for (LockState lockState : criteria.getLockStates().getStateList()) {
+            lockStateItems.add(lockState.toString());
+        }
+        addPhrase("host.str_lock_state", lockStateItems);
     }
 }
