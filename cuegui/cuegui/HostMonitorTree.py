@@ -311,6 +311,8 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
             self.__class__.__dyingColor = cuegui.Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
+            self.__class__.__hostRebootWhenIdleColor = (
+                cuegui.Style.ColorTheme.COLOR_HOST_REBOOT_WHEN_IDLE)
             self.__class__.__type = cuegui.Constants.TYPE_HOST
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
             self, cuegui.Constants.TYPE_HOST, rpcObject, parent)
@@ -333,6 +335,8 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             return self.__foregroundColor
 
         if role == QtCore.Qt.BackgroundRole:
+            if self.rpcObject.data.state == opencue.api.host_pb2.REBOOT_WHEN_IDLE:
+                return self.__hostRebootWhenIdleColor
             if not self.rpcObject.data.state == opencue.api.host_pb2.UP:
                 return self.__dyingColor
             if self.rpcObject.data.lock_state == opencue.api.host_pb2.LOCKED:

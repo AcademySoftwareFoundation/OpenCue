@@ -137,6 +137,9 @@ class RqDocker:
             try:
                 mount_str = config.get(cls.DOCKER_MOUNTS, mount_name)
                 mount_dict = RqDocker.parse_mount(mount_str)
+                # Ensure source exists
+                if not os.path.exists(mount_dict["source"]):
+                    os.makedirs(mount_dict["source"])
                 mount = docker.types.Mount(mount_dict["target"],
                                             mount_dict["source"],
                                             type=mount_dict["type"],

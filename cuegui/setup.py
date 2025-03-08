@@ -53,7 +53,9 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'cuegui=cuegui.__main__:main'
+            'cuegui=cuegui.__main__:main',
+            'cuetopia=cuegui.__main__:cuetopia',
+            'cuecommander=cuegui.__main__:main'
         ]
     },
     test_suite='tests',
