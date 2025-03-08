@@ -1,0 +1,16 @@
+#Isolated Maya command example:
+command: "Render"
+options:
+  "-cam {!camera}": "persp"
+  "-s {startFrame}": "#FRAME_START#"
+  "-e {endFrame}": "#FRAME_END#"
+  "-log {logLevel}": [0, 5, 3]
+  "-renderer {engine}":
+      - arnold
+      - default
+      - hw2
+      - sw
+  "{!mayaFile*}":
+      - Maya Ascii file (*.ma)
+      - Maya Binary file (*.mb)
+      - Maya file (*.ma *.mb)
