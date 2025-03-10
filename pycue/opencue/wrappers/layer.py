@@ -20,7 +20,7 @@ import os
 import platform
 
 import opencue.api
-from opencue.compiled_proto import job_pb2
+from cuebot.proto import job_pb2
 from opencue.cuebot import Cuebot
 import opencue.search
 import opencue.wrappers.depend

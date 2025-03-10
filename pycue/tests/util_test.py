@@ -26,7 +26,7 @@ import uuid
 import grpc
 import mock
 
-from opencue.compiled_proto import job_pb2
+from cuebot.proto import job_pb2
 import opencue.exception
 from opencue.wrappers.job import Job
 

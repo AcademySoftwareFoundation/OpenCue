@@ -21,8 +21,8 @@ import platform
 import time
 
 from opencue import Cuebot
-from opencue.compiled_proto import comment_pb2
-from opencue.compiled_proto import job_pb2
+from cuebot.proto import comment_pb2
+from cuebot.proto import job_pb2
 import opencue.api
 import opencue.search
 import opencue.wrappers.comment

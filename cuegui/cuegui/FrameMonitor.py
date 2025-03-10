@@ -29,7 +29,7 @@ from qtpy import QtGui
 from qtpy import QtWidgets
 
 import FileSequence
-from opencue.compiled_proto import job_pb2
+from cuebot.proto import job_pb2
 
 import cuegui.FrameMonitorTree
 import cuegui.FrameRangeSelection

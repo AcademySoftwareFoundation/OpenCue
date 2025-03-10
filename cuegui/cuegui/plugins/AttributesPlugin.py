@@ -28,7 +28,7 @@ from qtpy import QtCore
 from qtpy import QtWidgets
 
 import opencue
-import opencue.compiled_proto.depend_pb2
+import cuebot.proto.depend_pb2
 import opencue.wrappers.job
 
 import cuegui.AbstractDockWidget
@@ -64,7 +64,7 @@ def getDependsForm(depends):
     depCount = 0
     for dep in depends:
         depCount = depCount + 1
-        depType = opencue.compiled_proto.depend_pb2.DependType.Name(dep.data.type)
+        depType = cuebot.proto.depend_pb2.DependType.Name(dep.data.type)
         name = "%s-%d" % (depType, depCount)
         result[name] = {
             "__childOrder" :["active","onJob","onLayer","onFrame"],
