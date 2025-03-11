@@ -11,7 +11,7 @@ args=("$@")
 python_version=$(python -V 2>&1)
 echo "Will run tests using ${python_version}"
 
-pip install  -r requirements.txt -r requirements_gui.txt
+pip install --user -r requirements.txt -r requirements_gui.txt
 
 # Some rqd unit tests require docker api
 pip install docker==7.1.0
@@ -28,10 +28,10 @@ python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc
 python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
 python ci/fix_compiled_proto.py rqd/rqd/compiled_proto
 
-# python -m unittest discover -s pycue/tests -t pycue -p "*.py"
-# PYTHONPATH=pycue python -m unittest discover -s pyoutline/tests -t pyoutline -p "*.py"
-# PYTHONPATH=pycue python -m unittest discover -s cueadmin/tests -t cueadmin -p "*.py"
-# PYTHONPATH=pycue:pyoutline python -m unittest discover -s cuesubmit/tests -t cuesubmit -p "*.py"
+python -m unittest discover -s pycue/tests -t pycue -p "*.py"
+PYTHONPATH=pycue python -m unittest discover -s pyoutline/tests -t pyoutline -p "*.py"
+PYTHONPATH=pycue python -m unittest discover -s cueadmin/tests -t cueadmin -p "*.py"
+PYTHONPATH=pycue:pyoutline python -m unittest discover -s cuesubmit/tests -t cuesubmit -p "*.py"
 python -m pytest rqd/tests
 python -m pytest rqd/pytests
 
