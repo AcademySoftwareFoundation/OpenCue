@@ -107,6 +107,8 @@ RQD_DAEMON_UID = RQD_UID
 CHECK_INTERVAL_LOCKED = 60
 # Seconds of idle time required before nimby unlocks.
 MINIMUM_IDLE = 900
+# Default display configuration in case the environment variable DISPLAY is not set
+DEFAULT_DISPLAY = ":0"
 # If available memory drops below this amount, lock nimby (need to take into account cache).
 MINIMUM_MEM = 524288
 MINIMUM_SWAP = 1048576
