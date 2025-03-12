@@ -84,7 +84,7 @@ class NimbyTest(pyfakefs.fake_filesystem_unittest.TestCase):
         nimby._Nimby__check_state = mock.MagicMock()
 
         # Run nimby in a separate thread so we can stop it
-        # pylint: disable=unused-argument
+        # pylint: disable=import-outside-toplevel
         import threading
         nimby_thread = threading.Thread(target=nimby.run)
         nimby_thread.daemon = True
