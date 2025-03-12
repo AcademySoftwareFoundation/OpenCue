@@ -45,7 +45,7 @@ from rqd.rqconstants import DOCKER_AGENT
 import rqd.rqexceptions
 import rqd.rqmachine
 import rqd.rqnetwork
-import rqd.rqnimby
+from rqd.rqnimby import Nimby
 import rqd.rqutil
 import rqd.rqlogging
 
@@ -74,7 +74,7 @@ class RqCore(object):
             reserved_cores=[],
         )
 
-        self.nimby = rqd.rqnimby.NimbyFactory.getNimby(self)
+        self.nimby = Nimby(self)
 
         self.machine = rqd.rqmachine.Machine(self, self.cores)
         self.network = rqd.rqnetwork.Network(self)
@@ -395,11 +395,6 @@ class RqCore(object):
             log.info(err)
             raise rqd.rqexceptions.CoreReservationFailureException(err)
 
-        if rqd.rqconstants.OVERRIDE_NIMBY and self.nimby.isNimbyActive():
-            err = "Not launching, rqd is lockNimby and User is Active"
-            log.info(err)
-            raise rqd.rqexceptions.CoreReservationFailureException(err)
-
         if runFrame.frame_id in self.__cache:
             err = "Not launching, frame is already running on this proc %s" % runFrame.frame_id
             log.critical(err)
@@ -506,22 +501,19 @@ class RqCore(object):
     def nimbyOn(self):
         """Activates nimby, does not kill any running frames until next nimby
            event. Also does not unlock until sufficient idle time is reached."""
-        if self.nimby and not self.nimby.active:
+        if self.nimby and self.nimby.is_ready:
             try:
-                self.nimby.run()
+                self.nimby.start()
                 log.warning("Nimby has been activated")
             # pylint: disable=broad-except
             except Exception:
-                self.nimby.locked = False
-                err = "Nimby is in the process of shutting down"
+                err = "Nimby failed to start. Unexpected state"
                 log.exception(err)
-                raise rqd.rqexceptions.RqdException(err)
 
     def nimbyOff(self):
         """Deactivates nimby and unlocks any nimby lock"""
-        if self.nimby.active:
-            self.nimby.stop()
-            log.info("Nimby has been deactivated")
+        self.nimby.stop()
+        log.info("Nimby has been deactivated")
 
     def onNimbyLock(self):
         """This is called by nimby when it locks the machine.
