@@ -117,13 +117,12 @@ class Nimby(threading.Thread):
                 "Nimby: No user activity detected for %s seconds", self.idle_threshold)
         # If the host was locked and there's no user activity, check if it's
         # safe to unlock it
-        if self.locked and \
-                not self.__is_user_active and \
-                self.rq_core.machine.isNimbySafeToRunJobs():
-            self.__unlock_host_for_rendering()
-        else:
-            log.warning(
-                "Nimby: Not unlocking host due to resource limitations")
+        if self.locked and not self.__is_user_active:
+            if self.rq_core.machine.isNimbySafeToRunJobs():
+                self.__unlock_host_for_rendering()
+            else:
+                log.warning(
+                    "Nimby: Not unlocking host due to resource limitations")
 
     # pylint: disable=unused-argument
     def __on_interaction(self, *args):

@@ -24,7 +24,6 @@ from __future__ import absolute_import
 import os
 import sys
 import time
-import unittest
 
 import mock
 import pyfakefs.fake_filesystem_unittest
@@ -85,6 +84,7 @@ class NimbyTest(pyfakefs.fake_filesystem_unittest.TestCase):
         nimby._Nimby__check_state = mock.MagicMock()
 
         # Run nimby in a separate thread so we can stop it
+        # pylint: disable=unused-argument
         import threading
         nimby_thread = threading.Thread(target=nimby.run)
         nimby_thread.daemon = True
@@ -124,7 +124,8 @@ class NimbyTest(pyfakefs.fake_filesystem_unittest.TestCase):
         # Set up initial state - host is locked and user is active
         nimby._Nimby__is_user_active = True
         nimby.locked = True
-        nimby.last_activity_time = time.time() - nimby.idle_threshold - 10  # Set last activity to beyond threshold
+        # Set last activity to beyond threshold
+        nimby.last_activity_time = time.time() - nimby.idle_threshold - 10
 
         # Check state should detect inactivity and unlock
         nimby._Nimby__check_state()
