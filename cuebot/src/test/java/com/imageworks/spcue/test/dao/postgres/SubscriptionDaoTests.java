@@ -2,19 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -47,10 +44,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     @Rule
@@ -99,11 +95,10 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
 
     @Before
     public void before() {
-        alloc =  new AllocationEntity();
+        alloc = new AllocationEntity();
         alloc.name = ALLOC_NAME;
         alloc.tag = "test";
-        allocationDao.insertAllocation(
-                facilityDao.getDefaultFacility(), alloc);
+        allocationDao.insertAllocation(facilityDao.getDefaultFacility(), alloc);
     }
 
     @Test
@@ -125,15 +120,13 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
 
         assertFalse(this.subscriptionDao.isShowOverSize(getShow(), alloc));
 
-        jdbcTemplate.update(
-                "UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?",
-                100, sub.getSubscriptionId());
+        jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 100,
+                sub.getSubscriptionId());
 
         assertFalse(subscriptionDao.isShowOverSize(getShow(), alloc));
 
-        jdbcTemplate.update(
-                "UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?",
-                101, sub.getSubscriptionId());
+        jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 101,
+                sub.getSubscriptionId());
 
         assertEquals(true, subscriptionDao.isShowOverSize(getShow(), alloc));
     }
@@ -147,15 +140,13 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
         subscriptionDao.insertSubscription(sub);
         assertFalse(this.subscriptionDao.isShowAtOrOverSize(getShow(), alloc));
 
-        jdbcTemplate.update(
-                "UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?",
-                100, sub.getSubscriptionId());
+        jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 100,
+                sub.getSubscriptionId());
 
         assertTrue(subscriptionDao.isShowAtOrOverSize(getShow(), alloc));
 
-        jdbcTemplate.update(
-                "UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?",
-                200, sub.getSubscriptionId());
+        jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 200,
+                sub.getSubscriptionId());
 
         assertTrue(subscriptionDao.isShowAtOrOverSize(getShow(), alloc));
     }
@@ -173,7 +164,7 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
         assertFalse(subscriptionDao.isShowOverBurst(getShow(), alloc, 300));
     }
 
-    @Test(expected=org.springframework.jdbc.UncategorizedSQLException.class)
+    @Test(expected = org.springframework.jdbc.UncategorizedSQLException.class)
     @Transactional
     @Rollback(true)
     public void testIsShowAtOrOverBurst() {
@@ -182,15 +173,13 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
         subscriptionDao.insertSubscription(sub);
         assertFalse(subscriptionDao.isShowAtOrOverBurst(getShow(), alloc));
 
-        jdbcTemplate.update(
-                "UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?",
-                500, sub.getSubscriptionId());
+        jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 500,
+                sub.getSubscriptionId());
 
         assertTrue(subscriptionDao.isShowAtOrOverBurst(getShow(), alloc));
 
-        jdbcTemplate.update(
-                "UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?",
-                501, sub.getSubscriptionId());
+        jdbcTemplate.update("UPDATE subscription SET int_cores = ? WHERE pk_subscription = ?", 501,
+                sub.getSubscriptionId());
 
         assertTrue(subscriptionDao.isShowAtOrOverBurst(getShow(), alloc));
     }
@@ -207,8 +196,7 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
         assertNotNull(s.id);
         assertNotNull(s.getId());
 
-        SubscriptionEntity s1 =  subscriptionDao.getSubscriptionDetail(
-                s.getSubscriptionId());
+        SubscriptionEntity s1 = subscriptionDao.getSubscriptionDetail(s.getSubscriptionId());
 
         assertEquals(alloc.getName() + ".pipe", s1.name);
         assertEquals(s.burst, s1.burst);
@@ -241,9 +229,10 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
         SubscriptionEntity s = buildSubscription(getShow(), alloc);
         subscriptionDao.insertSubscription(s);
         subscriptionDao.updateSubscriptionSize(s, 100);
-        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-                "SELECT int_size FROM subscription WHERE pk_subscription=?",
-                Integer.class, s.getId()));
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_size FROM subscription WHERE pk_subscription=?", Integer.class,
+                        s.getId()));
     }
 
     @Test
@@ -253,10 +242,9 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
         SubscriptionEntity s = buildSubscription(getShow(), alloc);
         subscriptionDao.insertSubscription(s);
         subscriptionDao.updateSubscriptionBurst(s, 100);
-        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-                "SELECT int_burst FROM subscription WHERE pk_subscription=?",
-                Integer.class, s.getId()));
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_burst FROM subscription WHERE pk_subscription=?", Integer.class,
+                        s.getId()));
     }
 }
-
-

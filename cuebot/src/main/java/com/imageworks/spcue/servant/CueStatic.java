@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.servant;
 
@@ -42,7 +38,7 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
 
     @Override
     public void getSystemStats(CueGetSystemStatsRequest request,
-                               StreamObserver<CueGetSystemStatsResponse> responseObserver) {
+            StreamObserver<CueGetSystemStatsResponse> responseObserver) {
         SystemStats stats = SystemStats.newBuilder()
                 .setDispatchThreads(dispatchQueue.getActiveCount())
                 .setDispatchWaiting(dispatchQueue.getSize())
@@ -66,8 +62,7 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
                 .setBookingRemainingCapacity(bookingQueue.getRemainingCapacity())
                 .setBookingThreads(bookingQueue.getActiveCount())
                 .setBookingExecuted(bookingQueue.getCompletedTaskCount())
-                .setBookingRejected(bookingQueue.getRejectedTaskCount())
-                .setBookingSleepMillis(0)
+                .setBookingRejected(bookingQueue.getRejectedTaskCount()).setBookingSleepMillis(0)
 
                 .setHostBalanceSuccess(DispatchSupport.balanceSuccess.get())
                 .setHostBalanceFailed(DispatchSupport.balanceFailed.get())
@@ -79,17 +74,14 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
                 .setBookedProcs(DispatchSupport.bookedProcs.get())
 
                 // TODO(gregdenton) Reimplement these with gRPC. (Issue #69)
-                //  .setReqForData(IceServer.dataRequests.get())
-                //  .setReqForFunction(IceServer.rpcRequests.get())
-                //  .setReqErrors(IceServer.errors.get())
+                // .setReqForData(IceServer.dataRequests.get())
+                // .setReqForFunction(IceServer.rpcRequests.get())
+                // .setReqErrors(IceServer.errors.get())
 
                 .setUnbookedProcs(DispatchSupport.unbookedProcs.get())
                 .setPickedUpCores(DispatchSupport.pickedUpCoresCount.get())
-                .setStrandedCores(DispatchSupport.strandedCoresCount.get())
-                .build();
-        responseObserver.onNext(CueGetSystemStatsResponse.newBuilder()
-                .setStats(stats)
-                .build());
+                .setStrandedCores(DispatchSupport.strandedCoresCount.get()).build();
+        responseObserver.onNext(CueGetSystemStatsResponse.newBuilder().setStats(stats).build());
         responseObserver.onCompleted();
     }
 
@@ -157,4 +149,3 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
         this.dispatchSupport = dispatchSupport;
     }
 }
-

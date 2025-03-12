@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.servant;
 
@@ -83,48 +79,49 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     private DispatchQueue manageQueue;
 
     @Override
-    public void findFilter(FilterFindFilterRequest request, StreamObserver<FilterFindFilterResponse> responseObserver) {
+    public void findFilter(FilterFindFilterRequest request,
+            StreamObserver<FilterFindFilterResponse> responseObserver) {
         try {
             responseObserver.onNext(FilterFindFilterResponse.newBuilder()
                     .setFilter(whiteboard.findFilter(request.getShow(), request.getName()))
                     .build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription(e.getMessage())
-                    .withCause(e)
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
                     .asRuntimeException());
         }
     }
 
     @Override
     public void createAction(FilterCreateActionRequest request,
-                             StreamObserver<FilterCreateActionResponse> responseObserver) {
-        ActionEntity actionDetail = ActionEntity.build(getFilterEntity(request.getFilter()), request.getData());
+            StreamObserver<FilterCreateActionResponse> responseObserver) {
+        ActionEntity actionDetail =
+                ActionEntity.build(getFilterEntity(request.getFilter()), request.getData());
         filterManager.createAction(actionDetail);
         Action action = whiteboard.getAction(actionDetail);
-        FilterCreateActionResponse response = FilterCreateActionResponse.newBuilder().setAction(action).build();
+        FilterCreateActionResponse response =
+                FilterCreateActionResponse.newBuilder().setAction(action).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
     public void createMatcher(FilterCreateMatcherRequest request,
-                              StreamObserver<FilterCreateMatcherResponse> responseObserver) {
+            StreamObserver<FilterCreateMatcherResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         MatcherEntity matcherDetail = MatcherEntity.build(filter, request.getData());
         matcherDetail.filterId = filter.id;
         filterManager.createMatcher(matcherDetail);
         Matcher newMatcher = whiteboard.getMatcher(matcherDetail);
-        FilterCreateMatcherResponse response = FilterCreateMatcherResponse.newBuilder()
-                .setMatcher(newMatcher)
-                .build();
+        FilterCreateMatcherResponse response =
+                FilterCreateMatcherResponse.newBuilder().setMatcher(newMatcher).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
-    public void delete(FilterDeleteRequest request, StreamObserver<FilterDeleteResponse> responseObserver) {
+    public void delete(FilterDeleteRequest request,
+            StreamObserver<FilterDeleteResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         String key = "manage_filter_del_req_" + filter.getId();
         manageQueue.execute(new KeyRunnable(key) {
@@ -137,28 +134,28 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     }
 
     @Override
-    public void getActions(FilterGetActionsRequest request, StreamObserver<FilterGetActionsResponse> responseObserver) {
+    public void getActions(FilterGetActionsRequest request,
+            StreamObserver<FilterGetActionsResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         FilterGetActionsResponse response = FilterGetActionsResponse.newBuilder()
-                .setActions(whiteboard.getActions(filter))
-                .build();
+                .setActions(whiteboard.getActions(filter)).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
     public void getMatchers(FilterGetMatchersRequest request,
-                            StreamObserver<FilterGetMatchersResponse> responseObserver) {
+            StreamObserver<FilterGetMatchersResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         FilterGetMatchersResponse response = FilterGetMatchersResponse.newBuilder()
-                .setMatchers(whiteboard.getMatchers(filter))
-                .build();
+                .setMatchers(whiteboard.getMatchers(filter)).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
-    public void lowerOrder(FilterLowerOrderRequest request, StreamObserver<FilterLowerOrderResponse> responseObserver) {
+    public void lowerOrder(FilterLowerOrderRequest request,
+            StreamObserver<FilterLowerOrderResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         filterManager.lowerFilterOrder(filter);
         responseObserver.onNext(FilterLowerOrderResponse.newBuilder().build());
@@ -166,7 +163,8 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     }
 
     @Override
-    public void raiseOrder(FilterRaiseOrderRequest request, StreamObserver<FilterRaiseOrderResponse> responseObserver) {
+    public void raiseOrder(FilterRaiseOrderRequest request,
+            StreamObserver<FilterRaiseOrderResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         filterManager.raiseFilterOrder(filter);
         responseObserver.onNext(FilterRaiseOrderResponse.newBuilder().build());
@@ -174,7 +172,8 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     }
 
     @Override
-    public void orderFirst(FilterOrderFirstRequest request, StreamObserver<FilterOrderFirstResponse> responseObserver) {
+    public void orderFirst(FilterOrderFirstRequest request,
+            StreamObserver<FilterOrderFirstResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         filterManager.setFilterOrder(filter, 0);
         responseObserver.onNext(FilterOrderFirstResponse.newBuilder().build());
@@ -182,7 +181,8 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     }
 
     @Override
-    public void orderLast(FilterOrderLastRequest request, StreamObserver<FilterOrderLastResponse> responseObserver) {
+    public void orderLast(FilterOrderLastRequest request,
+            StreamObserver<FilterOrderLastResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         filterManager.setFilterOrder(filter, 9999);
         responseObserver.onNext(FilterOrderLastResponse.newBuilder().build());
@@ -191,7 +191,7 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
 
     @Override
     public void runFilterOnGroup(FilterRunFilterOnGroupRequest request,
-                                 StreamObserver<FilterRunFilterOnGroupResponse> responseObserver) {
+            StreamObserver<FilterRunFilterOnGroupResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         filterManager.runFilterOnGroup(filter, groupDao.getGroup(request.getGroup().getId()));
         responseObserver.onNext(FilterRunFilterOnGroupResponse.newBuilder().build());
@@ -199,7 +199,8 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     }
 
     @Override
-    public void setEnabled(FilterSetEnabledRequest request, StreamObserver<FilterSetEnabledResponse> responseObserver) {
+    public void setEnabled(FilterSetEnabledRequest request,
+            StreamObserver<FilterSetEnabledResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         filterDao.updateSetFilterEnabled(filter, request.getEnabled());
         responseObserver.onNext(FilterSetEnabledResponse.newBuilder().build());
@@ -207,7 +208,8 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     }
 
     @Override
-    public void setName(FilterSetNameRequest request, StreamObserver<FilterSetNameResponse> responseObserver) {
+    public void setName(FilterSetNameRequest request,
+            StreamObserver<FilterSetNameResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         filterDao.updateSetFilterName(filter, request.getName());
         responseObserver.onNext(FilterSetNameResponse.newBuilder().build());
@@ -215,14 +217,16 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     }
 
     @Override
-    public void setType(FilterSetTypeRequest request, StreamObserver<FilterSetTypeResponse> responseObserver) {
+    public void setType(FilterSetTypeRequest request,
+            StreamObserver<FilterSetTypeResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         filterDao.updateSetFilterType(filter, request.getType());
         responseObserver.onNext(FilterSetTypeResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
-    public void setOrder(FilterSetOrderRequest request, StreamObserver<FilterSetOrderResponse> responseObserver) {
+    public void setOrder(FilterSetOrderRequest request,
+            StreamObserver<FilterSetOrderResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
         filterManager.setFilterOrder(filter, (double) request.getOrder());
         responseObserver.onNext(FilterSetOrderResponse.newBuilder().build());
@@ -230,9 +234,9 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     }
 
     public void runFilterOnJobs(FilterRunFilterOnJobsRequest request,
-                                StreamObserver<FilterRunFilterOnJobsResponse> responseObserver) {
+            StreamObserver<FilterRunFilterOnJobsResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
-        for (Job job: request.getJobs().getJobsList()) {
+        for (Job job : request.getJobs().getJobsList()) {
             filterManager.runFilterOnJob(filter, job.getId());
         }
         responseObserver.onNext(FilterRunFilterOnJobsResponse.newBuilder().build());
@@ -296,4 +300,3 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
         return entity;
     }
 }
-

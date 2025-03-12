@@ -232,10 +232,10 @@ class ServiceManager(QtWidgets.QWidget):
         self.__btn_del.clicked.connect(self.delService)
         self.__form.saved.connect(self.saved)
         self.__service_list.currentItemChanged.connect(self.selected)
-        # pylint: enable=no-member
 
         self.refresh()
         self.__service_list.setCurrentRow(0, QtCore.QItemSelectionModel.Select)
+        # pylint: enable=no-member
 
     def selected(self, item, old_item):
         """
@@ -287,7 +287,7 @@ class ServiceManager(QtWidgets.QWidget):
             item = self.__service_list.item(i)
             if item:
                 if str(item.text()) == service.name():
-                    self.__service_list.setCurrentRow(i, QtCore.QItemSelectionModel.Select)
+                    self.__service_list.setCurrentRow(i, QtCore.QItemSelectionModel.Select) # pylint: disable=no-member
                     break
 
     def refresh(self):
@@ -331,7 +331,7 @@ class ServiceManager(QtWidgets.QWidget):
         self.__selected.delete()
         row = self.currentRow()
         if row >= 1:
-            self.__service_list.setCurrentRow(row - 1, QtCore.QItemSelectionModel.Select)
+            self.__service_list.setCurrentRow(row - 1, QtCore.QItemSelectionModel.Select) # pylint: disable=no-member
         self.refresh()
 
     def currentRow(self):

@@ -359,6 +359,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             old_log_files = []
 
         self.app.display_log_file_content.emit([current_log_file] + old_log_files)
+        self.app.select_frame.emit(self.__job, item.rpcObject)
 
     def __itemDoubleClickedViewLog(self, item, col):
         """Called when a frame is double clicked, views the frame log in a popup
@@ -691,7 +692,7 @@ class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 class FrameLogDataBuffer(object):
     """A cached and threaded interface to reading the last log line"""
     maxCacheTime = 5
-    maxThreads = 2
+    maxThreads = 5
     maxQueue = 500
 
     # Position of data from getLastLineData
@@ -803,7 +804,7 @@ class FrameEtaDataBuffer(object):
     """A cached and threaded interface to reading the last log line"""
 
     maxCacheTime = 60
-    maxThreads = 2
+    maxThreads = 5
     maxQueue = 501
 
     def __init__(self):
@@ -910,7 +911,7 @@ class FrameContextMenu(QtWidgets.QMenu):
         elif count == 2:
             self.__menuActions.frames().addAction(self, "xdiff2")
 
-        if bool(int(self.app.settings.value("AllowDeeding", 0))):
+        if int(self.app.settings.value("DisableDeeding", 0)) == 0:
             self.__menuActions.frames().addAction(self, "useLocalCores")
 
         if cuegui.Constants.OUTPUT_VIEWERS:

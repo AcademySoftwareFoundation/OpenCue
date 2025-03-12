@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dao;
 
@@ -95,11 +91,9 @@ public interface ShowDao {
      */
     void updateShowDefaultMaxGpus(ShowInterface s, int val);
 
-
     /**
-     * Disabling this would stop new proc assignement. The show would get no new
-     * procs, but any procs already assigned to a job would continue to
-     * dispatch.
+     * Disabling this would stop new proc assignement. The show would get no new procs, but any
+     * procs already assigned to a job would continue to dispatch.
      *
      * @param s
      * @param enabled
@@ -107,8 +101,7 @@ public interface ShowDao {
     void updateBookingEnabled(ShowInterface s, boolean enabled);
 
     /**
-     * Disabling dispatching would unbook each proc after it had completed a
-     * frame.
+     * Disabling dispatching would unbook each proc after it had completed a frame.
      *
      * @param s
      * @param enabled
@@ -123,8 +116,7 @@ public interface ShowDao {
     void delete(ShowInterface s);
 
     /**
-     * Updates the show frame counter. This counts all failed succceeded frames,
-     * forver.
+     * Updates the show frame counter. This counts all failed succceeded frames, forver.
      *
      * @param s
      * @param exitStatus
@@ -148,9 +140,8 @@ public interface ShowDao {
     void updateShowCommentEmail(ShowInterface s, String[] emails);
 
     /**
-     * Scheduled task to update shows. Set show as inactive if it has at
-     * least 1 job in job_history service th
+     * Scheduled task to update shows. Set show as inactive if it has at least 1 job in job_history
+     * service th
      */
     void updateShowsStatus();
 }
-

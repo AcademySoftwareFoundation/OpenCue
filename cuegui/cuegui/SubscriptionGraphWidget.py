@@ -42,7 +42,7 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
         self.__shows = []
         self.__showMenuActions = {}
         self.__subBars = []
-        self.__timer = QtCore.QTimer(self)
+        self.__timer = QtCore.QTimer(self) # pylint: disable=no-member
         self.__timer.timeout.connect(self.update_data)  # pylint: disable=no-member
         self.__timer.setInterval(1000 * 5)
 
@@ -230,7 +230,7 @@ class SubGraphTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             new_action = QtWidgets.QAction('Add new subscription', self)
             new_action.triggered.connect(self.createSubscription)  # pylint: disable=no-member
             menu.addAction(new_action)
-        menu.exec_(QtCore.QPoint(e.globalX(),e.globalY()))
+        menu.exec_(QtCore.QPoint(e.globalX(),e.globalY())) # pylint: disable=no-member
 
     def createSubscription(self):
         """Shows a dialog for creating a new subscription."""

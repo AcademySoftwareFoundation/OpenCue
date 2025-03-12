@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -31,13 +27,21 @@ import com.imageworks.spcue.ShowInterface;
 public interface GroupManager {
 
     void setGroupMaxCores(GroupInterface g, int coreUnits);
+
     void setGroupMinCores(GroupInterface g, int coreUnits);
+
     void setGroupDefaultJobMinCores(GroupInterface g, int coreUnits);
+
     void setGroupDefaultJobMaxCores(GroupInterface g, int coreUnits);
+
     void setGroupMaxGpus(GroupInterface g, int gpuUnits);
+
     void setGroupMinGpus(GroupInterface g, int gpuUnits);
+
     void setGroupDefaultJobMinGpus(GroupInterface g, int gpuUnits);
+
     void setGroupDefaultJobMaxGpus(GroupInterface g, int gpuUnits);
+
     void setGroupDefaultJobPriority(GroupInterface g, int priority);
 
     /**
@@ -104,12 +108,10 @@ public interface GroupManager {
     void reparentGroupIds(GroupInterface group, List<String> groups);
 
     /**
-     * Sets the group's department all all jobs in that
-     * group to the new department.
+     * Sets the group's department all all jobs in that group to the new department.
      *
      * @param group
      * @param d
      */
     void setGroupDepartment(GroupInterface group, DepartmentInterface d);
 }
-

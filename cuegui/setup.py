@@ -20,8 +20,8 @@ cuegui_dir = os.path.abspath(os.path.dirname(__file__))
 
 version = 'unknown'
 possible_version_paths = [
-    os.path.join(cuegui_dir, 'VERSION'),
-    os.path.join(os.path.dirname(cuegui_dir), 'VERSION'),
+    os.path.join(cuegui_dir, 'VERSION.in'),
+    os.path.join(os.path.dirname(cuegui_dir), 'VERSION.in'),
 ]
 for possible_version_path in possible_version_paths:
     if os.path.exists(possible_version_path):
@@ -53,7 +53,9 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'cuegui=cuegui.__main__:main'
+            'cuegui=cuegui.__main__:main',
+            'cuetopia=cuegui.__main__:cuetopia',
+            'cuecommander=cuegui.__main__:main'
         ]
     },
     test_suite='tests',

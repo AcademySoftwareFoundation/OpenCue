@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dispatcher;
 
@@ -78,13 +74,9 @@ public class HistoryControlTests extends TransactionalTest {
 
     private static final String HOSTNAME = "beta";
     private static final String DELETE_HISTORY =
-        "DELETE FROM frame_history; " +
-        "DELETE FROM job_history; ";
-    private static final String DISABLE_HISTORY =
-        "INSERT INTO " +
-            "config (pk_config,str_key) " +
-        "VALUES " +
-            "(uuid_generate_v1(),'DISABLE_HISTORY');";
+            "DELETE FROM frame_history; " + "DELETE FROM job_history; ";
+    private static final String DISABLE_HISTORY = "INSERT INTO " + "config (pk_config,str_key) "
+            + "VALUES " + "(uuid_generate_v1(),'DISABLE_HISTORY');";
 
     @Before
     public void setTestMode() {
@@ -93,36 +85,21 @@ public class HistoryControlTests extends TransactionalTest {
 
     public void launchJob() {
         jobLauncher.testMode = true;
-        jobLauncher.launch(
-                new File("src/test/resources/conf/jobspec/jobspec_gpus_test.xml"));
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_gpus_test.xml"));
     }
 
     @Before
     public void createHost() {
-        RenderHost host = RenderHost.newBuilder()
-                .setName(HOSTNAME)
-                .setBootTime(1192369572)
+        RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(CueUtil.GB)
-                .setFreeMem((int) CueUtil.GB8)
-                .setFreeSwap(20760)
-                .setLoad(0)
-                .setTotalMcp(CueUtil.GB4)
-                .setTotalMem(CueUtil.GB8)
-                .setTotalSwap(CueUtil.GB2)
-                .setNimbyEnabled(false)
-                .setNumProcs(40)
-                .setCoresPerProc(100)
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .putAttributes("SP_OS", "Linux")
-                .setNumGpus(8)
-                .setFreeGpuMem(CueUtil.GB16 * 8)
-                .setTotalGpuMem(CueUtil.GB16 * 8)
+                .setFreeMcp(CueUtil.GB).setFreeMem((int) CueUtil.GB8).setFreeSwap(20760).setLoad(0)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(CueUtil.GB8).setTotalSwap(CueUtil.GB2)
+                .setNimbyEnabled(false).setNumProcs(40).setCoresPerProc(100)
+                .setState(HardwareState.UP).setFacility("spi").putAttributes("SP_OS", "Linux")
+                .setNumGpus(8).setFreeGpuMem(CueUtil.GB16 * 8).setTotalGpuMem(CueUtil.GB16 * 8)
                 .build();
 
-        hostManager.createHost(host,
-                adminManager.findAllocationDetail("spi", "general"));
+        hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
     }
 
     public DispatchHost getHost() {
@@ -140,16 +117,11 @@ public class HistoryControlTests extends TransactionalTest {
         List<VirtualProc> procs = dispatcher.dispatchHost(host);
         VirtualProc proc = procs.get(0);
 
-        RunningFrameInfo info = RunningFrameInfo.newBuilder()
-                .setJobId(proc.getJobId())
-                .setLayerId(proc.getLayerId())
-                .setFrameId(proc.getFrameId())
-                .setResourceId(proc.getProcId())
-                .build();
-        FrameCompleteReport report = FrameCompleteReport.newBuilder()
-                .setFrame(info)
-                .setExitStatus(0)
-                .build();
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).build();
+        FrameCompleteReport report =
+                FrameCompleteReport.newBuilder().setFrame(info).setExitStatus(0).build();
         frameCompleteHandler.handleFrameCompleteReport(report);
 
         assertTrue(jobManager.isLayerComplete(layer));
@@ -163,17 +135,17 @@ public class HistoryControlTests extends TransactionalTest {
     @Rollback(true)
     public void testEnabled() {
         jdbcTemplate.update(DELETE_HISTORY);
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM job_history", Integer.class));
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM frame_history", Integer.class));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
 
         launchAndDeleteJob();
 
-        assertEquals(Integer.valueOf(5), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM job_history", Integer.class));
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM frame_history", Integer.class));
+        assertEquals(Integer.valueOf(5),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
+        assertEquals(Integer.valueOf(1),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
     }
 
     @Test
@@ -183,17 +155,16 @@ public class HistoryControlTests extends TransactionalTest {
         jdbcTemplate.update(DELETE_HISTORY);
         jdbcTemplate.update(DISABLE_HISTORY);
 
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM job_history", Integer.class));
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM frame_history", Integer.class));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
 
         launchAndDeleteJob();
 
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM job_history", Integer.class));
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM frame_history", Integer.class));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
     }
 }
-

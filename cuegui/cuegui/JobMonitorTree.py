@@ -180,6 +180,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__dependentJobs = {}
         self._dependent_items = {}
         self.__reverseDependents = {}
+        self.local_plugin_saved_values = {}
         # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
@@ -249,15 +250,19 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__menuActions.jobs().viewComments([job])
 
     def startDrag(self, dropActions):
+        """Triggers a drag event"""
         cuegui.Utils.startDrag(self, dropActions, self.selectedObjects())
 
     def dragEnterEvent(self, event):
+        """Enter Drag event"""
         cuegui.Utils.dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
+        """Move Drag Event"""
         cuegui.Utils.dragMoveEvent(event)
 
     def dropEvent(self, event):
+        """Drop Drag Event"""
         for job_name in cuegui.Utils.dropEvent(event):
             self.addJob(job_name)
 
@@ -405,6 +410,46 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Sets the colored jobs that were saved"""
         self.__userColors = pickle.loads(bytes(state))
 
+    def getLocalPluginNumFrames(self):
+        """Gets default values for the Local Plugin fields"""
+        return self.local_plugin_saved_values["num_frames"]
+
+    def setLocalPluginNumFrames(self, value):
+        """Sets default values for the Local Plugin fields"""
+        self.local_plugin_saved_values["num_frames"] = value
+
+    def getLocalPluginNumThreads(self):
+        """Gets default values for the Local Plugin fields"""
+        return self.local_plugin_saved_values["num_threads"]
+
+    def setLocalPluginNumThreads(self, value):
+        """Sets default values for the Local Plugin fields"""
+        self.local_plugin_saved_values["num_threads"] = value
+
+    def getLocalPluginNumGpus(self):
+        """Gets default values for the Local Plugin fields"""
+        return self.local_plugin_saved_values["num_gpus"]
+
+    def setLocalPluginNumGpus(self, value):
+        """Sets default values for the LocalPlugin fields"""
+        self.local_plugin_saved_values["num_gpus"] = value
+
+    def getLocalPluginNumMem(self):
+        """Gets default values for the LocalPlugin fields"""
+        return self.local_plugin_saved_values["num_mem"]
+
+    def setLocalPluginNumMem(self, value):
+        """Sets default values for the LocalPlugin fields"""
+        self.local_plugin_saved_values["num_mem"] = value
+
+    def getLocalNumGpuMem(self):
+        """Gets default values for the LocalPlugin fields"""
+        return self.local_plugin_saved_values["num_gpu_mem"]
+
+    def setLocalNumGpuMem(self, value):
+        """Sets default values for the LocalPlugin fields"""
+        self.local_plugin_saved_values["num_gpu_mem"] = value
+
     def contextMenuEvent(self, e):
         """Creates a context menu when an item is right clicked.
         @param e: Right click QEvent
@@ -423,7 +468,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.jobs().addAction(menu, "subscribeToJob")
         self.__menuActions.jobs().addAction(menu, "viewComments")
 
-        if bool(int(self.app.settings.value("AllowDeeding", 0))):
+        if int(self.app.settings.value("DisableDeeding", 0)) == 0:
             self.__menuActions.jobs().addAction(menu, "useLocalCores")
 
         if cuegui.Constants.OUTPUT_VIEWERS:

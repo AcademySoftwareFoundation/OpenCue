@@ -28,7 +28,7 @@ jobs:
           path: ${GITHUB_WORKSPACE}/artifacts/OpenCue-Blender.zip
 
       - name: Archive log files
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
           name: test-logs

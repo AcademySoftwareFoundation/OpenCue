@@ -167,6 +167,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         raise Exception("This frame doesn't support previews. No Preview Server found.")
 
 
+# pylint: disable=no-member
 class PreviewProcessorWatchThread(QtCore.QThread):
     """
     Waits for preview files to appear and emits the progress every second.  This

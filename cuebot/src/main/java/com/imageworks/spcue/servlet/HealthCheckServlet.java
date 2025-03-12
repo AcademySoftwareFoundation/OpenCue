@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.servlet;
 
@@ -48,20 +44,15 @@ public class HealthCheckServlet extends FrameworkServlet {
     private Environment env;
 
     private enum HealthStatus {
-        SERVER_ERROR,
-        DISPATCH_QUEUE_UNHEALTHY,
-        MANAGE_QUEUE_UNHEALTHY,
-        REPORT_QUEUE_UNHEALTHY,
-        BOOKING_QUEUE_UNHEALTHY,
-        JOB_QUERY_ERROR
+        SERVER_ERROR, DISPATCH_QUEUE_UNHEALTHY, MANAGE_QUEUE_UNHEALTHY, REPORT_QUEUE_UNHEALTHY, BOOKING_QUEUE_UNHEALTHY, JOB_QUERY_ERROR
     }
 
     @Override
     public void initFrameworkServlet() throws ServletException {
-        this.cueStatic = (CueStatic)
-            Objects.requireNonNull(this.getWebApplicationContext()).getBean("cueStaticServant");
-        this.env = (Environment) 
-            Objects.requireNonNull(this.getWebApplicationContext()).getBean("environment");
+        this.cueStatic = (CueStatic) Objects.requireNonNull(this.getWebApplicationContext())
+                .getBean("cueStaticServant");
+        this.env = (Environment) Objects.requireNonNull(this.getWebApplicationContext())
+                .getBean("environment");
     }
 
     private ArrayList<HealthStatus> getHealthStatus() {
@@ -69,8 +60,7 @@ public class HealthCheckServlet extends FrameworkServlet {
 
         if (this.cueStatic == null) {
             statusList.add(HealthStatus.SERVER_ERROR);
-        }
-        else {
+        } else {
             // Check queue capacity
             if (!this.cueStatic.isDispatchQueueHealthy()) {
                 statusList.add(HealthStatus.DISPATCH_QUEUE_UNHEALTHY);
@@ -85,7 +75,7 @@ public class HealthCheckServlet extends FrameworkServlet {
                 statusList.add(HealthStatus.BOOKING_QUEUE_UNHEALTHY);
             }
             // Run get jobs, if it crashes, set error, if it takes longer than expected,
-            //  the caller (HEALTHCHECK) will timeout
+            // the caller (HEALTHCHECK) will timeout
             try {
                 getJobs();
             } catch (RuntimeException re) {
@@ -99,13 +89,13 @@ public class HealthCheckServlet extends FrameworkServlet {
     private void getJobs() {
         if (this.cueStatic != null && this.env != null) {
             // Defaults to testing show, which is added as part of the seeding data script
-            String defaultShow = env.getProperty("protected_shows", 
-                String.class, "testing").split(",")[0];
+            String defaultShow =
+                    env.getProperty("protected_shows", String.class, "testing").split(",")[0];
             ShowEntity s = new ShowEntity();
             s.name = defaultShow;
             JobSearchInterface js = new JobSearch();
             js.filterByShow(s);
-            
+
             // GetJobs will throw an exception if there's a problem getting
             // data from the database
             JobSeq jobs = this.cueStatic.getWhiteboard().getJobs(js);
@@ -113,28 +103,25 @@ public class HealthCheckServlet extends FrameworkServlet {
     }
 
     @Override
-    protected void doService(HttpServletRequest request,
-            HttpServletResponse response) throws Exception {
+    protected void doService(HttpServletRequest request, HttpServletResponse response)
+            throws Exception {
         logger.info("HealthCheckServlet: Received request");
         try {
             ArrayList<HealthStatus> statusList = getHealthStatus();
             if (!statusList.isEmpty()) {
                 response.setStatus(500);
                 StringBuilder out = new StringBuilder("FAILED: ");
-                for(HealthStatus status : statusList) {
+                for (HealthStatus status : statusList) {
                     out.append(status.name());
                     out.append(" ");
                 }
                 Sentry.captureMessage("Healthcheck failure: " + out);
 
                 sendResponse(response, out.toString());
-            }
-            else
-            {
+            } else {
                 sendResponse(response, "SUCCESS");
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.error("Unexpected error", e);
             response.setStatus(500);
             sendResponse(response, "FAILED " + e.getMessage());
@@ -150,4 +137,3 @@ public class HealthCheckServlet extends FrameworkServlet {
         }
     }
 }
-

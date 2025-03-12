@@ -278,7 +278,7 @@ main() {
     create_and_activate_venv
     log INFO "Installing OpenCue Python libraries..."
     sandbox/install-client-sources.sh
-    log INFO "Testing pycue library..."£
+    log INFO "Testing pycue library..."
     test_pycue
     log INFO "Testing cueadmin..."
     test_cueadmin
