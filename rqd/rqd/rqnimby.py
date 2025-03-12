@@ -54,13 +54,14 @@ class Nimby(threading.Thread):
 
         try:
             Nimby.setup_display()
+            # pylint: disable=import-outside-toplevel
             import pynput
             self.is_ready = True
         except Exception as e:
             # Ideally ImportError could be used here, but pynput
             # can throw other kinds of exception while trying to
             # access runpy components
-            log.warning("Failed to import pynput: {}".format(e))
+            log.warning("Failed to import pynput: %s", e)
             return
         # If pynput is not available, is_user_active should stay False to make the host bookable
 
@@ -113,7 +114,7 @@ class Nimby(threading.Thread):
                 (time.time() - self.last_activity_time) > self.idle_threshold:
             self.__is_user_active = False
             log.warning(
-                "Nimby: No user activity detected for {} seconds".format(self.idle_threshold))
+                "Nimby: No user activity detected for %s seconds", self.idle_threshold)
         # If the host was locked and there's no user activity, check if it's
         # safe to unlock it
         if self.locked and \
@@ -124,6 +125,7 @@ class Nimby(threading.Thread):
             log.warning(
                 "Nimby: Not unlocking host due to resource limitations")
 
+    # pylint: disable=unused-argument
     def __on_interaction(self, *args):
         if not self.__is_user_active:
             self.__lock_host_for_rendering()
