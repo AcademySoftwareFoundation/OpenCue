@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "hatchling",
-    "versioningit",
+    "versioningit"
 ]
 build-backend = "hatchling.build"
 
@@ -9,6 +9,8 @@ build-backend = "hatchling.build"
 name = "opencue_cuebot"
 dynamic = ["version"]
 dependencies = [
+    "grpcio==1.69.0",
+    "grpcio-tools==1.69.0",
 ]
 
 [tool.hatch.version]

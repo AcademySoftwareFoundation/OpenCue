@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Protos need to have their Python code generated in order for tests to pass.
 python -m grpc_tools.protoc -I=cuebot/proto/ --python_out=cuebot/cuebot/proto --grpc_python_out=cuebot/cuebot/proto cuebot/proto/*.proto
 
