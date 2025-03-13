@@ -1,0 +1,18 @@
+[build-system]
+requires = [
+    "hatchling",
+    "versioningit",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "opencue_cueadmin"
+dynamic = ["version"]
+dependencies = [
+]
+
+[tool.hatch.version]
+source = "versioningit"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cueadmin"]
