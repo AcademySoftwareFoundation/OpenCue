@@ -14,14 +14,18 @@
 # > OK
 #
 
+set -e
+
 py="$(command -v python3)"
 if [[ -z "$py" ]]; then
   py="$(command -v python)"
 fi
 echo "Using Python binary ${py}"
 
+pip install -e cuegui[test]
+
 test_log="/tmp/cuegui_result.log"
-xvfb-run -d "${py}" -m unittest discover -s cuegui/tests -t cuegui -p "*.py"| tee ${test_log}
+xvfb-run -d "${py}" -m pytest cuegui/tests | tee ${test_log}
 
 grep -Pz 'Ran \d+ tests in [0-9\.]+s\n\nOK' ${test_log}
 if [ $? -eq 0 ]; then
