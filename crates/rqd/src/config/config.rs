@@ -2,7 +2,7 @@ use crate::config::error::RqdConfigError;
 use bytesize::ByteSize;
 use config::{Config as ConfigBase, Environment, File};
 use serde::{Deserialize, Serialize};
-use std::{env, sync::Arc};
+use std::{env, fs, path::Path, sync::Arc};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
 
@@ -39,7 +39,7 @@ pub struct GrpcConfig {
 impl Default for GrpcConfig {
     fn default() -> GrpcConfig {
         GrpcConfig {
-            rqd_port: 4778,
+            rqd_port: 8444,
             cuebot_url: "localhost:4343".to_string(),
         }
     }
@@ -83,7 +83,7 @@ impl Default for MachineConfig {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct RunnerConfig {
     // TODO: Add config items to sample file and document their usage
@@ -96,6 +96,7 @@ pub struct RunnerConfig {
     pub run_as_user: bool,
     pub temp_path: String,
     pub shell_path: String,
+    pub snapshots_path: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -115,9 +116,13 @@ impl Default for RunnerConfig {
             prepend_timestamp: true,
             use_host_path_env_var: false,
             desktop_mode: false,
-            run_as_user: true,
+            run_as_user: false,
             temp_path: std::env::temp_dir().to_str().unwrap_or("/tmp").to_string(),
             shell_path: "/bin/bash".to_string(),
+            snapshots_path: format!(
+                "{}/.rqd/snapshots",
+                std::env::var("HOME").unwrap_or("/tmp".to_string())
+            ),
         }
     }
 }
@@ -194,12 +199,16 @@ impl Config {
                 ))
             })?;
 
-        Config::deserialize(config).map_err(|err| {
+        let deserialized_config = Config::deserialize(config).map_err(|err| {
             RqdConfigError::LoadConfigError(format!(
                 "{:?} config could not be deserialized",
                 &config_file
             ))
-        })
+        })?;
+
+        Self::setup(&deserialized_config)?;
+
+        Ok(deserialized_config)
     }
 
     pub fn load_file_and_env<P: AsRef<str>>(path: P) -> Result<Self, RqdConfigError> {
@@ -230,5 +239,20 @@ impl Config {
                     path.as_ref()
                 ))
             })
+    }
+
+    // TODO: Ensure paths exist and permissions are adequate
+    pub fn setup(&self) -> Result<(), RqdConfigError> {
+        // Ensure snapshot path exists
+        let snapshots_path = Path::new(&self.runner.snapshots_path);
+        if !snapshots_path.exists() {
+            fs::create_dir_all(snapshots_path).map_err(|err| {
+                RqdConfigError::InvalidPath(format!(
+                    "Failed to create snapshot dir at {:?}: {err}",
+                    snapshots_path
+                ))
+            })?;
+        }
+        Ok(())
     }
 }

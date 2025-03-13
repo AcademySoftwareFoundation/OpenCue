@@ -64,8 +64,7 @@ impl FrameFileLogger {
         let log_path = Path::new(path);
         if log_path.is_file() {
             let mut rotate_count = 1;
-            let proposed_path = format!("{}.{}", path, rotate_count);
-            while Path::new(&proposed_path).is_file() && rotate_count < 100 {
+            while Path::new(&format!("{}.{}", path, rotate_count)).is_file() && rotate_count < 100 {
                 rotate_count += 1;
             }
             let rotate_path = format!("{}.{}", path, rotate_count);

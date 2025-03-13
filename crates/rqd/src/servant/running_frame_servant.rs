@@ -1,23 +1,21 @@
 use std::sync::Arc;
 
 use opencue_proto::rqd::{
-    running_frame_server::RunningFrame, RunningFrameKillRequest, RunningFrameKillResponse,
-    RunningFrameStatusRequest, RunningFrameStatusResponse,
+    RunningFrameKillRequest, RunningFrameKillResponse, RunningFrameStatusRequest,
+    RunningFrameStatusResponse, running_frame_server::RunningFrame,
 };
 use tonic::async_trait;
 
-use crate::{servant::Result, system::running_frame::RunningFrameCache};
+use crate::{frame::manager::FrameManager, servant::Result};
 
 /// Servant for the grpc RunningFrame interface
 pub struct RunningFrameServant {
-    running_frame_cache: Arc<RunningFrameCache>,
+    frame_manager: Arc<FrameManager>,
 }
 
 impl RunningFrameServant {
-    pub fn init(running_frame_cache: Arc<RunningFrameCache>) -> Self {
-        Self {
-            running_frame_cache,
-        }
+    pub fn init(frame_manager: Arc<FrameManager>) -> Self {
+        Self { frame_manager }
     }
 }
 

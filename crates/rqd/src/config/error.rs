@@ -10,6 +10,9 @@ pub enum RqdConfigError {
 
     #[error("Failed to start application via config file")]
     StartFromConfigError(String),
+
+    #[error("Invalid Path configuration")]
+    InvalidPath(String),
 }
 
 impl From<RqdConfigError> for Status {

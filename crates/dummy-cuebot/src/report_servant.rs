@@ -1,11 +1,17 @@
-pub struct ReportServant {}
-use opencue_proto::report::{
-    rqd_report_interface_server::RqdReportInterface, RqdReportRqdStartupRequest,
-    RqdReportRqdStartupResponse, RqdReportRunningFrameCompletionRequest,
-    RqdReportRunningFrameCompletionResponse, RqdReportStatusRequest, RqdReportStatusResponse,
-};
-use tonic::{async_trait, Request, Response, Status};
+use std::net::{Ipv4Addr, SocketAddr};
 
+use miette::IntoDiagnostic;
+use opencue_proto::report::rqd_report_interface_server::RqdReportInterfaceServer;
+use opencue_proto::report::{
+    RqdReportRqdStartupRequest, RqdReportRqdStartupResponse,
+    RqdReportRunningFrameCompletionRequest, RqdReportRunningFrameCompletionResponse,
+    RqdReportStatusRequest, RqdReportStatusResponse,
+    rqd_report_interface_server::RqdReportInterface,
+};
+use tonic::transport::Server;
+use tonic::{Request, Response, Status, async_trait};
+
+pub struct ReportServant {}
 #[async_trait]
 impl RqdReportInterface for ReportServant {
     /// Send in when RQD starts up to announce new idle procs to the cue
@@ -46,5 +52,20 @@ impl RqdReportInterface for ReportServant {
         );
 
         Ok(Response::new(RqdReportStatusResponse {}))
+    }
+}
+
+pub struct DummyCuebotServer {}
+
+impl DummyCuebotServer {
+    pub async fn start_server(port: u16) -> miette::Result<()> {
+        let address = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port);
+
+        println!("Starting server at {}", address);
+        Server::builder()
+            .add_service(RqdReportInterfaceServer::new(ReportServant {}))
+            .serve(address)
+            .await
+            .into_diagnostic()
     }
 }

@@ -72,6 +72,9 @@ impl RunFrame {
     pub fn layer_id(&self) -> Uuid {
         to_uuid(&self.layer_id).unwrap_or(Uuid::nil())
     }
+    pub fn resource_id(&self) -> Uuid {
+        to_uuid(&self.resource_id).unwrap_or(Uuid::nil())
+    }
 }
 
 impl fmt::Display for Frame {

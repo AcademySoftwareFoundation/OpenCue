@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex as SyncMutex},
+    time::Instant,
 };
 
 use async_trait::async_trait;
@@ -12,14 +13,16 @@ use opencue_proto::{
 use sysinfo::{Disks, System};
 use thiserror::Error;
 use tokio::{sync::Mutex, time};
-use tracing::debug;
+use tracing::{debug, error, warn};
+use uuid::Uuid;
 
 use crate::{
     config::config::{Config, MachineConfig},
+    frame::cache::RunningFrameCache,
     report_client::{ReportClient, ReportInterface},
 };
 
-use super::{linux::LinuxSystem, running_frame::RunningFrameCache};
+use super::linux::LinuxSystem;
 
 type SystemControllerType = Box<dyn SystemController + Sync + Send>;
 
@@ -175,7 +178,12 @@ pub trait Machine {
     ///
     /// List of procs (Argument called cpu-list in the unix taskset cmd) reserved
     /// by this request
-    async fn reserve_cpus(&self, num_cores: u32) -> Result<Vec<u32>>;
+    async fn reserve_cores(&self, num_cores: u32, resource_id: Uuid) -> Result<Vec<u32>>;
+
+    async fn reserve_cores_by_id(&self, cpu_list: &Vec<u32>, resource_id: Uuid)
+    -> Result<Vec<u32>>;
+
+    async fn release_cpus(&self, procs: &Vec<u32>);
 
     /// Reserve GPU units
     ///
@@ -212,9 +220,38 @@ impl Machine for MachineMonitor {
             .unwrap_or(false)
     }
 
-    async fn reserve_cpus(&self, num_cores: u32) -> Result<Vec<u32>> {
+    async fn reserve_cores(&self, num_cores: u32, resource_id: Uuid) -> Result<Vec<u32>> {
         let mut stats_collector = self.system_controller.lock().await;
-        stats_collector.reserve_cores(num_cores).into_diagnostic()
+        stats_collector
+            .reserve_cores(num_cores, resource_id)
+            .into_diagnostic()
+    }
+
+    async fn reserve_cores_by_id(
+        &self,
+        cpu_list: &Vec<u32>,
+        resource_id: Uuid,
+    ) -> Result<Vec<u32>> {
+        let mut stats_collector = self.system_controller.lock().await;
+        stats_collector
+            .reserve_cores_by_id(cpu_list, resource_id)
+            .into_diagnostic()
+    }
+
+    async fn release_cpus(&self, procs: &Vec<u32>) {
+        let mut stats_collector = self.system_controller.lock().await;
+        for core_id in procs {
+            if let Err(err) = stats_collector.release_core(core_id) {
+                match err {
+                    ReservationError::NotFoundError(_) => {
+                        warn!("Failed to release proc {core_id}. Reservation not found")
+                    }
+                    _ => {
+                        error!("Failed to release proc {core_id}. Unexpected error")
+                    }
+                }
+            }
+        }
     }
 
     async fn reserve_gpus(&self, num_gpus: u32) -> Result<Vec<u32>> {
@@ -303,7 +340,18 @@ pub trait SystemController {
     /// # Returns:
     ///
     /// * Vector of core ids
-    fn reserve_cores(&mut self, count: u32) -> Result<Vec<u32>, ReservationError>;
+    fn reserve_cores(&mut self, count: u32, frame_id: Uuid) -> Result<Vec<u32>, ReservationError>;
+
+    /// Reserver specific cores by id.
+    ///
+    /// # Returns:
+    ///
+    /// * Vector of core ids
+    fn reserve_cores_by_id(
+        &mut self,
+        cpu_list: &Vec<u32>,
+        resource_id: Uuid,
+    ) -> Result<Vec<u32>, ReservationError>;
 
     /// Release a core
     fn release_core(&mut self, core_id: &u32) -> Result<(), ReservationError>;
@@ -324,6 +372,35 @@ pub enum ReservationError {
 #[derive(Debug, Clone)]
 pub struct CpuStat {
     /// List of cores currently reserved
-    pub reserved_cores_by_physid: HashMap<u32, HashSet<u32>>,
+    pub reserved_cores_by_physid: HashMap<u32, CoreReservation>,
     pub available_cores: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct CoreReservation {
+    pub reserved_cores: HashSet<u32>,
+    pub reserver_id: Uuid,
+    pub start_time: Instant,
+}
+
+impl CoreReservation {
+    pub fn new(reserver_id: Uuid) -> Self {
+        CoreReservation {
+            reserved_cores: HashSet::new(),
+            reserver_id,
+            start_time: Instant::now(),
+        }
+    }
+
+    pub fn iter(&self) -> std::collections::hash_set::Iter<'_, u32> {
+        self.reserved_cores.iter()
+    }
+
+    pub fn insert(&mut self, core_id: u32) -> bool {
+        self.reserved_cores.insert(core_id)
+    }
+
+    pub fn remove(&mut self, core_id: &u32) -> bool {
+        self.reserved_cores.remove(core_id)
+    }
 }

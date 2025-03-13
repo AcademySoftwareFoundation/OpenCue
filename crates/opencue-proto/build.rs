@@ -45,6 +45,25 @@ fn build_protobuf() -> Result<(), Box<dyn std::error::Error>> {
         // .type_attribute("ConnectionConfig", "#[derive(Eq, Hash)]")
         // .type_attribute("ConnectionConfig.kind", "#[derive(Eq, Hash)]")
         // .type_attribute("NFSConnection", "#[derive(Eq, Hash)]")
+        .type_attribute("Stat", "#[derive(serde::Deserialize, serde::Serialize)]")
+        .type_attribute("Statm", "#[derive(serde::Deserialize, serde::Serialize)]")
+        .type_attribute("Status", "#[derive(serde::Deserialize, serde::Serialize)]")
+        .type_attribute(
+            "ProcStats",
+            "#[derive(serde::Deserialize, serde::Serialize)]",
+        )
+        .type_attribute(
+            "ChildrenProcStats",
+            "#[derive(serde::Deserialize, serde::Serialize)]",
+        )
+        .type_attribute(
+            "RunFrame.uid_optional",
+            "#[derive(serde::Deserialize, serde::Serialize)]",
+        )
+        .type_attribute(
+            "RunFrame",
+            "#[derive(serde::Deserialize, serde::Serialize)]",
+        )
         .out_dir(&crate_dir)
         .compile(
             proto_files.as_slice(),

@@ -15,6 +15,7 @@ opencue-proto = { path = "../opencue-proto" }
 
 # External Dependencies
 chrono = "0.4.38"
+bincode = "1.3"
 bytesize = { version = "1.2.0", features = ["serde"] }
 futures = { workspace = true }
 dashmap = { workspace = true }
@@ -32,7 +33,7 @@ tracing = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-rolling-file = { workspace = true }
 tracing-subscriber = { workspace = true }
-uuid = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }
 prost = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = "0.7.12"
@@ -40,7 +41,7 @@ deadpool-postgres = "0.14.0"
 tonic = { workspace = true }
 itertools = "0.13.0"
 sysinfo = "0.33.1"
-nix = "0.29"
+nix = { version = "0.29", features = ["process", "signal"] }
 users = "0.11"
 
 [dev-dependencies]

@@ -4,13 +4,16 @@ use std::{
 };
 
 use config::config::Config;
+use frame::{cache::RunningFrameCache, manager::FrameManager};
 use miette::IntoDiagnostic;
 use report_client::ReportClient;
 use sysinfo::{Disks, MemoryRefreshKind, RefreshKind, System};
-use system::{machine::MachineMonitor, running_frame::RunningFrameCache};
+use system::machine::MachineMonitor;
+use tracing::warn;
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
 mod config;
+mod frame;
 mod report_client;
 mod servant;
 mod system;
@@ -38,7 +41,7 @@ async fn main() -> miette::Result<()> {
         log_builder.init();
     }
 
-    let running_frame_cache = Arc::new(RunningFrameCache::init());
+    let running_frame_cache = RunningFrameCache::init();
     // Initialize cuebot client
     let report_client = Arc::new(ReportClient::build(&config).await?);
 
@@ -61,14 +64,34 @@ async fn main() -> miette::Result<()> {
         diskinfo,
     )?);
     let mm_clone = Arc::clone(&machine_monitor);
+
+    // Initialize frame manager
+    let frame_manager = Arc::new(FrameManager {
+        config: config.runner.clone(),
+        frame_cache: Arc::clone(&running_frame_cache),
+        machine: mm_clone.clone(),
+    });
+
     tokio::spawn(async move {
         if let Err(e) = machine_monitor.start().await {
             panic!("MachineMonitor loop crashed. {e}")
         }
     });
 
+    // TODO: Recover snapshot frames
+    if let Err(err) = frame_manager.recover_snapshots().await {
+        warn!("Failed to recover frames from snapshot: {}", err);
+    };
+
     // Initialize rqd grpc servant
-    servant::serve(config, Arc::clone(&running_frame_cache), mm_clone)
+    servant::serve(config, mm_clone, frame_manager)
         .await
         .into_diagnostic()
 }
+
+// To launch a process in a different process group in Linux, a binary (or executable) needs to have the following capabilities:
+// 1. **CAP_SYS_ADMIN**: This capability allows the process to perform a variety of administrative tasks, including creating and managing process groups.
+// 2. **CAP_SETGID**: This capability allows the process to change the group ID of the process, which is necessary when launching a process in a different group.
+// 3. **CAP_SETUID**: This capability allows the process to change the user ID of the process, which may be needed if the new process requires different user permissions.
+// 4. **CAP_CHOWN**: This capability allows changing the ownership of files, which can be relevant if the new process needs to access specific resources.
+// Having these capabilities enables the binary to effectively manage and launch processes in different groups as required.
