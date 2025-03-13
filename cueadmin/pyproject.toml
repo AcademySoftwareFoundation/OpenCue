@@ -10,6 +10,7 @@ build-backend = "hatchling.build"
 name = "opencue_cueadmin"
 dynamic = ["version"]
 dependencies = [
+    "opencue_pycue"
 ]
 
 [tool.hatch.version]
