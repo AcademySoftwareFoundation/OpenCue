@@ -6,7 +6,6 @@ FROM gradle:7.6.4-jdk17 AS build
 USER gradle
 
 COPY --chown=gradle:gradle ./cuebot /home/gradle/cuebot/
-COPY --chown=gradle:gradle ./proto /home/gradle/proto/
 
 WORKDIR /home/gradle/cuebot
 
