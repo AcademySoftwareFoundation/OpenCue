@@ -70,7 +70,7 @@ class ProcChildren(QtWidgets.QWidget):
         """ Updates visual representation with latest data"""
         self._model.clear()
         self._model.setHorizontalHeaderLabels(ProcChildren.HEADERS)
-        childrenProc = opencue.compiled_proto.report_pb2.ChildrenProcStats()
+        childrenProc = cuebot.proto.report_pb2.ChildrenProcStats()
         data = { }
 
         try:

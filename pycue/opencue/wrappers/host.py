@@ -23,8 +23,8 @@ import grpc
 from opencue import Cuebot
 from opencue import util
 from opencue import search
-from opencue.compiled_proto import comment_pb2
-from opencue.compiled_proto import host_pb2
+from cuebot.proto import comment_pb2
+from cuebot.proto import host_pb2
 import opencue.wrappers.comment
 # pylint: disable=cyclic-import
 import opencue.wrappers.proc

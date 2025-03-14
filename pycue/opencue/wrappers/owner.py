@@ -15,7 +15,7 @@
 """Module for classes related to owners."""
 
 from opencue import Cuebot
-from opencue.compiled_proto import host_pb2
+from cuebot.proto import host_pb2
 import opencue.wrappers.deed
 import opencue.wrappers.host
 
