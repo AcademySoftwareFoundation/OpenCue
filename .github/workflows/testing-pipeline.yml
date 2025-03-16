@@ -16,7 +16,9 @@ jobs:
         with:
           fetch-depth: 2
       - name: Create dummy tag
-        run: git tag 0.0.0
+        run: |
+          git config --global --add safe.directory /__w/OpenCue/OpenCue
+          git tag 0.0.0
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -41,7 +43,9 @@ jobs:
         with:
           fetch-depth: 2
       - name: Create dummy tag
-        run: git tag 0.0.0
+        run: |
+          git config --global --add safe.directory /__w/OpenCue/OpenCue
+          git tag 0.0.0
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
