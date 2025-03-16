@@ -13,6 +13,8 @@ jobs:
     container: aswf/ci-opencue:2023
     steps:
       - uses: actions/checkout@v4
+      - name: Create dummy tag
+        run: git tag 0.0.0
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -34,6 +36,8 @@ jobs:
     container: aswf/ci-opencue:2024
     steps:
       - uses: actions/checkout@v4
+      - name: Create dummy tag
+        run: git tag 0.0.0
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
