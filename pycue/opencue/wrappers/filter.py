@@ -16,7 +16,6 @@
 
 import enum
 
-from opencue import Cuebot
 from cuebot.proto import filter_pb2
 from cuebot.proto import job_pb2
 from cuebot.proto.filter_pb2 import Action as ActionData
@@ -27,6 +26,7 @@ from cuebot.proto.filter_pb2 import FilterType
 from cuebot.proto.filter_pb2 import MatchSubject
 from cuebot.proto.filter_pb2 import MatchType
 from cuebot.proto.filter_pb2 import Matcher as MatcherData
+from opencue import Cuebot
 import opencue.wrappers.group
 
 

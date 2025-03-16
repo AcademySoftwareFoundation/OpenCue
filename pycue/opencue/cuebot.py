@@ -29,7 +29,6 @@ import platform
 
 import grpc
 
-import opencue.config
 from cuebot.proto import comment_pb2
 from cuebot.proto import comment_pb2_grpc
 from cuebot.proto import criterion_pb2
@@ -61,6 +60,7 @@ from cuebot.proto import task_pb2
 from cuebot.proto import task_pb2_grpc
 from opencue.exception import ConnectionException
 from opencue.exception import CueException
+import opencue.config
 
 
 __all__ = ["Cuebot"]
