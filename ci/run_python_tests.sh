@@ -13,23 +13,23 @@ echo "Will run tests using ${python_version}"
 
 pip uninstall --yes opencue_cuebot opencue_pycue opencue_pyoutline opencue_cueadmin opencue_cuesubmit opencue_rqd
 
-pip install -e cuebot
+pip install ./cuebot
 ./ci/build_proto.sh
-pip install -e cuebot
+pip install ./cuebot
 
-pip install -e pycue[test]
+pip install ./pycue[test]
 python -m pytest pycue
 
-pip install -e pyoutline[test]
+pip install ./pyoutline[test]
 python -m pytest pyoutline
 
-pip install -e cueadmin[test]
+pip install ./cueadmin[test]
 python -m pytest cueadmin
 
-pip install -e cuesubmit[test]
+pip install ./cuesubmit[test]
 python -m pytest cuesubmit
 
-pip install -e rqd[test]
+pip install ./rqd[test]
 python -m pytest rqd/tests
 python -m pytest rqd/pytests
 
