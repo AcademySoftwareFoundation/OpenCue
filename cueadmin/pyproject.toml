@@ -1,8 +1,7 @@
 [build-system]
 requires = [
     "hatchling",
-    "versioningit",
-    "pytest"
+    "versioningit"
 ]
 build-backend = "hatchling.build"
 
@@ -31,4 +30,5 @@ python_functions = ["test_*"] # Default test function pattern
 test = [
     "mock==2.0.0",
     "pyfakefs==5.2.3",
+    "pytest"
 ]
