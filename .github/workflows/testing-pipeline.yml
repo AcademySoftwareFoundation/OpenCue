@@ -13,6 +13,8 @@ jobs:
     container: aswf/ci-opencue:2023
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Create dummy tag
         run: git tag 0.0.0
       - name: Run Python Tests
@@ -36,6 +38,8 @@ jobs:
     container: aswf/ci-opencue:2024
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Create dummy tag
         run: git tag 0.0.0
       - name: Run Python Tests
