@@ -20,11 +20,11 @@ import time
 from builtins import input
 import grpc
 
+from cuebot.proto import comment_pb2
+from cuebot.proto import host_pb2
 from opencue import Cuebot
 from opencue import util
 from opencue import search
-from cuebot.proto import comment_pb2
-from cuebot.proto import host_pb2
 import opencue.wrappers.comment
 # pylint: disable=cyclic-import
 import opencue.wrappers.proc

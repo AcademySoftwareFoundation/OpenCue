@@ -19,8 +19,8 @@ import getpass
 import os
 import platform
 
-import opencue.api
 from cuebot.proto import job_pb2
+import opencue.api
 from opencue.cuebot import Cuebot
 import opencue.search
 import opencue.wrappers.depend

@@ -20,8 +20,8 @@ import time
 import os
 import platform
 
-from opencue import Cuebot
 from cuebot.proto import job_pb2
+from opencue import Cuebot
 import opencue.wrappers.depend
 
 
