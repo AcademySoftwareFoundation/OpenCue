@@ -86,6 +86,10 @@ jobs:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v4
+      - name: Create dummy tag
+        run: |
+          git config --global --add safe.directory /__w/OpenCue/OpenCue
+          git tag 0.0.0
       - name: Lint Python Code
         run: ci/run_python_lint.sh
 
