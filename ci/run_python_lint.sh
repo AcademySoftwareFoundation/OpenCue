@@ -9,8 +9,6 @@ pip install pylint==2.15.10
 python -m pylint --version
 
 pip install -e ./cuebot
-./ci/build_proto.sh
-pip install -e ./cuebot
 
 echo "Running lint for pycue/..."
 pip install -e ./pycue

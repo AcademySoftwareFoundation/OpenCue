@@ -1,7 +1,9 @@
 [build-system]
 requires = [
     "hatchling",
-    "versioningit"
+    "versioningit",
+    "grpcio==1.69.0",
+    "grpcio-tools==1.69.0",
 ]
 build-backend = "hatchling.build"
 
@@ -19,3 +21,6 @@ default-version = "0.0.0"
 
 [tool.hatch.build.targets.wheel]
 packages = ["cuebot"]
+
+[tool.hatch.build.hooks.custom]
+path = "build_hooks.py"

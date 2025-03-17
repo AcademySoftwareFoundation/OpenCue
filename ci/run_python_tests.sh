@@ -14,8 +14,6 @@ echo "Will run tests using ${python_version}"
 pip uninstall --yes opencue_cuebot opencue_pycue opencue_pyoutline opencue_cueadmin opencue_cuesubmit opencue_rqd
 
 pip install ./cuebot
-./ci/build_proto.sh
-pip install ./cuebot
 
 pip install ./pycue[test]
 python -m pytest pycue
