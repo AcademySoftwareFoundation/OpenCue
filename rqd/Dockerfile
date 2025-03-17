@@ -19,21 +19,8 @@ COPY LICENSE ./
 
 COPY cuebot/cuebot ./cuebot/cuebot
 COPY cuebot/proto ./cuebot/proto
+COPY cuebot/build_hooks.py ./cuebot/
 COPY cuebot/pyproject.toml ./cuebot/
-
-COPY ci/fix_compiled_proto.py ./ci/
-
-# Install dependencies for cuebot
-RUN python3.9 -m pip install ./cuebot
-# Compile proto files
-RUN python3.9 -m grpc_tools.protoc \
-    -I=cuebot/proto/ \
-    --python_out=cuebot/cuebot/proto \
-    --grpc_python_out=cuebot/cuebot/proto \
-    cuebot/proto/*.proto
-# Fix imports to work in both Python 2 and 3. See
-# <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-RUN python3.9 ci/fix_compiled_proto.py cuebot/cuebot/proto
 
 # Install package with compiled proto files
 RUN python3.9 -m pip install ./cuebot
