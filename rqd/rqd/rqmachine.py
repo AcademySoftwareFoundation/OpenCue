@@ -126,14 +126,6 @@ class Machine(object):
             # pylint: enable=no-member
         return True
 
-    def isNimbySafeToUnlock(self):
-        """Returns False if nimby should not unlock due to resource limits"""
-        if not self.isNimbySafeToRunJobs():
-            return False
-        if self.getLoadAvg() / self.__coreInfo.total_cores > rqd.rqconstants.MAXIMUM_LOAD:
-            return False
-        return True
-
     @rqd.rqutil.Memoize
     def isDesktop(self):
         """Returns True if machine starts in run level 5 (X11)
@@ -859,7 +851,7 @@ class Machine(object):
 
         # Updates dynamic information
         self.__renderHost.load = self.getLoadAvg()
-        self.__renderHost.nimby_enabled = self.__rqCore.nimby.active
+        self.__renderHost.nimby_enabled = self.__rqCore.nimby.is_ready
         self.__renderHost.nimby_locked = self.__rqCore.nimby.locked
         self.__renderHost.state = self.state
 
