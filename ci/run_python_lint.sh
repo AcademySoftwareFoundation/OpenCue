@@ -5,8 +5,8 @@ set -ex
 python_version=$(python -V)
 echo "Will run Python lint using ${python_version}"
 
-pip3 install --upgrade pip
-pip3 install pylint==2.15
+pip install --upgrade pip
+pip install pylint==2.15.10 future==1.0.0 grpcio==1.69.0 grpcio-tools==1.69.0 mock==2.0.0 packaging==24.1 psutil==5.9.8 pyfakefs==5.2.3 pynput==1.7.6 PyYAML==5.1 six==1.16.0 pytest==8.3.3 QtPy==2.4.1 PySide6==6.5.3
 
 pip install -e ./cuebot
 ./ci/build_proto.sh
