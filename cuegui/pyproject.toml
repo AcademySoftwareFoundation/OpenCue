@@ -24,7 +24,7 @@ default-version = "0.0.0"
 [tool.hatch.build.targets.wheel]
 packages = ["cuegui"]
 
-[console_scripts]
+[console.scripts]
 cuegui = "cuegui.__main__:main"
 cuetopia = "cuegui.__main__:cuetopia"
 cuecommander = "cuegui.__main__:main"

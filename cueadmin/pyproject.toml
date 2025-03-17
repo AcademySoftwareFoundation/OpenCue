@@ -19,7 +19,7 @@ default-version = "0.0.0"
 [tool.hatch.build.targets.wheel]
 packages = ["cueadmin"]
 
-[console_scripts]
+[console.scripts]
 cueadmin = "cueadmin.__main__:main"
 
 # --- Pytest configuration ---
