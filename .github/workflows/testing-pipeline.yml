@@ -87,17 +87,17 @@ jobs:
       - name: Run Sphinx build
         run: ci/build_sphinx_docs.sh
 
-# Action temporarily disabled due to security concerns on tj-actions/changed-files
-#  check_changed_files:
-#    name: Check Changed Files
-#    runs-on: ubuntu-22.04
-#    steps:
-#      - uses: actions/checkout@v4
-#      - name: Get Changed Files
-#        id: get_changed_files
-#        uses: tj-actions/changed-files@v41
-#      - name: Check for Version Change
-#        run: ci/check_changed_files.py ${{ steps.get_changed_files.outputs.modified_files }} ${{ steps.get_changed_files.outputs.deleted_files }}
+  check_changed_files:
+    name: Check Changed Files
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check for Version Change
+        run: |
+          readarray -t changed_files < <(git diff --name-only HEAD^1 HEAD)
+          ci/check_changed_files.py "${changed_files[@]}"
 
   check_migration_files:
     name: Check Database Migration Files
@@ -107,14 +107,14 @@ jobs:
       - name: Check Migration Files
         run: ci/check_database_migrations.py
 
-# Action temporarily disabled due to security concerns on tj-actions/changed-files
-#  check_for_version_bump:
-#    name: Check for Version Bump
-#    runs-on: ubuntu-22.04
-#    steps:
-#      - uses: actions/checkout@v4
-#      - name: Get Changed Files
-#        id: get_changed_files
-#        uses: tj-actions/changed-files@v41
-#      - name: Check for Version Change
-#        run: ci/check_version_bump.py ${{ steps.get_changed_files.outputs.all_changed_and_modified_files }}
+  check_for_version_bump:
+    name: Check for Version Bump
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check for Version Change
+        run: |
+          readarray -t changed_files < <(git diff --name-only HEAD^1 HEAD)
+          ci/check_version_bump.py "${changed_files[@]}"
