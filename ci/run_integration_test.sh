@@ -222,9 +222,9 @@ main() {
     log INFO "$(docker compose version)"
 
     log INFO "Building Cuebot image..."
-    docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
+    # docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
     log INFO "Building RQD image..."
-    docker build -t opencue/rqd -f rqd/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd.log"
+    docker build -t opencue/rqd -f rqd/Dockerfile . # &>"${TEST_LOGS}/docker-build-rqd.log"
 
     log INFO "Starting Docker compose..."
     docker compose up &>"${DOCKER_COMPOSE_LOG}" &

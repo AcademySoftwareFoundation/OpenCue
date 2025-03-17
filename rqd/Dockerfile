@@ -16,33 +16,37 @@ RUN python3.9 -m pip install --upgrade pip
 RUN python3.9 -m pip install --upgrade setuptools
 
 COPY LICENSE ./
-COPY requirements.txt ./
 
-RUN python3.9 -m pip install -r requirements.txt
+COPY cuebot/cuebot ./cuebot/cuebot
+COPY cuebot/pyproject.toml ./cuebot/
 
-COPY proto/ ./proto
-COPY rqd/deploy ./rqd/deploy
-COPY rqd/README.md ./rqd/
-COPY rqd/setup.py ./rqd/
-COPY rqd/tests/ ./rqd/tests
-COPY rqd/rqd/ ./rqd/rqd
+COPY ci/fix_compiled_proto.py ./ci/
+
+# Install dependencies for cuebot
+RUN python3.9 -m pip install ./cuebot
 
 RUN python3.9 -m grpc_tools.protoc \
-  -I=./proto \
-  --python_out=./rqd/rqd/compiled_proto \
-  --grpc_python_out=./rqd/rqd/compiled_proto \
-  ./proto/*.proto
-
+    -I=cuebot/proto/ \
+    --python_out=cuebot/cuebot/proto \
+    --grpc_python_out=cuebot/cuebot/proto \
+    cuebot/proto/*.proto
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-COPY ci/fix_compiled_proto.py ./ci/
-RUN python3.9 ci/fix_compiled_proto.py rqd/rqd/compiled_proto
+RUN python3.9 ci/fix_compiled_proto.py cuebot/cuebot/proto
+
+RUN python3.9 -m pip install ./cuebot
+
+COPY rqd/deploy ./rqd/deploy
+COPY rqd/README.md ./rqd/
+COPY rqd/pyproject.toml ./rqd/
+COPY rqd/tests/ ./rqd/tests
+COPY rqd/rqd/ ./rqd/rqd
 
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION
 
-RUN cd rqd && python3.9 -m unittest discover
 RUN cd rqd && python3.9 -m pip install .
+RUN cd rqd && python3.9 -m unittest discover
 
 # This step isn't really needed at runtime, but is used when publishing an OpenCue release
 # from this build.
