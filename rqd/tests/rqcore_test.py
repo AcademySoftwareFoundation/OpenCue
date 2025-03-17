@@ -41,7 +41,7 @@ import rqd.rqnimby
 
 class RqCoreTests(unittest.TestCase):
 
-    @mock.patch("rqd.rqnimby.NimbyPynput", autospec=True)
+    @mock.patch("rqd.rqnimby.Nimby", autospec=True)
     @mock.patch("rqd.rqnetwork.Network", autospec=True)
     @mock.patch("rqd.rqmachine.Machine", autospec=True)
     def setUp(self, machineMock, networkMock, nimbyMock):
@@ -330,7 +330,7 @@ class RqCoreTests(unittest.TestCase):
     @mock.patch("os._exit")
     def test_launchFrameOnHostWaitingForShutdown(self, exitMock):
         self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
-        self.nimbyMock.return_value.active = False
+        self.nimbyMock.return_value.is_ready = False
         frame = rqd.compiled_proto.rqd_pb2.RunFrame()
         self.rqcore.shutdownRqdIdle()
 
@@ -347,7 +347,7 @@ class RqCoreTests(unittest.TestCase):
         frameIgnoreNimby = rqd.compiled_proto.rqd_pb2.RunFrame(
             uid=22, num_cores=10, ignore_nimby=True
         )
-        self.rqcore.nimby = mock.create_autospec(rqd.rqnimby.NimbySelect)
+        self.rqcore.nimby = mock.create_autospec(rqd.rqnimby.Nimby)
         self.rqcore.nimby.locked = True
 
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
@@ -411,7 +411,7 @@ class RqCoreTests(unittest.TestCase):
     @mock.patch("os._exit")
     def test_rebootNowNoUser(self, exitMock):
         self.machineMock.return_value.isUserLoggedIn.return_value = False
-        self.nimbyMock.return_value.active = False
+        self.nimbyMock.return_value.is_ready = False
 
         self.rqcore.rebootNow()
 
@@ -426,7 +426,7 @@ class RqCoreTests(unittest.TestCase):
     @mock.patch("os._exit")
     def test_rebootIdleNoFrames(self, exitMock):
         self.machineMock.return_value.isUserLoggedIn.return_value = False
-        self.nimbyMock.return_value.active = False
+        self.nimbyMock.return_value.is_ready = False
 
         self.rqcore.rebootIdle()
 

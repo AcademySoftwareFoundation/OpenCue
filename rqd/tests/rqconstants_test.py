@@ -107,7 +107,7 @@ class RqConstantTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
         nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
         rqCore.nimby = nimby
-        nimby.active = False
+        nimby.is_ready = False
         nimby.locked = False
         coreDetail = rqd.compiled_proto.report_pb2.CoreDetail(total_cores=2)
         machine = rqd.rqmachine.Machine(rqCore, coreDetail)
