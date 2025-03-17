@@ -28,8 +28,8 @@ import unittest
 
 import mock
 
-import rqd.cuerqd
 import cuebot.proto.rqd_pb2
+import rqd.cuerqd
 
 
 SCRIPT_NAME = '/arbitrary/path/to/script'

@@ -27,15 +27,15 @@ import unittest
 import mock
 import pyfakefs.fake_filesystem_unittest
 
+import cuebot.proto.host_pb2
+import cuebot.proto.report_pb2
+import cuebot.proto.rqd_pb2
 import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqmachine
 import rqd.rqnetwork
 import rqd.rqnimby
 import rqd.rqutil
-import cuebot.proto.host_pb2
-import cuebot.proto.report_pb2
-import cuebot.proto.rqd_pb2
 
 
 CPUINFO = """processor	: 0
