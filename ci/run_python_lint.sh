@@ -6,7 +6,7 @@ python_version=$(python -V)
 echo "Will run Python lint using ${python_version}"
 
 pip install pylint==2.15.10
-python3 -m pylint --version
+python -m pylint --version
 
 pip install -e ./cuebot
 ./ci/build_proto.sh
