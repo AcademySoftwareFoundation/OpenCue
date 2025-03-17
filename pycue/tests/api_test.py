@@ -23,7 +23,6 @@ import unittest
 
 import mock
 
-import opencue.api
 from cuebot.proto import cue_pb2
 from cuebot.proto import depend_pb2
 from cuebot.proto import facility_pb2
@@ -34,6 +33,7 @@ from cuebot.proto import limit_pb2
 from cuebot.proto import service_pb2
 from cuebot.proto import show_pb2
 from cuebot.proto import subscription_pb2
+import opencue.api
 
 
 TEST_SHOW_NAME = 'pipe'
