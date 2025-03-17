@@ -23,7 +23,6 @@ import qtpy.QtCore
 import qtpy.QtGui
 
 import cuebot.proto.show_pb2
-import opencue.wrappers.show
 
 import cuegui.Redirect
 import cuegui.Style

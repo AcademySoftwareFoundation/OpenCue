@@ -27,8 +27,8 @@ import time
 from qtpy import QtCore
 from qtpy import QtWidgets
 
-import opencue
 import cuebot.proto.depend_pb2
+import opencue
 import opencue.wrappers.job
 
 import cuegui.AbstractDockWidget

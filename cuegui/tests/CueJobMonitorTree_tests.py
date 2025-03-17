@@ -25,7 +25,6 @@ import qtpy.QtWidgets
 
 import cuebot.proto.job_pb2
 import cuebot.proto.show_pb2
-import opencue.wrappers.show
 
 import cuegui.CueJobMonitorTree
 import cuegui.plugins.MonitorCuePlugin

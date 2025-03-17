@@ -29,8 +29,8 @@ from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
 
-import opencue
 import cuebot.proto.job_pb2
+import opencue
 import opencue.wrappers.group
 
 import cuegui.AbstractTreeWidget

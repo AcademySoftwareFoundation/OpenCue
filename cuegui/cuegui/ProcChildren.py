@@ -30,6 +30,7 @@ from builtins import str
 from qtpy import QtGui
 from qtpy import QtWidgets
 
+from cuebot.proto import report_pb2
 import opencue
 
 import cuegui.Utils
@@ -70,7 +71,7 @@ class ProcChildren(QtWidgets.QWidget):
         """ Updates visual representation with latest data"""
         self._model.clear()
         self._model.setHorizontalHeaderLabels(ProcChildren.HEADERS)
-        childrenProc = cuebot.proto.report_pb2.ChildrenProcStats()
+        childrenProc = report_pb2.ChildrenProcStats()
         data = { }
 
         try:
