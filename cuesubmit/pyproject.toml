@@ -24,6 +24,9 @@ default-version = "0.0.0"
 [tool.hatch.build.targets.wheel]
 packages = ["cuesubmit"]
 
+[console_scripts]
+cuesubmit = "cuesubmit.__main__:main"
+
 # --- Pytest configuration ---
 [tool.pytest.ini_options]
 minversion = "6.0" # Set to required pytest version

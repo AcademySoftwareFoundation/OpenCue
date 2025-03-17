@@ -24,6 +24,11 @@ default-version = "0.0.0"
 [tool.hatch.build.targets.wheel]
 packages = ["cuegui"]
 
+[console_scripts]
+cuegui = "cuegui.__main__:main"
+cuetopia = "cuegui.__main__:cuetopia"
+cuecommander = "cuegui.__main__:main"
+
 # --- Pytest configuration ---
 [tool.pytest.ini_options]
 minversion = "6.0" # Set to required pytest version
