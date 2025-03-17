@@ -13,12 +13,6 @@ jobs:
     container: aswf/ci-opencue:2023
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-      - name: Create dummy tag
-        run: |
-          git config --global --add safe.directory /__w/OpenCue/OpenCue
-          git tag 0.0.0
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -40,12 +34,6 @@ jobs:
     container: aswf/ci-opencue:2024
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-      - name: Create dummy tag
-        run: |
-          git config --global --add safe.directory /__w/OpenCue/OpenCue
-          git tag 0.0.0
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -86,10 +74,6 @@ jobs:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - uses: actions/checkout@v4
-      - name: Create dummy tag
-        run: |
-          git config --global --add safe.directory /__w/OpenCue/OpenCue
-          git tag 0.0.0
       - name: Lint Python Code
         run: ci/run_python_lint.sh
 
