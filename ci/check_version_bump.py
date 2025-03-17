@@ -31,7 +31,6 @@ def main():
     version_file_updated = False
 
     for changed_file in changed_files:
-        print(changed_file)
         if changed_file == VERSION_FILE:
             version_file_updated = True
 

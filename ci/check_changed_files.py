@@ -24,7 +24,6 @@ def main():
     violating_files = False
 
     for changed_file in changed_files:
-        print(changed_file)
         for glob_to_check, suggestion in FILES_THAT_SHOULD_NOT_BE_CHANGED:
             if fnmatch.fnmatch(changed_file, glob_to_check):
                 violating_files = True
