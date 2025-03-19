@@ -13,9 +13,6 @@ jobs:
     container: aswf/ci-opencue:2023
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -37,9 +34,6 @@ jobs:
     container: aswf/ci-opencue:2024
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
