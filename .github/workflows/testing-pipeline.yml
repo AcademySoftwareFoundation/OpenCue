@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           fetch-tags: true
       - name: Run Python Tests
         run: ci/run_python_tests.sh
@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           fetch-tags: true
       - name: Run Python Tests
         run: ci/run_python_tests.sh
