@@ -313,9 +313,8 @@ class HostMonitor(QtWidgets.QWidget):
         __hostSearch = self.hostMonitorTree.hostSearch
         if action.text() == "Clear":
             self.__clearLockStateFilter(__hostSearch)
-            return
-
-        self.__updateLockStateFilter(__hostSearch, action)
+        else:
+            self.__updateLockStateFilter(__hostSearch, action)
 
         self.hostMonitorTree.updateRequest()
 
