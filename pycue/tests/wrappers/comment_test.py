@@ -23,7 +23,7 @@ import unittest
 
 import mock
 
-from opencue.compiled_proto import comment_pb2
+from cuebot.proto import comment_pb2
 import opencue.wrappers.comment
 
 

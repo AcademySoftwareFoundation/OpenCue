@@ -5,33 +5,29 @@
 # This script is written to be run within the OpenCue GitHub Actions environment.
 # See `.github/workflows/testing-pipeline.yml`.
 
-set -e
+set -ex
 
 args=("$@")
 python_version=$(python -V 2>&1)
 echo "Will run tests using ${python_version}"
 
-pip install --user -r requirements.txt -r requirements_gui.txt
+pip uninstall --yes opencue_cuebot opencue_pycue opencue_pyoutline opencue_cueadmin opencue_cuesubmit opencue_rqd
 
-# Some rqd unit tests require docker api
-pip install docker==7.1.0
+pip install ./cuebot
 
-# Some rqd unit tests require lokiclient
-pip install loki-urllib3-client
+pip install ./pycue[test]
+python -m pytest pycue
 
-# Protos need to have their Python code generated in order for tests to pass.
-python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto --grpc_python_out=pycue/opencue/compiled_proto proto/*.proto
-python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc_python_out=rqd/rqd/compiled_proto proto/*.proto
+pip install ./pyoutline[test]
+python -m pytest pyoutline
 
-# Fix imports to work in both Python 2 and 3. See
-# <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
-python ci/fix_compiled_proto.py rqd/rqd/compiled_proto
+pip install ./cueadmin[test]
+python -m pytest cueadmin
 
-python -m unittest discover -s pycue/tests -t pycue -p "*.py"
-PYTHONPATH=pycue python -m unittest discover -s pyoutline/tests -t pyoutline -p "*.py"
-PYTHONPATH=pycue python -m unittest discover -s cueadmin/tests -t cueadmin -p "*.py"
-PYTHONPATH=pycue:pyoutline python -m unittest discover -s cuesubmit/tests -t cuesubmit -p "*.py"
+pip install ./cuesubmit[test]
+python -m pytest cuesubmit
+
+pip install ./rqd[test]
 python -m pytest rqd/tests
 python -m pytest rqd/pytests
 
