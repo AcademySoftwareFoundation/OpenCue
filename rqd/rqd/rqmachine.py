@@ -132,14 +132,6 @@ class Machine(object):
            by checking /etc/inittab. False if not."""
         if rqd.rqconstants.OVERRIDE_IS_DESKTOP:
             return True
-        if platform.system() == "Linux" and os.path.exists(rqd.rqconstants.PATH_INITTAB):
-            with open(rqd.rqconstants.PATH_INITTAB, "r", encoding='utf-8') as inittabFile:
-                for line in inittabFile:
-                    if line.startswith("id:5:initdefault:"):
-                        return True
-            if os.path.islink(rqd.rqconstants.PATH_INIT_TARGET):
-                if os.path.realpath(rqd.rqconstants.PATH_INIT_TARGET).endswith('graphical.target'):
-                    return True
         return False
 
     def isUserLoggedIn(self):
