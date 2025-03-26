@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "hatchling",
-    "versioningit",
+    "hatch-vcs",
     "grpcio==1.69.0",
     "grpcio-tools==1.69.0",
 ]
@@ -16,8 +16,11 @@ dependencies = [
 ]
 
 [tool.hatch.version]
-source = "versioningit"
-default-version = "0.0.0"
+source = "vcs"
+# default-version = "0.0.0"
+
+[tool.hatch.version.raw-options]
+root = "../"
 
 [tool.hatch.build.targets.wheel]
 packages = ["cuebot"]
