@@ -412,7 +412,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def getLocalPluginNumFrames(self):
         """Gets default values for the Local Plugin fields"""
-        return self.local_plugin_saved_values["num_frames"]
+        return self.local_plugin_saved_values.get("num_frames", 1)
 
     def setLocalPluginNumFrames(self, value):
         """Sets default values for the Local Plugin fields"""
@@ -420,7 +420,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def getLocalPluginNumThreads(self):
         """Gets default values for the Local Plugin fields"""
-        return self.local_plugin_saved_values["num_threads"]
+        return self.local_plugin_saved_values.get("num_threads", 1)
 
     def setLocalPluginNumThreads(self, value):
         """Sets default values for the Local Plugin fields"""
@@ -428,7 +428,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def getLocalPluginNumGpus(self):
         """Gets default values for the Local Plugin fields"""
-        return self.local_plugin_saved_values["num_gpus"]
+        return self.local_plugin_saved_values.get("num_gpus", 0)
 
     def setLocalPluginNumGpus(self, value):
         """Sets default values for the LocalPlugin fields"""
@@ -436,7 +436,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def getLocalPluginNumMem(self):
         """Gets default values for the LocalPlugin fields"""
-        return self.local_plugin_saved_values["num_mem"]
+        return self.local_plugin_saved_values.get("num_mem", 4)
 
     def setLocalPluginNumMem(self, value):
         """Sets default values for the LocalPlugin fields"""
@@ -444,7 +444,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def getLocalNumGpuMem(self):
         """Gets default values for the LocalPlugin fields"""
-        return self.local_plugin_saved_values["num_gpu_mem"]
+        return self.local_plugin_saved_values.get("num_gpu_mem", 0)
 
     def setLocalNumGpuMem(self, value):
         """Sets default values for the LocalPlugin fields"""
