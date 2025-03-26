@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -78,15 +74,13 @@ public class JobManagerSupport {
     public boolean shutdownJob(JobInterface job, Source source, boolean isManualKill) {
 
         if (isManualKill && source.getReason().isEmpty()) {
-            logger.info(job.getName() + "/" + job.getId() +
-                    " **Invalid Job Kill Request** for " + source.toString());
-        }
-        else {
+            logger.info(job.getName() + "/" + job.getId() + " **Invalid Job Kill Request** for "
+                    + source.toString());
+        } else {
             if (jobManager.shutdownJob(job)) {
                 /*
-                * Satisfy any dependencies on just the
-                * job record, not layers or frames.
-                */
+                 * Satisfy any dependencies on just the job record, not layers or frames.
+                 */
                 satisfyWhatDependsOn(job);
 
                 if (departmentManager.isManaged(job)) {
@@ -94,21 +88,21 @@ public class JobManagerSupport {
                 }
 
                 if (isManualKill) {
-                    logger.info(job.getName() + "/" + job.getId() +
-                            " is being manually killed by " + source.toString());
-                    
+                    logger.info(job.getName() + "/" + job.getId() + " is being manually killed by "
+                            + source.toString());
+
                     /**
-                     * Sleep a bit here in case any frames were
-                     * dispatched during the job shutdown process.
+                     * Sleep a bit here in case any frames were dispatched during the job shutdown
+                     * process.
                      */
                     try {
                         Thread.sleep(3000);
                     } catch (InterruptedException e1) {
-                        logger.info(job.getName() + "/" + job.getId() +
-                                " shutdown thread was interrupted.");
+                        logger.info(job.getName() + "/" + job.getId()
+                                + " shutdown thread was interrupted.");
                         Thread.currentThread().interrupt();
                     }
-                    
+
                     // Report kill requests to sentry
                     Sentry.configureScope(scope -> {
                         scope.setExtra("Job Name", job.getName());
@@ -116,25 +110,23 @@ public class JobManagerSupport {
                         scope.setExtra("Job Details", source.toString());
                         scope.setExtra("Kill Reason", source.getReason());
                         scope.setTag("job", job.getName());
-                        Sentry.captureMessage("Kill Request Successful");                        
+                        Sentry.captureMessage("Kill Request Successful");
                     });
-                    
+
                     FrameSearchInterface search = frameSearchFactory.create(job);
                     FrameSearchCriteria newCriteria = search.getCriteria();
                     FrameStateSeq states = newCriteria.getStates().toBuilder()
-                            .addFrameStates(FrameState.RUNNING)
-                            .build();
+                            .addFrameStates(FrameState.RUNNING).build();
                     search.setCriteria(newCriteria.toBuilder().setStates(states).build());
 
-                    for (FrameInterface frame: jobManager.findFrames(search)) {
+                    for (FrameInterface frame : jobManager.findFrames(search)) {
 
                         VirtualProc proc = null;
                         try {
                             proc = hostManager.findVirtualProc(frame);
-                        }
-                        catch (DataAccessException e) {
-                            logger.warn("Unable to find proc to kill frame " + frame +
-                                    " on job shutdown operation, " + e);
+                        } catch (DataAccessException e) {
+                            logger.warn("Unable to find proc to kill frame " + frame
+                                    + " on job shutdown operation, " + e);
                         }
 
                         if (manualStopFrame(frame, FrameState.WAITING)) {
@@ -143,10 +135,9 @@ public class JobManagerSupport {
                                     kill(proc, source);
                                 }
                             } catch (DataAccessException e) {
-                                logger.warn("Failed to kill frame " + frame +
-                                        " on job shutdown operation, " + e);
-                            }
-                            catch (Exception e) {
+                                logger.warn("Failed to kill frame " + frame
+                                        + " on job shutdown operation, " + e);
+                            } catch (Exception e) {
                                 logger.warn("error killing frame: " + frame);
                             }
                         }
@@ -154,9 +145,9 @@ public class JobManagerSupport {
                 }
 
                 /*
-                * Send mail after all frames have been stopped or else the email
-                * will have inaccurate numbers.
-                */
+                 * Send mail after all frames have been stopped or else the email will have
+                 * inaccurate numbers.
+                 */
                 emailSupport.sendShutdownEmail(job);
 
                 return true;
@@ -168,7 +159,7 @@ public class JobManagerSupport {
 
     public void reorderJob(JobInterface job, FrameSet frameSet, Order order) {
         List<LayerInterface> layers = jobManager.getLayers(job);
-        for (LayerInterface layer: layers) {
+        for (LayerInterface layer : layers) {
             jobManager.reorderLayer(layer, frameSet, order);
         }
     }
@@ -179,7 +170,7 @@ public class JobManagerSupport {
 
     public void staggerJob(JobInterface job, String range, int stagger) {
         List<LayerInterface> layers = jobManager.getLayers(job);
-        for (LayerInterface layer: layers) {
+        for (LayerInterface layer : layers) {
             jobManager.staggerLayer(layer, range, stagger);
         }
     }
@@ -190,40 +181,40 @@ public class JobManagerSupport {
 
     public void satisfyWhatDependsOn(FrameInterface frame) {
         List<LightweightDependency> depends = dependManager.getWhatDependsOn(frame);
-        logger.info("satisfying " + depends.size() +
-                " depends that are waiting on frame " + frame.getName());
-        for (LightweightDependency depend: depends) {
+        logger.info("satisfying " + depends.size() + " depends that are waiting on frame "
+                + frame.getName());
+        for (LightweightDependency depend : depends) {
             dependManager.satisfyDepend(depend);
         }
     }
 
     public void satisfyWhatDependsOn(LayerInterface layer) {
         List<LightweightDependency> depends = dependManager.getWhatDependsOn(layer);
-        logger.info("satisfying " + depends.size() +
-                " depends that are waiting on layer " + layer.getName());
-        for (LightweightDependency depend: dependManager.getWhatDependsOn(layer)) {
+        logger.info("satisfying " + depends.size() + " depends that are waiting on layer "
+                + layer.getName());
+        for (LightweightDependency depend : dependManager.getWhatDependsOn(layer)) {
             dependManager.satisfyDepend(depend);
         }
     }
 
     public void satisfyWhatDependsOn(JobInterface job) {
         List<LightweightDependency> depends = dependManager.getWhatDependsOn(job);
-        logger.info("satisfying " + depends.size() +
-                " depends that are waiting on job " + job.getName());
-        for (LightweightDependency depend: dependManager.getWhatDependsOn(job)) {
+        logger.info("satisfying " + depends.size() + " depends that are waiting on job "
+                + job.getName());
+        for (LightweightDependency depend : dependManager.getWhatDependsOn(job)) {
             dependManager.satisfyDepend(depend);
         }
     }
 
     public void satisfyWhatDependsOn(JobInterface job, DependTarget target) {
-        for (LightweightDependency depend: dependManager.getWhatDependsOn(job, target)) {
+        for (LightweightDependency depend : dependManager.getWhatDependsOn(job, target)) {
             dependManager.satisfyDepend(depend);
         }
     }
 
     public void satisfyWhatDependsOn(FrameSearchInterface request) {
-        for (FrameInterface frame: jobManager.findFrames(request)) {
-            for (LightweightDependency depend: dependManager.getWhatDependsOn(frame)) {
+        for (FrameInterface frame : jobManager.findFrames(request)) {
+            for (LightweightDependency depend : dependManager.getWhatDependsOn(frame)) {
                 dependManager.satisfyDepend(depend);
             }
         }
@@ -234,25 +225,20 @@ public class JobManagerSupport {
     }
 
     /*
-     * Destructive functions require a extra Source argument which contains
-     * information about the user making the call. This information is
-     * propagated down to the frame log file.
+     * Destructive functions require a extra Source argument which contains information about the
+     * user making the call. This information is propagated down to the frame log file.
      *
-     * There are three main destructive functions.
-     * kill, retry, and eat.
+     * There are three main destructive functions. kill, retry, and eat.
      *
-     * Before a frame is retried or eaten, the new frame state must be
-     * set and committed to the DB before the call to RQD is made to
-     * actually kill the frame. This will tell the dispatcher what
+     * Before a frame is retried or eaten, the new frame state must be set and committed to the DB
+     * before the call to RQD is made to actually kill the frame. This will tell the dispatcher what
      * to do with the frame when RQD sends in the FrameCompleteReport.
      *
      * See RqdReportManagerService.determineFrameState
      */
 
-
     /**
-     * Kill the specified frame.  If RQD throws back an
-     * exception, the proc is considered lost and is
+     * Kill the specified frame. If RQD throws back an exception, the proc is considered lost and is
      * manually removed.
      *
      * @param p
@@ -261,36 +247,32 @@ public class JobManagerSupport {
     public void kill(VirtualProc p, Source source) {
         try {
             rqdClient.killFrame(p, source.toString());
-        }
-        catch (java.lang.Throwable e) {
-            dispatchSupport.lostProc(p, "clearing due to failed kill," +
-                    p.getName() + "," + e, Dispatcher.EXIT_STATUS_FAILED_KILL);
+        } catch (java.lang.Throwable e) {
+            dispatchSupport.lostProc(p, "clearing due to failed kill," + p.getName() + "," + e,
+                    Dispatcher.EXIT_STATUS_FAILED_KILL);
         }
     }
 
     /**
-     * Kill a list procs.  If RQD throws back an
-     * exception, the proc is considered lost and is
+     * Kill a list procs. If RQD throws back an exception, the proc is considered lost and is
      * manually removed.
      *
      * @param procs
      * @param source
      */
     public void kill(Collection<VirtualProc> procs, Source source) {
-        for (VirtualProc p: procs) {
+        for (VirtualProc p : procs) {
             try {
                 rqdClient.killFrame(p, source.toString());
-            }
-            catch (java.lang.Throwable e) {
-                dispatchSupport.lostProc(p, "clearing due to failed kill," +
-                        p.getName() + "," + e, Dispatcher.EXIT_STATUS_FAILED_KILL);
+            } catch (java.lang.Throwable e) {
+                dispatchSupport.lostProc(p, "clearing due to failed kill," + p.getName() + "," + e,
+                        Dispatcher.EXIT_STATUS_FAILED_KILL);
             }
         }
     }
 
     /**
-     * Kills a frame.  This is a convenience method for when you have
-     * a reference to the Frame and
+     * Kills a frame. This is a convenience method for when you have a reference to the Frame and
      *
      * @param frame
      * @param source
@@ -300,8 +282,7 @@ public class JobManagerSupport {
     }
 
     /**
-     * Unbook and optionally kill all procs that match the specified
-     * search criteria.
+     * Unbook and optionally kill all procs that match the specified search criteria.
      *
      * @param r
      * @param killProc
@@ -310,15 +291,14 @@ public class JobManagerSupport {
      */
     public int unbookProcs(ProcSearchInterface r, boolean killProc, Source source) {
         List<VirtualProc> procs = hostManager.findBookedVirtualProcs(r);
-        for (VirtualProc proc: procs) {
+        for (VirtualProc proc : procs) {
             unbookProc(proc, killProc, source);
         }
         return procs.size();
     }
 
     /**
-     * Unbook and optionally kill all procs that match the specified
-     * search criteria.
+     * Unbook and optionally kill all procs that match the specified search criteria.
      *
      * @param proc
      * @param killProc
@@ -347,7 +327,7 @@ public class JobManagerSupport {
             hostManager.unbookVirtualProcs(procs);
         }
 
-        for (VirtualProc proc: procs) {
+        for (VirtualProc proc : procs) {
             kill(proc, source);
         }
     }
@@ -371,7 +351,7 @@ public class JobManagerSupport {
             hostManager.unbookVirtualProcs(procs);
         }
 
-        for (VirtualProc proc: procs) {
+        for (VirtualProc proc : procs) {
             kill(proc, source);
         }
     }
@@ -389,7 +369,7 @@ public class JobManagerSupport {
             hostManager.unbookVirtualProcs(procs);
         }
 
-        for (VirtualProc proc: procs) {
+        for (VirtualProc proc : procs) {
             kill(proc, source);
         }
     }
@@ -401,12 +381,12 @@ public class JobManagerSupport {
      * @param source
      */
     public void retryFrames(FrameSearchInterface request, Source source) {
-        for (FrameInterface frame: jobManager.findFrames(request)) {
+        for (FrameInterface frame : jobManager.findFrames(request)) {
             try {
                 retryFrame(frame, source);
             } catch (Exception e) {
-                CueExceptionUtil.logStackTrace("Failed to retry frame " + frame +
-                        " from source " + source, e);
+                CueExceptionUtil.logStackTrace(
+                        "Failed to retry frame " + frame + " from source " + source, e);
             }
         }
     }
@@ -425,8 +405,7 @@ public class JobManagerSupport {
         try {
             proc = hostManager.findVirtualProc(frame);
         } catch (EmptyResultDataAccessException e) {
-            logger.info("failed to obtain information for " +
-                    "proc running on frame: " + frame);
+            logger.info("failed to obtain information for " + "proc running on frame: " + frame);
         }
 
         if (manualStopFrame(frame, FrameState.WAITING)) {
@@ -434,25 +413,23 @@ public class JobManagerSupport {
                 redirectManager.addRedirect(proc, (JobInterface) proc, false, source);
                 kill(proc, source);
             }
-        }
-        else {
+        } else {
             jobManager.updateFrameState(frame, FrameState.WAITING);
         }
 
         /**
-         * If a frame is retried that was part of a dependency, that
-         * dependency should become active again.
+         * If a frame is retried that was part of a dependency, that dependency should become active
+         * again.
          */
 
         // Handle FrameOnFrame depends.
-        for (LightweightDependency depend: dependManager.getWhatDependsOn(
-                frame, false)) {
+        for (LightweightDependency depend : dependManager.getWhatDependsOn(frame, false)) {
             dependManager.unsatisfyDepend(depend);
         }
 
         // Handle LayerOnLayer depends.
-        for (LightweightDependency depend: dependManager.getWhatDependsOn(
-                (LayerInterface) frame, false)) {
+        for (LightweightDependency depend : dependManager.getWhatDependsOn((LayerInterface) frame,
+                false)) {
             dependManager.unsatisfyDepend(depend);
         }
 
@@ -462,22 +439,20 @@ public class JobManagerSupport {
     }
 
     /**
-     * Eat frames that match the specified FrameSearch.  Eaten
-     * frames are considered "Succeeded" by the dispatcher.
-     * A Job with all eaten frames will leave the cue.
+     * Eat frames that match the specified FrameSearch. Eaten frames are considered "Succeeded" by
+     * the dispatcher. A Job with all eaten frames will leave the cue.
      *
      * @param request
      * @param source
      */
     public void eatFrames(FrameSearchInterface request, Source source) {
-        for (FrameInterface frame: jobManager.findFrames(request)) {
+        for (FrameInterface frame : jobManager.findFrames(request)) {
             eatFrame(frame, source);
         }
     }
 
     /**
-     * Eat the specified frame.  Eaten frames are
-     * considered "Succeeded" by the dispatcher.  A Job
+     * Eat the specified frame. Eaten frames are considered "Succeeded" by the dispatcher. A Job
      * with all eaten frames will leave the cue.
      *
      * @param frame
@@ -491,16 +466,14 @@ public class JobManagerSupport {
         try {
             proc = hostManager.findVirtualProc(frame);
         } catch (EmptyResultDataAccessException e) {
-            logger.info("failed to obtain information " +
-                    "for proc running on frame: " + frame);
+            logger.info("failed to obtain information " + "for proc running on frame: " + frame);
         }
 
         if (manualStopFrame(frame, FrameState.EATEN)) {
             if (proc != null) {
                 kill(proc, source);
             }
-        }
-        else {
+        } else {
             jobManager.updateFrameState(frame, FrameState.EATEN);
         }
         if (jobManager.isJobComplete(frame)) {
@@ -509,38 +482,33 @@ public class JobManagerSupport {
     }
 
     /**
-     * Marks the result of the specified frame search as
-     * FrameState.Waiting and decrease the depend count to 0
-     * no matter how many active depends exists.
+     * Marks the result of the specified frame search as FrameState.Waiting and decrease the depend
+     * count to 0 no matter how many active depends exists.
      *
      * @param request
      * @param source
      */
     public void markFramesAsWaiting(FrameSearchInterface request, Source source) {
-        for (FrameInterface frame: jobManager.findFrames(request)) {
+        for (FrameInterface frame : jobManager.findFrames(request)) {
             jobManager.markFrameAsWaiting(frame);
         }
     }
 
     /**
-     * Stops the specified frame. Return true if the call to
-     * this method actually stops the frame, ie the state changes
-     * from Running to the given state.  Return false if the
-     * frame was already stopped.
+     * Stops the specified frame. Return true if the call to this method actually stops the frame,
+     * ie the state changes from Running to the given state. Return false if the frame was already
+     * stopped.
      *
-     * Stopping the frame also removes the link between the frame
-     * and the proc. The proc still exists, but, its assigned
-     * frame is null.
+     * Stopping the frame also removes the link between the frame and the proc. The proc still
+     * exists, but, its assigned frame is null.
      *
      * @param frame
      * @param state
      */
     private boolean manualStopFrame(FrameInterface frame, FrameState state) {
-        if (dispatchSupport.stopFrame(frame, state,
-                state.ordinal() + 500)) {
-            dispatchSupport.updateUsageCounters(frame,
-                        state.ordinal() + 500);
-            logger.info("Manually stopping frame: "+ frame);
+        if (dispatchSupport.stopFrame(frame, state, state.ordinal() + 500)) {
+            dispatchSupport.updateUsageCounters(frame, state.ordinal() + 500);
+            logger.info("Manually stopping frame: " + frame);
             return true;
         }
         return false;
@@ -626,4 +594,3 @@ public class JobManagerSupport {
         this.frameSearchFactory = frameSearchFactory;
     }
 }
-

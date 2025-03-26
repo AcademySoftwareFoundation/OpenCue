@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue;
 
@@ -26,15 +22,12 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 /**
- * Contains information about local desktop cores a user has
- * assigned to the given job.
+ * Contains information about local desktop cores a user has assigned to the given job.
  *
- * The local-only option, if true, means the job will only dispatch
- * a user's local cores.  If false, the job will dispatch cores from
- * both the user's machine and the render farm.
+ * The local-only option, if true, means the job will only dispatch a user's local cores. If false,
+ * the job will dispatch cores from both the user's machine and the render farm.
  */
-public class LocalHostAssignment extends Entity
-    implements ResourceContainer {
+public class LocalHostAssignment extends Entity implements ResourceContainer {
 
     private static final Logger logger = LogManager.getLogger(LocalHostAssignment.class);
 
@@ -57,9 +50,10 @@ public class LocalHostAssignment extends Entity
 
     private RenderPartitionType type;
 
-    public LocalHostAssignment() { }
+    public LocalHostAssignment() {}
 
-    public LocalHostAssignment(int maxCores, int threads, long maxMemory, int maxGpus, long maxGpuMemory) {
+    public LocalHostAssignment(int maxCores, int threads, long maxMemory, int maxGpus,
+            long maxGpuMemory) {
         this.maxCoreUnits = maxCores;
         this.threads = threads;
         this.maxMemory = maxMemory;
@@ -76,35 +70,34 @@ public class LocalHostAssignment extends Entity
             logger.debug("Requested " + requestedCores + " cores.");
             return requestedCores;
         }
-        if (requestedCores <=0 && idleCoreUnits < threads) {
+        if (requestedCores <= 0 && idleCoreUnits < threads) {
             // If request is negative but cores are already used, return 0.
             // We don't want to overbook the host.
-            logger.debug("Requested " + requestedCores + " cores, but the host is busy and cannot book more jobs.");
+            logger.debug("Requested " + requestedCores
+                    + " cores, but the host is busy and cannot book more jobs.");
             return 0;
         }
         // Book all cores minus the request
         int totalCores = idleCoreUnits + requestedCores;
-        logger.debug("Requested " + requestedCores + " cores  <= 0, " +
-                     idleCoreUnits + " cores are free, booking " + totalCores + " cores");
+        logger.debug("Requested " + requestedCores + " cores  <= 0, " + idleCoreUnits
+                + " cores are free, booking " + totalCores + " cores");
         return totalCores;
     }
 
     @Override
-    public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus, long minGpuMemory) {
+    public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus,
+            long minGpuMemory) {
         minCores = handleNegativeCoresRequirement(minCores);
         if (idleCoreUnits < minCores) {
             return false;
         }
         if (minCores <= 0) {
             return false;
-        }
-        else if (idleMemory <  minMemory) {
+        } else if (idleMemory < minMemory) {
             return false;
-        }
-        else if (idleGpuUnits < minGpus) {
+        } else if (idleGpuUnits < minGpus) {
             return false;
-        }
-        else if (idleGpuMemory <  minGpuMemory) {
+        } else if (idleGpuMemory < minGpuMemory) {
             return false;
         }
 
@@ -231,4 +224,3 @@ public class LocalHostAssignment extends Entity
         this.type = type;
     }
 }
-

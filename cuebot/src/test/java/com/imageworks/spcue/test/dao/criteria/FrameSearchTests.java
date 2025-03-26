@@ -2,17 +2,15 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package com.imageworks.spcue.test.dao.criteria;
@@ -55,7 +53,7 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
@@ -82,8 +80,8 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
     @Before
     public void launchTestJobs() {
         ClassLoader classLoader = getClass().getClassLoader();
-        File file = new File(
-                classLoader.getResource("conf/jobspec/jobspec_depend_test.xml").getFile());
+        File file =
+                new File(classLoader.getResource("conf/jobspec/jobspec_depend_test.xml").getFile());
 
         jobLauncher.testMode = true;
         jobLauncher.launch(file);
@@ -105,10 +103,8 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
     @Transactional
     @Rollback
     public void testSetCriteria() {
-        FrameSearchCriteria criteria = FrameSearchInterface.criteriaFactory()
-                .toBuilder()
-                .setFrameRange("1-10")
-                .build();
+        FrameSearchCriteria criteria =
+                FrameSearchInterface.criteriaFactory().toBuilder().setFrameRange("1-10").build();
         FrameSearchInterface frameSearch = frameSearchFactory.create();
 
         // Ensure we can distinguish between the default and non-default criteria.
@@ -200,9 +196,8 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
 
         assertEquals(10, frames.size());
         assertTrue(
-                frames.stream().allMatch(
-                        frame -> frameDao.getFrameDetail(
-                                frame.getFrameId()).state.equals(FrameState.SUCCEEDED)));
+                frames.stream().allMatch(frame -> frameDao.getFrameDetail(frame.getFrameId()).state
+                        .equals(FrameState.SUCCEEDED)));
     }
 
     @Test
@@ -218,11 +213,8 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
                 .map(frame -> jobManager.getFrame(frame.getId())).collect(Collectors.toList());
 
         assertEquals(8, frames.size());
-        assertThat(
-                frames.stream().map(
-                        frame -> frameDao.getFrameDetail(frame.getFrameId()).number)
-                        .collect(Collectors.toList()))
-                .containsOnly(5, 6);
+        assertThat(frames.stream().map(frame -> frameDao.getFrameDetail(frame.getFrameId()).number)
+                .collect(Collectors.toList())).containsOnly(5, 6);
     }
 
     @Test
@@ -231,18 +223,18 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
     public void filterByMemoryRange() {
         JobInterface job = jobDao.findJob("pipe-dev.cue-testuser_depend_test_a");
         LayerInterface layer = layerDao.getLayers(job).get(0);
-        IntStream.range(1, 11).forEach(
-                i -> {
-                    FrameInterface frame = frameDao.findFrame(layer, i);
-                    frameDao.updateFrameState(frame, FrameState.RUNNING);
-                    frameDao.updateFrameMemoryUsageAndLluTime(frame, CueUtil.GB * 5, CueUtil.GB, 0);
-                });
+        IntStream.range(1, 11).forEach(i -> {
+            FrameInterface frame = frameDao.findFrame(layer, i);
+            frameDao.updateFrameState(frame, FrameState.RUNNING);
+            frameDao.updateFrameMemoryUsageAndLluTime(frame, CueUtil.GB * 5, CueUtil.GB, 0);
+        });
 
         FrameSearchInterface frameSearch = frameSearchFactory.create();
         frameSearch.filterByMemoryRange("4.2-7.1");
 
         List<FrameDetail> frames = whiteboardDao.getFrames(frameSearch).getFramesList().stream()
-                .map(frame -> jobManager.getFrameDetail(frame.getId())).collect(Collectors.toList());
+                .map(frame -> jobManager.getFrameDetail(frame.getId()))
+                .collect(Collectors.toList());
 
         assertEquals(10, frames.size());
         assertTrue(frames.stream().allMatch(frame -> frame.maxRss == CueUtil.GB * 5));

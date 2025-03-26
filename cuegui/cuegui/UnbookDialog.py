@@ -195,6 +195,7 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
         return [result]
 
     def accept(self):
+        """Accept Unbook action"""
         if not self.__jobs:
             self.close()
 

@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -43,76 +39,75 @@ import com.imageworks.spcue.grpc.depend.DependTarget;
 public interface DependManager {
 
     /**
-     * This just calls createDepend(Dependency depend) with
-     * the result of buildDepend(BuildableDependency depend).
-     * This is mainly for convenience.
+     * This just calls createDepend(Dependency depend) with the result of
+     * buildDepend(BuildableDependency depend). This is mainly for convenience.
      *
      * @param BuildableDependency depend
      */
     void createDepend(BuildableDependency depend);
 
     List<LightweightDependency> getWhatDependsOn(JobInterface job);
+
     List<LightweightDependency> getWhatDependsOn(JobInterface job, DependTarget target);
 
     /**
-     * Return any dependencies that reference the given frame
-     * as the frame to depend on.
+     * Return any dependencies that reference the given frame as the frame to depend on.
      *
      * @param frame
-     * @param active     To limit results to only active depends, set
-     *                   this to true.  To limit results to only
-     *                   inactive depends, set this to false.
+     * @param active To limit results to only active depends, set this to true. To limit results to
+     *        only inactive depends, set this to false.
      * @return
      */
     List<LightweightDependency> getWhatDependsOn(FrameInterface frame, boolean active);
+
     List<LightweightDependency> getWhatDependsOn(FrameInterface frame);
+
     List<LightweightDependency> getWhatDependsOn(LayerInterface layer);
 
     /**
-    * Return any dependencies that reference the given layer
-    * as the layer to depend on.
-    *
-    * @param layer
-    * @param active     To limit results to only active depends, set
-    *                   this to true.  To limit results to only
-    *                   inactive depends, set this to false.
-    * @return
-    */
+     * Return any dependencies that reference the given layer as the layer to depend on.
+     *
+     * @param layer
+     * @param active To limit results to only active depends, set this to true. To limit results to
+     *        only inactive depends, set this to false.
+     * @return
+     */
     List<LightweightDependency> getWhatDependsOn(LayerInterface layer, boolean active);
 
     LightweightDependency getDepend(String id);
+
     void satisfyDepend(LightweightDependency depend);
 
     /**
-     * Returns a list of depends where the specified job is the depender.  Passing a
-     * depend target will limit the results to either internal or external. This
-     * method returns active depends only.
+     * Returns a list of depends where the specified job is the depender. Passing a depend target
+     * will limit the results to either internal or external. This method returns active depends
+     * only.
      *
      * @param Job
      * @param DependTarget
-     * @return  List<LightweightDependency>
+     * @return List<LightweightDependency>
      */
     public List<LightweightDependency> getWhatThisDependsOn(JobInterface job, DependTarget target);
 
     /**
-     * Returns a list of depends the layer depends on.  Passing in a depend
-     * target will limit the results to either internal, external or both.
-     * This method returns active depends only.
+     * Returns a list of depends the layer depends on. Passing in a depend target will limit the
+     * results to either internal, external or both. This method returns active depends only.
      *
      * @param Layer
      * @return List<LightweightDependency>
      */
-    public List<LightweightDependency> getWhatThisDependsOn(LayerInterface layer, DependTarget target);
+    public List<LightweightDependency> getWhatThisDependsOn(LayerInterface layer,
+            DependTarget target);
 
     /**
-     * Returns a list of depends the frame depends on.  Passing in a depend
-     * target will limit the results to either internal, external, or both.This
-     * method returns active depends only.
+     * Returns a list of depends the frame depends on. Passing in a depend target will limit the
+     * results to either internal, external, or both.This method returns active depends only.
      *
      * @param Frame
      * @return List<LightweightDependency>
      */
-    public List<LightweightDependency> getWhatThisDependsOn(FrameInterface frame, DependTarget target);
+    public List<LightweightDependency> getWhatThisDependsOn(FrameInterface frame,
+            DependTarget target);
 
     /**
      * Create a JobOnJob depend.
@@ -192,8 +187,7 @@ public interface DependManager {
     void createDepend(PreviousFrame depend);
 
     /**
-     * Unsatisfy the specified dependency. Currently only works
-     * for FrameOnFrame depends.
+     * Unsatisfy the specified dependency. Currently only works for FrameOnFrame depends.
      *
      * @param depend
      */
@@ -206,4 +200,3 @@ public interface DependManager {
      */
     void createDepend(LayerOnSimFrame depend);
 }
-

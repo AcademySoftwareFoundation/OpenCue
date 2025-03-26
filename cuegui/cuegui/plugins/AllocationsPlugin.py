@@ -161,12 +161,15 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """When right clicking on an item, this raises a context menu"""
 
     def dragEnterEvent(self, event):
+        """Drag enter event"""
         cuegui.Utils.dragEnterEvent(event, "application/x-host-ids")
 
     def dragMoveEvent(self, event):
+        """Drag move event"""
         cuegui.Utils.dragMoveEvent(event, "application/x-host-ids")
 
     def dropEvent(self, event):
+        """Drop event"""
         item = self.itemAt(event.pos())
 
         if item.type() == cuegui.Constants.TYPE_ALLOC:
@@ -181,8 +184,7 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self.updateSoon()
 
     def tick(self):
-        # tick is unused in this widget
-        pass
+        """no-op"""
 
 
 class AllocationWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):

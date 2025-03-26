@@ -1,4 +1,5 @@
 ci
+!ci/fix_compiled_proto.py
 cuebot/src/compiled_protobuf
 images
 samples

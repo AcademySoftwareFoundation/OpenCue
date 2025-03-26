@@ -126,14 +126,6 @@ class Machine(object):
             # pylint: enable=no-member
         return True
 
-    def isNimbySafeToUnlock(self):
-        """Returns False if nimby should not unlock due to resource limits"""
-        if not self.isNimbySafeToRunJobs():
-            return False
-        if self.getLoadAvg() / self.__coreInfo.total_cores > rqd.rqconstants.MAXIMUM_LOAD:
-            return False
-        return True
-
     @rqd.rqutil.Memoize
     def isDesktop(self):
         """Returns True if machine starts in run level 5 (X11)
@@ -302,7 +294,7 @@ class Machine(object):
                         if re.search(r"\d+", child_statm_fields[1]) else -1
 
                 # pylint: disable=broad-except
-                except (OSError, IOError):
+                except (OSError, IOError, psutil.ZombieProcess):
                     # Many Linux processes are ephemeral and will disappear before we're able
                     # to read them. This is not typically indicative of a problem.
                     log.debug('Failed to read stat/statm file for pid %s', pid)
@@ -315,7 +307,7 @@ class Machine(object):
 
             values = list(frames.values())
             for frame in values:
-                if frame.pid > 0:
+                if frame.pid is not None and frame.pid > 0:
                     session = str(frame.pid)
                     rss = 0
                     vsize = 0
@@ -355,7 +347,8 @@ class Machine(object):
                                         pidPcpu = totalTime / seconds
                                         pcpu += pidPcpu
                                         pidData[pid] = totalTime, seconds, pidPcpu
-                                # only keep the highest recorded rss value
+                                # If children was already accounted for, only keep the highest
+                                # recorded rss value
                                 if pid in frame.childrenProcs:
                                     childRss = (int(data["rss"]) * resource.getpagesize()) // 1024
                                     if childRss > frame.childrenProcs[pid]['rss']:
@@ -441,7 +434,7 @@ class Machine(object):
             with open(rqd.rqconstants.PATH_LOADAVG, "r", encoding='utf-8') as loadAvgFile:
                 loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
                 if self.__enabledHT():
-                    loadAvg = loadAvg // self.__getHyperthreadingMultiplier()
+                    loadAvg = loadAvg // self.getHyperthreadingMultiplier()
                 loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
                 loadAvg = max(loadAvg, 0)
                 return loadAvg
@@ -670,20 +663,8 @@ class Machine(object):
             hyperthreadingMultiplier = 1
 
         if platform.system() == 'Windows':
-            # Windows memory information
-            stat = self.getWindowsMemory()
-            TEMP_DEFAULT = 1048576
-            self.__renderHost.total_mcp = TEMP_DEFAULT
-            self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
-            self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
-
-            # Windows CPU information
-            logical_core_count = psutil.cpu_count(logical=True)
-            actual_core_count = psutil.cpu_count(logical=False)
-            hyperthreadingMultiplier = logical_core_count // actual_core_count
-
-            __totalCores = logical_core_count * rqd.rqconstants.CORE_VALUE
-            __numProcs = 1  # TODO: figure out how to count sockets in Python
+            logicalCoreCount, __numProcs, hyperthreadingMultiplier = self.__initStatsFromWindows()
+            __totalCores = logicalCoreCount * rqd.rqconstants.CORE_VALUE
 
         # All other systems will just have one proc/core
         if not __numProcs or not __totalCores:
@@ -712,6 +693,65 @@ class Machine(object):
 
         if hyperthreadingMultiplier >= 1:
             self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
+
+    def __initStatsFromWindows(self):
+        """Init machine stats for Windows platforms.
+
+        @rtype:  tuple
+        @return: A 3-items tuple containing:
+            - the number of logical cores
+            - the number of physical processors
+            - the hyper-threading multiplier
+        """
+        # Windows memory information
+        stat = self.getWindowsMemory()
+        TEMP_DEFAULT = 1048576
+        self.__renderHost.total_mcp = TEMP_DEFAULT
+        self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
+        self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
+
+        # Windows CPU information
+        self.__updateProcsMappingsFromWindows()
+
+        logicalCoreCount = psutil.cpu_count(logical=True)
+        actualCoreCount = psutil.cpu_count(logical=False)
+        hyperThreadingMultiplier = logicalCoreCount // actualCoreCount
+
+        physicalProcessorCount = len(self.__procs_by_physid_and_coreid)
+
+        return logicalCoreCount, physicalProcessorCount, hyperThreadingMultiplier
+
+    def __updateProcsMappingsFromWindows(self):
+        """
+        Update `__procs_by_physid_and_coreid` and `__physid_and_coreid_by_proc` mappings
+        for Windows platforms.
+        """
+        # Windows-specific
+        import wmi  # pylint:disable=import-outside-toplevel,import-error
+
+        # Reset mappings
+        self.__procs_by_physid_and_coreid = {}
+        self.__physid_and_coreid_by_proc = {}
+
+        # Connect to the Windows Management Instrumentation (WMI) interface
+        wmiInstance = wmi.WMI()
+
+        # Retrieve CPU information using WMI
+        for physicalId, processor in enumerate(wmiInstance.Win32_Processor()):
+
+            threadPerCore = processor.NumberOfLogicalProcessors // processor.NumberOfCores
+            procId = 0
+
+            for coreId in range(processor.NumberOfCores):
+                for _ in range(threadPerCore):
+                    self.__procs_by_physid_and_coreid.setdefault(
+                        str(physicalId), {}
+                    ).setdefault(str(coreId), set()).add(str(procId))
+                    self.__physid_and_coreid_by_proc[str(procId)] = (
+                        str(physicalId),
+                        str(coreId),
+                    )
+                    procId += 1
 
     def getWindowsMemory(self):
         """Gets information on system memory, Windows compatible version."""
@@ -811,7 +851,7 @@ class Machine(object):
 
         # Updates dynamic information
         self.__renderHost.load = self.getLoadAvg()
-        self.__renderHost.nimby_enabled = self.__rqCore.nimby.active
+        self.__renderHost.nimby_enabled = self.__rqCore.nimby.is_ready
         self.__renderHost.nimby_locked = self.__rqCore.nimby.locked
         self.__renderHost.state = self.state
 
@@ -846,7 +886,11 @@ class Machine(object):
     def __enabledHT(self):
         return 'hyperthreadingMultiplier' in self.__renderHost.attributes
 
-    def __getHyperthreadingMultiplier(self):
+    def getHyperthreadingMultiplier(self):
+        """
+        Multiplied used to compute the number of threads that can be allocated simultaneously
+        on a core
+        """
         return int(self.__renderHost.attributes['hyperthreadingMultiplier'])
 
     def setupTaskset(self):
@@ -870,7 +914,7 @@ class Machine(object):
         if frameCores % 100:
             log.warning('Taskset: Can not reserveHT with fractional cores')
             return None
-        log.warning('Taskset: Requesting reserve of %d', (frameCores // 100))
+        log.info('Taskset: Requesting reserve of %d', (frameCores // 100))
 
         # Look for the most idle physical cpu.
         # Prefer to assign cores from the same physical cpu.

@@ -176,10 +176,11 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.meminfo = self.fs.create_file('/proc/meminfo', contents=MEMINFO_MODERATE_USAGE)
 
         self.rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
-        self.nimby = mock.MagicMock(spec=rqd.rqnimby.NimbySelect)
+        self.nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
         self.rqCore.nimby = self.nimby
-        self.nimby.active = False
+        self.nimby.is_ready = False
         self.nimby.locked = False
+        self.nimby._Nimby__on_interaction.return_value = None
         self.coreDetail = rqd.compiled_proto.report_pb2.CoreDetail(total_cores=2)
 
         self.machine = rqd.rqmachine.Machine(self.rqCore, self.coreDetail)
@@ -201,27 +202,6 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.meminfo.set_contents(MEMINFO_NO_SWAP)
 
         self.assertFalse(self.machine.isNimbySafeToRunJobs())
-
-    @mock.patch.object(
-        rqd.rqmachine.Machine, 'isNimbySafeToRunJobs', new=mock.MagicMock(return_value=True))
-    def test_isNimbySafeToUnlock(self):
-        self.loadavg.set_contents(LOADAVG_LOW_USAGE)
-        rqd.rqconstants.MAXIMUM_LOAD = 5
-
-        self.assertTrue(self.machine.isNimbySafeToUnlock())
-
-    @mock.patch.object(
-        rqd.rqmachine.Machine, 'isNimbySafeToRunJobs', new=mock.MagicMock(return_value=False))
-    def test_isNimbySafeToUnlock_unsafeToRunJobs(self):
-        self.assertFalse(self.machine.isNimbySafeToUnlock())
-
-    @mock.patch.object(
-        rqd.rqmachine.Machine, 'isNimbySafeToRunJobs', new=mock.MagicMock(return_value=True))
-    def test_isNimbySafeToUnlock_loadTooHigh(self):
-        self.loadavg.set_contents(LOADAVG_HIGH_USAGE)
-        rqd.rqconstants.MAXIMUM_LOAD = 5
-
-        self.assertFalse(self.machine.isNimbySafeToUnlock())
 
     def test_isDesktop_inittabDesktop(self):
         rqd.rqconstants.OVERRIDE_IS_DESKTOP = False
@@ -328,7 +308,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
     @mock.patch.object(
         rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=True))
     @mock.patch.object(
-        rqd.rqmachine.Machine, '_Machine__getHyperthreadingMultiplier',
+        rqd.rqmachine.Machine, 'getHyperthreadingMultiplier',
         new=mock.MagicMock(return_value=2))
     def test_getLoadAvgHT(self):
         self.loadavg.set_contents(LOADAVG_HIGH_USAGE)

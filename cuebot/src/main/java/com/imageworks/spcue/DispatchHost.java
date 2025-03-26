@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue;
 
@@ -28,7 +24,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 public class DispatchHost extends Entity
-    implements HostInterface, FacilityInterface, ResourceContainer {
+        implements HostInterface, FacilityInterface, ResourceContainer {
 
     private static final Logger logger = LogManager.getLogger(DispatchHost.class);
 
@@ -51,14 +47,13 @@ public class DispatchHost extends Entity
     public long gpuMemory;
     public long idleGpuMemory;
     public String tags;
-    public String os;
+    private String os;
 
     public boolean isNimby;
     public boolean isLocalDispatch = false;
 
     /**
-     * Number of cores that will be added to the first proc
-     * booked to this host.
+     * Number of cores that will be added to the first proc booked to this host.
      */
     public int strandedCores = 0;
     public int strandedGpus = 0;
@@ -79,6 +74,14 @@ public class DispatchHost extends Entity
 
     public String getFacilityId() {
         return facilityId;
+    }
+
+    public String[] getOs() {
+        return this.os.split(",");
+    }
+
+    public void setOs(String os) {
+        this.os = os;
     }
 
     public boolean canHandleNegativeCoresRequest(int requestedCores) {
@@ -106,35 +109,34 @@ public class DispatchHost extends Entity
             logger.debug("Requested " + requestedCores + " cores.");
             return requestedCores;
         }
-        if (requestedCores <=0 && idleCores < cores) {
+        if (requestedCores <= 0 && idleCores < cores) {
             // If request is negative but cores are already used, return 0.
             // We don't want to overbook the host.
-            logger.debug("Requested " + requestedCores + " cores, but the host is busy and cannot book more jobs.");
+            logger.debug("Requested " + requestedCores
+                    + " cores, but the host is busy and cannot book more jobs.");
             return 0;
         }
         // Book all cores minus the request
         int totalCores = idleCores + requestedCores;
-        logger.debug("Requested " + requestedCores + " cores  <= 0, " +
-                     idleCores + " cores are free, booking " + totalCores + " cores");
+        logger.debug("Requested " + requestedCores + " cores  <= 0, " + idleCores
+                + " cores are free, booking " + totalCores + " cores");
         return totalCores;
     }
 
     @Override
-    public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus, long minGpuMemory) {
+    public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus,
+            long minGpuMemory) {
         minCores = handleNegativeCoresRequirement(minCores);
         if (idleCores < minCores) {
             return false;
         }
         if (minCores <= 0) {
             return false;
-        }
-        else if (idleMemory <  minMemory) {
+        } else if (idleMemory < minMemory) {
             return false;
-        }
-        else if (idleGpus < minGpus) {
+        } else if (idleGpus < minGpus) {
             return false;
-        }
-        else if (idleGpuMemory <  minGpuMemory) {
+        } else if (idleGpuMemory < minGpuMemory) {
             return false;
         }
 
@@ -185,4 +187,3 @@ public class DispatchHost extends Entity
         }
     }
 }
-

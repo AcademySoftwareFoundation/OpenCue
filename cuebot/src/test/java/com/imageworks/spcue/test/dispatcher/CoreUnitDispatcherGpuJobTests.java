@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dispatcher;
 
@@ -78,16 +74,15 @@ public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {
 
     private static final String HOSTNAME = "beta";
 
-    private static final String JOBNAME =
-        "pipe-dev.cue-middletier_shell_dispatch_gpu_test_v1";
+    private static final String JOBNAME = "pipe-dev.cue-middletier_shell_dispatch_gpu_test_v1";
 
-    private static final String TARGET_JOB =
-        "pipe-dev.cue-middletier_shell_dispatch_gpu_test_v2";
+    private static final String TARGET_JOB = "pipe-dev.cue-middletier_shell_dispatch_gpu_test_v2";
 
     @Before
     public void launchJob() {
         jobLauncher.testMode = true;
-        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_gpu_test.xml"));
+        jobLauncher
+                .launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_gpu_test.xml"));
     }
 
     @Before
@@ -97,30 +92,16 @@ public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {
 
     @Before
     public void createHost() {
-        RenderHost host = RenderHost.newBuilder()
-                .setName(HOSTNAME)
-                .setBootTime(1192369572)
+        RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(CueUtil.GB)
-                .setFreeMem((int) CueUtil.GB8)
-                .setFreeSwap(20760)
-                .setLoad(1)
-                .setTotalMcp(CueUtil.GB4)
-                .setTotalMem((int) CueUtil.GB8)
-                .setTotalSwap((int) CueUtil.GB2)
-                .setNimbyEnabled(false)
-                .setNumProcs(1)
-                .setCoresPerProc(200)
-                .addTags("test")
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .putAttributes("SP_OS", "Linux")
-                .setFreeGpuMem((int) CueUtil.MB512)
-                .setTotalGpuMem((int) CueUtil.MB512)
-                .build();
+                .setFreeMcp(CueUtil.GB).setFreeMem((int) CueUtil.GB8).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem((int) CueUtil.GB8)
+                .setTotalSwap((int) CueUtil.GB2).setNimbyEnabled(false).setNumProcs(1)
+                .setCoresPerProc(200).addTags("test").setState(HardwareState.UP).setFacility("spi")
+                .putAttributes("SP_OS", "Linux").setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512).build();
 
-        hostManager.createHost(host,
-                adminManager.findAllocationDetail("spi", "general"));
+        hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
     }
 
     public JobDetail getJob() {
@@ -141,7 +122,7 @@ public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {
     public void testDispatchHost() {
         DispatchHost host = getHost();
 
-        List<VirtualProc> procs =  dispatcher.dispatchHost(host);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(1, procs.size());
     }
 
@@ -155,7 +136,7 @@ public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {
         host.idleMemory = host.idleMemory - Math.min(CueUtil.GB4, host.idleMemory);
         host.idleCores = host.idleCores - Math.min(100, host.idleCores);
         host.idleGpuMemory = 0;
-        List<VirtualProc> procs =  dispatcher.dispatchHost(host, job);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host, job);
         assertEquals(0, procs.size());
     }
 
@@ -167,7 +148,7 @@ public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {
         JobDetail job = getJob();
         GroupDetail group = groupManager.getGroupDetail(job);
 
-        List<VirtualProc> procs =  dispatcher.dispatchHost(host, group);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host, group);
         assertEquals(1, procs.size());
     }
 
@@ -179,7 +160,7 @@ public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {
         JobDetail job = getJob();
         ShowEntity show = adminManager.findShowEntity("edu");
 
-        List<VirtualProc> procs =  dispatcher.dispatchHost(host);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(1, procs.size());
     }
 
@@ -191,7 +172,7 @@ public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {
         JobDetail job = getJob();
         ShowEntity show = adminManager.findShowEntity("edu");
 
-        List<VirtualProc> procs =  dispatcher.dispatchHost(host, show);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host, show);
         assertEquals(0, procs.size());
     }
 
@@ -207,4 +188,3 @@ public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {
         dispatcher.dispatchProcToJob(proc, job);
     }
 }
-

@@ -41,7 +41,7 @@ import rqd.rqnimby
 
 class RqCoreTests(unittest.TestCase):
 
-    @mock.patch("rqd.rqnimby.NimbyPynput", autospec=True)
+    @mock.patch("rqd.rqnimby.Nimby", autospec=True)
     @mock.patch("rqd.rqnetwork.Network", autospec=True)
     @mock.patch("rqd.rqmachine.Machine", autospec=True)
     def setUp(self, machineMock, networkMock, nimbyMock):
@@ -159,6 +159,7 @@ class RqCoreTests(unittest.TestCase):
         self.rqcore.storeFrame(
             "frame-id", mock.MagicMock(spec=rqd.rqnetwork.RunningFrame)
         )
+        self.rqcore.backup_cache_path = None
 
         self.rqcore.updateRss()
 
@@ -329,7 +330,7 @@ class RqCoreTests(unittest.TestCase):
     @mock.patch("os._exit")
     def test_launchFrameOnHostWaitingForShutdown(self, exitMock):
         self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
-        self.nimbyMock.return_value.active = False
+        self.nimbyMock.return_value.is_ready = False
         frame = rqd.compiled_proto.rqd_pb2.RunFrame()
         self.rqcore.shutdownRqdIdle()
 
@@ -346,7 +347,7 @@ class RqCoreTests(unittest.TestCase):
         frameIgnoreNimby = rqd.compiled_proto.rqd_pb2.RunFrame(
             uid=22, num_cores=10, ignore_nimby=True
         )
-        self.rqcore.nimby = mock.create_autospec(rqd.rqnimby.NimbySelect)
+        self.rqcore.nimby = mock.create_autospec(rqd.rqnimby.Nimby)
         self.rqcore.nimby.locked = True
 
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
@@ -410,7 +411,7 @@ class RqCoreTests(unittest.TestCase):
     @mock.patch("os._exit")
     def test_rebootNowNoUser(self, exitMock):
         self.machineMock.return_value.isUserLoggedIn.return_value = False
-        self.nimbyMock.return_value.active = False
+        self.nimbyMock.return_value.is_ready = False
 
         self.rqcore.rebootNow()
 
@@ -425,7 +426,7 @@ class RqCoreTests(unittest.TestCase):
     @mock.patch("os._exit")
     def test_rebootIdleNoFrames(self, exitMock):
         self.machineMock.return_value.isUserLoggedIn.return_value = False
-        self.nimbyMock.return_value.active = False
+        self.nimbyMock.return_value.is_ready = False
 
         self.rqcore.rebootIdle()
 
@@ -587,6 +588,103 @@ class RqCoreTests(unittest.TestCase):
         )
 
 
+class RqCoreBackupTests(pyfakefs.fake_filesystem_unittest.TestCase):
+    def setUp(self):
+        self.rqcore = rqd.rqcore.RqCore()
+        self.setUpPyfakefs()
+
+    @mock.patch('builtins.open', new_callable=mock.mock_open)
+    def test_backupCache_withPath(self, mockOpen):
+        """Test backupCache writes frame data when backup path is configured"""
+        self.rqcore.backup_cache_path = '/tmp/rqd/cache.dat'
+        frameId = 'frame123'
+        runningFrame = mock.MagicMock()
+        runningFrame.runFrame = mock.MagicMock()
+        runningFrame.runFrame.SerializeToString.return_value = b'serialized_frame_data'
+        self.rqcore.storeFrame(frameId, runningFrame)
+
+        self.rqcore.backupCache()
+
+        mockOpen.assert_called_once_with('/tmp/rqd/cache.dat', 'wb')
+        handle = mockOpen()
+        handle.write.assert_called_with(b'serialized_frame_data')
+
+    def test_backupCache_noPath(self):
+        """Test backupCache does nothing when no backup path configured"""
+        self.rqcore.backup_cache_path = None
+        frameId = 'frame123'
+        runFrame = mock.MagicMock()
+        self.rqcore.storeFrame(frameId, runFrame)
+
+        self.rqcore.backupCache()
+
+        runFrame.SerializeToString.assert_not_called()
+
+    def test_recoverCache_noPath(self):
+        """Test recoverCache does nothing when no backup path configured"""
+        self.rqcore.backup_cache_path = None
+
+        self.rqcore.recoverCache()
+
+        self.assertEqual(len(self.rqcore._RqCore__cache), 0)
+
+    @mock.patch('os.path.exists')
+    def test_recoverCache_noFile(self, mockExists):
+        """Test recoverCache does nothing when backup file doesn't exist"""
+        self.rqcore.backup_cache_path = '/tmp/rqd/cache.dat'
+        mockExists.return_value = False
+
+        self.rqcore.recoverCache()
+
+        self.assertEqual(len(self.rqcore._RqCore__cache), 0)
+
+    @mock.patch('os.path.getmtime')
+    @mock.patch('time.time')
+    @mock.patch('os.path.exists')
+    def test_recoverCache_expiredFile(self, mockExists, mockTime, mockGetmtime):
+        """Test recoverCache does nothing when backup file is too old"""
+        self.rqcore.backup_cache_path = '/tmp/rqd/cache.dat'
+        mockExists.return_value = True
+        mockTime.return_value = 1000
+        mockGetmtime.return_value = 1 # Very old file
+
+        self.rqcore.recoverCache()
+
+        self.assertEqual(len(self.rqcore._RqCore__cache), 0)
+
+    @mock.patch("rqd.rqcore.FrameAttendantThread", autospec=True)
+    def test_recoverCache_validBackup(self, attendant_patch):
+        """Test recoverCache skips frames that fail to parse"""
+        self.rqcore.backup_cache_path = 'cache.dat'
+
+        frameId = 'frame123'
+        frame = rqd.compiled_proto.rqd_pb2.RunFrame(
+            job_id = "job_id",
+            job_name = "job_name",
+            frame_id = frameId,
+            frame_name = "frame_name",
+            num_cores = 4
+        )
+        running_frame = rqd.rqnetwork.RunningFrame(self.rqcore, frame)
+        self.rqcore.storeFrame(frameId, running_frame)
+        self.rqcore.cores.idle_cores = 8
+        self.rqcore.cores.booked_cores = 0
+        self.rqcore.backupCache()
+        self.rqcore._RqCore__cache = {}
+        self.rqcore.recoverCache()
+        self.assertEqual(4, self.rqcore.cores.idle_cores)
+        self.assertEqual(4, self.rqcore.cores.booked_cores)
+
+    def test_recoverCache_invalidFrame(self):
+        """Test recoverCache loads frame data from valid backup file"""
+        self.rqcore.backup_cache_path = 'cache.dat'
+        with open(self.rqcore.backup_cache_path, "w", encoding='utf-8') as f:
+            f.write("this is not a run frame")
+
+        self.rqcore.recoverCache()
+
+        self.assertNotIn('frame123', self.rqcore._RqCore__cache)
+
 @mock.patch("rqd.rqutil.checkAndCreateUser", new=mock.MagicMock())
 @mock.patch("rqd.rqutil.permissionsHigh", new=mock.MagicMock())
 @mock.patch("rqd.rqutil.permissionsLow", new=mock.MagicMock())
@@ -637,6 +735,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
+        rqCore.docker_agent = None
         children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
@@ -664,10 +763,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
                 "-p",
                 "-o",
                 jobTempPath + "rqd-stat-" + frameId + "-" + str(currentTime),
-                "/bin/su",
-                frameUsername,
-                "-c",
-                '"' + tempDir + "/rqd-cmd-" + frameId + "-" + str(currentTime) + '"',
+                tempDir + "/rqd-cmd-" + frameId + "-" + str(currentTime),
             ],
             env=mock.ANY,
             cwd=jobTempPath,
@@ -685,6 +781,112 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.sendFrameCompleteReport.assert_called_with(
             frameInfo
         )
+
+    @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
+    @mock.patch('tempfile.gettempdir')
+    def test_runDocker(self, getTempDirMock, permsUser, timeMock, popenMock):
+        # given
+        currentTime = 1568070634.3
+        jobTempPath = '/job/temp/path/'
+        logDir = '/path/to/log/dir/'
+        tempDir = '/some/random/temp/dir'
+        frameId = 'arbitrary-frame-id'
+        jobName = 'arbitrary-job-name'
+        frameName = 'arbitrary-frame-name'
+        frameUid = 928
+        frameUsername = 'my-random-user'
+        returnCode = 0
+        softLimit = 2000000000
+        hardLimit = 5000000000
+        renderHost = rqd.compiled_proto.report_pb2.RenderHost(name='arbitrary-host-name')
+        logFile = os.path.join(logDir, '%s.%s.rqlog' % (jobName, frameName))
+
+        self.fs.create_dir(tempDir)
+
+        timeMock.return_value = currentTime
+        getTempDirMock.return_value = tempDir
+
+        rqCore = mock.MagicMock()
+        rqCore.intervalStartTime = 20
+        rqCore.intervalSleepTime = 40
+        rqCore.machine.getTempPath.return_value = jobTempPath
+        rqCore.machine.isDesktop.return_value = True
+        rqCore.machine.getHostInfo.return_value = renderHost
+        rqCore.nimby.locked = False
+
+        children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
+
+        # Test Valid memory limit
+        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
+            frame_id=frameId,
+            job_name=jobName,
+            frame_name=frameName,
+            uid=frameUid,
+            user_name=frameUsername,
+            log_dir=logDir,
+            children=children,
+            environment={"ENVVAR": "env_value"},
+            os="centos7",
+            soft_memory_limit=softLimit,
+            hard_memory_limit=hardLimit)
+        frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
+
+        # when
+        attendantThread = rqd.rqcore.FrameAttendantThread(rqCore, runFrame, frameInfo)
+        attendantThread.start()
+        attendantThread.join()
+
+        # then
+        cmd_file = os.path.join(tempDir, 'rqd-cmd-%s-%s' % (runFrame.frame_id, currentTime))
+        rqCore.docker_agent.runContainer.assert_called_with(
+            image_key="centos7",
+            environment=mock.ANY,
+            working_dir=jobTempPath,
+            hostname=mock.ANY,
+            mem_reservation=softLimit*1000,
+            mem_limit=hardLimit*1000,
+            entrypoint=cmd_file
+        )
+
+        self.assertTrue(os.path.exists(logDir))
+        self.assertTrue(os.path.isfile(logFile))
+
+        rqCore.sendFrameCompleteReport.assert_called_with(
+            frameInfo
+        )
+
+        ### Test minimum memory limit
+        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
+            frame_id=frameId,
+            job_name=jobName,
+            frame_name=frameName,
+            uid=frameUid,
+            user_name=frameUsername,
+            log_dir=logDir,
+            children=children,
+            environment={"ENVVAR": "env_value"},
+            os="centos7",
+            soft_memory_limit=1,
+            hard_memory_limit=2)
+        frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
+
+        # when
+        attendantThread = rqd.rqcore.FrameAttendantThread(rqCore, runFrame, frameInfo)
+        attendantThread.start()
+        attendantThread.join()
+
+        # then
+        cmd_file = os.path.join(tempDir, 'rqd-cmd-%s-%s' % (runFrame.frame_id, currentTime))
+        rqCore.docker_agent.runContainer.assert_called_with(
+            image_key="centos7",
+            environment=mock.ANY,
+            working_dir=jobTempPath,
+            hostname=mock.ANY,
+            mem_reservation="1GB",
+            mem_limit="2GB",
+            entrypoint=cmd_file
+        )
+
 
     # TODO(bcipriano) Re-enable this test once Windows is supported. The main sticking point here
     #   is that the log directory is always overridden on Windows which makes mocking difficult.
@@ -789,6 +991,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
+        rqCore.docker_agent = None
         children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(

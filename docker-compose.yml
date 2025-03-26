@@ -33,8 +33,10 @@ services:
     ports:
       - "8443:8443"
     depends_on:
-      - db
-      - flyway
+      db:
+        condition: service_started
+      flyway:
+        condition: service_completed_successfully
     restart: always
     environment:
       - CUE_FRAME_LOG_DIR=/tmp/rqd/logs
@@ -43,9 +45,11 @@ services:
   rqd:
     image: opencue/rqd
     environment:
+      - PYTHONUNBUFFERED=1
       - CUEBOT_HOSTNAME=cuebot
     depends_on:
-      - cuebot
+      cuebot:
+        condition: service_healthy
     links:
       - cuebot
     ports:

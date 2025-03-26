@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dispatcher;
 
@@ -41,14 +37,13 @@ public class HostReportQueue extends ThreadPoolExecutor {
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
     private int queueCapacity;
 
-    private Cache<String, HostReportWrapper> hostMap = CacheBuilder.newBuilder()
-            .expireAfterWrite(1, TimeUnit.HOURS)
-            .build();
+    private Cache<String, HostReportWrapper> hostMap =
+            CacheBuilder.newBuilder().expireAfterWrite(1, TimeUnit.HOURS).build();
 
     /**
      * Wrapper around protobuf object HostReport to add reportTi
      */
-    private class HostReportWrapper{
+    private class HostReportWrapper {
         private final HostReport hostReport;
         private final WeakReference<DispatchHandleHostReport> reportTaskRef;
         public long taskTime = System.currentTimeMillis();
@@ -72,7 +67,7 @@ public class HostReportQueue extends ThreadPoolExecutor {
     }
 
     public HostReportQueue(int threadPoolSizeInitial, int threadPoolSizeMax, int queueSize) {
-        super(threadPoolSizeInitial, threadPoolSizeMax, 10 , TimeUnit.SECONDS,
+        super(threadPoolSizeInitial, threadPoolSizeMax, 10, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<Runnable>(queueSize));
         this.setRejectedExecutionHandler(rejectCounter);
     }
@@ -82,11 +77,12 @@ public class HostReportQueue extends ThreadPoolExecutor {
             return;
         }
         HostReportWrapper oldWrappedReport = hostMap.getIfPresent(newReport.getKey());
-        // If hostReport exists on the cache and there's also a task waiting to be executed
+        // If hostReport exists on the cache and there's also a task waiting to be
+        // executed
         // replace the old report by the new on, but refrain from creating another task
         if (oldWrappedReport != null) {
             DispatchHandleHostReport oldReport = oldWrappedReport.getReportTask();
-            if(oldReport != null) {
+            if (oldReport != null) {
                 // Replace report, but keep the reference of the existing task
                 hostMap.put(newReport.getKey(),
                         new HostReportWrapper(newReport.getHostReport(), oldReport));
@@ -119,14 +115,17 @@ public class HostReportQueue extends ThreadPoolExecutor {
 
     public void shutdown() {
         if (!isShutdown.getAndSet(true)) {
-            logger.info("Shutting down report pool, currently " + this.getActiveCount() + " active threads.");
+            logger.info("Shutting down report pool, currently " + this.getActiveCount()
+                    + " active threads.");
 
             final long startTime = System.currentTimeMillis();
             while (this.getQueue().size() != 0 && this.getActiveCount() != 0) {
                 try {
-                    logger.info("report pool is waiting for " + this.getQueue().size() + " more units to complete");
+                    logger.info("report pool is waiting for " + this.getQueue().size()
+                            + " more units to complete");
                     if (System.currentTimeMillis() - startTime > 10000) {
-                        throw new InterruptedException("report thread pool failed to shutdown properly");
+                        throw new InterruptedException(
+                                "report thread pool failed to shutdown properly");
                     }
                     Thread.sleep(250);
                 } catch (InterruptedException e) {
@@ -141,4 +140,3 @@ public class HostReportQueue extends ThreadPoolExecutor {
         return getQueue().remainingCapacity() > 0;
     }
 }
-

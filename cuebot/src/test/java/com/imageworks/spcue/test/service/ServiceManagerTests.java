@@ -2,22 +2,18 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
-
 package com.imageworks.spcue.test.service;
-
 
 import java.io.File;
 import javax.annotation.Resource;
@@ -47,10 +43,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
     ServiceManager serviceManager;
@@ -135,19 +130,18 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
     @Rollback(true)
     public void testJobLaunch() {
 
-        JobSpec spec = jobLauncher.parse(
-                new File("src/test/resources/conf/jobspec/services.xml"));
+        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/services.xml"));
         jobLauncher.launch(spec);
 
         ServiceEntity shell = serviceManager.getService("shell");
         ServiceEntity prman = serviceManager.getService("prman");
         ServiceEntity cuda = serviceManager.getService("cuda");
-        LayerDetail shellLayer = layerDao.getLayerDetail(
-                spec.getJobs().get(0).getBuildableLayers().get(0).layerDetail.id);
-        LayerDetail prmanLayer = layerDao.getLayerDetail(
-                spec.getJobs().get(0).getBuildableLayers().get(1).layerDetail.id);
-        LayerDetail cudaLayer = layerDao.getLayerDetail(
-                spec.getJobs().get(0).getBuildableLayers().get(3).layerDetail.id);
+        LayerDetail shellLayer = layerDao
+                .getLayerDetail(spec.getJobs().get(0).getBuildableLayers().get(0).layerDetail.id);
+        LayerDetail prmanLayer = layerDao
+                .getLayerDetail(spec.getJobs().get(0).getBuildableLayers().get(1).layerDetail.id);
+        LayerDetail cudaLayer = layerDao
+                .getLayerDetail(spec.getJobs().get(0).getBuildableLayers().get(3).layerDetail.id);
 
         assertEquals(shell.minCores, shellLayer.minimumCores);
         assertEquals(shell.minMemory, shellLayer.minimumMemory);
@@ -178,9 +172,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/services.xml"));
         jobLauncher.launch(spec);
 
-        assertFalse(
-                layerDao.findLayerDetail(
-                        spec.getJobs().get(0).detail, "arnold_layer").isThreadable);
+        assertFalse(layerDao.findLayerDetail(spec.getJobs().get(0).detail,
+                "arnold_layer").isThreadable);
     }
 }
-

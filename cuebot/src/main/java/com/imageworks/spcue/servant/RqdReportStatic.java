@@ -1,5 +1,4 @@
 
-
 package com.imageworks.spcue.servant;
 
 import io.grpc.stub.StreamObserver;
@@ -14,7 +13,6 @@ import com.imageworks.spcue.grpc.report.RqdReportRunningFrameCompletionResponse;
 import com.imageworks.spcue.grpc.report.RqdReportStatusRequest;
 import com.imageworks.spcue.grpc.report.RqdReportStatusResponse;
 
-
 public class RqdReportStatic extends RqdReportInterfaceGrpc.RqdReportInterfaceImplBase {
 
     private FrameCompleteHandler frameCompleteHandler;
@@ -24,7 +22,7 @@ public class RqdReportStatic extends RqdReportInterfaceGrpc.RqdReportInterfaceIm
 
     @Override
     public void reportRqdStartup(RqdReportRqdStartupRequest request,
-                                 StreamObserver<RqdReportRqdStartupResponse> responseObserver) {
+            StreamObserver<RqdReportRqdStartupResponse> responseObserver) {
         hostReportHandler.queueBootReport(request.getBootReport());
         responseObserver.onNext(RqdReportRqdStartupResponse.newBuilder().build());
         responseObserver.onCompleted();
@@ -32,14 +30,15 @@ public class RqdReportStatic extends RqdReportInterfaceGrpc.RqdReportInterfaceIm
 
     @Override
     public void reportRunningFrameCompletion(RqdReportRunningFrameCompletionRequest request,
-                                             StreamObserver<RqdReportRunningFrameCompletionResponse> responseObserver) {
+            StreamObserver<RqdReportRunningFrameCompletionResponse> responseObserver) {
         frameCompleteHandler.handleFrameCompleteReport(request.getFrameCompleteReport());
         responseObserver.onNext(RqdReportRunningFrameCompletionResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void reportStatus(RqdReportStatusRequest request, StreamObserver<RqdReportStatusResponse> responseObserver) {
+    public void reportStatus(RqdReportStatusRequest request,
+            StreamObserver<RqdReportStatusResponse> responseObserver) {
         hostReportHandler.queueHostReport(request.getHostReport());
         responseObserver.onNext(RqdReportStatusResponse.newBuilder().build());
         responseObserver.onCompleted();

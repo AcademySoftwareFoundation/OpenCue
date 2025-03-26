@@ -60,6 +60,7 @@ class HostMonitor(QtWidgets.QWidget):
         self.__filterByHostNameSetup(hlayout)
         self.__filterAllocationSetup(hlayout)
         self.__filterHardwareStateSetup(hlayout)
+        self.__filterLockStateSetup(hlayout)
         hlayout.addStretch()
         self.__refreshToggleCheckBoxSetup(hlayout)
         self.__refreshButtonSetup(hlayout)
@@ -113,6 +114,7 @@ class HostMonitor(QtWidgets.QWidget):
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setFixedWidth(24)
         layout.addWidget(btn)
+        # pylint: disable=no-member
         QtCore.QObject.connect(btn,
                                QtCore.SIGNAL('clicked()'),
                                self.__filterByHostNameClear)
@@ -149,6 +151,7 @@ class HostMonitor(QtWidgets.QWidget):
 
         menu = QtWidgets.QMenu(self)
         btn.setMenu(menu)
+        # pylint: disable=no-member
         QtCore.QObject.connect(menu,
                                QtCore.SIGNAL("triggered(QAction*)"),
                                self.__filterAllocationHandle)
@@ -210,12 +213,13 @@ class HostMonitor(QtWidgets.QWidget):
         btn.setContentsMargins(0, 0, 0, 0)
         btn.setFlat(True)
 
+        # pylint: disable=no-member
         menu = QtWidgets.QMenu(self)
         btn.setMenu(menu)
         QtCore.QObject.connect(menu,
                                QtCore.SIGNAL("triggered(QAction*)"),
                                self.__filterHardwareStateHandle)
-
+        # pylint: enable=no-member
         for item in ["Clear", None] + self.__filterHardwareStateList:
             if item:
                 a = QtWidgets.QAction(menu)
@@ -263,9 +267,99 @@ class HostMonitor(QtWidgets.QWidget):
         self.hostMonitorTree.updateRequest()
 
     # ==============================================================================
+    # Menu to filter by lock state
+    # ==============================================================================
+    def __filterLockStateSetup(self, layout):
+        self.__filterLockStateList = sorted(opencue.api.host_pb2.LockState.keys())
+
+        btn = QtWidgets.QPushButton("Filter LockState")
+        btn.setMaximumHeight(FILTER_HEIGHT)
+        btn.setFocusPolicy(QtCore.Qt.NoFocus)
+        btn.setContentsMargins(0, 0, 0, 0)
+        btn.setFlat(True)
+
+        menu = QtWidgets.QMenu(self)
+        btn.setMenu(menu)
+        QtCore.QObject.connect(menu,
+                               QtCore.SIGNAL("triggered(QAction*)"),
+                               self.__filterLockStateHandle)
+
+        for item in ["Clear", None] + self.__filterLockStateList:
+            if item:
+                a = QtWidgets.QAction(menu)
+                a.setText(str(item))
+                if item != "Clear":
+                    a.setCheckable(True)
+                menu.addAction(a)
+            else:
+                menu.addSeparator()
+
+        layout.addWidget(btn)
+        self.__filterLockStateButton = btn
+
+    def __filterLockStateClear(self):
+        """Clears the currently selected lock state menu items"""
+        btn = self.__filterLockStateButton
+        menu = btn.menu()
+        for action in menu.actions():
+            action.setChecked(False)
+        self.hostMonitorTree.hostSearch.options['lock_state'] = []
+
+    def __filterLockStateHandle(self, action):
+        """Called when an option in the filter lock state menu is triggered.
+        Tells the HostMonitorTree widget what lock state to filter by.
+        @param action: Defines the menu item selected
+        @type  action: QAction"""
+        __hostSearch = self.hostMonitorTree.hostSearch
+        if action.text() == "Clear":
+            self.__clearLockStateFilter(__hostSearch)
+        else:
+            self.__updateLockStateFilter(__hostSearch, action)
+
+        self.hostMonitorTree.updateRequest()
+
+    def __clearLockStateFilter(self, __hostSearch):
+        """
+        Clears the currently selected lock state menu items and updates the search options.
+        @param __hostSearch: The host search criteria object to update.
+        @type __hostSearch: HostSearchCriteria
+        """
+        for item in self.__filterLockStateButton.menu().actions():
+            if item.isChecked() and item.text() != "Clear":
+                # Remove the lock state from the search options
+                __hostSearch.options['lock_state'].remove(
+                    getattr(opencue.api.host_pb2, str(item.text())))
+            # Uncheck the menu item
+            item.setChecked(False)
+
+    def __updateLockStateFilter(self, __hostSearch, action):
+        """
+        Updates the lock state filter based on the selected action.
+        @param __hostSearch: The host search criteria object to update.
+        @type __hostSearch: HostSearchCriteria
+        @param action: The action that was triggered.
+        @type action: QAction
+        """
+        # Get the current lock states from the search options
+        lock_states = __hostSearch.options.get('lock_state', [])
+        # Get the lock state corresponding to the action text
+        lock_state = getattr(opencue.api.host_pb2, str(action.text()))
+
+        if action.isChecked():
+            # Add the lock state if the action is checked
+            lock_states.append(lock_state)
+        else:
+            # Remove the lock state if the action is unchecked
+            lock_states.remove(lock_state)
+
+        # Update the search options with the new lock states
+        __hostSearch.options['lock_state'] = lock_states
+
+    # ==============================================================================
     # Checkbox to toggle auto-refresh
     # ==============================================================================
     def __refreshToggleCheckBoxSetup(self, layout):
+        # pylint: disable=no-member
         checkBox = QtWidgets.QCheckBox("Auto-refresh", self)
         layout.addWidget(checkBox)
         if self.hostMonitorTree.enableRefresh:
@@ -274,6 +368,7 @@ class HostMonitor(QtWidgets.QWidget):
                                QtCore.SIGNAL('stateChanged(int)'),
                                self.__refreshToggleCheckBoxHandle)
         __refreshToggleCheckBoxCheckBox = checkBox
+        # pylint: enable=no-member
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.hostMonitorTree.enableRefresh = bool(state)
@@ -300,7 +395,7 @@ class HostMonitor(QtWidgets.QWidget):
     def __refreshButtonDisableHandle(self):
         """Called when the refresh button should be disabled"""
         self.btn_refresh.setEnabled(False)
-        QtCore.QTimer.singleShot(5000, self.__refreshButtonEnableHandle)
+        QtCore.QTimer.singleShot(5000, self.__refreshButtonEnableHandle) # pylint: disable=no-member
 
     # ==============================================================================
     # Button to clear all filters
@@ -321,6 +416,7 @@ class HostMonitor(QtWidgets.QWidget):
         self.hostMonitorTree.ticksWithoutUpdate = -1
         self.__filterAllocationClear()
         self.__filterHardwareStateClear()
+        self.__filterLockStateClear()
         self.__filterByHostNameClear()
         self.hostMonitorTree.clearFilters()
 

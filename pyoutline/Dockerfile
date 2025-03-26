@@ -24,7 +24,8 @@ RUN python3 -m grpc_tools.protoc \
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-RUN python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
+COPY ci/fix_compiled_proto.py ./ci/
+RUN python3 ci/fix_compiled_proto.py pycue/opencue/compiled_proto
 
 COPY pyoutline/README.md ./pyoutline/
 COPY pyoutline/setup.py ./pyoutline/

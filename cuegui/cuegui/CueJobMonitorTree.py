@@ -264,9 +264,11 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cuegui.Utils.startDrag(self, dropActions, self.selectedObjects())
 
     def dragEnterEvent(self, event):
+        """Called after a drag event begins"""
         cuegui.Utils.dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
+        """Called on a drag move event"""
         cuegui.Utils.dragMoveEvent(event)
 
         # Causes the list to scroll when dragging is over the top or bottom 20%
@@ -288,6 +290,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.verticalScrollBar().setValue(self.verticalScrollBar().value() + move)
 
     def dropEvent(self, event):
+        """Drop event action"""
         item = self.itemAt(event.pos())
 
         if item and item.type() in (cuegui.Constants.TYPE_ROOTGROUP, cuegui.Constants.TYPE_GROUP):
@@ -307,7 +310,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                           % item.rpcObject.data.name,
                                     event_item=item,
                                     items=body_content,
-                                    dist_groups={},
+                                    dst_groups={},
                                     parent=self)
                 dialog.exec_()
 
@@ -482,6 +485,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                             "Failed to create tree item. RootView might be closed", exc_info=True)
 
     def mouseDoubleClickEvent(self, event):
+        """Event triggered by a mouse click"""
         del event
         objects = self.selectedObjects()
         if objects:
@@ -861,12 +865,14 @@ class MoveDialog(QtWidgets.QDialog):
         _hlayout.addWidget(_btn_cancel)
         _vlayout.addLayout(_hlayout)
 
+        # pylint: disable=no-member
         self.connect(_btn_accept,
                      QtCore.SIGNAL("clicked()"),
                      self.move_items)
         self.connect(_btn_cancel,
                      QtCore.SIGNAL("clicked()"),
                      self.reject)
+        # pylint: enable=no-member
 
     def move_items(self):
         """Reparent jobs to new group"""

@@ -245,6 +245,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.jobDataChanged()
 
     def showEvent(self, event):
+        """Show Event"""
         del event
 
         if self.startupErrors:

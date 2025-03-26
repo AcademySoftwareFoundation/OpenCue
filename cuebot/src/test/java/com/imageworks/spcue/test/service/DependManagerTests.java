@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.service;
 
@@ -101,10 +97,8 @@ public class DependManagerTests extends TransactionalTest {
     }
 
     private int getTotalDependCount(JobInterface job) {
-        return frameDao.findFrameDetails(frameSearchFactory.create(job))
-                .stream()
-                .mapToInt(frame -> frame.dependCount)
-                .sum();
+        return frameDao.findFrameDetails(frameSearchFactory.create(job)).stream()
+                .mapToInt(frame -> frame.dependCount).sum();
     }
 
     private boolean hasDependFrames(JobInterface job) {
@@ -114,10 +108,8 @@ public class DependManagerTests extends TransactionalTest {
     }
 
     private int getTotalDependCount(LayerInterface layer) {
-        return frameDao.findFrameDetails(frameSearchFactory.create(layer))
-                .stream()
-                .mapToInt(frame -> frame.dependCount)
-                .sum();
+        return frameDao.findFrameDetails(frameSearchFactory.create(layer)).stream()
+                .mapToInt(frame -> frame.dependCount).sum();
     }
 
     private boolean hasDependFrames(LayerInterface layer) {
@@ -127,10 +119,8 @@ public class DependManagerTests extends TransactionalTest {
     }
 
     private int getTotalDependCount(FrameInterface frame) {
-        return frameDao.findFrameDetails(frameSearchFactory.create(frame))
-                .stream()
-                .mapToInt(frameDetail -> frameDetail.dependCount)
-                .sum();
+        return frameDao.findFrameDetails(frameSearchFactory.create(frame)).stream()
+                .mapToInt(frameDetail -> frameDetail.dependCount).sum();
     }
 
     private boolean hasDependFrames(FrameInterface frame) {
@@ -177,7 +167,6 @@ public class DependManagerTests extends TransactionalTest {
         assertEquals(1, getTotalDependCount(frame_a));
     }
 
-
     @Test
     @Transactional
     @Rollback(true)
@@ -194,7 +183,7 @@ public class DependManagerTests extends TransactionalTest {
         assertEquals(20, getTotalDependCount(job_a));
         assertEquals(0, getTotalDependCount(job_b));
 
-        for (LightweightDependency lwd: dependDao.getWhatDependsOn(job_b)) {
+        for (LightweightDependency lwd : dependDao.getWhatDependsOn(job_b)) {
             dependManager.satisfyDepend(lwd);
         }
 
@@ -221,7 +210,7 @@ public class DependManagerTests extends TransactionalTest {
         assertEquals(20, getTotalDependCount(job_a));
         assertEquals(0, getTotalDependCount(job_b));
 
-        for (LightweightDependency lwd: dependDao.getWhatDependsOn(layer_b)) {
+        for (LightweightDependency lwd : dependDao.getWhatDependsOn(layer_b)) {
             dependManager.satisfyDepend(lwd);
         }
 
@@ -249,7 +238,7 @@ public class DependManagerTests extends TransactionalTest {
         assertEquals(20, getTotalDependCount(job_a));
         assertEquals(0, getTotalDependCount(job_b));
 
-        for (LightweightDependency lwd: dependDao.getWhatDependsOn(frame_b)) {
+        for (LightweightDependency lwd : dependDao.getWhatDependsOn(frame_b)) {
             dependManager.satisfyDepend(lwd);
         }
 
@@ -274,7 +263,7 @@ public class DependManagerTests extends TransactionalTest {
         assertTrue(hasDependFrames(layer_a));
         assertEquals(10, getTotalDependCount(layer_a));
 
-        for (LightweightDependency lwd: dependDao.getWhatDependsOn(job_b)) {
+        for (LightweightDependency lwd : dependDao.getWhatDependsOn(job_b)) {
             dependManager.satisfyDepend(lwd);
         }
 
@@ -298,7 +287,7 @@ public class DependManagerTests extends TransactionalTest {
         assertTrue(hasDependFrames(layer_a));
         assertEquals(10, getTotalDependCount(layer_a));
 
-        for (LightweightDependency lwd: dependDao.getWhatDependsOn(layer_b)) {
+        for (LightweightDependency lwd : dependDao.getWhatDependsOn(layer_b)) {
             dependManager.satisfyDepend(lwd);
         }
 
@@ -323,7 +312,7 @@ public class DependManagerTests extends TransactionalTest {
         assertTrue(hasDependFrames(layer_a));
         assertEquals(10, getTotalDependCount(layer_a));
 
-        for (LightweightDependency lwd: dependDao.getWhatDependsOn(frame_b)) {
+        for (LightweightDependency lwd : dependDao.getWhatDependsOn(frame_b)) {
             dependManager.satisfyDepend(lwd);
         }
 
@@ -348,7 +337,7 @@ public class DependManagerTests extends TransactionalTest {
         assertTrue(hasDependFrames(layer_a));
         assertEquals(10, getTotalDependCount(layer_a));
 
-        for (LightweightDependency lwd: dependDao.getWhatDependsOn(frame_b)) {
+        for (LightweightDependency lwd : dependDao.getWhatDependsOn(frame_b)) {
             dependManager.satisfyDepend(lwd);
         }
 
@@ -374,7 +363,7 @@ public class DependManagerTests extends TransactionalTest {
         assertTrue(hasDependFrames(frame_a));
         assertEquals(1, getTotalDependCount(frame_a));
 
-        for (LightweightDependency lwd: dependDao.getWhatDependsOn(job_b)) {
+        for (LightweightDependency lwd : dependDao.getWhatDependsOn(job_b)) {
             dependManager.satisfyDepend(lwd);
         }
 
@@ -403,7 +392,7 @@ public class DependManagerTests extends TransactionalTest {
         assertTrue(hasDependFrames(frame_a));
         assertEquals(1, getTotalDependCount(frame_a));
 
-        for (LightweightDependency lwd: dependDao.getWhatDependsOn(layer_b)) {
+        for (LightweightDependency lwd : dependDao.getWhatDependsOn(layer_b)) {
             dependManager.satisfyDepend(lwd);
         }
 
@@ -433,7 +422,7 @@ public class DependManagerTests extends TransactionalTest {
         assertTrue(hasDependFrames(frame_a));
         assertEquals(1, getTotalDependCount(frame_a));
 
-        for (LightweightDependency lwd: dependDao.getWhatDependsOn(frame_b)) {
+        for (LightweightDependency lwd : dependDao.getWhatDependsOn(frame_b)) {
             dependManager.satisfyDepend(lwd);
         }
 
@@ -449,9 +438,8 @@ public class DependManagerTests extends TransactionalTest {
     public void testCreateAndSatisfyFrameByFrame() {
 
         /**
-         * A compound depend, like FrameByFrame or PreviousFrame cannot
-         * be satisfied by using dependDao.getWhatDependsOn.  You must
-         * have a reference to the actual dependency.
+         * A compound depend, like FrameByFrame or PreviousFrame cannot be satisfied by using
+         * dependDao.getWhatDependsOn. You must have a reference to the actual dependency.
          */
 
         JobDetail job_a = getJobA();
@@ -491,7 +479,7 @@ public class DependManagerTests extends TransactionalTest {
 
         FrameInterface frame_b = frameDao.findFrame(layer_b, 5);
 
-        for (LightweightDependency lwd: dependDao.getWhatDependsOn(frame_b)) {
+        for (LightweightDependency lwd : dependDao.getWhatDependsOn(frame_b)) {
             dependManager.satisfyDepend(lwd);
         }
 
@@ -516,10 +504,9 @@ public class DependManagerTests extends TransactionalTest {
         assertEquals(9, getTotalDependCount(layer_a));
 
         FrameInterface frame_b = frameDao.findFrame(layer_b, 9);
-        for (LightweightDependency lwd: dependDao.getWhatDependsOn(frame_b)) {
+        for (LightweightDependency lwd : dependDao.getWhatDependsOn(frame_b)) {
             dependManager.satisfyDepend(lwd);
-            for (FrameDetail f: frameDao.findFrameDetails(
-                    frameSearchFactory.create(layer_a))) {
+            for (FrameDetail f : frameDao.findFrameDetails(frameSearchFactory.create(layer_a))) {
                 logger.info(f.getName() + " " + f.state.toString());
             }
         }
@@ -529,11 +516,9 @@ public class DependManagerTests extends TransactionalTest {
     }
 
     /**
-     * In this test, some of the dependOnFrames are already
-     * completed.  The FrameOnFrame depends
-     * that get setup on those frames should be inactive,
-     * and the depend count should not be updated the corresponding
-     * dependErFrames.
+     * In this test, some of the dependOnFrames are already completed. The FrameOnFrame depends that
+     * get setup on those frames should be inactive, and the depend count should not be updated the
+     * corresponding dependErFrames.
      */
     @Test
     @Transactional
@@ -554,22 +539,14 @@ public class DependManagerTests extends TransactionalTest {
         dependManager.createDepend(depend);
 
         /** Check the active state **/
-        assertTrue(
-                dependDao.getWhatDependsOn(frameDao.findFrame(layer_b, 1))
-                        .stream()
-                        .noneMatch(dep -> dep.active));
-        assertTrue(
-                dependDao.getWhatDependsOn(frameDao.findFrame(layer_b, 2))
-                        .stream()
-                        .noneMatch(dep -> dep.active));
-        assertTrue(
-                dependDao.getWhatDependsOn(frameDao.findFrame(layer_b, 3))
-                        .stream()
-                        .noneMatch(dep -> dep.active));
-        assertTrue(
-                dependDao.getWhatDependsOn(frameDao.findFrame(layer_b, 4))
-                        .stream()
-                        .allMatch(dep -> dep.active));
+        assertTrue(dependDao.getWhatDependsOn(frameDao.findFrame(layer_b, 1)).stream()
+                .noneMatch(dep -> dep.active));
+        assertTrue(dependDao.getWhatDependsOn(frameDao.findFrame(layer_b, 2)).stream()
+                .noneMatch(dep -> dep.active));
+        assertTrue(dependDao.getWhatDependsOn(frameDao.findFrame(layer_b, 3)).stream()
+                .noneMatch(dep -> dep.active));
+        assertTrue(dependDao.getWhatDependsOn(frameDao.findFrame(layer_b, 4)).stream()
+                .allMatch(dep -> dep.active));
 
         assertTrue(hasDependFrames(layer_a));
         assertEquals(7, getTotalDependCount(layer_a));
@@ -581,4 +558,3 @@ public class DependManagerTests extends TransactionalTest {
         assertEquals(0, getTotalDependCount(layer_a));
     }
 }
-

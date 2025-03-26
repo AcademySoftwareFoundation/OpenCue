@@ -387,6 +387,15 @@ def dateToMMDDHHMM(sec):
     return time.strftime("%m/%d %H:%M", time.localtime(sec))
 
 
+def dateToMMDDYYYYHHMM(sec):
+    """Returns date in the format %m/%d/%Y %H:%M
+    @rtype:  str
+    @return: Date in the format %m/%d/%Y %H:%M"""
+    if sec == 0:
+        return "--/-- --:--"
+    return time.strftime("%m/%d/%Y %H:%M", time.localtime(sec))
+
+
 def memoryToString(kmem, unit=None):
     """Returns an amount of memory in a human-friendly string."""
     k = 1024
@@ -666,7 +675,8 @@ def launchViewerUsingPaths(paths, actionText, test_mode=False):
     if not test_mode:
         print(msg)
         try:
-            subprocess.check_call(cmd.split())
+            # pylint: disable=consider-using-with
+            subprocess.Popen(cmd.split())
         except subprocess.CalledProcessError as e:
             showErrorMessageBox(str(e), title='Error running Viewer command')
         except Exception as e:
