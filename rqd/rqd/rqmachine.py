@@ -132,14 +132,6 @@ class Machine(object):
            by checking /etc/inittab. False if not."""
         if rqd.rqconstants.OVERRIDE_IS_DESKTOP:
             return True
-        if platform.system() == "Linux" and os.path.exists(rqd.rqconstants.PATH_INITTAB):
-            with open(rqd.rqconstants.PATH_INITTAB, "r", encoding='utf-8') as inittabFile:
-                for line in inittabFile:
-                    if line.startswith("id:5:initdefault:"):
-                        return True
-            if os.path.islink(rqd.rqconstants.PATH_INIT_TARGET):
-                if os.path.realpath(rqd.rqconstants.PATH_INIT_TARGET).endswith('graphical.target'):
-                    return True
         return False
 
     def isUserLoggedIn(self):
@@ -256,8 +248,10 @@ class Machine(object):
                     statFields = self._getStatFields(rqd.rqconstants.PATH_PROC_PID_STAT
                                                      .format(pid))
                     pids[pid] = {
+                        "pid": str(pid),
                         "name": statFields[1],
                         "state": statFields[2],
+                        "parentid": statFields[3],
                         "pgrp": statFields[4],
                         "session": statFields[5],
                         # virtual memory size is in bytes convert to kb
@@ -307,84 +301,86 @@ class Machine(object):
 
             values = list(frames.values())
             for frame in values:
-                if frame.pid is not None and frame.pid > 0:
-                    session = str(frame.pid)
+                pid = str(frame.pid)
+                if pid is not None and frame.pid > 0:
+                    visited = [pid]
+                    children = [pids[pid]]
+                    self._collectChildren(pid, pids, visited, children)
                     rss = 0
                     vsize = 0
                     swap = 0
                     pcpu = 0
-                    # children pids share the same session id
-                    for pid, data in pids.items():
-                        if data["session"] == session:
-                            try:
-                                rss += int(data["rss"])
-                                vsize += int(data["vsize"])
-                                swap += int(data["swap"])
+                    for data in children:
+                        child_pid = data["pid"]
+                        try:
+                            rss += int(data["rss"])
+                            vsize += int(data["vsize"])
+                            swap += int(data["swap"])
 
-                                # jiffies used by this process, last two means that dead
-                                # children are counted
-                                totalTime = int(data["utime"]) + \
-                                            int(data["stime"]) + \
-                                            int(data["cutime"]) + \
-                                            int(data["cstime"])
+                            # jiffies used by this process, last two means that dead
+                            # children are counted
+                            totalTime = int(data["utime"]) + \
+                                        int(data["stime"]) + \
+                                        int(data["cutime"]) + \
+                                        int(data["cstime"])
 
-                                # Seconds of process life, boot time is already in seconds
-                                seconds = now - bootTime - \
-                                          float(data["start_time"]) / rqd.rqconstants.SYS_HERTZ
-                                if seconds:
-                                    if pid in self.__pidHistory:
-                                        # Percent cpu using decaying average, 50% from 10 seconds
-                                        # ago, 50% from last 10 seconds:
-                                        oldTotalTime, oldSeconds, oldPidPcpu = \
-                                            self.__pidHistory[pid]
-                                        # checking if already updated data
-                                        if seconds != oldSeconds:
-                                            pidPcpu = ((totalTime - oldTotalTime) /
-                                                       float(seconds - oldSeconds))
-                                            pcpu += (oldPidPcpu + pidPcpu) / 2  # %cpu
-                                            pidData[pid] = totalTime, seconds, pidPcpu
-                                    else:
-                                        pidPcpu = totalTime / seconds
-                                        pcpu += pidPcpu
-                                        pidData[pid] = totalTime, seconds, pidPcpu
-                                # If children was already accounted for, only keep the highest
-                                # recorded rss value
-                                if pid in frame.childrenProcs:
-                                    childRss = (int(data["rss"]) * resource.getpagesize()) // 1024
-                                    if childRss > frame.childrenProcs[pid]['rss']:
-                                        frame.childrenProcs[pid]['rss_page'] = int(data["rss"])
-                                        frame.childrenProcs[pid]['rss'] = childRss
-                                        frame.childrenProcs[pid]['vsize'] = \
-                                            int(data["vsize"]) // 1024
-                                        frame.childrenProcs[pid]['swap'] = swap // 1024
-                                        frame.childrenProcs[pid]['statm_rss'] = \
-                                            (int(data["statm_rss"]) \
-                                             * resource.getpagesize()) // 1024
-                                        frame.childrenProcs[pid]['statm_size'] = \
-                                            (int(data["statm_size"]) * \
-                                             resource.getpagesize()) // 1024
+                            # Seconds of process life, boot time is already in seconds
+                            seconds = now - bootTime - \
+                                      float(data["start_time"]) / rqd.rqconstants.SYS_HERTZ
+                            if seconds:
+                                if child_pid in self.__pidHistory:
+                                    # Percent cpu using decaying average, 50% from 10 seconds
+                                    # ago, 50% from last 10 seconds:
+                                    oldTotalTime, oldSeconds, oldPidPcpu = \
+                                        self.__pidHistory[child_pid]
+                                    # checking if already updated data
+                                    if seconds != oldSeconds:
+                                        pidPcpu = ((totalTime - oldTotalTime) /
+                                                   float(seconds - oldSeconds))
+                                        pcpu += (oldPidPcpu + pidPcpu) / 2  # %cpu
+                                        pidData[child_pid] = totalTime, seconds, pidPcpu
                                 else:
-                                    frame.childrenProcs[pid] = \
-                                        {'name': data['name'],
-                                         'rss_page': int(data["rss"]),
-                                         'rss': (int(data["rss"]) * resource.getpagesize()) // 1024,
-                                         'vsize': int(data["vsize"])  // 1024,
-                                         'swap': swap // 1024,
-                                         'state': data['state'],
-                                         # statm reports in pages (~ 4kB)
-                                         # same as VmRss in /proc/[pid]/status (in KB)
-                                         'statm_rss': (int(data["statm_rss"]) * \
-                                                       resource.getpagesize()) // 1024,
-                                         'statm_size': (int(data["statm_size"]) * \
-                                                        resource.getpagesize()) // 1024,
-                                         'cmd_line': data["cmd_line"],
-                                         'start_time': seconds}
+                                    pidPcpu = totalTime / seconds
+                                    pcpu += pidPcpu
+                                    pidData[child_pid] = totalTime, seconds, pidPcpu
+                            # If children was already accounted for, only keep the highest
+                            # recorded rss value
+                            if child_pid in frame.childrenProcs:
+                                childRss = (int(data["rss"]) * resource.getpagesize()) // 1024
+                                if childRss > frame.childrenProcs[child_pid]['rss']:
+                                    frame.childrenProcs[child_pid]['rss_page'] = int(data["rss"])
+                                    frame.childrenProcs[child_pid]['rss'] = childRss
+                                    frame.childrenProcs[child_pid]['vsize'] = \
+                                        int(data["vsize"]) // 1024
+                                    frame.childrenProcs[child_pid]['swap'] = swap // 1024
+                                    frame.childrenProcs[child_pid]['statm_rss'] = \
+                                        (int(data["statm_rss"]) \
+                                         * resource.getpagesize()) // 1024
+                                    frame.childrenProcs[child_pid]['statm_size'] = \
+                                        (int(data["statm_size"]) * \
+                                         resource.getpagesize()) // 1024
+                            else:
+                                frame.childrenProcs[child_pid] = \
+                                    {'name': data['name'],
+                                     'rss_page': int(data["rss"]),
+                                     'rss': (int(data["rss"]) * resource.getpagesize()) // 1024,
+                                     'vsize': int(data["vsize"])  // 1024,
+                                     'swap': swap // 1024,
+                                     'state': data['state'],
+                                     # statm reports in pages (~ 4kB)
+                                     # same as VmRss in /proc/[child_pid]/status (in KB)
+                                     'statm_rss': (int(data["statm_rss"]) * \
+                                                   resource.getpagesize()) // 1024,
+                                     'statm_size': (int(data["statm_size"]) * \
+                                                    resource.getpagesize()) // 1024,
+                                     'cmd_line': data["cmd_line"],
+                                     'start_time': seconds}
 
-                            # pylint: disable=broad-except
-                            except Exception as e:
-                                log.warning(
-                                    'Failure with pid rss update due to: %s at %s',
-                                    e, traceback.extract_tb(sys.exc_info()[2]))
+                        # pylint: disable=broad-except
+                        except Exception as e:
+                            log.warning(
+                                'Failure with pid rss update due to: %s at %s',
+                                e, traceback.extract_tb(sys.exc_info()[2]))
                     # convert bytes to KB
                     rss = (rss * resource.getpagesize()) // 1024
                     vsize = int(vsize/1024)
@@ -411,6 +407,18 @@ class Machine(object):
         # pylint: disable=broad-except
         except Exception as e:
             log.exception('Failure with rss update due to: %s', e)
+
+    def _collectChildren(self, current_pid: str,
+        all_pids: dict[str, dict[str, str]], visited: list[str],
+        children: list[dict[str, str]]):
+        """Recursive method to collect all children of first_parent_pid.
+
+        The list of children is returned on the arg children"""
+        for child_pid, data in all_pids.items():
+            if data["parentid"] == current_pid and child_pid not in visited:
+                children.append(data)
+                visited.append(child_pid)
+                self._collectChildren(child_pid, all_pids, visited, children)
 
     def _getProcSwap(self, pid):
         """Helper function to get swap memory used by a process"""
