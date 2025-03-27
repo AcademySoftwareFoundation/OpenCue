@@ -36,6 +36,10 @@ SUBMIT_APP_WINDOW_TITLE = config.get('SUBMIT_APP_WINDOW_TITLE', 'OpenCue Submit'
 MAYA_RENDER_CMD = config.get('MAYA_RENDER_CMD', 'Render')
 NUKE_RENDER_CMD = config.get('NUKE_RENDER_CMD', 'nuke')
 BLENDER_RENDER_CMD = config.get('BLENDER_RENDER_CMD', 'blender')
+RENDER_CMDS = config.get('RENDER_CMDS', {})
+
+DEFAULT_SHOW = config.get('DEFAULT_SHOW') or os.environ.get('PROJECT', 'default')
+
 FRAME_TOKEN = config.get('FRAME_TOKEN', '#IFRAME#')
 FRAME_START_TOKEN = config.get('FRAME_START', '#FRAME_START#')
 FRAME_END_TOKEN = config.get('FRAME_END', '#FRAME_END#')
@@ -67,6 +71,16 @@ BLENDER_FORMATS = ['', 'AVIJPEG', 'AVIRAW', 'BMP', 'CINEON', 'DPX', 'EXR', 'HDR'
                    'JP2', 'JPEG', 'MPEG', 'MULTILAYER', 'PNG', 'RAWTGA', 'TGA', 'TIFF']
 BLENDER_OUTPUT_OPTIONS_URL = \
     'https://docs.blender.org/manual/en/latest/advanced/command_line/arguments.html#render-options'
+
+REGEX_CUETOKEN = r'^#.*#$' #FRAME_START#
+REGEX_COMMAND_OPTIONS = (r'(?P<command_flag>-+\w*)?'   # -optionFlag
+                         r'(?P<hidden>\~)?'            # -hiddenFlag~
+                         r'\s?'
+                         r'({'
+                           r'(?P<mandatory>\!)?'      # {!Mandatory argument}
+                           r'(?P<label>[^{}\*\/\!]+)' # {Nice name}
+                           r'(?P<browsable>\*?\/?)'   # {browseFile*} or {browseFolder/}
+                         r'})?')
 
 DIR_PATH = os.path.dirname(__file__)
 

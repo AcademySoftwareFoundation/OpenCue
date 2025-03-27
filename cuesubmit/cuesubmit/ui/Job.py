@@ -36,6 +36,8 @@ class CueJobWidget(QtWidgets.QWidget):
         super(CueJobWidget, self).__init__(parent=parent)
 
         self.table = CueJobTree()
+        self.table.setSizePolicy(QtWidgets.QSizePolicy.Preferred,
+                                 QtWidgets.QSizePolicy.MinimumExpanding)
         self.model = CueJobModel()
         self.jobRow = QtGui.QStandardItem('')
         self.jobRow.setEditable(False)
@@ -64,9 +66,9 @@ class CueJobWidget(QtWidgets.QWidget):
         header.setStyleSheet(Style.HEADER_VIEW)
         self.model.appendRow(self.jobRow)
         self.mainLayout.addWidget(self.table)
-        self.buttonLayout.addWidget(self.downButton)
-        self.buttonLayout.addWidget(self.deleteLayerButton)
         self.buttonLayout.addWidget(self.addLayerButton)
+        self.buttonLayout.addWidget(self.deleteLayerButton)
+        self.buttonLayout.addWidget(self.downButton)
         self.buttonLayout.addWidget(self.upButton)
         self.mainLayout.addLayout(self.buttonLayout)
         self.table.expandAll()
