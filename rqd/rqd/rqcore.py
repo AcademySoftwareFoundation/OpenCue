@@ -1195,12 +1195,12 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
                 self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
         except InvalidFrameOsError as e:
             # Frame container didn't get created
-            returncode = -1
+            returncode = rqd.rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
             self.__writeHeader()
             self.rqlog.write(str(e), prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
         # pylint: disable=broad-except
         except Exception as e:
-            returncode = -1
+            returncode = rqd.rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
             msg = "Failed to launch frame container"
             logging.exception(msg)
             self.rqlog.write("%s - %s" % (msg, e),
