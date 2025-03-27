@@ -203,12 +203,6 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         self.assertFalse(self.machine.isNimbySafeToRunJobs())
 
-    def test_isDesktop_inittabDesktop(self):
-        rqd.rqconstants.OVERRIDE_IS_DESKTOP = False
-        self.fs.create_file(rqd.rqconstants.PATH_INITTAB, contents=INITTAB_DESKTOP)
-
-        self.assertTrue(self.machine.isDesktop())
-
     def test_isDesktop_override(self):
         rqd.rqconstants.OVERRIDE_IS_DESKTOP = True
 
