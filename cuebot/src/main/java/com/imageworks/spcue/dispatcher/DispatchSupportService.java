@@ -203,11 +203,18 @@ public class DispatchSupportService implements DispatchSupport {
     @Transactional(propagation = Propagation.NEVER)
     public void runFrame(VirtualProc proc, DispatchFrame frame) {
         try {
+            if (proc == null || frame == null) {
+                throw new DispatcherException(
+                    "runFrame failed: proc or frame is null. proc=" + proc
+                    + ", frame=" + frame);
+            }
+
             rqdClient.launchFrame(prepareRqdRunFrame(proc, frame), proc);
             dispatchedProcs.getAndIncrement();
         } catch (Exception e) {
-            throw new DispatcherException(
-                    proc.getName() + " could not be booked on " + frame.getName() + ", " + e);
+            String procName = (proc != null && proc.getName() != null) ? proc.getName() : "unknown-proc";
+            String frameName = (frame != null && frame.getName() != null) ? frame.getName() : "unknown-frame";
+            throw new DispatcherException(procName + " could not be booked on " + frameName + ", " + e);
         }
     }
 
