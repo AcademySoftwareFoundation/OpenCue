@@ -23,6 +23,7 @@ from __future__ import division
 import functools
 
 from qtpy import QtCore
+from qtpy import QtGui
 from qtpy import QtWidgets
 
 from opencue.exception import EntityNotFoundException
@@ -246,10 +247,13 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if (len(cuegui.Constants.OUTPUT_VIEWERS) > 0
                 and sum(len(layer.getOutputPaths()) for layer in __selectedObjects) > 0):
             for viewer in cuegui.Constants.OUTPUT_VIEWERS:
-                menu.addAction(viewer['action_text'],
-                               functools.partial(cuegui.Utils.viewOutput,
-                                                 __selectedObjects,
-                                                 viewer['action_text']))
+                action = QtWidgets.QAction(QtGui.QIcon(":viewoutput.png"),
+                                           viewer['action_text'], self)
+                action.triggered.connect(
+                    functools.partial(cuegui.Utils.viewOutput,
+                                    __selectedObjects,
+                                    viewer['action_text']))
+                menu.addAction(action)
 
         depend_menu = QtWidgets.QMenu("&Dependencies", self)
         self.__menuActions.layers().addAction(depend_menu, "viewDepends")
