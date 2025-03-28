@@ -931,11 +931,14 @@ class FrameContextMenu(QtWidgets.QMenu):
 
                 if outputPaths:
                     for viewer in cuegui.Constants.OUTPUT_VIEWERS:
-                        self.addAction(viewer['action_text'],
-                                       functools.partial(cuegui.Utils.viewFramesOutput,
-                                                         job,
-                                                         selectedFrames,
-                                                         viewer['action_text']))
+                        action = QtWidgets.QAction(QtGui.QIcon(":viewoutput.png"),
+                                                   viewer['action_text'], self)
+                        action.triggered.connect(
+                            functools.partial(cuegui.Utils.viewFramesOutput,
+                                            job,
+                                            selectedFrames,
+                                            viewer['action_text']))
+                        self.addAction(action)
 
         if self.app.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(self, "viewHost")

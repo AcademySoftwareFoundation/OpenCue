@@ -473,10 +473,13 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         if cuegui.Constants.OUTPUT_VIEWERS:
             for viewer in cuegui.Constants.OUTPUT_VIEWERS:
-                menu.addAction(viewer['action_text'],
-                               functools.partial(cuegui.Utils.viewOutput,
-                                                 __selectedObjects,
-                                                 viewer['action_text']))
+                action = QtWidgets.QAction(QtGui.QIcon(":viewoutput.png"),
+                                           viewer['action_text'], self)
+                action.triggered.connect(
+                    functools.partial(cuegui.Utils.viewOutput,
+                                    __selectedObjects,
+                                    viewer['action_text']))
+                menu.addAction(action)
 
         depend_menu = QtWidgets.QMenu("&Dependencies",self)
         self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
