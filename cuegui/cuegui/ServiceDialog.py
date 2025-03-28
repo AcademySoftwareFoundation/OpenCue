@@ -123,6 +123,11 @@ class ServiceForm(QtWidgets.QWidget):
         """
         Update the form with data from the given service.
         """
+        if service is None:
+            QtWidgets.QMessageBox.warning(self, "Facility Service Defaults - Warning",
+                                          "No service data available to display.")
+            return
+
         self.__service = service
         self.__buttons.setDisabled(False)
         self.name.setText(service.name())
@@ -248,10 +253,15 @@ class ServiceManager(QtWidgets.QWidget):
         if not item:
             return
 
-        if self.__show:
-            self.__selected = self.__show.getServiceOverride(str(item.text()))
-        else:
-            self.__selected = opencue.api.getService(str(item.text()))
+        service_name = str(item.text())
+        self.__selected = self.__show.getServiceOverride(service_name) \
+            if self.__show else opencue.api.getService(service_name)
+
+        if self.__selected is None:
+            QtWidgets.QMessageBox.warning(self, "Facility Service Defaults - Warning",
+                                          f"Service '{service_name}' could not be loaded.")
+            return
+
         self.__form.setService(self.__selected)
 
     def saved(self, service):
