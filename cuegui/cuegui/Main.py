@@ -106,20 +106,25 @@ def startup(app_name, app_version, argv):
 
 
 def __setup_sentry():
-    """Setup sentry if cuegui.Constants.SENTRY_DSN is defined, nop otherwise"""
-    if not cuegui.Constants.SENTRY_DSN:
+    """Setup Sentry if cuegui.Constants.SENTRY_DSN is defined."""
+    dsn = cuegui.Constants.SENTRY_DSN
+
+    if not dsn:
+        logger.info("Sentry is disabled (no SENTRY_DSN configured).")
         return
 
     try:
+        # Avoid importing sentry at top level to keep it optional
         # pylint: disable=import-outside-toplevel
-        # Avoid importing sentry on the top level to make this dependency optional
         import sentry_sdk
-        sentry_sdk.init(cuegui.Constants.SENTRY_DSN)
-        sentry_sdk.set_user({
-            'username': getpass.getuser()
-        })
+        # pylint: enable=import-outside-toplevel
+        sentry_sdk.init(dsn)
+        sentry_sdk.set_user({'username': getpass.getuser()})
+        logger.info("Sentry initialized successfully.")
     except ImportError:
-        logger.warning('Failed to import Sentry')
+        logger.info("Sentry DSN is set but sentry_sdk is not installed.")
+    except Exception as e:
+        logger.warning("Unexpected error initializing Sentry: %s", e)
 
 
 def warning_handler(msg_type, msg_log_context, msg_string):
