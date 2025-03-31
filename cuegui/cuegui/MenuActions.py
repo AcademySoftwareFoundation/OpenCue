@@ -1021,6 +1021,16 @@ class FrameActions(AbstractActions):
                 for frame in frames:
                     cuegui.Utils.popupFrameView(job, frame)
 
+    copyLogPath_info = ["&Copy Log Path", None, "copylogpath"]
+
+    def copyLogPath(self, rpcObjects=None):
+        frames = self._getOnlyFrameObjects(rpcObjects)
+        if not frames:
+            return
+        job = self._getSource()
+        paths = [cuegui.Utils.getFrameLogFile(job, frame) for frame in frames]
+        QtWidgets.QApplication.clipboard().setText("\n".join(paths), QtGui.QClipboard.Clipboard)
+
     tail_info = ["&Tail Log", None, "log"]
 
     def tail(self, rpcObjects=None):

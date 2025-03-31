@@ -1066,6 +1066,11 @@ class FrameAttendantThread(threading.Thread):
         if runFrame.attributes['CPU_LIST']:
             tasksetCmd = "taskset -c %s" % runFrame.attributes['CPU_LIST']
 
+        # Set process to use nice if running on a desktop
+        nice = ""
+        if self.rqCore.machine.isDesktop():
+            nice = "/bin/nice"
+
         # A temporary password for the user created inside of the frame container.
         # This user is only valid inside the container, meaning a leakage would only
         # be harmful if the perpetrator gains access to run docker commands.
@@ -1073,7 +1078,7 @@ class FrameAttendantThread(threading.Thread):
         # Command wrapper
         command = r"""#!/bin/sh
 useradd -u %s -g %s -p %s %s >& /dev/null || true;
-exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
+exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
 """ % (
             uid,
             gid,
@@ -1081,6 +1086,7 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
             runFrame.user_name,
             self.docker_agent.docker_shell_path,
             runFrame.user_name,
+            nice,
             tempStatFile,
             tasksetCmd,
             runFrame.command.replace('"', r"""\"""")
@@ -1189,12 +1195,12 @@ exec su -s %s %s -c "echo \$$; /bin/nice /usr/bin/time -p -o %s %s %s"
                 self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
         except InvalidFrameOsError as e:
             # Frame container didn't get created
-            returncode = -1
+            returncode = rqd.rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
             self.__writeHeader()
             self.rqlog.write(str(e), prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
         # pylint: disable=broad-except
         except Exception as e:
-            returncode = -1
+            returncode = rqd.rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
             msg = "Failed to launch frame container"
             logging.exception(msg)
             self.rqlog.write("%s - %s" % (msg, e),
