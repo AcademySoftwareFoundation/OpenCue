@@ -21,7 +21,7 @@ class CustomBuildHook(BuildHookInterface):
             return
 
         command = [
-            "python3",
+            sys.executable,
             "-m",
             "grpc_tools.protoc",
             f"-I={proto_dir}",
