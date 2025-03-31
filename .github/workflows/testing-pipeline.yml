@@ -33,8 +33,10 @@ jobs:
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
+        with:
+          name: cuebot_proto
       - name: Install package
-        run: ls -la
+        run: pip install cuebot_proto/cuebot/dist/opencue_cuebot*.whl
 
   test_python_2023:
     if: false
