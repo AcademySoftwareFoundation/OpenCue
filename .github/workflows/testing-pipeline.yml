@@ -18,7 +18,7 @@ jobs:
           pip install build
           python -m build cuebot
           ls -la cuebot/dist
-      - name: Archive production artifacts
+      - name: Upload cuebot package
         uses: actions/upload-artifact@v4
         with:
           name: cuebot_proto
@@ -33,10 +33,8 @@ jobs:
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-        with:
-          name: cuebot_proto
       - name: Install package
-        run: pip install cuebot/dist/opencue_cuebot*.whl
+        run: ls -la
 
   test_python_2023:
     if: false
