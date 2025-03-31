@@ -38,7 +38,7 @@ jobs:
       - name: Install package
         run: |
           find .
-          pip install cuebot_proto/cuebot/dist/opencue_cuebot*.whl
+          pip install opencue_cuebot*.whl
 
   test_python_2023:
     if: false
