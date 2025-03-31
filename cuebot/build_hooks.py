@@ -34,7 +34,7 @@ class CustomBuildHook(BuildHookInterface):
 
         # Fix compiled proto imports
         fix_script = os.path.join(self.root, "proto", "fix_compiled_proto.py")
-        command = ["python3", fix_script, output_dir]
+        command = [sys.executable, fix_script, output_dir]
         print(f"Fixing compiled proto imports: {' '.join(command)}")
         subprocess.check_call(command)
 
