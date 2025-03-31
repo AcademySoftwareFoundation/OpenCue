@@ -1,6 +1,7 @@
 
 import os
 import subprocess
+import sys
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 from hatchling.plugin import hookimpl
