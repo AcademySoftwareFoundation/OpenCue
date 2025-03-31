@@ -178,7 +178,7 @@ def setupLogging():
 def setup_sentry():
     """Set up sentry if a SENTRY_DSN_PATH is configured"""
     sentry_dsn_path = rqd.rqconstants.SENTRY_DSN_PATH
-    if sentry_dsn_path is not None:
+    if sentry_dsn_path is None:
         return
 
     # Not importing sentry at the toplevel to avoid an unecessary dependency
