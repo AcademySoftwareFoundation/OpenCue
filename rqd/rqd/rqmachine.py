@@ -302,7 +302,7 @@ class Machine(object):
             values = list(frames.values())
             for frame in values:
                 pid = str(frame.pid)
-                if pid is not None and frame.pid > 0:
+                if pid is not None and frame.pid > 0 and pid in pids:
                     visited = [pid]
                     children = [pids[pid]]
                     self._collectChildren(pid, pids, visited, children)
