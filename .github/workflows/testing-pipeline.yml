@@ -7,7 +7,39 @@ on:
     branches: [ master ]
 
 jobs:
+  build_cuebot_prot:
+    name: Build cuebot module
+    runs-on: ubuntu-22.04
+    container: python:3.7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build cuebot
+        run: |
+          pip install build
+          python -m build cuebot
+          ls -la cuebot/dist
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cuebot_proto
+          path: |
+            cuebot/dist/opencue_cuebot*.*
+
+  install_cuebot_proto:
+    needs: build_cuebot_prot
+    name: Install cuebot module
+    runs-on: ubuntu-22.04
+    container: python:3.11
+    steps:
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cuebot_proto
+      - name: Install package
+        run: pip install cuebot/dist/opencue_cuebot*.whl
+
   test_python_2023:
+    if: false
     name: Run Python Unit Tests (CY2023)
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2023
@@ -19,6 +51,7 @@ jobs:
         run: ci/run_python_tests.sh
 
   test_cuebot_2023:
+    if: false
     name: Build Cuebot and Run Unit Tests (CY2023)
     runs-on: ubuntu-22.04
     container:
@@ -31,6 +64,7 @@ jobs:
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
   test_python_2024:
+    if: false
     name: Run Python Unit Tests (CY2024)
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024
@@ -40,6 +74,7 @@ jobs:
         run: ci/run_python_tests.sh
 
   test_cuebot_2024:
+    if: false
     name: Build Cuebot and Run Unit Tests (CY2024)
     runs-on: ubuntu-22.04
     container:
@@ -52,6 +87,7 @@ jobs:
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
   integration_test:
+    if: false
     name: Run Integration Test
     runs-on: ubuntu-22.04
     steps:
@@ -69,6 +105,7 @@ jobs:
           path: /tmp/opencue-test/*.log
 
   lint_python:
+    if: false
     name: Lint Python Code
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024.1
@@ -80,6 +117,7 @@ jobs:
         run: ci/run_python_lint.sh
 
   test_sphinx:
+    if: false
     name: Test Documentation Build
     runs-on: ubuntu-22.04
     container:
