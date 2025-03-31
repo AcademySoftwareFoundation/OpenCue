@@ -8,7 +8,7 @@ on:
 
 jobs:
   build_cuebot_prot:
-    name: Build cuebot module
+    name: Build cuebot package
     runs-on: ubuntu-22.04
     container: python:3.7
     steps:
@@ -27,7 +27,7 @@ jobs:
 
   install_cuebot_proto:
     needs: build_cuebot_prot
-    name: Install cuebot module
+    name: Install cuebot package
     runs-on: ubuntu-22.04
     container: python:3.11
     steps:
