@@ -2,10 +2,18 @@
 
 set -e
 
-# Sphinx has some additional requirements
-pip install --user -r requirements.txt -r api_docs/requirements.txt
+if [[ -v VIRTUAL_ENV ]]
+then
+  PIP_OPT=""
+else
+  PIP_OPT="--user"
+fi
 
-ci/build_proto.sh
+# Sphinx has some additional requirements
+pip install ${PIP_OPT} -r api_docs/requirements.txt
+
+pip install ${PIP_OPT} cuebot/ pycue/ pyoutline/ cueadmin/ cuesubmit/ cuegui/
+# ci/build_proto.sh
 
 # Build the docs and treat warnings as errors
-~/.local/bin/sphinx-build -W -b html -d api_docs/_build/doctrees api_docs api_docs/_build/html
+sphinx-build -W -b html -d api_docs/_build/doctrees api_docs api_docs/_build/html
