@@ -3,4 +3,11 @@
 set -e
 
 # Install all client packages.
-pip install cuebot/ pycue/ pyoutline/ cueadmin/ cuesubmit/ cuegui/
+if [[ -v CUBOT_PACKAGE_PATH ]]
+then
+  echo "Installing pre-built cuebot package"
+  pip install ${CUBOT_PACKAGE_PATH}
+else
+  pip install cuebot/
+fi
+pip install pycue/ pyoutline/ cueadmin/ cuesubmit/ cuegui/
