@@ -121,13 +121,19 @@ jobs:
           path: /tmp/opencue-test/*.log
 
   lint_python:
-    if: false
     needs: build_cuebot_prot
     name: Lint Python Code
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024.1
+    env:
+      CUBOT_PACKAGE_PATH: "opencue_cuebot*.whl"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cuebot_proto
       - name: Lint Python Code
         run: ci/run_python_lint.sh
 
