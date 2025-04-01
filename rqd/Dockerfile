@@ -2,6 +2,8 @@ FROM rockylinux:8.9
 
 WORKDIR /opt/opencue
 
+ARG CUEBOT_PACKAGE_PATH
+
 RUN yum -y install \
   epel-release \
   gcc \
@@ -17,13 +19,15 @@ RUN python3.9 -m pip install --upgrade setuptools
 
 COPY LICENSE ./
 
-COPY cuebot/cuebot ./cuebot/cuebot
-COPY cuebot/proto ./cuebot/proto
-COPY cuebot/build_hooks.py ./cuebot/
-COPY cuebot/pyproject.toml ./cuebot/
+#COPY cuebot/cuebot ./cuebot/cuebot
+#COPY cuebot/proto ./cuebot/proto
+#COPY cuebot/build_hooks.py ./cuebot/
+#COPY cuebot/pyproject.toml ./cuebot/
 
 # Install package with compiled proto files
-RUN python3.9 -m pip install ./cuebot
+#RUN python3.9 -m pip install ./cuebot
+COPY ${CUEBOT_PACKAGE_PATH} /tmp
+RUN python3.9 -m pip /tmp/*.whl
 
 COPY rqd/deploy ./rqd/deploy
 COPY rqd/README.md ./rqd/
