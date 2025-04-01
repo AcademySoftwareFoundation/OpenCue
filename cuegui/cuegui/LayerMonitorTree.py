@@ -152,7 +152,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # pylint: disable=no-member
-        self.itemSelectionChanged.connect(self.__itemSelectionChangedFilterLayer)
+        self.itemDoubleClicked.connect(self.__itemDoubleClickedFilterLayer)
         cuegui.app().select_layers.connect(self.__handle_select_layers)
 
         # Used to build right click context menus
@@ -283,10 +283,10 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         menu.exec_(e.globalPos())
 
-    def __itemSelectionChangedFilterLayer(self):
-        """Filter FrameMonitor to selected Layers.
-        Emits signal to filter FrameMonitor to selected Layers.
-        Also emits signal for other widgets to select Layers.
+    def __itemDoubleClickedFilterLayer(self):
+        """Filter FrameMonitor to double-clicked Layers.
+        Emits signal to filter FrameMonitor to double-clicked Layers.
+        Also emits signal for other widgets to double-clicked Layers.
         """
         layers = self.selectedObjects()
         layer_names = [layer.data.name for layer in layers]
