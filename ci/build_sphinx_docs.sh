@@ -8,7 +8,7 @@ then
   BIN_PATH=""
 else
   PIP_OPT="--user"
-  BIN_PATH="~/.local/bin/"
+  BIN_PATH=~/.local/bin/
 fi
 
 # Sphinx has some additional requirements
