@@ -17,7 +17,6 @@ jobs:
         run: |
           pip install build
           python -m build cuebot
-          ls -la cuebot/dist
       - name: Upload cuebot package
         uses: actions/upload-artifact@v4
         with:
@@ -44,6 +43,8 @@ jobs:
     name: Run Python Unit Tests (CY2023)
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2023
+    env:
+      CUBOT_PACKAGE_PATH: "opencue_cuebot*.whl"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,9 +53,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: cuebot_proto
-      - name: Install package
-        run: |
-          pip install opencue_cuebot*.whl
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -75,15 +73,14 @@ jobs:
     name: Run Python Unit Tests (CY2024)
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024
+    env:
+      CUBOT_PACKAGE_PATH: "opencue_cuebot*.whl"
     steps:
       - uses: actions/checkout@v4
       - name: Download a single artifact
         uses: actions/download-artifact@v4
         with:
           name: cuebot_proto
-      - name: Install package
-        run: |
-          pip install opencue_cuebot*.whl
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 

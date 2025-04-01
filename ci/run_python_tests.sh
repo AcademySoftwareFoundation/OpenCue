@@ -11,9 +11,14 @@ args=("$@")
 python_version=$(python -V 2>&1)
 echo "Will run tests using ${python_version}"
 
-# pip uninstall --yes opencue_cuebot opencue_pycue opencue_pyoutline opencue_cueadmin opencue_cuesubmit opencue_rqd
-
-# pip install ./cuebot
+pip uninstall --yes opencue_cuebot opencue_pycue opencue_pyoutline opencue_cueadmin opencue_cuesubmit opencue_rqd
+if "${CUBOT_PACKAGE_PATH}"
+then
+  echo "Installing pre-built cuebot package"
+  pip install "${CUBOT_PACKAGE_PATH}"
+else
+  pip install ./cuebot
+fi
 
 pip install ./pycue[test]
 python -m pytest pycue
