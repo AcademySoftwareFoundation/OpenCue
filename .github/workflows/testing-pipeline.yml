@@ -101,6 +101,8 @@ jobs:
     needs: build_cuebot_prot
     name: Run Integration Test
     runs-on: ubuntu-22.04
+    env:
+      CUBOT_PACKAGE_PATH: "opencue_cuebot*.whl"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -26,8 +26,8 @@ COPY LICENSE ./
 
 # Install package with compiled proto files
 #RUN python3.9 -m pip install ./cuebot
-COPY ${CUEBOT_PACKAGE_PATH} /tmp
-RUN python3.9 -m pip /tmp/*.whl
+COPY ${CUEBOT_PACKAGE_PATH} /tmp/
+RUN python3.9 -m pip install /tmp/*.whl
 
 COPY rqd/deploy ./rqd/deploy
 COPY rqd/README.md ./rqd/
