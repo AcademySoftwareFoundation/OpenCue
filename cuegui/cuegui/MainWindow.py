@@ -498,15 +498,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # For populating the default state: print self.saveState().toBase64()
 
-        # Save the fact that this window is open or not
-        for windowName in self.windows_names:
-            for window in self.windows:
-                if window.name == windowName:
-                    self.settings.setValue("%s/Open" % windowName, True)
-                    break
-            else:
-                self.settings.setValue("%s/Open" % windowName, False)
+        # Only update open/close state if at least one window is still open
+        if self.windows:
+            # Save the fact that this window is open or not
+            for windowName in self.windows_names:
+                for window in self.windows:
+                    if window.name == windowName:
+                        self.settings.setValue("%s/Open" % windowName, True)
+                        break
+                else:
+                    self.settings.setValue("%s/Open" % windowName, False)
 
+        # Save other window state
         self.settings.setValue("Version", self.app_version)
 
         self.settings.setValue("%s/Title" % self.name,
