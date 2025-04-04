@@ -7,12 +7,52 @@ on:
     branches: [ master ]
 
 jobs:
+  build_cuebot_prot:
+    name: Build cuebot package
+    runs-on: ubuntu-22.04
+    container: python:3.7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build cuebot
+        run: |
+          pip install build
+          python -m build cuebot
+      - name: Upload cuebot package
+        uses: actions/upload-artifact@v4
+        with:
+          name: cuebot_proto
+          path: |
+            cuebot/dist/opencue_cuebot*.*
+
+  install_cuebot_proto:
+    needs: build_cuebot_prot
+    name: Install cuebot package
+    runs-on: ubuntu-22.04
+    container: python:3.11
+    steps:
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cuebot_proto
+      - name: Install package
+        run: |
+          pip install opencue_cuebot*.whl
+
   test_python_2023:
+    needs: build_cuebot_prot
     name: Run Python Unit Tests (CY2023)
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2023
+    env:
+      CUBOT_PACKAGE_PATH: "opencue_cuebot*.whl"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cuebot_proto
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -29,11 +69,19 @@ jobs:
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
   test_python_2024:
+    needs: build_cuebot_prot
     name: Run Python Unit Tests (CY2024)
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024
+    env:
+      CUBOT_PACKAGE_PATH: "opencue_cuebot*.whl"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cuebot_proto
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -50,12 +98,18 @@ jobs:
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
   integration_test:
+    needs: build_cuebot_prot
     name: Run Integration Test
     runs-on: ubuntu-22.04
+    env:
+      CUBOT_PACKAGE_PATH: "opencue_cuebot*.whl"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cuebot_proto
       - name: Run test
         run: ci/run_integration_test.sh
 
@@ -67,13 +121,19 @@ jobs:
           path: /tmp/opencue-test/*.log
 
   lint_python:
+    needs: build_cuebot_prot
     name: Lint Python Code
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024.1
     env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+      CUBOT_PACKAGE_PATH: "opencue_cuebot*.whl"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cuebot_proto
       - name: Lint Python Code
         run: ci/run_python_lint.sh
 
