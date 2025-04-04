@@ -110,7 +110,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Assume user close CueGUI using [x] button or Right click in CueGUI icon > Quit Windows
         # unless closing using File > Exit Application (Ctrl + Q)
-        self.__manual_closed = True
+        self._manual_closed = True
 
     def displayStartupNotice(self):
         """Displays the application startup notice."""
@@ -426,7 +426,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowCloseWindow(self):
         """Closes the current window"""
         # Register that CueGUI was closed using File > Exit Application (Ctrl + Q)
-        self.__manual_closed = False
+        self._manual_closed = False
         self.close()
 
     def __windowCloseApplication(self):
@@ -438,7 +438,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for windowName in self.windows_names:
                 for window in self.windows:
                     # Register that CueGUI was closed using File > Exit Application (Ctrl + Q)
-                    window.__manual_closed = False
+                    window._manual_closed = False # pylint: disable=W0212
 
                     if window.name == windowName:
                         # Save state of Window as Open
@@ -485,7 +485,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Only save settings on exit if toggled
         if self.saveWindowSettingsCheck.isChecked():
             self.__saveSettings()
-            if self.__manual_closed:
+            if self._manual_closed:
                 # Save state of Window as Closed
                 self.settings.setValue("%s/Open" % self.name, False)
         self.__windowClosed()
