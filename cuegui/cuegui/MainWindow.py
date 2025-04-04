@@ -108,6 +108,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.app.status.connect(self.showStatusBarMessage)
         self.showStatusBarMessage("Ready")
 
+        # Assume user close CueGUI using [x] button or Right click in CueGUI icon > Quit Windows
+        # unless closing using File > Exit Application (Ctrl + Q)
+        self._manual_closed = True
+
     def displayStartupNotice(self):
         """Displays the application startup notice."""
         now = int(time.time())
@@ -421,11 +425,26 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __windowCloseWindow(self):
         """Closes the current window"""
+        # Register that CueGUI was closed using File > Exit Application (Ctrl + Q)
+        self._manual_closed = False
         self.close()
 
     def __windowCloseApplication(self):
         """Called when the entire application should exit. Signals other windows
         to exit."""
+        # Only update Open state if at least one window is still open
+        if self.windows:
+            # Save the fact that this window is Open
+            for windowName in self.windows_names:
+                for window in self.windows:
+                    # Register that CueGUI was closed using File > Exit Application (Ctrl + Q)
+                    window._manual_closed = False # pylint: disable=W0212
+
+                    if window.name == windowName:
+                        # Save state of Window as Open
+                        self.settings.setValue("%s/Open" % windowName, True)
+                        break
+
         self.app.closingApp = True
         self.app.quit.emit()
         # Give the application some time to save the state
@@ -466,6 +485,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # Only save settings on exit if toggled
         if self.saveWindowSettingsCheck.isChecked():
             self.__saveSettings()
+            if self._manual_closed:
+                # Save state of Window as Closed
+                self.settings.setValue("%s/Open" % self.name, False)
         self.__windowClosed()
 
     def __restoreSettings(self):
@@ -497,17 +519,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.__plugins.saveState()
 
         # For populating the default state: print self.saveState().toBase64()
-
-        # Only update open/close state if at least one window is still open
-        if self.windows:
-            # Save the fact that this window is open or not
-            for windowName in self.windows_names:
-                for window in self.windows:
-                    if window.name == windowName:
-                        self.settings.setValue("%s/Open" % windowName, True)
-                        break
-                else:
-                    self.settings.setValue("%s/Open" % windowName, False)
 
         # Save other window state
         self.settings.setValue("Version", self.app_version)
