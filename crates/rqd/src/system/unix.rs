@@ -1,28 +1,33 @@
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, ErrorKind},
     net::ToSocketAddrs,
+    path::Path,
     process::Command,
-    sync::{Arc, Mutex},
+    sync::{Mutex, MutexGuard},
+    time::UNIX_EPOCH,
 };
 
+use dashmap::DashMap;
 use itertools::Itertools;
 use miette::{IntoDiagnostic, Result, miette};
 use opencue_proto::host::HardwareState;
-use sysinfo::{DiskRefreshKind, Disks, System};
+use sysinfo::{
+    DiskRefreshKind, Disks, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System,
+};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::config::config::MachineConfig;
 
 use super::machine::{
-    CoreReservation, CpuStat, MachineGpuStats, MachineStat, ReservationError, SystemController,
+    CoreReservation, CpuStat, MachineGpuStats, MachineStat, ProcessStats, ReservationError,
+    SystemController,
 };
 
-pub struct LinuxSystem {
+pub struct UnixSystem {
     config: MachineConfig,
-    sysinfo: Arc<Mutex<System>>,
-    diskinfo: Arc<Mutex<Disks>>,
     /// Map of procids indexed by physid and coreid
     procid_by_physid_and_core_id: HashMap<u32, HashMap<u32, u32>>,
     /// The inverse map of procid_by_physid_and_core_id
@@ -32,6 +37,9 @@ pub struct LinuxSystem {
     static_info: MachineStaticInfo,
     hardware_state: HardwareState,
     attributes: HashMap<String, String>,
+    sysinfo_system: Mutex<sysinfo::System>,
+    // Stores a cache of each monitored process' list of children processes
+    children_procs_cache: DashMap<u32, Vec<u32>>,
 }
 
 struct MemInfoData {
@@ -41,6 +49,7 @@ struct MemInfoData {
     free_swap: u64,
 }
 
+#[derive(Debug)]
 struct ProcessorInfoData {
     hyperthreading_multiplier: u32,
     num_procs: u32,
@@ -64,23 +73,20 @@ struct MachineStaticInfo {
 }
 
 pub struct MachineDynamicInfo {
-    pub free_memory: u64,
+    // Free + Cached
+    pub available_memory: u64,
     pub free_swap: u64,
     pub total_temp_storage: u64,
     pub free_temp_storage: u64,
     pub load: u32,
 }
 
-impl LinuxSystem {
-    /// Initialize the linux stats collector which reads Cpu and Memory information from
-    /// the Os.
+impl UnixSystem {
+    /// Initialize the unix sstats collector which reads Cpu and Memory information from
+    /// the OS.
     ///
-    /// sysinfo and diskinfo need to have been initialized.
-    pub fn init(
-        config: &MachineConfig,
-        sysinfo: Arc<Mutex<System>>,
-        diskinfo: Arc<Mutex<Disks>>,
-    ) -> Result<Self> {
+    /// sysinfo needs to have been initialized.
+    pub fn init(config: &MachineConfig) -> Result<Self> {
         let (processor_info, procid_by_physid_and_core_id, physid_and_coreid_by_procid) =
             Self::read_cpuinfo(&config.cpuinfo_path)?;
 
@@ -92,12 +98,13 @@ impl LinuxSystem {
                 Self::read_distro(&config.distro_release_path).unwrap_or("linux".to_string())
             });
 
-        let sysinfo_guard = sysinfo
-            .lock()
-            .map_err(|err| miette!("Failed to acquire sysinfo lock {}", err))?;
-        let total_memory = sysinfo_guard.total_memory();
-        let total_swap = sysinfo_guard.total_swap();
-        drop(sysinfo_guard);
+        // Initialize sysinfo collector
+        let sysinfo = sysinfo::System::new_with_specifics(
+            RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
+        );
+        let total_memory = sysinfo.total_memory();
+        let total_swap = sysinfo.total_swap();
+
         let available_core_count = procid_by_physid_and_core_id
             .values()
             .map(|sockets| sockets.iter().count())
@@ -106,8 +113,6 @@ impl LinuxSystem {
 
         Ok(Self {
             config: config.clone(),
-            sysinfo,
-            diskinfo,
             procid_by_physid_and_core_id,
             physid_and_coreid_by_procid,
             static_info: MachineStaticInfo {
@@ -135,6 +140,8 @@ impl LinuxSystem {
                 reserved_cores_by_physid: HashMap::new(),
                 available_cores: available_core_count,
             },
+            sysinfo_system: Mutex::new(sysinfo::System::new()),
+            children_procs_cache: DashMap::new(),
         })
     }
 
@@ -266,8 +273,8 @@ impl LinuxSystem {
     ///
     /// A `Result` containing a `String` representing the hostname or IP address of the machine.
     fn get_hostname(use_ip_as_hostname: bool) -> Result<String> {
-        let hostname =
-            System::host_name().ok_or_else(|| miette::miette!("Failed to get hostname"))?;
+        let hostname = sysinfo::System::host_name()
+            .ok_or_else(|| miette::miette!("Failed to get hostname"))?;
         if use_ip_as_hostname {
             let mut addrs_iter = format!("{}:443", hostname)
                 .to_socket_addrs()
@@ -377,25 +384,44 @@ impl LinuxSystem {
         Ok(override_workstation_mode)
     }
 
+    #[cfg(target_os = "linux")]
     fn read_dynamic_stat(&self) -> Result<MachineDynamicInfo> {
         let config = &self.config;
         let load = Self::read_load_avg(&config.proc_loadavg_path)?;
         let (total_space, available_space) = self.read_temp_storage()?;
-        let mut sysinfo_guard = self
-            .sysinfo
-            .lock()
-            .map_err(|err| miette!("Failed to acquire sysinfo lock {}", err))?;
-        sysinfo_guard.refresh_memory();
+        let sysinfo = sysinfo::System::new_with_specifics(
+            RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
+        );
 
         Ok(MachineDynamicInfo {
-            free_memory: sysinfo_guard.free_memory(),
-            free_swap: sysinfo_guard.free_swap(),
+            // TODO: Confirm available_memory is the best option for linux
+            available_memory: sysinfo.available_memory(),
+            free_swap: sysinfo.free_swap(),
             total_temp_storage: total_space,
             free_temp_storage: available_space,
             load: ((load.0 * 100.0).round() as u32 / self.static_info.hyperthreading_multiplier),
         })
     }
 
+    #[cfg(target_os = "macos")]
+    fn read_dynamic_stat(&self) -> Result<MachineDynamicInfo> {
+        let config = &self.config;
+        let load = Self::read_load_avg(&config.proc_loadavg_path)?;
+        let (total_space, available_space) = self.read_temp_storage()?;
+        let sysinfo = sysinfo::System::new_with_specifics(
+            RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
+        );
+
+        Ok(MachineDynamicInfo {
+            // sysinfo.available_memory() would be the best way to infer available memory, but it
+            // returns 0 on M macs
+            available_memory: sysinfo.total_memory() - sysinfo.used_memory(),
+            free_swap: sysinfo.free_swap(),
+            total_temp_storage: total_space,
+            free_temp_storage: available_space,
+            load: ((load.0 * 100.0).round() as u32 / self.static_info.hyperthreading_multiplier),
+        })
+    }
     /// Reads the load average from the specified `proc_loadavg_path` file and extracts
     /// the 1-minute, 5-minute and 15-minute load averages.
     ///
@@ -433,11 +459,9 @@ impl LinuxSystem {
     ///
     /// A `Result` containing a tuple of total space and available space in bytes.
     fn read_temp_storage(&self) -> Result<(u64, u64)> {
-        let mut diskinfo_guard = self
-            .diskinfo
-            .lock()
-            .map_err(|err| miette!("Failed to acquire diskinfo lock. {}", err))?;
-        let tmp_disk = diskinfo_guard.list_mut().iter_mut().find(|disk| {
+        let mut diskinfo =
+            Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing().with_storage());
+        let tmp_disk = diskinfo.list_mut().iter_mut().find(|disk| {
             self.config.temp_path.starts_with(
                 disk.mount_point()
                     .to_str()
@@ -446,7 +470,7 @@ impl LinuxSystem {
         });
         match tmp_disk {
             Some(disk) => {
-                disk.refresh_specifics(DiskRefreshKind::nothing().with_storage());
+                disk.refresh_specifics(DiskRefreshKind::everything());
                 Ok((disk.total_space(), disk.available_space()))
             }
             None => Err(miette!(
@@ -511,9 +535,105 @@ impl LinuxSystem {
 
         Ok(available_cores.collect())
     }
+
+    /// Refresh the cache of children procs.
+    ///
+    /// This method relies on sysinfo to have been updated periodically
+    /// throught the read_dynamic_stat method to gather the updated list
+    /// of running processes
+    fn refresh_children_procs_cache(&self, pids: Vec<u32>) {
+        let sysinfo = self
+            .sysinfo_system
+            .lock()
+            .unwrap_or_else(|err| err.into_inner());
+        // Clear up cache
+        self.children_procs_cache.clear();
+
+        for (parent_pid, children_pid) in sysinfo.processes().iter().map(|(children_pid, proc)| {
+            let parent_pid = proc.parent().unwrap_or(Pid::from_u32(0)).as_u32();
+            (parent_pid, children_pid.clone())
+        }) {
+            self.children_procs_cache
+                .entry(parent_pid)
+                .and_modify(|children| children.push(children_pid.as_u32()))
+                .or_insert(vec![children_pid.as_u32()]);
+        }
+    }
+
+    /// Recursively calculates memory usage of a process and all of its child processes.
+    ///
+    /// # Arguments
+    ///
+    /// * `pid` - Process ID to calculate memory usage for
+    /// * `sysinfo` - Mutex guard containing system information
+    /// * `cycle_trace` - Vector of process IDs to detect recursive loops
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing:
+    /// * Memory usage in bytes
+    /// * Virtual memory usage in bytes
+    /// * GPU memory usage in bytes
+    /// * The updated mutex guard reference
+    /// * The updated cycle_trace vector
+    ///
+    /// # Implementation Notes
+    ///
+    /// This function recursively traverses the process tree to sum up memory usage.
+    /// It uses cycle detection to prevent infinite loops in process hierarchies.
+    fn calculate_children_memory<'a>(
+        &'a self,
+        pid: &u32,
+        mut sysinfo: MutexGuard<'a, System>,
+        mut cycle_trace: Vec<u32>,
+    ) -> (u64, u64, u64, MutexGuard<'a, System>, Vec<u32>) {
+        match sysinfo.process(Pid::from(pid.clone() as usize)) {
+            Some(proc) => match self.children_procs_cache.get(pid) {
+                Some(children_pids) => {
+                    cycle_trace.push(pid.clone());
+                    let (mut sum_memory, mut sum_virtual_memory, mut sum_gpu_memory) =
+                        (proc.memory(), proc.virtual_memory(), 0);
+                    for child_pid in children_pids.iter() {
+                        // Check for cycles to avoid an infinite loop
+                        if cycle_trace.contains(child_pid) {
+                            warn!(
+                                "calculate_children_memory recursion found a loop.\
+                                Incomplete memory calculation for {pid}."
+                            );
+                            break;
+                        }
+                        let (
+                            child_memory,
+                            child_virtual_memory,
+                            child_gpu_memory,
+                            updated_sysinfo,
+                            updated_cycle_trace,
+                        ) = self.calculate_children_memory(child_pid, sysinfo, cycle_trace);
+                        sum_memory += child_memory;
+                        sum_virtual_memory += child_virtual_memory;
+                        sum_gpu_memory += child_gpu_memory;
+                        // Update our reference to the mutex guard and cycle_trace
+                        sysinfo = updated_sysinfo;
+                        cycle_trace = updated_cycle_trace;
+                    }
+                    (
+                        sum_memory,
+                        sum_virtual_memory,
+                        sum_gpu_memory,
+                        sysinfo,
+                        cycle_trace,
+                    )
+                }
+                // Process has no children
+                None => (proc.memory(), proc.virtual_memory(), 0, sysinfo, Vec::new()),
+            },
+            // Process no longer exists
+            None => (0, 0, 0, sysinfo, Vec::new()),
+        }
+    }
 }
 
-impl SystemController for LinuxSystem {
+impl SystemController for UnixSystem {
     fn collect_stats(&self) -> Result<MachineStat> {
         let dinamic_stat = self.read_dynamic_stat()?;
         Ok(MachineStat {
@@ -526,7 +646,7 @@ impl SystemController for LinuxSystem {
             hyperthreading_multiplier: self.static_info.hyperthreading_multiplier,
             boot_time: self.static_info.boot_time,
             tags: self.static_info.tags.clone(),
-            free_memory: dinamic_stat.free_memory,
+            available_memory: dinamic_stat.available_memory,
             free_swap: dinamic_stat.free_swap,
             total_temp_storage: dinamic_stat.total_temp_storage,
             free_temp_storage: dinamic_stat.free_temp_storage,
@@ -548,7 +668,7 @@ impl SystemController for LinuxSystem {
 
     fn init_nimby(&self) -> Result<bool> {
         // TODO: missing implementation, returning dummy val
-        Ok(true)
+        Ok(false)
     }
 
     fn collect_gpu_stats(&self) -> super::machine::MachineGpuStats {
@@ -671,17 +791,70 @@ impl SystemController for LinuxSystem {
             None => Err(miette!("Failed to verify user {} was created", username)),
         }
     }
+
+    fn collect_proc_stats(&self, pid: u32, log_path: String) -> Result<Option<ProcessStats>> {
+        // Latest log modified time in epoch seconds. Defaults to zero if the metadata is not
+        // accessible.
+        let log_mtime = std::fs::metadata(Path::new(&log_path))
+            .and_then(|metadata| metadata.modified())
+            .and_then(|mtime| {
+                mtime
+                    .duration_since(UNIX_EPOCH)
+                    .map_err(|err| std::io::Error::new(ErrorKind::Other, err))
+            })
+            .unwrap_or_default()
+            .as_secs();
+
+        // Summation of all children memory consumption
+        let sysinfo = self
+            .sysinfo_system
+            .lock()
+            .unwrap_or_else(|err| err.into_inner());
+        let (summed_memory, summed_virtual_memory, summed_gpu_memory, guard, _) =
+            self.calculate_children_memory(&pid, sysinfo, Vec::new());
+        debug!(
+            "Collect frame stats fo {}. rss: {}mb virtual: {}mb gpu: {}mb",
+            pid,
+            summed_memory / 1024 / 1024,
+            summed_virtual_memory / 1024 / 1024,
+            summed_gpu_memory / 1024 / 1024
+        );
+
+        Ok(guard
+            .process(Pid::from(pid as usize))
+            .map(|proc| ProcessStats {
+                // Caller is responsible for maintaining the Max value between calls
+                max_rss: summed_memory,
+                rss: summed_memory,
+                max_vsize: summed_virtual_memory,
+                vsize: summed_virtual_memory,
+                llu_time: log_mtime,
+                max_used_gpu_memory: 0,
+                used_gpu_memory: summed_gpu_memory,
+                children: None,
+                epoch_start_time: proc.start_time(),
+            }))
+    }
+
+    fn update_procs(&self, pids: Vec<u32>) {
+        let mut sysinfo = self
+            .sysinfo_system
+            .lock()
+            .unwrap_or_else(|err| err.into_inner());
+
+        *sysinfo = sysinfo::System::new_with_specifics(
+            RefreshKind::nothing().with_processes(ProcessRefreshKind::nothing().with_memory()),
+        );
+        drop(sysinfo);
+        self.refresh_children_procs_cache(pids);
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::LinuxSystem;
+    use super::UnixSystem;
     use crate::config::config::MachineConfig;
-    use std::{
-        fs,
-        sync::{Arc, Mutex},
-    };
-    use sysinfo::{Disks, System};
+    use std::fs;
 
     #[test]
     /// Use this unit test to quickly exercice a single cpuinfo file by changing the path on the
@@ -695,10 +868,8 @@ mod tests {
         config.proc_stat_path = "".to_string();
         config.inittab_path = "".to_string();
         config.core_multiplier = 1;
-        let sysinfo = Arc::new(Mutex::new(System::new()));
-        let diskinfo = Arc::new(Mutex::new(Disks::new()));
 
-        let linux_monitor = LinuxSystem::init(&config, sysinfo, diskinfo)
+        let linux_monitor = UnixSystem::init(&config)
             .expect("Initializing LinuxMachineStat failed")
             .static_info;
         assert_eq!(4, linux_monitor.num_procs);
@@ -761,7 +932,7 @@ mod tests {
             };
 
             let (cpuinfo, procid_by_physid_and_core_id, physid_and_coreid_by_procid) =
-                LinuxSystem::read_cpuinfo(&file_path).expect("Failed to read file");
+                UnixSystem::read_cpuinfo(&file_path).expect("Failed to read file");
             // Assert that the mapping between processor ID, physical ID, and core ID is correct
             let mut found_mapping = false;
             println!(
@@ -816,11 +987,7 @@ mod tests {
         config.inittab_path = "".to_string();
         config.core_multiplier = 1;
 
-        let sysinfo = Arc::new(Mutex::new(System::new()));
-        let diskinfo = Arc::new(Mutex::new(Disks::new()));
-
-        let stat = LinuxSystem::init(&config, sysinfo, diskinfo)
-            .expect("Initializing LinuxMachineStat failed");
+        let stat = UnixSystem::init(&config).expect("Initializing LinuxMachineStat failed");
         let static_info = stat.static_info;
 
         // Proc
@@ -858,7 +1025,7 @@ mod tests {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
         let path = format!("{}/resources/distro-release/{}", project_dir, id);
-        let release = LinuxSystem::read_distro(&path).expect("Failed to read release");
+        let release = UnixSystem::read_distro(&path).expect("Failed to read release");
 
         assert_eq!(id.to_string(), release);
     }
@@ -868,7 +1035,7 @@ mod tests {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
         let path = format!("{}/resources/proc/stat", project_dir);
-        let boot_time = LinuxSystem::read_boot_time(&path).expect("Failed to read boot time");
+        let boot_time = UnixSystem::read_boot_time(&path).expect("Failed to read boot time");
         assert_eq!(1720194269, boot_time);
     }
 
@@ -880,23 +1047,23 @@ mod tests {
         // Test successful case
         let mut temp_file = NamedTempFile::new().unwrap();
         writeln!(temp_file, "1.00 2.00 3.00 4/512 12345").unwrap();
-        let result = LinuxSystem::read_load_avg(temp_file.path().to_str().unwrap());
+        let result = UnixSystem::read_load_avg(temp_file.path().to_str().unwrap());
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), (1.0, 2.0, 3.0));
 
         // Test empty file
         let empty_file = NamedTempFile::new().unwrap();
-        let result = LinuxSystem::read_load_avg(empty_file.path().to_str().unwrap());
+        let result = UnixSystem::read_load_avg(empty_file.path().to_str().unwrap());
         assert!(result.is_err());
 
         // Test invalid format
         let mut invalid_file = NamedTempFile::new().unwrap();
         writeln!(invalid_file, "invalid format").unwrap();
-        let result = LinuxSystem::read_load_avg(invalid_file.path().to_str().unwrap());
+        let result = UnixSystem::read_load_avg(invalid_file.path().to_str().unwrap());
         assert!(result.is_err());
 
         // Test non-existent file
-        let result = LinuxSystem::read_load_avg("nonexistent_file");
+        let result = UnixSystem::read_load_avg("nonexistent_file");
         assert!(result.is_err());
     }
 
@@ -904,11 +1071,9 @@ mod tests {
     mod tests {
         // ... existing imports ...
 
-        use std::{
-            collections::HashMap,
-            sync::{Arc, Mutex},
-        };
+        use std::{collections::HashMap, sync::Mutex};
 
+        use dashmap::DashMap;
         use itertools::Itertools;
         use opencue_proto::host::HardwareState;
         use uuid::Uuid;
@@ -916,8 +1081,8 @@ mod tests {
         use crate::{
             config::config::MachineConfig,
             system::{
-                linux::{LinuxSystem, MachineStaticInfo},
                 machine::{CpuStat, ReservationError, SystemController},
+                unix::{MachineStaticInfo, UnixSystem},
             },
         };
 
@@ -1005,7 +1170,7 @@ mod tests {
         }
 
         // Helper function to create a test system with specified configuration
-        fn setup_test_system(total_cores: u32, physical_cpus: u32) -> LinuxSystem {
+        fn setup_test_system(total_cores: u32, physical_cpus: u32) -> UnixSystem {
             let mut procid_by_physid_and_core_id = HashMap::new();
             let mut physid_and_coreid_by_procid = HashMap::new();
 
@@ -1021,10 +1186,8 @@ mod tests {
                 procid_by_physid_and_core_id.insert(phys_id, core_map);
             }
 
-            LinuxSystem {
+            UnixSystem {
                 config: MachineConfig::default(),
-                sysinfo: Arc::new(Mutex::new(sysinfo::System::new())),
-                diskinfo: Arc::new(Mutex::new(sysinfo::Disks::new())),
                 procid_by_physid_and_core_id,
                 physid_and_coreid_by_procid,
                 cpu_stat: CpuStat {
@@ -1044,6 +1207,8 @@ mod tests {
                 },
                 hardware_state: HardwareState::Up,
                 attributes: HashMap::new(),
+                sysinfo_system: Mutex::new(sysinfo::System::new()),
+                children_procs_cache: DashMap::new(),
             }
         }
     }

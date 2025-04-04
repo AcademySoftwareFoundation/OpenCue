@@ -8,12 +8,12 @@ use thiserror::Error;
 use tracing::{error, warn};
 use uuid::Uuid;
 
-use crate::{config::config::RunnerConfig, servant::rqd_servant::MachineImpl};
+use crate::{config::config::Config, servant::rqd_servant::MachineImpl};
 
 use super::{cache::RunningFrameCache, running_frame::RunningFrame};
 
 pub struct FrameManager {
-    pub config: RunnerConfig,
+    pub config: Config,
     pub frame_cache: Arc<RunningFrameCache>,
     pub machine: Arc<MachineImpl>,
 }
@@ -56,7 +56,7 @@ impl FrameManager {
                         run_frame.user_name, uid, run_frame.gid, err
                     ))
                 })?,
-            None => self.config.default_uid,
+            None => self.config.runner.default_uid,
         };
 
         // **Attention**: If an error happens between here and spawning a frame, the resources
@@ -68,26 +68,17 @@ impl FrameManager {
             .environment
             .get("CUE_THREADABLE")
             .map_or(false, |v| v == "1");
-        let cpu_list = match hyperthreaded {
-            true => {
-                // On cuebot, num_cores are multiplied by 100 to account for fractional reservations
-                // rqd doesn't follow the same concept
-                let cpu_request = run_frame.num_cores as u32 / 100;
-                Some(
-                    self.machine
-                        .reserve_cores(cpu_request, run_frame.resource_id())
-                        .await
-                        .map_err(|err| {
-                            FrameManagerError::Aborted(format!(
-                                "Not launching, failed to reserve cpu resources {:?}",
-                                err
-                            ))
-                        })?,
-                )
-            }
-            false => None,
-        };
-
+        let cpu_request = run_frame.num_cores as u32 / self.config.machine.core_multiplier;
+        let cpu_list = self
+            .machine
+            .reserve_cores(cpu_request, run_frame.resource_id(), hyperthreaded)
+            .await
+            .map_err(|err| {
+                FrameManagerError::Aborted(format!(
+                    "Not launching, failed to reserve cpu resources {:?}",
+                    err
+                ))
+            })?;
         // Although num_gpus is not required on a frame, the field is not optional on the proto
         // layer. =0 means None, !=0 means Some
         let gpu_list = match run_frame.num_gpus {
@@ -98,6 +89,8 @@ impl FrameManager {
                     // Release cores reserved on the last step
                     if let Some(procs) = &cpu_list {
                         self.machine.release_cpus(procs).await;
+                    } else {
+                        self.machine.release_cores(cpu_request).await;
                     }
                 }
                 Some(reserved_res.map_err(|err| {
@@ -112,7 +105,7 @@ impl FrameManager {
         let running_frame = Arc::new(RunningFrame::init(
             run_frame,
             uid,
-            self.config.clone(),
+            self.config.runner.clone(),
             cpu_list,
             gpu_list,
             self.machine.get_host_name().await,
@@ -135,7 +128,7 @@ impl FrameManager {
     /// * `Ok(())` if snapshot recovery was attempted (even if some snapshots failed)
     /// * `Err(miette::Error)` if the snapshots directory could not be read
     pub async fn recover_snapshots(&self) -> Result<()> {
-        let snapshots_path = &self.config.snapshots_path;
+        let snapshots_path = &self.config.runner.snapshots_path;
         let read_dirs = std::fs::read_dir(snapshots_path).map_err(|err| {
             let msg = format!("Failed to read snapshot dir. {}", err);
             warn!(msg);
@@ -156,19 +149,28 @@ impl FrameManager {
             .collect();
         let mut errors = Vec::new();
         for path in snapshot_dir {
-            let running_frame =
-                RunningFrame::from_snapshot(&path, self.config.clone()).map(|rf| Arc::new(rf));
+            let running_frame = RunningFrame::from_snapshot(&path, self.config.runner.clone())
+                .map(|rf| Arc::new(rf));
             match running_frame {
                 Ok(running_frame) => {
-                    // Update reservations:
-                    if let Some(cpu_list) = &running_frame.cpu_list {
-                        if let Err(err) = self
+                    // Update reservations. If a cpu_list exists, the frame was booked using affinity
+                    if let Err(err) = match &running_frame.cpu_list {
+                        Some(cpu_list) => self
                             .machine
                             .reserve_cores_by_id(cpu_list, running_frame.request.resource_id())
                             .await
-                        {
-                            errors.push(err.to_string());
+                            .map(|v| Some(v)),
+                        None => {
+                            self.machine
+                                .reserve_cores(
+                                    running_frame.request.num_cores as u32,
+                                    running_frame.request.resource_id(),
+                                    false,
+                                )
+                                .await
                         }
+                    } {
+                        errors.push(err.to_string());
                     }
                     self.spawn_running_frame(running_frame, true)
                 }
@@ -196,16 +198,19 @@ impl FrameManager {
         let thread_handle = std::thread::spawn(move || {
             let result = std::panic::catch_unwind(|| running_frame.run(recover_mode));
             if let Err(panic_info) = result {
-                running_frame.update_exit_code_and_signal(1, None);
-                error!("Run thread panicked: {:?}", panic_info);
+                _ = running_frame.finish(1, None);
+                error!(
+                    "Run thread panicked for {}: {:?}",
+                    running_frame, panic_info
+                );
             }
         });
-        // Another option would be to use a blocking context from tokio.
-        // let _t = tokio::task::spawn_blocking(move || running_frame.run());
-
-        // Store the thread handle for bookeeping
-        // TODO: Implement logic that checks if the thread is alive during monitoring
-        running_frame_ref.update_launch_thread_handle(thread_handle);
+        if let Err(err) = running_frame_ref.update_launch_thread_handle(thread_handle) {
+            warn!(
+                "Failed to update thread handle for frame {}. {}",
+                running_frame_ref, err
+            );
+        }
     }
 
     fn validate_grpc_frame(&self, run_frame: &RunFrame) -> Result<(), FrameManagerError> {

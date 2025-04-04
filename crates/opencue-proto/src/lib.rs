@@ -2,6 +2,7 @@ use core::fmt;
 
 use host::Host;
 use job::{Frame, Job};
+use report::CoreDetail;
 use rqd::RunFrame;
 use uuid::Uuid;
 
@@ -92,5 +93,53 @@ impl fmt::Display for Job {
 impl fmt::Display for Host {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:}/({:})", self.name, self.id)
+    }
+}
+
+impl CoreDetail {
+    /// Update CoreDetail by reserving a number of cores
+    ///
+    /// # Arguments
+    ///
+    /// * `core_count_with_multiplier` - The number of cores to reserve
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if cores were reserved successfully
+    /// * `Err(String)` if trying to reserve more cores than are available
+    pub fn reserve(&mut self, core_count_with_multiplier: u32) -> Result<(), String> {
+        if self.idle_cores - core_count_with_multiplier as i32 <= 0 {
+            Err(format!(
+                "Tried to reserve {} out of {} cores available",
+                core_count_with_multiplier, self.idle_cores,
+            ))
+        } else {
+            self.idle_cores -= core_count_with_multiplier as i32;
+            self.booked_cores += core_count_with_multiplier as i32;
+            Ok(())
+        }
+    }
+
+    /// Update CoreDetail by releasing a number of previously reserved cores
+    ///
+    /// # Arguments
+    ///
+    /// * `core_count_with_multiplier` - The number of cores to release
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if cores were released successfully
+    /// * `Err(String)` if trying to release more cores than are currently reserved
+    pub fn release(&mut self, core_count_with_multiplier: u32) -> Result<(), String> {
+        if self.booked_cores < core_count_with_multiplier as i32 {
+            Err(format!(
+                "Tried to release {} out of {} cores reserved",
+                core_count_with_multiplier, self.booked_cores,
+            ))
+        } else {
+            self.idle_cores += core_count_with_multiplier as i32;
+            self.booked_cores -= core_count_with_multiplier as i32;
+            Ok(())
+        }
     }
 }

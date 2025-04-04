@@ -1,13 +1,9 @@
-use std::{
-    str::FromStr,
-    sync::{Arc, Mutex},
-};
+use std::{str::FromStr, sync::Arc};
 
 use config::config::Config;
 use frame::{cache::RunningFrameCache, manager::FrameManager};
 use miette::IntoDiagnostic;
 use report_client::ReportClient;
-use sysinfo::{Disks, MemoryRefreshKind, RefreshKind, System};
 use system::machine::MachineMonitor;
 use tracing::warn;
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
@@ -49,25 +45,18 @@ async fn main() -> miette::Result<()> {
     let config_clone = config.clone();
     let running_frame_cache_clone = Arc::clone(&running_frame_cache);
 
-    // Initialize sysinfo collectors
-    let sysinfo = Arc::new(Mutex::new(System::new_with_specifics(
-        RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
-    )));
-    let diskinfo = Arc::new(Mutex::new(Disks::new_with_refreshed_list()));
-
     // Initialize rqd machine monitor
     let machine_monitor = Arc::new(MachineMonitor::init(
         &config_clone,
         report_client,
         Arc::clone(&running_frame_cache_clone),
-        sysinfo,
-        diskinfo,
     )?);
     let mm_clone = Arc::clone(&machine_monitor);
+    let mm_clone2 = Arc::clone(&machine_monitor);
 
     // Initialize frame manager
     let frame_manager = Arc::new(FrameManager {
-        config: config.runner.clone(),
+        config: config.clone(),
         frame_cache: Arc::clone(&running_frame_cache),
         machine: mm_clone.clone(),
     });
@@ -84,9 +73,15 @@ async fn main() -> miette::Result<()> {
     };
 
     // Initialize rqd grpc servant
-    servant::serve(config, mm_clone, frame_manager)
+    let out = servant::serve(config, mm_clone, frame_manager)
         .await
-        .into_diagnostic()
+        .into_diagnostic();
+
+    if out.is_err() {
+        mm_clone2.interrupt().await;
+    }
+
+    out
 }
 
 // To launch a process in a different process group in Linux, a binary (or executable) needs to have the following capabilities:
