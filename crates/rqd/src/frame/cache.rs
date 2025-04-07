@@ -15,6 +15,15 @@ pub struct RunningFrameCache {
     cache: DashMap<Uuid, Arc<RunningFrame>>,
 }
 
+// Give Caller access to all methods on its inner User
+impl std::ops::Deref for RunningFrameCache {
+    type Target = DashMap<Uuid, Arc<RunningFrame>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.cache
+    }
+}
+
 impl RunningFrameCache {
     pub fn init() -> Arc<Self> {
         Arc::new(Self {

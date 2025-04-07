@@ -233,7 +233,7 @@ impl MachineMonitor {
         if let Some(host_state) = host_state {
             for frame in finished_frames {
                 if let (Some(finished_state), Some(frame_report)) =
-                    (frame.get_finished_state(), frame.into_report())
+                    (frame.get_finished_state(), frame.into_running_frame_info())
                 {
                     let exit_signal = match finished_state.exit_signal {
                         Some(signal) => signal as u32,

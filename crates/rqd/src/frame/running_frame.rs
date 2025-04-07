@@ -114,12 +114,6 @@ impl Display for RunningFrame {
     }
 }
 
-impl Into<RunningFrameInfo> for RunningFrame {
-    fn into(self) -> RunningFrameInfo {
-        todo!()
-    }
-}
-
 impl RunningFrame {
     pub fn init(
         request: RunFrame,
@@ -911,41 +905,39 @@ Environment Variables:
             .join(",")
     }
 
-    pub fn into_report(&self) -> Option<RunningFrameInfo> {
-        if let Some(finished_state) = self.get_finished_state() {
-            let frame_stats_lock = self
-                .frame_stats
-                .lock()
-                .unwrap_or_else(|err| err.into_inner());
-            if let Some(ref stats) = *frame_stats_lock {
-                Some(RunningFrameInfo {
-                    resource_id: self.request.resource_id.clone(),
-                    job_id: self.request.job_id.clone(),
-                    job_name: self.request.job_name.clone(),
-                    frame_id: self.request.frame_id.clone(),
-                    frame_name: self.request.frame_name.clone(),
-                    layer_id: self.request.layer_id.clone(),
-                    num_cores: self.request.num_cores,
-                    start_time: finished_state
-                        .start_time
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap_or(Duration::ZERO)
-                        .as_secs() as i64,
-                    max_rss: stats.max_rss as i64,
-                    rss: stats.rss as i64,
-                    max_vsize: stats.max_vsize as i64,
-                    vsize: stats.vsize as i64,
-                    attributes: self.request.attributes.clone(),
-                    llu_time: stats.llu_time as i64,
-                    num_gpus: self.request.num_gpus,
-                    max_used_gpu_memory: stats.max_used_gpu_memory as i64,
-                    used_gpu_memory: stats.used_gpu_memory as i64,
-                    // Not recording proc children for now
-                    children: None,
-                })
-            } else {
-                None
-            }
+    /// Produce a copy of this running frame in the format expected by the grpc interface
+    pub fn into_running_frame_info(&self) -> Option<RunningFrameInfo> {
+        let frame_stats_lock = self
+            .frame_stats
+            .lock()
+            .unwrap_or_else(|err| err.into_inner());
+        // Start time defauls to 0 if a frame hasn't started
+        let start_time = frame_stats_lock
+            .as_ref()
+            .map(|stats| stats.epoch_start_time)
+            .unwrap_or(0);
+        if let Some(ref stats) = *frame_stats_lock {
+            Some(RunningFrameInfo {
+                resource_id: self.request.resource_id.clone(),
+                job_id: self.request.job_id.clone(),
+                job_name: self.request.job_name.clone(),
+                frame_id: self.request.frame_id.clone(),
+                frame_name: self.request.frame_name.clone(),
+                layer_id: self.request.layer_id.clone(),
+                num_cores: self.request.num_cores,
+                start_time: start_time as i64,
+                max_rss: stats.max_rss as i64,
+                rss: stats.rss as i64,
+                max_vsize: stats.max_vsize as i64,
+                vsize: stats.vsize as i64,
+                attributes: self.request.attributes.clone(),
+                llu_time: stats.llu_time as i64,
+                num_gpus: self.request.num_gpus,
+                max_used_gpu_memory: stats.max_used_gpu_memory as i64,
+                used_gpu_memory: stats.used_gpu_memory as i64,
+                // Not recording proc children for now
+                children: None,
+            })
         } else {
             None
         }

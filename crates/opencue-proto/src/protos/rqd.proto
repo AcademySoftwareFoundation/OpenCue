@@ -14,7 +14,7 @@ import "report.proto";
 
 // Implemented by the Rqd server. Called by cuebot and tools.
 service RqdInterface {
-    // Return the RunFrame by id
+    // [Deprecated] Return the RunFrame by id
     rpc GetRunFrame(RqdStaticGetRunFrameRequest) returns (RqdStaticGetRunFrameResponse);
 
     // Return the RunningFrameStatus report

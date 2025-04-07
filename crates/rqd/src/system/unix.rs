@@ -42,13 +42,6 @@ pub struct UnixSystem {
     children_procs_cache: DashMap<u32, Vec<u32>>,
 }
 
-struct MemInfoData {
-    total_memory: u64,
-    free_memory: u64,
-    total_swap: u64,
-    free_swap: u64,
-}
-
 #[derive(Debug)]
 struct ProcessorInfoData {
     hyperthreading_multiplier: u32,

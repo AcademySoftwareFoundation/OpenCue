@@ -1,25 +1,26 @@
-use std::fs;
-use std::path::Path;
 use std::sync::Arc;
 
 use crate::config::config::Config;
 use crate::frame::manager::FrameManager;
 use crate::servant::Result;
 use crate::system::machine::Machine;
-use opencue_proto::rqd::{
-    RqdStaticGetRunFrameRequest, RqdStaticGetRunFrameResponse,
-    RqdStaticGetRunningFrameStatusRequest, RqdStaticGetRunningFrameStatusResponse,
-    RqdStaticKillRunningFrameRequest, RqdStaticKillRunningFrameResponse,
-    RqdStaticLaunchFrameRequest, RqdStaticLaunchFrameResponse, RqdStaticLockAllRequest,
-    RqdStaticLockAllResponse, RqdStaticLockRequest, RqdStaticLockResponse,
-    RqdStaticNimbyOffRequest, RqdStaticNimbyOffResponse, RqdStaticNimbyOnRequest,
-    RqdStaticNimbyOnResponse, RqdStaticRebootIdleRequest, RqdStaticRebootIdleResponse,
-    RqdStaticRebootNowRequest, RqdStaticRebootNowResponse, RqdStaticReportStatusRequest,
-    RqdStaticReportStatusResponse, RqdStaticRestartIdleRequest, RqdStaticRestartIdleResponse,
-    RqdStaticRestartNowRequest, RqdStaticRestartNowResponse, RqdStaticShutdownIdleRequest,
-    RqdStaticShutdownIdleResponse, RqdStaticShutdownNowRequest, RqdStaticShutdownNowResponse,
-    RqdStaticUnlockAllRequest, RqdStaticUnlockAllResponse, RqdStaticUnlockRequest,
-    RqdStaticUnlockResponse, rqd_interface_server::RqdInterface,
+use opencue_proto::{
+    WithUuid,
+    rqd::{
+        RqdStaticGetRunFrameRequest, RqdStaticGetRunFrameResponse,
+        RqdStaticGetRunningFrameStatusRequest, RqdStaticGetRunningFrameStatusResponse,
+        RqdStaticKillRunningFrameRequest, RqdStaticKillRunningFrameResponse,
+        RqdStaticLaunchFrameRequest, RqdStaticLaunchFrameResponse, RqdStaticLockAllRequest,
+        RqdStaticLockAllResponse, RqdStaticLockRequest, RqdStaticLockResponse,
+        RqdStaticNimbyOffRequest, RqdStaticNimbyOffResponse, RqdStaticNimbyOnRequest,
+        RqdStaticNimbyOnResponse, RqdStaticRebootIdleRequest, RqdStaticRebootIdleResponse,
+        RqdStaticRebootNowRequest, RqdStaticRebootNowResponse, RqdStaticReportStatusRequest,
+        RqdStaticReportStatusResponse, RqdStaticRestartIdleRequest, RqdStaticRestartIdleResponse,
+        RqdStaticRestartNowRequest, RqdStaticRestartNowResponse, RqdStaticShutdownIdleRequest,
+        RqdStaticShutdownIdleResponse, RqdStaticShutdownNowRequest, RqdStaticShutdownNowResponse,
+        RqdStaticUnlockAllRequest, RqdStaticUnlockAllResponse, RqdStaticUnlockRequest,
+        RqdStaticUnlockResponse, rqd_interface_server::RqdInterface,
+    },
 };
 use tonic::{Request, Response, async_trait};
 
@@ -53,15 +54,29 @@ impl RqdInterface for RqdServant {
         &self,
         request: Request<RqdStaticGetRunFrameRequest>,
     ) -> Result<Response<RqdStaticGetRunFrameResponse>> {
-        todo!()
+        todo!("Method not implemented by this interface for being deprecated")
     }
+
     /// Return the RunningFrameStatus report
     async fn get_running_frame_status(
         &self,
         request: Request<RqdStaticGetRunningFrameStatusRequest>,
     ) -> Result<Response<RqdStaticGetRunningFrameStatusResponse>> {
-        todo!()
+        let frame_id = request.into_inner().uuid();
+        let running_frame = self
+            .frame_manager
+            .frame_cache
+            .get(&frame_id)
+            .map(|frame| frame.into_running_frame_info())
+            .ok_or(tonic::Status::not_found(format!(
+                "Could not find frame with id {frame_id}"
+            )))?;
+
+        Ok(Response::new(RqdStaticGetRunningFrameStatusResponse {
+            running_frame_info: running_frame,
+        }))
     }
+
     /// Kill the running frame by frame id
     async fn kill_running_frame(
         &self,
