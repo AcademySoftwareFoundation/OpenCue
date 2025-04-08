@@ -1,0 +1,39 @@
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+# ------------------------------------------------------------------------------
+# CueGUI Plugin control configuration
+# ------------------------------------------------------------------------------
+# This file allows you to centrally manage which plugins are enabled or disabled.
+#
+# Plugin names must match the folder name inside `cueguiplugin/`.
+# Example:
+#   cueguiplugin/
+#   ├── cueprogbar/
+#   ├── mycustomplugin1/
+#   └── mycustomplugin2/
+#   ...
+#
+# This config is optional. If omitted, all plugins default to enabled unless
+# disabled in their own config.yaml.
+#
+# ------------------------------------------------------------------------------
+
+# Whitelist of plugins that are allowed to load
+# If this list is present, only these plugins will be loaded.
+enabled_plugins:
+  - cueprogbar       # Adds a visual floating job progress bar widget
+
+# List of plugins that should always be disabled, regardless of their own config.yaml
+disabled_plugins: []  # Currently no plugins are explicitly blocked

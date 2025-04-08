@@ -41,6 +41,8 @@ import cuegui.MenuActions
 import cuegui.Style
 import cuegui.Utils
 
+from cuegui.cueguiplugin import loader as plugin_loader
+
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -517,6 +519,22 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__menuActions.jobs().addAction(menu, "autoEatOff")
         menu.addSeparator()
         self.__menuActions.jobs().addAction(menu, "kill")
+
+        # Dynamically add plugin actions for right-clicked job(s)
+        if __selectedObjects:
+            pluginActions = []
+            for job in __selectedObjects:
+                pluginActions.extend(plugin_loader.load_plugins(job=job, parent=self))
+
+            # Remove duplicates by plugin class type
+            pluginActions = list({
+                type(p): p for p in pluginActions
+            }.values())
+            for plugin in pluginActions:
+                action = plugin.menuAction()
+                if action:
+                    menu.addSeparator()
+                    menu.addAction(action)
 
         menu.exec_(e.globalPos())
 
