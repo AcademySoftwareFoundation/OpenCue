@@ -47,9 +47,16 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
     ],
-    packages=find_packages(),
+    packages=find_packages(include=['cuegui', 'cuegui.*']),
     package_data={
-        'cuegui': ['config/*', 'images/*', 'plugins/*'],
+        'cuegui': [
+            'config/*',
+            'images/*',
+            'plugins/*',
+            'cueguiplugin/.cueguipluginrc.yaml',
+            'cueguiplugin/*/config.yaml',
+            'cueguiplugin/*/images/*.png',
+        ],
     },
     entry_points={
         'console_scripts': [
