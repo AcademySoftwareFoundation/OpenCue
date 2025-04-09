@@ -325,9 +325,9 @@ def _serialize(launcher, use_pycuerun):
         elif layer.is_arg_set("threads"):
             cores = layer.get_arg("threads")
         if cores is None:
-            logger.info("%s will use service cores.", layer.get_name())
+            logger.debug("%s will use service cores.", layer.get_name())
         else:
-            logger.info("%s is set to override service cores.", layer.get_name())
+            logger.debug("%s is set to override service cores.", layer.get_name())
             if layer.is_arg_set("cores") and layer.is_arg_set("threads"):
                 logger.warning("%s has both cores and threads. Use cores.", layer.get_name())
             sub_element(spec_layer, "cores", "%0.1f" % float(cores))
