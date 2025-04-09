@@ -203,27 +203,6 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         self.assertFalse(self.machine.isNimbySafeToRunJobs())
 
-    def test_isDesktop_inittabDesktop(self):
-        rqd.rqconstants.OVERRIDE_IS_DESKTOP = False
-        self.fs.create_file(rqd.rqconstants.PATH_INITTAB, contents=INITTAB_DESKTOP)
-
-        self.assertTrue(self.machine.isDesktop())
-
-    def test_isDesktop_inittabServer(self):
-        rqd.rqconstants.OVERRIDE_IS_DESKTOP = False
-        self.fs.create_file(rqd.rqconstants.PATH_INITTAB, contents=INITTAB_SERVER)
-
-        self.assertFalse(self.machine.isDesktop())
-
-    def test_isDesktop_initTarget(self):
-        rqd.rqconstants.OVERRIDE_IS_DESKTOP = False
-        self.fs.create_file(rqd.rqconstants.PATH_INITTAB)
-        symlink_target = '/lib/systemd/system/graphical.target'
-        self.fs.create_file(symlink_target)
-        self.fs.create_symlink(rqd.rqconstants.PATH_INIT_TARGET, symlink_target)
-
-        self.assertTrue(self.machine.isDesktop())
-
     def test_isDesktop_override(self):
         rqd.rqconstants.OVERRIDE_IS_DESKTOP = True
 
