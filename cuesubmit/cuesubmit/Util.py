@@ -98,7 +98,7 @@ def convertCommandOptions(options):
     for option_line, value in options.items():
         parse_option = re.search(Constants.REGEX_COMMAND_OPTIONS,
                                  option_line)
-        options = {
+        cmd_options = {
             'option_line': option_line,
             'label': parse_option.group('label'),
             'command_flag': parse_option.group('command_flag'),
@@ -112,12 +112,12 @@ def convertCommandOptions(options):
         if isinstance(value, (tuple, list))\
                 and len(value) in (3, 4)\
                 and isinstance(value[0], (int, float)):
-            options.update({
+            cmd_options.update({
                 'type': range,
                 'min': value[0],
                 'max': value[1],
                 'value': value[2],
                 'float_precision': value[3] if len(value)==4 else None
                 })
-        parameters.append(options)
+        parameters.append(cmd_options)
     return parameters
