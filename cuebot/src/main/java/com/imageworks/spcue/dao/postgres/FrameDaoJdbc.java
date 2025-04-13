@@ -245,7 +245,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
     private static final String GET_DISPATCH_FRAME = "SELECT " + "show.str_name AS show_name, "
             + "job.str_name AS job_name, " + "job.pk_job," + "job.pk_show," + "job.pk_facility,"
             + "job.str_name," + "job.str_shot," + "job.str_user," + "job.int_uid,"
-            + "job.str_log_dir," + "COALESCE(str_os, '') AS str_os, " + "job.str_loki_url, "
+            + "job.str_log_dir," + "COALESCE(str_os, '') AS str_os, " + "COALESCE(str_loki_url, '') AS str_loki_url, "
             + "frame.str_name AS frame_name, " + "frame.str_state AS frame_state, "
             + "frame.pk_frame, " + "frame.pk_layer, " + "frame.int_retries, "
             + "frame.int_version, " + "layer.str_name AS layer_name, "
