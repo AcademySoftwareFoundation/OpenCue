@@ -71,4 +71,16 @@ impl DummyRqdClient {
             .into_diagnostic()
             .and(Ok(()))
     }
+
+    pub async fn kill_frame(&self, frame_id: String, reason: Option<String>) -> Result<()> {
+        let mut client = self.client.lock().await;
+        let mut request = pb::RqdStaticKillRunningFrameRequest::default();
+        request.frame_id = frame_id;
+        request.message = reason.unwrap_or("No reason".to_string());
+        client
+            .kill_running_frame(request)
+            .await
+            .into_diagnostic()
+            .and(Ok(()))
+    }
 }

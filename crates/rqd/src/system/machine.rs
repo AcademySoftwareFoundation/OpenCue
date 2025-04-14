@@ -1,17 +1,12 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-    time::Instant,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use bytesize::KIB;
-use miette::{Diagnostic, IntoDiagnostic, Result, miette};
+use miette::{IntoDiagnostic, Result, miette};
 use opencue_proto::{
     host::HardwareState,
-    report::{ChildrenProcStats, CoreDetail, RenderHost},
+    report::{CoreDetail, RenderHost},
 };
-use thiserror::Error;
 use tokio::{
     select,
     sync::{
@@ -28,11 +23,11 @@ use crate::{
     frame::{cache::RunningFrameCache, running_frame::RunningFrame},
     report_client::{ReportClient, ReportInterface},
 };
-use serde::{Deserialize, Serialize};
 
-use super::unix::UnixSystem;
-
-type SystemControllerType = Box<dyn SystemController + Sync + Send>;
+use super::{
+    manager::{ReservationError, SystemManagerType},
+    unix::UnixSystem,
+};
 
 /// Constantly monitor the state of this machine and report back to Cuebot
 ///
@@ -55,7 +50,7 @@ type SystemControllerType = Box<dyn SystemController + Sync + Send>;
 pub struct MachineMonitor {
     maching_config: MachineConfig,
     report_client: Arc<ReportClient>,
-    pub system_controller: Mutex<SystemControllerType>,
+    pub system_manager: Mutex<SystemManagerType>,
     pub running_frames_cache: Arc<RunningFrameCache>,
     core_state: Arc<Mutex<CoreDetail>>,
     last_host_state: Arc<Mutex<Option<RenderHost>>>,
@@ -70,12 +65,12 @@ impl MachineMonitor {
         report_client: Arc<ReportClient>,
         running_frames_cache: Arc<RunningFrameCache>,
     ) -> Result<Self> {
-        let system_controller: SystemControllerType = Box::new(UnixSystem::init(&config.machine)?);
-        // TODO: identify which OS is running and initialize stats_collector accordingly
+        let system_manager: SystemManagerType = Box::new(UnixSystem::init(&config.machine)?);
+        // TODO: identify which OS is running and initialize system_manager accordingly
         Ok(Self {
             maching_config: config.machine.clone(),
             report_client,
-            system_controller: Mutex::new(system_controller),
+            system_manager: Mutex::new(system_manager),
             running_frames_cache,
             core_state: Arc::new(Mutex::new(CoreDetail::default())),
             last_host_state: Arc::new(Mutex::new(None)),
@@ -87,9 +82,9 @@ impl MachineMonitor {
     pub async fn start(&self) -> Result<()> {
         let report_client = self.report_client.clone();
 
-        let stats_collector_lock = self.system_controller.lock().await;
-        let host_state = Self::inspect_host_state(&self.maching_config, &stats_collector_lock)?;
-        drop(stats_collector_lock);
+        let system_lock = self.system_manager.lock().await;
+        let host_state = Self::inspect_host_state(&self.maching_config, &system_lock)?;
+        drop(system_lock);
 
         self.last_host_state
             .lock()
@@ -113,9 +108,7 @@ impl MachineMonitor {
             .send_start_up_report(host_state, initial_core_state)
             .await?;
 
-        let mut interval = time::interval(time::Duration::from_secs(
-            self.maching_config.monitor_interval_seconds,
-        ));
+        let mut interval = time::interval(self.maching_config.monitor_interval);
 
         let (sender, mut receiver) = oneshot::channel::<()>();
         let mut interrupt_lock = self.interrupt.lock().await;
@@ -155,15 +148,15 @@ impl MachineMonitor {
     }
 
     async fn update_procs(&self) {
-        let system_controller = self.system_controller.lock().await;
-        system_controller.update_procs(self.running_frames_cache.pids());
+        let system_manager = self.system_manager.lock().await;
+        system_manager.refresh_procs();
     }
 
     async fn collect_and_send_host_report(&self) -> Result<()> {
         let report_client = self.report_client.clone();
-        let system_controller = self.system_controller.lock().await;
-        let host_state = Self::inspect_host_state(&self.maching_config, &system_controller)?;
-        drop(system_controller);
+        let system_manager = self.system_manager.lock().await;
+        let host_state = Self::inspect_host_state(&self.maching_config, &system_manager)?;
+        drop(system_manager);
         // Store the last host_state on self
         let mut self_host_state_lock = self.last_host_state.lock().await;
         self_host_state_lock.replace(host_state.clone());
@@ -184,7 +177,7 @@ impl MachineMonitor {
     }
 
     async fn monitor_running_frames(&self) -> Result<()> {
-        let system_monitor = self.system_controller.lock().await;
+        let system_monitor = self.system_manager.lock().await;
         let mut finished_frames: Vec<Arc<RunningFrame>> = Vec::new();
 
         self.running_frames_cache.retain(|_, running_frame| {
@@ -276,14 +269,14 @@ impl MachineMonitor {
 
     fn inspect_host_state(
         config: &MachineConfig,
-        stats_collector: &SystemControllerType,
+        system: &SystemManagerType,
     ) -> Result<RenderHost> {
-        let stats = stats_collector.collect_stats()?;
-        let gpu_stats = stats_collector.collect_gpu_stats();
+        let stats = system.collect_stats()?;
+        let gpu_stats = system.collect_gpu_stats();
 
         Ok(RenderHost {
             name: stats.hostname,
-            nimby_enabled: stats_collector.init_nimby()?,
+            nimby_enabled: system.init_nimby()?,
             nimby_locked: false, // TODO: implement nimby lock
             facility: config.facility.clone(),
             num_procs: stats.num_procs as i32,
@@ -297,8 +290,8 @@ impl MachineMonitor {
             load: stats.load as i32,
             boot_time: stats.boot_time as i32,
             tags: stats.tags,
-            state: stats_collector.hardware_state().clone() as i32,
-            attributes: stats_collector.attributes().clone(),
+            state: system.hardware_state().clone() as i32,
+            attributes: system.attributes().clone(),
             num_gpus: gpu_stats.count as i32,
             free_gpu_mem: gpu_stats.free_memory as i64,
             total_gpu_mem: gpu_stats.total_memory as i64,
@@ -306,6 +299,7 @@ impl MachineMonitor {
     }
 }
 
+/// Performe actions on a machine with an async lock
 #[async_trait]
 pub trait Machine {
     async fn hardware_state(&self) -> Option<HardwareState>;
@@ -383,6 +377,20 @@ pub trait Machine {
     async fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32>;
 
     async fn get_host_name(&self) -> String;
+
+    /// Send a signal to kill a process
+    ///
+    /// # Returns Errors:
+    ///  * [EINVAL] The value of the sig argument is an invalid or unsupported signal number.
+    ///  * [EPERM] The process does not have permission to send the signal to any receiving process.
+    ///  * [ESRCH] No process or process group can be found corresponding to that specified by pid.
+    async fn kill_session(&self, pid: u32, force: bool) -> Result<()>;
+
+    async fn force_kill(&self, pids: &Vec<u32>) -> Result<()>;
+
+    /// Check if this pid and any of its children are still active
+    /// Returns the list of active children, and none if the pid itself is not active
+    async fn get_active_proc_lineage(&self, pid: u32) -> Option<Vec<u32>>;
 }
 
 #[async_trait]
@@ -412,8 +420,8 @@ impl Machine for MachineMonitor {
     ) -> Result<Option<Vec<u32>>> {
         // Reserve cores on the socket level
         let cores_result = if with_affinity {
-            let mut stats_collector = self.system_controller.lock().await;
-            stats_collector
+            let mut system_lock = self.system_manager.lock().await;
+            system_lock
                 .reserve_cores(num_cores, resource_id)
                 .into_diagnostic()
                 .map(|v| Some(v))
@@ -440,8 +448,8 @@ impl Machine for MachineMonitor {
     ) -> Result<Vec<u32>> {
         // Reserve cores on the socket level
         let cores_result = {
-            let mut stats_collector = self.system_controller.lock().await;
-            stats_collector
+            let mut system_lock = self.system_manager.lock().await;
+            system_lock
                 .reserve_cores_by_id(cpu_list, resource_id)
                 .into_diagnostic()
         };
@@ -458,9 +466,9 @@ impl Machine for MachineMonitor {
 
     async fn release_cpus(&self, procs: &Vec<u32>) {
         {
-            let mut stats_collector = self.system_controller.lock().await;
+            let mut system = self.system_manager.lock().await;
             for core_id in procs {
-                if let Err(err) = stats_collector.release_core(core_id) {
+                if let Err(err) = system.release_core(core_id) {
                     match err {
                         ReservationError::NotFoundError(_) => {
                             warn!("Failed to release proc {core_id}. Reservation not found")
@@ -504,8 +512,8 @@ impl Machine for MachineMonitor {
     }
 
     async fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32> {
-        let stats_collector = self.system_controller.lock().await;
-        stats_collector.create_user_if_unexisting(username, uid, gid)
+        let system = self.system_manager.lock().await;
+        system.create_user_if_unexisting(username, uid, gid)
     }
 
     async fn get_host_name(&self) -> String {
@@ -515,201 +523,23 @@ impl Machine for MachineMonitor {
             .map(|h| h.name.clone())
             .unwrap_or("noname".to_string())
     }
-}
 
-/// Represents attributes on a machine that should never change withour restarting the
-/// entire servive
-#[derive(Clone, Debug)]
-pub struct MachineStat {
-    /// Machine name
-    pub hostname: String,
-    /// Total number of processing units (also known as virtual cores)
-    pub num_procs: u32,
-    /// Total amount of memory on the machine
-    pub total_memory: u64,
-    /// Total amount of swap space on the machine
-    pub total_swap: u64,
-    /// Total number of physical cores (also known as sockets)
-    pub num_sockets: u32,
-    /// Number of cores per processor unit
-    pub cores_per_proc: u32,
-    /// Multiplier value for hyper-threading, does not apply to total_procs unlike in python version
-    pub hyperthreading_multiplier: u32,
-    /// Timestamp for when the machine was booted up
-    pub boot_time: u32,
-    /// List of tags associated with this machine
-    pub tags: Vec<String>,
-    /// Amount of available memory on the machine. For Linux/Macos Free + Cached
-    pub available_memory: u64,
-    /// Amount of free swap space on the machine
-    pub free_swap: u64,
-    /// Total temporary storage available on the machine
-    pub total_temp_storage: u64,
-    /// Amount of free temporary storage on the machine
-    pub free_temp_storage: u64,
-    /// Current load on the machine
-    pub load: u32,
-}
-
-pub struct MachineGpuStats {
-    /// Count of GPUs
-    pub count: u32,
-    /// Total memory of all GPUs
-    pub total_memory: u64,
-    /// Available free memory of all GPUs
-    pub free_memory: u64,
-    /// Used memory by unit of each GPU, where the key in the HashMap is the unit ID, and the value is the used memory
-    pub used_memory_by_unit: HashMap<u32, u64>,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ProcessStats {
-    /// Maximum resident set size (KB) - maximum amount of physical memory used.
-    pub max_rss: u64,
-    /// Current resident set size (KB) - amount of physical memory currently in use.
-    pub rss: u64,
-    /// Maximum virtual memory size (KB) - maximum amount of virtual memory used.
-    pub max_vsize: u64,
-    /// Current virtual memory size (KB) - amount of virtual memory currently in use.
-    pub vsize: u64,
-    /// Last time the log was updated
-    pub llu_time: u64,
-    /// Maximum GPU memory usage (KB).
-    pub max_used_gpu_memory: u64,
-    /// Current GPU memory usage (KB).
-    pub used_gpu_memory: u64,
-    /// Additional data about the running frame's child processes.
-    pub children: Option<ChildrenProcStats>,
-    /// Unix timestamp denoting the start time of the frame process.
-    pub epoch_start_time: u64,
-}
-
-impl Default for ProcessStats {
-    fn default() -> Self {
-        ProcessStats {
-            max_rss: 0,
-            rss: 0,
-            max_vsize: 0,
-            vsize: 0,
-            llu_time: 0,
-            max_used_gpu_memory: 0,
-            used_gpu_memory: 0,
-            children: None,
-            epoch_start_time: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_else(|_| std::time::Duration::from_secs(0))
-                .as_secs(),
-        }
-    }
-}
-
-/// Get the max between two u64s
-fn max_u64(left: u64, right: u64) -> u64 {
-    (left > right).then(|| left).unwrap_or(right)
-}
-
-impl ProcessStats {
-    fn update(&mut self, new: Self) {
-        *self = ProcessStats {
-            max_rss: max_u64(new.max_rss, self.max_rss),
-            max_vsize: max_u64(new.max_vsize, self.max_vsize),
-            max_used_gpu_memory: max_u64(new.max_used_gpu_memory, self.max_used_gpu_memory),
-            ..new
-        };
-    }
-}
-
-pub trait SystemController {
-    /// Collects information about the status of this machine
-    fn collect_stats(&self) -> Result<MachineStat>;
-
-    /// Collects information about the gpus on this machine
-    fn collect_gpu_stats(&self) -> MachineGpuStats;
-
-    /// Up, Down, Rebooting...
-    fn hardware_state(&self) -> &HardwareState;
-
-    /// List of attributes collected from the machine. Eg. SP_OS
-    fn attributes(&self) -> &HashMap<String, String>;
-
-    /// Init NotInMyBackyard logic
-    fn init_nimby(&self) -> Result<bool>;
-
-    /// Returns a map of cores per socket that are not reserved
-    fn cpu_stat(&self) -> CpuStat;
-
-    /// Reserver a number of cores.
-    ///
-    /// # Returns:
-    ///
-    /// * Vector of core ids
-    fn reserve_cores(&mut self, count: u32, frame_id: Uuid) -> Result<Vec<u32>, ReservationError>;
-
-    /// Reserver specific cores by id.
-    ///
-    /// # Returns:
-    ///
-    /// * Vector of core ids
-    fn reserve_cores_by_id(
-        &mut self,
-        cpu_list: &Vec<u32>,
-        resource_id: Uuid,
-    ) -> Result<Vec<u32>, ReservationError>;
-
-    /// Release a core
-    fn release_core(&mut self, core_id: &u32) -> Result<(), ReservationError>;
-
-    /// Creates an user if it doesn't already exist
-    fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32>;
-
-    /// Collects stats of a process
-    fn collect_proc_stats(&self, pid: u32, log_path: String) -> Result<Option<ProcessStats>>;
-
-    /// Update info about procs currently active
-    fn update_procs(&self, pids: Vec<u32>);
-}
-
-#[derive(Debug, Clone, Diagnostic, Error)]
-pub enum ReservationError {
-    #[error("No resources available to be reserved")]
-    NotEnoughResourcesAvailable,
-
-    #[error("Could not find resource with provided key: {0}")]
-    NotFoundError(u32),
-}
-
-#[derive(Debug, Clone)]
-pub struct CpuStat {
-    /// List of cores currently reserved
-    pub reserved_cores_by_physid: HashMap<u32, CoreReservation>,
-    pub available_cores: u32,
-}
-
-#[derive(Debug, Clone)]
-pub struct CoreReservation {
-    pub reserved_cores: HashSet<u32>,
-    pub reserver_id: Uuid,
-    pub start_time: Instant,
-}
-
-impl CoreReservation {
-    pub fn new(reserver_id: Uuid) -> Self {
-        CoreReservation {
-            reserved_cores: HashSet::new(),
-            reserver_id,
-            start_time: Instant::now(),
+    async fn kill_session(&self, pid: u32, force: bool) -> Result<()> {
+        let system = self.system_manager.lock().await;
+        if force {
+            system.force_kill_session(pid)
+        } else {
+            system.kill_session(pid)
         }
     }
 
-    pub fn iter(&self) -> std::collections::hash_set::Iter<'_, u32> {
-        self.reserved_cores.iter()
+    async fn force_kill(&self, pids: &Vec<u32>) -> Result<()> {
+        let system = self.system_manager.lock().await;
+        system.force_kill(pids)
     }
 
-    pub fn insert(&mut self, core_id: u32) -> bool {
-        self.reserved_cores.insert(core_id)
-    }
-
-    pub fn remove(&mut self, core_id: &u32) -> bool {
-        self.reserved_cores.remove(core_id)
+    async fn get_active_proc_lineage(&self, pid: u32) -> Option<Vec<u32>> {
+        let system = self.system_manager.lock().await;
+        system.get_proc_lineage(pid)
     }
 }

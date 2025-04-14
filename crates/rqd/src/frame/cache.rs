@@ -5,8 +5,6 @@ use dashmap::DashMap;
 use opencue_proto::report::RunningFrameInfo;
 use uuid::Uuid;
 
-use crate::system::machine::ProcessStats;
-
 use super::running_frame::RunningFrame;
 
 /// Keep track of all frames currently running

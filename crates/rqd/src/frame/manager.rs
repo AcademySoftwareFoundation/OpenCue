@@ -1,11 +1,17 @@
+use chrono::DateTime;
 use miette::{Diagnostic, Result, miette};
 use opencue_proto::{
     host::HardwareState,
     rqd::{RunFrame, run_frame},
 };
-use std::{fs, sync::Arc};
+use std::{
+    fs,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use thiserror::Error;
-use tracing::{error, warn};
+use tokio::time;
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::{config::config::Config, servant::rqd_servant::MachineImpl};
@@ -265,11 +271,153 @@ impl FrameManager {
                 "Not launching, host HardwareState is not Up".to_string(),
             ))?
         }
+
         // Nimby locked
         if self.machine.nimby_locked().await && !ignore_nimby {
             Err(FrameManagerError::NimbyLocked)?
         }
         Ok(())
+    }
+
+    pub fn get_running_frame(&self, frame_id: &Uuid) -> Option<Arc<RunningFrame>> {
+        self.frame_cache
+            .get(frame_id)
+            .as_ref()
+            .map(|f| Arc::clone(f))
+    }
+
+    /// Kills a running frame on this host.
+    ///
+    /// This function attempts to find and terminate a running frame by its ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `frame_id` - The UUID identifying the frame to kill
+    /// * `reason` - A string describing why the frame is being killed
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(()))` if the frame was found and killed successfully
+    /// * `Ok(None)` if no frame with the given ID was found
+    /// * `Err(miette::Error)` if frame cannot be killed, possibly a precondition wasn't met
+    ///     - Frame existed but wasn't running
+    ///     - Frame has alredy been killed
+    pub async fn kill_running_frame(&self, frame_id: &Uuid, reason: String) -> Result<Option<()>> {
+        match self.get_running_frame(frame_id) {
+            Some(running_frame) => {
+                let pid = running_frame.get_pid_to_kill();
+                if let Ok(frame_pid) = pid {
+                    info!(
+                        "Killing frame {running_frame}({frame_pid}) by request.\n\
+                        Reason: {reason}"
+                    );
+                    self.machine.kill_session(frame_pid, false).await?;
+                    self.monitor_killed_frame(frame_pid, &running_frame);
+
+                    Ok(Some(()))
+                } else {
+                    Err(miette!(
+                        "Kill frame with invalid State. Frame {running_frame} exists but has \
+                        no pid assigned to it"
+                    ))
+                }
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Monitors a killed frame to ensure it fully terminates.
+    ///
+    /// After a frame is killed, this function spawns a background task that periodically checks
+    /// if the process and its children have fully terminated. It will log an error if processes
+    /// are still running after the monitoring time limit.
+    ///
+    /// # Arguments
+    ///
+    /// * `frame_pid` - The process ID of the killed frame
+    /// * `running_frame` - Reference to the RunningFrame object that was killed
+    fn monitor_killed_frame(&self, frame_pid: u32, running_frame: &RunningFrame) {
+        let interval_seconds = self.config.runner.kill_monitor_interval.as_secs();
+        let mut monitor_limit_seconds = self.config.runner.kill_monitor_timeout.as_secs();
+        let force_kill = self.config.runner.force_kill_after_timeout;
+        let mut tried_to_force_kill_session = false;
+        let mut interval = time::interval(self.config.runner.kill_monitor_interval);
+        let kill_request_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| {
+                let secs = d.as_secs();
+                let dt = DateTime::from_timestamp(secs as i64, 0).unwrap_or_default();
+                dt.format("%Y-%m-%d %H:%M:%S").to_string()
+            })
+            .unwrap_or_else(|_| "invalid time".to_string());
+        let job_str = format!("{}", running_frame);
+        let machine = Arc::clone(&self.machine);
+
+        tokio::spawn(async move {
+            loop {
+                interval.tick().await;
+
+                let active_lineage = machine.get_active_proc_lineage(frame_pid).await;
+                if let Some(mut lineage) = active_lineage {
+                    lineage.push(frame_pid);
+                    // Check limit before decrementing as tick() returns immediately on the first call
+                    if monitor_limit_seconds <= 0 || tried_to_force_kill_session {
+                        // Notify only
+                        if !force_kill {
+                            error!(
+                                "Gave up waiting on {} termination. \
+                                Kill has been requested at {} but proc({}) lineage is still active: {:?}.",
+                                job_str, kill_request_time, frame_pid, lineage
+                            );
+                            break;
+                        }
+
+                        // Force kill
+                        if !tried_to_force_kill_session {
+                            // First try to force kill the session
+                            match machine.kill_session(frame_pid, true).await {
+                                Ok(()) => {
+                                    tried_to_force_kill_session = true;
+                                    info!(
+                                        "Kill timeout for {}. Used session force_kill on \
+                                        session_id {} to kill {:?}",
+                                        job_str, frame_pid, lineage
+                                    )
+                                }
+                                Err(err) => warn!(
+                                    "Failed to force_kill {} lineage = {:?}. {}",
+                                    job_str, lineage, err
+                                ),
+                            }
+                        } else {
+                            match machine.force_kill(&lineage).await {
+                                Ok(()) => info!(
+                                    "Kill timeout for {}. Used force_kill on {:?}",
+                                    job_str, lineage
+                                ),
+                                Err(err) => warn!(
+                                    "Failed to force_kill {} lineage = {:?}. {}",
+                                    job_str, lineage, err
+                                ),
+                            }
+                            break;
+                        }
+                    } else {
+                        info!(
+                            "Frame {} still being killed. \
+                            Kill has been requested at {} but proc({}) lineage is still active: {:?}.",
+                            job_str, kill_request_time, frame_pid, lineage
+                        );
+                    }
+                } else {
+                    break;
+                }
+
+                if monitor_limit_seconds >= interval_seconds {
+                    monitor_limit_seconds -= interval_seconds;
+                }
+            }
+        });
     }
 }
 

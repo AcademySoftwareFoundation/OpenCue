@@ -55,6 +55,7 @@ struct RqdClientCmd {
 #[derive(StructOpt, Debug)]
 enum ApiMethod {
     LaunchFrame(LaunchFrameCmd),
+    KillFrame(KillFrameCmd),
 }
 
 #[derive(StructOpt, Debug)]
@@ -64,6 +65,13 @@ struct LaunchFrameCmd {
     env: Option<EnvVars>,
     #[structopt(long, long_help = "Run command as myself")]
     run_as_user: bool,
+}
+
+#[derive(StructOpt, Debug)]
+struct KillFrameCmd {
+    frame_id: String,
+    #[structopt(long, long_help = "Reason for killing a frame")]
+    reason: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -94,25 +102,22 @@ impl DummyCuebotCli {
             SubCommands::ReportServer(report_server_cmd) => {
                 DummyCuebotServer::start_server(report_server_cmd.port.clone()).await
             }
-            SubCommands::RqdClient(rqd_client_cmd) => {
-                let client =
-                    DummyRqdClient::build(rqd_client_cmd.hostname.clone(), rqd_client_cmd.port)
-                        .await?;
-                match &rqd_client_cmd.api_method {
-                    ApiMethod::LaunchFrame(launch_frame_cmd) => {
-                        let uid = launch_frame_cmd
-                            .run_as_user
-                            .then(|| users::get_current_uid());
+            SubCommands::RqdClient(cmd) => {
+                let client = DummyRqdClient::build(cmd.hostname.clone(), cmd.port).await?;
+                match &cmd.api_method {
+                    ApiMethod::LaunchFrame(cmd) => {
+                        let uid = cmd.run_as_user.then(|| users::get_current_uid());
                         client
                             .launch_frame(
-                                launch_frame_cmd.cmd.clone(),
-                                launch_frame_cmd
-                                    .env
-                                    .clone()
-                                    .unwrap_or(EnvVars(HashMap::new()))
-                                    .0,
+                                cmd.cmd.clone(),
+                                cmd.env.clone().unwrap_or(EnvVars(HashMap::new())).0,
                                 uid,
                             )
+                            .await
+                    }
+                    ApiMethod::KillFrame(cmd) => {
+                        client
+                            .kill_frame(cmd.frame_id.clone(), cmd.reason.clone())
                             .await
                     }
                 }

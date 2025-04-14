@@ -65,6 +65,12 @@ impl WithUuid for rqd::RqdStaticGetRunningFrameStatusRequest {
     }
 }
 
+impl WithUuid for rqd::RqdStaticKillRunningFrameRequest {
+    fn uuid(&self) -> Uuid {
+        to_uuid(&self.frame_id).unwrap_or(Uuid::nil())
+    }
+}
+
 pub fn to_uuid(stringified_id_from_protobuf: &str) -> Option<Uuid> {
     Uuid::parse_str(stringified_id_from_protobuf).ok()
 }

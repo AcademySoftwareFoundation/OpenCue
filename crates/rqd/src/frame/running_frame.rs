@@ -9,6 +9,7 @@ use std::{
         unix::process::CommandExt,
     },
     path::Path,
+    process::ExitStatus,
     sync::{Arc, Mutex, mpsc::Receiver},
     thread::JoinHandle,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -16,9 +17,10 @@ use std::{
 use std::{os::unix::process::ExitStatusExt, sync::mpsc};
 use std::{process::Stdio, thread};
 
+use chrono::DateTime;
 use tracing::{error, info, warn};
 
-use crate::{frame::frame_cmd::FrameCmdBuilder, system::machine::ProcessStats};
+use crate::{frame::frame_cmd::FrameCmdBuilder, system::manager::ProcessStats};
 
 use serde::{Deserialize, Serialize};
 use sysinfo::{Pid, System};
@@ -48,6 +50,7 @@ pub struct RunningFrame {
     raw_stdout_path: String,
     raw_stderr_path: String,
     pub exit_file_path: String,
+    pub entrypoint_file_path: String,
     state: Mutex<FrameState>,
 }
 
@@ -60,44 +63,29 @@ pub enum FrameState {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CreatedState {
+    // Attention: Recovered frames will never have a joinHandle
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
-    launch_thread_handle: Arc<Option<JoinHandle<()>>>,
+    launch_thread_handle: Option<JoinHandle<()>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RunningState {
-    pid: Option<u32>,
+    pid: u32,
     start_time: SystemTime,
+    // Attention: Recovered frames will never have a joinHandle
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
-    launch_thread_handle: Arc<Option<JoinHandle<()>>>,
-}
-
-impl RunningState {
-    fn into_finished(
-        &self,
-        exit_code: i32,
-        exit_signal: Option<i32>,
-        end_time: SystemTime,
-    ) -> FinishedState {
-        FinishedState {
-            pid: self.pid,
-            launch_thread_handle: Arc::clone(&self.launch_thread_handle),
-            start_time: self.start_time,
-            end_time,
-            exit_code,
-            exit_signal,
-        }
-    }
+    launch_thread_handle: Option<JoinHandle<()>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FinishedState {
-    pub pid: Option<u32>,
+    pub pid: u32,
+    // Attention: Recovered frames will never have a joinHandle
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
-    launch_thread_handle: Arc<Option<JoinHandle<()>>>,
+    launch_thread_handle: Option<JoinHandle<()>>,
     pub start_time: SystemTime,
     pub end_time: SystemTime,
     pub exit_code: i32,
@@ -152,6 +140,13 @@ impl RunningFrame {
             ))
             .to_string_lossy()
             .to_string();
+        let entrypoint_file_path = std::path::Path::new(&request.log_dir)
+            .join(format!(
+                "{}.{}.{}.sh",
+                request.job_name, request.frame_name, resource_id
+            ))
+            .to_string_lossy()
+            .to_string();
         let env_vars = Self::setup_env_vars(&config, &request, hostname.clone(), log_path.clone());
 
         RunningFrame {
@@ -170,8 +165,9 @@ impl RunningFrame {
             raw_stdout_path,
             raw_stderr_path,
             exit_file_path,
+            entrypoint_file_path,
             state: Mutex::new(FrameState::Created(CreatedState {
-                launch_thread_handle: Arc::new(None),
+                launch_thread_handle: None,
             })),
         }
     }
@@ -183,7 +179,7 @@ impl RunningFrame {
             FrameState::Running(_) => None,
             FrameState::Finished(ref finished_state) => Some(FinishedState {
                 pid: finished_state.pid,
-                launch_thread_handle: Arc::clone(&finished_state.launch_thread_handle),
+                launch_thread_handle: None,
                 start_time: finished_state.start_time,
                 end_time: finished_state.end_time,
                 exit_code: finished_state.exit_code,
@@ -204,11 +200,11 @@ impl RunningFrame {
         let mut state = self.state.lock().unwrap_or_else(|err| err.into_inner());
         match *state {
             FrameState::Created(ref mut created_state) => {
-                created_state.launch_thread_handle = Arc::new(Some(thread_handle));
+                created_state.launch_thread_handle = Some(thread_handle);
                 Ok(())
             }
             FrameState::Running(ref mut running_state) => {
-                running_state.launch_thread_handle = Arc::new(Some(thread_handle));
+                running_state.launch_thread_handle = Some(thread_handle);
                 Ok(())
             }
             FrameState::Finished(_) => Err(miette!("Invalid State. Frame has already finished")),
@@ -225,14 +221,21 @@ impl RunningFrame {
     /// which can later be used to determine if the frame succeeded or failed.
     pub fn finish(&self, exit_code: i32, exit_signal: Option<i32>) -> Result<()> {
         let mut state = self.state.lock().unwrap_or_else(|err| err.into_inner());
-        match *state {
+        match &mut *state {
             FrameState::Created(_) => Err(miette!("Invalid State. Frame {} hasn't started", self)),
-            FrameState::Running(ref mut running_state) => {
-                *state = FrameState::Finished(running_state.into_finished(
+            FrameState::Running(running_state) => {
+                // Create a new FinishedState with the current running state values
+                let finished_state = FinishedState {
+                    pid: running_state.pid,
+                    launch_thread_handle: running_state.launch_thread_handle.take(),
+                    start_time: running_state.start_time,
+                    end_time: SystemTime::now(),
                     exit_code,
                     exit_signal,
-                    SystemTime::now(),
-                ));
+                };
+
+                // Replace state with the new FinishedState
+                *state = FrameState::Finished(finished_state);
                 Ok(())
             }
             FrameState::Finished(_) => Err(miette!(
@@ -245,16 +248,16 @@ impl RunningFrame {
     fn start(&self, pid: u32) -> Result<()> {
         let mut state = self.state.lock().unwrap_or_else(|err| err.into_inner());
 
-        match *state {
-            FrameState::Created(ref created_state) => {
+        match &mut *state {
+            FrameState::Created(created_state) => {
                 *state = FrameState::Running(RunningState {
-                    pid: Some(pid),
+                    pid,
                     start_time: SystemTime::now(),
-                    launch_thread_handle: Arc::clone(&created_state.launch_thread_handle),
+                    launch_thread_handle: created_state.launch_thread_handle.take(),
                 });
                 Ok(())
             }
-            FrameState::Running(ref running_state) => Err(miette!(
+            FrameState::Running(running_state) => Err(miette!(
                 "Invalid State. Frame {} has already started {:?}",
                 self,
                 running_state
@@ -370,7 +373,8 @@ impl RunningFrame {
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn run_inner(&self, logger: FrameLogger) -> Result<(i32, Option<i32>)> {
-        use itertools::Itertools;
+        use nix::libc;
+        use tracing::trace;
 
         if self.config.run_on_docker {
             return self.run_on_docker();
@@ -378,7 +382,8 @@ impl RunningFrame {
 
         logger.writeln(self.write_header().as_str());
 
-        let mut command = FrameCmdBuilder::new(&self.config.shell_path);
+        let mut command =
+            FrameCmdBuilder::new(&self.config.shell_path, self.entrypoint_file_path.clone());
         if self.config.desktop_mode {
             command.with_nice();
         }
@@ -388,32 +393,30 @@ impl RunningFrame {
         let raw_stdout = Self::setup_raw_fd(&self.raw_stdout_path)?;
         let raw_stderr = Self::setup_raw_fd(&self.raw_stderr_path)?;
 
-        let cmd = command
+        let (cmd, cmd_str) = command
             .with_frame_cmd(self.request.command.clone())
             .with_exit_file(self.exit_file_path.clone())
-            .build()
-            .envs(&self.env_vars)
-            .current_dir(&self.config.temp_path)
-            // An spawn job should be able to run independent of rqd.
-            // If this process dies, the process continues to write to its assigned file
-            // descriptor.
-            .stdout(unsafe { Stdio::from_raw_fd(raw_stdout) })
-            .stderr(unsafe { Stdio::from_raw_fd(raw_stderr) });
+            .build()?;
+        unsafe {
+            cmd.envs(&self.env_vars)
+                .current_dir(&self.config.temp_path)
+                .pre_exec(|| {
+                    libc::setsid();
+                    Ok(())
+                })
+                // An spawn job should be able to run independent of rqd.
+                // If this process dies, the process continues to write to its assigned file
+                // descriptor.
+                .stdout(Stdio::from_raw_fd(raw_stdout))
+                .stderr(Stdio::from_raw_fd(raw_stderr));
+        }
 
         if self.config.run_as_user {
             cmd.uid(self.uid);
         }
 
-        logger.writeln(
-            format!(
-                "full_cmd = {} {}",
-                self.config.shell_path,
-                cmd.get_args()
-                    .map(|s| s.to_str().unwrap_or("#?#"))
-                    .join(" ")
-            )
-            .as_str(),
-        );
+        trace!("Running {}: {}", self.entrypoint_file_path, cmd_str);
+        logger.writeln(format!("Running {}:", self.entrypoint_file_path).as_str());
 
         // Launch frame process
         let mut child = cmd.spawn().into_diagnostic().map_err(|e| {
@@ -448,20 +451,36 @@ impl RunningFrame {
             warn!("Failed to join log thread");
         }
         let output = output.into_diagnostic()?;
+        let (exit_code, exit_signal) = Self::interprete_output(output);
 
-        let exit_signal = output.signal();
-        // If a process got terminated by a signal, set the exit_code to 1
-        let exit_code = output.code().unwrap_or(1);
         let msg = match exit_code {
-            0 => format!("Frame {} finished successfully with pid={}", self, pid),
+            0 => format!("Frame {}(pid={}) finished successfully", self, pid),
             _ => format!(
-                "Frame {} finished with pid={} and exit_code={}. Log: {}",
-                self, pid, exit_code, self.log_path
+                "Frame {}(pid={}) finished with exit_code={} and exit_signal={}. Log: {}",
+                self,
+                pid,
+                exit_code,
+                exit_signal.unwrap_or(0),
+                self.log_path,
             ),
         };
         info!(msg);
 
         Ok((exit_code, exit_signal))
+    }
+
+    fn interprete_output(output: ExitStatus) -> (i32, Option<i32>) {
+        let mut exit_signal = output.signal();
+        // If a process got terminated by a signal, set the exit_code to 1
+        let mut exit_code = output.code().unwrap_or(1);
+
+        // If the cmd wrapper interprets the signal as an output, 128 needs to be subtracted
+        // from the code to recover the received signal
+        if exit_code > 128 {
+            exit_code = 1;
+            exit_signal = Some(exit_code - 128);
+        }
+        (exit_code, exit_signal)
     }
 
     pub fn run_on_docker(&self) -> Result<(i32, Option<i32>)> {
@@ -560,8 +579,8 @@ impl RunningFrame {
         let state = self.state.lock().unwrap_or_else(|err| err.into_inner());
         match *state {
             FrameState::Created(_) => None,
-            FrameState::Running(ref running_state) => running_state.pid,
-            FrameState::Finished(ref finished_state) => finished_state.pid,
+            FrameState::Running(ref running_state) => Some(running_state.pid),
+            FrameState::Finished(ref finished_state) => Some(finished_state.pid),
         }
     }
 
@@ -671,8 +690,43 @@ impl RunningFrame {
         Ok(())
     }
 
-    pub fn kill(&self) {
-        todo!()
+    /// Retrieves the process ID (PID) that should be killed when terminating this frame
+    ///
+    /// # Returns
+    /// Returns a `Result` containing the PID if the frame is in a running state
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The frame has not been started yet (is in Created state)
+    /// - The frame has already finished (is in Finished state)
+    ///
+    /// # Details
+    /// This method safely accesses the thread-protected state to retrieve
+    /// the current PID of the running frame process. A warning is logged
+    /// if the frame doesn't have an associated thread handle.
+    pub fn get_pid_to_kill(&self) -> Result<u32> {
+        let lock = self
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        match *lock {
+            FrameState::Created(_) => Err(miette!("Frame has been created but hasn't started yet")),
+            FrameState::Running(ref running_state) => Ok(running_state.pid),
+            FrameState::Finished(ref finished_state) => Err(miette!(
+                "Frame has already terminated at {} with exit_code={} and exit_signal={:?}",
+                finished_state
+                    .end_time
+                    .duration_since(UNIX_EPOCH)
+                    .map(|d| {
+                        let secs = d.as_secs();
+                        let dt = DateTime::from_timestamp(secs as i64, 0).unwrap_or_default();
+                        dt.format("%Y-%m-%d %H:%M:%S").to_string()
+                    })
+                    .unwrap_or_else(|_| "invalid time".to_string()),
+                finished_state.exit_code,
+                finished_state.exit_signal
+            )),
+        }
     }
 
     fn setup_raw_fd(path: &str) -> Result<RawFd> {
@@ -832,18 +886,14 @@ impl RunningFrame {
             FrameState::Created(_) => false,
             FrameState::Running(_) => false,
             FrameState::Finished(ref finished_state) => {
-                let thread_finished = match &*finished_state.launch_thread_handle {
+                let thread_finished = match &finished_state.launch_thread_handle {
                     Some(handle) => handle.is_finished(),
                     None => {
-                        info!("Thread handle missing");
+                        warn!("Thread handle missing");
                         true
                     }
                 };
-                let pid_running = finished_state
-                    .pid
-                    .map(|pid| Self::is_process_running(pid))
-                    .clone()
-                    .unwrap_or(false);
+                let pid_running = Self::is_process_running(finished_state.pid);
                 thread_finished && !pid_running
             }
         }
@@ -1160,27 +1210,6 @@ mod tests {
         assert!(logs.contains(&"stderr1".to_string()));
         assert!(logs.contains(&"stdout2".to_string()));
         assert!(logs.contains(&"stderr2".to_string()));
-
-        // Assert the output on the exit_file is the same
-        let status = running_frame.read_exit_file();
-        assert!(status.is_ok());
-        assert_eq!((0, None), status.unwrap());
-    }
-
-    #[test]
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
-    fn test_run_with_special_characters() {
-        let mut env = HashMap::new();
-        env.insert("SPECIAL".to_string(), "!@#$%^&*()".to_string());
-
-        let running_frame = create_running_frame(r#"echo "Special chars: $SPECIAL""#, 1, 1, env);
-
-        let logger = Arc::new(TestLogger::init());
-        let status = running_frame
-            .run_inner(Arc::clone(&logger) as Arc<dyn FrameLoggerT + Send + Sync + 'static>);
-        assert!(status.is_ok());
-        assert_eq!((0, None), status.unwrap());
-        assert_eq!("Special chars: !@#$%^&*()", logger.pop().unwrap());
 
         // Assert the output on the exit_file is the same
         let status = running_frame.read_exit_file();

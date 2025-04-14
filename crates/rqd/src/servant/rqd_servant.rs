@@ -54,7 +54,10 @@ impl RqdInterface for RqdServant {
         &self,
         request: Request<RqdStaticGetRunFrameRequest>,
     ) -> Result<Response<RqdStaticGetRunFrameResponse>> {
-        todo!("Method not implemented by this interface for being deprecated")
+        todo!(
+            "Deprecated method not implemented by this interface {:?}",
+            request
+        )
     }
 
     /// Return the RunningFrameStatus report
@@ -65,8 +68,7 @@ impl RqdInterface for RqdServant {
         let frame_id = request.into_inner().uuid();
         let running_frame = self
             .frame_manager
-            .frame_cache
-            .get(&frame_id)
+            .get_running_frame(&frame_id)
             .map(|frame| frame.into_running_frame_info())
             .ok_or(tonic::Status::not_found(format!(
                 "Could not find frame with id {frame_id}"
@@ -82,7 +84,29 @@ impl RqdInterface for RqdServant {
         &self,
         request: Request<RqdStaticKillRunningFrameRequest>,
     ) -> Result<Response<RqdStaticKillRunningFrameResponse>> {
-        todo!()
+        let kill_request = request.into_inner();
+        if kill_request.message.is_empty() {
+            return Err(tonic::Status::failed_precondition(format!(
+                "Could not kill frame {} without a reason (message is empty)",
+                kill_request.frame_id
+            )));
+        }
+
+        match self
+            .frame_manager
+            .kill_running_frame(&kill_request.uuid(), kill_request.message)
+            .await
+        {
+            Ok(Some(_)) => Ok(Response::new(RqdStaticKillRunningFrameResponse {})),
+            Ok(None) => Err(tonic::Status::not_found(format!(
+                "Could not find frame with id {} to kill",
+                kill_request.frame_id
+            ))),
+            Err(err) => Err(tonic::Status::failed_precondition(format!(
+                "Could not kill frame {} due to: {}",
+                kill_request.frame_id, err,
+            ))),
+        }
     }
 
     /// Launch a new running frame
