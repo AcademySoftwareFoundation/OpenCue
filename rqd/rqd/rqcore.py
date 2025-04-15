@@ -1077,12 +1077,11 @@ class FrameAttendantThread(threading.Thread):
         tempPassword = str(uuid.uuid4())
         # Command wrapper
         command = r"""#!/bin/sh
-useradd -u %s -g %s -p %s %s >& /dev/null || true;
+useradd -u %s -g %s -p $TEMP_PASSWORD %s >& /dev/null || true;
 exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
 """ % (
             uid,
             gid,
-            tempPassword,
             runFrame.user_name,
             self.docker_agent.docker_shell_path,
             runFrame.user_name,
@@ -1121,6 +1120,8 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
         docker_client = None
         container_id = "00000000"
         frameInfo.pid = -1
+        env = os.environ.copy()
+        env['TEMP_PASSWORD'] = tempPassword
         try:
             log_stream = None
             docker_client, container = self.docker_agent.runContainer(
