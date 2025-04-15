@@ -25,7 +25,7 @@ This abstract base class (ABC) enforces the structure and provides
 typing hints for better readability, development, and dynamic loading.
 """
 
-from typing import Union, List, Optional
+from typing import List, Optional
 from abc import ABC, abstractmethod
 from qtpy import QtWidgets
 
@@ -56,12 +56,10 @@ class CueGuiPlugin(ABC):
         self._config = config or {}
 
     @abstractmethod
-    def menuAction(self) -> Union[QtWidgets.QAction, List[QtWidgets.QAction]]:
+    def menuAction(self) -> List[QtWidgets.QAction]:
         """
-        Return a QtWidgets.QAction or a list of QtWidgets.QActions to be inserted into the CueGUI
-        menu
+        Return a list of QtWidgets.QAction to be inserted into the CueGUI menu.
 
         Returns:
-            Union[QtWidgets.QAction, List[QtWidgets.QAction]]: One or more actions to display in
-            job/layer/frame menus.
+            List[QtWidgets.QAction]: One or more actions to display in job/layer/frame menus.
         """

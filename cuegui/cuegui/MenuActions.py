@@ -258,9 +258,14 @@ class JobActions(AbstractActions):
             menu (QMenu): The Qt menu to which plugin actions will be appended.
         """
         for plugin in self._pluginActions:
-            action = plugin.menuAction()
-            if action:
-                menu.addAction(action)
+            actions = plugin.menuAction()
+            if not actions:
+                continue
+            if isinstance(actions, list):
+                for action in actions:
+                    menu.addAction(action)
+            else:
+                menu.addAction(actions)
 
     unmonitor_info = ["Unmonitor", "Unmonitor selected jobs", "eject"]
 

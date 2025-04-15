@@ -546,10 +546,11 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     menu.addSeparator()
                     menu.addAction(action)
                 else:
-                    action = plugin_instance.menuAction()
-                    if action:
+                    actions = plugin_instance.menuAction()
+                    if actions:
                         menu.addSeparator()
-                        menu.addAction(action)
+                        for action in actions:
+                            menu.addAction(action)
 
         menu.exec_(e.globalPos())
 

@@ -22,6 +22,7 @@ Expected CLI usage:
     python -m cuegui.cueguiplugin.cueprogbar <job_name>
 """
 
+from typing import List
 import sys
 import subprocess
 from qtpy.QtWidgets import QAction
@@ -45,17 +46,17 @@ class Plugin(CueGuiPlugin):
         """
         super().__init__(job=job, parent=parent, config=config)
 
-    def menuAction(self) -> QAction:
+    def menuAction(self) -> List[QAction]:
         """
-        Create and return the QAction to be added to the CueGUI menu.
+        Create and return a list of QAction to be added to the CueGUI menu.
 
         Returns:
-            QAction: A single action labeled from config (or default).
+            List[QAction]: List of actions labeled from config (or default).
         """
         label = self._config.get("menu_label", "Show Progress Bar")
         action = QAction(label, self._parent)
         action.triggered.connect(self.launch_subprocess)
-        return action
+        return [action]
 
     def launch_subprocess(self) -> None:
         """
