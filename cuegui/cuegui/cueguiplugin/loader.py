@@ -23,15 +23,13 @@ Features:
 ---------
 - Automatically loads plugins from subfolders inside `cueguiplugin/`
 - Reads global plugin control from `.cueguipluginrc.yaml`
-- Reads plugin-specific config from `config.yaml` inside each plugin folder
-- Skips disabled plugins based on either local or global config
 - Ensures loaded plugins implement the required `Plugin` class
 
 Expected Folder Structure:
 --------------------------
 cueguiplugin/
 ├── loader.py
-├── .cueguipluginrc.yaml       # Global plugin control (optional)
+├── .cueguipluginrc.yaml       # Global plugin control
 ├── cueprogbar/                # Plugin folder
 │   ├── plugin.py              # Required: contains Plugin class
 │   └── config.yaml            # Optional: plugin-specific config
@@ -79,7 +77,9 @@ def load_plugins(job, parent=None):
 
     enabled_plugins = set(global_config.get("enabled_plugins", []))
     disabled_plugins = set(global_config.get("disabled_plugins", []))
-    use_whitelist = bool(enabled_plugins)
+
+    # Use whitelist logic if 'enabled_plugins' is explicitly defined, even if it's empty
+    use_whitelist = "enabled_plugins" in global_config
 
     # Iterate over each folder in cueguiplugin/
     for folder in os.listdir(PLUGIN_DIR):
@@ -107,11 +107,6 @@ def load_plugins(job, parent=None):
                     plugin_config = yaml.safe_load(f) or {}
             except Exception as e:
                 print(f"[PluginLoader] Failed to read config.yaml for '{folder}': {e}")
-
-        # Skip if plugin's local config explicitly disables it
-        if plugin_config.get("enabled", True) is False:
-            print(f"[PluginLoader] Skipping '{folder}' (config.yaml disabled)")
-            continue
 
         # Try importing the plugin class and instantiating it
         try:

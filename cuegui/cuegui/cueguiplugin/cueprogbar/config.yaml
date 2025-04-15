@@ -16,9 +16,6 @@
 # cueprogbar Plugin Configuration
 # ------------------------------------------------------------------------------
 
-# Whether this plugin is enabled when not controlled by global .cueguipluginrc.yaml
-enabled: true
-
 # The label to display in CueGUI's context menu
 menu_label: Show Progress Bar
 
