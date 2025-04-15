@@ -888,7 +888,11 @@ public class JobSpec {
 
     public void parse(File file) {
         try {
-            doc = new SAXBuilder(true).build(file);
+            SAXBuilder builder = new SAXBuilder();
+            builder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            builder.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            builder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            doc = builder.build(file);
 
         } catch (Exception e) {
             throw new SpecBuilderException("Failed to parse job spec XML, " + e);
@@ -920,7 +924,10 @@ public class JobSpec {
 
     public void parse(String cjsl) {
         try {
-            SAXBuilder builder = new SAXBuilder(true);
+            SAXBuilder builder = new SAXBuilder();
+            builder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            builder.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            builder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
             builder.setEntityResolver(new DTDRedirector());
             doc = builder.build(new StringReader(cjsl));
 
