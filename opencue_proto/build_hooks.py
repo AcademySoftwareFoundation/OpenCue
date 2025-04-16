@@ -1,5 +1,10 @@
 
+"""
+Custom build script for building the package
+"""
+import glob
 import os
+import re
 import subprocess
 import sys
 
@@ -32,10 +37,17 @@ class CustomBuildHook(BuildHookInterface):
         subprocess.check_call(command)
 
         # Fix compiled proto imports
-        fix_script = os.path.join(self.root, "fix_compiled_proto.py")
-        command = [sys.executable, fix_script, output_dir]
-        print(f"Fixing compiled proto imports: {' '.join(command)}")
-        subprocess.check_call(command)
+        pattern = re.compile(r"^import \w+ as \w+_pb2")
+        for filepath in glob.glob(os.path.join(output_dir, "*_pb2*.py")):
+            filedata = []
+            with open(filepath) as f:
+                for line in f.readlines():
+                    match = pattern.match(line)
+                    if match is not None:
+                        line = f"from . {line}"
+                    filedata.append(line.strip("\n"))
+            with open(filepath, "w") as f:
+                f.write("\n".join(filedata))
 
 @hookimpl
 def hatch_register_build_hook():
