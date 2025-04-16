@@ -343,6 +343,17 @@ class Machine(object):
                                     pidPcpu = totalTime / seconds
                                     pcpu += pidPcpu
                                     pidData[child_pid] = totalTime, seconds, pidPcpu
+
+                            # These fields are not always present
+                            _statm_rss = _statm_size = 0
+                            try:
+                                _statm_rss = int(data.get(["statm_rss"], 0))
+                                _statm_size = int(data.get(["statm_size"], 0))
+                            # pylint: disable=broad-except
+                            except ValueError:
+                                # Ignore these fields if they are not set on the proc file
+                                pass
+
                             # If children was already accounted for, only keep the highest
                             # recorded rss value
                             if child_pid in frame.childrenProcs:
@@ -354,11 +365,9 @@ class Machine(object):
                                         int(data["vsize"]) // 1024
                                     frame.childrenProcs[child_pid]['swap'] = swap // 1024
                                     frame.childrenProcs[child_pid]['statm_rss'] = \
-                                        (int(data["statm_rss"]) \
-                                         * resource.getpagesize()) // 1024
+                                        _statm_rss * resource.getpagesize() // 1024
                                     frame.childrenProcs[child_pid]['statm_size'] = \
-                                        (int(data["statm_size"]) * \
-                                         resource.getpagesize()) // 1024
+                                        _statm_size * resource.getpagesize() // 1024
                             else:
                                 frame.childrenProcs[child_pid] = \
                                     {'name': data['name'],
@@ -369,16 +378,14 @@ class Machine(object):
                                      'state': data['state'],
                                      # statm reports in pages (~ 4kB)
                                      # same as VmRss in /proc/[child_pid]/status (in KB)
-                                     'statm_rss': (int(data["statm_rss"]) * \
-                                                   resource.getpagesize()) // 1024,
-                                     'statm_size': (int(data["statm_size"]) * \
-                                                    resource.getpagesize()) // 1024,
-                                     'cmd_line': data["cmd_line"],
+                                     'statm_rss': _statm_rss * resource.getpagesize() // 1024,
+                                     'statm_size': _statm_size * resource.getpagesize() // 1024,
+                                     'cmd_line': data.get("cmd_line", ""),
                                      'start_time': seconds}
 
                         # pylint: disable=broad-except
                         except Exception as e:
-                            log.warning(
+                            log.info(
                                 'Failure with pid rss update due to: %s at %s',
                                 e, traceback.extract_tb(sys.exc_info()[2]))
                     # convert bytes to KB

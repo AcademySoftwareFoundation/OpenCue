@@ -530,7 +530,7 @@ public class DispatchQuery {
         "int_uid, " +
         "str_log_dir, " +
         "COALESCE(str_os, '') AS str_os, " +
-        "str_loki_url, " +
+        "COALESCE(str_loki_url, '') AS str_loki_url, " +
         "frame_name, " +
         "frame_state, " +
         "pk_frame, " +
