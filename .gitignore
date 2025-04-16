@@ -1,7 +1,9 @@
 *.idea/
+__pycache__
 *.pyc
 .DS_Store
 venv*/
+build/
 /build/
 /VERSION
 .scannerwork/

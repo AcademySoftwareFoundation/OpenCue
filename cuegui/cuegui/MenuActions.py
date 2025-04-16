@@ -63,6 +63,8 @@ import cuegui.TasksDialog
 import cuegui.UnbookDialog
 import cuegui.Utils
 
+from cuegui.cueguiplugin import loader as plugin_loader
+
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -221,7 +223,49 @@ class JobActions(AbstractActions):
     """Actions for jobs."""
 
     def __init__(self, *args):
-        AbstractActions.__init__(self, *args)
+        """
+        Initialize JobActions and load associated plugins if a job source is available.
+
+        The plugin loading mechanism uses a double-callable pattern:
+        - `self._getSource` is expected to return a function
+        - that function is then called to retrieve the actual job object.
+
+        Plugins are loaded and initialized only if a valid job is retrieved.
+        """
+        super().__init__(*args)
+        self._pluginActions = []
+
+        # Attempt to retrieve the job object from the callable chain
+        source = None
+        try:
+            if callable(self._getSource):
+                maybe_func = self._getSource()
+                if callable(maybe_func):
+                    source = maybe_func()
+        except Exception as e:
+            # Optional: log if needed
+            logger.warning("Failed to resolve plugin source: %s", e)
+
+        # Load plugins only if source is valid
+        if source:
+            self._pluginActions = plugin_loader.load_plugins(job=source, parent=self._caller)
+
+    def addPluginActions(self, menu):
+        """
+        Add plugin-defined actions to the given context menu.
+
+        Args:
+            menu (QMenu): The Qt menu to which plugin actions will be appended.
+        """
+        for plugin in self._pluginActions:
+            actions = plugin.menuAction()
+            if not actions:
+                continue
+            if isinstance(actions, list):
+                for action in actions:
+                    menu.addAction(action)
+            else:
+                menu.addAction(actions)
 
     unmonitor_info = ["Unmonitor", "Unmonitor selected jobs", "eject"]
 
