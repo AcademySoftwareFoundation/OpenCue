@@ -31,6 +31,7 @@ import platform
 import subprocess
 import sys
 import traceback
+import configparser
 
 if platform.system() == 'Linux':
     import pwd
@@ -185,12 +186,10 @@ try:
         # Hostname can come from here: rqutil.getHostname()
         __override_section = "Override"
         __host_env_var_section = "UseHostEnvVar"
-        import six
-        from six.moves import configparser
-        if six.PY2:
-            ConfigParser = configparser.SafeConfigParser
-        else:
-            ConfigParser = configparser.RawConfigParser
+
+        # Directly use RawConfigParser from configparser
+        ConfigParser = configparser.RawConfigParser
+
         # Allow some config file sections to contain only keys
         config = ConfigParser(allow_no_value=True)
         # Respect case from the config file keys

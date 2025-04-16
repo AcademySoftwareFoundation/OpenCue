@@ -33,7 +33,6 @@ from xml.dom.minidom import parseString
 from xml.etree import ElementTree as Et
 
 from packaging.version import Version
-import six
 
 import FileSequence
 import opencue
@@ -428,7 +427,7 @@ def scrub_tags(tags):
     """
     Ensure that layer tags pass in as a string are formatted properly.
     """
-    if isinstance(tags, six.string_types):
+    if isinstance(tags, str):
         tags = [tag.strip() for tag in tags.split("|")
                 if tag.strip().isalnum()]
     return " | ".join(tags)

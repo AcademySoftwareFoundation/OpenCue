@@ -36,7 +36,6 @@ import yaml
 from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
-import six
 
 import FileSequence
 
@@ -260,7 +259,7 @@ def findJob(job):
     @rtype:  job or None"""
     if isJob(job):
         return job
-    if not isinstance(job, six.string_types):
+    if not isinstance(job, str):
         return None
     if isStringId(job):
         if re.search("^Job.", job):
