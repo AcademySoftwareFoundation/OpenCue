@@ -12,6 +12,27 @@ from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 from hatchling.plugin import hookimpl
 
 class CustomBuildHook(BuildHookInterface):
+    """
+    Custom Hatch build hook for compiling Protocol Buffer definitions (.proto).
+
+    This hook integrates with the Hatch build process and is triggered
+    during the initialization phase via its `initialize` method before the
+    main build process begins.
+
+    It performs the following main tasks:
+    1. Locates all `.proto` files within the project's `proto/` subdirectory.
+    2. Invokes the `grpc_tools.protoc` compiler to generate the corresponding
+       Python modules (`_pb2.py`) and gRPC service modules (`_pb2_grpc.py`).
+    3. Places the generated Python files into the `opencue_proto/`
+       subdirectory, making them available for inclusion in the final package.
+    4. Post-processes the generated Python files to modify imports between
+       compiled proto modules, changing them from absolute (e.g., `import X_pb2`)
+       to relative (e.g., `from . import X_pb2`). This ensures the generated
+       code works correctly when installed as part of the `opencue_proto` package.
+
+    This automation avoids the need to manually compile protos and commit the
+    generated code to the repository.
+    """
     def initialize(self, version, build_data):
         # Compile protocol buffers
         proto_dir = os.path.join(self.root, "proto")
