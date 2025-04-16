@@ -22,11 +22,11 @@ jobs:
         with:
           name: opencue_proto
           path: |
-            cuebot/dist/opencue_proto*.*
+            opencue_proto/dist/opencue_proto*.*
 
   install_opencue_proto:
     needs: build_opencue_proto
-    name: Install cuebot package
+    name: Test installing opencue_proto package
     runs-on: ubuntu-22.04
     container: python:3.11
     steps:
