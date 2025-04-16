@@ -14,7 +14,7 @@
 
 """Module for classes related to limits."""
 
-from cuebot.proto import limit_pb2
+from opencue_proto import limit_pb2
 from opencue import Cuebot
 
 

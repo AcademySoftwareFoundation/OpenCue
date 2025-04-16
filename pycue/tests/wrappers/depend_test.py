@@ -23,7 +23,7 @@ import unittest
 
 import mock
 
-from cuebot.proto import depend_pb2
+from opencue_proto import depend_pb2
 import opencue.wrappers.depend
 
 

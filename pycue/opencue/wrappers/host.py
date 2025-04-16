@@ -20,8 +20,8 @@ import time
 from builtins import input
 import grpc
 
-from cuebot.proto import comment_pb2
-from cuebot.proto import host_pb2
+from opencue_proto import comment_pb2
+from opencue_proto import host_pb2
 from opencue import Cuebot
 from opencue import util
 from opencue import search

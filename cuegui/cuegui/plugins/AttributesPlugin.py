@@ -27,7 +27,7 @@ import time
 from qtpy import QtCore
 from qtpy import QtWidgets
 
-import cuebot.proto.depend_pb2
+import opencue_proto.depend_pb2
 import opencue
 import opencue.wrappers.job
 
@@ -64,7 +64,7 @@ def getDependsForm(depends):
     depCount = 0
     for dep in depends:
         depCount = depCount + 1
-        depType = cuebot.proto.depend_pb2.DependType.Name(dep.data.type)
+        depType = opencue_proto.depend_pb2.DependType.Name(dep.data.type)
         name = "%s-%d" % (depType, depCount)
         result[name] = {
             "__childOrder" :["active","onJob","onLayer","onFrame"],

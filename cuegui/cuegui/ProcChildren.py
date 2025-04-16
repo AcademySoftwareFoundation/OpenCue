@@ -30,7 +30,7 @@ from builtins import str
 from qtpy import QtGui
 from qtpy import QtWidgets
 
-from cuebot.proto import report_pb2
+from opencue_proto import report_pb2
 import opencue
 
 import cuegui.Utils

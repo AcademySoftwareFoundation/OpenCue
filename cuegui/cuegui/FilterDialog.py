@@ -28,7 +28,7 @@ from qtpy import QtGui
 from qtpy import QtWidgets
 
 import opencue
-import cuebot.proto.filter_pb2
+import opencue_proto.filter_pb2
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -42,12 +42,12 @@ from cuegui.Constants import DISABLED_ACTION_TYPES
 
 logger = cuegui.Logger.getLogger(__file__)
 
-MATCHSUBJECT = cuebot.proto.filter_pb2.MatchSubject.keys()
+MATCHSUBJECT = opencue_proto.filter_pb2.MatchSubject.keys()
 DEFAULT_MATCHSUBJECT = MATCHSUBJECT.index('SHOT')
-MATCHTYPE = cuebot.proto.filter_pb2.MatchType.keys()
+MATCHTYPE = opencue_proto.filter_pb2.MatchType.keys()
 DEFAULT_MATCHTYPE = MATCHTYPE.index('IS')
-ACTIONTYPES = cuebot.proto.filter_pb2.ActionType.keys()
-FILTERTYPES = cuebot.proto.filter_pb2.FilterType.keys()
+ACTIONTYPES = opencue_proto.filter_pb2.ActionType.keys()
+FILTERTYPES = opencue_proto.filter_pb2.FilterType.keys()
 PAUSETYPES = ["Pause", "Unpause"]
 MEMOPTTYPES = ["Enabled", "Disabled"]
 MAX_RENDER_MEM = 251.0
@@ -258,12 +258,12 @@ class MatcherMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __getMatcherSubjectDialog(self):
         return QtWidgets.QInputDialog.getItem(
             self, "Create Matcher", "Please select the type of item to match",
-            cuebot.proto.filter_pb2.MatchSubject.keys(), DEFAULT_MATCHSUBJECT, False)
+            opencue_proto.filter_pb2.MatchSubject.keys(), DEFAULT_MATCHSUBJECT, False)
 
     def __getMatcherTypeDialog(self):
         return QtWidgets.QInputDialog.getItem(
             self, "Create Matcher", "Please select the type of match to perform",
-            cuebot.proto.filter_pb2.MatchType.keys(), DEFAULT_MATCHTYPE, False)
+            opencue_proto.filter_pb2.MatchType.keys(), DEFAULT_MATCHTYPE, False)
 
     def createMatcher(self):
         """Prompts the user to create a new Matcher"""
@@ -288,8 +288,8 @@ class MatcherMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             return
 
         self.addObject(self.__filter.createMatcher(
-            cuebot.proto.filter_pb2.MatchSubject.Value(str(matchSubject)),
-            cuebot.proto.filter_pb2.MatchType.Value(str(matchType)),
+            opencue_proto.filter_pb2.MatchSubject.Value(str(matchSubject)),
+            opencue_proto.filter_pb2.MatchType.Value(str(matchType)),
             str(matchQuery)))
 
     def deleteAllMatchers(self):
@@ -352,8 +352,8 @@ class MatcherMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
             for shot in shots:
                 self.__filter.createMatcher(
-                    cuebot.proto.filter_pb2.MatchSubject.Value(matchSubject),
-                    cuebot.proto.filter_pb2.MatchType.Value(matchType),
+                    opencue_proto.filter_pb2.MatchSubject.Value(matchSubject),
+                    opencue_proto.filter_pb2.MatchType.Value(matchType),
                     shot)
             if deleteExisting:
                 for matcher in oldMatchers:
@@ -378,7 +378,7 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             "Action Type",
             210,
             id=1,
-            data=lambda action: (cuebot.proto.filter_pb2.ActionType.Name(action.type())))
+            data=lambda action: (opencue_proto.filter_pb2.ActionType.Name(action.type())))
         self.addColumn("", 180, id=2)
         self.addColumn("", 20, id=3)
 

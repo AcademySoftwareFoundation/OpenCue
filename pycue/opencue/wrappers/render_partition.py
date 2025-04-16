@@ -14,7 +14,7 @@
 
 """Module for classes related to Render Partition."""
 
-from cuebot.proto import renderPartition_pb2
+from opencue_proto import renderPartition_pb2
 from opencue.cuebot import Cuebot
 
 

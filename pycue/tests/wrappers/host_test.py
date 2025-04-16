@@ -24,10 +24,10 @@ import unittest
 
 import mock
 
-from cuebot.proto import comment_pb2
-from cuebot.proto import facility_pb2
-from cuebot.proto import host_pb2
-from cuebot.proto import renderPartition_pb2
+from opencue_proto import comment_pb2
+from opencue_proto import facility_pb2
+from opencue_proto import host_pb2
+from opencue_proto import renderPartition_pb2
 import opencue.wrappers.allocation
 import opencue.wrappers.host
 

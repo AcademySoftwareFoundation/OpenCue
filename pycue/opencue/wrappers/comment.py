@@ -14,7 +14,7 @@
 
 """Module for classes related to comments."""
 
-from cuebot.proto import comment_pb2
+from opencue_proto import comment_pb2
 from opencue.cuebot import Cuebot
 
 

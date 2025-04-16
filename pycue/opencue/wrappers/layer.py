@@ -19,7 +19,7 @@ import getpass
 import os
 import platform
 
-from cuebot.proto import job_pb2
+from opencue_proto import job_pb2
 import opencue.api
 from opencue.cuebot import Cuebot
 import opencue.search

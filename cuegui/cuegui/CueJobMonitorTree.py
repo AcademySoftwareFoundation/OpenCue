@@ -29,7 +29,7 @@ from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
 
-import cuebot.proto.job_pb2
+import opencue_proto.job_pb2
 import opencue
 import opencue.wrappers.group
 
@@ -794,14 +794,14 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             if "FST" not in self._cache:
                 jobStats = self.rpcObject.data.job_stats
                 self._cache["FST"] = {
-                    cuebot.proto.job_pb2.WAITING: jobStats.waiting_frames,
-                    cuebot.proto.job_pb2.RUNNING: jobStats.running_frames,
-                    cuebot.proto.job_pb2.SUCCEEDED: jobStats.succeeded_frames,
-                    cuebot.proto.job_pb2.CHECKPOINT: 0,
-                    cuebot.proto.job_pb2.SETUP: 0,
-                    cuebot.proto.job_pb2.EATEN: jobStats.eaten_frames,
-                    cuebot.proto.job_pb2.DEAD: jobStats.dead_frames,
-                    cuebot.proto.job_pb2.DEPEND: jobStats.depend_frames,
+                    opencue_proto.job_pb2.WAITING: jobStats.waiting_frames,
+                    opencue_proto.job_pb2.RUNNING: jobStats.running_frames,
+                    opencue_proto.job_pb2.SUCCEEDED: jobStats.succeeded_frames,
+                    opencue_proto.job_pb2.CHECKPOINT: 0,
+                    opencue_proto.job_pb2.SETUP: 0,
+                    opencue_proto.job_pb2.EATEN: jobStats.eaten_frames,
+                    opencue_proto.job_pb2.DEAD: jobStats.dead_frames,
+                    opencue_proto.job_pb2.DEPEND: jobStats.depend_frames,
                 }
             return self._cache.get("FST", cuegui.Constants.QVARIANT_NULL)
 
