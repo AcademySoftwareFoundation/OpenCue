@@ -23,7 +23,6 @@ from __future__ import division
 from builtins import str
 from builtins import range
 from builtins import object
-import future.types
 from future.utils import with_metaclass
 import os
 import sys
