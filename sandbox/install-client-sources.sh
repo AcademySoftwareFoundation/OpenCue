@@ -3,10 +3,10 @@
 set -e
 
 # Install all client packages.
-if [[ -v CUBOT_PACKAGE_PATH ]]
+if [[ -v OPENCUE_PROTO_PACKAGE_PATH ]]
 then
   echo "Installing pre-built cuebot package"
-  pip install ${CUBOT_PACKAGE_PATH}
+  pip install ${OPENCUE_PROTO_PACKAGE_PATH}
 else
   pip install cuebot/
 fi
