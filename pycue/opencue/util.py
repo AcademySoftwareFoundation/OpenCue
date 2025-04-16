@@ -25,7 +25,6 @@ import logging
 import os
 import time
 
-import six
 import grpc
 
 import opencue
@@ -111,7 +110,7 @@ def proxy(idOrObject, cls):
 
     if hasattr(idOrObject, 'id'):
         return _proxy(idOrObject.id)
-    if isinstance(idOrObject, six.string_types):
+    if isinstance(idOrObject, str):
         return _proxy(idOrObject)
     return _proxies(idOrObject)
 
