@@ -27,8 +27,6 @@ import logging
 import sys
 import traceback
 
-import six
-
 import opencue
 import opencue.wrappers.job
 import opencue.wrappers.proc
@@ -275,7 +273,7 @@ def handleFloatCriterion(mixed, convert=None):
 
     if isinstance(mixed, (float, int)):
         result = opencue.api.criterion_pb2.GreaterThanFloatSearchCriterion(value=_convert(mixed))
-    elif isinstance(mixed, six.string_types):
+    elif isinstance(mixed, str):
         if mixed.startswith("gt"):
             result = opencue.api.criterion_pb2.GreaterThanFloatSearchCriterion(
                 value=_convert(mixed[2:]))
@@ -323,7 +321,7 @@ def handleIntCriterion(mixed, convert=None):
 
     if isinstance(mixed, (float, int)):
         result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(value=_convert(mixed))
-    elif isinstance(mixed, six.string_types):
+    elif isinstance(mixed, str):
         if mixed.startswith("gt"):
             result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
                 value=_convert(mixed[2:]))
