@@ -7,10 +7,6 @@ from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 from hatchling.plugin import hookimpl
 
 class CustomBuildHook(BuildHookInterface):
-#    def __init__(self):
-#        #self.root = root
-#        #self.config = config
-
     def initialize(self, version, build_data):
         # Compile protocol buffers
         proto_dir = os.path.join(self.root, "proto")
