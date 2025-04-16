@@ -42,6 +42,8 @@ import cuegui.MenuActions
 import cuegui.Style
 import cuegui.Utils
 
+from cuegui.cueguiplugin import loader as plugin_loader
+
 
 logger = cuegui.Logger.getLogger(__file__)
 Body = namedtuple("Body", "group_names, group_ids, job_names, job_ids")
@@ -579,6 +581,36 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__menuActions.jobs().addAction(menu, "unbook")
             menu.addSeparator()
             self.__menuActions.jobs().addAction(menu, "kill")
+
+            # Dynamically add plugin actions for right-clicked job(s)
+            plugins_by_type = {}
+            for job in selectedObjects:
+                for plugin in plugin_loader.load_plugins(job=job, parent=self):
+                    plugins_by_type[type(plugin)] = plugin
+
+            for plugin_type, plugin_instance in plugins_by_type.items():
+                if plugin_type.__name__ == "Plugin":
+                    # pylint: disable=protected-access
+                    label = plugin_instance._config.get("menu_label", "Unnamed Plugin")
+                    action = QtWidgets.QAction(label, self)
+
+                    def make_launch_all(ptype):
+                        def launch_all():
+                            for job in selectedObjects:
+                                plugin = ptype(job=job, parent=self)
+                                plugin.launch_subprocess()
+
+                        return launch_all
+
+                    action.triggered.connect(make_launch_all(plugin_type))
+                    menu.addSeparator()
+                    menu.addAction(action)
+                else:
+                    actions = plugin_instance.menuAction()
+                    if actions:
+                        menu.addSeparator()
+                        for action in actions:
+                            menu.addAction(action)
 
         menu.exec_(e.globalPos())
 
