@@ -20,8 +20,11 @@ This folder contains **optional plugins for CueGUI**. Plugins can add new menu a
 Each plugin lives in its own subfolder under `cueguiplugin/`, and should contain the following:
 
 - `plugin.py`: Defines a `Plugin` class that extends `CueGuiPlugin`.
-- `config.yaml` (optional): Used to configure menu labels, enable/disable status, icons, or behavior.
+- `config.yaml` (optional): Used to configure menu labels, icons, or behavior.
 - Additional supporting files (e.g., plugin code, icons, etc.).
+
+Note:
+- Plugin enablement is **only** managed via the `.cueguipluginrc.yaml` file.
 
 Go back to [Contents](#contents).
 
@@ -92,7 +95,6 @@ class Plugin(CueGuiPlugin):
 3. Optionally, add a `config.yaml` to define:
 
 ```yaml
-enabled: true
 menu_label: My Plugin Action
 icon: images/my_icon.png
 ```
@@ -139,7 +141,7 @@ Example:
 python -m cuegui.cueguiplugin.cueprogbar testing-test_shot-my_render_job
 ```
 
-This is useful for testing or display CueGUI plugins outside of CueGUI.
+This is useful for testing or displaying CueGUI plugins outside of CueGUI.
 
 Go back to [Contents](#contents).
 
@@ -153,8 +155,8 @@ Go back to [Contents](#contents).
 
 ## Tips
 
-- You can disable or enable plugins centrally via `.cueguipluginrc.yaml`
-- Each plugin can have its own `config.yaml` for UI and behavior customization
+- You can enable or disable plugins centrally via `.cueguipluginrc.yaml`
+- Each plugin can still have its own `config.yaml` for UI customization (label, icon, etc.)
 - Use `darkmojo.py` if you want a consistent dark theme for all plugin UIs
 - Plugins are useful for extending CueGUI without having to fork or patch the core.
 
