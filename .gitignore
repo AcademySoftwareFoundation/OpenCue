@@ -21,3 +21,4 @@ rest_gateway/*.tar\.gz
 cuebot/.settings/*
 cuebot/.classpath
 cuebot/.project
+/opencue_proto/opencue_proto/

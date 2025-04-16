@@ -6,7 +6,7 @@ Subpackages
 
 .. toctree::
 
-    cuebot.proto
+    opencue_proto
     opencue.wrappers
 
 Module contents

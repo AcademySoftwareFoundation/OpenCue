@@ -8,7 +8,7 @@ requires = [
 build-backend = "hatchling.build"
 
 [project]
-name = "opencue_cuebot"
+name = "opencue_proto"
 dynamic = ["version"]
 dependencies = [
     "grpcio>=1.62.0",
@@ -20,7 +20,7 @@ source = "versioningit"
 default-version = "0.0.0"
 
 [tool.hatch.build.targets.wheel]
-packages = ["cuebot"]
+packages = ["opencue_proto"]
 
 [tool.hatch.build.hooks.custom]
 path = "build_hooks.py"

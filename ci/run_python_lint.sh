@@ -15,13 +15,13 @@ echo "Will run Python lint using ${python_version}"
 python -m pip install pylint==2.15.10 ${PIP_OPT}
 python -m pylint --version
 
-pip uninstall --yes opencue_cuebot opencue_pycue opencue_pyoutline opencue_cueadmin opencue_cuesubmit opencue_rqd
+pip uninstall --yes opencue_proto opencue_pycue opencue_pyoutline opencue_cueadmin opencue_cuesubmit opencue_rqd
 if [[ -v CUBOT_PACKAGE_PATH ]]
 then
   echo "Installing pre-built cuebot package"
   pip install ${CUBOT_PACKAGE_PATH} ${PIP_OPT}
 else
-  pip install ./cuebot ${PIP_OPT}
+  pip install ./opencue_proto ${PIP_OPT}
 fi
 
 echo "Running lint for pycue/..."

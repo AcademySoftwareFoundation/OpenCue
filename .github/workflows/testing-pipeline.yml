@@ -22,7 +22,7 @@ jobs:
         with:
           name: cuebot_proto
           path: |
-            cuebot/dist/opencue_cuebot*.*
+            cuebot/dist/opencue_proto*.*
 
   install_cuebot_proto:
     needs: build_cuebot_prot
@@ -36,7 +36,7 @@ jobs:
           name: cuebot_proto
       - name: Install package
         run: |
-          pip install opencue_cuebot*.whl
+          pip install opencue_proto*.whl
 
   test_python_2023:
     needs: build_cuebot_prot
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2023
     env:
-      CUBOT_PACKAGE_PATH: "opencue_cuebot*.whl"
+      CUBOT_PACKAGE_PATH: "opencue_proto*.whl"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024
     env:
-      CUBOT_PACKAGE_PATH: "opencue_cuebot*.whl"
+      CUBOT_PACKAGE_PATH: "opencue_proto*.whl"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -102,7 +102,7 @@ jobs:
     name: Run Integration Test
     runs-on: ubuntu-22.04
     env:
-      CUBOT_PACKAGE_PATH: "opencue_cuebot*.whl"
+      CUBOT_PACKAGE_PATH: "opencue_proto*.whl"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -126,7 +126,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024.1
     env:
-      CUBOT_PACKAGE_PATH: "opencue_cuebot*.whl"
+      CUBOT_PACKAGE_PATH: "opencue_proto*.whl"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -14,7 +14,9 @@ class CustomBuildHook(BuildHookInterface):
     def initialize(self, version, build_data):
         # Compile protocol buffers
         proto_dir = os.path.join(self.root, "proto")
-        output_dir = os.path.join(self.root, "cuebot", "proto")
+        output_dir = os.path.join(self.root, "opencue_proto")
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
         proto_files = [f for f in os.listdir(proto_dir) if f.endswith(".proto")]
 
         if not proto_files:
@@ -34,7 +36,7 @@ class CustomBuildHook(BuildHookInterface):
         subprocess.check_call(command)
 
         # Fix compiled proto imports
-        fix_script = os.path.join(self.root, "proto", "fix_compiled_proto.py")
+        fix_script = os.path.join(self.root, "fix_compiled_proto.py")
         command = [sys.executable, fix_script, output_dir]
         print(f"Fixing compiled proto imports: {' '.join(command)}")
         subprocess.check_call(command)

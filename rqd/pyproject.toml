@@ -9,7 +9,7 @@ build-backend = "hatchling.build"
 name = "opencue_rqd"
 dynamic = ["version"]
 dependencies = [
-    "opencue_cuebot",
+    "opencue_proto",
     "psutil==5.9.8",
     "pynput==1.7.6",
     "future==1.0.0"
