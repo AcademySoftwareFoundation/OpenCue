@@ -1,5 +1,5 @@
 name: Jekyll site CI
-Romeo Rosete . Owner
+Romeo Rosete 
 on:
   push:
     branches: [ "master" ]
