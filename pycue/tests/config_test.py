@@ -28,7 +28,7 @@ import opencue.config
 EXPECTED_DEFAULT_CONFIG = {
     'logger.format': '%(levelname)-9s %(module)-10s %(message)s',
     'logger.level': 'WARNING',
-    'opencue_protocol': 'tcp',
+    'cuebot.protocol': 'tcp',
     'cuebot.grpc_port': 8443,
     'cuebot.timeout': 10000,
     'cuebot.max_message_bytes': 104857600,
