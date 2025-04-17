@@ -58,6 +58,13 @@ def matchNumbersOnly(value):
     return False
 
 
+def matchIntegers(value):
+    """Matches positive and negative integers."""
+    if re.match(r'^-?[0-9]+$', value):
+        return True
+    return False
+
+
 def matchPositiveIntegers(value):
     """Matches integers greater than 0."""
     if re.match(r'^[0-9]+$', value) and int(value) >= 1:
@@ -70,3 +77,9 @@ def moreThan3Chars(value):
     if len(value) >= 3:
         return True
     return False
+
+def notEmptyString(value):
+    """String must contain at least 1 character."""
+    if len(value) == 0:
+        return False
+    return True
