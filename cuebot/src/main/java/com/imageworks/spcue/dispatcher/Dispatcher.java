@@ -110,8 +110,8 @@ public interface Dispatcher {
     // memory
     public static final long MINIMUM_MEMORY_INCREASE = CueUtil.GB2;
 
-    public static final double SOFT_MEMORY_MULTIPLIER = 1.1;
-    public static final double HARD_MEMORY_MULTIPLIER = 1.4;
+    public static final double SOFT_MEMORY_MULTIPLIER = 1.6;
+    public static final double HARD_MEMORY_MULTIPLIER = 2.0;
 
     /**
      * Dispatch a host to the facility.
