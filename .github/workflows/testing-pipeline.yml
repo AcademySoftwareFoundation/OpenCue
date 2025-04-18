@@ -80,7 +80,7 @@ jobs:
 
   install_opencue_packages_3_12:
     needs: build_opencue_packages
-    name: Test installing opencue packages with python 3.12
+    name: Test installing packages with python 3.12
     runs-on: ubuntu-22.04
     container: python:3.12
     steps:
@@ -97,11 +97,18 @@ jobs:
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
       - name: Install package
-        run: pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
+        run: |
+          export
+          pip install ${OPENCUE_PROTO_PACKAGE_PATH}
+          pip install ${OPENCUE_PYCUE_PACKAGE_PATH} 
+          pip install ${OPENCUE_PYOUTLINE_PACKAGE_PATH} 
+          pip install ${OPENCUE_CUEADMIN_PACKAGE_PATH} 
+          pip install ${OPENCUE_CUESUBMIT_PACKAGE_PATH} 
+          pip install ${OPENCUE_RQD_PACKAGE_PATH}
 
   install_opencue_packages_3_11:
     needs: build_opencue_packages
-    name: Test installing opencue packages with python 3.11
+    name: Test installing packages with python 3.11
     runs-on: ubuntu-22.04
     container: python:3.11
     steps:
