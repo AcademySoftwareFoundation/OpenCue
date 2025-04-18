@@ -2,7 +2,7 @@ FROM rockylinux:8.9
 
 WORKDIR /opt/opencue
 
-ARG CUEBOT_PACKAGE_PATH
+ARG OPENCUE_PROTO_PACKAGE_PATH
 
 RUN yum -y install \
   epel-release \
@@ -19,7 +19,7 @@ RUN python3.9 -m pip install --upgrade setuptools
 
 COPY LICENSE ./
 
-COPY ${CUEBOT_PACKAGE_PATH} /tmp/
+COPY ${OPENCUE_PROTO_PACKAGE_PATH} /tmp/
 RUN python3.9 -m pip install /tmp/*.whl
 
 COPY rqd/deploy ./rqd/deploy
