@@ -1018,7 +1018,7 @@ class Machine(object):
             DeprecationWarning,
             stacklevel=2
         )
-        return reserveCores(frameCores, logical=False)
+        return self.reserveCores(frameCores, logical=False)
 
     # pylint: disable=inconsistent-return-statements
     def releaseHT(self, reservedHT):
