@@ -843,9 +843,9 @@ class RqCore(object):
             # pylint: enable=no-member
 
             if runFrame.environment.get('CUE_THREADABLE') == '1':
-                reserveHT = self.machine.reserveHT(runFrame.num_cores)
-                if reserveHT:
-                    runFrame.attributes['CPU_LIST'] = reserveHT
+                taskset = self.machine.reserveCores(runFrame.num_cores)
+                if taskset:
+                    runFrame.attributes['CPU_LIST'] = taskset
 
             if runFrame.num_gpus:
                 reserveGpus = self.machine.reserveGpus(runFrame.num_gpus)
