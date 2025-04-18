@@ -252,6 +252,8 @@ class LayerAttributes(AbstractAttributes):
                 "tags": layer.data.tags,
                 "threadable": str(layer.data.is_threadable),
                 "minCores": "%0.2f" % layer.data.min_cores,
+                "maxCores": "%0.2f" % layer.data.max_cores,
+                "memory optimizer enabled": str(layer.data.memory_optimizer_enabled),
                 "minMemory": "%0.2fMB" % (layer.data.min_memory / 1024.0),
                 "outputs": {},
                 "frames": {
@@ -281,8 +283,8 @@ class LayerAttributes(AbstractAttributes):
                           "maxRss": int(layer.data.layer_stats.max_rss)
                 },
                 "__childOrder":["id","layer","services","type","command","range","tags",
-                                "threadable","minCores","minMemory","outputs",
-                                "depends", "frames","resources"],
+                                "threadable","minCores","maxCores","memory optimizer enabled",
+                                "minMemory","outputs", "depends", "frames","resources"],
                 "depends": getDependsForm(preload["depends"]),
                 }
 
@@ -408,7 +410,7 @@ class HostAttributes(AbstractAttributes):
                 "state": str(host.data.state),
                 "lock": str(host.data.lock_state),
                 "load": "%.2f" % (host.data.load/float(100)),
-                "bootTime": cuegui.Utils.dateToMMDDHHMM(host.data.boot_time),
+                "bootTime": cuegui.Utils.dateToMMDDYYYYHHMM(host.data.boot_time),
                 "pingTime": cuegui.Utils.dateToMMDDHHMM(host.data.ping_time),
                 "pingLast": int(time.time() - host.data.ping_time),
                 "tags": ",".join(host.data.tags),

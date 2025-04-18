@@ -1,7 +1,9 @@
 *.idea/
+__pycache__
 *.pyc
 .DS_Store
 venv*/
+build/
 /build/
 /VERSION
 .scannerwork/
@@ -9,6 +11,7 @@ venv*/
 .coverage
 coverage.xml
 htmlcov/
+rest_gateway/*.tar\.gz
 /.env
 .envrc
 .vscode
@@ -17,3 +20,6 @@ htmlcov/
 /cuebot/bin/*
 /logs/*
 /.gradle/*
+cuebot/.settings/*
+cuebot/.classpath
+cuebot/.project

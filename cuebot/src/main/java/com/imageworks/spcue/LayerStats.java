@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue;
 
@@ -44,7 +40,7 @@ public class LayerStats {
     public void setOutputs(List<String> outputs) {
 
         List<String> newOutputs = new ArrayList<String>(outputs.size());
-        for (String output: outputs) {
+        for (String output : outputs) {
             newOutputs.add(new File(output).getParent() + "/*");
         }
         this.outputs = newOutputs;
@@ -86,6 +82,7 @@ public class LayerStats {
     public int getGraphScale() {
         return scale;
     }
+
     public String getGraphUnits() {
         return graphUnits;
     }
@@ -107,7 +104,7 @@ public class LayerStats {
         StringBuilder sb = new StringBuilder(128);
         List<ThreadStats> reversed = new ArrayList<ThreadStats>(threadStats);
         Collections.reverse(reversed);
-        for(ThreadStats t: reversed) {
+        for (ThreadStats t : reversed) {
             sb.append("|");
             sb.append(t.getThreads());
             sb.append("+");
@@ -120,7 +117,7 @@ public class LayerStats {
 
         StringBuilder sb = new StringBuilder(128);
 
-        for(ThreadStats t: threadStats) {
+        for (ThreadStats t : threadStats) {
             sb.append(String.format(Locale.ROOT, "%.2f", t.getAvgFrameTime() / conversionUnits));
             sb.append(",");
         }
@@ -135,19 +132,17 @@ public class LayerStats {
     }
 
     /**
-     * Since frame times vary wildly, anywhere from 1 second
-     * to 7 days, this method will set some values so
-     * average frame times are displayed in units that make
-     * them easy to compare.
+     * Since frame times vary wildly, anywhere from 1 second to 7 days, this method will set some
+     * values so average frame times are displayed in units that make them easy to compare.
      *
-     * Based on the highest average frame time per thread group,
-     * average frame can be displayed in minutes, seconds, or hours.
+     * Based on the highest average frame time per thread group, average frame can be displayed in
+     * minutes, seconds, or hours.
      *
      */
     private void setGraphScaleValues() {
 
         int hightestAverageSec = 0;
-        for(ThreadStats t: threadStats) {
+        for (ThreadStats t : threadStats) {
             if (t.getAvgFrameTime() >= hightestAverageSec) {
                 hightestAverageSec = t.getAvgFrameTime();
             }
@@ -157,17 +152,14 @@ public class LayerStats {
             graphUnits = "Seconds";
             scale = ((hightestAverageSec / 2 + 1) * 2);
             conversionUnits = 1f;
-        }
-        else if (hightestAverageSec < 3600) {
+        } else if (hightestAverageSec < 3600) {
             graphUnits = "Minutes";
             scale = ((hightestAverageSec / 60) + 1);
             conversionUnits = 60f;
-        }
-        else {
+        } else {
             graphUnits = "Hours";
-            scale = ((hightestAverageSec / 3600)  + 1);
+            scale = ((hightestAverageSec / 3600) + 1);
             conversionUnits = 3600f;
         }
     }
 }
-

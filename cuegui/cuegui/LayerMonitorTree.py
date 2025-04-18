@@ -23,6 +23,7 @@ from __future__ import division
 import functools
 
 from qtpy import QtCore
+from qtpy import QtGui
 from qtpy import QtWidgets
 
 from opencue.exception import EntityNotFoundException
@@ -150,7 +151,9 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="Timeout for a frames\' LLU, Hours:Minutes")
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
+        # pylint: disable=no-member
         self.itemDoubleClicked.connect(self.__itemDoubleClickedFilterLayer)
+        cuegui.app().select_layers.connect(self.__handle_select_layers)
 
         # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
@@ -244,10 +247,13 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if (len(cuegui.Constants.OUTPUT_VIEWERS) > 0
                 and sum(len(layer.getOutputPaths()) for layer in __selectedObjects) > 0):
             for viewer in cuegui.Constants.OUTPUT_VIEWERS:
-                menu.addAction(viewer['action_text'],
-                               functools.partial(cuegui.Utils.viewOutput,
-                                                 __selectedObjects,
-                                                 viewer['action_text']))
+                action = QtWidgets.QAction(QtGui.QIcon(":viewoutput.png"),
+                                           viewer['action_text'], self)
+                action.triggered.connect(
+                    functools.partial(cuegui.Utils.viewOutput,
+                                    __selectedObjects,
+                                    viewer['action_text']))
+                menu.addAction(action)
 
         depend_menu = QtWidgets.QMenu("&Dependencies", self)
         self.__menuActions.layers().addAction(depend_menu, "viewDepends")
@@ -258,7 +264,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         if len(__selectedObjects) == 1:
             menu.addSeparator()
-            if bool(int(self.app.settings.value("AllowDeeding", 0))):
+            if int(self.app.settings.value("DisableDeeding", 0)) == 0:
                 self.__menuActions.layers().addAction(menu, "useLocalCores") \
                     .setEnabled(not readonly)
             if len({layer.data.range for layer in __selectedObjects}) == 1:
@@ -277,9 +283,49 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         menu.exec_(e.globalPos())
 
-    def __itemDoubleClickedFilterLayer(self, item, col):
-        del col
-        self.handle_filter_layers_byLayer.emit([item.rpcObject.data.name])
+    def __itemDoubleClickedFilterLayer(self):
+        """Filter FrameMonitor to double-clicked Layers.
+        Emits signal to filter FrameMonitor to double-clicked Layers.
+        Also emits signal for other widgets to double-clicked Layers.
+        """
+        layers = self.selectedObjects()
+        layer_names = [layer.data.name for layer in layers]
+
+        # emit signal to filter Frame Monitor
+        self.handle_filter_layers_byLayer.emit(layer_names)
+
+        # emit signal to select Layers in other widgets
+        cuegui.app().select_layers.emit(layers)
+
+    def __handle_select_layers(self, layerRpcObjects):
+        """Select incoming Layers in tree.
+        Slot connected to QtGui.qApp.select_layers inorder to handle
+        selecting Layers in Tree.
+        Also emits signal to filter FrameMonitor
+        """
+        received_layers = [l.data.name for l in layerRpcObjects]
+        current_layers = [l.data.name for l in self.selectedObjects()]
+        if received_layers == current_layers:
+            # prevent recursion
+            return
+
+        # prevent unnecessary calls to __itemSelectionChangedFilterLayer
+        self.blockSignals(True)
+        try:
+            for item in self._items.values():
+                item.setSelected(False)
+            for layer in layerRpcObjects:
+                objectKey = cuegui.Utils.getObjectKey(layer)
+                if objectKey not in self._items:
+                    self.addObject(layer)
+                item = self._items[objectKey]
+                item.setSelected(True)
+        finally:
+            # make sure signals are re-enabled
+            self.blockSignals(False)
+
+        # emit signal to filter Frame Monitor
+        self.handle_filter_layers_byLayer.emit(received_layers)
 
 
 class LayerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):

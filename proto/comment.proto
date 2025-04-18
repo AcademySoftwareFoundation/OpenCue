@@ -5,6 +5,8 @@ package comment;
 option java_package = "com.imageworks.spcue.grpc.comment";
 option java_multiple_files = true;
 
+option go_package = "opencue_gateway/gen/go";
+
 // The Comment class contains comment data for any entity that supports
 // commenting.  Currently these are [Job] and [Host].
 

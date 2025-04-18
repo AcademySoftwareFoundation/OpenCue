@@ -2,19 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 
 package com.imageworks.spcue.test.service;
 
@@ -40,15 +37,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
     JobLauncher jobLauncher;
 
-    private static String readJobSpec(String name)
-    {
+    private static String readJobSpec(String name) {
         String path = "src/test/resources/conf/jobspec/" + name;
         byte[] encoded = null;
 
@@ -65,8 +60,7 @@ public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testParseSuccess() {
         String xml = readJobSpec("jobspec_1_10.xml");
         JobSpec spec = jobLauncher.parse(xml);
-        assertEquals(spec.getDoc().getDocType().getPublicID(),
-                "SPI Cue Specification Language");
+        assertEquals(spec.getDoc().getDocType().getPublicID(), "SPI Cue Specification Language");
         assertEquals(spec.getDoc().getDocType().getSystemID(),
                 "http://localhost:8080/spcue/dtd/cjsl-1.10.dtd");
         assertEquals(spec.getJobs().size(), 1);
@@ -80,7 +74,8 @@ public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests 
             jobLauncher.parse(xml);
             fail("Expected exception");
         } catch (SpecBuilderException e) {
-            assertTrue(e.getMessage().startsWith("Failed to parse job spec XML, java.net.MalformedURLException"));
+            assertTrue(e.getMessage()
+                    .startsWith("Failed to parse job spec XML, java.net.MalformedURLException"));
         }
     }
 
@@ -92,8 +87,8 @@ public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests 
             fail("Expected exception");
         } catch (SpecBuilderException e) {
             assertEquals(e.getMessage(),
-                    "The shot name: invalid/shot is not in the proper format.  " +
-                    "Shot names must be alpha numeric, no dashes or punctuation.");
+                    "The shot name: invalid/shot is not in the proper format.  "
+                            + "Shot names must be alpha numeric, no dashes or punctuation.");
         }
     }
 
@@ -101,8 +96,7 @@ public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testParseGpuSuccess() {
         String xml = readJobSpec("jobspec_1_12.xml");
         JobSpec spec = jobLauncher.parse(xml);
-        assertEquals(spec.getDoc().getDocType().getPublicID(),
-                "SPI Cue Specification Language");
+        assertEquals(spec.getDoc().getDocType().getPublicID(), "SPI Cue Specification Language");
         assertEquals(spec.getDoc().getDocType().getSystemID(),
                 "http://localhost:8080/spcue/dtd/cjsl-1.12.dtd");
         assertEquals(spec.getJobs().size(), 1);
@@ -117,8 +111,7 @@ public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testParseMaxCoresAndMaxGpus() {
         String xml = readJobSpec("jobspec_1_13.xml");
         JobSpec spec = jobLauncher.parse(xml);
-        assertEquals(spec.getDoc().getDocType().getPublicID(),
-                "SPI Cue Specification Language");
+        assertEquals(spec.getDoc().getDocType().getPublicID(), "SPI Cue Specification Language");
         assertEquals(spec.getDoc().getDocType().getSystemID(),
                 "http://localhost:8080/spcue/dtd/cjsl-1.13.dtd");
         assertEquals(spec.getJobs().size(), 1);

@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dao;
 
@@ -44,6 +40,7 @@ public interface GroupDao {
 
     /**
      * returns a list of groups using their unique ids
+     * 
      * @param id
      * @return
      */
@@ -86,22 +83,21 @@ public interface GroupDao {
     void updateDepartment(GroupInterface group, DepartmentInterface dept);
 
     /**
-     * Removes the specified group.  You cannot delete a group that contains
-     * jobs or other groups or the shows root folder.
+     * Removes the specified group. You cannot delete a group that contains jobs or other groups or
+     * the shows root folder.
      *
      * @param group
      */
     void deleteGroup(GroupInterface group);
 
     /**
-     * Sets the group's new parent.  Triggers will handle any recursive level
-     * changes.
+     * Sets the group's new parent. Triggers will handle any recursive level changes.
      *
      * @param group
      * @param parent
      *
-     * @throws EntityModificationError          throws this if the group is the top level group
-     *                                          which cannot be parented to another group.
+     * @throws EntityModificationError throws this if the group is the top level group which cannot
+     *         be parented to another group.
      */
     void updateGroupParent(GroupInterface group, GroupInterface parent);
 
@@ -226,13 +222,13 @@ public interface GroupDao {
      * @param group
      * @return
      */
-	boolean isManaged(GroupInterface group);
+    boolean isManaged(GroupInterface group);
 
-	/**
-	 * Return a GroupDetail for the specified job.
-	 * @param job
-	 * @return
-	 */
+    /**
+     * Return a GroupDetail for the specified job.
+     * 
+     * @param job
+     * @return
+     */
     GroupDetail getGroupDetail(JobInterface job);
 }
-

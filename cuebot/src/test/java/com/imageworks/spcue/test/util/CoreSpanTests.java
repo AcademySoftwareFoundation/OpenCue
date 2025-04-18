@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.util;
 
@@ -25,7 +21,6 @@ import org.junit.Before;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -40,9 +35,8 @@ public class CoreSpanTests extends TestCase {
     }
 
     /**
-     * The coreSpan calculation finds out how many cores a frames's
-     * requested memory covers and gives more cores when the requested
-     * memory spans more than 1 core.
+     * The coreSpan calculation finds out how many cores a frames's requested memory covers and
+     * gives more cores when the requested memory spans more than 1 core.
      */
     public void testCoreSpan() {
 
@@ -54,14 +48,14 @@ public class CoreSpanTests extends TestCase {
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = CueUtil.GB * 7;
+        frame.setMinMemory(CueUtil.GB * 7);
         frame.threadable = true;
 
         VirtualProc proc = VirtualProc.build(host, frame);
         assertEquals(700, proc.coresReserved);
     }
 
-    public void testCoreSpanTest1(){
+    public void testCoreSpanTest1() {
 
         /* 4 gigs and 1 cores idle, request 1g */
         host.memory = CueUtil.GB32;
@@ -71,7 +65,7 @@ public class CoreSpanTests extends TestCase {
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = CueUtil.GB;
+        frame.setMinMemory(CueUtil.GB);
 
         VirtualProc proc = VirtualProc.build(host, frame);
         assertEquals(100, proc.coresReserved);
@@ -85,7 +79,7 @@ public class CoreSpanTests extends TestCase {
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = CueUtil.GB4;
+        frame.setMinMemory(CueUtil.GB4);
         frame.threadable = true;
 
         VirtualProc proc = VirtualProc.build(host, frame);
@@ -97,10 +91,13 @@ public class CoreSpanTests extends TestCase {
         host.idleMemory = CueUtil.GB8;
         host.cores = 800;
         host.idleCores = 780;
+        // Hardcoded value of dispatcher.memory.mem_reserved_default
+        // to avoid having to read opencue.properties on a test setting
+        long memReservedDefault = 3355443;
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = Dispatcher.MEM_RESERVED_DEFAULT;
+        frame.setMinMemory(memReservedDefault);
         frame.threadable = true;
 
         VirtualProc proc = VirtualProc.build(host, frame);
@@ -115,7 +112,7 @@ public class CoreSpanTests extends TestCase {
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = CueUtil.GB * 8;
+        frame.setMinMemory(CueUtil.GB * 8);
         frame.threadable = true;
 
         VirtualProc proc = VirtualProc.build(host, frame);
@@ -133,10 +130,13 @@ public class CoreSpanTests extends TestCase {
         host.idleMemory = CueUtil.GB8;
         host.cores = 800;
         host.idleCores = 800;
+        // Hardcoded value of dispatcher.memory.mem_reserved_default
+        // to avoid having to read opencue.properties on a test setting
+        long memReservedDefault = 3355443;
 
         DispatchFrame frame = new DispatchFrame();
         frame.minCores = 100;
-        frame.minMemory = Dispatcher.MEM_RESERVED_DEFAULT;
+        frame.setMinMemory(memReservedDefault);
         frame.threadable = true;
 
         proc = VirtualProc.build(host, frame);
@@ -147,4 +147,3 @@ public class CoreSpanTests extends TestCase {
         assertEquals(300, proc.coresReserved);
     }
 }
-

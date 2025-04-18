@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -126,10 +122,9 @@ import com.imageworks.spcue.util.CueUtil;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     @Rule
@@ -268,26 +263,16 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     }
 
     public RenderHost getRenderHost() {
-
-        RenderHost host = RenderHost.newBuilder()
-                .setName(HOST)
-                .setBootTime(1192369572)
+        // Hardcoded value of dispatcher.memory.mem_reserved_min
+        // to avoid having to read opencue.properties on a test setting
+        long memReservedMin = 262144;
+        RenderHost host = RenderHost.newBuilder().setName(HOST).setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(CueUtil.GB)
-                .setFreeMem((int) Dispatcher.MEM_RESERVED_MIN * 4)
-                .setFreeSwap(2076)
-                .setLoad(1)
-                .setTotalMcp(CueUtil.GB4)
-                .setTotalMem((int) Dispatcher.MEM_RESERVED_MIN * 4)
-                .setTotalSwap(2096)
-                .setNimbyEnabled(true)
-                .setNumProcs(2)
-                .setCoresPerProc(400)
-                .setState(HardwareState.DOWN)
-                .setFacility("spi")
-                .setFreeGpuMem((int) CueUtil.MB512)
-                .setTotalGpuMem((int) CueUtil.MB512)
-                .build();
+                .setFreeMcp(CueUtil.GB).setFreeMem((int) memReservedMin * 4).setFreeSwap(2076)
+                .setLoad(1).setTotalMcp(CueUtil.GB4).setTotalMem((int) memReservedMin * 4)
+                .setTotalSwap(2096).setNimbyEnabled(true).setNumProcs(2).setCoresPerProc(400)
+                .setState(HardwareState.DOWN).setFacility("spi").setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512).build();
         return host;
     }
 
@@ -356,7 +341,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testGetDepend() {
 
         List<LightweightDependency> depends = dependManager.getWhatDependsOn(launchJob());
-        for (LightweightDependency depend: depends) {
+        for (LightweightDependency depend : depends) {
             whiteboardDao.getDepend(depend);
         }
     }
@@ -367,7 +352,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testGetDependById() {
 
         List<LightweightDependency> depends = dependManager.getWhatDependsOn(launchJob());
-        for (LightweightDependency depend: depends) {
+        for (LightweightDependency depend : depends) {
             whiteboardDao.getDepend(depend);
             whiteboardDao.getDepend(depend.id);
         }
@@ -378,7 +363,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testGetWhatDependsOnThis() {
         JobDetail job = launchJob();
-        assertEquals(1,whiteboardDao.getWhatDependsOnThis(job).getDependsCount());
+        assertEquals(1, whiteboardDao.getWhatDependsOnThis(job).getDependsCount());
 
         LayerInterface layer1 = layerDao.findLayer(job, "pass_1");
         assertEquals(0, whiteboardDao.getWhatDependsOnThis(layer1).getDependsCount());
@@ -412,7 +397,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testGetDepends() {
         JobDetail job = launchJob();
-        assertEquals(1,whiteboardDao.getDepends(job).getDependsCount());
+        assertEquals(1, whiteboardDao.getDepends(job).getDependsCount());
     }
 
     @Test
@@ -420,7 +405,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testGetCommentsOnJob() {
         JobDetail job = launchJob();
-        assertEquals(0,whiteboardDao.getComments(job).getCommentsCount());
+        assertEquals(0, whiteboardDao.getComments(job).getCommentsCount());
     }
 
     @Test
@@ -439,7 +424,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         c.timestamp = null;
 
         commentManager.addComment(hd, c);
-        assertEquals(1,whiteboardDao.getComments(hd).getCommentsCount());
+        assertEquals(1, whiteboardDao.getComments(hd).getCommentsCount());
     }
 
     @Test
@@ -473,7 +458,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         FilterEntity f = createFilter();
         MatcherEntity m = createMatcher(f);
         whiteboardDao.getMatcher(m);
-     }
+    }
 
     @Test
     @Transactional
@@ -498,7 +483,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testGetFilters() {
         createFilter();
         whiteboardDao.getFilters(getShow());
-   }
+    }
 
     @Test
     @Transactional
@@ -507,13 +492,9 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         JobEntity job = launchJob();
         FrameSearchInterface r = frameSearchFactory.create(job);
         FrameSearchCriteria criteria = r.getCriteria();
-        r.setCriteria(criteria.toBuilder()
-                .setPage(1)
-                .setLimit(5)
-                .addLayers("pass_1")
-                .build());
+        r.setCriteria(criteria.toBuilder().setPage(1).setLimit(5).addLayers("pass_1").build());
         assertEquals(5, whiteboardDao.getFrames(r).getFramesCount());
-        for (Frame f: whiteboardDao.getFrames(r).getFramesList()) {
+        for (Frame f : whiteboardDao.getFrames(r).getFramesList()) {
             assertEquals(f.getLayerName(), "pass_1");
         }
     }
@@ -528,7 +509,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         RenderHost host = getRenderHost();
         DispatchHost hd = hostManager.createHost(host);
         FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
-
 
         VirtualProc proc = new VirtualProc();
         proc.allocationId = null;
@@ -616,7 +596,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         DispatchHost hd = hostManager.createHost(host);
         FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
 
-
         VirtualProc proc = new VirtualProc();
         proc.allocationId = null;
         proc.coresReserved = 100;
@@ -658,7 +637,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         RenderHost host = getRenderHost();
         DispatchHost hd = hostManager.createHost(host);
         FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
-
 
         VirtualProc proc = new VirtualProc();
         proc.allocationId = null;
@@ -717,11 +695,25 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         List<JobInterface> jobs = new ArrayList<JobInterface>();
 
         jobs.add(new JobInterface() {
-            public String getJobId() { return job.getId(); }
-            public String getShowId() { return null; }
-            public String getId() { return job.getId(); }
-            public String getName() { return null; }
-            public String getFacilityId() { throw new RuntimeException("not implemented"); }
+            public String getJobId() {
+                return job.getId();
+            }
+
+            public String getShowId() {
+                return null;
+            }
+
+            public String getId() {
+                return job.getId();
+            }
+
+            public String getName() {
+                return null;
+            }
+
+            public String getFacilityId() {
+                throw new RuntimeException("not implemented");
+            }
         });
 
         whiteboardDao.getUpdatedFrames(job, new ArrayList<LayerInterface>(),
@@ -729,7 +721,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
 
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     @Transactional
     @Rollback(true)
     public void testGetUpdatedFramesFailure() {
@@ -737,11 +729,25 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         List<JobInterface> jobs = new ArrayList<JobInterface>();
 
         jobs.add(new JobInterface() {
-            public String getJobId() { return job.getId(); }
-            public String getShowId() { return null; }
-            public String getId() { return job.getId(); }
-            public String getName() { return null; }
-            public String getFacilityId() { throw new RuntimeException("not implemented"); }
+            public String getJobId() {
+                return job.getId();
+            }
+
+            public String getShowId() {
+                return null;
+            }
+
+            public String getId() {
+                return job.getId();
+            }
+
+            public String getName() {
+                return null;
+            }
+
+            public String getFacilityId() {
+                throw new RuntimeException("not implemented");
+            }
         });
 
         // this one should fail
@@ -755,7 +761,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testFindJob() {
         JobDetail job = launchJob();
         whiteboardDao.findJob(job.name);
-     }
+    }
 
     @Test
     @Transactional
@@ -790,8 +796,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testGetSubscriptionsByAllocation() {
-        whiteboardDao.getSubscriptions(
-                allocationDao.findAllocationEntity("spi", "general"));
+        whiteboardDao.getSubscriptions(allocationDao.findAllocationEntity("spi", "general"));
     }
 
     @Test
@@ -830,7 +835,8 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         try {
             HostEntity h = hostManager.findHostDetail(HOST);
             hostManager.deleteHost(h);
-        } catch (Exception e) { }
+        } catch (Exception e) {
+        }
 
         RenderHost host = getRenderHost();
         DispatchHost hd = hostManager.createHost(host);
@@ -856,7 +862,8 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testGetHostsByAllocation() {
         RenderHost host = getRenderHost();
-        AllocationEntity alloc = allocationDao.getAllocationEntity("00000000-0000-0000-0000-000000000006");
+        AllocationEntity alloc =
+                allocationDao.getAllocationEntity("00000000-0000-0000-0000-000000000006");
         DispatchHost hd = hostManager.createHost(host, alloc);
 
         HostSearchCriteria h = HostSearchInterface.criteriaFactory();
@@ -979,15 +986,14 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testGetTask() {
-        PointInterface p = pointDao.getPointConfigDetail(
-                showDao.findShowDetail("pipe"),
+        PointInterface p = pointDao.getPointConfigDetail(showDao.findShowDetail("pipe"),
                 departmentDao.getDefaultDepartment());
 
-        TaskEntity t = new TaskEntity(p,"dev.cue");
+        TaskEntity t = new TaskEntity(p, "dev.cue");
         departmentManager.createTask(t);
 
-        whiteboardDao.getTask(showDao.findShowDetail("pipe"),
-                departmentDao.getDefaultDepartment(), "dev.cue");
+        whiteboardDao.getTask(showDao.findShowDetail("pipe"), departmentDao.getDefaultDepartment(),
+                "dev.cue");
     }
 
     @Test
@@ -1005,7 +1011,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void getLayer() {
         JobDetail job = launchJob();
         LayerInterface layer = layerDao.findLayer(job, "pass_1");
-        assertEquals(layer.getName(),whiteboardDao.getLayer(layer.getLayerId()).getName());
+        assertEquals(layer.getName(), whiteboardDao.getLayer(layer.getLayerId()).getName());
     }
 
     @Test
@@ -1053,7 +1059,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.showId = frame.showId;
 
         procDao.insertVirtualProc(proc);
-        assertEquals(1,whiteboardDao.getProcs(proc).getProcsCount());
+        assertEquals(1, whiteboardDao.getProcs(proc).getProcsCount());
     }
 
     @Test
@@ -1069,8 +1075,8 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         /*
          * Book 5 procs.
          */
-        for (int i=1; i<6; i++) {
-            FrameDetail f = frameDao.findFrameDetail(job, String.format("%04d-pass_1",i));
+        for (int i = 1; i < 6; i++) {
+            FrameDetail f = frameDao.findFrameDetail(job, String.format("%04d-pass_1", i));
             VirtualProc proc = new VirtualProc();
             proc.allocationId = null;
             proc.coresReserved = 100;
@@ -1098,22 +1104,15 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
          */
         r = procSearchFactory.create();
         ProcSearchCriteria criteriaA = r.getCriteria();
-        r.setCriteria(criteriaA.toBuilder()
-                .addShows("pipe")
-                .addMaxResults(1)
-                .build());
+        r.setCriteria(criteriaA.toBuilder().addShows("pipe").addMaxResults(1).build());
         assertEquals(1, whiteboardDao.getProcs(r).getProcsCount());
 
         /*
-         * Change the first result to 1, which should limit
-         * the result to 4.
+         * Change the first result to 1, which should limit the result to 4.
          */
         r = procSearchFactory.create();
         ProcSearchCriteria criteriaB = r.getCriteria();
-        r.setCriteria(criteriaB.toBuilder()
-                .addShows("pipe")
-                .setFirstResult(2)
-                .build());
+        r.setCriteria(criteriaB.toBuilder().addShows("pipe").setFirstResult(2).build());
         assertEquals(4, whiteboardDao.getProcs(r).getProcsCount());
 
         /*
@@ -1121,11 +1120,8 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
          */
         r = procSearchFactory.create();
         ProcSearchCriteria criteriaC = r.getCriteria();
-        r.setCriteria(criteriaC.toBuilder()
-                .addShows("pipe")
-                .setFirstResult(3)
-                .addMaxResults(2)
-                .build());
+        r.setCriteria(
+                criteriaC.toBuilder().addShows("pipe").setFirstResult(3).addMaxResults(2).build());
         assertEquals(2, whiteboardDao.getProcs(r).getProcsCount());
     }
 
@@ -1133,8 +1129,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void getOwner() {
-        ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
+        ownerManager.createOwner("spongebob", showDao.findShowDetail("pipe"));
         whiteboardDao.getOwner("spongebob");
     }
 
@@ -1145,13 +1140,11 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         RenderHost host = getRenderHost();
         DispatchHost hd = hostManager.createHost(host);
 
-        OwnerEntity owner = ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
+        OwnerEntity owner = ownerManager.createOwner("spongebob", showDao.findShowDetail("pipe"));
 
         ownerManager.takeOwnership(owner, hd);
 
-        assertTrue(whiteboardDao.getOwners(
-                showDao.findShowDetail("pipe")).size() != 0);
+        assertTrue(whiteboardDao.getOwners(showDao.findShowDetail("pipe")).size() != 0);
     }
 
     @Test
@@ -1162,15 +1155,12 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         RenderHost host = getRenderHost();
         DispatchHost hd = hostManager.createHost(host);
 
-        OwnerEntity owner = ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
+        OwnerEntity owner = ownerManager.createOwner("spongebob", showDao.findShowDetail("pipe"));
 
         ownerManager.takeOwnership(owner, hd);
-        assertTrue(whiteboardDao.getDeeds(
-                showDao.findShowDetail("pipe")).getDeedsCount() != 0);
+        assertTrue(whiteboardDao.getDeeds(showDao.findShowDetail("pipe")).getDeedsCount() != 0);
 
-        assertTrue(whiteboardDao.getDeeds(
-                showDao.findShowDetail("pipe")).getDeedsCount() != 0);
+        assertTrue(whiteboardDao.getDeeds(showDao.findShowDetail("pipe")).getDeedsCount() != 0);
     }
 
     @Test
@@ -1181,12 +1171,10 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         RenderHost host = getRenderHost();
         DispatchHost hd = hostManager.createHost(host);
 
-        OwnerEntity owner = ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
+        OwnerEntity owner = ownerManager.createOwner("spongebob", showDao.findShowDetail("pipe"));
 
         ownerManager.takeOwnership(owner, hd);
-        assertTrue(whiteboardDao.getDeeds(
-                owner).getDeedsCount() != 0);
+        assertTrue(whiteboardDao.getDeeds(owner).getDeedsCount() != 0);
     }
 
     @Test
@@ -1197,8 +1185,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         RenderHost host = getRenderHost();
         DispatchHost hd = hostManager.createHost(host);
 
-        OwnerEntity owner = ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
+        OwnerEntity owner = ownerManager.createOwner("spongebob", showDao.findShowDetail("pipe"));
         ownerManager.takeOwnership(owner, hd);
 
         assertEquals(1, whiteboardDao.getHosts(owner).getHostsCount());
@@ -1212,8 +1199,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         RenderHost host = getRenderHost();
         DispatchHost hd = hostManager.createHost(host);
 
-        OwnerEntity owner = ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
+        OwnerEntity owner = ownerManager.createOwner("spongebob", showDao.findShowDetail("pipe"));
         DeedEntity deed = ownerManager.takeOwnership(owner, hd);
 
         Owner o2 = whiteboardDao.getOwner(deed);
@@ -1230,8 +1216,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         RenderHost host = getRenderHost();
         DispatchHost hd = hostManager.createHost(host);
 
-        OwnerEntity owner = ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
+        OwnerEntity owner = ownerManager.createOwner("spongebob", showDao.findShowDetail("pipe"));
         ownerManager.takeOwnership(owner, hd);
 
         Owner o2 = whiteboardDao.getOwner(hd);
@@ -1294,15 +1279,11 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     }
 
     public FrameStateDisplayOverride createFrameStateDisplayOverride(String frameId) {
-        FrameStateDisplayOverride override = FrameStateDisplayOverride.newBuilder()
-                .setState(FrameState.SUCCEEDED)
-                .setText("FINISHED")
-                .setColor(FrameStateDisplayOverride.RGB.newBuilder()
-                        .setRed(114)
-                        .setGreen(42)
-                        .setBlue(200)
-                        .build())
-                .build();
+        FrameStateDisplayOverride override =
+                FrameStateDisplayOverride.newBuilder().setState(FrameState.SUCCEEDED)
+                        .setText("FINISHED").setColor(FrameStateDisplayOverride.RGB.newBuilder()
+                                .setRed(114).setGreen(42).setBlue(200).build())
+                        .build();
         frameDao.setFrameStateDisplayOverride(frameId, override);
 
         return override;
@@ -1312,7 +1293,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testFramesWithDisplayOverride() {
-        // since current_timestamp does not update, we need to make sure the 
+        // since current_timestamp does not update, we need to make sure the
         // timestamp we use when retrieving updated frames is older than when
         // the frame's ts_updated value is set to during insertion.
         long timestamp = System.currentTimeMillis();
@@ -1322,9 +1303,10 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
 
         // Create override
         FrameStateDisplayOverride override = createFrameStateDisplayOverride(frame.getFrameId());
-        FrameStateDisplayOverrideSeq results = frameDao.getFrameStateDisplayOverrides(frame.getFrameId());
+        FrameStateDisplayOverrideSeq results =
+                frameDao.getFrameStateDisplayOverrides(frame.getFrameId());
         assertEquals(1, results.getOverridesCount());
-        
+
         frameDao.updateFrameState(frame, FrameState.SUCCEEDED);
 
         // Test GET_FRAME
@@ -1334,11 +1316,11 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
 
         // Test GET_UPDATED_FRAME
         UpdatedFrameCheckResult rs = whiteboardDao.getUpdatedFrames(job,
-                    new ArrayList<LayerInterface>(), (int) (timestamp / 1000));
+                new ArrayList<LayerInterface>(), (int) (timestamp / 1000));
         UpdatedFrameSeq uFrames = rs.getUpdatedFrames();
         // We'll end up getting all the frames for the job so we need to find
-        // the one we want. 
-        for (UpdatedFrame uFrame: uFrames.getUpdatedFramesList()) {
+        // the one we want.
+        for (UpdatedFrame uFrame : uFrames.getUpdatedFramesList()) {
             if (uFrame.getId().equals(frame.getFrameId())) {
                 assertTrue(uFrame.hasFrameStateDisplayOverride());
                 assertEquals(override, uFrame.getFrameStateDisplayOverride());
@@ -1349,16 +1331,11 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         // Test GET_FRAMES_CRITERIA
         FrameSearchInterface r = frameSearchFactory.create(job);
         FrameSearchCriteria criteria = r.getCriteria();
-        r.setCriteria(criteria.toBuilder()
-                .setPage(1)
-                .setLimit(5)
-                .addLayers("pass_1_preprocess")
-                .build());
+        r.setCriteria(
+                criteria.toBuilder().setPage(1).setLimit(5).addLayers("pass_1_preprocess").build());
         FrameSeq frames = whiteboardDao.getFrames(r);
         Frame fcFrame = frames.getFrames(0);
         assertTrue(fcFrame.hasFrameStateDisplayOverride());
         assertEquals(override, fcFrame.getFrameStateDisplayOverride());
     }
 }
-
-

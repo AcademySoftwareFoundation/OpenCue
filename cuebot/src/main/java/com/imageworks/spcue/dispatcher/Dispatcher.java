@@ -1,22 +1,19 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
-
-
 package com.imageworks.spcue.dispatcher;
+
 import java.util.List;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -51,46 +48,26 @@ public interface Dispatcher {
     // on the host.
     public static final int CORE_LOAD_THRESHOLD = 5;
 
-
-    // The default amount of memory reserved for a frame if no memory
-    // reservation settings are specified
-    public static final long MEM_RESERVED_DEFAULT = 3355443;
-
-    // The maximum amount of memory that can be requested for a given frame.
-    public static final long MEM_RESERVED_MAX = CueUtil.GB * 50;
-
-    // The minimum amount of memory that can be assigned to a frame.
-    public static final long MEM_RESERVED_MIN = 262144;
-
-    // Memory reserved by system, gets chopped off the available memory
-    public static final long MEM_RESERVED_SYSTEM = 524288;
-
     // Amount of memory that has to be idle for the rest of the cores
     // on the machine to be considered stranded.
     public static final long MEM_STRANDED_THRESHHOLD = CueUtil.GB + CueUtil.MB512;
 
-    // The default amount of gpu memory reserved for a frame if no gpu memory
-    // reservation settings are specified
-    public static final long MEM_GPU_RESERVED_DEFAULT = 0;
+    // Determines the service default minimum memory per frame.
+    public static final long MEM_SERVICE_RESERVED_DEFAULT = CueUtil.GB4;
 
-    // The minimum amount of gpu memory that can be assigned to a frame.
-    public static final long MEM_GPU_RESERVED_MIN = 0;
-
-    // The maximum amount of gpu memory that can be assigned to a frame.
-    public static final long MEM_GPU_RESERVED_MAX = CueUtil.GB * 1024;
+    // Determines the service default minimum gpu per frame.
+    public static final long MEM_SERVICE_GPU_RESERVED_DEFAULT = 0;
 
     // Return value for cleared frame
     public static final int EXIT_STATUS_FRAME_CLEARED = 299;
 
     /*
-     * An orphan proc occurs when a proc is left with
-     * no frame assignment.
+     * An orphan proc occurs when a proc is left with no frame assignment.
      */
     public static final int EXIT_STATUS_FRAME_ORPHAN = 301;
 
     /*
-     * A failed kill occurs when a user tries to kill a frame
-     * and RQD throws an exception.
+     * A failed kill occurs when a user tries to kill a frame and RQD throws an exception.
      */
     public static final int EXIT_STATUS_FAILED_KILL = 302;
 
@@ -99,6 +76,9 @@ public interface Dispatcher {
 
     // Upgrade the memory on the layer by 1g and retry.
     public static final int EXIT_STATUS_MEMORY_FAILURE = 33;
+
+    // Upgrade the memory on the layer by 1g and retry.
+    public static final int DOCKER_EXIT_STATUS_MEMORY_FAILURE = 137;
 
     // max retry time
     public static final int FRAME_TIME_NO_RETRY = 3600 * 8;
@@ -130,6 +110,9 @@ public interface Dispatcher {
     // memory
     public static final long MINIMUM_MEMORY_INCREASE = CueUtil.GB2;
 
+    public static final double SOFT_MEMORY_MULTIPLIER = 1.6;
+    public static final double HARD_MEMORY_MULTIPLIER = 2.0;
+
     /**
      * Dispatch a host to the facility.
      *
@@ -147,8 +130,8 @@ public interface Dispatcher {
     List<VirtualProc> dispatchHost(DispatchHost host);
 
     /**
-     * Dispatch a host to the specified group and specify the maximum
-     * number of frames to dispatch from the host.
+     * Dispatch a host to the specified group and specify the maximum number of frames to dispatch
+     * from the host.
      *
      * @param host
      * @param g
@@ -217,8 +200,7 @@ public interface Dispatcher {
      * @param proc
      *
      * @throws FrameReservationException if the frame cannot be reserved.
-     * @throws ResourceReservationFailureException if resources cannot
-     *         be reserved.
+     * @throws ResourceReservationFailureException if resources cannot be reserved.
      * @throws RqdClientException if communication with RQD fails.
      */
     void dispatch(DispatchFrame frame, VirtualProc proc);
@@ -232,4 +214,3 @@ public interface Dispatcher {
      */
     List<VirtualProc> dispatchHost(DispatchHost host, ShowInterface show);
 }
-

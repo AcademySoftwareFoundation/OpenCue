@@ -2,17 +2,15 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package com.imageworks.spcue.dao.criteria.postgres;
@@ -40,7 +38,8 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
     private static final Logger logger = LogManager.getLogger(FrameSearch.class);
     private static final Pattern PATTERN_SINGLE_FRAME = Pattern.compile("^([0-9]+)$");
     private static final Pattern PATTERN_RANGE = Pattern.compile("^([0-9]+)\\-([0-9]+)$");
-    private static final Pattern PATTERN_FLOAT_RANGE = Pattern.compile("^([0-9\\.]+)\\-([0-9\\.]+)$");
+    private static final Pattern PATTERN_FLOAT_RANGE =
+            Pattern.compile("^([0-9\\.]+)\\-([0-9\\.]+)$");
     private static final int RANGE_MAX_SIZE = 1000;
 
     private FrameSearchCriteria criteria;
@@ -109,15 +108,13 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
 
     @Override
     public void filterByLayers(List<LayerInterface> layers) {
-        addPhrase(
-                "layer.pk_layer",
+        addPhrase("layer.pk_layer",
                 layers.stream().map(LayerInterface::getLayerId).collect(Collectors.toList()));
     }
 
     @Override
     public void filterByFrameStates(List<FrameState> frameStates) {
-        addPhrase(
-                "frame.str_state",
+        addPhrase("frame.str_state",
                 frameStates.stream().map(FrameState::toString).collect(Collectors.toSet()));
     }
 
@@ -140,11 +137,11 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
             int num_frames = set.size();
             if (num_frames <= RANGE_MAX_SIZE) {
                 sb.append("(");
-                for (int i=0; i<num_frames; i++)  {
+                for (int i = 0; i < num_frames; i++) {
                     sb.append("frame.int_number=? OR ");
                     values.add(set.get(i));
                 }
-                sb.delete(sb.length()-4, sb.length());
+                sb.delete(sb.length() - 4, sb.length());
                 sb.append(") ");
             }
         }
@@ -160,8 +157,7 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
                 values.add(CueUtil.GB * Float.valueOf(matchRange.group(1)));
                 values.add(CueUtil.GB * Float.valueOf(matchRange.group(2)));
                 sb.append(" (frame.int_mem_max_used >= ? AND frame.int_mem_max_used <= ?) ");
-            }
-            else {
+            } else {
                 values.add(CueUtil.GB * Float.valueOf(range));
                 sb.append(" frame.int_mem_max_used >= ? ");
             }
@@ -182,8 +178,7 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
                 sb.append(" (frame.str_state != 'WAITING' ");
                 sb.append(" AND find_duration(frame.ts_started, frame.ts_stopped) ");
                 sb.append(" BETWEEN ? AND ? )");
-            }
-            else {
+            } else {
                 values.add((int) (3600 * Float.valueOf(range)));
                 sb.append(" (frame.str_state != 'WAITING' AND ");
                 sb.append("find_duration(frame.ts_started, frame.ts_stopped) >= ?) ");
@@ -202,7 +197,7 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
         StringBuilder sb = new StringBuilder();
         sb.append("frame.ts_updated > ?");
         chunks.add(sb);
-        values.add(new java.sql.Timestamp( changeDate * 1000L));
+        values.add(new java.sql.Timestamp(changeDate * 1000L));
     }
 
     @Override
@@ -212,9 +207,17 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
         addPhrase("frame.str_name", criteria.getFramesList());
         addPhrase("layer.str_name", criteria.getLayersList());
         filterByFrameStates(criteria.getStates().getFrameStatesList());
-        if (isValid(criteria.getFrameRange())) { filterByFrameSet(criteria.getFrameRange()); }
-        if (isValid(criteria.getMemoryRange())) { filterByMemoryRange(criteria.getMemoryRange()); }
-        if (isValid(criteria.getDurationRange())) { filterByDurationRange(criteria.getDurationRange()); }
-        if (criteria.getChangeDate() > 0) { filterByChangeDate(criteria.getChangeDate()); }
+        if (isValid(criteria.getFrameRange())) {
+            filterByFrameSet(criteria.getFrameRange());
+        }
+        if (isValid(criteria.getMemoryRange())) {
+            filterByMemoryRange(criteria.getMemoryRange());
+        }
+        if (isValid(criteria.getDurationRange())) {
+            filterByDurationRange(criteria.getDurationRange());
+        }
+        if (criteria.getChangeDate() > 0) {
+            filterByChangeDate(criteria.getChangeDate());
+        }
     }
 }

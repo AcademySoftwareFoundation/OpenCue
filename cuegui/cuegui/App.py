@@ -30,6 +30,7 @@ class CueGuiApplication(QtWidgets.QApplication):
 
     # Global signals
     display_log_file_content = QtCore.Signal(object)
+    select_frame = QtCore.Signal(object, object)
     double_click = QtCore.Signal(object)
     facility_changed = QtCore.Signal()
     single_click = QtCore.Signal(object)
@@ -40,6 +41,7 @@ class CueGuiApplication(QtWidgets.QApplication):
     request_update = QtCore.Signal()
     status = QtCore.Signal()
     quit = QtCore.Signal()
+    select_layers = QtCore.Signal(list)
 
     # Thread pool
     threadpool = None

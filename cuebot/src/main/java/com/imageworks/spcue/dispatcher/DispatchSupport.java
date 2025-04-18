@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dispatcher;
 
@@ -62,10 +58,10 @@ public interface DispatchSupport {
     static final AtomicLong killedOffenderProcs = new AtomicLong(0);
 
     /**
-     * Number of frames killed because the machine totally ran out of memory.
-     * This may or may not be the worst offender.
+     * Number of frames killed because the machine totally ran out of memory. This may or may not be
+     * the worst offender.
      */
-    static final AtomicLong killedOomProcs= new AtomicLong(0);
+    static final AtomicLong killedOomProcs = new AtomicLong(0);
 
     /**
      * Long for counting how many procs have been dispatched
@@ -105,7 +101,7 @@ public interface DispatchSupport {
     /**
      * Long for counting dispatch retries
      */
-    static final AtomicLong  bookingRetries = new AtomicLong(0);
+    static final AtomicLong bookingRetries = new AtomicLong(0);
 
     /**
      * Incremented when RQD and the Cue DB are out of sync.
@@ -146,8 +142,7 @@ public interface DispatchSupport {
     boolean clearVirtualProcAssignement(ProcInterface proc);
 
     /**
-     * Stops the specified frame and sets a new frame state
-     * and exit status.
+     * Stops the specified frame and sets a new frame state and exit status.
      *
      * @param frame
      * @param state
@@ -164,17 +159,14 @@ public interface DispatchSupport {
      * @param maxrss
      * @return
      */
-    boolean stopFrame(FrameInterface frame, FrameState state,
-                      int exitStatus, long maxrss);
+    boolean stopFrame(FrameInterface frame, FrameState state, int exitStatus, long maxrss);
 
     /**
-     * Updates the frame to the Running state and Reserve the resources
-     * in the specified proc for the specified frame.  If the proc does
-     * not exist, its inserted, otherwise its updated.
+     * Updates the frame to the Running state and Reserve the resources in the specified proc for
+     * the specified frame. If the proc does not exist, its inserted, otherwise its updated.
      *
-     * When a proc is created, the subscription, host,
-     * job, layer, folder, and shot proc counts get updated.
-     * This may cause some contention.
+     * When a proc is created, the subscription, host, job, layer, folder, and shot proc counts get
+     * updated. This may cause some contention.
      *
      * @param proc
      * @param frame
@@ -182,10 +174,8 @@ public interface DispatchSupport {
     public void startFrameAndProc(VirtualProc proc, DispatchFrame frame);
 
     /**
-     * This method clears out a proc that was lost track of.
-     * This can happen if the host fails and the proc fails
-     * to report in, a network outage occurs, or something
-     * of that nature.
+     * This method clears out a proc that was lost track of. This can happen if the host fails and
+     * the proc fails to report in, a network outage occurs, or something of that nature.
      *
      * @param proc
      * @param reason
@@ -201,35 +191,30 @@ public interface DispatchSupport {
     void unbookProc(VirtualProc proc);
 
     /**
-     * Unbooks a virtual proc.  Takes a reason which is
-     * printed to the console.
+     * Unbooks a virtual proc. Takes a reason which is printed to the console.
      */
     void unbookProc(VirtualProc proc, String reason);
 
     /**
-     * Returns the next N frames to be dispatched from the
-     * specified job.
+     * Returns the next N frames to be dispatched from the specified job.
      *
      * @param job
      * @param proc
      * @param limit
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(JobInterface job,
-            VirtualProc proc, int limit);
+    List<DispatchFrame> findNextDispatchFrames(JobInterface job, VirtualProc proc, int limit);
 
     /**
      *
-     * Returns the next N frames to be dispatched from the
-     * specified job.
+     * Returns the next N frames to be dispatched from the specified job.
      *
      * @param job
      * @param host
      * @param limit
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(JobInterface job, DispatchHost host,
-                                               int limit);
+    List<DispatchFrame> findNextDispatchFrames(JobInterface job, DispatchHost host, int limit);
 
     /**
      * Return the next N frames to be dispatched from the specified layer.
@@ -239,8 +224,7 @@ public interface DispatchSupport {
      * @param limit
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host,
-                                               int limit);
+    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host, int limit);
 
     /**
      * Return the next N frames to be dispatched from the specified layer.
@@ -250,8 +234,8 @@ public interface DispatchSupport {
      * @param limit
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, VirtualProc proc,
-                                               int limit);
+    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, VirtualProc proc, int limit);
+
     /**
      *
      * @param excludeJob
@@ -274,19 +258,17 @@ public interface DispatchSupport {
      *
      * @param proc
      * @param frame
-     * @throws DispatcherException              if an error occurs during dispatching
+     * @throws DispatcherException if an error occurs during dispatching
      */
     void runFrame(VirtualProc proc, DispatchFrame frame);
 
     /**
-     * Return true if the specified show is over its burst
-     * size of the given proc's allocation.
+     * Return true if the specified show is over its burst size of the given proc's allocation.
      *
      * @param proc
      * @return
      */
     boolean isShowOverBurst(VirtualProc proc);
-
 
     /**
      * Returns the job that can utilize the specified host.
@@ -297,8 +279,7 @@ public interface DispatchSupport {
     Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs);
 
     /**
-     * Returns the highest priority job that can utilize
-     * the specified host
+     * Returns the highest priority job that can utilize the specified host
      *
      * @param host
      * @return
@@ -306,32 +287,29 @@ public interface DispatchSupport {
     Set<String> findDispatchJobs(DispatchHost host, int numJobs);
 
     /**
-     * Returns the highest priority jobs that can utilize
-     * the specified host in the specified group.
+     * Returns the highest priority jobs that can utilize the specified host in the specified group.
      *
      * @param host
-     * @return  A set of unique job ids.
+     * @return A set of unique job ids.
      */
     Set<String> findDispatchJobs(DispatchHost host, GroupInterface p);
 
     /**
      *
      * @param host
-     * @return  A set of unique job ids.
+     * @return A set of unique job ids.
      */
     Set<String> findLocalDispatchJobs(DispatchHost host);
 
     /**
      * Creates and returns and RQD RunFrame object.
      *
-     * Once the RunFrame object is created string replacement is done
-     * in the frame command to replace any tags in the command.
+     * Once the RunFrame object is created string replacement is done in the frame command to
+     * replace any tags in the command.
      *
-     * Currently these tags are supported: [IFRAME] - integer frame (no padding)
-     * [ZFRAME] - 4 padded frame [LAYER] - the layer name [JOB] - the job name
-     * [IFRAME] - the full frame name
-     * [JOB] - the job name
-     * [LAYER] - the layer name
+     * Currently these tags are supported: [IFRAME] - integer frame (no padding) [ZFRAME] - 4 padded
+     * frame [LAYER] - the layer name [JOB] - the job name [IFRAME] - the full frame name [JOB] -
+     * the job name [LAYER] - the layer name
      *
      * @param proc
      * @param frame
@@ -339,12 +317,9 @@ public interface DispatchSupport {
      */
     RunFrame prepareRqdRunFrame(VirtualProc proc, DispatchFrame frame);
 
-
-
     /**
-     * Checks to see if job passes basic tests for dispatchability.
-     * Tests include if the proc is over its max, if it has pending
-     * frames, and if its paused.
+     * Checks to see if job passes basic tests for dispatchability. Tests include if the proc is
+     * over its max, if it has pending frames, and if its paused.
      *
      * @param job
      * @param local indicates a local dispatch or not
@@ -353,17 +328,16 @@ public interface DispatchSupport {
     boolean isJobDispatchable(JobInterface job, boolean local);
 
     /**
-     * returns true of the cue has jobs with pending frames
-     * that are not paused or in a non bookable state.
+     * returns true of the cue has jobs with pending frames that are not paused or in a non bookable
+     * state.
      *
      * @return
      */
     boolean isCueBookable(FacilityInterface f);
 
     /**
-     * Increases the amount of memory reserved for a running frame.
-     * Returns true if the memory value actually increased.  If the value
-     * is lower than current reserved memory it is ignored.
+     * Increases the amount of memory reserved for a running frame. Returns true if the memory value
+     * actually increased. If the value is lower than current reserved memory it is ignored.
      *
      * @param proc
      * @param value
@@ -371,9 +345,8 @@ public interface DispatchSupport {
     boolean increaseReservedMemory(ProcInterface proc, long value);
 
     /**
-     * Attempts to balance the reserved memory on a proc by
-     * taking away reserved memory from frames that are well under
-     * their reservation.
+     * Attempts to balance the reserved memory on a proc by taking away reserved memory from frames
+     * that are well under their reservation.
      *
      * @param proc
      * @param value
@@ -396,8 +369,7 @@ public interface DispatchSupport {
     void fixFrame(DispatchFrame frame);
 
     /**
-     * Sets the frame state to waiting for a frame with
-     * no running proc.
+     * Sets the frame state to waiting for a frame with no running proc.
      *
      * @param frame
      */
@@ -420,12 +392,11 @@ public interface DispatchSupport {
      * @param lluTime
      */
     void updateFrameMemoryUsageAndLluTime(FrameInterface frame, long rss, long maxRss,
-                                          long lluTime);
+            long lluTime);
 
     /**
-     * Update memory usage data for a given frame's proc record.  The
-     * frame is used to update the proc so the update fails if the proc
-     * has been rebooked onto a new frame.
+     * Update memory usage data for a given frame's proc record. The frame is used to update the
+     * proc so the update fails if the proc has been rebooked onto a new frame.
      *
      * @param frame
      * @param rss
@@ -435,14 +406,12 @@ public interface DispatchSupport {
      * @param usedGpuMemory
      * @param maxUsedGpuMemory
      */
-    void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss,
-                               long vsize, long maxVsize, long usedGpuMemory,
-                               long maxUsedGpuMemory, long usedSwapMemory,
-                               byte[] children);
+    void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss, long vsize,
+            long maxVsize, long usedGpuMemory, long maxUsedGpuMemory, long usedSwapMemory,
+            byte[] children);
 
     /**
-     * Return true if adding the given core units would put the show
-     * over its burst value.
+     * Return true if adding the given core units would put the show over its burst value.
      *
      * @param show
      * @param alloc
@@ -468,8 +437,7 @@ public interface DispatchSupport {
     boolean isJobBookable(JobInterface job, int coreUnits, int gpuUnits);
 
     /**
-     * Return true if the specified show is at or over its
-     * burst value for the given allocation.
+     * Return true if the specified show is at or over its burst value for the given allocation.
      *
      * @param show
      * @param alloc
@@ -478,8 +446,7 @@ public interface DispatchSupport {
     boolean isShowAtOrOverBurst(ShowInterface show, AllocationInterface alloc);
 
     /**
-     * Return true if the specified show is over its
-     * guaranteed subscription size.
+     * Return true if the specified show is over its guaranteed subscription size.
      *
      * @param proc
      * @return
@@ -502,9 +469,8 @@ public interface DispatchSupport {
     boolean hasStrandedCores(HostInterface host);
 
     /**
-     * Add stranded cores for the given host. Stranded
-     * cores will automatically be added to the next frame dispatched
-     * from the host to make up for cores stranded with no memory.
+     * Add stranded cores for the given host. Stranded cores will automatically be added to the next
+     * frame dispatched from the host to make up for cores stranded with no memory.
      *
      * @param host
      * @param cores
@@ -512,8 +478,7 @@ public interface DispatchSupport {
     void strandCores(DispatchHost host, int cores);
 
     /**
-     * Lowers the perceived idle cores on a machine if
-     * the load is over certain threshold.
+     * Lowers the perceived idle cores on a machine if the load is over certain threshold.
      *
      * @param host
      * @param load
@@ -554,4 +519,3 @@ public interface DispatchSupport {
     void clearCache();
 
 }
-

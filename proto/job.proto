@@ -5,6 +5,8 @@ package job;
 option java_package = "com.imageworks.spcue.grpc.job";
 option java_multiple_files = true;
 
+option go_package = "opencue_gateway/gen/go";
+
 import "comment.proto";
 import "depend.proto";
 import "limit.proto";
@@ -639,6 +641,7 @@ message Job {
     JobStats job_stats = 20;
     float min_gpus = 21;
     float max_gpus = 22;
+    string loki_url = 23;
 }
 
 // Use to filter the job search.  Please note that by searching for non-pending jobs, the output is limited to 200 jobs

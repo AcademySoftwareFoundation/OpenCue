@@ -13,20 +13,27 @@ echo "Will run tests using ${python_version}"
 
 pip install --user -r requirements.txt -r requirements_gui.txt
 
+# Some rqd unit tests require docker api
+pip install docker==7.1.0
+
+# Some rqd unit tests require lokiclient
+pip install loki-urllib3-client
+
 # Protos need to have their Python code generated in order for tests to pass.
 python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto --grpc_python_out=pycue/opencue/compiled_proto proto/*.proto
 python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc_python_out=rqd/rqd/compiled_proto proto/*.proto
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
-2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
+python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
+python ci/fix_compiled_proto.py rqd/rqd/compiled_proto
 
-python pycue/setup.py test
-PYTHONPATH=pycue python pyoutline/setup.py test
-PYTHONPATH=pycue python cueadmin/setup.py test
-PYTHONPATH=pycue:pyoutline python cuesubmit/setup.py test
-python rqd/setup.py test
+python -m unittest discover -s pycue/tests -t pycue -p "*.py"
+PYTHONPATH=pycue python -m unittest discover -s pyoutline/tests -t pyoutline -p "*.py"
+PYTHONPATH=pycue python -m unittest discover -s cueadmin/tests -t cueadmin -p "*.py"
+PYTHONPATH=pycue:pyoutline python -m unittest discover -s cuesubmit/tests -t cuesubmit -p "*.py"
+python -m pytest rqd/tests
+python -m pytest rqd/pytests
 
 # Xvfb no longer supports Python 2.
 if [[ "$python_version" =~ "Python 3" && ${args[0]} != "--no-gui" ]]; then

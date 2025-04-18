@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.service;
 
@@ -56,14 +52,12 @@ public class JobLauncher implements ApplicationContextAware {
     private LocalBookingSupport localBookingSupport;
 
     /**
-     * When true, disables log path creation and
-     * proc points sync.
+     * When true, disables log path creation and proc points sync.
      */
     public volatile boolean testMode = false;
 
     @Override
-    public void setApplicationContext(ApplicationContext context)
-            throws BeansException {
+    public void setApplicationContext(ApplicationContext context) throws BeansException {
         this.context = context;
     }
 
@@ -98,13 +92,14 @@ public class JobLauncher implements ApplicationContextAware {
         try {
             jobManager.launchJobSpec(spec);
 
-            for (BuildableJob job: spec.getJobs()) {
+            for (BuildableJob job : spec.getJobs()) {
                 /*
                  * If isLocal is set, need to create local host assignment.
                  */
                 JobDetail d = job.detail;
                 if (d.isLocal) {
-                    logger.info(d.localHostName + " will do local dispatch. " + d.getJobId() + " " + d.localHostName);
+                    logger.info(d.localHostName + " will do local dispatch. " + d.getJobId() + " "
+                            + d.localHostName);
                     LocalHostAssignment lha = new LocalHostAssignment();
                     lha.setJobId(d.getJobId());
                     lha.setThreads(d.localThreadNumber);
@@ -116,23 +111,21 @@ public class JobLauncher implements ApplicationContextAware {
 
                     try {
                         localBookingSupport.bookLocal(d, d.localHostName, d.user, lha);
-                    }
-                    catch (DataIntegrityViolationException e) {
+                    } catch (DataIntegrityViolationException e) {
                         logger.info(d.name + " failed to create host local assignment.");
                     }
                 }
             }
 
             /*
-             * This has to happen outside of the job launching transaction
-             * or else it can lock up booking because it updates the
-             * job_resource table.  It can take quite some time to launch
-             * a job with dependencies, so the transaction should not
-             * touch any rows that are currently in the "live" data set.
+             * This has to happen outside of the job launching transaction or else it can lock up
+             * booking because it updates the job_resource table. It can take quite some time to
+             * launch a job with dependencies, so the transaction should not touch any rows that are
+             * currently in the "live" data set.
              */
             if (!testMode) {
                 Set<String> depts = new HashSet<String>();
-                for (BuildableJob job: spec.getJobs()) {
+                for (BuildableJob job : spec.getJobs()) {
                     JobDetail d = jobManager.getJobDetail(job.detail.id);
                     jmsMover.send(d);
                     if (departmentManager.isManaged(d)) {
@@ -152,27 +145,23 @@ public class JobLauncher implements ApplicationContextAware {
 
     public void verifyJobSpec(JobSpec spec) {
 
-        for (BuildableJob job: spec.getJobs()) {
+        for (BuildableJob job : spec.getJobs()) {
             if (jobManager.isJobPending(job.detail.name)) {
-                throw new EntityCreationError("The job " + job.detail.name
-                        + " is already pending");
+                throw new EntityCreationError("The job " + job.detail.name + " is already pending");
             }
         }
 
         try {
             ShowEntity s = adminManager.findShowEntity(spec.getShow());
             if (!s.active) {
-                throw new EntityCreationError("The " + spec.getShow() +
-                        " show has been deactivated.  Please contact " +
-                        "administrator of your OpenCue deployment to reactivate " +
-                        "this show.");
+                throw new EntityCreationError("The " + spec.getShow()
+                        + " show has been deactivated.  Please contact "
+                        + "administrator of your OpenCue deployment to reactivate " + "this show.");
             }
-        }
-        catch (EmptyResultDataAccessException e) {
-            throw new EntityCreationError("The " + spec.getShow() +
-                    " does not exist. Please contact " +
-                    "administrator of your OpenCue deployment to have this show " +
-                    "created.");
+        } catch (EmptyResultDataAccessException e) {
+            throw new EntityCreationError("The " + spec.getShow()
+                    + " does not exist. Please contact "
+                    + "administrator of your OpenCue deployment to have this show " + "created.");
         }
     }
 
@@ -237,4 +226,3 @@ public class JobLauncher implements ApplicationContextAware {
         this.localBookingSupport = localBookingSupport;
     }
 }
-

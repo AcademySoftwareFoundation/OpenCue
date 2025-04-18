@@ -383,12 +383,14 @@ class PageDependType(AbstractWizardPage):
             if item[1]:
                 return "this %s" % item[0]
 
+    # pylint: disable=missing-function-docstring
     def initializePage(self):
         self.setSubTitle("What type of dependency would you like %s to have?" % self.__msg())
 
         # it is not respecting or providing my size hints otherwise
         self.wizard().setMinimumSize(500, 500)
 
+    # pylint: disable=missing-function-docstring
     def validatePage(self):
         # pylint: disable=consider-using-dict-items
         for option in self.__options:
@@ -436,6 +438,7 @@ class PageSelectLayer(AbstractWizardPage):
 
         self.__layerList = self._addListWidget(2, 0, QtWidgets.QAbstractItemView.MultiSelection)
 
+    # pylint: disable=missing-function-docstring
     def initializePage(self):
         self.wizard().layerOptions = self.wizard().jobs[0].getLayers()
 
@@ -448,6 +451,7 @@ class PageSelectLayer(AbstractWizardPage):
             self.__layerList.item(num).setSelected(
                 str(self.__layerList.item(num).text()) in self._getNames(self.wizard().onLayer))
 
+    # pylint: disable=missing-function-docstring
     def validatePage(self):
         self.wizard().layers = []
         for num in range(self.__layerList.count()):
@@ -486,9 +490,11 @@ class PageSelectFrame(AbstractWizardPage):
         self.__frame = self._addLineEdit(1, 9, "1")
         self.registerField("frame", self.__frame)
 
+    # pylint: disable=missing-function-docstring
     def initializePage(self):
         QtWidgets.QWizardPage.initializePage(self)
 
+    # pylint: disable=missing-function-docstring
     def validatePage(self):
         frames = str(self.field("frame"))
         if frames:
@@ -541,6 +547,7 @@ class PageSelectOnJob(AbstractWizardPage):
             [job for job in self.wizard().onJobOptions
              if re.search(str(text), job, re.IGNORECASE) and job not in exclude])
 
+    # pylint: disable=missing-function-docstring
     def initializePage(self):
         # If the filter edit box is empty, populate it with SHOW-SHOT-USER_
         # based on the first job selected to receive the dependency
@@ -558,6 +565,7 @@ class PageSelectOnJob(AbstractWizardPage):
 
         QtWidgets.QWizardPage.initializePage(self)
 
+    # pylint: disable=missing-function-docstring
     def validatePage(self):
         self.wizard().onJob = []
         for num in range(self.__jobList.count()):
@@ -596,6 +604,7 @@ class PageSelectOnLayer(AbstractWizardPage):
         self._addLabel("Depend on Layer:", 0, 0)
         self.__onLayerList = self._addListWidget(1, 0)
 
+    # pylint: disable=missing-function-docstring
     def initializePage(self):
         QtWidgets.QWizardPage.initializePage(self)
 
@@ -620,6 +629,7 @@ class PageSelectOnLayer(AbstractWizardPage):
             self.__onLayerList.item(num).setSelected(
                 str(self.__onLayerList.item(num).text()) in self._getNames(self.wizard().onLayer))
 
+    # pylint: disable=missing-function-docstring
     def validatePage(self):
         self.wizard().onLayer = []
         for num in range(self.__onLayerList.count()):
@@ -660,9 +670,11 @@ class PageSelectOnFrame(AbstractWizardPage):
 
         self.setField("onFrame", "")
 
+    # pylint: disable=missing-function-docstring
     def initializePage(self):
         QtWidgets.QWizardPage.initializePage(self)
 
+    # pylint: disable=missing-function-docstring
     def validatePage(self):
         frames = str(self.field("onFrame"))
         if frames:
@@ -700,6 +712,7 @@ class PageConfirmation(AbstractWizardPage):
         self.setTitle("Confirmation")
         self.setSubTitle("Are you sure?")
 
+    # pylint: disable=missing-function-docstring
     def initializePage(self):
         self._removeAllWidgets()
 
@@ -724,6 +737,7 @@ class PageConfirmation(AbstractWizardPage):
             self._displayItems("Frame", self.wizard().onFrame, 9)
 
     # pylint: disable=too-many-nested-blocks
+    # pylint: disable=missing-function-docstring
     def validatePage(self):
         # Just names:
         jobs = self._getNames(self.wizard().jobs)

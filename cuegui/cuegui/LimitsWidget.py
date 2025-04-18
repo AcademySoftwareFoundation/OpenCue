@@ -148,7 +148,7 @@ class LimitsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu.addSeparator()
         self.__menuActions.limits().addAction(menu, "delete")
         self.__menuActions.limits().addAction(menu, "rename")
-        menu.exec_(QtCore.QPoint(e.globalX(), e.globalY()))
+        menu.exec_(QtCore.QPoint(e.globalX(), e.globalY())) # pylint: disable=no-member
 
     def tick(self):
         pass

@@ -2,34 +2,27 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import java.util.List;
-import java.util.ArrayList;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.spcue.VirtualProc;
 
 /**
  * A command for booking a host.
@@ -37,9 +30,8 @@ import com.imageworks.spcue.VirtualProc;
  * @category command
  */
 public class DispatchBookHost extends KeyRunnable {
-    private static final Logger logger =
-            LogManager.getLogger(DispatchBookHost.class);
 
+    private Environment env;
     private ShowInterface show = null;
     private GroupInterface group = null;
     private JobInterface job = null;
@@ -51,31 +43,36 @@ public class DispatchBookHost extends KeyRunnable {
         return host;
     }
 
-    public DispatchBookHost(DispatchHost host, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, Dispatcher d, Environment env) {
         super(host.getId());
         this.host = host;
         this.dispatcher = d;
+        this.env = env;
     }
 
-    public DispatchBookHost(DispatchHost host, JobInterface job, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, JobInterface job, Dispatcher d, Environment env) {
         super(host.getId() + "_job_" + job.getJobId());
         this.host = host;
         this.job = job;
         this.dispatcher = d;
+        this.env = env;
     }
 
-    public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d,
+            Environment env) {
         super(host.getId() + "_group_" + group.getGroupId());
         this.host = host;
         this.group = group;
         this.dispatcher = d;
+        this.env = env;
     }
 
-    public DispatchBookHost(DispatchHost host, ShowInterface show, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, ShowInterface show, Dispatcher d, Environment env) {
         super(host.getId() + "_name_" + show.getName());
         this.host = host;
         this.show = show;
         this.dispatcher = d;
+        this.env = env;
     }
 
     public void run() {
@@ -83,28 +80,24 @@ public class DispatchBookHost extends KeyRunnable {
             public void wrapDispatchCommand() {
                 if (show != null) {
                     dispatcher.dispatchHost(host, show);
-                }
-                else if (group != null) {
+                } else if (group != null) {
                     dispatcher.dispatchHost(host, group);
-                }
-                else if (job != null) {
+                } else if (job != null) {
                     dispatcher.dispatchHost(host, job);
                 }
+                long memReservedMin =
+                        env.getRequiredProperty("dispatcher.memory.mem_reserved_min", Long.class);
+                long memGpuReservedMin = env
+                        .getRequiredProperty("dispatcher.memory.mem_gpu_reserved_min", Long.class);
 
                 // Try to book any remaining resources
-                if (host.hasAdditionalResources(
-                        Dispatcher.CORE_POINTS_RESERVED_MIN,
-                        Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                if (host.hasAdditionalResources(Dispatcher.CORE_POINTS_RESERVED_MIN, memReservedMin,
+                        Dispatcher.GPU_UNITS_RESERVED_MIN, memGpuReservedMin)) {
                     dispatcher.dispatchHost(host);
                 }
 
-                if (host.hasAdditionalResources(
-                        Dispatcher.CORE_POINTS_RESERVED_MIN,
-                        Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                if (host.hasAdditionalResources(Dispatcher.CORE_POINTS_RESERVED_MIN, memReservedMin,
+                        Dispatcher.GPU_UNITS_RESERVED_MIN, memGpuReservedMin)) {
                     dispatcher.dispatchHostToAllShows(host);
                 }
             }
@@ -113,7 +106,7 @@ public class DispatchBookHost extends KeyRunnable {
 
     @Override
     public int hashCode() {
-       return host.name.hashCode();
+        return host.name.hashCode();
     };
 
     @Override
@@ -128,4 +121,3 @@ public class DispatchBookHost extends KeyRunnable {
         return that.host.name.equals(host.name);
     };
 }
-

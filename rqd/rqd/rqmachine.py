@@ -127,28 +127,12 @@ class Machine(object):
             # pylint: enable=no-member
         return True
 
-    def isNimbySafeToUnlock(self):
-        """Returns False if nimby should not unlock due to resource limits"""
-        if not self.isNimbySafeToRunJobs():
-            return False
-        if self.getLoadAvg() / self.__coreInfo.total_threads > rqd.rqconstants.MAXIMUM_LOAD:
-            return False
-        return True
-
     @rqd.rqutil.Memoize
     def isDesktop(self):
         """Returns True if machine starts in run level 5 (X11)
            by checking /etc/inittab. False if not."""
         if rqd.rqconstants.OVERRIDE_IS_DESKTOP:
             return True
-        if platform.system() == "Linux" and os.path.exists(rqd.rqconstants.PATH_INITTAB):
-            with open(rqd.rqconstants.PATH_INITTAB, "r", encoding='utf-8') as inittabFile:
-                for line in inittabFile:
-                    if line.startswith("id:5:initdefault:"):
-                        return True
-            if os.path.islink(rqd.rqconstants.PATH_INIT_TARGET):
-                if os.path.realpath(rqd.rqconstants.PATH_INIT_TARGET).endswith('graphical.target'):
-                    return True
         return False
 
     def isUserLoggedIn(self):
@@ -216,10 +200,23 @@ class Machine(object):
             frame.lluTime = int(stat)
 
     def _getStatFields(self, pidFilePath):
+        """ Read stats file and return list of values
+        Stats file can star with these formats:
+         - 105 name ...
+         - 105 (name) ...
+         - 105 (name with space) ...
+         - 105 (name with) (space and parenthesis) ...
+        """
         with open(pidFilePath, "r", encoding='utf-8') as statFile:
-            stats = statFile.read().split()
-            stats[1] = stats[1].strip('()')
-            return stats
+            txt = statFile.read()
+            try:
+                open_par_index = txt.index('(')
+                close_par_index = txt.rindex(')')
+                name = txt[open_par_index:close_par_index].strip("()")
+                reminder = (txt[0:open_par_index] + txt[close_par_index + 1:]).split()
+                return reminder[0:1] + [name] + reminder[1:]
+            except ValueError:
+                return txt.split()
 
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
@@ -252,8 +249,10 @@ class Machine(object):
                     statFields = self._getStatFields(rqd.rqconstants.PATH_PROC_PID_STAT
                                                      .format(pid))
                     pids[pid] = {
+                        "pid": str(pid),
                         "name": statFields[1],
                         "state": statFields[2],
+                        "parentid": statFields[3],
                         "pgrp": statFields[4],
                         "session": statFields[5],
                         # virtual memory size is in bytes convert to kb
@@ -270,6 +269,9 @@ class Machine(object):
                         # Fetch swap usage
                         "swap": self._getProcSwap(pid),
                     }
+
+                    # TODO: Improve this logic to avoid collecting data from all running procs.
+                    # instead, focus on the monitored procs hierarchy
                     # cmdline:
                     p = psutil.Process(int(pid))
                     pids[pid]["cmd_line"] = p.cmdline()
@@ -287,7 +289,7 @@ class Machine(object):
                         if re.search(r"\d+", child_statm_fields[1]) else -1
 
                 # pylint: disable=broad-except
-                except (OSError, IOError):
+                except (OSError, IOError, psutil.ZombieProcess):
                     # Many Linux processes are ephemeral and will disappear before we're able
                     # to read them. This is not typically indicative of a problem.
                     log.debug('Failed to read stat/statm file for pid %s', pid)
@@ -300,83 +302,93 @@ class Machine(object):
 
             values = list(frames.values())
             for frame in values:
-                if frame.pid > 0:
-                    session = str(frame.pid)
+                pid = str(frame.pid)
+                if pid is not None and frame.pid > 0 and pid in pids:
+                    visited = [pid]
+                    children = [pids[pid]]
+                    self._collectChildren(pid, pids, visited, children)
                     rss = 0
                     vsize = 0
                     swap = 0
                     pcpu = 0
-                    # children pids share the same session id
-                    for pid, data in pids.items():
-                        if data["session"] == session:
-                            try:
-                                rss += int(data["rss"])
-                                vsize += int(data["vsize"])
-                                swap += int(data["swap"])
+                    for data in children:
+                        child_pid = data["pid"]
+                        try:
+                            rss += int(data["rss"])
+                            vsize += int(data["vsize"])
+                            swap += int(data["swap"])
 
-                                # jiffies used by this process, last two means that dead
-                                # children are counted
-                                totalTime = int(data["utime"]) + \
-                                            int(data["stime"]) + \
-                                            int(data["cutime"]) + \
-                                            int(data["cstime"])
+                            # jiffies used by this process, last two means that dead
+                            # children are counted
+                            totalTime = int(data["utime"]) + \
+                                        int(data["stime"]) + \
+                                        int(data["cutime"]) + \
+                                        int(data["cstime"])
 
-                                # Seconds of process life, boot time is already in seconds
-                                seconds = now - bootTime - \
-                                          float(data["start_time"]) / rqd.rqconstants.SYS_HERTZ
-                                if seconds:
-                                    if pid in self.__pidHistory:
-                                        # Percent cpu using decaying average, 50% from 10 seconds
-                                        # ago, 50% from last 10 seconds:
-                                        oldTotalTime, oldSeconds, oldPidPcpu = \
-                                            self.__pidHistory[pid]
-                                        # checking if already updated data
-                                        if seconds != oldSeconds:
-                                            pidPcpu = ((totalTime - oldTotalTime) /
-                                                       float(seconds - oldSeconds))
-                                            pcpu += (oldPidPcpu + pidPcpu) / 2  # %cpu
-                                            pidData[pid] = totalTime, seconds, pidPcpu
-                                    else:
-                                        pidPcpu = totalTime / seconds
-                                        pcpu += pidPcpu
-                                        pidData[pid] = totalTime, seconds, pidPcpu
-                                # only keep the highest recorded rss value
-                                if pid in frame.childrenProcs:
-                                    childRss = (int(data["rss"]) * resource.getpagesize()) // 1024
-                                    if childRss > frame.childrenProcs[pid]['rss']:
-                                        frame.childrenProcs[pid]['rss_page'] = int(data["rss"])
-                                        frame.childrenProcs[pid]['rss'] = childRss
-                                        frame.childrenProcs[pid]['vsize'] = \
-                                            int(data["vsize"]) // 1024
-                                        frame.childrenProcs[pid]['swap'] = swap // 1024
-                                        frame.childrenProcs[pid]['statm_rss'] = \
-                                            (int(data["statm_rss"]) \
-                                             * resource.getpagesize()) // 1024
-                                        frame.childrenProcs[pid]['statm_size'] = \
-                                            (int(data["statm_size"]) * \
-                                             resource.getpagesize()) // 1024
+                            # Seconds of process life, boot time is already in seconds
+                            seconds = now - bootTime - \
+                                      float(data["start_time"]) / rqd.rqconstants.SYS_HERTZ
+                            if seconds:
+                                if child_pid in self.__pidHistory:
+                                    # Percent cpu using decaying average, 50% from 10 seconds
+                                    # ago, 50% from last 10 seconds:
+                                    oldTotalTime, oldSeconds, oldPidPcpu = \
+                                        self.__pidHistory[child_pid]
+                                    # checking if already updated data
+                                    if seconds != oldSeconds:
+                                        pidPcpu = ((totalTime - oldTotalTime) /
+                                                   float(seconds - oldSeconds))
+                                        pcpu += (oldPidPcpu + pidPcpu) / 2  # %cpu
+                                        pidData[child_pid] = totalTime, seconds, pidPcpu
                                 else:
-                                    frame.childrenProcs[pid] = \
-                                        {'name': data['name'],
-                                         'rss_page': int(data["rss"]),
-                                         'rss': (int(data["rss"]) * resource.getpagesize()) // 1024,
-                                         'vsize': int(data["vsize"])  // 1024,
-                                         'swap': swap // 1024,
-                                         'state': data['state'],
-                                         # statm reports in pages (~ 4kB)
-                                         # same as VmRss in /proc/[pid]/status (in KB)
-                                         'statm_rss': (int(data["statm_rss"]) * \
-                                                       resource.getpagesize()) // 1024,
-                                         'statm_size': (int(data["statm_size"]) * \
-                                                        resource.getpagesize()) // 1024,
-                                         'cmd_line': data["cmd_line"],
-                                         'start_time': seconds}
+                                    pidPcpu = totalTime / seconds
+                                    pcpu += pidPcpu
+                                    pidData[child_pid] = totalTime, seconds, pidPcpu
 
+                            # These fields are not always present
+                            _statm_rss = _statm_size = 0
+                            try:
+                                _statm_rss = int(data.get(["statm_rss"], 0))
+                                _statm_size = int(data.get(["statm_size"], 0))
                             # pylint: disable=broad-except
-                            except Exception as e:
-                                log.warning(
-                                    'Failure with pid rss update due to: %s at %s',
-                                    e, traceback.extract_tb(sys.exc_info()[2]))
+                            except ValueError:
+                                # Ignore these fields if they are not set on the proc file
+                                pass
+
+                            # If children was already accounted for, only keep the highest
+                            # recorded rss value
+                            if child_pid in frame.childrenProcs:
+                                childRss = (int(data["rss"]) * resource.getpagesize()) // 1024
+                                if childRss > frame.childrenProcs[child_pid]['rss']:
+                                    frame.childrenProcs[child_pid]['rss_page'] = int(data["rss"])
+                                    frame.childrenProcs[child_pid]['rss'] = childRss
+                                    frame.childrenProcs[child_pid]['vsize'] = \
+                                        int(data["vsize"]) // 1024
+                                    frame.childrenProcs[child_pid]['swap'] = swap // 1024
+                                    frame.childrenProcs[child_pid]['statm_rss'] = \
+                                        _statm_rss * resource.getpagesize() // 1024
+                                    frame.childrenProcs[child_pid]['statm_size'] = \
+                                        _statm_size * resource.getpagesize() // 1024
+                            else:
+                                frame.childrenProcs[child_pid] = \
+                                    {'name': data['name'],
+                                     'rss_page': int(data["rss"]),
+                                     'rss': (int(data["rss"]) * resource.getpagesize()) // 1024,
+                                     'vsize': int(data["vsize"])  // 1024,
+                                     'swap': swap // 1024,
+                                     'state': data['state'],
+                                     # statm reports in pages (~ 4kB)
+                                     # same as VmRss in /proc/[child_pid]/status (in KB)
+                                     'statm_rss': _statm_rss * resource.getpagesize() // 1024,
+                                     'statm_size': _statm_size * resource.getpagesize() // 1024,
+                                     'cmd_line': data.get("cmd_line", ""),
+                                     'start_time': seconds}
+
+                        # pylint: disable=broad-except
+                        except Exception as e:
+                            log.info(
+                                'Failure with pid rss update due to: %s at %s',
+                                e, traceback.extract_tb(sys.exc_info()[2]))
                     # convert bytes to KB
                     rss = (rss * resource.getpagesize()) // 1024
                     vsize = int(vsize/1024)
@@ -404,6 +416,18 @@ class Machine(object):
         except Exception as e:
             log.exception('Failure with rss update due to: %s', e)
 
+    def _collectChildren(self, current_pid: str,
+        all_pids: dict[str, dict[str, str]], visited: list[str],
+        children: list[dict[str, str]]):
+        """Recursive method to collect all children of first_parent_pid.
+
+        The list of children is returned on the arg children"""
+        for child_pid, data in all_pids.items():
+            if data["parentid"] == current_pid and child_pid not in visited:
+                children.append(data)
+                visited.append(child_pid)
+                self._collectChildren(child_pid, all_pids, visited, children)
+
     def _getProcSwap(self, pid):
         """Helper function to get swap memory used by a process"""
         swap_used = 0
@@ -426,7 +450,7 @@ class Machine(object):
             with open(rqd.rqconstants.PATH_LOADAVG, "r", encoding='utf-8') as loadAvgFile:
                 loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
                 if self.__enabledHT():
-                    loadAvg = loadAvg // self.__getHyperthreadingMultiplier()
+                    loadAvg = loadAvg // self.getHyperthreadingMultiplier()
                 loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
                 loadAvg = max(loadAvg, 0)
                 return loadAvg
@@ -655,20 +679,8 @@ class Machine(object):
             hyperthreadingMultiplier = 1
 
         if platform.system() == 'Windows':
-            # Windows memory information
-            stat = self.getWindowsMemory()
-            TEMP_DEFAULT = 1048576
-            self.__renderHost.total_mcp = TEMP_DEFAULT
-            self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
-            self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
-
-            # Windows CPU information
-            logical_core_count = psutil.cpu_count(logical=True)
-            actual_core_count = psutil.cpu_count(logical=False)
-            hyperthreadingMultiplier = logical_core_count // actual_core_count
-
-            __totalCores = logical_core_count * rqd.rqconstants.CORE_VALUE
-            __numProcs = 1  # TODO: figure out how to count sockets in Python
+            logicalCoreCount, __numProcs, hyperthreadingMultiplier = self.__initStatsFromWindows()
+            __totalCores = logicalCoreCount * rqd.rqconstants.CORE_VALUE
 
         # All other systems will just have one proc/core
         if not __numProcs or not __totalCores:
@@ -697,6 +709,65 @@ class Machine(object):
 
         if hyperthreadingMultiplier >= 1:
             self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
+
+    def __initStatsFromWindows(self):
+        """Init machine stats for Windows platforms.
+
+        @rtype:  tuple
+        @return: A 3-items tuple containing:
+            - the number of logical cores
+            - the number of physical processors
+            - the hyper-threading multiplier
+        """
+        # Windows memory information
+        stat = self.getWindowsMemory()
+        TEMP_DEFAULT = 1048576
+        self.__renderHost.total_mcp = TEMP_DEFAULT
+        self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
+        self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
+
+        # Windows CPU information
+        self.__updateProcsMappingsFromWindows()
+
+        logicalCoreCount = psutil.cpu_count(logical=True)
+        actualCoreCount = psutil.cpu_count(logical=False)
+        hyperThreadingMultiplier = logicalCoreCount // actualCoreCount
+
+        physicalProcessorCount = len(self.__procs_by_physid_and_coreid)
+
+        return logicalCoreCount, physicalProcessorCount, hyperThreadingMultiplier
+
+    def __updateProcsMappingsFromWindows(self):
+        """
+        Update `__procs_by_physid_and_coreid` and `__physid_and_coreid_by_proc` mappings
+        for Windows platforms.
+        """
+        # Windows-specific
+        import wmi  # pylint:disable=import-outside-toplevel,import-error
+
+        # Reset mappings
+        self.__procs_by_physid_and_coreid = {}
+        self.__physid_and_coreid_by_proc = {}
+
+        # Connect to the Windows Management Instrumentation (WMI) interface
+        wmiInstance = wmi.WMI()
+
+        # Retrieve CPU information using WMI
+        for physicalId, processor in enumerate(wmiInstance.Win32_Processor()):
+
+            threadPerCore = processor.NumberOfLogicalProcessors // processor.NumberOfCores
+            procId = 0
+
+            for coreId in range(processor.NumberOfCores):
+                for _ in range(threadPerCore):
+                    self.__procs_by_physid_and_coreid.setdefault(
+                        str(physicalId), {}
+                    ).setdefault(str(coreId), set()).add(str(procId))
+                    self.__physid_and_coreid_by_proc[str(procId)] = (
+                        str(physicalId),
+                        str(coreId),
+                    )
+                    procId += 1
 
     def getWindowsMemory(self):
         """Gets information on system memory, Windows compatible version."""
@@ -796,7 +867,7 @@ class Machine(object):
 
         # Updates dynamic information
         self.__renderHost.load = self.getLoadAvg()
-        self.__renderHost.nimby_enabled = self.__rqCore.nimby.active
+        self.__renderHost.nimby_enabled = self.__rqCore.nimby.is_ready
         self.__renderHost.nimby_locked = self.__rqCore.nimby.locked
         self.__renderHost.state = self.state
 
@@ -831,7 +902,11 @@ class Machine(object):
     def __enabledHT(self):
         return 'hyperthreadingMultiplier' in self.__renderHost.attributes
 
-    def __getHyperthreadingMultiplier(self):
+    def getHyperthreadingMultiplier(self):
+        """
+        Multiplied used to compute the number of threads that can be allocated simultaneously
+        on a core
+        """
         return int(self.__renderHost.attributes['hyperthreadingMultiplier'])
 
     def setupTaskset(self):
@@ -859,6 +934,7 @@ class Machine(object):
             log.warning('Taskset: Can not reserveHT with fractional cores')
             return None
         log.warning('Taskset: Requesting reserve of %d', (coresCount // 100))
+        log.info('Taskset: Requesting reserve of %d', (frameCores // 100))
 
         # Look for the most idle physical cpu.
         # Prefer to assign cores from the same physical cpu.

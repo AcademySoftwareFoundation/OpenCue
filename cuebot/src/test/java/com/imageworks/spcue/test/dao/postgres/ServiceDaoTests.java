@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -41,8 +37,8 @@ import com.imageworks.spcue.util.CueUtil;
 import static org.junit.Assert.assertEquals;
 
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     @Rule
@@ -72,7 +68,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.minMemory = CueUtil.GB4;
         s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
-        s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
+        s.tags.addAll(Sets.newHashSet(new String[] {"general"}));
         s.minMemoryIncrease = CueUtil.GB4;
 
         serviceDao.insert(s);
@@ -91,7 +87,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.minMemory = CueUtil.GB4;
         s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
-        s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
+        s.tags.addAll(Sets.newHashSet(new String[] {"general"}));
         s.minMemoryIncrease = CueUtil.GB;
 
         serviceDao.insert(s);
@@ -109,7 +105,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.minMemoryIncrease = CueUtil.GB4 + CueUtil.GB2;
 
         serviceDao.update(s);
-        ServiceEntity s1 =  serviceDao.get(s.getId());
+        ServiceEntity s1 = serviceDao.get(s.getId());
 
         assertEquals(s.name, s1.name);
         assertEquals(s.minCores, s1.minCores);
@@ -131,7 +127,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.minMemory = CueUtil.GB4;
         s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
-        s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
+        s.tags.addAll(Sets.newHashSet(new String[] {"general"}));
         s.minMemoryIncrease = CueUtil.GB2;
 
         serviceDao.insert(s);
@@ -140,8 +136,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         serviceDao.delete(s);
 
         assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM service WHERE pk_service=?",
-                Integer.class, s.getId()));
+                "SELECT COUNT(1) FROM service WHERE pk_service=?", Integer.class, s.getId()));
     }
 
     @Test
@@ -156,7 +151,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.minMemory = CueUtil.GB4;
         s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
-        s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
+        s.tags.addAll(Sets.newHashSet(new String[] {"general"}));
         s.showId = "00000000-0000-0000-0000-000000000000";
         s.minMemoryIncrease = CueUtil.GB2;
 
@@ -176,7 +171,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.minMemory = CueUtil.GB4;
         s.minGpuMemory = CueUtil.GB2;
         s.threadable = false;
-        s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
+        s.tags.addAll(Sets.newHashSet(new String[] {"general"}));
         s.showId = "00000000-0000-0000-0000-000000000000";
         s.minMemoryIncrease = CueUtil.GB2;
 
@@ -196,7 +191,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.minMemoryIncrease = CueUtil.GB4;
 
         serviceDao.update(s);
-        ServiceEntity s1 =  serviceDao.getOverride(s.getId());
+        ServiceEntity s1 = serviceDao.getOverride(s.getId());
 
         assertEquals(s.name, s1.name);
         assertEquals(s.minCores, s1.minCores);
@@ -222,7 +217,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.minMemory = CueUtil.GB4;
         s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
-        s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
+        s.tags.addAll(Sets.newHashSet(new String[] {"general"}));
         s.showId = "00000000-0000-0000-0000-000000000000";
         s.minMemoryIncrease = CueUtil.GB2;
 
@@ -231,9 +226,9 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         assertEquals(s, serviceDao.getOverride("dillweed", s.showId));
         serviceDao.delete(s);
 
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM show_service WHERE pk_show_service=?",
-                Integer.class, s.getId()));
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(1) FROM show_service WHERE pk_show_service=?", Integer.class,
+                        s.getId()));
     }
 }
-

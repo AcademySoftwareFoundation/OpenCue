@@ -5,6 +5,7 @@ package renderPartition;
 option java_package = "com.imageworks.spcue.grpc.renderpartition";
 option java_multiple_files = true;
 
+option go_package = "opencue_gateway/gen/go";
 
 // -------- Services --------]
 
@@ -53,8 +54,8 @@ message RenderPartitionSeq {
 
 
 // -------- Requests & Responses --------]
-
 message RenderPartDeleteRequest {
+
     RenderPartition render_partition = 1;
 }
 

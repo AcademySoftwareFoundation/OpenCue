@@ -41,6 +41,8 @@ import cuegui.MenuActions
 import cuegui.Style
 import cuegui.Utils
 
+from cuegui.cueguiplugin import loader as plugin_loader
+
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -180,6 +182,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__dependentJobs = {}
         self._dependent_items = {}
         self.__reverseDependents = {}
+        self.local_plugin_saved_values = {}
         # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
@@ -249,15 +252,19 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__menuActions.jobs().viewComments([job])
 
     def startDrag(self, dropActions):
+        """Triggers a drag event"""
         cuegui.Utils.startDrag(self, dropActions, self.selectedObjects())
 
     def dragEnterEvent(self, event):
+        """Enter Drag event"""
         cuegui.Utils.dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
+        """Move Drag Event"""
         cuegui.Utils.dragMoveEvent(event)
 
     def dropEvent(self, event):
+        """Drop Drag Event"""
         for job_name in cuegui.Utils.dropEvent(event):
             self.addJob(job_name)
 
@@ -405,6 +412,46 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Sets the colored jobs that were saved"""
         self.__userColors = pickle.loads(bytes(state))
 
+    def getLocalPluginNumFrames(self):
+        """Gets default values for the Local Plugin fields"""
+        return self.local_plugin_saved_values.get("num_frames", 1)
+
+    def setLocalPluginNumFrames(self, value):
+        """Sets default values for the Local Plugin fields"""
+        self.local_plugin_saved_values["num_frames"] = value
+
+    def getLocalPluginNumThreads(self):
+        """Gets default values for the Local Plugin fields"""
+        return self.local_plugin_saved_values.get("num_threads", 1)
+
+    def setLocalPluginNumThreads(self, value):
+        """Sets default values for the Local Plugin fields"""
+        self.local_plugin_saved_values["num_threads"] = value
+
+    def getLocalPluginNumGpus(self):
+        """Gets default values for the Local Plugin fields"""
+        return self.local_plugin_saved_values.get("num_gpus", 0)
+
+    def setLocalPluginNumGpus(self, value):
+        """Sets default values for the LocalPlugin fields"""
+        self.local_plugin_saved_values["num_gpus"] = value
+
+    def getLocalPluginNumMem(self):
+        """Gets default values for the LocalPlugin fields"""
+        return self.local_plugin_saved_values.get("num_mem", 4)
+
+    def setLocalPluginNumMem(self, value):
+        """Sets default values for the LocalPlugin fields"""
+        self.local_plugin_saved_values["num_mem"] = value
+
+    def getLocalNumGpuMem(self):
+        """Gets default values for the LocalPlugin fields"""
+        return self.local_plugin_saved_values.get("num_gpu_mem", 0)
+
+    def setLocalNumGpuMem(self, value):
+        """Sets default values for the LocalPlugin fields"""
+        self.local_plugin_saved_values["num_gpu_mem"] = value
+
     def contextMenuEvent(self, e):
         """Creates a context menu when an item is right clicked.
         @param e: Right click QEvent
@@ -423,19 +470,18 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.jobs().addAction(menu, "subscribeToJob")
         self.__menuActions.jobs().addAction(menu, "viewComments")
 
-        if bool(int(self.app.settings.value("AllowDeeding", 0))):
+        if int(self.app.settings.value("DisableDeeding", 0)) == 0:
             self.__menuActions.jobs().addAction(menu, "useLocalCores")
 
         if cuegui.Constants.OUTPUT_VIEWERS:
-            job = __selectedObjects[0]
             for viewer in cuegui.Constants.OUTPUT_VIEWERS:
-                viewer_menu = QtWidgets.QMenu(viewer['action_text'], self)
-                for layer in job.getLayers():
-                    viewer_menu.addAction(layer.name(),
-                                          functools.partial(cuegui.Utils.viewOutput,
-                                                            [layer],
-                                                            viewer['action_text']))
-                menu.addMenu(viewer_menu)
+                action = QtWidgets.QAction(QtGui.QIcon(":viewoutput.png"),
+                                           viewer['action_text'], self)
+                action.triggered.connect(
+                    functools.partial(cuegui.Utils.viewOutput,
+                                    __selectedObjects,
+                                    viewer['action_text']))
+                menu.addAction(action)
 
         depend_menu = QtWidgets.QMenu("&Dependencies",self)
         self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
@@ -473,6 +519,38 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__menuActions.jobs().addAction(menu, "autoEatOff")
         menu.addSeparator()
         self.__menuActions.jobs().addAction(menu, "kill")
+
+        # Dynamically add plugin actions for right-clicked job(s)
+        if __selectedObjects:
+            # Group plugins by type so we don’t load duplicates
+            plugins_by_type = {}
+            for job in __selectedObjects:
+                for plugin in plugin_loader.load_plugins(job=job, parent=self):
+                    plugins_by_type[type(plugin)] = plugin
+
+            for plugin_type, plugin_instance in plugins_by_type.items():
+                if plugin_type.__name__ == "Plugin":
+                    # Create single action that calls all subprocesses
+                    # pylint: disable=protected-access
+                    label = plugin_instance._config.get("menu_label", "Unnamed Plugin")
+                    action = QtWidgets.QAction(label, self)
+
+                    def make_launch_all(ptype):
+                        def launch_all():
+                            for job in __selectedObjects:
+                                plugin = ptype(job=job, parent=self)
+                                plugin.launch_subprocess()
+                        return launch_all
+
+                    action.triggered.connect(make_launch_all(plugin_type))
+                    menu.addSeparator()
+                    menu.addAction(action)
+                else:
+                    actions = plugin_instance.menuAction()
+                    if actions:
+                        menu.addSeparator()
+                        for action in actions:
+                            menu.addAction(action)
 
         menu.exec_(e.globalPos())
 
