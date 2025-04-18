@@ -24,7 +24,7 @@ from __future__ import unicode_literals
 import time
 
 import opencue
-import opencue.compiled_proto.job_pb2
+import opencue_proto.job_pb2
 
 # pylint: disable=cyclic-import
 import cueadmin.common
@@ -230,7 +230,7 @@ def displayFrames(frames):
 
         print(framesFormat % (
             cueadmin.format.cutoff(frame.data.name, 35),
-            opencue.compiled_proto.job_pb2.FrameState.Name(frame.data.state),
+            opencue_proto.job_pb2.FrameState.Name(frame.data.state),
             frame.data.last_resource,
             startTime,
             stopTime,

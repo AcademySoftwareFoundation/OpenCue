@@ -33,7 +33,7 @@ from __future__ import absolute_import
 import logging
 
 import opencue
-from opencue.compiled_proto import depend_pb2
+from opencue_proto import depend_pb2
 
 
 logger = logging.getLogger(__file__)

@@ -24,8 +24,8 @@ import mock
 from qtpy import QtCore
 from qtpy import QtWidgets
 
-import opencue.compiled_proto.comment_pb2
-import opencue.compiled_proto.job_pb2
+import opencue_proto.comment_pb2
+import opencue_proto.job_pb2
 import opencue.wrappers.comment
 import opencue.wrappers.job
 
@@ -43,16 +43,16 @@ class CommentsTests(unittest.TestCase):
         app.settings = QtCore.QSettings()
         cuegui.Style.init()
 
-        commentProto = opencue.compiled_proto.comment_pb2.Comment(
+        commentProto = opencue_proto.comment_pb2.Comment(
             id='comment-id-1', timestamp=int(time.time()), user='user-who-made-comment',
             subject='comment-subject', message='this is the comment message body')
         self.comment = opencue.wrappers.comment.Comment(commentProto)
         getStubMock.return_value.GetComments.return_value = \
-            opencue.compiled_proto.job_pb2.JobGetCommentsResponse(
-                comments=opencue.compiled_proto.comment_pb2.CommentSeq(comments=[commentProto]))
+            opencue_proto.job_pb2.JobGetCommentsResponse(
+                comments=opencue_proto.comment_pb2.CommentSeq(comments=[commentProto]))
 
         self.job_name = "fooJob"
-        self.job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=self.job_name))
+        self.job = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(name=self.job_name))
         self.parentWidget = QtWidgets.QWidget()
         self.commentListDialog = cuegui.Comments.CommentListDialog(
             [self.job], parent=self.parentWidget)

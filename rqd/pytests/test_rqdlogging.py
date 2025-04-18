@@ -20,15 +20,15 @@
 
 import mock
 import pytest
-import rqd.compiled_proto.rqd_pb2
+import opencue_proto.rqd_pb2
 from rqd.rqlogging import LokiLogger
 
 @pytest.fixture
-@mock.patch('rqd.compiled_proto.rqd_pb2_grpc.RunningFrameStub')
-@mock.patch('rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceStub')
+@mock.patch('opencue_proto.rqd_pb2_grpc.RunningFrameStub')
+@mock.patch('opencue_proto.rqd_pb2_grpc.RqdInterfaceStub')
 @mock.patch('grpc.insecure_channel', new=mock.MagicMock())
 def runFrame(stubMock, frameStubMock):
-    rf = rqd.compiled_proto.rqd_pb2.RunFrame()
+    rf = opencue_proto.rqd_pb2.RunFrame()
     rf.job_id = "SD6F3S72DJ26236KFS"
     rf.job_name = "edu-trn_job-name"
     rf.frame_id = "FD1S3I154O646UGSNN"

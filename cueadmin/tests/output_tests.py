@@ -33,12 +33,12 @@ import sys
 import time
 import unittest
 
-import opencue.compiled_proto.facility_pb2
-import opencue.compiled_proto.host_pb2
-import opencue.compiled_proto.job_pb2
-import opencue.compiled_proto.service_pb2
-import opencue.compiled_proto.show_pb2
-import opencue.compiled_proto.subscription_pb2
+import opencue_proto.facility_pb2
+import opencue_proto.host_pb2
+import opencue_proto.job_pb2
+import opencue_proto.service_pb2
+import opencue_proto.show_pb2
+import opencue_proto.subscription_pb2
 import opencue.wrappers.allocation
 import opencue.wrappers.frame
 import opencue.wrappers.host
@@ -73,7 +73,7 @@ class OutputTests(unittest.TestCase):
     def testDisplayProcs(self, getStubMock):
         procs = [
             opencue.wrappers.proc.Proc(
-                opencue.compiled_proto.host_pb2.Proc(
+                opencue_proto.host_pb2.Proc(
                     name='proc1',
                     reserved_cores=28,
                     used_memory=44,
@@ -94,7 +94,7 @@ class OutputTests(unittest.TestCase):
     def testDisplayHosts(self, getStubMock):
         hosts = [
             opencue.wrappers.host.Host(
-                opencue.compiled_proto.host_pb2.Host(
+                opencue_proto.host_pb2.Host(
                     name='host1',
                     load=25,
                     nimby_enabled=False,
@@ -124,10 +124,10 @@ class OutputTests(unittest.TestCase):
     def testDisplayShows(self, getStubMock):
         shows = [
             opencue.wrappers.show.Show(
-                opencue.compiled_proto.show_pb2.Show(
+                opencue_proto.show_pb2.Show(
                     name='testing',
                     active=True,
-                    show_stats=opencue.compiled_proto.show_pb2.ShowStats(
+                    show_stats=opencue_proto.show_pb2.ShowStats(
                         reserved_cores=265,
                         running_frames=100,
                         pending_frames=248,
@@ -146,7 +146,7 @@ class OutputTests(unittest.TestCase):
     def testDisplayServices(self, getStubMock):
         services = [
             opencue.wrappers.service.Service(
-                opencue.compiled_proto.service_pb2.Service(
+                opencue_proto.service_pb2.Service(
                     name='maya',
                     threadable=False,
                     min_cores=100,
@@ -166,11 +166,11 @@ class OutputTests(unittest.TestCase):
     def testDisplayAllocations(self, getStubMock):
         allocs = [
             opencue.wrappers.allocation.Allocation(
-                opencue.compiled_proto.facility_pb2.Allocation(
+                opencue_proto.facility_pb2.Allocation(
                     name='local.desktop',
                     tag='desktop',
                     billable=False,
-                    stats=opencue.compiled_proto.facility_pb2.AllocationStats(
+                    stats=opencue_proto.facility_pb2.AllocationStats(
                         running_cores=100,
                         available_cores=125,
                         cores=600,
@@ -190,7 +190,7 @@ class OutputTests(unittest.TestCase):
     def testDisplaySubscriptions(self, getStubMock):
         subs = [
             opencue.wrappers.subscription.Subscription(
-                opencue.compiled_proto.subscription_pb2.Subscription(
+                opencue_proto.subscription_pb2.Subscription(
                     allocation_name='local.general',
                     show_name='showName',
                     size=1000,
@@ -198,7 +198,7 @@ class OutputTests(unittest.TestCase):
                     reserved_cores=500
                 )),
             opencue.wrappers.subscription.Subscription(
-                opencue.compiled_proto.subscription_pb2.Subscription(
+                opencue_proto.subscription_pb2.Subscription(
                     allocation_name='cloud.desktop',
                     show_name='showName',
                     size=0,
@@ -220,11 +220,11 @@ class OutputTests(unittest.TestCase):
     def testDisplayJobs(self, getStubMock):
         jobs = [
             opencue.wrappers.job.Job(
-                opencue.compiled_proto.job_pb2.Job(
+                opencue_proto.job_pb2.Job(
                     name='d7HXvMXDNMKyfzLumwsY-P3CNG1w4pa452dGcqOyf_qVK5PbHmCZafkv4rEF8d',
                     is_paused=False,
                     group='u0uMmB1O0z3ZkvreFYzP',
-                    job_stats=opencue.compiled_proto.job_pb2.JobStats(
+                    job_stats=opencue_proto.job_pb2.JobStats(
                         running_frames=5,
                         reserved_cores=5,
                         waiting_frames=182,
@@ -234,11 +234,11 @@ class OutputTests(unittest.TestCase):
                     max_cores=1
                 )),
             opencue.wrappers.job.Job(
-                opencue.compiled_proto.job_pb2.Job(
+                opencue_proto.job_pb2.Job(
                     name='mlSCNFWWwksH8i0rb8UE-v5u1bh5jfixzXG7',
                     is_paused=True,
                     group='u0uMmB1O0z3ZkvreFYzP',
-                    job_stats=opencue.compiled_proto.job_pb2.JobStats(
+                    job_stats=opencue_proto.job_pb2.JobStats(
                         running_frames=2300,
                         reserved_cores=1000,
                         waiting_frames=0,
@@ -261,13 +261,13 @@ class OutputTests(unittest.TestCase):
     @mock.patch('opencue.wrappers.job.Job.getLayers')
     def testDisplayJobInfo(self, getLayersMock, getStubMock):
         job = opencue.wrappers.job.Job(
-            opencue.compiled_proto.job_pb2.Job(
+            opencue_proto.job_pb2.Job(
                 name='d7HXvMXDNMKyfzLumwsY-P3CNG1w4pa452dGcqOyf_qVK5PbHmCZafkv4rEF8d',
                 start_time=1556836762+time.altzone,
                 is_paused=True,
                 min_cores=1,
                 max_cores=6,
-                job_stats=opencue.compiled_proto.job_pb2.JobStats(
+                job_stats=opencue_proto.job_pb2.JobStats(
                     total_frames=2600,
                     succeeded_frames=150,
                     running_frames=2300,
@@ -280,20 +280,20 @@ class OutputTests(unittest.TestCase):
 
         getLayersMock.return_value = [
             opencue.wrappers.layer.Layer(
-                opencue.compiled_proto.job_pb2.Layer(
+                opencue_proto.job_pb2.Layer(
                     name='preflight',
                     tags=['preflightTag', 'general'],
-                    layer_stats=opencue.compiled_proto.job_pb2.LayerStats(
+                    layer_stats=opencue_proto.job_pb2.LayerStats(
                         total_frames=2,
                         succeeded_frames=1
                     )
                 )
             ),
             opencue.wrappers.layer.Layer(
-                opencue.compiled_proto.job_pb2.Layer(
+                opencue_proto.job_pb2.Layer(
                     name='render',
                     tags=['renderPool'],
-                    layer_stats=opencue.compiled_proto.job_pb2.LayerStats(
+                    layer_stats=opencue_proto.job_pb2.LayerStats(
                         total_frames=2598,
                         succeeded_frames=149
                     )
@@ -340,9 +340,9 @@ class OutputTests(unittest.TestCase):
     def testDisplayFrames(self, getStubMock):
         frames = [
             opencue.wrappers.frame.Frame(
-                opencue.compiled_proto.job_pb2.Frame(
+                opencue_proto.job_pb2.Frame(
                     name='rFNQafSvWkCQA3O7SaJw-tWa1L92CjGM0syBsxMwp-8sk6X0thFbCFaL06wAPc',
-                    state=opencue.compiled_proto.job_pb2.SUCCEEDED,
+                    state=opencue_proto.job_pb2.SUCCEEDED,
                     start_time=1556836762+time.altzone,
                     stop_time=1556846762+time.altzone,
                     max_rss=927392,
@@ -352,9 +352,9 @@ class OutputTests(unittest.TestCase):
                 )
             ),
             opencue.wrappers.frame.Frame(
-                opencue.compiled_proto.job_pb2.Frame(
+                opencue_proto.job_pb2.Frame(
                     name='XjWPTN6CsAujCmgKHfyA-u2wFSQg2MNu',
-                    state=opencue.compiled_proto.job_pb2.WAITING,
+                    state=opencue_proto.job_pb2.WAITING,
                     start_time=None,
                     stop_time=None,
                     max_rss=None,

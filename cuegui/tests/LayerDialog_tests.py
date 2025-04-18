@@ -24,10 +24,10 @@ import qtpy.QtCore
 import qtpy.QtGui
 import qtpy.QtWidgets
 
-import opencue.compiled_proto.show_pb2
-import opencue.compiled_proto.filter_pb2
-import opencue.compiled_proto.job_pb2
-import opencue.compiled_proto.limit_pb2
+import opencue_proto.show_pb2
+import opencue_proto.filter_pb2
+import opencue_proto.job_pb2
+import opencue_proto.limit_pb2
 import opencue.wrappers.filter
 import opencue.wrappers.layer
 import opencue.wrappers.limit
@@ -53,14 +53,14 @@ class LayerPropertiesDialogTests(unittest.TestCase):
 
         self.layers = {
             'layer1Id': opencue.wrappers.layer.Layer(
-                opencue.compiled_proto.job_pb2.Layer(
+                opencue_proto.job_pb2.Layer(
                     id='layer1Id', name='layer1Name', range='1-5', tags=['tag1', 'tag2'],
                     min_cores=1, max_cores=3, is_threadable=False,
                     min_memory=2097152, min_gpu_memory=1,
                     chunk_size=1, timeout=30, timeout_llu=1, memory_optimizer_enabled=True,
                     limits=['limit1Name', 'limit2Name'])),
             'layer2Id': opencue.wrappers.layer.Layer(
-                opencue.compiled_proto.job_pb2.Layer(
+                opencue_proto.job_pb2.Layer(
                     id='layer2Id', name='layer2Name', range='2-22', tags=['tag2', 'tag3'],
                     min_cores=2, max_cores=2, is_threadable=True,
                     min_memory=6291456, min_gpu_memory=2,
@@ -71,13 +71,13 @@ class LayerPropertiesDialogTests(unittest.TestCase):
         get_layer_mock.side_effect = lambda layer_id: self.layers[layer_id]
         get_limits_mock.return_value = [
             opencue.wrappers.limit.Limit(
-                opencue.compiled_proto.limit_pb2.Limit(id='limit1Id', name='limit1Name')),
+                opencue_proto.limit_pb2.Limit(id='limit1Id', name='limit1Name')),
             opencue.wrappers.limit.Limit(
-                opencue.compiled_proto.limit_pb2.Limit(id='limit2Id', name='limit2Name')),
+                opencue_proto.limit_pb2.Limit(id='limit2Id', name='limit2Name')),
             opencue.wrappers.limit.Limit(
-                opencue.compiled_proto.limit_pb2.Limit(id='limit3Id', name='limit3Name')),
+                opencue_proto.limit_pb2.Limit(id='limit3Id', name='limit3Name')),
             opencue.wrappers.limit.Limit(
-                opencue.compiled_proto.limit_pb2.Limit(id='limit4Id', name='limit4Name')),
+                opencue_proto.limit_pb2.Limit(id='limit4Id', name='limit4Name')),
         ]
 
         self.parent_widget = qtpy.QtWidgets.QWidget()

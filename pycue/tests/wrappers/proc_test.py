@@ -23,8 +23,8 @@ import unittest
 
 import mock
 
-from opencue.compiled_proto import host_pb2
-from opencue.compiled_proto import job_pb2
+from opencue_proto import host_pb2
+from opencue_proto import job_pb2
 import opencue.wrappers.proc
 
 
@@ -134,11 +134,11 @@ class ProcEnumTests(unittest.TestCase):
 
     def testRedirectType(self):
         self.assertEqual(opencue.api.Proc.RedirectType.JOB_REDIRECT,
-                         opencue.compiled_proto.host_pb2.JOB_REDIRECT)
+                         host_pb2.JOB_REDIRECT)
         self.assertEqual(opencue.api.Proc.RedirectType.JOB_REDIRECT, 0)
 
     def testRunState(self):
-        self.assertEqual(opencue.api.Proc.RunState.BOOKED, opencue.compiled_proto.host_pb2.BOOKED)
+        self.assertEqual(opencue.api.Proc.RunState.BOOKED, host_pb2.BOOKED)
         self.assertEqual(opencue.api.Proc.RunState.BOOKED, 1)
 
 

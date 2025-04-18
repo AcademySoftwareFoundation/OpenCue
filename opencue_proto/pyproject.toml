@@ -1,0 +1,25 @@
+[build-system]
+requires = [
+    "hatchling",
+    "versioningit",
+    "grpcio>=1.62.0",
+    "grpcio-tools>=1.62.0",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "opencue_proto"
+dynamic = ["version"]
+dependencies = [
+    "grpcio>=1.62.0",
+    "grpcio-tools>=1.62.0",
+]
+
+[tool.hatch.version]
+source = "versioningit"
+
+[tool.hatch.build.targets.wheel]
+packages = ["opencue_proto"]
+
+[tool.hatch.build.hooks.custom]
+path = "build_hooks.py"

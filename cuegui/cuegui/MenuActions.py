@@ -34,9 +34,9 @@ from qtpy import QtGui
 from qtpy import QtWidgets
 import six
 
+import opencue_proto.job_pb2
 import FileSequence
 import opencue
-import opencue.compiled_proto.job_pb2
 import opencue.wrappers.depend
 
 # pylint: disable=cyclic-import
@@ -528,7 +528,7 @@ class JobActions(AbstractActions):
                     if not cuegui.Utils.isPermissible(job):
                         blocked_job_owners.append(job.username())
                     else:
-                        job.eatFrames(state=[opencue.compiled_proto.job_pb2.DEAD])
+                        job.eatFrames(state=[opencue_proto.job_pb2.DEAD])
                 if blocked_job_owners:
                     cuegui.Utils.showErrorMessageBox(
                         AbstractActions.USER_INTERACTION_PERMISSIONS.format(
@@ -547,7 +547,7 @@ class JobActions(AbstractActions):
                     blocked_job_owners.append(job.username())
                 else:
                     job.setAutoEat(True)
-                    job.eatFrames(state=[opencue.compiled_proto.job_pb2.DEAD])
+                    job.eatFrames(state=[opencue_proto.job_pb2.DEAD])
             if blocked_job_owners:
                 cuegui.Utils.showErrorMessageBox(
                     AbstractActions.USER_INTERACTION_PERMISSIONS.format(
@@ -588,7 +588,7 @@ class JobActions(AbstractActions):
                         blocked_job_owners.append(job.username())
                     else:
                         job.retryFrames(
-                            state=[opencue.compiled_proto.job_pb2.DEAD])
+                            state=[opencue_proto.job_pb2.DEAD])
                 if blocked_job_owners:
                     cuegui.Utils.showErrorMessageBox(
                         AbstractActions.USER_INTERACTION_PERMISSIONS.format(
@@ -663,7 +663,7 @@ class JobActions(AbstractActions):
             return
 
         body = "What order should the range %s take?" % frame_range
-        items = list(opencue.compiled_proto.job_pb2.Order.keys())
+        items = list(opencue_proto.job_pb2.Order.keys())
         (order, choice) = QtWidgets.QInputDialog.getItem(
             self._caller, title, body, sorted(items), 0, False)
         if not choice:
@@ -671,7 +671,7 @@ class JobActions(AbstractActions):
 
         self.cuebotCall(
             __job.reorderFrames, "Reorder Frames Failed",
-            frame_range, getattr(opencue.compiled_proto.job_pb2, str(order)))
+            frame_range, getattr(opencue_proto.job_pb2, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
 
@@ -1008,7 +1008,7 @@ class LayerActions(AbstractActions):
             return
 
         body = "What order should the range %s take?" % frameRange
-        items = list(opencue.compiled_proto.job_pb2.Order.keys())
+        items = list(opencue_proto.job_pb2.Order.keys())
         (order, choice) = QtWidgets.QInputDialog.getItem(
             self._caller, title, body, sorted(items), 0, False)
         if not choice:
@@ -1016,7 +1016,7 @@ class LayerActions(AbstractActions):
 
         for layer in layers:
             self.cuebotCall(layer.reorderFrames, "Reorder Frames Failed",
-                            frameRange, getattr(opencue.compiled_proto.job_pb2, str(order)))
+                            frameRange, getattr(opencue_proto.job_pb2, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
 
@@ -1327,7 +1327,7 @@ class FrameActions(AbstractActions):
 
         title = "Reorder %s" % __job.data.name
         body = "How should these frames be reordered?"
-        items = list(opencue.compiled_proto.job_pb2.Order.keys())
+        items = list(opencue_proto.job_pb2.Order.keys())
         (order, choice) = QtWidgets.QInputDialog.getItem(
             self._caller, title, body, sorted(items), 0, False)
         if not choice:
@@ -1349,7 +1349,7 @@ class FrameActions(AbstractActions):
                 self.cuebotCall(layerProxy.reorderFrames,
                                 "Reorder Frames Failed",
                                 str(fs),
-                                getattr(opencue.compiled_proto.job_pb2, str(order)))
+                                getattr(opencue_proto.job_pb2, str(order)))
 
     copyLogFileName_info = ["Copy log file name", None, "configure"]
 
