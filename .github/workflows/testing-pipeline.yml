@@ -60,6 +60,7 @@ jobs:
         run: ci/run_python_tests.sh
 
   test_cuebot_2023:
+    needs: build_opencue_proto
     name: Build Cuebot and Run Unit Tests (CY2023)
     runs-on: ubuntu-22.04
     container:
@@ -89,6 +90,7 @@ jobs:
         run: ci/run_python_tests.sh
 
   test_cuebot_2024:
+    needs: build_opencue_proto
     name: Build Cuebot and Run Unit Tests (CY2024)
     runs-on: ubuntu-22.04
     container:
@@ -141,6 +143,7 @@ jobs:
         run: ci/run_python_lint.sh
 
   test_sphinx:
+    needs: build_opencue_proto
     name: Test Documentation Build
     runs-on: ubuntu-22.04
     container:
