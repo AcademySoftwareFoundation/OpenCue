@@ -645,7 +645,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         #     - process_id 22
         #   - E core_id 39
         #     - process_id 23
-        tasksets0 = self.machine.reserveHT(400)
+        tasksets0 = self.machine.reserveCores(400, logical=True)
 
         # should reserve 2P (0,1, 2,3)
         # pylint: disable=no-member
@@ -659,7 +659,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
 
         # ------------------------step2-------------------------
-        tasksets1 = self.machine.reserveHT(500)
+        tasksets1 = self.machine.reserveCores(500, logical=True)
 
         # should reserve 2P + 1E (4,5, 6,7, 16)
         # pylint: disable=no-member
@@ -675,7 +675,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
 
         # ------------------------step3-------------------------
-        tasksets2 = self.machine.reserveHT(600)
+        tasksets2 = self.machine.reserveCores(600, logical=True)
 
         # should reserve 3P (8,9, 10,11, 12,13)
         # pylint: disable=no-member
@@ -705,7 +705,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
 
         # ------------------------step5-------------------------
-        tasksets3 = self.machine.reserveHT(1200)
+        tasksets3 = self.machine.reserveCores(1200, logical=True)
 
         # should reserve 3P + 6E (0,1, 2,3, 14,15, 17, 18, 19, 20, 21, 22)
         # pylint: disable=no-member
@@ -724,7 +724,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
                          23)
 
         # ------------------------step6-------------------------
-        tasksets4 = self.machine.reserveHT(100)
+        tasksets4 = self.machine.reserveCores(100, logical=True)
 
         # should reserve 1E (23)
         # pylint: disable=no-member
@@ -740,7 +740,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         # ------------------------step7-------------------------
         # No cores available
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
-            self.machine.reserveHT(100)
+            self.machine.reserveCores(100, logical=True)
 
     def test_tags(self):
         tags = ["test1", "test2", "test3"]
