@@ -9,7 +9,7 @@ on:
 jobs:
   build_opencue_proto:
     name: Build opencue_proto package
-    runs-on: ubuntu-24.04 [Beta]
+    runs-on: ubuntu-22.04
     container: python:3.7
     steps:
       - uses: actions/checkout@v4
@@ -17,6 +17,8 @@ jobs:
           fetch-tags: true
           fetch-depth: 0
           set-safe-directory: true
+      - name: Mark repository as safe
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
       - name: Get latest tag (highest version number)
         id: get_latest_tag_version
         run: |
