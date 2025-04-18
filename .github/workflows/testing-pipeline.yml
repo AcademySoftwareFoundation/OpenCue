@@ -49,8 +49,7 @@ jobs:
         uses: actions/download-artifact@v4
       - name: Install package
         run: |
-          find .
-          pip install opencue_*.whl
+          pip install opencue_proto/dist/opencue_*.whl pycue/dist/opencue_*.whl pyoutline/dist/opencue_*.whl cueadmin/dist/opencue_*.whl cuesubmit/dist/opencue_*.whl rqd/dist/opencue_*.whl
 
   install_opencue_packages_3_11:
     needs: build_opencue_packages
@@ -62,7 +61,7 @@ jobs:
         uses: actions/download-artifact@v4
       - name: Install package
         run: |
-          pip install opencue_*.whl
+          pip install opencue_proto/dist/opencue_*.whl pycue/dist/opencue_*.whl pyoutline/dist/opencue_*.whl cueadmin/dist/opencue_*.whl cuesubmit/dist/opencue_*.whl rqd/dist/opencue_*.whl
 
   install_opencue_packages_3_10:
     needs: build_opencue_packages
@@ -74,7 +73,7 @@ jobs:
         uses: actions/download-artifact@v4
       - name: Install package
         run: |
-          pip install opencue_*.whl
+          pip install opencue_proto/dist/opencue_*.whl pycue/dist/opencue_*.whl pyoutline/dist/opencue_*.whl cueadmin/dist/opencue_*.whl cuesubmit/dist/opencue_*.whl rqd/dist/opencue_*.whl
 
   install_opencue_packages_3_9:
     needs: build_opencue_packages
@@ -86,7 +85,7 @@ jobs:
         uses: actions/download-artifact@v4
       - name: Install package
         run: |
-          pip install opencue_*.whl
+          pip install opencue_proto/dist/opencue_*.whl pycue/dist/opencue_*.whl pyoutline/dist/opencue_*.whl cueadmin/dist/opencue_*.whl cuesubmit/dist/opencue_*.whl rqd/dist/opencue_*.whl
 
   install_opencue_packages_3_8:
     needs: build_opencue_packages
@@ -98,7 +97,7 @@ jobs:
         uses: actions/download-artifact@v4
       - name: Install package
         run: |
-          pip install opencue_*.whl
+          pip install opencue_proto/dist/opencue_*.whl pycue/dist/opencue_*.whl pyoutline/dist/opencue_*.whl cueadmin/dist/opencue_*.whl cuesubmit/dist/opencue_*.whl rqd/dist/opencue_*.whl
 
   install_opencue_packages_3_7:
     needs: build_opencue_packages
@@ -110,7 +109,7 @@ jobs:
         uses: actions/download-artifact@v4
       - name: Install package
         run: |
-          pip install opencue_*.whl
+          pip install opencue_proto/dist/opencue_*.whl pycue/dist/opencue_*.whl pyoutline/dist/opencue_*.whl cueadmin/dist/opencue_*.whl cuesubmit/dist/opencue_*.whl rqd/dist/opencue_*.whl
 
   test_python_2023:
     needs: build_opencue_packages
@@ -118,7 +117,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2023
     env:
-      OPENCUE_PROTO_PACKAGE_PATH: "opencue_proto*.whl"
+      OPENCUE_PROTO_PACKAGE_PATH: "opencue_proto/dist/opencue_*.whl"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -128,8 +127,6 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -152,7 +149,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024
     env:
-      OPENCUE_PROTO_PACKAGE_PATH: "opencue_proto*.whl"
+      OPENCUE_PROTO_PACKAGE_PATH: "opencue_proto/dist/opencue_*.whl"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -163,8 +160,6 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -186,14 +181,12 @@ jobs:
     name: Run Integration Test
     runs-on: ubuntu-22.04
     env:
-      OPENCUE_PROTO_PACKAGE_PATH: "opencue_proto*.whl"
+      OPENCUE_PROTO_PACKAGE_PATH: "opencue_proto/dist/opencue_*.whl"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
       - name: Run test
         run: ci/run_integration_test.sh
 
@@ -210,14 +203,12 @@ jobs:
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024.1
     env:
-      OPENCUE_PROTO_PACKAGE_PATH: "opencue_proto*.whl"
+      OPENCUE_PROTO_PACKAGE_PATH: "opencue_proto/dist/opencue_*.whl"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-        with:
-          name: opencue_proto
       - name: Lint Python Code
         run: ci/run_python_lint.sh
 
