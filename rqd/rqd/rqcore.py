@@ -553,6 +553,7 @@ class RqCore(object):
 
         self.cores = rqd.compiled_proto.report_pb2.CoreDetail(
             total_cores=0,
+            total_threads=0,
             idle_cores=0,
             locked_cores=0,
             booked_cores=0,
