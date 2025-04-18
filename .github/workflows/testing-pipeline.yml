@@ -16,6 +16,23 @@ jobs:
         with:
           fetch-tags: true
           fetch-depth: 0
+      - name: Get latest tag (highest version number)
+        id: get_latest_tag_version
+        run: |
+          # Fetches tags explicitly just in case, then gets the latest tag based on version sorting
+          git fetch --tags --force
+          latest_tag=$(git tag --sort=-v:refname | head -n 1)
+          echo "Latest Tag (Version Sort): $latest_tag"
+          echo "tag=$latest_tag" >> $GITHUB_OUTPUT
+
+      - name: Get latest tag (most recent commit date)
+        id: get_latest_tag_date
+        run: |
+          # Describes the most recent tag reachable from the current commit
+          # This is often useful in CI/CD contexts
+          latest_tag=$(git describe --tags --abbrev=0)
+          echo "Latest Tag (Reachable): $latest_tag"
+          echo "tag=$latest_tag" >> $GITHUB_OUTPUT
       - name: Build opencue_proto
         run: |
           pip install build
