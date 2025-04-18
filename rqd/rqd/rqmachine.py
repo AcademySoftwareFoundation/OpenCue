@@ -42,6 +42,7 @@ import sys
 import tempfile
 import time
 import traceback
+import warnings
 
 # pylint: disable=import-error,wrong-import-position
 if platform.system() in ('Linux', 'Darwin'):
@@ -916,26 +917,29 @@ class Machine(object):
         """ Setup rqd for Gpus """
         self.__gpusets = set(range(self.getGpuCount()))
 
-    def reserveHT(self, frameCores):
+    def reserveCores(self, coresCount=0, logical=True):
         """ Reserve cores for use by taskset
         taskset -c 0,1,8,9 COMMAND
         Not thread save, use with locking.
-        @type   frameCores: int
-        @param  frameCores: The total physical cores reserved by the frame.
+        @type   coresCount: int
+        @param  coresCount: The total physical cores reserved by the frame.
+        @type   logical: bool
+        @param  logical: If True, reserve logical cores (aka threads), else physical cores.
+        note: logical cores is what you see in htop or task manager.
         @rtype:  string
         @return: The cpu-list for taskset -c
         """
 
-        if frameCores % 100:
+        if coresCount % 100:
             log.warning('Taskset: Can not reserveHT with fractional cores')
             return None
-        log.info('Taskset: Requesting reserve of %d', (frameCores // 100))
+        log.info('Taskset: Requesting reserve of %d', (coresCount // 100))
 
         # Look for the most idle physical cpu.
         # Prefer to assign cores from the same physical cpu.
         # Spread different frames around on different physical cpus.
         avail_cores = {}
-        avail_cores_count = 0
+        avail_procs_count = 0
         reserved_cores = self.__coreInfo.reserved_cores
 
         for physid, cores in self.__procs_by_physid_and_coreid.items():
@@ -944,14 +948,19 @@ class Machine(object):
                         int(coreid) in reserved_cores[int(physid)].coreid:
                     continue
                 avail_cores.setdefault(physid, set()).add(coreid)
-                avail_cores_count += 1
+                if logical:
+                    # Count all threads (logical cores)
+                    avail_procs_count += len(cores[coreid])
+                else:
+                    # Count only physical cores
+                    avail_procs_count += 1
 
-        remaining_cores = frameCores / 100
+        query_procs = coresCount / 100
 
-        if avail_cores_count < remaining_cores:
-            err = ('Not launching, insufficient hyperthreading cores to reserve '
-                   'based on frameCores (%s < %s)')  \
-                  % (avail_cores_count, remaining_cores)
+        if avail_procs_count < query_procs:
+            err = ('Not launching, insufficient cores to reserve '
+                   'based on coresCount (%s < %s)')  \
+                  % (avail_procs_count, query_procs)
             log.critical(err)
             raise rqd.rqexceptions.CoreReservationFailureException(err)
 
@@ -963,23 +972,53 @@ class Machine(object):
                 # the most idle cores first.
                 key=lambda tup: len(tup[1]),
                 reverse=True):
-
-            while remaining_cores > 0 and len(cores) > 0:
-                coreid = cores.pop()
-                # Give all the hyperthreads on this core.
-                # This counts as one core.
+            cores = sorted(list(cores), key=int)
+            while query_procs > 0 and len(cores) > 0:
+                # Reserve hyper-threaded cores first (2 threads(logical cores) for 1 physical core)
+                # Avoid booking a hyper-threaded core for an odd thread count remainder
+                # ex: if query_procs==2, get the next core with 2 threads
+                # ex: if query_procs==1, get the next core with 1 thread or any other core
+                # here we fall back on the first physical core
+                # (assuming "first in list" == "has more threads")
+                # if we didn't find a core with the right number of threads, and continue the loop.
+                coreid = next(iter(
+                    [cid for cid in cores
+                     if len(self.__procs_by_physid_and_coreid[physid][cid]) <= query_procs]),
+                    cores[0])
+                cores.remove(coreid)
+                procids = self.__procs_by_physid_and_coreid[physid][coreid]
                 reserved_cores[int(physid)].coreid.extend([int(coreid)])
-                remaining_cores -= 1
+                if logical:
+                    query_procs -= len(procids)
+                else:
+                    query_procs -= 1
+                tasksets.extend(procids)
 
-                for procid in self.__procs_by_physid_and_coreid[physid][coreid]:
-                    tasksets.append(procid)
-
-            if remaining_cores == 0:
+            if query_procs <= 0:
+                # Could be negative if we reserved a full core with more threads than needed
                 break
 
         log.warning('Taskset: Reserving procs - %s', ','.join(tasksets))
 
         return ','.join(tasksets)
+
+
+    def reserveHT(self, frameCores):
+        """ Reserve cores for use by taskset
+        taskset -c 0,1,8,9 COMMAND
+        Not thread save, use with locking.
+        @type   frameCores: int
+        @param  frameCores: The total physical cores reserved by the frame.
+        @rtype:  string
+        @return: The cpu-list for taskset -c
+        """
+        warnings.warn(
+            "The `reserveHT` method is deprecated and will be removed in a future release. "
+            "Use `reserveCores(logical=False)` instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.reserveCores(frameCores, logical=False)
 
     # pylint: disable=inconsistent-return-statements
     def releaseHT(self, reservedHT):
