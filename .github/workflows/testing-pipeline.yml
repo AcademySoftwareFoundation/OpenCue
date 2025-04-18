@@ -7,8 +7,8 @@ on:
     branches: [ master ]
 
 jobs:
-  build_opencue_proto:
-    name: Build opencue_proto package
+  build_opencue_packages:
+    name: Build opencue packages
     runs-on: ubuntu-22.04
     container: python:3.7
     steps:
@@ -22,6 +22,11 @@ jobs:
         run: |
           pip install build
           python -m build ./opencue_proto
+          python -m build ./pycue
+          python -m build ./pyoutline
+          python -m build ./cueadmin
+          python -m build ./cuesubmit
+          python -m build ./rqd
       - name: Upload opencue_proto package
         uses: actions/upload-artifact@v4
         with:
@@ -30,7 +35,7 @@ jobs:
             opencue_proto/dist/opencue_proto*.*
 
   install_opencue_proto:
-    needs: build_opencue_proto
+    needs: build_opencue_packages
     name: Test installing opencue_proto package
     runs-on: ubuntu-22.04
     container: python:3.11
@@ -44,7 +49,7 @@ jobs:
           pip install opencue_proto*.whl
 
   test_python_2023:
-    needs: build_opencue_proto
+    needs: build_opencue_packages
     name: Run Python Unit Tests (CY2023)
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2023
@@ -65,7 +70,7 @@ jobs:
         run: ci/run_python_tests.sh
 
   test_cuebot_2023:
-    needs: build_opencue_proto
+    needs: build_opencue_packages
     name: Build Cuebot and Run Unit Tests (CY2023)
     runs-on: ubuntu-22.04
     container:
@@ -78,7 +83,7 @@ jobs:
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
   test_python_2024:
-    needs: build_opencue_proto
+    needs: build_opencue_packages
     name: Run Python Unit Tests (CY2024)
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024
@@ -100,7 +105,7 @@ jobs:
         run: ci/run_python_tests.sh
 
   test_cuebot_2024:
-    needs: build_opencue_proto
+    needs: build_opencue_packages
     name: Build Cuebot and Run Unit Tests (CY2024)
     runs-on: ubuntu-22.04
     container:
@@ -113,7 +118,7 @@ jobs:
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
   integration_test:
-    needs: build_opencue_proto
+    needs: build_opencue_packages
     name: Run Integration Test
     runs-on: ubuntu-22.04
     env:
@@ -136,7 +141,7 @@ jobs:
           path: /tmp/opencue-test/*.log
 
   lint_python:
-    needs: build_opencue_proto
+    needs: build_opencue_packages
     name: Lint Python Code
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024.1
@@ -153,7 +158,7 @@ jobs:
         run: ci/run_python_lint.sh
 
   test_sphinx:
-    needs: build_opencue_proto
+    needs: build_opencue_packages
     name: Test Documentation Build
     runs-on: ubuntu-22.04
     container:
