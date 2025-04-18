@@ -735,7 +735,10 @@ class RqCore(object):
     def releaseCores(self, reqRelease, releaseHT=None, releaseGpus=None):
         """The requested number of cores are released
         @type  reqRelease: int
-        @param reqRelease: Number of cores to release, 100 = 1 physical core"""
+        @param reqRelease: Number of cores to release, 100 = 1 physical core
+        @type releaseHT: str
+        @param releaseHT: The hyper-threading cores to release
+        """
         with self.__threadLock:
             # pylint: disable=no-member
             self.cores.booked_cores -= reqRelease
