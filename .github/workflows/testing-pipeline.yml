@@ -88,23 +88,16 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: opencue_packages
-      - name: Set package vars from parent action
+      - name: Install package
         run: |
+          export
           export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
           export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
           export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-      - name: Install package
-        run: |
-          export
-          pip install ${OPENCUE_PROTO_PACKAGE_PATH}
-          pip install ${OPENCUE_PYCUE_PACKAGE_PATH} 
-          pip install ${OPENCUE_PYOUTLINE_PACKAGE_PATH} 
-          pip install ${OPENCUE_CUEADMIN_PACKAGE_PATH} 
-          pip install ${OPENCUE_CUESUBMIT_PACKAGE_PATH} 
-          pip install ${OPENCUE_RQD_PACKAGE_PATH}
+          pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
 
   install_opencue_packages_3_11:
     needs: build_opencue_packages
@@ -114,7 +107,7 @@ jobs:
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-      - name: Set package vars from parent action
+      - name: Install package
         run: |
           export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
@@ -122,8 +115,7 @@ jobs:
           export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-      - name: Install package
-        run: pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
+          pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
 
   test_python_2023:
     needs: build_opencue_packages
