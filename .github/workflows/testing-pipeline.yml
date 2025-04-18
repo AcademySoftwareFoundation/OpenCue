@@ -234,6 +234,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
       - name: Download a single artifact
         uses: actions/download-artifact@v4
         with:
