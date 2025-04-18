@@ -81,7 +81,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: opencue_packages
-      - name: Install packages
+      - name: Set package vars from parent action
         run: |
           export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
@@ -89,7 +89,8 @@ jobs:
           export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-          pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
+      - name: Install package
+        run: pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
 
   install_opencue_packages_3_11:
     needs: build_opencue_packages
@@ -99,7 +100,7 @@ jobs:
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-      - name: Install package
+      - name: Set package vars from parent action
         run: |
           export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
@@ -107,15 +108,14 @@ jobs:
           export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-          pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
+      - name: Install package
+        run: pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
 
   test_python_2023:
     needs: build_opencue_packages
     name: Run Python Unit Tests (CY2023)
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2023
-    env:
-      OPENCUE_PROTO_PACKAGE_PATH: "opencue_proto/dist/opencue_*.whl"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -125,6 +125,14 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
       - name: Download a single artifact
         uses: actions/download-artifact@v4
+      - name: Set package vars from parent action
+        run: |
+          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -146,8 +154,6 @@ jobs:
     name: Run Python Unit Tests (CY2024)
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024
-    env:
-      OPENCUE_PROTO_PACKAGE_PATH: "opencue_proto/dist/opencue_*.whl"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -158,6 +164,14 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
       - name: Download a single artifact
         uses: actions/download-artifact@v4
+      - name: Set package vars from parent action
+        run: |
+          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -178,13 +192,19 @@ jobs:
     needs: build_opencue_packages
     name: Run Integration Test
     runs-on: ubuntu-22.04
-    env:
-      OPENCUE_PROTO_PACKAGE_PATH: "opencue_proto/dist/opencue_*.whl"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Download a single artifact
         uses: actions/download-artifact@v4
+      - name: Set package vars from parent action
+        run: |
+          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
       - name: Run test
         run: ci/run_integration_test.sh
 
@@ -200,13 +220,19 @@ jobs:
     name: Lint Python Code
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024.1
-    env:
-      OPENCUE_PROTO_PACKAGE_PATH: "opencue_proto/dist/opencue_*.whl"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Download a single artifact
         uses: actions/download-artifact@v4
+      - name: Set package vars from parent action
+        run: |
+          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
       - name: Lint Python Code
         run: ci/run_python_lint.sh
 
