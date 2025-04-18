@@ -933,8 +933,7 @@ class Machine(object):
         if coresCount % 100:
             log.warning('Taskset: Can not reserveHT with fractional cores')
             return None
-        log.warning('Taskset: Requesting reserve of %d', (coresCount // 100))
-        log.info('Taskset: Requesting reserve of %d', (frameCores // 100))
+        log.info('Taskset: Requesting reserve of %d', (coresCount // 100))
 
         # Look for the most idle physical cpu.
         # Prefer to assign cores from the same physical cpu.
