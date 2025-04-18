@@ -32,12 +32,13 @@ message BootReport {
 }
 
 message CoreDetail {
-    int32 total_cores = 1;
-    int32 idle_cores = 2;
-    int32 locked_cores = 3;
-    int32 booked_cores = 4;
+    int32 total_cores = 1; // physical cores
+    int32 total_threads = 2; // logical cores
+    int32 idle_cores = 3;
+    int32 locked_cores = 4;
+    int32 booked_cores = 5;
     //map <key: physid, value: coreid>
-    map<int64, CoreId> reserved_cores = 5;
+    map<int64, CoreId> reserved_cores = 6;
 }
 
 message CoreId {
@@ -65,21 +66,22 @@ message RenderHost {
     bool nimby_locked = 3; // if nimby has locked the host due to user activity
     string facility= 4; // The name of the facility that the host is in
     int32 num_procs = 5; // the number of physical procs on this machine
-    int32 cores_per_proc = 6; // the number of cores per proc
-    int64 total_swap = 7; // the total size of the swap in kB
-    int64 total_mem = 8; // the total size of the main memory pool in kB
-    int64 total_mcp = 9; // the total size of MCP in kB
-    int64 free_swap = 10; // the current amount of free swap in kB
-    int64 free_mem = 11; // the current amount of free memory in kB
-    int64 free_mcp = 12; // the current amount of free MCP in kB
-    int32 load = 13; // the current load on the proc
-    int32 boot_time = 14; // the time the proc was booted
-    repeated string tags = 15; // an array of default tags that are added to the host record
-    host.HardwareState state = 16; // hardware state for the host
-    map<string, string> attributes = 17; // additional data can be provided about the host
-    int32 num_gpus = 18; // the number of physical GPU's
-    int64 free_gpu_mem = 19; // the current amount of free gpu memory in kB
-    int64 total_gpu_mem = 20; // the total size of gpu memory in kB
+    int32 cores_per_proc = 6; // the number of physical cores per proc
+    int32 threads_per_proc = 7; // the number of logical cores per proc
+    int64 total_swap = 8; // the total size of the swap in kB
+    int64 total_mem = 9; // the total size of the main memory pool in kB
+    int64 total_mcp = 10; // the total size of MCP in kB
+    int64 free_swap = 11; // the current amount of free swap in kB
+    int64 free_mem = 12; // the current amount of free memory in kB
+    int64 free_mcp = 13; // the current amount of free MCP in kB
+    int32 load = 14; // the current load on the proc
+    int32 boot_time = 15; // the time the proc was booted
+    repeated string tags = 16; // an array of default tags that are added to the host record
+    host.HardwareState state = 17; // hardware state for the host
+    map<string, string> attributes = 18; // additional data can be provided about the host
+    int32 num_gpus = 19; // the number of physical GPU's
+    int64 free_gpu_mem = 20; // the current amount of free gpu memory in kB
+    int64 total_gpu_mem = 21; // the total size of gpu memory in kB
 };
 
 message RunningFrameInfo {
@@ -90,18 +92,19 @@ message RunningFrameInfo {
     string frame_name = 5;
     string layer_id = 6;
     int32 num_cores = 7;
-    int64 start_time = 8;
-    int64 max_rss = 9; // kB
-    int64 rss = 10; // kB
-    int64 max_vsize = 11; // kB
-    int64 vsize = 12; // kB
-    map<string, string> attributes = 13; //additional data can be provided about the running frame
-    int64 llu_time = 14;
-    int32 num_gpus = 15;
-    int64 max_used_gpu_memory = 16; // kB
-    int64 used_gpu_memory = 17; // kB
-    ChildrenProcStats children = 18; //additional data about the running frame's child processes
-    int64 used_swap_memory = 19; // kB
+    bool use_threads = 8; // whether the frame is requesting logical or physical cores
+    int64 start_time = 9;
+    int64 max_rss = 10; // kB
+    int64 rss = 11; // kB
+    int64 max_vsize = 12; // kB
+    int64 vsize = 13; // kB
+    map<string, string> attributes = 14; //additional data can be provided about the running frame
+    int64 llu_time = 15;
+    int32 num_gpus = 16;
+    int64 max_used_gpu_memory = 17; // kB
+    int64 used_gpu_memory = 18; // kB
+    ChildrenProcStats children = 19; //additional data about the running frame's child processes
+    int64 used_swap_memory = 20; // kB
 };
 
 message ChildrenProcStats {
