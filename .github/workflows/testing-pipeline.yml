@@ -15,27 +15,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-tags: true
-          fetch-depth: 0
-          set-safe-directory: true
-      - name: Mark repository as safe
+          fetch-depth: 2
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
-      - name: Get latest tag (highest version number)
-        id: get_latest_tag_version
-        run: |
-          # Fetches tags explicitly just in case, then gets the latest tag based on version sorting
-          git fetch --tags --force
-          latest_tag=$(git tag --sort=-v:refname | head -n 1)
-          echo "Latest Tag (Version Sort): $latest_tag"
-          echo "tag=$latest_tag" >> $GITHUB_OUTPUT
-
-      - name: Get latest tag (most recent commit date)
-        id: get_latest_tag_date
-        run: |
-          # Describes the most recent tag reachable from the current commit
-          # This is often useful in CI/CD contexts
-          latest_tag=$(git describe --tags --abbrev=0)
-          echo "Latest Tag (Reachable): $latest_tag"
-          echo "tag=$latest_tag" >> $GITHUB_OUTPUT
       - name: Build opencue_proto
         run: |
           pip install build
