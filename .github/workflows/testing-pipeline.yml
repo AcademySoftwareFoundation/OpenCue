@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0
       - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
-      - name: Build opencue_proto
+      - name: Build opencue_packages
         run: |
           pip install build
           python -m build ./opencue_proto
@@ -27,26 +27,26 @@ jobs:
           python -m build ./cueadmin
           python -m build ./cuesubmit
           python -m build ./rqd
-      - name: Upload opencue_proto package
+      - name: Upload opencue packages
         uses: actions/upload-artifact@v4
         with:
-          name: opencue_proto
+          name: opencue_packages
           path: |
-            opencue_proto/dist/opencue_proto*.*
+            opencue_proto/dist/opencue_*.whl
 
-  install_opencue_proto:
+  install_opencue_packages-3.11:
     needs: build_opencue_packages
-    name: Test installing opencue_proto package
+    name: Test installing opencue packages
     runs-on: ubuntu-22.04
     container: python:3.11
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
         with:
-          name: opencue_proto
+          name: opencue_packages
       - name: Install package
         run: |
-          pip install opencue_proto*.whl
+          pip install opencue_*.whl
 
   test_python_2023:
     needs: build_opencue_packages
@@ -65,7 +65,7 @@ jobs:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
         with:
-          name: opencue_proto
+          name: opencue_packages
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -100,7 +100,7 @@ jobs:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
         with:
-          name: opencue_proto
+          name: opencue_packages
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
@@ -129,7 +129,7 @@ jobs:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
         with:
-          name: opencue_proto
+          name: opencue_packages
       - name: Run test
         run: ci/run_integration_test.sh
 
