@@ -131,7 +131,7 @@ class Machine(object):
         """Returns False if nimby should not unlock due to resource limits"""
         if not self.isNimbySafeToRunJobs():
             return False
-        if self.getLoadAvg() / self.__coreInfo.total_cores > rqd.rqconstants.MAXIMUM_LOAD:
+        if self.getLoadAvg() / self.__coreInfo.total_threads > rqd.rqconstants.MAXIMUM_LOAD:
             return False
         return True
 
