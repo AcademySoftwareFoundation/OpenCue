@@ -18,26 +18,58 @@ jobs:
           fetch-depth: 0
       - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
-      - name: Build opencue_packages
+
+      - name: Prepare building packages
         run: |
           pip install build
+
+      - name: Build opencue_proto package
+        id: build_opencue_proto
+        run: |
           python -m build ./opencue_proto
+          echo "opencue_proto_path=$(ls ./opencue_proto/dist/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
+
+      - name: Build pycue package
+        id: build_pycue
+        run: |
           python -m build ./pycue
+          echo "pycue_path=$(ls ./pycue/dist/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
+
+      - name: Build pyoutline package
+        id: build_pyoutline
+        run: |
           python -m build ./pyoutline
+          echo "pyoutline_path=$(ls ./pyoutline/dist/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
+
+      - name: Build cueadmin package
+        id: build_cueadmin
+        run: |
           python -m build ./cueadmin
+          echo "cueadmin_path=$(ls ./cueadmin/dist/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
+
+      - name: Build cuesubmit package
+        id: build_cuesubmit
+        run: |
           python -m build ./cuesubmit
+          echo "cuesubmit_path=$(ls ./cuesubmit/dist/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
+
+      - name: Build rqd package
+        id: build_rqd
+        run: |
           python -m build ./rqd
+          echo "rqd_path=$(ls ./pyoutline/dist/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
+
       - name: Upload opencue packages
         uses: actions/upload-artifact@v4
         with:
           name: opencue_packages
           path: |
-            opencue_proto/dist/opencue_*.whl
-            pycue/dist/opencue_*.whl
-            pyoutline/dist/opencue_*.whl
-            cueadmin/dist/opencue_*.whl
-            cuesubmit/dist/opencue_*.whl
-            rqd/dist/opencue_*.whl
+            opencue_proto/dist/*.*
+            pycue/dist/*.*
+            pyoutline/dist/*.*
+            cueadmin/dist/*.*
+            cuesubmit/dist/*.*
+            rqd/dist/*.*
 
   install_opencue_packages_3_12:
     needs: build_opencue_packages
@@ -45,10 +77,11 @@ jobs:
     runs-on: ubuntu-22.04
     container: python:3.12
     steps:
-      - name: Download a single artifact
+      - name: Download artifacts
         uses: actions/download-artifact@v4
       - name: Install package
         run: |
+          find .
           pip install opencue_proto/dist/opencue_*.whl pycue/dist/opencue_*.whl pyoutline/dist/opencue_*.whl cueadmin/dist/opencue_*.whl cuesubmit/dist/opencue_*.whl rqd/dist/opencue_*.whl
 
   install_opencue_packages_3_11:
