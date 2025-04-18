@@ -81,9 +81,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: opencue_packages
-      - uses: ./.github/actions/get-package-vars
-      - name: Install package
+      - name: Install packages
         run: |
+          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
           pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
 
   install_opencue_packages_3_11:
@@ -94,9 +99,14 @@ jobs:
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-      - uses: ./.github/actions/get-package-vars
       - name: Install package
         run: |
+          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
           pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
 
   test_python_2023:
