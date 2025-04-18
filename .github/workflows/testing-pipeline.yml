@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-tags: true
-          fetch-depth: 2
+          fetch-depth: 0
       - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
       - name: Build opencue_proto
