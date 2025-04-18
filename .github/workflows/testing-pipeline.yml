@@ -47,11 +47,8 @@ jobs:
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-#        with:
-#          name: opencue_packages
       - name: Install package
         run: |
-          tree
           find .
           pip install opencue_*.whl
 
@@ -63,8 +60,6 @@ jobs:
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
       - name: Install package
         run: |
           pip install opencue_*.whl
@@ -77,8 +72,6 @@ jobs:
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
       - name: Install package
         run: |
           pip install opencue_*.whl
@@ -91,8 +84,6 @@ jobs:
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
       - name: Install package
         run: |
           pip install opencue_*.whl
@@ -105,8 +96,6 @@ jobs:
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
       - name: Install package
         run: |
           pip install opencue_*.whl
@@ -119,8 +108,6 @@ jobs:
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
       - name: Install package
         run: |
           pip install opencue_*.whl
