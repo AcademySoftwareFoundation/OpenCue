@@ -39,7 +39,7 @@ jobs:
             cuesubmit/dist/opencue_*.whl
             rqd/dist/opencue_*.whl
 
-  install_opencue_packages-3.12:
+  install_opencue_packages_3.12:
     needs: build_opencue_packages
     name: Test installing opencue packages with python 3.12
     runs-on: ubuntu-22.04
@@ -55,7 +55,7 @@ jobs:
           find .
           pip install opencue_*.whl
 
-  install_opencue_packages-3.11:
+  install_opencue_packages_3.11:
     needs: build_opencue_packages
     name: Test installing opencue packages with python 3.11
     runs-on: ubuntu-22.04
@@ -69,7 +69,7 @@ jobs:
         run: |
           pip install opencue_*.whl
 
-  install_opencue_packages-3.10:
+  install_opencue_packages_3.10:
     needs: build_opencue_packages
     name: Test installing opencue packages with python 3.10
     runs-on: ubuntu-22.04
@@ -83,7 +83,7 @@ jobs:
         run: |
           pip install opencue_*.whl
 
-  install_opencue_packages-3.9:
+  install_opencue_packages_3.9:
     needs: build_opencue_packages
     name: Test installing opencue packages with python 3.9
     runs-on: ubuntu-22.04
@@ -97,7 +97,7 @@ jobs:
         run: |
           pip install opencue_*.whl
 
-  install_opencue_packages-3.8:
+  install_opencue_packages_3.8:
     needs: build_opencue_packages
     name: Test installing opencue packages with python 3.8
     runs-on: ubuntu-22.04
@@ -111,7 +111,7 @@ jobs:
         run: |
           pip install opencue_*.whl
 
-  install_opencue_packages-3.7:
+  install_opencue_packages_3.7:
     needs: build_opencue_packages
     name: Test installing opencue packages with python 3.7
     runs-on: ubuntu-22.04
