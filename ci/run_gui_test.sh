@@ -22,7 +22,13 @@ if [[ -z "$py" ]]; then
 fi
 echo "Using Python binary ${py}"
 
-pip install ./cuegui[test]
+if [[ -v OPENCUE_CUEGUI_PACKAGE_PATH ]]
+then
+  echo "Installing pre-built opencue_cuegui package"
+  pip install "${OPENCUE_CUEGUI_PACKAGE_PATH}[test]"
+else
+  pip install ./cuegui[test]
+fi
 
 test_log="/tmp/cuegui_result.log"
 
