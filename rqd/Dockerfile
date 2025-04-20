@@ -22,27 +22,6 @@ COPY LICENSE ./
 COPY ${OPENCUE_PROTO_PACKAGE_PATH} /tmp/
 RUN python3.9 -m pip install /tmp/*.whl
 
-COPY rqd/deploy ./rqd/deploy
-COPY rqd/README.md ./rqd/
-COPY rqd/pyproject.toml ./rqd/
-COPY rqd/tests/ ./rqd/tests
-COPY rqd/rqd/ ./rqd/rqd
-
-COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION
-
-RUN cd rqd && python3.9 -m pip install .
-RUN cd rqd && python3.9 -m unittest discover
-
-# This step isn't really needed at runtime, but is used when publishing an OpenCue release
-# from this build.
-# Disable this for for better future packaging
-#RUN versioned_name="rqd-$(cat ./VERSION)-all" \
-#  && cp LICENSE VERSION rqd/ \
-#  && mv rqd $versioned_name \
-#  && tar -cvzf $versioned_name.tar.gz $versioned_name/* \
-#  && ln -s $versioned_name rqd
-
 RUN mkdir -p /etc/opencue
 RUN echo "[Override]" > /etc/opencue/rqd.conf
 RUN echo "USE_NIMBY_PYNPUT=false" >> /etc/opencue/rqd.conf
