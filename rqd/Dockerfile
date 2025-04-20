@@ -3,6 +3,7 @@ FROM rockylinux:8.9
 WORKDIR /opt/opencue
 
 ARG OPENCUE_PROTO_PACKAGE_PATH
+ARG OPENCUE_RQD_PACKAGE_PATH
 
 RUN yum -y install \
   epel-release \
@@ -20,6 +21,7 @@ RUN python3.9 -m pip install --upgrade setuptools
 COPY LICENSE ./
 
 COPY ${OPENCUE_PROTO_PACKAGE_PATH} /tmp/
+COPY ${OPENCUE_RQD_PACKAGE_PATH} /tmp/
 RUN python3.9 -m pip install /tmp/*.whl
 
 RUN mkdir -p /etc/opencue
