@@ -64,7 +64,7 @@ jobs:
         id: build_rqd
         run: |
           python -m build ./rqd
-          echo "opencue_rqd_path=$(ls ./pyoutline/dist/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_rqd_path=$(ls ./rqd/dist/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
 
       - name: Upload opencue packages
         uses: actions/upload-artifact@v4
@@ -134,7 +134,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: opencue_packages
-      - name: Set package vars from parent action
+      - name: Run Python Tests
         run: |
           export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
@@ -142,8 +142,7 @@ jobs:
           export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-      - name: Run Python Tests
-        run: ci/run_python_tests.sh
+          ci/run_python_tests.sh
 
   test_cuebot_2023:
     needs: build_opencue_packages
