@@ -28,7 +28,7 @@ rqd = "rqd.__main__:main"
 # --- Pytest configuration ---
 [tool.pytest.ini_options]
 minversion = "6.0" # Set to required pytest version
-testpaths = ["tests"] # Relative path(s) where tests are located
+testpaths = ["tests", "pytests"] # Relative path(s) where tests are located
 python_files = ["test_*.py", "*_test.py"] # Default test file pattern
 python_functions = ["test_*"] # Default test function pattern
 
