@@ -12,6 +12,7 @@ python_version=$(python -V 2>&1)
 echo "Will run tests using ${python_version}"
 
 pip uninstall --yes opencue_proto opencue_pycue opencue_pyoutline opencue_cueadmin opencue_cuesubmit opencue_rqd
+
 if [[ -v OPENCUE_PROTO_PACKAGE_PATH ]]
 then
   echo "Installing pre-built opencue_proto package"
@@ -20,21 +21,17 @@ else
   pip install ./opencue_proto
 fi
 
-pip install ./pycue[test]
-python -m pytest pycue
-
-pip install ./pyoutline[test]
-python -m pytest pyoutline
-
-pip install ./cueadmin[test]
-python -m pytest cueadmin
-
-pip install ./cuesubmit[test]
-python -m pytest cuesubmit
-
-pip install ./rqd[test]
-python -m pytest rqd/tests
-python -m pytest rqd/pytests
+for package in pycue pyoutline cueadmin cuesubmit rqd
+do
+  PACKAGE_PATH="OPENCUE_${package^^}_PACKAGE_PATH"
+  if [[ -v "${PACKAGE_PATH}" ]]
+  then
+    pip install "${!PACKAGE_PATH}[test]"
+  else
+    pip install "./${package}[test]"
+  fi
+  python -m pytest ${package}
+done
 
 # Xvfb no longer supports Python 2.
 if [[ "$python_version" =~ "Python 3" && ${args[0]} != "--no-gui" ]]; then
