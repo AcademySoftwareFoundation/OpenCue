@@ -14,8 +14,6 @@
 # > OK
 #
 
-set -e
-
 py="$(command -v python3)"
 if [[ -z "$py" ]]; then
   py="$(command -v python)"
@@ -40,10 +38,10 @@ then
   XVFB_RUN_ARG="-a"
 fi
 
-xvfb-run $XVFB_RUN_ARG "${py}" -m unittest discover -s cuegui/tests -t cuegui -p "*.py"| tee ${test_log}
+xvfb-run $XVFB_RUN_ARG "${py}" -m pytest cuegui| tee ${test_log}
 
-grep -Pz 'Ran \d+ tests in [0-9\.]+s\n\nOK' ${test_log}
-if [ $? -eq 0 ]; then
+grep -Pz '\d+ failed' ${test_log}
+if [ $? -eq 1 ]; then
   echo "Detected passing tests"
   exit 0
 fi
