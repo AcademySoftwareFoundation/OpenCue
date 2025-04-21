@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """
 This module provides functionality to retrieve and display information about the logical processors in a Windows system.
 It uses Windows API calls to gather details about processor groups, their affinities, and the number of logical cores.
@@ -13,11 +14,10 @@ Note:
     This is tailored for the needs of OpenCue, especially for hybrid CPUs
     TODO: Maybe we should contribute this back to psutils ?
 """
-from ctypes import c_size_t, c_ulonglong, c_int, Structure, Union, WinDLL
+from ctypes import c_ulonglong, Structure, Union, WinDLL
 from ctypes import POINTER, sizeof, WinError, byref, get_last_error
 from ctypes import wintypes
 
-# pylint: disable=line-too-long
 
 class GROUP_AFFINITY(Structure):
     """ A structure that represents the affinity of a group of processors.
