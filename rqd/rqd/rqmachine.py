@@ -85,11 +85,11 @@ class Machine(object):
 
         # A dictionary built from /proc/cpuinfo containing
         # { <physical id> : { <core_id> : set([<processor>, <processor>, ...]), ... }, ... }
-        self.__procs_by_physid_and_coreid = {}
+        self.__threadid_by_cpuid_and_coreid = {}
 
         # A reverse mapping of the above.
         # { <processor> : (<physical id>, <core_id>), ... }
-        self.__physid_and_coreid_by_proc = {}
+        self.__cpuid_and_coreid_by_threadid = {}
 
         if platform.system() == 'Linux':
             self.__vmstat = rqd.rqswap.VmStat()
@@ -937,7 +937,7 @@ class Machine(object):
         avail_procs_count = 0
         reserved_cores = self.__coreInfo.reserved_cores
 
-        for physid, cores in self.__procs_by_physid_and_coreid.items():
+        for physid, cores in self.__threadid_by_cpuid_and_coreid.items():
             for coreid in cores.keys():
                 if int(physid) in reserved_cores and \
                         int(coreid) in reserved_cores[int(physid)].coreid:
@@ -978,10 +978,10 @@ class Machine(object):
                 # if we didn't find a core with the right number of threads, and continue the loop.
                 coreid = next(iter(
                     [cid for cid in cores
-                     if len(self.__procs_by_physid_and_coreid[physid][cid]) <= query_procs]),
+                     if len(self.__threadid_by_cpuid_and_coreid[physid][cid]) <= query_procs]),
                     cores[0])
                 cores.remove(coreid)
-                procids = self.__procs_by_physid_and_coreid[physid][coreid]
+                procids = self.__threadid_by_cpuid_and_coreid[physid][coreid]
                 reserved_cores[int(physid)].coreid.extend([int(coreid)])
                 if logical:
                     query_procs -= len(procids)
@@ -1031,7 +1031,7 @@ class Machine(object):
         # aren't valid core identities.
         reserved_cores = self.__coreInfo.reserved_cores
         for core in reservedHT.split(','):
-            physical_id_str, core_id_str = self.__physid_and_coreid_by_proc.get(core)
+            physical_id_str, core_id_str = self.__cpuid_and_coreid_by_threadid.get(core)
             physical_id = int(physical_id_str)
             core_id = int(core_id_str)
 
