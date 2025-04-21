@@ -449,11 +449,16 @@ class Machine(object):
         if platform.system() == "Linux":
             with open(rqd.rqconstants.PATH_LOADAVG, "r", encoding='utf-8') as loadAvgFile:
                 loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
-                if self.__enabledHT():
-                    loadAvg = loadAvg // self.getHyperthreadingMultiplier()
+                loadAvg = loadAvg // self.getHyperthreadingMultiplier()
                 loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
                 loadAvg = max(loadAvg, 0)
                 return loadAvg
+        elif platform.system() == "Windows":
+            # Use psutil to get the CPU utilization over 1 second
+            # This is not the same as load average, but it gives a
+            # similar idea of CPU load.
+            load_avg = psutil.cpu_percent(interval=1)
+            return int(load_avg * 100)
         return 0
 
     @rqd.rqutil.Memoize
@@ -899,10 +904,10 @@ class Machine(object):
 
     def getHyperthreadingMultiplier(self):
         """
-        Multiplied used to compute the number of threads that can be allocated simultaneously
-        on a core
+        Multiplier used to compute the number of threads that can be allocated simultaneously
+        on a core. This is a float as it can be fractional for hybrid cores.
         """
-        return int(self.__renderHost.attributes['hyperthreadingMultiplier'])
+        return float(self.__renderHost.attributes['hyperthreadingMultiplier'])
 
     def setupTaskset(self):
         """ Setup rqd for hyper-threading """
