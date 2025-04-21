@@ -664,6 +664,39 @@ class Machine(object):
         if hyperthreadingMultiplier >= 1:
             self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
 
+    def __initStatsLinux(self, pathCpuInfo=None):
+        """Init machine stats for Linux platforms.
+
+        @type  pathCpuInfo: str
+        @param pathCpuInfo: Path to a specific cpuinfo file
+        """
+        coreInfo = []
+        _count = {"cpus": set(), "cores": set(), "threads": set()}
+        # Reads static information from /proc/cpuinfo
+        with (open(pathCpuInfo or rqd.rqconstants.PATH_CPUINFO, "r",
+                   encoding='utf-8') as cpuinfoFile):
+            infoBlock = {}
+            for line in cpuinfoFile:
+                lineList = line.strip().replace("\t", "").split(": ")
+                # A normal entry added to the singleCore dictionary
+                if len(lineList) >= 2:
+                    infoBlock[lineList[0]] = lineList[1]
+                # An entry without data
+                elif len(lineList) == 1:
+                    infoBlock[lineList[0]] = ""
+                # The end of a processor block
+                elif lineList == ['']:
+                    cpu_id = infoBlock['physical id']
+                    physical_core_id = infoBlock['core id']
+                    logical_core_id = infoBlock['processor']
+                    _count["cpus"].add(cpu_id)
+                    _count["cores"].add(physical_core_id)
+                    _count["threads"].add(logical_core_id)
+                    coreInfo.append((cpu_id, physical_core_id, logical_core_id))
+                    infoBlock.clear()
+
+        self.__updateProcsMappings(coreInfo=coreInfo)
+
     def __initStatsWindows(self):
         """Init machine stats for Windows platforms.
 
@@ -684,6 +717,38 @@ class Machine(object):
         logicalCoreCount = psutil.cpu_count(logical=True)
 
         return processorCount, physicalCoreCount, logicalCoreCount
+
+    def __updateProcsMappings(self, coreInfo):
+        """
+        Update `__threadid_by_cpuid_and_coreid` and `__cpuid_and_coreid_by_threadid` mappings.
+
+        @type  coreInfo: list[tuple[str, str, str]]
+        @param coreInfo: A list of tuples containing CPU ID, Physical Core ID, and Logical Core ID.
+
+        Implementation detail:
+        One CPU has one or more physical cores,
+         and each physical core has one or more logical cores.
+        Some CPUs have hyper-threading, which means that each logical core is treated as
+         a separate core by the operating system, while being on the same physical core.
+        Hybrid CPUs have performance cores that are hyper-threaded,
+         and efficient cores that are mono-threaded.
+        On Windows, we can't detect each physical CPU,
+         so instead we use CPU groups (64 cores per group).
+        """
+
+        # Reset mappings
+        self.__threadid_by_cpuid_and_coreid = {}
+        self.__cpuid_and_coreid_by_threadid = {}
+
+        for (cpu_id, physical_core_id, logical_core_id) in coreInfo:
+            log.debug(f"CPU ID: {cpu_id}, "
+                      f"Physical core ID: {physical_core_id}, "
+                      f"Logical core ID: {logical_core_id}")
+
+            self.__threadid_by_cpuid_and_coreid.setdefault(
+                str(cpu_id), {}).setdefault(
+                physical_core_id, set()).add(str(logical_core_id))
+            self.__cpuid_and_coreid_by_threadid[logical_core_id] = (str(cpu_id), str(physical_core_id))
 
     def updateWindowsMemory(self):
         """Updates the internal store of memory available for Windows."""
