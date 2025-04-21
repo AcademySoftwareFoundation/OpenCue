@@ -453,13 +453,13 @@ class Machine(object):
                     loadAvg = loadAvg // self.getHyperthreadingMultiplier()
                 loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
                 loadAvg = max(loadAvg, 0)
-                return loadAvg
+                return int(loadAvg)
         elif platform.system() == "Windows":
             # Use psutil to get the CPU utilization over 1 second
             # This is not the same as load average, but it gives a
             # similar idea of CPU load.
-            load_avg = psutil.cpu_percent(interval=1)
-            return int(load_avg * 100)
+            loadAvg = psutil.cpu_percent(interval=1)
+            return int(loadAvg * 100)
         return 0
 
     @rqd.rqutil.Memoize
