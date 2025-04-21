@@ -449,7 +449,8 @@ class Machine(object):
         if platform.system() == "Linux":
             with open(rqd.rqconstants.PATH_LOADAVG, "r", encoding='utf-8') as loadAvgFile:
                 loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
-                loadAvg = loadAvg // self.getHyperthreadingMultiplier()
+                if self.__enabledHT():
+                    loadAvg = loadAvg // self.getHyperthreadingMultiplier()
                 loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
                 loadAvg = max(loadAvg, 0)
                 return loadAvg
