@@ -596,7 +596,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         """
         cpuInfo = os.path.join(os.path.dirname(__file__),
                                'cpuinfo',
-                               '_cpuinfo_i9_12900_hybrid_ht_24-24-1-1')
+                               '_cpuinfo_i9_12900_hybrid_ht_24-16-1.5-1')
         self.fs.add_real_file(cpuInfo)
         self.machine.testInitMachineStats(cpuInfo)
 
@@ -795,7 +795,7 @@ class CpuinfoTestsLinux(pyfakefs.fake_filesystem_unittest.TestCase):
         self.__cpuinfoTestHelper('_cpuinfo_srdsvr09_48-12-4')
 
     def test_i9_12900(self):
-        self.__cpuinfoTestHelper('_cpuinfo_i9_12900_hybrid_ht_24-24-1-1')
+        self.__cpuinfoTestHelper('_cpuinfo_i9_12900_hybrid_ht_24-16-1.5-1')
 
     def __cpuinfoTestHelper(self, pathCpuInfo):
         # File format: _cpuinfo_dub_x-x-x where x-x-x is totalCores-coresPerProc-numProcs
