@@ -459,12 +459,7 @@ class Machine(object):
     @rqd.rqutil.Memoize
     def getBootTime(self):
         """Returns epoch when the system last booted"""
-        if platform.system() == "Linux":
-            with open(rqd.rqconstants.PATH_STAT, "r", encoding='utf-8') as statFile:
-                for line in statFile:
-                    if line.startswith("btime"):
-                        return int(line.split()[1])
-        return 0
+        return int(psutil.boot_time())
 
     @rqd.rqutil.Memoize
     def getGpuCount(self):
