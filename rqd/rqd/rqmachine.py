@@ -697,6 +697,8 @@ class Machine(object):
 
         self.__updateProcsMappings(coreInfo=coreInfo)
 
+        return len(_count["cpus"]), len(_count["cores"]), len(_count["threads"])
+
     def __initStatsWindows(self):
         """Init machine stats for Windows platforms.
 
