@@ -671,8 +671,6 @@ class Machine(object):
             - the number of physical CPU
             - the number of physical cores
             - the number of logical cores
-            - the number of physical processors
-            - the hyper-threading multiplier
         """
         import rqd.rqwinutils  # Windows-specific
 
