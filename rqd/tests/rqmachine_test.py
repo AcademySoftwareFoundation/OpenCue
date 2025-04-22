@@ -806,7 +806,7 @@ class CpuinfoTestsLinux(pyfakefs.fake_filesystem_unittest.TestCase):
         threadsPerProc = totalThreads // numProcs
         ht_multiplier = float(pathCpuInfo.split('-')[3]) if '_ht_' in pathCpuInfo else 1.0
         totalCores = totalThreads // ht_multiplier
-        self.assertEqual(float(renderHost.attributes.get('hyperthreadingMultiplier'), 1.0), ht_multiplier)
+        self.assertEqual(float(renderHost.attributes.get('hyperthreadingMultiplier', 1.0)), ht_multiplier)
         self.assertEqual(coresPerProc * numProcs, totalThreads // ht_multiplier)
 
         # pylint: disable=no-member
