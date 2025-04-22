@@ -901,7 +901,7 @@ class Machine(object):
         Multiplier used to compute the number of threads that can be allocated simultaneously
         on a core. This is a float as it can be fractional for hybrid cores.
         """
-        return float(self.__renderHost.attributes['hyperthreadingMultiplier'])
+        return float(self.__renderHost.attributes.get('hyperthreadingMultiplier', 1.0))
 
     def setupTaskset(self):
         """ Setup rqd for hyper-threading """
