@@ -664,6 +664,18 @@ class Machine(object):
         if hyperthreadingMultiplier >= 1:
             self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
 
+    def count_cores(self):
+        """Counts the number of cores on the machine"""
+        cpu_count = len(self.__threadid_by_cpuid_and_coreid.keys())
+        total_threads = len(self.__cpuid_and_coreid_by_threadid.keys())
+        thread_per_proc = total_threads // cpu_count
+        total_cores = sum(
+            len(cores) for _, cores in self.__threadid_by_cpuid_and_coreid.items()
+        )
+        core_per_proc = total_cores // cpu_count
+
+        return cpu_count, total_cores, total_threads, core_per_proc, thread_per_proc
+
     def __initStatsLinux(self, pathCpuInfo=None):
         """Init machine stats for Linux platforms.
 
