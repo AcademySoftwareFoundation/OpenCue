@@ -497,7 +497,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         step5 - taskset4: 4 remaining, Reserve 4 threads (2 cores) (ph0->3 + ph1->3)
         step6 - taskset5: No more cores
         """
-        cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_8-4-2-2')
+        cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_16-4-2-2')
         self.fs.add_real_file(cpuInfo)
         self.machine.testInitMachineStats(cpuInfo)
 
@@ -596,7 +596,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         """
         cpuInfo = os.path.join(os.path.dirname(__file__),
                                'cpuinfo',
-                               '_cpuinfo_i9_12900_hybrid_ht_24-16-1.5-1')
+                               '_cpuinfo_i9_12900_hybrid_ht_24-16-1-1.5')
         self.fs.add_real_file(cpuInfo)
         self.machine.testInitMachineStats(cpuInfo)
 
@@ -765,7 +765,7 @@ class CpuinfoTestsLinux(pyfakefs.fake_filesystem_unittest.TestCase):
         self.rqd = rqd.rqcore.RqCore()
 
     def test_shark(self):
-        self.__cpuinfoTestHelper('_cpuinfo_shark_ht_8-4-2-2')
+        self.__cpuinfoTestHelper('_cpuinfo_shark_ht_16-4-2-2')
 
     def test_shark_ht(self):
         self.__cpuinfoTestHelper('_cpuinfo_shark_8-4-2')
@@ -789,16 +789,16 @@ class CpuinfoTestsLinux(pyfakefs.fake_filesystem_unittest.TestCase):
         self.__cpuinfoTestHelper('_cpuinfo_hp8600_8-4-2')
 
     def test_srdsvr05(self):
-        self.__cpuinfoTestHelper('_cpuinfo_srdsvr05_ht_12-6-2-2')
+        self.__cpuinfoTestHelper('_cpuinfo_srdsvr05_ht_24-6-2-2')
 
     def test_srdsvr09(self):
         self.__cpuinfoTestHelper('_cpuinfo_srdsvr09_48-12-4')
 
     def test_i9_12900(self):
-        self.__cpuinfoTestHelper('_cpuinfo_i9_12900_hybrid_ht_24-16-1.5-1')
+        self.__cpuinfoTestHelper('_cpuinfo_i9_12900_hybrid_ht_24-16-1-1.5')
 
     def __cpuinfoTestHelper(self, pathCpuInfo):
-        # File format: _cpuinfo_dub_x-x-x where x-x-x is totalCores-coresPerProc-numProcs
+        # File format: _cpuinfo_dub_x-x-x where x-x-x is totalThreads-coresPerProc-numProcs
         pathCpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', pathCpuInfo)
         self.meminfo.set_contents(MEMINFO_MODERATE_USAGE)
         renderHost, coreInfo = self.rqd.machine.testInitMachineStats(pathCpuInfo)
