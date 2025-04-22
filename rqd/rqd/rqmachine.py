@@ -53,6 +53,11 @@ elif platform.system() == "Windows":
         winpsIsAvailable = True
     except ImportError:
         pass
+
+    try:
+        import rqd.winutils
+    except ImportError:
+        pass
 # pylint: enable=import-error,wrong-import-position
 
 import psutil
@@ -717,7 +722,6 @@ class Machine(object):
     def __initStatsWindows(self):
         """Init machine stats for Windows platforms.
         """
-        import rqd.rqwinutils  # Windows-specific
         coreInfo = rqd.rqwinutils.get_logical_processor_information_ex()
         self.__updateProcsMappings(coreInfo=coreInfo)
 
@@ -751,8 +755,6 @@ class Machine(object):
 
     def updateWindowsMemory(self):
         """Updates the internal store of memory available for Windows."""
-        import rqd.rqwinutils  # Windows-specific
-
         if not hasattr(self, '__windowsStat'):
             self.__windowsStat = rqd.rqwinutils.MEMORYSTATUSEX()
         ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(self.__windowsStat))
