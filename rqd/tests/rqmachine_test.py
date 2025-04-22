@@ -802,13 +802,20 @@ class CpuinfoTestsLinux(pyfakefs.fake_filesystem_unittest.TestCase):
         pathCpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', pathCpuInfo)
         self.meminfo.set_contents(MEMINFO_MODERATE_USAGE)
         renderHost, coreInfo = self.rqd.machine.testInitMachineStats(pathCpuInfo)
-        totalCores, coresPerProc, numProcs = pathCpuInfo.split('_')[-1].split('-')[:3]
+        totalThreads, coresPerProc, numProcs = map(int, pathCpuInfo.split('_')[-1].split('-')[:3])
+        threadsPerProc = totalThreads // numProcs
+        ht_multiplier = float(pathCpuInfo.split('-')[3]) if '_ht_' in pathCpuInfo else 1.0
+        totalCores = totalThreads // ht_multiplier
+        self.assertEqual(renderHost.attributes.get('hyperthreadingMultiplier', 1.0), ht_multiplier)
+        self.assertEqual(coresPerProc * numProcs, totalThreads // ht_multiplier)
 
         # pylint: disable=no-member
-        self.assertEqual(renderHost.num_procs, int(numProcs))
-        self.assertEqual(renderHost.cores_per_proc, int(coresPerProc) * 100)
-        self.assertEqual(coreInfo.total_cores, int(totalCores) * 100)
-        self.assertEqual(coreInfo.idle_cores, int(totalCores) * 100)
+        self.assertEqual(renderHost.num_procs, numProcs)
+        self.assertEqual(coreInfo.total_cores, totalCores * 100)
+        self.assertEqual(coreInfo.total_threads, totalThreads * 100)
+        self.assertEqual(renderHost.cores_per_proc, coresPerProc * 100)
+        self.assertEqual(renderHost.threads_per_proc, threadsPerProc * 100)
+        self.assertEqual(coreInfo.idle_cores, totalCores * 100)
         self.assertEqual(coreInfo.locked_cores, 0)
         self.assertEqual(coreInfo.booked_cores, 0)
         if '_ht_' in pathCpuInfo:
