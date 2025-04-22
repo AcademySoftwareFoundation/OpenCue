@@ -622,45 +622,48 @@ class Machine(object):
         # Get the total memory and swap
         self.updateMachineStats()
 
-        cpu_count = core_count = thread_count = 0
+        # By default all systems will just have one proc/core
+        cpu_count = total_cores = total_threads = core_per_proc = thread_per_proc = 1
 
         if platform.system() == "Linux" or pathCpuInfo is not None:
-            cpu_count, core_count, thread_count = self.__initStatsLinux(pathCpuInfo)
+            self.__initStatsLinux(pathCpuInfo)
+            cpu_count, total_cores, total_threads, core_per_proc, thread_per_proc = self.count_cores()
         elif platform.system() == 'Windows':
-            cpu_count, core_count, thread_count = self.__initStatsWindows()
-
-        # All other systems will just have one proc/core
-        if not cpu_count or not core_count:
-            cpu_count = 1
-            thread_count = 1
-            core_count = 1
+            self.__initStatsWindows()
+            cpu_count, total_cores, total_threads, core_per_proc, thread_per_proc = self.count_cores()
 
         # Override values from rqd.conf
         if rqd.rqconstants.OVERRIDE_MEMORY is not None:
             log.warning("Manually overriding the total memory")
             self.__renderHost.total_mem = rqd.rqconstants.OVERRIDE_MEMORY
 
-        if rqd.rqconstants.OVERRIDE_CORES is not None:
-            log.warning("Manually overriding the number of reported cores")
-            core_count = rqd.rqconstants.OVERRIDE_CORES * rqd.rqconstants.CORE_VALUE
-            if rqd.rqconstants.OVERRIDE_THREADS is None:
-                thread_count = core_count
-        if rqd.rqconstants.OVERRIDE_THREADS is not None:
-            log.warning("Manually overriding the number of reported threads")
-            thread_count = rqd.rqconstants.OVERRIDE_THREADS * rqd.rqconstants.CORE_VALUE
-
         if rqd.rqconstants.OVERRIDE_PROCS is not None:
             log.warning("Manually overriding the number of reported procs")
             cpu_count = rqd.rqconstants.OVERRIDE_PROCS
 
-        self.__coreInfo.idle_cores = core_count * rqd.rqconstants.CORE_VALUE
-        self.__coreInfo.total_cores = core_count * rqd.rqconstants.CORE_VALUE
-        self.__coreInfo.total_threads = thread_count * rqd.rqconstants.CORE_VALUE
-        self.__renderHost.num_procs = cpu_count
-        self.__renderHost.cores_per_proc = core_count * rqd.rqconstants.CORE_VALUE // cpu_count
-        self.__renderHost.threads_per_proc = thread_count * rqd.rqconstants.CORE_VALUE // cpu_count
+        if rqd.rqconstants.OVERRIDE_CORES is not None:
+            log.warning("Manually overriding the number of reported cores")
+            core_per_proc = rqd.rqconstants.OVERRIDE_CORES
+            total_cores = core_per_proc * cpu_count
+            if rqd.rqconstants.OVERRIDE_THREADS is None:
+                thread_per_proc = core_count
+                total_threads = thread_per_proc * cpu_count
+        if rqd.rqconstants.OVERRIDE_THREADS is not None:
+            log.warning("Manually overriding the number of reported threads")
+            thread_per_proc = rqd.rqconstants.OVERRIDE_THREADS
+            total_threads = thread_per_proc * cpu_count
 
-        hyperthreadingMultiplier = thread_count / core_count
+        log.warning(f"{cpu_count=}, {total_cores=}, {total_threads=}, {core_per_proc=}, {thread_per_proc=}")
+
+        self.__coreInfo.idle_cores = total_cores * rqd.rqconstants.CORE_VALUE
+        # TODO: add idle_threads ? anyway we need to address reserving threads instead of cores.
+        self.__coreInfo.total_cores = total_cores * rqd.rqconstants.CORE_VALUE
+        self.__coreInfo.total_threads = total_threads * rqd.rqconstants.CORE_VALUE
+        self.__renderHost.num_procs = cpu_count
+        self.__renderHost.cores_per_proc = core_per_proc * rqd.rqconstants.CORE_VALUE
+        self.__renderHost.threads_per_proc = thread_per_proc * rqd.rqconstants.CORE_VALUE
+
+        hyperthreadingMultiplier = thread_per_proc / core_per_proc
         if hyperthreadingMultiplier >= 1:
             self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
 
@@ -683,7 +686,6 @@ class Machine(object):
         @param pathCpuInfo: Path to a specific cpuinfo file
         """
         coreInfo = []
-        _count = {"cpus": set(), "cores": set(), "threads": set()}
         # Reads static information from /proc/cpuinfo
         with (open(pathCpuInfo or rqd.rqconstants.PATH_CPUINFO, "r",
                    encoding='utf-8') as cpuinfoFile):
@@ -697,19 +699,15 @@ class Machine(object):
                 elif len(lineList) == 1:
                     infoBlock[lineList[0]] = ""
                 # The end of a processor block
-                elif lineList == ['']:
-                    cpu_id = infoBlock['physical id']
-                    physical_core_id = infoBlock['core id']
+                if lineList == ['']:
                     logical_core_id = infoBlock['processor']
-                    _count["cpus"].add(cpu_id)
-                    _count["cores"].add(physical_core_id)
-                    _count["threads"].add(logical_core_id)
+                    cpu_id = infoBlock.get('physical id', infoBlock['processor'])
+                    physical_core_id = infoBlock.get('core id', infoBlock['processor'])
+
                     coreInfo.append((cpu_id, physical_core_id, logical_core_id))
                     infoBlock.clear()
 
         self.__updateProcsMappings(coreInfo=coreInfo)
-
-        return len(_count["cpus"]), len(_count["cores"]), len(_count["threads"])
 
     def __initStatsWindows(self):
         """Init machine stats for Windows platforms.
@@ -755,10 +753,6 @@ class Machine(object):
         self.__cpuid_and_coreid_by_threadid = {}
 
         for (cpu_id, physical_core_id, logical_core_id) in coreInfo:
-            log.debug(f"CPU ID: {cpu_id}, "
-                      f"Physical core ID: {physical_core_id}, "
-                      f"Logical core ID: {logical_core_id}")
-
             self.__threadid_by_cpuid_and_coreid.setdefault(
                 str(cpu_id), {}).setdefault(
                 physical_core_id, set()).add(str(logical_core_id))
