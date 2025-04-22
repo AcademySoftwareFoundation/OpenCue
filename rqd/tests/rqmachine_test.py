@@ -419,7 +419,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         step5 - taskset4: 3 remaining, Reserve 3 cores (ph0+ph1)
         step5 - taskset5: No more cores
         """
-        cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_8-4-2-2')
+        cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_16-4-2-2')
         self.fs.add_real_file(cpuInfo)
         self.machine.testInitMachineStats(cpuInfo)
 
