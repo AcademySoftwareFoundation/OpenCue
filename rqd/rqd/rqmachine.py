@@ -53,11 +53,6 @@ elif platform.system() == "Windows":
         winpsIsAvailable = True
     except ImportError:
         pass
-
-    try:
-        import rqd.winutils
-    except ImportError:
-        pass
 # pylint: enable=import-error,wrong-import-position
 
 import psutil
@@ -68,6 +63,8 @@ import rqd.rqconstants
 import rqd.rqexceptions
 import rqd.rqswap
 import rqd.rqutil
+if platform.system() == "Windows":
+    import rqd.winutils
 
 
 log = logging.getLogger(__name__)
