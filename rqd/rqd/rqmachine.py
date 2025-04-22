@@ -689,7 +689,7 @@ class Machine(object):
         # Reads static information from /proc/cpuinfo
         with (open(pathCpuInfo or rqd.rqconstants.PATH_CPUINFO, "r",
                    encoding='utf-8') as cpuinfoFile):
-            infoBlock = {}
+            infoBlock = {} # Gets reset for each processor block
             for line in cpuinfoFile:
                 lineList = line.strip().replace("\t", "").split(": ")
                 # A normal entry added to the singleCore dictionary
@@ -700,10 +700,11 @@ class Machine(object):
                     infoBlock[lineList[0]] = ""
                 # The end of a processor block
                 if lineList == ['']:
+                    # Get relevant information from the block
                     logical_core_id = infoBlock['processor']
                     cpu_id = infoBlock.get('physical id', infoBlock['processor'])
                     physical_core_id = infoBlock.get('core id', infoBlock['processor'])
-
+                    # Save that and iterate
                     coreInfo.append((cpu_id, physical_core_id, logical_core_id))
                     infoBlock.clear()
 
