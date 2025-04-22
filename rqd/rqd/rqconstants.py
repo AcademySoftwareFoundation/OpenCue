@@ -149,10 +149,10 @@ CONFIG_FILE = os.environ.get('RQD_CONFIG_FILE', CONFIG_FILE)
 if '-c' in sys.argv:
     CONFIG_FILE = sys.argv[sys.argv.index('-c') + 1]
 
-OVERRIDE_CORES = None # number of cores. ex: None or 8
-OVERRIDE_THREADS = None # number of threads. ex: None or 16
-OVERRIDE_IS_DESKTOP = None # Force rqd to run in 'desktop' mode
 OVERRIDE_PROCS = None # number of physical cpus. ex: None or 2
+OVERRIDE_CORES = None # number of cores per cpu. ex: None or 8
+OVERRIDE_THREADS = None # number of threads per cpu. ex: None or 16
+OVERRIDE_IS_DESKTOP = None # Force rqd to run in 'desktop' mode
 OVERRIDE_MEMORY = None # in Kb
 OVERRIDE_NIMBY = None # True to turn on, False to turn off
 USE_NIMBY_PYNPUT = True # True pynput, False select
