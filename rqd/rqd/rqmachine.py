@@ -465,6 +465,11 @@ class Machine(object):
     @rqd.rqutil.Memoize
     def getBootTime(self):
         """Returns epoch when the system last booted"""
+        if os.path.isfile(rqd.rqconstants.PATH_STAT):
+            with open(rqd.rqconstants.PATH_STAT, "r", encoding='utf-8') as statFile:
+                for line in statFile:
+                    if line.startswith("btime"):
+                        return int(line.split()[1])
         return int(psutil.boot_time())
 
     @rqd.rqutil.Memoize
