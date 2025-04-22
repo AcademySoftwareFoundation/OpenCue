@@ -712,24 +712,10 @@ class Machine(object):
 
     def __initStatsWindows(self):
         """Init machine stats for Windows platforms.
-
-        @rtype:  tuple
-        @return: A 3-items tuple containing:
-            - the number of physical CPU
-            - the number of physical cores
-            - the number of logical cores
         """
         import rqd.rqwinutils  # Windows-specific
-
-        # Windows CPU information
         coreInfo = rqd.rqwinutils.get_logical_processor_information_ex()
         self.__updateProcsMappings(coreInfo=coreInfo)
-
-        processorCount = len(self.__threadid_by_cpuid_and_coreid)
-        physicalCoreCount = psutil.cpu_count(logical=False)
-        logicalCoreCount = psutil.cpu_count(logical=True)
-
-        return processorCount, physicalCoreCount, logicalCoreCount
 
     def __updateProcsMappings(self, coreInfo):
         """
