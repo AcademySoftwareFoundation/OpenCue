@@ -636,10 +636,12 @@ class Machine(object):
 
         if platform.system() == "Linux" or pathCpuInfo is not None:
             self.__initStatsLinux(pathCpuInfo)
-            cpu_count, total_cores, total_threads, core_per_proc, thread_per_proc = self.count_cores()
+            (cpu_count, total_cores, total_threads,
+             core_per_proc, thread_per_proc) = self.count_cores()
         elif platform.system() == 'Windows':
             self.__initStatsWindows()
-            cpu_count, total_cores, total_threads, core_per_proc, thread_per_proc = self.count_cores()
+            (cpu_count, total_cores, total_threads,
+             core_per_proc, thread_per_proc) = self.count_cores()
 
         # Override values from rqd.conf
         if rqd.rqconstants.OVERRIDE_MEMORY is not None:
@@ -655,14 +657,16 @@ class Machine(object):
             core_per_proc = rqd.rqconstants.OVERRIDE_CORES
             total_cores = core_per_proc * cpu_count
             if rqd.rqconstants.OVERRIDE_THREADS is None:
-                thread_per_proc = core_count
-                total_threads = thread_per_proc * cpu_count
+                thread_per_proc = core_per_proc
+                total_threads = total_cores
+
         if rqd.rqconstants.OVERRIDE_THREADS is not None:
             log.warning("Manually overriding the number of reported threads")
             thread_per_proc = rqd.rqconstants.OVERRIDE_THREADS
             total_threads = thread_per_proc * cpu_count
-
-        log.warning(f"{cpu_count=}, {total_cores=}, {total_threads=}, {core_per_proc=}, {thread_per_proc=}")
+            if rqd.rqconstants.OVERRIDE_CORES is None:
+                core_per_proc = thread_per_proc
+                total_cores = total_threads
 
         self.__coreInfo.idle_cores = total_cores * rqd.rqconstants.CORE_VALUE
         # TODO: add idle_threads ? anyway we need to address reserving threads instead of cores.
@@ -672,9 +676,9 @@ class Machine(object):
         self.__renderHost.cores_per_proc = core_per_proc * rqd.rqconstants.CORE_VALUE
         self.__renderHost.threads_per_proc = thread_per_proc * rqd.rqconstants.CORE_VALUE
 
-        hyperthreadingMultiplier = thread_per_proc / core_per_proc
-        if hyperthreadingMultiplier >= 1:
-            self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
+        ht_multiplier = thread_per_proc / core_per_proc
+        if ht_multiplier >= 1:
+            self.__renderHost.attributes['hyperthreadingMultiplier'] = str(ht_multiplier)
 
     def count_cores(self):
         """Counts the number of cores on the machine"""
@@ -751,7 +755,8 @@ class Machine(object):
             self.__threadid_by_cpuid_and_coreid.setdefault(
                 str(cpu_id), {}).setdefault(
                 physical_core_id, set()).add(str(logical_core_id))
-            self.__cpuid_and_coreid_by_threadid[logical_core_id] = (str(cpu_id), str(physical_core_id))
+            self.__cpuid_and_coreid_by_threadid[logical_core_id] = (str(cpu_id),
+                                                                    str(physical_core_id))
 
     def updateWindowsMemory(self):
         """Updates the internal store of memory available for Windows."""
