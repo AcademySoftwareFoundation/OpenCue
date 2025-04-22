@@ -64,7 +64,7 @@ import rqd.rqexceptions
 import rqd.rqswap
 import rqd.rqutil
 if platform.system() == "Windows":
-    import rqd.winutils
+    import rqd.rqwinutils
 
 
 log = logging.getLogger(__name__)
