@@ -813,7 +813,7 @@ class CpuinfoTestsLinux(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(coreInfo.booked_cores, 0)
         if '_ht_' in pathCpuInfo:
             self.assertEqual(
-                float(renderHost.attributes['hyperthreadingMultiplier']), float(pathCpuInfo.split('-'))[3])
+                float(renderHost.attributes['hyperthreadingMultiplier']), float(pathCpuInfo.split('-')[3]))
 
 
 if __name__ == '__main__':
