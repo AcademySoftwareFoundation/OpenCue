@@ -458,9 +458,9 @@ class RqCore(object):
     def shutdownRqdNow(self):
         """Kill all running frames and shutdown RQD"""
         self.machine.state = rqd.compiled_proto.host_pb2.DOWN
-        # When running on docker, stoping rqd will trigger a new container to be
-        # created, and running frames will be recovered on a new instance. With that
-        # shutdown doesn't require locking and killing frames when runninng on docker.
+        # When running on docker, stopping RQD will trigger the creation of a new container,
+        # and running frames will be recovered on a new instance.
+        # Thus, shutdown doesn't require locking and killing frames when running on docker.
         if self.docker_agent is not None:
             self.__reboot = False
             self.shutdown()
