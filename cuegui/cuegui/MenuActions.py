@@ -32,7 +32,6 @@ import time
 
 from qtpy import QtGui
 from qtpy import QtWidgets
-import six
 
 import FileSequence
 import opencue
@@ -172,7 +171,7 @@ class AbstractActions(object):
 
             if not callback:
                 callback = actionName
-            if isinstance(callback, six.string_types):
+            if isinstance(callback, str):
                 callback = getattr(self, callback)
 
             action.triggered.connect(callback)  # pylint: disable=no-member
