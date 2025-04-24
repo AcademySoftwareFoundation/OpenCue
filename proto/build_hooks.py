@@ -35,7 +35,7 @@ class CustomBuildHook(BuildHookInterface):
     """
     def initialize(self, version, build_data):
         # Compile protocol buffers
-        proto_dir = os.path.join(self.root, "proto")
+        proto_dir = os.path.join(self.root, "src")
         output_dir = os.path.join(self.root, "opencue_proto")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)

@@ -14,7 +14,7 @@ fi
 # Sphinx has some additional requirements
 pip install ${PIP_OPT} -r api_docs/requirements.txt
 
-pip install ${PIP_OPT} opencue_proto/ pycue/ pyoutline/ cueadmin/ cuesubmit/ cuegui/
+pip install ${PIP_OPT} proto/ pycue/ pyoutline/ cueadmin/ cuesubmit/ cuegui/
 # ci/build_proto.sh
 
 # Build the docs and treat warnings as errors

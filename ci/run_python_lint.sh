@@ -21,7 +21,7 @@ then
   echo "Installing pre-built cuebot package"
   pip install ${OPENCUE_PROTO_PACKAGE_PATH} ${PIP_OPT}
 else
-  pip install ./opencue_proto ${PIP_OPT}
+  pip install ./proto ${PIP_OPT}
 fi
 
 echo "Running lint for pycue/..."

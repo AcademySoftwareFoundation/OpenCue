@@ -33,8 +33,8 @@ jobs:
       - name: Build opencue_proto package
         id: build_opencue_proto
         run: |
-          python -m build ./opencue_proto
-          echo "opencue_proto_path=$(ls ./opencue_proto/dist/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
+          python -m build ./proto
+          echo "opencue_proto_path=$(ls ./proto/dist/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_pycue package
         id: build_pycue
@@ -71,7 +71,7 @@ jobs:
         with:
           name: opencue_packages
           path: |
-            opencue_proto/dist/*.*
+            proto/dist/*.*
             pycue/dist/*.*
             pyoutline/dist/*.*
             cueadmin/dist/*.*

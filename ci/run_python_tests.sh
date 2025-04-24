@@ -18,7 +18,7 @@ then
   echo "Installing pre-built opencue_proto package"
   pip install ${OPENCUE_PROTO_PACKAGE_PATH}
 else
-  pip install ./opencue_proto
+  pip install ./proto
 fi
 
 for package in pycue pyoutline cueadmin cuesubmit rqd
