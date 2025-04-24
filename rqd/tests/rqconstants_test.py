@@ -26,6 +26,7 @@ import os.path
 import shutil
 import tempfile
 import uuid
+import importlib
 
 import mock
 import pyfakefs.fake_filesystem_unittest
@@ -47,12 +48,6 @@ from .rqmachine_test import (
 )
 
 
-if not six.PY2:
-    import importlib
-
-    reload = importlib.reload
-
-
 class MockConfig(object):
     def __init__(self, tempdir, content):
         config = os.path.join(tempdir, str(uuid.uuid4()))
@@ -63,7 +58,7 @@ class MockConfig(object):
 
     def __enter__(self):
         self.patcher.start()
-        reload(rqd.rqconstants)
+        importlib.reload(rqd.rqconstants)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
