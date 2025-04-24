@@ -21,7 +21,7 @@ use uuid::Uuid;
 use crate::{
     config::config::{Config, MachineConfig},
     frame::{cache::RunningFrameCache, running_frame::RunningFrame},
-    report_client::{ReportClient, ReportInterface},
+    report::report_client::{ReportClient, ReportInterface},
 };
 
 use super::{

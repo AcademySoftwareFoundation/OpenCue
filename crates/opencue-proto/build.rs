@@ -65,7 +65,7 @@ fn build_protobuf() -> Result<(), Box<dyn std::error::Error>> {
             "#[derive(serde::Deserialize, serde::Serialize)]",
         )
         .out_dir(&crate_dir)
-        .compile(
+        .compile_protos(
             proto_files.as_slice(),
             &[protos_dir.to_string_lossy().to_string()],
         )?;

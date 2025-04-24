@@ -3,18 +3,19 @@ use std::{str::FromStr, sync::Arc};
 use config::config::Config;
 use frame::{cache::RunningFrameCache, manager::FrameManager};
 use miette::IntoDiagnostic;
-use report_client::ReportClient;
+use report::report_client::ReportClient;
 use system::machine::MachineMonitor;
-use tracing::warn;
+use tokio::select;
+use tracing::{error, warn};
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
 mod config;
 mod frame;
-mod report_client;
+mod report;
 mod servant;
 mod system;
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 8)]
+#[tokio::main(flavor = "multi_thread", worker_threads = 12)]
 async fn main() -> miette::Result<()> {
     let config = Config::load()?;
 
@@ -61,27 +62,34 @@ async fn main() -> miette::Result<()> {
         machine: mm_clone.clone(),
     });
 
-    tokio::spawn(async move {
-        if let Err(e) = machine_monitor.start().await {
-            panic!("MachineMonitor loop crashed. {e}")
-        }
-    });
+    // Spawn machine monitor on a new task to prevent it from locking the main task
+    let machine_monitor_handle = {
+        let mm = Arc::clone(&machine_monitor);
+        tokio::spawn(async move { mm.start().await })
+    };
 
-    // TODO: Recover snapshot frames
     if let Err(err) = frame_manager.recover_snapshots().await {
         warn!("Failed to recover frames from snapshot: {}", err);
     };
 
     // Initialize rqd grpc servant
-    let out = servant::serve(config, mm_clone, frame_manager)
-        .await
-        .into_diagnostic();
+    let servant_handle = servant::serve(config, mm_clone, frame_manager);
 
-    if out.is_err() {
-        mm_clone2.interrupt().await;
-    }
-
-    out
+    // Race machine_monitor and servant futures
+    select! {
+        machine_monitor_result = machine_monitor_handle => {
+            if let Err(err) = machine_monitor_result {
+                error!("Machine monitor crashed. {err}");
+            }
+        }
+        servant_handle_result = servant_handle => {
+            mm_clone2.interrupt().await;
+            if let Err(err) = servant_handle_result {
+                error!("Rqd servant crashed. {err}");
+            }
+        }
+    };
+    Ok(())
 }
 
 // To launch a process in a different process group in Linux, a binary (or executable) needs to have the following capabilities:

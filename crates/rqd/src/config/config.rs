@@ -34,6 +34,9 @@ impl Default for LoggingConfig {
 pub struct GrpcConfig {
     pub rqd_port: u16,
     pub cuebot_url: String,
+    pub backoff_delay_min: Duration,
+    pub backoff_delay_max: Duration,
+    pub backoff_jitter_percentage: f64,
 }
 
 impl Default for GrpcConfig {
@@ -41,6 +44,9 @@ impl Default for GrpcConfig {
         GrpcConfig {
             rqd_port: 8444,
             cuebot_url: "localhost:4343".to_string(),
+            backoff_delay_min: Duration::from_millis(10),
+            backoff_delay_max: Duration::from_secs(60),
+            backoff_jitter_percentage: 10.0,
         }
     }
 }
