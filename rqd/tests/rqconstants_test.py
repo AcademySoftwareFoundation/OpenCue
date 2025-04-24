@@ -31,8 +31,6 @@ import importlib
 import mock
 import pyfakefs.fake_filesystem_unittest
 
-import six
-
 import opencue_proto.report_pb2
 import rqd.rqconstants
 import rqd.rqcore
