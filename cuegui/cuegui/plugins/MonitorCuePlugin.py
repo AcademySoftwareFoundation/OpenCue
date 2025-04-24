@@ -95,6 +95,14 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         self.addShows([os.getenv('SHOW')])
 
+        # pylint: disable=protected-access
+        QtWidgets.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_Space),
+            self,
+            self.__monitorCue._update
+        )
+        # pylint: enable=protected-access
+
     def __cueStateBarSetup(self, layout):
         cueStateBarEnabled = self.app.settings.value("CueStateBar", False)
         if cueStateBarEnabled:
@@ -154,6 +162,16 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         btn.setFlat(True)
         layout.addWidget(btn)
         btn.clicked.connect(self.__monitorCue.actionResumeSelectedItems)  # pylint: disable=no-member
+
+        btn = QtWidgets.QPushButton(QtGui.QIcon(":reload.png"), "")
+        btn.setToolTip("Refresh monitor cue")
+        btn.setFocusPolicy(QtCore.Qt.NoFocus)
+        btn.setFlat(True)
+        layout.addWidget(btn)
+        # pylint: disable=protected-access
+        btn.clicked.connect(self.__monitorCue._update)
+        # pylint: enable=protected-access
+
 
 
     ################################################################################
