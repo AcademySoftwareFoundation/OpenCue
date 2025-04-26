@@ -458,14 +458,21 @@ class RqCore(object):
     def shutdownRqdNow(self):
         """Kill all running frames and shutdown RQD"""
         self.machine.state = rqd.compiled_proto.host_pb2.DOWN
-        try:
-            self.lockAll()
-            self.killAllFrame("shutdownRqdNow Command")
-        # pylint: disable=broad-except
-        except Exception:
-            log.exception("Failed to kill frames, stopping service anyways")
-        if not self.__cache:
+        # When running on docker, stopping RQD will trigger the creation of a new container,
+        # and running frames will be recovered on a new instance.
+        # Thus, shutdown doesn't require locking and killing frames when running on docker.
+        if self.docker_agent is not None:
+            self.__reboot = False
             self.shutdown()
+        else:
+            try:
+                self.lockAll()
+                self.killAllFrame("shutdownRqdNow Command")
+                    # pylint: disable=broad-except
+            except Exception:
+                log.exception("Failed to kill frames, stopping service anyways")
+            if not self.__cache:
+                self.shutdown()
 
     def shutdownRqdIdle(self):
         """When machine is idle, shutdown RQD"""

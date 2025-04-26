@@ -23,14 +23,11 @@ from __future__ import division
 from builtins import str
 from builtins import range
 from builtins import object
-import future.types
 from future.utils import with_metaclass
 import os
 import sys
 import logging
 import tempfile
-
-import six
 
 import FileSequence
 
@@ -489,16 +486,6 @@ class Layer(with_metaclass(LayerType, object)):
 
         for arg, rtype in self.__req_args:
             if arg == key and rtype:
-                # Python 2/3 compatibility. Be a little more flexible with acceptable string
-                #   types, especially in Python 2. Client code may be using the old Python 2
-                #   string type or the unicode-based, backported future.types.newstr.
-                string_types = (__builtins__.get('str'),)
-                if hasattr(future.types, 'newstr'):
-                    string_types += (future.types.newstr,)
-
-                if rtype in string_types:
-                    rtype = six.string_types
-
                 if not isinstance(value, rtype):
                     msg = "The arg %s for the %s module must be a %s"
                     raise outline.exception.LayerException(msg % (arg,
