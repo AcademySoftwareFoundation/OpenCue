@@ -33,8 +33,12 @@ impl Default for LoggingConfig {
 #[serde(default)]
 pub struct GrpcConfig {
     pub rqd_port: u16,
-    pub cuebot_url: String,
+    pub cuebot_endpoints: Vec<String>,
+    #[serde(with = "humantime_serde")]
+    pub connection_expires_after: Duration,
+    #[serde(with = "humantime_serde")]
     pub backoff_delay_min: Duration,
+    #[serde(with = "humantime_serde")]
     pub backoff_delay_max: Duration,
     pub backoff_jitter_percentage: f64,
 }
@@ -43,7 +47,8 @@ impl Default for GrpcConfig {
     fn default() -> GrpcConfig {
         GrpcConfig {
             rqd_port: 8444,
-            cuebot_url: "localhost:4343".to_string(),
+            cuebot_endpoints: vec!["localhost:4343".to_string()],
+            connection_expires_after: Duration::from_secs(3600), // 1h. from_hour is experimental
             backoff_delay_min: Duration::from_millis(10),
             backoff_delay_max: Duration::from_secs(60),
             backoff_jitter_percentage: 10.0,

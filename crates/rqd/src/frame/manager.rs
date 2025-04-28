@@ -1,14 +1,10 @@
-use chrono::DateTime;
+use chrono::{DateTime, Local};
 use miette::{Diagnostic, Result, miette};
 use opencue_proto::{
     host::HardwareState,
     rqd::{RunFrame, run_frame},
 };
-use std::{
-    fs,
-    sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{fs, sync::Arc, time::SystemTime};
 use thiserror::Error;
 use tokio::time;
 use tracing::{error, info, warn};
@@ -342,14 +338,11 @@ impl FrameManager {
         let force_kill = self.config.runner.force_kill_after_timeout;
         let mut tried_to_force_kill_session = false;
         let mut interval = time::interval(self.config.runner.kill_monitor_interval);
-        let kill_request_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| {
-                let secs = d.as_secs();
-                let dt = DateTime::from_timestamp(secs as i64, 0).unwrap_or_default();
-                dt.format("%Y-%m-%d %H:%M:%S").to_string()
-            })
-            .unwrap_or_else(|_| "invalid time".to_string());
+
+        // Now into localized timestamp
+        let time_str: DateTime<Local> = SystemTime::now().into();
+        let kill_request_time = time_str.format("%Y-%m-%d %H:%M:%S").to_string();
+
         let job_str = format!("{}", running_frame);
         let machine = Arc::clone(&self.machine);
 

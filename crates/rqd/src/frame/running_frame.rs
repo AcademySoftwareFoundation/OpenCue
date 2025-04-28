@@ -12,12 +12,12 @@ use std::{
     process::ExitStatus,
     sync::{Arc, Mutex, mpsc::Receiver},
     thread::JoinHandle,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime},
 };
 use std::{os::unix::process::ExitStatusExt, sync::mpsc};
 use std::{process::Stdio, thread};
 
-use chrono::DateTime;
+use chrono::{DateTime, Local};
 use tracing::{error, info, warn};
 
 use crate::{frame::frame_cmd::FrameCmdBuilder, system::manager::ProcessStats};
@@ -712,20 +712,15 @@ impl RunningFrame {
         match *lock {
             FrameState::Created(_) => Err(miette!("Frame has been created but hasn't started yet")),
             FrameState::Running(ref running_state) => Ok(running_state.pid),
-            FrameState::Finished(ref finished_state) => Err(miette!(
-                "Frame has already terminated at {} with exit_code={} and exit_signal={:?}",
-                finished_state
-                    .end_time
-                    .duration_since(UNIX_EPOCH)
-                    .map(|d| {
-                        let secs = d.as_secs();
-                        let dt = DateTime::from_timestamp(secs as i64, 0).unwrap_or_default();
-                        dt.format("%Y-%m-%d %H:%M:%S").to_string()
-                    })
-                    .unwrap_or_else(|_| "invalid time".to_string()),
-                finished_state.exit_code,
-                finished_state.exit_signal
-            )),
+            FrameState::Finished(ref finished_state) => {
+                let end_time: DateTime<Local> = finished_state.end_time.into();
+                Err(miette!(
+                    "Frame has already terminated at {} with exit_code={} and exit_signal={:?}",
+                    end_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                    finished_state.exit_code,
+                    finished_state.exit_signal
+                ))
+            }
         }
     }
 

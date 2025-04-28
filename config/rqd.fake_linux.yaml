@@ -1,7 +1,9 @@
 logging:
   level: info
-grpc.rqd_port: 8444
-grpc.cuebot_url: "0.0.0.0:4343"
+grpc:
+  rqd_port: 8444
+  cuebot_endpoints: ["0.0.0.0:4343", "0.0.0.0:4343"]
+  connection_expires_after: 15m
 machine:
   facility: test
   monitor_interval: 3s
