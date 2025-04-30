@@ -301,7 +301,7 @@ impl FrameManager {
     pub async fn kill_running_frame(&self, frame_id: &Uuid, reason: String) -> Result<Option<()>> {
         match self.get_running_frame(frame_id) {
             Some(running_frame) => {
-                let pid = running_frame.get_pid_to_kill();
+                let pid = running_frame.get_pid_to_kill(&reason);
                 if let Ok(frame_pid) = pid {
                     info!(
                         "Killing frame {running_frame}({frame_pid}) by request.\n\

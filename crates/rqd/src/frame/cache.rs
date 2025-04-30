@@ -37,7 +37,7 @@ impl RunningFrameCache {
             .map(|running_frame| {
                 let frame_stats = running_frame
                     .frame_stats
-                    .lock()
+                    .read()
                     .unwrap_or_else(|poisoned| poisoned.into_inner())
                     .clone()
                     .unwrap_or_default();

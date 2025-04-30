@@ -193,7 +193,7 @@ impl MachineMonitor {
                         None
                     })
                 {
-                    if let Ok(mut frame_stats) = running_frame.frame_stats.lock() {
+                    if let Ok(mut frame_stats) = running_frame.frame_stats.write() {
                         if let Some(old_frame_stats) = frame_stats.as_mut() {
                             old_frame_stats.update(proc_stats);
                         } else {

@@ -185,6 +185,8 @@ pub struct ProcessStats {
     pub children: Option<ChildrenProcStats>,
     /// Unix timestamp denoting the start time of the frame process.
     pub epoch_start_time: u64,
+    /// Total runtime of the longer lasting process in the lineage
+    pub run_time: u64,
 }
 
 impl Default for ProcessStats {
@@ -202,21 +204,18 @@ impl Default for ProcessStats {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_else(|_| std::time::Duration::from_secs(0))
                 .as_secs(),
+            run_time: 0,
         }
     }
-}
-
-/// Get the max between two u64s
-fn max_u64(left: u64, right: u64) -> u64 {
-    (left > right).then(|| left).unwrap_or(right)
 }
 
 impl ProcessStats {
     pub fn update(&mut self, new: Self) {
         *self = ProcessStats {
-            max_rss: max_u64(new.max_rss, self.max_rss),
-            max_vsize: max_u64(new.max_vsize, self.max_vsize),
-            max_used_gpu_memory: max_u64(new.max_used_gpu_memory, self.max_used_gpu_memory),
+            max_rss: std::cmp::max(new.max_rss, self.max_rss),
+            max_vsize: std::cmp::max(new.max_vsize, self.max_vsize),
+            max_used_gpu_memory: std::cmp::max(new.max_used_gpu_memory, self.max_used_gpu_memory),
+            run_time: std::cmp::max(new.run_time, self.run_time),
             ..new
         };
     }

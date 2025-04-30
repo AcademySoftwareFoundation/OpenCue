@@ -42,8 +42,8 @@ allocate_memory &
 child2_pid=$!
 echo "Second child process has PID: $child2_pid"
 
-echo "All processes running. Parent will wait for 5 minutes before exiting."
-sleep 120
+echo "All processes running. Parent will wait before exiting."
+sleep 60
 
 # Clean up child processes
 kill $child1_pid $child2_pid 2>/dev/null

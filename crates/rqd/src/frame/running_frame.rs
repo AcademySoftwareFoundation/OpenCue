@@ -10,7 +10,7 @@ use std::{
     },
     path::Path,
     process::ExitStatus,
-    sync::{Arc, Mutex, mpsc::Receiver},
+    sync::{Arc, Mutex, RwLock, mpsc::Receiver},
     thread::JoinHandle,
     time::{Duration, SystemTime},
 };
@@ -18,6 +18,7 @@ use std::{os::unix::process::ExitStatusExt, sync::mpsc};
 use std::{process::Stdio, thread};
 
 use chrono::{DateTime, Local};
+use itertools::Itertools;
 use tracing::{error, info, warn};
 
 use crate::{frame::frame_cmd::FrameCmdBuilder, system::manager::ProcessStats};
@@ -39,7 +40,7 @@ pub struct RunningFrame {
     pub job_id: Uuid,
     pub frame_id: Uuid,
     pub layer_id: Uuid,
-    pub frame_stats: Mutex<Option<ProcessStats>>,
+    pub frame_stats: RwLock<Option<ProcessStats>>,
     pub log_path: String,
     uid: u32,
     config: RunnerConfig,
@@ -77,6 +78,7 @@ pub struct RunningState {
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
     launch_thread_handle: Option<JoinHandle<()>>,
+    kill_reason: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -90,6 +92,7 @@ pub struct FinishedState {
     pub end_time: SystemTime,
     pub exit_code: i32,
     pub exit_signal: Option<i32>,
+    pub kill_reason: Option<String>,
 }
 
 impl Display for RunningFrame {
@@ -154,7 +157,7 @@ impl RunningFrame {
             job_id,
             frame_id,
             layer_id,
-            frame_stats: Mutex::new(None),
+            frame_stats: RwLock::new(None),
             log_path,
             uid,
             config,
@@ -184,6 +187,7 @@ impl RunningFrame {
                 end_time: finished_state.end_time,
                 exit_code: finished_state.exit_code,
                 exit_signal: finished_state.exit_signal,
+                kill_reason: None,
             }),
         }
     }
@@ -232,6 +236,7 @@ impl RunningFrame {
                     end_time: SystemTime::now(),
                     exit_code,
                     exit_signal,
+                    kill_reason: running_state.kill_reason.clone(),
                 };
 
                 // Replace state with the new FinishedState
@@ -245,7 +250,12 @@ impl RunningFrame {
         }
     }
 
-    fn start(&self, pid: u32) -> Result<()> {
+    /// Transition the frame state from Created to Running.
+    ///
+    /// If the frame has already started or finished, log the error and don't change the status.
+    /// Returning an error is pointless as we want the frame that trigger this transition to finish
+    /// regardless
+    fn start(&self, pid: u32) {
         let mut state = self.state.lock().unwrap_or_else(|err| err.into_inner());
 
         match &mut *state {
@@ -254,18 +264,14 @@ impl RunningFrame {
                     pid,
                     start_time: SystemTime::now(),
                     launch_thread_handle: created_state.launch_thread_handle.take(),
+                    kill_reason: None,
                 });
-                Ok(())
             }
-            FrameState::Running(running_state) => Err(miette!(
+            FrameState::Running(running_state) => warn!(
                 "Invalid State. Frame {} has already started {:?}",
-                self,
-                running_state
-            )),
-            FrameState::Finished(_) => Err(miette!(
-                "Invalid State. Frame {} has already finished",
-                self
-            )),
+                self, running_state
+            ),
+            FrameState::Finished(_) => warn!("Invalid States. Frame {} has already finished", self),
         }
     }
 
@@ -334,6 +340,7 @@ impl RunningFrame {
                     if let Err(err) = self.finish(exit_code, exit_signal) {
                         warn!("Failed to mark frame {} as finished. {}", self, err);
                     }
+                    logger.writeln(&self.write_footer());
                     Some(exit_code)
                 }
                 Err(err) => {
@@ -349,6 +356,7 @@ impl RunningFrame {
                     if let Err(err) = self.finish(exit_code, exit_signal) {
                         warn!("Failed to mark frame {} as finished. {}", self, err);
                     }
+                    logger.writeln(&self.write_footer());
                     Some(exit_code)
                 }
                 Err(err) => {
@@ -373,6 +381,7 @@ impl RunningFrame {
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn run_inner(&self, logger: FrameLogger) -> Result<(i32, Option<i32>)> {
+        use miette::Context;
         use nix::libc;
         use tracing::trace;
 
@@ -429,7 +438,7 @@ impl RunningFrame {
 
         // Update frame state with frame pid
         let pid = child.id();
-        self.start(child.id())?;
+        self.start(child.id());
 
         info!(
             "Frame {self} started with pid {pid}, with taskset {}",
@@ -437,7 +446,7 @@ impl RunningFrame {
         );
 
         // Make sure process has been spawned before creating a backup
-        let _ = self.snapshot()?;
+        let _ = self.snapshot();
 
         // Spawn a new thread to follow frame logs
         let (log_pipe_handle, sender) = self.spawn_logger(logger);
@@ -450,7 +459,10 @@ impl RunningFrame {
         if let Err(_) = log_pipe_handle.join() {
             warn!("Failed to join log thread");
         }
-        let output = output.into_diagnostic()?;
+        let output = output
+            .into_diagnostic()
+            .wrap_err(format!("Command for {self} didn't start!"))?;
+
         let (exit_code, exit_signal) = Self::interprete_output(output);
 
         let msg = match exit_code {
@@ -704,14 +716,17 @@ impl RunningFrame {
     /// This method safely accesses the thread-protected state to retrieve
     /// the current PID of the running frame process. A warning is logged
     /// if the frame doesn't have an associated thread handle.
-    pub fn get_pid_to_kill(&self) -> Result<u32> {
-        let lock = self
+    pub fn get_pid_to_kill(&self, reason: &String) -> Result<u32> {
+        let mut lock = self
             .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         match *lock {
             FrameState::Created(_) => Err(miette!("Frame has been created but hasn't started yet")),
-            FrameState::Running(ref running_state) => Ok(running_state.pid),
+            FrameState::Running(ref mut running_state) => {
+                running_state.kill_reason = Some(reason.clone());
+                Ok(running_state.pid)
+            }
             FrameState::Finished(ref finished_state) => {
                 let end_time: DateTime<Local> = finished_state.end_time.into();
                 Err(miette!(
@@ -940,6 +955,89 @@ Environment Variables:
         )
     }
 
+    fn write_footer(&self) -> String {
+        let frame_stats_lock = self
+            .frame_stats
+            .read()
+            .unwrap_or_else(|err| err.into_inner());
+        let frame_stats = frame_stats_lock.clone().unwrap_or(ProcessStats::default());
+        drop(frame_stats_lock);
+
+        let state = self.state.lock().unwrap_or_else(|err| err.into_inner());
+        match *state {
+            FrameState::Finished(ref finished_state) => {
+                let exit_status = finished_state.exit_code;
+                let exit_signal = finished_state.exit_signal.unwrap_or(0);
+                let kill_message = match finished_state.exit_signal {
+                    Some(_) => {
+                        format!(
+                            "\nkillMessage          {}\n",
+                            finished_state
+                                .kill_reason
+                                .clone()
+                                .unwrap_or("No reason defined".to_string())
+                        )
+                    }
+                    None => "".to_string(),
+                };
+                let start_time = DateTime::<Local>::from(finished_state.start_time)
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string();
+                let end_time = DateTime::<Local>::from(finished_state.end_time)
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string();
+                let maxrss = frame_stats.max_rss;
+                let max_gpu_memory = frame_stats.max_used_gpu_memory;
+                let run_time = frame_stats.run_time;
+
+                let children = frame_stats
+                    .children
+                    .map(|children_stats| {
+                        children_stats
+                            .children
+                            .iter()
+                            .map(|child| {
+                                let child_stat = child.stat.clone().unwrap_or_default();
+                                format!(
+                                    r#"
+____________________________________________________________________________________________________
+    child_pid           {}
+    cmdline             {}
+    maxrss              {}
+    start_time          {}"#,
+                                    child_stat.pid, child.cmdline, child_stat.rss, child.start_time
+                                )
+                            })
+                            .join("\n")
+                    })
+                    .unwrap_or("".to_string());
+
+                format!(
+                    r#"
+====================================================================================================
+Render Frame Completed
+exitStatus          {exit_status}
+exitSignal          {exit_signal}{kill_message}
+startTime           {start_time}
+endTime             {end_time}
+maxrss              {maxrss}
+maxUsedGpuMemory    {max_gpu_memory}
+runTime             {run_time}
+
+Processes:{children}
+===================================================================================================="#
+                )
+            }
+            _ => format!(
+                r#"
+====================================================================================================
+Render Frame Completed
+        ),
+        "#
+            ),
+        }
+    }
+
     fn taskset(&self) -> String {
         self.cpu_list
             .clone()
@@ -954,7 +1052,7 @@ Environment Variables:
     pub fn into_running_frame_info(&self) -> Option<RunningFrameInfo> {
         let frame_stats_lock = self
             .frame_stats
-            .lock()
+            .read()
             .unwrap_or_else(|err| err.into_inner());
         // Start time defauls to 0 if a frame hasn't started
         let start_time = frame_stats_lock
