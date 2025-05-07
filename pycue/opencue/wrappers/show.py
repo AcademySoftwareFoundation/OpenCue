@@ -14,7 +14,7 @@
 
 """Module for classes related to shows."""
 
-from opencue.compiled_proto import show_pb2
+from opencue_proto import show_pb2
 from opencue.cuebot import Cuebot
 import opencue.wrappers.filter
 import opencue.wrappers.group

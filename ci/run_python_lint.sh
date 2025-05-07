@@ -1,55 +1,69 @@
 #!/bin/bash
 
-set -e
+set -ex
+
+if [[ -v VIRTUAL_ENV ]]
+then
+  PIP_OPT=""
+else
+  PIP_OPT="--user"
+fi
 
 python_version=$(python -V)
 echo "Will run Python lint using ${python_version}"
 
-pip install --user -r requirements.txt -r requirements_gui.txt
+python -m pip install pylint==2.15.10 ${PIP_OPT}
+python -m pylint --version
 
-# Protos need to have their Python code generated in order for tests to pass.
-python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto --grpc_python_out=pycue/opencue/compiled_proto proto/*.proto
-python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc_python_out=rqd/rqd/compiled_proto proto/*.proto
-
-# Fix imports to work in both Python 2 and 3. See
-# <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
-python ci/fix_compiled_proto.py rqd/rqd/compiled_proto
+pip uninstall --yes opencue_proto opencue_pycue opencue_pyoutline opencue_cueadmin opencue_cuesubmit opencue_rqd
+if [[ -v OPENCUE_PROTO_PACKAGE_PATH ]]
+then
+  echo "Installing pre-built cuebot package"
+  pip install ${OPENCUE_PROTO_PACKAGE_PATH} ${PIP_OPT}
+else
+  pip install ./proto ${PIP_OPT}
+fi
 
 echo "Running lint for pycue/..."
+pip install ./pycue[test] ${PIP_OPT}
 cd pycue
 python -m pylint --rcfile=../ci/pylintrc_main FileSequence
-python -m pylint --rcfile=../ci/pylintrc_main opencue --ignore=opencue/compiled_proto
+python -m pylint --rcfile=../ci/pylintrc_main opencue
 python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
 echo "Running lint for pyoutline/..."
+pip install ./pyoutline[test] ${PIP_OPT}
 cd pyoutline
-PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main outline
-PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests
+python -m pylint --rcfile=../ci/pylintrc_main outline
+python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
 echo "Running lint for cueadmin/..."
+pip install ./cueadmin[test] ${PIP_OPT}
 cd cueadmin
-PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cueadmin
-PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests
+python -m pylint --rcfile=../ci/pylintrc_main cueadmin
+python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
 echo "Running lint for cuegui/..."
+pip install ./cuegui[test] ${PIP_OPT}
 cd cuegui
-PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cuegui --ignore=cuegui/images,cuegui/images/crystal --disable=no-member
-PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
+python -m pylint --rcfile=../ci/pylintrc_main cuegui --ignore=cuegui/images,cuegui/images/crystal --disable=no-member
+python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
 cd ..
 
 echo "Running lint for cuesubmit/..."
+pip install ./cuesubmit[test] ${PIP_OPT}
 cd cuesubmit
-PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_main cuesubmit --disable=no-member
-PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
+python -m pylint --rcfile=../ci/pylintrc_main cuesubmit --disable=no-member
+python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
 cd ..
 
 echo "Running lint for rqd/..."
+pip install ./rqd[test] ${PIP_OPT}
 cd rqd
-python -m pylint --rcfile=../ci/pylintrc_main rqd --ignore=rqd/compiled_proto
+python -m pylint --rcfile=../ci/pylintrc_main rqd
 python -m pylint --rcfile=../ci/pylintrc_test tests
 python -m pylint --rcfile=../ci/pylintrc_test pytests
 cd ..

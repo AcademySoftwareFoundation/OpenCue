@@ -28,16 +28,16 @@ import unittest
 
 import mock
 
+import opencue_proto.rqd_pb2
 import rqd.cuerqd
-import rqd.compiled_proto.rqd_pb2
 
 
 SCRIPT_NAME = '/arbitrary/path/to/script'
 RQD_HOSTNAME = 'arbitrary-rqd-hostname'
 
 
-@mock.patch('rqd.compiled_proto.rqd_pb2_grpc.RunningFrameStub')
-@mock.patch('rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceStub')
+@mock.patch('opencue_proto.rqd_pb2_grpc.RunningFrameStub')
+@mock.patch('opencue_proto.rqd_pb2_grpc.RqdInterfaceStub')
 @mock.patch('grpc.insecure_channel', new=mock.MagicMock())
 class CueRqdTests(unittest.TestCase):
 
@@ -59,7 +59,7 @@ class CueRqdTests(unittest.TestCase):
 
     def test_status(self, stubMock, frameStubMock):
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '-s']
-        statusRequest = rqd.compiled_proto.rqd_pb2.RqdStaticReportStatusRequest()
+        statusRequest = opencue_proto.rqd_pb2.RqdStaticReportStatusRequest()
 
         rqd.cuerqd.main()
 
@@ -68,7 +68,7 @@ class CueRqdTests(unittest.TestCase):
     def test_getRunningFrame(self, stubMock, frameStubMock):
         frameId = 'arbitrary-frame-id'
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--getproxy', frameId]
-        runFrameRequest = rqd.compiled_proto.rqd_pb2.RqdStaticGetRunFrameRequest(frame_id=frameId)
+        runFrameRequest = opencue_proto.rqd_pb2.RqdStaticGetRunFrameRequest(frame_id=frameId)
 
         rqd.cuerqd.main()
 
@@ -76,7 +76,7 @@ class CueRqdTests(unittest.TestCase):
 
     def test_nimbyOff(self, stubMock, frameStubMock):
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--nimbyoff']
-        nimbyOffRequest = rqd.compiled_proto.rqd_pb2.RqdStaticNimbyOffRequest()
+        nimbyOffRequest = opencue_proto.rqd_pb2.RqdStaticNimbyOffRequest()
 
         rqd.cuerqd.main()
 
@@ -84,7 +84,7 @@ class CueRqdTests(unittest.TestCase):
 
     def test_nimbyOn(self, stubMock, frameStubMock):
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--nimbyon']
-        nimbyOnRequest = rqd.compiled_proto.rqd_pb2.RqdStaticNimbyOnRequest()
+        nimbyOnRequest = opencue_proto.rqd_pb2.RqdStaticNimbyOnRequest()
 
         rqd.cuerqd.main()
 
@@ -92,7 +92,7 @@ class CueRqdTests(unittest.TestCase):
 
     def test_lockAll(self, stubMock, frameStubMock):
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--lh']
-        lockAllRequest = rqd.compiled_proto.rqd_pb2.RqdStaticLockAllRequest()
+        lockAllRequest = opencue_proto.rqd_pb2.RqdStaticLockAllRequest()
 
         rqd.cuerqd.main()
 
@@ -100,7 +100,7 @@ class CueRqdTests(unittest.TestCase):
 
     def test_unlockAll(self, stubMock, frameStubMock):
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--ulh']
-        unlockAllRequest = rqd.compiled_proto.rqd_pb2.RqdStaticUnlockAllRequest()
+        unlockAllRequest = opencue_proto.rqd_pb2.RqdStaticUnlockAllRequest()
 
         rqd.cuerqd.main()
 
@@ -109,7 +109,7 @@ class CueRqdTests(unittest.TestCase):
     def test_lock(self, stubMock, frameStubMock):
         numCoresToLock = 85
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--lp', str(numCoresToLock)]
-        lockRequest = rqd.compiled_proto.rqd_pb2.RqdStaticLockRequest(cores=numCoresToLock)
+        lockRequest = opencue_proto.rqd_pb2.RqdStaticLockRequest(cores=numCoresToLock)
 
         rqd.cuerqd.main()
 
@@ -118,7 +118,7 @@ class CueRqdTests(unittest.TestCase):
     def test_unlock(self, stubMock, frameStubMock):
         numCoresToUnlock = 52
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--ulp', str(numCoresToUnlock)]
-        unlockRequest = rqd.compiled_proto.rqd_pb2.RqdStaticUnlockRequest(cores=numCoresToUnlock)
+        unlockRequest = opencue_proto.rqd_pb2.RqdStaticUnlockRequest(cores=numCoresToUnlock)
 
         rqd.cuerqd.main()
 
@@ -126,7 +126,7 @@ class CueRqdTests(unittest.TestCase):
 
     def test_shutdownRqdIdle(self, stubMock, frameStubMock):
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--exit']
-        shutdownIdleRequest = rqd.compiled_proto.rqd_pb2.RqdStaticShutdownIdleRequest()
+        shutdownIdleRequest = opencue_proto.rqd_pb2.RqdStaticShutdownIdleRequest()
 
         rqd.cuerqd.main()
 
@@ -134,7 +134,7 @@ class CueRqdTests(unittest.TestCase):
 
     def test_shutdownRqdNow(self, stubMock, frameStubMock):
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--exit_now']
-        shutdownNowRequest = rqd.compiled_proto.rqd_pb2.RqdStaticShutdownNowRequest()
+        shutdownNowRequest = opencue_proto.rqd_pb2.RqdStaticShutdownNowRequest()
 
         rqd.cuerqd.main()
 
@@ -142,7 +142,7 @@ class CueRqdTests(unittest.TestCase):
 
     def test_rebootIdle(self, stubMock, frameStubMock):
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--reboot']
-        rebootIdleRequest = rqd.compiled_proto.rqd_pb2.RqdStaticRebootIdleRequest()
+        rebootIdleRequest = opencue_proto.rqd_pb2.RqdStaticRebootIdleRequest()
 
         rqd.cuerqd.main()
 
@@ -150,18 +150,18 @@ class CueRqdTests(unittest.TestCase):
 
     def test_rebootNow(self, stubMock, frameStubMock):
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--reboot_now']
-        rebootNowRequest = rqd.compiled_proto.rqd_pb2.RqdStaticRebootNowRequest()
+        rebootNowRequest = opencue_proto.rqd_pb2.RqdStaticRebootNowRequest()
 
         rqd.cuerqd.main()
 
         stubMock.return_value.RebootNow.assert_called_with(rebootNowRequest)
 
     def test_launchFrame(self, stubMock, frameStubMock):
-        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
+        runFrame = opencue_proto.rqd_pb2.RunFrame()
         runFrame.job_id = "SD6F3S72DJ26236KFS"
         runFrame.job_name = "edu-trn_job-name"
         runFrame.frame_id = "FD1S3I154O646UGSNN"
-        runFrameRequest = rqd.compiled_proto.rqd_pb2.RqdStaticLaunchFrameRequest(run_frame=runFrame)
+        runFrameRequest = opencue_proto.rqd_pb2.RqdStaticLaunchFrameRequest(run_frame=runFrame)
         rqdHost = rqd.cuerqd.RqdHost(RQD_HOSTNAME)
         rqdHost.active = False
 
@@ -171,7 +171,7 @@ class CueRqdTests(unittest.TestCase):
 
     def test_killFrame(self, stubMock, frameStubMock):
         frameId = 'arbitrary-frame-id'
-        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frameId)
+        runFrame = opencue_proto.rqd_pb2.RunFrame(frame_id=frameId)
         stubMock.return_value.GetRunFrame.return_value = runFrame
         sys.argv = [SCRIPT_NAME, RQD_HOSTNAME, '--kill', frameId]
 

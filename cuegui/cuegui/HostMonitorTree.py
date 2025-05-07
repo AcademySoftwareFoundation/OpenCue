@@ -28,9 +28,9 @@ from qtpy import QtGui
 from qtpy import QtWidgets
 
 import opencue
-from opencue.compiled_proto.host_pb2 import HardwareState
-from opencue.compiled_proto.host_pb2 import LockState
-from opencue.compiled_proto.host_pb2 import ThreadMode
+from opencue_proto.host_pb2 import HardwareState
+from opencue_proto.host_pb2 import LockState
+from opencue_proto.host_pb2 import ThreadMode
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem

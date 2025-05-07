@@ -23,7 +23,7 @@ import unittest
 
 import mock
 
-from opencue.compiled_proto import depend_pb2
+from opencue_proto import depend_pb2
 import opencue.wrappers.depend
 
 
@@ -85,12 +85,12 @@ class DependEnumTests(unittest.TestCase):
 
     def testDependType(self):
         self.assertEqual(opencue.api.Depend.DependType.JOB_ON_JOB,
-                         opencue.compiled_proto.depend_pb2.JOB_ON_JOB)
+                         depend_pb2.JOB_ON_JOB)
         self.assertEqual(opencue.api.Depend.DependType.JOB_ON_JOB, 0)
 
     def testDependTarget(self):
         self.assertEqual(opencue.api.Depend.DependTarget.ANY_TARGET,
-                         opencue.compiled_proto.depend_pb2.ANY_TARGET)
+                         depend_pb2.ANY_TARGET)
         self.assertEqual(opencue.api.Depend.DependTarget.ANY_TARGET, 2)
 
 

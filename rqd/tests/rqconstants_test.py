@@ -31,12 +31,12 @@ import importlib
 import mock
 import pyfakefs.fake_filesystem_unittest
 
+import opencue_proto.report_pb2
 import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqmachine
 import rqd.rqnimby
 import rqd.rqutil
-import rqd.compiled_proto.report_pb2
 
 from .rqmachine_test import (
     CPUINFO,
@@ -102,7 +102,7 @@ class RqConstantTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.nimby = nimby
         nimby.is_ready = False
         nimby.locked = False
-        coreDetail = rqd.compiled_proto.report_pb2.CoreDetail(total_cores=2)
+        coreDetail = opencue_proto.report_pb2.CoreDetail(total_cores=2)
         machine = rqd.rqmachine.Machine(rqCore, coreDetail)
 
         machine.renderHost = machine.__dict__["_Machine__renderHost"]
