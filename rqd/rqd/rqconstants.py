@@ -105,6 +105,7 @@ CHECK_INTERVAL_LOCKED = 60
 MINIMUM_IDLE = 900
 # Default display configuration in case the environment variable DISPLAY is not set
 DEFAULT_DISPLAY = ":0"
+RQD_DISPLAY_PATH = None
 # If available memory drops below this amount, lock nimby (need to take into account cache).
 MINIMUM_MEM = 524288
 MINIMUM_SWAP = 1048576
@@ -263,6 +264,10 @@ try:
         if config.has_option(__override_section, "BACKUP_CACHE_TIME_TO_LIVE_SECONDS"):
             BACKUP_CACHE_TIME_TO_LIVE_SECONDS = config.getint(
                 __override_section, "BACKUP_CACHE_TIME_TO_LIVE_SECONDS")
+
+        if config.has_option(__override_section, "RQD_DISPLAY_PATH"):
+            RQD_DISPLAY_PATH = config.get(__override_section, "RQD_DISPLAY_PATH")
+
 
         __docker_config = "docker.config"
         __docker_gpu_mode = "DOCKER_GPU_MODE"

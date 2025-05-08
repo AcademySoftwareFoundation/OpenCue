@@ -89,6 +89,7 @@ class RqCore(object):
         self.__cluster = None
         self.__session = None
         self.__stmt = None
+        self._heartbeat_counter = 0
 
         self.docker_agent = None
 
@@ -112,19 +113,7 @@ class RqCore(object):
 
     def start(self):
         """Called by main to start the rqd service"""
-        if self.machine.isDesktop():
-            if self.__optNimbyoff:
-                log.warning('Nimby startup has been disabled via --nimbyoff')
-            elif not rqd.rqconstants.OVERRIDE_NIMBY:
-                if rqd.rqconstants.OVERRIDE_NIMBY is None:
-                    log.warning('OVERRIDE_NIMBY is not defined, Nimby startup has been disabled')
-                else:
-                    log.warning('OVERRIDE_NIMBY is False, Nimby startup has been disabled')
-            else:
-                self.nimbyOn()
-        elif rqd.rqconstants.OVERRIDE_NIMBY:
-            log.warning('Nimby startup has been triggered by OVERRIDE_NIMBY')
-            self.nimbyOn()
+        self.nimbyOn()
         self.network.start_grpc()
 
     def grpcConnected(self):
@@ -171,11 +160,30 @@ class RqCore(object):
             log.warning(
                 'Unable to shutdown due to %s at %s', e, traceback.extract_tb(sys.exc_info()[2]))
 
+        # Count number of times this function is being executed to allow
+        # executing action on different heartbeat counts
+        if self._heartbeat_counter >= sys.maxsize:
+            self._heartbeat_counter = 0
+        self._heartbeat_counter += 1
+
+        try:
+            self.retryNimby()
+        # pylint: disable=broad-except
+        except Exception as e:
+            log.warning("Failed to initialize Nimby. %s", e)
+
         try:
             self.sendStatusReport()
         # pylint: disable=broad-except
         except Exception:
             log.exception('Unable to send status report')
+
+    def retryNimby(self):
+        if not self.nimby.is_ready and \
+            self._heartbeat_counter % 5 == 0:
+                log.warning("Retrying to initialize Nimby")
+                self.nimby = Nimby(self)
+                self.nimbyOn()
 
     def updateRss(self):
         """Triggers and schedules the updating of rss information"""
@@ -508,6 +516,21 @@ class RqCore(object):
     def nimbyOn(self):
         """Activates nimby, does not kill any running frames until next nimby
            event. Also does not unlock until sufficient idle time is reached."""
+        if self.machine.isDesktop():
+            if self.__optNimbyoff:
+                log.warning('Nimby startup has been disabled via --nimbyoff')
+                return
+            elif not rqd.rqconstants.OVERRIDE_NIMBY:
+                if rqd.rqconstants.OVERRIDE_NIMBY is None:
+                    log.warning('OVERRIDE_NIMBY is not defined, Nimby startup has been disabled')
+                else:
+                    log.warning('OVERRIDE_NIMBY is False, Nimby startup has been disabled')
+                return
+        elif rqd.rqconstants.OVERRIDE_NIMBY:
+            log.warning('Nimby startup has been triggered by OVERRIDE_NIMBY')
+        else:
+            return
+
         if self.nimby and self.nimby.is_ready:
             try:
                 self.nimby.start()
