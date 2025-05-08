@@ -517,17 +517,15 @@ class RqCore(object):
 
     def shouldStartNimby(self):
         """Decide if the nimby logic should be turned on"""
-        if self.machine.isDesktop():
-            if self.__optNimbyoff:
-                log.warning('Nimby startup has been disabled via --nimbyoff')
-                return False
-            if not rqd.rqconstants.OVERRIDE_NIMBY:
-                if rqd.rqconstants.OVERRIDE_NIMBY is None:
-                    log.warning('OVERRIDE_NIMBY is not defined, Nimby startup has been disabled')
-                else:
-                    log.warning('OVERRIDE_NIMBY is False, Nimby startup has been disabled')
-                return False
-        return True
+        if self.__optNimbyoff:
+            log.warning('Nimby startup has been disabled via --nimbyoff')
+            return False
+
+        if rqd.rqconstants.OVERRIDE_NIMBY:
+            log.warning('Nimby startup has been enabled via OVERRIDE_NIMBY')
+            return True
+
+        return False
 
     def nimbyOn(self):
         """Activates nimby, does not kill any running frames until next nimby
