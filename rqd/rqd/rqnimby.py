@@ -86,7 +86,7 @@ class Nimby(threading.Thread):
         property doesn't exist or the file doesn't exist, fallback to rqconstants.DEFAULT_DISPLAY
         """
         if rqd.rqconstants.RQD_DISPLAY_PATH and "DISPLAY" not in os.environ:
-            with open(rqd.rqconstants.RQD_DISPLAY_PATH, "r") as file:
+            with open(rqd.rqconstants.RQD_DISPLAY_PATH, "r", encoding='utf-8') as file:
                 display = file.read().strip()
                 os.environ["DISPLAY"] = display
         if "DISPLAY" not in os.environ:
