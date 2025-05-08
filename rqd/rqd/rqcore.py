@@ -113,7 +113,8 @@ class RqCore(object):
 
     def start(self):
         """Called by main to start the rqd service"""
-        self.nimbyOn()
+        if self.shouldStartNimby():
+            self.nimbyOn()
         self.network.start_grpc()
 
     def grpcConnected(self):
@@ -531,7 +532,7 @@ class RqCore(object):
     def nimbyOn(self):
         """Activates nimby, does not kill any running frames until next nimby
            event. Also does not unlock until sufficient idle time is reached."""
-        if self.nimby and self.nimby.is_ready and self.shouldStartNimby():
+        if self.nimby and self.nimby.is_ready:
             try:
                 self.nimby.start()
                 log.warning("Nimby has been activated")
