@@ -41,7 +41,7 @@ deadpool-postgres = "0.14.0"
 tonic = { workspace = true }
 itertools = "0.13.0"
 sysinfo = "0.33.1"
-nix = { version = "0.29", features = ["process", "signal"] }
+nix = { version = "0.29", features = ["process", "signal", "reboot"] }
 users = "0.11"
 humantime = "2.2.0"
 humantime-serde = "1.1.1"

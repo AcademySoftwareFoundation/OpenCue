@@ -151,12 +151,7 @@ pub trait ReportInterface {
         exit_signal: u32,
         run_time: u32,
     ) -> Result<()>;
-    async fn send_host_report(
-        &self,
-        host: pb::RenderHost,
-        frames: Vec<pb::RunningFrameInfo>,
-        core_info: pb::CoreDetail,
-    ) -> Result<()>;
+    async fn send_host_report(&self, host_report: pb::HostReport) -> Result<()>;
 }
 
 #[async_trait]
@@ -203,18 +198,9 @@ impl ReportInterface for ReportClient {
             .and(Ok(()))
     }
 
-    async fn send_host_report(
-        &self,
-        render_host: pb::RenderHost,
-        running_frames: Vec<pb::RunningFrameInfo>,
-        core_detail: pb::CoreDetail,
-    ) -> Result<()> {
+    async fn send_host_report(&self, host_report: pb::HostReport) -> Result<()> {
         let mut request = pb::RqdReportStatusRequest::default();
-        request.host_report = Some(pb::HostReport {
-            host: Some(render_host),
-            frames: running_frames,
-            core_info: Some(core_detail),
-        });
+        request.host_report = Some(host_report);
         self.get_client()
             .await?
             .report_status(request)

@@ -41,7 +41,7 @@ service RqdInterface {
     // Reboot the host when it becomes idle
     rpc RebootIdle(RqdStaticRebootIdleRequest) returns (RqdStaticRebootIdleResponse);
 
-    // Reboot the host now
+    // [Deprecated] Reboot the host now
     rpc RebootNow(RqdStaticRebootNowRequest) returns (RqdStaticRebootNowResponse);
 
     // Return the HostReport
@@ -53,7 +53,7 @@ service RqdInterface {
     // [Deprecated] Restart rqd process now
     rpc RestartRqdNow(RqdStaticRestartNowRequest) returns (RqdStaticRestartNowResponse);
 
-    // Turn off rqd when it becomes idle
+    // [Deprecated] Turn off rqd when it becomes idle
     rpc ShutdownRqdIdle(RqdStaticShutdownIdleRequest) returns (RqdStaticShutdownIdleResponse);
 
     // Stop rqd now

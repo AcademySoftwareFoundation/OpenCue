@@ -73,6 +73,9 @@ pub trait SystemManager {
 
     /// Returns the list of active children, and none if the pid itself is not active
     fn get_proc_lineage(&self, pid: u32) -> Option<Vec<u32>>;
+
+    /// Request a system reboot
+    fn reboot(&self) -> Result<()>;
 }
 
 #[derive(Debug, Clone, Diagnostic, Error)]

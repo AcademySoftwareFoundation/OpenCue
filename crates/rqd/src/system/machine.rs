@@ -5,7 +5,7 @@ use bytesize::KIB;
 use miette::{IntoDiagnostic, Result, miette};
 use opencue_proto::{
     host::HardwareState,
-    report::{CoreDetail, RenderHost},
+    report::{CoreDetail, HostReport, RenderHost},
 };
 use tokio::{
     select,
@@ -55,6 +55,7 @@ pub struct MachineMonitor {
     core_state: Arc<Mutex<CoreDetail>>,
     last_host_state: Arc<Mutex<Option<RenderHost>>>,
     interrupt: Mutex<Option<Sender<()>>>,
+    reboot_when_idle: Mutex<bool>,
 }
 
 impl MachineMonitor {
@@ -75,6 +76,7 @@ impl MachineMonitor {
             core_state: Arc::new(Mutex::new(CoreDetail::default())),
             last_host_state: Arc::new(Mutex::new(None)),
             interrupt: Mutex::new(None),
+            reboot_when_idle: Mutex::new(false),
         })
     }
 
@@ -129,6 +131,7 @@ impl MachineMonitor {
                 _ = interval.tick() => {
                     self.update_procs().await;
                     self.collect_and_send_host_report().await?;
+                    self.check_reboot_flag().await;
                 }
             }
         }
@@ -154,26 +157,20 @@ impl MachineMonitor {
 
     async fn collect_and_send_host_report(&self) -> Result<()> {
         let report_client = self.report_client.clone();
-        let system_manager = self.system_manager.lock().await;
-        let host_state = Self::inspect_host_state(&self.maching_config, &system_manager)?;
-        drop(system_manager);
-        // Store the last host_state on self
-        let mut self_host_state_lock = self.last_host_state.lock().await;
-        self_host_state_lock.replace(host_state.clone());
-        drop(self_host_state_lock);
+        let host_report = self.collect_host_report().await?;
 
-        let core_state = { self.core_state.lock().await.clone() };
-        self.monitor_running_frames().await?;
-
-        debug!("Sending host report: {:?}", host_state);
-        report_client
-            .send_host_report(
-                host_state,
-                Arc::clone(&self.running_frames_cache).into_running_frame_vec(),
-                core_state,
-            )
-            .await?;
+        debug!("Sending host report: {:?}", host_report.host);
+        report_client.send_host_report(host_report).await?;
         Ok(())
+    }
+
+    async fn check_reboot_flag(&self) {
+        if *self.reboot_when_idle.lock().await {
+            warn!("Machine became idle. Rebooting..");
+            if let Err(err) = self.system_manager.lock().await.reboot() {
+                error!("Failed to reboot when became idle. {err}");
+            };
+        }
     }
 
     async fn monitor_running_frames(&self) -> Result<()> {
@@ -391,6 +388,18 @@ pub trait Machine {
     /// Check if this pid and any of its children are still active
     /// Returns the list of active children, and none if the pid itself is not active
     async fn get_active_proc_lineage(&self, pid: u32) -> Option<Vec<u32>>;
+
+    async fn lock_cores(&self, count: u32) -> u32;
+
+    async fn lock_all_cores(&self);
+
+    async fn unlock_cores(&self, count: u32) -> u32;
+
+    async fn unlock_all_cores(&self);
+
+    async fn reboot_if_idle(&self) -> Result<()>;
+
+    async fn collect_host_report(&self) -> Result<HostReport>;
 }
 
 #[async_trait]
@@ -432,11 +441,11 @@ impl Machine for MachineMonitor {
         // Record reservation to be reported to cuebot
         if let Ok(_) = &cores_result {
             let mut core_state = self.core_state.lock().await;
-            info!("Before: {:?}", *core_state);
+            debug!("Before: {:?}", *core_state);
             core_state
                 .reserve(num_cores * self.maching_config.core_multiplier)
                 .map_err(|err| miette!(err))?;
-            info!("After: {:?}", *core_state);
+            debug!("After: {:?}", *core_state);
         }
         cores_result
     }
@@ -507,7 +516,7 @@ impl Machine for MachineMonitor {
         };
     }
 
-    async fn reserve_gpus(&self, num_gpus: u32) -> Result<Vec<u32>> {
+    async fn reserve_gpus(&self, _num_gpus: u32) -> Result<Vec<u32>> {
         todo!()
     }
 
@@ -541,5 +550,64 @@ impl Machine for MachineMonitor {
     async fn get_active_proc_lineage(&self, pid: u32) -> Option<Vec<u32>> {
         let system = self.system_manager.lock().await;
         system.get_proc_lineage(pid)
+    }
+
+    async fn lock_cores(&self, count: u32) -> u32 {
+        let mut core_state = self.core_state.lock().await;
+        core_state.lock_cores(count * self.maching_config.core_multiplier)
+    }
+
+    async fn lock_all_cores(&self) {
+        let mut core_state = self.core_state.lock().await;
+        core_state.lock_all_cores();
+    }
+
+    async fn unlock_cores(&self, count: u32) -> u32 {
+        let mut core_state = self.core_state.lock().await;
+        core_state.unlock_cores(count * self.maching_config.core_multiplier)
+    }
+
+    async fn unlock_all_cores(&self) {
+        let mut core_state = self.core_state.lock().await;
+        core_state.unlock_all_cores();
+    }
+
+    async fn reboot_if_idle(&self) -> Result<()> {
+        // Prevent new frames from booking
+        self.lock_all_cores().await;
+
+        if self.running_frames_cache.len() > 0 {
+            // Schedule reboot if the machine is not idle
+            let mut reboot_when_idle = self.reboot_when_idle.lock().await;
+
+            warn!("Machine set to reboot when idle");
+            *reboot_when_idle = true;
+        } else {
+            // Reboot now
+            let system = self.system_manager.lock().await;
+
+            warn!("Rebooting machine on request");
+            system.reboot()?;
+        }
+        Ok(())
+    }
+
+    async fn collect_host_report(&self) -> Result<HostReport> {
+        let system_manager = self.system_manager.lock().await;
+        let render_host = Self::inspect_host_state(&self.maching_config, &system_manager)?;
+        drop(system_manager);
+        // Store the last host_state on self
+        let mut self_host_state_lock = self.last_host_state.lock().await;
+        self_host_state_lock.replace(render_host.clone());
+        drop(self_host_state_lock);
+
+        let core_state = { self.core_state.lock().await.clone() };
+        self.monitor_running_frames().await?;
+
+        Ok(HostReport {
+            host: Some(render_host),
+            frames: Arc::clone(&self.running_frames_cache).into_running_frame_vec(),
+            core_info: Some(core_state),
+        })
     }
 }
