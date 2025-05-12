@@ -403,7 +403,7 @@ class PageDependType(AbstractWizardPage):
         """Returns the next page id
         @return: next page id
         @rtype:  int"""
-        if not self.wizard().dependType:
+        if self.wizard().dependType is None:
             return PAGE_SELECT_DEPEND_TYPE
         if self.frames:
             return PAGE_SELECT_ONJOB
