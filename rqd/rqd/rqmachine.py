@@ -333,6 +333,10 @@ class Machine(object):
                 if frame.pid is not None and frame.pid > 0:
                     session = str(frame.pid)
                     rss = vsize = swap = pcpu = 0
+
+                    if session not in session:
+                        continue
+
                     for child_pid in sessions[session]:
                         if child_pid not in pids:
                             continue
