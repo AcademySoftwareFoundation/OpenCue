@@ -334,7 +334,7 @@ class Machine(object):
                     session = str(frame.pid)
                     rss = vsize = swap = pcpu = 0
 
-                    if session not in session:
+                    if session not in sessions:
                         continue
 
                     for child_pid in sessions[session]:
