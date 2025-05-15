@@ -37,6 +37,17 @@ SUBMIT_APP_WINDOW_TITLE : "OpenCue Submit"
 
 CONFIG_YAML_INVALID = b' " some text in an unclosed quote'
 
+CONFIG_YAML_WITH_RENDER_CMDS_AND_SUB_CONFIG_FILE = b'''
+RENDER_CMDS:
+  Job From Env Var:
+    config_file: "$SUB_JOB_CONFIG_FILE"
+'''
+
+SUB_JOB_CONFIG_YAML = b'''
+command: "Render"
+options:
+  "-cam {camera}": "persp"
+'''
 
 class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
     def setUp(self):
@@ -79,6 +90,51 @@ class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         with self.assertRaises(cuesubmit.Config.CuesubmitConfigError):
             cuesubmit.Config.getConfigValues()
+
+    def test__should_expand_sub_config_from_env_var(self):
+        config_file_path = '/path/to/config.yaml'
+        sub_config_file_path = '/path/to/sub_config.yaml'
+        self.fs.create_file(
+            config_file_path,
+            contents=CONFIG_YAML_WITH_RENDER_CMDS_AND_SUB_CONFIG_FILE
+        )
+        self.fs.create_file(
+            sub_config_file_path,
+            contents=SUB_JOB_CONFIG_YAML
+        )
+        os.environ['CUESUBMIT_CONFIG_FILE'] = config_file_path
+        os.environ['SUB_JOB_CONFIG_FILE'] = sub_config_file_path
+
+        configData = cuesubmit.Config.getConfigValues()
+
+        self.assertTrue('Job From Env Var' in configData.get('RENDER_CMDS', {}).keys())
+        sub_job_config = configData.get('RENDER_CMDS', {}).get('Job From Env Var', {})
+        self.assertEqual('Render', sub_job_config.get('command'))
+        self.assertEqual(None, sub_job_config.get('config_file'),
+                         '"config_file" should be replaced by the sub_config values')
+        self.assertEqual(None, sub_job_config.get('SOME_UNKNOWN_SETTING'))
+
+    def test__should_feed_error_on_missing_sub_config_from_env_var(self):
+        config_file_path = '/path/to/config.yaml'
+        self.fs.create_file(
+            config_file_path,
+            contents=CONFIG_YAML_WITH_RENDER_CMDS_AND_SUB_CONFIG_FILE
+        )
+        os.environ['CUESUBMIT_CONFIG_FILE'] = config_file_path
+        if 'SUB_JOB_CONFIG_FILE' in os.environ:
+            del os.environ['SUB_JOB_CONFIG_FILE']
+
+        configData = cuesubmit.Config.getConfigValues()
+        sub_job_config = configData.get('RENDER_CMDS', {}).get('Job From Env Var', {})
+
+        self.assertTrue('Job From Env Var' in configData.get('RENDER_CMDS', {}).keys())
+        self.assertEqual('error', sub_job_config.get('command'))
+        self.assertEqual(None, sub_job_config.get('config_file'),
+                         '"config_file" should be replaced by the sub_config values')
+        self.assertTrue(isinstance(sub_job_config.get('options',{}).get('{ERROR}'),
+                                   FileNotFoundError))
+        # note: it does not raise, just feed it to the UI for feedback
+
 
 
 if __name__ == '__main__':

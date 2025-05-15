@@ -36,6 +36,9 @@ class CueCommandWidget(Widgets.CueHelpWidget):
         super(CueCommandWidget, self).__init__(parent)
         self.commandTextBox = CueCommandTextBox(None)
         self.contentLayout.addWidget(self.commandTextBox)
+        self.signals = [self.textChanged]
+        self.getter = self.text
+        self.setter = self.setText
         self.setupConnections()
 
     def setupConnections(self):
