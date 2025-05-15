@@ -79,9 +79,16 @@ class Nimby(threading.Thread):
 
     @staticmethod
     def setup_display():
-        """DISPLAY is required to import pynput internals and it's not automatically set depending
-        on the environment rqd is running in. This function simply falls back to DEFAULT_DISPLAY
         """
+        DISPLAY is required to import pynput internals and it's not automatically set depending
+        on the environment rqd is running in. This function attemps to read the display value
+        from a file on the path specified on the property rqconstants.RQD_DISPLAY_PATH. If the
+        property doesn't exist or the file doesn't exist, fallback to rqconstants.DEFAULT_DISPLAY
+        """
+        if rqd.rqconstants.RQD_DISPLAY_PATH and "DISPLAY" not in os.environ:
+            with open(rqd.rqconstants.RQD_DISPLAY_PATH, "r", encoding='utf-8') as file:
+                display = file.read().strip()
+                os.environ["DISPLAY"] = display
         if "DISPLAY" not in os.environ:
             os.environ['DISPLAY'] = rqd.rqconstants.DEFAULT_DISPLAY
 

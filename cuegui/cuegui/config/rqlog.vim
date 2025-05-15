@@ -2,12 +2,10 @@
 " Syntax highlighting:
 " ===================
 
-" This will override it if you have one: ~/.cuetopia/cjlog.vim
+" This will override it if you have one: ~/.config/.cuetopia/rqlog.vim
 
 " Syntax documentation:
 " http://vimdoc.sourceforge.net/htmldoc/syntax.html#syntax
-
-" If you make some good changes, let me know about them so I can add them to the default - John
 
 highlight Notice       term=bold ctermfg=Blue        guifg=Blue
 highlight Warning      term=bold ctermfg=Magenta     guifg=Purple
