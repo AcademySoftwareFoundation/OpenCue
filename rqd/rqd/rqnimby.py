@@ -45,12 +45,17 @@ class Nimby(threading.Thread):
         locked (bool): Whether the host is currently locked for rendering.
         last_activity_time (float): Timestamp of the last detected user activity.
     """
-    def __init__(self, rqCore):
+    def __init__(self, rqCore, noOp=False):
         self.is_ready = False
         self.rq_core = rqCore
         self.locked = False
         self.__is_user_active = False
         self.__interrupt = False
+
+        # When running on NoOp mode, nimby will skip initializing pynput and
+        # only report its default values
+        if noOp:
+            return
 
         try:
             Nimby.setup_display()

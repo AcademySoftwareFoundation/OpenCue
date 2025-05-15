@@ -32,6 +32,12 @@ import platform
 import subprocess
 import time
 
+# Disable GRPC fork support to avoid the warning:
+#  "fork_posix.cc Other threads are currently calling into gRPC, skipping fork() handlers"
+# Adding this environment variable doesn't change the server behaviour
+os.environ["GRPC_ENABLE_FORK_SUPPORT"] = "false"
+
+# pylint: disable=wrong-import-position
 import grpc
 
 import rqd.compiled_proto.report_pb2
