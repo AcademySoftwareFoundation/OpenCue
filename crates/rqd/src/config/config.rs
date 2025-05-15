@@ -2,7 +2,7 @@ use crate::config::error::RqdConfigError;
 use bytesize::ByteSize;
 use config::{Config as ConfigBase, Environment, File};
 use serde::{Deserialize, Serialize};
-use std::{env, fs, path::Path, time::Duration};
+use std::{collections::HashMap, env, fs, path::Path, time::Duration};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
 
@@ -116,6 +116,9 @@ pub struct RunnerConfig {
     #[serde(with = "humantime_serde")]
     pub kill_monitor_timeout: Duration,
     pub force_kill_after_timeout: bool,
+    pub docker_mounts: Vec<DockerMountConfig>,
+    pub docker_default_image: String,
+    pub docker_images: HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -124,6 +127,14 @@ pub enum LoggerType {
     File,
     // #[serde(rename = "loki")]
     // Loki,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DockerMountConfig {
+    pub target: String,
+    pub source: String,
+    pub typ: String,
+    pub bind_propagation: String,
 }
 
 impl Default for RunnerConfig {
@@ -145,7 +156,19 @@ impl Default for RunnerConfig {
             kill_monitor_interval: Duration::from_secs(120),
             kill_monitor_timeout: Duration::from_secs(1200),
             force_kill_after_timeout: false,
+            docker_mounts: Vec::new(),
+            docker_default_image: "ubuntu:latest".to_string(),
+            docker_images: HashMap::new(),
         }
+    }
+}
+
+impl RunnerConfig {
+    pub fn get_docker_image(&self, image_key: &str) -> String {
+        self.docker_images
+            .get(image_key)
+            .cloned()
+            .unwrap_or(self.docker_default_image.clone())
     }
 }
 

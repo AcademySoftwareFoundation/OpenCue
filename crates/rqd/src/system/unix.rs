@@ -310,9 +310,6 @@ impl UnixSystem {
         for line_res in reader.lines().into_iter() {
             if let Ok(line) = line_res {
                 if line.contains("ID") {
-                    // ID="rocky"
-                    // DISTRIB_ID=Ubuntu
-                    println!("id={}", line);
                     distro_id = line
                         .split_once("=")
                         .and_then(|(_, val)| Some(val.replace("\"", "")));

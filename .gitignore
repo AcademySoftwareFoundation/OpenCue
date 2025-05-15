@@ -5,5 +5,5 @@
 /crates/dist-lock
 /crates/scheduler
 
-*/*/.DS_Store
+.DS_Store
 config/rqd.local_docker.yaml

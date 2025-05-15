@@ -13,8 +13,10 @@ use tracing::error;
 pub type FrameLogger = Arc<dyn FrameLoggerT + Sync + Send>;
 
 pub trait FrameLoggerT {
-    // Open logger for writing
+    // Write a string as a line
     fn writeln(&self, line: &str);
+    // Write a byte stream
+    fn write(&self, bytes: &[u8]);
 }
 
 pub struct FrameLoggerBuilder {}
@@ -76,7 +78,7 @@ impl FrameFileLogger {
 
 impl FrameLoggerT for FrameFileLogger {
     fn writeln(&self, text: &str) {
-        let mut line = String::with_capacity(text.len() + 1);
+        let mut line = String::with_capacity(text.len() + 8);
         if self.prepend_timestamp {
             let timestamp = Utc::now().format("%H:%M:%S").to_string();
             line.push('[');
@@ -89,6 +91,34 @@ impl FrameLoggerT for FrameFileLogger {
         match self.file_descriptor.lock() {
             Ok(mut fd) => {
                 if let Err(io_err) = fd.write_all(line.as_bytes()) {
+                    error!("Failed to write line to frame logger: {io_err}");
+                }
+            }
+            Err(poison_err) => {
+                error!("Failed to acquire lock: {poison_err}");
+            }
+        }
+    }
+
+    fn write(&self, bytes: &[u8]) {
+        let mut buff: Vec<u8> = Vec::with_capacity(bytes.len());
+
+        if self.prepend_timestamp {
+            let linebreak = '\n' as u8;
+            for c in bytes {
+                buff.push(c.clone());
+                if *c == linebreak {
+                    let timestamp = format!("[{}] ", Utc::now().format("%H:%M:%S"));
+                    buff.extend_from_slice(timestamp.as_bytes());
+                }
+            }
+        } else {
+            buff.append(&mut bytes.to_vec());
+        }
+
+        match self.file_descriptor.lock() {
+            Ok(mut fd) => {
+                if let Err(io_err) = fd.write_all(&buff) {
                     error!("Failed to write line to frame logger: {io_err}");
                 }
             }
@@ -128,5 +158,138 @@ impl FrameLoggerT for TestLogger {
         self.lines.lock().unwrap().push(line.to_string());
 
         println!("{}", line);
+    }
+
+    fn write(&self, bytes: &[u8]) {
+        if let Ok(text) = std::str::from_utf8(bytes) {
+            self.lines.lock().unwrap().push(text.to_string());
+            print!("{}", text);
+        } else {
+            // If not valid UTF-8, store a descriptive message
+            self.lines
+                .lock()
+                .unwrap()
+                .push(format!("<binary data of {} bytes>", bytes.len()));
+            println!("<binary data of {} bytes>", bytes.len());
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Read;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_frame_file_logger_write_basic() {
+        // Create a temporary file for testing
+        let temp_file = NamedTempFile::new().unwrap();
+        let temp_path = temp_file.path().to_string_lossy().to_string();
+
+        // Create logger with timestamp disabled
+        let logger = FrameFileLogger::init(temp_path.clone(), false).unwrap();
+
+        // Write some test content
+        let test_content = b"Test content";
+        logger.write(test_content);
+
+        // Read back the content and verify
+        let mut file = File::open(temp_path).unwrap();
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
+
+        assert_eq!(buffer, test_content);
+    }
+
+    #[test]
+    fn test_frame_file_logger_write_with_timestamp() {
+        // Create a temporary file for testing
+        let temp_file = NamedTempFile::new().unwrap();
+        let temp_path = temp_file.path().to_string_lossy().to_string();
+
+        // Create logger with timestamp enabled
+        let logger = FrameFileLogger::init(temp_path.clone(), true).unwrap();
+
+        // Write content with newlines to test timestamp prepending
+        let test_content = b"Line 1\nLine 2\nLine 3";
+        logger.write(test_content);
+
+        // Read back the content and verify
+        let mut file = File::open(temp_path).unwrap();
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
+
+        // Validate that the buffer contains the original content
+        assert!(buffer.len() >= test_content.len());
+
+        // The output should contain the original content but may have timestamps added
+        let output = String::from_utf8_lossy(&buffer);
+        assert!(output.contains("Line 1"));
+        assert!(output.contains("Line 2"));
+        assert!(output.contains("Line 3"));
+    }
+
+    #[test]
+    fn test_frame_file_logger_write_no_timestamp_binary_data() {
+        // Create a temporary file for testing
+        let temp_file = NamedTempFile::new().unwrap();
+        let temp_path = temp_file.path().to_string_lossy().to_string();
+
+        // Create logger with timestamp disabled
+        let logger = FrameFileLogger::init(temp_path.clone(), false).unwrap();
+
+        // Write binary data
+        let binary_data = [0u8, 1u8, 2u8, 3u8, 4u8, 255u8];
+        logger.write(&binary_data);
+
+        // Read back the content and verify
+        let mut file = File::open(temp_path).unwrap();
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
+
+        assert_eq!(buffer, binary_data);
+    }
+
+    #[test]
+    fn test_frame_file_logger_write_multiple_writes() {
+        // Create a temporary file for testing
+        let temp_file = NamedTempFile::new().unwrap();
+        let temp_path = temp_file.path().to_string_lossy().to_string();
+
+        // Create logger with timestamp disabled for simplicity
+        let logger = FrameFileLogger::init(temp_path.clone(), false).unwrap();
+
+        // Write multiple times
+        logger.write(b"First write. ");
+        logger.write(b"Second write. ");
+        logger.write(b"Third write.");
+
+        // Read back the content and verify
+        let mut file = File::open(temp_path).unwrap();
+        let mut buffer = String::new();
+        file.read_to_string(&mut buffer).unwrap();
+
+        assert_eq!(buffer, "First write. Second write. Third write.");
+    }
+
+    #[test]
+    fn test_frame_file_logger_write_empty() {
+        // Create a temporary file for testing
+        let temp_file = NamedTempFile::new().unwrap();
+        let temp_path = temp_file.path().to_string_lossy().to_string();
+
+        // Create logger with timestamp disabled
+        let logger = FrameFileLogger::init(temp_path.clone(), false).unwrap();
+
+        // Write empty content
+        logger.write(b"");
+
+        // Read back the content and verify
+        let mut file = File::open(temp_path).unwrap();
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
+
+        assert_eq!(buffer.len(), 0);
     }
 }

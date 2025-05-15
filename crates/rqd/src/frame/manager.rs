@@ -1,10 +1,11 @@
 use chrono::{DateTime, Local};
+use futures::FutureExt;
 use miette::{Diagnostic, Result, miette};
 use opencue_proto::{
     host::HardwareState,
     rqd::{RunFrame, run_frame},
 };
-use std::{fs, sync::Arc, time::SystemTime};
+use std::{fs, panic, sync::Arc, time::SystemTime};
 use thiserror::Error;
 use tokio::time;
 use tracing::{error, info, warn};
@@ -113,7 +114,11 @@ impl FrameManager {
             self.machine.get_host_name().await,
         ));
 
-        self.spawn_running_frame(running_frame, false);
+        if self.config.runner.run_on_docker {
+            self.spawn_docker_frame(running_frame, false);
+        } else {
+            self.spawn_running_frame(running_frame, false);
+        }
         Ok(())
     }
 
@@ -174,7 +179,11 @@ impl FrameManager {
                     } {
                         errors.push(err.to_string());
                     }
-                    self.spawn_running_frame(running_frame, true)
+                    if self.config.runner.run_on_docker {
+                        todo!()
+                    } else {
+                        self.spawn_running_frame(running_frame, true)
+                    }
                 }
                 Err(err) => {
                     error!("Snapshot recover failed: {}", err);
@@ -213,6 +222,14 @@ impl FrameManager {
                 running_frame_ref, err
             );
         }
+    }
+
+    fn spawn_docker_frame(&self, running_frame: Arc<RunningFrame>, recovery_mode: bool) {
+        self.frame_cache
+            .insert_running_frame(Arc::clone(&running_frame));
+        let _thread_handle = tokio::task::spawn_blocking(async move || {
+            running_frame.run_docker(recovery_mode).await
+        });
     }
 
     fn validate_grpc_frame(&self, run_frame: &RunFrame) -> Result<(), FrameManagerError> {

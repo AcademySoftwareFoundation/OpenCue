@@ -18,6 +18,14 @@ runner:
   kill_monitor_interval: 10s
   kill_monitor_timeout: 60s
   force_kill_after_timeout: true
+  docker.mounts:
+    - target: ""
+      source: ""
+      typ: ""
+      bind-propagation: ""
+  docker.images:
+    rhel7: "centos7:latest"
+    rocky9: "rockyimage:latest"
 #   monitor_interval_seconds: 3
 #   use_ip_as_hostname: false
 #   nimby_mode: false

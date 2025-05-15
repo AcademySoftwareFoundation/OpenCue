@@ -60,6 +60,11 @@ impl DummyRqdClient {
                 Some(uid) => Some(UidOptional::Uid(uid as i32)),
                 None => None,
             },
+            os: "macos".to_string(),
+            soft_memory_limit: 0,
+            hard_memory_limit: 0,
+            pid: 0,
+            loki_url: "".to_string(),
         };
 
         let mut client = self.client.lock().await;

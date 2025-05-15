@@ -2,13 +2,35 @@ use miette::{IntoDiagnostic, Result, miette};
 use std::io::Write;
 use std::process::Command;
 use std::{fs, fs::File};
+use uuid::Uuid;
 
 pub struct FrameCmdBuilder {
     cmd: Command,
     shell: String,
     exit_file_path: Option<String>,
+    become_user: Option<BecomeUser>,
     entrypoint_file_path: String,
     end_cmd: Option<String>,
+}
+
+struct BecomeUser {
+    uid: u32,
+    gid: u32,
+    username: String,
+}
+
+impl ToString for BecomeUser {
+    fn to_string(&self) -> String {
+        let passwd = Uuid::new_v4().to_string();
+        format!(
+            r#"
+# Add and become user
+useradd -u {} -g {} -p {} {}
+su {}
+"#,
+            self.uid, self.gid, passwd, self.username, self.username
+        )
+    }
 }
 
 impl FrameCmdBuilder {
@@ -19,6 +41,7 @@ impl FrameCmdBuilder {
             cmd,
             shell: shell.clone(),
             exit_file_path: None,
+            become_user: None,
             entrypoint_file_path,
             end_cmd: None,
         }
@@ -31,6 +54,12 @@ impl FrameCmdBuilder {
         let args: Vec<&str> = self.cmd.get_args().filter_map(|arg| arg.to_str()).collect();
         let cmd_str = args.join(" ");
         let mut file = File::create(&self.entrypoint_file_path).into_diagnostic()?;
+
+        let add_user = match &self.become_user {
+            Some(add_user) => add_user.to_string(),
+            None => "".to_string(),
+        };
+
         let script = format!(
             r#"#!{}
 wait_for_output() {{
@@ -57,6 +86,7 @@ handle_signal() {{
 trap 'handle_signal TERM' SIGTERM
 trap 'handle_signal INT' SIGINT
 trap 'handle_signal HUP' SIGHUP
+{}
 
 # Start the command and get its PID
 eval "{}"
@@ -71,6 +101,7 @@ wait_for_output $exit_code
             } else {
                 String::new()
             },
+            add_user,
             cmd_str
         );
 
@@ -146,6 +177,11 @@ wait_for_output $exit_code
 
     pub fn with_exit_file(&mut self, exit_file_path: String) -> &mut Self {
         self.exit_file_path = Some(exit_file_path);
+        self
+    }
+
+    pub fn with_become_user(&mut self, uid: u32, gid: u32, username: String) -> &mut Self {
+        self.become_user = Some(BecomeUser { uid, gid, username });
         self
     }
 }
