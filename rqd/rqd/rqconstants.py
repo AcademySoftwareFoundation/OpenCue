@@ -20,17 +20,13 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-# pylint: disable=wrong-import-position
-from future import standard_library
-standard_library.install_aliases()
-# pylint: enable=wrong-import-position
-
 import logging
 import os
 import platform
 import subprocess
 import sys
 import traceback
+import configparser
 
 if platform.system() == 'Linux':
     import pwd
@@ -109,6 +105,7 @@ CHECK_INTERVAL_LOCKED = 60
 MINIMUM_IDLE = 900
 # Default display configuration in case the environment variable DISPLAY is not set
 DEFAULT_DISPLAY = ":0"
+RQD_DISPLAY_PATH = None
 # If available memory drops below this amount, lock nimby (need to take into account cache).
 MINIMUM_MEM = 524288
 MINIMUM_SWAP = 1048576
@@ -185,12 +182,10 @@ try:
         # Hostname can come from here: rqutil.getHostname()
         __override_section = "Override"
         __host_env_var_section = "UseHostEnvVar"
-        import six
-        from six.moves import configparser
-        if six.PY2:
-            ConfigParser = configparser.SafeConfigParser
-        else:
-            ConfigParser = configparser.RawConfigParser
+
+        # Directly use RawConfigParser from configparser
+        ConfigParser = configparser.RawConfigParser
+
         # Allow some config file sections to contain only keys
         config = ConfigParser(allow_no_value=True)
         # Respect case from the config file keys
@@ -269,6 +264,10 @@ try:
         if config.has_option(__override_section, "BACKUP_CACHE_TIME_TO_LIVE_SECONDS"):
             BACKUP_CACHE_TIME_TO_LIVE_SECONDS = config.getint(
                 __override_section, "BACKUP_CACHE_TIME_TO_LIVE_SECONDS")
+
+        if config.has_option(__override_section, "RQD_DISPLAY_PATH"):
+            RQD_DISPLAY_PATH = config.get(__override_section, "RQD_DISPLAY_PATH")
+
 
         __docker_config = "docker.config"
         __docker_gpu_mode = "DOCKER_GPU_MODE"
