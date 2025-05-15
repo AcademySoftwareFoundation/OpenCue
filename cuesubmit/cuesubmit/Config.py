@@ -38,7 +38,10 @@ def getConfigValues():
     configFile = os.environ.get(CONFIG_FILE_ENV_VAR)\
                  or os.path.join(opencue.config.config_base_directory(),
                                  'cuesubmit.yaml')
-    configData = _loadYamlFile(yaml_file=configFile)
+    try:
+        configData = _loadYamlFile(yaml_file=configFile)
+    except FileNotFoundError:
+        configData = {}
     if 'RENDER_CMDS' in configData:
         # look for any sub-config files and load them
         configData['RENDER_CMDS'] = _expandRenderConfigValues(configData['RENDER_CMDS'])

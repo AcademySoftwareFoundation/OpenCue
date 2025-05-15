@@ -24,10 +24,7 @@ import os
 
 from cuesubmit import Config
 
-try:
-    config = Config.getConfigValues()
-except FileNotFoundError:
-    config = {}
+config = Config.getConfigValues()
 
 UP_KEY = 16777235
 DOWN_KEY = 16777237
