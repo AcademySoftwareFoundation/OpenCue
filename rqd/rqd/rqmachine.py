@@ -213,6 +213,7 @@ class Machine(object):
                 return txt.split()
 
     def rssUpdateWindows(self, frames):
+        """Updates the rss and maxrss for all running frames on Windows"""
         values = list(frames.values())
         pids = [frame.pid for frame in list(
             filter(lambda frame: frame.pid > 0, values)
@@ -229,11 +230,16 @@ class Machine(object):
                 frame.runFrame.attributes["pcpu"] = str(
                     stat["pcpu"] * self.__coreInfo.total_cores
                 )
-        return
 
     def collect_linux_pids_and_sessions(self, frame_pids: list[str]) -> tuple[
             dict[str, dict[str, str]],
             dict[str, list[str]]]:
+        """
+        Read all proc files and organize them by pids and sessionid for querying
+
+        @return: Dict with data about each pid
+        @return: Dics with key=sessionid and value=pid
+        """
         pids = {}
         sessions = {}
         children = {}
@@ -302,13 +308,13 @@ class Machine(object):
             for child in children:
                 sessions[parentid] += sessions[child]
             sessions[parentid] = list(set(sessions[parentid]))
-
         return (pids, sessions)
 
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
         if platform.system() == 'Windows' and winpsIsAvailable:
-            return self.rssUpdateWindows(frames)
+            self.rssUpdateWindows(frames)
+            return
 
         if platform.system() != 'Linux':
             return
