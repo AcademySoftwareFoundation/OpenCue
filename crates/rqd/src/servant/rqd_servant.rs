@@ -243,9 +243,10 @@ impl RqdInterface for RqdServant {
     /// Stop rqd now
     async fn shutdown_rqd_now(
         &self,
-        request: Request<RqdStaticShutdownNowRequest>,
+        _request: Request<RqdStaticShutdownNowRequest>,
     ) -> Result<Response<RqdStaticShutdownNowResponse>> {
-        todo!()
+        self.machine.quit().await;
+        Ok(Response::new(RqdStaticShutdownNowResponse {}))
     }
 
     /// Unlock a number of cores

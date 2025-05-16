@@ -400,6 +400,8 @@ pub trait Machine {
     async fn reboot_if_idle(&self) -> Result<()>;
 
     async fn collect_host_report(&self) -> Result<HostReport>;
+
+    async fn quit(&self);
 }
 
 #[async_trait]
@@ -609,5 +611,10 @@ impl Machine for MachineMonitor {
             frames: Arc::clone(&self.running_frames_cache).into_running_frame_vec(),
             core_info: Some(core_state),
         })
+    }
+
+    async fn quit(&self) {
+        self.interrupt().await;
+        std::process::exit(0);
     }
 }
