@@ -202,12 +202,12 @@ ignored-classes=optparse.Values,thread._local,_thread._local
 # (useful for modules/projects where namespaces are manipulated during runtime
 # and thus existing member attributes cannot be deduced by static analysis). It
 # supports qualified module names, as well as Unix pattern matching.
-ignored-modules=opencue.compiled_proto,
-                opencue.compiled_proto.filter_pb2,
-                opencue.compiled_proto.host_pb2,
-                rqd.compiled_proto.rqd_pb2,
-                rqd.compiled_proto.host_pb2,
-                rqd.compiled_proto.report_pb2
+ignored-modules=opencue_proto,
+                opencue_proto.filter_pb2,
+                opencue_proto.host_pb2,
+                opencue_proto.rqd_pb2,
+                opencue_proto.host_pb2,
+                opencue_proto.report_pb2
 
 # Show a hint with possible names when a member name was not found. The aspect
 # of finding the hint is based on edit distance.

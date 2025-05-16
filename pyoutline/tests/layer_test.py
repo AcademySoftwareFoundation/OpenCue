@@ -754,6 +754,7 @@ class OutlinePostCommandTests(unittest.TestCase):
 
 
 class TestAfterInit(outline.Layer):
+    __test__ = False
     def __init__(self, name, **args):
         outline.Layer.__init__(self, name, **args)
 
@@ -762,6 +763,7 @@ class TestAfterInit(outline.Layer):
 
 
 class TestA(outline.Layer):
+    __test__ = False
     def __init__(self, name, **args):
         outline.Layer.__init__(self, name, **args)
 
@@ -770,6 +772,7 @@ class TestA(outline.Layer):
 
 
 class TestB(outline.Layer):
+    __test__ = False
     def __init__(self, name, **args):
         outline.Layer.__init__(self, name, **args)
         self.is_setup = False

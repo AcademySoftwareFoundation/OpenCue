@@ -14,8 +14,8 @@
 
 """Module for classes related to OpenCue allocations."""
 
-from opencue.compiled_proto import facility_pb2
-from opencue.compiled_proto import host_pb2
+from opencue_proto import facility_pb2
+from opencue_proto import host_pb2
 from opencue.cuebot import Cuebot
 import opencue.wrappers.host
 import opencue.wrappers.subscription

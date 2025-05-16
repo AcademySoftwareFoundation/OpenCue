@@ -27,8 +27,8 @@ import unittest
 
 import mock
 
-from opencue.compiled_proto import depend_pb2
-from opencue.compiled_proto import job_pb2
+from opencue_proto import depend_pb2
+from opencue_proto import job_pb2
 import opencue.wrappers.frame
 import opencue.wrappers.job
 import opencue.wrappers.layer
@@ -273,17 +273,17 @@ class FrameEnumTests(unittest.TestCase):
 
     def testCheckpointState(self):
         self.assertEqual(opencue.api.Frame.CheckpointState.DISABLED,
-                         opencue.compiled_proto.job_pb2.DISABLED)
+                         job_pb2.DISABLED)
         self.assertEqual(opencue.api.Frame.CheckpointState.DISABLED, 0)
 
     def testFrameExitStatus(self):
         self.assertEqual(opencue.api.Frame.FrameExitStatus.FAILED_LAUNCH,
-                         opencue.compiled_proto.job_pb2.FAILED_LAUNCH)
+                         job_pb2.FAILED_LAUNCH)
         self.assertEqual(opencue.api.Frame.FrameExitStatus.FAILED_LAUNCH, 256)
 
     def testFrameState(self):
         self.assertEqual(opencue.api.Frame.FrameState.RUNNING,
-                         opencue.compiled_proto.job_pb2.RUNNING)
+                         job_pb2.RUNNING)
         self.assertEqual(opencue.api.Frame.FrameState.RUNNING, 2)
 
 

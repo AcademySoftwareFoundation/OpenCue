@@ -14,7 +14,7 @@
 
 """Module for classes related to subscriptions."""
 
-from opencue.compiled_proto import subscription_pb2
+from opencue_proto import subscription_pb2
 from opencue.cuebot import Cuebot
 
 

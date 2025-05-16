@@ -24,10 +24,10 @@ import unittest
 
 import mock
 
-from opencue.compiled_proto import comment_pb2
-from opencue.compiled_proto import facility_pb2
-from opencue.compiled_proto import host_pb2
-from opencue.compiled_proto import renderPartition_pb2
+from opencue_proto import comment_pb2
+from opencue_proto import facility_pb2
+from opencue_proto import host_pb2
+from opencue_proto import renderPartition_pb2
 import opencue.wrappers.allocation
 import opencue.wrappers.host
 
@@ -278,22 +278,22 @@ class HostTests(unittest.TestCase):
 class HostEnumTests(unittest.TestCase):
 
     def testHardwareState(self):
-        self.assertEqual(opencue.api.Host.HardwareState.UP, opencue.compiled_proto.host_pb2.UP)
+        self.assertEqual(opencue.api.Host.HardwareState.UP, host_pb2.UP)
         self.assertEqual(opencue.api.Host.HardwareState.UP, 0)
 
     def testHostTagType(self):
         self.assertEqual(opencue.api.Host.HostTagType.HARDWARE,
-                         opencue.compiled_proto.host_pb2.HARDWARE)
+                         host_pb2.HARDWARE)
         self.assertEqual(opencue.api.Host.HostTagType.HARDWARE, 1)
 
     def testLockState(self):
         self.assertEqual(opencue.api.Host.LockState.NIMBY_LOCKED,
-                         opencue.compiled_proto.host_pb2.NIMBY_LOCKED)
+                         host_pb2.NIMBY_LOCKED)
         self.assertEqual(opencue.api.Host.LockState.NIMBY_LOCKED, 2)
 
     def testThreadMode(self):
         self.assertEqual(opencue.api.Host.ThreadMode.ALL,
-                         opencue.compiled_proto.host_pb2.ALL)
+                         host_pb2.ALL)
         self.assertEqual(opencue.api.Host.ThreadMode.ALL, 1)
 
 

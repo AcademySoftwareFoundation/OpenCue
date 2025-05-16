@@ -22,8 +22,7 @@ import mock
 import qtpy.QtCore
 import qtpy.QtGui
 
-import opencue.compiled_proto.show_pb2
-import opencue.wrappers.show
+import opencue_proto.show_pb2
 
 import cuegui.Redirect
 import cuegui.Style
@@ -41,11 +40,11 @@ class RedirectTests(unittest.TestCase):
         cuegui.Style.init()
 
         getStubMock.return_value.GetActiveShows.return_value = \
-            opencue.compiled_proto.show_pb2.ShowGetActiveShowsResponse(
-                shows=opencue.compiled_proto.show_pb2.ShowSeq(shows=[]))
+            opencue_proto.show_pb2.ShowGetActiveShowsResponse(
+                shows=opencue_proto.show_pb2.ShowSeq(shows=[]))
         getStubMock.return_value.FindShow.return_value = \
-            opencue.compiled_proto.show_pb2.ShowFindShowResponse(
-                show=opencue.compiled_proto.show_pb2.Show())
+            opencue_proto.show_pb2.ShowFindShowResponse(
+                show=opencue_proto.show_pb2.Show())
 
         self.redirect = cuegui.Redirect.RedirectWidget()
 

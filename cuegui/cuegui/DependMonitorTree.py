@@ -24,7 +24,7 @@ from builtins import map
 
 from qtpy import QtWidgets
 
-from opencue.compiled_proto import depend_pb2
+from opencue_proto import depend_pb2
 import opencue.exception
 
 import cuegui.AbstractTreeWidget

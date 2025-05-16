@@ -26,9 +26,9 @@ import unittest
 
 import mock
 
-from opencue.compiled_proto import comment_pb2
-from opencue.compiled_proto import depend_pb2
-from opencue.compiled_proto import job_pb2
+from opencue_proto import comment_pb2
+from opencue_proto import depend_pb2
+from opencue_proto import job_pb2
 import opencue.wrappers.frame
 import opencue.wrappers.group
 import opencue.wrappers.job
@@ -556,7 +556,7 @@ class NestedJobTests(unittest.TestCase):
 class JobEnumTests(unittest.TestCase):
 
     def testJobState(self):
-        self.assertEqual(opencue.api.Job.JobState.PENDING, opencue.compiled_proto.job_pb2.PENDING)
+        self.assertEqual(opencue.api.Job.JobState.PENDING, job_pb2.PENDING)
         self.assertEqual(opencue.api.Job.JobState.PENDING, 0)
 
 

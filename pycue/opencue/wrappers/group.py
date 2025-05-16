@@ -14,8 +14,8 @@
 
 """Modules for classes related to groups."""
 
+from opencue_proto import job_pb2
 from opencue import Cuebot
-from opencue.compiled_proto import job_pb2
 import opencue.wrappers.job
 
 

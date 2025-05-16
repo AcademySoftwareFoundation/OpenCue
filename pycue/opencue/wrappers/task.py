@@ -14,7 +14,7 @@
 
 """Module for classes related to tasks."""
 
-from opencue.compiled_proto import task_pb2
+from opencue_proto import task_pb2
 from opencue.cuebot import Cuebot
 
 

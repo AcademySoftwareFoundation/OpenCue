@@ -1,0 +1,43 @@
+[build-system]
+requires = [
+    "hatchling",
+    "versioningit"
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "opencue_cuesubmit"
+dynamic = ["version"]
+dependencies = [
+    "opencue_pycue",
+    "opencue_pyoutline",
+    "PySide6==6.8.2.1;python_version>'3.11'",
+    "PySide6==6.5.3;python_version=='3.11'",
+    "PySide2==5.15.2.1;python_version<='3.10'",
+    "QtPy==2.4.1"
+]
+
+[tool.hatch.version]
+source = "versioningit"
+default-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cuesubmit"]
+
+[console_scripts]
+cuesubmit = "cuesubmit.__main__:main"
+
+# --- Pytest configuration ---
+[tool.pytest.ini_options]
+minversion = "6.0" # Set to required pytest version
+testpaths = ["tests"] # Relative path(s) where tests are located
+python_files = ["test_*.py", "*_tests.py"] # Default test file pattern
+python_functions = ["test_*"] # Default test function pattern
+
+# --- Optional Test Dependencies ---
+[project.optional-dependencies]
+test = [
+    "mock==2.0.0",
+    "pyfakefs==5.2.3",
+    "pytest"
+]

@@ -23,11 +23,11 @@ import mock
 import qtpy.QtCore
 import qtpy.QtGui
 
-import opencue.compiled_proto.criterion_pb2
-import opencue.compiled_proto.host_pb2
-import opencue.compiled_proto.job_pb2
-import opencue.compiled_proto.show_pb2
-import opencue.compiled_proto.subscription_pb2
+import opencue_proto.criterion_pb2
+import opencue_proto.host_pb2
+import opencue_proto.job_pb2
+import opencue_proto.show_pb2
+import opencue_proto.subscription_pb2
 import opencue.wrappers.group
 import opencue.wrappers.job
 import opencue.wrappers.proc
@@ -54,16 +54,16 @@ class UnbookDialogTests(unittest.TestCase):
         self.job_names = [
             '%s-shotname-username_job1' % show_name, '%s-shotname-username_job2' % show_name]
         self.jobs = [
-            opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=self.job_names[0])),
-            opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=self.job_names[1]))]
-        show = opencue.wrappers.show.Show(opencue.compiled_proto.show_pb2.Show(name=show_name))
+            opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(name=self.job_names[0])),
+            opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(name=self.job_names[1]))]
+        show = opencue.wrappers.show.Show(opencue_proto.show_pb2.Show(name=show_name))
         self.tag_names = ['general', 'desktop']
         subscriptions = [
             opencue.wrappers.subscription.Subscription(
-                opencue.compiled_proto.subscription_pb2.Subscription(
+                opencue_proto.subscription_pb2.Subscription(
                     name='local.%s.%s' % (self.tag_names[0], show_name))),
             opencue.wrappers.subscription.Subscription(
-                opencue.compiled_proto.subscription_pb2.Subscription(
+                opencue_proto.subscription_pb2.Subscription(
                     name='local.%s.%s' % (self.tag_names[1], show_name))),
         ]
         show.getSubscriptions = mock.Mock()
@@ -93,7 +93,7 @@ class UnbookDialogTests(unittest.TestCase):
         max_mem = 143
         expected_proc_search = opencue.search.ProcSearch(
             allocs=self.tag_names, jobs=self.job_names, maxResults=[num_procs],
-            memoryRange=[opencue.compiled_proto.criterion_pb2.InRangeIntegerSearchCriterion(
+            memoryRange=[opencue_proto.criterion_pb2.InRangeIntegerSearchCriterion(
                 min=min_mem*1024, max=max_mem*1024)])
         returned_proc1 = opencue.wrappers.proc.Proc()
         returned_proc1.unbook = mock.Mock()
@@ -120,7 +120,7 @@ class UnbookDialogTests(unittest.TestCase):
         max_runtime = 105
         expected_proc_search = opencue.search.ProcSearch(
             allocs=self.tag_names, jobs=self.job_names, maxResults=[num_procs],
-            durationRange=[opencue.compiled_proto.criterion_pb2.InRangeIntegerSearchCriterion(
+            durationRange=[opencue_proto.criterion_pb2.InRangeIntegerSearchCriterion(
                 min=min_runtime*60, max=max_runtime*60)])
         kill_dialog_mock.return_value.result.return_value = True
 
@@ -145,8 +145,8 @@ class UnbookDialogTests(unittest.TestCase):
         other_show_name = 'some-other-show'
         group_name = 'group-to-redirect-to'
         show = opencue.wrappers.show.Show(
-            opencue.compiled_proto.show_pb2.Show(name=other_show_name))
-        group = opencue.wrappers.group.Group(opencue.compiled_proto.job_pb2.Group(name=group_name))
+            opencue_proto.show_pb2.Show(name=other_show_name))
+        group = opencue.wrappers.group.Group(opencue_proto.job_pb2.Group(name=group_name))
         show.getGroups = mock.Mock()
         show.getGroups.return_value = [group]
         get_active_shows_mock.return_value = [show]
@@ -178,8 +178,8 @@ class UnbookDialogTests(unittest.TestCase):
         other_show_name = 'some-other-show'
         job_name = 'job-to-redirect-to'
         show = opencue.wrappers.show.Show(
-            opencue.compiled_proto.show_pb2.Show(name=other_show_name))
-        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=job_name))
+            opencue_proto.show_pb2.Show(name=other_show_name))
+        job = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(name=job_name))
         get_active_shows_mock.return_value = [show]
         get_item_mock.side_effect = [(other_show_name, True), ('Job', True)]
         get_jobs_mock.return_value = [job]
@@ -255,10 +255,10 @@ class KillConfirmationDialogTests(unittest.TestCase):
         proc_search = opencue.search.ProcSearch(
             allocs=['tag1', 'tag2'], jobs=['someJob', 'anotherJob'], maxResults=[57])
         proc1 = opencue.wrappers.proc.Proc(
-            opencue.compiled_proto.host_pb2.Proc(job_name='someJob', frame_name='0002'))
+            opencue_proto.host_pb2.Proc(job_name='someJob', frame_name='0002'))
         proc1.kill = mock.Mock()
         proc2 = opencue.wrappers.proc.Proc(
-            opencue.compiled_proto.host_pb2.Proc(job_name='anotherJob', frame_name='2847'))
+            opencue_proto.host_pb2.Proc(job_name='anotherJob', frame_name='2847'))
         proc2.kill = mock.Mock()
         get_procs_mock.return_value = [proc1, proc2]
 
@@ -274,10 +274,10 @@ class KillConfirmationDialogTests(unittest.TestCase):
         proc_search = opencue.search.ProcSearch(
             allocs=['tag1', 'tag2'], jobs=['someJob', 'anotherJob'], maxResults=[57])
         proc1 = opencue.wrappers.proc.Proc(
-            opencue.compiled_proto.host_pb2.Proc(job_name='someJob', frame_name='0002'))
+            opencue_proto.host_pb2.Proc(job_name='someJob', frame_name='0002'))
         proc1.kill = mock.Mock()
         proc2 = opencue.wrappers.proc.Proc(
-            opencue.compiled_proto.host_pb2.Proc(job_name='anotherJob', frame_name='2847'))
+            opencue_proto.host_pb2.Proc(job_name='anotherJob', frame_name='2847'))
         proc2.kill = mock.Mock()
         get_procs_mock.return_value = [proc1, proc2]
 
