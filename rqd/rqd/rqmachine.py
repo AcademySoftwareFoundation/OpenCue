@@ -212,43 +212,57 @@ class Machine(object):
             except ValueError:
                 return txt.split()
 
-    def rssUpdate(self, frames):
-        """Updates the rss and maxrss for all running frames"""
-        if platform.system() == 'Windows' and winpsIsAvailable:
-            values = list(frames.values())
-            pids = [frame.pid for frame in list(
-                filter(lambda frame: frame.pid > 0, values)
-            )]
-            # pylint: disable=no-member
-            stats = winps.update(pids)
-            # pylint: enable=no-member
-            for frame in values:
-                self.__updateGpuAndLlu(frame)
-                if frame.pid > 0 and frame.pid in stats:
-                    stat = stats[frame.pid]
-                    frame.rss = stat["rss"] // 1024
-                    frame.maxRss = max(frame.rss, frame.maxRss)
-                    frame.runFrame.attributes["pcpu"] = str(
-                        stat["pcpu"] * self.__coreInfo.total_cores
-                    )
-            return
+    def rssUpdateWindows(self, frames):
+        """Updates the rss and maxrss for all running frames on Windows"""
+        values = list(frames.values())
+        pids = [frame.pid for frame in list(
+            filter(lambda frame: frame.pid > 0, values)
+        )]
+        # pylint: disable=no-member
+        stats = winps.update(pids)
+        # pylint: enable=no-member
+        for frame in values:
+            self.__updateGpuAndLlu(frame)
+            if frame.pid > 0 and frame.pid in stats:
+                stat = stats[frame.pid]
+                frame.rss = stat["rss"] // 1024
+                frame.maxRss = max(frame.rss, frame.maxRss)
+                frame.runFrame.attributes["pcpu"] = str(
+                    stat["pcpu"] * self.__coreInfo.total_cores
+                )
 
-        if platform.system() != 'Linux':
-            return
+    def collect_linux_pids_and_sessions(self, frame_pids: list[str]) -> tuple[
+            dict[str, dict[str, str]],
+            dict[str, list[str]]]:
+        """
+        Read all proc files and organize them by pids and sessionid for querying
 
+        @return: Dict with data about each pid
+        @return: Dics with key=sessionid and value=pid
+        """
         pids = {}
+        sessions = {}
+        children = {}
         for pid in os.listdir("/proc"):
             if pid.isdigit():
                 try:
                     statFields = self._getStatFields(rqd.rqconstants.PATH_PROC_PID_STAT
                                                      .format(pid))
-                    pids[pid] = {
-                        "pid": str(pid),
+
+                    # Store a dict of pids per session
+                    sessionid = statFields[5]
+                    sessions.setdefault(sessionid, []).append(pid)
+
+                    # Store a list of direct children
+                    parentid = statFields[3]
+                    if parentid in frame_pids:
+                        children.setdefault(parentid, []).append(pid)
+
+                    data = {
                         "name": statFields[1],
                         "state": statFields[2],
-                        "parentid": statFields[3],
                         "pgrp": statFields[4],
-                        "session": statFields[5],
+                        "session": sessionid,
                         # virtual memory size is in bytes convert to kb
                         "vsize": int(statFields[22]),
                         "rss": statFields[23],
@@ -268,25 +282,45 @@ class Machine(object):
                     # instead, focus on the monitored procs hierarchy
                     # cmdline:
                     p = psutil.Process(int(pid))
-                    pids[pid]["cmd_line"] = p.cmdline()
+                    data["cmd_line"] = p.cmdline()
 
                     # 2. Collect Statm file: /proc/[pid]/statm (same as status vsize in kb)
                     #    - size: "total program size"
                     #    - rss: inaccurate, similar to VmRss in /proc/[pid]/status
                     child_statm_fields = self._getStatFields(
                         rqd.rqconstants.PATH_PROC_PID_STATM.format(pid))
-                    pids[pid]['statm_size'] = \
+                    data['statm_size'] = \
                         int(re.search(r"\d+", child_statm_fields[0]).group()) \
                         if re.search(r"\d+", child_statm_fields[0]) else -1
-                    pids[pid]['statm_rss'] = \
+                    data['statm_rss'] = \
                         int(re.search(r"\d+", child_statm_fields[1]).group()) \
                         if re.search(r"\d+", child_statm_fields[1]) else -1
+                    pids[pid] = data
 
                 # pylint: disable=broad-except
                 except (OSError, IOError, psutil.ZombieProcess):
                     # Many Linux processes are ephemeral and will disappear before we're able
                     # to read them. This is not typically indicative of a problem.
                     log.debug('Failed to read stat/statm file for pid %s', pid)
+
+        # Merge direct children sessions
+        for parentid, children in children.items():
+            for child in children:
+                sessions[parentid] += sessions[child]
+            sessions[parentid] = list(set(sessions[parentid]))
+        return (pids, sessions)
+
+    def rssUpdate(self, frames):
+        """Updates the rss and maxrss for all running frames"""
+        if platform.system() == 'Windows' and winpsIsAvailable:
+            self.rssUpdateWindows(frames)
+            return
+
+        if platform.system() != 'Linux':
+            return
+
+        frame_pids = [str(f.pid) for f in frames.values()]
+        (pids, sessions) = self.collect_linux_pids_and_sessions(frame_pids)
 
         # pylint: disable=too-many-nested-blocks
         try:
@@ -296,17 +330,17 @@ class Machine(object):
 
             values = list(frames.values())
             for frame in values:
-                pid = str(frame.pid)
-                if pid is not None and frame.pid > 0 and pid in pids:
-                    visited = [pid]
-                    children = [pids[pid]]
-                    self._collectChildren(pid, pids, visited, children)
-                    rss = 0
-                    vsize = 0
-                    swap = 0
-                    pcpu = 0
-                    for data in children:
-                        child_pid = data["pid"]
+                if frame.pid is not None and frame.pid > 0:
+                    session = str(frame.pid)
+                    rss = vsize = swap = pcpu = 0
+
+                    if session not in sessions:
+                        continue
+
+                    for child_pid in sessions[session]:
+                        if child_pid not in pids:
+                            continue
+                        data = pids[child_pid]
                         try:
                             rss += int(data["rss"])
                             vsize += int(data["vsize"])
@@ -321,7 +355,7 @@ class Machine(object):
 
                             # Seconds of process life, boot time is already in seconds
                             seconds = now - bootTime - \
-                                      float(data["start_time"]) / rqd.rqconstants.SYS_HERTZ
+                                        float(data["start_time"]) / rqd.rqconstants.SYS_HERTZ
                             if seconds:
                                 if child_pid in self.__pidHistory:
                                     # Percent cpu using decaying average, 50% from 10 seconds
@@ -331,24 +365,13 @@ class Machine(object):
                                     # checking if already updated data
                                     if seconds != oldSeconds:
                                         pidPcpu = ((totalTime - oldTotalTime) /
-                                                   float(seconds - oldSeconds))
+                                                    float(seconds - oldSeconds))
                                         pcpu += (oldPidPcpu + pidPcpu) / 2  # %cpu
                                         pidData[child_pid] = totalTime, seconds, pidPcpu
                                 else:
                                     pidPcpu = totalTime / seconds
                                     pcpu += pidPcpu
                                     pidData[child_pid] = totalTime, seconds, pidPcpu
-
-                            # These fields are not always present
-                            _statm_rss = _statm_size = 0
-                            try:
-                                _statm_rss = int(data.get(["statm_rss"], 0))
-                                _statm_size = int(data.get(["statm_size"], 0))
-                            # pylint: disable=broad-except
-                            except ValueError:
-                                # Ignore these fields if they are not set on the proc file
-                                pass
-
                             # If children was already accounted for, only keep the highest
                             # recorded rss value
                             if child_pid in frame.childrenProcs:
@@ -360,27 +383,31 @@ class Machine(object):
                                         int(data["vsize"]) // 1024
                                     frame.childrenProcs[child_pid]['swap'] = swap // 1024
                                     frame.childrenProcs[child_pid]['statm_rss'] = \
-                                        _statm_rss * resource.getpagesize() // 1024
+                                        (int(data["statm_rss"]) \
+                                            * resource.getpagesize()) // 1024
                                     frame.childrenProcs[child_pid]['statm_size'] = \
-                                        _statm_size * resource.getpagesize() // 1024
+                                        (int(data["statm_size"]) * \
+                                            resource.getpagesize()) // 1024
                             else:
                                 frame.childrenProcs[child_pid] = \
                                     {'name': data['name'],
-                                     'rss_page': int(data["rss"]),
-                                     'rss': (int(data["rss"]) * resource.getpagesize()) // 1024,
-                                     'vsize': int(data["vsize"])  // 1024,
-                                     'swap': swap // 1024,
-                                     'state': data['state'],
-                                     # statm reports in pages (~ 4kB)
-                                     # same as VmRss in /proc/[child_pid]/status (in KB)
-                                     'statm_rss': _statm_rss * resource.getpagesize() // 1024,
-                                     'statm_size': _statm_size * resource.getpagesize() // 1024,
-                                     'cmd_line': data.get("cmd_line", ""),
-                                     'start_time': seconds}
+                                        'rss_page': int(data["rss"]),
+                                        'rss': (int(data["rss"]) * resource.getpagesize()) // 1024,
+                                        'vsize': int(data["vsize"])  // 1024,
+                                        'swap': swap // 1024,
+                                        'state': data['state'],
+                                        # statm reports in pages (~ 4kB)
+                                        # same as VmRss in /proc/[pid]/status (in KB)
+                                        'statm_rss': (int(data["statm_rss"]) * \
+                                                    resource.getpagesize()) // 1024,
+                                        'statm_size': (int(data["statm_size"]) * \
+                                                    resource.getpagesize()) // 1024,
+                                        'cmd_line': data["cmd_line"],
+                                        'start_time': seconds}
 
                         # pylint: disable=broad-except
                         except Exception as e:
-                            log.info(
+                            log.warning(
                                 'Failure with pid rss update due to: %s at %s',
                                 e, traceback.extract_tb(sys.exc_info()[2]))
                     # convert bytes to KB
@@ -409,18 +436,6 @@ class Machine(object):
         # pylint: disable=broad-except
         except Exception as e:
             log.exception('Failure with rss update due to: %s', e)
-
-    def _collectChildren(self, current_pid: str,
-        all_pids: dict[str, dict[str, str]], visited: list[str],
-        children: list[dict[str, str]]):
-        """Recursive method to collect all children of first_parent_pid.
-
-        The list of children is returned on the arg children"""
-        for child_pid, data in all_pids.items():
-            if data["parentid"] == current_pid and child_pid not in visited:
-                children.append(data)
-                visited.append(child_pid)
-                self._collectChildren(child_pid, all_pids, visited, children)
 
     def _getProcSwap(self, pid):
         """Helper function to get swap memory used by a process"""

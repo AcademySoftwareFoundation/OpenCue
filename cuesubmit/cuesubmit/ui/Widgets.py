@@ -45,39 +45,64 @@ class SpacerTypes(object):
 
 class CueLabelLineEdit(QtWidgets.QWidget):
     """Container widget that contains a lineedit and label."""
+    textChanged = QtCore.Signal()
+    stateChanged = QtCore.Signal()
+
     def __init__(self, labelText=None, defaultText='', tooltip=None, validators=None,
+                 toggleable=False, toggleValue=False, horizontal=False,
                  completers=None, parent=None):
         super(CueLabelLineEdit, self).__init__(parent)
         self.mainLayout = QtWidgets.QGridLayout()
         self.mainLayout.setVerticalSpacing(0)
-        self.label = QtWidgets.QLabel(labelText)
-        self.label.setAlignment(QtCore.Qt.AlignLeft)
-        self.label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.toggleable = toggleable
+        if self.toggleable:
+            self.label = CueLabelToggle(labelText, default_value=toggleValue,
+                                        tooltip=tooltip, parent=self)
+        else:
+            self.label = QtWidgets.QLabel(labelText)
+            self.label.setAlignment(QtCore.Qt.AlignLeft)
         self.lineEdit = CueLineEdit(defaultText, completerStrings=completers)
+        self.lineEdit.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         self.lineEdit.setToolTip(tooltip)
         self.browseButton = QtWidgets.QPushButton(text='Browse')
         self.horizontalLine = CueHLine()
+        self.horizontal = int(horizontal)
         self.validators = validators or []
+        self.signals = [self.lineEdit.textChanged,
+                        self.lineEdit.focusChange]
+        self.getter = self.lineEdit.text
         self.setter = self.setText
         self.setupUi()
         self.setupConnections()
         self.setAutoFillBackground(True)
+        self.validateText()
 
     def setupUi(self):
         """Creates the widget layout."""
         self.setLayout(self.mainLayout)
         self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
-        self.mainLayout.addWidget(self.lineEdit, 1, 0, 1, 4)
+        self.mainLayout.addWidget(self.lineEdit, 1-self.horizontal, self.horizontal, 1, 4)
+        self.mainLayout.addWidget(self.horizontalLine, 2-self.horizontal, self.horizontal, 1, 4)
         self.browseButton.setVisible(False)
-        self.mainLayout.addWidget(self.horizontalLine, 2, 0, 1, 4)
         self.label.setStyleSheet(Style.LABEL_TEXT)
 
     def setupConnections(self):
         """Sets up widget signals."""
         # pylint: disable=no-member
         self.lineEdit.textChanged.connect(self.validateText)
+        self.lineEdit.textChanged.connect(self.textChanged)
         self.lineEdit.focusChange.connect(self.textFocusChange)
+        if self.toggleable:
+            self.label.toggle.valueChanged.connect(self.toggled)
+            self.toggled(self.label.toggle.value())
         # pylint: enable=no-member
+
+    @property
+    def toggleValue(self):
+        """ Return the current toggle value """
+        if self.toggleable:
+            return self.label.toggle.value()
+        return True
 
     def setFileBrowsable(self, fileFilter=None):
         """ Displays the Browse button and hook it to a fileBrowser with optional file filters
@@ -137,10 +162,24 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         """
         return self.lineEdit.text()
 
-    def greyOut(self):
+    def disable(self):
         """Make widget grey and read-only"""
         self.lineEdit.setReadOnly(True)
         self.lineEdit.setStyleSheet(Style.DISABLED_LINE_EDIT)
+        self.stateChanged.emit()
+
+    def enable(self):
+        """Make widget editable"""
+        self.lineEdit.setReadOnly(False)
+        self.lineEdit.setStyleSheet(Style.LINE_EDIT)
+        self.stateChanged.emit()
+
+    def toggled(self, value):
+        """Action when the toggle is clicked."""
+        if value:
+            self.enable()
+        else:
+            self.disable()
 
 
 class CueLineEdit(QtWidgets.QLineEdit):
@@ -213,7 +252,8 @@ class CueSelectPulldown(QtWidgets.QWidget):
     """A button that acts like a dropdown and supports multiselect."""
 
     def __init__(
-            self, labelText=None, emptyText='[None]', options=None, multiselect=True, parent=None):
+            self, labelText=None, emptyText='[None]', options=None,
+            tooltip=None, multiselect=True, parent=None):
         super(CueSelectPulldown, self).__init__(parent=parent)
         self.multiselect = multiselect
         self.emptyText = emptyText
@@ -224,18 +264,23 @@ class CueSelectPulldown(QtWidgets.QWidget):
         self.optionsMenu = QtWidgets.QMenu(self)
         self.optionsMenu.setStyleSheet(Style.PULLDOWN_LIST)
         self.setOptions(options)
+        self.setToolTip(tooltip)
+        self.signals = [self.optionsMenu.triggered]
+        self.getter = self.text
+        self.setter = self.setCheckedFromText
         if self.multiselect:
             self.toolButton.setText(self.emptyText)
         else:
-            self.setChecked(options[0])
+            default_option = self.emptyText if self.emptyText in options else options[0]
+            self.setChecked([default_option])
         self.setupUi()
         self.setupConnections()
 
     def setupUi(self):
         """Creates the widget layout."""
         self.mainLayout.setVerticalSpacing(1)
-        self.mainLayout.addWidget(self.label, 0, 0, 1, 1)
-        self.mainLayout.addWidget(self.toolButton, 1, 0, 1, 1)
+        self.mainLayout.addWidget(self.label, 0, 0, 1, 2)
+        self.mainLayout.addWidget(self.toolButton, 1, 0, 1, 2)
         self.toolButton.setMenu(self.optionsMenu)
         self.toolButton.setPopupMode(QtWidgets.QToolButton.InstantPopup)
 
@@ -282,6 +327,16 @@ class CueSelectPulldown(QtWidgets.QWidget):
                 self.optionsMenu.actions()[0].setChecked(True)
         self.updateLabelText()
 
+    def setCheckedFromText(self, actionsAstext):
+        """Set the given actionNames to be checked and update the label.
+        @type actionNames: str
+        @param actionNames: list of action names to set to checked separated by a comma and a space
+        """
+        if ', ' in actionsAstext and self.multiselect:
+            self.setChecked(actionsAstext.split(', '))
+        else:
+            self.setChecked([actionsAstext])
+
     def text(self):
         """Return the tool button's current text value.
         @rtype: str
@@ -316,6 +371,7 @@ class CueSpacerItem(QtWidgets.QSpacerItem):
         """
         super(CueSpacerItem, self).__init__(width, height, spacerType[0], spacerType[1])
 
+
 class CueLabelSlider(QtWidgets.QWidget):
     """Container widget that holds a label and an int or float slider.
     Behaves as a float slider when providing a float_precision
@@ -333,7 +389,7 @@ class CueLabelSlider(QtWidgets.QWidget):
                  max_value=999,
                  float_precision=None):
         super(CueLabelSlider, self).__init__(parent=parent)
-        self._labelValue = "%s ({value})" % label
+        self._labelValue = f'{label} ({{value}})'
         self.float_mult = 1
         if float_precision:
             self.float_mult = 10**float_precision
@@ -408,22 +464,33 @@ class CueLabelToggle(QtWidgets.QWidget):
     actionTriggered = QtCore.Signal(int)
     rangeChanged = QtCore.Signal(int, int)
 
-    def __init__(self, label=None, parent=None):
+    def __init__(self, label=None, tooltip=None, default_value=False, parent=None):
         super(CueLabelToggle, self).__init__(parent=parent)
         self.mainLayout = QtWidgets.QHBoxLayout()
-        self.label = QtWidgets.QLabel(label, parent=self)
-        self.label.setMinimumWidth(120)
-        self.label.setAlignment(QtCore.Qt.AlignVCenter)
+        self.mainLayout.setContentsMargins(0, 0, 0, 0)
         self.toggle = CueToggle(parent=self)
+        self.toggle.setValue(default_value)
+        self.label = QtWidgets.QLabel(label, parent=self)
+        self.label.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.label.setAlignment(QtCore.Qt.AlignVCenter)
+        self.setToolTip(tooltip)
+        self.signals = [self.toggle.valueChanged]
+        self.getter = self.toggle.value
+        self.setter = self.toggle.setValue
         self.setupUi()
         self.setupConnections()
 
     def setupUi(self):
         """Creates the widget layout."""
         self.setLayout(self.mainLayout)
-        self.mainLayout.addWidget(self.label)
         self.mainLayout.addWidget(self.toggle)
-        self.mainLayout.addSpacerItem(CueSpacerItem(SpacerTypes.HORIZONTAL))
+        self.mainLayout.addWidget(self.label)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Fixed)
+
+    # pylint: disable=unused-argument
+    def mousePressEvent(self, mouseEvent):
+        """Passes any mousePressEvent to the toggle, this way we can click on the label."""
+        self.toggle.toggle()
 
     def setupConnections(self):
         """Sets up widget signals."""
@@ -447,6 +514,7 @@ class CueToggle(QtWidgets.QSlider):
         self.setMaximum(1)
         self.setSingleStep(1)
         self.setFixedWidth(30)
+        self.setFixedHeight(20)
         self.setupConnections()
         self.setStyleSheet(Style.TOGGLE_DEFAULT)
 
@@ -495,7 +563,6 @@ class CueHelpWidget(QtWidgets.QWidget):
         self.mainLayout.addLayout(self.contentLayout, 0, 0, 1, 4)
         self.mainLayout.addWidget(self.helpButton, 0, 4, 1, 1)
         self.mainLayout.addWidget(self.helpTextField, 1, 0, 1, 5)
-        self.mainLayout.addItem(CueSpacerItem(SpacerTypes.VERTICAL), 3, 0, 1, 5)
         self.mainLayout.setVerticalSpacing(0)
         self.mainLayout.setRowStretch(3, 1)
 
@@ -572,14 +639,17 @@ def separatorLine():
 
 def getFile(fileFilter=None):
     """ Opens a file browser and returns the result
-    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;
-                       Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :param fileFilter: optional filters
+      (ex: "Maya Ascii File (*.ma);;Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
     :type fileFilter: str
     :returns: Name of the file
     :rtype: str
     """
-    filename, _ = QtWidgets.QFileDialog.getOpenFileName(caption='Select file',
-                                                        dir='.', filter=fileFilter)
+    filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+        caption='Select file',
+        dir='.',
+        filter=fileFilter
+    )
     return filename
 
 def getFolder():
@@ -587,21 +657,25 @@ def getFolder():
     :returns: Name of the folder
     :rtype: str
     """
-    folder = QtWidgets.QFileDialog.getExistingDirectory(caption='Select folder',
-                                                        dir='.', filter='')
+    folder = QtWidgets.QFileDialog.getExistingDirectory(
+        caption='Select folder',
+        dir='.',
+        filter=''
+    )
     return folder
 
 def _setBrowseFileText(widget_setter, fileFilter):
     """ wrapper function to open a fileBrowser and set its result back in the widget
     :param widget_setter: widget's function to set its text
     :type widget_setter: function
-    :param fileFilter: optional filters (ex: "Maya Ascii File (*.ma);;
-                       Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
+    :param fileFilter: optional filters
+       (ex: "Maya Ascii File (*.ma);;Maya Binary File (*.mb);;Maya Files (*.ma *.mb)")
     :type fileFilter: str
     """
     result = getFile(fileFilter)
     widget_setter(result)
 
+# pylint: disable=keyword-arg-before-vararg,unused-argument
 def _setBrowseFolderText(widget_setter):
     """ wrapper function to open a folderBrowser and set its result back in the widget
     :param widget_setter: widget's function to set its text
