@@ -306,8 +306,10 @@ class Machine(object):
         # Merge direct children sessions
         for parentid, children in children.items():
             for child in children:
-                sessions[parentid] += sessions[child]
-            sessions[parentid] = list(set(sessions[parentid]))
+                if child in sessions:
+                    sessions[parentid] += sessions[child]
+            if parentid in sessions:
+                sessions[parentid] = list(set(sessions[parentid]))
         return (pids, sessions)
 
     def rssUpdate(self, frames):
