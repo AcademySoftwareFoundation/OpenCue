@@ -102,6 +102,7 @@ class HostMonitor(QtWidgets.QWidget):
         btn.setMaximumHeight(FILTER_HEIGHT)
         btn.setMinimumWidth(155)
         btn.setMaximumWidth(345)
+        btn.sizeHint().setWidth(345)
         btn.setFocusPolicy(QtCore.Qt.StrongFocus)
         layout.addWidget(btn)
         self.__filterByHostName = btn
