@@ -1402,6 +1402,7 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
                                                 runFrame.uid,
                                                 runFrame.gid)
                 if not run_on_docker:
+                    self.ownFrameDir()
                     # Do everything as launching user:
                     runFrame.gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
                     rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
@@ -1420,6 +1421,22 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
         finally:
             rqd.rqutil.permissionsLow()
 
+    def ownFrameDir(self):
+        """Chown the frame's log_dir"""
+        if not self.runFrame.loki_url:
+            # Ensure logdir is owned by this job user. If it doesn't exist it will get
+            # created under the correct user when RqdLogger is initialized
+            if os.path.isdir(self.runFrame.log_dir):
+                try:
+                    rqd.rqutil.permissionsHigh()
+                    os.chown(self.runFrame.log_dir, self.runFrame.uid, self.runFrame.gid)
+                # pylint: disable=broad-except
+                except Exception:
+                    # Don't bail on this exception as rqlogging initialization might
+                    # still work depending on the logdir permissions
+                    log.warning("Failed to chown dir name %s", self.runFrame.log_dir)
+                finally:
+                    rqd.rqutil.permissionsLow()
 
     def runUnknown(self):
         """The steps required to handle a frame under an unknown OS."""
