@@ -1432,7 +1432,7 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
                     os.chown(self.runFrame.log_dir, self.runFrame.uid, self.runFrame.gid)
                 # pylint: disable=broad-except
                 except Exception:
-                        # Don't bail on this exception as rqlogging initialization might
+                    # Don't bail on this exception as rqlogging initialization might
                     # still work depending on the logdir permissions
                     log.warning("Failed to chown dir name %s", self.runFrame.log_dir)
                 finally:
