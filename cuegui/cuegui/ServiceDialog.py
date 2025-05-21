@@ -130,13 +130,13 @@ class ServiceForm(QtWidgets.QWidget):
 
         self.__service = service
         self.__buttons.setDisabled(False)
-        self.name.setText(service.name())
-        self.threadable.setChecked(service.threadable())
-        self.min_cores.setValue(service.minCores())
-        self.max_cores.setValue(service.maxCores())
+        self.name.setText(service.data.name)
+        self.threadable.setChecked(service.data.threadable)
+        self.min_cores.setValue(service.data.min_cores)
+        self.max_cores.setValue(service.data.max_cores)
         self.min_gpu_memory.setValue(service.data.min_gpu_memory // 1024)
-        self.min_memory.setValue(service.minMemory() // 1024)
-        self._tags_w.set_tags(service.tags())
+        self.min_memory.setValue(service.data.min_memory // 1024)
+        self._tags_w.set_tags(service.data.tags)
         self.timeout.setValue(service.data.timeout)
         self.timeout_llu.setValue(service.data.timeout_llu)
         self.min_memory_increase.setValue(service.data.min_memory_increase // 1024)
@@ -296,7 +296,7 @@ class ServiceManager(QtWidgets.QWidget):
         for i in range(0, self.__service_list.count()):
             item = self.__service_list.item(i)
             if item:
-                if str(item.text()) == service.name():
+                if str(item.text()) == service.data.name:
                     self.__service_list.setCurrentRow(i, QtCore.QItemSelectionModel.Select) # pylint: disable=no-member
                     break
 
@@ -316,10 +316,10 @@ class ServiceManager(QtWidgets.QWidget):
             self.__services = self.__show.getServiceOverrides()
 
         for service in self.__services:
-            item = QtWidgets.QListWidgetItem(service.name())
+            item = QtWidgets.QListWidgetItem(service.data.name)
             self.__service_list.addItem(item)
 
-            if service.name() in selected:
+            if service.data.name in selected:
                 item.setSelected(True)
 
         self.__service_list.sortItems()
