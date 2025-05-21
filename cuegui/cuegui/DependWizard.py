@@ -611,11 +611,8 @@ class PageSelectOnLayer(AbstractWizardPage):
         self.wizard().onLayerOptions = opencue.api.findJob(self.wizard().onJob[0]).getLayers()
 
         if self.wizard().dependType in (LOS,):
-            self.wizard().onLayerOptions = [
-                layer for layer in self.wizard().onLayerOptions
-                if 'simulation' in layer.data.services or
-                   'simulationhi' in layer.data.services or
-                   'houdini' in layer.data.services]
+            self.wizard().onLayerOptions = [layer for layer in self.wizard().onLayerOptions
+                                            if self.__isSimulationLayer(layer)]
 
         if self.wizard().dependType in (JOL, LOL, FOL, FBF, JOF, LOF, FOF):
             self.__onLayerList.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
@@ -630,6 +627,15 @@ class PageSelectOnLayer(AbstractWizardPage):
                 str(self.__onLayerList.item(num).text()) in self._getNames(self.wizard().onLayer))
 
     # pylint: disable=missing-function-docstring
+
+    def __isSimulationLayer(self, layer):
+        sim_service_patterns = ['^simulation.*$', '^houdini$']
+        for service in layer.data.services:
+            for pattern in sim_service_patterns:
+                if re.search(pattern, service) is not None:
+                    return True
+        return False
+
     def validatePage(self):
         self.wizard().onLayer = []
         for num in range(self.__onLayerList.count()):
