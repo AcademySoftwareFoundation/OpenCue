@@ -20,11 +20,28 @@ if [[ -z "$py" ]]; then
 fi
 echo "Using Python binary ${py}"
 
-test_log="/tmp/cuegui_result.log"
-PYTHONPATH=pycue xvfb-run -d "${py}" -m unittest discover -s cuegui/tests -t cuegui -p "*.py"| tee ${test_log}
+if [[ -v OPENCUE_CUEGUI_PACKAGE_PATH ]]
+then
+  echo "Installing pre-built opencue_cuegui package"
+  pip install "${OPENCUE_CUEGUI_PACKAGE_PATH}[test]"
+else
+  pip install ./cuegui[test]
+fi
 
-grep -Pz 'Ran \d+ tests in [0-9\.]+s\n\nOK' ${test_log}
-if [ $? -eq 0 ]; then
+test_log="/tmp/cuegui_result.log"
+
+# Fix for debian version of xvfb-run
+source /etc/os-release
+XVFB_RUN_ARG="-d"
+if [[ $ID_LIKE == *debian* ]]
+then
+  XVFB_RUN_ARG="-a"
+fi
+
+xvfb-run $XVFB_RUN_ARG "${py}" -m pytest cuegui| tee ${test_log}
+
+grep -Pz '\d+ failed' ${test_log}
+if [ $? -eq 1 ]; then
   echo "Detected passing tests"
   exit 0
 fi

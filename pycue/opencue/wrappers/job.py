@@ -20,9 +20,9 @@ import os
 import platform
 import time
 
+from opencue_proto import comment_pb2
+from opencue_proto import job_pb2
 from opencue import Cuebot
-from opencue.compiled_proto import comment_pb2
-from opencue.compiled_proto import job_pb2
 import opencue.api
 import opencue.search
 import opencue.wrappers.comment

@@ -23,7 +23,7 @@ import unittest
 
 import mock
 
-from opencue.compiled_proto import limit_pb2
+from opencue_proto import limit_pb2
 import opencue.wrappers.limit
 
 

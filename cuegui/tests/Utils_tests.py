@@ -20,7 +20,7 @@ import unittest
 
 import mock
 
-import opencue.compiled_proto.job_pb2
+import opencue_proto.job_pb2
 import opencue.wrappers.job
 import cuegui.Utils
 import cuegui.Constants
@@ -56,7 +56,7 @@ class UtilsTests(unittest.TestCase):
         jobId = 'arbitrary-job-id'
         jobName = 'show_name-and_shot.name-some$other#stuff'
         expectedJob = opencue.wrappers.job.Job(
-            opencue.compiled_proto.job_pb2.Job(id=jobId, name=jobName))
+            opencue_proto.job_pb2.Job(id=jobId, name=jobName))
         findJobMock.return_value = expectedJob
 
         returnedJob = cuegui.Utils.findJob(jobName)

@@ -24,7 +24,7 @@ import qtpy.QtGui
 import qtpy.QtWidgets
 import qtpy.QtTest
 
-import opencue.compiled_proto.job_pb2
+import opencue_proto.job_pb2
 import opencue.wrappers.frame
 import opencue.wrappers.layer
 import opencue.wrappers.job
@@ -60,15 +60,15 @@ class DependWizardTests(unittest.TestCase):
 
         # Create depend-on job with one layer
         job_dependon = opencue.wrappers.job.Job(
-            opencue.compiled_proto.job_pb2.Job(id=job_dependon_name, name=job_dependon_name,
+            opencue_proto.job_pb2.Job(id=job_dependon_name, name=job_dependon_name,
                                                show='arbitraryshow'))
         layer_dependon = opencue.wrappers.layer.Layer(
-            opencue.compiled_proto.job_pb2.Layer(name=layer_dependon_name))
+            opencue_proto.job_pb2.Layer(name=layer_dependon_name))
         job_dependon.getLayers = lambda: [layer_dependon]
 
         # Create depend-er job, no layers needed
         job_depender = opencue.wrappers.job.Job(
-            opencue.compiled_proto.job_pb2.Job(id=job_depender_name, name=job_depender_name,
+            opencue_proto.job_pb2.Job(id=job_depender_name, name=job_depender_name,
                                                show='arbitraryshow'))
 
         # API mocks to allow wizard to load job information
@@ -127,15 +127,15 @@ class DependWizardTests(unittest.TestCase):
 
         # Create depend-on job, no layers needed
         job_dependon = opencue.wrappers.job.Job(
-            opencue.compiled_proto.job_pb2.Job(id=job_dependon_name, name=job_dependon_name,
+            opencue_proto.job_pb2.Job(id=job_dependon_name, name=job_dependon_name,
                                                show='arbitraryshow'))
 
         # Create depend-er job with one layer
         job_depender = opencue.wrappers.job.Job(
-            opencue.compiled_proto.job_pb2.Job(id=job_depender_name, name=job_depender_name,
+            opencue_proto.job_pb2.Job(id=job_depender_name, name=job_depender_name,
                                                show='arbitraryshow'))
         layer_depender = opencue.wrappers.layer.Layer(
-            opencue.compiled_proto.job_pb2.Layer(name=layer_depender_name))
+            opencue_proto.job_pb2.Layer(name=layer_depender_name))
         job_depender.getLayers = lambda: [layer_depender]
 
         # API mocks to allow wizard to load job information
@@ -198,20 +198,20 @@ class DependWizardTests(unittest.TestCase):
 
         # Create depend-on job with one layer, no frames needed (frame number only is used)
         job_dependon = opencue.wrappers.job.Job(
-            opencue.compiled_proto.job_pb2.Job(id=job_dependon_name, name=job_dependon_name,
+            opencue_proto.job_pb2.Job(id=job_dependon_name, name=job_dependon_name,
                                                show='arbitraryshow'))
         layer_dependon = opencue.wrappers.layer.Layer(
-            opencue.compiled_proto.job_pb2.Layer(name=layer_dependon_name))
+            opencue_proto.job_pb2.Layer(name=layer_dependon_name))
         job_dependon.getLayers = lambda: [layer_dependon]
 
         # Create depend-er job with one layer and one frame
         job_depender = opencue.wrappers.job.Job(
-            opencue.compiled_proto.job_pb2.Job(id=job_depender_name, name=job_depender_name,
+            opencue_proto.job_pb2.Job(id=job_depender_name, name=job_depender_name,
                                                show='arbitraryshow'))
         layer_depender = opencue.wrappers.layer.Layer(
-            opencue.compiled_proto.job_pb2.Layer(name=layer_depender_name))
+            opencue_proto.job_pb2.Layer(name=layer_depender_name))
         frame_depender = opencue.wrappers.frame.Frame(
-            opencue.compiled_proto.job_pb2.Frame(
+            opencue_proto.job_pb2.Frame(
                 id='arbitrary-frame-id', name=frame_depender_name, layer_name=layer_depender_name,
                 number=frame_depender_num))
 

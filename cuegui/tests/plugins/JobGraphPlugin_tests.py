@@ -20,8 +20,8 @@ import unittest
 
 import mock
 
-import opencue.compiled_proto.job_pb2
-import opencue.compiled_proto.depend_pb2
+import opencue_proto.job_pb2
+import opencue_proto.depend_pb2
 import opencue.wrappers.job
 import opencue.wrappers.layer
 import opencue.wrappers.depend
@@ -49,9 +49,9 @@ class MonitorJobGraphPluginTests(unittest.TestCase):
         cuegui.Style.init()
         self.main_window = qtpy.QtWidgets.QMainWindow()
 
-        self.job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(id='foo'))
-        layer = opencue.wrappers.layer.Layer(opencue.compiled_proto.job_pb2.Layer(name='layer1'))
-        depend = opencue.wrappers.depend.Depend(opencue.compiled_proto.depend_pb2.Depend())
+        self.job = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(id='foo'))
+        layer = opencue.wrappers.layer.Layer(opencue_proto.job_pb2.Layer(name='layer1'))
+        depend = opencue.wrappers.depend.Depend(opencue_proto.depend_pb2.Depend())
         layer.getWhatDependsOnThis = lambda: [depend]
         self.job.getLayers = lambda: [layer]
         self.jobGraph = cuegui.JobMonitorGraph.JobMonitorGraph(self.main_window)

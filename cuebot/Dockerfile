@@ -6,13 +6,13 @@ FROM gradle:7.6.4-jdk17 AS build
 USER gradle
 
 COPY --chown=gradle:gradle ./cuebot /home/gradle/cuebot/
-COPY --chown=gradle:gradle ./proto /home/gradle/proto/
+COPY --chown=gradle:gradle ./proto/src /home/gradle/proto/src
 
 WORKDIR /home/gradle/cuebot
 
 RUN gradle build --info --stacktrace
 
-COPY --chown=gradle:gradle VERSION.in VERSIO[N] ./
+COPY --chown=gradle:gradle VERSION.in ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 RUN mv ./build/libs/cuebot.jar ./build/libs/cuebot-$(cat ./VERSION)-all.jar
 

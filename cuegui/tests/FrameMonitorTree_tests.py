@@ -24,7 +24,7 @@ import qtpy.QtGui
 import qtpy.QtTest
 import qtpy.QtWidgets
 
-import opencue.compiled_proto.job_pb2
+import opencue_proto.job_pb2
 import opencue.wrappers.frame
 import opencue.wrappers.job
 
@@ -48,16 +48,16 @@ class FrameMonitorTreeTests(unittest.TestCase):
         cuegui.Style.init()
         self.parentWidget = qtpy.QtWidgets.QWidget()
         self.frameMonitorTree = cuegui.FrameMonitorTree.FrameMonitorTree(self.parentWidget)
-        self.job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(id='foo'))
+        self.job = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(id='foo'))
         self.frameMonitorTree.setJob(self.job)
 
     @mock.patch.object(opencue.wrappers.job.Job, 'getFrames', autospec=True)
     def test_tickInitialLoad(self, getFramesMock):
         frames = [
             opencue.wrappers.frame.Frame(
-                opencue.compiled_proto.job_pb2.Frame(name='frame1')),
+                opencue_proto.job_pb2.Frame(name='frame1')),
             opencue.wrappers.frame.Frame(
-                opencue.compiled_proto.job_pb2.Frame(name='frame2'))]
+                opencue_proto.job_pb2.Frame(name='frame2'))]
         getFramesMock.return_value = frames
 
         self.frameMonitorTree.tick()
@@ -82,11 +82,11 @@ class FrameMonitorTreeTests(unittest.TestCase):
     @mock.patch.object(opencue.wrappers.job.Job, 'getFrames')
     def test_tickUpdateChanged(self, getFramesMock, getUpdatedFramesMock):
         getFramesMock.return_value = []
-        getUpdatedResponse = opencue.compiled_proto.job_pb2.JobGetUpdatedFramesResponse(
-            state=opencue.compiled_proto.job_pb2.RUNNING,
+        getUpdatedResponse = opencue_proto.job_pb2.JobGetUpdatedFramesResponse(
+            state=opencue_proto.job_pb2.RUNNING,
             server_time=1000,
-            updated_frames=opencue.compiled_proto.job_pb2.UpdatedFrameSeq(
-                updated_frames=[opencue.compiled_proto.job_pb2.UpdatedFrame(id='foo')]))
+            updated_frames=opencue_proto.job_pb2.UpdatedFrameSeq(
+                updated_frames=[opencue_proto.job_pb2.UpdatedFrame(id='foo')]))
         getUpdatedFramesMock.return_value = getUpdatedResponse
         # Initial load.
         self.frameMonitorTree.tick()
@@ -102,11 +102,11 @@ class FrameMonitorTreeTests(unittest.TestCase):
     @mock.patch.object(opencue.wrappers.job.Job, 'getFrames', autospec=True)
     def test_tickFullUpdate(self, getFramesMock, getUpdatedFramesMock):
         getFramesMock.return_value = []
-        getUpdatedResponse = opencue.compiled_proto.job_pb2.JobGetUpdatedFramesResponse(
-            state=opencue.compiled_proto.job_pb2.RUNNING,
+        getUpdatedResponse = opencue_proto.job_pb2.JobGetUpdatedFramesResponse(
+            state=opencue_proto.job_pb2.RUNNING,
             server_time=1000,
-            updated_frames=opencue.compiled_proto.job_pb2.UpdatedFrameSeq(
-                updated_frames=[opencue.compiled_proto.job_pb2.UpdatedFrame(id='foo')]))
+            updated_frames=opencue_proto.job_pb2.UpdatedFrameSeq(
+                updated_frames=[opencue_proto.job_pb2.UpdatedFrame(id='foo')]))
         getUpdatedFramesMock.return_value = getUpdatedResponse
         # Initial load.
         self.frameMonitorTree.tick()
@@ -119,7 +119,7 @@ class FrameMonitorTreeTests(unittest.TestCase):
 
     def test_getCores(self):
         frame = opencue.wrappers.frame.Frame(
-            opencue.compiled_proto.job_pb2.Frame(last_resource='foo/125.82723/0'))
+            opencue_proto.job_pb2.Frame(last_resource='foo/125.82723/0'))
 
         self.assertEqual(125.82723, self.frameMonitorTree.getCores(frame))
         self.assertEqual('125.83', self.frameMonitorTree.getCores(frame, format_as_string=True))
@@ -146,15 +146,15 @@ class FrameWidgetItemTests(unittest.TestCase):
     def setUp(self):
         self.host_name = 'arbitrary-hostname'
         self.dispatch_order = 285
-        self.state = opencue.compiled_proto.job_pb2.RUNNING
+        self.state = opencue_proto.job_pb2.RUNNING
 
         self.frame = opencue.wrappers.frame.Frame(
-            opencue.compiled_proto.job_pb2.Frame(
+            opencue_proto.job_pb2.Frame(
                 name='frame1',
                 last_resource='{}/foo'.format(self.host_name),
                 dispatch_order=self.dispatch_order,
                 state=self.state,
-                checkpoint_state=opencue.compiled_proto.job_pb2.ENABLED))
+                checkpoint_state=opencue_proto.job_pb2.ENABLED))
 
         # The widget needs a var, otherwise it gets garbage-collected before tests can run.
         parentWidget = qtpy.QtWidgets.QWidget()
@@ -162,7 +162,7 @@ class FrameWidgetItemTests(unittest.TestCase):
         self.frameWidgetItem = cuegui.FrameMonitorTree.FrameWidgetItem(
             self.frame,
             cuegui.FrameMonitorTree.FrameMonitorTree(parentWidget),
-            opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(id='unused-job-id')))
+            opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(id='unused-job-id')))
 
     def test_data(self):
         cuegui.FrameMonitorTree.LOCALRESOURCE = '{}/'.format(self.host_name)

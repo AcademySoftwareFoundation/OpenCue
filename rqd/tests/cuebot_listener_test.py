@@ -32,7 +32,7 @@ import sys
 
 import grpc
 
-import rqd.compiled_proto.report_pb2_grpc
+import opencue_proto.report_pb2_grpc
 import rqd.rqconstants
 
 
@@ -46,7 +46,7 @@ class RqdReportStaticServer(object):
 
     def addServicers(self):
         addFunc = getattr(
-            rqd.compiled_proto.report_pb2_grpc, 'add_{0}_to_server'.format(self.servicerName))
+            opencue_proto.report_pb2_grpc, 'add_{0}_to_server'.format(self.servicerName))
         servicerClass = globals()[self.servicerName]
         self.servicer = servicerClass()
         addFunc(self.servicer, self.server)
@@ -70,7 +70,7 @@ class RqdReportStaticServer(object):
             self.server.stop(0)
 
 
-class RqdReportInterfaceServicer(rqd.compiled_proto.report_pb2_grpc.RqdReportInterfaceServicer):
+class RqdReportInterfaceServicer(opencue_proto.report_pb2_grpc.RqdReportInterfaceServicer):
     """Test class implements RqdReportStatic interface.
        Received reports are stored in the variables listed below.
        Create as an object to connect.

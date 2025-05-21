@@ -28,7 +28,7 @@ import xml.etree.ElementTree as ET
 
 import mock
 
-import opencue.compiled_proto.job_pb2
+import opencue_proto.job_pb2
 import opencue.wrappers.job
 
 import outline
@@ -222,7 +222,7 @@ class LaunchTest(unittest.TestCase):
     def testLaunchAndWait(self, launchSpecAndWaitMock, isJobPendingMock):
         jobName = 'some-job'
         launchSpecAndWaitMock.return_value = [
-            opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=jobName))]
+            opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(name=jobName))]
         # Trigger one iteration of the wait loop.
         isJobPendingMock.side_effect = [True, False]
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
@@ -242,9 +242,9 @@ class LaunchTest(unittest.TestCase):
     def testLaunchAndTest(self, launchSpecAndWaitMock, getJobMock):
         jobName = 'another-job'
         launchSpecAndWaitMock.return_value = [
-            opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=jobName))]
+            opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(name=jobName))]
         getJobMock.return_value = opencue.wrappers.job.Job(
-            opencue.compiled_proto.job_pb2.Job(name=jobName, state=opencue.api.job_pb2.FINISHED))
+            opencue_proto.job_pb2.Job(name=jobName, state=opencue.api.job_pb2.FINISHED))
 
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
         ol = outline.load_outline(path)

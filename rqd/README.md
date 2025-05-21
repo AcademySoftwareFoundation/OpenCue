@@ -23,14 +23,12 @@ python3 -m venv OpenCue-venv
 source OpenCue-venv/bin/activate
 # Change directory to Opencue source
 cd <OpenCueSourceDir>
-# Install requirements into the virtual environment
-python3 -m pip install -r requirements.txt
-# Generate protobuf python files for RQD
-python3 -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc_python_out=rqd/rqd/compiled_proto proto/*.proto
-python3 ci/fix_compiled_proto.py rqd/rqd/compiled_proto
+
+# Install compiled proto files which is needed by RQD into the virtual environment
+pip install ./proto
+
 # Install RQD into the virtual environment
-cd rqd
-python3 setup.py install
+pip install ./rqd
 ```
 
 ### Create rqd.conf

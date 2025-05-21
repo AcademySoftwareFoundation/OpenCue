@@ -2,15 +2,12 @@
 
 set -e
 
-pip install -r requirements.txt -r requirements_gui.txt
-
-# Compile the proto used to communicate with the Cuebot server.
-cd proto
-python -m grpc_tools.protoc -I=. \
-  --python_out=../pycue/opencue/compiled_proto \
-  --grpc_python_out=../pycue/opencue/compiled_proto ./*.proto
-cd ..
-python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
-
 # Install all client packages.
+if [[ -v OPENCUE_PROTO_PACKAGE_PATH ]]
+then
+  echo "Installing pre-built cuebot package"
+  pip install ${OPENCUE_PROTO_PACKAGE_PATH}
+else
+  pip install cuebot/
+fi
 pip install pycue/ pyoutline/ cueadmin/ cuesubmit/ cuegui/

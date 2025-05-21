@@ -15,6 +15,7 @@
 import os
 import sphinx_rtd_theme
 import sys
+sys.path.insert(0, os.path.abspath('../opencue_proto'))
 sys.path.insert(0, os.path.abspath('../pycue'))
 sys.path.insert(0, os.path.abspath('../pyoutline'))
 

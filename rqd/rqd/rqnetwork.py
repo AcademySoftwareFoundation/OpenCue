@@ -40,9 +40,9 @@ os.environ["GRPC_ENABLE_FORK_SUPPORT"] = "false"
 # pylint: disable=wrong-import-position
 import grpc
 
-import rqd.compiled_proto.report_pb2
-import rqd.compiled_proto.report_pb2_grpc
-import rqd.compiled_proto.rqd_pb2_grpc
+import opencue_proto.report_pb2
+import opencue_proto.report_pb2_grpc
+import opencue_proto.rqd_pb2_grpc
 import rqd.rqconstants
 import rqd.rqexceptions
 import rqd.rqdservicers
@@ -89,7 +89,7 @@ class RunningFrame(object):
 
     def runningFrameInfo(self):
         """Returns the RunningFrameInfo object"""
-        runningFrameInfo = rqd.compiled_proto.report_pb2.RunningFrameInfo(
+        runningFrameInfo = opencue_proto.report_pb2.RunningFrameInfo(
             resource_id=self.runFrame.resource_id,
             job_id=self.runFrame.job_id,
             job_name=self.runFrame.job_name,
@@ -121,13 +121,13 @@ class RunningFrame(object):
 
         :param data: dictionary
         :return: serialized children proc host stats
-        :rtype: rqd.compiled_proto.report_pb2.ChildrenProcStats
+        :rtype: opencue_proto.report_pb2.ChildrenProcStats
         """
-        childrenProc = rqd.compiled_proto.report_pb2.ChildrenProcStats()
+        childrenProc = opencue_proto.report_pb2.ChildrenProcStats()
         for proc, values in self.childrenProcs.items():
-            procStats = rqd.compiled_proto.report_pb2.ProcStats()
-            procStatFile = rqd.compiled_proto.report_pb2.Stat()
-            procStatmFile = rqd.compiled_proto.report_pb2.Statm()
+            procStats = opencue_proto.report_pb2.ProcStats()
+            procStatFile = opencue_proto.report_pb2.Stat()
+            procStatmFile = opencue_proto.report_pb2.Statm()
 
             procStatFile.pid = proc
             procStatFile.name = values["name"] if values["name"] else ""
@@ -204,7 +204,7 @@ class GrpcServer(object):
     def addServicers(self):
         """Registers the gRPC servicers defined in rqdservicers.py."""
         for servicer in self.servicers:
-            addFunc = getattr(rqd.compiled_proto.rqd_pb2_grpc, 'add_{0}_to_server'.format(servicer))
+            addFunc = getattr(opencue_proto.rqd_pb2_grpc, 'add_{0}_to_server'.format(servicer))
             servicerClass = getattr(rqd.rqdservicers, servicer)
             addFunc(servicerClass(self.rqCore), self.server)
 
@@ -303,25 +303,25 @@ class Network(object):
 
     def __getReportStub(self):
         self.__getChannel()
-        return rqd.compiled_proto.report_pb2_grpc.RqdReportInterfaceStub(self.channel)
+        return opencue_proto.report_pb2_grpc.RqdReportInterfaceStub(self.channel)
 
     def reportRqdStartup(self, report):
         """Wraps the ability to send a startup report to rqd via grpc"""
         stub = self.__getReportStub()
-        request = rqd.compiled_proto.report_pb2.RqdReportRqdStartupRequest(boot_report=report)
+        request = opencue_proto.report_pb2.RqdReportRqdStartupRequest(boot_report=report)
         stub.ReportRqdStartup(request, timeout=rqd.rqconstants.RQD_TIMEOUT)
 
     def reportStatus(self, report):
         """Wraps the ability to send a status report to the cuebot via grpc"""
         stub = self.__getReportStub()
-        request = rqd.compiled_proto.report_pb2.RqdReportStatusRequest(host_report=report)
+        request = opencue_proto.report_pb2.RqdReportStatusRequest(host_report=report)
         stub.ReportStatus(request, timeout=rqd.rqconstants.RQD_TIMEOUT)
 
     def reportRunningFrameCompletion(self, report):
         """Wraps the ability to send a running frame completion report
            to the cuebot via grpc"""
         stub = self.__getReportStub()
-        request = rqd.compiled_proto.report_pb2.RqdReportRunningFrameCompletionRequest(
+        request = opencue_proto.report_pb2.RqdReportRunningFrameCompletionRequest(
             frame_complete_report=report)
         stub.ReportRunningFrameCompletion(request, timeout=rqd.rqconstants.RQD_TIMEOUT)
 

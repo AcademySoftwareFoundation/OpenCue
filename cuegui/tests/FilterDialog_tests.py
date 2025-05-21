@@ -25,8 +25,8 @@ import qtpy.QtGui
 import qtpy.QtWidgets
 import qtpy.QtTest
 
-import opencue.compiled_proto.show_pb2
-import opencue.compiled_proto.filter_pb2
+import opencue_proto.show_pb2
+import opencue_proto.filter_pb2
 import opencue.wrappers.filter
 import opencue.wrappers.show
 
@@ -45,14 +45,14 @@ class FilterDialogTests(unittest.TestCase):
         app.settings = qtpy.QtCore.QSettings()
         cuegui.Style.init()
 
-        self.show = opencue.wrappers.show.Show(opencue.compiled_proto.show_pb2.Show(name='fooShow'))
-        filterProto = opencue.compiled_proto.filter_pb2.Filter(
+        self.show = opencue.wrappers.show.Show(opencue_proto.show_pb2.Show(name='fooShow'))
+        filterProto = opencue_proto.filter_pb2.Filter(
                 id='filter-one-id', name='filterOne', order=1, enabled=True)
         self.filter = opencue.wrappers.filter.Filter(filterProto)
 
         getStubMock.return_value.GetFilters.return_value = \
-            opencue.compiled_proto.show_pb2.ShowGetFiltersResponse(
-                filters=opencue.compiled_proto.filter_pb2.FilterSeq(filters=[filterProto]))
+            opencue_proto.show_pb2.ShowGetFiltersResponse(
+                filters=opencue_proto.filter_pb2.FilterSeq(filters=[filterProto]))
 
         self.parentWidget = qtpy.QtWidgets.QWidget()
         self.filterDialog = cuegui.FilterDialog.FilterDialog(self.show, parent=self.parentWidget)
@@ -70,7 +70,7 @@ class FilterDialogTests(unittest.TestCase):
         newFilterName = 'new-filter-name'
         self.show.createFilter = mock.Mock(
             return_value=opencue.wrappers.filter.Filter(
-                opencue.compiled_proto.filter_pb2.Filter(id=newFilterId, name=newFilterName)))
+                opencue_proto.filter_pb2.Filter(id=newFilterId, name=newFilterName)))
 
         getTextMock.return_value = (newFilterName, True)
 
@@ -158,16 +158,16 @@ class FilterMonitorTreeTests(unittest.TestCase):
         app.settings = qtpy.QtCore.QSettings()
         cuegui.Style.init()
 
-        show = opencue.wrappers.show.Show(opencue.compiled_proto.show_pb2.Show(name='fooShow'))
+        show = opencue.wrappers.show.Show(opencue_proto.show_pb2.Show(name='fooShow'))
         filters = [
-            opencue.compiled_proto.filter_pb2.Filter(
+            opencue_proto.filter_pb2.Filter(
                 id='filter-one-id', name='filterOne', order=1, enabled=True),
-            opencue.compiled_proto.filter_pb2.Filter(
+            opencue_proto.filter_pb2.Filter(
                 id='filter-two-id', name='filterTwo', order=2, enabled=False),
         ]
         getStubMock.return_value.GetFilters.return_value = \
-            opencue.compiled_proto.show_pb2.ShowGetFiltersResponse(
-                filters=opencue.compiled_proto.filter_pb2.FilterSeq(filters=filters))
+            opencue_proto.show_pb2.ShowGetFiltersResponse(
+                filters=opencue_proto.filter_pb2.FilterSeq(filters=filters))
 
         self.parentWidget = qtpy.QtWidgets.QWidget()
         self.filterDialog = cuegui.FilterDialog.FilterDialog(show, parent=self.parentWidget)
@@ -204,20 +204,20 @@ class MatcherMonitorTreeTests(unittest.TestCase):
         cuegui.Style.init()
 
         self.matchers = [
-            opencue.compiled_proto.filter_pb2.Matcher(
+            opencue_proto.filter_pb2.Matcher(
                 id='matcher-one-id',
-                subject=opencue.compiled_proto.filter_pb2.SHOW,
-                type=opencue.compiled_proto.filter_pb2.IS,
+                subject=opencue_proto.filter_pb2.SHOW,
+                type=opencue_proto.filter_pb2.IS,
                 input='showName'),
-            opencue.compiled_proto.filter_pb2.Matcher(
+            opencue_proto.filter_pb2.Matcher(
                 id='matcher-two-id',
-                subject=opencue.compiled_proto.filter_pb2.JOB_NAME,
-                type=opencue.compiled_proto.filter_pb2.CONTAINS,
+                subject=opencue_proto.filter_pb2.JOB_NAME,
+                type=opencue_proto.filter_pb2.CONTAINS,
                 input='jobNameSnippet'),
         ]
         self.matcherWrappers = [
             opencue.wrappers.filter.Matcher(matcher) for matcher in self.matchers]
-        self.filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        self.filter = opencue.wrappers.filter.Filter(opencue_proto.filter_pb2.Filter())
 
         self.parentWidget = qtpy.QtWidgets.QWidget()
         self.matcherMonitorTree = cuegui.FilterDialog.MatcherMonitorTree(None, self.parentWidget)
@@ -241,13 +241,13 @@ class MatcherMonitorTreeTests(unittest.TestCase):
     @mock.patch('qtpy.QtWidgets.QInputDialog.getText')
     @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     def test_shouldAddMatcher(self, getItemMock, getTextMock):
-        matcherSubject = opencue.compiled_proto.filter_pb2.FACILITY
-        matcherType = opencue.compiled_proto.filter_pb2.CONTAINS
+        matcherSubject = opencue_proto.filter_pb2.FACILITY
+        matcherType = opencue_proto.filter_pb2.CONTAINS
         matcherText = 'facility-substring-to-match'
         self.filter.getMatchers = mock.Mock(return_value=self.matcherWrappers)
         self.filter.createMatcher = mock.Mock(
             return_value=opencue.wrappers.filter.Matcher(
-                opencue.compiled_proto.filter_pb2.Matcher(
+                opencue_proto.filter_pb2.Matcher(
                     id='matcher-three-id',
                     subject=matcherSubject,
                     type=matcherType,
@@ -347,13 +347,13 @@ class MatcherMonitorTreeTests(unittest.TestCase):
     @mock.patch('cuegui.TextEditDialog.TextEditDialog')
     @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     def test_shouldAddMultipleMatchers(self, getItemMock, textEditDialogMock):
-        matcherSubject = opencue.compiled_proto.filter_pb2.SHOT
-        matcherType = opencue.compiled_proto.filter_pb2.IS
+        matcherSubject = opencue_proto.filter_pb2.SHOT
+        matcherType = opencue_proto.filter_pb2.IS
         matcherText = 'SHOt01 \n\nshot02\nShot03'
         self.filter.getMatchers = mock.Mock(return_value=self.matcherWrappers)
         self.filter.createMatcher = mock.Mock(
             return_value=opencue.wrappers.filter.Matcher(
-                opencue.compiled_proto.filter_pb2.Matcher(
+                opencue_proto.filter_pb2.Matcher(
                     id='matcher-three-id',
                     subject=matcherSubject,
                     type=matcherType,
@@ -384,13 +384,13 @@ class MatcherMonitorTreeTests(unittest.TestCase):
     @mock.patch('cuegui.TextEditDialog.TextEditDialog')
     @mock.patch('qtpy.QtWidgets.QInputDialog.getItem')
     def test_shouldReplaceAllMatchers(self, getItemMock, textEditDialogMock):
-        matcherSubject = opencue.compiled_proto.filter_pb2.SHOT
-        matcherType = opencue.compiled_proto.filter_pb2.IS
+        matcherSubject = opencue_proto.filter_pb2.SHOT
+        matcherType = opencue_proto.filter_pb2.IS
         matcherText = 'SHOt01 \n\nshot02\nShot03'
         self.filter.getMatchers = mock.Mock(return_value=self.matcherWrappers)
         self.filter.createMatcher = mock.Mock(
             return_value=opencue.wrappers.filter.Matcher(
-                opencue.compiled_proto.filter_pb2.Matcher(
+                opencue_proto.filter_pb2.Matcher(
                     id='matcher-three-id',
                     subject=matcherSubject,
                     type=matcherType,
