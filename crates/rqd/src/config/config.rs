@@ -73,7 +73,6 @@ pub struct MachineConfig {
     pub proc_loadavg_path: String,
     pub temp_path: String,
     pub core_multiplier: u32,
-    pub use_session_id_for_proc_lineage: bool,
 }
 
 impl Default for MachineConfig {
@@ -85,14 +84,13 @@ impl Default for MachineConfig {
             custom_tags: vec![],
             nimby_mode: false,
             facility: "cloud".to_string(),
-            cpuinfo_path: "/etc/cpuinfo".to_string(),
+            cpuinfo_path: "/proc/cpuinfo".to_string(),
             distro_release_path: "/etc/*-release".to_string(),
             proc_stat_path: "/proc/stat".to_string(),
             inittab_path: "/etc/inittab".to_string(),
             proc_loadavg_path: "/proc/loadavg".to_string(),
             temp_path: "/tmp".to_string(),
             core_multiplier: 100,
-            use_session_id_for_proc_lineage: true,
         }
     }
 }

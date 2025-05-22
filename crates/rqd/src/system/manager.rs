@@ -219,7 +219,12 @@ impl ProcessStats {
             max_vsize: std::cmp::max(new.max_vsize, self.max_vsize),
             max_used_gpu_memory: std::cmp::max(new.max_used_gpu_memory, self.max_used_gpu_memory),
             run_time: std::cmp::max(new.run_time, self.run_time),
-            ..new
+            rss: new.rss,
+            vsize: new.vsize,
+            llu_time: new.llu_time,
+            used_gpu_memory: new.used_gpu_memory,
+            children: new.children,
+            epoch_start_time: new.epoch_start_time,
         };
     }
 }

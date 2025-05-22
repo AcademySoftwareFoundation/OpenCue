@@ -39,8 +39,7 @@ impl RunningFrameCache {
                     .frame_stats
                     .read()
                     .unwrap_or_else(|poisoned| poisoned.into_inner())
-                    .clone()
-                    .unwrap_or_default();
+                    .clone();
                 RunningFrameInfo {
                     resource_id: running_frame.request.resource_id.clone(),
                     job_id: running_frame.request.job_id.to_string(),

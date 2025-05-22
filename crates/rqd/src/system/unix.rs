@@ -20,8 +20,9 @@ use opencue_proto::{
 };
 use sysinfo::{
     DiskRefreshKind, Disks, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System,
+    UpdateKind,
 };
-use tracing::{debug, warn};
+use tracing::debug;
 use uuid::Uuid;
 
 use crate::config::config::MachineConfig;
@@ -43,9 +44,6 @@ pub struct UnixSystem {
     hardware_state: HardwareState,
     attributes: HashMap<String, String>,
     sysinfo_system: Mutex<sysinfo::System>,
-    // Cache of all processes and their children
-    // This cache is only active if use_session_id_for_proc_lineage=true
-    procs_children_cache: Option<DashMap<u32, Vec<u32>>>,
     // Cache of monitored processes and their lineage
     procs_lineage_cache: DashMap<u32, Vec<u32>>,
 }
@@ -142,10 +140,6 @@ impl UnixSystem {
                 available_cores: available_core_count,
             },
             sysinfo_system: Mutex::new(sysinfo::System::new()),
-            procs_children_cache: match config.use_session_id_for_proc_lineage {
-                true => None,
-                false => Some(DashMap::new()),
-            },
             procs_lineage_cache: DashMap::new(),
         })
     }
@@ -279,7 +273,11 @@ impl UnixSystem {
     /// A `Result` containing a `String` representing the hostname or IP address of the machine.
     fn get_hostname(use_ip_as_hostname: bool) -> Result<String> {
         let hostname = sysinfo::System::host_name()
-            .ok_or_else(|| miette::miette!("Failed to get hostname"))?;
+            .ok_or_else(|| miette::miette!("Failed to get hostname"))?
+            .split(".")
+            .next()
+            .ok_or(miette!("Invalid hostname format"))?
+            .to_string();
         if use_ip_as_hostname {
             let mut addrs_iter = format!("{}:443", hostname)
                 .to_socket_addrs()
@@ -548,45 +546,16 @@ impl UnixSystem {
             .sysinfo_system
             .lock()
             .unwrap_or_else(|err| err.into_inner());
-        if self.config.use_session_id_for_proc_lineage {
-            self.procs_lineage_cache.clear();
-            // Group all processes by session_id
-            for (session_pid, pid) in sysinfo.processes().iter().map(|(children_pid, proc)| {
-                let session_pid = proc.session_id().unwrap_or(Pid::from_u32(0)).as_u32();
-                (session_pid, children_pid.clone().as_u32())
-            }) {
-                self.procs_lineage_cache
-                    .entry(session_pid)
-                    .and_modify(|procs| procs.push(pid))
-                    .or_insert(vec![pid]);
-            }
-        } else {
-            let procs_children_cache = self.procs_children_cache.as_ref().expect(
-                "Invalid State. \
-                    procs_children_cache should be some if use_session_id_for_proc_lineage is true",
-            );
-            procs_children_cache.clear();
-
-            // Collect all procs and its direct children
-            for (parent_pid, pid) in sysinfo.processes().iter().map(|(children_pid, proc)| {
-                let parent_pid = proc.parent().unwrap_or(Pid::from_u32(0)).as_u32();
-                (parent_pid, children_pid.clone().as_u32())
-            }) {
-                procs_children_cache
-                    .entry(parent_pid)
-                    .and_modify(|children| children.push(pid))
-                    .or_insert(vec![pid]);
-            }
-            // Clear up procs that have finished (disapeared from procs_children_cache)
-            let procs_to_clear: Vec<u32> = self
-                .procs_lineage_cache
-                .iter()
-                .filter(|item| !procs_children_cache.contains_key(item.key()))
-                .map(|item| item.key().clone())
-                .collect();
-            for pid in procs_to_clear {
-                self.procs_lineage_cache.remove(&pid);
-            }
+        self.procs_lineage_cache.clear();
+        // Group all processes by session_id
+        for (session_pid, pid) in sysinfo.processes().iter().map(|(children_pid, proc)| {
+            let session_pid = proc.session_id().unwrap_or(Pid::from_u32(0)).as_u32();
+            (session_pid, children_pid.clone().as_u32())
+        }) {
+            self.procs_lineage_cache
+                .entry(session_pid)
+                .and_modify(|procs| procs.push(pid))
+                .or_insert(vec![pid]);
         }
     }
 
@@ -624,21 +593,24 @@ impl UnixSystem {
                                 )
                                 .format("%Y-%m-%d %H:%M:%S")
                                 .to_string();
+                                let proc_memory = proc.memory() / 1024;
+                                let proc_vmemory = proc.virtual_memory() / 1024;
+                                let cmdline =
+                                    proc.cmd().iter().map(|oss| oss.to_string_lossy()).join(" ");
                                 children.push(ProcStats {
                                     stat: Some(Stat {
-                                        rss: proc.memory() as i64,
-                                        vsize: proc.virtual_memory() as i64,
+                                        rss: proc_memory as i64,
+                                        vsize: proc_vmemory as i64,
                                         state: "".to_string(),
                                         name: proc.name().to_string_lossy().to_string(),
                                         pid: pid.to_string(),
                                     }),
                                     statm: None,
                                     status: None,
-                                    // TODO: cmd() doesn't seem to return argv. Find a better option
-                                    cmdline: format!("{:?}", proc.cmd()),
+                                    cmdline,
                                     start_time: start_time_str,
                                 });
-                                (proc.memory(), proc.virtual_memory(), 0, proc.run_time())
+                                (proc_memory, proc_vmemory, 0, proc.run_time())
                             }
                             None => (0, 0, 0, 0),
                         },
@@ -655,102 +627,6 @@ impl UnixSystem {
             children,
             sysinfo,
         )
-    }
-
-    /// Recursively calculates memory usage of a process and all of its child processes.
-    ///
-    /// # Arguments
-    ///
-    /// * `pid` - Process ID to calculate memory usage for
-    /// * `sysinfo` - Mutex guard containing system information
-    /// * `cycle_trace` - Vector of process IDs to detect recursive loops
-    ///
-    /// # Returns
-    ///
-    /// A tuple containing:
-    /// * Memory usage in bytes
-    /// * Virtual memory usage in bytes
-    /// * GPU memory usage in bytes
-    /// * The updated mutex guard reference
-    /// * The updated cycle_trace vector
-    ///
-    /// # Implementation Notes
-    ///
-    /// This function recursively traverses the process tree to sum up memory usage.
-    /// It uses cycle detection to prevent infinite loops in process hierarchies.
-    ///
-    /// GPU memory calculation is still pending
-    fn calculate_children_memory_traverse_lineage<'a>(
-        &'a self,
-        pid: &u32,
-        mut sysinfo: MutexGuard<'a, System>,
-        mut cycle_trace: Vec<u32>,
-    ) -> (u64, u64, u64, u64, MutexGuard<'a, System>, Vec<u32>) {
-        if let Some(procs_children_cache) = &self.procs_children_cache {
-            match sysinfo.process(Pid::from(pid.clone() as usize)) {
-                Some(proc) => match procs_children_cache.get(pid) {
-                    Some(children_pids) => {
-                        cycle_trace.push(pid.clone());
-                        let (
-                            mut sum_memory,
-                            mut sum_virtual_memory,
-                            mut sum_gpu_memory,
-                            mut run_time,
-                        ) = (proc.memory(), proc.virtual_memory(), 0, proc.run_time());
-                        for child_pid in children_pids.iter() {
-                            // Check for cycles to avoid an infinite loop
-                            if cycle_trace.contains(child_pid) {
-                                warn!(
-                                    "calculate_children_memory recursion found a loop.\
-                                Incomplete memory calculation for {pid}."
-                                );
-                                break;
-                            }
-                            let (
-                                child_memory,
-                                child_virtual_memory,
-                                child_gpu_memory,
-                                child_run_time,
-                                updated_sysinfo,
-                                updated_cycle_trace,
-                            ) = self.calculate_children_memory_traverse_lineage(
-                                child_pid,
-                                sysinfo,
-                                cycle_trace,
-                            );
-                            sum_memory += child_memory;
-                            sum_virtual_memory += child_virtual_memory;
-                            sum_gpu_memory += child_gpu_memory;
-                            run_time = std::cmp::max(run_time, child_run_time);
-                            // Update our reference to the mutex guard and cycle_trace
-                            sysinfo = updated_sysinfo;
-                            cycle_trace = updated_cycle_trace;
-                        }
-                        (
-                            sum_memory,
-                            sum_virtual_memory,
-                            sum_gpu_memory,
-                            run_time,
-                            sysinfo,
-                            cycle_trace,
-                        )
-                    }
-                    // Process has no children
-                    None => (
-                        proc.memory(),
-                        proc.virtual_memory(),
-                        0,
-                        proc.run_time(),
-                        sysinfo,
-                        Vec::new(),
-                    ),
-                },
-                // Process no longer exists
-                None => (0, 0, 0, 0, sysinfo, Vec::new()),
-            }
-        } else {
-            (0, 0, 0, 0, sysinfo, Vec::new())
-        }
     }
 }
 
@@ -930,74 +806,34 @@ impl SystemManager for UnixSystem {
             .sysinfo_system
             .lock()
             .unwrap_or_else(|err| err.into_inner());
-        if self.config.use_session_id_for_proc_lineage {
-            let (
-                summed_memory,
-                summed_virtual_memory,
-                summed_gpu_memory,
-                total_run_time,
-                children,
-                guard,
-            ) = self.calculate_session_memory(&pid, sysinfo);
+        let (
+            summed_memory,
+            summed_virtual_memory,
+            summed_gpu_memory,
+            total_run_time,
+            children,
+            guard,
+        ) = self.calculate_session_memory(&pid, sysinfo);
 
-            debug!(
-                "Collect frame stats fo {}. rss: {}mb virtual: {}mb gpu: {}mb",
-                pid,
-                summed_memory / 1024 / 1024,
-                summed_virtual_memory / 1024 / 1024,
-                summed_gpu_memory / 1024 / 1024
-            );
-            Ok(guard
-                .process(Pid::from(pid as usize))
-                .map(|proc| ProcessStats {
-                    // Caller is responsible for maintaining the Max value between calls
-                    max_rss: summed_memory,
-                    rss: summed_memory,
-                    max_vsize: summed_virtual_memory,
-                    vsize: summed_virtual_memory,
-                    llu_time: log_mtime,
-                    max_used_gpu_memory: 0,
-                    used_gpu_memory: summed_gpu_memory,
-                    children: Some(ChildrenProcStats { children }),
-                    epoch_start_time: proc.start_time(),
-                    run_time: total_run_time,
-                }))
-        } else {
-            // Traverse the tree of procs using their parent id and calculate memory consumption
-            let (
-                summed_memory,
-                summed_virtual_memory,
-                summed_gpu_memory,
-                total_run_time,
-                guard,
-                lineage,
-            ) = self.calculate_children_memory_traverse_lineage(&pid, sysinfo, Vec::new());
-
-            debug!(
-                "Collect frame stats fo {}. rss: {}mb virtual: {}mb gpu: {}mb",
-                pid,
-                summed_memory / 1024 / 1024,
-                summed_virtual_memory / 1024 / 1024,
-                summed_gpu_memory / 1024 / 1024
-            );
-
-            self.procs_lineage_cache.insert(pid, lineage);
-            Ok(guard
-                .process(Pid::from(pid as usize))
-                .map(|proc| ProcessStats {
-                    // Caller is responsible for maintaining the Max value between calls
-                    max_rss: summed_memory,
-                    rss: summed_memory,
-                    max_vsize: summed_virtual_memory,
-                    vsize: summed_virtual_memory,
-                    llu_time: log_mtime,
-                    max_used_gpu_memory: 0,
-                    used_gpu_memory: summed_gpu_memory,
-                    children: None,
-                    epoch_start_time: proc.start_time(),
-                    run_time: total_run_time,
-                }))
-        }
+        debug!(
+            "Collect frame stats fo {}. rss: {}kb virtual: {}kb gpu: {}kb",
+            pid, summed_memory, summed_virtual_memory, summed_gpu_memory
+        );
+        Ok(guard
+            .process(Pid::from(pid as usize))
+            .map(|proc| ProcessStats {
+                // Caller is responsible for maintaining the Max value between calls
+                max_rss: summed_memory,
+                rss: summed_memory,
+                max_vsize: summed_virtual_memory,
+                vsize: summed_virtual_memory,
+                llu_time: log_mtime,
+                max_used_gpu_memory: 0,
+                used_gpu_memory: summed_gpu_memory,
+                children: Some(ChildrenProcStats { children }),
+                epoch_start_time: proc.start_time(),
+                run_time: total_run_time,
+            }))
     }
 
     fn refresh_procs(&self) {
@@ -1007,7 +843,11 @@ impl SystemManager for UnixSystem {
             .unwrap_or_else(|err| err.into_inner());
 
         *sysinfo = sysinfo::System::new_with_specifics(
-            RefreshKind::nothing().with_processes(ProcessRefreshKind::nothing().with_memory()),
+            RefreshKind::nothing().with_processes(
+                ProcessRefreshKind::nothing()
+                    .with_memory()
+                    .with_cmd(UpdateKind::Always),
+            ),
         );
         drop(sysinfo);
         self.refresh_procs_cache();
@@ -1426,7 +1266,6 @@ mod tests {
                 hardware_state: HardwareState::Up,
                 attributes: HashMap::new(),
                 sysinfo_system: Mutex::new(sysinfo::System::new()),
-                procs_children_cache: Some(DashMap::new()),
                 procs_lineage_cache: DashMap::new(),
             }
         }

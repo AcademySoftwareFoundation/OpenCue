@@ -57,7 +57,7 @@ pub struct RunningFrame {
     pub job_id: Uuid,
     pub frame_id: Uuid,
     pub layer_id: Uuid,
-    pub frame_stats: RwLock<Option<ProcessStats>>,
+    pub frame_stats: RwLock<ProcessStats>,
     pub log_path: String,
     uid: u32,
     gid: u32,
@@ -182,7 +182,7 @@ impl RunningFrame {
             job_id,
             frame_id,
             layer_id,
-            frame_stats: RwLock::new(None),
+            frame_stats: RwLock::new(ProcessStats::default()),
             log_path,
             uid,
             gid,
@@ -1245,7 +1245,7 @@ Environment Variables:
             .frame_stats
             .read()
             .unwrap_or_else(|err| err.into_inner());
-        let frame_stats = frame_stats_lock.clone().unwrap_or(ProcessStats::default());
+        let frame_stats = frame_stats_lock.clone();
         drop(frame_stats_lock);
 
         let state = self.state.lock().unwrap_or_else(|err| err.into_inner());
@@ -1334,45 +1334,36 @@ Render Frame Completed
     }
 
     /// Produce a copy of this running frame in the format expected by the grpc interface
-    pub fn into_running_frame_info(&self) -> Option<RunningFrameInfo> {
+    pub fn into_running_frame_info(&self) -> RunningFrameInfo {
         let frame_stats_lock = self
             .frame_stats
             .read()
             .unwrap_or_else(|err| err.into_inner());
         // Start time defauls to 0 if a frame hasn't started
-        let start_time = frame_stats_lock
-            .as_ref()
-            .map(|stats| stats.epoch_start_time)
-            .unwrap_or(0);
+        let start_time = frame_stats_lock.epoch_start_time;
 
-        let children = frame_stats_lock
-            .as_ref()
-            .map(|stats| stats.children.clone())
-            .flatten();
+        let children = frame_stats_lock.children.clone();
 
-        if let Some(ref stats) = *frame_stats_lock {
-            Some(RunningFrameInfo {
-                resource_id: self.request.resource_id.clone(),
-                job_id: self.request.job_id.clone(),
-                job_name: self.request.job_name.clone(),
-                frame_id: self.request.frame_id.clone(),
-                frame_name: self.request.frame_name.clone(),
-                layer_id: self.request.layer_id.clone(),
-                num_cores: self.request.num_cores,
-                start_time: start_time as i64,
-                max_rss: stats.max_rss as i64,
-                rss: stats.rss as i64,
-                max_vsize: stats.max_vsize as i64,
-                vsize: stats.vsize as i64,
-                attributes: self.request.attributes.clone(),
-                llu_time: stats.llu_time as i64,
-                num_gpus: self.request.num_gpus,
-                max_used_gpu_memory: stats.max_used_gpu_memory as i64,
-                used_gpu_memory: stats.used_gpu_memory as i64,
-                children,
-            })
-        } else {
-            None
+        let stats = frame_stats_lock.clone();
+        RunningFrameInfo {
+            resource_id: self.request.resource_id.clone(),
+            job_id: self.request.job_id.clone(),
+            job_name: self.request.job_name.clone(),
+            frame_id: self.request.frame_id.clone(),
+            frame_name: self.request.frame_name.clone(),
+            layer_id: self.request.layer_id.clone(),
+            num_cores: self.request.num_cores,
+            start_time: start_time as i64,
+            max_rss: stats.max_rss as i64,
+            rss: stats.rss as i64,
+            max_vsize: stats.max_vsize as i64,
+            vsize: stats.vsize as i64,
+            attributes: self.request.attributes.clone(),
+            llu_time: stats.llu_time as i64,
+            num_gpus: self.request.num_gpus,
+            max_used_gpu_memory: stats.max_used_gpu_memory as i64,
+            used_gpu_memory: stats.used_gpu_memory as i64,
+            children,
         }
     }
 }

@@ -128,7 +128,7 @@ wait_for_output $exit_code
         use itertools::Itertools;
 
         let taskset_list = cpu_list.into_iter().map(|v| v.to_string()).join(",");
-        self.cmd.arg("taskset").arg("-p").arg(taskset_list.as_str());
+        self.cmd.arg("taskset").arg("-c").arg(taskset_list.as_str());
         self
     }
 

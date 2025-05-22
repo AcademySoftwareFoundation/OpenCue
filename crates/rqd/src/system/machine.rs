@@ -191,11 +191,7 @@ impl MachineMonitor {
                     })
                 {
                     if let Ok(mut frame_stats) = running_frame.frame_stats.write() {
-                        if let Some(old_frame_stats) = frame_stats.as_mut() {
-                            old_frame_stats.update(proc_stats);
-                        } else {
-                            *frame_stats = Some(proc_stats);
-                        }
+                        frame_stats.update(proc_stats);
                     }
                     true
                 } else {
@@ -210,56 +206,69 @@ impl MachineMonitor {
                 true
             }
         });
+        drop(system_monitor);
         self.handle_finished_frames(finished_frames).await;
         Ok(())
     }
 
     async fn handle_finished_frames(&self, finished_frames: Vec<Arc<RunningFrame>>) {
+        if finished_frames.is_empty() {
+            return;
+        }
+
         let host_state_lock = self.last_host_state.lock().await;
         let host_state = host_state_lock.clone();
         // Avoid holding a lock while reporting back to cuebot
         drop(host_state_lock);
 
-        if let Some(host_state) = host_state {
-            for frame in finished_frames {
-                if let (Some(finished_state), Some(frame_report)) =
-                    (frame.get_finished_state(), frame.into_running_frame_info())
-                {
-                    let exit_signal = match finished_state.exit_signal {
-                        Some(signal) => signal as u32,
-                        None => 0,
-                    };
+        match host_state {
+            Some(host_state) => {
+                for frame in finished_frames {
+                    if let Some(finished_state) = frame.get_finished_state() {
+                        let frame_report = frame.into_running_frame_info();
+                        let exit_signal = match finished_state.exit_signal {
+                            Some(signal) => signal as u32,
+                            None => 0,
+                        };
+                        debug!("Sending frame complete report: {}", frame);
 
-                    // Release resources
-                    if let Some(procs) = &frame.cpu_list {
-                        self.release_cpus(procs).await;
+                        // Release resources
+                        if let Some(procs) = &frame.cpu_list {
+                            self.release_cpus(procs).await;
+                        } else {
+                            // Ensure the division rounds up if num_cores is not a multiple of
+                            // core_multiplier
+                            let num_cores_to_release = (frame.request.num_cores as u32
+                                + self.maching_config.core_multiplier
+                                - 1)
+                                / self.maching_config.core_multiplier;
+                            self.release_cores(num_cores_to_release).await;
+                        }
+
+                        // Send complete report
+                        if let Err(err) = self
+                            .report_client
+                            .send_frame_complete_report(
+                                host_state.clone(),
+                                frame_report,
+                                finished_state.exit_code as u32,
+                                exit_signal,
+                                0,
+                            )
+                            .await
+                        {
+                            error!(
+                                "Failed to send frame_complete_report for {}. {}",
+                                frame, err
+                            );
+                        };
                     } else {
-                        self.release_cores(
-                            frame.request.num_cores as u32 / self.maching_config.core_multiplier,
-                        )
-                        .await;
+                        warn!("Invalid state on supposedly finished frame. {}", frame);
                     }
-
-                    // Send complete report
-                    if let Err(err) = self
-                        .report_client
-                        .send_frame_complete_report(
-                            host_state.clone(),
-                            frame_report,
-                            finished_state.exit_code as u32,
-                            exit_signal,
-                            0,
-                        )
-                        .await
-                    {
-                        error!(
-                            "Failed to send frame_complete_report for {}. {}",
-                            frame, err
-                        );
-                    };
-                } else {
-                    warn!("Invalid state on supposedly finished frame. {}", frame);
                 }
+            }
+            None => {
+                warn!("Invalid state. Could not find host state");
             }
         }
     }

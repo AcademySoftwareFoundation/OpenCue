@@ -76,7 +76,7 @@ impl RqdInterface for RqdServant {
             )))?;
 
         Ok(Response::new(RqdStaticGetRunningFrameStatusResponse {
-            running_frame_info: running_frame,
+            running_frame_info: Some(running_frame),
         }))
     }
 
