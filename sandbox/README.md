@@ -96,19 +96,6 @@ python3 -m venv sandbox-venv
 source sandbox-venv/bin/activate
 ```
 
-- Upgrade pip to the latest version
-
-```bash
-pip install --upgrade pip
-```
-
-- Install the required Python packages
-
-```bash
-pip install -r requirements.txt
-pip install -r requirements_gui.txt
-```
-
 - Install the OpenCue Python client libraries from source
   - This option is mostly used by developers that contribute to the OpenCue project.
   - It is recommended if you want to test the latest changes in the OpenCue source code.

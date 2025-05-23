@@ -9,6 +9,9 @@
 
 set -e
 
+# Upgrade pip to the latest version
+pip install --upgrade pip
+
 # Install all client packages.
 if [[ -n "${OPENCUE_PROTO_PACKAGE_PATH+x}" ]]
 then
@@ -26,4 +29,6 @@ else
   # Build the proto package
   pip install proto/
 fi
+
+# Install the rest of the Python client packages
 pip install pycue/ pyoutline/ cueadmin/ cuesubmit/ cuegui/
