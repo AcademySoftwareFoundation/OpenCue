@@ -9,9 +9,6 @@
 
 set -e
 
-# Upgrade pip to the latest version
-pip install --upgrade pip
-
 # Install all client packages.
 if [[ -n "${OPENCUE_PROTO_PACKAGE_PATH+x}" ]]
 then
