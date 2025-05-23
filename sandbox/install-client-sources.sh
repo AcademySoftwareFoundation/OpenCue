@@ -26,4 +26,6 @@ else
   # Build the proto package
   pip install proto/
 fi
+
+# Install the rest of the Python client packages
 pip install pycue/ pyoutline/ cueadmin/ cuesubmit/ cuegui/
