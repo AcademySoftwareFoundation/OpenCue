@@ -10,7 +10,7 @@ name = "opencue_pycue"
 dynamic = ["version"]
 dependencies = [
     "opencue_proto",
-    "PyYAML==5.1",
+    "PyYAML==6.0.1",
     "six==1.16.0",
     "future==1.0.0"
 ]
