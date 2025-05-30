@@ -64,6 +64,14 @@ tempfile = "3.14.0"
 # === Rpm configuration ===
 [package.metadata.generate-rpm]
 name = "openrqd"
+post_install_script = """
+    /usr/bin/systemctl daemon-reload
+    /usr/bin/systemctl enable openrqd.service
+    /usr/bin/systemctl start openrqd.service
+"""
+pre_untrans_script = """
+    /usr/bin/systemctl stop openrqd.service
+"""
 
 [[package.metadata.generate-rpm.assets]]
 source = "../../target/release/openrqd"
