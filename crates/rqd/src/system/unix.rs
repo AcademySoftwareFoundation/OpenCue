@@ -22,7 +22,7 @@ use sysinfo::{
     DiskRefreshKind, Disks, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System,
     UpdateKind,
 };
-use tracing::debug;
+use tracing::{debug, warn};
 use uuid::Uuid;
 
 use crate::config::config::MachineConfig;
@@ -51,20 +51,17 @@ pub struct UnixSystem {
 #[derive(Debug)]
 struct ProcessorInfoData {
     hyperthreading_multiplier: u32,
-    num_procs: u32,
     num_sockets: u32,
-    cores_per_proc: u32,
+    cores_per_socket: u32,
 }
 
 struct MachineStaticInfo {
     pub hostname: String,
-    /// Number of proc units (also known as virtual cores)
-    pub num_procs: u32,
     pub total_memory: u64,
     pub total_swap: u64,
     /// Number of sockets (also know as physical cores)
     pub num_sockets: u32,
-    pub cores_per_proc: u32,
+    pub cores_per_socket: u32,
     // Unlike the python counterpart, the multiplier is not automatically applied to total_procs
     pub hyperthreading_multiplier: u32,
     pub boot_time: u32,
@@ -104,23 +101,16 @@ impl UnixSystem {
         let total_memory = sysinfo.total_memory();
         let total_swap = sysinfo.total_swap();
 
-        let available_core_count = procid_by_physid_and_core_id
-            .values()
-            .map(|sockets| sockets.iter().count())
-            .reduce(|a, b| a + b)
-            .unwrap_or(0) as u32;
-
         Ok(Self {
             config: config.clone(),
             procid_by_physid_and_core_id,
             physid_and_coreid_by_procid,
             static_info: MachineStaticInfo {
                 hostname: Self::get_hostname(config.use_ip_as_hostname)?,
-                num_procs: processor_info.num_procs,
                 total_memory,
                 total_swap,
                 num_sockets: processor_info.num_sockets,
-                cores_per_proc: processor_info.cores_per_proc,
+                cores_per_socket: processor_info.cores_per_socket,
                 hyperthreading_multiplier: processor_info.hyperthreading_multiplier,
                 boot_time: Self::read_boot_time(&config.proc_stat_path).unwrap_or(0),
                 tags: Self::setup_tags(&config),
@@ -137,7 +127,6 @@ impl UnixSystem {
             ]),
             cpu_stat: CpuStat {
                 reserved_cores_by_physid: HashMap::new(),
-                available_cores: available_core_count,
             },
             sysinfo_system: Mutex::new(sysinfo::System::new()),
             procs_lineage_cache: DashMap::new(),
@@ -173,7 +162,7 @@ impl UnixSystem {
         let cpuinfo = File::open(cpuinfo_path).into_diagnostic()?;
         let reader = BufReader::new(cpuinfo);
 
-        let mut num_procs = 0;
+        let mut num_threads = 0;
         let mut num_sockets = 0;
         let mut hyperthreading_multiplier: Option<u32> = None;
         let mut curr_core_map: HashMap<String, String> = HashMap::new();
@@ -207,7 +196,7 @@ impl UnixSystem {
                     .parse()
                     .unwrap_or(1);
                 hyperthreading_multiplier.replace(siblings / cpu_cores);
-                num_procs += 1;
+                num_threads += 1;
 
                 let core_id_opt = curr_core_map.get("core id");
                 if let (Ok(core_id), Ok(phys_id), Some(Ok(proc_id))) = (
@@ -244,16 +233,15 @@ impl UnixSystem {
         }
         // Apply modifier
         let hyper_modifier = hyperthreading_multiplier.unwrap_or(1);
-        num_procs = num_procs / hyper_modifier;
+        num_threads = num_threads / hyper_modifier;
         if num_sockets == 0 {
             Err(miette!("Invalid CPU with no sockets (physical id)"))
         } else {
             Ok((
                 ProcessorInfoData {
                     hyperthreading_multiplier: hyper_modifier,
-                    num_procs,
                     num_sockets,
-                    cores_per_proc: num_procs / num_sockets,
+                    cores_per_socket: num_threads / num_sockets,
                 },
                 procid_by_physid_and_core_id,
                 physid_and_coreid_by_procid,
@@ -486,15 +474,11 @@ impl UnixSystem {
         core_id: u32,
         reserver_id: Uuid,
     ) -> Result<(), ReservationError> {
-        if self.cpu_stat.available_cores <= 0 {
-            Err(ReservationError::NotEnoughResourcesAvailable)?
-        }
         self.cpu_stat
             .reserved_cores_by_physid
             .entry(phys_id)
             .or_insert_with(|| CoreReservation::new(reserver_id))
             .insert(core_id);
-        self.cpu_stat.available_cores -= 1;
         Ok(())
     }
 
@@ -635,11 +619,11 @@ impl SystemManager for UnixSystem {
         let dinamic_stat = self.read_dynamic_stat()?;
         Ok(MachineStat {
             hostname: self.static_info.hostname.clone(),
-            num_procs: self.static_info.num_procs,
+            num_procs: self.static_info.num_sockets * self.static_info.cores_per_socket,
             total_memory: self.static_info.total_memory,
             total_swap: self.static_info.total_swap,
             num_sockets: self.static_info.num_sockets,
-            cores_per_proc: self.static_info.cores_per_proc,
+            cores_per_socket: self.static_info.cores_per_socket,
             hyperthreading_multiplier: self.static_info.hyperthreading_multiplier,
             boot_time: self.static_info.boot_time,
             tags: self.static_info.tags.clone(),
@@ -683,9 +667,6 @@ impl SystemManager for UnixSystem {
     }
 
     fn release_core(&mut self, core_id: &u32) -> Result<(), ReservationError> {
-        if self.cpu_stat.available_cores <= 0 {
-            Err(ReservationError::NotEnoughResourcesAvailable)?
-        }
         self.cpu_stat
             .reserved_cores_by_physid
             .iter_mut()
@@ -694,10 +675,6 @@ impl SystemManager for UnixSystem {
     }
 
     fn reserve_cores(&mut self, count: u32, frame_id: Uuid) -> Result<Vec<u32>, ReservationError> {
-        if count > self.cpu_stat.available_cores {
-            Err(ReservationError::NotEnoughResourcesAvailable)?
-        }
-
         let mut selected_cores = Vec::with_capacity(count as usize);
         let available_cores = self.calculate_available_cores()?;
 
@@ -714,15 +691,12 @@ impl SystemManager for UnixSystem {
             selected_cores.push(core_id);
         }
 
-        // Not having all cores reserved at this point is an unconsistent state, as it has been
-        // initially checked if the system had enough cores for this reservation
-        assert_eq!(
-            count,
-            selected_cores.len() as u32,
-            "Not having all cores reserved at this point is an unconsistent state, as we haves
-            initially checked if there are cores availabLe for this reservation"
-        );
         if count != selected_cores.len() as u32 {
+            for core_id in &selected_cores {
+                if let Err(err) = self.release_core(core_id) {
+                    warn!("Failed to release core: {err}");
+                }
+            }
             Err(ReservationError::NotEnoughResourcesAvailable)?
         }
 
@@ -930,9 +904,8 @@ mod tests {
         let linux_monitor = UnixSystem::init(&config)
             .expect("Initializing LinuxMachineStat failed")
             .static_info;
-        assert_eq!(4, linux_monitor.num_procs);
         assert_eq!(2, linux_monitor.num_sockets);
-        assert_eq!(2, linux_monitor.cores_per_proc);
+        assert_eq!(2, linux_monitor.cores_per_socket);
         assert_eq!(1, linux_monitor.hyperthreading_multiplier);
     }
 
@@ -1019,10 +992,9 @@ mod tests {
                 found_mapping,
                 "No mappings found between processor IDs and physical/core IDs"
             );
-            assert_eq!(expected_procs, cpuinfo.num_procs, "Assert num_procs");
             assert_eq!(expected_sockets, cpuinfo.num_sockets, "Assert num_sockets");
             assert_eq!(
-                expected_cores_per_proc, cpuinfo.cores_per_proc,
+                expected_cores_per_proc, cpuinfo.cores_per_socket,
                 "Assert cores_per_proc"
             );
             assert_eq!(
@@ -1049,9 +1021,8 @@ mod tests {
         let static_info = stat.static_info;
 
         // Proc
-        assert_eq!(4, static_info.num_procs);
         assert_eq!(2, static_info.num_sockets);
-        assert_eq!(2, static_info.cores_per_proc);
+        assert_eq!(2, static_info.cores_per_socket);
         assert_eq!(1, static_info.hyperthreading_multiplier);
 
         // attributes
@@ -1154,7 +1125,13 @@ mod tests {
             assert!(result.is_ok());
             let reserved = result.unwrap();
             assert_eq!(reserved.len(), 2);
-            assert_eq!(system.cpu_stat.available_cores, 2);
+            let available_cores = system
+                .calculate_available_cores()
+                .unwrap_or(Vec::new())
+                .iter()
+                .map(|(_physid, cores)| cores.len())
+                .sum::<usize>();
+            assert_eq!(available_cores, 2);
         }
 
         #[test]
@@ -1167,7 +1144,13 @@ mod tests {
                 result,
                 Err(ReservationError::NotEnoughResourcesAvailable)
             ));
-            assert_eq!(system.cpu_stat.available_cores, 4); // Should remain unchanged
+            let available_cores = system
+                .calculate_available_cores()
+                .unwrap_or(Vec::new())
+                .iter()
+                .map(|(_physid, cores)| cores.len())
+                .sum::<usize>();
+            assert_eq!(available_cores, 4); // Should remain unchanged
         }
 
         #[test]
@@ -1179,7 +1162,13 @@ mod tests {
             assert!(result.is_ok());
             let reserved = result.unwrap();
             assert_eq!(reserved.len(), 4);
-            assert_eq!(system.cpu_stat.available_cores, 0);
+            let available_cores = system
+                .calculate_available_cores()
+                .unwrap_or(Vec::new())
+                .iter()
+                .map(|(_physid, cores)| cores.len())
+                .sum::<usize>();
+            assert_eq!(available_cores, 0);
         }
 
         #[test]
@@ -1212,12 +1201,24 @@ mod tests {
             // First reservation
             let result1 = system.reserve_cores(2, Uuid::new_v4());
             assert!(result1.is_ok());
-            assert_eq!(system.cpu_stat.available_cores, 2);
+            let available_cores = system
+                .calculate_available_cores()
+                .unwrap_or(Vec::new())
+                .iter()
+                .map(|(_physid, cores)| cores.len())
+                .sum::<usize>();
+            assert_eq!(available_cores, 2);
 
             // Second reservation
             let result2 = system.reserve_cores(1, Uuid::new_v4());
             assert!(result2.is_ok());
-            assert_eq!(system.cpu_stat.available_cores, 1);
+            let available_cores = system
+                .calculate_available_cores()
+                .unwrap_or(Vec::new())
+                .iter()
+                .map(|(_physid, cores)| cores.len())
+                .sum::<usize>();
+            assert_eq!(available_cores, 1);
 
             // Third reservation - should fail
             let result3 = system.reserve_cores(2, Uuid::new_v4());
@@ -1250,15 +1251,13 @@ mod tests {
                 physid_and_coreid_by_procid,
                 cpu_stat: CpuStat {
                     reserved_cores_by_physid: HashMap::new(),
-                    available_cores: total_cores,
                 },
                 static_info: MachineStaticInfo {
                     hostname: "test".to_string(),
-                    num_procs: total_cores,
                     total_memory: 0,
                     total_swap: 0,
                     num_sockets: physical_cpus,
-                    cores_per_proc: cores_per_cpu,
+                    cores_per_socket: cores_per_cpu,
                     hyperthreading_multiplier: 1,
                     boot_time: 0,
                     tags: vec![],

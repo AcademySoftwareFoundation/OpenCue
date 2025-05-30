@@ -3,6 +3,8 @@ name = "rqd"
 authors = { workspace = true }
 edition = { workspace = true }
 version = { workspace = true }
+license = "Apache-2.0"
+description = "Agent for OpenCue"
 
 [[bin]]
 path = "src/main.rs"
@@ -58,3 +60,23 @@ bollard = "0.18.1"
 
 [dev-dependencies]
 tempfile = "3.14.0"
+
+# === Rpm configuration ===
+[package.metadata.generate-rpm]
+name = "openrqd"
+
+[[package.metadata.generate-rpm.assets]]
+source = "../../target/release/openrqd"
+dest = "/usr/bin/openrqd"
+mode = "755"
+user = "root"
+group = "root"
+caps = "cap_sys_admin=pe cap_net_bind_service=pe cap_net_raw=pe cap_sys_chroot=pe cap_sys_ptrace=pe cap_setuid=pe cap_setgid=pe cap_dac_override=pe cap_fowner=pe"
+
+[[package.metadata.generate-rpm.assets]]
+source = "../../config/rqd.yaml"
+dest = "/etc/openrqd/rqd.yaml"
+
+[[package.metadata.generate-rpm.assets]]
+source = "./resources/openrqd.service"
+dest = "/etc/systemd/system/openrqd.service"

@@ -91,7 +91,7 @@ pub enum ReservationError {
 pub struct CpuStat {
     /// List of cores currently reserved
     pub reserved_cores_by_physid: HashMap<u32, CoreReservation>,
-    pub available_cores: u32,
+    // pub available_cores: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -138,7 +138,7 @@ pub struct MachineStat {
     /// Total number of physical cores (also known as sockets)
     pub num_sockets: u32,
     /// Number of cores per processor unit
-    pub cores_per_proc: u32,
+    pub cores_per_socket: u32,
     /// Multiplier value for hyper-threading, does not apply to total_procs unlike in python version
     pub hyperthreading_multiplier: u32,
     /// Timestamp for when the machine was booted up

@@ -7,7 +7,7 @@ grpc:
 machine:
   facility: test
   monitor_interval: 3s
-  cpuinfo_path: "/Users/dtavares/dev/rust_opencue/crates/rqd/resources/cpuinfo/cpuinfo_srdsvr05_ht_12-6-2-2"
+  cpuinfo_path: "/Users/dtavares/dev/rust_opencue/crates/rqd/resources/cpuinfo/cpuinfo_srdsvr09_48-12-4"
   distro_release_path: "/Users/dtavares/dev/rust_opencue/crates/rqd/resources/distro-release/rocky"
   proc_stat_path: "/Users/dtavares/dev/rust_opencue/crates/rqd/resources/proc/stat"
   proc_loadavg_path: "/Users/dtavares/dev/rust_opencue/crates/rqd/resources/proc/loadavg"

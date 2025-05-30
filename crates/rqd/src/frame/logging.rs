@@ -1,12 +1,13 @@
 use crate::config::config::{LoggerType, RunnerConfig};
-use chrono::Utc;
-use miette::{IntoDiagnostic, Result, miette};
+use chrono::{DateTime, Local};
+use miette::{IntoDiagnostic, Result};
 use std::{
     fs::{self, File, Permissions},
     io::Write,
     os::unix::fs::PermissionsExt,
     path::Path,
     sync::{Arc, Mutex},
+    time::SystemTime,
 };
 use tracing::error;
 
@@ -25,10 +26,13 @@ impl FrameLoggerBuilder {
     pub fn from_logger_config(
         path: String,
         logger_config: &RunnerConfig,
+        uid_gid: Option<(u32, u32)>,
     ) -> Result<Arc<dyn FrameLoggerT + Send + Sync + 'static>> {
         match logger_config.logger {
-            LoggerType::File => FrameFileLogger::init(path, logger_config.prepend_timestamp)
-                .map(|a| Arc::new(a) as Arc<dyn FrameLoggerT + Send + Sync + 'static>),
+            LoggerType::File => {
+                FrameFileLogger::init(path, logger_config.prepend_timestamp, uid_gid)
+                    .map(|a| Arc::new(a) as Arc<dyn FrameLoggerT + Send + Sync + 'static>)
+            }
         }
     }
 }
@@ -40,26 +44,53 @@ pub struct FrameFileLogger {
 }
 
 impl FrameFileLogger {
-    pub fn init(path: String, prepend_timestamp: bool) -> Result<Self> {
+    pub fn init(
+        path: String,
+        prepend_timestamp: bool,
+        uid_gid: Option<(u32, u32)>,
+    ) -> Result<Self> {
         let log_path = Path::new(path.as_str());
         if log_path.exists() {
             Self::rotate_existing_files(&path)?;
         } else if let Some(parent_path) = log_path.parent() {
             if !parent_path.exists() {
                 fs::create_dir_all(parent_path).into_diagnostic()?;
-                fs::set_permissions(parent_path, Permissions::from_mode(0o777))
-                    .into_diagnostic()?;
+                if let Some((uid, gid)) = uid_gid {
+                    Self::change_ownership(parent_path, uid, gid)?;
+                }
             }
         }
-        // TODO: Evaluate if changing the log file ownership is necessary
 
         let file = File::create(log_path).into_diagnostic()?;
+        if let Some((uid, gid)) = uid_gid {
+            Self::change_ownership(log_path, uid, gid)?;
+        }
         let file_descriptor = Mutex::new(file);
         Ok(FrameFileLogger {
             _path: path,
             prepend_timestamp,
             file_descriptor,
         })
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn change_ownership(path: &Path, uid: u32, gid: u32) -> Result<()> {
+        use std::os::unix::fs::chown;
+
+        use miette::Context;
+
+        fs::set_permissions(path, Permissions::from_mode(0o775))
+            .into_diagnostic()
+            .wrap_err(format!("Failed to change log dir permissions: {path:?}"))?;
+
+        chown(path, Some(uid), Some(gid))
+            .into_diagnostic()
+            .wrap_err(format!("Failed to change log dir ownership: {path:?}"))
+    }
+
+    #[cfg(target_os = "windows")]
+    fn change_ownership(_path: &String, _uid: u32, _gid: u32) -> Result<()> {
+        Ok(())
     }
 
     fn rotate_existing_files(path: &String) -> Result<()> {
@@ -80,7 +111,8 @@ impl FrameLoggerT for FrameFileLogger {
     fn writeln(&self, text: &str) {
         let mut line = String::with_capacity(text.len() + 8);
         if self.prepend_timestamp {
-            let timestamp = Utc::now().format("%H:%M:%S").to_string();
+            let time_str: DateTime<Local> = SystemTime::now().into();
+            let timestamp = time_str.format("%H:%M:%S").to_string();
             line.push('[');
             line.push_str(timestamp.as_str());
             line.push_str("] ");
@@ -108,7 +140,8 @@ impl FrameLoggerT for FrameFileLogger {
             for c in bytes {
                 buff.push(c.clone());
                 if *c == linebreak {
-                    let timestamp = format!("[{}] ", Utc::now().format("%H:%M:%S"));
+                    let time_str: DateTime<Local> = SystemTime::now().into();
+                    let timestamp = time_str.format("%H:%M:%S").to_string();
                     buff.extend_from_slice(timestamp.as_bytes());
                 }
             }
@@ -188,7 +221,7 @@ mod tests {
         let temp_path = temp_file.path().to_string_lossy().to_string();
 
         // Create logger with timestamp disabled
-        let logger = FrameFileLogger::init(temp_path.clone(), false).unwrap();
+        let logger = FrameFileLogger::init(temp_path.clone(), false, None).unwrap();
 
         // Write some test content
         let test_content = b"Test content";
@@ -209,7 +242,7 @@ mod tests {
         let temp_path = temp_file.path().to_string_lossy().to_string();
 
         // Create logger with timestamp enabled
-        let logger = FrameFileLogger::init(temp_path.clone(), true).unwrap();
+        let logger = FrameFileLogger::init(temp_path.clone(), true, None).unwrap();
 
         // Write content with newlines to test timestamp prepending
         let test_content = b"Line 1\nLine 2\nLine 3";
@@ -237,7 +270,7 @@ mod tests {
         let temp_path = temp_file.path().to_string_lossy().to_string();
 
         // Create logger with timestamp disabled
-        let logger = FrameFileLogger::init(temp_path.clone(), false).unwrap();
+        let logger = FrameFileLogger::init(temp_path.clone(), false, None).unwrap();
 
         // Write binary data
         let binary_data = [0u8, 1u8, 2u8, 3u8, 4u8, 255u8];
@@ -258,7 +291,7 @@ mod tests {
         let temp_path = temp_file.path().to_string_lossy().to_string();
 
         // Create logger with timestamp disabled for simplicity
-        let logger = FrameFileLogger::init(temp_path.clone(), false).unwrap();
+        let logger = FrameFileLogger::init(temp_path.clone(), false, None).unwrap();
 
         // Write multiple times
         logger.write(b"First write. ");
@@ -280,7 +313,7 @@ mod tests {
         let temp_path = temp_file.path().to_string_lossy().to_string();
 
         // Create logger with timestamp disabled
-        let logger = FrameFileLogger::init(temp_path.clone(), false).unwrap();
+        let logger = FrameFileLogger::init(temp_path.clone(), false, None).unwrap();
 
         // Write empty content
         logger.write(b"");

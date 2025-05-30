@@ -41,10 +41,7 @@ use serde::{Deserialize, Serialize};
 use sysinfo::{Pid, System};
 
 use miette::{Context, IntoDiagnostic, Result, miette};
-use opencue_proto::{
-    report::{ChildrenProcStats, RunningFrameInfo},
-    rqd::RunFrame,
-};
+use opencue_proto::{report::RunningFrameInfo, rqd::RunFrame};
 use uuid::Uuid;
 
 use super::logging::{FrameLogger, FrameLoggerBuilder};
@@ -57,7 +54,7 @@ pub struct RunningFrame {
     pub job_id: Uuid,
     pub frame_id: Uuid,
     pub layer_id: Uuid,
-    pub frame_stats: RwLock<ProcessStats>,
+    frame_stats: RwLock<ProcessStats>,
     pub log_path: String,
     uid: u32,
     gid: u32,
@@ -70,7 +67,8 @@ pub struct RunningFrame {
     raw_stderr_path: String,
     pub exit_file_path: String,
     pub entrypoint_file_path: String,
-    state: Mutex<FrameState>,
+    state: RwLock<FrameState>,
+    should_remove_from_cache: RwLock<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -78,6 +76,7 @@ pub enum FrameState {
     Created(CreatedState),
     Running(RunningState),
     Finished(FinishedState),
+    FailedBeforeStart,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -90,7 +89,7 @@ pub struct CreatedState {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RunningState {
-    pid: u32,
+    pub pid: u32,
     start_time: SystemTime,
     // Attention: Recovered frames will never have a joinHandle
     #[serde(skip_serializing)]
@@ -135,37 +134,28 @@ impl RunningFrame {
         let job_id = request.job_id();
         let frame_id = request.frame_id();
         let layer_id = request.layer_id();
-        let resource_id = request.resource_id();
+        // Use a random id as part of the file prefix to prevent multiple frames from
+        // sharing the same control files
+        let random_id = Uuid::new_v4();
         let log_path = Path::new(&request.log_dir)
             .join(format!("{}.{}.rqlog", request.job_name, request.frame_name))
             .to_string_lossy()
             .to_string();
+        let frame_file_prefix = format!("{}.{}", request.frame_name, &random_id.to_string()[0..7]);
         let raw_stdout_path = std::path::Path::new(&request.log_dir)
-            .join(format!(
-                "{}.{}.{}.raw_stdout.rqlog",
-                request.job_name, request.frame_name, resource_id
-            ))
+            .join(format!("{}.raw_stdout.rqlog", frame_file_prefix))
             .to_string_lossy()
             .to_string();
         let raw_stderr_path = std::path::Path::new(&request.log_dir)
-            .join(format!(
-                "{}.{}.{}.raw_stderr.rqlog",
-                request.job_name, request.frame_name, resource_id
-            ))
+            .join(format!("{}.raw_stderr.rqlog", frame_file_prefix))
             .to_string_lossy()
             .to_string();
         let exit_file_path = std::path::Path::new(&request.log_dir)
-            .join(format!(
-                "{}.{}.{}.exit_status",
-                request.job_name, request.frame_name, resource_id
-            ))
+            .join(format!("{}.exit_status", frame_file_prefix))
             .to_string_lossy()
             .to_string();
         let entrypoint_file_path = std::path::Path::new(&request.log_dir)
-            .join(format!(
-                "{}.{}.{}.sh",
-                request.job_name, request.frame_name, resource_id
-            ))
+            .join(format!("{}.sh", frame_file_prefix))
             .to_string_lossy()
             .to_string();
         let env_vars = Self::setup_env_vars(&config, &request, hostname.clone(), log_path.clone());
@@ -195,18 +185,41 @@ impl RunningFrame {
             raw_stderr_path,
             exit_file_path,
             entrypoint_file_path,
-            state: Mutex::new(FrameState::Created(CreatedState {
+            state: RwLock::new(FrameState::Created(CreatedState {
                 launch_thread_handle: None,
             })),
+            should_remove_from_cache: RwLock::new(false),
         }
     }
 
-    pub fn get_finished_state(&self) -> Option<FinishedState> {
-        let state = self.state.lock().unwrap_or_else(|err| err.into_inner());
+    pub fn get_frame_stats_copy(&self) -> ProcessStats {
+        self.frame_stats
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+
+    pub fn update_frame_stats(&self, proc_stats: ProcessStats) {
+        self.frame_stats
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .update(proc_stats);
+    }
+
+    pub fn get_state_copy(&self) -> FrameState {
+        let state = self.state.read().unwrap_or_else(|err| err.into_inner());
+
         match *state {
-            FrameState::Created(_) => None,
-            FrameState::Running(_) => None,
-            FrameState::Finished(ref finished_state) => Some(FinishedState {
+            FrameState::Created(_) => FrameState::Created(CreatedState {
+                launch_thread_handle: None,
+            }),
+            FrameState::Running(ref r) => FrameState::Running(RunningState {
+                pid: r.pid.clone(),
+                start_time: r.start_time.clone(),
+                launch_thread_handle: None,
+                kill_reason: r.kill_reason.clone(),
+            }),
+            FrameState::Finished(ref finished_state) => FrameState::Finished(FinishedState {
                 pid: finished_state.pid,
                 launch_thread_handle: None,
                 start_time: finished_state.start_time,
@@ -215,6 +228,7 @@ impl RunningFrame {
                 exit_signal: finished_state.exit_signal,
                 kill_reason: None,
             }),
+            FrameState::FailedBeforeStart => FrameState::FailedBeforeStart,
         }
     }
 
@@ -227,7 +241,7 @@ impl RunningFrame {
     /// for launching and monitoring this frame. It allows the system to
     /// properly manage the thread lifecycle.
     pub fn update_launch_thread_handle(&self, thread_handle: JoinHandle<()>) -> Result<()> {
-        let mut state = self.state.lock().unwrap_or_else(|err| err.into_inner());
+        let mut state = self.state.write().unwrap_or_else(|err| err.into_inner());
         match *state {
             FrameState::Created(ref mut created_state) => {
                 created_state.launch_thread_handle = Some(thread_handle);
@@ -238,6 +252,9 @@ impl RunningFrame {
                 Ok(())
             }
             FrameState::Finished(_) => Err(miette!("Invalid State. Frame has already finished")),
+            FrameState::FailedBeforeStart => {
+                Err(miette!("Invalid State. Frame failed before starting"))
+            }
         }
     }
 
@@ -250,7 +267,7 @@ impl RunningFrame {
     /// This method updates the internal finished state with the termination information,
     /// which can later be used to determine if the frame succeeded or failed.
     pub fn finish(&self, exit_code: i32, exit_signal: Option<i32>) -> Result<()> {
-        let mut state = self.state.lock().unwrap_or_else(|err| err.into_inner());
+        let mut state = self.state.write().unwrap_or_else(|err| err.into_inner());
         match &mut *state {
             FrameState::Created(_) => Err(miette!("Invalid State. Frame {} hasn't started", self)),
             FrameState::Running(running_state) => {
@@ -273,6 +290,31 @@ impl RunningFrame {
                 "Invalid State. Frame {} has already finished",
                 self
             )),
+            FrameState::FailedBeforeStart => Err(miette!(
+                "Invalid State. Frame {} Failed before starting",
+                self
+            )),
+        }
+    }
+
+    pub fn fail_before_start(&self) -> Result<()> {
+        let mut state = self.state.write().unwrap_or_else(|err| err.into_inner());
+        match &mut *state {
+            FrameState::Created(_) => {
+                *state = FrameState::FailedBeforeStart;
+                Ok(())
+            }
+            FrameState::Running(_) => {
+                Err(miette!("Invalid State. Frame {} has already started", self))
+            }
+            FrameState::Finished(_) => Err(miette!(
+                "Invalid State. Frame {} has already finished",
+                self
+            )),
+            FrameState::FailedBeforeStart => Err(miette!(
+                "Invalid State. Frame {} Failed before starting",
+                self
+            )),
         }
     }
 
@@ -282,7 +324,7 @@ impl RunningFrame {
     /// Returning an error is pointless as we want the frame that trigger this transition to finish
     /// regardless
     fn start(&self, pid: u32) {
-        let mut state = self.state.lock().unwrap_or_else(|err| err.into_inner());
+        let mut state = self.state.write().unwrap_or_else(|err| err.into_inner());
 
         match &mut *state {
             FrameState::Created(created_state) => {
@@ -298,6 +340,9 @@ impl RunningFrame {
                 self, running_state
             ),
             FrameState::Finished(_) => warn!("Invalid States. Frame {} has already finished", self),
+            FrameState::FailedBeforeStart => {
+                warn!("Invalid States. Frame {} failed before starting", self)
+            }
         }
     }
 
@@ -352,50 +397,46 @@ impl RunningFrame {
     /// If the process fails to spawn, it logs the error but doesn't set an exit code.
     /// The method handles both successful and failed execution scenarios.
     pub fn run(&self, recover_mode: bool) {
-        let logger_base =
-            FrameLoggerBuilder::from_logger_config(self.log_path.clone(), &self.config);
-        if let Err(_) = logger_base {
-            error!("Failed to create log stream for {}", self.log_path);
+        let logger_base = FrameLoggerBuilder::from_logger_config(
+            self.log_path.clone(),
+            &self.config,
+            self.config.run_as_user.then(|| (self.uid, self.gid)),
+        );
+        if let Err(err) = logger_base {
+            error!("Failed to create log stream for {}: {}", self.log_path, err);
+            if let Err(err) = self.fail_before_start() {
+                error!("Failed to update failed status for {}: {}", self, err);
+            };
             return;
         }
         let logger = Arc::new(logger_base.unwrap());
 
-        let exit_code = if recover_mode {
-            match self.recover_inner(Arc::clone(&logger)) {
-                Ok((exit_code, exit_signal)) => {
-                    if let Err(err) = self.finish(exit_code, exit_signal) {
-                        warn!("Failed to mark frame {} as finished. {}", self, err);
-                    }
-                    logger.writeln(&self.write_footer());
-                    Some(exit_code)
-                }
-                Err(err) => {
-                    let msg = format!("Frame {} failed to be recovered. {}", self.to_string(), err);
-                    logger.writeln(&msg);
-                    error!(msg);
-                    None
-                }
-            }
+        let output = if recover_mode {
+            self.recover_inner(Arc::clone(&logger))
         } else {
-            match self.run_inner(Arc::clone(&logger)) {
-                Ok((exit_code, exit_signal)) => {
-                    if let Err(err) = self.finish(exit_code, exit_signal) {
-                        warn!("Failed to mark frame {} as finished. {}", self, err);
-                    }
-                    logger.writeln(&self.write_footer());
-                    Some(exit_code)
+            self.run_inner(Arc::clone(&logger))
+        };
+        let was_spawned = match output {
+            Ok((exit_code, exit_signal)) => {
+                if let Err(err) = self.finish(exit_code, exit_signal) {
+                    error!("Failed to mark frame {} as finished. {}", self, err);
                 }
-                Err(err) => {
-                    let msg = format!("Frame {} failed to be spawned. {}", self.to_string(), err);
-                    logger.writeln(&msg);
-                    error!(msg);
-                    None
+                logger.writeln(&self.write_footer());
+                true
+            }
+            Err(err) => {
+                let msg = format!("Frame {} failed to be spawned. {}", self.to_string(), err);
+                logger.writeln(&msg);
+                error!(msg);
+                if let Err(err) = self.fail_before_start() {
+                    error!("Failed to mark frame {} as finished. {}", self, err);
                 }
+                false
             }
         };
         if let Err(err) = self.clear_snapshot() {
             // Only warn if a job was actually launched
-            if exit_code.is_some() {
+            if was_spawned {
                 warn!(
                     "Failed to clear snapshot {}: {}",
                     self.snapshot_path().unwrap_or("empty_path".to_string()),
@@ -416,10 +457,16 @@ impl RunningFrame {
     /// If the process fails to spawn, it logs the error but doesn't set an exit code.
     /// The method handles both successful and failed execution scenarios.
     pub async fn run_docker(&self, recover_mode: bool) {
-        let logger_base =
-            FrameLoggerBuilder::from_logger_config(self.log_path.clone(), &self.config);
-        if let Err(_) = logger_base {
-            error!("Failed to create log stream for {}", self.log_path);
+        let logger_base = FrameLoggerBuilder::from_logger_config(
+            self.log_path.clone(),
+            &self.config,
+            self.config.run_as_user.then(|| (self.uid, self.gid)),
+        );
+        if let Err(err) = logger_base {
+            error!("Failed to create log stream for {}: {}", self.log_path, err);
+            if let Err(err) = self.fail_before_start() {
+                error!("Failed to mark frame {} as finished. {}", self, err);
+            }
             return;
         }
         let logger = Arc::new(logger_base.unwrap());
@@ -454,6 +501,9 @@ impl RunningFrame {
                     let msg = format!("Frame {} failed to be spawned. {}", self.to_string(), err);
                     logger.writeln(&msg);
                     error!(msg);
+                    if let Err(err) = self.fail_before_start() {
+                        error!("Failed to mark frame {} as finished. {}", self, err);
+                    }
                     None
                 }
             }
@@ -875,11 +925,12 @@ impl RunningFrame {
     /// This method safely accesses the thread-protected running state to retrieve
     /// the current PID of the frame process.
     pub(crate) fn pid(&self) -> Option<u32> {
-        let state = self.state.lock().unwrap_or_else(|err| err.into_inner());
+        let state = self.state.read().unwrap_or_else(|err| err.into_inner());
         match *state {
             FrameState::Created(_) => None,
             FrameState::Running(ref running_state) => Some(running_state.pid),
             FrameState::Finished(ref finished_state) => Some(finished_state.pid),
+            FrameState::FailedBeforeStart => None,
         }
     }
 
@@ -1006,7 +1057,7 @@ impl RunningFrame {
     pub fn get_pid_to_kill(&self, reason: &String) -> Result<u32> {
         let mut lock = self
             .state
-            .lock()
+            .write()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         match *lock {
             FrameState::Created(_) => Err(miette!("Frame has been created but hasn't started yet")),
@@ -1022,6 +1073,9 @@ impl RunningFrame {
                     finished_state.exit_code,
                     finished_state.exit_signal
                 ))
+            }
+            FrameState::FailedBeforeStart => {
+                Err(miette!("Frame has been created and failed before starting"))
             }
         }
     }
@@ -1082,10 +1136,9 @@ impl RunningFrame {
     }
 
     fn snapshot_path(&self) -> Result<String> {
-        let pid = self.pid().ok_or_else(|| {
-            warn!("Failed to snapshot frame {}. No pid available", self);
-            miette!("No pid available for frame snapshot")
-        })?;
+        let pid = self
+            .pid()
+            .ok_or_else(|| miette!("No pid available for frame snapshot"))?;
 
         Ok(format!(
             "{}/snapshot_{}-{}-{}.bin",
@@ -1175,7 +1228,7 @@ impl RunningFrame {
     }
 
     pub fn is_finished(&self) -> bool {
-        let state = self.state.lock().unwrap_or_else(|err| err.into_inner());
+        let state = self.state.read().unwrap_or_else(|err| err.into_inner());
 
         match *state {
             FrameState::Created(_) => false,
@@ -1191,6 +1244,7 @@ impl RunningFrame {
                 let pid_running = Self::is_process_running(finished_state.pid);
                 thread_finished && !pid_running
             }
+            FrameState::FailedBeforeStart => true,
         }
     }
 
@@ -1212,8 +1266,10 @@ impl RunningFrame {
             ),
             None => "Hyperthreading disabled".to_string(),
         };
+
         format!(
             r#"
+
 ====================================================================================================
 RenderQ JobSpec     {start_time}
 command             {command}
@@ -1224,11 +1280,13 @@ render_host         {hostname}
 job_id              {job_id}
 frame_id            {frame_id}
 {hyperthread}
+
 ----------------------------------------------------------------------------------------------------
 Environment Variables:
 {env_var_list}
 ====================================================================================================
-            "#,
+
+"#,
             start_time = "",
             command = self.request.command,
             uid = self.uid,
@@ -1248,7 +1306,7 @@ Environment Variables:
         let frame_stats = frame_stats_lock.clone();
         drop(frame_stats_lock);
 
-        let state = self.state.lock().unwrap_or_else(|err| err.into_inner());
+        let state = self.state.read().unwrap_or_else(|err| err.into_inner());
         match *state {
             FrameState::Finished(ref finished_state) => {
                 let exit_status = finished_state.exit_code;
@@ -1284,8 +1342,7 @@ Environment Variables:
                             .map(|child| {
                                 let child_stat = child.stat.clone().unwrap_or_default();
                                 format!(
-                                    r#"
-____________________________________________________________________________________________________
+                                    r#"____________________________________________________________________________________________________
     child_pid           {}
     cmdline             {}
     maxrss              {}
@@ -1299,6 +1356,7 @@ ________________________________________________________________________________
 
                 format!(
                     r#"
+
 ====================================================================================================
 Render Frame Completed
 exitStatus          {exit_status}
@@ -1309,7 +1367,8 @@ maxrss              {maxrss}
 maxUsedGpuMemory    {max_gpu_memory}
 runTime             {run_time}
 
-Processes:{children}
+Processes:
+{children}
 ===================================================================================================="#
                 )
             }
@@ -1365,6 +1424,21 @@ Render Frame Completed
             used_gpu_memory: stats.used_gpu_memory as i64,
             children,
         }
+    }
+
+    pub fn mark_for_cache_removal(&self) {
+        let mut lock = self
+            .should_remove_from_cache
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *lock = true;
+    }
+
+    pub fn is_marked_for_cache_removal(&self) -> bool {
+        *self
+            .should_remove_from_cache
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 

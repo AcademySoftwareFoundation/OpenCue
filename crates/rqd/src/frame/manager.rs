@@ -5,7 +5,7 @@ use opencue_proto::{
     host::HardwareState,
     rqd::{RunFrame, run_frame},
 };
-use std::{fs, panic, sync::Arc, time::SystemTime};
+use std::{fs, sync::Arc, time::SystemTime};
 use thiserror::Error;
 use tokio::time;
 use tracing::{error, info, warn};
