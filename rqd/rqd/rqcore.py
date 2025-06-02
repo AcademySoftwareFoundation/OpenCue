@@ -1543,8 +1543,10 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
             if run_on_docker:
                 self.runDocker()
             elif platform.system() == "Linux":
-                self.runSystemd()
-                # self.runLinux()
+                if rqd.rqconstants.RQD_USE_SYSTEMD_RUN:
+                    self.runSystemd()
+                else:
+                    self.runLinux()
             elif platform.system() == "Windows":
                 self.runWindows()
             elif platform.system() == "Darwin":
