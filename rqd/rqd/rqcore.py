@@ -963,7 +963,7 @@ class FrameAttendantThread(threading.Thread):
     def runSystemd(self):
         """The steps required to handle a frame under linux using systemd-run"""
 
-        # pylint: disable = no-name-in-module
+        # pylint: disable = no-name-in-module, import-outside-toplevel
         from cysystemd.reader import JournalReader, JournalOpenMode, Rule, JournalEvent
 
         frameInfo = self.frameInfo
