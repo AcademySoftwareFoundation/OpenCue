@@ -974,7 +974,26 @@ class FrameAttendantThread(threading.Thread):
 
         # TODO: Better handling if env vars are not set or not able to connect to the systemd-daemon
         self.frameEnv['DBUS_SESSION_BUS_ADDRESS'] = os.environ['DBUS_SESSION_BUS_ADDRESS']
-        systemdUnitName = f"rqd-{frameInfo.frameId}-{time.time()}.service"
+        systemdUnitName = f"rqd-{frameInfo.frameId}.service"
+
+        def journalReaderThread():
+            rules = (
+                Rule("_SYSTEMD_USER_UNIT", systemdUnitName)
+            )
+            journal_reader = JournalReader()
+            journal_reader.open(JournalOpenMode.CURRENT_USER)
+            journal_reader.seek_tail()
+            journal_reader.add_filter(rules)
+            while True:
+                status = journal_reader.wait(1)  # It will skip if there is no event for 1 second
+                if status == JournalEvent.NOP and frameInfo.forkedCommand.returncode is not None:
+                    break
+                for record in journal_reader:
+                    self.rqlog.write(f"{record.data['MESSAGE']}\n",
+                                     prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+
+        reader_thread = threading.Thread(target=journalReaderThread)
+        reader_thread.start()
 
         tempCommand = [
             "systemd-run",
@@ -1012,24 +1031,6 @@ class FrameAttendantThread(threading.Thread):
                                                           self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
 
-        def journalReaderThread():
-            rules = (
-                Rule("_SYSTEMD_USER_UNIT", systemdUnitName)
-            )
-            journal_reader = JournalReader()
-            journal_reader.open(JournalOpenMode.CURRENT_USER)
-            journal_reader.seek_head()
-            journal_reader.add_filter(rules)
-            while True:
-                status = journal_reader.wait(1)  # It will skip if there is no event for 1 second
-                if status == JournalEvent.NOP and frameInfo.forkedCommand.returncode is not None:
-                    break
-                for record in journal_reader:
-                    self.rqlog.write(f"{record.data['MESSAGE']}\n",
-                                     prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
-
-        reader_thread = threading.Thread(target=journalReaderThread)
-        reader_thread.start()
 
         returncode = frameInfo.forkedCommand.wait()
         reader_thread.join()
