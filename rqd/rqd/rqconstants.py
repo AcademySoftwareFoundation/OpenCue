@@ -20,6 +20,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+import importlib.util
 import logging
 import os
 import platform
@@ -225,6 +226,11 @@ try:
                                                          "RQD_USE_IPV6_AS_HOSTNAME")
         if config.has_option(__override_section, "RQD_USE_SYSTEMD_RUN"):
             RQD_USE_SYSTEMD_RUN = config.getboolean(__override_section, "RQD_USE_SYSTEMD_RUN")
+            if RQD_USE_SYSTEMD_RUN:
+                spec = importlib.util.find_spec('cysystemd')
+                if spec is None:
+                    logging.warning("cysystemd is not installed, RQD_USE_SYSTEMD_RUN is ignored")
+                    RQD_USE_SYSTEMD_RUN = False
         if config.has_option(__override_section, "RQD_USE_PATH_ENV_VAR"):
             RQD_USE_PATH_ENV_VAR = config.getboolean(__override_section, "RQD_USE_PATH_ENV_VAR")
         if config.has_option(__override_section, "RQD_USE_ALL_HOST_ENV_VARS"):

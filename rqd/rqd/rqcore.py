@@ -37,9 +37,6 @@ import traceback
 import select
 import uuid
 
-# pylint: disable = no-name-in-module
-from cysystemd.reader import JournalReader, JournalOpenMode, Rule, JournalEvent
-
 import opencue_proto.host_pb2
 import opencue_proto.report_pb2
 import opencue_proto.rqd_pb2
@@ -965,6 +962,9 @@ class FrameAttendantThread(threading.Thread):
 
     def runSystemd(self):
         """The steps required to handle a frame under linux using systemd-run"""
+
+        # pylint: disable = no-name-in-module
+        from cysystemd.reader import JournalReader, JournalOpenMode, Rule, JournalEvent
 
         frameInfo = self.frameInfo
         runFrame = self.runFrame
