@@ -35,29 +35,7 @@ impl RunningFrameCache {
     pub fn into_running_frame_vec(&self) -> Vec<RunningFrameInfo> {
         self.cache
             .iter()
-            .map(|running_frame| {
-                let frame_stats = running_frame.get_frame_stats_copy();
-                RunningFrameInfo {
-                    resource_id: running_frame.request.resource_id.clone(),
-                    job_id: running_frame.request.job_id.to_string(),
-                    job_name: running_frame.request.job_name.clone(),
-                    frame_id: running_frame.request.frame_id.to_string(),
-                    frame_name: running_frame.request.frame_name.clone(),
-                    layer_id: running_frame.request.layer_id.to_string(),
-                    num_cores: running_frame.request.num_cores as i32,
-                    start_time: frame_stats.epoch_start_time as i64,
-                    max_rss: (frame_stats.max_rss / KIB) as i64,
-                    rss: (frame_stats.rss / KIB) as i64,
-                    max_vsize: (frame_stats.max_vsize / KIB) as i64,
-                    vsize: (frame_stats.vsize / KIB) as i64,
-                    attributes: running_frame.request.attributes.clone(),
-                    llu_time: frame_stats.llu_time as i64,
-                    num_gpus: running_frame.request.num_gpus as i32,
-                    max_used_gpu_memory: (frame_stats.max_used_gpu_memory / KIB) as i64,
-                    used_gpu_memory: (frame_stats.used_gpu_memory / KIB) as i64,
-                    children: frame_stats.children.clone(),
-                }
-            })
+            .map(|running_frame| running_frame.into_running_frame_info())
             .collect()
     }
 
