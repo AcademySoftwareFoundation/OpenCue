@@ -196,6 +196,8 @@ jobs:
           name: opencue_packages
       - name: Run Python Tests
         run: |
+          # Hack to get around an issue with the 2024 image
+          rm -rf /usr/local/lib64/pkgconfig
           export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
           export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
