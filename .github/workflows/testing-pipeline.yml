@@ -196,9 +196,6 @@ jobs:
           name: opencue_packages
       - name: Run Python Tests
         run: |
-          # Hack to get around an issue with the 2024 image
-          rm -rf /usr/local/lib64/python3.11
-          # End hack
           export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
           export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
@@ -238,9 +235,6 @@ jobs:
           name: opencue_packages
       - name: Run test
         run: |
-          # Hack to get around an issue with the 2024 image
-          rm -rf /usr/local/lib64/python3.11
-          # End hack
           export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
           export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
@@ -275,9 +269,6 @@ jobs:
           name: opencue_packages
       - name: Set package vars from parent action
         run: |
-          # Hack to get around an issue with the 2024 image
-          rm -rf /usr/local/lib64/python3.11
-          # End hack
           export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
           export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
