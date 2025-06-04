@@ -960,6 +960,92 @@ class FrameAttendantThread(threading.Thread):
                 "Unable to close file: %s due to %s at %s",
                 self.runFrame.log_file, e, traceback.extract_tb(sys.exc_info()[2]))
 
+    def runSystemd(self):
+        """The steps required to handle a frame under linux using systemd-run"""
+
+        # pylint: disable = no-name-in-module, import-outside-toplevel
+        from cysystemd.reader import JournalReader, JournalOpenMode, Rule, JournalEvent
+
+        frameInfo = self.frameInfo
+        runFrame = self.runFrame
+
+        self.__createEnvVariables()
+        self.__writeHeader()
+
+        # TODO: Better handling if env vars are not set or not able to connect to the systemd-daemon
+        self.frameEnv['DBUS_SESSION_BUS_ADDRESS'] = os.environ['DBUS_SESSION_BUS_ADDRESS']
+        systemdUnitName = f"rqd-{frameInfo.frameId}.service"
+
+        def journalReaderThread():
+            rules = (
+                Rule("_SYSTEMD_USER_UNIT", systemdUnitName)
+            )
+            journal_reader = JournalReader()
+            journal_reader.open(JournalOpenMode.CURRENT_USER)
+            journal_reader.seek_tail()
+            journal_reader.add_filter(rules)
+            while True:
+                status = journal_reader.wait(1)  # It will skip if there is no event for 1 second
+                if status == JournalEvent.NOP and frameInfo.forkedCommand.returncode is not None:
+                    break
+                for record in journal_reader:
+                    self.rqlog.write(f"{record.data['MESSAGE']}\n",
+                                     prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+
+        reader_thread = threading.Thread(target=journalReaderThread)
+        reader_thread.start()
+
+        tempCommand = [
+            "systemd-run",
+            "--user",
+            "--wait",
+            "--collect",
+            f"--unit={systemdUnitName}"
+        ]
+        if 'CPU_LIST' in runFrame.attributes:
+            tempCommand += ["--property=CPUAffinity=runFrame.attributes['CPU_LIST']"]
+
+        if self.rqCore.machine.isDesktop():
+            tempCommand += ["--property=Nice=10"]
+
+        if rqd.rqconstants.RQD_BECOME_JOB_USER:
+            tempCommand += ["--property=User=%s" % runFrame.user_name]
+        tempCommand += ['/bin/sh']
+        rqd.rqutil.permissionsHigh()
+        try:
+            tempCommand += [self._createCommandFile(runFrame.command)]
+            # pylint: disable=subprocess-popen-preexec-fn,consider-using-with
+            frameInfo.forkedCommand = subprocess.Popen(tempCommand,
+                                                       env=self.frameEnv,
+                                                       cwd=self.rqCore.machine.getTempPath(),
+                                                       stdout=subprocess.DEVNULL,
+                                                       stderr=subprocess.DEVNULL,
+                                                       close_fds=True)
+        finally:
+            rqd.rqutil.permissionsLow()
+
+        frameInfo.pid = runFrame.pid = frameInfo.forkedCommand.pid
+
+        if not self.rqCore.updateRssThread.is_alive():
+            self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
+                                                          self.rqCore.updateRss)
+            self.rqCore.updateRssThread.start()
+
+
+        returncode = frameInfo.forkedCommand.wait()
+        reader_thread.join()
+        # Find exitStatus and exitSignal
+        if returncode < 0:
+            # Exited with a signal
+            frameInfo.exitStatus = 1
+            frameInfo.exitSignal = -returncode
+        else:
+            frameInfo.exitStatus = returncode
+            frameInfo.exitSignal = 0
+
+        self.__writeFooter()
+        self.__cleanup()
+
     def runLinux(self):
         """The steps required to handle a frame under linux"""
         frameInfo = self.frameInfo
@@ -1461,7 +1547,10 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
             if run_on_docker:
                 self.runDocker()
             elif platform.system() == "Linux":
-                self.runLinux()
+                if rqd.rqconstants.RQD_USE_SYSTEMD_RUN:
+                    self.runSystemd()
+                else:
+                    self.runLinux()
             elif platform.system() == "Windows":
                 self.runWindows()
             elif platform.system() == "Darwin":
