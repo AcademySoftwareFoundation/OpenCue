@@ -24,3 +24,5 @@ cuebot/.settings/*
 cuebot/.classpath
 cuebot/.project
 /proto/opencue_proto/
+/pycue/opencue/compiled_proto/
+/rqd/rqd/compiled_proto/
