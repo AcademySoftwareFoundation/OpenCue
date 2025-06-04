@@ -13,7 +13,7 @@ dependencies = [
     "psutil==5.9.8",
     "pynput==1.7.6",
     "future==1.0.0",
-    "cysystemd==2.0.1;python_version>='3.8'"
+    "cysystemd==2.0.1"
 ]
 
 [tool.hatch.version]
