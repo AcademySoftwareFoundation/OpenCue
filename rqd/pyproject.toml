@@ -12,8 +12,7 @@ dependencies = [
     "opencue_proto",
     "psutil==5.9.8",
     "pynput==1.7.6",
-    "future==1.0.0",
-    "cysystemd==2.0.1"
+    "future==1.0.0"
 ]
 
 [tool.hatch.version]
@@ -41,4 +40,7 @@ test = [
     "pytest",
     "docker==7.1.0",
     "loki-urllib3-client"
+]
+systemd = [
+    "cysystemd==2.0.1"
 ]
