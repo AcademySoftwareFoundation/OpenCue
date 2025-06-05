@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use bytesize::KIB;
 use dashmap::DashMap;
 use opencue_proto::report::RunningFrameInfo;
 use uuid::Uuid;
@@ -52,9 +51,5 @@ impl RunningFrameCache {
 
     pub fn retain(&self, f: impl FnMut(&Uuid, &mut Arc<RunningFrame>) -> bool) {
         self.cache.retain(f);
-    }
-
-    pub fn pids(&self) -> Vec<u32> {
-        self.cache.iter().filter_map(|ref v| v.pid()).collect()
     }
 }

@@ -104,8 +104,6 @@ pub struct FinishedState {
     pub pid: u32,
     // Attention: Recovered frames will never have a joinHandle
     #[serde(skip_serializing)]
-    #[serde(skip_deserializing)]
-    launch_thread_handle: Option<JoinHandle<()>>,
     pub start_time: SystemTime,
     pub end_time: SystemTime,
     pub exit_code: i32,
@@ -193,13 +191,6 @@ impl RunningFrame {
         }
     }
 
-    pub fn get_frame_stats_copy(&self) -> ProcessStats {
-        self.frame_stats
-            .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .clone()
-    }
-
     pub fn update_frame_stats(&self, proc_stats: ProcessStats) {
         self.frame_stats
             .write()
@@ -222,7 +213,6 @@ impl RunningFrame {
             }),
             FrameState::Finished(ref finished_state) => FrameState::Finished(FinishedState {
                 pid: finished_state.pid,
-                launch_thread_handle: None,
                 start_time: finished_state.start_time,
                 end_time: finished_state.end_time,
                 exit_code: finished_state.exit_code,
@@ -275,7 +265,6 @@ impl RunningFrame {
                 // Create a new FinishedState with the current running state values
                 let finished_state = FinishedState {
                     pid: running_state.pid,
-                    launch_thread_handle: running_state.launch_thread_handle.take(),
                     start_time: running_state.start_time,
                     end_time: SystemTime::now(),
                     exit_code,
@@ -1228,27 +1217,6 @@ impl RunningFrame {
         system.process(Pid::from_u32(pid)).is_some()
     }
 
-    pub fn is_finished(&self) -> bool {
-        let state = self.state.read().unwrap_or_else(|err| err.into_inner());
-
-        match *state {
-            FrameState::Created(_) => false,
-            FrameState::Running(_) => false,
-            FrameState::Finished(ref finished_state) => {
-                let thread_finished = match &finished_state.launch_thread_handle {
-                    Some(handle) => handle.is_finished(),
-                    None => {
-                        warn!("Thread handle missing");
-                        true
-                    }
-                };
-                let pid_running = Self::is_process_running(finished_state.pid);
-                thread_finished && !pid_running
-            }
-            FrameState::FailedBeforeStart => true,
-        }
-    }
-
     fn write_header(&self) -> String {
         let env_var_list = self
             .env_vars
@@ -1482,11 +1450,7 @@ mod tests {
                 log_dir: "/tmp".to_string(),
                 show: "show".to_string(),
                 shot: "shot".to_string(),
-                job_temp_dir: "".to_string(),
                 frame_temp_dir: "".to_string(),
-                log_file: "".to_string(),
-                log_dir_file: "".to_string(),
-                start_time: 0,
                 num_cores: num_cores as i32,
                 gid: 10,
                 ignore_nimby: false,
@@ -1500,6 +1464,18 @@ mod tests {
                 hard_memory_limit: 0,
                 pid: 0,
                 loki_url: "".to_string(),
+
+                #[allow(deprecated)]
+                job_temp_dir: "".to_string(),
+
+                #[allow(deprecated)]
+                log_file: "".to_string(),
+
+                #[allow(deprecated)]
+                log_dir_file: "".to_string(),
+
+                #[allow(deprecated)]
+                start_time: 0,
             },
             uid,
             config,

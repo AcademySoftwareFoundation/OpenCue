@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs::File,
     io::{BufRead, BufReader, ErrorKind},
     net::ToSocketAddrs,
@@ -769,12 +769,10 @@ impl SystemManager for UnixSystem {
         let dinamic_stat = self.read_dynamic_stat()?;
         Ok(MachineStat {
             hostname: self.static_info.hostname.clone(),
-            num_procs: self.static_info.num_sockets * self.static_info.cores_per_socket,
             total_memory: self.static_info.total_memory,
             total_swap: self.static_info.total_swap,
             num_sockets: self.static_info.num_sockets,
             cores_per_socket: self.static_info.cores_per_socket,
-            hyperthreading_multiplier: self.static_info.hyperthreading_multiplier,
             boot_time: self.static_info.boot_time,
             tags: self.static_info.tags.clone(),
             available_memory: dinamic_stat.available_memory,
@@ -808,12 +806,8 @@ impl SystemManager for UnixSystem {
             count: 0,
             total_memory: 0,
             free_memory: 0,
-            used_memory_by_unit: HashMap::default(),
+            _used_memory_by_unit: HashMap::default(),
         }
-    }
-
-    fn cpu_stat(&self) -> CpuStat {
-        self.cpu_stat.clone()
     }
 
     fn release_core_by_thread(&mut self, thread_id: &u32) -> Result<(u32, u32), ReservationError> {
@@ -1130,7 +1124,7 @@ mod tests {
                 }
             };
 
-            let (cpuinfo, threads_by_core_id, physid_and_coreid_by_procid, thread_id_lookup_table) =
+            let (cpuinfo, threads_by_core_id, physid_and_coreid_by_procid, _thread_id_lookup_table) =
                 UnixSystem::read_cpuinfo(&file_path).expect("Failed to read file");
             // Assert that the mapping between processor ID, physical ID, and core ID is correct
             println!("procid_by_physid_and_core_id={:?}", threads_by_core_id);
@@ -1325,10 +1319,6 @@ mod tests {
         assert!(reserved_result.is_ok());
         let reserved_threads = reserved_result.unwrap();
         assert_eq!(reserved_threads.len(), 2);
-
-        // Check CPU stats
-        let cpu_stat = system.cpu_stat();
-        assert!(!cpu_stat.reserved_cores_by_physid.is_empty());
 
         // Release one core
         let thread_to_release = reserved_threads[0];

@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::config::config::Config;
 use crate::frame::manager::FrameManager;
 use crate::servant::Result;
 use crate::system::machine::Machine;
@@ -29,19 +28,13 @@ pub type MachineImpl = dyn Machine + Sync + Send;
 
 /// Servant for the grpc Rqd interface
 pub struct RqdServant {
-    config: Config,
     machine: Arc<MachineImpl>,
     frame_manager: Arc<FrameManager>,
 }
 
 impl RqdServant {
-    pub fn init(
-        config: Config,
-        machine: Arc<MachineImpl>,
-        frame_manager: Arc<FrameManager>,
-    ) -> Self {
+    pub fn init(machine: Arc<MachineImpl>, frame_manager: Arc<FrameManager>) -> Self {
         Self {
-            config,
             machine,
             frame_manager,
         }
@@ -152,7 +145,7 @@ impl RqdInterface for RqdServant {
     /// Disable NIMBY on host
     async fn nimby_off(
         &self,
-        request: Request<RqdStaticNimbyOffRequest>,
+        _request: Request<RqdStaticNimbyOffRequest>,
     ) -> Result<Response<RqdStaticNimbyOffResponse>> {
         todo!()
     }
@@ -160,7 +153,7 @@ impl RqdInterface for RqdServant {
     /// Enable NIMBY on host
     async fn nimby_on(
         &self,
-        request: Request<RqdStaticNimbyOnRequest>,
+        _request: Request<RqdStaticNimbyOnRequest>,
     ) -> Result<Response<RqdStaticNimbyOnResponse>> {
         todo!()
     }

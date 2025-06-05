@@ -15,10 +15,19 @@ mod report;
 mod servant;
 mod system;
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 12)]
-async fn main() -> miette::Result<()> {
+fn main() -> miette::Result<()> {
     let config = Config::load()?;
 
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(config.machine.worker_threads)
+        .enable_all()
+        .build()
+        .into_diagnostic()?;
+
+    runtime.block_on(async_main(config))
+}
+
+async fn async_main(config: Config) -> miette::Result<()> {
     let log_level =
         tracing::Level::from_str(&config.logging.level.as_str()).expect("Invalid log level");
     let log_builder = tracing_subscriber::fmt()

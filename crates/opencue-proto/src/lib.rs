@@ -23,7 +23,6 @@ mod service;
 pub mod show;
 mod subscription;
 mod task;
-pub mod test_utils;
 
 pub trait WithUuid {
     fn uuid(&self) -> Uuid;
@@ -68,6 +67,28 @@ impl WithUuid for rqd::RqdStaticGetRunningFrameStatusRequest {
 impl WithUuid for rqd::RqdStaticKillRunningFrameRequest {
     fn uuid(&self) -> Uuid {
         to_uuid(&self.frame_id).unwrap_or(Uuid::nil())
+    }
+}
+
+impl WithUuid for rqd::RunningFrameKillRequest {
+    fn uuid(&self) -> Uuid {
+        self.run_frame
+            .as_ref()
+            .map(|run_frame| to_uuid(&run_frame.frame_id))
+            .flatten()
+            .unwrap_or(Uuid::nil())
+            .clone()
+    }
+}
+
+impl WithUuid for rqd::RunningFrameStatusRequest {
+    fn uuid(&self) -> Uuid {
+        self.run_frame
+            .as_ref()
+            .map(|run_frame| to_uuid(&run_frame.frame_id))
+            .flatten()
+            .unwrap_or(Uuid::nil())
+            .clone()
     }
 }
 

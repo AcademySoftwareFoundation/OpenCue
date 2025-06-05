@@ -73,6 +73,7 @@ pub struct MachineConfig {
     pub proc_loadavg_path: String,
     pub temp_path: String,
     pub core_multiplier: u32,
+    pub worker_threads: usize,
 }
 
 impl Default for MachineConfig {
@@ -91,6 +92,7 @@ impl Default for MachineConfig {
             proc_loadavg_path: "/proc/loadavg".to_string(),
             temp_path: "/tmp".to_string(),
             core_multiplier: 100,
+            worker_threads: 4,
         }
     }
 }

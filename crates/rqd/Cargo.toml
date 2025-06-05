@@ -29,7 +29,6 @@ async-stream = { workspace = true }
 config = { workspace = true }
 thiserror = { workspace = true }
 miette = { workspace = true }
-once_cell = { workspace = true }
 regex = { workspace = true }
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
@@ -38,8 +37,6 @@ tracing-subscriber = { workspace = true }
 uuid = { workspace = true, features = ["serde"] }
 prost = { workspace = true }
 tokio = { workspace = true }
-tokio-postgres = "0.7.12"
-deadpool-postgres = "0.14.0"
 tonic = { workspace = true }
 itertools = "0.13.0"
 sysinfo = "0.33.1"

@@ -475,40 +475,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deadpool"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6541a3916932fe57768d4be0b1ffb5ec7cbf74ca8c903fdfd5c0fe8aa958f0ed"
-dependencies = [
- "deadpool-runtime",
- "num_cpus",
- "tokio",
-]
-
-[[package]]
-name = "deadpool-postgres"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d697d376cbfa018c23eb4caab1fd1883dd9c906a8c034e8d9a3cb06a7e0bef9"
-dependencies = [
- "async-trait",
- "deadpool",
- "getrandom 0.2.15",
- "tokio",
- "tokio-postgres",
- "tracing",
-]
-
-[[package]]
-name = "deadpool-runtime"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "092966b41edc516079bdf31ec78a2e0588d1d0c08f78b91d8307215928642b2b"
-dependencies = [
- "tokio",
-]
-
-[[package]]
 name = "deranged"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -741,10 +707,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4567c8db10ae91089c99af84c68c38da3ec2f087c3f82960bcdbf3656b6f4d7"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -1381,16 +1345,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num_cpus"
-version = "1.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4161fcb6d602d4d2081af7c3a45852d875a03dd337a6bfdd6e06407b61342a43"
-dependencies = [
- "hermit-abi 0.3.9",
- "libc",
-]
-
-[[package]]
 name = "object"
 version = "0.36.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1916,7 +1870,6 @@ dependencies = [
  "chrono",
  "config",
  "dashmap",
- "deadpool-postgres",
  "futures",
  "futures-core",
  "http",
@@ -1927,7 +1880,6 @@ dependencies = [
  "itertools",
  "miette",
  "nix",
- "once_cell",
  "opencue-proto",
  "pin-project-lite",
  "prost",
@@ -1940,7 +1892,6 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.64",
  "tokio",
- "tokio-postgres",
  "tonic",
  "tower",
  "tower-layer",

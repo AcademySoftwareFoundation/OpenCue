@@ -136,7 +136,7 @@ wait_for_output $exit_code
 
     #[cfg(target_os = "macos")]
     // taskset is noop on macos. There's not a native way to allocate threads to sockets
-    pub fn with_taskset(&mut self, cpu_list: Vec<u32>) -> &mut Self {
+    pub fn with_taskset(&mut self, _cpu_list: Vec<u32>) -> &mut Self {
         self
     }
 

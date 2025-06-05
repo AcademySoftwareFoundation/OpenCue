@@ -30,7 +30,6 @@ pub trait SystemManager {
     fn init_nimby(&self) -> Result<bool>;
 
     /// Returns a map of cores per socket that are not reserved
-    fn cpu_stat(&self) -> CpuStat;
 
     /// Reserver a number of cores.
     ///
@@ -105,16 +104,16 @@ pub struct CpuStat {
 #[derive(Debug, Clone)]
 pub struct CoreReservation {
     pub reserved_cores: HashSet<u32>,
-    pub reserver_id: Uuid,
-    pub start_time: Instant,
+    pub _reserver_id: Uuid,
+    pub _start_time: Instant,
 }
 
 impl CoreReservation {
     pub fn new(reserver_id: Uuid) -> Self {
         CoreReservation {
             reserved_cores: HashSet::new(),
-            reserver_id,
-            start_time: Instant::now(),
+            _reserver_id: reserver_id,
+            _start_time: Instant::now(),
         }
     }
 
@@ -137,8 +136,6 @@ impl CoreReservation {
 pub struct MachineStat {
     /// Machine name
     pub hostname: String,
-    /// Total number of processing units (also known as virtual cores)
-    pub num_procs: u32,
     /// Total amount of memory on the machine
     pub total_memory: u64,
     /// Total amount of swap space on the machine
@@ -147,8 +144,6 @@ pub struct MachineStat {
     pub num_sockets: u32,
     /// Number of cores per processor unit
     pub cores_per_socket: u32,
-    /// Multiplier value for hyper-threading, does not apply to total_procs unlike in python version
-    pub hyperthreading_multiplier: u32,
     /// Timestamp for when the machine was booted up
     pub boot_time: u32,
     /// List of tags associated with this machine
@@ -173,7 +168,7 @@ pub struct MachineGpuStats {
     /// Available free memory of all GPUs
     pub free_memory: u64,
     /// Used memory by unit of each GPU, where the key in the HashMap is the unit ID, and the value is the used memory
-    pub used_memory_by_unit: HashMap<u32, u64>,
+    pub _used_memory_by_unit: HashMap<u32, u64>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

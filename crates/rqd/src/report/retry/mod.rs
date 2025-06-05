@@ -55,6 +55,7 @@ pin_project! {
 
 // ===== impl Retry =====
 
+#[allow(dead_code)]
 impl<P, S> Retry<P, S> {
     /// Retry the inner service depending on this [`Policy`].
     pub const fn new(policy: P, service: S) -> Self {

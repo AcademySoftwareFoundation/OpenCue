@@ -1,5 +1,4 @@
 use chrono::{DateTime, Local};
-use futures::FutureExt;
 use miette::{Diagnostic, Result, miette};
 use opencue_proto::{
     host::HardwareState,

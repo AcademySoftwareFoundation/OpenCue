@@ -44,11 +44,7 @@ impl DummyRqdClient {
             log_dir: "/tmp/rqd".to_string(),
             show: "show".to_string(),
             shot: "shot".to_string(),
-            job_temp_dir: "deprecated".to_string(),
             frame_temp_dir: "/tmp".to_string(),
-            log_file: "deprecated".to_string(),
-            log_dir_file: "deprecated".to_string(),
-            start_time: 0,
             num_cores: 200,
             gid: 10,
             ignore_nimby: false,
@@ -65,6 +61,18 @@ impl DummyRqdClient {
             hard_memory_limit: 0,
             pid: 0,
             loki_url: "".to_string(),
+
+            #[allow(deprecated)]
+            job_temp_dir: "deprecated".to_string(),
+
+            #[allow(deprecated)]
+            log_file: "deprecated".to_string(),
+
+            #[allow(deprecated)]
+            log_dir_file: "deprecated".to_string(),
+
+            #[allow(deprecated)]
+            start_time: 0,
         };
 
         let mut client = self.client.lock().await;
