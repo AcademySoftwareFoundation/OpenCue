@@ -72,9 +72,9 @@ impl FrameManager {
             .get("CUE_THREADABLE")
             .map_or(false, |v| v == "1");
         let cpu_request = run_frame.num_cores as u32 / self.config.machine.core_multiplier;
-        let cpu_list = self
+        let thread_ids = self
             .machine
-            .reserve_cores(cpu_request, run_frame.resource_id(), hyperthreaded)
+            .reserve_cores(cpu_request as usize, run_frame.resource_id(), hyperthreaded)
             .await
             .map_err(|err| {
                 FrameManagerError::Aborted(format!(
@@ -90,8 +90,8 @@ impl FrameManager {
                 let reserved_res = self.machine.reserve_gpus(run_frame.num_gpus as u32).await;
                 if let Err(_) = reserved_res {
                     // Release cores reserved on the last step
-                    if let Some(procs) = &cpu_list {
-                        self.machine.release_cpus(procs).await;
+                    if let Some(thread_ids) = &thread_ids {
+                        self.machine.release_threads(thread_ids).await;
                     } else {
                         self.machine.release_cores(cpu_request).await;
                     }
@@ -109,7 +109,7 @@ impl FrameManager {
             run_frame,
             uid,
             self.config.runner.clone(),
-            cpu_list,
+            thread_ids,
             gpu_list,
             self.machine.get_host_name().await,
         ));
@@ -160,17 +160,17 @@ impl FrameManager {
                 .map(|rf| Arc::new(rf));
             match running_frame {
                 Ok(running_frame) => {
-                    // Update reservations. If a cpu_list exists, the frame was booked using affinity
-                    if let Err(err) = match &running_frame.cpu_list {
-                        Some(cpu_list) => self
+                    // Update reservations. If a thread_ids list exists, the frame was booked using affinity
+                    if let Err(err) = match &running_frame.thread_ids {
+                        Some(thread_ids) => self
                             .machine
-                            .reserve_cores_by_id(cpu_list, running_frame.request.resource_id())
+                            .reserve_cores_by_id(thread_ids, running_frame.request.resource_id())
                             .await
                             .map(|v| Some(v)),
                         None => {
                             self.machine
                                 .reserve_cores(
-                                    running_frame.request.num_cores as u32,
+                                    running_frame.request.num_cores as usize,
                                     running_frame.request.resource_id(),
                                     false,
                                 )

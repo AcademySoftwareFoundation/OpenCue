@@ -60,7 +60,7 @@ pub struct RunningFrame {
     uid: u32,
     gid: u32,
     config: RunnerConfig,
-    pub cpu_list: Option<Vec<u32>>,
+    pub thread_ids: Option<Vec<u32>>,
     pub gpu_list: Option<Vec<u32>>,
     env_vars: HashMap<String, String>,
     pub hostname: String,
@@ -178,7 +178,7 @@ impl RunningFrame {
             uid,
             gid,
             config,
-            cpu_list,
+            thread_ids: cpu_list,
             gpu_list,
             env_vars,
             hostname,
@@ -532,7 +532,7 @@ impl RunningFrame {
         if self.config.desktop_mode {
             command.with_nice();
         }
-        if let Some(cpu_list) = &self.cpu_list {
+        if let Some(cpu_list) = &self.thread_ids {
             command.with_taskset(cpu_list.clone());
         }
         let raw_stdout = Self::setup_raw_fd(&self.raw_stdout_path)?;
@@ -663,7 +663,7 @@ impl RunningFrame {
         if self.config.desktop_mode {
             command.with_nice();
         }
-        if let Some(cpu_list) = &self.cpu_list {
+        if let Some(cpu_list) = &self.thread_ids {
             command.with_taskset(cpu_list.clone());
         }
 
@@ -1256,7 +1256,7 @@ impl RunningFrame {
             .map(|(key, value)| format!("{key}={value}"))
             .reduce(|a, b| a + "\n" + b.as_str())
             .unwrap_or("".to_string());
-        let hyperthread = match &self.cpu_list {
+        let hyperthread = match &self.thread_ids {
             Some(cpu_list) => format!(
                 "Hyperthreading cores {}",
                 cpu_list
@@ -1385,7 +1385,7 @@ Render Frame Completed
     }
 
     fn taskset(&self) -> String {
-        self.cpu_list
+        self.thread_ids
             .clone()
             .unwrap_or(vec![0])
             .into_iter()

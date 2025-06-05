@@ -119,7 +119,7 @@ impl CoreDetail {
     ///
     /// * `Ok(())` if cores were reserved successfully
     /// * `Err(String)` if trying to reserve more cores than are available
-    pub fn reserve(&mut self, core_count_with_multiplier: u32) -> Result<(), String> {
+    pub fn reserve(&mut self, core_count_with_multiplier: usize) -> Result<(), String> {
         if self.idle_cores - (core_count_with_multiplier as i32) < 0 {
             Err(format!(
                 "Tried to reserve {} out of {} cores available",

@@ -36,8 +36,9 @@ pub trait SystemManager {
     ///
     /// # Returns:
     ///
-    /// * Vector of core ids
-    fn reserve_cores(&mut self, count: u32, frame_id: Uuid) -> Result<Vec<u32>, ReservationError>;
+    /// * Vector of thread ids belonging to reserved cores
+    fn reserve_cores(&mut self, count: usize, frame_id: Uuid)
+    -> Result<Vec<u32>, ReservationError>;
 
     /// Reserver specific cores by id.
     ///
@@ -50,8 +51,12 @@ pub trait SystemManager {
         resource_id: Uuid,
     ) -> Result<Vec<u32>, ReservationError>;
 
-    /// Release a core
-    fn release_core(&mut self, core_id: &u32) -> Result<(), ReservationError>;
+    /// Release a core using the id of one of its threads
+    ///
+    /// # Returns:
+    ///
+    /// * Tuple with phys_id and core_id the released thread belongs to
+    fn release_core_by_thread(&mut self, thread_id: &u32) -> Result<(u32, u32), ReservationError>;
 
     /// Creates an user if it doesn't already exist
     fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32>;
@@ -84,7 +89,10 @@ pub enum ReservationError {
     NotEnoughResourcesAvailable,
 
     #[error("Could not find resource with provided key: {0}")]
-    NotFoundError(u32),
+    ReservationNotFound(u32),
+
+    #[error("Could not find core owner of this thread id")]
+    CoreNotFoundForThread(Vec<u32>),
 }
 
 #[derive(Debug, Clone)]
