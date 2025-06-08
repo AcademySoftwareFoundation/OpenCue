@@ -1,0 +1,13 @@
+name: 'Setup Python Environment'
+description: 'Sets up Python, installs dependencies, and caches them.'
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-tags: true
+        fetch-depth: 0
+
+    - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+      shell: bash
+      run: git config --global --add safe.directory $GITHUB_WORKSPACE
