@@ -12,7 +12,7 @@ runs:
       id: build_opencue_proto
       run: |
         python -m build --outdir packages ./proto
-        echo "opencue_proto_path=$(ls ./proto/dist/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
+        echo "opencue_proto_path=$(ls ./packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
 
 #    - name: Build opencue_pycue package
 #      shell: bash
@@ -47,7 +47,7 @@ runs:
       id: build_rqd
       run: |
         python -m build --outdir packages ./rqd
-        echo "opencue_rqd_path=$(ls ./rqd/dist/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
+        echo "opencue_rqd_path=$(ls ./packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
 
     - name: Upload opencue packages
       uses: actions/upload-artifact@v4
