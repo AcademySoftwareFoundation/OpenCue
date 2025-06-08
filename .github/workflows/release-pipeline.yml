@@ -10,7 +10,7 @@ jobs:
   build_python_packages:
     runs-on: self-hosted
     container: python:3.7
-    name: Build python packages
+    name: "Build Python Packages"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,3 +22,23 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
       - uses: ./.github/actions/build-python-packages
+
+  build_docker_images:
+    runs-on: self-hosted
+    name: "Build Docker Images"
+    steps:
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+
+      - name: Collect packages
+        run: |
+          OPENCUE_PROTO_PACKAGE_PATH=$(ls -1 proto/dist/*.whl) >> $GITHUB_ENV
+          OPENCUE_RQD_PACKAGE_PATH=$(ls -1 proto/dist/*.whl) >> $GITHUB_ENV
+
+      - name: Build RQD Docker Image
+        run: |
+          docker build --build-arg OPENCUE_PROTO_PACKAGE_PATH="${OPENCUE_PROTO_PACKAGE_PATH}" \
+                --build-arg OPENCUE_RQD_PACKAGE_PATH="${OPENCUE_RQD_PACKAGE_PATH}" \
+                -f rqd/Dockerfile .
