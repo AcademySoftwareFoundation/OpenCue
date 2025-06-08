@@ -11,7 +11,7 @@ runs:
       shell: bash
       id: build_opencue_proto
       run: |
-        python -m build ./proto
+        python -m build ./proto --output packages
         echo "opencue_proto_path=$(ls ./proto/dist/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
 
 #    - name: Build opencue_pycue package
@@ -46,17 +46,11 @@ runs:
       shell: bash
       id: build_rqd
       run: |
-        python -m build ./rqd
+        python -m build ./rqd --output packages
         echo "opencue_rqd_path=$(ls ./rqd/dist/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
 
     - name: Upload opencue packages
       uses: actions/upload-artifact@v4
       with:
         name: opencue_packages
-        path: |
-          proto/dist
-          rqd/dist
-#          pycue/dist
-#          pyoutline/dist
-#          cueadmin/dist
-#          cuesubmit/dist
+        path: packages
