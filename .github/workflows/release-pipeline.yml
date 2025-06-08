@@ -19,6 +19,8 @@ jobs:
       - name: Set build ID
         run: |
           set -e
+          pwd
+          python3 -m install hatchling
           hatch version > VERSION
           echo "Build ID: $(cat ./VERSION)"
           echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
