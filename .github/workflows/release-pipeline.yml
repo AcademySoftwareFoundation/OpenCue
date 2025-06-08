@@ -7,39 +7,8 @@ on:
       - "v*"
 
 jobs:
-  preflight:
-    name: Preflight
-    runs-on: self-hosted
-    container: python:3.7
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set build ID
-        run: |
-          set -e
-          python3 -m pip install hatch hatchling versioningit
-          hatch version > VERSION
-          echo "Build ID: $(cat ./VERSION)"
-          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
-
-      - name: Get current tag name
-        run: echo "TAG_NAME=${GITHUB_REF/refs\/tags\//}" >> ${GITHUB_ENV}
-
-      - name: Verify tag name and version match
-        run: |
-          set -e
-          if [ "v$(cat VERSION)" != "${TAG_NAME}" ]; then
-            echo "Version check failed: code version v$(cat VERSION) does not match tag name ${TAG_NAME}"
-            echo "Original GITHUB_REF: ${GITHUB_REF}"
-            exit 1
-          fi
-
   release_docker_images:
-    needs: preflight
-    runs-on: ubuntu-22.04
+    runs-on: self-hosted
     strategy:
       matrix:
         component: [cuebot, rqd, pycue, pyoutline, cuegui, cuesubmit, cueadmin]
@@ -54,7 +23,7 @@ jobs:
       - name: Set build ID
         run: |
           set -e
-          ci/generate_version_number.sh > VERSION
+          echo "${GITHUB_REF/refs\/tags\//}" >> VERSION
           echo "Build ID: $(cat ./VERSION)"
           echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
 
@@ -62,4 +31,3 @@ jobs:
         run: |
           set -e
           docker pull opencuebuild/${{ matrix.component }}:${BUILD_ID}
-
