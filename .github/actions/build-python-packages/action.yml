@@ -55,8 +55,8 @@ runs:
         name: opencue_packages
         path: |
           proto/dist/*.*
+          rqd/dist/*.*
 #          pycue/dist/*.*
 #          pyoutline/dist/*.*
 #          cueadmin/dist/*.*
 #          cuesubmit/dist/*.*
-          rqd/dist/*.*
