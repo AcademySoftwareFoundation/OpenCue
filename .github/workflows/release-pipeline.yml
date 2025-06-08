@@ -7,27 +7,16 @@ on:
       - "v*"
 
 jobs:
-  release_docker_images:
+  build_python_packages:
     runs-on: self-hosted
-    strategy:
-      matrix:
-        component: [cuebot, rqd, pycue, pyoutline, cuegui, cuesubmit, cueadmin]
-
-    name: Release ${{ matrix.component }} Docker image
+    container: python:3.7
+    name: Build python package
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Set build ID
+      - name: Build packages
         run: |
           set -e
-          echo "${GITHUB_REF/refs\/tags\//}" >> VERSION
-          echo "Build ID: $(cat ./VERSION)"
-          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
-
-      - name: Pull Docker image from staging
-        run: |
-          set -e
-          docker pull opencuebuild/${{ matrix.component }}:${BUILD_ID}
+          pip build ./proto
