@@ -12,6 +12,13 @@ jobs:
     container: python:3.7
     name: Build python package
     steps:
-      - uses: ./.github/actions/checkout-code
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        shell: bash
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
       - uses: ./.github/actions/build-python-packages
