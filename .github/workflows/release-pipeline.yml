@@ -24,6 +24,7 @@ jobs:
       - uses: ./.github/actions/build-python-packages
 
   build_docker_images:
+    needs: build_python_packages
     runs-on: self-hosted
     name: "Build Docker Images"
     steps:
