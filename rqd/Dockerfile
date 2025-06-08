@@ -15,7 +15,7 @@ RUN dnf install -y \
   python39-pip
 
 RUN python3.9 -m pip install --upgrade pip
-RUN python3.9 -m pip install --upgrade setuptools
+# RUN python3.9 -m pip install --upgrade setuptools
 
 COPY LICENSE ./
 

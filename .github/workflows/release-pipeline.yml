@@ -36,6 +36,6 @@ jobs:
 
       - name: Build RQD Docker Image
         run: |
-          docker build --build-arg OPENCUE_PROTO_PACKAGE_PATH="{{ needs.build_opencue_packages.outputs.opencue_proto_path }}" \
-                --build-arg OPENCUE_RQD_PACKAGE_PATH="{{ needs.build_opencue_packages.outputs.opencue_rqd_path }}" \
+          docker build --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
+                --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
                 -f rqd/Dockerfile .
