@@ -14,33 +14,33 @@ runs:
         python -m build --outdir packages ./proto
         echo "opencue_proto_path=$(ls ./packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
 
-#    - name: Build opencue_pycue package
-#      shell: bash
-#      id: build_pycue
-#      run: |
-#        python -m build ./pycue
-#        echo "opencue_pycue_path=$(ls ./pycue/dist/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
-#
-#    - name: Build opencue_pyoutline package
-#      shell: bash
-#      id: build_pyoutline
-#      run: |
-#        python -m build ./pyoutline
-#        echo "opencue_pyoutline_path=$(ls ./pyoutline/dist/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
-#
-#    - name: Build opencue_cueadmin package
-#      shell: bash
-#      id: build_cueadmin
-#      run: |
-#        python -m build ./cueadmin
-#        echo "opencue_cueadmin_path=$(ls ./cueadmin/dist/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
-#
-#    - name: Build opencue_cuesubmit package
-#      shell: bash
-#      id: build_cuesubmit
-#      run: |
-#        python -m build ./cuesubmit
-#        echo "opencue_cuesubmit_path=$(ls ./cuesubmit/dist/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
+    - name: Build opencue_pycue package
+      shell: bash
+      id: build_pycue
+      run: |
+        python -m build ./pycue
+        echo "opencue_pycue_path=$(ls ./pycue/dist/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
+
+    - name: Build opencue_pyoutline package
+      shell: bash
+      id: build_pyoutline
+      run: |
+        python -m build ./pyoutline
+        echo "opencue_pyoutline_path=$(ls ./pyoutline/dist/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
+
+    - name: Build opencue_cueadmin package
+      shell: bash
+      id: build_cueadmin
+      run: |
+        python -m build ./cueadmin
+        echo "opencue_cueadmin_path=$(ls ./cueadmin/dist/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
+
+    - name: Build opencue_cuesubmit package
+      shell: bash
+      id: build_cuesubmit
+      run: |
+        python -m build ./cuesubmit
+        echo "opencue_cuesubmit_path=$(ls ./cuesubmit/dist/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
 
     - name: Build opencue_rqd package
       shell: bash
