@@ -20,7 +20,7 @@ jobs:
       - name: Set build ID
         run: |
           set -e
-          python3 -m pip install hatchling versioningit
+          python3 -m pip install hatch hatchling versioningit
           hatch version > VERSION
           echo "Build ID: $(cat ./VERSION)"
           echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
