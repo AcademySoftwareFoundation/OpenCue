@@ -19,4 +19,5 @@ jobs:
       - name: Build packages
         run: |
           set -e
+          pip install build
           python -m build ./proto
