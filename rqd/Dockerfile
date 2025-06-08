@@ -12,6 +12,7 @@ RUN yum -y install \
 
 RUN dnf install -y \
   python39 \
+  python39-devel \
   python39-pip
 
 RUN python3.9 -m pip install --upgrade pip
