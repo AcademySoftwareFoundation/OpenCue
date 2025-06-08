@@ -11,7 +11,7 @@ runs:
       shell: bash
       id: build_opencue_proto
       run: |
-        python -m build ./proto --output packages
+        python -m build --output packages ./proto
         echo "opencue_proto_path=$(ls ./proto/dist/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
 
 #    - name: Build opencue_pycue package
@@ -46,7 +46,7 @@ runs:
       shell: bash
       id: build_rqd
       run: |
-        python -m build ./rqd --output packages
+        python -m build --output packages ./rqd
         echo "opencue_rqd_path=$(ls ./rqd/dist/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
 
     - name: Upload opencue packages
