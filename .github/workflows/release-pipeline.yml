@@ -20,5 +20,6 @@ jobs:
       - name: Build packages
         run: |
           set -e
+          git tag
           pip install build
           python -m build ./proto
