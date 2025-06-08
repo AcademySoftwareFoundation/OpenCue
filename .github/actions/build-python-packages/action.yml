@@ -48,3 +48,15 @@ runs:
       run: |
         python -m build ./rqd
         echo "opencue_rqd_path=$(ls ./rqd/dist/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
+
+    - name: Upload opencue packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: opencue_packages
+        path: |
+          proto/dist/*.*
+          pycue/dist/*.*
+          pyoutline/dist/*.*
+          cueadmin/dist/*.*
+          cuesubmit/dist/*.*
+          rqd/dist/*.*
