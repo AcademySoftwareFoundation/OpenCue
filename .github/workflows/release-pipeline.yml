@@ -8,7 +8,7 @@ on:
 
 jobs:
   preflight:
-    runs-on: ubuntu-22.04
+    runs-on: self-hosted
     name: Preflight
     steps:
       - name: Checkout code
