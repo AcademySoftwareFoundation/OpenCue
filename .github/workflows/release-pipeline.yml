@@ -67,7 +67,7 @@ jobs:
                 --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuesubmit_path }}" \
                 --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuegui_path }}" \
                 --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cueadmin_path }}" \
-                -f pycue/Dockerfile .
+                -f pyoutline/Dockerfile .
 
       - name: Build CueSubmit Docker Image
         run: |

@@ -29,5 +29,6 @@ COPY ${OPENCUE_PROTO_PACKAGE_PATH} /tmp/packages/
 COPY ${OPENCUE_PYCUE_PACKAGE_PATH} /tmp/packages/
 COPY ${OPENCUE_PYOUTLINE_PACKAGE_PATH} /tmp/packages/
 COPY ${OPENCUE_CUESUBMIT_PACKAGE_PATH} /tmp/packages/
+RUN ls -1 /tmp/packages
 
 RUN python3 -m pip install /tmp/packages/*.whl
