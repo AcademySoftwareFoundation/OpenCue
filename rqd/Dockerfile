@@ -16,14 +16,13 @@ RUN dnf install -y \
   python39-pip
 
 RUN python3.9 -m pip install --upgrade pip
-# RUN python3.9 -m pip install --upgrade setuptools
 
 COPY LICENSE ./
 
 RUN mkdir /tmp/packages
 COPY ${OPENCUE_PROTO_PACKAGE_PATH} /tmp/packages/
 COPY ${OPENCUE_RQD_PACKAGE_PATH} /tmp/packages/
-RUN ls -la /tmp/packages
+
 RUN python3.9 -m pip install /tmp/packages/*.whl
 
 RUN mkdir -p /etc/opencue

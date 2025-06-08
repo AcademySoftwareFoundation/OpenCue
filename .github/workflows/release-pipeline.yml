@@ -28,14 +28,24 @@ jobs:
     runs-on: self-hosted
     name: "Build Docker Images"
     steps:
-
       - name: Download a single artifact
         uses: actions/download-artifact@v4
         with:
           name: opencue_packages
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
 
       - name: Build RQD Docker Image
         run: |
           docker build --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
                 --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
                 -f rqd/Dockerfile .
+
+      - name: Build PyCue Docker Image
+        run: |
+          docker build --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
+                --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pycue_path }}" \
+                -f pycue/Dockerfile .
