@@ -36,8 +36,8 @@ jobs:
 
       - name: Collect packages
         run: |
-          OPENCUE_PROTO_PACKAGE_PATH=$(ls -1 proto/dist/*.whl) >> $GITHUB_ENV
-          OPENCUE_RQD_PACKAGE_PATH=$(ls -1 proto/dist/*.whl) >> $GITHUB_ENV
+          echo OPENCUE_PROTO_PACKAGE_PATH=$(ls -1 proto/dist/*.whl) >> ${GITHUB_ENV}
+          echo OPENCUE_RQD_PACKAGE_PATH=$(ls -1 proto/dist/*.whl) >> ${GITHUB_ENV}
 
       - name: Build RQD Docker Image
         run: |
