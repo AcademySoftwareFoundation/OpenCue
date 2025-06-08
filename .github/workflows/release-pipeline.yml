@@ -33,11 +33,6 @@ jobs:
         with:
           name: opencue_packages
 
-      - uses: actions/checkout@v4
-        with:
-          fetch-tags: true
-          fetch-depth: 0
-
       - name: Build RQD Docker Image
         run: |
           docker build --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
