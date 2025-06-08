@@ -35,27 +35,48 @@ jobs:
 
       - name: Build RQD Docker Image
         run: |
-          docker build 
+          docker build \
                 --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
                 --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
                 --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pycue_path }}" \
                 --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pyoutline_path }}" \
+                --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuesubmit_path }}" \
+                --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuegui_path }}" \
+                --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cueadmin_path }}" \
                 -f rqd/Dockerfile .
 
       - name: Build PyCue Docker Image
         run: |
-          docker build 
+          docker build \
                 --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
                 --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
                 --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pycue_path }}" \
                 --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pyoutline_path }}" \
+                --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuesubmit_path }}" \
+                --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuegui_path }}" \
+                --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cueadmin_path }}" \
                 -f pycue/Dockerfile .
 
       - name: Build PyOutline Docker Image
         run: |
-          docker build 
+          docker build \
                 --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
                 --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
                 --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pycue_path }}" \
                 --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pyoutline_path }}" \
+                --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuesubmit_path }}" \
+                --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuegui_path }}" \
+                --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cueadmin_path }}" \
                 -f pycue/Dockerfile .
+
+      - name: Build CueSubmit Docker Image
+        run: |
+          docker build \
+                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
+                --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
+                --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pycue_path }}" \
+                --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pyoutline_path }}" \
+                --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuesubmit_path }}" \
+                --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuegui_path }}" \
+                --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cueadmin_path }}" \
+                -f cuesubmit/Dockerfile .
