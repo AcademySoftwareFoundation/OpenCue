@@ -34,13 +34,8 @@ jobs:
         with:
           name: opencue_packages
 
-      - name: Collect packages
-        run: |
-          echo OPENCUE_PROTO_PACKAGE_PATH=$(ls -1 proto/dist/*.whl) >> ${GITHUB_ENV}
-          echo OPENCUE_RQD_PACKAGE_PATH=$(ls -1 proto/dist/*.whl) >> ${GITHUB_ENV}
-
       - name: Build RQD Docker Image
         run: |
-          docker build --build-arg OPENCUE_PROTO_PACKAGE_PATH="${OPENCUE_PROTO_PACKAGE_PATH}" \
-                --build-arg OPENCUE_RQD_PACKAGE_PATH="${OPENCUE_RQD_PACKAGE_PATH}" \
+          docker build --build-arg OPENCUE_PROTO_PACKAGE_PATH="{{ needs.build_opencue_packages.outputs.opencue_proto_path }}" \
+                --build-arg OPENCUE_RQD_PACKAGE_PATH="{{ needs.build_opencue_packages.outputs.opencue_rqd_path }}" \
                 -f rqd/Dockerfile .
