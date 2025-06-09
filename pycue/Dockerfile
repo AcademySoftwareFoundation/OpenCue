@@ -16,8 +16,8 @@ RUN python3 -m pip install --upgrade pip
 COPY LICENSE ./
 
 RUN mkdir /tmp/packages
-COPY ${OPENCUE_PROTO_PACKAGE_PATH} /tmp/packages
-COPY ${OPENCUE_PYCUE_PACKAGE_PATH} /tmp/packages
+COPY ${OPENCUE_PROTO_PACKAGE_PATH} /tmp/${OPENCUE_PROTO_PACKAGE_PATH}
+COPY ${OPENCUE_PYCUE_PACKAGE_PATH} /tmp/${OPENCUE_PYCUE_PACKAGE_PATH}
 RUN ls -la /tmp/packages
 
 RUN python3 -m pip install /tmp/packages/*.whl
