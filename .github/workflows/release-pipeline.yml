@@ -27,6 +27,8 @@ jobs:
     needs: build_python_packages
     runs-on: self-hosted
     name: "Build Docker Images"
+    outputs: # Define job outputs here
+      opencue_proto_path: ${{ steps.build_action.outputs.opencue_proto_path }}
     strategy:
       matrix:
         component: [rqd] #cuebot, , pycue, pyoutline, cuegui, cuesubmit, cueadmin]
@@ -41,7 +43,6 @@ jobs:
         run: |
           set -xe
           echo ${{ needs.build_python_packages.outputs.opencue_proto_path }}
-          echo ${{ steps.build_python_packages.outputs.opencue_proto_path }}
 #          docker build --no-cache \
 #                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
 #                --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
