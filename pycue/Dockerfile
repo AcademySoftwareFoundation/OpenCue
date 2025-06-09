@@ -18,6 +18,6 @@ COPY LICENSE ./
 RUN mkdir /tmp/packages
 COPY ${OPENCUE_PROTO_PACKAGE_PATH} /tmp/packages
 COPY ${OPENCUE_PYCUE_PACKAGE_PATH} /tmp/packages
-RUN ls -1 /tmp/packages
+RUN ls -la /tmp/packages
 
 RUN python3 -m pip install /tmp/packages/*.whl

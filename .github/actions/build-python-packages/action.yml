@@ -32,6 +32,11 @@ runs:
       run: |
         python -m build --outdir packages ./cuesubmit
 
+    - name: Build opencue_cuegui package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./cuegui
+
     - name: Build opencue_rqd package
       shell: bash
       run: |
