@@ -41,7 +41,7 @@ jobs:
           echo "opencue_cueadmin_path=$(ls -a packages/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
           echo "opencue_cuegui_path=$(ls -a packages/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
 
-  install_opencue_packages_3_12:
+  install_opencue_packages:
     needs: build_opencue_packages
     name: Test installing packages with python ${{ matrix.python-version }}
     runs-on: ubuntu-22.04
@@ -55,6 +55,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: opencue_packages
+          path: packages
+
       - name: Install package
         run: |
           export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
