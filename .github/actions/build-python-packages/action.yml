@@ -1,17 +1,4 @@
 name: 'Build Python Packages'
-outputs:
-  opencue_proto_path:
-    value: ${{ steps.build_proto.outputs.package_path }}
-#  opencue_pycue_path:
-#    value: ${{ steps.build_pycue.outputs.package_path }}
-#  opencue_pyoutline_path:
-#    value: ${{ steps.build_pyoutline.outputs.package_path }}
-#  opencue_cueadmin_path:
-#    value: ${{ steps.build_cueadmin.outputs.package_path }}
-#  opencue_cuesubmit_path:
-#    value: ${{ steps.build_cuesubmit.outputs.package_path }}
-#  opencue_rqd_path:
-#    value: ${{ steps.build_rqd.outputs.package_path }}
 runs:
   using: composite
   steps:
@@ -22,47 +9,34 @@ runs:
 
     - name: Build opencue_proto package
       shell: bash
-      id: build_proto
       run: |
         python -m build --outdir packages ./proto
-        ls -1 packages/opencue_proto-*.whl
-        echo "package_path=$(ls -1 packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
 
 #    - name: Build opencue_pycue package
 #      shell: bash
-#      id: build_pycue
 #      run: |
 #        python -m build --outdir packages ./pycue
-#        echo "package_path=$(ls ./packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
 #
 #    - name: Build opencue_pyoutline package
 #      shell: bash
-#      id: build_pyoutline
 #      run: |
 #        python -m build --outdir packages ./pyoutline
-#        echo "package_path=$(ls ./packages/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
 #
 #    - name: Build opencue_cueadmin package
 #      shell: bash
-#      id: build_cueadmin
 #      run: |
 #        python -m build --outdir packages ./cueadmin
-#        echo "package_path=$(ls ./packages/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
 #
 #    - name: Build opencue_cuesubmit package
 #      shell: bash
-#      id: build_cuesubmit
 #      run: |
 #        python -m build --outdir packages ./cuesubmit
-#        echo "package_path=$(ls ./packages/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
 #
 #    - name: Build opencue_rqd package
 #      shell: bash
-#      id: build_rqd
 #      run: |
 #        python -m build --outdir packages ./rqd
-#        echo "package_path=$(ls ./packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
-#
+
     - name: Upload opencue packages
       uses: actions/upload-artifact@v4
       with:

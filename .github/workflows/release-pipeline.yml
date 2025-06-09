@@ -11,13 +11,6 @@ jobs:
     runs-on: self-hosted
     container: python:3.7
     name: "Build Python Packages"
-    outputs: # Define job outputs here
-      opencue_proto_path: ${{ steps.build_action.outputs.opencue_proto_path }}
-      # opencue_pycue_path: ${{ steps.build_action.outputs.opencue_pycue_path }}
-      # opencue_pyoutline_path: ${{ steps.build_action.outputs.opencue_pyoutline_path }}
-      # opencue_cueadmin_path: ${{ steps.build_action.outputs.opencue_cueadmin_path }}
-      # opencue_cuesubmit_path: ${{ steps.build_action.outputs.opencue_cuesubmit_path }}
-      # opencue_rqd_path: ${{ steps.build_action.outputs.opencue_rqd_path }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,10 +37,15 @@ jobs:
         with:
           name: opencue_packages
 
+      - name: Gather package paths
+        id: package_outputs
+        run: |
+          echo "proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
+
       - name: Build ${{ matrix.component }} Docker Image
         run: |
           set -xe
-          echo ${{ needs.build_python_packages.outputs.opencue_proto_path }}
+          echo ${{ steps.package_outputs.outputs.proto_path }}
 #          docker build --no-cache \
 #                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
 #                --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
