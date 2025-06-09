@@ -24,6 +24,7 @@ jobs:
         with:
           fetch-tags: true
           fetch-depth: 0
+
       - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
