@@ -33,7 +33,6 @@ jobs:
       - name: Gather package paths
         id: package_outputs
         run: |
-          set -x
           echo "opencue_proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
           echo "opencue_rqd_path=$(ls -a packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
           echo "opencue_pycue_path=$(ls -a packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
@@ -62,26 +61,25 @@ jobs:
           name: opencue_packages
           path: packages
 
-      - name: Gather package paths
-        id: package_outputs
-        run: |
-          echo "${{ needs.build_python_packages.outputs.opencue_proto_path }}"
-          echo "proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
-          echo "rqd_path=$(ls -a packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
-          echo "pycue_path=$(ls -a packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
-          echo "pyoutline_path=$(ls -a packages/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
-          echo "cuesubmit_path=$(ls -a packages/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
-          echo "cueadmin_path=$(ls -a packages/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
-          echo "cuegui_path=$(ls -a packages/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
+#      - name: Gather package paths
+#        id: package_outputs
+#        run: |
+#          echo "proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
+#          echo "rqd_path=$(ls -a packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
+#          echo "pycue_path=$(ls -a packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
+#          echo "pyoutline_path=$(ls -a packages/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
+#          echo "cuesubmit_path=$(ls -a packages/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
+#          echo "cueadmin_path=$(ls -a packages/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
+#          echo "cuegui_path=$(ls -a packages/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
 
       - name: Build ${{ matrix.component }} Docker Image
         run: |
           docker build \
-                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ steps.package_outputs.outputs.proto_path }}" \
-                --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ steps.package_outputs.outputs.rqd_path }}" \
-                --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ steps.package_outputs.outputs.pycue_path }}" \
-                --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ steps.package_outputs.outputs.pyoutline_path }}" \
-                --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ steps.package_outputs.outputs.cuesubmit_path }}" \
-                --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ steps.package_outputs.outputs.cuegui_path }}" \
-                --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ steps.package_outputs.outputs.cueadmin_path }}" \
+                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
+                --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
+                --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pycue_path }}" \
+                --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pyoutline_path }}" \
+                --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuesubmit_path }}" \
+                --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuegui_path }}" \
+                --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cueadmin_path }}" \
                 -f ${{ matrix.component }}/Dockerfile .
