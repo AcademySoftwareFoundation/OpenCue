@@ -35,6 +35,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: opencue_packages
+          path: packages
 
       - name: Gather package paths
         id: package_outputs
@@ -49,7 +50,7 @@ jobs:
 
       - name: Build ${{ matrix.component }} Docker Image
         run: |
-          docker build --no-cache \
+          docker build \
                 --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ steps.package_outputs.outputs.proto_path }}" \
                 --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ steps.package_outputs.outputs.rqd_path }}" \
                 --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ steps.package_outputs.outputs.pycue_path }}" \
