@@ -5,8 +5,6 @@ runs:
     - name: Prepare building packages
       shell: bash
       run: |
-        # Make sure that the built packages can be read again
-        umask 000
         pip install build
 
     - name: Build opencue_proto package
@@ -43,6 +41,10 @@ runs:
       shell: bash
       run: |
         python -m build --outdir packages ./rqd
+
+    - name: Fix permissions
+      shell: bash
+      run: chmod uog+rwX packages/*.*
 
     - name: Upload opencue packages
       uses: actions/upload-artifact@v4
