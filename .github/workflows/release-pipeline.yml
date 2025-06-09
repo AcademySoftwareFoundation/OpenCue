@@ -65,7 +65,7 @@ jobs:
       - name: Gather package paths
         id: package_outputs
         run: |
-          echo "${{ needs.package_outputs.outputs.opencue_proto_path }}"
+          echo "${{ needs.build_python_packages.outputs.opencue_proto_path }}"
           echo "proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
           echo "rqd_path=$(ls -a packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
           echo "pycue_path=$(ls -a packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
