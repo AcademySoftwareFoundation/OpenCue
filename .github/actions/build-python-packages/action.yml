@@ -5,6 +5,8 @@ runs:
     - name: Prepare building packages
       shell: bash
       run: |
+        # Make sure that the built packages can be read again
+        umask 000
         pip install build
 
     - name: Build opencue_proto package
