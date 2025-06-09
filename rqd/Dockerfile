@@ -27,7 +27,6 @@ COPY LICENSE ./
 RUN mkdir /tmp/packages
 COPY ${OPENCUE_PROTO_PACKAGE_PATH} /tmp/packages/
 COPY ${OPENCUE_RQD_PACKAGE_PATH} /tmp/packages/
-RUN ls -la /tmp/packages
 
 RUN python3.9 -m pip install /tmp/packages/*.whl
 
