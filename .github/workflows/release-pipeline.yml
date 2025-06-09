@@ -28,7 +28,7 @@ jobs:
     name: "Build Docker Images"
     strategy:
       matrix:
-        component: [pycue, rqd, pyoutline, cuesubmit, cueadmin, cuegui] #cuebot
+        component: [cuebot, pycue, rqd, pyoutline, cuesubmit, cueadmin, cuegui]
 
     steps:
       - name: Download a single artifact
