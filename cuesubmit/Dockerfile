@@ -2,6 +2,7 @@ FROM --platform=linux/x86_64 rockylinux:9.3
 
 WORKDIR /opt/opencue
 
+# This is just to make it simpler between the different images
 ARG OPENCUE_PROTO_PACKAGE_PATH=/tmp/invalidpath
 ARG OPENCUE_RQD_PACKAGE_PATH=/tmp/invalidpath
 ARG OPENCUE_PYCUE_PACKAGE_PATH=/tmp/invalidpath

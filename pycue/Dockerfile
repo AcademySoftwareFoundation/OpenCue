@@ -2,6 +2,7 @@ FROM python:3.9
 
 WORKDIR /opt/opencue
 
+# This is just to make it simpler between the different images
 ARG OPENCUE_PROTO_PACKAGE_PATH=/tmp/invalidpath
 ARG OPENCUE_RQD_PACKAGE_PATH=/tmp/invalidpath
 ARG OPENCUE_PYCUE_PACKAGE_PATH=/tmp/invalidpath
