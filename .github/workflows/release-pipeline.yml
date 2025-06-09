@@ -28,7 +28,7 @@ jobs:
     name: "Build Docker Images"
     strategy:
       matrix:
-        component: [pycue, rqd, pyoutline, cuesubmit, cueadmin] #cuebot, cuegui]
+        component: [pycue, rqd, pyoutline, cuesubmit, cueadmin, cuegui] #cuebot
 
     steps:
       - name: Download a single artifact
@@ -51,7 +51,7 @@ jobs:
         run: |
           ls -la packages
           ls -la ${{ steps.package_outputs.outputs.proto_path }}
-          docker build --no-cache \
+          docker build \
                 --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ steps.package_outputs.outputs.proto_path }}" \
                 --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ steps.package_outputs.outputs.rqd_path }}" \
                 --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ steps.package_outputs.outputs.pycue_path }}" \

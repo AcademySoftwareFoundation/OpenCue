@@ -2,6 +2,8 @@ FROM rockylinux:8.9
 
 WORKDIR /opt/opencue
 
+# Paths to the pre-built python packages.
+# They are all defined her but no necessary used to make it simpler between the images
 ARG OPENCUE_PROTO_PACKAGE_PATH=/tmp/invalidpath
 ARG OPENCUE_RQD_PACKAGE_PATH=/tmp/invalidpath
 ARG OPENCUE_PYCUE_PACKAGE_PATH=/tmp/invalidpath
