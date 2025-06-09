@@ -49,8 +49,6 @@ jobs:
 
       - name: Build ${{ matrix.component }} Docker Image
         run: |
-          ls -la packages
-          ls -la ${{ steps.package_outputs.outputs.proto_path }}
           docker build \
                 --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ steps.package_outputs.outputs.proto_path }}" \
                 --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ steps.package_outputs.outputs.rqd_path }}" \
