@@ -12,30 +12,30 @@ runs:
       run: |
         python -m build --outdir packages ./proto
 
-#    - name: Build opencue_pycue package
-#      shell: bash
-#      run: |
-#        python -m build --outdir packages ./pycue
-#
-#    - name: Build opencue_pyoutline package
-#      shell: bash
-#      run: |
-#        python -m build --outdir packages ./pyoutline
-#
-#    - name: Build opencue_cueadmin package
-#      shell: bash
-#      run: |
-#        python -m build --outdir packages ./cueadmin
-#
-#    - name: Build opencue_cuesubmit package
-#      shell: bash
-#      run: |
-#        python -m build --outdir packages ./cuesubmit
-#
-#    - name: Build opencue_rqd package
-#      shell: bash
-#      run: |
-#        python -m build --outdir packages ./rqd
+    - name: Build opencue_pycue package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./pycue
+
+    - name: Build opencue_pyoutline package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./pyoutline
+
+    - name: Build opencue_cueadmin package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./cueadmin
+
+    - name: Build opencue_cuesubmit package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./cuesubmit
+
+    - name: Build opencue_rqd package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./rqd
 
     - name: Upload opencue packages
       uses: actions/upload-artifact@v4
