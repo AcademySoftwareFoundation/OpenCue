@@ -8,7 +8,7 @@ on:
 
 jobs:
   build_opencue_packages:
-    name: Build opencue packages
+    name: Build Python Packages
     runs-on: ubuntu-22.04
     container: python:3.7
     outputs:
@@ -17,6 +17,7 @@ jobs:
       opencue_pyoutline_path: ${{ steps.build_pyoutline.outputs.opencue_pyoutline_path }}
       opencue_cueadmin_path: ${{ steps.build_cueadmin.outputs.opencue_cueadmin_path }}
       opencue_cuesubmit_path: ${{ steps.build_cuesubmit.outputs.opencue_cuesubmit_path }}
+      opencue_cuegui_path: ${{ steps.build_cuegui.outputs.opencue_cuegui_path }}
       opencue_rqd_path: ${{ steps.build_rqd.outputs.opencue_rqd_path }}
     steps:
       - uses: actions/checkout@v4
@@ -59,6 +60,12 @@ jobs:
         run: |
           python -m build ./cuesubmit
           echo "opencue_cuesubmit_path=$(ls ./cuesubmit/dist/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
+
+      - name: Build opencue_cuegui package
+        id: build_cuegui
+        run: |
+          python -m build ./cuegui
+          echo "opencue_cuegui_path=$(ls ./cuesubmit/dist/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_rqd package
         id: build_rqd

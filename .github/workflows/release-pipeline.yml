@@ -8,9 +8,17 @@ on:
 
 jobs:
   build_python_packages:
-    runs-on: self-hosted
+    runs-on: ubuntu-22.04
     container: python:3.7
     name: "Build Python Packages"
+    outputs:
+      opencue_proto_path: ${{ steps.package_outputs.outputs.proto_path }}
+      opencue_rqd_path: ${{ steps.package_outputs.outputs.rqd_path }}
+      opencue_pycue_path: ${{ steps.package_outputs.outputs.pycue_path }}
+      opencue_pyoutline_path: ${{ steps.package_outputs.outputs.pyoutline_path }}
+      opencue_cueadmin_path: ${{ steps.package_outputs.outputs.cueadmin_path }}
+      opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.cuesubmit_path }}
+      opencue_cuegui_path: ${{ steps.package_outputs.outputs.cuegui_path }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,9 +30,20 @@ jobs:
 
       - uses: ./.github/actions/build-python-packages
 
+      - name: Gather package paths
+        id: package_outputs
+        run: |
+          echo "proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
+          echo "rqd_path=$(ls -a packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
+          echo "pycue_path=$(ls -a packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
+          echo "pyoutline_path=$(ls -a packages/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
+          echo "cuesubmit_path=$(ls -a packages/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
+          echo "cueadmin_path=$(ls -a packages/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
+          echo "cuegui_path=$(ls -a packages/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
+
   build_docker_images:
     needs: build_python_packages
-    runs-on: self-hosted
+    runs-on: ubuntu-22.04
     name: "Build Docker Images"
     strategy:
       matrix:
@@ -50,7 +69,7 @@ jobs:
       - name: Build ${{ matrix.component }} Docker Image
         run: |
           docker build \
-                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ steps.package_outputs.outputs.proto_path }}" \
+                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.proto_path }}" \
                 --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ steps.package_outputs.outputs.rqd_path }}" \
                 --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ steps.package_outputs.outputs.pycue_path }}" \
                 --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ steps.package_outputs.outputs.pyoutline_path }}" \
