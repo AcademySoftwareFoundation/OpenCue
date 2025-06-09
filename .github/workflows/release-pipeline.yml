@@ -64,8 +64,7 @@ jobs:
       - name: Gather package paths
         id: package_outputs
         run: |
-          ls -la
-          ls -la packages
+          echo "${{ needs.package_outputs.outputs.opencue_proto_path }}"
           echo "proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
           echo "rqd_path=$(ls -a packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
           echo "pycue_path=$(ls -a packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
@@ -77,7 +76,7 @@ jobs:
       - name: Build ${{ matrix.component }} Docker Image
         run: |
           docker build \
-                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.proto_path }}" \
+                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ steps.package_outputs.outputs.proto_path }}" \
                 --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ steps.package_outputs.outputs.rqd_path }}" \
                 --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ steps.package_outputs.outputs.pycue_path }}" \
                 --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ steps.package_outputs.outputs.pyoutline_path }}" \
