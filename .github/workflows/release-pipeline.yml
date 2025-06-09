@@ -61,17 +61,6 @@ jobs:
           name: opencue_packages
           path: packages
 
-#      - name: Gather package paths
-#        id: package_outputs
-#        run: |
-#          echo "proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
-#          echo "rqd_path=$(ls -a packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
-#          echo "pycue_path=$(ls -a packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
-#          echo "pyoutline_path=$(ls -a packages/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
-#          echo "cuesubmit_path=$(ls -a packages/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
-#          echo "cueadmin_path=$(ls -a packages/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
-#          echo "cuegui_path=$(ls -a packages/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
-
       - name: Build ${{ matrix.component }} Docker Image
         run: |
           docker build \

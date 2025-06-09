@@ -12,13 +12,13 @@ jobs:
     runs-on: ubuntu-22.04
     container: python:3.7
     outputs:
-      opencue_proto_path: ${{ steps.build_proto.outputs.opencue_proto_path }}
-      opencue_pycue_path: ${{ steps.build_pycue.outputs.opencue_pycue_path }}
-      opencue_pyoutline_path: ${{ steps.build_pyoutline.outputs.opencue_pyoutline_path }}
-      opencue_cueadmin_path: ${{ steps.build_cueadmin.outputs.opencue_cueadmin_path }}
-      opencue_cuesubmit_path: ${{ steps.build_cuesubmit.outputs.opencue_cuesubmit_path }}
-      opencue_cuegui_path: ${{ steps.build_cuegui.outputs.opencue_cuegui_path }}
-      opencue_rqd_path: ${{ steps.build_rqd.outputs.opencue_rqd_path }}
+      opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
+      opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
+      opencue_pycue_path: ${{ steps.package_outputs.outputs.opencue_pycue_path }}
+      opencue_pyoutline_path: ${{ steps.package_outputs.outputs.opencue_pyoutline_path }}
+      opencue_cueadmin_path: ${{ steps.package_outputs.outputs.opencue_cueadmin_path }}
+      opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
+      opencue_cuegui_path: ${{ steps.package_outputs.outputs.opencue_cuegui_path }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,63 +28,18 @@ jobs:
       - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
-      - name: Prepare building packages
-        run: |
-          pip install build
+      - uses: ./.github/actions/build-python-packages
 
-      - name: Build opencue_proto package
-        id: build_proto
+      - name: Gather package paths
+        id: package_outputs
         run: |
-          python -m build ./proto
-          echo "opencue_proto_path=$(ls ./proto/dist/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
-
-      - name: Build opencue_pycue package
-        id: build_pycue
-        run: |
-          python -m build ./pycue
-          echo "opencue_pycue_path=$(ls ./pycue/dist/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
-
-      - name: Build opencue_pyoutline package
-        id: build_pyoutline
-        run: |
-          python -m build ./pyoutline
-          echo "opencue_pyoutline_path=$(ls ./pyoutline/dist/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
-
-      - name: Build opencue_cueadmin package
-        id: build_cueadmin
-        run: |
-          python -m build ./cueadmin
-          echo "opencue_cueadmin_path=$(ls ./cueadmin/dist/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
-
-      - name: Build opencue_cuesubmit package
-        id: build_cuesubmit
-        run: |
-          python -m build ./cuesubmit
-          echo "opencue_cuesubmit_path=$(ls ./cuesubmit/dist/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
-
-      - name: Build opencue_cuegui package
-        id: build_cuegui
-        run: |
-          python -m build ./cuegui
-          echo "opencue_cuegui_path=$(ls ./cuesubmit/dist/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
-
-      - name: Build opencue_rqd package
-        id: build_rqd
-        run: |
-          python -m build ./rqd
-          echo "opencue_rqd_path=$(ls ./rqd/dist/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
-
-      - name: Upload opencue packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: opencue_packages
-          path: |
-            proto/dist/*.*
-            pycue/dist/*.*
-            pyoutline/dist/*.*
-            cueadmin/dist/*.*
-            cuesubmit/dist/*.*
-            rqd/dist/*.*
+          echo "opencue_proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_rqd_path=$(ls -a packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_pycue_path=$(ls -a packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_pyoutline_path=$(ls -a packages/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_cuesubmit_path=$(ls -a packages/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_cueadmin_path=$(ls -a packages/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_cuegui_path=$(ls -a packages/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
 
   install_opencue_packages_3_12:
     needs: build_opencue_packages
