@@ -1,11 +1,17 @@
 name: 'Build Python Packages'
 outputs:
-  opencue_proto_path: ${{ steps.build_opencue_proto.outputs.opencue_proto_path }}
-  opencue_pycue_path: ${{ steps.build_pycue.outputs.opencue_pycue_path }}
-  opencue_pyoutline_path: ${{ steps.build_pyoutline.outputs.opencue_pyoutline_path }}
-  opencue_cueadmin_path: ${{ steps.build_cueadmin.outputs.opencue_cueadmin_path }}
-  opencue_cuesubmit_path: ${{ steps.build_cuesubmit.outputs.opencue_cuesubmit_path }}
-  opencue_rqd_path: ${{ steps.build_rqd.outputs.opencue_rqd_path }}
+  opencue_proto_path:
+    value: ${{ steps.build_opencue_proto.outputs.opencue_proto_path }}
+  opencue_pycue_path:
+    value: ${{ steps.build_pycue.outputs.opencue_pycue_path }}
+  opencue_pyoutline_path:
+    value: ${{ steps.build_pyoutline.outputs.opencue_pyoutline_path }}
+  opencue_cueadmin_path:
+    value: ${{ steps.build_cueadmin.outputs.opencue_cueadmin_path }}
+  opencue_cuesubmit_path:
+    value: ${{ steps.build_cuesubmit.outputs.opencue_cuesubmit_path }}
+  opencue_rqd_path:
+    value: ${{ steps.build_rqd.outputs.opencue_rqd_path }}
 runs:
   using: composite
   steps:
