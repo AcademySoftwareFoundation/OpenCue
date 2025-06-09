@@ -63,8 +63,8 @@ runs:
 #        python -m build --outdir packages ./rqd
 #        echo "package_path=$(ls ./packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
 #
-#    - name: Upload opencue packages
-#      uses: actions/upload-artifact@v4
-#      with:
-#        name: opencue_packages
-#        path: packages
+    - name: Upload opencue packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: opencue_packages
+        path: packages
