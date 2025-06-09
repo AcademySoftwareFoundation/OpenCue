@@ -27,14 +27,19 @@ jobs:
     needs: build_python_packages
     runs-on: self-hosted
     name: "Build Docker Images"
+    strategy:
+      matrix:
+        component: [rqd] #cuebot, , pycue, pyoutline, cuegui, cuesubmit, cueadmin]
+
     steps:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
         with:
           name: opencue_packages
 
-      - name: Build RQD Docker Image
+      - name: Build ${{ matrix.component }} Docker Image
         run: |
+          set -xe
           docker build --no-cache \
                 --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
                 --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
@@ -43,40 +48,4 @@ jobs:
                 --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuesubmit_path }}" \
                 --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuegui_path }}" \
                 --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cueadmin_path }}" \
-                -f rqd/Dockerfile .
-
-      - name: Build PyCue Docker Image
-        run: |
-          docker build --no-cache \
-                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
-                --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
-                --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pycue_path }}" \
-                --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pyoutline_path }}" \
-                --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuesubmit_path }}" \
-                --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuegui_path }}" \
-                --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cueadmin_path }}" \
-                -f pycue/Dockerfile .
-
-      - name: Build PyOutline Docker Image
-        run: |
-          docker build --no-cache \
-                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
-                --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
-                --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pycue_path }}" \
-                --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pyoutline_path }}" \
-                --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuesubmit_path }}" \
-                --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuegui_path }}" \
-                --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cueadmin_path }}" \
-                -f pyoutline/Dockerfile .
-
-      - name: Build CueSubmit Docker Image
-        run: |
-          docker build --no-cache \
-                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_proto_path }}" \
-                --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_rqd_path }}" \
-                --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pycue_path }}" \
-                --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_pyoutline_path }}" \
-                --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuesubmit_path }}" \
-                --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cuegui_path }}" \
-                --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_python_packages.outputs.opencue_cueadmin_path }}" \
-                -f cuesubmit/Dockerfile .
+                -f ${{ matrix.component }}/Dockerfile .
