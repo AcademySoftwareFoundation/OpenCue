@@ -17,6 +17,7 @@ pub trait FrameLoggerT {
     // Write a string as a line
     fn writeln(&self, line: &str);
     // Write a byte stream
+    #[allow(dead_code)]
     fn write(&self, bytes: &[u8]);
 }
 

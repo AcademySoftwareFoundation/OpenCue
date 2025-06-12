@@ -10,7 +10,7 @@ use std::{
 };
 
 use chrono::{DateTime, Local};
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use itertools::Itertools;
 use miette::{Context, IntoDiagnostic, Result, miette};
 use nix::sys::signal::{Signal, kill, killpg};
@@ -20,7 +20,7 @@ use opencue_proto::{
 };
 use sysinfo::{
     DiskRefreshKind, Disks, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessStatus,
-    ProcessesToUpdate, RefreshKind, UpdateKind,
+    ProcessesToUpdate, RefreshKind,
 };
 use tracing::{debug, warn};
 use uuid::Uuid;
@@ -32,7 +32,7 @@ use super::manager::{
     SystemManager,
 };
 
-pub struct UnixSystem {
+pub struct MacOsSystem {
     config: MachineConfig,
 
     /// Map of procids indexed by physid and coreid
@@ -54,7 +54,8 @@ pub struct UnixSystem {
     attributes: HashMap<String, String>,
     sysinfo_system: Mutex<sysinfo::System>,
     // Cache of monitored processes and their lineage
-    procs_lineage_cache: DashMap<u32, Vec<u32>>,
+    session_processes: DashMap<u32, Vec<u32>>,
+    monitored_sessions: DashSet<u32>,
 }
 
 #[derive(Debug)]
@@ -73,7 +74,7 @@ struct MachineStaticInfo {
     pub cores_per_socket: u32,
     // Unlike the python counterpart, the multiplier is not automatically applied to total_procs
     pub hyperthreading_multiplier: u32,
-    pub boot_time: u32,
+    pub boot_time_secs: u64,
     pub tags: Vec<String>,
 }
 
@@ -102,7 +103,7 @@ struct SessionData {
     lineage_stats: Vec<ProcStats>,
 }
 
-impl UnixSystem {
+impl MacOsSystem {
     /// Initialize the unix sstats collector which reads Cpu and Memory information from
     /// the OS.
     ///
@@ -120,7 +121,7 @@ impl UnixSystem {
             .clone()
             .and_then(|c| c.os)
             .unwrap_or_else(|| {
-                Self::read_distro(&config.distro_release_path).unwrap_or("linux".to_string())
+                Self::read_distro(&config.distro_release_path).unwrap_or("macos".to_string())
             });
 
         // Initialize sysinfo collector
@@ -142,7 +143,7 @@ impl UnixSystem {
                 num_sockets: processor_info.num_sockets,
                 cores_per_socket: processor_info.cores_per_socket,
                 hyperthreading_multiplier: processor_info.hyperthreading_multiplier,
-                boot_time: Self::read_boot_time(&config.proc_stat_path).unwrap_or(0),
+                boot_time_secs: Self::read_boot_time(&config.proc_stat_path).unwrap_or(0),
                 tags: Self::setup_tags(&config),
             },
             // dynamic_info: None,
@@ -159,7 +160,8 @@ impl UnixSystem {
                 reserved_cores_by_physid: HashMap::new(),
             },
             sysinfo_system: Mutex::new(sysinfo::System::new()),
-            procs_lineage_cache: DashMap::new(),
+            session_processes: DashMap::new(),
+            monitored_sessions: DashSet::new(),
         })
     }
 
@@ -353,10 +355,10 @@ impl UnixSystem {
     /// # Returns
     ///
     /// A `Result` containing a `u32` representing the time when the system was last booted.
-    fn read_boot_time(proc_stat_path: &str) -> Result<u32> {
+    fn read_boot_time(proc_stat_path: &str) -> Result<u64> {
         let stat_info = File::open(proc_stat_path).into_diagnostic()?;
         let reader = BufReader::new(stat_info);
-        let mut btime: Option<u32> = None;
+        let mut btime: Option<u64> = None;
         for line_res in reader.lines().into_iter() {
             if let Ok(line) = line_res {
                 if line.trim().starts_with("btime") {
@@ -409,33 +411,15 @@ impl UnixSystem {
         Ok(override_workstation_mode)
     }
 
-    #[cfg(target_os = "linux")]
     fn read_dynamic_stat(&self) -> Result<MachineDynamicInfo> {
         let config = &self.config;
         let load = Self::read_load_avg(&config.proc_loadavg_path)?;
         let (total_space, available_space) = self.read_temp_storage()?;
-        let sysinfo = sysinfo::System::new_with_specifics(
-            RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
-        );
-
-        Ok(MachineDynamicInfo {
-            // TODO: Confirm available_memory is the best option for linux
-            available_memory: sysinfo.available_memory(),
-            free_swap: sysinfo.free_swap(),
-            total_temp_storage: total_space,
-            free_temp_storage: available_space,
-            load: ((load.0 * 100.0).round() as u32 / self.static_info.hyperthreading_multiplier),
-        })
-    }
-
-    #[cfg(target_os = "macos")]
-    fn read_dynamic_stat(&self) -> Result<MachineDynamicInfo> {
-        let config = &self.config;
-        let load = Self::read_load_avg(&config.proc_loadavg_path)?;
-        let (total_space, available_space) = self.read_temp_storage()?;
-        let sysinfo = sysinfo::System::new_with_specifics(
-            RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
-        );
+        let mut sysinfo = self
+            .sysinfo_system
+            .lock()
+            .unwrap_or_else(|err| err.into_inner());
+        sysinfo.refresh_memory();
 
         Ok(MachineDynamicInfo {
             // sysinfo.available_memory() would be the best way to infer available memory, but it
@@ -561,8 +545,12 @@ impl UnixSystem {
             .sysinfo_system
             .lock()
             .unwrap_or_else(|err| err.into_inner());
-        sysinfo.refresh_processes(ProcessesToUpdate::All, true);
-        self.procs_lineage_cache.clear();
+        sysinfo.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::nothing(),
+        );
+        self.session_processes.clear();
         // Collect all session_ids
         let session_id_and_pid = sysinfo.processes().iter().filter_map(|(pid, proc)| {
             let session_pid = proc.session_id().unwrap_or(Pid::from_u32(0)).as_u32();
@@ -583,7 +571,7 @@ impl UnixSystem {
         });
         // Group all processes by session_id
         for (session_pid, pid) in session_id_and_pid {
-            self.procs_lineage_cache
+            self.session_processes
                 .entry(session_pid)
                 .and_modify(|procs| {
                     procs.push(pid);
@@ -612,54 +600,6 @@ impl UnixSystem {
         }
     }
 
-    /// Check if a pid belongs to a process that is the owner of its thread group
-    ///
-    /// Although this module tries to avoid messing with /proc files directly to prevent
-    /// compatibility issues with different kernel versions in favor of using the sysinfo
-    /// crate, it doesn't provide a way to capture a process tgid. Without a process tgid
-    /// it is impossible to set apart leader processes and their tasks.
-    ///
-    /// # Arguments
-    /// * `pid` - The process ID to check
-    ///
-    /// # Returns
-    /// * `Result<bool>` - Ok(true) if the process is a thread group leader, Ok(false) if not,
-    ///   or an error if the process information couldn't be read
-    fn is_thread_group_leader(pid: &u32) -> Result<bool> {
-        let stat_path = format!("/proc/{}/status", pid);
-
-        let status_f = File::open(stat_path).into_diagnostic()?;
-        let reader = BufReader::new(status_f);
-        // let mut load_val: Vec<u32> = vec![];
-        let mut pid: Option<u32> = None;
-        let mut tgid: Option<u32> = None;
-        for line_res in reader.lines().into_iter() {
-            match line_res {
-                Ok(line) => {
-                    if line.starts_with("Pid") {
-                        pid = line
-                            .split(":")
-                            .last()
-                            .map(|val| val.trim().parse().ok())
-                            .flatten()
-                    } else if line.starts_with("Tgid") {
-                        tgid = line
-                            .split(":")
-                            .last()
-                            .map(|val| val.trim().parse().ok())
-                            .flatten()
-                    }
-                }
-                _ => (),
-            };
-        }
-
-        Ok(match (pid, tgid) {
-            (Some(pid), Some(tgid)) => pid == tgid,
-            _ => false,
-        })
-    }
-
     /// Calculates memory usage of all processes associated with a session ID.
     ///
     /// This method aggregates memory statistics for a process and all of its children
@@ -683,28 +623,45 @@ impl UnixSystem {
     /// Returns `None` if the process that created the session ID doesn't exist or cannot be
     /// accessed.
     fn calculate_proc_session_data(&self, session_id: &u32) -> Option<SessionData> {
+        self.monitored_sessions.insert(*session_id);
+
         let mut sysinfo = self
             .sysinfo_system
             .lock()
             .unwrap_or_else(|err| err.into_inner());
         let mut children = Vec::new();
-        sysinfo.refresh_processes(ProcessesToUpdate::All, true);
+
+        // Refresh session parent
+        let session_pid = Pid::from_u32(*session_id);
+        sysinfo.refresh_processes_specifics(
+            ProcessesToUpdate::Some(&vec![session_pid]),
+            true,
+            ProcessRefreshKind::nothing().with_cpu().with_memory(),
+        );
 
         // Return none if the session owner has already finished or died
-        if Self::is_proc_dead(sysinfo.process(Pid::from(*session_id as usize))) {
+        if Self::is_proc_dead(sysinfo.process(session_pid)) {
             return None;
         }
         // If session owner is still alive, iterate over the session and calculate memory
-        let (memory, virtual_memory, gpu_memory, start_time, run_time) =
-            match self.procs_lineage_cache.get(session_id) {
-                Some(ref lineage) => lineage
+        let (memory, virtual_memory, gpu_memory, start_time, run_time) = match self
+            .session_processes
+            .get(session_id)
+        {
+            Some(ref lineage) => {
+                // Process session data
+                lineage
                     .iter()
-                    .filter_map(
-                        |pid| match sysinfo.process(Pid::from(pid.clone() as usize)) {
-                            Some(proc)
-                                if !Self::is_proc_dead(Some(proc))
-                                    && Self::is_thread_group_leader(pid).unwrap_or(false) =>
-                            {
+                    .filter_map(|pid| {
+                        // Refresh only the procs we need info about
+                        sysinfo.refresh_processes_specifics(
+                            ProcessesToUpdate::Some(&vec![Pid::from_u32(*pid)]),
+                            true,
+                            ProcessRefreshKind::nothing().with_cpu().with_memory(),
+                        );
+
+                        match sysinfo.process(Pid::from(pid.clone() as usize)) {
+                            Some(proc) if !Self::is_proc_dead(Some(proc)) => {
                                 // Confirm this is a proc and not a thread
                                 let start_time_str = DateTime::<Local>::from(
                                     UNIX_EPOCH + Duration::from_secs(proc.start_time()),
@@ -738,9 +695,10 @@ impl UnixSystem {
                                     proc.run_time(),
                                 ))
                             }
+                            None => None,
                             _ => None,
-                        },
-                    )
+                        }
+                    })
                     .reduce(|a, b| {
                         (
                             a.0 + b.0,
@@ -750,9 +708,10 @@ impl UnixSystem {
                             std::cmp::max(a.4, b.4),
                         )
                     })
-                    .unwrap_or((0, 0, 0, u64::MAX, 0)),
-                None => (0, 0, 0, u64::MAX, 0),
-            };
+                    .unwrap_or((0, 0, 0, u64::MAX, 0))
+            }
+            None => (0, 0, 0, u64::MAX, 0),
+        };
         Some(SessionData {
             memory,
             virtual_memory,
@@ -764,7 +723,7 @@ impl UnixSystem {
     }
 }
 
-impl SystemManager for UnixSystem {
+impl SystemManager for MacOsSystem {
     fn collect_stats(&self) -> Result<MachineStat> {
         let dinamic_stat = self.read_dynamic_stat()?;
         Ok(MachineStat {
@@ -773,7 +732,7 @@ impl SystemManager for UnixSystem {
             total_swap: self.static_info.total_swap,
             num_sockets: self.static_info.num_sockets,
             cores_per_socket: self.static_info.cores_per_socket,
-            boot_time: self.static_info.boot_time,
+            boot_time: self.static_info.boot_time_secs as u32,
             tags: self.static_info.tags.clone(),
             available_memory: dinamic_stat.available_memory,
             free_swap: dinamic_stat.free_swap,
@@ -963,20 +922,7 @@ impl SystemManager for UnixSystem {
     }
 
     fn refresh_procs(&self) {
-        let mut sysinfo = self
-            .sysinfo_system
-            .lock()
-            .unwrap_or_else(|err| err.into_inner());
-
-        *sysinfo = sysinfo::System::new_with_specifics(
-            RefreshKind::nothing().with_processes(
-                ProcessRefreshKind::nothing()
-                    .with_memory()
-                    .with_cmd(UpdateKind::Always),
-            ),
-        );
-        drop(sysinfo);
-        self.refresh_procs_cache();
+        self.refresh_procs_cache()
     }
 
     fn kill_session(&self, session_pid: u32) -> Result<()> {
@@ -1011,20 +957,11 @@ impl SystemManager for UnixSystem {
     }
 
     fn get_proc_lineage(&self, pid: u32) -> Option<Vec<u32>> {
-        self.procs_lineage_cache
+        self.session_processes
             .get(&pid)
             .map(|lineage| lineage.clone())
     }
 
-    #[cfg(target_os = "linux")]
-    fn reboot(&self) -> Result<()> {
-        nix::sys::reboot::reboot(nix::sys::reboot::RebootMode::RB_AUTOBOOT)
-            .map(|_| ())
-            .into_diagnostic()
-            .wrap_err("Failed to reboot")
-    }
-
-    #[cfg(target_os = "macos")]
     fn reboot(&self) -> Result<()> {
         Command::new("reboot")
             .status()
@@ -1040,14 +977,14 @@ mod tests {
     use std::fs;
     use std::{collections::HashMap, sync::Mutex};
 
-    use dashmap::DashMap;
+    use dashmap::{DashMap, DashSet};
     use itertools::Itertools;
     use opencue_proto::host::HardwareState;
     use uuid::Uuid;
 
     use crate::system::{
+        macos::{MacOsSystem, MachineStaticInfo},
         manager::{CpuStat, ReservationError, SystemManager},
-        unix::{MachineStaticInfo, UnixSystem},
     };
 
     #[test]
@@ -1063,12 +1000,12 @@ mod tests {
         config.inittab_path = "".to_string();
         config.core_multiplier = 1;
 
-        let linux_monitor = UnixSystem::init(&config)
-            .expect("Initializing LinuxMachineStat failed")
+        let monitor = MacOsSystem::init(&config)
+            .expect("Initializing MacOsMachineStat failed")
             .static_info;
-        assert_eq!(2, linux_monitor.num_sockets);
-        assert_eq!(2, linux_monitor.cores_per_socket);
-        assert_eq!(1, linux_monitor.hyperthreading_multiplier);
+        assert_eq!(2, monitor.num_sockets);
+        assert_eq!(2, monitor.cores_per_socket);
+        assert_eq!(1, monitor.hyperthreading_multiplier);
     }
 
     #[test]
@@ -1125,7 +1062,7 @@ mod tests {
             };
 
             let (cpuinfo, threads_by_core_id, physid_and_coreid_by_procid, _thread_id_lookup_table) =
-                UnixSystem::read_cpuinfo(&file_path).expect("Failed to read file");
+                MacOsSystem::read_cpuinfo(&file_path).expect("Failed to read file");
             // Assert that the mapping between processor ID, physical ID, and core ID is correct
             println!("procid_by_physid_and_core_id={:?}", threads_by_core_id);
             println!(
@@ -1156,7 +1093,7 @@ mod tests {
         config.inittab_path = "".to_string();
         config.core_multiplier = 1;
 
-        let stat = UnixSystem::init(&config).expect("Initializing LinuxMachineStat failed");
+        let stat = MacOsSystem::init(&config).expect("Initializing MacOsSystem failed");
         let static_info = stat.static_info;
 
         // Proc
@@ -1168,7 +1105,7 @@ mod tests {
         assert_eq!(Some(&"centos".to_string()), stat.attributes.get("SP_OS"));
 
         // boot time
-        assert_eq!(1720194269, static_info.boot_time);
+        assert_eq!(1720194269, static_info.boot_time_secs);
     }
 
     #[test]
@@ -1193,7 +1130,7 @@ mod tests {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
         let path = format!("{}/resources/distro-release/{}", project_dir, id);
-        let release = UnixSystem::read_distro(&path).expect("Failed to read release");
+        let release = MacOsSystem::read_distro(&path).expect("Failed to read release");
 
         assert_eq!(id.to_string(), release);
     }
@@ -1203,7 +1140,7 @@ mod tests {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
         let path = format!("{}/resources/proc/stat", project_dir);
-        let boot_time = UnixSystem::read_boot_time(&path).expect("Failed to read boot time");
+        let boot_time = MacOsSystem::read_boot_time(&path).expect("Failed to read boot time");
         assert_eq!(1720194269, boot_time);
     }
 
@@ -1215,23 +1152,23 @@ mod tests {
         // Test successful case
         let mut temp_file = NamedTempFile::new().unwrap();
         writeln!(temp_file, "1.00 2.00 3.00 4/512 12345").unwrap();
-        let result = UnixSystem::read_load_avg(temp_file.path().to_str().unwrap());
+        let result = MacOsSystem::read_load_avg(temp_file.path().to_str().unwrap());
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), (1.0, 2.0, 3.0));
 
         // Test empty file
         let empty_file = NamedTempFile::new().unwrap();
-        let result = UnixSystem::read_load_avg(empty_file.path().to_str().unwrap());
+        let result = MacOsSystem::read_load_avg(empty_file.path().to_str().unwrap());
         assert!(result.is_err());
 
         // Test invalid format
         let mut invalid_file = NamedTempFile::new().unwrap();
         writeln!(invalid_file, "invalid format").unwrap();
-        let result = UnixSystem::read_load_avg(invalid_file.path().to_str().unwrap());
+        let result = MacOsSystem::read_load_avg(invalid_file.path().to_str().unwrap());
         assert!(result.is_err());
 
         // Test non-existent file
-        let result = UnixSystem::read_load_avg("nonexistent_file");
+        let result = MacOsSystem::read_load_avg("nonexistent_file");
         assert!(result.is_err());
     }
 
@@ -1248,7 +1185,7 @@ mod tests {
         config.inittab_path = "".to_string();
         config.core_multiplier = 1;
 
-        let result = UnixSystem::init(&config);
+        let result = MacOsSystem::init(&config);
         assert!(result.is_ok());
 
         let system = result.unwrap();
@@ -1269,7 +1206,7 @@ mod tests {
         writeln!(temp_file, "cpu0 123 456 789").unwrap();
         writeln!(temp_file, "malformed_btime_line").unwrap();
 
-        let result = UnixSystem::read_boot_time(temp_file.path().to_str().unwrap());
+        let result = MacOsSystem::read_boot_time(temp_file.path().to_str().unwrap());
         assert!(result.is_err());
     }
 
@@ -1285,7 +1222,7 @@ mod tests {
         config.temp_path = "/tmp".to_string();
         config.inittab_path = "".to_string();
 
-        let system = UnixSystem::init(&config).unwrap();
+        let system = MacOsSystem::init(&config).unwrap();
 
         // Test dynamic stats collection
         use crate::system::manager::SystemManager;
@@ -1310,7 +1247,7 @@ mod tests {
         config.proc_stat_path = "".to_string();
         config.inittab_path = "".to_string();
 
-        let mut system = UnixSystem::init(&config).unwrap();
+        let mut system = MacOsSystem::init(&config).unwrap();
         let frame_id = uuid::Uuid::new_v4();
 
         // Reserve cores
@@ -1344,7 +1281,7 @@ mod tests {
         config.proc_stat_path = "".to_string();
         config.inittab_path = "".to_string();
 
-        let system = UnixSystem::init(&config).unwrap();
+        let system = MacOsSystem::init(&config).unwrap();
 
         // This should not panic or fail
         use crate::system::manager::SystemManager;
@@ -1367,7 +1304,7 @@ mod tests {
         config.inittab_path = "".to_string();
         config.custom_tags = vec!["test_tag".to_string(), "integration".to_string()];
 
-        let system = UnixSystem::init(&config).unwrap();
+        let system = MacOsSystem::init(&config).unwrap();
 
         assert_eq!(system.static_info.tags.len(), 2);
         assert!(system.static_info.tags.contains(&"test_tag".to_string()));
@@ -1725,7 +1662,7 @@ mod tests {
         use tempfile::NamedTempFile;
 
         let empty_file = NamedTempFile::new().unwrap();
-        let result = UnixSystem::read_distro(empty_file.path().to_str().unwrap());
+        let result = MacOsSystem::read_distro(empty_file.path().to_str().unwrap());
         assert!(result.is_err());
     }
 
@@ -1744,7 +1681,7 @@ mod tests {
         total_cores: u32,
         physical_cpus: u32,
         threads_per_core: u32,
-    ) -> UnixSystem {
+    ) -> MacOsSystem {
         let mut cores_by_phys_id = HashMap::new();
         let mut threads_by_core_unique_id: HashMap<String, Vec<u32>> = HashMap::new();
         let mut thread_id_lookup_table: HashMap<u32, (u32, u32)> = HashMap::new();
@@ -1767,7 +1704,7 @@ mod tests {
             cores_by_phys_id.insert(phys_id, (0..cores_per_cpu).collect());
         }
 
-        UnixSystem {
+        MacOsSystem {
             config: MachineConfig::default(),
             cores_by_phys_id,
             threads_by_core_unique_id,
@@ -1782,13 +1719,14 @@ mod tests {
                 num_sockets: physical_cpus,
                 cores_per_socket: cores_per_cpu,
                 hyperthreading_multiplier: 1,
-                boot_time: 0,
+                boot_time_secs: 0,
                 tags: vec![],
             },
             hardware_state: HardwareState::Up,
             attributes: HashMap::new(),
             sysinfo_system: Mutex::new(sysinfo::System::new()),
-            procs_lineage_cache: DashMap::new(),
+            session_processes: DashMap::new(),
+            monitored_sessions: DashSet::new(),
         }
     }
 }

@@ -1878,6 +1878,7 @@ dependencies = [
  "humantime",
  "humantime-serde",
  "itertools",
+ "libc",
  "miette",
  "nix",
  "opencue-proto",

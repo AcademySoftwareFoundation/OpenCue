@@ -1,7 +1,7 @@
 use miette::{IntoDiagnostic, Result, miette};
 use std::io::Write;
-use std::process::Command;
 use std::{fs, fs::File};
+use tokio::process::Command;
 use uuid::Uuid;
 
 pub struct FrameCmdBuilder {
@@ -51,7 +51,12 @@ impl FrameCmdBuilder {
     pub fn build(&mut self) -> Result<(&mut Command, String)> {
         use std::os::unix::fs::PermissionsExt;
 
-        let args: Vec<&str> = self.cmd.get_args().filter_map(|arg| arg.to_str()).collect();
+        let args: Vec<&str> = self
+            .cmd
+            .as_std()
+            .get_args()
+            .filter_map(|arg| arg.to_str())
+            .collect();
         let cmd_str = args.join(" ");
         let mut file = File::create(&self.entrypoint_file_path).into_diagnostic()?;
 
@@ -182,6 +187,7 @@ wait_for_output $exit_code
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_become_user(&mut self, uid: u32, gid: u32, username: String) -> &mut Self {
         self.become_user = Some(BecomeUser { uid, gid, username });
         self

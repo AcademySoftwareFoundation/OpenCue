@@ -79,14 +79,14 @@ pub struct MachineConfig {
 impl Default for MachineConfig {
     fn default() -> MachineConfig {
         MachineConfig {
-            monitor_interval: Duration::from_secs(3),
+            monitor_interval: Duration::from_secs(10),
             use_ip_as_hostname: false,
             override_real_values: None,
             custom_tags: vec![],
             nimby_mode: false,
             facility: "cloud".to_string(),
             cpuinfo_path: "/proc/cpuinfo".to_string(),
-            distro_release_path: "/etc/*-release".to_string(),
+            distro_release_path: "/etc/os-release".to_string(),
             proc_stat_path: "/proc/stat".to_string(),
             inittab_path: "/etc/inittab".to_string(),
             proc_loadavg_path: "/proc/loadavg".to_string(),
@@ -163,6 +163,7 @@ impl Default for RunnerConfig {
     }
 }
 
+#[cfg(feature = "containerized_frames")]
 impl RunnerConfig {
     pub fn get_docker_image(&self, image_key: &str) -> String {
         self.docker_images

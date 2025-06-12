@@ -21,6 +21,8 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
+#[cfg(target_os = "macos")]
+use crate::system::macos::MacOsSystem;
 use crate::{
     config::config::{Config, MachineConfig},
     frame::{
@@ -31,8 +33,8 @@ use crate::{
 };
 
 use super::{
+    linux::LinuxSystem,
     manager::{ReservationError, SystemManagerType},
-    unix::UnixSystem,
 };
 
 /// Constantly monitor the state of this machine and report back to Cuebot
@@ -67,18 +69,20 @@ pub struct MachineMonitor {
 impl MachineMonitor {
     /// Initializes the object without starting the monitor loop
     /// Will gather the initial state of this machine
-    pub fn init(
-        config: &Config,
-        report_client: Arc<ReportClient>,
-        running_frames_cache: Arc<RunningFrameCache>,
-    ) -> Result<Self> {
-        let system_manager: SystemManagerType = Box::new(UnixSystem::init(&config.machine)?);
-        // TODO: identify which OS is running and initialize system_manager accordingly
+    pub fn init(config: &Config, report_client: Arc<ReportClient>) -> Result<Self> {
+        #[cfg(any(target_os = "macos"))]
+        #[allow(unused_variables)]
+        let system_manager: SystemManagerType = Box::new(MacOsSystem::init(&config.machine)?);
+
+        // Allow linux logic compilation from mac development environments
+        #[cfg(any(target_os = "linux", all(debug_assertions)))]
+        let system_manager: SystemManagerType = Box::new(LinuxSystem::init(&config.machine)?);
+
         Ok(Self {
             maching_config: config.machine.clone(),
             report_client,
             system_manager: Mutex::new(system_manager),
-            running_frames_cache,
+            running_frames_cache: RunningFrameCache::init(),
             core_state: Arc::new(Mutex::new(CoreDetail::default())),
             last_host_state: Arc::new(Mutex::new(None)),
             interrupt: Mutex::new(None),
@@ -135,7 +139,6 @@ impl MachineMonitor {
                     }
                 }
                 _ = interval.tick() => {
-                    self.update_procs().await;
                     self.collect_and_send_host_report().await?;
                     self.check_reboot_flag().await;
                 }
@@ -154,11 +157,6 @@ impl MachineMonitor {
             }
             None => warn!("Interrupt channel has already been used"),
         }
-    }
-
-    async fn update_procs(&self) {
-        let system_manager = self.system_manager.lock().await;
-        system_manager.refresh_procs();
     }
 
     async fn collect_and_send_host_report(&self) -> Result<()> {
@@ -454,6 +452,12 @@ pub trait Machine {
     async fn collect_host_report(&self) -> Result<HostReport>;
 
     async fn quit(&self);
+
+    fn add_running_frame(&self, running_frame: Arc<RunningFrame>);
+
+    fn is_frame_running(&self, frame_id: &Uuid) -> bool;
+
+    fn get_running_frame(&self, frame_id: &Uuid) -> Option<Arc<RunningFrame>>;
 }
 
 #[async_trait]
@@ -652,6 +656,10 @@ impl Machine for MachineMonitor {
 
     async fn collect_host_report(&self) -> Result<HostReport> {
         let system_manager = self.system_manager.lock().await;
+        // If there are frames running update the list of procs on the machine
+        if !self.running_frames_cache.is_empty() {
+            system_manager.refresh_procs();
+        }
         let render_host = Self::inspect_host_state(&self.maching_config, &system_manager)?;
         drop(system_manager);
         // Store the last host_state on self
@@ -672,5 +680,20 @@ impl Machine for MachineMonitor {
     async fn quit(&self) {
         self.interrupt().await;
         std::process::exit(0);
+    }
+
+    fn add_running_frame(&self, running_frame: Arc<RunningFrame>) {
+        self.running_frames_cache
+            .insert_running_frame(running_frame);
+    }
+
+    fn is_frame_running(&self, frame_id: &Uuid) -> bool {
+        self.running_frames_cache.contains(frame_id)
+    }
+    fn get_running_frame(&self, frame_id: &Uuid) -> Option<Arc<RunningFrame>> {
+        self.running_frames_cache
+            .get(frame_id)
+            .as_ref()
+            .map(|f| Arc::clone(f))
     }
 }

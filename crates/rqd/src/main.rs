@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use config::config::Config;
-use frame::{cache::RunningFrameCache, manager::FrameManager};
+use frame::manager::FrameManager;
 use miette::IntoDiagnostic;
 use report::report_client::ReportClient;
 use system::machine::MachineMonitor;
@@ -47,27 +47,20 @@ async fn async_main(config: Config) -> miette::Result<()> {
         log_builder.init();
     }
 
-    let running_frame_cache = RunningFrameCache::init();
     // Initialize cuebot client
     let report_client = Arc::new(ReportClient::build(&config).await?);
 
     // Make clones for the async block
     let config_clone = config.clone();
-    let running_frame_cache_clone = Arc::clone(&running_frame_cache);
 
     // Initialize rqd machine monitor
-    let machine_monitor = Arc::new(MachineMonitor::init(
-        &config_clone,
-        report_client,
-        Arc::clone(&running_frame_cache_clone),
-    )?);
+    let machine_monitor = Arc::new(MachineMonitor::init(&config_clone, report_client)?);
     let mm_clone = Arc::clone(&machine_monitor);
     let mm_clone2 = Arc::clone(&machine_monitor);
 
     // Initialize frame manager
     let frame_manager = Arc::new(FrameManager {
         config: config.clone(),
-        frame_cache: Arc::clone(&running_frame_cache),
         machine: mm_clone.clone(),
     });
 

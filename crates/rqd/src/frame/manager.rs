@@ -10,13 +10,14 @@ use tokio::time;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use crate::{config::config::Config, servant::rqd_servant::MachineImpl};
+#[cfg(feature = "containerized_frames")]
+use super::docker_running_frame;
 
-use super::{cache::RunningFrameCache, running_frame::RunningFrame};
+use super::running_frame::RunningFrame;
+use crate::{config::config::Config, servant::rqd_servant::MachineImpl};
 
 pub struct FrameManager {
     pub config: Config,
-    pub frame_cache: Arc<RunningFrameCache>,
     pub machine: Arc<MachineImpl>,
 }
 
@@ -156,6 +157,7 @@ impl FrameManager {
         let mut errors = Vec::new();
         for path in snapshot_dir {
             let running_frame = RunningFrame::from_snapshot(&path, self.config.runner.clone())
+                .await
                 .map(|rf| Arc::new(rf));
             match running_frame {
                 Ok(running_frame) => {
@@ -201,20 +203,9 @@ impl FrameManager {
     }
 
     fn spawn_running_frame(&self, running_frame: Arc<RunningFrame>, recover_mode: bool) {
-        self.frame_cache
-            .insert_running_frame(Arc::clone(&running_frame));
+        self.machine.add_running_frame(Arc::clone(&running_frame));
         let running_frame_ref: Arc<RunningFrame> = Arc::clone(&running_frame);
-        // Fire and forget
-        let thread_handle = std::thread::spawn(move || {
-            let result = std::panic::catch_unwind(|| running_frame.run(recover_mode));
-            if let Err(panic_info) = result {
-                _ = running_frame.finish(1, None);
-                error!(
-                    "Run thread panicked for {}: {:?}",
-                    running_frame, panic_info
-                );
-            }
-        });
+        let thread_handle = tokio::spawn(async move { running_frame.run(recover_mode).await });
         if let Err(err) = running_frame_ref.update_launch_thread_handle(thread_handle) {
             warn!(
                 "Failed to update thread handle for frame {}. {}",
@@ -223,17 +214,21 @@ impl FrameManager {
         }
     }
 
+    #[cfg(feature = "containerized_frames")]
     fn spawn_docker_frame(&self, running_frame: Arc<RunningFrame>, recovery_mode: bool) {
-        self.frame_cache
-            .insert_running_frame(Arc::clone(&running_frame));
-        let _thread_handle = tokio::task::spawn_blocking(async move || {
-            running_frame.run_docker(recovery_mode).await
-        });
+        self.machine.add_running_frame(Arc::clone(&running_frame));
+        let _thread_handle =
+            tokio::spawn(async move { running_frame.run_docker(recovery_mode).await });
+    }
+
+    #[cfg(feature = "default")]
+    fn spawn_docker_frame(&self, _running_frame: Arc<RunningFrame>, _recovery_mode: bool) {
+        todo!("Running on docker requires compiling with the feature containerized_frames")
     }
 
     fn validate_grpc_frame(&self, run_frame: &RunFrame) -> Result<(), FrameManagerError> {
         // Frame is already running
-        if self.frame_cache.contains(&run_frame.frame_id()) {
+        if self.machine.is_frame_running(&run_frame.frame_id()) {
             Err(FrameManagerError::AlreadyExist(format!(
                 "Not lauching, frame is already running on this host {}",
                 run_frame.frame_id()
@@ -292,10 +287,7 @@ impl FrameManager {
     }
 
     pub fn get_running_frame(&self, frame_id: &Uuid) -> Option<Arc<RunningFrame>> {
-        self.frame_cache
-            .get(frame_id)
-            .as_ref()
-            .map(|f| Arc::clone(f))
+        self.machine.get_running_frame(frame_id)
     }
 
     /// Kills a running frame on this host.
