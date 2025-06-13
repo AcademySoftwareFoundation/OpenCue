@@ -2,9 +2,9 @@ name: Rust
 
 on:
   push:
-    branches: ["main"]
+    branches: ["master"]
   pull_request:
-    branches: ["main"]
+    branches: ["master"]
 
 env:
   CARGO_TERM_COLOR: always
@@ -18,6 +18,10 @@ jobs:
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
       - name: Build
-        run: cargo build --verbose
+        run: |
+          cd rust
+          cargo build --verbose
       - name: Run tests
-        run: cargo test --verbose
+        run: |
+          cd rust
+          cargo test --verbose
