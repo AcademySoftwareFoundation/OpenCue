@@ -1,0 +1,68 @@
+
+syntax = "proto3";
+package cue;
+
+option java_package = "com.imageworks.spcue.grpc.cue";
+option java_multiple_files = true;
+
+// Core System level objects and methods
+
+
+// -------- Services --------]
+
+service CueInterface {
+    // returns the current server statistics
+    rpc GetSystemStats(CueGetSystemStatsRequest) returns (CueGetSystemStatsResponse);
+}
+
+
+// -------- Primary Message Types --------]
+
+// A struct that contains server specific performance numbers
+message SystemStats {
+    int32 manage_waiting = 1;
+    int32 manage_remaining_capacity = 2;
+    int32 manage_threads = 3;
+    int64 manage_executed = 4;
+    int64 manage_rejected = 5;
+    int32 dispatch_waiting = 6;
+    int32 dispatch_remaining_capacity = 7;
+    int32 dispatch_threads = 8;
+    int64 dispatch_executed = 9;
+    int64 dispatch_rejected = 10;
+    int32 report_waiting = 11;
+    int32 report_remaining_capacity = 12;
+    int32 report_threads = 13;
+    int64 report_executed = 14;
+    int64 report_rejected = 15;
+    int32 booking_waiting = 16;
+    int32 booking_remaining_capacity = 17;
+    int32 booking_threads = 18;
+    int32 booking_sleep_millis = 19;
+    int64 booking_executed = 20;
+    int64 booking_rejected = 21;
+    int64 host_balance_success = 22;
+    int64 host_balance_failed = 23;
+    int64 killed_offender_procs = 24;
+    int64 killed_oom_procs = 25;
+    int64 cleared_procs = 26;
+    int64 booking_errors = 27;
+    int64 booking_retries = 28;
+    int64 booked_procs = 29;
+    int64 req_for_data = 30;
+    int64 req_for_function = 31;
+    int64 req_errors = 32;
+    int64 unbooked_procs = 33;
+    int64 picked_up_cores = 34;
+    int64 stranded_cores = 35;
+}
+
+
+// -------- Requests & Responses --------]
+
+// GetSystemStats
+message CueGetSystemStatsRequest {} // Empty
+
+message CueGetSystemStatsResponse {
+    SystemStats stats = 1;
+}

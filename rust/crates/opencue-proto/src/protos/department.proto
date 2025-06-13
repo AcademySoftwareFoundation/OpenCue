@@ -1,0 +1,198 @@
+
+syntax = "proto3";
+package department;
+
+option java_package = "com.imageworks.spcue.grpc.department";
+option java_multiple_files = true;
+
+import "task.proto";
+
+// Departments
+// Each show usually has a few different departments.  Lighting,
+// Animation, FX, Hair, and Cloth are the most common. The default
+// department is generally the "Unknown" department. Department names
+// must be chosen from a list of allowed department names which are
+// setup with the AdminStatic interface. This makes the data much more
+// consistent when doing reports by department which is important because
+// department names are used for production reports.
+//
+// Departments get created automatically when the department name property
+// is set on a group.
+//
+// Using departments, its possible to add shot based cue priorities.  These
+// priorities, known as "tasks", can be Track-It managed, or manually
+// entered. Track-It managed tasks are added, updated, and removed
+// automatically by track it.  When using track-it managed tasks, you must
+// provide a minimum number of cores to split up amoung the active tasks.
+
+
+// -------- Services --------
+
+service DepartmentInterface {
+    // Add a new department name
+    rpc AddDepartmentName(DeptAddDeptNameRequest) returns (DeptAddDeptNameResponse);
+
+    //Adds a task to this department and return it
+    rpc AddTask(DeptAddTaskRequest) returns (DeptAddTaskResponse);
+
+    // Adds a map of tasks to this deparmtment and return them as a list.  Offers a quick way to add many tasks with one
+    // function.
+    rpc AddTasks(DeptAddTasksRequest) returns (DeptAddTasksResponse);
+
+    // Clears all tasks
+    rpc ClearTasks(DeptClearTasksRequest) returns (DeptClearTasksResponse);
+
+    // Clears all manual task adjustments to managed tasks.  This won't do anything unless your using Ti Managed tasks.
+    rpc ClearTaskAdjustments(DeptClearTaskAdjustmentsRequest) returns (DeptClearTaskAdjustmentsResponse);
+
+    // Delete the department
+    rpc Delete(DeptDeleteRequest) returns (DeptDeleteResponse);
+
+    // Disable Track-It management.  This will also clear all tasks.
+    rpc DisableTiManaged(DeptDisableTiManagedRequest) returns (DeptDisableTiManagedResponse);
+
+    // Enable Track-It management.  This will pull a task list from Track-It and keep it synced.
+    rpc EnableTiManaged(DeptEnableTiManagedRequest) returns (DeptEnableTiManagedResponse);
+
+    // Return a list of department names
+    rpc GetDepartmentNames(DeptGetDepartmentNamesRequest) returns (DeptGetDepartmentNamesResponse);
+
+    // Returns the list of tasks for this department.
+    rpc GetTasks(DeptGetTasksRequest) returns (DeptGetTasksResponse);
+
+    // Remove the department of this name
+    rpc RemoveDepartmentName(DeptRemoveDepartmentNameRequest) returns (DeptRemoveDepartmentNameResponse);
+
+    // Replaces a map of tasks.  If the task already exists its updated, else its inserted.
+    rpc ReplaceTasks(DeptReplaceTaskRequest) returns (DeptReplaceTaskResponse);
+
+    // Sets the minimum number of cores for the department to manage between its tasks.
+    rpc SetMangedCores(DeptSetManagedCoresRequest) returns (DeptSetManagedCoresResponse);
+}
+
+
+// -------- Primary Message Types --------
+
+message Department {
+    string id = 1;
+    string name = 2;
+    string dept = 3;
+    string ti_task = 4;
+    float min_cores = 5;
+    bool ti_managed = 6;
+}
+
+message DepartmentSeq {
+    repeated Department departments = 1;
+}
+
+
+// -------- Requests & Responses --------
+
+// AddDeptName
+message DeptAddDeptNameRequest {
+    string name = 1;
+}
+
+message DeptAddDeptNameResponse {} // Empty
+
+// AddTask
+message DeptAddTaskRequest {
+    Department department = 1;
+    string shot = 2;
+    float min_cores = 3;
+}
+
+message DeptAddTaskResponse {
+    task.Task task = 1;
+}
+
+// AddTasks
+message DeptAddTasksRequest {
+    Department department = 1;
+    // tmap is a mapping of <(string) shot_id :(int) min_core_units> used to create a task
+    map<string, int32> tmap = 2;
+}
+
+message DeptAddTasksResponse {
+    task.TaskSeq tasks = 1;
+}
+
+// ClearTasks
+message DeptClearTasksRequest {
+    Department department = 1;
+}
+
+message DeptClearTasksResponse {} // Empty
+
+// ClearTaskAdjustments
+message DeptClearTaskAdjustmentsRequest {
+    Department department = 1;
+}
+
+message DeptClearTaskAdjustmentsResponse {} // Empty
+
+// Delete
+message DeptDeleteRequest {
+    Department department = 1;
+}
+
+message DeptDeleteResponse {} // Empty
+
+// DisableTiManaged
+message DeptDisableTiManagedRequest {
+    Department department = 1;
+}
+
+message DeptDisableTiManagedResponse {} // Empty
+
+// EnableTiManaged
+message DeptEnableTiManagedRequest {
+    Department department = 1;
+    string ti_task = 2;
+    float managed_cores = 3;
+}
+
+message DeptEnableTiManagedResponse {} // Empty
+
+// GetDepartmentNames
+message DeptGetDepartmentNamesRequest {} // Empty
+
+message DeptGetDepartmentNamesResponse {
+    repeated string names = 1;
+}
+
+// GetTasks
+message DeptGetTasksRequest {
+    Department department = 1;
+}
+
+message DeptGetTasksResponse {
+    task.TaskSeq tasks = 1;
+}
+
+//RemoveDepartmentName
+message DeptRemoveDepartmentNameRequest {
+    string name = 1;
+}
+
+message DeptRemoveDepartmentNameResponse {} // Empty
+
+// ReplaceTask
+message DeptReplaceTaskRequest {
+    Department department = 1;
+    // tmap is a mapping of <(string) shot_id :(int) min_core_units> used to create a task
+    map<string, int32> tmap = 2;
+}
+
+message DeptReplaceTaskResponse {
+    task.TaskSeq tasks = 1;
+}
+
+// SetManagedCores
+message DeptSetManagedCoresRequest {
+    Department department = 1;
+    float managed_cores = 2;
+}
+
+message DeptSetManagedCoresResponse {} // Empty

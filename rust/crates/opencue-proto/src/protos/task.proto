@@ -1,0 +1,67 @@
+
+syntax = "proto3";
+package task;
+
+option java_package = "com.imageworks.spcue.grpc.task";
+option java_multiple_files = true;
+
+// Tasks
+// Tasks are shot priorities for a specific dept
+
+
+// -------- Services --------]
+
+service TaskInterface {
+
+    // Clear any min core adjustments that have been made
+    rpc ClearAdjustments(TaskClearAdjustmentsRequest) returns (TaskClearAdjustmentsResponse);
+
+    //Removes the task.  If the department is managed the task is likely to come back upon the next update.
+    rpc Delete(TaskDeleteRequest) returns (TaskDeleteResponse);
+
+    // Sets the minimum number of cores.  If the task is being managed, then the min core value is adjusted
+    // but the original is not changed.
+    rpc SetMinCores(TaskSetMinCoresRequest) returns (TaskSetMinCoresResponse);
+}
+
+
+// -------- Primary Message Types --------]
+
+message Task {
+    string id = 1;
+    string name = 2;
+    string shot = 3;
+    string dept = 4;
+    string point_id = 5;
+    float min_cores = 6;
+    float adjust_cores = 7;
+}
+
+message TaskSeq {
+    repeated Task tasks = 1;
+}
+
+
+// -------- Requests & Responses --------]
+
+// ClearAdjustments
+message TaskClearAdjustmentsRequest {
+    Task task = 1;
+}
+
+message TaskClearAdjustmentsResponse {} // Empty
+
+// Delete
+message TaskDeleteRequest {
+    Task task = 1;
+}
+
+message TaskDeleteResponse {} // Empty
+
+// SetMinCores
+message TaskSetMinCoresRequest {
+    Task task = 1;
+    float new_min_cores = 2;
+}
+
+message TaskSetMinCoresResponse {} // Empty

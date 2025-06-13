@@ -1,0 +1,107 @@
+
+syntax = "proto3";
+package limit;
+
+option java_package = "com.imageworks.spcue.grpc.limit";
+option java_multiple_files = true;
+
+// The Limit class contains data that allows users to place limits
+// on the maximum number of running frames for a certain type of layer.
+
+
+// -------- Services --------]
+
+service LimitInterface {
+
+    // Create a new limit with a name and max value
+    rpc Create(LimitCreateRequest) returns (LimitCreateResponse);
+
+    // Delete the specified limit.
+    rpc Delete(LimitDeleteRequest) returns (LimitDeleteResponse);
+
+    // Find a limit by name
+    rpc Find(LimitFindRequest) returns (LimitFindResponse);
+
+    // Get a limit by id
+    rpc Get(LimitGetRequest) returns (LimitGetResponse);
+
+    // Get all limits
+    rpc GetAll(LimitGetAllRequest) returns (LimitGetAllResponse);
+
+    // Rename an existing limit
+    rpc Rename(LimitRenameRequest) returns (LimitRenameResponse);
+
+    rpc SetMaxValue(LimitSetMaxValueRequest) returns (LimitSetMaxValueResponse);
+
+}
+
+
+// -------- Primary Message Types --------]
+
+message Limit {
+    string id = 1;
+    string name = 2;
+    int32 max_value = 3;
+    int32 current_running = 4;
+}
+
+
+// -------- Requests & Responses --------]
+
+// Create
+message LimitCreateRequest {
+    string name = 1;
+    int32 max_value = 2;
+}
+
+message LimitCreateResponse {
+    Limit limit = 1;
+}
+
+// Delete
+message LimitDeleteRequest {
+    string name = 1;
+}
+
+message LimitDeleteResponse {} // Empty
+
+// Find
+message LimitFindRequest {
+    string name = 1;
+}
+
+message LimitFindResponse {
+    Limit limit = 1;
+}
+
+// Get
+message LimitGetRequest {
+    string id = 1;
+}
+
+message LimitGetResponse {
+    Limit limit = 1;
+}
+
+// GetAll
+message LimitGetAllRequest {} // Empty
+
+message LimitGetAllResponse {
+    repeated Limit limits = 1;
+}
+
+// Rename
+message LimitRenameRequest {
+    string old_name = 1;
+    string new_name = 2;
+}
+
+message LimitRenameResponse {} // Empty
+
+// SetMaxValue
+message LimitSetMaxValueRequest {
+    string name = 1;
+    int32 max_value = 2;
+}
+
+message LimitSetMaxValueResponse {} // Empty
