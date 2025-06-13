@@ -79,7 +79,7 @@ pub struct MachineConfig {
 impl Default for MachineConfig {
     fn default() -> MachineConfig {
         MachineConfig {
-            monitor_interval: Duration::from_secs(10),
+            monitor_interval: Duration::from_secs(5),
             use_ip_as_hostname: false,
             override_real_values: None,
             custom_tags: vec![],

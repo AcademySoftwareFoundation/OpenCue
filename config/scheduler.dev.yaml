@@ -1,9 +1,0 @@
-logging:
-  level: info
-dispatcher:
-  host_frame_dispatch_max: 12
-dist-lock:
-  service: LocalLease
-database:
-  postgres_connection_string: ""
-  max_pool_size: 20
