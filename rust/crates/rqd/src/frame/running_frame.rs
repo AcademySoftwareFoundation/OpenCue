@@ -1172,6 +1172,7 @@ Render Frame Completed
             max_used_gpu_memory: (stats.max_used_gpu_memory / KIB) as i64,
             used_gpu_memory: (stats.used_gpu_memory / KIB) as i64,
             children,
+            ..Default::default()
         }
     }
 

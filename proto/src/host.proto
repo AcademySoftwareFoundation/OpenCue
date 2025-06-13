@@ -240,6 +240,10 @@ message HardwareStateSeq {
     repeated HardwareState state = 1;
 }
 
+message LockStateSeq {
+    repeated LockState state = 1;
+}
+
 message Host {
     string id = 1;
     string name = 2;
@@ -279,6 +283,7 @@ message HostSearchCriteria {
     repeated string ids = 4;
     repeated string allocs = 5;
     HardwareStateSeq states = 6;
+    LockStateSeq lock_states = 7;
 }
 
 message HostSeq {
