@@ -20,7 +20,7 @@ use bytesize::KIB;
 use chrono::{DateTime, Local};
 use itertools::Itertools;
 use tokio::fs::File;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
+use tokio::io::AsyncReadExt;
 use tokio::{io::AsyncBufReadExt, task::JoinHandle};
 use tracing::{error, info, trace, warn};
 
@@ -919,14 +919,10 @@ impl RunningFrame {
     ///
     pub(super) async fn create_snapshot(&self) -> Result<()> {
         let snapshot_path = self.snapshot_path()?;
-        let file = File::create(&snapshot_path).await.into_diagnostic()?;
-        let mut writer = BufWriter::new(file);
-
         let serialized_data = bincode::serialize(self)
             .into_diagnostic()
             .map_err(|e| miette!("Failed to serialize frame snapshot: {}", e))?;
-        writer
-            .write_all(&serialized_data)
+        tokio::fs::write(snapshot_path, serialized_data)
             .await
             .into_diagnostic()
             .map_err(|e| miette!("Failed to write frame snapshot: {}", e))?;
@@ -968,14 +964,7 @@ impl RunningFrame {
     /// the snapshot is binding to the correct process
     ///
     pub async fn from_snapshot(path: &str, config: RunnerConfig) -> Result<Self> {
-        let file = tokio::fs::File::open(path)
-            .await
-            .map_err(|err| miette!("Failed to open snapshot file. {}", err))?;
-        let mut buff = Vec::new();
-        tokio::io::BufReader::new(file)
-            .read_to_end(&mut buff)
-            .await
-            .into_diagnostic()?;
+        let buff = tokio::fs::read(path).await.into_diagnostic()?;
 
         let mut frame: RunningFrame = bincode::deserialize(&buff)
             .into_diagnostic()

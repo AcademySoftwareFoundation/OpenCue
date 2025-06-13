@@ -169,9 +169,11 @@ impl FrameManager {
                             .await
                             .map(|v| Some(v)),
                         None => {
+                            let num_cores = running_frame.request.num_cores as u32
+                                / self.config.machine.core_multiplier;
                             self.machine
                                 .reserve_cores(
-                                    running_frame.request.num_cores as usize,
+                                    num_cores as usize,
                                     running_frame.request.resource_id(),
                                     false,
                                 )
@@ -181,7 +183,7 @@ impl FrameManager {
                         errors.push(err.to_string());
                     }
                     if self.config.runner.run_on_docker {
-                        todo!()
+                        todo!("Recovering frames when running on docker is not yet supported")
                     } else {
                         self.spawn_running_frame(running_frame, true)
                     }

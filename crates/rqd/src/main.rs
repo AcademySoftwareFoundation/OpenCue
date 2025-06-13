@@ -5,7 +5,7 @@ use frame::manager::FrameManager;
 use miette::IntoDiagnostic;
 use report::report_client::ReportClient;
 use system::machine::MachineMonitor;
-use tokio::select;
+use tokio::{select, sync::oneshot};
 use tracing::{error, warn};
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
@@ -64,12 +64,19 @@ async fn async_main(config: Config) -> miette::Result<()> {
         machine: mm_clone.clone(),
     });
 
+    let (tx, rx) = oneshot::channel::<()>();
+
     // Spawn machine monitor on a new task to prevent it from locking the main task
     let machine_monitor_handle = {
         let mm = Arc::clone(&machine_monitor);
-        tokio::spawn(async move { mm.start().await })
+        tokio::spawn(async move { mm.start(tx).await })
     };
+    // Await for the confirmation machine_monitor has fully initialized
+    let _machine_monitor_started = rx.await;
 
+    // Recovering frames is unstable on linux. Launched frames are somehow still bound
+    // to the rqd process and receive a kill signal when rqd stops
+    #[cfg(target_os = "macos")]
     if let Err(err) = frame_manager.recover_snapshots().await {
         warn!("Failed to recover frames from snapshot: {}", err);
     };

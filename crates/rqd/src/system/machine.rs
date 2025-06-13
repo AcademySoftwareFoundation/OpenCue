@@ -91,7 +91,7 @@ impl MachineMonitor {
     }
 
     /// Starts an async loop that will update the machine state every `monitor_interval_seconds`.
-    pub async fn start(&self) -> Result<()> {
+    pub async fn start(&self, startup_flag: Sender<()>) -> Result<()> {
         let report_client = self.report_client.clone();
 
         let system_lock = self.system_manager.lock().await;
@@ -119,6 +119,9 @@ impl MachineMonitor {
         report_client
             .send_start_up_report(host_state, initial_core_state)
             .await?;
+
+        // Notify caller that the machine state is ready
+        let _ = startup_flag.send(());
 
         let mut interval = time::interval(self.maching_config.monitor_interval);
 
@@ -354,7 +357,7 @@ pub trait Machine {
     ///
     /// # Argument
     ///
-    /// * `num_cores` - The number of cores to reserve
+    /// * `num_cores` - The number of cores to reserve without multiplier
     /// * `resource_id` - Id of the resource to be associated to the reservation
     /// * `with_affinity` - If true, use `taskset` to attempt to reserve cores that
     ///    might share the same cache
