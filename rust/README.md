@@ -1,7 +1,6 @@
-# OpenCue
+# OpenCue Rust modules
 
-This repo is an experiment on converting some [OpenCue](https://github.com/AcademySoftwareFoundation/OpenCue)
-modules to Rust.
+This directory contains modules written in Rust.
 
 Project crates:
  * opencue_proto: protobuf interface
