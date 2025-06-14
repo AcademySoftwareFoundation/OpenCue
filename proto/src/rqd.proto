@@ -1,4 +1,5 @@
 
+
 syntax = "proto3";
 package rqd;
 
@@ -15,7 +16,7 @@ import "report.proto";
 
 // Implemented by the Rqd server. Called by cuebot and tools.
 service RqdInterface {
-    // Return the RunFrame by id
+    // [Deprecated] Return the RunFrame by id
     rpc GetRunFrame(RqdStaticGetRunFrameRequest) returns (RqdStaticGetRunFrameResponse);
 
     // Return the RunningFrameStatus report
@@ -42,7 +43,7 @@ service RqdInterface {
     // Reboot the host when it becomes idle
     rpc RebootIdle(RqdStaticRebootIdleRequest) returns (RqdStaticRebootIdleResponse);
 
-    // Reboot the host now
+    // [Deprecated] Reboot the host now
     rpc RebootNow(RqdStaticRebootNowRequest) returns (RqdStaticRebootNowResponse);
 
     // Return the HostReport
@@ -54,7 +55,7 @@ service RqdInterface {
     // [Deprecated] Restart rqd process now
     rpc RestartRqdNow(RqdStaticRestartNowRequest) returns (RqdStaticRestartNowResponse);
 
-    // Turn off rqd when it becomes idle
+    // [Deprecated] Turn off rqd when it becomes idle
     rpc ShutdownRqdIdle(RqdStaticShutdownIdleRequest) returns (RqdStaticShutdownIdleResponse);
 
     // Stop rqd now
@@ -99,10 +100,16 @@ message RunFrame {
     string log_dir = 9;
     string show = 10;
     string shot = 11;
-    string job_temp_dir = 12;
+    // Deprecated: Not reliable and will not be taken on consideration moving forward
+    string job_temp_dir = 12 [deprecated=true];
+    // Deprecated: Not reliable and will not be taken on consideration moving forward
     string frame_temp_dir = 13;
-    string log_file = 14;
-    string log_dir_file = 15;
+    // Deprecated: The log_path is defined rqd using job_dir, job_name and frame_name.
+    // This field is misleading as it doesn't give cuebot the power to define the log path
+    string log_file = 14 [deprecated=true];
+    // Deprecated: The log_path is defined rqd using job_dir, job_name and frame_name.
+    // This field is misleading as it doesn't give cuebot the power to define the log path
+    string log_dir_file = 15 [deprecated=true];
     int64 start_time = 16;
     oneof uid_optional {
         int32 uid = 17;

@@ -39,7 +39,10 @@ message CoreDetail {
     int32 locked_cores = 3;
     int32 booked_cores = 4;
     //map <key: physid, value: coreid>
-    map<int64, CoreId> reserved_cores = 5;
+    // This field is deprecated as it should have never been part of the API. It was previously used
+    // solely on rqd's end to store a map of reserved cores, but the data was never communicated to
+    // the server.
+    map<int64, CoreId> reserved_cores = 5 [deprecated=true];
 }
 
 message CoreId {
