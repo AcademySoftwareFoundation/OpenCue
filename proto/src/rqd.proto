@@ -110,9 +110,7 @@ message RunFrame {
     // Deprecated: The log_path is defined rqd using job_dir, job_name and frame_name.
     // This field is misleading as it doesn't give cuebot the power to define the log path
     string log_dir_file = 15 [deprecated=true];
-    // Deprecated: This field is never used by rqd, a frame start time is defined by rqd
-    // when the frame thread is created, therefore this field is useless and misleading.
-    int64 start_time = 16 [deprecated=true];
+    int64 start_time = 16;
     oneof uid_optional {
         int32 uid = 17;
     }
