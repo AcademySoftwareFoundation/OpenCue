@@ -279,6 +279,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             frame.showId = rs.getString("pk_show");
             frame.facilityId = rs.getString("pk_facility");
             frame.version = rs.getInt("int_version");
+            frame.state = FrameState.valueOf(rs.getString("str_state"));
             return frame;
         }
     };

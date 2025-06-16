@@ -17,11 +17,9 @@ package com.imageworks.spcue;
 
 import java.sql.Timestamp;
 
-import com.imageworks.spcue.grpc.job.FrameState;
 
 public class FrameDetail extends FrameEntity implements FrameInterface {
 
-    public FrameState state;
     public int number;
     public int dependCount;
     public int retryCount;

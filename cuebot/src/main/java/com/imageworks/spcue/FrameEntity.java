@@ -15,10 +15,13 @@
 
 package com.imageworks.spcue;
 
+import com.imageworks.spcue.grpc.job.FrameState;
+
 public class FrameEntity extends LayerEntity implements FrameInterface {
 
     public String layerId;
     public int version;
+    public FrameState state;
 
     public FrameEntity() {}
 
@@ -36,5 +39,9 @@ public class FrameEntity extends LayerEntity implements FrameInterface {
 
     public int getVersion() {
         return version;
+    }
+
+    public FrameState getState() {
+        return state;
     }
 }
