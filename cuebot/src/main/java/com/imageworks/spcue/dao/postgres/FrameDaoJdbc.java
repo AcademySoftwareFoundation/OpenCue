@@ -53,6 +53,7 @@ import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 import com.imageworks.spcue.util.SqlUtil;
 
+// spotless:off
 public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
 
     private static final String UPDATE_FRAME_STOPPED_NORSS = "UPDATE " + "frame " + "SET "
@@ -316,13 +317,29 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         }
     };
 
-    public static final String FIND_ORPHANED_FRAMES = "SELECT " + "frame.pk_frame, "
-            + "frame.pk_layer, " + "frame.str_name, " + "frame.int_version, " + "job.pk_job, "
-            + "job.pk_show, " + "job.pk_facility " + "FROM " + "frame, " + "job " + "WHERE "
-            + "job.pk_job = frame.pk_job " + "AND " + "frame.str_state = 'RUNNING' " + "AND "
-            + "job.str_state = 'PENDING' " + "AND "
-            + "(SELECT COUNT(1) FROM proc WHERE proc.pk_frame = frame.pk_frame) = 0 " + "AND "
-            + "current_timestamp - frame.ts_updated > interval '300' second";
+    public static final String FIND_ORPHANED_FRAMES =
+        "SELECT " +
+            "frame.pk_frame, " +
+            "frame.pk_layer, " +
+            "frame.str_name, " +
+            "frame.int_version, " +
+            "frame.str_state, " +
+            "job.pk_job, " +
+            "job.pk_show, " +
+            "job.pk_facility " +
+            "FROM " +
+            "frame, " +
+            "job " +
+            "WHERE " +
+            "job.pk_job = frame.pk_job " +
+            "AND " +
+            "frame.str_state = 'RUNNING' " +
+            "AND " +
+            "job.str_state = 'PENDING' " +
+            "AND " +
+            "(SELECT COUNT(1) FROM proc WHERE proc.pk_frame = frame.pk_frame) = 0 " +
+            "AND " +
+            "current_timestamp - frame.ts_updated > interval '300' second";
 
     @Override
     public List<FrameInterface> getOrphanedFrames() {
@@ -844,3 +861,5 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
                 frameId, override.getState().toString());
     }
 }
+
+// spotless:on
