@@ -905,7 +905,8 @@ class FrameContextMenu(QtWidgets.QMenu):
 
         can_retry = True
         for frame in widget.selectedObjects():
-            invalid_states = [job_pb2.FrameState.Value('RUNNING'), job_pb2.FrameState.Value('SUCCEEDED')]
+            invalid_states = [job_pb2.FrameState.Value('RUNNING'),
+                job_pb2.FrameState.Value('SUCCEEDED')]
             can_retry = can_retry and frame.data.state not in invalid_states
 
         if count == 1:
@@ -969,7 +970,8 @@ class FrameContextMenu(QtWidgets.QMenu):
             self.__menuActions.frames().addAction(self, "previewMain")
         self.__menuActions.frames().addAction(self, "previewAovs")
         self.addSeparator()
-        self.__menuActions.frames().addAction(self, "retry").setEnabled(can_retry and not job_completed)
+        self.__menuActions.frames().addAction(self, "retry").setEnabled(
+            can_retry and not job_completed)
         self.__menuActions.frames().addAction(self, "eat").setEnabled(not job_completed)
         self.__menuActions.frames().addAction(self, "kill").setEnabled(not job_completed)
         self.__menuActions.frames().addAction(self, "eatandmarkdone").setEnabled(not job_completed)
