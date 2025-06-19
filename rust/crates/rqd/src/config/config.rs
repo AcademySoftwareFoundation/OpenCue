@@ -74,6 +74,8 @@ pub struct MachineConfig {
     pub temp_path: String,
     pub core_multiplier: u32,
     pub worker_threads: usize,
+    #[serde(with = "humantime_serde")]
+    pub nimby_idle_threshold: Duration,
 }
 
 impl Default for MachineConfig {
@@ -93,6 +95,7 @@ impl Default for MachineConfig {
             temp_path: "/tmp".to_string(),
             core_multiplier: 100,
             worker_threads: 4,
+            nimby_idle_threshold: Duration::from_secs(60 * 15), // 15 min
         }
     }
 }

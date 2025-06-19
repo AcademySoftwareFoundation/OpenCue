@@ -754,11 +754,6 @@ impl SystemManager for MacOsSystem {
         &self.attributes
     }
 
-    fn init_nimby(&self) -> Result<bool> {
-        // TODO: missing implementation, returning dummy val
-        Ok(false)
-    }
-
     fn collect_gpu_stats(&self) -> MachineGpuStats {
         // TODO: missing implementation, returning dummy val
         MachineGpuStats {

@@ -7,13 +7,13 @@ use async_trait::async_trait;
 use bytesize::KIB;
 use miette::{IntoDiagnostic, Result, miette};
 use opencue_proto::{
-    host::HardwareState,
+    host::{HardwareState, LockState},
     report::{CoreDetail, HostReport, RenderHost},
 };
 use tokio::{
     select,
     sync::{
-        Mutex,
+        Mutex, RwLock,
         oneshot::{self, Sender},
     },
     time,
@@ -30,6 +30,7 @@ use crate::{
         running_frame::{FrameState, RunningFrame, RunningState},
     },
     report::report_client::{ReportClient, ReportInterface},
+    system::nimby::Nimby,
 };
 
 use super::{
@@ -64,6 +65,14 @@ pub struct MachineMonitor {
     last_host_state: Arc<Mutex<Option<RenderHost>>>,
     interrupt: Mutex<Option<Sender<()>>>,
     reboot_when_idle: Mutex<bool>,
+    nimby: Arc<Option<Nimby>>,
+    nimby_state: RwLock<LockState>,
+}
+
+impl Drop for MachineMonitor {
+    fn drop(&mut self) {
+        todo!()
+    }
 }
 
 impl MachineMonitor {
@@ -78,6 +87,14 @@ impl MachineMonitor {
         #[cfg(any(target_os = "linux", all(debug_assertions)))]
         let system_manager: SystemManagerType = Box::new(LinuxSystem::init(&config.machine)?);
 
+        // Init nimby
+        let nimby = if config.machine.nimby_mode {
+            let nimby = Nimby::init(config.machine.nimby_idle_threshold);
+            Arc::new(Some(nimby))
+        } else {
+            Arc::new(None)
+        };
+
         Ok(Self {
             maching_config: config.machine.clone(),
             report_client,
@@ -87,6 +104,8 @@ impl MachineMonitor {
             last_host_state: Arc::new(Mutex::new(None)),
             interrupt: Mutex::new(None),
             reboot_when_idle: Mutex::new(false),
+            nimby,
+            nimby_state: RwLock::new(LockState::Open),
         })
     }
 
@@ -95,7 +114,8 @@ impl MachineMonitor {
         let report_client = self.report_client.clone();
 
         let system_lock = self.system_manager.lock().await;
-        let host_state = Self::inspect_host_state(&self.maching_config, &system_lock)?;
+
+        let host_state = Self::inspect_host_state(&self.maching_config, &system_lock, false)?;
         drop(system_lock);
 
         self.last_host_state
@@ -123,6 +143,19 @@ impl MachineMonitor {
         // Notify caller that the machine state is ready
         let _ = startup_flag.send(());
 
+        // Start nimby monitor
+        let (terminate_nimby_sender, terminate_nimby_receiver) = oneshot::channel::<()>();
+        let nimby_clone = Arc::clone(&self.nimby);
+        if nimby_clone.as_ref().is_some() {
+            tokio::spawn(async move {
+                if let Some(nimby) = nimby_clone.as_ref() {
+                    if let Err(err) = nimby.start(terminate_nimby_receiver).await {
+                        error!("Nimby monitor failed to start. {err}");
+                    };
+                }
+            });
+        }
+
         let mut interval = time::interval(self.maching_config.monitor_interval);
 
         let (sender, mut receiver) = oneshot::channel::<()>();
@@ -130,21 +163,59 @@ impl MachineMonitor {
         interrupt_lock.replace(sender);
         drop(interrupt_lock);
 
+        let mut last_lock_state = LockState::Open;
         loop {
             select! {
-                message = &mut receiver => {
-                    match message {
-                        Ok(_) => {
-                            info!("Loop interrupted");
-                            break;
-                        },
-                        Err(_) => info!("Sender dropped"),
+                    message = &mut receiver => {
+                        match message {
+                            Ok(_) => {
+                                info!("Loop interrupted");
+                                _ = terminate_nimby_sender.send(());
+                                break;
+                            },
+                            Err(_) => info!("Sender dropped"),
+                        }
                     }
+                    _ = interval.tick() => {
+                        self.collect_and_send_host_report().await?;
+                        self.check_reboot_flag().await;
+
+                        if let Some(nimby) = &*self.nimby {
+                            match (nimby.is_user_active(), last_lock_state) {
+                                // Became locked
+                                (true, LockState::Open) => {
+                                    last_lock_state = LockState::NimbyLocked;
+
+                                    // Update registered state
+                                    let mut nimby_state = self.nimby_state.write().await;
+                                    *nimby_state = last_lock_state;
+                                    drop(nimby_state);
+
+                                    info!("Host became nimby locked");
+                                    self.lock_all_cores().await;
+                                }
+                                // Continues locked
+                                (true, LockState::NimbyLocked) => {}
+                                // Continues open
+                                (false, LockState::Open) => {}
+                                // Became unlocked
+                                (false, LockState::NimbyLocked) => {
+                                    last_lock_state = LockState::Open;
+
+                                    // Update registered state
+                                    let mut nimby_state = self.nimby_state.write().await;
+                                    *nimby_state = last_lock_state;
+                                    drop(nimby_state);
+
+                                    info!("Host became nimby unlocked");
+                                    self.unlock_all_cores().await;
+                                }
+                                // NoOp
+                                _ => ()
+                            }
+                        }
                 }
-                _ = interval.tick() => {
-                    self.collect_and_send_host_report().await?;
-                    self.check_reboot_flag().await;
-                }
+
             }
         }
         Ok(())
@@ -318,14 +389,15 @@ impl MachineMonitor {
     fn inspect_host_state(
         config: &MachineConfig,
         system: &SystemManagerType,
+        nimby_locked: bool,
     ) -> Result<RenderHost> {
         let stats = system.collect_stats()?;
         let gpu_stats = system.collect_gpu_stats();
 
         Ok(RenderHost {
             name: stats.hostname,
-            nimby_enabled: system.init_nimby()?,
-            nimby_locked: false, // TODO: implement nimby lock
+            nimby_enabled: config.nimby_mode,
+            nimby_locked,
             facility: config.facility.clone(),
             num_procs: stats.num_sockets as i32,
             cores_per_proc: (stats.cores_per_socket * config.core_multiplier) as i32,
@@ -658,13 +730,22 @@ impl Machine for MachineMonitor {
     }
 
     async fn collect_host_report(&self) -> Result<HostReport> {
-        let system_manager = self.system_manager.lock().await;
-        // If there are frames running update the list of procs on the machine
-        if !self.running_frames_cache.is_empty() {
-            system_manager.refresh_procs();
-        }
-        let render_host = Self::inspect_host_state(&self.maching_config, &system_manager)?;
-        drop(system_manager);
+        let render_host = {
+            let system_manager = self.system_manager.lock().await;
+            // If there are frames running update the list of procs on the machine
+            if !self.running_frames_cache.is_empty() {
+                system_manager.refresh_procs();
+            }
+
+            let nimby_state_lock = self.nimby_state.read().await;
+
+            Self::inspect_host_state(
+                &self.maching_config,
+                &system_manager,
+                *nimby_state_lock == LockState::NimbyLocked,
+            )?
+        }; // Scope ensures all mutex are released
+
         // Store the last host_state on self
         let mut self_host_state_lock = self.last_host_state.lock().await;
         self_host_state_lock.replace(render_host.clone());
