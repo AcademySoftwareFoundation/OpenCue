@@ -69,6 +69,10 @@ machine:
   # Default: false
   # nimby_mode: false
 
+  # How long a system must be idle before triggering NIMBY lock
+  # Default: 15 minutes
+  # nimby_idle_threshold: 900s
+
   # Custom tags to apply to this render node for job targeting
   # Default: []
   # custom_tags: ["gpu", "high_memory"]
