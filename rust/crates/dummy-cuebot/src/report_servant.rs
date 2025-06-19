@@ -34,7 +34,7 @@ impl RqdReportInterface for ReportServant {
     ) -> std::result::Result<Response<RqdReportRunningFrameCompletionResponse>, Status> {
         let report = request.into_inner().frame_complete_report;
         println!(
-            "RqdReport: Received a report_running_frame_completition request with: {:?}",
+            "RqdReport: Received a report_running_frame_completion request with: {:?}",
             report
         );
 

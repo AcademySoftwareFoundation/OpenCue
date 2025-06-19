@@ -30,7 +30,7 @@ grpc:
 
   # Cuebot server endpoints (can specify multiple for failover)
   # Default: ["localhost:4343"]
-  cuebot_endpoints: ["myserver.spimageworks:8082"]
+  cuebot_endpoints: ["cuebot.example.com:8082"]  # Replace with actual endpoints
 
   # How long gRPC connections should remain active before expiring
   # Default: 1h (3600 seconds)

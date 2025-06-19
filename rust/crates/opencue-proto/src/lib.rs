@@ -30,25 +30,25 @@ pub trait WithUuid {
 
 impl WithUuid for job::Job {
     fn uuid(&self) -> Uuid {
-        to_uuid(&self.id).unwrap_or(Uuid::nil())
+        to_uuid(&self.id).unwrap_or_default()
     }
 }
 
 impl WithUuid for job::Layer {
     fn uuid(&self) -> Uuid {
-        to_uuid(&self.id).unwrap_or(Uuid::nil())
+        to_uuid(&self.id).unwrap_or_default()
     }
 }
 
 impl WithUuid for facility::Allocation {
     fn uuid(&self) -> Uuid {
-        to_uuid(&self.id).unwrap_or(Uuid::nil())
+        to_uuid(&self.id).unwrap_or_default()
     }
 }
 
 impl WithUuid for show::Show {
     fn uuid(&self) -> Uuid {
-        to_uuid(&self.id).unwrap_or(Uuid::nil())
+        to_uuid(&self.id).unwrap_or_default()
     }
 }
 
