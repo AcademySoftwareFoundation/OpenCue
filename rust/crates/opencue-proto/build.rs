@@ -11,15 +11,7 @@ fn build_protobuf() -> Result<(), Box<dyn std::error::Error>> {
 
     let subdir_proto_files: Vec<String> = std::fs::read_dir(&protos_dir)?
         .map(|dir| protos_dir.join(dir.unwrap().file_name()))
-        .filter(|entry| {
-            if Some(std::ffi::OsStr::new("out")) == entry.file_name() {
-                return false;
-            }
-            if let Some(extension) = entry.extension() {
-                return extension == "proto";
-            }
-            false
-        })
+        .filter(|entry| entry.is_file() && entry.extension().map_or(false, |ext| ext == "proto"))
         .map(|path| path.to_string_lossy().to_string())
         .collect();
     proto_files.extend(subdir_proto_files);
@@ -32,19 +24,6 @@ fn build_protobuf() -> Result<(), Box<dyn std::error::Error>> {
         println!("cargo:rerun-if-changed={}", name);
     }
     tonic_build::configure()
-        // .type_attribute("Host", "#[derive(Copy)]")
-        // .type_attribute("Frame", "#[derive(Copy)]")
-        // .type_attribute("LookupResponse", "#[derive(Eq, Hash)]")
-        // .type_attribute("Entry", "#[derive(Eq, Hash)]")
-        // .type_attribute("Entry.kind", "#[derive(Eq, Hash)]")
-        // .type_attribute("LinkTreeEntry", "#[derive(Eq, Hash)]")
-        // .type_attribute("BranchPoint", "#[derive(Eq, Hash)]")
-        // .type_attribute("Volume", "#[derive(Eq, Hash)]")
-        // .type_attribute("Volume.kind", "#[derive(Eq, Hash)]")
-        // .type_attribute("LocalVolume", "#[derive(Eq, Hash)]")
-        // .type_attribute("ConnectionConfig", "#[derive(Eq, Hash)]")
-        // .type_attribute("ConnectionConfig.kind", "#[derive(Eq, Hash)]")
-        // .type_attribute("NFSConnection", "#[derive(Eq, Hash)]")
         .type_attribute("Stat", "#[derive(serde::Deserialize, serde::Serialize)]")
         .type_attribute("Statm", "#[derive(serde::Deserialize, serde::Serialize)]")
         .type_attribute("Status", "#[derive(serde::Deserialize, serde::Serialize)]")

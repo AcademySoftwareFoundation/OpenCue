@@ -113,19 +113,19 @@ impl RunFrame {
 
 impl fmt::Display for Frame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:}/({:})", self.name, self.id)
+        write!(f, "{}/({})", self.name, self.id)
     }
 }
 
 impl fmt::Display for Job {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:}/({:})", self.name, self.id)
+        write!(f, "{}/({})", self.name, self.id)
     }
 }
 
 impl fmt::Display for Host {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:}/({:})", self.name, self.id)
+        write!(f, "{}/({})", self.name, self.id)
     }
 }
 

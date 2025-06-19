@@ -1104,7 +1104,6 @@ mod tests {
         config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
         config.distro_release_path = "".to_string();
         config.proc_stat_path = "".to_string();
-        config.inittab_path = "".to_string();
         config.core_multiplier = 1;
 
         let linux_monitor = LinuxSystem::init(&config)
@@ -1197,7 +1196,6 @@ mod tests {
         config.distro_release_path = format!("{}/resources/distro-release/centos", project_dir);
         config.proc_stat_path = format!("{}/resources/proc/stat", project_dir);
         config.proc_loadavg_path = format!("{}/resources/proc/loadavg", project_dir);
-        config.inittab_path = "".to_string();
         config.core_multiplier = 1;
 
         let stat = LinuxSystem::init(&config).expect("Initializing LinuxMachineStat failed");
@@ -1289,7 +1287,6 @@ mod tests {
         config.proc_stat_path = format!("{}/resources/proc/stat", project_dir);
         config.proc_loadavg_path = format!("{}/resources/proc/loadavg", project_dir);
         config.temp_path = "/tmp".to_string();
-        config.inittab_path = "".to_string();
         config.core_multiplier = 1;
 
         let result = LinuxSystem::init(&config);
@@ -1327,7 +1324,6 @@ mod tests {
         config.proc_stat_path = format!("{}/resources/proc/stat", project_dir);
         config.proc_loadavg_path = format!("{}/resources/proc/loadavg", project_dir);
         config.temp_path = "/tmp".to_string();
-        config.inittab_path = "".to_string();
 
         let system = LinuxSystem::init(&config).unwrap();
 
@@ -1355,7 +1351,6 @@ mod tests {
         config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
         config.distro_release_path = "".to_string();
         config.proc_stat_path = "".to_string();
-        config.inittab_path = "".to_string();
 
         let mut system = LinuxSystem::init(&config).unwrap();
         let frame_id = uuid::Uuid::new_v4();
@@ -1389,7 +1384,6 @@ mod tests {
         config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
         config.distro_release_path = "".to_string();
         config.proc_stat_path = "".to_string();
-        config.inittab_path = "".to_string();
 
         let system = LinuxSystem::init(&config).unwrap();
 
@@ -1411,7 +1405,6 @@ mod tests {
         config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
         config.distro_release_path = "".to_string();
         config.proc_stat_path = "".to_string();
-        config.inittab_path = "".to_string();
         config.custom_tags = vec!["test_tag".to_string(), "integration".to_string()];
 
         let system = LinuxSystem::init(&config).unwrap();

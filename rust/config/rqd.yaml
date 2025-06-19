@@ -77,7 +77,6 @@ machine:
   # cpuinfo_path: "/proc/cpuinfo"           # Default: /proc/cpuinfo
   # distro_release_path: "/etc/os-release"  # Default: /etc/os-release
   # proc_stat_path: "/proc/stat"            # Default: /proc/stat
-  # inittab_path: "/etc/inittab"            # Default: /etc/inittab
   # proc_loadavg_path: "/proc/loadavg"      # Default: /proc/loadavg
   # temp_path: "/tmp"                       # Default: /tmp
 
@@ -122,7 +121,7 @@ runner:
   # Default: 1000
   # default_uid: 1000
 
-  # Type of logger to use for job output
+  # Type of logger to use for job output (More options coming soon)
   # Options: file
   # Default: file
   # logger: file

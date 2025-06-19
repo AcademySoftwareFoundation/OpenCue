@@ -27,9 +27,6 @@ The `rqd` module is organized into several key components:
    - Handles reporting of frame completion and system status to the OpenCue central server.
    - Implements retry mechanisms and backoff strategies to ensure reliable communication.
 
-6. **Logging (`logging`)**
-   - Configures and manages logging for the `rqd` module, including file-based logging and log rotation.
-
 ## Key Features
 
 - **Task Execution**: The `rqd` module executes rendering tasks, utilizing available CPU and GPU resources while adhering to configured limits and constraints.
