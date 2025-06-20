@@ -1,0 +1,9 @@
+/target
+
+# TODO: Remove once these crates are stable and ready for public use
+/crates/cuebot-config
+/crates/dist-lock
+/crates/scheduler
+
+.DS_Store
+config/rqd.local_docker.yaml
