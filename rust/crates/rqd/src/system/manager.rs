@@ -171,6 +171,7 @@ pub struct MachineGpuStats {
     pub _used_memory_by_unit: HashMap<u32, u64>,
 }
 
+/// Tracks memory and runtime statistics for a rendering process and its children.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ProcessStats {
     /// Maximum resident set size (KB) - maximum amount of physical memory used.
