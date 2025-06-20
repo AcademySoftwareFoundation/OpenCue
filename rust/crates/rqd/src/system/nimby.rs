@@ -50,7 +50,7 @@ use tracing::{debug, warn};
 pub struct Nimby {
     /// Timestamp of the last recorded user interaction.
     /// Using AtomicU64 for lock-free access
-    last_interaction_epoch: Arc<AtomicU64>,
+    last_interaction_epoch_in_secs: Arc<AtomicU64>,
     /// Duration after which a user is considered idle if no interactions occur.
     idle_threshold: Duration,
 }
@@ -77,7 +77,7 @@ impl Nimby {
     /// ```
     pub fn init(idle_threshold: Duration) -> Self {
         Nimby {
-            last_interaction_epoch: Arc::new(AtomicU64::new(0)),
+            last_interaction_epoch_in_secs: Arc::new(AtomicU64::new(0)),
             idle_threshold: idle_threshold,
         }
     }
@@ -135,7 +135,7 @@ impl Nimby {
         let startup_time = SystemTime::now();
         let init_wait = Duration::from_secs(5);
 
-        let last_interaction = Arc::clone(&self.last_interaction_epoch);
+        let last_interaction = Arc::clone(&self.last_interaction_epoch_in_secs);
         let _mouse_guard = device_state.on_mouse_move(move |_| {
             let now = SystemTime::now();
             if now.duration_since(startup_time).unwrap_or(Duration::ZERO) > init_wait {
@@ -143,13 +143,13 @@ impl Nimby {
                 let now_epoch = now
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or(Duration::ZERO)
-                    .as_nanos() as u64;
+                    .as_secs();
 
                 last_interaction.store(now_epoch, Ordering::Relaxed);
             }
         });
 
-        let last_interaction = Arc::clone(&self.last_interaction_epoch);
+        let last_interaction = Arc::clone(&self.last_interaction_epoch_in_secs);
         let _keyboard_guard = device_state.on_key_down(move |_| {
             let now = SystemTime::now();
             if now.duration_since(startup_time).unwrap_or(Duration::ZERO) > init_wait {
@@ -157,7 +157,7 @@ impl Nimby {
                 let now_epoch = now
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or(Duration::ZERO)
-                    .as_nanos() as u64;
+                    .as_secs();
 
                 last_interaction.store(now_epoch, Ordering::Relaxed);
             }
@@ -200,13 +200,13 @@ impl Nimby {
     /// }
     /// ```
     pub fn is_user_active(&self) -> bool {
-        let last_nanos = self.last_interaction_epoch.load(Ordering::Relaxed);
+        let last_secs = self.last_interaction_epoch_in_secs.load(Ordering::Relaxed);
 
-        if last_nanos == 0 {
+        if last_secs == 0 {
             return false; // No interaction recorded yet
         }
 
-        let last_time = UNIX_EPOCH + Duration::from_nanos(last_nanos);
+        let last_time = UNIX_EPOCH + Duration::from_secs(last_secs);
         last_time.elapsed().unwrap_or(Duration::MAX) < self.idle_threshold
     }
 }

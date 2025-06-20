@@ -69,12 +69,6 @@ pub struct MachineMonitor {
     nimby_state: RwLock<LockState>,
 }
 
-impl Drop for MachineMonitor {
-    fn drop(&mut self) {
-        todo!()
-    }
-}
-
 impl MachineMonitor {
     /// Initializes the object without starting the monitor loop
     /// Will gather the initial state of this machine
