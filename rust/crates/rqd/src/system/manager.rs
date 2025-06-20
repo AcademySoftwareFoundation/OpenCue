@@ -39,7 +39,7 @@ pub trait SystemManager {
     fn reserve_cores(&mut self, count: usize, frame_id: Uuid)
     -> Result<Vec<u32>, ReservationError>;
 
-    /// Reserver specific cores by id.
+    /// Reserve specific cores by id.
     ///
     /// # Returns:
     ///
