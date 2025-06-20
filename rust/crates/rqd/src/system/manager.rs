@@ -130,7 +130,7 @@ impl CoreReservation {
     }
 }
 
-/// Represents attributes on a machine that should never change withour restarting the
+/// Represents attributes on a machine that should never change without restarting the
 /// entire servive
 #[derive(Clone, Debug)]
 pub struct MachineStat {
