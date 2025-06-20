@@ -26,11 +26,6 @@ pub trait SystemManager {
     /// List of attributes collected from the machine. Eg. SP_OS
     fn attributes(&self) -> &HashMap<String, String>;
 
-    /// Init NotInMyBackyard logic
-    fn init_nimby(&self) -> Result<bool>;
-
-    /// Returns a map of cores per socket that are not reserved
-
     /// Reserve a number of cores.
     ///
     /// # Returns:
