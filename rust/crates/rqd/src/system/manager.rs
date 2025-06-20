@@ -31,7 +31,7 @@ pub trait SystemManager {
 
     /// Returns a map of cores per socket that are not reserved
 
-    /// Reserver a number of cores.
+    /// Reserve a number of cores.
     ///
     /// # Returns:
     ///
