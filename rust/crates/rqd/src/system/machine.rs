@@ -223,7 +223,7 @@ impl MachineMonitor {
                         match nimby.start(&mut term_listener).await {
                             Ok(_) => break,
                             Err(err) => {
-                                debug!(
+                                info!(
                                     "Nimby startup failed, retrying in {}s. {err}",
                                     nimby_start_retry_interval.as_secs()
                                 );
