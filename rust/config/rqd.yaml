@@ -30,7 +30,7 @@ grpc:
 
   # Cuebot server endpoints (can specify multiple for failover)
   # Default: ["localhost:4343"]
-  cuebot_endpoints: ["cuebot.example.com:8082"]  # Replace with actual endpoints
+  cuebot_endpoints: ["cuebot.example.com:8082"] # Replace with actual endpoints
 
   # How long gRPC connections should remain active before expiring
   # Default: 1h (3600 seconds)
@@ -72,6 +72,15 @@ machine:
   # How long a system must be idle before triggering NIMBY lock
   # Default: 15 minutes
   # nimby_idle_threshold: 900s
+
+  # Path to the file containing the display number
+  # This file should contain a single line with the display number and writing it
+  # is not a responsibility of this module
+  # nimby_display_file_path: "/tmp/DISPLAY"
+
+  # How often to retry starting NIMBY mode if it fails
+  # Default: 5 minutes
+  # nimby_start_retry_interval: 300s
 
   # Custom tags to apply to this render node for job targeting
   # Default: []

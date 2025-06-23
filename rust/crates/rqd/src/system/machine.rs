@@ -14,7 +14,8 @@ use tokio::{
     select,
     sync::{
         Mutex, RwLock,
-        oneshot::{self, Sender},
+        broadcast::{self, Receiver},
+        oneshot,
     },
     time,
 };
@@ -63,7 +64,7 @@ pub struct MachineMonitor {
     pub running_frames_cache: Arc<RunningFrameCache>,
     core_state: Arc<Mutex<CoreDetail>>,
     last_host_state: Arc<Mutex<Option<RenderHost>>>,
-    interrupt: Mutex<Option<Sender<()>>>,
+    interrupt: Mutex<Option<broadcast::Sender<()>>>,
     reboot_when_idle: Mutex<bool>,
     nimby: Arc<Option<Nimby>>,
     nimby_state: RwLock<LockState>,
@@ -83,7 +84,10 @@ impl MachineMonitor {
 
         // Init nimby
         let nimby = if config.machine.nimby_mode {
-            let nimby = Nimby::init(config.machine.nimby_idle_threshold);
+            let nimby = Nimby::init(
+                config.machine.nimby_idle_threshold,
+                config.machine.nimby_display_file_path.clone(),
+            );
             Arc::new(Some(nimby))
         } else {
             Arc::new(None)
@@ -104,7 +108,7 @@ impl MachineMonitor {
     }
 
     /// Starts an async loop that will update the machine state every `monitor_interval_seconds`.
-    pub async fn start(&self, startup_flag: Sender<()>) -> Result<()> {
+    pub async fn start(&self, startup_flag: oneshot::Sender<()>) -> Result<()> {
         let report_client = self.report_client.clone();
 
         let system_lock = self.system_manager.lock().await;
@@ -137,34 +141,23 @@ impl MachineMonitor {
         // Notify caller that the machine state is ready
         let _ = startup_flag.send(());
 
-        // Start nimby monitor
-        let (terminate_nimby_sender, terminate_nimby_receiver) = oneshot::channel::<()>();
-        let nimby_clone = Arc::clone(&self.nimby);
-        if nimby_clone.as_ref().is_some() {
-            tokio::spawn(async move {
-                if let Some(nimby) = nimby_clone.as_ref() {
-                    if let Err(err) = nimby.start(terminate_nimby_receiver).await {
-                        error!("Nimby monitor failed to start. {err}");
-                    };
-                }
-            });
-        }
+        let (term_sender, mut term_receiver) = broadcast::channel::<()>(5);
 
+        // Start nimby monitor
+        self.start_nimby(term_receiver.resubscribe()).await;
         let mut interval = time::interval(self.maching_config.monitor_interval);
 
-        let (sender, mut receiver) = oneshot::channel::<()>();
         let mut interrupt_lock = self.interrupt.lock().await;
-        interrupt_lock.replace(sender);
+        interrupt_lock.replace(term_sender);
         drop(interrupt_lock);
 
         let mut last_lock_state = LockState::Open;
         loop {
             select! {
-                    message = &mut receiver => {
+                    message = term_receiver.recv() => {
                         match message {
                             Ok(_) => {
                                 info!("Loop interrupted");
-                                _ = terminate_nimby_sender.send(());
                                 break;
                             },
                             Err(_) => info!("Sender dropped"),
@@ -213,6 +206,33 @@ impl MachineMonitor {
             }
         }
         Ok(())
+    }
+
+    async fn start_nimby(&self, term_receiver: Receiver<()>) {
+        // Start nimby monitor
+        let nimby_clone = Arc::clone(&self.nimby);
+        let nimby_start_retry_interval = self.maching_config.nimby_start_retry_interval;
+        if nimby_clone.as_ref().is_some() {
+            tokio::spawn(async move {
+                let mut interval = time::interval(nimby_start_retry_interval);
+                loop {
+                    let mut term_listener = term_receiver.resubscribe();
+                    // Await for another chance to start nimby
+                    interval.tick().await;
+                    if let Some(nimby) = nimby_clone.as_ref() {
+                        match nimby.start(&mut term_listener).await {
+                            Ok(_) => break,
+                            Err(err) => {
+                                debug!(
+                                    "Nimby startup failed, retrying in {}s. {err}",
+                                    nimby_start_retry_interval.as_secs()
+                                );
+                            }
+                        }
+                    }
+                }
+            });
+        }
     }
 
     pub async fn interrupt(&self) {

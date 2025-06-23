@@ -75,6 +75,9 @@ pub struct MachineConfig {
     pub worker_threads: usize,
     #[serde(with = "humantime_serde")]
     pub nimby_idle_threshold: Duration,
+    pub nimby_display_file_path: String,
+    #[serde(with = "humantime_serde")]
+    pub nimby_start_retry_interval: Duration,
 }
 
 impl Default for MachineConfig {
@@ -94,6 +97,8 @@ impl Default for MachineConfig {
             core_multiplier: 100,
             worker_threads: 4,
             nimby_idle_threshold: Duration::from_secs(60 * 15), // 15 min
+            nimby_display_file_path: "/tmp/DISPLAY".to_string(),
+            nimby_start_retry_interval: Duration::from_secs(60 * 5), // 5 min
         }
     }
 }

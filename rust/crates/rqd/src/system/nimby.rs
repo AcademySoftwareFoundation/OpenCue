@@ -6,6 +6,9 @@
 //! are currently being used by a human user.
 
 use std::{
+    any::Any,
+    env, panic,
+    path::Path,
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -14,8 +17,8 @@ use std::{
 };
 
 use device_query::{DeviceEvents, DeviceEventsHandler};
-use miette::{Result, miette};
-use tokio::sync::oneshot::Receiver;
+use miette::{Context, IntoDiagnostic, Result, miette};
+use tokio::sync::broadcast::Receiver;
 use tracing::{debug, warn};
 
 /// NIMBY (Not In My BackYard) detector for monitoring user activity.
@@ -53,6 +56,7 @@ pub struct Nimby {
     last_interaction_epoch_in_secs: Arc<AtomicU64>,
     /// Duration after which a user is considered idle if no interactions occur.
     idle_threshold: Duration,
+    nimby_display_file_path: String,
 }
 
 impl Nimby {
@@ -75,10 +79,11 @@ impl Nimby {
     /// // Create a NIMBY detector with 5-minute idle threshold
     /// let nimby = Nimby::init(Duration::from_secs(300));
     /// ```
-    pub fn init(idle_threshold: Duration) -> Self {
+    pub fn init(idle_threshold: Duration, nimby_display_file_path: String) -> Self {
         Nimby {
             last_interaction_epoch_in_secs: Arc::new(AtomicU64::new(0)),
             idle_threshold: idle_threshold,
+            nimby_display_file_path,
         }
     }
 
@@ -129,9 +134,21 @@ impl Nimby {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn start(&self, interrupt_signal: Receiver<()>) -> Result<()> {
-        let device_state = DeviceEventsHandler::new(Duration::from_millis(300))
-            .ok_or(miette!("Nimby watcher has already been initialized"))?;
+    pub async fn start(&self, interrupt_signal: &mut Receiver<()>) -> Result<()> {
+        let mut device_state_res =
+            panic::catch_unwind(|| DeviceEventsHandler::new(Duration::from_millis(300)))
+                .map_err(|panic_payload| Self::panic_message(&panic_payload));
+        // If device_state fails to initialize, it usually means this process doesn't have access to
+        // the X display. Give it another try reading the user display value from a DISPLAY file
+        if let Err(_) = device_state_res {
+            device_state_res = self.start_device_monitor_from_display_file().await;
+        }
+        let device_state =
+            // If starting device_state failed again, return Error.
+            device_state_res?
+                // None here means the device_handler has alread been initialized
+                .ok_or(miette!("Nimby watcher has already been initialized"))?;
+
         let startup_time = SystemTime::now();
         let init_wait = Duration::from_secs(5);
 
@@ -163,12 +180,44 @@ impl Nimby {
             }
         });
 
-        // TODO: Review if async awaiting here is enough to keep the guards alive
-        let _ = interrupt_signal.await;
+        let _ = interrupt_signal.recv().await;
         warn!("nimby loop interrupted");
         Ok(())
     }
 
+    async fn start_device_monitor_from_display_file(&self) -> Result<Option<DeviceEventsHandler>> {
+        let display_path = Path::new(&self.nimby_display_file_path);
+        let display_from_file = tokio::fs::read_to_string(&display_path)
+            .await
+            .into_diagnostic()
+            .wrap_err(format!(
+                "Failed to load nimby. DISPLAY variable is not set and {} doesn't exist",
+                self.nimby_display_file_path
+            ))?;
+        let display = display_from_file.lines().last().ok_or(miette!(
+            "Failed to load nimby. {} file is empty",
+            self.nimby_display_file_path
+        ))?;
+        unsafe { env::set_var("DISPLAY", display) };
+
+        // Retry initializing with display file
+        panic::catch_unwind(|| DeviceEventsHandler::new(Duration::from_millis(300)))
+            .map_err(|panic_payload| Self::panic_message(&panic_payload))
+    }
+
+    fn panic_message(panic_payload: &Box<dyn Any + Send>) -> miette::Report {
+        let panic_message = if let Some(s) = panic_payload.downcast_ref::<String>() {
+            s.clone()
+        } else if let Some(s) = panic_payload.downcast_ref::<&str>() {
+            s.to_string()
+        } else {
+            "DevideEventHandler paniced".to_string()
+        };
+        miette!(
+            "Failed to initialize DeviceEventsHandler on nimby. {}",
+            panic_message
+        )
+    }
     /// Checks if the user is currently considered active based on recent interactions.
     ///
     /// A user is considered active if there has been mouse or keyboard activity
