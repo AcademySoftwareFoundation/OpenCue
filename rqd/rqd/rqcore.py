@@ -980,20 +980,20 @@ class FrameAttendantThread(threading.Thread):
             rules = (
                 Rule("_SYSTEMD_USER_UNIT", systemdUnitName)
             )
-            journal_reader = JournalReader()
-            journal_reader.open(JournalOpenMode.CURRENT_USER)
-            journal_reader.seek_tail()
-            journal_reader.add_filter(rules)
+            journalReader = JournalReader()
+            journalReader.open(JournalOpenMode.CURRENT_USER)
+            journalReader.seek_tail()
+            journalReader.add_filter(rules)
             while True:
-                status = journal_reader.wait(1)  # It will skip if there is no event for 1 second
+                status = journalReader.wait(1)  # It will skip if there is no event for 1 second
                 if status == JournalEvent.NOP and frameInfo.forkedCommand.returncode is not None:
                     break
-                for record in journal_reader:
+                for record in journalReader:
                     self.rqlog.write(f"{record.data['MESSAGE']}\n",
                                      prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
 
-        reader_thread = threading.Thread(target=journalReaderThread)
-        reader_thread.start()
+        readerThread = threading.Thread(target=journalReaderThread)
+        readerThread.start()
 
         tempCommand = [
             "systemd-run",
@@ -1002,14 +1002,16 @@ class FrameAttendantThread(threading.Thread):
             "--collect",
             f"--unit={systemdUnitName}"
         ]
+
         if 'CPU_LIST' in runFrame.attributes:
-            tempCommand += ["--property=CPUAffinity=runFrame.attributes['CPU_LIST']"]
+            tempCommand.append("--property=CPUAffinity=runFrame.attributes['CPU_LIST']")
 
         if self.rqCore.machine.isDesktop():
-            tempCommand += ["--property=Nice=10"]
+            tempCommand.append("--property=Nice=10")
 
         if rqd.rqconstants.RQD_BECOME_JOB_USER:
-            tempCommand += ["--property=User=%s" % runFrame.user_name]
+            tempCommand.append(f"--property=User={runFrame.user_name}")
+
         tempCommand += ['/bin/sh']
         rqd.rqutil.permissionsHigh()
         try:
@@ -1031,9 +1033,8 @@ class FrameAttendantThread(threading.Thread):
                                                           self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
 
-
         returncode = frameInfo.forkedCommand.wait()
-        reader_thread.join()
+        readerThread.join()
         # Find exitStatus and exitSignal
         if returncode < 0:
             # Exited with a signal
