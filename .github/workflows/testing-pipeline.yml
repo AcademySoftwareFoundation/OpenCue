@@ -271,7 +271,7 @@ jobs:
         run: |
           # Hack to get around an issue with the 2024 image having a broken python build environment
           rm -f /usr/local/lib64/pkgconfig/python*.pc
-          sed -i  -E 's/\/opt\/conan_home\/d\/python\/3\.11\.10\/aswf\/vfx2024\/package\/\w+/\/usr\/local/g' /usr/local/lib64/python3.11/_sysconfigdata__linux_x86_64-linux-gnu.py
+          sed -i  -E 's/\/opt\/conan_home\/d\/python\/3\.11\.[0-9]+\/aswf\/vfx2024\/package\/\w+/\/usr\/local/g' /usr/local/lib64/python3.11/_sysconfigdata__linux_x86_64-linux-gnu.py
           # Verify that change took effect
           python3.11 -m sysconfig |grep CONFINCLUDEPY
           # End hack
