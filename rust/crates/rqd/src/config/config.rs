@@ -73,6 +73,12 @@ pub struct MachineConfig {
     pub temp_path: String,
     pub core_multiplier: u32,
     pub worker_threads: usize,
+    #[serde(with = "humantime_serde")]
+    pub nimby_idle_threshold: Duration,
+    pub nimby_display_file_path: Option<String>,
+    #[serde(with = "humantime_serde")]
+    pub nimby_start_retry_interval: Duration,
+    pub nimby_display_xauthority_path: String,
 }
 
 impl Default for MachineConfig {
@@ -91,6 +97,10 @@ impl Default for MachineConfig {
             temp_path: "/tmp".to_string(),
             core_multiplier: 100,
             worker_threads: 4,
+            nimby_idle_threshold: Duration::from_secs(60 * 15), // 15 min
+            nimby_display_file_path: None,
+            nimby_start_retry_interval: Duration::from_secs(60 * 5), // 5 min
+            nimby_display_xauthority_path: "/home/{username}/Xauthority".to_string(),
         }
     }
 }
@@ -123,6 +133,7 @@ pub struct RunnerConfig {
 pub enum LoggerType {
     #[serde(rename = "file")]
     File,
+    // This is a placeholder for new logging solutions
     // #[serde(rename = "loki")]
     // Loki,
 }
@@ -247,7 +258,7 @@ impl Config {
     pub fn load_file_and_env<P: AsRef<str>>(path: P) -> Result<Self, RqdConfigError> {
         let config = ConfigBase::builder()
             .add_source(File::with_name(path.as_ref()))
-            .add_source(Environment::with_prefix("VNPM").separator("_"))
+            .add_source(Environment::with_prefix("RQD").separator("_"))
             .build();
 
         config
