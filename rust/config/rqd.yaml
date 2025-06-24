@@ -82,6 +82,10 @@ machine:
   # Default: 5 minutes
   # nimby_start_retry_interval: 300s
 
+  # Path to the Xauthority file path
+  # This file by default is located at user home directory
+  # nimby_display_xauthority_path: "/home/{username}/Xauthority"
+
   # Custom tags to apply to this render node for job targeting
   # Default: []
   # custom_tags: ["gpu", "high_memory"]

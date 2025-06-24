@@ -87,6 +87,7 @@ impl MachineMonitor {
             let nimby = Nimby::init(
                 config.machine.nimby_idle_threshold,
                 config.machine.nimby_display_file_path.clone(),
+                config.machine.nimby_display_xauthority_path.clone(),
             );
             Arc::new(Some(nimby))
         } else {

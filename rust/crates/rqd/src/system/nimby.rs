@@ -56,6 +56,7 @@ pub struct Nimby {
     /// Duration after which a user is considered idle if no interactions occur.
     idle_threshold: Duration,
     nimby_display_file_path: Option<String>,
+    nimby_display_xauthority_path: String,
 }
 
 impl Nimby {
@@ -78,11 +79,16 @@ impl Nimby {
     /// // Create a NIMBY detector with 5-minute idle threshold
     /// let nimby = Nimby::init(Duration::from_secs(300));
     /// ```
-    pub fn init(idle_threshold: Duration, nimby_display_file_path: Option<String>) -> Self {
+    pub fn init(
+        idle_threshold: Duration,
+        nimby_display_file_path: Option<String>,
+        nimby_display_xauthority_path: String,
+    ) -> Self {
         Nimby {
             last_interaction_epoch_in_secs: Arc::new(AtomicU64::new(0)),
             idle_threshold: idle_threshold,
             nimby_display_file_path,
+            nimby_display_xauthority_path,
         }
     }
 
@@ -135,7 +141,11 @@ impl Nimby {
     /// ```
     pub async fn start(&self, interrupt_signal: &mut Receiver<()>) -> Result<()> {
         if let Some(nimby_display_file_path) = &self.nimby_display_file_path {
-            Self::set_display_from_file(&nimby_display_file_path).await?;
+            Self::set_display_from_file(
+                &nimby_display_file_path,
+                &self.nimby_display_xauthority_path,
+            )
+            .await?;
         }
 
         let device_state =
@@ -180,7 +190,73 @@ impl Nimby {
         Ok(())
     }
 
-    async fn set_display_from_file(nimby_display_file_path: &str) -> Result<()> {
+    /// Sets the DISPLAY and XAUTHORITY environment variables from a configuration file.
+    ///
+    /// This function reads display configuration from a file and sets appropriate
+    /// environment variables for X11 display access. This is commonly needed in
+    /// headless or multi-user environments where the display information needs to
+    /// be determined dynamically.
+    ///
+    /// # Arguments
+    ///
+    /// * `nimby_display_file_path` - Path to the file containing display configuration
+    /// * `xauthoriry_path` - Template path for XAUTHORITY file with `{username}` placeholder
+    ///
+    /// # Display File Format
+    ///
+    /// The display file should contain one or more lines with display information.
+    /// The function reads the last line of the file and supports two formats:
+    ///
+    /// ## Format 1: Username and Display Number
+    /// ```text
+    /// username:display_number
+    /// ```
+    /// Example:
+    /// ```text
+    /// alice:0
+    /// bob:1
+    /// charlie:2
+    /// ```
+    ///
+    /// ## Format 2: Display Number Only
+    /// ```text
+    /// display_number
+    /// ```
+    /// Example:
+    /// ```text
+    /// 0
+    /// 1
+    /// 2
+    /// ```
+    ///
+    /// # Behavior
+    ///
+    /// - Reads the entire file and uses the **last line** for configuration
+    /// - If the line contains a colon (`:`) separator:
+    ///   - Sets `XAUTHORITY` using the username to replace `{username}` in the template path
+    ///   - Sets `DISPLAY` to `:display_number`
+    /// - If the line contains no colon:
+    ///   - Sets `DISPLAY` to `:line_content`
+    ///   - Does not modify `XAUTHORITY`
+    ///
+    /// # Environment Variables Set
+    ///
+    /// - `DISPLAY` - Always set to `:display_number` format
+    /// - `XAUTHORITY` - Set only when username is provided, using the template path
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - Environment variables successfully set
+    /// * `Err(miette::Error)` - File could not be read or file is empty
+    ///
+    /// # Safety
+    ///
+    /// This function uses `unsafe` blocks to modify environment variables, which
+    /// can affect the entire process and any child processes.
+    async fn set_display_from_file(
+        nimby_display_file_path: &str,
+        xauthoriry_path: &str,
+    ) -> Result<()> {
         let display_path = Path::new(nimby_display_file_path);
         let display_from_file = tokio::fs::read_to_string(&display_path)
             .await
@@ -189,11 +265,23 @@ impl Nimby {
                 "Failed to load nimby. DISPLAY variable is not set and {} doesn't exist",
                 nimby_display_file_path
             ))?;
-        let display = display_from_file.lines().last().ok_or(miette!(
+        let last_entry = display_from_file.lines().last().ok_or(miette!(
             "Failed to load nimby. {} file is empty",
             nimby_display_file_path
         ))?;
-        unsafe { env::set_var("DISPLAY", display) };
+        if let Some((username, display)) = last_entry.split_once(":") {
+            if !username.is_empty() {
+                unsafe {
+                    env::set_var(
+                        "XAUTHORITY",
+                        xauthoriry_path.replace("{username}", username),
+                    )
+                };
+            }
+            unsafe { env::set_var("DISPLAY", format!(":{display}")) };
+        } else {
+            unsafe { env::set_var("DISPLAY", format!(":{last_entry}")) };
+        };
         Ok(())
     }
 
