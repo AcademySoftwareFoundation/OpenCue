@@ -89,6 +89,7 @@ impl MachineMonitor {
                 config.machine.nimby_display_file_path.clone(),
                 config.machine.nimby_display_xauthority_path.clone(),
             );
+            info!("NIMBY mode enabled and initialized");
             Arc::new(Some(nimby))
         } else {
             Arc::new(None)

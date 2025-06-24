@@ -73,7 +73,7 @@ machine:
   # Default: 15 minutes
   # nimby_idle_threshold: 900s
 
-  # Path to the file containing the display number
+  # Path to a file containing the DISPLAY number (e.g., "username:0")
   # This file should contain a single line with the display number and writing it
   # is not a responsibility of this module
   # nimby_display_file_path: "/tmp/DISPLAY"
