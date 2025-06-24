@@ -364,7 +364,7 @@ impl FrameManager {
                 if let Some(mut lineage) = active_lineage {
                     lineage.push(frame_pid);
                     // Check limit before decrementing as tick() returns immediately on the first call
-                    if monitor_limit_seconds <= 0 || tried_to_force_kill_session {
+                    if monitor_limit_seconds == 0 || tried_to_force_kill_session {
                         // Notify only
                         if !force_kill {
                             error!(
@@ -417,7 +417,7 @@ impl FrameManager {
                 }
 
                 if monitor_limit_seconds >= interval_seconds {
-                    monitor_limit_seconds -= interval_seconds;
+                    monitor_limit_seconds = monitor_limit_seconds.saturating_sub(interval_seconds);
                 }
             }
         });
