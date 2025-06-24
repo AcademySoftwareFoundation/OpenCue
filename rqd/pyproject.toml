@@ -41,3 +41,6 @@ test = [
     "docker==7.1.0",
     "loki-urllib3-client"
 ]
+systemd = [
+    "cysystemd==2.0.1"
+]
