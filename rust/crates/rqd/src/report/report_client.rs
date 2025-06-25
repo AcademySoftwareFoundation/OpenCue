@@ -53,7 +53,7 @@ impl ReportClient {
                 let time_str: DateTime<Local> = next_time.into();
                 format!(
                     "Expires at {}",
-                    time_str.format("%Y-%m-%d %H:%M:%S").to_string()
+                    time_str.format("%Y-%m-%d %H:%M:%S")
                 )
             }
             None => "".to_string(),
@@ -110,7 +110,7 @@ impl ReportClient {
 
     async fn get_client(&self) -> Result<RqdReportInterfaceClient<Retry<BackoffPolicy, Channel>>> {
         let refresh_at_lock = self.refresh_at.read().await;
-        let refresh_at = refresh_at_lock.clone();
+        let refresh_at = *refresh_at_lock;
         drop(refresh_at_lock);
         match refresh_at {
             Some(expire_time) if SystemTime::now() >= expire_time => {

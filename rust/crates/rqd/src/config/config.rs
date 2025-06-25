@@ -184,6 +184,7 @@ impl RunnerConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(default)]
+#[derive(Default)]
 pub struct OverrideConfig {
     pub cores: Option<u64>,
     pub procs: Option<u64>,
@@ -193,18 +194,6 @@ pub struct OverrideConfig {
     pub os: Option<String>,
 }
 
-impl Default for OverrideConfig {
-    fn default() -> OverrideConfig {
-        OverrideConfig {
-            cores: None,
-            procs: None,
-            memory_size: None,
-            workstation_mode: None,
-            hostname: None,
-            os: None,
-        }
-    }
-}
 
 //===Config Loader===
 
@@ -232,7 +221,7 @@ impl Config {
         println!(" INFO Config::load: using config file: {:?}", config_file);
 
         let config = ConfigBase::builder()
-            .add_source(File::with_name(&*config_file).required(required))
+            .add_source(File::with_name(&config_file).required(required))
             .add_source(Environment::with_prefix("OPENRQD").separator("_"))
             .build()
             .map_err(|err| {

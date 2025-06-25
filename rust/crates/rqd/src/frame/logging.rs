@@ -137,9 +137,9 @@ impl FrameLoggerT for FrameFileLogger {
         let mut buff: Vec<u8> = Vec::with_capacity(bytes.len());
 
         if self.prepend_timestamp {
-            let linebreak = '\n' as u8;
+            let linebreak = b'\n';
             for c in bytes {
-                buff.push(c.clone());
+                buff.push(*c);
                 if *c == linebreak {
                     let time_str: DateTime<Local> = SystemTime::now().into();
                     let timestamp = time_str.format("%H:%M:%S").to_string();

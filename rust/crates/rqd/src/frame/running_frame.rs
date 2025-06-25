@@ -194,8 +194,8 @@ impl RunningFrame {
                 launch_thread_handle: None,
             }),
             FrameState::Running(ref r) => FrameState::Running(RunningState {
-                pid: r.pid.clone(),
-                start_time: r.start_time.clone(),
+                pid: r.pid,
+                start_time: r.start_time,
                 launch_thread_handle: None,
                 kill_reason: r.kill_reason.clone(),
             }),
@@ -378,7 +378,7 @@ impl RunningFrame {
         let logger_base = FrameLoggerBuilder::from_logger_config(
             self.log_path.clone(),
             &self.config,
-            self.config.run_as_user.then(|| (self.uid, self.gid)),
+            self.config.run_as_user.then_some((self.uid, self.gid)),
         );
         if let Err(err) = logger_base {
             error!("Failed to create log stream for {}: {}", self.log_path, err);
@@ -403,7 +403,7 @@ impl RunningFrame {
                 true
             }
             Err(err) => {
-                let msg = format!("Frame {} failed to be spawned. {}", self.to_string(), err);
+                let msg = format!("Frame {} failed to be spawned. {}", self, err);
                 logger.writeln(&msg);
                 error!(msg);
                 if let Err(err) = self.fail_before_start() {
@@ -977,7 +977,7 @@ impl RunningFrame {
 
         // Check if pid is still active
         match pid {
-            Some(pid) => Self::is_process_running(pid).then(|| pid).ok_or(miette!(
+            Some(pid) => Self::is_process_running(pid).then_some(pid).ok_or(miette!(
                 "Frame pid {} not found for this snapshot. {}",
                 pid,
                 frame.to_string()
@@ -1007,7 +1007,7 @@ impl RunningFrame {
             Some(cpu_list) => format!(
                 "Hyperthreading cores {}",
                 cpu_list
-                    .into_iter()
+                    .iter()
                     .map(|v| format!("{}", v))
                     .reduce(|a, b| a + ", " + b.as_str())
                     .unwrap_or("".to_string())
@@ -1121,13 +1121,11 @@ Processes:
 ===================================================================================================="#
                 )
             }
-            _ => format!(
-                r#"
+            _ => r#"
 ====================================================================================================
 Render Frame Completed
         ),
-        "#
-            ),
+        "#.to_string(),
         }
     }
 

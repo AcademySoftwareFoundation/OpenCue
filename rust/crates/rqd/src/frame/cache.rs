@@ -31,7 +31,7 @@ impl RunningFrameCache {
 
     /// Clones the contents of the cache into a vector. This method is potentially expensive,
     /// it should only be used when a snapshot of the current state is required
-    pub fn into_running_frame_vec(&self) -> Vec<RunningFrameInfo> {
+    pub fn clone_to_running_frame_vec(&self) -> Vec<RunningFrameInfo> {
         self.cache
             .iter()
             .map(|running_frame| running_frame.into_running_frame_info())

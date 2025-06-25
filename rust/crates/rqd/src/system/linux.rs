@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs::File,
-    io::{BufRead, BufReader, ErrorKind},
+    io::{BufRead, BufReader},
     net::ToSocketAddrs,
     path::Path,
     process::Command,
@@ -173,7 +173,7 @@ impl LinuxSystem {
                 cores_per_socket: processor_info.cores_per_socket,
                 hyperthreading_multiplier: processor_info.hyperthreading_multiplier,
                 boot_time_secs: Self::read_boot_time(&config.proc_stat_path).unwrap_or(0),
-                tags: Self::setup_tags(&config),
+                tags: Self::setup_tags(config),
                 page_size,
                 clock_tick,
             },
@@ -246,7 +246,7 @@ impl LinuxSystem {
                     curr_core_map.insert(line, "".to_string());
                 }
             // End of a core block
-            } else if line.trim().len() == 0 {
+            } else if line.trim().is_empty() {
                 if was_last_line_break {
                     continue;
                 }
@@ -278,8 +278,8 @@ impl LinuxSystem {
                     curr_core_map.get("processor").map(|s| s.parse()),
                 ) {
                     // Keep a cache to avoid counting sockets twice
-                    if !physical_ids.contains_key(&phys_id) {
-                        physical_ids.insert(phys_id.clone(), ());
+                    if let std::collections::hash_map::Entry::Vacant(e) = physical_ids.entry(phys_id) {
+                        e.insert(());
                         num_sockets += 1;
                     }
                     procs_by_physid
@@ -309,7 +309,7 @@ impl LinuxSystem {
         if hyper_modifier == 0 {
             Err(miette!("Invalid hyperthreading_multiplier=0"))?
         }
-        num_threads = num_threads / hyper_modifier;
+        num_threads /= hyper_modifier;
         if num_sockets == 0 {
             Err(miette!("Invalid CPU with no sockets (physical id)"))
         } else {
@@ -370,12 +370,11 @@ impl LinuxSystem {
         let distro_info = File::open(distro_release_path).into_diagnostic()?;
         let reader = BufReader::new(distro_info);
         let mut distro_id: Option<String> = None;
-        for line_res in reader.lines().into_iter() {
+        for line_res in reader.lines() {
             if let Ok(line) = line_res {
                 if line.starts_with("ID=") || line.starts_with("DISTRIB_ID") {
                     distro_id = line
-                        .split_once("=")
-                        .and_then(|(_, val)| Some(val.replace("\"", "")));
+                        .split_once("=").map(|(_, val)| val.replace("\"", ""));
                     break;
                 }
             }
@@ -397,7 +396,7 @@ impl LinuxSystem {
         let stat_info = File::open(proc_stat_path).into_diagnostic()?;
         let reader = BufReader::new(stat_info);
         let mut btime: Option<u64> = None;
-        for line_res in reader.lines().into_iter() {
+        for line_res in reader.lines() {
             if let Ok(line) = line_res {
                 if line.trim().starts_with("btime") {
                     // btime 1723434332
@@ -483,7 +482,7 @@ impl LinuxSystem {
         let reader = BufReader::new(loadavg);
         // let mut load_val: Vec<u32> = vec![];
         let mut load_val: Option<(f32, f32, f32)> = None;
-        for line_res in reader.lines().into_iter() {
+        for line_res in reader.lines() {
             if let Ok(line) = line_res {
                 load_val = line
                     .split_whitespace()
@@ -543,7 +542,7 @@ impl LinuxSystem {
 
         // Iterate over all phys_id=>core_id's and filter out cores that have been reserved
         let available_cores = all_cores_map
-            .into_iter()
+            .iter()
             .filter_map(
                 |(phys_id, core_ids_map)| match reserved_cores.get(phys_id) {
                     Some(reserved_core_ids) => {
@@ -555,14 +554,14 @@ impl LinuxSystem {
                             .filter(|core_id| !reserved_core_ids.iter().contains(core_id))
                             .collect();
                         // Filter out sockets that are completelly reserved
-                        if available_cores.len() > 0 {
+                        if !available_cores.is_empty() {
                             Some((phys_id, available_cores))
                         } else {
                             None
                         }
                     }
                     // If the phys_id doesn't exit on the reserved_cores map, consider the sockets available
-                    None => Some((phys_id, core_ids_map.iter().copied().collect())),
+                    None => Some((phys_id, core_ids_map.to_vec())),
                 },
             )
             // Sort sockets with more available cores first
@@ -596,21 +595,18 @@ impl LinuxSystem {
             let mut state = None;
 
             for line in stat.lines() {
-                match line.split_once(":") {
-                    Some((key, value)) => match key {
-                        "Tgid" => {
-                            tgid = value.trim().parse().ok();
-                        }
-                        "NSsid" | "SID" | "Sid" => {
-                            session_id = value.trim().parse().ok();
-                        }
-                        "State" => {
-                            state = value.trim().split_whitespace().next();
-                        }
-                        _ => (),
-                    },
-                    None => (),
-                }
+                if let Some((key, value)) = line.split_once(":") { match key {
+                    "Tgid" => {
+                        tgid = value.trim().parse().ok();
+                    }
+                    "NSsid" | "SID" | "Sid" => {
+                        session_id = value.trim().parse().ok();
+                    }
+                    "State" => {
+                        state = value.split_whitespace().next();
+                    }
+                    _ => (),
+                } }
             }
             match (session_id, tgid, state) {
                 (Some(session_id), Some(tgid), Some(state)) => {
@@ -865,12 +861,12 @@ impl SystemManager for LinuxSystem {
 
     fn release_core_by_thread(&mut self, thread_id: &u32) -> Result<(u32, u32), ReservationError> {
         let (phys_id, core_id) = self.thread_id_lookup_table.get(thread_id).ok_or(
-            ReservationError::CoreNotFoundForThread(vec![thread_id.clone()]),
+            ReservationError::CoreNotFoundForThread(vec![*thread_id]),
         )?;
         self.cpu_stat
             .reserved_cores_by_physid
             .get_mut(phys_id)
-            .ok_or(ReservationError::ReservationNotFound(core_id.clone()))?
+            .ok_or(ReservationError::ReservationNotFound(*core_id))?
             .remove(core_id);
         Ok((*phys_id, *core_id))
     }
@@ -881,7 +877,7 @@ impl SystemManager for LinuxSystem {
         count: usize,
         frame_id: Uuid,
     ) -> Result<Vec<u32>, ReservationError> {
-        let mut selected_threads = Vec::with_capacity(count as usize * 2);
+        let mut selected_threads = Vec::with_capacity(count * 2);
         let available_cores = self.calculate_available_cores()?;
         let mut num_reserved_cores = 0;
 
@@ -987,7 +983,7 @@ impl SystemManager for LinuxSystem {
             .and_then(|mtime| {
                 mtime
                     .duration_since(UNIX_EPOCH)
-                    .map_err(|err| std::io::Error::new(ErrorKind::Other, err))
+                    .map_err(std::io::Error::other)
             })
             .unwrap_or_default()
             .as_secs();
@@ -1042,7 +1038,7 @@ impl SystemManager for LinuxSystem {
         let mut last_err = Ok(());
         for pid in pids {
             if let Err(err) = kill(
-                nix::unistd::Pid::from_raw(pid.clone() as i32),
+                nix::unistd::Pid::from_raw(*pid as i32),
                 Signal::SIGKILL,
             ) {
                 failed_pids.push(pid);
