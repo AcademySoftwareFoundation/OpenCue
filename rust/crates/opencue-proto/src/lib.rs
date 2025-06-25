@@ -12,10 +12,13 @@ mod cue;
 mod department;
 mod depend;
 pub mod facility;
+#[allow(clippy::all, clippy::pedantic, clippy::nursery)]
 mod filter;
 pub mod host;
+#[allow(clippy::all, clippy::pedantic, clippy::nursery)]
 pub mod job;
 mod limit;
+#[allow(clippy::all, clippy::pedantic, clippy::nursery)]
 mod render_partition;
 pub mod report;
 pub mod rqd;
@@ -74,10 +77,8 @@ impl WithUuid for rqd::RunningFrameKillRequest {
     fn uuid(&self) -> Uuid {
         self.run_frame
             .as_ref()
-            .map(|run_frame| to_uuid(&run_frame.frame_id))
-            .flatten()
+            .and_then(|run_frame| to_uuid(&run_frame.frame_id))
             .unwrap_or(Uuid::nil())
-            .clone()
     }
 }
 
@@ -85,10 +86,8 @@ impl WithUuid for rqd::RunningFrameStatusRequest {
     fn uuid(&self) -> Uuid {
         self.run_frame
             .as_ref()
-            .map(|run_frame| to_uuid(&run_frame.frame_id))
-            .flatten()
+            .and_then(|run_frame| to_uuid(&run_frame.frame_id))
             .unwrap_or(Uuid::nil())
-            .clone()
     }
 }
 

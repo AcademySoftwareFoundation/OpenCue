@@ -11,7 +11,7 @@ fn build_protobuf() -> Result<(), Box<dyn std::error::Error>> {
 
     let subdir_proto_files: Vec<String> = std::fs::read_dir(&protos_dir)?
         .map(|dir| protos_dir.join(dir.unwrap().file_name()))
-        .filter(|entry| entry.is_file() && entry.extension().map_or(false, |ext| ext == "proto"))
+        .filter(|entry| entry.is_file() && entry.extension().is_some_and(|ext| ext == "proto"))
         .map(|path| path.to_string_lossy().to_string())
         .collect();
     proto_files.extend(subdir_proto_files);

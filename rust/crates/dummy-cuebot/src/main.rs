@@ -100,13 +100,13 @@ impl DummyCuebotCli {
     pub async fn run(&self) -> Result<()> {
         match &self.subcommands {
             SubCommands::ReportServer(report_server_cmd) => {
-                DummyCuebotServer::start_server(report_server_cmd.port.clone()).await
+                DummyCuebotServer::start_server(report_server_cmd.port).await
             }
             SubCommands::RqdClient(cmd) => {
                 let client = DummyRqdClient::build(cmd.hostname.clone(), cmd.port).await?;
                 match &cmd.api_method {
                     ApiMethod::LaunchFrame(cmd) => {
-                        let uid = cmd.run_as_user.then(|| users::get_current_uid());
+                        let uid = cmd.run_as_user.then(users::get_current_uid);
                         client
                             .launch_frame(
                                 cmd.cmd.clone(),

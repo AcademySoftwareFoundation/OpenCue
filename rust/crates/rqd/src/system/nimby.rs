@@ -86,7 +86,7 @@ impl Nimby {
     ) -> Self {
         Nimby {
             last_interaction_epoch_in_secs: Arc::new(AtomicU64::new(0)),
-            idle_threshold: idle_threshold,
+            idle_threshold,
             nimby_display_file_path,
             nimby_display_xauthority_path,
         }
@@ -142,7 +142,7 @@ impl Nimby {
     pub async fn start(&self, interrupt_signal: &mut Receiver<()>) -> Result<()> {
         if let Some(nimby_display_file_path) = &self.nimby_display_file_path {
             Self::set_display_from_file(
-                &nimby_display_file_path,
+                nimby_display_file_path,
                 &self.nimby_display_xauthority_path,
             )
             .await?;

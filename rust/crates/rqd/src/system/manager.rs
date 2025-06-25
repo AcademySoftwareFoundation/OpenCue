@@ -41,7 +41,7 @@ pub trait SystemManager {
     /// * Vector of core ids
     fn reserve_cores_by_id(
         &mut self,
-        cpu_list: &Vec<u32>,
+        cpu_list: &[u32],
         resource_id: Uuid,
     ) -> Result<Vec<u32>, ReservationError>;
 
@@ -68,7 +68,7 @@ pub trait SystemManager {
     fn force_kill_session(&self, session_pid: u32) -> Result<()>;
 
     /// Force kill a list of pids
-    fn force_kill(&self, pids: &Vec<u32>) -> Result<()>;
+    fn force_kill(&self, pids: &[u32]) -> Result<()>;
 
     /// Returns the list of active children, and none if the pid itself is not active
     fn get_proc_lineage(&self, pid: u32) -> Option<Vec<u32>>;

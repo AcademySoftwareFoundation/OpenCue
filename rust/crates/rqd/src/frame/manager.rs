@@ -14,7 +14,7 @@ use uuid::Uuid;
 use super::docker_running_frame;
 
 use super::running_frame::RunningFrame;
-use crate::{config::config::Config, servant::rqd_servant::MachineImpl};
+use crate::{config::Config, servant::rqd_servant::MachineImpl};
 
 pub struct FrameManager {
     pub config: Config,
@@ -70,7 +70,7 @@ impl FrameManager {
         let hyperthreaded = run_frame
             .environment
             .get("CUE_THREADABLE")
-            .map_or(false, |v| v == "1");
+            .is_some_and(|v| v == "1");
         let cpu_request = run_frame.num_cores as u32 / self.config.machine.core_multiplier;
         let thread_ids = self
             .machine
@@ -88,7 +88,7 @@ impl FrameManager {
             0 => None,
             _ => {
                 let reserved_res = self.machine.reserve_gpus(run_frame.num_gpus as u32).await;
-                if let Err(_) = reserved_res {
+                if reserved_res.is_err() {
                     // Release cores reserved on the last step
                     if let Some(thread_ids) = &thread_ids {
                         self.machine.release_threads(thread_ids).await;
@@ -158,7 +158,7 @@ impl FrameManager {
         for path in snapshot_dir {
             let running_frame = RunningFrame::from_snapshot(&path, self.config.runner.clone())
                 .await
-                .map(|rf| Arc::new(rf));
+                .map(Arc::new);
             match running_frame {
                 Ok(running_frame) => {
                     // Update reservations. If a thread_ids list exists, the frame was booked using affinity
@@ -167,7 +167,7 @@ impl FrameManager {
                             .machine
                             .reserve_cores_by_id(thread_ids, running_frame.request.resource_id())
                             .await
-                            .map(|v| Some(v)),
+                            .map(Some),
                         None => {
                             let num_cores = running_frame.request.num_cores as u32
                                 / self.config.machine.core_multiplier;
@@ -239,7 +239,6 @@ impl FrameManager {
         // Trying to run as root
         if run_frame
             .uid_optional
-            .clone()
             .map(|o| match o {
                 run_frame::UidOptional::Uid(v) => v,
             })
@@ -364,7 +363,7 @@ impl FrameManager {
                 if let Some(mut lineage) = active_lineage {
                     lineage.push(frame_pid);
                     // Check limit before decrementing as tick() returns immediately on the first call
-                    if monitor_limit_seconds <= 0 || tried_to_force_kill_session {
+                    if monitor_limit_seconds == 0 || tried_to_force_kill_session {
                         // Notify only
                         if !force_kill {
                             error!(
@@ -417,7 +416,7 @@ impl FrameManager {
                 }
 
                 if monitor_limit_seconds >= interval_seconds {
-                    monitor_limit_seconds -= interval_seconds;
+                    monitor_limit_seconds = monitor_limit_seconds.saturating_sub(interval_seconds);
                 }
             }
         });

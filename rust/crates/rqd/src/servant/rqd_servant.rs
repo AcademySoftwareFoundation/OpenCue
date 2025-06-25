@@ -63,7 +63,7 @@ impl RqdInterface for RqdServant {
         let running_frame = self
             .frame_manager
             .get_running_frame(&frame_id)
-            .map(|frame| frame.into_running_frame_info())
+            .map(|frame| frame.clone_into_running_frame_info())
             .ok_or(tonic::Status::not_found(format!(
                 "Could not find frame with id {frame_id}"
             )))?;

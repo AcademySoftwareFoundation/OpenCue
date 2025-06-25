@@ -1,4 +1,5 @@
 use miette::{IntoDiagnostic, Result, miette};
+use std::fmt::Display;
 use std::io::Write;
 use std::{fs, fs::File};
 use tokio::process::Command;
@@ -19,10 +20,11 @@ struct BecomeUser {
     username: String,
 }
 
-impl ToString for BecomeUser {
-    fn to_string(&self) -> String {
+impl Display for BecomeUser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let passwd = Uuid::new_v4().to_string();
-        format!(
+        write!(
+            f,
             r#"
 # Add and become user
 useradd -u {} -g {} -p {} {}

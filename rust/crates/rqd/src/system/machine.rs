@@ -25,7 +25,7 @@ use uuid::Uuid;
 #[cfg(target_os = "macos")]
 use crate::system::macos::MacOsSystem;
 use crate::{
-    config::config::{Config, MachineConfig},
+    config::{Config, MachineConfig},
     frame::{
         cache::RunningFrameCache,
         running_frame::{FrameState, RunningFrame, RunningState},
@@ -74,12 +74,12 @@ impl MachineMonitor {
     /// Initializes the object without starting the monitor loop
     /// Will gather the initial state of this machine
     pub fn init(config: &Config, report_client: Arc<ReportClient>) -> Result<Self> {
-        #[cfg(any(target_os = "macos"))]
+        #[cfg(target_os = "macos")]
         #[allow(unused_variables)]
         let system_manager: SystemManagerType = Box::new(MacOsSystem::init(&config.machine)?);
 
         // Allow linux logic compilation from mac development environments
-        #[cfg(any(target_os = "linux", all(debug_assertions)))]
+        #[cfg(any(target_os = "linux", debug_assertions))]
         let system_manager: SystemManagerType = Box::new(LinuxSystem::init(&config.machine)?);
 
         // Init nimby
@@ -241,7 +241,7 @@ impl MachineMonitor {
         let mut lock = self.interrupt.lock().await;
         match lock.take() {
             Some(sender) => {
-                if let Err(_) = sender.send(()) {
+                if sender.send(()).is_err() {
                     warn!("Failed to request a monitor interruption")
                 }
             }
@@ -277,7 +277,7 @@ impl MachineMonitor {
             .retain(|_, running_frame| match running_frame.get_state_copy() {
                 FrameState::Created(_) => true,
                 FrameState::Running(running_state) => {
-                    running_frames.push((Arc::clone(&running_frame), running_state));
+                    running_frames.push((Arc::clone(running_frame), running_state));
                     true
                 }
                 FrameState::Finished(_) => {
@@ -366,7 +366,7 @@ impl MachineMonitor {
             };
 
             if let Some((exit_code, exit_signal)) = exit_code_and_signal {
-                let frame_report = frame.into_running_frame_info();
+                let frame_report = frame.clone_into_running_frame_info();
                 info!("Sending frame complete report: {}", frame);
 
                 // Release resources
@@ -375,9 +375,8 @@ impl MachineMonitor {
                 } else {
                     // Ensure the division rounds up if num_cores is not a multiple of
                     // core_multiplier
-                    let num_cores_to_release =
-                        (frame.request.num_cores as u32 + self.maching_config.core_multiplier - 1)
-                            / self.maching_config.core_multiplier;
+                    let num_cores_to_release = (frame.request.num_cores as u32)
+                        .div_ceil(self.maching_config.core_multiplier);
                     self.release_cores(num_cores_to_release).await;
                 }
 
@@ -426,7 +425,7 @@ impl MachineMonitor {
             load: stats.load as i32,
             boot_time: stats.boot_time as i32,
             tags: stats.tags,
-            state: system.hardware_state().clone() as i32,
+            state: *system.hardware_state() as i32,
             attributes: system.attributes().clone(),
             num_gpus: gpu_stats.count as i32,
             free_gpu_mem: gpu_stats.free_memory as i64,
@@ -470,18 +469,14 @@ pub trait Machine {
     /// # Returns
     ///
     /// Vector of successfully reserved CPU core IDs
-    async fn reserve_cores_by_id(
-        &self,
-        thread_ids: &Vec<u32>,
-        resource_id: Uuid,
-    ) -> Result<Vec<u32>>;
+    async fn reserve_cores_by_id(&self, thread_ids: &[u32], resource_id: Uuid) -> Result<Vec<u32>>;
 
     /// Release specific threads
     ///
     /// # Arguments
     ///
     /// * `threads` - Vector of thread IDs to release
-    async fn release_threads(&self, thread_ids: &Vec<u32>);
+    async fn release_threads(&self, thread_ids: &[u32]);
 
     /// Releases a specified number of CPU cores
     ///
@@ -524,7 +519,7 @@ pub trait Machine {
     ///  * [ESRCH] No process or process group can be found corresponding to that specified by pid.
     async fn kill_session(&self, pid: u32, force: bool) -> Result<()>;
 
-    async fn force_kill(&self, pids: &Vec<u32>) -> Result<()>;
+    async fn force_kill(&self, pids: &[u32]) -> Result<()>;
 
     /// Check if this pid and any of its children are still active
     /// Returns the list of active children, and none if the pid itself is not active
@@ -558,7 +553,7 @@ impl Machine for MachineMonitor {
             .lock()
             .await
             .as_ref()
-            .map(|hs| hs.state().clone())
+            .map(|hs| hs.state())
     }
 
     async fn nimby_locked(&self) -> bool {
@@ -582,13 +577,13 @@ impl Machine for MachineMonitor {
             system_lock
                 .reserve_cores(num_cores, resource_id)
                 .into_diagnostic()
-                .map(|v| Some(v))
+                .map(Some)
         } else {
             Ok(None)
         };
 
         // Record reservation to be reported to cuebot
-        if let Ok(_) = &cores_result {
+        if cores_result.is_ok() {
             let mut core_state = self.core_state.lock().await;
             debug!("Before: {:?}", *core_state);
             core_state
@@ -599,11 +594,7 @@ impl Machine for MachineMonitor {
         cores_result
     }
 
-    async fn reserve_cores_by_id(
-        &self,
-        thread_ids: &Vec<u32>,
-        resource_id: Uuid,
-    ) -> Result<Vec<u32>> {
+    async fn reserve_cores_by_id(&self, thread_ids: &[u32], resource_id: Uuid) -> Result<Vec<u32>> {
         // Reserve cores on the socket level
         let thread_ids = {
             let mut system_lock = self.system_manager.lock().await;
@@ -621,7 +612,7 @@ impl Machine for MachineMonitor {
         Ok(thread_ids)
     }
 
-    async fn release_threads(&self, thread_ids: &Vec<u32>) {
+    async fn release_threads(&self, thread_ids: &[u32]) {
         let mut released_cores = HashSet::new();
         {
             let mut system = self.system_manager.lock().await;
@@ -659,7 +650,7 @@ impl Machine for MachineMonitor {
         // Record reservation to be reported to cuebot
         let mut core_state = self.core_state.lock().await;
         if let Err(err) = core_state
-            .release(num_cores as u32 * self.maching_config.core_multiplier)
+            .release(num_cores * self.maching_config.core_multiplier)
             .map_err(|err| miette!(err))
         {
             error!(
@@ -695,7 +686,7 @@ impl Machine for MachineMonitor {
         }
     }
 
-    async fn force_kill(&self, pids: &Vec<u32>) -> Result<()> {
+    async fn force_kill(&self, pids: &[u32]) -> Result<()> {
         let system = self.system_manager.lock().await;
         system.force_kill(pids)
     }
@@ -729,7 +720,7 @@ impl Machine for MachineMonitor {
         // Prevent new frames from booking
         self.lock_all_cores().await;
 
-        if self.running_frames_cache.len() > 0 {
+        if !self.running_frames_cache.is_empty() {
             // Schedule reboot if the machine is not idle
             let mut reboot_when_idle = self.reboot_when_idle.lock().await;
 
@@ -772,7 +763,7 @@ impl Machine for MachineMonitor {
 
         Ok(HostReport {
             host: Some(render_host),
-            frames: Arc::clone(&self.running_frames_cache).into_running_frame_vec(),
+            frames: Arc::clone(&self.running_frames_cache).clone_to_running_frame_vec(),
             core_info: Some(core_state),
         })
     }
