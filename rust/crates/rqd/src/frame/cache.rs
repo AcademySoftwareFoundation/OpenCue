@@ -34,7 +34,7 @@ impl RunningFrameCache {
     pub fn clone_to_running_frame_vec(&self) -> Vec<RunningFrameInfo> {
         self.cache
             .iter()
-            .map(|running_frame| running_frame.into_running_frame_info())
+            .map(|running_frame| running_frame.clone_into_running_frame_info())
             .collect()
     }
 

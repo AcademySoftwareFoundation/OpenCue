@@ -24,7 +24,7 @@ use sysinfo::{DiskRefreshKind, Disks, MemoryRefreshKind, RefreshKind};
 use tracing::{debug, warn};
 use uuid::Uuid;
 
-use crate::config::config::MachineConfig;
+use crate::config::MachineConfig;
 
 use super::manager::{
     CoreReservation, CpuStat, MachineGpuStats, MachineStat, ProcessStats, ReservationError,
@@ -82,6 +82,13 @@ struct ProcessorInfoData {
     cores_per_socket: u32,
 }
 
+struct CpuInfoWithProcs {
+    processor_info: ProcessorInfoData,
+    cores_by_phys_id: HashMap<u32, Vec<u32>>,
+    threads_by_core_unique_id: HashMap<String, Vec<u32>>,
+    phys_id_and_core_id_by_thread_id: HashMap<u32, (u32, u32)>,
+}
+
 struct MachineStaticInfo {
     pub hostname: String,
     pub total_memory: u64,
@@ -128,13 +135,7 @@ impl LinuxSystem {
     ///
     /// sysinfo needs to have been initialized.
     pub fn init(config: &MachineConfig) -> Result<Self> {
-        let (
-            processor_info,
-            cores_by_phys_id,
-            threads_by_core_unique_id,
-            phys_id_and_core_id_by_thread_id,
-        ) = Self::read_cpuinfo(&config.cpuinfo_path)?;
-
+        let data = Self::read_cpuinfo(&config.cpuinfo_path)?;
         let identified_os = config
             .override_real_values
             .clone()
@@ -162,16 +163,16 @@ impl LinuxSystem {
 
         Ok(Self {
             config: config.clone(),
-            cores_by_phys_id,
-            threads_by_core_unique_id,
-            thread_id_lookup_table: phys_id_and_core_id_by_thread_id,
+            cores_by_phys_id: data.cores_by_phys_id,
+            threads_by_core_unique_id: data.threads_by_core_unique_id,
+            thread_id_lookup_table: data.phys_id_and_core_id_by_thread_id,
             static_info: MachineStaticInfo {
                 hostname: Self::get_hostname(config.use_ip_as_hostname)?,
                 total_memory,
                 total_swap,
-                num_sockets: processor_info.num_sockets,
-                cores_per_socket: processor_info.cores_per_socket,
-                hyperthreading_multiplier: processor_info.hyperthreading_multiplier,
+                num_sockets: data.processor_info.num_sockets,
+                cores_per_socket: data.processor_info.cores_per_socket,
+                hyperthreading_multiplier: data.processor_info.hyperthreading_multiplier,
                 boot_time_secs: Self::read_boot_time(&config.proc_stat_path).unwrap_or(0),
                 tags: Self::setup_tags(config),
                 page_size,
@@ -183,7 +184,7 @@ impl LinuxSystem {
                 ("SP_OS".to_string(), identified_os),
                 (
                     "hyperthreadingMultiplier".to_string(),
-                    processor_info.hyperthreading_multiplier.to_string(),
+                    data.processor_info.hyperthreading_multiplier.to_string(),
                 ),
                 // SwapOut is an aditional attribute that is missing on this implementation
             ]),
@@ -210,18 +211,11 @@ impl LinuxSystem {
     ///
     /// A `Result` containing a tuple with the following information:
     /// 1. `ProcessorInfoData` - Structure holding information about the processor like
-    ///     hyperthreading multiplier, number of processors, number of sockets, and cores per
-    ///     processor.
+    ///    hyperthreading multiplier, number of processors, number of sockets, and cores per
+    ///    processor.
     /// 2. `HashMap<u32, <u32, u32>>` - Mapping of processor id to physical id and core id.
     /// 3. `HashMap<u32, Vec<u32>>` - Mapping of thread ids per process id
-    fn read_cpuinfo(
-        cpuinfo_path: &str,
-    ) -> Result<(
-        ProcessorInfoData,
-        HashMap<u32, Vec<u32>>,    // procs_by_physid
-        HashMap<String, Vec<u32>>, // threads_by_core_id
-        HashMap<u32, (u32, u32)>,  // phys_id_and_core_id_by_thread_id
-    )> {
+    fn read_cpuinfo(cpuinfo_path: &str) -> Result<CpuInfoWithProcs> {
         let mut procs_by_physid: HashMap<u32, Vec<u32>> = HashMap::new();
         let mut threads_by_core_id: HashMap<String, Vec<u32>> = HashMap::new();
         let mut phys_id_and_core_id_by_thread_id: HashMap<u32, (u32, u32)> = HashMap::new();
@@ -278,7 +272,9 @@ impl LinuxSystem {
                     curr_core_map.get("processor").map(|s| s.parse()),
                 ) {
                     // Keep a cache to avoid counting sockets twice
-                    if let std::collections::hash_map::Entry::Vacant(e) = physical_ids.entry(phys_id) {
+                    if let std::collections::hash_map::Entry::Vacant(e) =
+                        physical_ids.entry(phys_id)
+                    {
                         e.insert(());
                         num_sockets += 1;
                     }
@@ -313,16 +309,16 @@ impl LinuxSystem {
         if num_sockets == 0 {
             Err(miette!("Invalid CPU with no sockets (physical id)"))
         } else {
-            Ok((
-                ProcessorInfoData {
+            Ok(CpuInfoWithProcs {
+                processor_info: ProcessorInfoData {
                     hyperthreading_multiplier: hyper_modifier,
                     num_sockets,
                     cores_per_socket: num_threads / num_sockets,
                 },
-                procs_by_physid,
-                threads_by_core_id,
+                cores_by_phys_id: procs_by_physid,
+                threads_by_core_unique_id: threads_by_core_id,
                 phys_id_and_core_id_by_thread_id,
-            ))
+            })
         }
     }
 
@@ -370,13 +366,10 @@ impl LinuxSystem {
         let distro_info = File::open(distro_release_path).into_diagnostic()?;
         let reader = BufReader::new(distro_info);
         let mut distro_id: Option<String> = None;
-        for line_res in reader.lines() {
-            if let Ok(line) = line_res {
-                if line.starts_with("ID=") || line.starts_with("DISTRIB_ID") {
-                    distro_id = line
-                        .split_once("=").map(|(_, val)| val.replace("\"", ""));
-                    break;
-                }
+        for line in reader.lines().map_while(Result::ok) {
+            if line.starts_with("ID=") || line.starts_with("DISTRIB_ID") {
+                distro_id = line.split_once("=").map(|(_, val)| val.replace("\"", ""));
+                break;
             }
         }
         distro_id.ok_or(miette!("Couldn't find release ID"))
@@ -396,15 +389,13 @@ impl LinuxSystem {
         let stat_info = File::open(proc_stat_path).into_diagnostic()?;
         let reader = BufReader::new(stat_info);
         let mut btime: Option<u64> = None;
-        for line_res in reader.lines() {
-            if let Ok(line) = line_res {
-                if line.trim().starts_with("btime") {
-                    // btime 1723434332
-                    btime = line
-                        .split_once(" ")
-                        .and_then(|(_, val)| val.trim().parse().ok());
-                    break;
-                }
+        for line in reader.lines().map_while(Result::ok) {
+            if line.trim().starts_with("btime") {
+                // btime 1723434332
+                btime = line
+                    .split_once(" ")
+                    .and_then(|(_, val)| val.trim().parse().ok());
+                break;
             }
         }
         btime.ok_or(miette!("Couldn't find boot time"))
@@ -482,16 +473,12 @@ impl LinuxSystem {
         let reader = BufReader::new(loadavg);
         // let mut load_val: Vec<u32> = vec![];
         let mut load_val: Option<(f32, f32, f32)> = None;
-        for line_res in reader.lines() {
-            if let Ok(line) = line_res {
-                load_val = line
-                    .split_whitespace()
-                    .take(3)
-                    .map(|l| l.parse().unwrap_or(0.0))
-                    .collect_tuple();
-
-                break;
-            }
+        if let Some(line) = reader.lines().map_while(Result::ok).next() {
+            load_val = line
+                .split_whitespace()
+                .take(3)
+                .map(|l| l.parse().unwrap_or(0.0))
+                .collect_tuple();
         }
         load_val.ok_or(miette!("Couldn't find load average"))
     }
@@ -595,18 +582,20 @@ impl LinuxSystem {
             let mut state = None;
 
             for line in stat.lines() {
-                if let Some((key, value)) = line.split_once(":") { match key {
-                    "Tgid" => {
-                        tgid = value.trim().parse().ok();
+                if let Some((key, value)) = line.split_once(":") {
+                    match key {
+                        "Tgid" => {
+                            tgid = value.trim().parse().ok();
+                        }
+                        "NSsid" | "SID" | "Sid" => {
+                            session_id = value.trim().parse().ok();
+                        }
+                        "State" => {
+                            state = value.split_whitespace().next();
+                        }
+                        _ => (),
                     }
-                    "NSsid" | "SID" | "Sid" => {
-                        session_id = value.trim().parse().ok();
-                    }
-                    "State" => {
-                        state = value.split_whitespace().next();
-                    }
-                    _ => (),
-                } }
+                }
             }
             match (session_id, tgid, state) {
                 (Some(session_id), Some(tgid), Some(state)) => {
@@ -860,9 +849,10 @@ impl SystemManager for LinuxSystem {
     }
 
     fn release_core_by_thread(&mut self, thread_id: &u32) -> Result<(u32, u32), ReservationError> {
-        let (phys_id, core_id) = self.thread_id_lookup_table.get(thread_id).ok_or(
-            ReservationError::CoreNotFoundForThread(vec![*thread_id]),
-        )?;
+        let (phys_id, core_id) = self
+            .thread_id_lookup_table
+            .get(thread_id)
+            .ok_or(ReservationError::CoreNotFoundForThread(vec![*thread_id]))?;
         self.cpu_stat
             .reserved_cores_by_physid
             .get_mut(phys_id)
@@ -916,7 +906,7 @@ impl SystemManager for LinuxSystem {
 
     fn reserve_cores_by_id(
         &mut self,
-        thread_ids: &Vec<u32>,
+        thread_ids: &[u32],
         resource_id: Uuid,
     ) -> Result<Vec<u32>, ReservationError> {
         // First collect unmatched thread IDs to avoid borrowing issues
@@ -939,7 +929,7 @@ impl SystemManager for LinuxSystem {
             }
         }
 
-        Ok(thread_ids.clone())
+        Ok(thread_ids.to_owned())
     }
 
     fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32> {
@@ -1033,14 +1023,11 @@ impl SystemManager for LinuxSystem {
         .map_err(|err| miette!("Failed to kill {session_pid}. {err}"))
     }
 
-    fn force_kill(&self, pids: &Vec<u32>) -> Result<()> {
+    fn force_kill(&self, pids: &[u32]) -> Result<()> {
         let mut failed_pids = Vec::new();
         let mut last_err = Ok(());
         for pid in pids {
-            if let Err(err) = kill(
-                nix::unistd::Pid::from_raw(*pid as i32),
-                Signal::SIGKILL,
-            ) {
+            if let Err(err) = kill(nix::unistd::Pid::from_raw(*pid as i32), Signal::SIGKILL) {
                 failed_pids.push(pid);
                 last_err = Err(err);
             }
@@ -1070,7 +1057,7 @@ impl SystemManager for LinuxSystem {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::config::MachineConfig;
+    use crate::config::MachineConfig;
     use std::fs;
     use std::{collections::HashMap, sync::Mutex};
 
@@ -1091,11 +1078,13 @@ mod tests {
     fn test_read_cpuinfo() {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
-        let mut config = MachineConfig::default();
-        config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
-        config.distro_release_path = "".to_string();
-        config.proc_stat_path = "".to_string();
-        config.core_multiplier = 1;
+        let config = MachineConfig {
+            cpuinfo_path: format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir),
+            distro_release_path: "".to_string(),
+            proc_stat_path: "".to_string(),
+            core_multiplier: 1,
+            ..Default::default()
+        };
 
         let linux_monitor = LinuxSystem::init(&config)
             .expect("Initializing LinuxMachineStat failed")
@@ -1116,11 +1105,9 @@ mod tests {
         let file_path = format!("{}/resources/cpuinfo", project_dir);
         match fs::read_dir(file_path) {
             Ok(entries) => {
-                for entry in entries {
-                    if let Ok(entry) = entry {
-                        println!("Testing {:?}", entry.path());
-                        cpuinfo_tester(entry.file_name().to_str().unwrap());
-                    }
+                for entry in entries.flatten() {
+                    println!("Testing {:?}", entry.path());
+                    cpuinfo_tester(entry.file_name().to_str().unwrap());
                 }
             }
             Err(e) => println!("Error reading directory: {}", e),
@@ -1138,7 +1125,7 @@ mod tests {
             .collect();
         if let (Some(_expected_procs), Some(expected_cores_per_proc), Some(expected_sockets)) = (
             values
-                .get(0)
+                .first()
                 .map(|v| v.parse::<u32>().expect("Should be int")),
             values
                 .get(1)
@@ -1158,21 +1145,26 @@ mod tests {
                 }
             };
 
-            let (cpuinfo, threads_by_core_id, physid_and_coreid_by_procid, _thread_id_lookup_table) =
-                LinuxSystem::read_cpuinfo(&file_path).expect("Failed to read file");
+            let data = LinuxSystem::read_cpuinfo(&file_path).expect("Failed to read file");
             // Assert that the mapping between processor ID, physical ID, and core ID is correct
-            println!("procid_by_physid_and_core_id={:?}", threads_by_core_id);
+            println!(
+                "procid_by_physid_and_core_id={:?}",
+                data.threads_by_core_unique_id
+            );
             println!(
                 "physid_and_coreid_by_procid={:?}",
-                physid_and_coreid_by_procid
+                data.phys_id_and_core_id_by_thread_id
             );
-            assert_eq!(expected_sockets, cpuinfo.num_sockets, "Assert num_sockets");
             assert_eq!(
-                expected_cores_per_proc, cpuinfo.cores_per_socket,
+                expected_sockets, data.processor_info.num_sockets,
+                "Assert num_sockets"
+            );
+            assert_eq!(
+                expected_cores_per_proc, data.processor_info.cores_per_socket,
                 "Assert cores_per_proc"
             );
             assert_eq!(
-                expected_hyper_multi, cpuinfo.hyperthreading_multiplier,
+                expected_hyper_multi, data.processor_info.hyperthreading_multiplier,
                 "Assert hyperthreading_multiplier"
             );
         }
@@ -1182,12 +1174,14 @@ mod tests {
     fn test_static_info() {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
-        let mut config = MachineConfig::default();
-        config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
-        config.distro_release_path = format!("{}/resources/distro-release/centos", project_dir);
-        config.proc_stat_path = format!("{}/resources/proc/stat", project_dir);
-        config.proc_loadavg_path = format!("{}/resources/proc/loadavg", project_dir);
-        config.core_multiplier = 1;
+        let config = MachineConfig {
+            cpuinfo_path: format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir),
+            distro_release_path: format!("{}/resources/distro-release/centos", project_dir),
+            proc_stat_path: format!("{}/resources/proc/stat", project_dir),
+            proc_loadavg_path: format!("{}/resources/proc/loadavg", project_dir),
+            core_multiplier: 1,
+            ..Default::default()
+        };
 
         let stat = LinuxSystem::init(&config).expect("Initializing LinuxMachineStat failed");
         let static_info = stat.static_info;
@@ -1211,11 +1205,9 @@ mod tests {
 
         match fs::read_dir(file_path) {
             Ok(entries) => {
-                for entry in entries {
-                    if let Ok(entry) = entry {
-                        println!("Testing {:?}", entry.path());
-                        distro_release_tester(entry.file_name().to_str().unwrap());
-                    }
+                for entry in entries.flatten() {
+                    println!("Testing {:?}", entry.path());
+                    distro_release_tester(entry.file_name().to_str().unwrap());
                 }
             }
             Err(e) => println!("Error reading directory: {}", e),
@@ -1272,13 +1264,15 @@ mod tests {
     fn test_unix_system_init_full() {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
-        let mut config = MachineConfig::default();
-        config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
-        config.distro_release_path = format!("{}/resources/distro-release/centos", project_dir);
-        config.proc_stat_path = format!("{}/resources/proc/stat", project_dir);
-        config.proc_loadavg_path = format!("{}/resources/proc/loadavg", project_dir);
-        config.temp_path = "/tmp".to_string();
-        config.core_multiplier = 1;
+        let config = MachineConfig {
+            cpuinfo_path: format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir),
+            distro_release_path: format!("{}/resources/distro-release/centos", project_dir),
+            proc_stat_path: format!("{}/resources/proc/stat", project_dir),
+            proc_loadavg_path: format!("{}/resources/proc/loadavg", project_dir),
+            temp_path: "/tmp".to_string(),
+            core_multiplier: 1,
+            ..Default::default()
+        };
 
         let result = LinuxSystem::init(&config);
         assert!(result.is_ok());
@@ -1309,12 +1303,14 @@ mod tests {
     fn test_system_integration_with_dynamic_stats() {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
-        let mut config = MachineConfig::default();
-        config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
-        config.distro_release_path = format!("{}/resources/distro-release/centos", project_dir);
-        config.proc_stat_path = format!("{}/resources/proc/stat", project_dir);
-        config.proc_loadavg_path = format!("{}/resources/proc/loadavg", project_dir);
-        config.temp_path = "/tmp".to_string();
+        let config = MachineConfig {
+            cpuinfo_path: format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir),
+            distro_release_path: format!("{}/resources/distro-release/centos", project_dir),
+            proc_stat_path: format!("{}/resources/proc/stat", project_dir),
+            proc_loadavg_path: format!("{}/resources/proc/loadavg", project_dir),
+            temp_path: "/tmp".to_string(),
+            ..Default::default()
+        };
 
         let system = LinuxSystem::init(&config).unwrap();
 
@@ -1338,10 +1334,12 @@ mod tests {
     fn test_reserve_and_release_integration() {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
-        let mut config = MachineConfig::default();
-        config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
-        config.distro_release_path = "".to_string();
-        config.proc_stat_path = "".to_string();
+        let config = MachineConfig {
+            cpuinfo_path: format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir),
+            distro_release_path: "".to_string(),
+            proc_stat_path: "".to_string(),
+            ..Default::default()
+        };
 
         let mut system = LinuxSystem::init(&config).unwrap();
         let frame_id = uuid::Uuid::new_v4();
@@ -1371,10 +1369,12 @@ mod tests {
     fn test_refresh_procs() {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
-        let mut config = MachineConfig::default();
-        config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
-        config.distro_release_path = "".to_string();
-        config.proc_stat_path = "".to_string();
+        let config = MachineConfig {
+            cpuinfo_path: format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir),
+            distro_release_path: "".to_string(),
+            proc_stat_path: "".to_string(),
+            ..Default::default()
+        };
 
         let system = LinuxSystem::init(&config).unwrap();
 
@@ -1392,11 +1392,13 @@ mod tests {
     fn test_static_info_tags_integration() {
         let project_dir = env!("CARGO_MANIFEST_DIR");
 
-        let mut config = MachineConfig::default();
-        config.cpuinfo_path = format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir);
-        config.distro_release_path = "".to_string();
-        config.proc_stat_path = "".to_string();
-        config.custom_tags = vec!["test_tag".to_string(), "integration".to_string()];
+        let config = MachineConfig {
+            cpuinfo_path: format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir),
+            distro_release_path: "".to_string(),
+            proc_stat_path: "".to_string(),
+            custom_tags: vec!["test_tag".to_string(), "integration".to_string()],
+            ..Default::default()
+        };
 
         let system = LinuxSystem::init(&config).unwrap();
 
@@ -1418,7 +1420,7 @@ mod tests {
         assert_eq!(reserved.len(), 2);
         let available_cores = system
             .calculate_available_cores()
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
             .iter()
             .map(|(_physid, cores)| cores.len())
             .sum::<usize>();
@@ -1437,7 +1439,7 @@ mod tests {
         ));
         let available_cores = system
             .calculate_available_cores()
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
             .iter()
             .map(|(_physid, cores)| cores.len())
             .sum::<usize>();
@@ -1456,7 +1458,7 @@ mod tests {
         assert_eq!(reserved.len(), 8);
         let available_cores = system
             .calculate_available_cores()
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
             .iter()
             .map(|(_physid, cores)| cores.len())
             .sum::<usize>();
@@ -1475,8 +1477,8 @@ mod tests {
         let reserved_count_per_socket: Vec<usize> = system
             .cpu_stat
             .reserved_cores_by_physid
-            .iter()
-            .map(|(_, proc_ids)| proc_ids.iter().len())
+            .values()
+            .map(|proc_ids| proc_ids.iter().len())
             .sorted()
             .collect();
         assert_eq!(
@@ -1495,7 +1497,7 @@ mod tests {
         assert!(result1.is_ok());
         let available_cores = system
             .calculate_available_cores()
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
             .iter()
             .map(|(_physid, cores)| cores.len())
             .sum::<usize>();
@@ -1506,7 +1508,7 @@ mod tests {
         assert!(result2.is_ok());
         let available_cores = system
             .calculate_available_cores()
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
             .iter()
             .map(|(_physid, cores)| cores.len())
             .sum::<usize>();
@@ -1536,7 +1538,7 @@ mod tests {
         // Verify cores are actually reserved
         let available_cores = system
             .calculate_available_cores()
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
             .iter()
             .map(|(_physid, cores)| cores.len())
             .sum::<usize>();
@@ -1558,7 +1560,7 @@ mod tests {
         assert!(result.is_ok());
         let reserved_threads = result.unwrap();
         // Should only reserve available cores from the list
-        assert!(reserved_threads.len() > 0);
+        assert!(!reserved_threads.is_empty());
     }
 
     #[test]
@@ -1580,7 +1582,7 @@ mod tests {
         // Verify core is released
         let available_cores = system
             .calculate_available_cores()
-            .unwrap_or(Vec::new())
+            .unwrap_or_default()
             .iter()
             .map(|(_physid, cores)| cores.len())
             .sum::<usize>();
@@ -1856,12 +1858,10 @@ mod tests {
 
         // Test with maximum reasonable value
         let clock_ticks = u64::MAX / 2; // Avoid overflow in calculations
-        let (start_time, run_time) = system.calculate_process_time(clock_ticks);
+        let (start_time, _run_time) = system.calculate_process_time(clock_ticks);
 
         // Should not panic or overflow
         assert!(start_time >= system.static_info.boot_time_secs);
-        // run_time uses saturating_sub, so it should never overflow
-        assert!(run_time <= u64::MAX);
     }
 
     #[test]

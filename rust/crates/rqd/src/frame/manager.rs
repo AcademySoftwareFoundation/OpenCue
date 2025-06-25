@@ -14,7 +14,7 @@ use uuid::Uuid;
 use super::docker_running_frame;
 
 use super::running_frame::RunningFrame;
-use crate::{config::config::Config, servant::rqd_servant::MachineImpl};
+use crate::{config::Config, servant::rqd_servant::MachineImpl};
 
 pub struct FrameManager {
     pub config: Config,

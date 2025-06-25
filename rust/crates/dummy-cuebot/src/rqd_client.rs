@@ -52,10 +52,7 @@ impl DummyRqdClient {
             attributes: HashMap::new(),
             num_gpus: 0,
             children: None,
-            uid_optional: match uid {
-                Some(uid) => Some(UidOptional::Uid(uid as i32)),
-                None => None,
-            },
+            uid_optional: uid.map(|uid| UidOptional::Uid(uid as i32)),
             os: "macos".to_string(),
             soft_memory_limit: 0,
             hard_memory_limit: 0,
@@ -76,8 +73,9 @@ impl DummyRqdClient {
         };
 
         let mut client = self.client.lock().await;
-        let mut request = pb::RqdStaticLaunchFrameRequest::default();
-        request.run_frame = Some(run_frame);
+        let request = pb::RqdStaticLaunchFrameRequest {
+            run_frame: Some(run_frame),
+        };
         client
             .launch_frame(request)
             .await
@@ -87,8 +85,10 @@ impl DummyRqdClient {
 
     pub async fn kill_frame(&self, frame_id: String, reason: Option<String>) -> Result<()> {
         let mut client = self.client.lock().await;
-        let mut request = pb::RqdStaticKillRunningFrameRequest::default();
-        request.frame_id = frame_id;
+        let mut request = pb::RqdStaticKillRunningFrameRequest {
+            frame_id,
+            ..Default::default()
+        };
         request.message = reason.unwrap_or("No reason".to_string());
         client
             .kill_running_frame(request)

@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use config::config::Config;
+use config::Config;
 use frame::manager::FrameManager;
 use miette::IntoDiagnostic;
 use report::report_client::ReportClient;

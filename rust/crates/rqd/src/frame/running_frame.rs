@@ -34,7 +34,7 @@ use opencue_proto::{report::RunningFrameInfo, rqd::RunFrame};
 use uuid::Uuid;
 
 use super::logging::{FrameLogger, FrameLoggerBuilder};
-use crate::config::config::RunnerConfig;
+use crate::config::RunnerConfig;
 
 /// Wrapper around protobuf message RunningFrameInfo
 #[derive(Serialize, Deserialize)]
@@ -605,7 +605,7 @@ impl RunningFrame {
         if logger_signal.send(()).await.is_err() {
             warn!("Failed to notify log thread");
         }
-        if let Err(_) = log_pipe_handle.await {
+        if log_pipe_handle.await.is_err() {
             warn!("Failed to join log thread");
         }
 
@@ -754,7 +754,7 @@ impl RunningFrame {
     /// This method safely accesses the thread-protected state to retrieve
     /// the current PID of the running frame process. A warning is logged
     /// if the frame doesn't have an associated thread handle.
-    pub fn get_pid_to_kill(&self, reason: &String) -> Result<u32> {
+    pub fn get_pid_to_kill(&self, reason: &str) -> Result<u32> {
         let mut lock = self
             .state
             .write()
@@ -762,7 +762,7 @@ impl RunningFrame {
         match *lock {
             FrameState::Created(_) => Err(miette!("Frame has been created but hasn't started yet")),
             FrameState::Running(ref mut running_state) => {
-                running_state.kill_reason = Some(reason.clone());
+                running_state.kill_reason = Some(reason.to_owned());
                 Ok(running_state.pid)
             }
             FrameState::Finished(ref finished_state) => {
@@ -1125,7 +1125,8 @@ Processes:
 ====================================================================================================
 Render Frame Completed
         ),
-        "#.to_string(),
+        "#
+            .to_string(),
         }
     }
 
@@ -1140,7 +1141,7 @@ Render Frame Completed
     }
 
     /// Produce a copy of this running frame in the format expected by the grpc interface
-    pub fn into_running_frame_info(&self) -> RunningFrameInfo {
+    pub fn clone_into_running_frame_info(&self) -> RunningFrameInfo {
         let frame_stats_lock = self
             .frame_stats
             .read()
@@ -1197,7 +1198,7 @@ mod tests {
     use std::sync::Arc;
     use uuid::Uuid;
 
-    use crate::config::config::Config;
+    use crate::config::Config;
     use crate::frame::logging::FrameLoggerT;
     use crate::frame::logging::TestLogger;
 
@@ -1282,7 +1283,7 @@ mod tests {
         assert!(status.is_ok());
         assert_eq!((0, None), status.unwrap());
 
-        let possible_out = vec!["stderr test", "stdout test"];
+        let possible_out = ["stderr test", "stdout test"];
         assert!(possible_out.contains(&logger.pop().unwrap().as_str()));
         assert!(possible_out.contains(&logger.pop().unwrap().as_str()));
 

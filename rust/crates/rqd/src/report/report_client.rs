@@ -1,6 +1,6 @@
 use std::time::{Duration, SystemTime};
 
-use crate::config::config::{Config, GrpcConfig};
+use crate::config::{Config, GrpcConfig};
 use async_trait::async_trait;
 use chrono::{DateTime, Local};
 use miette::{IntoDiagnostic, Result, miette};
@@ -51,10 +51,7 @@ impl ReportClient {
         let recycle_txt = match refresh_at {
             Some(next_time) => {
                 let time_str: DateTime<Local> = next_time.into();
-                format!(
-                    "Expires at {}",
-                    time_str.format("%Y-%m-%d %H:%M:%S")
-                )
+                format!("Expires at {}", time_str.format("%Y-%m-%d %H:%M:%S"))
             }
             None => "".to_string(),
         };
@@ -101,7 +98,7 @@ impl ReportClient {
         Ok((endpoint, RqdReportInterfaceClient::new(channel)))
     }
 
-    fn draw_endpoint(endpoints: &Vec<String>) -> Result<String> {
+    fn draw_endpoint(endpoints: &[String]) -> Result<String> {
         match endpoints.choose(&mut rng()) {
             Some(endpoint) => Ok(endpoint.clone()),
             None => Err(miette!("Invalid empty grpc endpoint configuration")),
@@ -161,11 +158,12 @@ impl ReportInterface for ReportClient {
         render_host: pb::RenderHost,
         core_detail: pb::CoreDetail,
     ) -> Result<()> {
-        let mut request = pb::RqdReportRqdStartupRequest::default();
-        request.boot_report = Some(pb::BootReport {
-            host: Some(render_host),
-            core_info: Some(core_detail),
-        });
+        let request = pb::RqdReportRqdStartupRequest {
+            boot_report: Some(pb::BootReport {
+                host: Some(render_host),
+                core_info: Some(core_detail),
+            }),
+        };
         self.get_client()
             .await?
             .report_rqd_startup(request)
@@ -182,14 +180,15 @@ impl ReportInterface for ReportClient {
         exit_signal: u32,
         run_time: u32,
     ) -> Result<()> {
-        let mut request = pb::RqdReportRunningFrameCompletionRequest::default();
-        request.frame_complete_report = Some(pb::FrameCompleteReport {
-            host: Some(render_host),
-            frame: Some(running_frame),
-            exit_status: exit_status as i32,
-            exit_signal: exit_signal as i32,
-            run_time: run_time as i32,
-        });
+        let request = pb::RqdReportRunningFrameCompletionRequest {
+            frame_complete_report: Some(pb::FrameCompleteReport {
+                host: Some(render_host),
+                frame: Some(running_frame),
+                exit_status: exit_status as i32,
+                exit_signal: exit_signal as i32,
+                run_time: run_time as i32,
+            }),
+        };
         self.get_client()
             .await?
             .report_running_frame_completion(request)
@@ -199,8 +198,9 @@ impl ReportInterface for ReportClient {
     }
 
     async fn send_host_report(&self, host_report: pb::HostReport) -> Result<()> {
-        let mut request = pb::RqdReportStatusRequest::default();
-        request.host_report = Some(host_report);
+        let request = pb::RqdReportStatusRequest {
+            host_report: Some(host_report),
+        };
         self.get_client()
             .await?
             .report_status(request)

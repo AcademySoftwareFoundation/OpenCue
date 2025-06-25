@@ -1,4 +1,4 @@
-use crate::config::config::{LoggerType, RunnerConfig};
+use crate::config::{LoggerType, RunnerConfig};
 use chrono::{DateTime, Local};
 use miette::{IntoDiagnostic, Result};
 use std::{

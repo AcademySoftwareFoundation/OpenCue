@@ -25,7 +25,7 @@ use uuid::Uuid;
 #[cfg(target_os = "macos")]
 use crate::system::macos::MacOsSystem;
 use crate::{
-    config::config::{Config, MachineConfig},
+    config::{Config, MachineConfig},
     frame::{
         cache::RunningFrameCache,
         running_frame::{FrameState, RunningFrame, RunningState},
@@ -366,7 +366,7 @@ impl MachineMonitor {
             };
 
             if let Some((exit_code, exit_signal)) = exit_code_and_signal {
-                let frame_report = frame.into_running_frame_info();
+                let frame_report = frame.clone_into_running_frame_info();
                 info!("Sending frame complete report: {}", frame);
 
                 // Release resources
@@ -469,18 +469,14 @@ pub trait Machine {
     /// # Returns
     ///
     /// Vector of successfully reserved CPU core IDs
-    async fn reserve_cores_by_id(
-        &self,
-        thread_ids: &Vec<u32>,
-        resource_id: Uuid,
-    ) -> Result<Vec<u32>>;
+    async fn reserve_cores_by_id(&self, thread_ids: &[u32], resource_id: Uuid) -> Result<Vec<u32>>;
 
     /// Release specific threads
     ///
     /// # Arguments
     ///
     /// * `threads` - Vector of thread IDs to release
-    async fn release_threads(&self, thread_ids: &Vec<u32>);
+    async fn release_threads(&self, thread_ids: &[u32]);
 
     /// Releases a specified number of CPU cores
     ///
@@ -523,7 +519,7 @@ pub trait Machine {
     ///  * [ESRCH] No process or process group can be found corresponding to that specified by pid.
     async fn kill_session(&self, pid: u32, force: bool) -> Result<()>;
 
-    async fn force_kill(&self, pids: &Vec<u32>) -> Result<()>;
+    async fn force_kill(&self, pids: &[u32]) -> Result<()>;
 
     /// Check if this pid and any of its children are still active
     /// Returns the list of active children, and none if the pid itself is not active
@@ -598,11 +594,7 @@ impl Machine for MachineMonitor {
         cores_result
     }
 
-    async fn reserve_cores_by_id(
-        &self,
-        thread_ids: &Vec<u32>,
-        resource_id: Uuid,
-    ) -> Result<Vec<u32>> {
+    async fn reserve_cores_by_id(&self, thread_ids: &[u32], resource_id: Uuid) -> Result<Vec<u32>> {
         // Reserve cores on the socket level
         let thread_ids = {
             let mut system_lock = self.system_manager.lock().await;
@@ -620,7 +612,7 @@ impl Machine for MachineMonitor {
         Ok(thread_ids)
     }
 
-    async fn release_threads(&self, thread_ids: &Vec<u32>) {
+    async fn release_threads(&self, thread_ids: &[u32]) {
         let mut released_cores = HashSet::new();
         {
             let mut system = self.system_manager.lock().await;
@@ -694,7 +686,7 @@ impl Machine for MachineMonitor {
         }
     }
 
-    async fn force_kill(&self, pids: &Vec<u32>) -> Result<()> {
+    async fn force_kill(&self, pids: &[u32]) -> Result<()> {
         let system = self.system_manager.lock().await;
         system.force_kill(pids)
     }
