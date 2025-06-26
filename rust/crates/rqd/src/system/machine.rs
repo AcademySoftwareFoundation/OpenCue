@@ -370,15 +370,13 @@ impl MachineMonitor {
                 info!("Sending frame complete report: {}", frame);
 
                 // Release resources
-                if let Some(threads) = &frame.thread_ids {
-                    self.release_threads(threads).await;
-                } else {
-                    // Ensure the division rounds up if num_cores is not a multiple of
-                    // core_multiplier
-                    let num_cores_to_release = (frame.request.num_cores as u32)
-                        .div_ceil(self.maching_config.core_multiplier);
-                    self.release_cores(num_cores_to_release).await;
-                }
+                // Ensure the division rounds up if num_cores is not a multiple of
+                // core_multiplier
+                let num_cores_to_release =
+                    (frame.request.num_cores as u32).div_ceil(self.maching_config.core_multiplier);
+
+                self.release_cores(num_cores_to_release, &frame.thread_ids)
+                    .await;
 
                 // Send complete report
                 if let Err(err) = self
@@ -471,19 +469,14 @@ pub trait Machine {
     /// Vector of successfully reserved CPU core IDs
     async fn reserve_cores_by_id(&self, thread_ids: &[u32], resource_id: Uuid) -> Result<Vec<u32>>;
 
-    /// Release specific threads
-    ///
-    /// # Arguments
-    ///
-    /// * `threads` - Vector of thread IDs to release
-    async fn release_threads(&self, thread_ids: &[u32]);
-
     /// Releases a specified number of CPU cores
     ///
     /// # Arguments
     ///
     /// * `num_cores` - The number of cores to release
-    async fn release_cores(&self, num_cores: u32);
+    /// * `thread_ids` - List of threads to be released, None means the reservation didn't
+    ///   allocate specific threads
+    async fn release_cores(&self, num_cores: u32, thread_ids: &Option<Vec<u32>>);
 
     /// Reserve GPU units
     ///
@@ -585,11 +578,15 @@ impl Machine for MachineMonitor {
         // Record reservation to be reported to cuebot
         if cores_result.is_ok() {
             let mut core_state = self.core_state.lock().await;
-            debug!("Before: {:?}", *core_state);
-            core_state
-                .reserve(num_cores * self.maching_config.core_multiplier as usize)
-                .map_err(|err| miette!(err))?;
-            debug!("After: {:?}", *core_state);
+            debug!("Reservation: Before: {:?}", *core_state);
+            if let Err(err) = core_state
+                .register_reservation(num_cores * self.maching_config.core_multiplier as usize)
+                .map_err(|err| miette!(err))
+            {
+                error!("Accountability Error: {err}");
+                Err(err)?;
+            }
+            debug!("Reservation: After: {:?}", *core_state);
         }
         cores_result
     }
@@ -605,52 +602,46 @@ impl Machine for MachineMonitor {
 
         // Record reservation to be reported to cuebot
         let mut core_state = self.core_state.lock().await;
-        core_state
-            .reserve(thread_ids.len() * self.maching_config.core_multiplier as usize)
-            .map_err(|err| miette!(err))?;
+        debug!("Reservation: Before: {:?}", *core_state);
+        if let Err(err) = core_state
+            .register_reservation(thread_ids.len() * self.maching_config.core_multiplier as usize)
+            .map_err(|err| miette!(err))
+        {
+            error!("Accountability Error: {err}");
+            Err(err)?;
+        }
+        debug!("Reservation: After: {:?}", *core_state);
 
         Ok(thread_ids)
     }
 
-    async fn release_threads(&self, thread_ids: &[u32]) {
-        let mut released_cores = HashSet::new();
-        {
-            let mut system = self.system_manager.lock().await;
-            for thread_id in thread_ids {
-                match system.release_core_by_thread(thread_id) {
-                    Ok((phys_id, core_id)) => {
-                        released_cores.insert((phys_id, core_id));
+    async fn release_cores(&self, num_cores: u32, thread_ids: &Option<Vec<u32>>) {
+        if let Some(thread_ids) = thread_ids {
+            let mut released_cores = HashSet::new();
+            {
+                let mut system = self.system_manager.lock().await;
+                for thread_id in thread_ids {
+                    match system.release_core_by_thread(thread_id) {
+                        Ok((phys_id, core_id)) => {
+                            released_cores.insert((phys_id, core_id));
+                        }
+                        Err(err) => match err {
+                            ReservationError::ReservationNotFound(_) => {
+                                // NoOp. When releasing a thread, the entire core might be released,
+                                // threfore misses are expected
+                            }
+                            _ => {
+                                error!("Failed to release proc {thread_id}. Unexpected error")
+                            }
+                        },
                     }
-                    Err(err) => match err {
-                        ReservationError::ReservationNotFound(_) => {
-                            // NoOp. When releasing a thread, the entire core might be released,
-                            // threfore misses are expected
-                        }
-                        _ => {
-                            error!("Failed to release proc {thread_id}. Unexpected error")
-                        }
-                    },
                 }
             }
         }
         // Record reservation to be reported to cuebot
         let mut core_state = self.core_state.lock().await;
         if let Err(err) = core_state
-            .release(released_cores.len() as u32 * self.maching_config.core_multiplier)
-            .map_err(|err| miette!(err))
-        {
-            error!(
-                "Accountability error. Failed to release the requested number of cores. {}",
-                err
-            )
-        };
-    }
-
-    async fn release_cores(&self, num_cores: u32) {
-        // Record reservation to be reported to cuebot
-        let mut core_state = self.core_state.lock().await;
-        if let Err(err) = core_state
-            .release(num_cores * self.maching_config.core_multiplier)
+            .register_release(num_cores * self.maching_config.core_multiplier)
             .map_err(|err| miette!(err))
         {
             error!(
