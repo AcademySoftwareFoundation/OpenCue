@@ -71,10 +71,10 @@ impl FrameManager {
             .environment
             .get("CUE_THREADABLE")
             .is_some_and(|v| v == "1");
-        let cpu_request = run_frame.num_cores as u32 / self.config.machine.core_multiplier;
+        let num_cores = (run_frame.num_cores as u32).div_ceil(self.config.machine.core_multiplier);
         let thread_ids = self
             .machine
-            .reserve_cores(cpu_request as usize, run_frame.resource_id(), hyperthreaded)
+            .reserve_cores(num_cores as usize, run_frame.resource_id(), hyperthreaded)
             .await
             .map_err(|err| {
                 FrameManagerError::Aborted(format!(
@@ -90,11 +90,7 @@ impl FrameManager {
                 let reserved_res = self.machine.reserve_gpus(run_frame.num_gpus as u32).await;
                 if reserved_res.is_err() {
                     // Release cores reserved on the last step
-                    if let Some(thread_ids) = &thread_ids {
-                        self.machine.release_threads(thread_ids).await;
-                    } else {
-                        self.machine.release_cores(cpu_request).await;
-                    }
+                    self.machine.release_cores(num_cores, &thread_ids).await;
                 }
                 Some(reserved_res.map_err(|err| {
                     FrameManagerError::Aborted(format!(
@@ -109,16 +105,18 @@ impl FrameManager {
             run_frame,
             uid,
             self.config.runner.clone(),
-            thread_ids,
+            thread_ids.clone(),
             gpu_list,
             self.machine.get_host_name().await,
         ));
 
         if self.config.runner.run_on_docker {
             self.spawn_docker_frame(running_frame, false);
-        } else {
-            self.spawn_running_frame(running_frame, false);
+        } else if self.spawn_running_frame(running_frame, false).is_err() {
+            // Release cores reserved on the last step
+            self.machine.release_cores(num_cores, &thread_ids).await;
         }
+
         Ok(())
     }
 
@@ -169,8 +167,8 @@ impl FrameManager {
                             .await
                             .map(Some),
                         None => {
-                            let num_cores = running_frame.request.num_cores as u32
-                                / self.config.machine.core_multiplier;
+                            let num_cores = (running_frame.request.num_cores as u32)
+                                .div_ceil(self.config.machine.core_multiplier);
                             self.machine
                                 .reserve_cores(
                                     num_cores as usize,
@@ -182,10 +180,14 @@ impl FrameManager {
                     } {
                         errors.push(err.to_string());
                     }
+
+                    let num_cores = (running_frame.request.num_cores as u32)
+                        .div_ceil(self.config.machine.core_multiplier);
+                    let thread_ids = &running_frame.thread_ids.clone();
                     if self.config.runner.run_on_docker {
                         todo!("Recovering frames when running on docker is not yet supported")
-                    } else {
-                        self.spawn_running_frame(running_frame, true)
+                    } else if self.spawn_running_frame(running_frame, true).is_err() {
+                        self.machine.release_cores(num_cores, thread_ids).await;
                     }
                 }
                 Err(err) => {
@@ -204,16 +206,24 @@ impl FrameManager {
         }
     }
 
-    fn spawn_running_frame(&self, running_frame: Arc<RunningFrame>, recover_mode: bool) {
+    fn spawn_running_frame(
+        &self,
+        running_frame: Arc<RunningFrame>,
+        recover_mode: bool,
+    ) -> Result<()> {
         self.machine.add_running_frame(Arc::clone(&running_frame));
         let running_frame_ref: Arc<RunningFrame> = Arc::clone(&running_frame);
         let thread_handle = tokio::spawn(async move { running_frame.run(recover_mode).await });
-        if let Err(err) = running_frame_ref.update_launch_thread_handle(thread_handle) {
-            warn!(
-                "Failed to update thread handle for frame {}. {}",
-                running_frame_ref, err
-            );
-        }
+        running_frame_ref
+            .update_launch_thread_handle(thread_handle)
+            .map_err(|err| {
+                warn!(
+                    "Failed to update thread handle for frame {}. {}",
+                    running_frame_ref, err
+                );
+                err
+            })?;
+        Ok(())
     }
 
     #[cfg(feature = "containerized_frames")]
