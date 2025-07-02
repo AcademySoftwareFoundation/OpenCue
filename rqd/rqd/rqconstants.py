@@ -159,7 +159,7 @@ OVERRIDE_NIMBY = None # True to turn on, False to turn off
 USE_NIMBY_PYNPUT = True # True pynput, False select
 OVERRIDE_HOSTNAME = None # Force to use this hostname
 ALLOW_GPU = False
-LOAD_MODIFIER = 0 # amount to add/subtract from load,
+LOAD_MODIFIER = 0 # amount to add/subtract from load, used to make the machine look busier than it really is to CueBot.
 
 LOG_FORMAT = '%(levelname)-9s openrqd-%(module)-10s: %(message)s'
 CONSOLE_LOG_LEVEL = logging.WARNING
@@ -233,7 +233,7 @@ try:
             RQD_USE_PATH_ENV_VAR = config.getboolean(__override_section, "RQD_USE_PATH_ENV_VAR")
         if config.has_option(__override_section, "RQD_USE_ALL_HOST_ENV_VARS"):
             RQD_USE_HOST_ENV_VARS = config.getboolean(__override_section,
-                                                      "RQD_USE_ALL_HOST_ENV_VARS")
+                "RQD_USE_ALL_HOST_ENV_VARS")
         if config.has_option(__override_section, "RQD_BECOME_JOB_USER"):
             RQD_BECOME_JOB_USER = config.getboolean(__override_section, "RQD_BECOME_JOB_USER")
         if config.has_option(__override_section, "RQD_TAGS"):
