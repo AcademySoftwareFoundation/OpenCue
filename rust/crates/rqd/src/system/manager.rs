@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    time::Instant,
-};
+use std::collections::HashMap;
 
 use miette::{Diagnostic, Result};
 use opencue_proto::{host::HardwareState, report::ChildrenProcStats};
@@ -25,32 +22,6 @@ pub trait SystemManager {
 
     /// List of attributes collected from the machine. Eg. SP_OS
     fn attributes(&self) -> &HashMap<String, String>;
-
-    /// Reserve a number of cores.
-    ///
-    /// # Returns:
-    ///
-    /// * Vector of thread ids belonging to reserved cores
-    fn reserve_cores(&mut self, count: usize, frame_id: Uuid)
-    -> Result<Vec<u32>, ReservationError>;
-
-    /// Reserve specific cores by id.
-    ///
-    /// # Returns:
-    ///
-    /// * Vector of core ids
-    fn reserve_cores_by_id(
-        &mut self,
-        cpu_list: &[u32],
-        resource_id: Uuid,
-    ) -> Result<Vec<u32>, ReservationError>;
-
-    /// Release a core using the id of one of its threads
-    ///
-    /// # Returns:
-    ///
-    /// * Tuple with phys_id and core_id the released thread belongs to
-    fn release_core_by_thread(&mut self, thread_id: &u32) -> Result<(u32, u32), ReservationError>;
 
     /// Creates an user if it doesn't already exist
     fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32>;
@@ -83,46 +54,10 @@ pub enum ReservationError {
     NotEnoughResourcesAvailable,
 
     #[error("Could not find resource with provided key: {0}")]
-    ReservationNotFound(u32),
+    ReservationNotFound(Uuid),
 
     #[error("Could not find core owner of this thread id")]
     CoreNotFoundForThread(Vec<u32>),
-}
-
-#[derive(Debug, Clone)]
-pub struct CpuStat {
-    /// List of cores currently reserved
-    pub reserved_cores_by_physid: HashMap<u32, CoreReservation>,
-    // pub available_cores: u32,
-}
-
-#[derive(Debug, Clone)]
-pub struct CoreReservation {
-    pub reserved_cores: HashSet<u32>,
-    pub _reserver_id: Uuid,
-    pub _start_time: Instant,
-}
-
-impl CoreReservation {
-    pub fn new(reserver_id: Uuid) -> Self {
-        CoreReservation {
-            reserved_cores: HashSet::new(),
-            _reserver_id: reserver_id,
-            _start_time: Instant::now(),
-        }
-    }
-
-    pub fn iter(&self) -> std::collections::hash_set::Iter<'_, u32> {
-        self.reserved_cores.iter()
-    }
-
-    pub fn insert(&mut self, core_id: u32) -> bool {
-        self.reserved_cores.insert(core_id)
-    }
-
-    pub fn remove(&mut self, core_id: &u32) -> bool {
-        self.reserved_cores.remove(core_id)
-    }
 }
 
 /// Represents attributes on a machine that should never change without restarting the
