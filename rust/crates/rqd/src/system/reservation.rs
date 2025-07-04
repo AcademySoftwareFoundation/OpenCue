@@ -387,10 +387,14 @@ impl CoreStateManager {
     /// # Arguments
     ///
     /// * `active_resource_ids` - A vector of resource IDs that are currently active
-    pub fn sanitize_reservations(&mut self, active_resource_ids: &Vec<ResourceId>) {
+    pub fn sanitize_reservations(&mut self, active_resource_ids: &[ResourceId]) {
         self.bookings.retain(|resource_id, booking| {
-            active_resource_ids.contains(&resource_id)
-                || !booking.expired(self.reservation_grace_period)
+            let retain = active_resource_ids.contains(resource_id)
+                || !booking.expired(self.reservation_grace_period);
+            if !retain {
+                warn!("Cleaning up dangling reservation for {}", resource_id);
+            }
+            retain
         });
     }
 }
