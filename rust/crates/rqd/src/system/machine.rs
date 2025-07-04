@@ -301,18 +301,8 @@ impl MachineMonitor {
                 }
             });
 
-        // Sanitize dangling reservations
-        {
-            self.core_manager.write().await.sanitize_reservations(
-                &running_frames
-                    .iter()
-                    .map(|(running_frame, _)| running_frame.request.resource_id())
-                    .collect(),
-            );
-        }
-
         // Handle Running frames separately to avoid deadlocks when trying to get a frame state
-        for (running_frame, running_state) in running_frames {
+        for (running_frame, running_state) in &running_frames {
             // Collect stats about the procs related to this frame
             let proc_stats_opt = {
                 let system_monitor = self.system_manager.lock().await;
@@ -336,7 +326,7 @@ impl MachineMonitor {
                 );
                 // Attempt to finish the process
                 let _ = running_frame.finish(1, Some(19));
-                finished_frames.push(Arc::clone(&running_frame));
+                finished_frames.push(Arc::clone(running_frame));
                 self.running_frames_cache.remove(&running_frame.frame_id);
             } else {
                 // Proc finished but frame is waiting for the lock on `is_finished` to update the status
@@ -346,6 +336,22 @@ impl MachineMonitor {
         }
 
         self.handle_finished_frames(finished_frames).await;
+
+        // Sanitize dangling reservations
+        // This mechanism is redundant as handle_finished_frames releases resources reserved to
+        // finished frames. But leaking core reservations would lead to waste of resoures, so
+        // having a safety check sounds reasonable even when reduntant.
+        {
+            let running_resources: Vec<Uuid> = running_frames
+                .iter()
+                .map(|(running_frame, _)| running_frame.request.resource_id())
+                .collect();
+            self.core_manager
+                .write()
+                .await
+                .sanitize_reservations(&running_resources);
+        }
+
         Ok(())
     }
 
