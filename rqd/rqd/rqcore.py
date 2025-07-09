@@ -1026,22 +1026,26 @@ class FrameAttendantThread(threading.Thread):
             rqd.rqutil.permissionsLow()
 
         frameInfo.pid = runFrame.pid = frameInfo.forkedCommand.pid
+        try:
+            if not self.rqCore.updateRssThread.is_alive():
+                self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
+                                                              self.rqCore.updateRss)
+                self.rqCore.updateRssThread.start()
 
-        if not self.rqCore.updateRssThread.is_alive():
-            self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
-                                                          self.rqCore.updateRss)
-            self.rqCore.updateRssThread.start()
+        except Exception as e:
+            print(f"Unable to start updateRssThread: {e}")
 
-        returncode = frameInfo.forkedCommand.wait()
-        readerThread.join()
-        # Find exitStatus and exitSignal
-        if returncode < 0:
-            # Exited with a signal
-            frameInfo.exitStatus = 1
-            frameInfo.exitSignal = -returncode
-        else:
-            frameInfo.exitStatus = returncode
-            frameInfo.exitSignal = 0
+        finally:
+            returncode = frameInfo.forkedCommand.wait()
+            readerThread.join()
+            # Find exitStatus and exitSignal
+            if returncode < 0:
+                # Exited with a signal
+                frameInfo.exitStatus = 1
+                frameInfo.exitSignal = -returncode
+            else:
+                frameInfo.exitStatus = returncode
+                frameInfo.exitSignal = 0
 
         self.__writeFooter()
         self.__cleanup()
