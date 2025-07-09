@@ -231,6 +231,10 @@ try:
                 if spec is None:
                     logging.warning("cysystemd is not installed, RQD_USE_SYSTEMD_RUN is ignored")
                     RQD_USE_SYSTEMD_RUN = False
+                elif 'DBUS_SESSION_BUS_ADDRESS' not in os.environ:
+                    logging.warning("DBUS_SESSION_BUS_ADDRESS is not set, "
+                                    "RQD_USE_SYSTEMD_RUN is ignored")
+                    RQD_USE_SYSTEMD_RUN = False
         if config.has_option(__override_section, "RQD_USE_PATH_ENV_VAR"):
             RQD_USE_PATH_ENV_VAR = config.getboolean(__override_section, "RQD_USE_PATH_ENV_VAR")
         if config.has_option(__override_section, "RQD_USE_ALL_HOST_ENV_VARS"):

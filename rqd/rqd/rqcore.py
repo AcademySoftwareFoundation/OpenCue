@@ -972,8 +972,7 @@ class FrameAttendantThread(threading.Thread):
         self.__createEnvVariables()
         self.__writeHeader()
 
-        # TODO: Better handling if env vars are not set or not able to connect to the systemd-daemon
-        self.frameEnv['DBUS_SESSION_BUS_ADDRESS'] = os.environ['DBUS_SESSION_BUS_ADDRESS']
+        self.frameEnv['DBUS_SESSION_BUS_ADDRESS'] = os.environ.get('DBUS_SESSION_BUS_ADDRESS')
         systemdUnitName = f"rqd-{frameInfo.frameId}.service"
 
         def journalReaderThread():
