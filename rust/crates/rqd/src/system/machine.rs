@@ -1,20 +1,19 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use bytesize::KIB;
-use miette::{IntoDiagnostic, Result, miette};
+use itertools::Either;
+use miette::Result;
 use opencue_proto::{
-    host::HardwareState,
-    report::{CoreDetail, HostReport, RenderHost},
+    host::{HardwareState, LockState},
+    report::{HostReport, RenderHost},
 };
 use tokio::{
     select,
     sync::{
-        Mutex,
-        oneshot::{self, Sender},
+        Mutex, RwLock,
+        broadcast::{self, Receiver},
+        oneshot,
     },
     time,
 };
@@ -24,18 +23,16 @@ use uuid::Uuid;
 #[cfg(target_os = "macos")]
 use crate::system::macos::MacOsSystem;
 use crate::{
-    config::config::{Config, MachineConfig},
+    config::{Config, MachineConfig},
     frame::{
         cache::RunningFrameCache,
         running_frame::{FrameState, RunningFrame, RunningState},
     },
     report::report_client::{ReportClient, ReportInterface},
+    system::{manager::ReservationError, nimby::Nimby, reservation::CoreStateManager},
 };
 
-use super::{
-    linux::LinuxSystem,
-    manager::{ReservationError, SystemManagerType},
-};
+use super::{linux::LinuxSystem, manager::SystemManagerType};
 
 /// Constantly monitor the state of this machine and report back to Cuebot
 ///
@@ -59,102 +56,203 @@ pub struct MachineMonitor {
     maching_config: MachineConfig,
     report_client: Arc<ReportClient>,
     pub system_manager: Mutex<SystemManagerType>,
+    pub core_manager: Arc<RwLock<CoreStateManager>>,
     pub running_frames_cache: Arc<RunningFrameCache>,
-    core_state: Arc<Mutex<CoreDetail>>,
     last_host_state: Arc<Mutex<Option<RenderHost>>>,
-    interrupt: Mutex<Option<Sender<()>>>,
+    interrupt: Mutex<Option<broadcast::Sender<()>>>,
     reboot_when_idle: Mutex<bool>,
+    nimby: Arc<Option<Nimby>>,
+    nimby_state: RwLock<LockState>,
 }
 
 impl MachineMonitor {
     /// Initializes the object without starting the monitor loop
     /// Will gather the initial state of this machine
     pub fn init(config: &Config, report_client: Arc<ReportClient>) -> Result<Self> {
-        #[cfg(any(target_os = "macos"))]
+        #[cfg(target_os = "macos")]
         #[allow(unused_variables)]
-        let system_manager: SystemManagerType = Box::new(MacOsSystem::init(&config.machine)?);
+        let (system_manager, core_manager): (
+            SystemManagerType,
+            Arc<RwLock<CoreStateManager>>,
+        ) = {
+            let processor_info_data = MacOsSystem::read_cpuinfo(&config.machine.cpuinfo_path)?;
+            let core_manager = Arc::new(RwLock::new(CoreStateManager::new(
+                processor_info_data.processor_structure.clone(),
+            )));
 
-        // Allow linux logic compilation from mac development environments
-        #[cfg(any(target_os = "linux", all(debug_assertions)))]
-        let system_manager: SystemManagerType = Box::new(LinuxSystem::init(&config.machine)?);
+            (Box::new(MacOsSystem::init(&config.machine)?), core_manager)
+        };
+
+        // Use debug_assertions to allow linux logic compilation from mac development environments
+        #[cfg(any(target_os = "linux", debug_assertions))]
+        let (system_manager, core_manager): (
+            SystemManagerType,
+            Arc<RwLock<CoreStateManager>>,
+        ) = {
+            let processor_info_data = LinuxSystem::read_cpuinfo(&config.machine.cpuinfo_path)?;
+            let core_manager = Arc::new(RwLock::new(CoreStateManager::new(
+                processor_info_data.processor_structure.clone(),
+            )));
+
+            (
+                Box::new(LinuxSystem::init(&config.machine, processor_info_data)?),
+                core_manager,
+            )
+        };
+
+        // Init nimby
+        let nimby = if config.machine.nimby_mode {
+            let nimby = Nimby::init(
+                config.machine.nimby_idle_threshold,
+                config.machine.nimby_display_file_path.clone(),
+                config.machine.nimby_display_xauthority_path.clone(),
+            );
+            info!("NIMBY mode enabled and initialized");
+            Arc::new(Some(nimby))
+        } else {
+            Arc::new(None)
+        };
 
         Ok(Self {
             maching_config: config.machine.clone(),
             report_client,
             system_manager: Mutex::new(system_manager),
             running_frames_cache: RunningFrameCache::init(),
-            core_state: Arc::new(Mutex::new(CoreDetail::default())),
             last_host_state: Arc::new(Mutex::new(None)),
             interrupt: Mutex::new(None),
             reboot_when_idle: Mutex::new(false),
+            nimby,
+            nimby_state: RwLock::new(LockState::Open),
+            core_manager,
         })
     }
 
     /// Starts an async loop that will update the machine state every `monitor_interval_seconds`.
-    pub async fn start(&self, startup_flag: Sender<()>) -> Result<()> {
+    pub async fn start(&self, startup_flag: oneshot::Sender<()>) -> Result<()> {
         let report_client = self.report_client.clone();
 
-        let system_lock = self.system_manager.lock().await;
-        let host_state = Self::inspect_host_state(&self.maching_config, &system_lock)?;
-        drop(system_lock);
+        let host_state = {
+            let system_lock = self.system_manager.lock().await;
+            Self::inspect_host_state(&self.maching_config, &system_lock, false)?
+        };
+
+        let core_info = {
+            let core_manager = self.core_manager.read().await;
+            core_manager.get_core_info_report(self.maching_config.core_multiplier)
+        };
 
         self.last_host_state
             .lock()
             .await
             .replace(host_state.clone());
-        let total_cores = host_state.num_procs * host_state.cores_per_proc as i32;
-        let initial_core_state = CoreDetail {
-            total_cores,
-            idle_cores: total_cores,
-            locked_cores: 0,
-            booked_cores: 0,
-            reserved_cores: HashMap::default(),
-        };
-        {
-            // Setup initial state
-            let mut core_state_lock = self.core_state.lock().await;
-            *core_state_lock = initial_core_state.clone();
-        }
+
         debug!("Sending start report: {:?}", host_state);
         report_client
-            .send_start_up_report(host_state, initial_core_state)
+            .send_start_up_report(host_state, core_info)
             .await?;
 
         // Notify caller that the machine state is ready
         let _ = startup_flag.send(());
 
+        let (term_sender, mut term_receiver) = broadcast::channel::<()>(5);
+
+        // Start nimby monitor
+        self.start_nimby(term_receiver.resubscribe()).await;
         let mut interval = time::interval(self.maching_config.monitor_interval);
 
-        let (sender, mut receiver) = oneshot::channel::<()>();
         let mut interrupt_lock = self.interrupt.lock().await;
-        interrupt_lock.replace(sender);
+        interrupt_lock.replace(term_sender);
         drop(interrupt_lock);
 
+        let mut last_lock_state = LockState::Open;
         loop {
             select! {
-                message = &mut receiver => {
-                    match message {
-                        Ok(_) => {
-                            info!("Loop interrupted");
-                            break;
-                        },
-                        Err(_) => info!("Sender dropped"),
+                    message = term_receiver.recv() => {
+                        match message {
+                            Ok(_) => {
+                                info!("Loop interrupted");
+                                break;
+                            },
+                            Err(_) => info!("Sender dropped"),
+                        }
                     }
+                    _ = interval.tick() => {
+                        self.collect_and_send_host_report().await?;
+                        self.check_reboot_flag().await;
+
+                        if let Some(nimby) = &*self.nimby {
+                            match (nimby.is_user_active(), last_lock_state) {
+                                // Became locked
+                                (true, LockState::Open) => {
+                                    last_lock_state = LockState::NimbyLocked;
+
+                                    // Update registered state
+                                    let mut nimby_state = self.nimby_state.write().await;
+                                    *nimby_state = last_lock_state;
+                                    drop(nimby_state);
+
+                                    info!("Host became nimby locked");
+                                    self.lock_all_cores().await;
+                                }
+                                // Continues locked
+                                (true, LockState::NimbyLocked) => {}
+                                // Continues open
+                                (false, LockState::Open) => {}
+                                // Became unlocked
+                                (false, LockState::NimbyLocked) => {
+                                    last_lock_state = LockState::Open;
+
+                                    // Update registered state
+                                    let mut nimby_state = self.nimby_state.write().await;
+                                    *nimby_state = last_lock_state;
+                                    drop(nimby_state);
+
+                                    info!("Host became nimby unlocked");
+                                    self.unlock_all_cores().await;
+                                }
+                                // NoOp
+                                _ => ()
+                            }
+                        }
                 }
-                _ = interval.tick() => {
-                    self.collect_and_send_host_report().await?;
-                    self.check_reboot_flag().await;
-                }
+
             }
         }
         Ok(())
+    }
+
+    async fn start_nimby(&self, term_receiver: Receiver<()>) {
+        // Start nimby monitor
+        let nimby_clone = Arc::clone(&self.nimby);
+        let nimby_start_retry_interval = self.maching_config.nimby_start_retry_interval;
+        if nimby_clone.as_ref().is_some() {
+            tokio::spawn(async move {
+                let mut interval = time::interval(nimby_start_retry_interval);
+                loop {
+                    let mut term_listener = term_receiver.resubscribe();
+                    // Await for another chance to start nimby
+                    interval.tick().await;
+                    if let Some(nimby) = nimby_clone.as_ref() {
+                        match nimby.start(&mut term_listener).await {
+                            Ok(_) => break,
+                            Err(err) => {
+                                info!(
+                                    "Nimby startup failed, retrying in {}s. {err}",
+                                    nimby_start_retry_interval.as_secs()
+                                );
+                            }
+                        }
+                    }
+                }
+            });
+        }
     }
 
     pub async fn interrupt(&self) {
         let mut lock = self.interrupt.lock().await;
         match lock.take() {
             Some(sender) => {
-                if let Err(_) = sender.send(()) {
+                if sender.send(()).is_err() {
                     warn!("Failed to request a monitor interruption")
                 }
             }
@@ -190,7 +288,7 @@ impl MachineMonitor {
             .retain(|_, running_frame| match running_frame.get_state_copy() {
                 FrameState::Created(_) => true,
                 FrameState::Running(running_state) => {
-                    running_frames.push((Arc::clone(&running_frame), running_state));
+                    running_frames.push((Arc::clone(running_frame), running_state));
                     true
                 }
                 FrameState::Finished(_) => {
@@ -204,7 +302,7 @@ impl MachineMonitor {
             });
 
         // Handle Running frames separately to avoid deadlocks when trying to get a frame state
-        for (running_frame, running_state) in running_frames {
+        for (running_frame, running_state) in &running_frames {
             // Collect stats about the procs related to this frame
             let proc_stats_opt = {
                 let system_monitor = self.system_manager.lock().await;
@@ -228,7 +326,7 @@ impl MachineMonitor {
                 );
                 // Attempt to finish the process
                 let _ = running_frame.finish(1, Some(19));
-                finished_frames.push(Arc::clone(&running_frame));
+                finished_frames.push(Arc::clone(running_frame));
                 self.running_frames_cache.remove(&running_frame.frame_id);
             } else {
                 // Proc finished but frame is waiting for the lock on `is_finished` to update the status
@@ -238,6 +336,22 @@ impl MachineMonitor {
         }
 
         self.handle_finished_frames(finished_frames).await;
+
+        // Sanitize dangling reservations
+        // This mechanism is redundant as handle_finished_frames releases resources reserved to
+        // finished frames. But leaking core reservations would lead to waste of resoures, so
+        // having a safety check sounds reasonable even when reduntant.
+        {
+            let running_resources: Vec<Uuid> = running_frames
+                .iter()
+                .map(|(running_frame, _)| running_frame.request.resource_id())
+                .collect();
+            self.core_manager
+                .write()
+                .await
+                .sanitize_reservations(&running_resources);
+        }
+
         Ok(())
     }
 
@@ -279,20 +393,16 @@ impl MachineMonitor {
             };
 
             if let Some((exit_code, exit_signal)) = exit_code_and_signal {
-                let frame_report = frame.into_running_frame_info();
+                let frame_report = frame.clone_into_running_frame_info();
                 info!("Sending frame complete report: {}", frame);
 
-                // Release resources
-                if let Some(threads) = &frame.thread_ids {
-                    self.release_threads(threads).await;
-                } else {
-                    // Ensure the division rounds up if num_cores is not a multiple of
-                    // core_multiplier
-                    let num_cores_to_release =
-                        (frame.request.num_cores as u32 + self.maching_config.core_multiplier - 1)
-                            / self.maching_config.core_multiplier;
-                    self.release_cores(num_cores_to_release).await;
-                }
+                if let Err(err) = self.release_cores(&frame.request.resource_id()).await {
+                    warn!(
+                        "Failed to release cores reserved by {}: {}",
+                        frame.request.resource_id(),
+                        err
+                    );
+                };
 
                 // Send complete report
                 if let Err(err) = self
@@ -318,14 +428,15 @@ impl MachineMonitor {
     fn inspect_host_state(
         config: &MachineConfig,
         system: &SystemManagerType,
+        nimby_locked: bool,
     ) -> Result<RenderHost> {
         let stats = system.collect_stats()?;
         let gpu_stats = system.collect_gpu_stats();
 
         Ok(RenderHost {
             name: stats.hostname,
-            nimby_enabled: system.init_nimby()?,
-            nimby_locked: false, // TODO: implement nimby lock
+            nimby_enabled: config.nimby_mode,
+            nimby_locked,
             facility: config.facility.clone(),
             num_procs: stats.num_sockets as i32,
             cores_per_proc: (stats.cores_per_socket * config.core_multiplier) as i32,
@@ -338,7 +449,7 @@ impl MachineMonitor {
             load: stats.load as i32,
             boot_time: stats.boot_time as i32,
             tags: stats.tags,
-            state: system.hardware_state().clone() as i32,
+            state: *system.hardware_state() as i32,
             attributes: system.attributes().clone(),
             num_gpus: gpu_stats.count as i32,
             free_gpu_mem: gpu_stats.free_memory as i64,
@@ -353,54 +464,40 @@ pub trait Machine {
     async fn hardware_state(&self) -> Option<HardwareState>;
     async fn nimby_locked(&self) -> bool;
 
-    /// Reserve CPU cores
+    /// Reserve CPU cores for a resource
     ///
-    /// # Argument
+    /// # Arguments
     ///
-    /// * `num_cores` - The number of cores to reserve without multiplier
-    /// * `resource_id` - Id of the resource to be associated to the reservation
-    /// * `with_affinity` - If true, use `taskset` to attempt to reserve cores that
-    ///    might share the same cache
+    /// * `request` - Either the number of cores to reserve (Left) or specific thread IDs to reserve (Right)
+    /// * `resource_id` - Unique identifier for the resource requesting the cores
     ///
     /// # Returns
     ///
-    /// List of threads ids belonging to the reserved cores
+    /// A vector of core/thread IDs that were successfully reserved
+    ///
+    /// # Errors
+    ///
+    /// Returns `ReservationError` if the cores cannot be reserved (e.g., insufficient available cores)
     async fn reserve_cores(
         &self,
-        num_cores: usize,
+        request: Either<usize, Vec<u32>>,
         resource_id: Uuid,
-        with_affinity: bool,
-    ) -> Result<Option<Vec<u32>>>;
+    ) -> Result<Vec<u32>, ReservationError>;
 
-    /// Reserve specific CPU cores by their IDs
+    /// Release CPU cores previously reserved by a resource
     ///
     /// # Arguments
     ///
-    /// * `thread_ids` - Vector of thread ids to reserve
-    /// * `resource_id` - Unique identifier for the resource that will use these cores
+    /// * `resource_id` - Unique identifier for the resource that previously reserved the cores
     ///
     /// # Returns
     ///
-    /// Vector of successfully reserved CPU core IDs
-    async fn reserve_cores_by_id(
-        &self,
-        thread_ids: &Vec<u32>,
-        resource_id: Uuid,
-    ) -> Result<Vec<u32>>;
-
-    /// Release specific threads
+    /// Returns `Ok(())` if the cores were successfully released
     ///
-    /// # Arguments
+    /// # Errors
     ///
-    /// * `threads` - Vector of thread IDs to release
-    async fn release_threads(&self, thread_ids: &Vec<u32>);
-
-    /// Releases a specified number of CPU cores
-    ///
-    /// # Arguments
-    ///
-    /// * `num_cores` - The number of cores to release
-    async fn release_cores(&self, num_cores: u32);
+    /// Returns `ReservationError` if the resource_id is not found or cores cannot be released
+    async fn release_cores(&self, resource_id: &Uuid) -> Result<(), ReservationError>;
 
     /// Reserve GPU units
     ///
@@ -436,7 +533,7 @@ pub trait Machine {
     ///  * [ESRCH] No process or process group can be found corresponding to that specified by pid.
     async fn kill_session(&self, pid: u32, force: bool) -> Result<()>;
 
-    async fn force_kill(&self, pids: &Vec<u32>) -> Result<()>;
+    async fn force_kill(&self, pids: &[u32]) -> Result<()>;
 
     /// Check if this pid and any of its children are still active
     /// Returns the list of active children, and none if the pid itself is not active
@@ -470,7 +567,7 @@ impl Machine for MachineMonitor {
             .lock()
             .await
             .as_ref()
-            .map(|hs| hs.state().clone())
+            .map(|hs| hs.state())
     }
 
     async fn nimby_locked(&self) -> bool {
@@ -484,101 +581,20 @@ impl Machine for MachineMonitor {
 
     async fn reserve_cores(
         &self,
-        num_cores: usize,
+        request: Either<usize, Vec<u32>>,
         resource_id: Uuid,
-        with_affinity: bool,
-    ) -> Result<Option<Vec<u32>>> {
-        // Reserve cores on the socket level
-        let cores_result = if with_affinity {
-            let mut system_lock = self.system_manager.lock().await;
-            system_lock
-                .reserve_cores(num_cores, resource_id)
-                .into_diagnostic()
-                .map(|v| Some(v))
-        } else {
-            Ok(None)
-        };
-
-        // Record reservation to be reported to cuebot
-        if let Ok(_) = &cores_result {
-            let mut core_state = self.core_state.lock().await;
-            debug!("Before: {:?}", *core_state);
-            core_state
-                .reserve(num_cores * self.maching_config.core_multiplier as usize)
-                .map_err(|err| miette!(err))?;
-            debug!("After: {:?}", *core_state);
+    ) -> Result<Vec<u32>, ReservationError> {
+        let mut core_manager = self.core_manager.write().await;
+        match request {
+            Either::Left(num_cores) => core_manager.reserve_cores(num_cores, resource_id),
+            #[allow(deprecated)]
+            Either::Right(thread_ids) => core_manager.reserve_cores_by_id(thread_ids, resource_id),
         }
-        cores_result
     }
 
-    async fn reserve_cores_by_id(
-        &self,
-        thread_ids: &Vec<u32>,
-        resource_id: Uuid,
-    ) -> Result<Vec<u32>> {
-        // Reserve cores on the socket level
-        let thread_ids = {
-            let mut system_lock = self.system_manager.lock().await;
-            system_lock
-                .reserve_cores_by_id(thread_ids, resource_id)
-                .into_diagnostic()
-        }?;
-
-        // Record reservation to be reported to cuebot
-        let mut core_state = self.core_state.lock().await;
-        core_state
-            .reserve(thread_ids.len() * self.maching_config.core_multiplier as usize)
-            .map_err(|err| miette!(err))?;
-
-        Ok(thread_ids)
-    }
-
-    async fn release_threads(&self, thread_ids: &Vec<u32>) {
-        let mut released_cores = HashSet::new();
-        {
-            let mut system = self.system_manager.lock().await;
-            for thread_id in thread_ids {
-                match system.release_core_by_thread(thread_id) {
-                    Ok((phys_id, core_id)) => {
-                        released_cores.insert((phys_id, core_id));
-                    }
-                    Err(err) => match err {
-                        ReservationError::ReservationNotFound(_) => {
-                            // NoOp. When releasing a thread, the entire core might be released,
-                            // threfore misses are expected
-                        }
-                        _ => {
-                            error!("Failed to release proc {thread_id}. Unexpected error")
-                        }
-                    },
-                }
-            }
-        }
-        // Record reservation to be reported to cuebot
-        let mut core_state = self.core_state.lock().await;
-        if let Err(err) = core_state
-            .release(released_cores.len() as u32 * self.maching_config.core_multiplier)
-            .map_err(|err| miette!(err))
-        {
-            error!(
-                "Accountability error. Failed to release the requested number of cores. {}",
-                err
-            )
-        };
-    }
-
-    async fn release_cores(&self, num_cores: u32) {
-        // Record reservation to be reported to cuebot
-        let mut core_state = self.core_state.lock().await;
-        if let Err(err) = core_state
-            .release(num_cores as u32 * self.maching_config.core_multiplier)
-            .map_err(|err| miette!(err))
-        {
-            error!(
-                "Accountability error. Failed to release the requested number of cores. {}",
-                err
-            )
-        };
+    async fn release_cores(&self, resource_id: &Uuid) -> Result<(), ReservationError> {
+        let mut core_manager = self.core_manager.write().await;
+        core_manager.release_cores(resource_id).map(|_| ())
     }
 
     async fn reserve_gpus(&self, _num_gpus: u32) -> Result<Vec<u32>> {
@@ -607,7 +623,7 @@ impl Machine for MachineMonitor {
         }
     }
 
-    async fn force_kill(&self, pids: &Vec<u32>) -> Result<()> {
+    async fn force_kill(&self, pids: &[u32]) -> Result<()> {
         let system = self.system_manager.lock().await;
         system.force_kill(pids)
     }
@@ -618,30 +634,30 @@ impl Machine for MachineMonitor {
     }
 
     async fn lock_cores(&self, count: u32) -> u32 {
-        let mut core_state = self.core_state.lock().await;
-        core_state.lock_cores(count * self.maching_config.core_multiplier)
+        let mut core_manager = self.core_manager.write().await;
+        core_manager.lock_cores(count)
     }
 
     async fn lock_all_cores(&self) {
-        let mut core_state = self.core_state.lock().await;
-        core_state.lock_all_cores();
+        let mut core_manager = self.core_manager.write().await;
+        core_manager.lock_all_cores();
     }
 
     async fn unlock_cores(&self, count: u32) -> u32 {
-        let mut core_state = self.core_state.lock().await;
-        core_state.unlock_cores(count * self.maching_config.core_multiplier)
+        let mut core_manager = self.core_manager.write().await;
+        core_manager.unlock_cores(count)
     }
 
     async fn unlock_all_cores(&self) {
-        let mut core_state = self.core_state.lock().await;
-        core_state.unlock_all_cores();
+        let mut core_manager = self.core_manager.write().await;
+        core_manager.unlock_all_cores();
     }
 
     async fn reboot_if_idle(&self) -> Result<()> {
         // Prevent new frames from booking
         self.lock_all_cores().await;
 
-        if self.running_frames_cache.len() > 0 {
+        if !self.running_frames_cache.is_empty() {
             // Schedule reboot if the machine is not idle
             let mut reboot_when_idle = self.reboot_when_idle.lock().await;
 
@@ -658,24 +674,37 @@ impl Machine for MachineMonitor {
     }
 
     async fn collect_host_report(&self) -> Result<HostReport> {
-        let system_manager = self.system_manager.lock().await;
-        // If there are frames running update the list of procs on the machine
-        if !self.running_frames_cache.is_empty() {
-            system_manager.refresh_procs();
-        }
-        let render_host = Self::inspect_host_state(&self.maching_config, &system_manager)?;
-        drop(system_manager);
+        let render_host = {
+            let system_manager = self.system_manager.lock().await;
+            // If there are frames running update the list of procs on the machine
+            if !self.running_frames_cache.is_empty() {
+                system_manager.refresh_procs();
+            }
+
+            let nimby_state_lock = self.nimby_state.read().await;
+
+            Self::inspect_host_state(
+                &self.maching_config,
+                &system_manager,
+                *nimby_state_lock == LockState::NimbyLocked,
+            )?
+        }; // Scope ensures all mutex are released
+
+        let core_state = {
+            let core_manager = self.core_manager.read().await;
+            core_manager.get_core_info_report(self.maching_config.core_multiplier)
+        };
+
         // Store the last host_state on self
         let mut self_host_state_lock = self.last_host_state.lock().await;
         self_host_state_lock.replace(render_host.clone());
         drop(self_host_state_lock);
 
-        let core_state = { self.core_state.lock().await.clone() };
         self.monitor_running_frames().await?;
 
         Ok(HostReport {
             host: Some(render_host),
-            frames: Arc::clone(&self.running_frames_cache).into_running_frame_vec(),
+            frames: Arc::clone(&self.running_frames_cache).clone_to_running_frame_vec(),
             core_info: Some(core_state),
         })
     }

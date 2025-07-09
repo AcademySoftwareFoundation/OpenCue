@@ -15,6 +15,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Install X11 dev libs
+        run: |
+          sudo apt-get update && sudo apt-get install -y libx11-dev
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
       - name: Build
@@ -25,3 +28,18 @@ jobs:
         run: |
           cd rust
           cargo test --verbose
+
+  clippy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install X11 dev libs
+        run: |
+          sudo apt-get update && sudo apt-get install -y libx11-dev
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+      - name: Run Clippy
+        run: |
+          cd rust
+          cargo clippy --verbose

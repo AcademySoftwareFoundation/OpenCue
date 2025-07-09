@@ -34,7 +34,7 @@ use opencue_proto::{report::RunningFrameInfo, rqd::RunFrame};
 use uuid::Uuid;
 
 use super::logging::{FrameLogger, FrameLoggerBuilder};
-use crate::config::config::RunnerConfig;
+use crate::config::RunnerConfig;
 
 /// Wrapper around protobuf message RunningFrameInfo
 #[derive(Serialize, Deserialize)]
@@ -194,8 +194,8 @@ impl RunningFrame {
                 launch_thread_handle: None,
             }),
             FrameState::Running(ref r) => FrameState::Running(RunningState {
-                pid: r.pid.clone(),
-                start_time: r.start_time.clone(),
+                pid: r.pid,
+                start_time: r.start_time,
                 launch_thread_handle: None,
                 kill_reason: r.kill_reason.clone(),
             }),
@@ -378,7 +378,7 @@ impl RunningFrame {
         let logger_base = FrameLoggerBuilder::from_logger_config(
             self.log_path.clone(),
             &self.config,
-            self.config.run_as_user.then(|| (self.uid, self.gid)),
+            self.config.run_as_user.then_some((self.uid, self.gid)),
         );
         if let Err(err) = logger_base {
             error!("Failed to create log stream for {}: {}", self.log_path, err);
@@ -403,7 +403,7 @@ impl RunningFrame {
                 true
             }
             Err(err) => {
-                let msg = format!("Frame {} failed to be spawned. {}", self.to_string(), err);
+                let msg = format!("Frame {} failed to be spawned. {}", self, err);
                 logger.writeln(&msg);
                 error!(msg);
                 if let Err(err) = self.fail_before_start() {
@@ -605,7 +605,7 @@ impl RunningFrame {
         if logger_signal.send(()).await.is_err() {
             warn!("Failed to notify log thread");
         }
-        if let Err(_) = log_pipe_handle.await {
+        if log_pipe_handle.await.is_err() {
             warn!("Failed to join log thread");
         }
 
@@ -754,7 +754,7 @@ impl RunningFrame {
     /// This method safely accesses the thread-protected state to retrieve
     /// the current PID of the running frame process. A warning is logged
     /// if the frame doesn't have an associated thread handle.
-    pub fn get_pid_to_kill(&self, reason: &String) -> Result<u32> {
+    pub fn get_pid_to_kill(&self, reason: &str) -> Result<u32> {
         let mut lock = self
             .state
             .write()
@@ -762,7 +762,7 @@ impl RunningFrame {
         match *lock {
             FrameState::Created(_) => Err(miette!("Frame has been created but hasn't started yet")),
             FrameState::Running(ref mut running_state) => {
-                running_state.kill_reason = Some(reason.clone());
+                running_state.kill_reason = Some(reason.to_owned());
                 Ok(running_state.pid)
             }
             FrameState::Finished(ref finished_state) => {
@@ -977,7 +977,7 @@ impl RunningFrame {
 
         // Check if pid is still active
         match pid {
-            Some(pid) => Self::is_process_running(pid).then(|| pid).ok_or(miette!(
+            Some(pid) => Self::is_process_running(pid).then_some(pid).ok_or(miette!(
                 "Frame pid {} not found for this snapshot. {}",
                 pid,
                 frame.to_string()
@@ -1007,7 +1007,7 @@ impl RunningFrame {
             Some(cpu_list) => format!(
                 "Hyperthreading cores {}",
                 cpu_list
-                    .into_iter()
+                    .iter()
                     .map(|v| format!("{}", v))
                     .reduce(|a, b| a + ", " + b.as_str())
                     .unwrap_or("".to_string())
@@ -1121,13 +1121,12 @@ Processes:
 ===================================================================================================="#
                 )
             }
-            _ => format!(
-                r#"
+            _ => r#"
 ====================================================================================================
 Render Frame Completed
         ),
         "#
-            ),
+            .to_string(),
         }
     }
 
@@ -1142,7 +1141,7 @@ Render Frame Completed
     }
 
     /// Produce a copy of this running frame in the format expected by the grpc interface
-    pub fn into_running_frame_info(&self) -> RunningFrameInfo {
+    pub fn clone_into_running_frame_info(&self) -> RunningFrameInfo {
         let frame_stats_lock = self
             .frame_stats
             .read()
@@ -1199,7 +1198,7 @@ mod tests {
     use std::sync::Arc;
     use uuid::Uuid;
 
-    use crate::config::config::Config;
+    use crate::config::Config;
     use crate::frame::logging::FrameLoggerT;
     use crate::frame::logging::TestLogger;
 
@@ -1284,7 +1283,7 @@ mod tests {
         assert!(status.is_ok());
         assert_eq!((0, None), status.unwrap());
 
-        let possible_out = vec!["stderr test", "stdout test"];
+        let possible_out = ["stderr test", "stdout test"];
         assert!(possible_out.contains(&logger.pop().unwrap().as_str()));
         assert!(possible_out.contains(&logger.pop().unwrap().as_str()));
 

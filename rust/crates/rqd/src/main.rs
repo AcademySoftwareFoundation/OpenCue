@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use config::config::Config;
+use config::Config;
 use frame::manager::FrameManager;
 use miette::IntoDiagnostic;
 use report::report_client::ReportClient;
@@ -29,7 +29,7 @@ fn main() -> miette::Result<()> {
 
 async fn async_main(config: Config) -> miette::Result<()> {
     let log_level =
-        tracing::Level::from_str(&config.logging.level.as_str()).expect("Invalid log level");
+        tracing::Level::from_str(config.logging.level.as_str()).expect("Invalid log level");
     let log_builder = tracing_subscriber::fmt()
         .with_timer(tracing_subscriber::fmt::time::SystemTime)
         .pretty()

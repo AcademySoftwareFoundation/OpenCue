@@ -62,7 +62,7 @@ impl RunningFrame for RunningFrameServant {
 
         match self.frame_manager.get_running_frame(&status_request.uuid()) {
             Some(running_frame) => Ok(Response::new(RunningFrameStatusResponse {
-                running_frame_info: Some(running_frame.into_running_frame_info()),
+                running_frame_info: Some(running_frame.clone_into_running_frame_info()),
             })),
             None => Err(tonic::Status::not_found(format!(
                 "Could not find frame with id {} on this host",

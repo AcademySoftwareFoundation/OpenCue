@@ -1,5 +1,5 @@
 /// Implement Rqd modules for rqd.proto's interfaces
-use crate::{config::config::Config, frame::manager::FrameManager};
+use crate::{config::Config, frame::manager::FrameManager};
 
 use opencue_proto::rqd::{
     rqd_interface_server::RqdInterfaceServer, running_frame_server::RunningFrameServer,

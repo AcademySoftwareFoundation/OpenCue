@@ -1,4 +1,5 @@
 use chrono::{DateTime, Local};
+use itertools::Either;
 use miette::{Diagnostic, Result, miette};
 use opencue_proto::{
     host::HardwareState,
@@ -14,7 +15,7 @@ use uuid::Uuid;
 use super::docker_running_frame;
 
 use super::running_frame::RunningFrame;
-use crate::{config::config::Config, servant::rqd_servant::MachineImpl};
+use crate::{config::Config, servant::rqd_servant::MachineImpl};
 
 pub struct FrameManager {
     pub config: Config,
@@ -64,17 +65,14 @@ impl FrameManager {
 
         // **Attention**: If an error happens between here and spawning a frame, the resources
         // reserved need to be released.
-        //
-        // Cuebot unfortunatelly uses a hardcoded frame environment variable to signal if
-        // a frame is hyperthreaded. Rqd should only reserve cores if a frame is hyperthreaded.
-        let hyperthreaded = run_frame
-            .environment
-            .get("CUE_THREADABLE")
-            .map_or(false, |v| v == "1");
-        let cpu_request = run_frame.num_cores as u32 / self.config.machine.core_multiplier;
+
+        let num_cores = (run_frame.num_cores as u32).div_ceil(self.config.machine.core_multiplier);
+
+        // Reserving cores will always yield a list of reserved thread_ids. If hyperthreading is off,
+        // the list should be ignored
         let thread_ids = self
             .machine
-            .reserve_cores(cpu_request as usize, run_frame.resource_id(), hyperthreaded)
+            .reserve_cores(Either::Left(num_cores as usize), run_frame.resource_id())
             .await
             .map_err(|err| {
                 FrameManagerError::Aborted(format!(
@@ -88,13 +86,15 @@ impl FrameManager {
             0 => None,
             _ => {
                 let reserved_res = self.machine.reserve_gpus(run_frame.num_gpus as u32).await;
-                if let Err(_) = reserved_res {
+                if reserved_res.is_err() {
                     // Release cores reserved on the last step
-                    if let Some(thread_ids) = &thread_ids {
-                        self.machine.release_threads(thread_ids).await;
-                    } else {
-                        self.machine.release_cores(cpu_request).await;
-                    }
+                    if let Err(err) = self.machine.release_cores(&run_frame.resource_id()).await {
+                        warn!(
+                            "Failed to release cores reserved for {} during gpu reservation failure. {}",
+                            &run_frame.resource_id(),
+                            err
+                        )
+                    };
                 }
                 Some(reserved_res.map_err(|err| {
                     FrameManagerError::Aborted(format!(
@@ -105,6 +105,16 @@ impl FrameManager {
             }
         };
 
+        // Cuebot unfortunatelly uses a hardcoded frame environment variable to signal if
+        // a frame is hyperthreaded. Rqd should only reserve cores if a frame is hyperthreaded.
+        let hyperthreaded = run_frame
+            .environment
+            .get("CUE_THREADABLE")
+            .is_some_and(|v| v == "1");
+        // Ignore the list of allocated threads if hyperthreading is off
+        let thread_ids = hyperthreaded.then_some(thread_ids);
+
+        let resource_id = run_frame.resource_id();
         let running_frame = Arc::new(RunningFrame::init(
             run_frame,
             uid,
@@ -116,9 +126,16 @@ impl FrameManager {
 
         if self.config.runner.run_on_docker {
             self.spawn_docker_frame(running_frame, false);
-        } else {
-            self.spawn_running_frame(running_frame, false);
+        } else if self.spawn_running_frame(running_frame, false).is_err() {
+            // Release cores reserved if spawning the frame failed
+            if let Err(err) = self.machine.release_cores(&resource_id).await {
+                warn!(
+                    "Failed to release cores reserved for {} during spawn failure. {}",
+                    &resource_id, err
+                );
+            }
         }
+
         Ok(())
     }
 
@@ -158,34 +175,43 @@ impl FrameManager {
         for path in snapshot_dir {
             let running_frame = RunningFrame::from_snapshot(&path, self.config.runner.clone())
                 .await
-                .map(|rf| Arc::new(rf));
+                .map(Arc::new);
             match running_frame {
                 Ok(running_frame) => {
                     // Update reservations. If a thread_ids list exists, the frame was booked using affinity
                     if let Err(err) = match &running_frame.thread_ids {
-                        Some(thread_ids) => self
-                            .machine
-                            .reserve_cores_by_id(thread_ids, running_frame.request.resource_id())
-                            .await
-                            .map(|v| Some(v)),
-                        None => {
-                            let num_cores = running_frame.request.num_cores as u32
-                                / self.config.machine.core_multiplier;
+                        Some(thread_ids) => {
                             self.machine
                                 .reserve_cores(
-                                    num_cores as usize,
+                                    Either::Right(thread_ids.clone()),
                                     running_frame.request.resource_id(),
-                                    false,
+                                )
+                                .await
+                        }
+                        None => {
+                            let num_cores = (running_frame.request.num_cores as u32)
+                                .div_ceil(self.config.machine.core_multiplier);
+                            self.machine
+                                .reserve_cores(
+                                    Either::Left(num_cores as usize),
+                                    running_frame.request.resource_id(),
                                 )
                                 .await
                         }
                     } {
                         errors.push(err.to_string());
                     }
+
+                    let resource_id = running_frame.request.resource_id();
                     if self.config.runner.run_on_docker {
                         todo!("Recovering frames when running on docker is not yet supported")
-                    } else {
-                        self.spawn_running_frame(running_frame, true)
+                    } else if self.spawn_running_frame(running_frame, true).is_err() {
+                        if let Err(err) = self.machine.release_cores(&resource_id).await {
+                            warn!(
+                                "Failed to release cores reserved for {} during recover spawn error. {}",
+                                &resource_id, err
+                            );
+                        }
                     }
                 }
                 Err(err) => {
@@ -204,16 +230,24 @@ impl FrameManager {
         }
     }
 
-    fn spawn_running_frame(&self, running_frame: Arc<RunningFrame>, recover_mode: bool) {
+    fn spawn_running_frame(
+        &self,
+        running_frame: Arc<RunningFrame>,
+        recover_mode: bool,
+    ) -> Result<()> {
         self.machine.add_running_frame(Arc::clone(&running_frame));
         let running_frame_ref: Arc<RunningFrame> = Arc::clone(&running_frame);
         let thread_handle = tokio::spawn(async move { running_frame.run(recover_mode).await });
-        if let Err(err) = running_frame_ref.update_launch_thread_handle(thread_handle) {
-            warn!(
-                "Failed to update thread handle for frame {}. {}",
-                running_frame_ref, err
-            );
-        }
+        running_frame_ref
+            .update_launch_thread_handle(thread_handle)
+            .map_err(|err| {
+                warn!(
+                    "Failed to update thread handle for frame {}. {}",
+                    running_frame_ref, err
+                );
+                err
+            })?;
+        Ok(())
     }
 
     #[cfg(feature = "containerized_frames")]
@@ -239,7 +273,6 @@ impl FrameManager {
         // Trying to run as root
         if run_frame
             .uid_optional
-            .clone()
             .map(|o| match o {
                 run_frame::UidOptional::Uid(v) => v,
             })
@@ -364,7 +397,7 @@ impl FrameManager {
                 if let Some(mut lineage) = active_lineage {
                     lineage.push(frame_pid);
                     // Check limit before decrementing as tick() returns immediately on the first call
-                    if monitor_limit_seconds <= 0 || tried_to_force_kill_session {
+                    if monitor_limit_seconds == 0 || tried_to_force_kill_session {
                         // Notify only
                         if !force_kill {
                             error!(
@@ -417,7 +450,7 @@ impl FrameManager {
                 }
 
                 if monitor_limit_seconds >= interval_seconds {
-                    monitor_limit_seconds -= interval_seconds;
+                    monitor_limit_seconds = monitor_limit_seconds.saturating_sub(interval_seconds);
                 }
             }
         });
