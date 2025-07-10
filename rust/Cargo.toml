@@ -1,5 +1,10 @@
 [workspace]
-members = ["crates/opencue-proto", "crates/rqd", "crates/dummy-cuebot"]
+members = [
+    "crates/opencue-proto",
+    "crates/rqd",
+    "crates/dummy-cuebot",
+    "crates/job-queue",
+]
 
 [workspace.package]
 authors = ["Diego Tavares <dtavares@imageworks.com>"]

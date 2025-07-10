@@ -1,0 +1,39 @@
+[package]
+name = "job-queue"
+authors = { workspace = true }
+edition = { workspace = true }
+version = { workspace = true }
+license = "Apache-2.0"
+description = "OpenCue Server Side Job Queueing Service"
+
+[[bin]]
+path = "src/main.rs"
+name = "job-queue"
+
+[dependencies]
+# Internal Dependencies
+opencue-proto = { path = "../opencue-proto" }
+
+# External Dependencies
+chrono = "0.4.38"
+futures = { workspace = true }
+dashmap = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_derive = "1.0"
+serde_json = "1.0"
+async-trait = { workspace = true }
+async-stream = { workspace = true }
+config = { workspace = true }
+thiserror = { workspace = true }
+miette = { workspace = true }
+tracing = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-rolling-file = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }
+prost = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+itertools = "0.13.0"
+humantime = "2.2.0"
+humantime-serde = "1.1.1"

@@ -1155,6 +1155,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
 
 [[package]]
+name = "job-queue"
+version = "0.1.0"
+dependencies = [
+ "async-stream",
+ "async-trait",
+ "chrono",
+ "config",
+ "dashmap",
+ "futures",
+ "humantime",
+ "humantime-serde",
+ "itertools",
+ "miette",
+ "opencue-proto",
+ "prost",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "thiserror 1.0.64",
+ "tokio",
+ "tonic",
+ "tracing",
+ "tracing-appender",
+ "tracing-rolling-file",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
