@@ -155,7 +155,7 @@ OVERRIDE_NIMBY = None # True to turn on, False to turn off
 USE_NIMBY_PYNPUT = True # True pynput, False select
 OVERRIDE_HOSTNAME = None # Force to use this hostname
 ALLOW_GPU = False
-LOAD_MODIFIER = 0 # amount to add/subtract from load, used to make the machine look busier than it really is to CueBot.
+LOAD_MODIFIER = 0 # amount to add/subtract from load, makes the machine look busier to CueBot.
 
 LOG_FORMAT = '%(levelname)-9s openrqd-%(module)-10s: %(message)s'
 CONSOLE_LOG_LEVEL = logging.WARNING
