@@ -496,23 +496,15 @@ def popupView(file, facility=None):
         editor_from_env = os.getenv('EDITOR')
         app = cuegui.app()
         if editor_from_env:
-            editor = editor_from_env.strip()
+            job_log_cmd = editor_from_env.split()
         elif app.settings.contains('LogEditor') and (
                 len(app.settings.value("LogEditor").strip()) > 0):
-            editor = app.settings.value("LogEditor").strip()
+            job_log_cmd = app.settings.value("LogEditor").split()
+            if not isinstance(job_log_cmd, list):
+                job_log_cmd = job_log_cmd.split()
         else:
-            editor = cuegui.Constants.DEFAULT_EDITOR.strip()
-
-        # Extract the binary name (first word in the editor string)
-        editor_bin = editor.split()[0].lower()
-
-        # Use plain Vim in xterm with no configs for compatibility on Rocky
-        if editor_bin in ("vim", "gvim", "gview"):
-            job_log_cmd = ["xterm", "-e", "vim", "-u", "NONE", "-N", str(file)]
-        else:
-            job_log_cmd = editor.split()
-            job_log_cmd.append(str(file))
-
+            job_log_cmd = cuegui.Constants.DEFAULT_EDITOR.split()
+        job_log_cmd.append(str(file))
         checkShellOut(job_log_cmd)
 
 

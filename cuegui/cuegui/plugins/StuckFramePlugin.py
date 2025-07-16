@@ -1509,7 +1509,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         else:
             with open(yaml_path, 'r', encoding='utf-8') as yaml_ob:
-                old_dict = yaml.load(yaml_ob)
+                old_dict = yaml.load(yaml_ob, Loader=yaml.SafeLoader)
 
             with open(yaml_path, 'w', encoding='utf-8') as yaml_ob:
 
@@ -1589,7 +1589,7 @@ class LogFinal():
 
         else:
             with open(yaml_path, 'r', encoding='utf-8') as yaml_ob:
-                old_dict = yaml.load(yaml_ob)
+                old_dict = yaml.load(yaml_ob, Loader=yaml.SafeLoader)
             with open(yaml_path, 'w', encoding='utf-8') as yaml_ob:
                 for key in frames_dict:  # updates old dict
                     old_dict[key] = frames_dict[key]

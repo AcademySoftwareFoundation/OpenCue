@@ -16,17 +16,17 @@
 
 import enum
 
+from opencue_proto import filter_pb2
+from opencue_proto import job_pb2
+from opencue_proto.filter_pb2 import Action as ActionData
+from opencue_proto.filter_pb2 import ActionType
+from opencue_proto.filter_pb2 import ActionValueType
+from opencue_proto.filter_pb2 import Filter as FilterData
+from opencue_proto.filter_pb2 import FilterType
+from opencue_proto.filter_pb2 import MatchSubject
+from opencue_proto.filter_pb2 import MatchType
+from opencue_proto.filter_pb2 import Matcher as MatcherData
 from opencue import Cuebot
-from opencue.compiled_proto import filter_pb2
-from opencue.compiled_proto import job_pb2
-from opencue.compiled_proto.filter_pb2 import Action as ActionData
-from opencue.compiled_proto.filter_pb2 import ActionType
-from opencue.compiled_proto.filter_pb2 import ActionValueType
-from opencue.compiled_proto.filter_pb2 import Filter as FilterData
-from opencue.compiled_proto.filter_pb2 import FilterType
-from opencue.compiled_proto.filter_pb2 import MatchSubject
-from opencue.compiled_proto.filter_pb2 import MatchType
-from opencue.compiled_proto.filter_pb2 import Matcher as MatcherData
 import opencue.wrappers.group
 
 
@@ -202,7 +202,7 @@ class Filter(object):
     def setType(self, filterType):
         """Changes the filter type.
 
-        :type  filterType: opencue.compiled_proto.filter_pb2.FilterType
+        :type  filterType: opencue_proto.filter_pb2.FilterType
         :param filterType: the new filter type
         """
         self.stub.SetType(filter_pb2.FilterSetTypeRequest(filter=self.data, type=filterType),
@@ -228,7 +228,7 @@ class Filter(object):
     def type(self):
         """Returns the filter type.
 
-        :rtype:  opencue.compiled_proto.filter_pb2.FilterType
+        :rtype:  opencue_proto.filter_pb2.FilterType
         :return: the filter type
         """
         return self.data.type

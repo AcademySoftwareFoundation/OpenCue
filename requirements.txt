@@ -1,8 +1,8 @@
 future==1.0.0
 grpcio==1.48.2;python_version<"3.7"
 grpcio-tools==1.48.2;python_version<"3.7"
-grpcio==1.69.0;python_version>="3.7"
-grpcio-tools==1.69.0;python_version>="3.7"
+grpcio~=1.71.0;python_version>="3.7"
+grpcio-tools~=1.71.0;python_version>="3.7"
 mock==2.0.0
 packaging==20.9;python_version<"3.7"
 packaging==24.1;python_version>="3.7"

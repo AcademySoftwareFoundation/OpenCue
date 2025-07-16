@@ -52,7 +52,7 @@ dependencies {
     implementation group: 'io.prometheus', name: 'simpleclient', version: '0.16.0'
     implementation group: 'io.prometheus', name: 'simpleclient_servlet', version: '0.16.0'
 
-    protobuf fileTree("../proto/")
+    protobuf files("../proto/src/")
 
     testImplementation group: 'junit', name: 'junit', version: '4.12'
     testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-test'

@@ -23,9 +23,8 @@ import qtpy.QtCore
 import qtpy.QtGui
 import qtpy.QtWidgets
 
-import opencue.compiled_proto.job_pb2
-import opencue.compiled_proto.show_pb2
-import opencue.wrappers.show
+import opencue_proto.job_pb2
+import opencue_proto.show_pb2
 
 import cuegui.CueJobMonitorTree
 import cuegui.plugins.MonitorCuePlugin
@@ -48,15 +47,15 @@ class CueJobMonitorTreeTests(unittest.TestCase):
 
         # Show is specified by name, and show details are fetched using FindShow.
         get_stub_mock.return_value.FindShow.return_value = \
-            opencue.compiled_proto.show_pb2.ShowFindShowResponse(
-                show=opencue.compiled_proto.show_pb2.Show(name=self.show_name))
+            opencue_proto.show_pb2.ShowFindShowResponse(
+                show=opencue_proto.show_pb2.Show(name=self.show_name))
 
         # The widget loads the show's "whiteboard", a nested data structure containing
         # all groups and jobs in the show. The top-level item is the show though it
         # uses the NestedGroup data type.
         get_stub_mock.return_value.GetJobWhiteboard.return_value = \
-            opencue.compiled_proto.show_pb2.ShowGetJobWhiteboardResponse(
-                whiteboard=opencue.compiled_proto.job_pb2.NestedGroup(
+            opencue_proto.show_pb2.ShowGetJobWhiteboardResponse(
+                whiteboard=opencue_proto.job_pb2.NestedGroup(
                     name=self.show_name,
                     jobs=self.jobs))
 

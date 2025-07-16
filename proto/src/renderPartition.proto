@@ -1,0 +1,72 @@
+
+syntax = "proto3";
+package renderPartition;
+
+option java_package = "com.imageworks.spcue.grpc.renderpartition";
+option java_multiple_files = true;
+
+option go_package = "opencue_gateway/gen/go";
+
+// -------- Services --------]
+
+service RenderPartitionInterface {
+    // Deletes the host local setup.  Any proc that is running from this should be killed or else the counts
+    // could be off.
+    rpc Delete(RenderPartDeleteRequest) returns (RenderPartDeleteResponse);
+
+    // Reset the maximum amount of cores and memory for this render partition.
+    rpc SetMaxResources(RenderPartSetMaxResourcesRequest) returns (RenderPartSetMaxResourcesResponse);
+}
+
+
+// -------- Enums --------]
+
+enum RenderPartitionType {
+    JOB_PARTITION = 0;
+    LAYER_PARTITION = 1;
+    FRAME_PARTITION = 2;
+}
+
+
+// -------- Primary Message Types --------]
+
+message RenderPartition {
+    string id = 1;
+    string job = 2;
+    string layer = 3;
+    string frame = 4;
+    RenderPartitionType render_part_type = 5;
+    string host = 6;
+    int32 cores = 7;
+    int64 memory = 8;
+    int32 max_cores = 9;
+    int64 max_memory = 10;
+    int64 max_gpu_memory = 11;
+    int32 threads = 12;
+    int32 gpus = 13;
+    int32 max_gpus = 14;
+    int64 gpu_memory = 15;
+}
+
+message RenderPartitionSeq {
+    repeated RenderPartition render_partitions = 1;
+}
+
+
+// -------- Requests & Responses --------]
+
+message RenderPartDeleteRequest {
+    RenderPartition render_partition = 1;
+}
+
+message RenderPartDeleteResponse {} // Empty
+
+message RenderPartSetMaxResourcesRequest {
+    RenderPartition render_partition = 1;
+    int32 cores = 2;
+    int64 memory = 3;
+    int64 gpu_memory = 4;
+    int32 gpus = 5;
+}
+
+message RenderPartSetMaxResourcesResponse {} // Empty

@@ -14,7 +14,7 @@
 
 """Module for classes related to deeds."""
 
-from opencue.compiled_proto import host_pb2
+from opencue_proto import host_pb2
 from opencue.cuebot import Cuebot
 # pylint: disable=cyclic-import
 import opencue.wrappers.host

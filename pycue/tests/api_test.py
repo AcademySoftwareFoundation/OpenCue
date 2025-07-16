@@ -23,17 +23,17 @@ import unittest
 
 import mock
 
+from opencue_proto import cue_pb2
+from opencue_proto import depend_pb2
+from opencue_proto import facility_pb2
+from opencue_proto import filter_pb2
+from opencue_proto import host_pb2
+from opencue_proto import job_pb2
+from opencue_proto import limit_pb2
+from opencue_proto import service_pb2
+from opencue_proto import show_pb2
+from opencue_proto import subscription_pb2
 import opencue.api
-from opencue.compiled_proto import cue_pb2
-from opencue.compiled_proto import depend_pb2
-from opencue.compiled_proto import facility_pb2
-from opencue.compiled_proto import filter_pb2
-from opencue.compiled_proto import host_pb2
-from opencue.compiled_proto import job_pb2
-from opencue.compiled_proto import limit_pb2
-from opencue.compiled_proto import service_pb2
-from opencue.compiled_proto import show_pb2
-from opencue.compiled_proto import subscription_pb2
 
 
 TEST_SHOW_NAME = 'pipe'

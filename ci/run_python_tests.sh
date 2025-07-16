@@ -5,35 +5,33 @@
 # This script is written to be run within the OpenCue GitHub Actions environment.
 # See `.github/workflows/testing-pipeline.yml`.
 
-set -e
+set -ex
 
 args=("$@")
 python_version=$(python -V 2>&1)
 echo "Will run tests using ${python_version}"
 
-pip install --user -r requirements.txt -r requirements_gui.txt
+pip uninstall --yes opencue_proto opencue_pycue opencue_pyoutline opencue_cueadmin opencue_cuesubmit opencue_rqd
 
-# Some rqd unit tests require docker api
-pip install docker==7.1.0
+if [[ -v OPENCUE_PROTO_PACKAGE_PATH ]]
+then
+  echo "Installing pre-built opencue_proto package"
+  pip install ${OPENCUE_PROTO_PACKAGE_PATH}
+else
+  pip install ./proto
+fi
 
-# Some rqd unit tests require lokiclient
-pip install loki-urllib3-client
-
-# Protos need to have their Python code generated in order for tests to pass.
-python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto --grpc_python_out=pycue/opencue/compiled_proto proto/*.proto
-python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc_python_out=rqd/rqd/compiled_proto proto/*.proto
-
-# Fix imports to work in both Python 2 and 3. See
-# <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
-python ci/fix_compiled_proto.py rqd/rqd/compiled_proto
-
-python -m unittest discover -s pycue/tests -t pycue -p "*.py"
-PYTHONPATH=pycue python -m unittest discover -s pyoutline/tests -t pyoutline -p "*.py"
-PYTHONPATH=pycue python -m unittest discover -s cueadmin/tests -t cueadmin -p "*.py"
-PYTHONPATH=pycue:pyoutline python -m unittest discover -s cuesubmit/tests -t cuesubmit -p "*.py"
-python -m pytest rqd/tests
-python -m pytest rqd/pytests
+for package in pycue pyoutline cueadmin cuesubmit rqd
+do
+  PACKAGE_PATH="OPENCUE_${package^^}_PACKAGE_PATH"
+  if [[ -v "${PACKAGE_PATH}" ]]
+  then
+    pip install "${!PACKAGE_PATH}[test]"
+  else
+    pip install "./${package}[test]"
+  fi
+  python -m pytest ${package}
+done
 
 # Xvfb no longer supports Python 2.
 if [[ "$python_version" =~ "Python 3" && ${args[0]} != "--no-gui" ]]; then

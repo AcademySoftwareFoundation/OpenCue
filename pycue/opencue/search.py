@@ -54,9 +54,9 @@ from builtins import object
 import logging
 
 # pylint: disable=cyclic-import
-from opencue.compiled_proto import criterion_pb2
-from opencue.compiled_proto import host_pb2
-from opencue.compiled_proto import job_pb2
+from opencue_proto import criterion_pb2
+from opencue_proto import host_pb2
+from opencue_proto import job_pb2
 import opencue.wrappers.host
 from .cuebot import Cuebot
 

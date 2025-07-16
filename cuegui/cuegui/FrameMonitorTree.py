@@ -35,7 +35,7 @@ from qtpy import QtGui
 from qtpy import QtWidgets
 
 import opencue
-from opencue.compiled_proto import job_pb2
+from opencue_proto import job_pb2
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem

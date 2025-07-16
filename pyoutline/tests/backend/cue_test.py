@@ -28,7 +28,7 @@ import xml.etree.ElementTree as ET
 
 import mock
 
-import opencue.compiled_proto.job_pb2
+import opencue_proto.job_pb2
 import opencue.wrappers.job
 
 import outline
@@ -103,7 +103,7 @@ class CoresTest(unittest.TestCase):
         ol.add_layer(layer)
         return ol, layer
 
-    def assertCores(self, ol, v):
+    def assertCoresOverride(self, ol, v):
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
         outlineXml = ET.fromstring(outline.backend.cue.serialize(launcher))
         job = outlineXml.find('job')
@@ -113,19 +113,29 @@ class CoresTest(unittest.TestCase):
     def testCores(self):
         ol, layer = self.create()
         layer.set_arg("cores", 42)
-        self.assertCores(ol, "42.0")
+        self.assertCoresOverride(ol, "42.0")
 
     def testThreads(self):
         ol, layer = self.create()
         layer.set_arg("threads", 4)
-        self.assertCores(ol, "4.0")
+        self.assertCoresOverride(ol, "4.0")
 
     def testCoresAndThreads(self):
         ol, layer = self.create()
         layer.set_arg("cores", 8)
         layer.set_arg("threads", 4)
         # cores overrides threads
-        self.assertCores(ol, "8.0")
+        self.assertCoresOverride(ol, "8.0")
+
+    def testNoCoreOverride(self):
+        ol, layer = self.create()
+        layer.set_arg("cores", None)
+
+        launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
+        outlineXml = ET.fromstring(outline.backend.cue.serialize(launcher))
+        job = outlineXml.find('job')
+        layer = job.find('layers').find('layer')
+        self.assertIsNone(layer.find('cores'))
 
 
 class BuildCommandTest(unittest.TestCase):
@@ -212,7 +222,7 @@ class LaunchTest(unittest.TestCase):
     def testLaunchAndWait(self, launchSpecAndWaitMock, isJobPendingMock):
         jobName = 'some-job'
         launchSpecAndWaitMock.return_value = [
-            opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=jobName))]
+            opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(name=jobName))]
         # Trigger one iteration of the wait loop.
         isJobPendingMock.side_effect = [True, False]
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
@@ -232,9 +242,9 @@ class LaunchTest(unittest.TestCase):
     def testLaunchAndTest(self, launchSpecAndWaitMock, getJobMock):
         jobName = 'another-job'
         launchSpecAndWaitMock.return_value = [
-            opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=jobName))]
+            opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(name=jobName))]
         getJobMock.return_value = opencue.wrappers.job.Job(
-            opencue.compiled_proto.job_pb2.Job(name=jobName, state=opencue.api.job_pb2.FINISHED))
+            opencue_proto.job_pb2.Job(name=jobName, state=opencue.api.job_pb2.FINISHED))
 
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
         ol = outline.load_outline(path)

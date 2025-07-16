@@ -42,6 +42,23 @@ For more information on installing, using, and administering OpenCue, visit
 
 Watch YouTube videos on the [OpenCue Playlist](https://www.youtube.com/playlist?list=PL9dZxafYCWmzSBEwVT2AQinmZolYqBzdp) of the Academy Software Foundation (ASWF) to learn more.
 
+# Quick installation and tests
+
+Read the [OpenCue sandbox documentation](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/sandbox/README.md) 
+to learn how to set up a local OpenCue environment.
+
+- The sandbox environment offers an easy way to run a test OpenCue deployment locally, with all components running in 
+separate Docker containers or Python virtual environments.
+- It is ideal for small tests, development work, and for those new to OpenCue who want a simple setup for 
+experimentation and learning.
+
+To learn how to run the sandbox environment, see https://www.opencue.io/docs/quick-starts/.
+
+# OpenCue full installation
+
+Guides for system admins deploying OpenCue components and installing dependencies are available in the 
+[OpenCue documentation](https://www.opencue.io/docs/getting-started/).
+
 # Meeting notes
 
 Starting from May 2024, all Opencue meeting notes are stored on the [Opencue Confluence page](http://wiki.aswf.io/display/OPENCUE/OpenCue+Home).

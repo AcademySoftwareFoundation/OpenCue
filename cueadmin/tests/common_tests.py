@@ -27,12 +27,12 @@ import unittest
 
 import mock
 
-import opencue.compiled_proto.facility_pb2
-import opencue.compiled_proto.host_pb2
-import opencue.compiled_proto.job_pb2
-import opencue.compiled_proto.service_pb2
-import opencue.compiled_proto.show_pb2
-import opencue.compiled_proto.subscription_pb2
+import opencue_proto.facility_pb2
+import opencue_proto.host_pb2
+import opencue_proto.job_pb2
+import opencue_proto.service_pb2
+import opencue_proto.show_pb2
+import opencue_proto.subscription_pb2
 import opencue.wrappers.allocation
 import opencue.wrappers.host
 import opencue.wrappers.proc
@@ -186,10 +186,10 @@ class ShowTests(unittest.TestCase):
         args = self.parser.parse_args(['-ls'])
         getShowsMock.return_value = [
             opencue.wrappers.show.Show(
-                opencue.compiled_proto.show_pb2.Show(
+                opencue_proto.show_pb2.Show(
                     name='testing',
                     active=True,
-                    show_stats=opencue.compiled_proto.show_pb2.ShowStats(
+                    show_stats=opencue_proto.show_pb2.ShowStats(
                         reserved_cores=265,
                         running_frames=100,
                         pending_frames=248,
@@ -289,11 +289,11 @@ class AllocTests(unittest.TestCase):
         args = self.parser.parse_args(['-la'])
         getAllocsMock.return_value = [
             opencue.wrappers.allocation.Allocation(
-                opencue.compiled_proto.facility_pb2.Allocation(
+                opencue_proto.facility_pb2.Allocation(
                     name='local.desktop',
                     tag='desktop',
                     billable=False,
-                    stats=opencue.compiled_proto.facility_pb2.AllocationStats(
+                    stats=opencue_proto.facility_pb2.AllocationStats(
                         running_cores=100,
                         available_cores=125,
                         cores=600,
@@ -313,7 +313,7 @@ class AllocTests(unittest.TestCase):
         allocMock = mock.Mock()
         allocMock.getSubscriptions.return_value = [
             opencue.wrappers.subscription.Subscription(
-                opencue.compiled_proto.subscription_pb2.Subscription(
+                opencue_proto.subscription_pb2.Subscription(
                     allocation_name='local.general',
                     show_name='showName',
                     size=1000,
@@ -395,7 +395,7 @@ class HostTests(unittest.TestCase):
     def testMoveHost(self, findAllocMock, getStubMock, hostSearchMock):
         allocName = '%s.%s' % (TEST_FACILITY, TEST_ALLOC)
         args = self.parser.parse_args(['-move', allocName, '-host', TEST_HOST, '-force'])
-        host = opencue.wrappers.host.Host(opencue.compiled_proto.host_pb2.Host())
+        host = opencue.wrappers.host.Host(opencue_proto.host_pb2.Host())
         host.setAllocation = mock.Mock()
         hostSearchMock.byName.return_value = [host]
         alloc = opencue.wrappers.allocation.Allocation()
@@ -422,7 +422,7 @@ class HostTests(unittest.TestCase):
             ['-lh', arbitraryMatchString, '-state', 'up', 'repair', '-alloc', TEST_ALLOC])
         getHostsMock.return_value = [
             opencue.wrappers.host.Host(
-                opencue.compiled_proto.host_pb2.Host(
+                opencue_proto.host_pb2.Host(
                     name='host1',
                     load=25,
                     nimby_enabled=False,
@@ -560,7 +560,7 @@ class SubscriptionTests(unittest.TestCase):
         showMock = mock.Mock()
         showMock.getSubscriptions.return_value = [
             opencue.wrappers.subscription.Subscription(
-                opencue.compiled_proto.subscription_pb2.Subscription(
+                opencue_proto.subscription_pb2.Subscription(
                     allocation_name='cloud.desktop',
                     show_name='showName',
                     size=0,
@@ -639,14 +639,14 @@ class JobTests(unittest.TestCase):
 
     def testListJobs(self, getStubMock, jobSearchMock):
         args = self.parser.parse_args(['-lj', TEST_JOB])
-        jobSearchMock.byMatch.return_value = opencue.compiled_proto.job_pb2.JobGetJobsResponse(
-            jobs=opencue.compiled_proto.job_pb2.JobSeq(
+        jobSearchMock.byMatch.return_value = opencue_proto.job_pb2.JobGetJobsResponse(
+            jobs=opencue_proto.job_pb2.JobSeq(
                 jobs=[
-                    opencue.compiled_proto.job_pb2.Job(
+                    opencue_proto.job_pb2.Job(
                         name='d7HXvMXDNMKyfzLumwsY-P3CNG1w4pa452dGcqOyf_qVK5PbHmCZafkv4rEF8d',
                         is_paused=False,
                         group='u0uMmB1O0z3ZkvreFYzP',
-                        job_stats=opencue.compiled_proto.job_pb2.JobStats(
+                        job_stats=opencue_proto.job_pb2.JobStats(
                             running_frames=5,
                             reserved_cores=5,
                             waiting_frames=182,
@@ -665,14 +665,14 @@ class JobTests(unittest.TestCase):
 
     def testListJobInfo(self, getStubMock, jobSearchMock):
         args = self.parser.parse_args(['-lji', TEST_JOB])
-        jobSearchMock.byMatch.return_value = opencue.compiled_proto.job_pb2.JobGetJobsResponse(
-            jobs=opencue.compiled_proto.job_pb2.JobSeq(
+        jobSearchMock.byMatch.return_value = opencue_proto.job_pb2.JobGetJobsResponse(
+            jobs=opencue_proto.job_pb2.JobSeq(
                 jobs=[
-                    opencue.compiled_proto.job_pb2.Job(
+                    opencue_proto.job_pb2.Job(
                         name='d7HXvMXDNMKyfzLumwsY-P3CNG1w4pa452dGcqOyf_qVK5PbHmCZafkv4rEF8d',
                         is_paused=False,
                         group='u0uMmB1O0z3ZkvreFYzP',
-                        job_stats=opencue.compiled_proto.job_pb2.JobStats(
+                        job_stats=opencue_proto.job_pb2.JobStats(
                             running_frames=5,
                             reserved_cores=5,
                             waiting_frames=182,
@@ -703,10 +703,10 @@ class ProcTests(unittest.TestCase):
             ['-lp', TEST_SHOW, '-alloc', TEST_ALLOC, '-duration', '1.5', '-host', TEST_HOST,
              '-job', TEST_JOB, '-limit', resultsLimit, '-memory', '128'])
         procSearchMock.byOptions.return_value = \
-            opencue.compiled_proto.host_pb2.ProcGetProcsResponse(
-                procs=opencue.compiled_proto.host_pb2.ProcSeq(
+            opencue_proto.host_pb2.ProcGetProcsResponse(
+                procs=opencue_proto.host_pb2.ProcSeq(
                     procs=[
-                        opencue.compiled_proto.host_pb2.Proc(
+                        opencue_proto.host_pb2.Proc(
                             name='proc1',
                             reserved_cores=28,
                             used_memory=44,
@@ -734,10 +734,10 @@ class ProcTests(unittest.TestCase):
             ['-ll', TEST_SHOW, '-alloc', TEST_ALLOC, '-duration', '1.5',
              '-job', TEST_JOB, '-limit', resultsLimit, '-memory', '128'])
         procSearchMock.byOptions.return_value = \
-            opencue.compiled_proto.host_pb2.ProcGetProcsResponse(
-                procs=opencue.compiled_proto.host_pb2.ProcSeq(
+            opencue_proto.host_pb2.ProcGetProcsResponse(
+                procs=opencue_proto.host_pb2.ProcSeq(
                     procs=[
-                        opencue.compiled_proto.host_pb2.Proc(
+                        opencue_proto.host_pb2.Proc(
                             name='proc1',
                             reserved_cores=28,
                             used_memory=44,
@@ -771,7 +771,7 @@ class ServiceTests(unittest.TestCase):
         args = self.parser.parse_args(['-lv'])
         getDefaultServicesMock.return_value = [
             opencue.wrappers.service.Service(
-                opencue.compiled_proto.service_pb2.Service(
+                opencue_proto.service_pb2.Service(
                     name='maya',
                     threadable=False,
                     min_cores=100,
@@ -790,7 +790,7 @@ class ServiceTests(unittest.TestCase):
         showMock = mock.Mock()
         showMock.getServiceOverrides.return_value = [
             opencue.wrappers.service.Service(
-                opencue.compiled_proto.service_pb2.Service(
+                opencue_proto.service_pb2.Service(
                     name='maya',
                     threadable=False,
                     min_cores=100,

@@ -1,0 +1,25 @@
+[package]
+name = "opencue-proto"
+authors = { workspace = true }
+autobenches = false
+edition = { workspace = true }
+version = { workspace = true }
+
+[lib]
+bench = false
+path = "src/lib.rs"
+
+[dependencies]
+prost = { workspace = true }
+prost-types = { workspace = true }
+tonic = { workspace = true }
+uuid = { workspace = true }
+whoami = { workspace = true }
+rand = "0.8.5"
+rmp = "0.8.11"
+rmp-serde = "1.1.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_derive = "1.0"
+
+[build-dependencies]
+tonic-build = { workspace = true }

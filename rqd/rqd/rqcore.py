@@ -37,9 +37,9 @@ import traceback
 import select
 import uuid
 
-import rqd.compiled_proto.host_pb2
-import rqd.compiled_proto.report_pb2
-import rqd.compiled_proto.rqd_pb2
+import opencue_proto.host_pb2
+import opencue_proto.report_pb2
+import opencue_proto.rqd_pb2
 import rqd.rqconstants
 from rqd.rqconstants import DOCKER_AGENT
 import rqd.rqexceptions
@@ -66,7 +66,7 @@ class RqCore(object):
 
         self.__optNimbyoff = optNimbyoff
 
-        self.cores = rqd.compiled_proto.report_pb2.CoreDetail(
+        self.cores = opencue_proto.report_pb2.CoreDetail(
             total_cores=0,
             total_threads=0,
             idle_cores=0,
@@ -75,7 +75,8 @@ class RqCore(object):
             reserved_cores=[],
         )
 
-        self.nimby = Nimby(self)
+        nimbyNoOp = not self.shouldStartNimby()
+        self.nimby = Nimby(self, nimbyNoOp)
 
         self.machine = rqd.rqmachine.Machine(self, self.cores)
         self.network = rqd.rqnetwork.Network(self)
@@ -90,6 +91,7 @@ class RqCore(object):
         self.__cluster = None
         self.__session = None
         self.__stmt = None
+        self._heartbeat_counter = 0
 
         self.docker_agent = None
 
@@ -113,18 +115,7 @@ class RqCore(object):
 
     def start(self):
         """Called by main to start the rqd service"""
-        if self.machine.isDesktop():
-            if self.__optNimbyoff:
-                log.warning('Nimby startup has been disabled via --nimbyoff')
-            elif not rqd.rqconstants.OVERRIDE_NIMBY:
-                if rqd.rqconstants.OVERRIDE_NIMBY is None:
-                    log.warning('OVERRIDE_NIMBY is not defined, Nimby startup has been disabled')
-                else:
-                    log.warning('OVERRIDE_NIMBY is False, Nimby startup has been disabled')
-            else:
-                self.nimbyOn()
-        elif rqd.rqconstants.OVERRIDE_NIMBY:
-            log.warning('Nimby startup has been triggered by OVERRIDE_NIMBY')
+        if self.shouldStartNimby():
             self.nimbyOn()
         self.network.start_grpc()
 
@@ -172,11 +163,31 @@ class RqCore(object):
             log.warning(
                 'Unable to shutdown due to %s at %s', e, traceback.extract_tb(sys.exc_info()[2]))
 
+        # Count number of times this function is being executed to allow
+        # executing action on different heartbeat counts
+        if self._heartbeat_counter >= sys.maxsize:
+            self._heartbeat_counter = 0
+        self._heartbeat_counter += 1
+
+        # Periodically attempt to start nimby if it failed previously
+        try:
+            self.retryNimby()
+        # pylint: disable=broad-except
+        except Exception as e:
+            log.warning("Failed to initialize Nimby. %s", e)
+
         try:
             self.sendStatusReport()
         # pylint: disable=broad-except
         except Exception:
             log.exception('Unable to send status report')
+
+    def retryNimby(self):
+        """Ensure nimby is active if required"""
+        if self.shouldStartNimby() and not self.nimby.is_ready and self._heartbeat_counter % 5 == 0:
+            log.warning("Retrying to initialize Nimby")
+            self.nimby = Nimby(self)
+            self.nimbyOn()
 
     def updateRss(self):
         """Triggers and schedules the updating of rss information"""
@@ -222,7 +233,7 @@ class RqCore(object):
                 # Read the message data
                 message_data = f.read(length)
 
-                run_frame = rqd.compiled_proto.rqd_pb2.RunFrame()
+                run_frame = opencue_proto.rqd_pb2.RunFrame()
                 # Ignore frames that failed to be parsed
                 try:
                     run_frame.ParseFromString(message_data)
@@ -285,7 +296,7 @@ class RqCore(object):
                     self.cores.reserved_cores.clear()
                 log.info("Successfully delete frame with Id: %s", frameId)
             else:
-                log.warning("Frame with Id: %s not found in cache", frameId)
+                log.info("Frame with Id: %s not found in cache", frameId)
 
     def killAllFrame(self, reason):
         """Will execute .kill() on every frame in cache until no frames remain
@@ -384,7 +395,7 @@ class RqCore(object):
         # Check for reasons to abort launch
         #
 
-        if self.machine.state != rqd.compiled_proto.host_pb2.UP:
+        if self.machine.state != opencue_proto.host_pb2.UP:
             err = "Not launching, rqd HardwareState is not Up"
             log.info(err)
             raise rqd.rqexceptions.CoreReservationFailureException(err)
@@ -463,7 +474,7 @@ class RqCore(object):
 
     def shutdownRqdNow(self):
         """Kill all running frames and shutdown RQD"""
-        self.machine.state = rqd.compiled_proto.host_pb2.DOWN
+        self.machine.state = opencue_proto.host_pb2.DOWN
         # When running on docker, stopping RQD will trigger the creation of a new container,
         # and running frames will be recovered on a new instance.
         # Thus, shutdown doesn't require locking and killing frames when running on docker.
@@ -510,6 +521,18 @@ class RqCore(object):
         self.sendStatusReport()
         if not self.__cache and not self.machine.isUserLoggedIn():
             self.shutdownRqdNow()
+
+    def shouldStartNimby(self):
+        """Decide if the nimby logic should be turned on"""
+        if self.__optNimbyoff:
+            log.warning('Nimby startup has been disabled via --nimbyoff')
+            return False
+
+        if rqd.rqconstants.OVERRIDE_NIMBY:
+            log.warning('Nimby startup has been enabled via OVERRIDE_NIMBY')
+            return True
+
+        return False
 
     def nimbyOn(self):
         """Activates nimby, does not kill any running frames until next nimby
@@ -590,12 +613,12 @@ class RqCore(object):
         sendUpdate = False
 
         if (self.__whenIdle or self.__reboot or
-            self.machine.state != rqd.compiled_proto.host_pb2.UP):
+            self.machine.state != opencue_proto.host_pb2.UP):
             sendUpdate = True
 
         self.__whenIdle = False
         self.__reboot = False
-        self.machine.state = rqd.compiled_proto.host_pb2.UP
+        self.machine.state = opencue_proto.host_pb2.UP
 
         with self.__threadLock:
             # pylint: disable=no-member
@@ -619,12 +642,12 @@ class RqCore(object):
         sendUpdate = False
 
         if (self.__whenIdle or self.__reboot
-                or self.machine.state != rqd.compiled_proto.host_pb2.UP):
+                or self.machine.state != opencue_proto.host_pb2.UP):
             sendUpdate = True
 
         self.__whenIdle = False
         self.__reboot = False
-        self.machine.state = rqd.compiled_proto.host_pb2.UP
+        self.machine.state = opencue_proto.host_pb2.UP
 
         with self.__threadLock:
             # pylint: disable=no-member
@@ -651,7 +674,7 @@ class RqCore(object):
     def sendFrameCompleteReport(self, runningFrame):
         """Send a frameCompleteReport to Cuebot"""
         if not runningFrame.completeReportSent:
-            report = rqd.compiled_proto.report_pb2.FrameCompleteReport()
+            report = opencue_proto.report_pb2.FrameCompleteReport()
             # pylint: disable=no-member
             report.host.CopyFrom(self.machine.getHostInfo())
             report.frame.CopyFrom(runningFrame.runningFrameInfo())
@@ -1385,6 +1408,7 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
                                                 runFrame.uid,
                                                 runFrame.gid)
                 if not run_on_docker:
+                    self.ownFrameDir()
                     # Do everything as launching user:
                     runFrame.gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
                     rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
@@ -1403,6 +1427,22 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
         finally:
             rqd.rqutil.permissionsLow()
 
+    def ownFrameDir(self):
+        """Chown the frame's log_dir"""
+        if not self.runFrame.loki_url:
+            # Ensure logdir is owned by this job user. If it doesn't exist it will get
+            # created under the correct user when RqdLogger is initialized
+            if os.path.isdir(self.runFrame.log_dir):
+                try:
+                    rqd.rqutil.permissionsHigh()
+                    os.chown(self.runFrame.log_dir, self.runFrame.uid, self.runFrame.gid)
+                # pylint: disable=broad-except
+                except Exception:
+                    # Don't bail on this exception as rqlogging initialization might
+                    # still work depending on the logdir permissions
+                    log.warning("Failed to chown dir name %s", self.runFrame.log_dir)
+                finally:
+                    rqd.rqutil.permissionsLow()
 
     def runUnknown(self):
         """The steps required to handle a frame under an unknown OS."""

@@ -23,8 +23,8 @@ import unittest
 
 import mock
 
-from opencue.compiled_proto import job_pb2
-from opencue.compiled_proto import host_pb2
+from opencue_proto import job_pb2
+from opencue_proto import host_pb2
 import opencue.search
 
 

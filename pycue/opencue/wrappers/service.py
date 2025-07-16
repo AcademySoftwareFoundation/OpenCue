@@ -16,7 +16,7 @@
 
 import grpc
 
-from opencue.compiled_proto import service_pb2
+from opencue_proto import service_pb2
 from opencue.cuebot import Cuebot
 
 
