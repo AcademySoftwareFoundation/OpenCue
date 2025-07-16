@@ -34,7 +34,7 @@ message BootReport {
 }
 
 message CoreDetail {
-    int32 total_cores = 1;
+    int32 total_cores = 1; // physical cores
     int32 idle_cores = 2;
     int32 locked_cores = 3;
     int32 booked_cores = 4;
@@ -43,6 +43,7 @@ message CoreDetail {
     // solely on rqd's end to store a map of reserved cores, but the data was never communicated to
     // the server.
     map<int64, CoreId> reserved_cores = 5 [deprecated=true];
+    int32 total_threads = 6; // logical cores
 }
 
 message CoreId {
@@ -70,7 +71,7 @@ message RenderHost {
     bool nimby_locked = 3; // if nimby has locked the host due to user activity
     string facility= 4; // The name of the facility that the host is in
     int32 num_procs = 5; // the number of physical procs on this machine
-    int32 cores_per_proc = 6; // the number of cores per proc
+    int32 cores_per_proc = 6; // the number of physical cores per proc
     int64 total_swap = 7; // the total size of the swap in kB
     int64 total_mem = 8; // the total size of the main memory pool in kB
     int64 total_mcp = 9; // the total size of MCP in kB
@@ -85,6 +86,7 @@ message RenderHost {
     int32 num_gpus = 18; // the number of physical GPU's
     int64 free_gpu_mem = 19; // the current amount of free gpu memory in kB
     int64 total_gpu_mem = 20; // the total size of gpu memory in kB
+    int32 threads_per_proc = 21; // the number of logical cores per proc
 };
 
 message RunningFrameInfo {
@@ -107,6 +109,7 @@ message RunningFrameInfo {
     int64 used_gpu_memory = 17; // kB
     ChildrenProcStats children = 18; //additional data about the running frame's child processes
     int64 used_swap_memory = 19; // kB
+    bool use_threads = 20; // whether the frame is requesting logical or physical cores
 };
 
 message ChildrenProcStats {
