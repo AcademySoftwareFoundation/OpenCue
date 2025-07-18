@@ -1,0 +1,18 @@
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+logging:
+  # Logging level for RQD output
+  # Options: debug, info, warning, error
+  # Default: debug
+  level: info
+
+database:
+  connection_url: "postgresql://cuebot:cuebot_password@localhost:5432/cuebot"
+
+kafka:
+  bootstrap_servers: "localhost:9092"
+  general_jobs_topic:
+    num_partitions: 12
+    replication_factor: 1
+    retention: 5m

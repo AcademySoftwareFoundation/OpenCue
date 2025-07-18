@@ -35,16 +35,85 @@ impl Default for LoggingConfig {
 pub struct QueueConfig {
     #[serde(with = "humantime_serde")]
     pub monitor_interval: Duration,
+    pub worker_threads: usize,
 }
 
 impl Default for QueueConfig {
     fn default() -> QueueConfig {
         QueueConfig {
             monitor_interval: Duration::from_secs(5),
+            worker_threads: 4,
         }
     }
 }
 
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct DatabaseConfig {
+    pub pool_size: u32,
+    pub connection_url: String,
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> DatabaseConfig {
+        DatabaseConfig {
+            pool_size: 2,
+            connection_url: "postgres://postgres:password@localhost/test".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct KafkaConfig {
+    pub bootstrap_servers: String,
+    #[serde(with = "humantime_serde")]
+    pub timeout: Duration,
+    pub general_jobs_topic: TopicConfig,
+}
+
+impl Default for KafkaConfig {
+    fn default() -> KafkaConfig {
+        KafkaConfig {
+            bootstrap_servers: "localhost:9092".to_string(),
+            timeout: Duration::from_secs(5),
+            general_jobs_topic: TopicConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct TopicConfig {
+    pub topic_name: String,
+    pub num_partitions: i32,
+    pub replication_factor: i32,
+    #[serde(with = "humantime_serde")]
+    pub retention: Duration,
+}
+
+impl Default for TopicConfig {
+    fn default() -> TopicConfig {
+        TopicConfig {
+            topic_name: "general_job_queue".to_string(),
+            num_partitions: 12,
+            replication_factor: 3,
+            retention: Duration::from_secs(300),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct RqdConfig {
+    pub grpc_port: u32,
+}
+
+impl Default for RqdConfig {
+    fn default() -> RqdConfig {
+        RqdConfig { grpc_port: 8444 }
+    }
+}
 //===Config Loader===
 
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -52,13 +121,16 @@ impl Default for QueueConfig {
 pub struct Config {
     pub logging: LoggingConfig,
     pub queue: QueueConfig,
+    pub database: DatabaseConfig,
+    pub kafka: KafkaConfig,
+    pub rqd: RqdConfig,
 }
 
 impl Config {
     // load the current config from the system config and environment variables
     pub fn load() -> Result<Self, JobQueueConfigError> {
         let mut required = false;
-        let config_file = match env::var("OPENCUE_RQD_CONFIG") {
+        let config_file = match env::var("OPENCUE_JOB_QUEUE_CONFIG") {
             Ok(v) => {
                 required = true;
                 v

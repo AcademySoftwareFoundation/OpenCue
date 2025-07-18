@@ -27,3 +27,5 @@ cuebot/.project
 /pycue/opencue/compiled_proto/
 /rqd/rqd/compiled_proto/
 docker-compose-local.yml
+/sandbox/kafka*
+/sandbox/zookeeper*
