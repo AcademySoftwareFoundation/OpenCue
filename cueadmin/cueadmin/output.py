@@ -24,7 +24,7 @@ from __future__ import unicode_literals
 import time
 
 import opencue
-import opencue_proto.job_pb2
+from opencue.api import job_pb2
 
 # pylint: disable=cyclic-import
 import cueadmin.common
