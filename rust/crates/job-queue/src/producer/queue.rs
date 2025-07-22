@@ -14,16 +14,16 @@ use tracing::{error, info, trace};
 
 use crate::{
     config::{KafkaConfig, TopicConfig},
-    models::{JobMessage, Partitionable},
+    models::{DispatchJob, Partitionable},
 };
 
 pub struct GeneralJobQueue {
-    producer: KafkaTopicProducer<JobMessage>,
+    producer: KafkaTopicProducer<DispatchJob>,
 }
 
 impl GeneralJobQueue {
     pub fn from_config(config: &KafkaConfig) -> Result<Self> {
-        let producer: KafkaTopicProducer<JobMessage> =
+        let producer: KafkaTopicProducer<DispatchJob> =
             KafkaTopicProducer::new(config, &config.general_jobs_topic)?;
 
         Ok(Self { producer })
@@ -65,7 +65,7 @@ impl<T: Serialize + Partitionable> KafkaTopicProducer<T> {
         let key = payload.partition_key();
         let record = FutureRecord::to(&self.topic_name)
             .payload(&serialized_payload)
-            .key(key);
+            .key(&key);
 
         match self
             .producer
@@ -139,7 +139,7 @@ impl<T: Serialize + Partitionable> KafkaTopicProducer<T> {
 }
 
 impl std::ops::Deref for GeneralJobQueue {
-    type Target = KafkaTopicProducer<JobMessage>;
+    type Target = KafkaTopicProducer<DispatchJob>;
 
     fn deref(&self) -> &Self::Target {
         &self.producer

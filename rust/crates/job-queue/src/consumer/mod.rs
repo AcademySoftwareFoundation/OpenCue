@@ -1,8 +1,9 @@
 mod dispatcher;
 mod executor;
-mod host_fetcher;
+mod frame_dao;
+mod host_dao;
 mod job_consumer;
-mod layer_fetcher;
+mod layer_dao;
 
 use crate::config::Config;
 use job_consumer::GeneralJobDispatcher;

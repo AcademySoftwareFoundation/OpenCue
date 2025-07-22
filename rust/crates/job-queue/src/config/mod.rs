@@ -1,6 +1,7 @@
 pub mod error;
 
 use crate::config::error::JobQueueConfigError;
+use bytesize::ByteSize;
 use config::{Config as ConfigBase, Environment, File};
 use serde::Deserialize;
 use std::{env, time::Duration};
@@ -36,6 +37,9 @@ pub struct QueueConfig {
     #[serde(with = "humantime_serde")]
     pub monitor_interval: Duration,
     pub worker_threads: usize,
+    pub dispatch_frames_per_layer_limit: usize,
+    pub core_multiplier: u32,
+    pub memory_stranded_threshold: ByteSize,
 }
 
 impl Default for QueueConfig {
@@ -43,6 +47,9 @@ impl Default for QueueConfig {
         QueueConfig {
             monitor_interval: Duration::from_secs(5),
             worker_threads: 4,
+            dispatch_frames_per_layer_limit: 20,
+            core_multiplier: 100,
+            memory_stranded_threshold: ByteSize::gib(2),
         }
     }
 }

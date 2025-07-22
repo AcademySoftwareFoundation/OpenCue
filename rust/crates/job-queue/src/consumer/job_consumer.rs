@@ -1,4 +1,4 @@
-use crate::{config::Config, consumer::executor::JobMessageExecutor, models::JobMessage};
+use crate::{config::Config, consumer::executor::JobMessageExecutor, models::DispatchJob};
 use futures::StreamExt;
 use miette::{Context, IntoDiagnostic, Result};
 use rdkafka::{
@@ -81,7 +81,7 @@ impl KafkaJobConsumer {
                 Ok(msg) => {
                     if let Some(payload) = msg.payload() {
                         let serialized_job = String::from_utf8_lossy(payload);
-                        match serde_json::from_str::<JobMessage>(&serialized_job) {
+                        match serde_json::from_str::<DispatchJob>(&serialized_job) {
                             Ok(job) => {
                                 if dry_run {
                                     info!("(dry-run) Consumed job {}", job);

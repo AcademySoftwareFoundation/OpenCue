@@ -2,12 +2,31 @@ use std::sync::Arc;
 
 use futures::Stream;
 use miette::Result;
+use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
+use uuid::Uuid;
 
-use crate::{config::DatabaseConfig, models::JobMessage, pgpool::connection_pool};
+use crate::{config::DatabaseConfig, models::DispatchJob, pgpool::connection_pool};
 
-pub struct JobFetcher {
+pub struct JobDao {
     connection_pool: Arc<Pool<Postgres>>,
+}
+
+#[derive(sqlx::FromRow, Serialize, Deserialize)]
+pub struct JobModel {
+    pub pk_job: String,
+    pub int_priority: i32,
+    pub age_days: i32,
+}
+
+impl From<JobModel> for DispatchJob {
+    fn from(val: JobModel) -> Self {
+        DispatchJob {
+            id: Uuid::parse_str(&val.pk_job).unwrap_or_default(),
+            int_priority: val.int_priority,
+            age_days: val.age_days,
+        }
+    }
 }
 
 static QUERY_PENDING_JOBS: &str = r#"
@@ -79,16 +98,16 @@ INNER JOIN layer_stat ls ON fj.pk_job = ls.pk_job
 WHERE ls.int_waiting_count > 0
 "#;
 
-impl JobFetcher {
+impl JobDao {
     pub async fn from_config(config: &DatabaseConfig) -> Result<Self> {
         let pool = connection_pool(config).await?;
 
-        Ok(JobFetcher {
+        Ok(JobDao {
             connection_pool: pool,
         })
     }
 
-    pub fn query_active_jobs(&self) -> impl Stream<Item = Result<JobMessage, sqlx::Error>> + '_ {
-        sqlx::query_as::<_, JobMessage>(QUERY_PENDING_JOBS).fetch(&*self.connection_pool)
+    pub fn query_active_jobs(&self) -> impl Stream<Item = Result<JobModel, sqlx::Error>> + '_ {
+        sqlx::query_as::<_, JobModel>(QUERY_PENDING_JOBS).fetch(&*self.connection_pool)
     }
 }

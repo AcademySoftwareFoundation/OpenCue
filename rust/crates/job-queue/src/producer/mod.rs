@@ -1,4 +1,4 @@
-mod job_fetcher;
+mod job_dao;
 mod queue;
 
 use std::time::Duration;
@@ -10,7 +10,7 @@ use tracing::{error, info, warn};
 use crate::config::Config;
 
 pub async fn run(config: Config, monitor_interval: Option<Duration>) -> miette::Result<()> {
-    let job_fetcher = job_fetcher::JobFetcher::from_config(&config.database).await?;
+    let job_fetcher = job_dao::JobDao::from_config(&config.database).await?;
     let queue_manager = queue::GeneralJobQueue::from_config(&config.kafka)?;
     queue_manager.create_topic().await?;
 
@@ -22,7 +22,8 @@ pub async fn run(config: Config, monitor_interval: Option<Duration>) -> miette::
 
         while let Some(job) = stream.next().await {
             match job {
-                Ok(job) => {
+                Ok(job_model) => {
+                    let job = job_model.into();
                     info!("Found job: {}", job);
                     if let Err(err) = queue_manager.send(&job).await {
                         warn!("Failed to send job: {} to kafka", err)
