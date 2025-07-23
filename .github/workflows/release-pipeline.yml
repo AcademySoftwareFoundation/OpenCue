@@ -44,7 +44,7 @@ jobs:
   upload_python_packages_test:
     needs: build_opencue_packages
     runs-on: ubuntu-22.04
-    container: python:3.10
+    container: python:3.11
     name: "Upload python packages to testpypi repo"
     environment: testpypi
     env:
