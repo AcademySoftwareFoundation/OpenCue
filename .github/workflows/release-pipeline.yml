@@ -45,7 +45,7 @@ jobs:
     needs: build_opencue_packages
     runs-on: ubuntu-22.04
     container: python:3.10
-    name: "Upload python packages"
+    name: "Upload python packages to testpypi repo"
     environment: testpypi
     env:
       TWINE_USERNAME: "__token__"
