@@ -42,7 +42,7 @@ RUN chmod +x create_rpm.sh && ./create_rpm.sh cuebot "$(cat VERSION)"
 # -----------------
 # RUN
 # -----------------
-FROM openjdk:18-slim-bookworm
+FROM openjdk:18-slim-bullseye
 
 # Install curl for healthchecking
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
