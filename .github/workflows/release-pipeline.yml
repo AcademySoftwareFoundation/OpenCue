@@ -59,6 +59,7 @@ jobs:
 
       - name: Upload packages
         run: |
+          export
           python3 -m pip install --upgrade twine
           python3 -m twine upload --verbose --repository testpypi packages/opencue_cueadmin-*
 
