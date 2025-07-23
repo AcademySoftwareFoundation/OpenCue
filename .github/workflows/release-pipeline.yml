@@ -60,7 +60,7 @@ jobs:
       - name: Upload packages
         run: |
           python3 -m pip install --upgrade twine
-          python3 -m twine upload --repository testpypi packages/*
+          python3 -m twine upload --repository testpypi packages/opencue_cueadmin-*
 
   build_docker_images:
     needs: build_opencue_packages
