@@ -46,6 +46,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: python:3.10
     name: "Upload python packages"
+    environment: testpypi
     env:
       TWINE_USERNAME: "__token__"
       TWINE_PASSWORD: "${{ secrets.TEST_PYPI_API_TOKEN }}"
@@ -59,7 +60,6 @@ jobs:
 
       - name: Upload packages
         run: |
-          export
           python3 -m pip install --upgrade twine
           python3 -m twine upload --verbose --repository testpypi packages/opencue_cueadmin-*
 
