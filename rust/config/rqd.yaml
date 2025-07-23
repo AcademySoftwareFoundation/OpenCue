@@ -138,6 +138,10 @@ runner:
   # Default: 1000
   # default_uid: 1000
 
+  # Default user group id for running jobs if not specified
+  # Default: 20
+  # default_gid: 20
+
   # Type of logger to use for job output (More options coming soon)
   # Options: file
   # Default: file
