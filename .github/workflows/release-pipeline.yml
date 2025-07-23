@@ -41,10 +41,6 @@ jobs:
           echo "opencue_cueadmin_path=$(ls -a packages/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
           echo "opencue_cuegui_path=$(ls -a packages/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
 
-      - name: Upload packages
-        run: |
-          python3 -m pip install --upgrade twine
-          python3 -m twine upload --repository testpypi packages/*
 
   upload_python_packages:
     needs: build_opencue_packages
@@ -57,6 +53,11 @@ jobs:
         with:
           name: opencue_packages
           path: packages
+
+      - name: Upload packages
+        run: |
+          python3 -m pip install --upgrade twine
+          python3 -m twine upload --repository testpypi packages/*
 
   build_docker_images:
     needs: build_opencue_packages
