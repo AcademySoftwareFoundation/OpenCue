@@ -50,7 +50,7 @@ jobs:
     env:
       TWINE_USERNAME: "__token__"
       TWINE_PASSWORD: "${{ secrets.TEST_PYPI_API_TOKEN }}"
-      TWINE_REPOSITORY: "testpy"
+      TWINE_REPOSITORY: "testpypi"
 
     steps:
       - name: Download artifact
@@ -62,7 +62,7 @@ jobs:
       - name: Upload packages
         run: |
           python3 -m pip install --upgrade twine
-          python3 -m twine upload --repository ${TWINE_REPOSITORY} --verbose packages/opencue_*
+          python3 -m twine upload --verbose packages/opencue_*
 
   build_docker_images:
     needs: build_opencue_packages
