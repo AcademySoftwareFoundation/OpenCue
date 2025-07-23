@@ -462,6 +462,7 @@ impl RunningFrame {
 
         if self.config.run_as_user {
             cmd.uid(self.uid);
+            cmd.gid(self.gid);
         }
 
         trace!("Running {}: {}", self.entrypoint_file_path, cmd_str);
