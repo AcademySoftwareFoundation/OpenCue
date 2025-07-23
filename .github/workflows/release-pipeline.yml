@@ -7,7 +7,7 @@ on:
       - "v*"
 
 jobs:
-  build_python_packages:
+  build_opencue_packages:
     runs-on: ubuntu-22.04
     container: python:3.7
     name: "Build Python Packages"
@@ -46,8 +46,20 @@ jobs:
           python3 -m pip install --upgrade twine
           python3 -m twine upload --repository testpypi packages/*
 
+  upload_python_packages:
+    needs: build_opencue_packages
+    runs-on: ubuntu-22.04
+    container: python:3.10
+    name: "Upload python packages"
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
+
   build_docker_images:
-    needs: build_python_packages
+    needs: build_opencue_packages
     runs-on: ubuntu-22.04
     name: "Build Docker Images"
     strategy:
