@@ -70,7 +70,8 @@ jobs:
     name: "Build Docker Images"
     strategy:
       matrix:
-        component: [cuebot, pycue, rqd, pyoutline, cuesubmit, cueadmin, cuegui]
+        # Disable cuebot for now
+        component: [pycue, rqd, pyoutline, cuesubmit, cueadmin, cuegui]
 
     steps:
       - uses: actions/checkout@v4
