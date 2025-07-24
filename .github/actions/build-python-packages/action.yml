@@ -1,0 +1,53 @@
+name: 'Build Python Packages'
+runs:
+  using: composite
+  steps:
+    - name: Prepare building packages
+      shell: bash
+      run: |
+        pip install build
+
+    - name: Build opencue_proto package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./proto
+
+    - name: Build opencue_pycue package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./pycue
+
+    - name: Build opencue_pyoutline package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./pyoutline
+
+    - name: Build opencue_cueadmin package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./cueadmin
+
+    - name: Build opencue_cuesubmit package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./cuesubmit
+
+    - name: Build opencue_cuegui package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./cuegui
+
+    - name: Build opencue_rqd package
+      shell: bash
+      run: |
+        python -m build --outdir packages ./rqd
+
+    - name: Fix permissions
+      shell: bash
+      run: chmod uog+rwX packages/*.*
+
+    - name: Upload opencue packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: opencue_packages
+        path: packages

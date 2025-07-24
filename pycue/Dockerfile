@@ -1,43 +1,23 @@
-FROM python:3.9.14
+FROM python:3.9
 
-WORKDIR /src
+WORKDIR /opt/opencue
+
+# Paths to the pre-built python packages.
+# They are all defined her but no necessary used to make it simpler between the images
+ARG OPENCUE_PROTO_PACKAGE_PATH=/tmp/invalidpath
+ARG OPENCUE_RQD_PACKAGE_PATH=/tmp/invalidpath
+ARG OPENCUE_PYCUE_PACKAGE_PATH=/tmp/invalidpath
+ARG OPENCUE_PYOUTLINE_PACKAGE_PATH=/tmp/invalidpath
+ARG OPENCUE_CUESUBMIT_PACKAGE_PATH=/tmp/invalidpath
+ARG OPENCUE_CUEGUI_PACKAGE_PATH=/tmp/invalidpath
+ARG OPENCUE_CUEADMIN_PACKAGE_PATH=/tmp/invalidpath
 
 RUN python3 -m pip install --upgrade pip
-RUN python3 -m pip install --upgrade setuptools
 
 COPY LICENSE ./
-COPY requirements.txt ./
 
-RUN python3 -m pip install -r requirements.txt
+RUN mkdir /tmp/packages
+COPY ${OPENCUE_PROTO_PACKAGE_PATH} /tmp/packages/
+COPY ${OPENCUE_PYCUE_PACKAGE_PATH} /tmp/packages/
 
-COPY proto/ ./proto
-COPY pycue/README.md ./pycue/
-COPY pycue/setup.py ./pycue/
-COPY pycue/FileSequence ./pycue/FileSequence
-COPY pycue/tests/ ./pycue/tests
-COPY pycue/opencue ./pycue/opencue
-
-RUN python3 -m grpc_tools.protoc \
-  -I=./proto \
-  --python_out=./pycue/opencue/compiled_proto \
-  --grpc_python_out=./pycue/opencue/compiled_proto \
-  ./proto/*.proto
-
-# Fix imports to work in both Python 2 and 3. See
-# <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-COPY ci/fix_compiled_proto.py ./ci/
-RUN python3 ci/fix_compiled_proto.py pycue/opencue/compiled_proto
-
-COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)" | tee VERSION
-
-RUN cd pycue && python3 -m pip install .
-RUN cd pycue && python3 tests/test_suite.py
-
-RUN cp LICENSE requirements.txt VERSION pycue/
-
-RUN versioned_name="pycue-$(cat ./VERSION)-all" \
-  && mv pycue "${versioned_name}" \
-  && tar -cvzf "${versioned_name}.tar.gz" ${versioned_name}/* \
-  && mkdir /opt/opencue \
-  && cp "${versioned_name}.tar.gz" /opt/opencue/
+RUN python3 -m pip install /tmp/packages/*.whl
