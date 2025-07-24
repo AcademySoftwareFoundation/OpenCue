@@ -62,6 +62,7 @@ cd ..
 
 echo "Running lint for rqd/..."
 pip install ./rqd[test] ${PIP_OPT}
+pip install ./rqd[systemd] ${PIP_OPT}
 cd rqd
 python -m pylint --rcfile=../ci/pylintrc_main rqd
 python -m pylint --rcfile=../ci/pylintrc_test tests
