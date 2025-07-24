@@ -1,0 +1,40 @@
+logging:
+  level: info
+grpc:
+  rqd_port: 8444
+  cuebot_endpoints: ["0.0.0.0:4343", "0.0.0.0:4343"]
+  connection_expires_after: 15m
+machine:
+  # nimby_mode: true
+  # nimby_idle_threshold: 60s
+  worker_threads: 8
+  facility: test
+  monitor_interval: 3s
+  cpuinfo_path: "/Users/dtavares/dev/rust_opencue/crates/rqd/resources/cpuinfo/cpuinfo_srdsvr09_48-12-4"
+  distro_release_path: "/Users/dtavares/dev/rust_opencue/crates/rqd/resources/distro-release/rocky"
+  proc_stat_path: "/Users/dtavares/dev/rust_opencue/crates/rqd/resources/proc/stat"
+  proc_loadavg_path: "/Users/dtavares/dev/rust_opencue/crates/rqd/resources/proc/loadavg"
+  temp_path: "/tmp"
+  use_session_id_for_proc_lineage: true
+runner:
+  snapshots_path: $HOME/.rqd/snapshots
+  kill_monitor_interval: 10s
+  kill_monitor_timeout: 60s
+  force_kill_after_timeout: true
+  docker.mounts:
+    - target: ""
+      source: ""
+      typ: ""
+      bind-propagation: ""
+  docker.images:
+    rhel7: "centos7:latest"
+    rocky9: "rockyimage:latest"
+#   monitor_interval_seconds: 3
+#   use_ip_as_hostname: false
+#   nimby_mode: false
+#   override_real_values:
+#     cores: 4
+#     procs: 8
+#     memory: "2Gb"
+#     desktop_mode: true
+#     hostname: "some_host_name"

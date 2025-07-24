@@ -1,0 +1,205 @@
+# RQD (Render Queue Daemon) Configuration File
+#
+# This file configures the RQD daemon that runs on render farm machines
+# to execute rendering jobs from the OpenCue scheduler.
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+logging:
+  # Logging level for RQD output
+  # Options: debug, info, warning, error
+  # Default: debug
+  level: info
+
+  # Path to the log file (only used if file_appender is true)
+  # Default: /opt/rqd/logs/scheduler.log
+  # path: "/opt/rqd/logs/scheduler.log"
+
+  # Whether to log to a file (true) or stdout (false)
+  # Default: false (logs to stdout)
+  # file_appender: false
+
+# =============================================================================
+# GRPC CONFIGURATION
+# =============================================================================
+grpc:
+  # Port that RQD listens on for incoming gRPC connections
+  # Default: 8444
+  rqd_port: 4778
+
+  # Cuebot server endpoints (can specify multiple for failover)
+  # Default: ["localhost:4343"]
+  cuebot_endpoints: ["cuebot.example.com:8082"] # Replace with actual endpoints
+
+  # How long gRPC connections should remain active before expiring
+  # Default: 1h (3600 seconds)
+  # connection_expires_after: 1h
+
+  # Minimum delay between connection retry attempts
+  # Default: 10ms
+  # backoff_delay_min: 10ms
+
+  # Maximum delay between connection retry attempts
+  # Default: 60s
+  # backoff_delay_max: 60s
+
+  # Percentage of jitter to add to backoff delays (0-100)
+  # Default: 10.0
+  # backoff_jitter_percentage: 10.0
+
+# =============================================================================
+# MACHINE CONFIGURATION
+# =============================================================================
+machine:
+  # Facility name for organizing render nodes
+  # Default: cloud
+  facility: lax
+
+  # How often to monitor system resources and report to Cuebot
+  # Default: 10s
+  # monitor_interval: 5s
+
+  # Use IP address instead of hostname for machine identification
+  # Default: false
+  # use_ip_as_hostname: false
+
+  # Enable NIMBY (Not In My Back Yard) mode - prevents jobs from running
+  # when user is actively using the machine
+  # Default: false
+  # nimby_mode: false
+
+  # How long a system must be idle before triggering NIMBY lock
+  # Default: 15 minutes
+  # nimby_idle_threshold: 900s
+
+  # Path to a file containing the DISPLAY number (e.g., "username:0")
+  # This file should contain a single line with the display number and writing it
+  # is not a responsibility of this module
+  # nimby_display_file_path: "/tmp/DISPLAY"
+
+  # How often to retry starting NIMBY mode if it fails
+  # Default: 5 minutes
+  # nimby_start_retry_interval: 300s
+
+  # Path to the Xauthority file path
+  # This file by default is located at user home directory
+  # nimby_display_xauthority_path: "/home/{username}/Xauthority"
+
+  # Custom tags to apply to this render node for job targeting
+  # Default: []
+  # custom_tags: ["gpu", "high_memory"]
+
+  # System file paths (usually don't need to be changed)
+  # cpuinfo_path: "/proc/cpuinfo"           # Default: /proc/cpuinfo
+  # distro_release_path: "/etc/os-release"  # Default: /etc/os-release
+  # proc_stat_path: "/proc/stat"            # Default: /proc/stat
+  # proc_loadavg_path: "/proc/loadavg"      # Default: /proc/loadavg
+  # temp_path: "/tmp"                       # Default: /tmp
+
+  # CPU core multiplier for calculating available processing slots
+  # Default: 100
+  # core_multiplier: 100
+
+  # Number of worker threads for handling system monitoring
+  # Default: 4
+  # worker_threads: 4
+
+  # Override real system values (useful for testing or limiting resources)
+  # All fields are optional - only specify what you want to override
+  # override_real_values:
+  #   # Number of CPU cores to report
+  #   cores: 4
+  #
+  #   # Number of processing slots to allocate
+  #   procs: 8
+  #
+  #   # Amount of memory to report (supports units like "2GB", "4096MB")
+  #   memory_size: "2GB"
+  #
+  #   # Enable workstation/desktop mode
+  #   workstation_mode: true
+  #
+  #   # Override the hostname reported to Cuebot
+  #   hostname: "custom_hostname"
+  #
+  #   # Override the operating system reported to Cuebot
+  #   os: "Rocky Linux 9"
+
+# =============================================================================
+# RUNNER CONFIGURATION
+# =============================================================================
+runner:
+  # Whether to run jobs inside Docker containers
+  # Default: false
+  # run_on_docker: false
+
+  # Default user ID for running jobs
+  # Default: 1000
+  # default_uid: 1000
+
+  # Default user group id for running jobs if not specified
+  # Default: 20
+  # default_gid: 20
+
+  # Type of logger to use for job output (More options coming soon)
+  # Options: file
+  # Default: file
+  # logger: file
+
+  # Whether to prepend timestamps to job log output
+  # Default: true
+  # prepend_timestamp: true
+
+  # Use host PATH environment variable in job environment
+  # Default: false
+  # use_host_path_env_var: false
+
+  # Enable desktop mode (for workstation use)
+  # Default: false
+  # desktop_mode: false
+
+  # Run jobs as the user who submitted them
+  # Default: false
+  # run_as_user: false
+
+  # Temporary directory for job execution
+  # Default: system temp directory (/tmp on Linux)
+  # temp_path: "/tmp"
+
+  # Shell to use for executing job commands
+  # Default: /bin/bash
+  # shell_path: "/bin/bash"
+
+  # Directory to store job snapshots and logs
+  # Default: $HOME/.rqd/snapshots
+  # snapshots_path: "$HOME/.rqd/snapshots"
+
+  # How often to check if jobs need to be killed
+  # Default: 2m (120 seconds)
+  # kill_monitor_interval: 2m
+
+  # How long to wait before force-killing unresponsive jobs
+  # Default: 20m (1200 seconds)
+  # kill_monitor_timeout: 20m
+
+  # Force kill jobs that don't respond to normal termination
+  # Default: false
+  # force_kill_after_timeout: false
+
+  # Default Docker image to use when run_on_docker is enabled
+  # Default: ubuntu:latest
+  # docker_default_image: "ubuntu:latest"
+
+  # Named Docker images for specific job types
+  # docker_images:
+  #   maya2023: "autodesk/maya:2023"
+  #   houdini19: "sidefx/houdini:19.5"
+  #   nuke13: "foundry/nuke:13.2"
+
+  # Docker mount configurations for containerized jobs
+  # docker_mounts:
+  #   - target: "/mnt/shared"      # Mount point inside container
+  #     source: "/shared/storage"   # Source path on host
+  #     typ: "bind"                # Mount type (bind, volume, tmpfs)
+  #     bind_propagation: "rprivate" # Bind propagation mode
