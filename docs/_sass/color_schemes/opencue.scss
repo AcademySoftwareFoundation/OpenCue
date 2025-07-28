@@ -1,0 +1,177 @@
+// OpenCue Light color scheme for Just the Docs theme
+
+// Template-inspired colors with improved contrast
+$template-purple: #7253ed;           // Purple for buttons and links
+$template-sidebar: #f5f6fa;         // Light purple/gray sidebar
+$template-border: #e1e4e8;          // Light border color
+$template-text: #24292e;            // Dark text for readability
+$template-muted: #586069;           // Muted text
+$template-red: #d73a49;             // Red for warnings
+$template-blue: #0366d6;            // Blue for info
+$template-green: #28a745;           // Green for success
+
+// OpenCue brand colors (used sparingly)
+$opencue-primary: #00A4E4;
+$opencue-secondary: #0077B5;
+$opencue-accent: #FF6B35;
+$opencue-dark: #2c3e50;
+$white: #ffffff;
+
+// Base theme variables - override Just the Docs defaults
+$body-background-color: $white !default;
+$sidebar-color: $template-sidebar !default;
+$nav-background-color: $template-sidebar !default;
+$body-heading-color: $template-text !default;
+$body-text-color: $template-text !default;
+$link-color: $template-purple !default;
+$btn-primary-color: $template-purple !default;
+$base-button-color: $template-sidebar !default;
+$border-color: $template-border !default;
+$nav-child-link-color: $template-text !default;
+$feedback-color: $template-sidebar !default;
+
+// Search
+$search-background-color: $white !default;
+$search-result-preview-color: $template-muted !default;
+
+// Code blocks
+$code-background-color: #f6f8fa !default;
+$code-text-color: $template-text !default;
+
+// Fix overall background colors for better contrast
+body {
+  background-color: $white !important;
+}
+
+.side-bar {
+  background-color: $template-sidebar !important;
+}
+
+.main {
+  background-color: $white !important;
+}
+
+.main-content-wrap {
+  background-color: $white !important;
+}
+
+.main-content {
+  background-color: $white !important;
+  color: $template-text !important;
+}
+
+// Navigation text colors
+.nav-list {
+  .nav-list-item {
+    .nav-list-link {
+      color: $template-text !important;
+      
+      &:hover {
+        color: $template-purple !important;
+      }
+    }
+  }
+}
+
+// Site title and header
+.site-header {
+  background-color: $template-sidebar !important;
+  border-bottom: 1px solid $template-border !important;
+  
+  .site-title {
+    color: $template-text !important;
+  }
+}
+
+// All text elements should have proper contrast
+p, li, td, div {
+  color: $template-text !important;
+}
+
+// Headings
+h1, h2, h3, h4, h5, h6 {
+  color: $template-text !important;
+}
+
+// Links
+a {
+  color: $template-purple !important;
+  
+  &:hover,
+  &:focus {
+    color: darken($template-purple, 10%) !important;
+  }
+}
+
+// Lead text
+.fs-6 {
+  color: $template-muted !important;
+}
+
+// Buttons
+.btn {
+  &.btn-primary {
+    background-color: $template-purple !important;
+    color: $white !important;
+    border-color: $template-purple !important;
+    
+    &:hover {
+      background-color: darken($template-purple, 8%) !important;
+      border-color: darken($template-purple, 8%) !important;
+    }
+  }
+  
+  &.btn-outline {
+    color: $template-purple !important;
+    border-color: $template-purple !important;
+    
+    &:hover {
+      background-color: $template-purple !important;
+      color: $white !important;
+    }
+  }
+}
+
+// Search
+.search-input {
+  background-color: $white !important;
+  color: $template-text !important;
+  border: 1px solid $template-border !important;
+  
+  &::placeholder {
+    color: $template-muted !important;
+  }
+}
+
+// Tables
+table {
+  th {
+    background-color: $template-sidebar !important;
+    color: $template-text !important;
+  }
+  
+  td {
+    color: $template-text !important;
+  }
+}
+
+// Code
+code {
+  background-color: $code-background-color !important;
+  color: $template-text !important;
+}
+
+pre {
+  background-color: $code-background-color !important;
+  color: $template-text !important;
+}
+
+// Site footer
+.site-footer {
+  background-color: $template-sidebar !important;
+  color: $template-muted !important;
+  
+  a {
+    color: $template-purple !important;
+  }
+}

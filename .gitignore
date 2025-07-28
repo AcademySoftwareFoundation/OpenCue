@@ -27,3 +27,4 @@ cuebot/.project
 /pycue/opencue/compiled_proto/
 /rqd/rqd/compiled_proto/
 docker-compose-local.yml
+docs/_site/

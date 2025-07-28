@@ -1,0 +1,257 @@
+<!-- Font Awesome CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<!-- Custom header content with styling -->
+<style>
+  /* Fix logo size and visibility */
+  .site-logo {
+    background-image: url('/OpenCue/assets/images/opencue_logo_with_text.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    height: 48px !important;
+    width: 200px !important;
+    display: block !important;
+  }
+  
+  
+  /* Fix link colors - black default, blue on hover */
+  a {
+    color: #000000 !important; /* black */
+  }
+  
+  a:focus,
+  a:hover {
+    background-color: transparent !important;
+    text-decoration: underline !important;
+    color: #1e40af !important; /* blue on hover */
+  }
+  
+  /* Navigation links */
+  .nav-list-link {
+    color: #000000 !important;
+  }
+  
+  .nav-list-link:hover {
+    color: #1e40af !important;
+  }
+  
+  /* Fix purple menu arrows - change to black */
+  .nav-list-expander {
+    color: #000000 !important;
+  }
+  
+  .nav-list-expander:hover {
+    color: #1e40af !important;
+  }
+  
+  .nav-list-expander svg {
+    fill: #000000 !important;
+  }
+  
+  .nav-list-expander:hover svg {
+    fill: #1e40af !important;
+  }
+  
+  /* Fix navigation folder icons */
+  .nav-list-item > .nav-list-expander svg,
+  .nav-list .nav-list-expander svg {
+    fill: #000000 !important;
+  }
+  
+  .nav-list-item:hover > .nav-list-expander svg,
+  .nav-list .nav-list-expander:hover svg {
+    fill: #1e40af !important;
+  }
+  
+  /* Light mode fixes */
+  body {
+    background-color: #ffffff !important;
+  }
+  
+  body .main-content {
+    background-color: #ffffff !important;
+    color: #24292e !important;
+  }
+  
+  body p,
+  body li,
+  body td,
+  body div {
+    color: #24292e !important;
+  }
+  
+  /* Buttons - use dark gray theme */
+  .btn-primary {
+    background-color: #374151 !important;
+    border-color: #374151 !important;
+    color: #ffffff !important;
+  }
+  
+  .btn-primary:hover {
+    background-color: #4b5563 !important;
+    border-color: #4b5563 !important;
+    color: #ffffff !important;
+  }
+  
+  .btn-outline {
+    color: #1e40af !important;
+    border-color: #1e40af !important;
+  }
+  
+  .btn-outline:hover {
+    background-color: #1e40af !important;
+    color: #ffffff !important;
+  }
+  
+  /* Custom btn-blue class */
+  .btn-blue {
+    background-color: #0366d6 !important;
+    border-color: #0366d6 !important;
+    color: #ffffff !important;
+  }
+  
+  .btn-blue:hover {
+    background-color: #0250bb !important;
+    border-color: #0250bb !important;
+    color: #ffffff !important;
+  }
+  
+  /* Custom btn-black class */
+  .btn-black {
+    background-color: #000000 !important;
+    border-color: #000000 !important;
+    color: #ffffff !important;
+  }
+  
+  .btn-black:hover {
+    background-color: #333333 !important;
+    border-color: #333333 !important;
+    color: #ffffff !important;
+  }
+  
+  /* Fix search icons - change purple to black without duplicating */
+  .search-button {
+    color: #000000 !important;
+  }
+  
+  .search-button:hover {
+    color: #1e40af !important;
+  }
+  
+  .search-button svg {
+    fill: #000000 !important;
+    stroke: #000000 !important;
+  }
+  
+  .search-button:hover svg {
+    fill: #1e40af !important;
+    stroke: #1e40af !important;
+  }
+  
+  /* Search results */
+  .search-result-title {
+    color: #000000 !important;
+  }
+  
+  .search-result-title:hover {
+    color: #1e40af !important;
+  }
+  
+  /* Search button in bottom right */
+  .search-results-list-item a {
+    color: #000000 !important;
+  }
+  
+  .search-results-list-item a:hover {
+    color: #1e40af !important;
+  }
+  
+  /* Fix search input field styling */
+  .search-input-wrap .search-input {
+    border-color: #d1d5db !important;
+    padding-right: 60px !important; /* Make room for shortcut indicator */
+  }
+  
+  .search-input-wrap .search-input:focus {
+    border-color: #1e40af !important;
+  }
+  
+  /* Search input wrapper positioning */
+  .search-input-wrap {
+    position: relative !important;
+  }
+  
+  /* Keyboard shortcut indicator in search box */
+  .search-input-wrap::after {
+    content: "Ctrl+K";
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: #6b7280;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-family: monospace;
+    pointer-events: none;
+  }
+  
+  /* Show ⌘K for Mac users */
+  .search-input-wrap.search-mac::after {
+    content: "⌘K";
+  }
+  
+  /* Hide "Just the Docs" footer attribution */
+  .site-footer {
+    display: none !important;
+  }
+</style>
+
+<!-- Search keyboard shortcut functionality -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Add keyboard shortcut for search (Ctrl+K on Windows/Linux, Cmd+K on Mac)
+  document.addEventListener('keydown', function(event) {
+    // Check for Ctrl+K (Windows/Linux) or Cmd+K (Mac)
+    if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+      event.preventDefault(); // Prevent default browser behavior
+      
+      // Find the search input element
+      const searchInput = document.querySelector('.search-input, #search-input, input[type="search"]');
+      const searchButton = document.querySelector('.search-button, .js-search-toggle');
+      
+      if (searchInput) {
+        // Focus on the search input
+        searchInput.focus();
+        searchInput.select(); // Select any existing text
+      } else if (searchButton) {
+        // If no input found, try clicking the search button to open search
+        searchButton.click();
+      }
+    }
+  });
+  
+  // Add visual indicator showing the shortcut key
+  const searchButton = document.querySelector('.search-button, .js-search-toggle');
+  const searchInputWrap = document.querySelector('.search-input-wrap');
+  
+  // Detect if user is on Mac
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const shortcutKey = isMac ? '⌘K' : 'Ctrl+K';
+  
+  // Update search button tooltip
+  if (searchButton) {
+    searchButton.setAttribute('title', `Search (${shortcutKey})`);
+  }
+  
+  // Update search input shortcut indicator
+  if (searchInputWrap && isMac) {
+    // Add Mac-specific class to show ⌘K
+    searchInputWrap.classList.add('search-mac');
+  }
+});
+</script>
+
