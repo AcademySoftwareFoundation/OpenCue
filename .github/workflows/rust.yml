@@ -17,7 +17,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install X11 dev libs
         run: |
-          sudo apt-get update && sudo apt-get install -y libx11-dev rustup
+          sudo apt-get update && sudo apt-get install -y libx11-dev
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
       - name: Build
         run: |
           cd rust
@@ -34,7 +35,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install X11 dev libs
         run: |
-          sudo apt-get update && sudo apt-get install -y libx11-dev rustup
+          sudo apt-get update && sudo apt-get install -y libx11-dev
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
       - name: Run Clippy
         run: |
           cd rust
