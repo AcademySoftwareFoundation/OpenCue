@@ -11,15 +11,13 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
       - name: Install X11 dev libs
         run: |
-          sudo apt-get update && sudo apt-get install -y libx11-dev
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v3
+          sudo apt-get update && sudo apt-get install -y libx11-dev rustup
       - name: Build
         run: |
           cd rust
@@ -30,15 +28,13 @@ jobs:
           cargo test --verbose
 
   clippy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
       - name: Install X11 dev libs
         run: |
-          sudo apt-get update && sudo apt-get install -y libx11-dev
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v3
+          sudo apt-get update && sudo apt-get install -y libx11-dev rustup
       - name: Run Clippy
         run: |
           cd rust
