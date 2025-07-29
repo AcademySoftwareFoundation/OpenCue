@@ -18,7 +18,8 @@ jobs:
       - name: Install X11 dev libs
         run: |
           sudo apt-get update && sudo apt-get install -y libx11-dev
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rust-install.sh
+          bash ./rust-install.sh -y
       - name: Build
         run: |
           cd rust
