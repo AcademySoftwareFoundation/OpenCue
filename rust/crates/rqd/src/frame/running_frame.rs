@@ -149,7 +149,7 @@ impl RunningFrame {
 
         // Protection against frames that want to become root
         let gid = if request.gid <= 0 {
-            10
+            config.default_gid
         } else {
             request.gid as u32
         };
@@ -462,6 +462,7 @@ impl RunningFrame {
 
         if self.config.run_as_user {
             cmd.uid(self.uid);
+            cmd.gid(self.gid);
         }
 
         trace!("Running {}: {}", self.entrypoint_file_path, cmd_str);
