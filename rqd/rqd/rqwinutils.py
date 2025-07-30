@@ -14,7 +14,7 @@ Note:
     This is tailored for the needs of OpenCue, especially for hybrid CPUs
     TODO: Maybe we should contribute this back to psutils ?
 """
-from ctypes import c_ulonglong, Structure, Union, WinDLL
+from ctypes import c_ulonglong, c_uint, Structure, Union, WinDLL
 from ctypes import POINTER, sizeof, WinError, byref, get_last_error
 from ctypes import wintypes
 
@@ -72,6 +72,26 @@ class SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX(Structure):
     _fields_ = [("Relationship", wintypes.DWORD),
                 ("Size", wintypes.DWORD),
                 ("DUMMYUNIONNAME", DUMMYUNIONNAME)]
+
+
+class MEMORYSTATUSEX(Structure):
+    """Represents Windows memory information."""
+    # From
+    # http://stackoverflow.com/questions/2017545/get-memory-usage-of-computer-in-windows-with-python
+    _fields_ = [("dwLength", c_uint),
+                ("dwMemoryLoad", c_uint),
+                ("ullTotalPhys", c_ulonglong),
+                ("ullAvailPhys", c_ulonglong),
+                ("ullTotalPageFile", c_ulonglong),
+                ("ullAvailPageFile", c_ulonglong),
+                ("ullTotalVirtual", c_ulonglong),
+                ("ullAvailVirtual", c_ulonglong),
+                ("ullAvailExtendedVirtual", c_ulonglong), ]
+
+    def __init__(self):
+        # have to initialize this to the size of MEMORYSTATUSEX
+        self.dwLength = 2 * 4 + 7 * 8  # size = 2 ints, 7 longs
+        super(MEMORYSTATUSEX, self).__init__()
 
 
 def get_logical_processor_information_ex():
