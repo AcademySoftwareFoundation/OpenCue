@@ -27,41 +27,47 @@ jobs:
 
       - name: Prepare building packages
         run: |
-          pip install build
+          pip install build==1.1.1
 
       - name: Build opencue_proto package
         id: build_opencue_proto
         run: |
+          set -e
           python -m build ./proto
           echo "opencue_proto_path=$(ls ./proto/dist/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_pycue package
         id: build_pycue
         run: |
+          set -e
           python -m build ./pycue
           echo "opencue_pycue_path=$(ls ./pycue/dist/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_pyoutline package
         id: build_pyoutline
         run: |
+          set -e
           python -m build ./pyoutline
           echo "opencue_pyoutline_path=$(ls ./pyoutline/dist/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_cueadmin package
         id: build_cueadmin
         run: |
+          set -e
           python -m build ./cueadmin
           echo "opencue_cueadmin_path=$(ls ./cueadmin/dist/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_cuesubmit package
         id: build_cuesubmit
         run: |
+          set -e
           python -m build ./cuesubmit
           echo "opencue_cuesubmit_path=$(ls ./cuesubmit/dist/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_rqd package
         id: build_rqd
         run: |
+          set -e
           python -m build ./rqd
           echo "opencue_rqd_path=$(ls ./rqd/dist/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
 
