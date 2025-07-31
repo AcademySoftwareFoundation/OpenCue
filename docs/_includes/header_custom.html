@@ -1,6 +1,22 @@
 <!-- Font Awesome CSS -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
+<!-- Prevent white flash - Apply theme immediately -->
+<script>
+(function() {
+  const currentTheme = localStorage.getItem('theme') || 
+    (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  
+  if (currentTheme === 'dark') {
+    document.documentElement.style.backgroundColor = '#1f2937';
+    document.body?.classList.add('dark-mode');
+  } else {
+    document.documentElement.classList.add('light-mode');
+    document.documentElement.style.backgroundColor = '#ffffff';
+  }
+})();
+</script>
+
 <!-- Custom header content with styling -->
 <style>
   /* Fix logo size and visibility */
@@ -208,6 +224,653 @@
   .site-footer {
     display: none !important;
   }
+
+  /* Light mode auxiliary navigation styling */
+  .aux-nav {
+    background: #f5f6fa !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-wrap: nowrap !important;
+    min-width: fit-content !important;
+  }
+
+  .aux-nav .aux-nav-list {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-wrap: nowrap !important;
+    gap: 12px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .aux-nav .aux-nav-list-item {
+    display: inline-flex !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  .aux-nav .site-button {
+    background: #ffffff !important;
+    color: #374151 !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px;
+    padding: 8px 16px !important;
+    transition: all 0.2s ease;
+    white-space: nowrap !important;
+    font-size: 14px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .aux-nav .site-button:hover {
+    background: #f3f4f6 !important;
+    color: #1f2937 !important;
+  }
+  
+  /* Simple Theme Toggle Button - Same position as search button */
+  .theme-toggle-btn {
+    background: #ffffff !important;
+    border: 2px solid #6b7280 !important;
+    cursor: pointer !important;
+    font-size: 1.4rem !important;
+    color: #6b7280 !important;
+    padding: 8px 12px !important;
+    border-radius: 50% !important;
+    transition: all 0.2s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 50px !important;
+    height: 50px !important;
+    font-weight: bold !important;
+    position: fixed !important;
+    top: 80px !important;
+    right: calc(50% - 440px) !important; /* Same position as search button */
+    z-index: 9999 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  }
+  
+  .theme-toggle-btn:hover {
+    background: #6b7280 !important;
+    color: #ffffff !important;
+    transform: scale(1.05) !important;
+  }
+  
+  .theme-toggle-btn:active {
+    transform: scale(0.95) !important;
+  }
+  
+  /* Dark mode toggle button styling */
+  body.dark-mode .theme-toggle-btn {
+    background: #4b5563 !important;
+    border-color: #f9fafb !important;
+    color: #f9fafb !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
+  }
+  
+  body.dark-mode .theme-toggle-btn:hover {
+    background: #6b7280 !important;
+    color: #f9fafb !important;
+  }
+  
+  /* Force aux-nav list item visibility */
+  .aux-nav-list-item {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Hide search button */
+  .search-button,
+  .js-search-toggle {
+    display: none !important;
+  }
+
+  /* Ensure aux-nav is always visible */
+  .aux-nav {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  .aux-nav-list {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Prevent white flash during page transitions */
+  html {
+    background-color: #1f2937 !important;
+  }
+  
+  html.light-mode {
+    background-color: #ffffff !important;
+  }
+  
+  body {
+    background-color: inherit !important;
+  }
+  
+  /* Professional Dark Mode - Dark Gray Design System */
+  :root {
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  body {
+    transition: var(--transition-smooth);
+  }
+  
+  body.dark-mode {
+    background-color: #1f2937 !important;
+    color: #f9fafb !important;
+  }
+  
+  /* Main content areas */
+  body.dark-mode .main,
+  body.dark-mode .main-content-wrap,
+  body.dark-mode .main-content {
+    background-color: #1f2937 !important;
+    color: #f9fafb !important;
+    transition: var(--transition-smooth);
+  }
+  
+  /* Sidebar with solid color */
+  body.dark-mode .side-bar {
+    background: #374151 !important;
+    border-right: 1px solid #4b5563 !important;
+    transition: var(--transition-smooth);
+  }
+  
+  /* Header with solid color */
+  body.dark-mode .site-header {
+    background: #374151 !important;
+    border-bottom: 1px solid #6b7280 !important;
+    transition: var(--transition-smooth);
+  }
+  
+  /* Fix header text contrast */
+  body.dark-mode .site-header * {
+    color: #f9fafb !important;
+  }
+  
+  body.dark-mode .site-title {
+    color: #f9fafb !important;
+    text-shadow: none;
+  }
+  
+  /* Typography with proper hierarchy */
+  body.dark-mode p,
+  body.dark-mode li,
+  body.dark-mode td,
+  body.dark-mode div,
+  body.dark-mode span {
+    color: #e5e7eb !important;
+  }
+  
+  body.dark-mode h1,
+  body.dark-mode h2,
+  body.dark-mode h3,
+  body.dark-mode h4,
+  body.dark-mode h5,
+  body.dark-mode h6 {
+    color: #f9fafb !important;
+    text-shadow: none;
+  }
+  
+  /* Professional link styling */
+  body.dark-mode a {
+    color: #9ca3af !important;
+    text-decoration: none;
+    transition: var(--transition-smooth);
+    border-bottom: 1px solid transparent;
+  }
+  
+  body.dark-mode a:hover,
+  body.dark-mode a:focus {
+    color: #d1d5db !important;
+    border-bottom-color: #9ca3af;
+    text-shadow: none;
+  }
+  
+  /* Navigation with smooth interactions */
+  body.dark-mode .nav-list-link {
+    color: #d1d5db !important;
+    transition: var(--transition-smooth);
+    border-radius: 6px;
+    margin: 1px 0;
+  }
+  
+  body.dark-mode .nav-list-link:hover {
+    color: #f9fafb !important;
+    background: rgba(156, 163, 175, 0.1) !important;
+    transform: translateX(4px);
+  }
+  
+  /* Navigation expanders with smooth animations */
+  body.dark-mode .nav-list-expander {
+    color: #9ca3af !important;
+    transition: var(--transition-smooth);
+  }
+  
+  body.dark-mode .nav-list-expander:hover {
+    color: #d1d5db !important;
+    transform: scale(1.1);
+  }
+  
+  body.dark-mode .nav-list-expander svg {
+    fill: #9ca3af !important;
+    transition: var(--transition-smooth);
+  }
+  
+  body.dark-mode .nav-list-expander:hover svg {
+    fill: #d1d5db !important;
+    filter: none;
+  }
+  
+  /* Professional search input */
+  body.dark-mode .search-input {
+    background: #4b5563 !important;
+    color: #f9fafb !important;
+    border: 1px solid #6b7280 !important;
+    border-radius: 8px;
+    transition: var(--transition-smooth);
+  }
+  
+  body.dark-mode .search-input::placeholder {
+    color: #9ca3af !important;
+  }
+  
+  body.dark-mode .search-input:focus {
+    border-color: #9ca3af !important;
+    background: #6b7280 !important;
+  }
+  
+  /* Search button */
+  body.dark-mode .search-button {
+    color: #d1d5db !important;
+    transition: var(--transition-smooth);
+  }
+  
+  body.dark-mode .search-button:hover {
+    color: #f9fafb !important;
+    transform: scale(1.05);
+  }
+  
+  body.dark-mode .search-button svg {
+    fill: #d1d5db !important;
+    stroke: #d1d5db !important;
+    transition: var(--transition-smooth);
+  }
+  
+  body.dark-mode .search-button:hover svg {
+    fill: #f9fafb !important;
+    stroke: #f9fafb !important;
+    filter: none;
+  }
+  
+  /* Professional button system */
+  body.dark-mode .btn {
+    background: #6b7280 !important;
+    color: #f9fafb !important;
+    border: 1px solid #9ca3af !important;
+    border-radius: 8px;
+    transition: var(--transition-smooth);
+  }
+  
+  body.dark-mode .btn:hover {
+    background: #9ca3af !important;
+    transform: translateY(-1px);
+  }
+  
+  body.dark-mode .btn-primary {
+    background: #6b7280 !important;
+    color: #ffffff !important;
+    border-color: #6b7280 !important;
+  }
+  
+  body.dark-mode .btn-primary:hover {
+    background: #9ca3af !important;
+    border-color: #9ca3af !important;
+    transform: translateY(-1px);
+  }
+  
+  /* Code blocks with syntax highlighting theme */
+  body.dark-mode code {
+    background: #4b5563 !important;
+    color: #fbbf24 !important;
+    border: 1px solid #6b7280 !important;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  
+  body.dark-mode pre {
+    background: #1f2937 !important;
+    color: #e5e7eb !important;
+    border: 1px solid #4b5563 !important;
+    border-radius: 8px;
+  }
+  
+  body.dark-mode pre code {
+    color: #e5e7eb !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0;
+  }
+  
+  /* Professional table design */
+  body.dark-mode table {
+    background: #1f2937 !important;
+    border: 1px solid #4b5563 !important;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  body.dark-mode table th {
+    background: #374151 !important;
+    color: #f9fafb !important;
+    border: 1px solid #6b7280 !important;
+    font-weight: 600;
+  }
+  
+  body.dark-mode table td {
+    color: #e5e7eb !important;
+    border: 1px solid #4b5563 !important;
+    transition: var(--transition-smooth);
+  }
+  
+  body.dark-mode table tr:hover td {
+    background: rgba(156, 163, 175, 0.05) !important;
+  }
+  
+  body.dark-mode .search-input-wrap::after {
+    background: #4b5563 !important;
+    border-color: #9ca3af !important;
+    color: #9ca3af !important;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Auxiliary navigation buttons */
+  body.dark-mode .aux-nav {
+    background: #374151 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-wrap: nowrap !important;
+    min-width: fit-content !important;
+  }
+
+  body.dark-mode .aux-nav .aux-nav-list {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-wrap: nowrap !important;
+    gap: 12px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.dark-mode .aux-nav .aux-nav-list-item {
+    display: inline-flex !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+  
+  body.dark-mode .aux-nav .site-button {
+    color: #f9fafb !important;
+    background: #4b5563 !important;
+    transition: var(--transition-smooth);
+    border-radius: 6px;
+    padding: 8px 16px !important;
+    white-space: nowrap !important;
+    font-size: 14px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  body.dark-mode .aux-nav .site-button:hover {
+    color: #f9fafb !important;
+    background: #6b7280 !important;
+    transform: translateY(-1px);
+    box-shadow: none;
+  }
+  
+  /* Footer */
+  body.dark-mode .site-footer {
+    background: #374151 !important;
+    color: #9ca3af !important;
+    border-top: 1px solid #4b5563 !important;
+    box-shadow: none;
+  }
+  
+  body.dark-mode .site-footer a {
+    color: #d1d5db !important;
+    transition: var(--transition-smooth);
+  }
+  
+  body.dark-mode .site-footer a:hover {
+    color: #f9fafb !important;
+    text-shadow: none;
+  }
+  
+  /* Active navigation state */
+  body.dark-mode .nav-list-item.active > .nav-list-link {
+    color: #f9fafb !important;
+    font-weight: 600 !important;
+    background: rgba(156, 163, 175, 0.15) !important;
+    border-left: 3px solid #9ca3af;
+    box-shadow: none;
+  }
+  
+  /* Breadcrumb navigation */
+  body.dark-mode .breadcrumb-nav-list-item {
+    color: #9ca3af !important;
+  }
+  
+  body.dark-mode .breadcrumb-nav-list-item a {
+    color: #d1d5db !important;
+    transition: var(--transition-smooth);
+  }
+  
+  body.dark-mode .breadcrumb-nav-list-item a:hover {
+    color: #f9fafb !important;
+  }
+  
+  /* Stylish blockquotes */
+  body.dark-mode blockquote {
+    border-left: 4px solid #9ca3af !important;
+    color: #9ca3af !important;
+    background: rgba(156, 163, 175, 0.05) !important;
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    box-shadow: none;
+  }
+  
+  body.dark-mode hr {
+    border: none;
+    height: 1px;
+    background: #4b5563 !important;
+    margin: 24px 0;
+  }
+  
+  /* Professional labels */
+  body.dark-mode .label {
+    background: #6b7280 !important;
+    color: #f9fafb !important;
+    border: 1px solid #9ca3af !important;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-weight: 500;
+    box-shadow: none;
+  }
+  
+  /* Search results with modern styling */
+  body.dark-mode .search-results {
+    background: #374151 !important;
+    border: 1px solid #6b7280 !important;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    backdrop-filter: none;
+  }
+  
+  body.dark-mode .search-result {
+    color: #e5e7eb !important;
+    transition: var(--transition-smooth);
+    border-radius: 8px;
+    margin: 4px;
+  }
+  
+  body.dark-mode .search-result:hover {
+    background: rgba(156, 163, 175, 0.1) !important;
+    transform: translateY(-1px);
+    box-shadow: none;
+  }
+  
+  /* Code highlighting */
+  body.dark-mode .highlight {
+    background: #1f2937 !important;
+    border: 1px solid #4b5563 !important;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+  
+  /* Copy code button */
+  body.dark-mode .copy-code-button {
+    background: #6b7280 !important;
+    color: #d1d5db !important;
+    border: 1px solid #9ca3af !important;
+    border-radius: 6px;
+    transition: var(--transition-smooth);
+    box-shadow: none;
+  }
+  
+  body.dark-mode .copy-code-button:hover {
+    background: #9ca3af !important;
+    transform: translateY(-1px);
+    box-shadow: none;
+    color: #f9fafb !important;
+  }
+  
+  /* Logo enhancement for dark mode */
+  body.dark-mode .site-logo {
+    filter: brightness(1.5) contrast(1.5) invert(1);
+    transition: var(--transition-smooth);
+  }
+  
+  /* Fix logo text visibility in dark mode */
+  body.dark-mode .site-title,
+  body.dark-mode .site-logo + * {
+    color: #f9fafb !important;
+    background: transparent !important;
+  }
+  
+  /* Smooth theme transition for all elements */
+  * {
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Responsive adjustments for buttons */
+  @media (max-width: 1200px) {
+    .theme-toggle-btn {
+      right: 20px !important;
+    }
+    
+    #main-theme-toggle {
+      right: 20px !important;
+      top: 80px !important;
+    }
+  }
+  
+  /* For very large screens, keep buttons closer to content */
+  @media (min-width: 1600px) {
+    .theme-toggle-btn {
+      right: calc(50% - 560px) !important;
+    }
+    
+    #main-theme-toggle {
+      right: calc(50% - 560px) !important;
+      top: 80px !important;
+    }
+  }
+  
+  /* Hide "Skip to main content" link unless focused */
+  .skip-to-main,
+  .skip-link,
+  a[href="#main-content"],
+  .js-skip-to-main {
+    position: absolute !important;
+    left: -9999px !important;
+    top: -9999px !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    z-index: -1 !important;
+    transform: translateY(-100vh) !important;
+  }
+  
+  /* Only show on keyboard focus for accessibility */
+  .skip-to-main:focus,
+  .skip-link:focus,
+  a[href="#main-content"]:focus,
+  .js-skip-to-main:focus {
+    position: fixed !important;
+    top: 10px !important;
+    left: 10px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    z-index: 10000 !important;
+    background: #000 !important;
+    color: #fff !important;
+    padding: 8px 16px !important;
+    border-radius: 4px !important;
+    text-decoration: none !important;
+    transform: translateY(0) !important;
+  }
+  
+  /* Mobile responsive: Center bottom area buttons */
+  @media (max-width: 768px) {
+    /* Target the main content footer area */
+    .main-content > p:last-of-type,
+    .main-content > div:last-of-type {
+      text-align: center !important;
+      display: flex !important;
+      justify-content: center !important;
+      flex-wrap: wrap !important;
+      gap: 12px !important;
+      padding: 20px 0 !important;
+    }
+    
+    /* Style the bottom buttons */
+    .main-content > p:last-of-type .btn,
+    .main-content > div:last-of-type .btn,
+    .main-content > p:last-of-type a.btn,
+    .main-content > div:last-of-type a.btn {
+      display: inline-block !important;
+      margin: 4px !important;
+      min-width: 140px !important;
+      text-align: center !important;
+    }
+    
+    /* Ensure navigation links remain visible */
+    .nav-list-item {
+      display: block !important;
+      visibility: visible !important;
+    }
+    
+    .nav-list-link {
+      display: block !important;
+      visibility: visible !important;
+    }
+  }
 </style>
 
 <!-- Search keyboard shortcut functionality -->
@@ -252,6 +915,201 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add Mac-specific class to show ⌘K
     searchInputWrap.classList.add('search-mac');
   }
+  
+  // Theme toggle functionality - Fixed version
+  const themeToggle = document.getElementById('theme-toggle');
+  const themeIcon = document.getElementById('theme-icon');
+  const body = document.body;
+  const html = document.documentElement;
+  
+  // Check for saved theme preference or default to light mode
+  const currentTheme = localStorage.getItem('theme') || 'light';
+  
+  // Apply saved theme on page load and prevent flash
+  function applyTheme(theme) {
+    if (theme === 'dark') {
+      body.classList.add('dark-mode');
+      html.classList.remove('light-mode');
+      if (themeIcon) themeIcon.textContent = '☀️';
+    } else {
+      body.classList.remove('dark-mode');
+      html.classList.add('light-mode');
+      if (themeIcon) themeIcon.textContent = '🌚';
+    }
+    
+    // Update all theme indicators immediately
+    setTimeout(function() {
+      updateMainThemeButton();
+      updateNavigationThemeLink();
+    }, 10);
+  }
+  
+  // Apply current theme immediately to prevent flash
+  applyTheme(currentTheme);
+  
+  // Theme toggle click handler
+  if (themeToggle) {
+    themeToggle.addEventListener('click', function() {
+      const isDark = body.classList.contains('dark-mode');
+      const newTheme = isDark ? 'light' : 'dark';
+      
+      applyTheme(newTheme);
+      localStorage.setItem('theme', newTheme);
+      
+      // Update all indicators immediately
+      setTimeout(function() {
+        updateMainThemeButton();
+        updateNavigationThemeLink();
+      }, 10);
+    });
+  }
+  
+  // Listen for system theme changes - Updated
+  if (window.matchMedia) {
+    const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    // Check if user hasn't set a preference yet
+    if (!localStorage.getItem('theme')) {
+      // Apply system preference
+      const systemTheme = darkModeQuery.matches ? 'dark' : 'light';
+      applyTheme(systemTheme);
+    }
+    
+    // Listen for changes in system theme
+    darkModeQuery.addEventListener('change', function(e) {
+      // Only apply if user hasn't manually set a preference
+      if (!localStorage.getItem('theme')) {
+        const systemTheme = e.matches ? 'dark' : 'light';
+        applyTheme(systemTheme);
+      }
+    });
+  }
+  
+  // Add theme toggle button as floating button
+  function addThemeToggleToMainArea() {
+    if (!document.getElementById('main-theme-toggle')) {
+      const themeButton = document.createElement('button');
+      themeButton.id = 'main-theme-toggle';
+      themeButton.innerHTML = '<span class="main-theme-icon">🌚</span>';
+      themeButton.setAttribute('aria-label', 'Toggle theme');
+      themeButton.setAttribute('title', 'Switch between light and dark mode');
+      
+      // Style the button to be clearly visible
+      themeButton.style.cssText = `
+        position: fixed !important;
+        top: 80px !important;
+        right: calc(50% - 440px) !important;
+        z-index: 9999 !important;
+        background: #6b7280 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 12px 16px !important;
+        font-size: 16px !important;
+        cursor: pointer !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease !important;
+        white-space: nowrap !important;
+      `;
+      
+      // Add hover effect
+      themeButton.addEventListener('mouseenter', function() {
+        this.style.background = '#9ca3af !important';
+        this.style.transform = 'translateY(-2px) !important';
+      });
+      
+      themeButton.addEventListener('mouseleave', function() {
+        const isDark = document.body.classList.contains('dark-mode');
+        this.style.background = isDark ? '#4b5563 !important' : '#6b7280 !important';
+        this.style.transform = 'translateY(0) !important';
+      });
+      
+      themeButton.addEventListener('click', function() {
+        console.log('Main theme button clicked');
+        const isDark = body.classList.contains('dark-mode');
+        const newTheme = isDark ? 'light' : 'dark';
+        if (window.applyTheme) {
+          window.applyTheme(newTheme);
+        } else {
+          applyTheme(newTheme);
+        }
+        localStorage.setItem('theme', newTheme);
+        
+        // Update all indicators immediately
+        updateMainThemeButton();
+        updateNavigationThemeLink();
+      });
+      
+      document.body.appendChild(themeButton);
+      updateMainThemeButton();
+    }
+  }
+  
+  // Function to update the main theme button
+  function updateMainThemeButton() {
+    const mainButton = document.getElementById('main-theme-toggle');
+    
+    if (mainButton) {
+      const isDark = document.body.classList.contains('dark-mode');
+      if (isDark) {
+        mainButton.innerHTML = '<span class="main-theme-icon">☀️</span>';
+        mainButton.style.background = '#4b5563 !important';
+        mainButton.style.color = '#f9fafb !important';
+      } else {
+        mainButton.innerHTML = '<span class="main-theme-icon">🌚</span>';
+        mainButton.style.background = '#6b7280 !important';
+        mainButton.style.color = 'white !important';
+      }
+    }
+  }
+  
+  // Add main theme button after page loads
+  setTimeout(addThemeToggleToMainArea, 200);
+  
+  // Function to update navigation theme link
+  function updateNavigationThemeLink() {
+    const navThemeIcon = document.getElementById('nav-theme-icon');
+    const navThemeText = document.getElementById('nav-theme-text');
+    
+    if (navThemeIcon && navThemeText) {
+      const isDark = body.classList.contains('dark-mode');
+      
+      if (isDark) {
+        navThemeIcon.textContent = '☀️';
+        navThemeText.textContent = 'Toggle Light Mode';
+      } else {
+        navThemeIcon.textContent = '🌚';
+        navThemeText.textContent = 'Toggle Dark Mode';
+      }
+    }
+  }
+  
+  // Update navigation link on page load and less frequently for backup
+  setTimeout(updateNavigationThemeLink, 50);
+  setInterval(updateNavigationThemeLink, 5000); // Reduced frequency since immediate updates are handled
+  
+  // Function to center footer buttons in mobile view
+  function centerFooterButtons() {
+    // Only run on mobile view
+    if (window.innerWidth <= 768) {
+      const footer = document.querySelector('.site-footer');
+      // Don't move buttons, just ensure footer has proper styling
+      if (footer) {
+        footer.style.textAlign = 'center';
+      }
+    }
+  }
+  
+  // Center footer buttons after page loads
+  setTimeout(centerFooterButtons, 300);
+  
+  // Re-run on window resize
+  window.addEventListener('resize', centerFooterButtons);
+  
 });
 </script>
 

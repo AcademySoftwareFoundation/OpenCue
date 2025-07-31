@@ -1,6 +1,12 @@
-{% if site.aux_links %}
-  <nav aria-label="Auxiliary" class="aux-nav">
-    <ul class="aux-nav-list">
+<nav aria-label="Auxiliary" class="aux-nav">
+  <ul class="aux-nav-list">
+    <!-- Theme Toggle Button - First position for visibility -->
+    <li class="aux-nav-list-item">
+      <button class="theme-toggle-btn" id="theme-toggle" aria-label="Toggle theme" title="Switch between light and dark mode">
+        <span class="theme-icon" id="theme-icon">🌚</span>
+      </button>
+    </li>
+    {% if site.aux_links %}
       {% for link in site.aux_links %}
         <li class="aux-nav-list-item">
           <a href="{{ link[1] }}" class="site-button"
@@ -12,7 +18,6 @@
           </a>
         </li>
       {% endfor %}
-      
-    </ul>
-  </nav>
-{% endif %}
+    {% endif %}
+  </ul>
+</nav>

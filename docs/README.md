@@ -1,6 +1,6 @@
 # OpenCue Documentation
 
-This directory contains the official documentation for OpenCue, built with Jekyll and the [Just the Docs](https://github.com/just-the-docs/just-the-docs) theme. The documentation features a professional design with comprehensive search functionality and versioned content.
+This directory contains the official documentation for OpenCue, built with Jekyll and the [Just the Docs](https://github.com/just-the-docs/just-the-docs) theme. The documentation features a professional design with comprehensive search functionality, versioned content, and dark mode support.
 
 ## Quick Start
 
@@ -128,6 +128,25 @@ The documentation supports advanced Markdown features:
 - Use `parent` for hierarchical navigation
 - Keep navigation depth to maximum 3 levels
 - Use descriptive titles for better UX
+
+## Dark Mode Support
+
+### Features
+
+- **Automatic theme detection** based on system preferences
+- **Manual theme toggle** with persistent preference storage
+- **Smooth transitions** between light and dark themes
+- **Comprehensive styling** for all UI elements in both themes
+- **Theme toggle button** with intuitive sun/moon icons (🌚/☀️)
+
+### Implementation Details
+
+The dark mode implementation includes:
+- Custom dark color scheme in `_sass/color_schemes/opencue-dark.scss`
+- Theme toggle functionality in `_includes/aux-nav.html`
+- Theme persistence via localStorage in `_includes/header_custom.html`
+- Professional dark gray design system with proper contrast ratios
+- Enhanced button styling and auxiliary navigation layout
 
 ## Search Functionality
 
