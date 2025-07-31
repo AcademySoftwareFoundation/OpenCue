@@ -35,42 +35,42 @@ jobs:
         run: |
           set -e
           python -m build ./proto
-          echo "opencue_proto_path=$(ls ./proto/dist/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_proto_path=$(find ./proto/dist -name 'opencue_proto-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_pycue package
         id: build_pycue
         run: |
           set -e
           python -m build ./pycue
-          echo "opencue_pycue_path=$(ls ./pycue/dist/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_pycue_path=$(find ./pycue/dist -name 'opencue_pycue-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_pyoutline package
         id: build_pyoutline
         run: |
           set -e
           python -m build ./pyoutline
-          echo "opencue_pyoutline_path=$(ls ./pyoutline/dist/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_pyoutline_path=$(find ./pyoutline/dist -name 'opencue_pyoutline-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_cueadmin package
         id: build_cueadmin
         run: |
           set -e
           python -m build ./cueadmin
-          echo "opencue_cueadmin_path=$(ls ./cueadmin/dist/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_cueadmin_path=$(find ./cueadmin/dist -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_cuesubmit package
         id: build_cuesubmit
         run: |
           set -e
           python -m build ./cuesubmit
-          echo "opencue_cuesubmit_path=$(ls ./cuesubmit/dist/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_cuesubmit_path=$(find ./cuesubmit/dist -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_rqd package
         id: build_rqd
         run: |
           set -e
           python -m build ./rqd
-          echo "opencue_rqd_path=$(ls ./rqd/dist/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_rqd_path=$(find ./rqd/dist -name 'opencue_rqd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Upload opencue packages
         uses: actions/upload-artifact@v4
