@@ -18,6 +18,7 @@ jobs:
       opencue_cueadmin_path: ${{ steps.build_cueadmin.outputs.opencue_cueadmin_path }}
       opencue_cuesubmit_path: ${{ steps.build_cuesubmit.outputs.opencue_cuesubmit_path }}
       opencue_rqd_path: ${{ steps.build_rqd.outputs.opencue_rqd_path }}
+
     steps:
       - uses: actions/checkout@v4
         with:
