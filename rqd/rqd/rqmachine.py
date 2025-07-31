@@ -227,7 +227,7 @@ class Machine(object):
             self.__updateGpuAndLlu(frame)
             if frame.pid > 0 and frame.pid in stats:
                 stat = stats[frame.pid]
-                frame.rss = stat["rss"] // 1024
+                frame.rss = stat["rss"] // KILOBYTE
                 frame.maxRss = max(frame.rss, frame.maxRss)
                 frame.runFrame.attributes["pcpu"] = str(
                     stat["pcpu"] * self.__coreInfo.total_cores
@@ -379,33 +379,33 @@ class Machine(object):
                             # If children was already accounted for, only keep the highest
                             # recorded rss value
                             if child_pid in frame.childrenProcs:
-                                childRss = (int(data["rss"]) * resource.getpagesize()) // 1024
+                                childRss = (int(data["rss"]) * resource.getpagesize()) // KILOBYTE
                                 if childRss > frame.childrenProcs[child_pid]['rss']:
                                     frame.childrenProcs[child_pid]['rss_page'] = int(data["rss"])
                                     frame.childrenProcs[child_pid]['rss'] = childRss
                                     frame.childrenProcs[child_pid]['vsize'] = \
-                                        int(data["vsize"]) // 1024
-                                    frame.childrenProcs[child_pid]['swap'] = swap // 1024
+                                        int(data["vsize"]) // KILOBYTE
+                                    frame.childrenProcs[child_pid]['swap'] = swap // KILOBYTE
                                     frame.childrenProcs[child_pid]['statm_rss'] = \
                                         (int(data["statm_rss"]) \
-                                            * resource.getpagesize()) // 1024
+                                            * resource.getpagesize()) // KILOBYTE
                                     frame.childrenProcs[child_pid]['statm_size'] = \
                                         (int(data["statm_size"]) * \
-                                            resource.getpagesize()) // 1024
+                                            resource.getpagesize()) // KILOBYTE
                             else:
                                 frame.childrenProcs[child_pid] = \
                                     {'name': data['name'],
                                         'rss_page': int(data["rss"]),
-                                        'rss': (int(data["rss"]) * resource.getpagesize()) // 1024,
-                                        'vsize': int(data["vsize"])  // 1024,
-                                        'swap': swap // 1024,
+                                        'rss': (int(data["rss"]) * resource.getpagesize()) // KILOBYTE,
+                                        'vsize': int(data["vsize"])  // KILOBYTE,
+                                        'swap': swap // KILOBYTE,
                                         'state': data['state'],
                                         # statm reports in pages (~ 4kB)
                                         # same as VmRss in /proc/[pid]/status (in KB)
                                         'statm_rss': (int(data["statm_rss"]) * \
-                                                    resource.getpagesize()) // 1024,
+                                                    resource.getpagesize()) // KILOBYTE,
                                         'statm_size': (int(data["statm_size"]) * \
-                                                    resource.getpagesize()) // 1024,
+                                                    resource.getpagesize()) // KILOBYTE,
                                         'cmd_line': data["cmd_line"],
                                         'start_time': seconds}
 
@@ -415,9 +415,9 @@ class Machine(object):
                                 'Failure with pid rss update due to: %s at %s',
                                 e, traceback.extract_tb(sys.exc_info()[2]))
                     # convert bytes to KB
-                    rss = (rss * resource.getpagesize()) // 1024
-                    vsize = int(vsize/1024)
-                    swap = swap // 1024
+                    rss = (rss * resource.getpagesize()) // KILOBYTE
+                    vsize = int(vsize/KILOBYTE)
+                    swap = swap // KILOBYTE
 
                     frame.rss = rss
                     frame.maxRss = max(rss, frame.maxRss)
@@ -778,14 +778,14 @@ class Machine(object):
         temp_path = os.getenv('TEMP')  # Windows temp directory
         disk_usage = psutil.disk_usage(temp_path)
 
-        self.__renderHost.total_mcp = disk_usage.total // 1024
-        self.__renderHost.free_mcp = disk_usage.free // 1024
+        self.__renderHost.total_mcp = disk_usage.total // KILOBYTE
+        self.__renderHost.free_mcp = disk_usage.free // KILOBYTE
 
-        self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
-        self.__renderHost.free_mem = int(stat.ullAvailPhys / 1024)
+        self.__renderHost.total_mem = int(stat.ullTotalPhys / KILOBYTE)
+        self.__renderHost.free_mem = int(stat.ullAvailPhys / KILOBYTE)
 
-        self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
-        self.__renderHost.free_swap = int(stat.ullAvailPageFile / 1024)
+        self.__renderHost.total_swap = int(stat.ullTotalPageFile / KILOBYTE)
+        self.__renderHost.free_swap = int(stat.ullAvailPageFile / KILOBYTE)
 
         self.__renderHost.num_gpus = self.getGpuCount()
         self.__renderHost.total_gpu_mem = self.getGpuMemoryTotal()
@@ -825,7 +825,7 @@ class Machine(object):
         memsizeRegex = re.compile(r'^hw.memsize: (?P<totalMemBytes>[\d]+)$')
         memsizeMatch = memsizeRegex.match(memsizeOutput)
         if memsizeMatch:
-            self.__renderHost.total_mem = int(memsizeMatch.group('totalMemBytes')) // 1024
+            self.__renderHost.total_mem = int(memsizeMatch.group('totalMemBytes')) // KILOBYTE
         else:
             self.__renderHost.total_mem = 0
 
@@ -837,15 +837,15 @@ class Machine(object):
             if match:
                 vmStats[match.group('field')] = int(match.group('pages')) * 4096
 
-        freeMemory = vmStats.get("Pages free", 0) // 1024
-        inactiveMemory = vmStats.get("Pages inactive", 0) // 1024
+        freeMemory = vmStats.get("Pages free", 0) // KILOBYTE
+        inactiveMemory = vmStats.get("Pages inactive", 0) // KILOBYTE
         self.__renderHost.free_mem = freeMemory + inactiveMemory
 
         swapStats = subprocess.getoutput('sysctl vm.swapusage').strip()
         swapRegex = re.compile(r'^.* free = (?P<freeMb>[\d]+)M .*$')
         swapMatch = swapRegex.match(swapStats)
         if swapMatch:
-            self.__renderHost.free_swap = int(float(swapMatch.group('freeMb')) * 1024)
+            self.__renderHost.free_swap = int(float(swapMatch.group('freeMb')) * KILOBYTE)
         else:
             self.__renderHost.free_swap = 0
 
