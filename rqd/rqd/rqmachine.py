@@ -458,22 +458,23 @@ class Machine(object):
 
     def getLoadAvg(self):
         """Returns average number of processes waiting to be served
-           for the last 1 minute multiplied by 100."""
+           for the last 1 minute across all cores, x100 for cuebot."""
+        loadAvg = 0
         if platform.system() == "Linux":
+            # On linux, the load is the average number of processes in queue
+            # It helps measures the CPU utilization as well as disk i/o.
             with open(rqd.rqconstants.PATH_LOADAVG, "r", encoding='utf-8') as loadAvgFile:
-                loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
-                if self.__enabledHT():
-                    loadAvg = loadAvg // self.getHyperthreadingMultiplier()
-                loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
-                loadAvg = max(loadAvg, 0)
-                return int(loadAvg)
-        elif platform.system() == "Windows":
-            # Use psutil to get the CPU utilization over 1 second
-            # This is not the same as load average, but it gives a
-            # similar idea of CPU load.
-            loadAvg = psutil.cpu_percent(interval=1)
-            return int(loadAvg * 100)
-        return 0
+                loadAvg = float(loadAvgFile.read().split()[0]) * 100
+        elif platform.system() in ("Windows", "Darwin"):
+            # On Windows and MacOS, we can only get the CPU usage.
+            # Here we get the sum of the CPU usage across all cores.
+            # (note: CueGui divides this value by the number of physical cores)
+            loadAvg = sum(psutil.cpu_percent(interval=2, percpu=True))
+        if self.__enabledHT():
+            loadAvg = loadAvg // self.getHyperthreadingMultiplier()
+        loadAvg += rqd.rqconstants.LOAD_MODIFIER
+        loadAvg = max(loadAvg, 0)
+        return int(loadAvg)
 
     @rqd.rqutil.Memoize
     def getBootTime(self):
