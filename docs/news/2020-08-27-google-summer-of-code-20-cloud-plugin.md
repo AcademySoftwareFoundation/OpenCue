@@ -181,6 +181,4 @@ A draft PR for the same can be found here: [Azure Plugin PR](https://github.com/
 
 4. Better integration with the MonitorHosts plugin: [Cloud group source for MonitorHosts plugin](https://github.com/AcademySoftwareFoundation/OpenCue/issues/775).
 
----
-
->Please feel free to contact [opencue-user@lists.aswf.io](opencue-user@lists.aswf.io) if you have any questions/feedback about this work.
+This project aimed to enhance OpenCue's cloud integration capabilities and improve scalability for cloud-based rendering workflows.

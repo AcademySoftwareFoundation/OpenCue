@@ -871,6 +871,21 @@
       visibility: visible !important;
     }
   }
+  
+  /* Active state for external navigation links (News, Releases) */
+  .nav-list-item.external-nav-item-active > .nav-list-link {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: #27262b !important;
+    font-weight: 600 !important;
+  }
+  
+  /* Dark mode active state for external navigation links */
+  body.dark-mode .nav-list-item.external-nav-item-active > .nav-list-link {
+    background-color: rgba(156, 163, 175, 0.15) !important;
+    color: #f9fafb !important;
+    font-weight: 600 !important;
+    border-left: 3px solid #9ca3af;
+  }
 </style>
 
 <!-- Search keyboard shortcut functionality -->
@@ -1109,6 +1124,26 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Re-run on window resize
   window.addEventListener('resize', centerFooterButtons);
+  
+  // Function to mark external navigation links as active
+  function markExternalLinksActive() {
+    const currentPath = window.location.pathname;
+    const navLinks = document.querySelectorAll('.nav-list-link');
+    
+    navLinks.forEach(link => {
+      const linkHref = link.getAttribute('href');
+      if (linkHref) {
+        // Check if we're on a News or Releases page
+        if ((currentPath.includes('/news/') && linkHref.includes('/news/')) ||
+            (currentPath.includes('/releases/') && linkHref.includes('/releases/'))) {
+          link.parentElement.classList.add('external-nav-item-active');
+        }
+      }
+    });
+  }
+  
+  // Mark external links as active on page load
+  setTimeout(markExternalLinksActive, 100);
   
 });
 </script>

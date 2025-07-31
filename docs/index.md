@@ -1,6 +1,6 @@
 ---
 layout: home
-title: Home
+title: <i class='fas fa-home'></i>&nbsp;Home
 nav_order: 1
 description: "OpenCue is an open source render management system for visual effects and animation."
 permalink: /
@@ -24,7 +24,7 @@ permalink: /
         <a class="btn btn-lg btn-dark" style="margin: 5px;" href="/OpenCue/docs/">
             Documentation <i class="fas fa-book ml-1"></i>
         </a>
-        <a class="btn btn-lg btn-black" style="margin: 5px;" href="/OpenCue/docs/news/">
+        <a class="btn btn-lg btn-black" style="margin: 5px;" href="/OpenCue/news/">
             News <i class="fas fa-newspaper ml-1"></i>
         </a>
     </div>
