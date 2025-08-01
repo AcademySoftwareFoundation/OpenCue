@@ -68,6 +68,7 @@ class RqCore(object):
 
         self.cores = opencue_proto.report_pb2.CoreDetail(
             total_cores=0,
+            total_threads=0,
             idle_cores=0,
             locked_cores=0,
             booked_cores=0,
@@ -328,7 +329,10 @@ class RqCore(object):
     def releaseCores(self, reqRelease, releaseHT=None, releaseGpus=None):
         """The requested number of cores are released
         @type  reqRelease: int
-        @param reqRelease: Number of cores to release, 100 = 1 physical core"""
+        @param reqRelease: Number of cores to release, 100 = 1 physical core
+        @type releaseHT: str
+        @param releaseHT: The hyper-threading cores to release
+        """
         with self.__threadLock:
             # pylint: disable=no-member
             self.cores.booked_cores -= reqRelease
@@ -431,9 +435,11 @@ class RqCore(object):
             # pylint: enable=no-member
 
             if runFrame.environment.get('CUE_THREADABLE') == '1':
-                reserveHT = self.machine.reserveHT(runFrame.num_cores)
-                if reserveHT:
-                    runFrame.attributes['CPU_LIST'] = reserveHT
+                cpu_list = self.machine.reserveCores(
+                    coresCount=runFrame.num_cores,
+                    logical=runFrame.use_threads)
+                if cpu_list:
+                    runFrame.attributes['CPU_LIST'] = cpu_list
 
             if runFrame.num_gpus:
                 reserveGpus = self.machine.reserveGpus(runFrame.num_gpus)
