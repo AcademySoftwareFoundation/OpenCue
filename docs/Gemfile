@@ -1,0 +1,23 @@
+source "https://rubygems.org"
+
+gem "jekyll", "~> 4.3"
+gem "just-the-docs", "~> 0.7.0"
+gem "jekyll-seo-tag", "~> 2.8"
+gem "jekyll-github-metadata", "~> 2.16"
+gem "jekyll-include-cache", "~> 0.2"
+gem "jekyll-sitemap", "~> 1.4"
+
+# GitHub Pages plugins
+group :jekyll_plugins do
+  gem "jekyll-feed", "~> 0.17"
+  gem "jekyll-redirect-from", "~> 0.16"
+  gem "jekyll-relative-links", "~> 0.6"
+  gem "jekyll-optional-front-matter", "~> 0.3"
+  gem "jekyll-titles-from-headings", "~> 0.5"
+end
+
+# Development dependencies
+group :development do
+  gem "webrick", "~> 1.8"
+  gem "rake", "~> 13.0"
+end

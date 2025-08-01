@@ -1,0 +1,46 @@
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+
+  {% unless site.plugins contains "jekyll-seo-tag" %}
+    <title>{{ page.title }} - {{ site.title }}</title>
+
+    {% if page.description %}
+      <meta name="description" content="{{ page.description }}">
+    {% endif %}
+  {% endunless %}
+
+  <link rel="stylesheet" href="{{ '/assets/css/just-the-docs-default.css' | relative_url }}">
+
+  {% if site.ga_tracking != nil %}
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ site.ga_tracking }}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      {% if site.ga_tracking_anonymize_ip %}
+        gtag('config', '{{ site.ga_tracking }}', { 'anonymize_ip': true });
+      {% else %}
+        gtag('config', '{{ site.ga_tracking }}');
+      {% endif %}
+    </script>
+
+  {% endif %}
+
+  {% if site.search_enabled != false %}
+    <script src="{{ '/assets/js/vendor/lunr.min.js' | relative_url }}"></script>
+  {% endif %}
+
+  <script src="{{ '/assets/js/just-the-docs.js' | relative_url }}"></script>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  {% seo %}
+
+  {% if site.favicon_ico %}
+    <link rel="icon" href="{{ site.favicon_ico | relative_url }}" type="image/x-icon">
+  {% endif %}
+
+  {% include header_custom.html %}
+</head>
