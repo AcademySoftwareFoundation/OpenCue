@@ -32,13 +32,14 @@ jobs:
       - name: Gather package paths
         id: package_outputs
         run: |
-          echo "opencue_proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_rqd_path=$(ls -a packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_pycue_path=$(ls -a packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_pyoutline_path=$(ls -a packages/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_cuesubmit_path=$(ls -a packages/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_cueadmin_path=$(ls -a packages/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_cuegui_path=$(ls -a packages/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
+          find . -name *.whl
+          echo "opencue_proto_path=$(find ./packages -name 'opencue_proto-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_rqd_path=$(find ./packages -name 'opencue_rqd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pycue_path=$(find ./packages -name 'opencue_pycue-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pyoutline_path=$(find ./packages -name 'opencue_pyoutline-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuesubmit_path=$(find ./packages -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueadmin_path=$(find ./packages -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
   install_opencue_packages:
     needs: build_opencue_packages
