@@ -5,41 +5,49 @@ runs:
     - name: Prepare building packages
       shell: bash
       run: |
-        pip install build
+        set -e
+        pip install build==1.1.1
 
     - name: Build opencue_proto package
       shell: bash
       run: |
+        set -e
         python -m build --outdir packages ./proto
 
     - name: Build opencue_pycue package
       shell: bash
       run: |
+        set -e
         python -m build --outdir packages ./pycue
 
     - name: Build opencue_pyoutline package
       shell: bash
       run: |
+        set -e
         python -m build --outdir packages ./pyoutline
 
     - name: Build opencue_cueadmin package
       shell: bash
       run: |
+        set -e
         python -m build --outdir packages ./cueadmin
 
     - name: Build opencue_cuesubmit package
       shell: bash
       run: |
+        set -e
         python -m build --outdir packages ./cuesubmit
 
     - name: Build opencue_cuegui package
       shell: bash
       run: |
+        set -e
         python -m build --outdir packages ./cuegui
 
     - name: Build opencue_rqd package
       shell: bash
       run: |
+        set -e
         python -m build --outdir packages ./rqd
 
     - name: Fix permissions

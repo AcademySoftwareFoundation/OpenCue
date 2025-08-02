@@ -7,7 +7,7 @@ on:
 
 jobs:
   build_opencue_packages:
-    name: Build opencue packages
+    name: Build Python Packages
     runs-on: ubuntu-22.04
     container: python:3.7
     outputs:
@@ -22,54 +22,23 @@ jobs:
         with:
           fetch-tags: true
           fetch-depth: 0
+
       - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
-      - name: Prepare building packages
-        run: |
-          pip install build==1.1.1
+      - uses: ./.github/actions/build-python-packages
 
-      - name: Build opencue_proto package
-        id: build_opencue_proto
+      - name: Gather package paths
+        id: package_outputs
         run: |
-          set -e
-          python -m build ./proto
-          echo "opencue_proto_path=$(find ./proto/dist -name 'opencue_proto-*.whl' -print -quit)" >> $GITHUB_OUTPUT
-
-      - name: Build opencue_pycue package
-        id: build_pycue
-        run: |
-          set -e
-          python -m build ./pycue
-          echo "opencue_pycue_path=$(find ./pycue/dist -name 'opencue_pycue-*.whl' -print -quit)" >> $GITHUB_OUTPUT
-
-      - name: Build opencue_pyoutline package
-        id: build_pyoutline
-        run: |
-          set -e
-          python -m build ./pyoutline
-          echo "opencue_pyoutline_path=$(find ./pyoutline/dist -name 'opencue_pyoutline-*.whl' -print -quit)" >> $GITHUB_OUTPUT
-
-      - name: Build opencue_cueadmin package
-        id: build_cueadmin
-        run: |
-          set -e
-          python -m build ./cueadmin
-          echo "opencue_cueadmin_path=$(find ./cueadmin/dist -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
-
-      - name: Build opencue_cuesubmit package
-        id: build_cuesubmit
-        run: |
-          set -e
-          python -m build ./cuesubmit
-          echo "opencue_cuesubmit_path=$(find ./cuesubmit/dist -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
-
-      - name: Build opencue_rqd package
-        id: build_rqd
-        run: |
-          set -e
-          python -m build ./rqd
-          echo "opencue_rqd_path=$(find ./rqd/dist -name 'opencue_rqd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          # TODO: Replace with find
+          echo "opencue_proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_rqd_path=$(ls -a packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_pycue_path=$(ls -a packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_pyoutline_path=$(ls -a packages/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_cuesubmit_path=$(ls -a packages/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_cueadmin_path=$(ls -a packages/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_cuegui_path=$(ls -a packages/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
 
       - name: Upload opencue packages
         uses: actions/upload-artifact@v4
@@ -82,6 +51,7 @@ jobs:
             cueadmin/dist/*.*
             cuesubmit/dist/*.*
             rqd/dist/*.*
+
   integration_test:
     needs: build_opencue_packages
     name: Run Integration Test
