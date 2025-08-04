@@ -15,7 +15,7 @@ if [[ -z "${VERSION}" ]]; then
     exit 1
 fi
 
-CLIENT_PACKAGES=( pycue pyoutline cueadmin cuegui cuesubmit  )
+CLIENT_PACKAGES=( pycue pyoutline cueadmin cueman cuegui cuesubmit  )
 
 BASE_URL=https://github.com/AcademySoftwareFoundation/OpenCue/releases/download/
 
