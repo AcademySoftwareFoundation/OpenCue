@@ -65,6 +65,7 @@ jobs:
 
       - name: Install package
         run: |
+          set -e
           pip install \
               ${{ needs.build_opencue_packages.outputs.opencue_proto_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_pycue_path }} \
@@ -74,6 +75,8 @@ jobs:
               ${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}
           python -c "import opencue_proto"
+          python -c "import opencue_proto.report_pb2"
+          python -c "import opencue_proto.report_pb2_grpc"
 
   test_python_2023:
     needs: build_opencue_packages
