@@ -12,9 +12,7 @@ runs:
       shell: bash
       run: |
         set -e
-        pwd
-        ls -la
-        python -m build --outdir packages ./proto
+        python -m build --outdir packages --verbose ./proto
 
     - name: Build opencue_pycue package
       shell: bash
