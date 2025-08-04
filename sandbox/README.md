@@ -126,9 +126,21 @@ To test the sandbox environment, run the following commands inside the Python vi
 
 - To verify the successful installation and connection between the client packages and sandbox, list the hosts in the 
 sandbox environment:
+  - CueAdmin is a CLI tool for system administrators managing the render farm infrastructure.
 
 ```bash
 cueadmin -lh
+```
+
+- Verify cueman is working correctly:
+  - Cueman is a CLI tool for OpenCue that adds advanced job management and batch control features on top of the OpenCue Python API.
+  - For more information see: `cueman/README.md` and `cueman/cueman_tutorial.md`
+
+```bash
+cueman -h
+
+# Optional: Run cueman tests to verify installation
+cd cueman && python -m pytest tests/ -v
 ```
 
 - Launch the CueGUI (Cuetopia/CueCommander) app for monitoring and controlling jobs:

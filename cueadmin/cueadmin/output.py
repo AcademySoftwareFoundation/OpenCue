@@ -197,7 +197,7 @@ def displayJobInfo(job):
 
     print("%22s: %s\n" % ("total frame retries", "N/A"))
     layers = job.getLayers()
-    print("this is a cuerun3 job with %d layers\n" % len(layers))
+    print("this is a Opencue job with %d layers\n" % len(layers))
     for layer in layers:
         print("%s  (%d frames, %d done)" % (layer.data.name, layer.data.layer_stats.total_frames,
                                             layer.data.layer_stats.succeeded_frames))
