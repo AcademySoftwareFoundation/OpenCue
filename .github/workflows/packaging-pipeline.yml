@@ -9,7 +9,7 @@ jobs:
   build_opencue_packages:
     name: Build Python Packages
     runs-on: ubuntu-22.04
-    container: python:3.7
+    container: python:3.8
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
       opencue_pycue_path: ${{ steps.package_outputs.outputs.opencue_pycue_path }}
@@ -147,9 +147,8 @@ jobs:
       - name: Set build ID
         run: |
           set -e
-          ci/generate_version_number.sh > VERSION
-          echo "Build ID: $(cat ./VERSION)"
-          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
+          echo "Build ID: $(ci/generate_version_number.py)"
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
 
       - name: Build Docker image
         uses: docker/build-push-action@v3
@@ -204,10 +203,9 @@ jobs:
 
       - name: Set build ID
         run: |
-          set -e
-          ci/generate_version_number.sh > VERSION
-          echo "Build ID: $(cat ./VERSION)"
-          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
+            set -e
+            echo "Build ID: $(ci/generate_version_number.py)"
+            echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
 
       - name: Extract database schema
         run: |
