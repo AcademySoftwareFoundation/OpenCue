@@ -12,6 +12,7 @@ runs:
       shell: bash
       run: |
         set -e
+        ls -la ../ci
         python -m build --outdir packages ./proto
 
     - name: Build opencue_pycue package
