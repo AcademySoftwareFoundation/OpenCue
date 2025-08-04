@@ -73,6 +73,7 @@ jobs:
               ${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}
+          python -c "import opencue_proto"
 
   test_python_2023:
     needs: build_opencue_packages
