@@ -10,7 +10,7 @@ jobs:
   build_opencue_packages:
     name: Build Python Packages
     runs-on: ubuntu-22.04
-    container: python:3.11
+    container: python:3.8
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
       opencue_pycue_path: ${{ steps.package_outputs.outputs.opencue_pycue_path }}
@@ -26,6 +26,12 @@ jobs:
 
       - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Set build ID
+        run: |
+            set -e
+            echo "Build ID: $(ci/generate_version_number.py)"
+            echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
 
       - uses: ./.github/actions/build-python-packages
 
