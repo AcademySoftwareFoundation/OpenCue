@@ -18,9 +18,15 @@ pub enum RqdConfigError {
 impl From<RqdConfigError> for Status {
     fn from(e: RqdConfigError) -> Self {
         match e {
-            RqdConfigError::LoadConfigError(msg) => Status::invalid_argument(format!("Failed to load config: {}", msg)),
-            RqdConfigError::StartFromConfigError(msg) => Status::internal(format!("Failed to start: {}", msg)),
-            RqdConfigError::InvalidPath(msg) => Status::invalid_argument(format!("Invalid path: {}", msg)),
+            RqdConfigError::LoadConfigError(msg) => {
+                Status::invalid_argument(format!("Failed to load config: {}", msg))
+            }
+            RqdConfigError::StartFromConfigError(msg) => {
+                Status::internal(format!("Failed to start: {}", msg))
+            }
+            RqdConfigError::InvalidPath(msg) => {
+                Status::invalid_argument(format!("Invalid path: {}", msg))
+            }
         }
     }
 }

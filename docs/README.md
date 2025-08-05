@@ -251,6 +251,24 @@ Documentation is automatically deployed via GitHub Actions:
 4. **Deployment target:** GitHub Pages
 5. **URL:** `https://academysoftwarefoundation.github.io/OpenCue` (will be changed to `https://opencue.io` in the future)
 
+### Deploying Documentation in Your Fork
+
+For developers contributing to the OpenCue project who want to validate the OpenCue documentation in their fork of https://github.com/AcademySoftwareFoundation/OpenCue, follow these steps:
+
+1. **Enable GitHub Pages in your fork:**
+   - Go to Settings -> Pages
+   - In Build and deployment -> Source, select GitHub Actions
+
+2. **Configure Actions permissions:**
+   - Go to Settings -> Actions -> General
+   - Under Actions permissions, select "Allow all actions and reusable workflows"
+   - Under Workflow permissions, select "Read and write permissions"
+
+3. **Trigger the documentation deployment:**
+   - Go to the Actions tab
+   - Find the "Deploy Documentation" workflow and either re-run it or manually trigger it to publish your docs
+   - Your documentation will be available at `https://[your-username].github.io/OpenCue`
+
 ### Build Process
 
 1. Install Ruby dependencies with Bundler

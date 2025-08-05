@@ -15,6 +15,7 @@ jobs:
       opencue_pycue_path: ${{ steps.package_outputs.outputs.opencue_pycue_path }}
       opencue_pyoutline_path: ${{ steps.package_outputs.outputs.opencue_pyoutline_path }}
       opencue_cueadmin_path: ${{ steps.package_outputs.outputs.opencue_cueadmin_path }}
+      opencue_cueman_path: ${{ steps.package_outputs.outputs.opencue_cueman_path }}
       opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
       opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
     steps:
@@ -31,25 +32,21 @@ jobs:
       - name: Gather package paths
         id: package_outputs
         run: |
-          echo "opencue_proto_path=$(find ./cueadmin/dist -name 'opencue_proto-*.whl' -print -quit)" >> $GITHUB_OUTPUT
-          echo "opencue_rqd_path=$(find ./cueadmin/dist -name 'opencue_rqd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
-          echo "opencue_pycue_path=$(find ./cueadmin/dist -name 'opencue_pycue-*.whl' -print -quit)" >> $GITHUB_OUTPUT
-          echo "opencue_pyoutline_path=$(find ./cueadmin/dist -name 'opencue_pyoutline-*.whl' -print -quit)" >> $GITHUB_OUTPUT
-          echo "opencue_cuesubmit_path=$(find ./cueadmin/dist -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
-          echo "opencue_cueadmin_path=$(find ./cueadmin/dist -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
-          echo "opencue_cuegui_path=$(find ./cueadmin/dist -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_proto_path=$(find ./packages -name 'opencue_proto-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_rqd_path=$(find ./packages -name 'opencue_rqd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pycue_path=$(find ./packages -name 'opencue_pycue-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pyoutline_path=$(find ./packages -name 'opencue_pyoutline-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuesubmit_path=$(find ./packages -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueadmin_path=$(find ./packages -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Upload opencue packages
         uses: actions/upload-artifact@v4
         with:
           name: opencue_packages
           path: |
-            proto/dist/*.*
-            pycue/dist/*.*
-            pyoutline/dist/*.*
-            cueadmin/dist/*.*
-            cuesubmit/dist/*.*
-            rqd/dist/*.*
+            packages/
 
   integration_test:
     needs: build_opencue_packages
@@ -73,6 +70,7 @@ jobs:
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
           export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
           export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
           ci/run_integration_test.sh
@@ -117,6 +115,10 @@ jobs:
           - component: cueadmin
             NAME: CueAdmin
             ARTIFACTS: cueadmin-${BUILD_ID}-all.tar.gz
+
+          - component: cueman
+            NAME: CueMan
+            ARTIFACTS: cueman-${BUILD_ID}-all.tar.gz
 
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
