@@ -7,56 +7,62 @@ runs:
       run: |
         set -e
         pip install build==1.1.1
-        # Fix for python 3.7
-        pip install --ignore-requires-python hatchling==1.25
 
     - name: Build opencue_proto package
       shell: bash
       run: |
         set -e
-        python -m build --outdir packages ./proto
+        python -m build --outdir packages -s ./proto
+        python -m build --outdir packages -w ./proto
 
     - name: Build opencue_pycue package
       shell: bash
       run: |
         set -e
-        python -m build --outdir packages ./pycue
+        python -m build --outdir packages -s ./pycue
+        python -m build --outdir packages -w ./pycue
 
     - name: Build opencue_pyoutline package
       shell: bash
       run: |
         set -e
-        python -m build --outdir packages ./pyoutline
+        python -m build --outdir packages -s ./pyoutline
+        python -m build --outdir packages -w ./pyoutline
 
     - name: Build opencue_cueadmin package
       shell: bash
       run: |
         set -e
-        python -m build --outdir packages ./cueadmin
+        python -m build --outdir packages -s ./cueadmin
+        python -m build --outdir packages -w ./cueadmin
 
     - name: Build opencue_cueman package
       shell: bash
       run: |
         set -e
-        python -m build --outdir packages ./cueman
+        python -m build --outdir packages -s ./cueman
+        python -m build --outdir packages -w ./cueman
 
     - name: Build opencue_cuesubmit package
       shell: bash
       run: |
         set -e
-        python -m build --outdir packages ./cuesubmit
+        python -m build --outdir packages -s ./cuesubmit
+        python -m build --outdir packages -w ./cuesubmit
 
     - name: Build opencue_cuegui package
       shell: bash
       run: |
         set -e
-        python -m build --outdir packages ./cuegui
+        python -m build --outdir packages -s ./cuegui
+        python -m build --outdir packages -w ./cuegui
 
     - name: Build opencue_rqd package
       shell: bash
       run: |
         set -e
-        python -m build --outdir packages ./rqd
+        python -m build --outdir packages -s ./rqd
+        python -m build --outdir packages -w ./rqd
 
     - name: Fix permissions
       shell: bash
