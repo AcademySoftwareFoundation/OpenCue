@@ -127,7 +127,7 @@ def get_full_version() -> str:
         print(f"Commit count in master since last release: {count_in_master}", file=sys.stderr)
         short_hash = run_command(["git", "rev-parse", "--short", "HEAD"])
         # For feature branches, use the next patch number + commit hash
-        full_version = f"{version_major_minor}.{int(count_in_master) + 1}+{short_hash}"
+        full_version = f"{version_major_minor}.{int(count_in_master) + 1}.post{short_hash}"
 
     return full_version
 
