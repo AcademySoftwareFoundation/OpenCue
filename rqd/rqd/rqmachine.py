@@ -227,7 +227,7 @@ class Machine(object):
             self.__updateGpuAndLlu(frame)
             if frame.pid > 0 and frame.pid in stats:
                 stat = stats[frame.pid]
-                frame.rss = stat["rss"] // KILOBYTE
+                frame.rss = stat["rss"] // 1024
                 frame.maxRss = max(frame.rss, frame.maxRss)
                 frame.runFrame.attributes["pcpu"] = str(
                     stat["pcpu"] * self.__coreInfo.total_cores
@@ -379,33 +379,33 @@ class Machine(object):
                             # If children was already accounted for, only keep the highest
                             # recorded rss value
                             if child_pid in frame.childrenProcs:
-                                childRss = (int(data["rss"]) * resource.getpagesize()) // KILOBYTE
+                                childRss = (int(data["rss"]) * resource.getpagesize()) // 1024
                                 if childRss > frame.childrenProcs[child_pid]['rss']:
                                     frame.childrenProcs[child_pid]['rss_page'] = int(data["rss"])
                                     frame.childrenProcs[child_pid]['rss'] = childRss
                                     frame.childrenProcs[child_pid]['vsize'] = \
-                                        int(data["vsize"]) // KILOBYTE
-                                    frame.childrenProcs[child_pid]['swap'] = swap // KILOBYTE
+                                        int(data["vsize"]) // 1024
+                                    frame.childrenProcs[child_pid]['swap'] = swap // 1024
                                     frame.childrenProcs[child_pid]['statm_rss'] = \
                                         (int(data["statm_rss"]) \
-                                            * resource.getpagesize()) // KILOBYTE
+                                            * resource.getpagesize()) // 1024
                                     frame.childrenProcs[child_pid]['statm_size'] = \
                                         (int(data["statm_size"]) * \
-                                            resource.getpagesize()) // KILOBYTE
+                                            resource.getpagesize()) // 1024
                             else:
                                 frame.childrenProcs[child_pid] = \
                                     {'name': data['name'],
                                         'rss_page': int(data["rss"]),
-                                        'rss': (int(data["rss"]) * resource.getpagesize()) // KILOBYTE,
-                                        'vsize': int(data["vsize"])  // KILOBYTE,
-                                        'swap': swap // KILOBYTE,
+                                        'rss': (int(data["rss"]) * resource.getpagesize()) // 1024,
+                                        'vsize': int(data["vsize"])  // 1024,
+                                        'swap': swap // 1024,
                                         'state': data['state'],
                                         # statm reports in pages (~ 4kB)
                                         # same as VmRss in /proc/[pid]/status (in KB)
                                         'statm_rss': (int(data["statm_rss"]) * \
-                                                    resource.getpagesize()) // KILOBYTE,
+                                                    resource.getpagesize()) // 1024,
                                         'statm_size': (int(data["statm_size"]) * \
-                                                    resource.getpagesize()) // KILOBYTE,
+                                                    resource.getpagesize()) // 1024,
                                         'cmd_line': data["cmd_line"],
                                         'start_time': seconds}
 
@@ -415,9 +415,9 @@ class Machine(object):
                                 'Failure with pid rss update due to: %s at %s',
                                 e, traceback.extract_tb(sys.exc_info()[2]))
                     # convert bytes to KB
-                    rss = (rss * resource.getpagesize()) // KILOBYTE
-                    vsize = int(vsize/KILOBYTE)
-                    swap = swap // KILOBYTE
+                    rss = (rss * resource.getpagesize()) // 1024
+                    vsize = int(vsize/1024)
+                    swap = swap // 1024
 
                     frame.rss = rss
                     frame.maxRss = max(rss, frame.maxRss)
