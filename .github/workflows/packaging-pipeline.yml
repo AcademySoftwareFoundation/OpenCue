@@ -46,7 +46,7 @@ jobs:
         with:
           name: opencue_packages
           path: |
-            packages/
+            packages
 
   integration_test:
     needs: build_opencue_packages
