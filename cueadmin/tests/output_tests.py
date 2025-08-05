@@ -323,7 +323,7 @@ class OutputTests(unittest.TestCase):
             '                failed: 0\n'
             '   total frame retries: N/A\n'
             '\n'
-            'this is a cuerun3 job with 2 layers\n'
+            'this is a OpenCue job with 2 layers\n'
             '\n'
             'preflight  (2 frames, 1 done)\n'
             '   average frame time: N/A\n'
