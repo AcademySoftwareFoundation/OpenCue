@@ -8,7 +8,8 @@ runs:
         set -e
         pip install build==1.1.1
         # Fix for python 3.7
-        pip install git+https://github.com/pypa/hatch.git@hatchling-v1.27.0#subdirectory=backend
+        pip install --ignore-requires-python packaging==25.0
+        pip install --ignore-requires-python hatchling==1.27.0
 
     - name: Build opencue_proto package
       shell: bash
