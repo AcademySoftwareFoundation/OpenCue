@@ -15,6 +15,7 @@ jobs:
       opencue_pycue_path: ${{ steps.build_pycue.outputs.opencue_pycue_path }}
       opencue_pyoutline_path: ${{ steps.build_pyoutline.outputs.opencue_pyoutline_path }}
       opencue_cueadmin_path: ${{ steps.build_cueadmin.outputs.opencue_cueadmin_path }}
+      opencue_cueman_path: ${{ steps.build_cueman.outputs.opencue_cueman_path }}
       opencue_cuesubmit_path: ${{ steps.build_cuesubmit.outputs.opencue_cuesubmit_path }}
       opencue_rqd_path: ${{ steps.build_rqd.outputs.opencue_rqd_path }}
     steps:
@@ -57,6 +58,13 @@ jobs:
           python -m build ./cueadmin
           echo "opencue_cueadmin_path=$(find ./cueadmin/dist -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
+      - name: Build opencue_cueman package
+        id: build_cueman
+        run: |
+          set -e
+          python -m build ./cueman
+          echo "opencue_cueman_path=$(find ./cueman/dist -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+
       - name: Build opencue_cuesubmit package
         id: build_cuesubmit
         run: |
@@ -80,6 +88,7 @@ jobs:
             pycue/dist/*.*
             pyoutline/dist/*.*
             cueadmin/dist/*.*
+            cueman/dist/*.*
             cuesubmit/dist/*.*
             rqd/dist/*.*
   integration_test:
@@ -104,6 +113,7 @@ jobs:
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
           export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
           export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
           ci/run_integration_test.sh
@@ -148,6 +158,10 @@ jobs:
           - component: cueadmin
             NAME: CueAdmin
             ARTIFACTS: cueadmin-${BUILD_ID}-all.tar.gz
+
+          - component: cueman
+            NAME: CueMan
+            ARTIFACTS: cueman-${BUILD_ID}-all.tar.gz
 
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
