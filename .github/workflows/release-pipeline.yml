@@ -122,6 +122,18 @@ jobs:
           echo "Build ID: $(ci/generate_version_number.py)"
           echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
 
+      - name: Get current tag name
+        run: echo "TAG_NAME=${GITHUB_REF/refs\/tags\//}" >> ${GITHUB_ENV}
+
+      - name: Verify tag name and version match
+        run: |
+          set -e
+          if [ "v$(ci/generate_version_number.py)" != "${TAG_NAME}" ]; then
+            echo "Version check failed: code version v$(ci/generate_version_number.py) does not match tag name ${TAG_NAME}"
+            echo "Original GITHUB_REF: ${GITHUB_REF}"
+            exit 1
+          fi
+
       - name: Pull Docker image from staging
         run: |
           set -e
