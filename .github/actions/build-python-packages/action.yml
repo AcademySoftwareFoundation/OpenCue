@@ -8,7 +8,7 @@ runs:
         set -e
         pip install build==1.1.1
         # Fix for python 3.7
-        pip install --ignore-requires-python hatchling==1.22.5
+        pip install --ignore-requires-python hatchling==1.25
 
     - name: Build opencue_proto package
       shell: bash
