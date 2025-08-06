@@ -51,12 +51,16 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+
       - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
       - name: Download a single artifact
         uses: actions/download-artifact@v4
         with:
           name: opencue_packages
+          path: packages
+
       - name: Run test
         run: |
           export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
