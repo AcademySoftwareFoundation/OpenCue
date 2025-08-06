@@ -778,14 +778,14 @@ class Machine(object):
         temp_path = os.getenv('TEMP')  # Windows temp directory
         disk_usage = psutil.disk_usage(temp_path)
 
-        self.__renderHost.total_mcp = disk_usage.total // KILOBYTE
-        self.__renderHost.free_mcp = disk_usage.free // KILOBYTE
+        self.__renderHost.total_mcp = disk_usage.total // 1024
+        self.__renderHost.free_mcp = disk_usage.free // 1024
 
-        self.__renderHost.total_mem = int(stat.ullTotalPhys / KILOBYTE)
-        self.__renderHost.free_mem = int(stat.ullAvailPhys / KILOBYTE)
+        self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
+        self.__renderHost.free_mem = int(stat.ullAvailPhys / 1024)
 
-        self.__renderHost.total_swap = int(stat.ullTotalPageFile / KILOBYTE)
-        self.__renderHost.free_swap = int(stat.ullAvailPageFile / KILOBYTE)
+        self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
+        self.__renderHost.free_swap = int(stat.ullAvailPageFile / 1024)
 
         self.__renderHost.num_gpus = self.getGpuCount()
         self.__renderHost.total_gpu_mem = self.getGpuMemoryTotal()
@@ -795,7 +795,7 @@ class Machine(object):
         """Gets information on system memory for Linux."""
         # Reads dynamic information for mcp
         mcpStat = os.statvfs(self.getTempPath())
-        self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // KILOBYTE
+        self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // 1024
 
         # Reads dynamic information from /proc/meminfo
         with open(rqd.rqconstants.PATH_MEMINFO, "r", encoding='utf-8') as fp:
@@ -825,7 +825,7 @@ class Machine(object):
         memsizeRegex = re.compile(r'^hw.memsize: (?P<totalMemBytes>[\d]+)$')
         memsizeMatch = memsizeRegex.match(memsizeOutput)
         if memsizeMatch:
-            self.__renderHost.total_mem = int(memsizeMatch.group('totalMemBytes')) // KILOBYTE
+            self.__renderHost.total_mem = int(memsizeMatch.group('totalMemBytes')) // 1024
         else:
             self.__renderHost.total_mem = 0
 
@@ -837,15 +837,15 @@ class Machine(object):
             if match:
                 vmStats[match.group('field')] = int(match.group('pages')) * 4096
 
-        freeMemory = vmStats.get("Pages free", 0) // KILOBYTE
-        inactiveMemory = vmStats.get("Pages inactive", 0) // KILOBYTE
+        freeMemory = vmStats.get("Pages free", 0) // 1024
+        inactiveMemory = vmStats.get("Pages inactive", 0) // 1024
         self.__renderHost.free_mem = freeMemory + inactiveMemory
 
         swapStats = subprocess.getoutput('sysctl vm.swapusage').strip()
         swapRegex = re.compile(r'^.* free = (?P<freeMb>[\d]+)M .*$')
         swapMatch = swapRegex.match(swapStats)
         if swapMatch:
-            self.__renderHost.free_swap = int(float(swapMatch.group('freeMb')) * KILOBYTE)
+            self.__renderHost.free_swap = int(float(swapMatch.group('freeMb')) * 1024)
         else:
             self.__renderHost.free_swap = 0
 
