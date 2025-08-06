@@ -75,13 +75,21 @@ If you make changes to `OpenCue/docs`, please build and test the documentation b
    ./docs/build.sh
    ```
 
-2. **Run the documentation locally**
+2. **Install bundler binstubs (if needed)**
+   
+   If you encounter permission errors when installing to system directories:
+   ```bash
+   cd docs/
+   bundle binstubs --all
+   ```
+
+3. **Run the documentation locally**
    ```bash
    cd docs/
    bundle exec jekyll serve --livereload
    ```
 
-3. **Preview the documentation**
+4. **Preview the documentation**
    
    Open http://localhost:4000/OpenCue/ in your browser to review your changes.
 

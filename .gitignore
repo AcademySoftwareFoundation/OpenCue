@@ -28,3 +28,4 @@ cuebot/.project
 /rqd/rqd/compiled_proto/
 docker-compose-local.yml
 docs/_site/
+docs/bin/
