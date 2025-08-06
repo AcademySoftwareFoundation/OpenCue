@@ -920,8 +920,10 @@ class Machine(object):
         @type   coresCount: int
         @param  coresCount: The total physical cores reserved by the frame.
         @type   logical: bool
-        @param  logical: If True, reserve logical cores (aka threads), else physical cores.
-        note: logical cores is what you see in htop or task manager.
+        @param  logical: If True, reserve logical cores (aka threads),
+                         else reserve physical cores (legacy).
+            note: logical cores is what you see in htop or task manager.
+                  For example, a 16 core CPU with hyper-threading will have 32 logical cores.
         @rtype:  string
         @return: The cpu-list for taskset -c
         """
