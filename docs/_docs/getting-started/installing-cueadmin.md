@@ -43,18 +43,17 @@ inside.
 1.  To install the required Python packages, create an isolated Python
     environment:
 
-    > **Note**
-> {: .callout .callout-info}Use of a virtual environment isn't
+    > **Note :** Use of a virtual environment isn't
     strictly necessary but is recommended to avoid conflicts with other locally
     installed Pythoy libraries. If you already created a virtual environment
     in which to install PyCue, skip this step and use PyCue's environment for
-    the following steps.>
+    the following steps.
 
     ```shell
     virtualenv venv
     ```
 
-1.  Evaluate the commands in the `activate` file in your current shell:
+2.  Evaluate the commands in the `activate` file in your current shell:
 
     TIP: To review the contents of the `activate` file, run `cat activate`.
 
@@ -62,20 +61,16 @@ inside.
     source venv/bin/activate
     ```
 
-### Option 1: Installing a published release
+### Option 1: Installing from pypi
 
-Visit the
-[OpenCue releases page](https://github.com/AcademySoftwareFoundation/OpenCue/releases) and
-download the cueadmin tarball from the latest release's Assets.
+To install from the published pypi release:
+
+You need the `pip` and `virtualenv` tools. Use of a virtual environment is not
+strictly necessary but is recommended to avoid conflicts with other installed
+Python libraries.
 
 ```shell
-export CUEADMIN_TAR="<path to cueadmin tar.gz>"
-export CUEADMIN_DIR=$(basename "$CUEADMIN_TAR" .tar.gz)
-tar xvzf "$CUEADMIN_TAR"
-cd "$CUEADMIN_DIR"
-pip install -r requirements.txt
-python setup.py install
-cd ..
+pip install opencue-cueadmin
 ```
 
 This installs a `cueadmin` executable in your `PATH`. 
@@ -97,23 +92,7 @@ Make sure you've
 and your current directory is the root of the checked out source.
 
 ```shell
-pip install -r requirements.txt
-cd cueadmin
-```
-
-You can either install CueAdmin from here and run the `cueadmin` executable that
-gets created:
-
-```shell
-python setup.py install
-cd ..
-cueadmin -server localhost -ls
-```
-
-OR you can run the software directly, without installing:
-
-```shell
-python ./cueadmin -server localhost -ls
+pip install cueadmin/
 ```
 
 The above example command lists all shows from a Cuebot instance running on

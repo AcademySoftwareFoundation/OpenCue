@@ -50,39 +50,25 @@ environment.>
 To install PyCue and PyOutline, you can either download a published release or
 install the library directly from source.
 
-### Option 1: Installing a published release
+### Option 1: Installing from pypi
 
-To install a published release, visit the
-[OpenCue releases page](https://github.com/AcademySoftwareFoundation/OpenCue/releases) and
-download the `pycue` and `pyoutline` tarballs from the list of assets for the
-latest release.
+To install a published release:
 
-Install PyCue:
+To install from the published pypi release:
+
+You need the `pip` and `virtualenv` tools. Use of a virtual environment is not
+strictly necessary but is recommended to avoid conflicts with other installed
+Python libraries.
 
 ```shell
-export PYCUE_TAR="<path to pycue tar.gz>"
-export PYCUE_DIR=$(basename "$PYCUE_TAR" .tar.gz)
-virtualenv venv # If you previously created a virtualenv, skip this step.
-source venv/bin/activate
-tar xvzf "$PYCUE_TAR"
-cd "$PYCUE_DIR"
-pip install -r requirements.txt
-python setup.py install
-cd ..
-rm -rf "$PYCUE_DIR"
+pip install opencue-pycue
 ```
+
 
 Then follow the same steps to install PyOutline:
 
 ```shell
-export PYOUTLINE_TAR="<path to pyoutline tar.gz>"
-export PYOUTLINE_DIR=$(basename "$PYOUTLINE_TAR" .tar.gz)
-tar xvzf "$PYOUTLINE_TAR"
-cd "$PYOUTLINE_DIR"
-pip install -r requirements.txt
-python setup.py install
-cd ..
-rm -rf "$PYOUTLINE_DIR"
+pip install opencue-pyotline
 ```
 
 ### Option 2: Installing from source
@@ -96,20 +82,13 @@ Install PyCue:
 ```shell
 virtualenv venv  # If you previously created a virtualenv, skip this step.
 source venv/bin/activate
-pip install -r requirements.txt
-cd proto
-python -m grpc_tools.protoc -I=. --python_out=../pycue/opencue/compiled_proto --grpc_python_out=../pycue/opencue/compiled_proto ./*.proto
-cd ../pycue/opencue/compiled_proto
-2to3 -w -n *
-cd ../..
-python setup.py install
+pip install pycue/
 ```
 
 Then install PyOutline:
 
 ```shell
-cd ../pyoutline
-python setup.py install
+pip install pyoutline/
 ```
 
 ## Configuring and verifying the install
