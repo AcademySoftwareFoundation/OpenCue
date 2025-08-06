@@ -72,31 +72,25 @@ inside.
     source venv/bin/activate
     ```
 
-### Option 1: Installing a published release
+### Option 1: Installing from pypi
 
-1.  Visit the
-    [OpenCue releases page](https://github.com/AcademySoftwareFoundation/OpenCue/releases).
+To install a published release:
 
-1.  Download the cuesubmit tarball from the latest release's Assets.
+To install from the published pypi release:
 
-1.  Run the following commands in a terminal to install a `cuesubmit` executable
-    in the `PATH` of your environment:
+You need the `pip` and `virtualenv` tools. Use of a virtual environment is not
+strictly necessary but is recommended to avoid conflicts with other installed
+Python libraries.
 
-    ```shell
-    export CUESUBMIT_TAR="<path to cuesubmit tar.gz>"
-    export CUESUBMIT_DIR=$(basename "$CUESUBMIT_TAR" .tar.gz)
-    tar xvzf "$CUESUBMIT_TAR"
-    cd "$CUESUBMIT_DIR"
-    pip install -r requirements.txt
-    pip install -r requirements_gui.txt
-    python setup.py install
-    ```
+```shell
+pip install opencue-cuesubmit
+```
 
-1.  Run CueSubmit:
+Run CueSubmit:
 
-    ```shell
-    CUEBOT_HOSTS=$CUEBOT_HOSTNAME_OR_IP cuesubmit
-    ```
+```shell
+CUEBOT_HOSTS=$CUEBOT_HOSTNAME_OR_IP cuesubmit
+```
 
 ### Option 2: Installing from source
 
@@ -105,24 +99,13 @@ Make sure you've
 and your current directory is the root of the checked out source.
 
 ```shell
-pip install -r requirements.txt
-pip install -r requirements_gui.txt
-cd cuesubmit
+pip install cuesubmit/
 ```
 
-You can either install CueSubmit from here and run the `cuesubmit` executable
-that gets created:
+You run the `cuesubmit` executable that gets created:
 
 ```shell
-python setup.py install
-cd ..
 CUEBOT_HOSTS=$CUEBOT_HOSTNAME_OR_IP cuesubmit
-```
-
-OR you can run the software directly, without installing:
-
-```shell
-CUEBOT_HOSTS=$CUEBOT_HOSTNAME_OR_IP PYTHONPATH=$PYTHONPATH:. python ./cuesubmit
 ```
 
 ## Installing CueSubmit plug-ins

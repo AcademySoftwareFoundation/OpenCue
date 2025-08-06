@@ -1,7 +1,6 @@
 [build-system]
 requires = [
-    "hatchling",
-    "versioningit"
+    "hatchling"
 ]
 build-backend = "hatchling.build"
 
@@ -16,7 +15,8 @@ dependencies = [
 ]
 
 [tool.hatch.version]
-source = "versioningit"
+source = "code"
+path = "../ci/generate_version_number.py"
 default-version = "0.0.0"
 
 [tool.hatch.build.targets.wheel]
