@@ -41,13 +41,6 @@ jobs:
           echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
-      - name: Upload opencue packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: opencue_packages
-          path: |
-            packages
-
   integration_test:
     needs: build_opencue_packages
     name: Run Integration Test
