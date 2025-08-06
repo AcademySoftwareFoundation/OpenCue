@@ -59,8 +59,7 @@ To install CueGUI:
 1.  To install the required Python packages, create an isolated Python
     environment:
 
-    > **Note**
-> {: .callout .callout-info}Use of a virtual environment isn't
+    > **Note :** Use of a virtual environment isn't
     strictly necessary but is recommended to avoid conflicts with other locally
     installed Python libraries. If you already created a virtual environment in
     which to install PyCue, skip this step and use PyCue's environment for the
@@ -78,35 +77,25 @@ To install CueGUI:
     source venv/bin/activate
     ```
 
-### Option 1: Install a published release
+### Option 1: Installing from pypi
 
 To install a published release:
 
-1.  Visit the
-    [OpenCue releases page](https://github.com/AcademySoftwareFoundation/OpenCue/releases).
+To install from the published pypi release:
 
-1.  Download the cuegui tarball from the latest release's Assets.
+You need the `pip` and `virtualenv` tools. Use of a virtual environment is not
+strictly necessary but is recommended to avoid conflicts with other installed
+Python libraries.
 
-1.  Run the following commands in a terminal to install a `cuegui` executable in
-    the `PATH` of your environment:
+```shell
+pip install opencue-cuegui
+```
 
-    ```shell
-    export CUEGUI_TAR="<path to cuegui tar.gz>"
-    export CUEGUI_DIR=$(basename "$CUEGUI_TAR" .tar.gz)
-    tar xvzf "$CUEGUI_TAR"
-    cd "$CUEGUI_DIR"
-    pip install -r requirements.txt
-    pip install -r requirements_gui.txt
-    python setup.py install
-    cd ..
-    rm -rf "$CUEGUI_DIR"
-    ```
+Run CueGUI:
 
-1.  Run CueGUI:
-
-    ```shell
-    CUEBOT_HOSTS=$CUEBOT_HOSTNAME_OR_IP cuegui
-    ```
+```shell
+CUEBOT_HOSTS=$CUEBOT_HOSTNAME_OR_IP cuegui
+```
 
 ### Option 2: Install from source
 
@@ -115,24 +104,13 @@ Make sure you've
 and your current directory is the root of the checked out source.
 
 ```shell
-pip install -r requirements.txt
-pip install -r requirements_gui.txt
-cd cuegui
+pip install cuegui/
 ```
 
-You can either install CueGUI from here, and run the `cuegui` executable that
-gets created:
+You run the `cuegui` executable that gets created:
 
 ```shell
-python setup.py install
-cd ..
 CUEBOT_HOSTS=$CUEBOT_HOSTNAME_OR_IP cuegui
-```
-
-OR you can run the software directly, without installing:
-
-```shell
-CUEBOT_HOSTS=$CUEBOT_HOSTNAME_OR_IP python -m cuegui
 ```
 
 The CueGUI executable launches and the Cuetopia window appears:
