@@ -394,6 +394,9 @@ def _setOptions(criteria, options):
             criteria.first_result = int(v)
         elif k == "include_finished":
             criteria.include_finished = v
+        elif k in ("os_filter",):
+            # Client-side only options - these don't get sent to the server
+            pass
         elif len(k) == 0:
             return criteria
         else:
