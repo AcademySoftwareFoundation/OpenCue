@@ -16,7 +16,7 @@ The OpenCue sandbox provides a quick way to run Cuebot, RQD, CueGUI, and CueSubm
 ## Prerequisites
 
 Before starting, ensure you have:
-- Python 3.6 or higher
+- Python 3.7 or higher
 - Docker and Docker Compose installed ([Get Docker](https://docs.docker.com/get-docker/))
 - Git for cloning the repository
 
