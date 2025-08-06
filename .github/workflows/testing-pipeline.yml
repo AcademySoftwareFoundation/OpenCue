@@ -16,8 +16,10 @@ jobs:
       opencue_pycue_path: ${{ steps.build_pycue.outputs.opencue_pycue_path }}
       opencue_pyoutline_path: ${{ steps.build_pyoutline.outputs.opencue_pyoutline_path }}
       opencue_cueadmin_path: ${{ steps.build_cueadmin.outputs.opencue_cueadmin_path }}
+      opencue_cueman_path: ${{ steps.build_cueman.outputs.opencue_cueman_path }}
       opencue_cuesubmit_path: ${{ steps.build_cuesubmit.outputs.opencue_cuesubmit_path }}
       opencue_rqd_path: ${{ steps.build_rqd.outputs.opencue_rqd_path }}
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,43 +30,56 @@ jobs:
 
       - name: Prepare building packages
         run: |
-          pip install build
+          pip install build==1.1.1
 
       - name: Build opencue_proto package
         id: build_opencue_proto
         run: |
+          set -e
           python -m build ./proto
-          echo "opencue_proto_path=$(ls ./proto/dist/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_proto_path=$(find ./proto/dist -name 'opencue_proto-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_pycue package
         id: build_pycue
         run: |
+          set -e
           python -m build ./pycue
-          echo "opencue_pycue_path=$(ls ./pycue/dist/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_pycue_path=$(find ./pycue/dist -name 'opencue_pycue-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_pyoutline package
         id: build_pyoutline
         run: |
+          set -e
           python -m build ./pyoutline
-          echo "opencue_pyoutline_path=$(ls ./pyoutline/dist/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_pyoutline_path=$(find ./pyoutline/dist -name 'opencue_pyoutline-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_cueadmin package
         id: build_cueadmin
         run: |
+          set -e
           python -m build ./cueadmin
-          echo "opencue_cueadmin_path=$(ls ./cueadmin/dist/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_cueadmin_path=$(find ./cueadmin/dist -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+
+      - name: Build opencue_cueman package
+        id: build_cueman
+        run: |
+          set -e
+          python -m build ./cueman
+          echo "opencue_cueman_path=$(find ./cueman/dist -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_cuesubmit package
         id: build_cuesubmit
         run: |
+          set -e
           python -m build ./cuesubmit
-          echo "opencue_cuesubmit_path=$(ls ./cuesubmit/dist/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_cuesubmit_path=$(find ./cuesubmit/dist -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Build opencue_rqd package
         id: build_rqd
         run: |
+          set -e
           python -m build ./rqd
-          echo "opencue_rqd_path=$(ls ./rqd/dist/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_rqd_path=$(find ./rqd/dist -name 'opencue_rqd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
       - name: Upload opencue packages
         uses: actions/upload-artifact@v4
@@ -75,6 +90,7 @@ jobs:
             pycue/dist/*.*
             pyoutline/dist/*.*
             cueadmin/dist/*.*
+            cueman/dist/*.*
             cuesubmit/dist/*.*
             rqd/dist/*.*
 
@@ -94,9 +110,10 @@ jobs:
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
           export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
           export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-          pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
+          pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUEMAN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
 
   install_opencue_packages_3_11:
     needs: build_opencue_packages
@@ -114,9 +131,10 @@ jobs:
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
           export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
           export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-          pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
+          pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUEMAN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
 
   install_opencue_packages_3_7:
     needs: build_opencue_packages
@@ -134,9 +152,10 @@ jobs:
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
           export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
           export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-          pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
+          pip install $OPENCUE_PROTO_PACKAGE_PATH $OPENCUE_PYCUE_PACKAGE_PATH $OPENCUE_PYOUTLINE_PACKAGE_PATH $OPENCUE_CUEADMIN_PACKAGE_PATH $OPENCUE_CUEMAN_PACKAGE_PATH $OPENCUE_CUESUBMIT_PACKAGE_PATH $OPENCUE_RQD_PACKAGE_PATH
 
   test_python_2023:
     needs: build_opencue_packages

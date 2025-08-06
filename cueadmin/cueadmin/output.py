@@ -24,7 +24,7 @@ from __future__ import unicode_literals
 import time
 
 import opencue
-import opencue_proto.job_pb2
+from opencue.api import job_pb2
 
 # pylint: disable=cyclic-import
 import cueadmin.common
@@ -197,7 +197,7 @@ def displayJobInfo(job):
 
     print("%22s: %s\n" % ("total frame retries", "N/A"))
     layers = job.getLayers()
-    print("this is a cuerun3 job with %d layers\n" % len(layers))
+    print("this is a OpenCue job with %d layers\n" % len(layers))
     for layer in layers:
         print("%s  (%d frames, %d done)" % (layer.data.name, layer.data.layer_stats.total_frames,
                                             layer.data.layer_stats.succeeded_frames))
@@ -230,7 +230,7 @@ def displayFrames(frames):
 
         print(framesFormat % (
             cueadmin.format.cutoff(frame.data.name, 35),
-            opencue_proto.job_pb2.FrameState.Name(frame.data.state),
+            job_pb2.FrameState.Name(frame.data.state),
             frame.data.last_resource,
             startTime,
             stopTime,
