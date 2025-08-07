@@ -1,6 +1,7 @@
 mod dispatcher;
 mod executor;
 mod frame_dao;
+mod frame_set;
 mod host_dao;
 mod job_consumer;
 mod layer_dao;

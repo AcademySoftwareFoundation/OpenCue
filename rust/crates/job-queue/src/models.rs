@@ -71,22 +71,18 @@ pub enum DispatchState {
 
 #[derive(Clone)]
 pub struct Host {
-    pub id: Uuid,
-    pub name: String,
-    pub str_os: Option<String>,
-    pub total_cores: u32,
-    pub total_memory: u64,
-    pub idle_cores: u32,
-    pub idle_memory: u64,
-    pub idle_gpus: u32,
-    pub idle_gpu_memory: u64,
-    pub thread_mode: ThreadMode,
-}
-
-impl Host {
-    pub fn is_allocation_at_or_over_burst(&self, show_id: &Uuid) -> Result<()> {
-        todo!("Add more fields to HostModel to fill up this request")
-    }
+    pub(crate) id: Uuid,
+    pub(crate) name: String,
+    pub(crate) str_os: Option<String>,
+    pub(crate) total_cores: u32,
+    pub(crate) total_memory: u64,
+    pub(crate) idle_cores: u32,
+    pub(crate) idle_memory: u64,
+    pub(crate) idle_gpus: u32,
+    pub(crate) idle_gpu_memory: u64,
+    pub(crate) thread_mode: ThreadMode,
+    pub(crate) alloc_available_cores: u32,
+    pub(crate) allocation_name: String,
 }
 
 impl Display for Host {

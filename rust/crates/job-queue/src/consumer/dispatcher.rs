@@ -1,17 +1,17 @@
 use crate::{
-    consumer::{frame_dao::FrameDao, host_dao::HostDao},
+    consumer::{frame_dao::FrameDao, frame_set::FrameSet, host_dao::HostDao},
     models::{DispatchFrame, DispatchLayer, Host, VirtualProc},
 };
 use bytesize::MIB;
 use futures::{FutureExt, StreamExt};
-use miette::{Context, IntoDiagnostic, Result, miette};
+use miette::{Context, Error, IntoDiagnostic, Result, miette};
 use opencue_proto::{
     host::ThreadMode,
     rqd::{RqdStaticLaunchFrameRequest, RunFrame, rqd_interface_client::RqdInterfaceClient},
 };
 use std::{collections::HashMap, sync::Arc};
 use tonic::transport::Channel;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use uuid::Uuid;
 
 pub struct RqdDispatcher {
@@ -25,7 +25,14 @@ pub struct RqdDispatcher {
 
 pub enum VirtualProcError {
     HostResourcesExtinguished(String),
-    FailedToReserveHost(String),
+}
+
+pub enum DispatchError {
+    HostLock(String),
+    Failure(Error),
+    AllocationOverBurst(String),
+    FailureAfterDispatch(Error),
+    HostResourcesExtinguished,
 }
 
 impl RqdDispatcher {
@@ -47,10 +54,15 @@ impl RqdDispatcher {
         }
     }
 
-    pub async fn dispatch(&self, layer: &DispatchLayer, host: &Host) -> Result<()> {
+    pub async fn dispatch(&self, layer: &DispatchLayer, host: &Host) -> Result<(), DispatchError> {
         // Acquire lock first
-        if !self.host_dao.lock(&host.id).await? {
-            return Err(miette!("Failed to acquire lock for host {}", host.id));
+        if !self
+            .host_dao
+            .lock(&host.id)
+            .await
+            .map_err(DispatchError::Failure)?
+        {
+            return Err(DispatchError::HostLock(host.name.clone()));
         }
 
         // Ensure unlock is always called, even if dispatch_inner panics or fails
@@ -71,29 +83,40 @@ impl RqdDispatcher {
                 }
                 result
             }
-            Err(_panic) => Err(miette!(
+            Err(_panic) => Err(DispatchError::Failure(miette!(
                 "Dispatch operation panicked for layer {} on host {}",
                 layer,
                 host
-            )),
+            ))),
         }
     }
 
-    async fn dispatch_inner(&self, layer: &DispatchLayer, host: &Host) -> Result<()> {
-        host.is_allocation_at_or_over_burst(&layer.show_id)?;
-
-        let mut rqd_client = Self::connect_to_rqd(&host.name, self.grpc_port).await?;
+    async fn dispatch_inner(
+        &self,
+        layer: &DispatchLayer,
+        host: &Host,
+    ) -> Result<(), DispatchError> {
+        let mut rqd_client = Self::connect_to_rqd(&host.name, self.grpc_port)
+            .await
+            .map_err(DispatchError::Failure)?;
 
         let mut stream = self
             .frame_dao
             .query_frames(layer, self.dispatch_frames_per_layer_limit as i32);
         let mut current_host = host.clone();
 
+        // A host should not book frames if its allocation is at or above its limit,
+        // but checking the limit before each frame is too costly. The trade off is
+        // to check the allocation state before entering the frame booking loop,
+        // with these there's a risk the allocation will go above burst, but not by
+        // a great margin as each loop only runs for a limited number of frames
+        // (see config queue.dispatch_frames_per_layer_limit)
+        let mut allocation_capacity = host.alloc_available_cores;
+
         while let Some(frame) = stream.next().await {
             match frame {
                 Ok(frame_model) => {
                     let frame: DispatchFrame = frame_model.into();
-                    let frame_str = frame.to_string();
 
                     match Self::consume_host_virtual_resources(
                         frame,
@@ -107,39 +130,44 @@ impl RqdDispatcher {
                             // Update host for the next iteration
                             current_host = updated_host;
 
-                            let run_frame = self.prepare_rqd_run_frame(&virtual_proc)?;
+                            // Check allocation capacity
+                            if virtual_proc.cores_reserved > allocation_capacity {
+                                Err(DispatchError::AllocationOverBurst(
+                                    host.allocation_name.clone(),
+                                ))?;
+                            };
+                            allocation_capacity -= virtual_proc.cores_reserved;
+
+                            let run_frame = self
+                                .prepare_rqd_run_frame(&virtual_proc)
+                                .map_err(DispatchError::Failure)?;
                             let request = RqdStaticLaunchFrameRequest {
                                 run_frame: Some(run_frame),
                             };
 
-                            rqd_client.launch_frame(request).await.into_diagnostic()?;
-
-                            self.host_dao.update_resources(&current_host).await?;
+                            rqd_client
+                                .launch_frame(request)
+                                .await
+                                .into_diagnostic()
+                                .map_err(DispatchError::Failure)?;
+                            self.host_dao
+                                .update_resources(&current_host)
+                                .await
+                                .map_err(DispatchError::FailureAfterDispatch)?;
                         }
                         Err(err) => match err {
                             VirtualProcError::HostResourcesExtinguished(msg) => {
-                                Err(miette!(
-                                    "Failed to book {} on {}. Not enough resources. {}",
-                                    frame_str,
-                                    host,
-                                    msg
-                                ))?;
-                            }
-                            VirtualProcError::FailedToReserveHost(msg) => {
-                                Err(miette!(
-                                    "Failed to allocate VirtualProc for {} on {}. {}",
-                                    frame_str,
-                                    host,
-                                    msg
-                                ))?;
+                                debug!("Host resourses extinguished for {}. {}", host, msg);
+                                Err(DispatchError::HostResourcesExtinguished)?;
                             }
                         },
                     }
                 }
                 Err(err) => {
-                    let msg = "Failed to consume a frame at dispatch stream";
-                    error!("{}. {}", msg, err);
-                    Err(err).into_diagnostic().wrap_err(msg)?
+                    Err(DispatchError::Failure(miette!(
+                        "Failed to consume dispatch stream. {}",
+                        err
+                    )))?;
                 }
             }
         }
@@ -307,6 +335,50 @@ impl RqdDispatcher {
         cores_to_reserve
     }
 
+    /// Calculate a new frame spec from an original frame_range and a chunk definition
+    ///
+    /// # Arguments
+    ///
+    /// * `initial_frame_number` - The starting frame number to begin the chunk from
+    /// * `frame_range` - A string representation of the frame range (e.g., "1-100")
+    /// * `chunk_size` - The number of frames to include in the chunk
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing a tuple of:
+    /// * `String` - The frame specification string for the chunk
+    /// * `i32` - The last frame number in the chunk
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// * The frame range string is invalid
+    /// * The initial frame number is not within the specified range
+    /// * The chunk cannot be generated from the given parameters
+    /// * The chunk frame set is empty or invalid
+    fn prepare_frame_spec(
+        initial_frame_number: i32,
+        frame_range: &str,
+        chunk_size: usize,
+    ) -> Result<(String, i32)> {
+        let frame_set = FrameSet::new(frame_range)?;
+        let start_index = frame_set.index(initial_frame_number).ok_or(miette!(
+            "Invalid frame number {}. Out of range {}",
+            initial_frame_number,
+            frame_range
+        ))?;
+        let frame_spec = frame_set
+            .get_chunk(start_index, chunk_size)
+            .wrap_err("Invalid Chunk")?;
+        let chunk_frame_set = FrameSet::new(&frame_spec)?;
+        let chunk_end_frame = chunk_frame_set.last().ok_or(miette!(
+            "Could not find last frame of the chunk {}",
+            frame_spec
+        ))?;
+
+        Ok((frame_spec, chunk_end_frame))
+    }
+
     fn prepare_rqd_run_frame(&self, proc: &VirtualProc) -> Result<RunFrame> {
         // Calculate threads from cores reserved (divided by 100, minimum 1)
         let threads = std::cmp::max(1, proc.cores_reserved / 100);
@@ -318,12 +390,12 @@ impl RqdDispatcher {
             .split('-')
             .next()
             .and_then(|s| s.parse::<i32>().ok())
-            .unwrap_or(1);
+            .ok_or(miette!("Invalid Frame Number"))?;
+
         let z_frame_number = format!("{:04}", frame_number);
 
-        // TODO: Implement FrameSet logic for frameSpec calculation
-        let frame_spec = frame.range.clone(); // Simplified for now
-        let chunk_end_frame = frame_number + frame.chunk_size - 1;
+        let (frame_spec, chunk_end_frame) =
+            Self::prepare_frame_spec(frame_number, &frame.range, frame.chunk_size as usize)?;
 
         // Build environment variables
         let mut environment = HashMap::new();

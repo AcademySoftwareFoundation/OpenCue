@@ -3,13 +3,16 @@ use std::sync::Arc;
 use crate::{
     config::Config,
     consumer::{
-        dispatcher::RqdDispatcher, frame_dao::FrameDao, host_dao::HostDao, layer_dao::LayerDao,
+        dispatcher::{DispatchError, RqdDispatcher},
+        frame_dao::FrameDao,
+        host_dao::HostDao,
+        layer_dao::LayerDao,
     },
     models::{DispatchJob, DispatchLayer, DispatchState, Host},
 };
 use futures::StreamExt;
 use miette::Result;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 pub struct JobMessageExecutor {
     host_dao: Arc<HostDao>,
@@ -50,7 +53,7 @@ impl JobMessageExecutor {
                 ),
                 Ok((dispatch_layer, DispatchState::Valid)) => {
                     let mut host_candidates_stream =
-                        self.host_dao.find_host_for_job(&dispatch_layer);
+                        self.host_dao.find_host_for_layer(&dispatch_layer);
                     // Attempt to dispatch host candidates and exist on the first successful attempt
                     while let Some(host_candidate) = host_candidates_stream.next().await {
                         match host_candidate {
@@ -63,10 +66,46 @@ impl JobMessageExecutor {
                                 match self.dispatcher.dispatch(&dispatch_layer, &host).await {
                                     // Stop on the first successful attempt
                                     Ok(_) => break,
-                                    Err(err) => warn!(
-                                        "Failed to dispatch job {} on {}. {}",
-                                        dispatch_layer.job_id, host.id, err
-                                    ),
+                                    Err(err) => match err {
+                                        DispatchError::HostLock(host_name) => {
+                                            info!("Failed to acquire lock for host {}", host_name)
+                                            // Attempt next candidate
+                                        }
+                                        DispatchError::Failure(report) => {
+                                            error!(
+                                                "Failed to dispatch {} on {}. {}",
+                                                dispatch_layer,
+                                                host,
+                                                report.to_string()
+                                            );
+                                            // Attempt next candidate
+                                        }
+                                        DispatchError::AllocationOverBurst(allocation_name) => {
+                                            info!(
+                                                "Skiping host in this selection for {}. Allocation {} is over burst.",
+                                                dispatch_layer.job_id, allocation_name
+                                            );
+                                            return;
+                                        }
+                                        DispatchError::FailureAfterDispatch(report) => {
+                                            error!(
+                                                "Failed after dispatch {} on {}. {}",
+                                                dispatch_layer,
+                                                host,
+                                                report.to_string()
+                                            );
+                                            // TODO: Implement a recovery logic for when a frame got dispatched
+                                            // but its status hasn't been updated on the database
+                                            return;
+                                        }
+                                        DispatchError::HostResourcesExtinguished => {
+                                            debug!(
+                                                "Host resources for {} extinguished, skiping to the next candidate",
+                                                host
+                                            );
+                                            // Attempt next candidate
+                                        }
+                                    },
                                 }
                             }
                             Err(err) => {

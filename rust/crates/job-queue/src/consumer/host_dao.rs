@@ -29,6 +29,10 @@ pub(crate) struct HostModel {
     int_cores: i32,
     int_mem: i64,
     int_thread_mode: i32,
+    // Name of the allocation the host is subscribed to for a given show
+    str_alloc_name: String,
+    // Number of cores available at the subscription of the show this host has been queried on
+    int_alloc_available_cores: i32,
 }
 
 impl From<HostModel> for Host {
@@ -44,6 +48,8 @@ impl From<HostModel> for Host {
             total_cores: val.int_cores as u32,
             total_memory: val.int_mem as u64,
             thread_mode: ThreadMode::try_from(val.int_thread_mode).unwrap_or_default(),
+            alloc_available_cores: val.int_alloc_available_cores as u32,
+            allocation_name: val.str_alloc_name,
         }
     }
 }
@@ -59,10 +65,13 @@ SELECT
     h.int_gpu_mem_idle,
     h.int_cores,
     h.int_mem,
-    h.int_thread_mode
+    h.int_thread_mode,
+    s.int_burst - s.int_cores as int_alloc_available_cores,
+    a.str_name as str_alloc_name
 FROM host h
     INNER JOIN host_stat hs ON h.pk_host = hs.pk_host
     INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
+    INNER JOIN subscription s ON s.pk_alloc = a.pk_alloc AND s.pk_show = ?
 WHERE a.pk_facility = ?
     AND (hs.str_os IN ? OR hs.str_os = '' and ? = '') -- review
     AND h.str_lock_state = 'OPEN'
@@ -85,11 +94,15 @@ impl HostDao {
         })
     }
 
-    pub fn find_host_for_job(
+    // Finds a host that can execute frames of a layer.
+    // The returned object includes subscription and allocation data refering to the layer's
+    // show subscription.
+    pub fn find_host_for_layer(
         &self,
         layer: &DispatchLayer,
     ) -> impl Stream<Item = Result<HostModel, sqlx::Error>> + '_ {
         sqlx::query_as::<_, HostModel>(QUERY_DISPATCH_HOST)
+            .bind(layer.show_id.to_string())
             .bind(layer.facility_id.to_string())
             .bind(layer.str_os.clone())
             .bind(layer.str_os.clone())

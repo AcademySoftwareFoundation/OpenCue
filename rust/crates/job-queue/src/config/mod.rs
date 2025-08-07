@@ -10,6 +10,16 @@ static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
 
 //===Config Types===
 
+#[derive(Debug, Deserialize, Default, Clone)]
+#[serde(default)]
+pub struct Config {
+    pub logging: LoggingConfig,
+    pub queue: QueueConfig,
+    pub database: DatabaseConfig,
+    pub kafka: KafkaConfig,
+    pub rqd: RqdConfig,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(default)]
 pub struct LoggingConfig {
@@ -122,16 +132,6 @@ impl Default for RqdConfig {
     }
 }
 //===Config Loader===
-
-#[derive(Debug, Deserialize, Default, Clone)]
-#[serde(default)]
-pub struct Config {
-    pub logging: LoggingConfig,
-    pub queue: QueueConfig,
-    pub database: DatabaseConfig,
-    pub kafka: KafkaConfig,
-    pub rqd: RqdConfig,
-}
 
 impl Config {
     // load the current config from the system config and environment variables
