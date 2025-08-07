@@ -1,22 +1,22 @@
 ---
-title: "CueMan - CLI Job Management Tool"
+title: "Cueman - CLI Job Management Tool"
 nav_order: 3
 parent: "Command Line Tools"
 grand_parent: "Reference"
 layout: default
 date: 2025-08-06
 description: >
-  CueMan is a command-line job management tool for OpenCue that provides 
+  Cueman is a command-line job management tool for OpenCue that provides 
   efficient job control operations with advanced filtering and batch capabilities.
 ---
 
-# CueMan - CLI Job Management Tool
+# Cueman - CLI Job Management Tool
 
-CueMan is a powerful command-line interface for managing OpenCue jobs, frames, and processes. It provides streamlined operations for job control, frame management, and batch processing with advanced filtering capabilities.
+Cueman is a command-line interface for managing OpenCue jobs, frames, and processes. It provides streamlined operations for job control, frame management, and batch processing with advanced filtering capabilities.
 
 ## Overview
 
-CueMan extends the functionality of `cueadmin` and the OpenCue Python API, enabling users to efficiently manage render farm operations through an intuitive command-line interface.
+Cueman extends the functionality of `cueadmin` and the OpenCue Python API, enabling users to efficiently manage render farm operations through an intuitive command-line interface.
 
 ### Key Features
 
@@ -417,7 +417,7 @@ cueman             # Running without args shows help
 
 ## Additional Resources
 
-- [CueMan Tutorial](/OpenCue/docs/tutorials/cueman-tutorial/) - Comprehensive tutorial with real-world scenarios
-- [CueMan GitHub](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/cueman) - Source code and documentation
+- [Cueman Tutorial](/OpenCue/docs/tutorials/cueman-tutorial/) - Tutorial with real-world scenarios
+- [Cueman GitHub](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/cueman) - Source code and documentation
 - [OpenCue Documentation](/OpenCue/docs/) - Complete OpenCue documentation
 - [CueAdmin Reference](/OpenCue/docs/reference/commands/cueadmin/) - Related command-line tool
