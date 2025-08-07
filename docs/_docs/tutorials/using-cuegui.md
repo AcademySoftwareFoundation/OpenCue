@@ -260,6 +260,18 @@ Select multiple frames (Ctrl+click or Shift+click):
    - Currently running frames
    - Host state (Up/Down/Repair)
 
+#### Host Filtering
+
+The Host Monitor includes several filtering options:
+
+- **Host Name**: Filter by hostname using regex patterns
+- **Allocation**: Filter by host allocation
+- **Hardware State**: Filter by UP, DOWN, REPAIR states
+- **Lock State**: Filter by OPEN, LOCKED, NIMBY_LOCKED
+- **OS**: Filter hosts by operating system (Linux, Windows, macOS, etc.)
+
+The OS filter initially displays "Not Loaded" and dynamically populates with the actual operating systems found in your host environment once hosts are loaded.
+
 #### Host Management
 
 ```

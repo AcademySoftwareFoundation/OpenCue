@@ -45,6 +45,7 @@ class HostMonitor(QtWidgets.QWidget):
         self.app = cuegui.app()
 
         self.__filterByHostNameLastInput = None
+        self.__filterOSList = []
         self.hostMonitorTree = cuegui.HostMonitorTree.HostMonitorTree(self)
 
         # Setup main vertical layout
@@ -61,6 +62,7 @@ class HostMonitor(QtWidgets.QWidget):
         self.__filterAllocationSetup(hlayout)
         self.__filterHardwareStateSetup(hlayout)
         self.__filterLockStateSetup(hlayout)
+        self.__filterOSSetup(hlayout)
         hlayout.addStretch()
         self.__refreshToggleCheckBoxSetup(hlayout)
         self.__refreshButtonSetup(hlayout)
@@ -358,6 +360,132 @@ class HostMonitor(QtWidgets.QWidget):
         __hostSearch.options['lock_state'] = lock_states
 
     # ==============================================================================
+    # Menu to filter by OS
+    # ==============================================================================
+    def __filterOSSetup(self, layout):
+        """Sets up the OS filter dropdown menu.
+        Creates a dropdown filter for operating systems that dynamically populates
+        with OS values from actual hosts via updateOSFilterList.
+        @param layout: The layout to add the filter button to
+        @type  layout: QLayout"""
+
+        # Initial placeholder - will be populated dynamically by updateOSFilterList()
+        # when hosts are loaded. This shows a clear indication that real OS values
+        # haven't been loaded yet.
+        self.__filterOSList = ["Not Loaded"]
+
+        btn = QtWidgets.QPushButton("Filter OS")
+        btn.setMaximumHeight(FILTER_HEIGHT)
+        btn.setFocusPolicy(QtCore.Qt.NoFocus)
+        btn.setContentsMargins(0, 0, 0, 0)
+        btn.setFlat(True)
+
+        menu = QtWidgets.QMenu(self)
+        btn.setMenu(menu)
+        QtCore.QObject.connect(menu,
+                               QtCore.SIGNAL("triggered(QAction*)"),
+                               self.__filterOSHandle)
+
+        for item in ["Clear", None] + self.__filterOSList:
+            if item:
+                a = QtWidgets.QAction(menu)
+                a.setText(str(item))
+                if item != "Clear":
+                    a.setCheckable(True)
+                menu.addAction(a)
+            else:
+                menu.addSeparator()
+
+        layout.addWidget(btn)
+        self.__filterOSButton = btn
+
+    def __filterOSClear(self):
+        """Clears the currently selected OS menu items"""
+        btn = self.__filterOSButton
+        menu = btn.menu()
+        for action in menu.actions():
+            action.setChecked(False)
+        self.hostMonitorTree.hostSearch.options['os_filter'] = []
+
+    def __filterOSHandle(self, action):
+        """Called when an option in the filter OS menu is triggered.
+        Tells the HostMonitorTree widget what OS to filter by.
+        @param action: Defines the menu item selected
+        @type  action: QAction"""
+        __hostSearch = self.hostMonitorTree.hostSearch
+        if action.text() == "Clear":
+            self.__clearOSFilter(__hostSearch)
+        else:
+            self.__updateOSFilter(__hostSearch, action)
+
+        self.hostMonitorTree.updateRequest()
+
+    def __clearOSFilter(self, __hostSearch):
+        """
+        Clears the currently selected OS menu items and updates the search options.
+        @param __hostSearch: The host search criteria object to update.
+        @type __hostSearch: HostSearchCriteria
+        """
+        for item in self.__filterOSButton.menu().actions():
+            if item.isChecked() and item.text() != "Clear":
+                # Remove the OS from the search options
+                __hostSearch.options['os_filter'].remove(str(item.text()))
+            # Uncheck the menu item
+            item.setChecked(False)
+
+    def __updateOSFilter(self, __hostSearch, action):
+        """
+        Updates the OS filter based on the selected action.
+        @param __hostSearch: The host search criteria object to update.
+        @type __hostSearch: HostSearchCriteria
+        @param action: The action that was triggered.
+        @type action: QAction
+        """
+        # Get the current OS filters from the search options
+        os_filters = __hostSearch.options.get('os_filter', [])
+        # Get the OS corresponding to the action text
+        os_name = str(action.text())
+
+        if action.isChecked():
+            # Add the OS if the action is checked
+            os_filters.append(os_name)
+        else:
+            # Remove the OS if the action is unchecked
+            os_filters.remove(os_name)
+
+        # Update the search options with the new OS filters
+        __hostSearch.options['os_filter'] = os_filters
+
+    def updateOSFilterList(self, os_values):
+        """Updates the OS filter list with values from actual hosts.
+        @param os_values: Set of OS values found in hosts
+        @type  os_values: set"""
+        if not os_values:
+            return
+
+        # Convert set to sorted list and update the filter list
+        new_os_list = sorted(os_values)
+        if new_os_list != self.__filterOSList:
+            self.__filterOSList = new_os_list
+
+            # Rebuild the menu with new OS values
+            menu = self.__filterOSButton.menu()
+            menu.clear()
+
+            # Add Clear option and separator
+            clear_action = QtWidgets.QAction(menu)
+            clear_action.setText("Clear")
+            menu.addAction(clear_action)
+            menu.addSeparator()
+
+            # Add OS options
+            for os_name in self.__filterOSList:
+                action = QtWidgets.QAction(menu)
+                action.setText(str(os_name))
+                action.setCheckable(True)
+                menu.addAction(action)
+
+    # ==============================================================================
     # Checkbox to toggle auto-refresh
     # ==============================================================================
     def __refreshToggleCheckBoxSetup(self, layout):
@@ -419,6 +547,7 @@ class HostMonitor(QtWidgets.QWidget):
         self.__filterAllocationClear()
         self.__filterHardwareStateClear()
         self.__filterLockStateClear()
+        self.__filterOSClear()
         self.__filterByHostNameClear()
         self.hostMonitorTree.clearFilters()
 
