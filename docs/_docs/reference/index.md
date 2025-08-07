@@ -13,7 +13,7 @@ Reference guides for all users running OpenCue tools and interfaces
 ## Categories
 
 ### [Command Line Tools](tools/)
-Comprehensive documentation for OpenCue command-line tools:
+Documentation for OpenCue's command-line tools
 - **[CueMan](tools/cueman/)** - Advanced job and frame management CLI
 - **[CueAdmin](commands/cueadmin/)** - Administrative command-line tool
 - **[PyCueRun](commands/pycuerun/)** - Python job submission tool
