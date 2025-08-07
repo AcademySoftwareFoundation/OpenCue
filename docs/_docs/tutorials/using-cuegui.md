@@ -270,7 +270,7 @@ The Host Monitor includes several filtering options:
 - **Lock State**: Filter by OPEN, LOCKED, NIMBY_LOCKED
 - **OS**: Filter hosts by operating system (Linux, Windows, macOS, etc.)
 
-The OS filter dynamically populates with the actual operating systems found in your host environment.
+The OS filter initially displays "Not Loaded" and dynamically populates with the actual operating systems found in your host environment once hosts are loaded.
 
 #### Host Management
 

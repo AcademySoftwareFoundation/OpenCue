@@ -148,17 +148,18 @@ The Monitor Hosts interface includes several filtering options to help you find 
 The OS filter allows you to filter hosts based on their operating system:
 
 1. In the CueCommander Monitor Hosts view, click the **Filter OS** dropdown button
-2. Select one or more operating systems from the list:
+2. The filter initially shows "Not Loaded" until hosts are loaded into the view
+3. Once hosts are loaded, select one or more operating systems from the dynamically populated list:
    - Linux
    - Windows  
    - macOS
    - Other OS values detected from your hosts
-3. The host list updates to show only hosts matching the selected OS values
-4. Use the **Clear** option to remove all OS filters
+4. The host list updates to show only hosts matching the selected OS values
+5. Use the **Clear** option to remove all OS filters
 
 ![Monitor Hosts with OS Filter](/OpenCue/assets/images/cuegui/cuecommander_monitor_os_filter.png)
 
-The OS filter list dynamically updates based on the operating systems detected in your host environment. When you first load hosts, the filter will populate with the actual OS values found in your system.
+The OS filter list dynamically updates based on the operating systems detected in your host environment. When you first open CueCommander, the filter displays "Not Loaded" to indicate that host data hasn't been retrieved yet. Once hosts are loaded, the filter automatically populates with the actual OS values found in your system.
 
 ### Host Management
 
