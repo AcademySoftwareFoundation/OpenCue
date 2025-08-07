@@ -363,7 +363,16 @@ class HostMonitor(QtWidgets.QWidget):
     # Menu to filter by OS
     # ==============================================================================
     def __filterOSSetup(self, layout):
-        self.__filterOSList = ["Linux", "Windows", "macOS"]
+        """Sets up the OS filter dropdown menu.
+        Creates a dropdown filter for operating systems that dynamically populates
+        with OS values from actual hosts via updateOSFilterList.
+        @param layout: The layout to add the filter button to
+        @type  layout: QLayout"""
+
+        # Initial placeholder - will be populated dynamically by updateOSFilterList()
+        # when hosts are loaded. This shows a clear indication that real OS values
+        # haven't been loaded yet.
+        self.__filterOSList = ["Not Loaded"]
 
         btn = QtWidgets.QPushButton("Filter OS")
         btn.setMaximumHeight(FILTER_HEIGHT)
