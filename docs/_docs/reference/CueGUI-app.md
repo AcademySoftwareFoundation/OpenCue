@@ -49,6 +49,35 @@ To configure the external text editor, update the value of your `EDITOR`
 environment variable. `cuegui/Constants.py` also defines a default editor if the
 value of the `EDITOR` variable isn't set.
 
+## Copying names to clipboard
+
+CueGUI provides convenient copy buttons to quickly copy job, layer, and frame names to your system clipboard. This feature is useful for:
+
+- Sharing job references with team members
+- Creating reports or documentation
+- Using names in scripts or other tools
+- Quick reference when switching between applications
+
+### Copying job names
+
+To copy a job name to the clipboard, right-click on a job in the *Monitor Jobs* view and select **Copy Job Name**. The exact job name will be copied to your clipboard.
+
+![Copy Job Name context menu](/OpenCue/assets/images/cuegui/cuegui_copy_job_name.png)
+
+### Copying layer names
+
+To copy a layer name, right-click on a layer in the job details view and select **Copy Layer Name**. This copies the layer name to your clipboard.
+
+![Copy Layer Name context menu](/OpenCue/assets/images/cuegui/cuegui_copy_layer_name.png)
+
+### Copying frame names
+
+To copy a frame name, right-click on a frame in the frame list and select **Copy Frame Name**. The frame name will be copied to your clipboard.
+
+![Copy Frame Name context menu](/OpenCue/assets/images/cuegui/cuegui_copy_frame_name.png)
+
+All copy buttons use the same icon as the "Copy Log Path" feature for visual consistency. When multiple items are selected, all selected names will be copied to the clipboard separated by spaces.
+
 ## Managing frames
 
 To manage frames, select one of the following:

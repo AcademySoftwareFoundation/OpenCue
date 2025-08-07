@@ -751,6 +751,16 @@ class JobActions(AbstractActions):
             QtWidgets.QApplication.clipboard().setText(
                 " ".join(paths), QtGui.QClipboard.Clipboard)
 
+    copyJobName_info = ["&Copy Job Name", "Copy the job name to clipboard", "copylogpath"]
+
+    def copyJobName(self, rpcObjects=None):
+        """Copies the selected job names to the clipboard."""
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs:
+            names = [job.data.name for job in jobs]
+            QtWidgets.QApplication.clipboard().setText(
+                " ".join(names), QtGui.QClipboard.Clipboard)
+
     setUserColor1_info = [
         "Set Color 1", "Set user defined background color", cuegui.Constants.COLOR_USER_1]
 
@@ -793,6 +803,16 @@ class LayerActions(AbstractActions):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
             self._caller.handle_filter_layers_byLayer.emit([layer.data.name for layer in layers])
+
+    copyLayerName_info = ["&Copy Layer Name", "Copy the layer name to clipboard", "copylogpath"]
+
+    def copyLayerName(self, rpcObjects=None):
+        """Copies the selected layer names to the clipboard."""
+        layers = self._getOnlyLayerObjects(rpcObjects)
+        if layers:
+            names = [layer.data.name for layer in layers]
+            QtWidgets.QApplication.clipboard().setText(
+                " ".join(names), QtGui.QClipboard.Clipboard)
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
 
@@ -1073,6 +1093,16 @@ class FrameActions(AbstractActions):
         job = self._getSource()
         paths = [cuegui.Utils.getFrameLogFile(job, frame) for frame in frames]
         QtWidgets.QApplication.clipboard().setText("\n".join(paths), QtGui.QClipboard.Clipboard)
+
+    copyFrameName_info = ["&Copy Frame Name", "Copy the frame name to clipboard", "copylogpath"]
+
+    def copyFrameName(self, rpcObjects=None):
+        """Copies the selected frame names to the clipboard."""
+        frames = self._getOnlyFrameObjects(rpcObjects)
+        if frames:
+            names = [frame.data.name for frame in frames]
+            QtWidgets.QApplication.clipboard().setText(
+                " ".join(names), QtGui.QClipboard.Clipboard)
 
     tail_info = ["&Tail Log", None, "log"]
 
