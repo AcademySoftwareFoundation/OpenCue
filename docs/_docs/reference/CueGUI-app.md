@@ -132,6 +132,9 @@ You can perform the following tasks from the search box:
 *   To display a list of all the running jobs for a shot, type in the shot name.
 *   To display a list of all of a user's jobs, type in a username.
 *   To autoload your own jobs, check the **Autoload Mine** box.
+*   To load finished jobs from the last 3 days, check the **Load Finished** box.
+*   To group dependent jobs together, check the **Group Dependent** box.
+*   Search supports regular expressions for complex pattern matching.
 
 ## Managing hosts
 
