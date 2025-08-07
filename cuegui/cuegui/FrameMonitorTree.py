@@ -902,6 +902,7 @@ class FrameContextMenu(QtWidgets.QMenu):
         self.__menuActions.frames().addAction(self, "tail")
         self.__menuActions.frames().addAction(self, "view")
         self.__menuActions.frames().addAction(self, "copyLogPath")
+        self.__menuActions.frames().addAction(self, "copyFrameName")
 
         if count == 1:
             if widget.selectedObjects()[0].data.retry_count >= 1:

@@ -110,28 +110,16 @@ docker run -td --name rqd01 --env CUEBOT_HOSTNAME=${CUEBOT_HOSTNAME} --volume "$
     docker run -td --name rqd01 --env CUEBOT_HOSTNAME=${CUEBOT_HOSTNAME} --volume "${CUE_FS_ROOT}:${CUE_FS_ROOT}" --add-host host.docker.internal:host-gateway opencue/rqd
     ``` -->
 
-### Option 3: Installing from the published release
+### Option 3: Installing from pypi
 
-To manually install from the published release:
-
-Download the RQD tarball from
-[the OpenCue GitHub releases page](https://github.com/AcademySoftwareFoundation/OpenCue/releases).
+To install from the published pypi release:
 
 You need the `pip` and `virtualenv` tools. Use of a virtual environment is not
 strictly necessary but is recommended to avoid conflicts with other installed
 Python libraries.
 
 ```shell
-export RQD_TARBALL="<path to RQD tar.gz>"
-export RQD_DIR=$(basename "${RQD_TARBALL}" .tar.gz)
-tar xvzf "$RQD_TARBALL"
-virtualenv venv
-source venv/bin/activate
-cd "$RQD_DIR"
-pip install -r requirements.txt
-python setup.py install
-cd ..
-rm -rf "$RQD_DIR"
+pip install opencue-rqd
 ```
 
 An `rqd` executable should now be available in your `PATH`.
@@ -149,8 +137,7 @@ Make sure you've
 [checked out the source code](/docs/getting-started/checking-out-the-source-code)
 and your current directory is the root of the checked out source.
 
-> **Note**
-> {: .callout .callout-info}You need the `pip` and `virtualenv`
+> **Note :** You need the `pip` and `virtualenv`
 tools. Use of a virtual environment isn't strictly necessary but is
 recommended to avoid conflicts with other installed Python
 libraries.>
@@ -164,13 +151,7 @@ sudo apt install build-essential python3.10-venv python3.10-dev
 ```shell
 virtualenv venv
 source venv/bin/activate
-pip install -r requirements.txt
-cd proto
-python -m grpc_tools.protoc -I=. --python_out=../rqd/rqd/compiled_proto --grpc_python_out=../rqd/rqd/compiled_proto ./*.proto
-cd ../rqd/rqd/compiled_proto
-2to3 -w -n *
-cd ../..
-python setup.py install
+pip install rqd/
 ```
 
 An `rqd` executable should now be available in your `PATH`.
@@ -191,6 +172,10 @@ started up:
 2019-01-31 00:41:51,905 WARNING   rqd3-__main__   RQD Starting Up
 2019-01-31 00:41:52,941 WARNING   rqd3-rqcore     RQD Started
 ```
+
+## Alternative: Rust RQD
+
+OpenCue now offers a high-performance Rust implementation of RQD with improved resource efficiency and experimental features. For more information, see [Rust RQD Reference](/OpenCue/docs/reference/rust-rqd).
 
 ## What's next?
 

@@ -7,6 +7,7 @@
 - [Introduction](#Introduction)
 - [OpenCue features](#OpenCue-features)
 - [Learn more](#Learn-more)
+- [OpenCue documentation](#opencue-documentation)
 - [Meeting notes](#Meeting-notes)
 - [Contact us](#Contact-us)
 
@@ -58,6 +59,45 @@ To learn how to run the sandbox environment, see https://www.opencue.io/docs/qui
 
 Guides for system admins deploying OpenCue components and installing dependencies are available in the 
 [OpenCue documentation](https://www.opencue.io/docs/getting-started/).
+
+# OpenCue documentation
+
+OpenCue documentation is built with Jekyll and hosted on GitHub Pages. The documentation includes installation guides, user guides, API references, and tutorials to help users get started with OpenCue.
+
+When contributing to OpenCue, please update the documentation for any new features or changes. Each pull request should include relevant documentation updates when applicable.
+
+## Building and Testing Documentation
+
+If you make changes to `OpenCue/docs`, please build and test the documentation before submitting your PR:
+
+1. **Build and validate the documentation**
+   ```bash
+   ./docs/build.sh
+   ```
+
+2. **Install bundler binstubs (if needed)**
+   
+   If you encounter permission errors when installing to system directories:
+   ```bash
+   cd docs/
+   bundle binstubs --all
+   ```
+
+3. **Run the documentation locally**
+   ```bash
+   cd docs/
+   bundle exec jekyll serve --livereload
+   ```
+
+4. **Preview the documentation**
+   
+   Open http://localhost:4000/OpenCue/ in your browser to review your changes.
+
+For detailed documentation setup instructions, testing procedures, and contribution guidelines, see [docs/README.md](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/docs/README.md).
+
+**Note:** Once your pull request is merged into master, the documentation will be automatically deployed via GitHub Actions ([.github/workflows/docs.yml](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/.github/workflows/docs.yml)). The updated documentation will be available at https://academysoftwarefoundation.github.io/OpenCue/.
+
+The new OpenCue documentation will soon replace the current version at https://www.opencue.io.
 
 # Meeting notes
 
