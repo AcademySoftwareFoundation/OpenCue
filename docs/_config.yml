@@ -7,15 +7,33 @@ url: "https://academysoftwarefoundation.github.io" # the base hostname & protoco
 # Build settings
 theme: just-the-docs
 
-# Enable versioning
+# Version management
 versioning:
   enabled: true
   default_version: main
   versions:
     - main
-    - v0.22
-    - v0.21
-    - v0.20
+    - v0.0.1
+  version_labels:
+    main: "Latest (main)"
+    v0.0.1: "v0.0.1 (Preview)"
+
+# Git metadata
+git_metadata:
+  enabled: true
+  show_contributors: true
+  show_last_modified: true
+  date_format: "%B %d, %Y"
+
+# Build metadata (populated by CI)
+build_info:
+  timestamp: ""
+  git_hash: ""
+  
+# Documentation version (in progress)
+doc_version: "0.0.1"
+
+# OpenCue version will be read from VERSION.in by CI/CD pipeline
 
 # Just the Docs theme configuration
 color_scheme: nil
