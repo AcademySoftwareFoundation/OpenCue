@@ -566,27 +566,52 @@
   
   /* Professional table design */
   body.dark-mode table {
-    background: #1f2937 !important;
-    border: 1px solid #4b5563 !important;
+    background: #374151 !important;
+    border: 1px solid #6b7280 !important;
     border-radius: 8px;
     overflow: hidden;
   }
   
   body.dark-mode table th {
-    background: #374151 !important;
+    background: #1f2937 !important;
     color: #f9fafb !important;
     border: 1px solid #6b7280 !important;
     font-weight: 600;
   }
   
   body.dark-mode table td {
-    color: #e5e7eb !important;
-    border: 1px solid #4b5563 !important;
+    background: #374151 !important;
+    color: #f9fafb !important;
+    border: 1px solid #6b7280 !important;
     transition: var(--transition-smooth);
   }
   
   body.dark-mode table tr:hover td {
-    background: rgba(156, 163, 175, 0.05) !important;
+    background: #4b5563 !important;
+  }
+  
+  /* Fix table link colors in dark mode */
+  body.dark-mode table a {
+    color: #60a5fa !important;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  
+  body.dark-mode table a:hover {
+    color: #93bbfc !important;
+    border-bottom-color: #60a5fa;
+  }
+  
+  /* Ensure table text is always readable */
+  body.dark-mode table td,
+  body.dark-mode table th,
+  body.dark-mode table td * {
+    color: #f9fafb !important;
+  }
+  
+  body.dark-mode table strong {
+    color: #ffffff !important;
+    font-weight: 600;
   }
   
   body.dark-mode .search-input-wrap::after {
@@ -1220,4 +1245,7 @@ document.addEventListener('DOMContentLoaded', function() {
   
 });
 </script>
+
+<!-- Include sidebar version switcher -->
+{% include sidebar-version-switcher.html %}
 
