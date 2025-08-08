@@ -1,0 +1,83 @@
+{% if site.versioning.enabled %}
+<div class="version-banner">
+  <div class="version-banner-content">
+    <div class="version-info">
+      <strong>OpenCue {{ site.opencue_version }}</strong> Documentation
+      {% if site.version != site.versioning.default_version %}
+        <span class="version-warning">
+          • ⚠️ This is an older version
+        </span>
+      {% endif %}
+    </div>
+    
+    <div class="version-actions">
+      <a href="{{ site.baseurl }}/versions" class="btn-version-history">
+        📚 All Versions
+      </a>
+      {% if site.version != site.versioning.default_version %}
+        <a href="{{ site.baseurl }}/" class="btn-latest">
+          → Go to Latest
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+.version-banner {
+  background: linear-gradient(135deg, var(--color-blue-100), var(--color-purple-100));
+  border-bottom: 2px solid var(--color-blue-200);
+  padding: 0.75rem 0;
+  margin-bottom: 1rem;
+}
+
+.version-banner-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.version-info {
+  font-size: 0.95rem;
+}
+
+.version-warning {
+  color: var(--color-yellow-700);
+  margin-left: 0.5rem;
+}
+
+.version-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-version-history,
+.btn-latest {
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.btn-version-history {
+  background: var(--color-grey-dk-000);
+  color: white;
+}
+
+.btn-latest {
+  background: var(--color-green-100);
+  color: var(--color-green-800);
+  font-weight: 500;
+}
+
+.btn-version-history:hover,
+.btn-latest:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+</style>
+{% endif %}
