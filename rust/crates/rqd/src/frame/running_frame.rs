@@ -1410,7 +1410,7 @@ mod tests {
     }
 
     // Test fails intermitently. Commenting it out for now as the outputs are correct,
-    // only missaligned
+    // only misaligned
     // #[tokio::test]
     // #[cfg(any(target_os = "linux", target_os = "macos"))]
     // async fn test_run_interleaved_stdout_stderr() {
