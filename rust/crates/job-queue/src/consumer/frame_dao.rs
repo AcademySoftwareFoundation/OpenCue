@@ -14,6 +14,7 @@ use crate::{
 
 pub struct FrameDao {
     connection_pool: Arc<Pool<Postgres>>,
+    core_multiplier: u32,
 }
 
 #[derive(sqlx::FromRow, Serialize, Deserialize)]
@@ -31,7 +32,7 @@ pub struct DispatchFrameModel {
     pub pk_layer: String,
 
     // DispatchFrame specific fields
-    pub str_command: String,
+    pub str_cmd: String,
     pub str_range: String,
     pub int_chunk_size: i32,
     pub str_show: String,
@@ -52,7 +53,8 @@ pub struct DispatchFrameModel {
     pub str_services: Option<String>,
     pub str_os: Option<String>,
     pub str_loki_url: Option<String>,
-    pub int_cores_max: i32,
+    pub int_layer_cores_max: i32,
+    pub core_multiplier: i32,
 }
 
 impl From<DispatchFrameModel> for DispatchFrame {
@@ -65,7 +67,7 @@ impl From<DispatchFrameModel> for DispatchFrame {
             facility_id: Uuid::parse_str(&val.pk_facility).unwrap_or_default(),
             job_id: Uuid::parse_str(&val.pk_job).unwrap_or_default(),
             layer_id: Uuid::parse_str(&val.pk_layer).unwrap_or_default(),
-            command: val.str_command,
+            command: val.str_cmd,
             range: val.str_range,
             chunk_size: val.int_chunk_size,
             show_name: val.str_show,
@@ -75,7 +77,7 @@ impl From<DispatchFrameModel> for DispatchFrame {
             log_dir: val.str_log_dir,
             layer_name: val.str_layer_name,
             job_name: val.str_job_name,
-            min_cores: val.int_min_cores,
+            min_cores: val.int_min_cores / val.core_multiplier,
             threadable: val.b_threadable,
             min_gpus: val.int_gpus_min as u32,
             min_gpu_memory: val.int_gpu_mem_min as u64,
@@ -83,7 +85,8 @@ impl From<DispatchFrameModel> for DispatchFrame {
             services: val.str_services,
             os: val.str_os,
             loki_url: val.str_loki_url,
-            max_cores: val.int_cores_max as u32,
+            layer_cores_limit: (val.int_layer_cores_max > 0)
+                .then(|| (val.int_layer_cores_max / val.core_multiplier) as u32),
             // TODO: Implement a better solution for handling selfish services
             has_selfish_service: false,
         }
@@ -91,40 +94,56 @@ impl From<DispatchFrameModel> for DispatchFrame {
 }
 
 static QUERY_FRAME: &str = r#"
-SELECT
-    f.pk_frame,
-    f.str_name as str_frame_name,
-    j.pk_show,
-    j.pk_facility,
-    j.pk_job,
-    l.pk_layer,
-    l.str_command,
-    l.str_range,
-    l.int_chunk_size,
-    j.str_show,
-    j.str_shot,
-    j.str_user,
-    j.int_uid,
-    j.str_log_dir,
-    l.str_name as str_layer_name,
-    j.str_name as str_job_name,
-    j.int_min_cores,
-    l.int_mem_min,
-    l.b_threadable,
-    l.int_gpus_min,
-    l.int_gpu_mem_min,
-    l.str_services,
-    j.str_os,
-    j.str_loki_url,
-    l.int_cores_max
-FROM job j
-    INNER JOIN layer l ON j.pk_job = l.pk_job
-    INNER JOIN frame f ON l.pk_layer = f.pk_layer
-WHERE l.pk_layer = ?
-    AND f.str_state = 'WAITING'
+WITH dispatch_frames AS (
+    SELECT
+        f.pk_frame,
+        f.str_name as str_frame_name,
+        j.pk_show,
+        j.pk_facility,
+        j.pk_job,
+        l.pk_layer,
+        l.str_cmd,
+        l.str_range,
+        l.int_chunk_size,
+        j.str_show,
+        j.str_shot,
+        j.str_user,
+        j.int_uid,
+        j.str_log_dir,
+        l.str_name as str_layer_name,
+        j.str_name as str_job_name,
+        j.int_min_cores,
+        l.int_mem_min,
+        l.b_threadable,
+        l.int_gpus_min,
+        l.int_gpu_mem_min,
+        l.str_services,
+        j.str_os,
+        j.str_loki_url,
+        l.int_cores_max,
+        ? as core_multiplier,
+        f.int_dispatch_order,
+        f.int_layer_order,
+        -- Accumulate the number of cores that would be consumed
+        SUM(l.int_cores_min) OVER (
+            ORDER BY f.int_dispatch_order, f.int_layer_order
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS aggr_job_cores,
+        jr.int_max_cores as job_resource_core_limit,
+        jr.int_cores as job_resource_consumed_cores
+    FROM job j
+        INNER JOIN layer l ON j.pk_job = l.pk_job
+        INNER JOIN frame f ON l.pk_layer = f.pk_layer
+        INNER JOIN job_resource jr ON l.pk_job = jr.pk_job
+    WHERE l.pk_layer = ?
+        AND f.str_state = 'WAITING'
+) SELECT * from dispatch_frames
+    -- Limit the query to a number of frames that would not overflow the job_resource limit
+    -- limit <= 0 means there's no limit
+    WHERE job_resource_core_limit <= 0 OR (aggr_job_cores + job_resource_consumed_cores <= job_resource_core_limit)
 ORDER BY
-    f.int_dispatch_order,
-    f.int_layer_order
+    int_dispatch_order,
+    int_layer_order
 LIMIT ?
 "#;
 // TODO: Take table limit_record into consideration
@@ -134,15 +153,17 @@ impl FrameDao {
         let pool = connection_pool(config).await?;
         Ok(FrameDao {
             connection_pool: pool,
+            core_multiplier: config.core_multiplier,
         })
     }
 
-    pub fn query_frames(
+    pub fn query_dispatch_frames(
         &self,
         layer: &DispatchLayer,
         limit: i32,
     ) -> impl Stream<Item = Result<DispatchFrameModel, sqlx::Error>> + '_ {
         sqlx::query_as::<_, DispatchFrameModel>(QUERY_FRAME)
+            .bind(self.core_multiplier as i32)
             .bind(layer.id.to_string())
             .bind(limit)
             .fetch(&*self.connection_pool)

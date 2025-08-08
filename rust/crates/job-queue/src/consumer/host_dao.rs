@@ -15,6 +15,7 @@ use crate::{
 
 pub struct HostDao {
     connection_pool: Arc<Pool<Postgres>>,
+    core_multiplier: u32,
 }
 
 #[derive(sqlx::FromRow, Serialize, Deserialize)]
@@ -33,6 +34,7 @@ pub(crate) struct HostModel {
     str_alloc_name: String,
     // Number of cores available at the subscription of the show this host has been queried on
     int_alloc_available_cores: i32,
+    core_multiplier: i32,
 }
 
 impl From<HostModel> for Host {
@@ -41,14 +43,14 @@ impl From<HostModel> for Host {
             id: Uuid::parse_str(&val.pk_host).unwrap_or_default(),
             name: val.str_name,
             str_os: val.str_os,
-            idle_cores: val.int_cores_idle as u32,
+            idle_cores: (val.int_cores_idle / val.core_multiplier) as u32,
             idle_memory: val.int_mem_idle as u64,
             idle_gpus: val.int_gpus_idle as u32,
             idle_gpu_memory: val.int_gpu_mem_idle as u64,
-            total_cores: val.int_cores as u32,
+            total_cores: (val.int_cores / val.core_multiplier) as u32,
             total_memory: val.int_mem as u64,
             thread_mode: ThreadMode::try_from(val.int_thread_mode).unwrap_or_default(),
-            alloc_available_cores: val.int_alloc_available_cores as u32,
+            alloc_available_cores: (val.int_alloc_available_cores / val.core_multiplier) as u32,
             allocation_name: val.str_alloc_name,
         }
     }
@@ -67,7 +69,8 @@ SELECT
     h.int_mem,
     h.int_thread_mode,
     s.int_burst - s.int_cores as int_alloc_available_cores,
-    a.str_name as str_alloc_name
+    a.str_name as str_alloc_name,
+    ? as core_multiplier
 FROM host h
     INNER JOIN host_stat hs ON h.pk_host = hs.pk_host
     INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
@@ -91,6 +94,7 @@ impl HostDao {
         let pool = connection_pool(config).await?;
         Ok(HostDao {
             connection_pool: pool,
+            core_multiplier: config.core_multiplier,
         })
     }
 
@@ -102,6 +106,7 @@ impl HostDao {
         layer: &DispatchLayer,
     ) -> impl Stream<Item = Result<HostModel, sqlx::Error>> + '_ {
         sqlx::query_as::<_, HostModel>(QUERY_DISPATCH_HOST)
+            .bind(self.core_multiplier as i32)
             .bind(layer.show_id.to_string())
             .bind(layer.facility_id.to_string())
             .bind(layer.str_os.clone())

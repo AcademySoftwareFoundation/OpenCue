@@ -102,7 +102,7 @@ impl RqdDispatcher {
 
         let mut stream = self
             .frame_dao
-            .query_frames(layer, self.dispatch_frames_per_layer_limit as i32);
+            .query_dispatch_frames(layer, self.dispatch_frames_per_layer_limit as i32);
         let mut current_host = host.clone();
 
         // A host should not book frames if its allocation is at or above its limit,
@@ -328,8 +328,10 @@ impl RqdDispatcher {
             cores_to_reserve = cores_requested;
         }
         // Don't book above max_core limit
-        if frame.max_cores > 0 && cores_to_reserve > frame.max_cores {
-            cores_to_reserve = frame.max_cores;
+        if let Some(layer_cores_limit) = frame.layer_cores_limit {
+            if layer_cores_limit > 0 && cores_to_reserve > layer_cores_limit {
+                cores_to_reserve = layer_cores_limit;
+            }
         }
 
         cores_to_reserve

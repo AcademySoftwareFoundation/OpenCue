@@ -1,5 +1,4 @@
 use core::fmt;
-use miette::Result;
 use std::fmt::Display;
 
 use opencue_proto::host::ThreadMode;
@@ -120,7 +119,7 @@ pub struct DispatchFrame {
     pub job_name: String,
     // Min cores can be a negative, representing `machine_total_cores - min_cores`
     pub min_cores: i32,
-    pub max_cores: u32,
+    pub layer_cores_limit: Option<u32>,
     pub threadable: bool,
     pub has_selfish_service: bool,
     pub min_gpus: u32,

@@ -69,6 +69,7 @@ impl Default for QueueConfig {
 pub struct DatabaseConfig {
     pub pool_size: u32,
     pub connection_url: String,
+    pub core_multiplier: u32,
 }
 
 impl Default for DatabaseConfig {
@@ -76,6 +77,7 @@ impl Default for DatabaseConfig {
         DatabaseConfig {
             pool_size: 2,
             connection_url: "postgres://postgres:password@localhost/test".to_string(),
+            core_multiplier: 100,
         }
     }
 }

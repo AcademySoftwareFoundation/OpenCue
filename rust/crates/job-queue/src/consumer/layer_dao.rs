@@ -10,6 +10,7 @@ use crate::{config::DatabaseConfig, models::DispatchLayer, pgpool::connection_po
 
 pub struct LayerDao {
     connection_pool: Arc<Pool<Postgres>>,
+    core_multiplier: u32,
 }
 
 #[derive(sqlx::FromRow, Serialize, Deserialize)]
@@ -25,6 +26,7 @@ pub struct DispatchLayerModel {
     pub int_gpus_min: i32,
     pub int_gpu_mem_min: i32,
     pub str_tags: String,
+    pub core_multiplier: i32,
 }
 
 impl From<DispatchLayerModel> for DispatchLayer {
@@ -35,7 +37,7 @@ impl From<DispatchLayerModel> for DispatchLayer {
             facility_id: Uuid::parse_str(&val.pk_facility).unwrap_or_default(),
             show_id: Uuid::parse_str(&val.pk_show).unwrap_or_default(),
             str_os: val.str_os,
-            cores_min: val.int_cores_min,
+            cores_min: (val.int_cores_min / val.core_multiplier),
             mem_min: val.int_mem_min,
             threadable: val.b_threadable,
             gpus_min: val.int_gpus_min,
@@ -58,6 +60,7 @@ SELECT
     l.int_gpus_min,
     l.int_gpu_mem_min,
     l.str_tags
+    ? as core_multiplier
 FROM job j
     INNER JOIN layer l ON j.pk_job = l.pk_job
     INNER JOIN layer_stat ls on l.pk_layer = ls.pk_layer
@@ -73,6 +76,7 @@ impl LayerDao {
         let pool = connection_pool(config).await?;
         Ok(LayerDao {
             connection_pool: pool,
+            core_multiplier: config.core_multiplier,
         })
     }
 
@@ -81,6 +85,7 @@ impl LayerDao {
         pk_job: Uuid,
     ) -> impl Stream<Item = Result<DispatchLayerModel, sqlx::Error>> + '_ {
         sqlx::query_as::<_, DispatchLayerModel>(QUERY_LAYER)
+            .bind(self.core_multiplier as i32)
             .bind(pk_job.to_string())
             .fetch(&*self.connection_pool)
     }
