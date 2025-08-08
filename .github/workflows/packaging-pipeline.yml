@@ -6,15 +6,71 @@ on:
     branches: [ master ]
 
 jobs:
+  build_opencue_packages:
+    name: Build Python Packages
+    runs-on: ubuntu-22.04
+    container: python:3.7
+    outputs:
+      opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
+      opencue_pycue_path: ${{ steps.package_outputs.outputs.opencue_pycue_path }}
+      opencue_pyoutline_path: ${{ steps.package_outputs.outputs.opencue_pyoutline_path }}
+      opencue_cueadmin_path: ${{ steps.package_outputs.outputs.opencue_cueadmin_path }}
+      opencue_cueman_path: ${{ steps.package_outputs.outputs.opencue_cueman_path }}
+      opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
+      opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - uses: ./.github/actions/build-python-packages
+
+      - name: Gather package paths
+        id: package_outputs
+        run: |
+          echo "opencue_proto_path=$(find ./packages -name 'opencue_proto-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_rqd_path=$(find ./packages -name 'opencue_rqd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pycue_path=$(find ./packages -name 'opencue_pycue-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pyoutline_path=$(find ./packages -name 'opencue_pyoutline-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuesubmit_path=$(find ./packages -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueadmin_path=$(find ./packages -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+
   integration_test:
+    needs: build_opencue_packages
     name: Run Integration Test
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
 
       - name: Run test
-        run: ci/run_integration_test.sh
+        run: |
+          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
+          ci/run_integration_test.sh
 
       - name: Archive log files
         uses: actions/upload-artifact@v4
@@ -57,8 +113,13 @@ jobs:
             NAME: CueAdmin
             ARTIFACTS: cueadmin-${BUILD_ID}-all.tar.gz
 
+          - component: cueman
+            NAME: CueMan
+            ARTIFACTS: cueman-${BUILD_ID}-all.tar.gz
+
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -85,9 +146,8 @@ jobs:
       - name: Set build ID
         run: |
           set -e
-          ci/generate_version_number.sh > VERSION
-          echo "Build ID: $(cat ./VERSION)"
-          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
+          echo "Build ID: $(ci/generate_version_number.py)"
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
 
       - name: Build Docker image
         uses: docker/build-push-action@v3
@@ -122,6 +182,7 @@ jobs:
     name: Create Other Build Artifacts
     needs: build_components
     runs-on: ubuntu-22.04
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -141,10 +202,9 @@ jobs:
 
       - name: Set build ID
         run: |
-          set -e
-          ci/generate_version_number.sh > VERSION
-          echo "Build ID: $(cat ./VERSION)"
-          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
+            set -e
+            echo "Build ID: $(ci/generate_version_number.py)"
+            echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
 
       - name: Extract database schema
         run: |

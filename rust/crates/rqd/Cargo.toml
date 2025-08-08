@@ -64,6 +64,7 @@ libc = "0.2"
 device_query = "3.0"
 
 [dev-dependencies]
+dummy-cuebot = { path = "../dummy-cuebot" }
 tempfile = "3.14.0"
 
 # === Rpm configuration ===

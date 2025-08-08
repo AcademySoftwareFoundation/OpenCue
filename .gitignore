@@ -29,3 +29,6 @@ cuebot/.project
 docker-compose-local.yml
 /sandbox/kafka*
 /sandbox/zookeeper*
+docs/_site/
+docs/bin/
+

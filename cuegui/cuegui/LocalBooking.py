@@ -60,17 +60,22 @@ class LocalBookingWidget(QtWidgets.QWidget):
         self.__select_host = QtWidgets.QComboBox(self)
         self.__lba_group = QtWidgets.QGroupBox("Settings", self)
 
+        user_hosts = []
         try:
             owner = opencue.api.getOwner(os.environ["USER"])
             for host in owner.getHosts():
                 if host.lockState() != opencue.api.host_pb2.OPEN:
+                    user_hosts.append(host.data.name)
                     self.__select_host.addItem(host.data.name)
         except opencue.exception.CueException:
             pass
 
         self.__deed_button = None
         self.__msg_widget = None
-        if self.__select_host.count() == 0:
+
+        hostname = gethostname().rsplit(".",2)[0]
+
+        if self.__select_host.count() == 0 or hostname not in user_hosts:
             self.__deed_button = QtWidgets.QPushButton("Deed This Machine", self)
             msg = "You have not deeded any hosts or they are not NIMBY locked."
             self.__msg_widget = QtWidgets.QLabel(msg, self)
@@ -234,11 +239,16 @@ class LocalBookingWidget(QtWidgets.QWidget):
         """Gets whether the host has cores available."""
         return self.__select_host.count() > 0
 
-    def __host_changed(self, hostname):
-        hostname = str(hostname)
+    def __host_changed(self, hostname_or_index):
+        if isinstance(hostname_or_index, int):
+            hostname = self.__select_host.itemText(hostname_or_index)
+        else:
+            hostname = str(hostname_or_index)
+
         if not hostname:
             return
-        host = opencue.api.findHost(str(hostname))
+
+        host = opencue.api.findHost(hostname)
         try:
             rp = [r for r in host.getRenderPartitions() if r.data.job == self.jobName]
 
