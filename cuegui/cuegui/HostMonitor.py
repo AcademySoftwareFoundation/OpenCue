@@ -27,6 +27,7 @@ from qtpy import QtWidgets
 
 import opencue
 
+import cuegui.Constants
 import cuegui.HostMonitorTree
 import cuegui.Logger
 
@@ -364,15 +365,25 @@ class HostMonitor(QtWidgets.QWidget):
     # ==============================================================================
     def __filterOSSetup(self, layout):
         """Sets up the OS filter dropdown menu.
-        Creates a dropdown filter for operating systems that dynamically populates
-        with OS values from actual hosts via updateOSFilterList.
+        Creates a dropdown filter for operating systems. Uses predefined OS values
+        from configuration if available, otherwise dynamically populates with OS
+        values from actual hosts via updateOSFilterList.
+
+        Performance note: For environments with thousands of hosts, using predefined
+        OS filters in cuegui.yaml significantly improves load times by avoiding the
+        need to fetch all hosts just to populate the OS dropdown.
+
         @param layout: The layout to add the filter button to
         @type  layout: QLayout"""
 
-        # Initial placeholder - will be populated dynamically by updateOSFilterList()
-        # when hosts are loaded. This shows a clear indication that real OS values
-        # haven't been loaded yet.
-        self.__filterOSList = ["Not Loaded"]
+        # Use predefined OS filters from config, or show placeholder if not configured
+        if cuegui.Constants.HOST_OS_FILTERS:
+            self.__filterOSList = sorted(cuegui.Constants.HOST_OS_FILTERS)
+            self.__filterOSFromConfig = True
+        else:
+            # Will be populated dynamically by updateOSFilterList() when hosts are loaded
+            self.__filterOSList = ["Loading..."]
+            self.__filterOSFromConfig = False
 
         btn = QtWidgets.QPushButton("Filter OS")
         btn.setMaximumHeight(FILTER_HEIGHT)
@@ -458,8 +469,12 @@ class HostMonitor(QtWidgets.QWidget):
 
     def updateOSFilterList(self, os_values):
         """Updates the OS filter list with values from actual hosts.
+        Only updates if OS filters are not predefined in configuration.
         @param os_values: Set of OS values found in hosts
         @type  os_values: set"""
+        # Skip update if using predefined OS filters from config
+        if self.__filterOSFromConfig:
+            return
         if not os_values:
             return
 

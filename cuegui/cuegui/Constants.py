@@ -206,6 +206,8 @@ LOG_HIGHLIGHT_INFO = __config.get('render_logs.highlight.info')
 
 RESOURCE_LIMITS = __config.get('resources')
 
+HOST_OS_FILTERS = __config.get('host_os_filters', [])
+
 OUTPUT_VIEWERS = []
 for viewer in __config.get('output_viewers', {}):
     OUTPUT_VIEWERS.append(viewer)

@@ -123,6 +123,32 @@ This file may be stored in:
 * the [shared config directory](#shared-config-directory)
 * or at a path of your choosing, specified via the `CUEGUI_CONFIG_FILE` environment variable.
 
+#### Performance Optimization for Large-Scale Environments
+
+##### Monitor Hosts OS Filter
+
+When working with large OpenCue deployments (thousands or millions of hosts), the Monitor Hosts plugin in CueCommander
+can experience performance issues when loading the OS filter dropdown. By default, the plugin fetches all
+hosts from the server to extract unique OS values, which can cause significant UI delays.
+
+To optimize this, you can predefine the OS filter values in your `cuegui.yaml`:
+
+```yaml
+# Predefined OS values for the Monitor Hosts filter
+# Avoids loading all hosts just to populate the OS dropdown
+host_os_filters: ['Linux', 'Windows', 'macOS', 'rhel7', 'rhel9', 'rocky9']
+```
+
+Benefits:
+* Instant OS filter dropdown population
+* No initial delay when opening Monitor Hosts with thousands of hosts
+* Reduces unnecessary server load
+
+Configuration options:
+* **Predefined list**: Set `host_os_filters` to a list of OS names used in your environment
+* **Dynamic loading**: Set to `[]` or omit the setting to use the original behavior (loads all hosts to discover OS values)
+* **Custom values**: Adjust the list to match your specific environment's operating systems
+
 ### CueSubmit
 
 [`cuesubmit_config.example.yaml`](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/cuesubmit/cuesubmit_config.example.yaml)

@@ -80,6 +80,13 @@ editor.linux: 'gview -R -m -M -U {config_path}/gvimrc +'
 # comment out to disable sentry
 # sentry.dsn: 'https://someid@your-sentry.com/10'
 
+# Predefined OS values for the Monitor Hosts filter.
+# This list is used to populate the OS filter dropdown without loading all hosts.
+# If this list is not defined or empty, the OS filter will dynamically load OS values from hosts.
+# Common values include: rhel7, rhel9, rocky9, Windows, mac, linux, centos7, ubuntu20, ubuntu22
+# To disable predefined filters and use dynamic loading, comment out the line below or set to: []
+# host_os_filters: ['Linux', 'Windows', 'macOS']
+
 resources:
   # The max cores and max memory based on the available hardware.
   # These values are used by:

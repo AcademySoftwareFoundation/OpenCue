@@ -248,8 +248,10 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             hosts = opencue.api.getHosts(**self.hostSearch.options)
 
-            # Extract OS values and update the filter list in parent
-            if hosts:
+            # Performance optimization: Only extract OS values if not using predefined filters
+            # from config. This avoids unnecessary processing when config-based filters are used.
+            # For large deployments (thousands of hosts), this significantly improves performance
+            if hosts and not cuegui.Constants.HOST_OS_FILTERS:
                 os_values = set(host.data.os for host in hosts if host.data.os)
                 parent = self.parent()
                 if hasattr(parent, 'updateOSFilterList'):
