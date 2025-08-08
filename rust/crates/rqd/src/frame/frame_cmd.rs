@@ -67,50 +67,57 @@ impl FrameCmdBuilder {
             None => "".to_string(),
         };
 
-        let script = format!(
-            r#"#!{}
-wait_for_output() {{
-    # Wait for the command to complete
-    wait $command_pid
-    exit_code=$1
+        // If an exit_file_path is passed, build a script that traps the inner command and write its
+        // output to the exit_file_path
+        let script = match &self.exit_file_path {
+            Some(exit_file_path) => format!(
+                r#"#!{}
+    wait_for_output() {{
+        # Wait for the command to complete
+        wait $command_pid
+        exit_code=$1
 
-    # Write the exit code to the specified file
+        # Write the exit code to the specified file
+        echo $exit_code > {}
+        exit $exit_code
+    }}
+
+    # Function to handle signals
+    handle_signal() {{
+        local signal=$1
+        # Forward the signal to the child process if it exists
+        if [ -n "$command_pid" ] && kill -0 $command_pid 2>/dev/null; then
+            kill -$signal $command_pid
+            wait_for_output $signal
+        fi
+    }}
+
+    # Set up signal handling
+    trap 'handle_signal TERM' SIGTERM
+    trap 'handle_signal INT' SIGINT
+    trap 'handle_signal HUP' SIGHUP
     {}
-    exit $exit_code
-}}
 
-# Function to handle signals
-handle_signal() {{
-    local signal=$1
-    # Forward the signal to the child process if it exists
-    if [ -n "$command_pid" ] && kill -0 $command_pid 2>/dev/null; then
-        kill -$signal $command_pid
-        wait_for_output $signal
-    fi
-}}
+    # Start the command and get its PID
+    eval '{}'
+    exit_code=$?
+    command_pid=$!
 
-# Set up signal handling
-trap 'handle_signal TERM' SIGTERM
-trap 'handle_signal INT' SIGINT
-trap 'handle_signal HUP' SIGHUP
+    wait_for_output $exit_code
+    "#,
+                self.shell, exit_file_path, add_user, cmd_str
+            ),
+            None => format!(
+                r#"#!{}
+# Maybe add user
 {}
 
-# Start the command and get its PID
-eval '{}'
-exit_code=$?
-command_pid=$!
-
-wait_for_output $exit_code
-"#,
-            self.shell,
-            if let Some(exit_file) = &self.exit_file_path {
-                format!("echo $exit_code > {}\n", exit_file)
-            } else {
-                String::new()
-            },
-            add_user,
-            cmd_str
-        );
+# Execute Actual command
+{}
+                        "#,
+                self.shell, add_user, cmd_str
+            ),
+        };
 
         self.end_cmd = Some(script.clone());
 
@@ -184,8 +191,23 @@ wait_for_output $exit_code
         self
     }
 
+    #[cfg(target_os = "macos")]
     pub fn with_exit_file(&mut self, exit_file_path: String) -> &mut Self {
         self.exit_file_path = Some(exit_file_path);
+        self
+    }
+
+    #[cfg(target_os = "linux")]
+    // Exit files are only used for recovery mode and this feature is disabled at the moment for
+    // linux for not being stable
+    pub fn with_exit_file(&mut self, exit_file_path: String) -> &mut Self {
+        self
+    }
+
+    #[cfg(target_os = "windows")]
+    // Exit files are only used for recovery mode and this feature is disabled at the moment for
+    // linux for not being stable
+    pub fn with_exit_file(&mut self, exit_file_path: String) -> &mut Self {
         self
     }
 
