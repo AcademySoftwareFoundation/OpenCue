@@ -1,6 +1,6 @@
 ---
 title: "OpenCue overview"
-nav_order: 1
+nav_order: 7
 parent: Concepts
 layout: default
 linkTitle: "OpenCue overview"

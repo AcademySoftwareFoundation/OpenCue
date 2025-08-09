@@ -2,7 +2,7 @@
 title: "cueadmin command"
 layout: default
 parent: Reference
-nav_order: 2
+nav_order: 40
 linkTitle: "cueadmin command"
 date: 2019-05-10
 description: >
