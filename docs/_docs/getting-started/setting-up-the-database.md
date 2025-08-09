@@ -1,6 +1,6 @@
 ---
 title: "Setting up the database"
-nav_order: 1
+nav_order: 12
 parent: Getting Started
 layout: default
 linkTitle: "Setting up the database"

@@ -1,6 +1,6 @@
 ---
 title: "Installing CueGUI"
-nav_order: 6
+nav_order: 17
 parent: Getting Started
 layout: default
 linkTitle: "Installing CueGUI"

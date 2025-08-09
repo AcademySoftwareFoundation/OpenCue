@@ -1,0 +1,8 @@
+{% comment %}
+Custom footer content for OpenCue documentation
+{% endcomment %}
+
+{% comment %} Include page navigation for documentation pages {% endcomment %}
+{% if page.collection == 'docs' %}
+  {% include page-navigation.html %}
+{% endif %}

@@ -1,6 +1,6 @@
 ---
 title: "Versioning"
-nav_order: 3
+nav_order: 9
 parent: Concepts
 layout: default
 linkTitle: "Versioning"

@@ -1,6 +1,6 @@
 ---
 title: "Quick start for macOS"
-nav_order: 2
+nav_order: 4
 parent: Quick Starts
 layout: default
 linkTitle: "Quick start for macOS"

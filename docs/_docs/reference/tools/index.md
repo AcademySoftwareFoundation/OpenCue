@@ -1,6 +1,6 @@
 ---
 title: "Command Line Tools"
-nav_order: 3
+nav_order: 43
 parent: "Reference"
 has_children: true
 layout: default
