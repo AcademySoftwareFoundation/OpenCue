@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Create version display and dropdown
       versionSwitcherContainer.innerHTML = `
-        <span style="font-size: 18px;">📚</span>
+        <i class="fas fa-code-branch" style="font-size: 18px; margin-right: 8px;"></i>
         <span style="flex: 1;">Version:</span>
         <select id="sidebar-version-select" style="
           background: transparent;
@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Create metadata content
       let metadataContent = `
-        <div style="display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 12px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 12px; justify-content: center;">
           <span style="display: flex; align-items: center; gap: 8px;">
             <strong>Documentation Version:</strong>
             <span style="background: var(--color-blue-100, #dbeafe); color: var(--color-blue-700, #1d4ed8); padding: 2px 8px; border-radius: 4px; font-weight: 500;">

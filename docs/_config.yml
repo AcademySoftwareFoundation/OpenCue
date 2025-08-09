@@ -113,14 +113,6 @@ enable_copy_code_button: true
 # Heading anchor links
 heading_anchors: true
 
-# External navigation links
-nav_external_links:
-  - title: <i class='fab fa-github'></i>&nbsp;OpenCue on GitHub
-    url: https://github.com/AcademySoftwareFoundation/OpenCue
-    hide_icon: false
-  - title: <i class='fab fa-github'></i>&nbsp;Report Issues
-    url: https://github.com/AcademySoftwareFoundation/OpenCue/issues
-    hide_icon: false
 
 # Google Analytics (optional)
 ga_tracking: UA-82811140-32
