@@ -158,6 +158,9 @@ jobs:
           set -e
           echo "Build ID: $(ci/generate_version_number.py)"
           echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
+
+      - name: Build Docker image
+        run:
           export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
           export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
@@ -165,14 +168,9 @@ jobs:
           export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v3
-        with:
-          file: ${{ matrix.component }}/Dockerfile
-          tags: opencuebuild/${{ matrix.component }}:${{ env.BUILD_ID }}
-          context: .
-          push: true
+          image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
+          docker buildx build . -f ${{ matrix.component }}/Dockerfile -t ${image_name}
+          # docker push ${image_name}
 
       - name: Extract Artifacts
         run: |
