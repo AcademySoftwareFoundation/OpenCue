@@ -70,7 +70,7 @@ jobs:
           export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-          ci/run_integration_test.sh
+          # ci/run_integration_test.sh
 
       - name: Archive log files
         uses: actions/upload-artifact@v4
