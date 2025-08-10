@@ -221,6 +221,7 @@ jobs:
             set -e
             echo "Build ID: $(ci/generate_version_number.py)"
             echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
+            echo "BUILD_ID=$(ci/generate_version_number.py)" >VERSION
 
       - name: Extract database schema
         run: |
