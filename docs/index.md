@@ -61,6 +61,7 @@ Visit the [documentation sections](/OpenCue/docs/):
 - [**User guides:**](/OpenCue/docs/user-guides/) Help for artists and end-users on common tasks
 - [**Other guides:**](/OpenCue/docs/other-guides/) Admin and PSR support and troubleshooting docs.
 - [**Reference:**](/OpenCue/docs/reference/) Docs for running OpenCue tools and interfaces
+- [**Developer Guide:**](/OpenCue/docs/developer-guide/index/) Resources for developers contributing to OpenCue
 - [**Tutorials:**](/OpenCue/docs/tutorials/) Step-by-step guides and workflows
 - [**News:**](/OpenCue/docs/news/) Updates and community announcements
 - [**Releases:**](/OpenCue/docs/releases/) OpenCue release announcements and changelogs

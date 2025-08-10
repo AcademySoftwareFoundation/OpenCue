@@ -670,6 +670,16 @@
     box-shadow: none;
   }
   
+  /* Theme toggle in navigation - dark mode */
+  body.dark-mode #nav-theme-toggle-item .nav-list-link {
+    border-bottom-color: #4b5563 !important;
+  }
+  
+  body.dark-mode #nav-theme-toggle-item .nav-list-link:hover {
+    background: rgba(156, 163, 175, 0.1) !important;
+    transform: none !important;
+  }
+  
   /* Breadcrumb navigation */
   body.dark-mode .breadcrumb-nav-list-item {
     color: #9ca3af !important;
@@ -1144,6 +1154,69 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Mark external links as active on page load
   setTimeout(markExternalLinksActive, 100);
+  
+  // Add theme toggle link to navigation sidebar
+  function addThemeToggleToNavigation() {
+    // Find the navigation list
+    const navList = document.querySelector('.nav-list');
+    
+    if (navList && !document.getElementById('nav-theme-toggle-item')) {
+      // Create the theme toggle list item
+      const themeToggleItem = document.createElement('li');
+      themeToggleItem.className = 'nav-list-item';
+      themeToggleItem.id = 'nav-theme-toggle-item';
+      
+      // Create the link element
+      const themeToggleLink = document.createElement('a');
+      themeToggleLink.href = '#';
+      themeToggleLink.className = 'nav-list-link';
+      themeToggleLink.style.cssText = `
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        padding: 8px 12px !important;
+        margin-bottom: 8px !important;
+        border-bottom: 1px solid #e5e7eb !important;
+        font-weight: 500 !important;
+      `;
+      
+      // Add icon and text
+      themeToggleLink.innerHTML = `
+        <span id="nav-theme-icon" style="font-size: 18px;">🌚</span>
+        <span id="nav-theme-text">Toggle Dark Mode</span>
+      `;
+      
+      // Add click handler
+      themeToggleLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        const isDark = document.body.classList.contains('dark-mode');
+        const newTheme = isDark ? 'light' : 'dark';
+        
+        applyTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+        
+        // Update all indicators
+        updateMainThemeButton();
+        updateNavigationThemeLink();
+      });
+      
+      // Add the link to the list item
+      themeToggleItem.appendChild(themeToggleLink);
+      
+      // Insert at the beginning of the nav list
+      navList.insertBefore(themeToggleItem, navList.firstChild);
+      
+      // Update the icon and text based on current theme
+      updateNavigationThemeLink();
+    }
+  }
+  
+  // Add the theme toggle to navigation after page loads
+  setTimeout(addThemeToggleToNavigation, 100);
+  
+  // Also try to add it after a short delay in case the nav loads later
+  setTimeout(addThemeToggleToNavigation, 500);
+  setTimeout(addThemeToggleToNavigation, 1000);
   
 });
 </script>

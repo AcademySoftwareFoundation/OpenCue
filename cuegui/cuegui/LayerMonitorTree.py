@@ -32,6 +32,7 @@ from opencue.api import job_pb2
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
+import cuegui.Logger
 import cuegui.MenuActions
 import cuegui.Utils
 
@@ -243,6 +244,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu = QtWidgets.QMenu()
 
         self.__menuActions.layers().addAction(menu, "view")
+        self.__menuActions.layers().addAction(menu, "copyLayerName")
 
         if (len(cuegui.Constants.OUTPUT_VIEWERS) > 0
                 and sum(len(layer.getOutputPaths()) for layer in __selectedObjects) > 0):

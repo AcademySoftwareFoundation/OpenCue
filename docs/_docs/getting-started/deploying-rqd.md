@@ -173,6 +173,10 @@ started up:
 2019-01-31 00:41:52,941 WARNING   rqd3-rqcore     RQD Started
 ```
 
+## Alternative: Rust RQD
+
+OpenCue now offers a high-performance Rust implementation of RQD with improved resource efficiency and experimental features. For more information, see [Rust RQD Reference](/OpenCue/docs/reference/rust-rqd).
+
 ## What's next?
 
 *   [Installing PyCue and PyOutline](/docs/getting-started/installing-pycue-and-pyoutline)
