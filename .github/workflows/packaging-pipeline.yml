@@ -3,7 +3,7 @@ name: OpenCue Packaging Pipeline
 # Trigger this pipeline on new commits to master.
 on:
   push:
-    branches: [ master ]
+    branches: [ cicd-fix-packaging-v3 ]
 
 jobs:
   build_opencue_packages:
