@@ -12,7 +12,7 @@ permalink: /
     
     <div class="hero-content">
         <div class="hero-logo-card">
-            <img src="/OpenCue/assets/images/opencue-icon-black.svg" alt="OpenCue Logo" class="hero-logo" />
+            <img src="/assets/images/opencue-icon-black.svg" alt="OpenCue Logo" class="hero-logo" />
         </div>
         
         <div class="hero-text">
@@ -22,11 +22,11 @@ permalink: /
         </div>
         
         <div class="hero-actions">
-            <a href="/OpenCue/docs/quick-starts/" class="btn-hero btn-primary" aria-label="Get started with OpenCue">
+            <a href="/docs/quick-starts/" class="btn-hero btn-primary" aria-label="Get started with OpenCue">
                 <i class="fas fa-play" aria-hidden="true"></i>
                 Get Started
             </a>
-            <a href="/OpenCue/docs/" class="btn-hero btn-secondary" aria-label="Browse documentation">
+            <a href="/docs/" class="btn-hero btn-secondary" aria-label="Browse documentation">
                 <i class="fas fa-book" aria-hidden="true"></i>
                 View Docs
             </a>
