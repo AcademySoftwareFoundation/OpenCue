@@ -2002,6 +2002,7 @@ dependencies = [
  "config",
  "dashmap",
  "device_query",
+ "dummy-cuebot",
  "futures",
  "futures-core",
  "http",

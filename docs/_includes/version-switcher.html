@@ -1,0 +1,66 @@
+<!-- Version Switcher Component -->
+<div class="version-switcher">
+  <div class="version-badge">
+    <span class="version-label">Version:</span>
+    <select id="version-select" class="version-dropdown" onchange="switchVersion(this.value)">
+      {% assign current_version = site.version | default: site.versioning.default_version %}
+      {% for version in site.versioning.versions %}
+        <option value="{{ version }}" {% if version == current_version %}selected{% endif %}>
+          {% if version == "main" %}
+            latest (main)
+          {% else %}
+            {{ version }}
+          {% endif %}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<script>
+function switchVersion(version) {
+  const currentPath = window.location.pathname;
+  const baseUrl = '{{ site.baseurl }}';
+  
+  // Handle version switching logic
+  if (version === 'main') {
+    window.location.href = baseUrl + currentPath.replace(/\/v[\d.]+/, '');
+  } else {
+    // For tagged versions, redirect to versioned docs
+    window.location.href = baseUrl + '/' + version + currentPath.replace(baseUrl, '');
+  }
+}
+</script>
+
+<style>
+.version-switcher {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 1rem;
+}
+
+.version-badge {
+  background: var(--color-yellow-100);
+  border: 1px solid var(--color-yellow-300);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.875rem;
+}
+
+.version-label {
+  margin-right: 0.5rem;
+  font-weight: 500;
+}
+
+.version-dropdown {
+  background: transparent;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-yellow-700);
+}
+
+.version-dropdown:hover {
+  text-decoration: underline;
+}
+</style>

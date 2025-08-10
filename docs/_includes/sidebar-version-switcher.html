@@ -1,0 +1,317 @@
+<!-- Sidebar Version Switcher - To be injected via JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Function to add icon to Documentation Versions nav item
+  function addIconToDocVersionsLink() {
+    // Find all navigation links
+    const navLinks = document.querySelectorAll('.nav-list-link');
+    
+    navLinks.forEach(link => {
+      // Check if this is the Documentation Versions link
+      if (link.textContent.trim() === 'Documentation Versions' && !link.querySelector('.nav-icon')) {
+        // Add icon to the beginning of the link text
+        const icon = document.createElement('span');
+        icon.className = 'nav-icon';
+        icon.style.cssText = 'margin-right: 6px; font-size: 16px;';
+        icon.textContent = '📖';
+        
+        // Insert icon at the beginning of the link
+        link.insertBefore(icon, link.firstChild);
+      }
+    });
+  }
+  
+  // Function to add version switcher to navigation sidebar
+  function addVersionSwitcherToNavigation() {
+    // Find the navigation list
+    const navList = document.querySelector('.nav-list');
+    const themeToggleItem = document.getElementById('nav-theme-toggle-item');
+    
+    if (navList && !document.getElementById('nav-version-switcher-item')) {
+      // Create the version switcher list item
+      const versionSwitcherItem = document.createElement('li');
+      versionSwitcherItem.className = 'nav-list-item';
+      versionSwitcherItem.id = 'nav-version-switcher-item';
+      
+      // Create the container element
+      const versionSwitcherContainer = document.createElement('div');
+      versionSwitcherContainer.className = 'nav-version-switcher';
+      versionSwitcherContainer.style.cssText = `
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        padding: 8px 12px !important;
+        margin-bottom: 8px !important;
+        border-bottom: 1px solid #e5e7eb !important;
+        font-weight: 500 !important;
+      `;
+      
+      // Get current version from Jekyll
+      const currentVersion = '{{ site.version | default: site.versioning.default_version }}';
+      const versions = {{ site.versioning.versions | jsonify }};
+      const versionLabels = {{ site.versioning.version_labels | jsonify }};
+      
+      // Create version display and dropdown
+      versionSwitcherContainer.innerHTML = `
+        <i class="fas fa-code-branch" style="font-size: 18px; margin-right: 8px;"></i>
+        <span style="flex: 1;">Version:</span>
+        <select id="sidebar-version-select" style="
+          background: transparent;
+          border: 1px solid #d1d5db;
+          border-radius: 4px;
+          padding: 2px 6px;
+          font-size: 14px;
+          cursor: pointer;
+          min-width: 100px;
+        ">
+          ${versions.map(version => `
+            <option value="${version}" ${version === currentVersion ? 'selected' : ''}>
+              ${versionLabels[version] || version}
+            </option>
+          `).join('')}
+        </select>
+      `;
+      
+      // Add change handler for version switching
+      versionSwitcherContainer.querySelector('#sidebar-version-select').addEventListener('change', function(e) {
+        const selectedVersion = e.target.value;
+        const currentPath = window.location.pathname;
+        const baseUrl = '{{ site.baseurl }}';
+        
+        // Handle version switching logic
+        if (selectedVersion === 'main') {
+          // Remove version prefix if exists and go to main
+          const cleanPath = currentPath.replace(/\/v[\d.]+/, '');
+          window.location.href = cleanPath || baseUrl || '/';
+        } else {
+          // For versioned documentation (including v0.0.1)
+          const cleanPath = currentPath.replace(baseUrl, '').replace(/\/v[\d.]+/, '');
+          window.location.href = baseUrl + '/' + selectedVersion + cleanPath;
+        }
+      });
+      
+      // Add the container to the list item
+      versionSwitcherItem.appendChild(versionSwitcherContainer);
+      
+      // Insert after theme toggle or at the beginning
+      if (themeToggleItem && themeToggleItem.nextSibling) {
+        navList.insertBefore(versionSwitcherItem, themeToggleItem.nextSibling);
+      } else if (themeToggleItem) {
+        themeToggleItem.parentNode.insertBefore(versionSwitcherItem, themeToggleItem.nextSibling);
+      } else {
+        // If no theme toggle, insert at the beginning
+        navList.insertBefore(versionSwitcherItem, navList.firstChild);
+      }
+      
+      // Update styles for dark mode
+      updateVersionSwitcherStyles();
+    }
+  }
+  
+  // Function to update version switcher styles based on theme
+  function updateVersionSwitcherStyles() {
+    const versionSelect = document.getElementById('sidebar-version-select');
+    const versionContainer = document.querySelector('.nav-version-switcher');
+    
+    if (versionSelect && versionContainer) {
+      const isDark = document.body.classList.contains('dark-mode');
+      
+      if (isDark) {
+        versionSelect.style.background = '#4b5563';
+        versionSelect.style.borderColor = '#6b7280';
+        versionSelect.style.color = '#f9fafb';
+        versionContainer.style.borderBottomColor = '#4b5563';
+      } else {
+        versionSelect.style.background = 'transparent';
+        versionSelect.style.borderColor = '#d1d5db';
+        versionSelect.style.color = '#374151';
+        versionContainer.style.borderBottomColor = '#e5e7eb';
+      }
+    }
+  }
+  
+  // Add version notice banner if not on main version
+  function addVersionNoticeBanner() {
+    const currentVersion = '{{ site.version | default: site.versioning.default_version }}';
+    const defaultVersion = '{{ site.versioning.default_version }}';
+    const mainContent = document.querySelector('.main-content');
+    
+    if (currentVersion !== defaultVersion && mainContent && !document.getElementById('version-notice-banner')) {
+      const banner = document.createElement('div');
+      banner.id = 'version-notice-banner';
+      banner.style.cssText = `
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 14px;
+      `;
+      
+      let bannerMessage = `You are viewing documentation for <strong>version ${currentVersion}</strong>.`;
+      
+      if (currentVersion === 'v0.0.1') {
+        bannerMessage += ` This is the initial preview version.`;
+      } else {
+        bannerMessage += ` This is an older version.`;
+      }
+      
+      banner.innerHTML = `
+        <span style="font-size: 20px;">⚠️</span>
+        <span style="flex: 1;">
+          ${bannerMessage}
+        </span>
+        <a href="{{ site.baseurl }}/" style="
+          background: #f59e0b;
+          color: white;
+          padding: 6px 12px;
+          border-radius: 4px;
+          text-decoration: none;
+          font-weight: 500;
+          white-space: nowrap;
+        ">View Latest →</a>
+      `;
+      
+      // Insert at the beginning of main content
+      mainContent.insertBefore(banner, mainContent.firstChild);
+    }
+  }
+  
+  // Add page metadata (version info and last updated)
+  function addPageMetadata() {
+    const lastModified = '{{ page.last_modified_date | date: "%B %d, %Y" }}';
+    const currentVersion = '{{ site.version | default: site.versioning.default_version }}';
+    const defaultVersion = '{{ site.versioning.default_version }}';
+    const pageHeader = document.querySelector('.main-content h1');
+    
+    if (pageHeader && !document.getElementById('page-metadata')) {
+      const metadataElement = document.createElement('div');
+      metadataElement.id = 'page-metadata';
+      metadataElement.style.cssText = `
+        background: var(--color-grey-lt-000, #f8f9fa);
+        border: 1px solid var(--color-grey-lt-100, #e9ecef);
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 16px 0 24px 0;
+        font-size: 14px;
+      `;
+      
+      // Create metadata content
+      let metadataContent = `
+        <div style="display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 12px; justify-content: center;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <strong>Documentation Version:</strong>
+            <span style="background: var(--color-blue-100, #dbeafe); color: var(--color-blue-700, #1d4ed8); padding: 2px 8px; border-radius: 4px; font-weight: 500;">
+              ${currentVersion === 'main' ? 'latest (main)' : currentVersion}
+            </span>
+          </span>
+      `;
+      
+      // Add last updated date if available
+      if (lastModified && lastModified !== '') {
+        metadataContent += `
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <strong>Last Updated:</strong>
+            <time>${lastModified}</time>
+          </span>
+        `;
+      }
+      
+      metadataContent += `
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <strong>Doc Version:</strong>
+            <span>v{{ site.doc_version }}</span>
+          </span>
+        </div>
+      `;
+      
+      // Add version warning if not on default version
+      if (currentVersion !== defaultVersion && currentVersion !== 'main') {
+        metadataContent += `
+          <div style="
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 12px 16px;
+            border-radius: 0 4px 4px 0;
+            margin-top: 12px;
+          ">
+            <span style="color: #92400e; font-weight: 500;">
+              ⚠️ You are viewing documentation for version <strong>${currentVersion}</strong>. 
+              <a href="{{ site.baseurl }}/" style="color: #b45309; font-weight: 600; text-decoration: underline;">
+                View latest documentation →
+              </a>
+            </span>
+          </div>
+        `;
+      }
+      
+      metadataElement.innerHTML = metadataContent;
+      
+      // Insert after the main heading
+      pageHeader.parentNode.insertBefore(metadataElement, pageHeader.nextSibling);
+      
+      // Update styles for dark mode if needed
+      updatePageMetadataStyles();
+    }
+  }
+  
+  // Function to update page metadata styles for dark mode
+  function updatePageMetadataStyles() {
+    const metadata = document.getElementById('page-metadata');
+    if (metadata) {
+      const isDark = document.body.classList.contains('dark-mode');
+      
+      if (isDark) {
+        metadata.style.background = '#374151';
+        metadata.style.borderColor = '#6b7280';
+        metadata.style.color = '#f9fafb';
+        
+        // Update version tag colors for dark mode
+        const versionTag = metadata.querySelector('span[style*="background: var(--color-blue-100"]');
+        if (versionTag) {
+          versionTag.style.background = '#1e3a8a';
+          versionTag.style.color = '#93c5fd';
+        }
+      } else {
+        metadata.style.background = '#f8f9fa';
+        metadata.style.borderColor = '#e9ecef';
+        metadata.style.color = '#212529';
+      }
+    }
+  }
+  
+  // Listen for theme changes to update styles
+  const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+      if (mutation.attributeName === 'class') {
+        updateVersionSwitcherStyles();
+        updatePageMetadataStyles();
+      }
+    });
+  });
+  
+  observer.observe(document.body, {
+    attributes: true,
+    attributeFilter: ['class']
+  });
+  
+  // Add version switcher after page loads
+  setTimeout(addVersionSwitcherToNavigation, 150);
+  setTimeout(addVersionSwitcherToNavigation, 600);
+  setTimeout(addVersionSwitcherToNavigation, 1200);
+  
+  // Add icon to Documentation Versions link
+  setTimeout(addIconToDocVersionsLink, 100);
+  setTimeout(addIconToDocVersionsLink, 500);
+  setTimeout(addIconToDocVersionsLink, 1000);
+  
+  // Add version notice banner
+  setTimeout(addVersionNoticeBanner, 200);
+  
+  // Add page metadata (includes last updated date and version info)
+  setTimeout(addPageMetadata, 200);
+});
+</script>
