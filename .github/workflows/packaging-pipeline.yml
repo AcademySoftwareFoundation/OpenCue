@@ -80,7 +80,9 @@ jobs:
           path: /tmp/opencue-test/*.log
 
   build_components:
-    needs: integration_test
+    needs:
+      - integration_test
+      - build_opencue_packages
     strategy:
       matrix:
         component: [cuebot, rqd]
