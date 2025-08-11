@@ -154,7 +154,7 @@ permalink: /
         <p class="section-subtitle">Everything you need to deploy, manage, and extend OpenCue</p>
         
         <div class="docs-grid">
-            <div class="doc-card" onclick="location.href='{{ '/docs/quick-starts/' | relative_url }}';" tabindex="0" role="button" aria-label="Quick starts guide">
+            <div class="doc-card" onclick="location.href='{{ '/docs/quick-starts' | relative_url }}';" tabindex="0" role="button" aria-label="Quick starts guide">
                 <div class="doc-icon">
                     <i class="fas fa-rocket" aria-hidden="true"></i>
                 </div>
@@ -162,7 +162,7 @@ permalink: /
                 <p class="doc-description">Get OpenCue running in minutes with our sandbox guides for Linux, macOS, and Windows.</p>
             </div>
             
-            <div class="doc-card" onclick="location.href='{{ '/docs/concepts/' | relative_url }}';" tabindex="0" role="button" aria-label="Concepts guide">
+            <div class="doc-card" onclick="location.href='{{ '/docs/concepts' | relative_url }}';" tabindex="0" role="button" aria-label="Concepts guide">
                 <div class="doc-icon">
                     <i class="fas fa-lightbulb" aria-hidden="true"></i>
                 </div>
@@ -178,7 +178,7 @@ permalink: /
                 <p class="doc-description">Production deployment instructions for system administrators and DevOps teams.</p>
             </div>
             
-            <div class="doc-card" onclick="location.href='{{ '/docs/user-guides/' | relative_url }}';" tabindex="0" role="button" aria-label="User guides">
+            <div class="doc-card" onclick="location.href='{{ '/docs/user-guides' | relative_url }}';" tabindex="0" role="button" aria-label="User guides">
                 <div class="doc-icon">
                     <i class="fas fa-users" aria-hidden="true"></i>
                 </div>
@@ -186,7 +186,7 @@ permalink: /
                 <p class="doc-description">Day-to-day workflows for artists, supervisors, and production staff.</p>
             </div>
             
-            <div class="doc-card" onclick="location.href='{{ '/docs/reference/' | relative_url }}';" tabindex="0" role="button" aria-label="Reference documentation">
+            <div class="doc-card" onclick="location.href='{{ '/docs/reference' | relative_url }}';" tabindex="0" role="button" aria-label="Reference documentation">
                 <div class="doc-icon">
                     <i class="fas fa-code" aria-hidden="true"></i>
                 </div>
@@ -194,7 +194,7 @@ permalink: /
                 <p class="doc-description">Reference guides for all users running OpenCue tools and interfaces.</p>
             </div>
             
-            <div class="doc-card" onclick="location.href='{{ '/docs/tutorials/' | relative_url }}';" tabindex="0" role="button" aria-label="Tutorials">
+            <div class="doc-card" onclick="location.href='{{ '/docs/tutorials' | relative_url }}';" tabindex="0" role="button" aria-label="Tutorials">
                 <div class="doc-icon">
                     <i class="fas fa-graduation-cap" aria-hidden="true"></i>
                 </div>
