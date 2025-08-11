@@ -41,42 +41,42 @@ permalink: /docs/
 
 ---
 
-### [Quick starts](quick-starts/)
+### [Quick starts](quick-starts)
 
 Try OpenCue in the sandbox environment on different operating systems
 
-### [Concepts](concepts/)
+### [Concepts](concepts)
 
 Conceptual guides for all users to introduce OpenCue
 
-### [OpenCue getting started guide](getting-started/)
+### [OpenCue getting started guide](getting-started)
 
 Guides for system admins deploying OpenCue components and installing dependencies
 
-### [User guides](user-guides/)
+### [User guides](user-guides)
 
 Guides for artists and end-users completing common OpenCue user tasks
 
-### [Other guides](other-guides/)
+### [Other guides](other-guides)
 
 Guides for system admins and technical Production Services and Resources (PSR) teams completing common tasks related to managing, supporting, and troubleshooting OpenCue
 
-### [Reference](reference/)
+### [Reference](reference)
 
 Reference guides for all users running OpenCue tools and interfaces
 
-### [Developer Guide](developer-guide/index/)
+### [Developer Guide](developer-guide/index)
 
 Guides and resources for developers contributing to OpenCue or developing applications that integrate with OpenCue
 
-### [Tutorials](tutorials/)
+### [Tutorials](tutorials)
 
 Step-by-step learning guides and workflows
 
-### [News](news/)
+### [News](/news)
 
 Latest news, updates, and community announcements about OpenCue development and events
 
-### [Releases](releases/)
+### [Releases](/releases)
 
 OpenCue release announcements and changelogs
