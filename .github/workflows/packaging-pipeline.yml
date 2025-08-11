@@ -179,6 +179,7 @@ jobs:
           docker rm $container_id
 
       - name: Upload Artifacts
+        continue-on-error: true
         if: ${{ matrix.ARTIFACTS }}
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
