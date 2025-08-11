@@ -30,7 +30,16 @@ permalink: /docs/
     </div>
 </div>
 
-All OpenCue documentation
+## All OpenCue documentation
+
+---
+
+🚧 **Note:** Documentation is currently under active development. 
+
+- Please use the latest version from the [Opencue master branch](https://github.com/AcademySoftwareFoundation/OpenCue) for the moment. We are working to release a new version of OpenCue soon.
+- For quick start on Linux or macOS, follow the guide [Using the OpenCue Sandbox for Testing](developer-guide/sandbox-testing/)
+
+---
 
 ### [Quick starts](quick-starts/)
 

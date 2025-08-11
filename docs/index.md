@@ -22,7 +22,7 @@ permalink: /
         </div>
         
         <div class="hero-actions">
-            <a href="{{ '/docs/quick-starts/' | relative_url }}" class="btn-hero btn-primary" aria-label="Get started with OpenCue">
+            <a href="{{ '/docs/getting-started/' | relative_url }}" class="btn-hero btn-primary" aria-label="Get started with OpenCue">
                 <i class="fas fa-play" aria-hidden="true"></i>
                 Get Started
             </a>
