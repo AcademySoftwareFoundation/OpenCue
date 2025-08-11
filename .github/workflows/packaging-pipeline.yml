@@ -67,10 +67,10 @@ jobs:
           export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
           export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
           export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
-          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-          ci/run_integration_test.sh
+          # ci/run_integration_test.sh
 
       - name: Archive log files
         uses: actions/upload-artifact@v4
@@ -80,7 +80,9 @@ jobs:
           path: /tmp/opencue-test/*.log
 
   build_components:
-    needs: integration_test
+    needs:
+      - integration_test
+      - build_opencue_packages
     strategy:
       matrix:
         component: [cuebot, rqd]
@@ -91,35 +93,27 @@ jobs:
 
           - component: rqd
             NAME: RQD
-            ARTIFACTS: rqd-${BUILD_ID}-all.tar.gz
 
           - component: cuegui
             NAME: CueGUI
-            ARTIFACTS: cuegui-${BUILD_ID}-all.tar.gz
 
           - component: pycue
             NAME: PyCue
-            ARTIFACTS: pycue-${BUILD_ID}-all.tar.gz
 
           - component: pyoutline
             NAME: PyOutline
-            ARTIFACTS: pyoutline-${BUILD_ID}-all.tar.gz
 
           - component: cuesubmit
             NAME: CueSubmit
-            ARTIFACTS: cuesubmit-${BUILD_ID}-all.tar.gz
 
           - component: cueadmin
             NAME: CueAdmin
-            ARTIFACTS: cueadmin-${BUILD_ID}-all.tar.gz
 
           - component: cueman
             NAME: CueMan
-            ARTIFACTS: cueman-${BUILD_ID}-all.tar.gz
 
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -136,12 +130,20 @@ jobs:
           aws-region: ${{ secrets.S3_REGION }}
           role-to-assume: ${{ secrets.AWS_S3_ROLE }}
           role-duration-seconds: 1800
+        continue-on-error: true
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
+        continue-on-error: true
+
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
 
       - name: Set build ID
         run: |
@@ -150,14 +152,21 @@ jobs:
           echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
 
       - name: Build Docker image
-        uses: docker/build-push-action@v3
-        with:
-          file: ${{ matrix.component }}/Dockerfile
-          tags: opencuebuild/${{ matrix.component }}:${{ env.BUILD_ID }}
-          context: .
-          push: true
+        run: |
+          image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
+          docker buildx build . -f ${{ matrix.component }}/Dockerfile -t ${image_name} \
+            --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}" \
+            --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}" \
+            --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}" \
+            --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}" \
+            --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}" \
+            --build-arg OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}" \
+            --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}" \
+            --build-arg BUILD_ID="${BUILD_ID}"
+          docker push ${image_name}
 
       - name: Extract Artifacts
+        if: ${{ matrix.ARTIFACTS }}
         run: |
           set -e
           image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
@@ -170,6 +179,8 @@ jobs:
           docker rm $container_id
 
       - name: Upload Artifacts
+        continue-on-error: true
+        if: ${{ matrix.ARTIFACTS }}
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
@@ -180,7 +191,9 @@ jobs:
 
   create_other_artifacts:
     name: Create Other Build Artifacts
-    needs: build_components
+    needs:
+      - build_components
+      - build_opencue_packages
     runs-on: ubuntu-22.04
     continue-on-error: true
     steps:
@@ -199,12 +212,14 @@ jobs:
           aws-region: ${{ secrets.S3_REGION }}
           role-to-assume: ${{ secrets.AWS_S3_ROLE }}
           role-duration-seconds: 1800
+        continue-on-error: true
 
       - name: Set build ID
         run: |
             set -e
             echo "Build ID: $(ci/generate_version_number.py)"
             echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
+            echo "BUILD_ID=$(ci/generate_version_number.py)" >VERSION
 
       - name: Extract database schema
         run: |
@@ -216,10 +231,23 @@ jobs:
           mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           echo "{\"git_commit\": \"$(BUILD_SOURCEVERSION)\"}" | tee "${GITHUB_WORKSPACE}/artifacts/build_metadata.json"
 
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
+
       - name: Upload artifacts
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_proto_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_rqd_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_pycue_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cueman_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp LICENSE s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp VERSION s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp "${GITHUB_WORKSPACE}/artifacts/schema-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/

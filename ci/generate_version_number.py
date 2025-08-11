@@ -89,7 +89,7 @@ def get_current_branch() -> str:
     raise RuntimeError("Could not determine git branch.")
 
 
-def get_full_version() -> str:
+def get_full_version(versionType="") -> str:
     """
     Generates and returns the full version string based on Git history.
 
@@ -128,13 +128,15 @@ def get_full_version() -> str:
         short_hash = run_command(["git", "rev-parse", "--short", "HEAD"])
         # For feature branches, use the next patch number + commit hash
         full_version = f"{version_major_minor}.{int(count_in_master) + 1}+{short_hash}"
+        if versionType == "docker":
+            full_version = f"{version_major_minor}.{int(count_in_master) + 1}-{short_hash}"
 
     return full_version
 
 def main():
     """Generates and prints the full version string."""
     try:
-        version = get_full_version()
+        version = get_full_version(versionType="docker")
         print(version)
     except (FileNotFoundError, RuntimeError, subprocess.CalledProcessError) as e:
         print(f"Error: Could not generate version number.\n{e}", file=sys.stderr)
