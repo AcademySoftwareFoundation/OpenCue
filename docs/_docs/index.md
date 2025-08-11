@@ -8,7 +8,7 @@ permalink: /docs/
 
 <div class="mx-auto text-center">
     <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
-        <img src="/OpenCue/assets/images/opencue-icon-black.svg" alt="OpenCue" style="height: 140px; background-color: white; padding: 10px; border-radius: 8px;">
+        <img src="{{ '/assets/images/opencue-icon-black.svg' | relative_url }}" alt="OpenCue" style="height: 140px; background-color: white; padding: 10px; border-radius: 8px;">
         <div style="text-align: center;">
             <h1 class="display-4" style="margin: 0;">OpenCue</h1>
             <h3 class="lead" style="margin: 0;">An open source render management system</h3>
@@ -21,16 +21,25 @@ permalink: /docs/
         <a class="btn btn-lg btn-black" style="margin: 5px;" href="https://lf-aswf.atlassian.net/wiki/spaces/OPENCUE/overview">
             <i class="fab fa-slack"></i>&nbsp;Participate
         </a>
-        <a class="btn btn-lg btn-dark" style="margin: 5px;" href="/OpenCue/docs/">
+        <a class="btn btn-lg btn-dark" style="margin: 5px;" href="{{ '/docs/' | relative_url }}">
             <i class="fas fa-book"></i>&nbsp;Documentation
         </a>
-        <a class="btn btn-lg btn-black" style="margin: 5px;" href="/OpenCue/news/">
+        <a class="btn btn-lg btn-black" style="margin: 5px;" href="{{ '/news/' | relative_url }}">
             <i class="fas fa-newspaper"></i>&nbsp;News
         </a>
     </div>
 </div>
 
-All OpenCue documentation
+## All OpenCue documentation
+
+---
+
+🚧 **Note:** Documentation is currently under active development. 
+
+- Please use the latest version from the [Opencue master branch](https://github.com/AcademySoftwareFoundation/OpenCue) for the moment. We are working to release a new version of OpenCue soon.
+- For quick start on Linux or macOS, follow the guide [Using the OpenCue Sandbox for Testing](developer-guide/sandbox-testing/)
+
+---
 
 ### [Quick starts](quick-starts/)
 

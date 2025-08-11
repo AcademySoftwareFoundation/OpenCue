@@ -11,26 +11,26 @@ Comprehensive documentation for OpenCue, including installation guides, tutorial
 
 ## Documentation Sections
 
-### [Quick Starts](/OpenCue/docs/quick-starts/)
+### [Quick Starts]({{ '/docs/quick-starts/' | relative_url }})
 Get OpenCue running quickly with our sandbox environments for Linux, macOS, and Windows.
 
-### [Concepts](/OpenCue/docs/concepts/)
+### [Concepts]({{ '/docs/concepts/' | relative_url }})
 Learn about OpenCue's architecture, components, and core principles.
 
-### [Getting Started](/OpenCue/docs/getting-started/)
+### [Getting Started]({{ '/docs/getting-started/' | relative_url }})
 Production deployment guides for system administrators and DevOps teams.
 
-### [User Guides](/OpenCue/docs/user-guides/)
+### [User Guides]({{ '/docs/user-guides/' | relative_url }})
 Day-to-day workflows for artists, supervisors, and production staff.
 
-### [Other Guides](/OpenCue/docs/other-guides/)
+### [Other Guides]({{ '/docs/other-guides/' | relative_url }})
 Advanced configuration, troubleshooting, and administrative guides.
 
-### [Developer Guide](/OpenCue/docs/developer-guide/)
+### [Developer Guide]({{ '/docs/developer-guide/' | relative_url }})
 Resources for developers contributing to OpenCue or building integrations.
 
-### [Reference](/OpenCue/docs/reference/)
+### [Reference]({{ '/docs/reference/' | relative_url }})
 Complete reference documentation for all OpenCue tools, APIs, and interfaces.
 
-### [Tutorials](/OpenCue/docs/tutorials/)
+### [Tutorials]({{ '/docs/tutorials/' | relative_url }})
 Step-by-step tutorials for learning OpenCue workflows and best practices.
