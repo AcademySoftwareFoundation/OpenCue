@@ -109,8 +109,8 @@ jobs:
           - component: cueadmin
             NAME: CueAdmin
 
-          - component: cueman
-            NAME: CueMan
+#          - component: cueman
+#            NAME: CueMan
 
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
