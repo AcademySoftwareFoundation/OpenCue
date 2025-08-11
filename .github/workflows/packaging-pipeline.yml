@@ -93,31 +93,24 @@ jobs:
 
           - component: rqd
             NAME: RQD
-            ARTIFACTS: rqd-${BUILD_ID}-all.tar.gz
 
           - component: cuegui
             NAME: CueGUI
-            ARTIFACTS: cuegui-${BUILD_ID}-all.tar.gz
 
           - component: pycue
             NAME: PyCue
-            ARTIFACTS: pycue-${BUILD_ID}-all.tar.gz
 
           - component: pyoutline
             NAME: PyOutline
-            ARTIFACTS: pyoutline-${BUILD_ID}-all.tar.gz
 
           - component: cuesubmit
             NAME: CueSubmit
-            ARTIFACTS: cuesubmit-${BUILD_ID}-all.tar.gz
 
           - component: cueadmin
             NAME: CueAdmin
-            ARTIFACTS: cueadmin-${BUILD_ID}-all.tar.gz
 
           - component: cueman
             NAME: CueMan
-            ARTIFACTS: cueman-${BUILD_ID}-all.tar.gz
 
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
@@ -174,6 +167,7 @@ jobs:
           # docker push ${image_name}
 
       - name: Extract Artifacts
+        if: ${{ matrix.ARTIFACTS }}
         run: |
           set -e
           image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
@@ -186,6 +180,7 @@ jobs:
           docker rm $container_id
 
       - name: Upload Artifacts
+        if: ${{ matrix.ARTIFACTS }}
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
