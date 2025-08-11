@@ -3,7 +3,7 @@ name: OpenCue Packaging Pipeline
 # Trigger this pipeline on new commits to master.
 on:
   push:
-    branches: [ cicd-fix-packaging-v3 ]
+    branches: [ master ]
 
 jobs:
   build_opencue_packages:
@@ -163,7 +163,7 @@ jobs:
             --build-arg OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}" \
             --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}" \
             --build-arg BUILD_ID="${BUILD_ID}"
-          # docker push ${image_name}
+          docker push ${image_name}
 
       - name: Extract Artifacts
         if: ${{ matrix.ARTIFACTS }}
