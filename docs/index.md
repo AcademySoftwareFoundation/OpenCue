@@ -147,6 +147,84 @@ permalink: /
     </div>
 </section>
 
+<!-- History Section -->
+<section class="features-section" aria-labelledby="history-heading">
+    <div class="features-container">
+        <h2 id="history-heading" class="section-title">OpenCue History</h2>
+        <p class="section-subtitle">Decades of production-proven render management evolution</p>
+        
+        <div class="features-grid">
+            <div class="feature-card" tabindex="0">
+                <div class="feature-icon">
+                    <i class="fas fa-history" aria-hidden="true"></i>
+                </div>
+                <h3 class="feature-title">Early Foundations</h3>
+                <p class="feature-description">Early internal tools and scripts supported the first large-scale rendering workflows at Sony Pictures Imageworks (SPI).</p>
+            </div>
+            
+            <div class="feature-card" tabindex="0">
+                <div class="feature-icon">
+                    <i class="fas fa-code-branch" aria-hidden="true"></i>
+                </div>
+                <h3 class="feature-title">1992–2006: Cue1 and Cue2</h3>
+                <p class="feature-description">The earliest generations of <a href="https://www.imageworks.com/" target="_blank" rel="noopener noreferrer">Sony Pictures Imageworks</a> (SPI)'s internal queueing and render management systems.</p>
+            </div>
+            
+            <div class="feature-card" tabindex="0">
+                <div class="feature-icon">
+                    <i class="fas fa-rocket" aria-hidden="true"></i>
+                </div>
+                <h3 class="feature-title">2007–2018: Cue3</h3>
+                <p class="feature-description">A major internal rewrite of Cue1 and Cue2 at <a href="https://www.imageworks.com/" target="_blank" rel="noopener noreferrer">Sony Pictures Imageworks</a> that powered high-throughput, feature-film rendering at SPI for over a decade.</p>
+            </div>
+            
+            <div class="feature-card" tabindex="0">
+                <div class="feature-icon">
+                    <i class="fas fa-handshake" aria-hidden="true"></i>
+                </div>
+                <h3 class="feature-title">2019–2021: OpenCue Launch</h3>
+                <p class="feature-description">The <a href="https://www.imageworks.com/" target="_blank" rel="noopener noreferrer">Sony Pictures Imageworks</a>'s Cue3 core code was open-sourced in collaboration with Google, becoming <strong>OpenCue</strong>.</p>
+            </div>
+            
+            <div class="feature-card" tabindex="0">
+                <div class="feature-icon">
+                    <i class="fas fa-certificate" aria-hidden="true"></i>
+                </div>
+                <h3 class="feature-title">2021: ASWF Adoption</h3>
+                <p class="feature-description">OpenCue became an <a href="https://www.aswf.io/projects/" target="_blank" rel="noopener noreferrer">official Academy Software Foundation project</a>.</p>
+            </div>
+            
+            <div class="feature-card" tabindex="0">
+                <div class="feature-icon">
+                    <i class="fas fa-trophy" aria-hidden="true"></i>
+                </div>
+                <h3 class="feature-title">2023: Academy Award</h3>
+                <p class="feature-description">Matt Chambers received a Scientific and Technical Academy Award for pioneering <a href="https://www.imageworks.com/" target="_blank" rel="noopener noreferrer">Sony Pictures Imageworks</a>’ original Cue3 system, later adapted as the Plow system at another company. Cue3 was further enhanced and evolved into what is now known as OpenCue.</p>
+            </div>
+
+            <!-- Academy Award Video -->
+            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+                <iframe
+                    src="https://www.youtube-nocookie.com/embed/0IhqqNz6q6k"
+                    title="Academy Sci-Tech Award — Matt Chambers (Cue3/OpenCue)"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen
+                    style="position: absolute; top:0; left:0; width:100%; height:100%;">
+                </iframe>
+            </div>
+            
+            <div class="feature-card" tabindex="0">
+                <div class="feature-icon">
+                    <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                </div>
+                <h3 class="feature-title">2024–2025: Full Alignment</h3>
+                <p class="feature-description">OpenCue's codebase is fully migrated and synchronized with SPI's internal code, ensuring the open-source project reflects current production realities.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- Documentation Hub -->
 <section class="docs-section" aria-labelledby="docs-heading">
     <div class="docs-container">
