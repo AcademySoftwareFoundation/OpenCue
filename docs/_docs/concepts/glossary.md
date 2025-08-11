@@ -1,6 +1,6 @@
 ---
 title: "Glossary"
-nav_order: 2
+nav_order: 8
 parent: Concepts
 layout: default
 linkTitle: "Glossary"

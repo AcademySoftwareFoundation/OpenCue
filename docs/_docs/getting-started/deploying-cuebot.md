@@ -1,6 +1,6 @@
 ---
 title: "Deploying Cuebot"
-nav_order: 2
+nav_order: 13
 parent: Getting Started
 layout: default
 linkTitle: "Deploying Cuebot"
