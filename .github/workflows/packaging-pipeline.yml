@@ -109,8 +109,9 @@ jobs:
           - component: cueadmin
             NAME: CueAdmin
 
-          - component: cueman
-            NAME: CueMan
+# Disable docker builds for now, due to missing target repo.
+#          - component: cueman
+#            NAME: CueMan
 
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
