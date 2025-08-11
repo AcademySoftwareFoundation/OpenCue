@@ -22,7 +22,7 @@ permalink: /
         </div>
         
         <div class="hero-actions">
-            <a href="{{ '/docs/getting-started/' | relative_url }}" class="btn-hero btn-primary" aria-label="Get started with OpenCue">
+            <a href="{{ '/docs/getting-started' | relative_url }}" class="btn-hero btn-primary" aria-label="Get started with OpenCue">
                 <i class="fas fa-play" aria-hidden="true"></i>
                 Get Started
             </a>
@@ -170,7 +170,7 @@ permalink: /
                 <p class="doc-description">Understand OpenCue's architecture, components, and fundamental principles.</p>
             </div>
             
-            <div class="doc-card" onclick="location.href='{{ '/docs/getting-started/' | relative_url }}';" tabindex="0" role="button" aria-label="Getting started guide">
+            <div class="doc-card" onclick="location.href='{{ '/docs/getting-started' | relative_url }}';" tabindex="0" role="button" aria-label="Getting started guide">
                 <div class="doc-icon">
                     <i class="fas fa-server" aria-hidden="true"></i>
                 </div>
