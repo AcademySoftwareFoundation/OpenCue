@@ -1261,7 +1261,7 @@
 <style>
   /* Fix logo size and visibility */
   .site-logo {
-    background-image: url('/OpenCue/assets/images/opencue_logo_with_text.png');
+    background-image: url('{{ "/assets/images/opencue_logo_with_text.png" | relative_url }}');
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
@@ -1335,6 +1335,30 @@
   body td,
   body div {
     color: #24292e !important;
+  }
+  
+  /* Code blocks - ensure monospace font for all modes */
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace !important;
+    font-size: 0.875em;
+  }
+  
+  pre {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace !important;
+  }
+  
+  pre code {
+    font-family: inherit !important;
+  }
+  
+  /* Ensure proper formatting for ASCII art and aligned text */
+  .highlight pre,
+  .highlighter-rouge pre,
+  .language-plaintext {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace !important;
+    white-space: pre !important;
+    word-wrap: normal !important;
+    overflow-x: auto !important;
   }
   
   /* Buttons - use dark gray theme */
@@ -1825,7 +1849,7 @@
     border: 1px solid #6b7280 !important;
     border-radius: 4px;
     padding: 2px 6px;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace !important;
   }
   
   body.dark-mode pre {
@@ -1833,6 +1857,7 @@
     color: #e5e7eb !important;
     border: 1px solid #4b5563 !important;
     border-radius: 8px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace !important;
   }
   
   body.dark-mode pre code {
@@ -1840,6 +1865,7 @@
     border: none !important;
     background: transparent !important;
     padding: 0;
+    font-family: inherit !important;
   }
   
   /* Professional table design */

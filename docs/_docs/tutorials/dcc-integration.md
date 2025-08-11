@@ -2,7 +2,7 @@
 title: "DCC Integration Tutorial"
 layout: default
 parent: Tutorials
-nav_order: 6
+nav_order: 52
 linkTitle: "DCC Integration Tutorial"
 date: 2025-01-29
 description: >

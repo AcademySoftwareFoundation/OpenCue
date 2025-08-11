@@ -1,6 +1,6 @@
 ---
 layout: default
-title: <i class='fas fa-book'></i>&nbsp;Versions
+title: <i class='fas fa-code-branch'></i>&nbsp;Doc Versions
 nav_order: 999
 ---
 

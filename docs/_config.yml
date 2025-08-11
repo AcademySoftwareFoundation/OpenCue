@@ -1,8 +1,8 @@
 # OpenCue Documentation Configuration
 title: OpenCue Documentation
 description: OpenCue is an open source render management system for visual effects and animation.
-baseurl: "/OpenCue" # the subpath of your site, e.g. /blog
-url: "https://academysoftwarefoundation.github.io" # the base hostname & protocol for your site
+baseurl: "" # the subpath of your site, e.g. /blog
+url: "https://docs.opencue.io" # the base hostname & protocol for your site
 
 # Build settings
 theme: just-the-docs
@@ -37,8 +37,8 @@ doc_version: "0.0.1"
 
 # Just the Docs theme configuration
 color_scheme: nil
-logo: "/assets/images/opencue_logo_with_text.png"
-favicon_ico: "/assets/images/favicon.ico"
+logo: "assets/images/opencue_logo_with_text.png"
+favicon_ico: "assets/images/favicon.ico"
 
 
 
@@ -72,7 +72,7 @@ aux_links_new_tab: true
 footer_content: |
   <div style="display: flex; align-items: center; justify-content: center; gap: 2rem; flex-wrap: wrap; margin: 1rem 0;">
     <a href="https://www.aswf.io" target="_blank">
-      <img src="/OpenCue/assets/images/aswf_aqua.png" alt="Academy Software Foundation logo" style="height: 60px; width: auto;">
+      <img src="{{ '/assets/images/aswf_aqua.png' | relative_url }}" alt="Academy Software Foundation logo" style="height: 60px; width: auto;">
     </a>
     <div style="text-align: center;">
       <p style="margin: 0; font-size: 0.9rem;">© Contributors to the OpenCue Project. Licensed under <a href="https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/LICENSE">Apache 2.0</a>.</p>

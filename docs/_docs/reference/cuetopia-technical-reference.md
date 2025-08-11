@@ -2,7 +2,7 @@
 title: "Cuetopia Technical Reference"
 layout: default
 parent: Reference
-nav_order: 3
+nav_order: 42
 linkTitle: "Cuetopia Technical Reference"
 date: 2025-01-07
 description: >
