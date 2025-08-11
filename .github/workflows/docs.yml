@@ -121,10 +121,17 @@ jobs:
           echo "build_date: ${{ steps.version.outputs.build_date }}" >> _config.yml
           echo "opencue_version: ${{ steps.version.outputs.opencue_version }}" >> _config.yml
           
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          # Determine baseurl based on deployment target
+          # For docs.opencue.io deployment, use empty baseurl
+          # For GitHub Pages in forks, use /OpenCue
+          if [ "${{ github.repository }}" = "AcademySoftwareFoundation/OpenCue" ]; then
+            # Main repository - deploying to docs.opencue.io
+            bundle exec jekyll build --baseurl ""
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Pull request - use GitHub Pages path
             bundle exec jekyll build --baseurl "/OpenCue"
           else
-            # For versioned builds, add version to path
+            # Fork or other deployment - use GitHub Pages path
             if [ "${{ steps.version.outputs.version }}" != "main" ]; then
               bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}/${{ steps.version.outputs.version }}"
             else
