@@ -27,4 +27,4 @@ the ASWF on July 30 and to RSVP, see the
 
 We look forward to meeting you!
 
-![Open source day '19 hosted by the ASWF](/OpenCue/assets/images/news/OpenSourceDay_SocialCard_final.png)
+![Open source day '19 hosted by the ASWF](/assets/images/news/OpenSourceDay_SocialCard_final.png)

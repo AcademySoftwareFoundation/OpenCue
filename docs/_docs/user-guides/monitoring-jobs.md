@@ -63,13 +63,13 @@ Before you start to monitor jobs in CueGUI, complete the following steps:
     windows. The following screenshot illustrates the default Cuetopia window
     you run to follow this guide:
     
-    ![Cuetopia default view](/OpenCue/assets/images/cuetopia_default.png)
+    ![Cuetopia default view](/assets/images/cuetopia_default.png)
 
 1.  Click **Window** > **Raise Window: CueCommander**.
 
     The following screenshot illustrates the default CueCommander window:
     
-    ![CueCommander default view](/OpenCue/assets/images/cuecommander_default.png)
+    ![CueCommander default view](/assets/images/cuecommander_default.png)
     
     You don't typically run CueCommander to monitor individual
 	OpenCue jobs and you don't need it to follow this guide.
@@ -84,7 +84,7 @@ To monitor a job:
     Monitor Jobs **Load** search field:
     
     ![Search for jobs by show name or username, or auto-load your
-    jobs.](/OpenCue/assets/images/cuegui_search.png)
+    jobs.](/assets/images/cuegui_search.png)
     
     To autoload your own jobs, check the **Autoload Mine** box.
 
@@ -93,7 +93,7 @@ To monitor a job:
     Cuetopia displays a list of jobs in the search results.
     
     ![Monitoring the status of OpenCue
-    jobs](/OpenCue/assets/images/cuetopia_monitor_job.png)
+    jobs](/assets/images/cuetopia_monitor_job.png)
 
 1.  Double-click the name of a job to view the details of the job in the
     Monitor Job Details plugin.
@@ -104,21 +104,21 @@ To monitor a job:
     contains 101 frames:
     
     ![Monitoring the status of individual job layers and
-    frames](/OpenCue/assets/images/cuetopia_monitor_layer.png)
+    frames](/assets/images/cuetopia_monitor_layer.png)
 
 1.  Double-click a frame to view the associated logs.
     
     Cuetopia displays the logs for the frame in the LogView view:
     
     ![Viewing the logs associated with a
-    frame](/OpenCue/assets/images/cuetopia_monitor_logs.png)
+    frame](/assets/images/cuetopia_monitor_logs.png)
 
 ## Un-monitoring jobs
 
 You can unmonitor all or some of the jobs in the Monitor Jobs plugin:
 
 ![Unmonitor all or some of the jobs listed in the Monitor Jobs
-plugin](/OpenCue/assets/images/cuetopia_unmonitor_jobs.png)
+plugin](/assets/images/cuetopia_unmonitor_jobs.png)
 
 *   To unmonitor all finished jobs, click **Finished**.
 *   To unmonitor all jobs, click **All**.
@@ -127,7 +127,7 @@ plugin](/OpenCue/assets/images/cuetopia_unmonitor_jobs.png)
     1.  Click the following button:
 
         ![Unmonitor selected
-        jobs](/OpenCue/assets/images/cuetopia_unmonitor_selected.png)
+        jobs](/assets/images/cuetopia_unmonitor_selected.png)
 
 ## Monitoring Hosts with CueCommander
 
@@ -157,7 +157,7 @@ The OS filter allows you to filter hosts based on their operating system:
 4. The host list updates to show only hosts matching the selected OS values
 5. Use the **Clear** option to remove all OS filters
 
-![Monitor Hosts with OS Filter](/OpenCue/assets/images/cuegui/cuecommander_monitor_os_filter.png)
+![Monitor Hosts with OS Filter](/assets/images/cuegui/cuecommander_monitor_os_filter.png)
 
 The OS filter list dynamically updates based on the operating systems detected in your host environment. When you first open CueCommander, the filter displays "Not Loaded" to indicate that host data hasn't been retrieved yet. Once hosts are loaded, the filter automatically populates with the actual OS values found in your system.
 
