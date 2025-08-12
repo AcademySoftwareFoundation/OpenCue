@@ -68,4 +68,4 @@ log.loki.url=<loki-url>
 
 
 ## LokiView widget
-![LokiView Widget](/OpenCue/assets/images/lokiview_widget.png)
+![LokiView Widget](/assets/images/lokiview_widget.png)
