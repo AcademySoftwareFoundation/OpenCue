@@ -12,7 +12,7 @@ description: >
 
 # CueAdmin - CLI Administration Tool
 
-CueAdmin is the primary command-line interface for administering OpenCue deployments. It provides comprehensive control over shows, allocations, hosts, subscriptions, and system resources through an intuitive command-line interface.
+CueAdmin is the command-line interface for administering OpenCue deployments. It provides control over shows, allocations, hosts, subscriptions, and system resources through an intuitive command-line interface.
 
 ## Overview
 
@@ -549,8 +549,8 @@ cueadmin -delete-alloc old_facility.render
 1. **Always Preview Operations**
    ```bash
    # Check current state before changes
-   cueadmin -lh -alloc main.render     # Before moving hosts
-   cueadmin -lb production              # Before modifying subscriptions
+   cueadmin -lh -alloc main.render    # Before moving hosts
+   cueadmin -lb production          # Before modifying subscriptions
    ```
 
 2. **Use Confirmation Prompts**

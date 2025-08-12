@@ -112,8 +112,8 @@ done
 
 ### Connection Issues
 ```bash
-# Test connection
-cueadmin -ping
+# Test connection by listing shows (if successful, connection works)
+cueadmin -ls
 
 # Specify server explicitly
 cueman -server cuebot.example.com:8443 -lf job_name

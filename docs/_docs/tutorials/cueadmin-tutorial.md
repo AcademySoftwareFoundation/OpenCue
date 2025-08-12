@@ -341,29 +341,29 @@ Complete workflow for production setup:
 
 ```bash
 # 1. Create production show
-cueadmin -create-show production_2024
+cueadmin -create-show production_2025
 
 # 2. Configure show parameters
-cueadmin -default-min-cores production_2024 2
-cueadmin -default-max-cores production_2024 200
+cueadmin -default-min-cores production_2025 2
+cueadmin -default-max-cores production_2025 200
 
 # 3. Create dedicated allocation
-cueadmin -create-alloc main prod2024 "production"
+cueadmin -create-alloc main prod2025 "production"
 
 # 4. Move hosts to new allocation
-cueadmin -hostmatch prod2024 -move main.prod2024
+cueadmin -hostmatch prod2025 -move main.prod2025
 
 # 5. Create subscriptions
-cueadmin -create-sub production_2024 main.prod2024 500 750
-cueadmin -create-sub production_2024 main.render 200 400
+cueadmin -create-sub production_2025 main.prod2025 500 750
+cueadmin -create-sub production_2025 main.render 200 400
 
 # 6. Enable the show
-cueadmin -enable-show production_2024
+cueadmin -enable-show production_2025
 
 # 7. Verify setup
-cueadmin -ls | grep production_2024
-cueadmin -lb production_2024
-cueadmin -lh -alloc main.prod2024 | wc -l
+cueadmin -ls | grep production_2025
+cueadmin -lb production_2025
+cueadmin -lh -alloc main.prod2025 | wc -l
 ```
 
 ### Emergency Response Procedure
