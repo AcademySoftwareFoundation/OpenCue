@@ -1,6 +1,6 @@
 ---
 title: "Cueman - CLI Job Management Tool"
-nav_order: 44
+nav_order: 45
 parent: "Command Line Tools"
 grand_parent: "Reference"
 layout: default
@@ -417,7 +417,7 @@ cueman             # Running without args shows help
 
 ## Additional Resources
 
-- [Cueman Tutorial](/OpenCue/docs/tutorials/cueman-tutorial/) - Tutorial with real-world scenarios
+- [Cueman Tutorial](/docs/tutorials/cueman-tutorial/) - Tutorial with real-world scenarios
+- [Cueman Reference](/docs/reference/commands/cueman/) - Related command-line tool
 - [Cueman GitHub](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/cueman) - Source code and documentation
-- [OpenCue Documentation](/OpenCue/docs/) - Complete OpenCue documentation
-- [CueAdmin Reference](/OpenCue/docs/reference/commands/cueadmin/) - Related command-line tool
+- [OpenCue Documentation](/docs/) - Complete OpenCue documentation

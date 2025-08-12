@@ -1,24 +1,23 @@
 ---
 title: "Installing CueAdmin"
-nav_order: 19
+nav_order: 16
 parent: Getting Started
 layout: default
 linkTitle: "Installing CueAdmin"
-date: 2019-02-22
+date: 2025-08-11
 description: >
-  Install the CueAdmin command-line client
+  Install CueAdmin, the primary command-line administration tool for OpenCue
 ---
 
 # Installing CueAdmin
 
-### Install the CueAdmin command-line client
+### Install CueAdmin, the primary command-line administration tool for OpenCue
 
 ---
 
-CueAdmin is the OpenCue command-line client.
+CueAdmin is the essential command-line interface for administering OpenCue deployments. It provides comprehensive control over shows, allocations, hosts, and system resources.
 
-You run this client to administer an OpenCue deployment. It's written in Python
-and provides a thin layer over the OpenCue Python API.
+You run CueAdmin to manage your OpenCue infrastructure, configure resources, and monitor system state. It's written in Python and provides a powerful interface to the OpenCue Python API.
 
 ## Before you begin
 
@@ -83,7 +82,7 @@ cueadmin -server localhost -ls
 
 The above example command lists all shows from a Cuebot instance running on
 `localhost`. To display a full list of the functionality CueAdmin provides, run
-`cueadmin --help` .
+`cueadmin --help`.
 
 ### Option 2: Installing from source
 
@@ -95,6 +94,70 @@ and your current directory is the root of the checked out source.
 pip install cueadmin/
 ```
 
-The above example command lists all shows from a Cuebot instance running on
-`localhost`. To display a full list of the functionality CueAdmin provides, run
-`cueadmin --help`.
+To verify installation and see available commands:
+
+```shell
+cueadmin --help
+```
+
+## Using CueAdmin
+
+### Essential Commands
+
+Once installed, you can start using CueAdmin for system administration:
+
+```bash
+# List all shows
+cueadmin -ls
+
+# List all allocations
+cueadmin -la
+
+# List hosts
+cueadmin -lh
+
+# List running jobs
+cueadmin -lj
+```
+
+### Common Administrative Tasks
+
+Here are some essential tasks you can perform with CueAdmin:
+
+**Managing Shows:**
+```bash
+# Create a new show
+cueadmin -create-show my_show
+
+# Enable/disable a show
+cueadmin -enable-show my_show
+cueadmin -disable-show my_show
+```
+
+**Managing Hosts:**
+```bash
+# Lock hosts for maintenance
+cueadmin -host render01 -lock
+
+# Move hosts to different allocation
+cueadmin -host render01 -move main.production
+```
+
+**Managing Subscriptions:**
+```bash
+# Create subscription (show, allocation, size, burst)
+cueadmin -create-sub my_show main.render 100 150
+```
+
+### Safety Notes
+
+CueAdmin can perform production-impacting operations. Always:
+- Use confirmation prompts (avoid `-force` unless necessary)
+- Test commands with `-verbose` flag first
+- Check the [CueAdmin Reference](/docs/reference/tools/cueadmin/) for detailed documentation
+
+## Next Steps
+
+- Follow the [CueAdmin Tutorial](/docs/tutorials/cueadmin-tutorial/) for hands-on practice
+- Review the [CueAdmin Reference](/docs/reference/tools/cueadmin/) for complete command documentation
+- Learn about [Cueman](/docs/reference/tools/cueman/) for job management tasks

@@ -16,13 +16,13 @@ OpenCue provides several command-line tools for managing and interacting with th
 
 ## Available Tools
 
-### [CueAdmin](/OpenCue/docs/reference/commands/cueadmin/)
-The primary administrative tool for OpenCue, used for managing jobs, hosts, shows, and other system components.
+### [CueAdmin](/docs/reference/tools/cueadmin/)
+The primary administrative tool for OpenCue, providing comprehensive control over shows, allocations, hosts, subscriptions, and system resources.
 
-### [Cueman](/OpenCue/docs/reference/tools/cueman/)
+### [Cueman](/docs/reference/tools/cueman/)
 A job management tool that extends cueadmin with advanced filtering, batch operations, and user-friendly features for efficient farm management.
 
-### [PyCueRun](/OpenCue/docs/reference/commands/pycuerun/)
+### [PyCueRun](/docs/reference/commands/pycuerun/)
 A tool for submitting and running Python-based jobs on the OpenCue render farm.
 
 ## Quick Comparison
@@ -125,5 +125,5 @@ Some operations require administrative privileges. Contact your OpenCue administ
 ## Additional Resources
 
 - [OpenCue Python API Documentation](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/pycue)
-- [OpenCue User Guides](/OpenCue/docs/user-guides/)
-- [OpenCue Tutorials](/OpenCue/docs/tutorials/)
+- [OpenCue User Guides](/docs/user-guides/)
+- [OpenCue Tutorials](/docs/tutorials/)
