@@ -80,13 +80,13 @@ sandbox environment.
 3. Change the `admin` password if prompted.
 4. To view the sample dashboards included with the sandbox, click **Dashboards > Manage**.
 
-   ![Manage Grafana dashboards](/OpenCue/assets/images/grafana_manage_dashboards.png)
+   ![Manage Grafana dashboards](/assets/images/grafana_manage_dashboards.png)
 
    Once displayed, these dashboards will show metrics exported from Cuebot and the PostgreSQL database:
 
-   ![Grafana Cuebot metrics](/OpenCue/assets/images/grafana_cuebot_metrics.png)
+   ![Grafana Cuebot metrics](/assets/images/grafana_cuebot_metrics.png)
 
-   ![Grafana PostgreSQL metrics](/OpenCue/assets/images/grafana_cuebot_metrics.png)
+   ![Grafana PostgreSQL metrics](/assets/images/grafana_cuebot_metrics.png)
 
 ## Customizing exported data
 
