@@ -1,6 +1,6 @@
 ---
 title: "Installing CueAdmin"
-nav_order: 16
+nav_order: 18
 parent: Getting Started
 layout: default
 linkTitle: "Installing CueAdmin"
@@ -11,13 +11,13 @@ description: >
 
 # Installing CueAdmin
 
-### Install CueAdmin, the primary command-line administration tool for OpenCue
+### Install CueAdmin, the command-line administration tool for OpenCue
 
 ---
 
-CueAdmin is the essential command-line interface for administering OpenCue deployments. It provides comprehensive control over shows, allocations, hosts, and system resources.
+CueAdmin is the essential command-line interface for administering OpenCue deployments. It provides control over shows, allocations, hosts, and system resources.
 
-You run CueAdmin to manage your OpenCue infrastructure, configure resources, and monitor system state. It's written in Python and provides a powerful interface to the OpenCue Python API.
+You run CueAdmin to manage your OpenCue infrastructure, configure resources, and monitor system state. It's written in Python and provides an interface to the OpenCue Python API.
 
 ## Before you begin
 
@@ -136,23 +136,31 @@ cueadmin -disable-show my_show
 
 **Managing Hosts:**
 ```bash
-# Lock hosts for maintenance
-cueadmin -host render01 -lock
+# First, list hosts to see what's available
+cueadmin -lh
 
-# Move hosts to different allocation
-cueadmin -host render01 -move main.production
+# Lock hosts for maintenance (replace with actual hostname)
+cueadmin -host <hostname> -lock
+
+# Move hosts to different allocation (replace with actual hostname and allocation)
+cueadmin -host <hostname> -move <allocation_name>
 ```
 
 **Managing Subscriptions:**
 ```bash
+# First, list existing shows and allocations to see what's available
+cueadmin -ls    # List shows
+cueadmin -la    # List allocations
+
 # Create subscription (show, allocation, size, burst)
-cueadmin -create-sub my_show main.render 100 150
+# Replace 'my_show' with your show name and 'local.general' with your allocation
+cueadmin -create-sub my_show local.general 100 150
 ```
 
 ### Safety Notes
 
 CueAdmin can perform production-impacting operations. Always:
-- Use confirmation prompts (avoid `-force` unless necessary)
+- Use confirmation prompts (avoid `-force` unless necessary for workarounds)
 - Test commands with `-verbose` flag first
 - Check the [CueAdmin Reference](/docs/reference/tools/cueadmin/) for detailed documentation
 
