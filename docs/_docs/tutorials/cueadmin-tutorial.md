@@ -625,5 +625,4 @@ Remember to always:
 
 - Explore the [CueAdmin Reference](/docs/reference/tools/cueadmin/) for complete command documentation
 - Learn about [Cueman](/docs/reference/tools/cueman/) for job management
-- Review [OpenCue Admin Guides](/docs/admin-guides/) for advanced topics
 - Practice with test shows and allocations before working on production
