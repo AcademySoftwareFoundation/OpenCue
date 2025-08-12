@@ -225,7 +225,7 @@ cueadmin -delete-sub tutorial_show main.render
 cueadmin -lh | head -10
 
 # Filter by state
-cueadmin -lh -state UP | wc -l      # Count UP hosts
+cueadmin -lh -state UP | tail -n +2 | wc -l      # Count UP hosts (excluding header)
 cueadmin -lh -state DOWN            # List DOWN hosts
 cueadmin -lh -state REPAIR          # List hosts needing repair
 
@@ -363,7 +363,7 @@ cueadmin -enable-show production_2025
 # 7. Verify setup
 cueadmin -ls | grep production_2025
 cueadmin -lb production_2025
-cueadmin -lh -alloc main.prod2025 | wc -l
+cueadmin -lh -alloc main.prod2025 | tail -n +2 | wc -l
 ```
 
 ### Emergency Response Procedure
@@ -427,7 +427,7 @@ for show in $(cueadmin -lba old_facility.render | awk '{print $1}'); do
 done
 
 # 6. Verify migration
-cueadmin -lh -alloc new_facility.render | wc -l
+cueadmin -lh -alloc new_facility.render | tail -n +2 | wc -l
 cueadmin -lba new_facility.render
 
 # 7. Clean up old allocation
@@ -453,9 +453,9 @@ echo -e "\n=== Allocation Summary ==="
 cueadmin -la
 
 echo -e "\n=== Host Status Summary ==="
-echo "UP hosts: $(cueadmin -lh -state UP | wc -l)"
-echo "DOWN hosts: $(cueadmin -lh -state DOWN | wc -l)"
-echo "REPAIR hosts: $(cueadmin -lh -state REPAIR | wc -l)"
+echo "UP hosts: $(cueadmin -lh -state UP | tail -n +2 | wc -l)"
+echo "DOWN hosts: $(cueadmin -lh -state DOWN | tail -n +2 | wc -l)"
+echo "REPAIR hosts: $(cueadmin -lh -state REPAIR | tail -n +2 | wc -l)"
 
 echo -e "\n=== Long Running Processes ==="
 cueadmin -lp -duration gt12 -limit 10
@@ -535,7 +535,7 @@ Before any major operation:
    ```bash
    cueadmin -ls              # Shows
    cueadmin -la              # Allocations
-   cueadmin -lh | wc -l      # Host count
+   cueadmin -lh | tail -n +2 | wc -l      # Host count (excluding header)
    ```
 
 2. **Document the change**
