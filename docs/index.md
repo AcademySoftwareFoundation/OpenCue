@@ -159,7 +159,7 @@ permalink: /
                     <i class="fas fa-history" aria-hidden="true"></i>
                 </div>
                 <h3 class="feature-title">Early Foundations</h3>
-                <p class="feature-description">Early internal tools and scripts supported the first large-scale rendering workflows at Sony Pictures Imageworks (SPI).</p>
+                <p class="feature-description">Early internal tools and scripts supported the first large-scale rendering workflows at <a href="https://www.imageworks.com/" target="_blank" rel="noopener noreferrer">Sony Pictures Imageworks</a> (SPI).</p>
             </div>
             
             <div class="feature-card" tabindex="0">
