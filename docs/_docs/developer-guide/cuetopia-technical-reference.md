@@ -1,8 +1,8 @@
 ---
 title: "Cuetopia Technical Reference"
 layout: default
-parent: Reference
-nav_order: 42
+parent: "Developer Guide"
+nav_order: 58
 linkTitle: "Cuetopia Technical Reference"
 date: 2025-01-07
 description: >

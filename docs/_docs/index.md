@@ -65,13 +65,13 @@ Guides for system admins and technical Production Services and Resources (PSR) t
 
 Reference guides for all users running OpenCue tools and interfaces
 
-### [Developer Guide](developer-guide/index)
-
-Guides and resources for developers contributing to OpenCue or developing applications that integrate with OpenCue
-
 ### [Tutorials](tutorials)
 
 Step-by-step learning guides and workflows
+
+### [Developer Guide](developer-guide/index)
+
+Guides and resources for developers contributing to OpenCue or developing applications that integrate with OpenCue
 
 ### [News](/news)
 
