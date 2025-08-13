@@ -436,3 +436,9 @@ Cuetopia plugins integrate with other CueGUI components:
 - **Host Monitor**: View hosts running frames
 - **Dependency Editor**: Modify job dependencies
 - **Local Booking**: Allocate local resources
+
+## References
+
+### Related Documentation
+
+- [CueGUI: CueCommander Administration System](/docs/user-guides/cuecommander-administration-guide)
