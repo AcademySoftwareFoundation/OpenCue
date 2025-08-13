@@ -1,6 +1,6 @@
 ---
 title: "Cueman - CLI Job Management Tool"
-nav_order: 45
+nav_order: 46
 parent: "Command Line Tools"
 grand_parent: "Reference"
 layout: default

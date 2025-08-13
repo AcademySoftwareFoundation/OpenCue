@@ -91,7 +91,7 @@ If you make changes to `OpenCue/docs`, please build and test the documentation b
 
 4. **Preview the documentation**
    
-   Open http://localhost:4000/OpenCue/ in your browser to review your changes.
+Open http://localhost:4000 in your browser to review your changes.
 
 For detailed documentation setup instructions, testing procedures, and contribution guidelines, see [docs/README.md](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/docs/README.md).
 
