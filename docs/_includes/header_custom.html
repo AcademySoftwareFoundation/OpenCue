@@ -205,7 +205,7 @@
   
   .hero-actions {
     display: flex;
-    gap: var(--space-md);
+    gap: var(--space-sm);
     justify-content: center;
     flex-wrap: wrap;
     align-items: center;
@@ -215,14 +215,14 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-xs);
-    padding: var(--space-md) var(--space-xl);
+    padding: var(--space-sm) var(--space-md);
     border-radius: var(--radius-lg);
     font-weight: var(--font-weight-semibold);
-    font-size: 1.125rem;
+    font-size: 0.875rem;
     text-decoration: none;
     transition: all var(--transition);
     border: 2px solid transparent;
-    min-width: 160px;
+    min-width: 100px;
     justify-content: center;
     cursor: pointer;
     position: relative;
@@ -280,6 +280,18 @@
     border-color: rgba(255, 255, 255, 0.5);
     transform: translateY(-2px);
   }
+
+  .btn-hero.btn-accent {
+    background: #10b981;
+    color: white;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .btn-hero.btn-accent:hover {
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-2xl);
+  }
   
   /* Force Font Awesome icons in hero buttons */
   .btn-hero i {
@@ -298,6 +310,16 @@
   }
   
   .btn-hero.btn-primary i {
+    color: white !important;
+  }
+  
+  /* Accent button (Quick Starts) - white text and icon */
+  .btn-hero.btn-accent,
+  .btn-hero.btn-accent:hover {
+    color: white !important;
+  }
+
+  .btn-hero.btn-accent i {
     color: white !important;
   }
   
@@ -323,7 +345,8 @@
   /* Ensure hero button icons are always white */
   .btn-hero.btn-primary i,
   .btn-hero.btn-secondary i,
-  .btn-hero.btn-outline i {
+  .btn-hero.btn-outline i,
+  .btn-hero.btn-accent i {
     color: white !important;
   }
   

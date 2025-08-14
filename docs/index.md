@@ -22,6 +22,10 @@ permalink: /
         </div>
         
         <div class="hero-actions">
+            <a href="{{ '/docs/quick-starts' | relative_url }}" class="btn-hero btn-accent" aria-label="Quick starts with OpenCue">
+                <i class="fas fa-bolt" aria-hidden="true"></i>
+                Quick Starts
+            </a>
             <a href="{{ '/docs/getting-started' | relative_url }}" class="btn-hero btn-primary" aria-label="Get started with OpenCue">
                 <i class="fas fa-play" aria-hidden="true"></i>
                 Get Started
