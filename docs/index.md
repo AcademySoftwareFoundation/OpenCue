@@ -264,6 +264,14 @@ permalink: /
                 <p class="doc-description">Day-to-day workflows for artists, supervisors, and production staff.</p>
             </div>
             
+            <div class="doc-card" onclick="location.href='{{ '/docs/other-guides' | relative_url }}';" tabindex="0" role="button" aria-label="Other guides">
+                <div class="doc-icon">
+                    <i class="fas fa-compass" aria-hidden="true"></i>
+                </div>
+                <h3 class="doc-title">Other Guides</h3>
+                <p class="doc-description">Additional resources and specialized guides for specific use cases and integrations.</p>
+            </div>
+            
             <div class="doc-card" onclick="location.href='{{ '/docs/reference' | relative_url }}';" tabindex="0" role="button" aria-label="Reference documentation">
                 <div class="doc-icon">
                     <i class="fas fa-code" aria-hidden="true"></i>
@@ -278,6 +286,14 @@ permalink: /
                 </div>
                 <h3 class="doc-title">Tutorials</h3>
                 <p class="doc-description">Step-by-step walkthroughs for common tasks and advanced workflows.</p>
+            </div>
+            
+            <div class="doc-card" onclick="location.href='{{ '/docs/developer-guide/index/' | relative_url }}';" tabindex="0" role="button" aria-label="Developer guide">
+                <div class="doc-icon">
+                    <i class="fas fa-tools" aria-hidden="true"></i>
+                </div>
+                <h3 class="doc-title">Developer Guide</h3>
+                <p class="doc-description">Technical documentation for developers contributing to OpenCue and building custom integrations.</p>
             </div>
         </div>
     </div>
