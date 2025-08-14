@@ -340,7 +340,7 @@ permalink: /
         </div>
         
         <div class="community-actions">
-            <a href="https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/CONTRIBUTING.md" class="btn-community btn-primary" target="_blank" rel="noopener noreferrer" aria-label="View contributing guide">
+            <a href="{{ '/docs/developer-guide/contributing/' | relative_url }}" class="btn-community btn-primary" aria-label="View contributing guide">
                 <i class="fas fa-hands-helping" aria-hidden="true"></i>
                 Contributing Guide
             </a>
