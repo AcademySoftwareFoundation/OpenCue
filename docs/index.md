@@ -60,38 +60,98 @@ permalink: /
 </section>
 
 <!-- Production Scale Stats Bar -->
-<div class="stats-bar">
-    <div class="stats-container">
-        <div class="stat-item">
-            <div class="stat-icon">
-                <i class="fa-solid fa-rocket" aria-hidden="true"></i>
+<section class="stats-section" aria-labelledby="stats-heading">
+    <div class="stats-header">
+        <h2 id="stats-heading" class="section-title">Why Choose OpenCue</h2>
+        <p class="section-subtitle">Production-proven render management at any scale</p>
+    </div>
+    <div class="stats-bar"> 
+        <div class="stats-container">
+            <div class="stat-item">
+                <div class="stat-icon">
+                    <i class="fa-solid fa-rocket" aria-hidden="true"></i>
+                </div>
+                <div class="stat-text">High-scale rendering</div>
+                <div class="stat-label">OpenCue provides features to manage rendering jobs at high-scale</div>
             </div>
-            <div class="stat-text">High-scale rendering</div>
-            <div class="stat-label">OpenCue provides features to manage rendering jobs at high-scale</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-icon">
-                <i class="fa-solid fa-film" aria-hidden="true"></i>
+            <div class="stat-item">
+                <div class="stat-icon">
+                    <i class="fa-solid fa-film" aria-hidden="true"></i>
+                </div>
+                <div class="stat-text">Built for visual effects and animation</div>
+                <div class="stat-label">Sony Pictures Imageworks in-house render manager used on hundreds of films</div>
             </div>
-            <div class="stat-text">Built for visual effects and animation</div>
-            <div class="stat-label">Sony Pictures Imageworks in-house render manager used on hundreds of films</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-icon">
-                <i class="fa-solid fa-server" aria-hidden="true"></i>
+            <div class="stat-item">
+                <div class="stat-icon">
+                    <i class="fa-solid fa-server" aria-hidden="true"></i>
+                </div>
+                <div class="stat-text">Render at scale</div>
+                <div class="stat-label">Highly-scalable architecture supporting numerous concurrent machines</div>
             </div>
-            <div class="stat-text">Render at scale</div>
-            <div class="stat-label">Highly-scalable architecture supporting numerous concurrent machines</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-icon">
-                <i class="fa-solid fa-cloud" aria-hidden="true"></i>
+            <div class="stat-item">
+                <div class="stat-icon">
+                    <i class="fa-solid fa-cloud" aria-hidden="true"></i>
+                </div>
+                <div class="stat-text">Flexible deployment</div>
+                <div class="stat-label">Support for multi facility, on-premise, cloud, and hybrid deployments</div>
             </div>
-            <div class="stat-text">Flexible deployment</div>
-            <div class="stat-label">Support for multi facility, on-premise, cloud, and hybrid deployments</div>
         </div>
     </div>
-</div>
+</section>
+
+<!-- OpenCue Walkthrough Section -->
+<section class="features-section" aria-labelledby="walkthrough-heading" style="padding-top: 2rem;">
+    <div class="features-container">
+        <h2 id="walkthrough-heading" class="section-title">OpenCue Walkthrough Tutorial</h2>
+        <p class="section-subtitle">Learn how to use OpenCue with this quick guide</p>
+        
+        <div class="features-grid">
+            <!-- Walkthrough Video -->
+            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+                <iframe
+                    src="https://www.youtube-nocookie.com/embed/v4i83ccrz5w"
+                    title="OpenCue Walkthrough - Submitting and Monitoring Render Jobs"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen
+                    style="position: absolute; top:0; left:0; width:100%; height:100%;">
+                </iframe>
+            </div>
+
+            <div class="feature-card" tabindex="0">
+                <div class="feature-icon">
+                    <i class="fa-solid fa-cube" aria-hidden="true"></i>
+                </div>
+                <h3 class="feature-title">Submitting Jobs</h3>
+                <p class="feature-description">Launch the OpenCue submission form, configure job details (name, shot, layer), and set job types and services for your render.</p>
+            </div>
+            
+            <div class="feature-card" tabindex="0">
+                <div class="feature-icon">
+                    <i class="fa-solid fa-sitemap" aria-hidden="true"></i>
+                </div>
+                <h3 class="feature-title">Setting up Dependencies</h3>
+                <p class="feature-description">Configure relationships between render jobs to control execution order and manage complex multi-stage workflows.</p>
+            </div>
+            
+            <div class="feature-card" tabindex="0">
+                <div class="feature-icon">
+                    <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+                </div>
+                <h3 class="feature-title">Job Hierarchy</h3>
+                <p class="feature-description">Learn how OpenCue organizes work into Jobs, Layers, and Frames for efficient render management.</p>
+            </div>
+            
+            <div class="feature-card" tabindex="0">
+                <div class="feature-icon">
+                    <i class="fa-solid fa-desktop" aria-hidden="true"></i>
+                </div>
+                <h3 class="feature-title">Monitoring with CueGUI or CueWeb</h3>
+                <p class="feature-description">Navigate the different interfaces including Shows, Allocations, Subscriptions, Monitor Host, Services, and Log views for comprehensive job tracking.</p>
+            </div>
+        </div>
+    </div>
+</section>
 
 <!-- Feature Cards Grid -->
 <section class="features-section" aria-labelledby="features-heading">
