@@ -41,6 +41,23 @@ permalink: /docs/
 
 ---
 
+<!-- OpenCue Walkthrough Video Section -->
+<section class="video-section" aria-labelledby="walkthrough-video-heading">
+    <div class="video-container">
+        <h2 id="walkthrough-video-heading" class="section-title">OpenCue Walkthrough Tutorial</h2>
+        <div class="video-wrapper">
+            <iframe 
+                src="https://www.youtube-nocookie.com/embed/v4i83ccrz5w" 
+                title="OpenCue Walkthrough - Submitting and Monitoring Render Jobs"
+                frameborder="0" 
+                allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen
+                loading="lazy">
+            </iframe>
+        </div>
+    </div>
+</section>
+
 ### [Quick starts](quick-starts)
 
 Try OpenCue in the sandbox environment on different operating systems
