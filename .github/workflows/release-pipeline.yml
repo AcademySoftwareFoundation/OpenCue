@@ -8,15 +8,16 @@ on:
 
 jobs:
   build_opencue_packages:
+    name: Build Python Packages
     runs-on: ubuntu-22.04
     container: python:3.7
-    name: "Build Python Packages"
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
       opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
       opencue_pycue_path: ${{ steps.package_outputs.outputs.opencue_pycue_path }}
       opencue_pyoutline_path: ${{ steps.package_outputs.outputs.opencue_pyoutline_path }}
       opencue_cueadmin_path: ${{ steps.package_outputs.outputs.opencue_cueadmin_path }}
+      opencue_cueman_path: ${{ steps.package_outputs.outputs.opencue_cueman_path }}
       opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
       opencue_cuegui_path: ${{ steps.package_outputs.outputs.opencue_cuegui_path }}
     steps:
@@ -28,18 +29,19 @@ jobs:
       - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
-      - uses: ./.github/actions/build-python-packages
+      - name: Get current tag name
+        run: echo "TAG_NAME=${GITHUB_REF/refs\/tags\//}" >> ${GITHUB_ENV}
 
-      - name: Gather package paths
-        id: package_outputs
+      - name: Verify tag name and version match
         run: |
-          echo "opencue_proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_rqd_path=$(ls -a packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_pycue_path=$(ls -a packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_pyoutline_path=$(ls -a packages/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_cuesubmit_path=$(ls -a packages/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_cueadmin_path=$(ls -a packages/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_cuegui_path=$(ls -a packages/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
+          set -e
+          if [ "v$(ci/generate_version_number.py)" != "${TAG_NAME}" ]; then
+            echo "Version check failed: code version v$(ci/generate_version_number.py) does not match tag name ${TAG_NAME}"
+            echo "Original GITHUB_REF: ${GITHUB_REF}"
+            exit 1
+          fi
+
+      - uses: ./.github/actions/build-python-packages
 
   upload_python_packages_test:
     needs: build_opencue_packages
@@ -63,39 +65,6 @@ jobs:
         run: |
           python3 -m pip install --upgrade twine
           python3 -m twine upload --verbose packages/opencue_*
-
-  build_docker_images:
-    needs: build_opencue_packages
-    runs-on: ubuntu-22.04
-    name: "Build Docker Images"
-    strategy:
-      matrix:
-        # Disable cuebot for now
-        component: [pycue, rqd, pyoutline, cuesubmit, cueadmin, cuegui]
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-tags: true
-          fetch-depth: 0
-
-      - name: Download a single artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
-          path: packages/
-
-      - name: Build ${{ matrix.component }} Docker Image
-        run: |
-          docker build \
-                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}" \
-                --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}" \
-                --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}" \
-                --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}" \
-                --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}" \
-                --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}" \
-                --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}" \
-                -f ${{ matrix.component }}/Dockerfile .
 
   release_docker_images:
     # needs: preflight
