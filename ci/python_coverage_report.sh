@@ -2,24 +2,25 @@
 
 set -e
 
-python -m pip install --user -r requirements.txt -r requirements_gui.txt
 # Requirements for running the tests on the vfx-platform images
 python -m pip install coverage pytest-xvfb
 
-# Protos need to have their Python code generated in order for tests to pass.
-python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto --grpc_python_out=pycue/opencue/compiled_proto proto/*.proto
-python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc_python_out=rqd/rqd/compiled_proto proto/*.proto
-python ci/fix_compiled_proto.py pycue/opencue/compiled_proto
-python ci/fix_compiled_proto.py rqd/rqd/compiled_proto
+pip install ./proto[test] \
+            ./pycue[test] \
+            ./pyoutline[test] \
+            ./cueadmin[test] \
+            ./cueman[test] \
+            ./cuegui[test] \
+            ./cuesubmit[test]
 
 # Run coverage for each component individually, but append it all into the same report.
-python -m coverage run --source=pycue/opencue/,pycue/FileSequence/ --omit=pycue/opencue/compiled_proto/* pycue/tests/test_suite.py
-PYTHONPATH=pycue python -m coverage run -a --source=pyoutline/outline/ pyoutline/setup.py test
-PYTHONPATH=pycue python -m coverage run -a --source=cueadmin/cueadmin/ cueadmin/setup.py test
+python -m coverage run -m pytest ./pycue
+python -m coverage  run -m pytest ./pyoutline
+python -m coverage  run -m pytest ./cueadmin
+python -m coverage  run -m pytest ./cueman
+python -m coverage  run -m pytest ./cuesubmit
 # TODO: re-enable cuegui tests when xvfb-run gets configured to execute on the new vfx-platform
-# PYTHONPATH=pycue xvfb-run -d python -m coverage run -a --source=cuegui/cuegui/ cuegui/setup.py test
-PYTHONPATH=pycue:pyoutline python -m coverage run -a --source=cuesubmit/cuesubmit/ cuesubmit/setup.py test
-python -m coverage run -a --source=rqd/rqd/ --omit=rqd/rqd/compiled_proto/* rqd/setup.py test
+# python -m coverage  run -m pytest ./cuegui
 
 # SonarCloud needs the report in XML.
 python -m coverage xml
