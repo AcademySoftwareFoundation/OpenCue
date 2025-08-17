@@ -14,11 +14,13 @@ jobs:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          # Fetch all Git history, otherwise the current version number will
-          # not be correctly calculated.
+          fetch-tags: true
           fetch-depth: 0
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
       - name: Generate coverage report
         run: ci/python_coverage_report.sh
@@ -37,7 +39,7 @@ jobs:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           # Fetch all Git history, otherwise the current version number will
           # not be correctly calculated.
