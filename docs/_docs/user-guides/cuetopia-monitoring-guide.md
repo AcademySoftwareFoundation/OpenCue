@@ -33,7 +33,7 @@ This guide provides comprehensive documentation for Cuetopia, which includes the
 
 The Monitor Jobs plugin is the primary interface for monitoring active and completed render jobs. It provides a comprehensive overview of all jobs with real-time status updates.
 
-![Monitor Jobs Interface](/assets/images/cuegui/cuetopia_monitor_jobs.png)
+![Monitor Jobs Interface](/assets/images/cuegui/cuetopia/cuetopia_monitor_jobs.png)
 
 ### Interface Components
 
@@ -63,10 +63,12 @@ The toolbar contains the following controls from left to right:
    - Groups jobs with dependencies together
    - Shows parent-child relationships in the tree view
 
-7. **Action Buttons** (from left to right):
-   - **Finished** (eject icon): Removes all finished jobs from monitoring
-   - **All** (eject icon): Clears all jobs from the monitor
-   - **Selected** (eject icon): Removes selected jobs
+7. **Unmonitor Dropdown**: A dropdown menu with options to remove jobs from monitoring:
+   - **All Jobs**: Clears all jobs from the monitor
+   - **Finished Jobs**: Removes all finished jobs from monitoring
+   - **Selected Jobs**: Removes selected jobs
+
+8. **Action Buttons** (from left to right):
    - **Eat** (pac-man icon): Eats all dead frames in selected jobs
    - **Retry** (circular arrow): Retries all dead frames in selected jobs
    - **Kill** (X icon): Kills selected jobs
