@@ -3,7 +3,7 @@ name: OpenCue SonarCloud Pipeline
 # Trigger this pipeline on new commits to master.
 on:
   push:
-    branches: [ master ]
+    branches: [ cicd-coverage-report ]
 
 jobs:
   analyze_python:
