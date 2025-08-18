@@ -78,14 +78,20 @@ To copy a frame name, right-click on a frame in the frame list and select **Copy
 
 All copy buttons use the same icon as the "Copy Log Path" feature for visual consistency. When multiple items are selected, all selected names will be copied to the clipboard separated by spaces.
 
-## Managing frames
+## Managing frames and jobs
 
-To manage frames, select one of the following:
+The Monitor Jobs toolbar provides action buttons for managing jobs and frames:
 
-*   **Retry** - Retrying a frame stops rendering and retries the frame on
-    another proc.
-*   **Eat** - Eating a frame stops rendering and doesn't try to continue
-    processing the frame.
+*   **Eat Dead Frames** - Eats all dead frames for selected jobs to free scheduling resources. Eating a frame stops rendering and marks it as complete without retrying.
+*   **Retry Dead Frames** - Retries all dead frames for selected jobs. Retrying requeues failed frames to run again.
+*   **Kill Jobs** - Kill selected jobs and their running frames. Stops all processing for the selected jobs.
+*   **Pause Jobs** - Pause selected job. No new frames will start on paused jobs.
+*   **Unpause Jobs** - Unpause selected jobs. Resumes processing of paused jobs.
+
+Individual frame management options are also available through right-click context menus:
+
+*   **Retry** - Retrying a frame stops rendering and retries the frame on another proc.
+*   **Eat** - Eating a frame stops rendering and doesn't try to continue processing the frame.
 *   **Kill** - Killing a frame stops rendering and books to another proc.
 
 ## Rendering and staggering frames

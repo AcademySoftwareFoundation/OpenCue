@@ -69,11 +69,11 @@ The toolbar contains the following controls from left to right:
    - **Selected Jobs**: Removes selected jobs
 
 8. **Action Buttons** (from left to right):
-   - **Eat** (pac-man icon): Eats all dead frames in selected jobs
-   - **Retry** (circular arrow): Retries all dead frames in selected jobs
-   - **Kill** (X icon): Kills selected jobs
-   - **Pause** (pause icon): Pauses selected jobs
-   - **Unpause** (play icon): Resumes selected paused jobs
+   - **Eat Dead Frames** (pac-man icon): Eats all dead frames for selected jobs to free scheduling resources
+   - **Retry Dead Frames** (circular arrow): Retries all dead frames for selected jobs
+   - **Kill Jobs** (X icon): Kill selected jobs and their running frames
+   - **Pause Jobs** (pause icon): Pause selected job
+   - **Unpause Jobs** (play icon): Unpause selected jobs
 
 ### Job Table Columns
 
