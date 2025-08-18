@@ -33,7 +33,7 @@ This guide provides comprehensive documentation for Cuetopia, which includes the
 
 The Monitor Jobs plugin is the primary interface for monitoring active and completed render jobs. It provides a comprehensive overview of all jobs with real-time status updates.
 
-![Monitor Jobs Interface](/assets/images/cuegui/cuetopia_monitor_jobs.png)
+![Monitor Jobs Interface](/assets/images/cuegui/cuetopia/cuetopia_monitor_jobs.png)
 
 ### Interface Components
 
@@ -63,15 +63,17 @@ The toolbar contains the following controls from left to right:
    - Groups jobs with dependencies together
    - Shows parent-child relationships in the tree view
 
-7. **Action Buttons** (from left to right):
-   - **Finished** (eject icon): Removes all finished jobs from monitoring
-   - **All** (eject icon): Clears all jobs from the monitor
-   - **Selected** (eject icon): Removes selected jobs
-   - **Eat** (pac-man icon): Eats all dead frames in selected jobs
-   - **Retry** (circular arrow): Retries all dead frames in selected jobs
-   - **Kill** (X icon): Kills selected jobs
-   - **Pause** (pause icon): Pauses selected jobs
-   - **Unpause** (play icon): Resumes selected paused jobs
+7. **Unmonitor Dropdown**: A dropdown menu with options to remove jobs from monitoring:
+   - **All Jobs**: Clears all jobs from the monitor
+   - **Finished Jobs**: Removes all finished jobs from monitoring
+   - **Selected Jobs**: Removes selected jobs
+
+8. **Action Buttons** (from left to right):
+   - **Eat Dead Frames** (pac-man icon): Eats all dead frames for selected jobs to free scheduling resources
+   - **Retry Dead Frames** (circular arrow): Retries all dead frames for selected jobs
+   - **Kill Jobs** (X icon): Kill selected jobs and their running frames
+   - **Pause Jobs** (pause icon): Pause selected job
+   - **Unpause Jobs** (play icon): Unpause selected jobs
 
 ### Job Table Columns
 
@@ -139,7 +141,7 @@ Right-clicking on a job provides these actions:
 
 The Monitor Job Details plugin provides detailed information about a selected job's layers and frames. It can be opened manually from the menu or appears automatically when you double-click a job in the Monitor Jobs view.
 
-![Job Details Interface](/assets/images/cuegui/cuetopia_monitor_jobs_details.png)
+![Job Details Interface](/assets/images/cuegui/cuetopia/cuetopia_monitor_jobs_details.png)
 
 ### Layout Structure
 
@@ -230,7 +232,7 @@ Frames are color-coded by status:
 
 The Job Graph plugin provides a visual node-based representation of job layers and their dependencies.
 
-![Job Graph Interface](/assets/images/cuegui/cuetopia_job_graph.png)
+![Job Graph Interface](/assets/images/cuegui/cuetopia/cuetopia_job_graph.png)
 
 ### Graph Features
 
