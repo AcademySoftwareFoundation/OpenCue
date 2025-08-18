@@ -69,12 +69,16 @@ class Host(object):
     def lock(self):
         """Locks the host so that it no longer accepts new frames"""
         self.stub.Lock(host_pb2.HostLockRequest(host=self.data), timeout=Cuebot.Timeout)
+        # Update the cached lock_state.
+        self.data.lock_state = self.LockState.LOCKED
 
     def unlock(self):
         """Unlocks the host.
 
         Cancels any actions that were waiting for all running frames to finish."""
         self.stub.Unlock(host_pb2.HostUnlockRequest(host=self.data), timeout=Cuebot.Timeout)
+        # Update the cached lock_state.
+        self.data.lock_state = self.LockState.OPEN
 
     def delete(self):
         """Deletes the host from the cuebot"""
@@ -130,8 +134,12 @@ class Host(object):
         :type  tags: list<str>
         :param tags: The tags to add
         """
+        # Filter out duplicates
+        tags = [item for item in tags if item not in self.data.tags]
         self.stub.AddTags(host_pb2.HostAddTagsRequest(host=self.data, tags=tags),
                           timeout=Cuebot.Timeout)
+        # Update the cached tags.
+        self.data.tags.extend(tags)
 
     def removeTags(self, tags):
         """Removes tags from this host.
