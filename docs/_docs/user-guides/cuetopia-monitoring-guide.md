@@ -141,7 +141,7 @@ Right-clicking on a job provides these actions:
 
 The Monitor Job Details plugin provides detailed information about a selected job's layers and frames. It can be opened manually from the menu or appears automatically when you double-click a job in the Monitor Jobs view.
 
-![Job Details Interface](/assets/images/cuegui/cuetopia_monitor_jobs_details.png)
+![Job Details Interface](/assets/images/cuegui/cuetopia/cuetopia_monitor_jobs_details.png)
 
 ### Layout Structure
 
@@ -232,7 +232,7 @@ Frames are color-coded by status:
 
 The Job Graph plugin provides a visual node-based representation of job layers and their dependencies.
 
-![Job Graph Interface](/assets/images/cuegui/cuetopia_job_graph.png)
+![Job Graph Interface](/assets/images/cuegui/cuetopia/cuetopia_job_graph.png)
 
 ### Graph Features
 
