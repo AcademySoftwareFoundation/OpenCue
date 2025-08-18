@@ -62,19 +62,19 @@ CueGUI provides convenient copy buttons to quickly copy job, layer, and frame na
 
 To copy a job name to the clipboard, right-click on a job in the *Monitor Jobs* view and select **Copy Job Name**. The exact job name will be copied to your clipboard.
 
-![Copy Job Name context menu](/assets/images/cuegui/cuegui_copy_job_name.png)
+![Copy Job Name context menu](/assets/images/cuegui/cuetopia/cuegui_copy_job_name.png)
 
 ### Copying layer names
 
 To copy a layer name, right-click on a layer in the job details view and select **Copy Layer Name**. This copies the layer name to your clipboard.
 
-![Copy Layer Name context menu](/assets/images/cuegui/cuegui_copy_layer_name.png)
+![Copy Layer Name context menu](/assets/images/cuegui/cuetopia/cuegui_copy_layer_name.png)
 
 ### Copying frame names
 
 To copy a frame name, right-click on a frame in the frame list and select **Copy Frame Name**. The frame name will be copied to your clipboard.
 
-![Copy Frame Name context menu](/assets/images/cuegui/cuegui_copy_frame_name.png)
+![Copy Frame Name context menu](/assets/images/cuegui/cuetopia/cuegui_copy_frame_name.png)
 
 All copy buttons use the same icon as the "Copy Log Path" feature for visual consistency. When multiple items are selected, all selected names will be copied to the clipboard separated by spaces.
 

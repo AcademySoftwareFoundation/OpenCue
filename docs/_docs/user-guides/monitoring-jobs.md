@@ -157,7 +157,7 @@ The OS filter allows you to filter hosts based on their operating system:
 4. The host list updates to show only hosts matching the selected OS values
 5. Use the **Clear** option to remove all OS filters
 
-![Monitor Hosts with OS Filter](/assets/images/cuegui/cuecommander_monitor_os_filter.png)
+![Monitor Hosts with OS Filter](/assets/images/cuegui/cuecommander/cuecommander_monitor_os_filter.png)
 
 The OS filter list dynamically updates based on the operating systems detected in your host environment. When you first open CueCommander, the filter displays "Not Loaded" to indicate that host data hasn't been retrieved yet. Once hosts are loaded, the filter automatically populates with the actual OS values found in your system.
 
