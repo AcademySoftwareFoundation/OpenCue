@@ -295,10 +295,12 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         layout.addWidget(unmonitorCombo)
 
         eatSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eat.png"), "Eat Dead Frames")
-        eatSelectedButton.setToolTip("Eats all dead frames for selected jobs to free scheduling resources")
+        eatSelectedButton.setToolTip(
+            "Eats all dead frames for selected jobs to free scheduling resources")
         eatSelectedButton.setFocusPolicy(QtCore.Qt.NoFocus)
         layout.addWidget(eatSelectedButton)
-        eatSelectedButton.clicked.connect(self.jobMonitor.actionEatSelectedItems)  # pylint: disable=no-member
+        eatSelectedButton.clicked.connect(
+            self.jobMonitor.actionEatSelectedItems)  # pylint: disable=no-member
 
         retryButton = QtWidgets.QPushButton(QtGui.QIcon(":retry.png"), "Retry Dead Frames")
         retryButton.setToolTip("Retries all dead frames for selected jobs")
