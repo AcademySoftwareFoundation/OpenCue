@@ -278,7 +278,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                 "- Dependent: Group by job dependencies\n"
                                 "- Show-Shot: Group by show and shot\n"
                                 "- Show-Shot-Username: Group by show, shot, and username")
-        
+
         def handleGroupBySelection(index):
             if index == 1:  # Clear
                 self._currentGroupByMode = "Clear"
@@ -294,7 +294,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                 self.jobMonitor.setGroupBy("Show-Shot-Username")
             # Reset to default selection after action
             groupByCombo.setCurrentIndex(0)
-        
+
         groupByCombo.currentIndexChanged.connect(handleGroupBySelection)
         layout.addWidget(groupByCombo)
 

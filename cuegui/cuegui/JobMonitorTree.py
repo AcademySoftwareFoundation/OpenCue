@@ -283,17 +283,17 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if mode in ["Clear", "Dependent", "Show-Shot", "Show-Shot-Username"]:
             old_mode = self.__groupByMode
             self.__groupByMode = mode
-            
+
             # If we have existing jobs, regroup them
             if self._items and old_mode != mode:
                 current_jobs = {}
                 for proxy, item in list(self._items.items()):
                     current_jobs[proxy] = item.rpcObject
-                
+
                 # Process update with new grouping
                 if current_jobs:
                     self._processUpdate(None, current_jobs)
-            
+
             self.updateRequest()
 
     def addJob(self, job, timestamp=None, loading_from_config=False):
@@ -687,7 +687,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             # Store the creation time for the dependent jobs
             for item in self._dependent_items.values():
                 self.__jobTimeLoaded[cuegui.Utils.getObjectKey(item.rpcObject)] = item.created
-            
+
             # Save expansion state of current group items
             for group_key, group_item in self.__groupItems.items():
                 self.__groupExpansionState[group_key] = group_item.isExpanded()
@@ -703,7 +703,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     self._items[proxy] = JobWidgetItem(job,
                                                        self.invisibleRootItem(),
                                                        self.__jobTimeLoaded.get(proxy, None))
-                
+
                 elif self.__groupByMode == "Show-Shot":
                     # Group by show-shot
                     job_name = job.data.name
@@ -712,7 +712,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         show = parts[0]
                         shot = parts[1]
                         group_key = f"{show}-{shot}"
-                        
+
                         # Create or get group parent item
                         if group_key not in self.__groupItems:
                             self.__groupItems[group_key] = GroupWidgetItem(
@@ -720,7 +720,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                             # Restore expansion state or default to expanded
                             is_expanded = self.__groupExpansionState.get(group_key, True)
                             self.__groupItems[group_key].setExpanded(is_expanded)
-                        
+
                         # Add job as child of group
                         self._items[proxy] = JobWidgetItem(job,
                                                           self.__groupItems[group_key],
@@ -730,7 +730,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         self._items[proxy] = JobWidgetItem(job,
                                                           self.invisibleRootItem(),
                                                           self.__jobTimeLoaded.get(proxy, None))
-                
+
                 elif self.__groupByMode == "Show-Shot-Username":
                     # Group by show-shot-username
                     job_name = job.data.name
@@ -748,9 +748,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                 username = "unknown"
                         else:
                             username = "unknown"
-                        
+
                         group_key = f"{show}-{shot}-{username}"
-                        
+
                         # Create or get group parent item
                         if group_key not in self.__groupItems:
                             self.__groupItems[group_key] = GroupWidgetItem(
@@ -758,7 +758,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                             # Restore expansion state or default to expanded
                             is_expanded = self.__groupExpansionState.get(group_key, True)
                             self.__groupItems[group_key].setExpanded(is_expanded)
-                        
+
                         # Add job as child of group
                         self._items[proxy] = JobWidgetItem(job,
                                                           self.__groupItems[group_key],
@@ -768,7 +768,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         self._items[proxy] = JobWidgetItem(job,
                                                           self.invisibleRootItem(),
                                                           self.__jobTimeLoaded.get(proxy, None))
-                
+
                 elif self.__groupByMode == "Dependent":
                     # Dependent mode - group by job dependencies
                     self._items[proxy] = JobWidgetItem(job,
@@ -784,7 +784,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         if dkey in self.__userColors:
                             self._dependent_items[dkey].setUserColor(
                                            self.__userColors[dkey])
-                
+
                 if proxy in self.__userColors:
                     self._items[proxy].setUserColor(self.__userColors[proxy])
 
@@ -896,7 +896,7 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
 class GroupWidgetItem(QtWidgets.QTreeWidgetItem):
     """Represents a group parent item in the JobMonitorTree."""
-    
+
     def __init__(self, group_name, parent, group_type):
         """Initialize a group widget item.
         @param group_name: The name of the group (e.g., "show-shot" or "show-shot-username")
@@ -907,26 +907,26 @@ class GroupWidgetItem(QtWidgets.QTreeWidgetItem):
         self.group_name = group_name
         self.group_type = group_type
         self.setText(0, group_name)
-        
+
         # Set bold font for group headers
         font = QtGui.QFont()
         font.setBold(True)
         self.setFont(0, font)
-        
+
         # Make group headers non-selectable
         self.setFlags(self.flags() & ~QtCore.Qt.ItemIsSelectable)
-        
+
     def data(self, col, role):
         """Return data for the given column and role."""
         if role == QtCore.Qt.DisplayRole:
             if col == 0:
                 return self.group_name
             return ""
-        
+
         if role == QtCore.Qt.FontRole and col == 0:
             font = QtGui.QFont()
             font.setBold(True)
             return font
-        
+
         # Let the parent handle all other roles (including selection colors)
         return QtWidgets.QTreeWidgetItem.data(self, col, role)
