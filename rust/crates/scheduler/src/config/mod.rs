@@ -3,10 +3,15 @@ pub mod error;
 use crate::config::error::JobQueueConfigError;
 use bytesize::ByteSize;
 use config::{Config as ConfigBase, Environment, File};
+use lazy_static::lazy_static;
 use serde::Deserialize;
 use std::{env, time::Duration};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
+
+lazy_static! {
+    pub static ref CONFIG: Config = Config::load().expect("Failed to load config file");
+}
 
 //===Config Types===
 
@@ -50,6 +55,8 @@ pub struct QueueConfig {
     pub dispatch_frames_per_layer_limit: usize,
     pub core_multiplier: u32,
     pub memory_stranded_threshold: ByteSize,
+    #[serde(with = "humantime_serde")]
+    pub job_back_off_duration: Duration,
 }
 
 impl Default for QueueConfig {
@@ -60,6 +67,7 @@ impl Default for QueueConfig {
             dispatch_frames_per_layer_limit: 20,
             core_multiplier: 100,
             memory_stranded_threshold: ByteSize::gib(2),
+            job_back_off_duration: Duration::from_secs(300),
         }
     }
 }
@@ -75,7 +83,7 @@ pub struct DatabaseConfig {
 impl Default for DatabaseConfig {
     fn default() -> DatabaseConfig {
         DatabaseConfig {
-            pool_size: 2,
+            pool_size: 10,
             connection_url: "postgres://postgres:password@localhost/test".to_string(),
             core_multiplier: 100,
         }
@@ -126,11 +134,15 @@ impl Default for TopicConfig {
 #[serde(default)]
 pub struct RqdConfig {
     pub grpc_port: u32,
+    pub dry_run_mode: bool,
 }
 
 impl Default for RqdConfig {
     fn default() -> RqdConfig {
-        RqdConfig { grpc_port: 8444 }
+        RqdConfig {
+            grpc_port: 8444,
+            dry_run_mode: false,
+        }
     }
 }
 //===Config Loader===

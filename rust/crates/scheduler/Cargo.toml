@@ -1,5 +1,5 @@
 [package]
-name = "job-queue"
+name = "scheduler"
 authors = { workspace = true }
 edition = { workspace = true }
 version = { workspace = true }
@@ -8,7 +8,7 @@ description = "OpenCue Server Side Job Queueing Service"
 
 [[bin]]
 path = "src/main.rs"
-name = "job-queue"
+name = "cue-scheduler"
 
 [dependencies]
 # Internal Dependencies
@@ -44,3 +44,5 @@ once_cell = "1.13"
 bytesize = { version = "1.2.0", features = ["serde"] }
 regex = "1.0"
 indexmap = "2.0"
+lazy_static = "1.5"
+moka = { version = "0.12.10", features = ["future"] }

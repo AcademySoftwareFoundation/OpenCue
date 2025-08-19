@@ -1,10 +1,11 @@
 use crate::{
-    consumer::{frame_dao::FrameDao, frame_set::FrameSet, host_dao::HostDao},
-    models::{DispatchFrame, DispatchLayer, Host, VirtualProc},
+    dao::{FrameDao, HostDao},
+    job_dispatcher::{DispatchError, VirtualProcError, frame_set::FrameSet},
+    models::{CoreSize, DispatchFrame, DispatchLayer, Host, VirtualProc},
 };
 use bytesize::MIB;
 use futures::{FutureExt, StreamExt};
-use miette::{Context, Error, IntoDiagnostic, Result, miette};
+use miette::{Context, IntoDiagnostic, Result, miette};
 use opencue_proto::{
     host::ThreadMode,
     rqd::{RqdStaticLaunchFrameRequest, RunFrame, rqd_interface_client::RqdInterfaceClient},
@@ -14,46 +15,64 @@ use tonic::transport::Channel;
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
+/// RQD dispatcher responsible for dispatching frames to render hosts.
+///
+/// The dispatcher handles:
+/// - Frame-to-host matching and resource allocation
+/// - gRPC communication with RQD instances
+/// - Resource consumption tracking and validation
+/// - Frame command preparation and execution setup
 pub struct RqdDispatcher {
     frame_dao: FrameDao,
     host_dao: Arc<HostDao>,
     dispatch_frames_per_layer_limit: usize,
     grpc_port: u32,
-    core_multiplier: u32,
     memory_stranded_threshold: u64,
-}
-
-pub enum VirtualProcError {
-    HostResourcesExtinguished(String),
-}
-
-pub enum DispatchError {
-    HostLock(String),
-    Failure(Error),
-    AllocationOverBurst(String),
-    FailureAfterDispatch(Error),
-    HostResourcesExtinguished,
+    dry_run_mode: bool,
 }
 
 impl RqdDispatcher {
+    /// Creates a new RQD dispatcher with the specified configuration.
+    ///
+    /// # Arguments
+    /// * `frame_dao` - Database access for frame operations
+    /// * `host_dao` - Database access for host operations and locking
+    /// * `grpc_port` - Port number for RQD gRPC connections
+    /// * `dispatch_frames_per_layer_limit` - Maximum frames to dispatch per layer
+    /// * `memory_stranded_threshold` - Memory threshold for stranded frame detection
+    /// * `dry_run_mode` - If true, logs dispatch actions without executing them
     pub fn new(
         frame_dao: FrameDao,
         host_dao: Arc<HostDao>,
         grpc_port: u32,
         dispatch_frames_per_layer_limit: usize,
-        core_multiplier: u32,
         memory_stranded_threshold: u64,
+        dry_run_mode: bool,
     ) -> Self {
         Self {
             frame_dao,
             host_dao,
             grpc_port,
             dispatch_frames_per_layer_limit,
-            core_multiplier,
             memory_stranded_threshold,
+            dry_run_mode,
         }
     }
 
+    /// Dispatches a layer to a specific host with proper locking and error handling.
+    ///
+    /// The dispatch process:
+    /// 1. Acquires an exclusive lock on the target host
+    /// 2. Performs the actual dispatch operation
+    /// 3. Ensures the host lock is always released, even on panic or failure
+    ///
+    /// # Arguments
+    /// * `layer` - The layer containing frames to dispatch
+    /// * `host` - The target host for frame execution
+    ///
+    /// # Returns
+    /// * `Ok(())` on successful dispatch
+    /// * `Err(DispatchError)` on various failure conditions
     pub async fn dispatch(&self, layer: &DispatchLayer, host: &Host) -> Result<(), DispatchError> {
         // Acquire lock first
         if !self
@@ -96,9 +115,15 @@ impl RqdDispatcher {
         layer: &DispatchLayer,
         host: &Host,
     ) -> Result<(), DispatchError> {
-        let mut rqd_client = Self::connect_to_rqd(&host.name, self.grpc_port)
-            .await
-            .map_err(DispatchError::Failure)?;
+        let rqd_client = if self.dry_run_mode {
+            None
+        } else {
+            Some(
+                Self::connect_to_rqd(&host.name, self.grpc_port)
+                    .await
+                    .map_err(DispatchError::Failure)?,
+            )
+        };
 
         let mut stream = self
             .frame_dao
@@ -106,54 +131,78 @@ impl RqdDispatcher {
         let mut current_host = host.clone();
 
         // A host should not book frames if its allocation is at or above its limit,
-        // but checking the limit before each frame is too costly. The trade off is
+        // but checking the limit before each frame is too costly. The tradeoff is
         // to check the allocation state before entering the frame booking loop,
         // with these there's a risk the allocation will go above burst, but not by
         // a great margin as each loop only runs for a limited number of frames
         // (see config queue.dispatch_frames_per_layer_limit)
         let mut allocation_capacity = host.alloc_available_cores;
 
+        let mut dispatched_procs: Vec<String> = Vec::new();
+
         while let Some(frame) = stream.next().await {
             match frame {
                 Ok(frame_model) => {
                     let frame: DispatchFrame = frame_model.into();
+                    debug!("found frame {}", frame);
 
                     match Self::consume_host_virtual_resources(
                         frame,
                         current_host.clone(),
-                        self.core_multiplier,
                         self.memory_stranded_threshold,
                     )
                     .await
                     {
                         Ok((virtual_proc, updated_host)) => {
+                            debug!("Built virtual proc {}", virtual_proc);
                             // Update host for the next iteration
                             current_host = updated_host;
 
                             // Check allocation capacity
-                            if virtual_proc.cores_reserved > allocation_capacity {
+                            let cores_reserved_without_multiplier: CoreSize =
+                                virtual_proc.cores_reserved.into();
+                            if cores_reserved_without_multiplier > allocation_capacity {
                                 Err(DispatchError::AllocationOverBurst(
                                     host.allocation_name.clone(),
                                 ))?;
                             };
-                            allocation_capacity -= virtual_proc.cores_reserved;
+                            allocation_capacity =
+                                allocation_capacity - virtual_proc.cores_reserved.into();
 
                             let run_frame = self
                                 .prepare_rqd_run_frame(&virtual_proc)
                                 .map_err(DispatchError::Failure)?;
+                            debug!("Prepared run_frame for {}", virtual_proc);
                             let request = RqdStaticLaunchFrameRequest {
                                 run_frame: Some(run_frame),
                             };
 
-                            rqd_client
-                                .launch_frame(request)
-                                .await
-                                .into_diagnostic()
-                                .map_err(DispatchError::Failure)?;
-                            self.host_dao
-                                .update_resources(&current_host)
-                                .await
-                                .map_err(DispatchError::FailureAfterDispatch)?;
+                            // When running on dry_run_mode, just log the outcome
+                            let msg = format!("Dispatching {} on {}", virtual_proc, &current_host);
+                            if self.dry_run_mode {
+                                info!("(DRY_RUN) {}", msg);
+                            } else {
+                                debug!(msg);
+                                // Get a ref to the mutable grpc client
+                                let mut rqd_client_ref = rqd_client
+                                    .as_ref()
+                                    .expect("Should be Some if dry_run is false")
+                                    .clone();
+
+                                // Launch frame on rqd
+                                rqd_client_ref
+                                    .launch_frame(request)
+                                    .await
+                                    .into_diagnostic()
+                                    .map_err(DispatchError::Failure)?;
+
+                                // Update database resources
+                                self.host_dao
+                                    .update_resources(&current_host)
+                                    .await
+                                    .map_err(DispatchError::FailureAfterDispatch)?;
+                            }
+                            dispatched_procs.push(virtual_proc.to_string());
                         }
                         Err(err) => match err {
                             VirtualProcError::HostResourcesExtinguished(msg) => {
@@ -171,64 +220,85 @@ impl RqdDispatcher {
                 }
             }
         }
+        if dispatched_procs.is_empty() {
+            info!("Found no frames on {} to dispatch to {}", layer, host);
+        } else {
+            debug!("Dispatched {} frames: ", dispatched_procs.len());
+            for proc in dispatched_procs {
+                debug!("{}", proc);
+            }
+        }
         Ok(())
     }
 
-    fn calculate_cores_requested(cores_requested: i32, total_cores: u32) -> u32 {
+    /// Calculates the actual number of cores requested based on frame requirements.
+    ///
+    /// Handles special core request semantics:
+    /// - Negative values: Reserve all cores except the specified amount
+    /// - Zero: Reserve all cores on the host
+    /// - Positive values: Reserve the exact amount requested
+    ///
+    /// # Arguments
+    /// * `cores_requested` - The raw core request from the frame
+    /// * `total_cores` - Total cores available on the host
+    ///
+    /// # Returns
+    /// The calculated number of cores to actually request
+    fn calculate_cores_requested(cores_requested: CoreSize, total_cores: CoreSize) -> CoreSize {
         // Requesting NEGATIVE cores is actually reserving ALL but the number of cores requeted
-        if cores_requested < 0 {
-            total_cores + cores_requested as u32
+        if cores_requested.value() < 0 {
+            total_cores + cores_requested
         // Requesting ZERO cores is actually reserving ALL cores on the host
-        } else if cores_requested == 0 {
+        } else if cores_requested.value() == 0 {
             total_cores
         // Requesting POSITIVE cores
         } else {
-            cores_requested as u32
+            cores_requested
         }
     }
 
+    /// Calculates the number of cores to reserve for a frame on a specific host.
+    ///
+    /// Takes into account:
+    /// - Host thread mode (All, Variable, Auto)
+    /// - Frame threadability
+    /// - Memory requirements and stranded thresholds
+    /// - Selfish services and resource availability
+    ///
+    /// # Arguments
+    /// * `host` - The target host with available resources
+    /// * `frame` - The frame requiring resources
+    /// * `memory_stranded_threshold` - Threshold for memory-stranded frame detection
+    ///
+    /// # Returns
+    /// * `Ok(CoreSize)` - Number of cores to reserve
+    /// * `Err(VirtualProcError)` - If insufficient resources available
     fn calculate_core_reservation(
         host: &Host,
         frame: &DispatchFrame,
-        core_multiplier: u32,
         memory_stranded_threshold: u64,
-    ) -> Result<u32, VirtualProcError> {
+    ) -> Result<CoreSize, VirtualProcError> {
         let cores_requested = Self::calculate_cores_requested(frame.min_cores, host.total_cores);
 
-        // Number of idle cores not taking fractional cores into consideration
-        let whole_cores_idle = ((host.idle_cores as f64 / core_multiplier as f64).floor()
-            * core_multiplier as f64) as u32;
-
         let cores_reserved = match (host.thread_mode, frame.threadable) {
-            (ThreadMode::All, _) => whole_cores_idle,
-            (ThreadMode::Variable, true) if cores_requested <= 2 * core_multiplier => {
-                2 * core_multiplier
-            }
+            (ThreadMode::All, _) => host.idle_cores,
+            (ThreadMode::Variable, true) if cores_requested.value() <= 2 => CoreSize(2),
             (ThreadMode::Auto, true) | (ThreadMode::Variable, true) => {
                 // Book whatever is left for hosts with selfish services or memory stranded
                 if frame.has_selfish_service
                     || host.idle_memory - frame.min_memory <= memory_stranded_threshold
                 {
-                    whole_cores_idle
+                    host.idle_cores
                 // Limit Variable booking to at least 2 cores
                 } else {
-                    Self::calculate_memory_balanced_core_count(
-                        host,
-                        frame,
-                        cores_requested,
-                        core_multiplier,
-                    )
+                    Self::calculate_memory_balanced_core_count(host, frame, cores_requested)
                 }
             }
             _ => cores_requested,
         };
 
         // Sanity check
-        if cores_reserved > host.total_cores
-            || cores_reserved > host.idle_cores
-            // Don't book hosts with only a fraction of a core
-            || host.idle_cores < core_multiplier
-        {
+        if cores_reserved > host.total_cores || cores_reserved > host.idle_cores {
             Err(VirtualProcError::HostResourcesExtinguished(format!(
                 "Not enough cores: {} < {}",
                 host.idle_cores, cores_reserved
@@ -245,17 +315,12 @@ impl RqdDispatcher {
     async fn consume_host_virtual_resources(
         frame: DispatchFrame,
         original_host: Host,
-        core_multiplier: u32,
         memory_stranded_threshold: u64,
     ) -> Result<(VirtualProc, Host), VirtualProcError> {
         let mut host = original_host;
 
-        let cores_reserved = Self::calculate_core_reservation(
-            &host,
-            &frame,
-            core_multiplier,
-            memory_stranded_threshold,
-        )?;
+        let cores_reserved =
+            Self::calculate_core_reservation(&host, &frame, memory_stranded_threshold)?;
 
         if host.idle_memory < frame.min_memory {
             Err(VirtualProcError::HostResourcesExtinguished(format!(
@@ -285,7 +350,7 @@ impl RqdDispatcher {
         let gpu_memory_reserved = frame.min_gpu_memory;
 
         // Update host resources
-        host.idle_cores -= cores_reserved;
+        host.idle_cores = host.idle_cores - cores_reserved;
         host.idle_memory -= memory_reserved;
         host.idle_gpus -= gpus_reserved;
         host.idle_gpu_memory -= gpu_memory_reserved;
@@ -294,7 +359,7 @@ impl RqdDispatcher {
             VirtualProc {
                 proc_id: Uuid::new_v4(),
                 host_id: host.id,
-                cores_reserved,
+                cores_reserved: cores_reserved.into(),
                 memory_reserved,
                 gpus_reserved,
                 gpu_memory_reserved,
@@ -306,13 +371,24 @@ impl RqdDispatcher {
         ))
     }
 
+    /// Calculates a memory-balanced core count to prevent resource imbalance.
+    ///
+    /// Ensures that core allocation is proportional to memory requirements
+    /// to avoid situations where memory or cores become stranded.
+    ///
+    /// # Arguments
+    /// * `host` - The host with available resources
+    /// * `frame` - The frame with memory and core requirements
+    /// * `cores_requested` - The number of cores originally requested
+    ///
+    /// # Returns
+    /// The balanced number of cores to allocate
     fn calculate_memory_balanced_core_count(
         host: &Host,
         frame: &DispatchFrame,
-        cores_requested: u32,
-        core_multiplier: u32,
-    ) -> u32 {
-        let total_cores = (host.total_cores as f64 / 100.0).floor();
+        cores_requested: CoreSize,
+    ) -> CoreSize {
+        let total_cores = host.total_cores.value() as f64;
         let total_memory = host.total_memory as f64;
         let frame_min_memory = frame.min_memory as f64;
 
@@ -320,21 +396,20 @@ impl RqdDispatcher {
         let memory_per_core = total_cores / total_memory;
 
         // How many cores worth of memory the frame needs
-        let cores_worth_of_memory = (frame_min_memory / memory_per_core).round() as u32;
-        let mut cores_to_reserve = cores_worth_of_memory * core_multiplier;
+        let mut cores_worth_of_memory = (frame_min_memory / memory_per_core.round()) as i32;
 
         // If frame requested more than the memory-balanced core count, use frame's request
-        if cores_to_reserve < cores_requested {
-            cores_to_reserve = cores_requested;
+        if cores_worth_of_memory < cores_requested.value() {
+            cores_worth_of_memory = cores_requested.value();
         }
         // Don't book above max_core limit
         if let Some(layer_cores_limit) = frame.layer_cores_limit {
-            if layer_cores_limit > 0 && cores_to_reserve > layer_cores_limit {
-                cores_to_reserve = layer_cores_limit;
+            if layer_cores_limit.value() > 0 && cores_worth_of_memory > layer_cores_limit.value() {
+                cores_worth_of_memory = layer_cores_limit.value();
             }
         }
 
-        cores_to_reserve
+        CoreSize(cores_worth_of_memory)
     }
 
     /// Calculate a new frame spec from an original frame_range and a chunk definition
@@ -381,9 +456,25 @@ impl RqdDispatcher {
         Ok((frame_spec, chunk_end_frame))
     }
 
+    /// Prepares a RunFrame message for RQD execution.
+    ///
+    /// Converts a VirtualProc into the protobuf RunFrame format required by RQD,
+    /// including:
+    /// - Environment variable setup (CUE_*, frame metadata)
+    /// - Command token replacement (#FRAME#, #LAYER#, etc.)
+    /// - Resource allocation specifications
+    /// - Frame timing and execution context
+    ///
+    /// # Arguments
+    /// * `proc` - The virtual proc containing frame and resource information
+    ///
+    /// # Returns
+    /// * `Ok(RunFrame)` - The prepared RQD RunFrame message
+    /// * `Err(miette::Error)` - If frame preparation fails
     fn prepare_rqd_run_frame(&self, proc: &VirtualProc) -> Result<RunFrame> {
-        // Calculate threads from cores reserved (divided by 100, minimum 1)
-        let threads = std::cmp::max(1, proc.cores_reserved / 100);
+        // Calculate threads from cores reserved
+        let proc_cores_reserved: CoreSize = proc.cores_reserved.into();
+        let threads = std::cmp::max(CoreSize(1), proc_cores_reserved);
         let frame = &proc.frame;
 
         // Extract frame number from frame name (assumes format "frameNumber-...")
@@ -452,7 +543,7 @@ impl RqdDispatcher {
             frame_name: frame.frame_name.clone(),
             layer_id: frame.layer_id.to_string(),
             resource_id: proc.proc_id.to_string(),
-            num_cores: proc.cores_reserved as i32,
+            num_cores: proc.cores_reserved.value(),
             num_gpus: proc.gpus_reserved as i32,
             start_time: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -487,6 +578,15 @@ impl RqdDispatcher {
         Ok(run_frame)
     }
 
+    /// Establishes a gRPC connection to an RQD instance.
+    ///
+    /// # Arguments
+    /// * `hostname` - The hostname or IP address of the RQD instance
+    /// * `port` - The gRPC port number for the RQD service
+    ///
+    /// # Returns
+    /// * `Ok(RqdInterfaceClient)` - Connected gRPC client
+    /// * `Err(miette::Error)` - If connection fails
     async fn connect_to_rqd(hostname: &str, port: u32) -> Result<RqdInterfaceClient<Channel>> {
         let client = RqdInterfaceClient::connect(format!("http://{}:{}", hostname, port))
             .await

@@ -4,13 +4,14 @@ use miette::IntoDiagnostic;
 use structopt::StructOpt;
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
-use crate::config::Config;
+use crate::config::CONFIG;
 
 mod config;
-mod consumer;
+mod dao;
+mod job_dispatcher;
+mod job_fetcher;
 mod models;
 mod pgpool;
-mod producer;
 
 #[derive(StructOpt, Debug)]
 pub struct JobQueueCli {
@@ -25,10 +26,7 @@ enum SubCommands {
 }
 
 #[derive(StructOpt, Debug)]
-struct JobDispatcherCmd {
-    #[structopt(long, long_help = "Don't dispatch jobs, only print to stdout")]
-    dry_run: bool,
-}
+struct JobDispatcherCmd {}
 
 #[derive(StructOpt, Debug)]
 struct JobProducerCmd {
@@ -41,46 +39,41 @@ struct JobProducerCmd {
 }
 
 impl JobQueueCli {
-    async fn run(&self, config: Config) -> miette::Result<()> {
+    async fn run(&self) -> miette::Result<()> {
         match &self.subcommands {
             SubCommands::JobProducer(job_producer_cmd) => {
-                producer::run(
-                    config,
+                job_fetcher::run(
                     job_producer_cmd
                         .monitor_interval_seconds
                         .map(Duration::from_secs),
                 )
                 .await
             }
-            SubCommands::JobDispatcher(job_dispatcher_cmd) => {
-                consumer::run(config, job_dispatcher_cmd.dry_run).await
-            }
+            SubCommands::JobDispatcher(_) => job_dispatcher::run().await,
         }
     }
 }
 
 fn main() -> miette::Result<()> {
-    let config = Config::load()?;
-
     let runtime = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(config.queue.worker_threads)
+        .worker_threads(CONFIG.queue.worker_threads)
         .enable_all()
         .build()
         .into_diagnostic()?;
 
-    runtime.block_on(async_main(config))
+    runtime.block_on(async_main())
 }
 
-async fn async_main(config: Config) -> miette::Result<()> {
+async fn async_main() -> miette::Result<()> {
     let log_level =
-        tracing::Level::from_str(config.logging.level.as_str()).expect("Invalid log level");
+        tracing::Level::from_str(CONFIG.logging.level.as_str()).expect("Invalid log level");
     let log_builder = tracing_subscriber::fmt()
         .with_timer(tracing_subscriber::fmt::time::SystemTime)
         .pretty()
         .with_max_level(log_level);
-    if config.logging.file_appender {
+    if CONFIG.logging.file_appender {
         let file_appender = RollingFileAppenderBase::new(
-            config.logging.path.clone(),
+            CONFIG.logging.path.clone(),
             RollingConditionBase::new().max_size(1024 * 1024),
             7,
         )
@@ -92,5 +85,5 @@ async fn async_main(config: Config) -> miette::Result<()> {
     }
 
     let opts = JobQueueCli::from_args();
-    opts.run(config).await
+    opts.run().await
 }

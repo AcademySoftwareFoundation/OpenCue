@@ -3,7 +3,7 @@ members = [
     "crates/opencue-proto",
     "crates/rqd",
     "crates/dummy-cuebot",
-    "crates/job-queue",
+    "crates/scheduler",
 ]
 
 [workspace.package]

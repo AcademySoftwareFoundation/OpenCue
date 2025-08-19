@@ -6,13 +6,26 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
-use crate::{config::DatabaseConfig, models::DispatchJob, pgpool::connection_pool};
+use crate::{
+    config::{CONFIG, DatabaseConfig},
+    models::DispatchJob,
+    pgpool::connection_pool,
+};
 
+/// Data Access Object for job operations in the job dispatch system.
+/// 
+/// Handles database queries related to jobs, specifically finding jobs
+/// that are ready for dispatch processing based on show subscriptions,
+/// resource limits, and job states.
 pub struct JobDao {
     connection_pool: Arc<Pool<Postgres>>,
-    core_multiplier: u32,
 }
 
+/// Database model representing a job ready for dispatch.
+/// 
+/// Contains the essential job metadata needed for dispatch prioritization
+/// and processing. This model is converted to `DispatchJob` for business
+/// logic operations.
 #[derive(sqlx::FromRow, Serialize, Deserialize)]
 pub struct JobModel {
     pub pk_job: String,
@@ -39,7 +52,7 @@ WITH bookable_shows AS (
     FROM subscription s
     INNER JOIN vs_waiting w ON s.pk_show = w.pk_show
     WHERE s.int_burst > 0
-        AND s.int_burst - s.int_cores >= ?
+        AND s.int_burst - s.int_cores >= $1
         AND s.int_cores < s.int_burst
 ),
 filtered_jobs AS (
@@ -68,18 +81,41 @@ WHERE ls.int_waiting_count > 0
 "#;
 
 impl JobDao {
+    /// Creates a new JobDao from database configuration.
+    /// 
+    /// Establishes a connection pool to the PostgreSQL database for
+    /// job-related queries.
+    /// 
+    /// # Arguments
+    /// * `config` - Database configuration containing connection parameters
+    /// 
+    /// # Returns
+    /// * `Ok(JobDao)` - Configured DAO ready for job operations
+    /// * `Err(miette::Error)` - If database connection fails
     pub async fn from_config(config: &DatabaseConfig) -> Result<Self> {
         let pool = connection_pool(config).await?;
 
         Ok(JobDao {
             connection_pool: pool,
-            core_multiplier: config.core_multiplier,
         })
     }
 
+    /// Queries for active jobs that are ready for dispatch processing.
+    /// 
+    /// Returns jobs that meet the following criteria:
+    /// - Belong to shows with available subscription burst capacity
+    /// - Are in PENDING state and not paused
+    /// - Have folder resources within limits (cores and GPUs)
+    /// - Have at least one layer with waiting frames
+    /// 
+    /// The query considers show subscription tiers, resource limits, and
+    /// current resource usage to ensure only dispatchable jobs are returned.
+    /// 
+    /// # Returns
+    /// A stream of `JobModel` results representing jobs ready for processing
     pub fn query_active_jobs(&self) -> impl Stream<Item = Result<JobModel, sqlx::Error>> + '_ {
         sqlx::query_as::<_, JobModel>(QUERY_PENDING_JOBS)
-            .bind(self.core_multiplier as i32)
+            .bind(CONFIG.queue.core_multiplier as i32)
             .fetch(&*self.connection_pool)
     }
 }
