@@ -718,8 +718,8 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                             self.__groupItems[group_key] = GroupWidgetItem(
                                 group_key, self.invisibleRootItem(), "show-shot")
                             # Restore expansion state or default to expanded
-                            expanded = self.__groupExpansionState.get(group_key, True)
-                            self.__groupItems[group_key].setExpanded(expanded)
+                            is_expanded = self.__groupExpansionState.get(group_key, True)
+                            self.__groupItems[group_key].setExpanded(is_expanded)
                         
                         # Add job as child of group
                         self._items[proxy] = JobWidgetItem(job,
@@ -756,8 +756,8 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                             self.__groupItems[group_key] = GroupWidgetItem(
                                 group_key, self.invisibleRootItem(), "show-shot-username")
                             # Restore expansion state or default to expanded
-                            expanded = self.__groupExpansionState.get(group_key, True)
-                            self.__groupItems[group_key].setExpanded(expanded)
+                            is_expanded = self.__groupExpansionState.get(group_key, True)
+                            self.__groupItems[group_key].setExpanded(is_expanded)
                         
                         # Add job as child of group
                         self._items[proxy] = JobWidgetItem(job,
