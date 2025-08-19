@@ -525,6 +525,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # Find all widgets that have enableRefresh attribute and disable them
         for widget in self.__findMonitorWidgets():
             if hasattr(widget, 'enableRefresh'):
+                # Save current state and disable refresh
+                # This is safe because we're in the main GUI thread (event handlers run there)
                 self.__savedRefreshStates[widget] = widget.enableRefresh
                 widget.enableRefresh = False
 
@@ -534,6 +536,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.__autoRefreshEnabled = True
 
             # Restore saved refresh states
+            # This is called from a QTimer which runs in the main thread
             for widget, previousState in self.__savedRefreshStates.items():
                 if hasattr(widget, 'enableRefresh'):
                     widget.enableRefresh = previousState
