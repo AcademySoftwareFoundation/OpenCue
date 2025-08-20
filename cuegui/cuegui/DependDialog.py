@@ -39,7 +39,7 @@ class DependDialog(QtWidgets.QDialog):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setSizeGripEnabled(True)
 
-        self.resize(1000, 600)
+        self.resize(1200, 800)
 
         name = "Dependencies for "
         if cuegui.Utils.isJob(rpcOject):
