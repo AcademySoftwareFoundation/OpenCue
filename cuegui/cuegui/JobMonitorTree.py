@@ -651,11 +651,15 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         monitored_proxies.remove(proxy)
 
             if monitored_proxies:
-                for job in opencue.api.getJobs(
-                        id=[proxyId.split('.')[-1] for proxyId in monitored_proxies],
-                        include_finished=True):
-                    objectKey = cuegui.Utils.getObjectKey(job)
-                    jobs[objectKey] = job
+                # Batch fetch jobs to improve performance
+                batch_size = 50  # Fetch in smaller batches to avoid timeouts
+                for i in range(0, len(monitored_proxies), batch_size):
+                    batch = monitored_proxies[i:i + batch_size]
+                    for job in opencue.api.getJobs(
+                            id=[proxyId.split('.')[-1] for proxyId in batch],
+                            include_finished=True):
+                        objectKey = cuegui.Utils.getObjectKey(job)
+                        jobs[objectKey] = job
 
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
