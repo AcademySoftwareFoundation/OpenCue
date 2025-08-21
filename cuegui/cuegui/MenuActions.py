@@ -762,25 +762,29 @@ class JobActions(AbstractActions):
                 " ".join(names), QtGui.QClipboard.Clipboard)
 
     setUserColor1_info = [
-        "Set Color 1 - Dark Blue", "Set user defined background color", cuegui.Constants.COLOR_USER_1]
+        "Set Color 1 - Dark Blue", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_1]
 
     def setUserColor1(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_1)
 
     setUserColor2_info = [
-        "Set Color 2 - Dark Yellow", "Set user defined background color", cuegui.Constants.COLOR_USER_2]
+        "Set Color 2 - Dark Yellow", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_2]
 
     def setUserColor2(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_2)
 
     setUserColor3_info = [
-        "Set Color 3 - Dark Green", "Set user defined background color", cuegui.Constants.COLOR_USER_3]
+        "Set Color 3 - Dark Green", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_3]
 
     def setUserColor3(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_3)
 
     setUserColor4_info = [
-        "Set Color 4 - Dark Brown", "Set user defined background color", cuegui.Constants.COLOR_USER_4]
+        "Set Color 4 - Dark Brown", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_4]
 
     def setUserColor4(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_4)
@@ -810,19 +814,22 @@ class JobActions(AbstractActions):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_8)
 
     setUserColor9_info = [
-        "Set Color 9 - Forest Green", "Set user defined background color", cuegui.Constants.COLOR_USER_9]
+        "Set Color 9 - Forest Green", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_9]
 
     def setUserColor9(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_9)
 
     setUserColor10_info = [
-        "Set Color 10 - Lavender", "Set user defined background color", cuegui.Constants.COLOR_USER_10]
+        "Set Color 10 - Lavender", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_10]
 
     def setUserColor10(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_10)
 
     setUserColor11_info = [
-        "Set Color 11 - Crimson", "Set user defined background color", cuegui.Constants.COLOR_USER_11]
+        "Set Color 11 - Crimson", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_11]
 
     def setUserColor11(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_11)

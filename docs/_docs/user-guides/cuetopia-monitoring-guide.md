@@ -20,6 +20,7 @@ This guide provides comprehensive documentation for Cuetopia, which includes the
 
 ## Table of Contents
 1. [Monitor Jobs Plugin](#monitor-jobs-plugin)
+   - [Job Color Organization](#job-color-organization)
 2. [Monitor Job Details Plugin](#monitor-job-details-plugin)
 3. [Job Graph Plugin](#job-graph-plugin)
 4. [Filters and Search Capabilities](#filters-and-search-capabilities)
@@ -132,6 +133,67 @@ Right-clicking on a job provides these actions:
 - Eat/retry frames
 - Add comments
 - Use local cores
+- Set user color (see [Job Color Organization](#job-color-organization))
+
+### Job Color Organization
+
+The Monitor Jobs view allows you to organize jobs visually by applying background colors. This feature is particularly useful when working with many concurrent renders, allowing you to group jobs by project, priority, department, or any other categorization scheme.
+
+#### Setting Job Colors
+
+To apply a color to one or more jobs:
+
+1. **Select Jobs**: Click on a job or use Ctrl+click to select multiple jobs
+2. **Right-Click**: Open the context menu
+3. **Choose Color**: Navigate to "Set user color" submenu
+
+![Set User Color Menu with 15 Options](/assets/images/cuegui/cuetopia/job_user_colors_set_user_color_with_15_color_options.png)
+
+#### Available Color Options
+
+The system provides **15 predefined colors** with descriptive names:
+
+- **Set Color 1 - Dark Blue**
+- **Set Color 2 - Dark Yellow**  
+- **Set Color 3 - Dark Green**
+- **Set Color 4 - Dark Brown**
+- **Set Color 5 - Purple**
+- **Set Color 6 - Teal**
+- **Set Color 7 - Orange**
+- **Set Color 8 - Maroon**
+- **Set Color 9 - Forest Green**
+- **Set Color 10 - Lavender**
+- **Set Color 11 - Crimson**
+- **Set Color 12 - Navy**
+- **Set Color 13 - Olive**
+- **Set Color 14 - Plum**
+- **Set Color 15 - Slate**
+
+#### Custom Color Option
+
+For complete flexibility, use the **"Set Custom Color (RGB)..."** option to create any color:
+
+1. Select jobs and choose "Set Custom Color (RGB)..." from the menu
+2. Enter RGB values (0-255 range) using the spinboxes
+3. Preview the color in real-time as you adjust values
+4. Click OK to apply the custom color
+
+![Custom Color Dialog](/assets/images/cuegui/cuetopia/job_user_colors_set_user_color_with_set_custom_color.png)
+
+#### Color Management
+
+- **Clear Colors**: Use "Clear" option to remove color assignments
+- **Persistent Colors**: Color assignments are saved and restored across CueGUI sessions
+- **Multiple Selection**: Apply colors to multiple jobs simultaneously
+- **Visual Organization**: Colors appear as background highlighting in the job list
+
+#### Best Practices for Color Organization
+
+- **Consistent Scheme**: Develop a facility-wide color coding standard
+- **Project-Based**: Use different colors for different shows or projects
+- **Priority-Based**: Use warmer colors (red, orange) for urgent jobs, cooler colors (blue, green) for routine work
+- **Department-Based**: Assign colors by department (lighting, compositing, effects)
+- **Status-Based**: Use colors to indicate job status or approval stages
 
 ---
 
