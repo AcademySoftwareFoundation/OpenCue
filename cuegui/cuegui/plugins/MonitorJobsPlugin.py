@@ -226,12 +226,28 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
             # Load if show and shot are provided or if the "load finished" checkbox is checked
             elif load_finished_jobs or re.search(
                 r"^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
-                for job in opencue.api.getJobs(regex=[substring], include_finished=True):
-                    self.jobMonitor.addJob(job)
+                # Batch load jobs for better performance
+                jobs = opencue.api.getJobs(regex=[substring], include_finished=True)
+
+                # Disable updates during batch loading
+                self.jobMonitor.setUpdatesEnabled(False)
+                try:
+                    for job in jobs:
+                        self.jobMonitor.addJob(job)
+                finally:
+                    self.jobMonitor.setUpdatesEnabled(True)
             # Otherwise, just load current matching jobs (except for the empty string)
             else:
-                for job in opencue.api.getJobs(regex=[substring]):
-                    self.jobMonitor.addJob(job)
+                # Batch load jobs for better performance
+                jobs = opencue.api.getJobs(regex=[substring])
+
+                # Disable updates during batch loading
+                self.jobMonitor.setUpdatesEnabled(False)
+                try:
+                    for job in jobs:
+                        self.jobMonitor.addJob(job)
+                finally:
+                    self.jobMonitor.setUpdatesEnabled(True)
 
     def getGroupByMode(self):
         """Get the current group by mode"""
