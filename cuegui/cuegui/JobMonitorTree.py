@@ -513,6 +513,20 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.jobs().addAction(color_menu, "setUserColor2")
         self.__menuActions.jobs().addAction(color_menu, "setUserColor3")
         self.__menuActions.jobs().addAction(color_menu, "setUserColor4")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor5")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor6")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor7")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor8")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor9")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor10")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor11")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor12")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor13")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor14")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor15")
+        color_menu.addSeparator()
+        self.__menuActions.jobs().addAction(color_menu, "setUserCustomColor")
+        color_menu.addSeparator()
         self.__menuActions.jobs().addAction(color_menu, "clearUserColor")
         menu.addMenu(color_menu)
 
@@ -585,6 +599,62 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             elif color is not None:
                 self.__userColors[objectKey] = color
             item.setUserColor(color)
+
+    def actionSetUserCustomColor(self):
+        """Opens a dialog to set a custom RGB color for selected items"""
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Set Custom Color (RGB)")
+        dialog.setModal(True)
+        
+        layout = QtWidgets.QFormLayout()
+        
+        # Create spinboxes for RGB values
+        r_spinbox = QtWidgets.QSpinBox()
+        r_spinbox.setRange(0, 255)
+        r_spinbox.setValue(100)
+        
+        g_spinbox = QtWidgets.QSpinBox()
+        g_spinbox.setRange(0, 255)
+        g_spinbox.setValue(100)
+        
+        b_spinbox = QtWidgets.QSpinBox()
+        b_spinbox.setRange(0, 255)
+        b_spinbox.setValue(100)
+        
+        # Color preview label
+        preview_label = QtWidgets.QLabel()
+        preview_label.setMinimumSize(200, 50)
+        preview_label.setFrameStyle(QtWidgets.QFrame.Box)
+        preview_label.setStyleSheet("background-color: rgb(100, 100, 100);")
+        
+        def update_preview():
+            r = r_spinbox.value()
+            g = g_spinbox.value()
+            b = b_spinbox.value()
+            preview_label.setStyleSheet(f"background-color: rgb({r}, {g}, {b});")
+        
+        r_spinbox.valueChanged.connect(update_preview)
+        g_spinbox.valueChanged.connect(update_preview)
+        b_spinbox.valueChanged.connect(update_preview)
+        
+        layout.addRow("Red (0-255):", r_spinbox)
+        layout.addRow("Green (0-255):", g_spinbox)
+        layout.addRow("Blue (0-255):", b_spinbox)
+        layout.addRow("Preview:", preview_label)
+        
+        # Buttons
+        button_box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        layout.addRow(button_box)
+        
+        dialog.setLayout(layout)
+        
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            # Create custom color from RGB values
+            custom_color = QtGui.QColor(r_spinbox.value(), g_spinbox.value(), b_spinbox.value())
+            self.actionSetUserColor(custom_color)
 
     def actionEatSelectedItems(self):
         """Eats all dead frames for selected jobs"""
