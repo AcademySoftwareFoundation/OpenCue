@@ -27,11 +27,11 @@ import functools
 import logging
 import os
 import platform
-import psutil
 import socket
 import subprocess
 import threading
 import uuid
+import psutil
 
 import rqd.rqconstants
 
