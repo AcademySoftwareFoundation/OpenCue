@@ -27,6 +27,7 @@ import functools
 import logging
 import os
 import platform
+import psutil
 import socket
 import subprocess
 import threading
@@ -164,8 +165,40 @@ def checkAndCreateUser(username, uid=None, gid=None):
             permissionsLow()
 
 
+def getInterfaceIp(interfaceName, ipv6=False):
+    """Returns the IP for the given interface name.
+
+    Requires the psutil library to be installed.
+
+    :param interfaceName: name of the network interface
+    :type interfaceName: str
+    :param ipv6: True if you want an IPv6 address, False for IPv4
+    :type ipv6: bool
+    :return: IP address or None if not found
+    :rtype: str
+    """
+
+    ipFamily = socket.AF_INET6 if ipv6 else socket.AF_INET
+    interfaces = psutil.net_if_addrs()
+    if interfaceName in interfaces:
+        for interface in interfaces[interfaceName]:
+            if interface.family == ipFamily:
+                return interface.address
+    log.warning('Interface %r with address family %s not found.', interfaceName, ipFamily)
+    return None
+
+
 def getHostIp():
     """Returns the machine's local ip address"""
+    interfaceName = getattr(rqd.rqconstants, 'RQD_NETWORK_INTERFACE', None)
+    if interfaceName:
+        ip = getInterfaceIp(interfaceName, ipv6=rqd.rqconstants.RQD_USE_IPV6_AS_HOSTNAME)
+        if ip:
+            return ip
+        log.warning(
+            'Could not find IP for interface %r, falling back to hostname resolution.',
+            interfaceName)
+
     if rqd.rqconstants.RQD_USE_IPV6_AS_HOSTNAME:
         return socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET6)[0][4][0]
     return socket.gethostbyname(socket.gethostname())
@@ -178,7 +211,7 @@ def getHostname():
             return rqd.rqconstants.OVERRIDE_HOSTNAME
         if rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME or rqd.rqconstants.RQD_USE_IPV6_AS_HOSTNAME:
             return getHostIp()
-        return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
+        return socket.gethostbyaddr(getHostIp())[0].split('.')[0]
     except (socket.herror, socket.gaierror):
         log.warning("Failed to resolve hostname to IP, falling back to local hostname")
         return socket.gethostname()
