@@ -259,8 +259,9 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         # Redrawing every even number of seconds to see the current frame
         # runtime, LLU and last log line changes. Every second was excessive.
-        if not self.ticksWithoutUpdate % 2:
-            self.redraw()
+        # Always redraw running frames regardless of update status
+        if self.__job and not self.ticksWithoutUpdate % 2:
+            self.redrawRunning()
 
     @staticmethod
     def getCores(frame, format_as_string=False):

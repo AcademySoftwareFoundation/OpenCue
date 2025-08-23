@@ -56,10 +56,21 @@ style.font.size: 10
 style.color_theme: 'plastique'
 # RGB values.
 style.colors.background: [
-  [50, 50, 100],
-  [100, 100, 50],
-  [0, 50, 0],
-  [50, 30, 0],
+  [50, 50, 100],    # Dark blue
+  [100, 100, 50],   # Dark yellow
+  [0, 50, 0],       # Dark green
+  [50, 30, 0],      # Dark brown
+  [80, 0, 80],      # Purple
+  [0, 80, 80],      # Teal
+  [100, 50, 0],     # Orange
+  [70, 0, 35],      # Maroon
+  [0, 60, 30],      # Forest green
+  [90, 60, 90],     # Lavender
+  [100, 0, 50],     # Crimson
+  [0, 50, 100],     # Navy
+  [80, 80, 0],      # Olive
+  [60, 20, 60],     # Plum
+  [30, 70, 70],     # Slate
 ]
 style.colors.frame_state:
   DEAD: [255, 0, 0]

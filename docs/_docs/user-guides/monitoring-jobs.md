@@ -95,6 +95,27 @@ To monitor a job:
     ![Monitoring the status of OpenCue
     jobs](/assets/images/cuetopia_monitor_job.png)
 
+### Grouping jobs
+
+The Monitor Jobs plugin provides a **Group By** dropdown to organize your jobs in different ways:
+
+![Group By dropdown options](/assets/images/cuegui/cuetopia/cuetopia_monitor_jobs_groupby.png)
+
+The Group By dropdown offers four organization modes:
+
+*   **Clear** (default): Display all jobs in a flat list without any grouping
+*   **Dependent**: Group jobs by their dependencies, showing dependent jobs nested under parent jobs
+*   **Show-Shot**: Group jobs by show and shot names (e.g., "show01-shot01")
+*   **Show-Shot-Username**: Group jobs by show, shot, and username (e.g., "show01-shot01-user01")
+
+To change the grouping mode:
+
+1.  Click the **Group By** dropdown in the Monitor Jobs toolbar
+2.  Select your preferred grouping option
+3.  The job list automatically reorganizes using the selected grouping mode
+
+Group headers appear in bold text and can be expanded or collapsed by clicking the arrow icon. The expansion state is preserved when switching between grouping modes or refreshing the job list.
+
 1.  Double-click the name of a job to view the details of the job in the
     Monitor Job Details plugin.
     

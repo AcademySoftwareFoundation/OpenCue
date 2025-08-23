@@ -58,6 +58,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
         self.__loadFinishedJobsCheckBox = None
+        self._currentGroupByMode = "Clear"  # Store current grouping mode
 
         self.jobMonitor = cuegui.JobMonitorTree.JobMonitorTree(self)
 
@@ -96,9 +97,9 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                      ("loadFinished",
                                       self.__loadFinishedJobsCheckBox.isChecked,
                                       self.__loadFinishedJobsCheckBox.setChecked),
-                                      ("grpDependentCb",
-                                      self.getGrpDependent,
-                                      self.setGrpDependent),
+                                      ("groupByMode",
+                                      self.getGroupByMode,
+                                      self.setGroupByMode),
                                       ("autoLoadMineCb",
                                       self.getAutoLoadMine,
                                       self.setAutoLoadMine),
@@ -225,20 +226,37 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
             # Load if show and shot are provided or if the "load finished" checkbox is checked
             elif load_finished_jobs or re.search(
                 r"^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
-                for job in opencue.api.getJobs(regex=[substring], include_finished=True):
-                    self.jobMonitor.addJob(job)
+                # Batch load jobs for better performance
+                jobs = opencue.api.getJobs(regex=[substring], include_finished=True)
+
+                # Disable updates during batch loading
+                self.jobMonitor.setUpdatesEnabled(False)
+                try:
+                    for job in jobs:
+                        self.jobMonitor.addJob(job)
+                finally:
+                    self.jobMonitor.setUpdatesEnabled(True)
             # Otherwise, just load current matching jobs (except for the empty string)
             else:
-                for job in opencue.api.getJobs(regex=[substring]):
-                    self.jobMonitor.addJob(job)
+                # Batch load jobs for better performance
+                jobs = opencue.api.getJobs(regex=[substring])
 
-    def getGrpDependent(self):
-        """Is group dependent checked"""
-        return bool(self.grpDependentCb.isChecked())
+                # Disable updates during batch loading
+                self.jobMonitor.setUpdatesEnabled(False)
+                try:
+                    for job in jobs:
+                        self.jobMonitor.addJob(job)
+                finally:
+                    self.jobMonitor.setUpdatesEnabled(True)
 
-    def setGrpDependent(self, state):
-        """Set group dependent"""
-        self.grpDependentCb.setChecked(bool(state))
+    def getGroupByMode(self):
+        """Get the current group by mode"""
+        return self._currentGroupByMode
+
+    def setGroupByMode(self, mode):
+        """Set the group by mode"""
+        self._currentGroupByMode = mode
+        self.jobMonitor.setGroupBy(mode)
 
     def getAutoLoadMine(self):
         """Is autoload mine checked"""
@@ -267,13 +285,34 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         self._loadFinishedJobsSetup(self.__toolbar)
 
-        self.grpDependentCb = QtWidgets.QCheckBox("Group Dependent")
-        self.grpDependentCb.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.grpDependentCb.setChecked(True)
-        layout.addWidget(self.grpDependentCb)
-        # pylint: disable=no-member
-        self.grpDependentCb.stateChanged.connect(self.jobMonitor.setGroupDependent)
-        # pylint: enable=no-member
+        # Create Group By dropdown (action-style like Unmonitor)
+        groupByCombo = QtWidgets.QComboBox()
+        groupByCombo.setFocusPolicy(QtCore.Qt.NoFocus)
+        groupByCombo.addItems(["Group By", "Clear", "Dependent", "Show-Shot", "Show-Shot-Username"])
+        groupByCombo.setToolTip("Select how to group jobs in the tree:\n"
+                                "- Clear: No grouping (flat list)\n"
+                                "- Dependent: Group by job dependencies\n"
+                                "- Show-Shot: Group by show and shot\n"
+                                "- Show-Shot-Username: Group by show, shot, and username")
+
+        def handleGroupBySelection(index):
+            if index == 1:  # Clear
+                self._currentGroupByMode = "Clear"
+                self.jobMonitor.setGroupBy("Clear")
+            elif index == 2:  # Dependent
+                self._currentGroupByMode = "Dependent"
+                self.jobMonitor.setGroupBy("Dependent")
+            elif index == 3:  # Show-Shot
+                self._currentGroupByMode = "Show-Shot"
+                self.jobMonitor.setGroupBy("Show-Shot")
+            elif index == 4:  # Show-Shot-Username
+                self._currentGroupByMode = "Show-Shot-Username"
+                self.jobMonitor.setGroupBy("Show-Shot-Username")
+            # Reset to default selection after action
+            groupByCombo.setCurrentIndex(0)
+
+        groupByCombo.currentIndexChanged.connect(handleGroupBySelection)
+        layout.addWidget(groupByCombo)
 
         # Create Unmonitor dropdown
         unmonitorCombo = QtWidgets.QComboBox()
