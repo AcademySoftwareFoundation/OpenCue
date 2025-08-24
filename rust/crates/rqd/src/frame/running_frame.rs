@@ -129,19 +129,19 @@ impl RunningFrame {
             .to_string_lossy()
             .to_string();
         let frame_file_prefix = format!("{}.{}", request.frame_name, &random_id.to_string()[0..7]);
-        let raw_stdout_path = std::path::Path::new(&request.log_dir)
+        let raw_stdout_path = std::path::Path::new(&config.temp_path)
             .join(format!("{}.raw_stdout.rqlog", frame_file_prefix))
             .to_string_lossy()
             .to_string();
-        let raw_stderr_path = std::path::Path::new(&request.log_dir)
+        let raw_stderr_path = std::path::Path::new(&config.temp_path)
             .join(format!("{}.raw_stderr.rqlog", frame_file_prefix))
             .to_string_lossy()
             .to_string();
-        let exit_file_path = std::path::Path::new(&request.log_dir)
+        let exit_file_path = std::path::Path::new(&config.temp_path)
             .join(format!("{}.exit_status", frame_file_prefix))
             .to_string_lossy()
             .to_string();
-        let entrypoint_file_path = std::path::Path::new(&request.log_dir)
+        let entrypoint_file_path = std::path::Path::new(&config.temp_path)
             .join(format!("{}.sh", frame_file_prefix))
             .to_string_lossy()
             .to_string();
