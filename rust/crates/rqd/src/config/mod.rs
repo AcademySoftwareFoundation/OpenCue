@@ -115,6 +115,7 @@ pub struct RunnerConfig {
     pub default_gid: u32,
     pub logger: LoggerType,
     pub prepend_timestamp: bool,
+    pub loki_url: String,
     pub use_host_path_env_var: bool,
     pub desktop_mode: bool,
     pub run_as_user: bool,
@@ -136,8 +137,8 @@ pub enum LoggerType {
     #[serde(rename = "file")]
     File,
     // This is a placeholder for new logging solutions
-    // #[serde(rename = "loki")]
-    // Loki,
+    #[serde(rename = "loki")]
+    Loki,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -156,6 +157,7 @@ impl Default for RunnerConfig {
             default_gid: 20,
             logger: LoggerType::File,
             prepend_timestamp: true,
+            loki_url: "http://localhost:3100".to_string(),
             use_host_path_env_var: false,
             desktop_mode: false,
             run_as_user: false,
