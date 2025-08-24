@@ -151,10 +151,6 @@ runner:
   # Default: true
   # prepend_timestamp: true
 
-  # Which url to use for loki server
-  # Default: "http://localhost:3100"
-  # loki_url: http://localhost:3100
-
   # Use host PATH environment variable in job environment
   # Default: false
   # use_host_path_env_var: false
