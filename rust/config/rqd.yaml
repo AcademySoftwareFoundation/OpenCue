@@ -130,6 +130,8 @@ machine:
 # RUNNER CONFIGURATION
 # =============================================================================
 runner:
+  # Dummy entry so it can be empty
+  "": ""
   # Whether to run jobs inside Docker containers
   # Default: false
   # run_on_docker: false
