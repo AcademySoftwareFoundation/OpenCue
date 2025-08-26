@@ -190,7 +190,7 @@ impl FrameLoggerT for FrameLokiLogger {
                 values: vec![[timestamp, line.to_string()]],
             }],
         };
-        let response = self._agent.post(self._loki_url.clone()+"/loki/api/v1/push")
+        let response = self._agent.post(format!("{}/loki/api/v1/push", self._loki_url))
             .send_json(payload).into_diagnostic().unwrap();
     }
     fn write(&self, bytes: &[u8]) {
