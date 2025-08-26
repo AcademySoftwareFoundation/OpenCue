@@ -375,9 +375,10 @@ impl RunningFrame {
     /// If the process fails to spawn, it logs the error but doesn't set an exit code.
     /// The method handles both successful and failed execution scenarios.
     pub async fn run(&self, recover_mode: bool) {
-        let logger_base = FrameLoggerBuilder::from_logger_config(
+        let logger_base = FrameLoggerBuilder::from_cuebot(
+            self.request.clone(),
             self.log_path.clone(),
-            &self.config,
+            self.config.clone(),
             self.config.run_as_user.then_some((self.uid, self.gid)),
         );
         if let Err(err) = logger_base {
