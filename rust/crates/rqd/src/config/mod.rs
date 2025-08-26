@@ -137,8 +137,8 @@ pub enum LoggerType {
     #[serde(rename = "file")]
     File,
     // This is a placeholder for new logging solutions
-    #[serde(rename = "loki")]
-    Loki,
+    // #[serde(rename = "loki")]
+    // Loki,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
