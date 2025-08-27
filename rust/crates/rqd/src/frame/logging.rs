@@ -155,17 +155,29 @@ pub struct FrameLokiLogger {
     _loki_url: String,
     _labels: HashMap<String, String>,
 }
-
 impl FrameLokiLogger {
-    pub fn init(
-        run_frame: RunFrame
-    ) -> Result<Self> {
-        let agent_config = Agent::config_builder()
+    pub fn init(run_frame: RunFrame) -> Result<Self> {
+        let agent: Agent = Agent::config_builder()
             .timeout_global(Some(Duration::from_secs(5)))
-            .build();
-        let agent: Agent = agent_config.into();
+            .build()
+            .into();
+
+        let (labels, loki_url) = Self::build_loki_components(run_frame)?;
+
+        Ok(FrameLokiLogger {
+            _agent: agent,
+            _loki_url: loki_url,
+            _labels: labels,
+        })
+    }
+
+    /// Builds the labels for Loki and extracts the Loki URL from the RunFrame.
+    fn build_loki_components(run_frame: RunFrame) -> Result<(HashMap<String, String>, String)> {
         let loki_labels = LokiLabels {
-            host: "hostname".to_string(),
+            host: nix::unistd::gethostname().map_or_else(
+                |_| "hostname-unavailable".to_string(),
+                |h| h.to_string_lossy().into_owned(),
+            ),
             job_name: run_frame.job_name,
             frame_name: run_frame.frame_name,
             username: run_frame.user_name,
@@ -177,10 +189,9 @@ impl FrameLokiLogger {
             serde_json::from_value(serde_json::to_value(loki_labels).into_diagnostic()?)
                 .into_diagnostic()?;
 
-        Ok(FrameLokiLogger { _agent: agent, _loki_url: run_frame.loki_url, _labels: labels })
+        Ok((labels, run_frame.loki_url))
     }
 }
-
 impl FrameLoggerT for FrameLokiLogger {
     fn writeln(&self, line: &str) {
         let timestamp = Utc::now().timestamp_nanos_opt().unwrap_or(0).to_string();
