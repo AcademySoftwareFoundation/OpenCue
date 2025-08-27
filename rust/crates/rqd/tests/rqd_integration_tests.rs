@@ -1,16 +1,41 @@
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
+use std::sync::Once;
 use std::thread;
 use std::time::Duration;
 use tempfile::TempDir;
 use tokio::time::sleep;
 
+static INIT: Once = Once::new();
+
+/// Ensure dummy-cuebot is built before running tests
+fn ensure_dummy_cuebot_built() {
+    INIT.call_once(|| {
+        println!("Building dummy-cuebot binary for tests...");
+        let output = Command::new("cargo")
+            .args(["build", "-p", "dummy-cuebot", "-r"])
+            .current_dir("../../") // Go to workspace root
+            .output()
+            .expect("Failed to execute cargo build for dummy-cuebot");
+
+        if !output.status.success() {
+            panic!(
+                "Failed to build dummy-cuebot: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        println!("Successfully built dummy-cuebot binary");
+    });
+}
+
 /// Helper function to determine the correct binary path based on build profile
 fn get_binary_path(binary_name: &str) -> String {
+    ensure_dummy_cuebot_built();
+
     // Check if we're running in debug or release mode by looking for the binaries
     let release_path = format!("../../target/release/{}", binary_name);
     let debug_path = format!("../../target/debug/{}", binary_name);
-    
+
     // First check if release binary exists
     if std::path::Path::new(&release_path).exists() {
         release_path
