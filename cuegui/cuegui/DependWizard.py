@@ -388,7 +388,7 @@ class PageDependType(AbstractWizardPage):
         self.setSubTitle("What type of dependency would you like %s to have?" % self.__msg())
 
         # it is not respecting or providing my size hints otherwise
-        self.wizard().setMinimumSize(500, 500)
+        self.wizard().setMinimumSize(1200, 800)
 
     # pylint: disable=missing-function-docstring
     def validatePage(self):

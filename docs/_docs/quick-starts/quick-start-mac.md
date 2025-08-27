@@ -1,6 +1,6 @@
 ---
 title: "Quick start for macOS"
-nav_order: 2
+nav_order: 4
 parent: Quick Starts
 layout: default
 linkTitle: "Quick start for macOS"
@@ -213,7 +213,7 @@ Terminal window:
     The following screenshot illustrates the layout of CueSubmit as a
     standalone app:
 
-    ![The default CueSubmit window](/OpenCue/assets/images/cuesubmit_quickstart.png) 
+    ![The default CueSubmit window](/assets/images/cuesubmit_quickstart.png) 
 
 1.  By default, the OpenCue sandbox environment doesn't include any rendering
     software. To experiment with the user interface, you can execute simple
@@ -246,7 +246,7 @@ Terminal window:
     The following screenshot illustrates the layout of CueGUI Cuetopia
     monitoring app:
 
-    ![The default CueGUI Cuetopia window](/OpenCue/assets/images/cuegui_quickstart.png) 
+    ![The default CueGUI Cuetopia window](/assets/images/cuegui_quickstart.png) 
 
 1.  Click **Load**.
 

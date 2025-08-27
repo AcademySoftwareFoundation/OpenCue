@@ -1,6 +1,6 @@
 ---
-title: "Monitoring your jobs"
-nav_order: 3
+title: "Monitoring jobs"
+nav_order: 24
 parent: User Guides
 layout: default
 linkTitle: "Monitoring your jobs"
@@ -9,7 +9,7 @@ description: >
   Monitor your OpenCue rendering jobs from CueGUI
 ---
 
-# Monitoring your jobs
+# Monitoring jobs
 
 ### Monitor your OpenCue rendering jobs from CueGUI
 
@@ -63,13 +63,13 @@ Before you start to monitor jobs in CueGUI, complete the following steps:
     windows. The following screenshot illustrates the default Cuetopia window
     you run to follow this guide:
     
-    ![Cuetopia default view](/OpenCue/assets/images/cuetopia_default.png)
+    ![Cuetopia default view](/assets/images/cuetopia_default.png)
 
 1.  Click **Window** > **Raise Window: CueCommander**.
 
     The following screenshot illustrates the default CueCommander window:
     
-    ![CueCommander default view](/OpenCue/assets/images/cuecommander_default.png)
+    ![CueCommander default view](/assets/images/cuecommander_default.png)
     
     You don't typically run CueCommander to monitor individual
 	OpenCue jobs and you don't need it to follow this guide.
@@ -84,7 +84,7 @@ To monitor a job:
     Monitor Jobs **Load** search field:
     
     ![Search for jobs by show name or username, or auto-load your
-    jobs.](/OpenCue/assets/images/cuegui_search.png)
+    jobs.](/assets/images/cuegui_search.png)
     
     To autoload your own jobs, check the **Autoload Mine** box.
 
@@ -93,7 +93,28 @@ To monitor a job:
     Cuetopia displays a list of jobs in the search results.
     
     ![Monitoring the status of OpenCue
-    jobs](/OpenCue/assets/images/cuetopia_monitor_job.png)
+    jobs](/assets/images/cuetopia_monitor_job.png)
+
+### Grouping jobs
+
+The Monitor Jobs plugin provides a **Group By** dropdown to organize your jobs in different ways:
+
+![Group By dropdown options](/assets/images/cuegui/cuetopia/cuetopia_monitor_jobs_groupby.png)
+
+The Group By dropdown offers four organization modes:
+
+*   **Clear** (default): Display all jobs in a flat list without any grouping
+*   **Dependent**: Group jobs by their dependencies, showing dependent jobs nested under parent jobs
+*   **Show-Shot**: Group jobs by show and shot names (e.g., "show01-shot01")
+*   **Show-Shot-Username**: Group jobs by show, shot, and username (e.g., "show01-shot01-user01")
+
+To change the grouping mode:
+
+1.  Click the **Group By** dropdown in the Monitor Jobs toolbar
+2.  Select your preferred grouping option
+3.  The job list automatically reorganizes using the selected grouping mode
+
+Group headers appear in bold text and can be expanded or collapsed by clicking the arrow icon. The expansion state is preserved when switching between grouping modes or refreshing the job list.
 
 1.  Double-click the name of a job to view the details of the job in the
     Monitor Job Details plugin.
@@ -104,21 +125,21 @@ To monitor a job:
     contains 101 frames:
     
     ![Monitoring the status of individual job layers and
-    frames](/OpenCue/assets/images/cuetopia_monitor_layer.png)
+    frames](/assets/images/cuetopia_monitor_layer.png)
 
 1.  Double-click a frame to view the associated logs.
     
     Cuetopia displays the logs for the frame in the LogView view:
     
     ![Viewing the logs associated with a
-    frame](/OpenCue/assets/images/cuetopia_monitor_logs.png)
+    frame](/assets/images/cuetopia_monitor_logs.png)
 
 ## Un-monitoring jobs
 
 You can unmonitor all or some of the jobs in the Monitor Jobs plugin:
 
 ![Unmonitor all or some of the jobs listed in the Monitor Jobs
-plugin](/OpenCue/assets/images/cuetopia_unmonitor_jobs.png)
+plugin](/assets/images/cuetopia_unmonitor_jobs.png)
 
 *   To unmonitor all finished jobs, click **Finished**.
 *   To unmonitor all jobs, click **All**.
@@ -127,7 +148,49 @@ plugin](/OpenCue/assets/images/cuetopia_unmonitor_jobs.png)
     1.  Click the following button:
 
         ![Unmonitor selected
-        jobs](/OpenCue/assets/images/cuetopia_unmonitor_selected.png)
+        jobs](/assets/images/cuetopia_unmonitor_selected.png)
+
+## Monitoring Hosts with CueCommander
+
+System administrators can use CueCommander to monitor and manage rendering hosts in the OpenCue system. The **Monitor Hosts** plugin provides comprehensive host monitoring capabilities.
+
+### Host Filtering Options
+
+The Monitor Hosts interface includes several filtering options to help you find specific hosts:
+
+- **Host Name Filter**: Search for hosts by name using regex patterns
+- **Filter Allocation**: Filter hosts by their allocation assignments
+- **Filter HardwareState**: Show hosts by hardware state (UP, DOWN, REBOOT, etc.)  
+- **Filter LockState**: Filter by lock state (OPEN, LOCKED, NIMBY_LOCKED)
+- **Filter OS**: Filter hosts by operating system
+
+### Using the OS Filter
+
+The OS filter allows you to filter hosts based on their operating system:
+
+1. In the CueCommander Monitor Hosts view, click the **Filter OS** dropdown button
+2. The filter initially shows "Not Loaded" until hosts are loaded into the view
+3. Once hosts are loaded, select one or more operating systems from the dynamically populated list:
+   - Linux
+   - Windows  
+   - macOS
+   - Other OS values detected from your hosts
+4. The host list updates to show only hosts matching the selected OS values
+5. Use the **Clear** option to remove all OS filters
+
+![Monitor Hosts with OS Filter](/assets/images/cuegui/cuecommander/cuecommander_monitor_os_filter.png)
+
+The OS filter list dynamically updates based on the operating systems detected in your host environment. When you first open CueCommander, the filter displays "Not Loaded" to indicate that host data hasn't been retrieved yet. Once hosts are loaded, the filter automatically populates with the actual OS values found in your system.
+
+### Host Management
+
+From the Monitor Hosts view, you can:
+
+- View detailed host information including CPU, memory, and GPU usage
+- Monitor host states and connectivity
+- Lock or unlock hosts for maintenance
+- Reboot hosts when needed
+- Manage host allocations and tags
 
 ## What's next?
 

@@ -91,13 +91,13 @@ If you make changes to `OpenCue/docs`, please build and test the documentation b
 
 4. **Preview the documentation**
    
-   Open http://localhost:4000/OpenCue/ in your browser to review your changes.
+Open http://localhost:4000 in your browser to review your changes.
 
 For detailed documentation setup instructions, testing procedures, and contribution guidelines, see [docs/README.md](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/docs/README.md).
 
-**Note:** Once your pull request is merged into master, the documentation will be automatically deployed via GitHub Actions ([.github/workflows/docs.yml](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/.github/workflows/docs.yml)). The updated documentation will be available at https://academysoftwarefoundation.github.io/OpenCue/.
+**Note:** Once your pull request is merged into master, the documentation will be automatically deployed via GitHub Actions ([.github/workflows/docs.yml](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/.github/workflows/docs.yml)). The updated documentation will be available at https://docs.opencue.io/.
 
-The new OpenCue documentation will soon replace the current version at https://www.opencue.io.
+The OpenCue documentation is now available at https://docs.opencue.io/.
 
 # Meeting notes
 

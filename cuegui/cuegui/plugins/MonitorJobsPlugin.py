@@ -58,6 +58,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
         self.__loadFinishedJobsCheckBox = None
+        self._currentGroupByMode = "Clear"  # Store current grouping mode
 
         self.jobMonitor = cuegui.JobMonitorTree.JobMonitorTree(self)
 
@@ -96,9 +97,9 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                      ("loadFinished",
                                       self.__loadFinishedJobsCheckBox.isChecked,
                                       self.__loadFinishedJobsCheckBox.setChecked),
-                                      ("grpDependentCb",
-                                      self.getGrpDependent,
-                                      self.setGrpDependent),
+                                      ("groupByMode",
+                                      self.getGroupByMode,
+                                      self.setGroupByMode),
                                       ("autoLoadMineCb",
                                       self.getAutoLoadMine,
                                       self.setAutoLoadMine),
@@ -225,20 +226,37 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
             # Load if show and shot are provided or if the "load finished" checkbox is checked
             elif load_finished_jobs or re.search(
                 r"^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
-                for job in opencue.api.getJobs(regex=[substring], include_finished=True):
-                    self.jobMonitor.addJob(job)
+                # Batch load jobs for better performance
+                jobs = opencue.api.getJobs(regex=[substring], include_finished=True)
+
+                # Disable updates during batch loading
+                self.jobMonitor.setUpdatesEnabled(False)
+                try:
+                    for job in jobs:
+                        self.jobMonitor.addJob(job)
+                finally:
+                    self.jobMonitor.setUpdatesEnabled(True)
             # Otherwise, just load current matching jobs (except for the empty string)
             else:
-                for job in opencue.api.getJobs(regex=[substring]):
-                    self.jobMonitor.addJob(job)
+                # Batch load jobs for better performance
+                jobs = opencue.api.getJobs(regex=[substring])
 
-    def getGrpDependent(self):
-        """Is group dependent checked"""
-        return bool(self.grpDependentCb.isChecked())
+                # Disable updates during batch loading
+                self.jobMonitor.setUpdatesEnabled(False)
+                try:
+                    for job in jobs:
+                        self.jobMonitor.addJob(job)
+                finally:
+                    self.jobMonitor.setUpdatesEnabled(True)
 
-    def setGrpDependent(self, state):
-        """Set group dependent"""
-        self.grpDependentCb.setChecked(bool(state))
+    def getGroupByMode(self):
+        """Get the current group by mode"""
+        return self._currentGroupByMode
+
+    def setGroupByMode(self, mode):
+        """Set the group by mode"""
+        self._currentGroupByMode = mode
+        self.jobMonitor.setGroupBy(mode)
 
     def getAutoLoadMine(self):
         """Is autoload mine checked"""
@@ -267,67 +285,83 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         self._loadFinishedJobsSetup(self.__toolbar)
 
-        self.grpDependentCb = QtWidgets.QCheckBox("Group Dependent")
-        self.grpDependentCb.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.grpDependentCb.setChecked(True)
-        layout.addWidget(self.grpDependentCb)
-        # pylint: disable=no-member
-        self.grpDependentCb.stateChanged.connect(self.jobMonitor.setGroupDependent)
-        # pylint: enable=no-member
+        # Create Group By dropdown (action-style like Unmonitor)
+        groupByCombo = QtWidgets.QComboBox()
+        groupByCombo.setFocusPolicy(QtCore.Qt.NoFocus)
+        groupByCombo.addItems(["Group By", "Clear", "Dependent", "Show-Shot", "Show-Shot-Username"])
+        groupByCombo.setToolTip("Select how to group jobs in the tree:\n"
+                                "- Clear: No grouping (flat list)\n"
+                                "- Dependent: Group by job dependencies\n"
+                                "- Show-Shot: Group by show and shot\n"
+                                "- Show-Shot-Username: Group by show, shot, and username")
 
-        finishedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "Finished")
-        finishedButton.setToolTip("Unmonitor finished jobs")
-        finishedButton.setFocusPolicy(QtCore.Qt.NoFocus)
-        finishedButton.setFlat(True)
-        layout.addWidget(finishedButton)
-        finishedButton.clicked.connect(self.jobMonitor.removeFinishedItems)  # pylint: disable=no-member
+        def handleGroupBySelection(index):
+            if index == 1:  # Clear
+                self._currentGroupByMode = "Clear"
+                self.jobMonitor.setGroupBy("Clear")
+            elif index == 2:  # Dependent
+                self._currentGroupByMode = "Dependent"
+                self.jobMonitor.setGroupBy("Dependent")
+            elif index == 3:  # Show-Shot
+                self._currentGroupByMode = "Show-Shot"
+                self.jobMonitor.setGroupBy("Show-Shot")
+            elif index == 4:  # Show-Shot-Username
+                self._currentGroupByMode = "Show-Shot-Username"
+                self.jobMonitor.setGroupBy("Show-Shot-Username")
+            # Reset to default selection after action
+            groupByCombo.setCurrentIndex(0)
 
-        allButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "All")
-        allButton.setToolTip("Unmonitor all jobs")
-        allButton.setFocusPolicy(QtCore.Qt.NoFocus)
-        allButton.setFlat(True)
-        layout.addWidget(allButton)
-        allButton.clicked.connect(self.jobMonitor.removeAllItems)  # pylint: disable=no-member
+        groupByCombo.currentIndexChanged.connect(handleGroupBySelection)
+        layout.addWidget(groupByCombo)
 
-        removeSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "")
-        removeSelectedButton.setToolTip("Unmonitor selected jobs")
-        removeSelectedButton.setFocusPolicy(QtCore.Qt.NoFocus)
-        removeSelectedButton.setFlat(True)
-        layout.addWidget(removeSelectedButton)
-        removeSelectedButton.clicked.connect(self.jobMonitor.actionRemoveSelectedItems)  # pylint: disable=no-member
+        # Create Unmonitor dropdown
+        unmonitorCombo = QtWidgets.QComboBox()
+        unmonitorCombo.setFocusPolicy(QtCore.Qt.NoFocus)
+        unmonitorCombo.addItems(["Unmonitor", "All Jobs", "Finished Jobs", "Selected Jobs"])
+        unmonitorCombo.setToolTip("Select jobs to unmonitor")
 
-        eatSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eat.png"), "")
-        eatSelectedButton.setToolTip("Eats all dead frames for selected jobs")
+        def handleUnmonitorSelection(index):
+            if index == 1:  # All Jobs
+                self.jobMonitor.removeAllItems()
+            elif index == 2:  # Finished Jobs
+                self.jobMonitor.removeFinishedItems()
+            elif index == 3:  # Selected Jobs
+                self.jobMonitor.actionRemoveSelectedItems()
+            # Reset to default selection after action
+            unmonitorCombo.setCurrentIndex(0)
+
+        unmonitorCombo.currentIndexChanged.connect(handleUnmonitorSelection)
+        layout.addWidget(unmonitorCombo)
+
+        eatSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eat.png"), "Eat Dead Frames")
+        eatSelectedButton.setToolTip(
+            "Eats all dead frames for selected jobs to free scheduling resources")
         eatSelectedButton.setFocusPolicy(QtCore.Qt.NoFocus)
-        eatSelectedButton.setFlat(True)
         layout.addWidget(eatSelectedButton)
-        eatSelectedButton.clicked.connect(self.jobMonitor.actionEatSelectedItems)  # pylint: disable=no-member
+        eatSelectedButton.clicked.connect(
+            self.jobMonitor.actionEatSelectedItems)  # pylint: disable=no-member
 
-        retryButton = QtWidgets.QPushButton(QtGui.QIcon(":retry.png"), "")
+        retryButton = QtWidgets.QPushButton(QtGui.QIcon(":retry.png"), "Retry Dead Frames")
         retryButton.setToolTip("Retries all dead frames for selected jobs")
         retryButton.setFocusPolicy(QtCore.Qt.NoFocus)
-        retryButton.setFlat(True)
         layout.addWidget(retryButton)
         retryButton.clicked.connect(self.jobMonitor.actionRetrySelectedItems)  # pylint: disable=no-member
 
-        killButton = QtWidgets.QPushButton(QtGui.QIcon(":kill.png"), "")
-        killButton.setToolTip("Kill selected jobs")
+        killButton = QtWidgets.QPushButton(QtGui.QIcon(":kill.png"), "Kill Jobs")
+        killButton.setToolTip("Kill selected jobs and their running frames")
         killButton.setFocusPolicy(QtCore.Qt.NoFocus)
-        killButton.setFlat(True)
         layout.addWidget(killButton)
         killButton.clicked.connect(self.jobMonitor.actionKillSelectedItems)  # pylint: disable=no-member
 
-        pauseButton = QtWidgets.QPushButton(QtGui.QIcon(":pause.png"), "")
-        pauseButton.setToolTip("Pause selected jobs")
+        pauseButton = QtWidgets.QPushButton(QtGui.QIcon(":pause.png"), "Pause Jobs")
+        pauseButton.setToolTip("Pause selected job")
         pauseButton.setFocusPolicy(QtCore.Qt.NoFocus)
-        pauseButton.setFlat(True)
         layout.addWidget(pauseButton)
         pauseButton.clicked.connect(self.jobMonitor.actionPauseSelectedItems)  # pylint: disable=no-member
 
-        unpauseButton = QtWidgets.QPushButton(QtGui.QIcon(":unpause.png"), "")
+        unpauseButton = QtWidgets.QPushButton(QtGui.QIcon(":unpause.png"), "Unpause Jobs")
         unpauseButton.setToolTip("Unpause selected jobs")
         unpauseButton.setFocusPolicy(QtCore.Qt.NoFocus)
-        unpauseButton.setFlat(True)
         layout.addWidget(unpauseButton)
         unpauseButton.clicked.connect(self.jobMonitor.actionResumeSelectedItems)  # pylint: disable=no-member
 

@@ -156,17 +156,17 @@ The Cloud plugin should be available to launch from the menu bar by navigating:
 1. To start create a cloud pool group, use the `Add Cloud Group` button to launch the
 dialog that will allow you to create a cloud group.
 
-![Add Cloud Group Dialog](/OpenCue/assets/images/news/AddCloudGroupDialog.png)
+![Add Cloud Group Dialog](/assets/images/news/AddCloudGroupDialog.png)
 
 2. If the API request is successful you should now see an entry in the Cloud Plugin's main interface.
 
-![After cloud group addition](/OpenCue/assets/images/news/MainInterfacePostAddition.png)
+![After cloud group addition](/assets/images/news/MainInterfacePostAddition.png)
 
 3. The right-click content menu has two additional functionality:
     1. Resizing (scaling up/down) the number of instances in a group.
     2. Deleting the group altogether.
 
-![Cloud Plugin Context Menu](/OpenCue/assets/images/news/CloudPluginContextMenu.png)
+![Cloud Plugin Context Menu](/assets/images/news/CloudPluginContextMenu.png)
 
 4. Once these cloud instances startup and RQD launches, you should see these nodes appear in the Monitor Hosts plugin, after which OpenCue will be able to send jobs to these hosts.
 

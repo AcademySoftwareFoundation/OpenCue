@@ -1,6 +1,6 @@
 ---
 title: "Glossary"
-nav_order: 2
+nav_order: 8
 parent: Concepts
 layout: default
 linkTitle: "Glossary"
@@ -156,7 +156,7 @@ in a layer with a tag will only render on a host that also shares that tag.
 
 ## Relationships
 
-![OpenCue relationships](/OpenCue/assets/images/opencue_object_relations.png)
+![OpenCue relationships](/assets/images/opencue_object_relations.png)
 
 This diagram depicts the connections between the primary objects within OpenCue
 As you can see the majority of connections follow a one-to-many type of

@@ -32,7 +32,7 @@ This directory contains the official documentation for OpenCue, built with Jekyl
    bundle exec jekyll serve --livereload
    ```
 
-5. **Open in browser:** http://localhost:4000/OpenCue
+5. **Open in browser:** http://localhost:4000/
 
 ## Documentation Structure
 
@@ -106,7 +106,7 @@ The documentation supports advanced Markdown features:
 1. **Place images** in `assets/images/`
 2. **Reference with proper baseurl:**
    ```markdown
-   ![Alt text](/OpenCue/assets/images/your-image.png)
+   ![Alt text]({{ '/assets/images/your-image.png' | relative_url }})
    ```
 3. **Use descriptive alt text** for accessibility
 
@@ -249,7 +249,7 @@ Documentation is automatically deployed via GitHub Actions:
 2. **Workflow:** `.github/workflows/docs.yml`
 3. **Build environment:** Ubuntu with Ruby 3.x
 4. **Deployment target:** GitHub Pages
-5. **URL:** `https://academysoftwarefoundation.github.io/OpenCue` (will be changed to `https://opencue.io` in the future)
+5. **URL:** `https://docs.opencue.io` (redirected from `https://academysoftwarefoundation.github.io/OpenCue`)
 
 ### Deploying Documentation in Your Fork
 
@@ -268,6 +268,7 @@ For developers contributing to the OpenCue project who want to validate the Open
    - Go to the Actions tab
    - Find the "Deploy Documentation" workflow and either re-run it or manually trigger it to publish your docs
    - Your documentation will be available at `https://[your-username].github.io/OpenCue`
+   - Note: In your fork, you may need to update `baseurl` in `_config.yml` to `/OpenCue` for GitHub Pages
 
 ### Build Process
 
@@ -282,8 +283,8 @@ For developers contributing to the OpenCue project who want to validate the Open
 Key configuration for deployment:
 ```yaml
 # _config.yml
-baseurl: "/OpenCue"                                    # GitHub Pages path
-url: "https://academysoftwarefoundation.github.io"    # Base domain
+baseurl: ""                                    # Empty for root domain hosting
+url: "https://docs.opencue.io"                # Production domain
 ```
 
 ## Contributing
@@ -332,7 +333,7 @@ bundle install
 
 
 **Images not displaying:**
-- Ensure proper baseurl (`/OpenCue/assets/images/`)
+- Ensure proper baseurl usage (`{{ '/assets/images/' | relative_url }}`)
 - Check file paths and case sensitivity
 - Verify images exist in `assets/images/`
 

@@ -2,7 +2,7 @@
 title: "CueWeb System"
 layout: default
 parent: Other Guides
-nav_order: 9
+nav_order: 36
 linkTitle: "CueWeb system"
 date: 2025-02-04
 description: >
@@ -61,20 +61,20 @@ Job actions: Unmonitor, Pause, Retry dead frames, Eat dead frames, Kill.
 Upon logging in through Okta/Google/GitHub or another authentication method configured using [NextAuth.js](https://next-auth.js.org/) (Figures 1 or 2), users are welcomed by CueWeb's main dashboard, as shown in Figure 3 (light mode) or Figure 4 (dark mode).  The CueWeb main page contains a paginated table that is populated with the OpenCue jobs. 
 
 #### Figure 1: CueWeb authentication page (light mode)
-![CueWeb authentication page (light mode)](/OpenCue/assets/images/cueweb/figure1-auth-light.png)
+![CueWeb authentication page (light mode)](/assets/images/cueweb/figure1-auth-light.png)
 
 #### Figure 2: CueWeb authentication page (dark mode)
-![CueWeb authentication page (dark mode)](/OpenCue/assets/images/cueweb/figure2-auth-dark.png)
+![CueWeb authentication page (dark mode)](/assets/images/cueweb/figure2-auth-dark.png)
 
 **Note:** If the CueWeb login is disabled, the image below displays the initial CueWeb page. This page includes a button labelled "CueWeb Home", which opens the main CueWeb interface. For instructions on how to disable the CueWeb login, refer to the [cueweb/README.md](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/cueweb/README.md) file.
 
-![CueWeb home button page](/OpenCue/assets/images/cueweb/cueweb-home-button.png)
+![CueWeb home button page](/assets/images/cueweb/cueweb-home-button.png)
 
 #### Figure 3: CueWeb main page (light mode)
-![CueWeb main page (light mode)](/OpenCue/assets/images/cueweb/figure3-main-light.png)
+![CueWeb main page (light mode)](/assets/images/cueweb/figure3-main-light.png)
 
 #### Figure 4: CueWeb main page (dark mode)
-![CueWeb main page (dark mode)](/OpenCue/assets/images/cueweb/figure4-main-dark.png)
+![CueWeb main page (dark mode)](/assets/images/cueweb/figure4-main-dark.png)
 
 ## CueWeb dashboard (Jobs data table) - Similar to [CueGUI Cuetopia](https://www.opencue.io/docs/user-guides/monitoring-your-jobs/)'s functionalities
 
@@ -85,39 +85,39 @@ Here's what you can expect:
 - **Customizable jobs tables:** Tailor your dashboard by selecting which columns to display, enhancing readability and focus on critical jobs metrics (see Figure 5)
 
 #### Figure 5: Column visibility dropdown to choose display data table columns
-![Column visibility dropdown](/OpenCue/assets/images/cueweb/figure5-column-visibility.png)
+![Column visibility dropdown](/assets/images/cueweb/figure5-column-visibility.png)
 
 - **Efficient job filtering:** Filter jobs by state - `Finished`, `Failing`, `Dependency`, `In Progress`, `Paused` - to streamline management tasks  (see Figure 6).
 
 #### Figure 6: Data table filtering based on job state
-![Data table filtering based on job state](/OpenCue/assets/images/cueweb/figure6-job-filtering.png)
+![Data table filtering based on job state](/assets/images/cueweb/figure6-job-filtering.png)
 
 * **Advanced monitoring options:** Un-monitor jobs selectively or in bulk, providing flexibility in data visualization (see Figures 7 and 8).
 
 #### Figure 7: Un-monitoring selected jobs (data table before un-monitor selection)
-![Un-monitoring selected jobs (before)](/OpenCue/assets/images/cueweb/figure7-unmonitor-before.png)
+![Un-monitoring selected jobs (before)](/assets/images/cueweb/figure7-unmonitor-before.png)
 
 #### Figure 8:  Un-monitoring selected jobs (data table after un-monitor selection)
-![Un-monitoring selected jobs (after)](/OpenCue/assets/images/cueweb/figure8-unmonitor-after.png)
+![Un-monitoring selected jobs (after)](/assets/images/cueweb/figure8-unmonitor-after.png)
 
 * **Detailed inspections:** A pop-up detail view for layers and frames associated with a selected job (see Figure 8 for light mode and Figure 10 for dark mode), offering deep dives into specific frame logs as shown in Figure 11 for light mode and Figure 12 for dark mode.
 
 #### Figure 9: Pop-up window to view layers and frames information (light mode) 
-![Pop-up window layers and frames (light mode)](/OpenCue/assets/images/cueweb/figure9-popup-light.png)
+![Pop-up window layers and frames (light mode)](/assets/images/cueweb/figure9-popup-light.png)
 
 #### Figure 10: Pop-up window to view layers and frames information (dark mode) 
-![Pop-up window layers and frames (dark mode)](/OpenCue/assets/images/cueweb/figure10-popup-dark.png)
+![Pop-up window layers and frames (dark mode)](/assets/images/cueweb/figure10-popup-dark.png)
 
 #### Figure 11: Frame information and logs visualization (light mode) 
-![Frame information and logs visualization (light mode)](/OpenCue/assets/images/cueweb/figure11-frame-logs-light.png)
+![Frame information and logs visualization (light mode)](/assets/images/cueweb/figure11-frame-logs-light.png)
 
 #### Figure 12: Frame information and logs visualization (dark mode) 
-![Frame information and logs visualization (dark mode)](/OpenCue/assets/images/cueweb/figure12-frame-logs-dark.png)
+![Frame information and logs visualization (dark mode)](/assets/images/cueweb/figure12-frame-logs-dark.png)
 
 - **Job searching:** Search for a job by typing in a show name followed by a hyphen and then the shot followed by a hyphen (ex: "show-shot-") or by typing in a regex query followed by a "!" (ex: ".*character-name*!"). This will trigger a dropdown populated with jobs for that query (see Figure 13). Clicking jobs in this dropdown will add them to the jobs table. Jobs in the jobs table will be highlighted `green` in the dropdown.
 
 #### Figure 13: Job search functionality 
-![Job search functionality](/OpenCue/assets/images/cueweb/figure13-job-search.png)
+![Job search functionality](/assets/images/cueweb/figure13-job-search.png)
 
 ### CueWeb Actions for Jobs / Layers / Frames
 
@@ -126,26 +126,26 @@ The CueWeb system includes actions like `eat dead frames`, `retry dead frames`, 
 Figure 14 shows the `job` context menu with options to `un-monitor`, `pause`, `retry dead frames`, `eat dead frames` and `kill` jobs and Figure 15 shows the successful message after selecting `kill` a job.
 
 #### Figure 14: CueWeb with job context menu open
-![CueWeb with job context menu open](/OpenCue/assets/images/cueweb/figure14-job-context-menu.png)
+![CueWeb with job context menu open](/assets/images/cueweb/figure14-job-context-menu.png)
 
 #### Figure 15: Pop-up showing a successful message after selecting `kill` a job
-![Pop-up showing successful kill job message](/OpenCue/assets/images/cueweb/figure15-kill-job-success.png)
+![Pop-up showing successful kill job message](/assets/images/cueweb/figure15-kill-job-success.png)
 
 Figure 16 shows the `layer` context menu with options to `kill`, `eat`, `retry`, and `retry dead frames` and Figure 17 shows the successful message after selecting `retry` a layer.
 
 #### Figure 16: CueWeb with layer context menu open
-![CueWeb with layer context menu open](/OpenCue/assets/images/cueweb/figure16-layer-context-menu.png)
+![CueWeb with layer context menu open](/assets/images/cueweb/figure16-layer-context-menu.png)
 
 #### Figure 17: Pop-up showing a successful message after selecting `retry` a layer
-![Pop-up showing successful retry layer message](/OpenCue/assets/images/cueweb/figure17-retry-layer-success.png)
+![Pop-up showing successful retry layer message](/assets/images/cueweb/figure17-retry-layer-success.png)
 
 Finally, Figure 18 shows the `frame` context menu with options to `kill`, `eat`, and `retry` and Figure 19 shows the successful message after selecting `eat` a frame.
 
 #### Figure 18: CueWeb with frame context menu open
-![CueWeb with frame context menu open](/OpenCue/assets/images/cueweb/figure18-frame-context-menu.png)
+![CueWeb with frame context menu open](/assets/images/cueweb/figure18-frame-context-menu.png)
 
 #### Figure 19: Pop-up showing a successful message after selecting `eat` a frame
-![Pop-up showing successful eat frame message](/OpenCue/assets/images/cueweb/figure19-eat-frame-success.png)
+![Pop-up showing successful eat frame message](/assets/images/cueweb/figure19-eat-frame-success.png)
 
 
 ## Conclusion

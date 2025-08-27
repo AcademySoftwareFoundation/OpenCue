@@ -1,23 +1,23 @@
 ---
-title: "CueMan Tutorial"
-nav_order: 7
+title: "Cueman Tutorial"
+nav_order: 53
 parent: "Tutorials"
 layout: default
 date: 2025-08-06
 description: >
-  Learn how to use CueMan for efficient OpenCue job management with 
+  Learn how to use Cueman for efficient OpenCue job management with 
   practical examples and real-world scenarios.
 ---
 
-# CueMan Tutorial
+# Cueman Tutorial
 
-This tutorial will guide you through using CueMan for OpenCue job management with practical examples and real-world scenarios.
+This tutorial will guide you through using Cueman for OpenCue job management with practical examples and real-world scenarios.
 
 ## Prerequisites
 
 Before starting this tutorial, ensure you have:
 - Access to an OpenCue server
-- CueMan installed (`pip install opencue-cueman`)
+- Cueman installed (`pip install opencue-cueman`)
 - Environment variables configured:
   ```bash
   export OPENCUE_HOSTS="your-cuebot-server:8443"
@@ -28,7 +28,7 @@ Before starting this tutorial, ensure you have:
 
 ### Getting Help
 
-Start by exploring CueMan's capabilities:
+Start by exploring Cueman's capabilities:
 
 ```bash
 # Display all available commands
@@ -164,7 +164,7 @@ cueman -eat show_shot_lighting_v001 -layer preview_layer
 
 ### Combining Multiple Filters
 
-CueMan's power comes from combining filters:
+Cueman's power comes from combining filters:
 
 ```bash
 # List running frames on render_layer using more than 8GB
@@ -472,11 +472,11 @@ You've learned how to:
 - Handle real-world production scenarios
 - Monitor and troubleshoot render farm issues
 
-CueMan provides powerful capabilities for OpenCue management. Start with simple operations and gradually incorporate more advanced features as you become comfortable with the tool.
+Cueman provides capabilities for OpenCue management. Start with simple operations and gradually incorporate more advanced features as you become comfortable with the tool.
 
 ## Next Steps
 
-- Explore the [CueMan Reference](/OpenCue/docs/reference/tools/cueman/) for complete command documentation
+- Explore the [Cueman Reference](/OpenCue/docs/reference/tools/cueman/) for complete command documentation
 - Practice with test jobs before using on production
-- Create scripts combining CueMan commands for automated workflows
-- Share your experiences and tips with the OpenCue community
+- Create scripts combining Cueman commands for automated workflows
+- Continue to the [Developer Guide](/docs/developer-guide/) to learn about contributing to OpenCue or developing applications that integrate with it

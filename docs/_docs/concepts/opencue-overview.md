@@ -1,6 +1,6 @@
 ---
 title: "OpenCue overview"
-nav_order: 1
+nav_order: 7
 parent: Concepts
 layout: default
 linkTitle: "OpenCue overview"
@@ -64,7 +64,7 @@ components:
 Figure 1 illustrates how the various components interact in a large-scale
 deployment of OpenCue.
 
-![Overview of OpenCue architecture and components](/OpenCue/assets/images/opencue_architecture.svg)
+![Overview of OpenCue architecture and components](/assets/images/opencue_architecture.svg)
 
 ## What's next?
 

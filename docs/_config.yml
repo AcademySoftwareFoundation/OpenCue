@@ -1,26 +1,44 @@
 # OpenCue Documentation Configuration
 title: OpenCue Documentation
 description: OpenCue is an open source render management system for visual effects and animation.
-baseurl: "/OpenCue" # the subpath of your site, e.g. /blog
-url: "https://academysoftwarefoundation.github.io" # the base hostname & protocol for your site
+baseurl: "" # the subpath of your site, e.g. /blog
+url: "https://docs.opencue.io" # the base hostname & protocol for your site
 
 # Build settings
 theme: just-the-docs
 
-# Enable versioning
+# Version management
 versioning:
   enabled: true
   default_version: main
   versions:
     - main
-    - v0.22
-    - v0.21
-    - v0.20
+    - v0.0.1
+  version_labels:
+    main: "Latest (main)"
+    v0.0.1: "v0.0.1 (Preview)"
+
+# Git metadata
+git_metadata:
+  enabled: true
+  show_contributors: true
+  show_last_modified: true
+  date_format: "%B %d, %Y"
+
+# Build metadata (populated by CI)
+build_info:
+  timestamp: ""
+  git_hash: ""
+  
+# Documentation version (in progress)
+doc_version: "0.0.1"
+
+# OpenCue version will be read from VERSION.in by CI/CD pipeline
 
 # Just the Docs theme configuration
 color_scheme: nil
-logo: "/assets/images/opencue_logo_with_text.png"
-favicon_ico: "/assets/images/favicon.ico"
+logo: "assets/images/opencue_logo_with_text.png"
+favicon_ico: "assets/images/favicon.ico"
 
 
 
@@ -54,7 +72,7 @@ aux_links_new_tab: true
 footer_content: |
   <div style="display: flex; align-items: center; justify-content: center; gap: 2rem; flex-wrap: wrap; margin: 1rem 0;">
     <a href="https://www.aswf.io" target="_blank">
-      <img src="/OpenCue/assets/images/aswf_aqua.png" alt="Academy Software Foundation logo" style="height: 60px; width: auto;">
+      <img src="{{ '/assets/images/aswf_aqua.png' | relative_url }}" alt="Academy Software Foundation logo" style="height: 60px; width: auto;">
     </a>
     <div style="text-align: center;">
       <p style="margin: 0; font-size: 0.9rem;">© Contributors to the OpenCue Project. Licensed under <a href="https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/LICENSE">Apache 2.0</a>.</p>
@@ -95,14 +113,6 @@ enable_copy_code_button: true
 # Heading anchor links
 heading_anchors: true
 
-# External navigation links
-nav_external_links:
-  - title: <i class='fab fa-github'></i>&nbsp;OpenCue on GitHub
-    url: https://github.com/AcademySoftwareFoundation/OpenCue
-    hide_icon: false
-  - title: <i class='fab fa-github'></i>&nbsp;Report Issues
-    url: https://github.com/AcademySoftwareFoundation/OpenCue/issues
-    hide_icon: false
 
 # Google Analytics (optional)
 ga_tracking: UA-82811140-32

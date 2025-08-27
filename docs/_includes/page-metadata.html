@@ -1,0 +1,94 @@
+<div class="page-metadata">
+  <div class="metadata-row">
+    <span class="metadata-item">
+      <strong>Documentation Version:</strong> 
+      <span class="version-tag">
+        {% assign current_version = site.version | default: site.versioning.default_version %}
+        {% if current_version == "main" %}
+          latest (main)
+        {% else %}
+          {{ current_version }}
+        {% endif %}
+      </span>
+    </span>
+    
+    {% if page.last_modified_date %}
+    <span class="metadata-item">
+      <strong>Last Updated:</strong> 
+      <time datetime="{{ page.last_modified_date | date_to_xmlschema }}">
+        {{ page.last_modified_date | date: "%B %d, %Y" }}
+      </time>
+    </span>
+    {% endif %}
+
+    {% if page.contributors %}
+    <span class="metadata-item">
+      <strong>Contributors:</strong> {{ page.contributors | size }}
+    </span>
+    {% endif %}
+  </div>
+  
+  {% if site.versioning.versions.size > 1 %}
+  <div class="version-notice">
+    {% if current_version != site.versioning.default_version %}
+      <div class="notice notice-warning">
+        ⚠️ You are viewing documentation for version <strong>{{ current_version }}</strong>. 
+        <a href="{{ site.baseurl }}/">View latest documentation</a>
+      </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<style>
+.page-metadata {
+  background: var(--color-grey-lt-000);
+  border: 1px solid var(--color-grey-lt-100);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.metadata-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+.metadata-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.version-tag {
+  background: var(--color-blue-100);
+  color: var(--color-blue-700);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.version-notice {
+  margin-top: 0.75rem;
+}
+
+.notice {
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  border-left: 4px solid;
+}
+
+.notice-warning {
+  background: var(--color-yellow-000);
+  border-color: var(--color-yellow-300);
+  color: var(--color-yellow-800);
+}
+
+.notice-warning a {
+  color: var(--color-yellow-700);
+  font-weight: 500;
+}
+</style>
