@@ -35,7 +35,7 @@ impl FrameLoggerBuilder {
         runner_config: RunnerConfig,
         uid_gid: Option<(u32, u32)>,
     ) -> Result<Arc<dyn FrameLoggerT + Send + Sync + 'static>> {
-        if run_frame.loki_url != "" {
+        if !run_frame.loki_url.is_empty() {
             FrameLokiLogger::init(run_frame)
                 .map(|a| Arc::new(a) as Arc<dyn FrameLoggerT + Send + Sync + 'static>)
         } else {
