@@ -144,11 +144,6 @@ runner:
   # Default: 20
   # default_gid: 20
 
-  # Type of logger to use for job output (More options coming soon)
-  # Options: file
-  # Default: file
-  # logger: file
-
   # Whether to prepend timestamps to job log output
   # Default: true
   # prepend_timestamp: true

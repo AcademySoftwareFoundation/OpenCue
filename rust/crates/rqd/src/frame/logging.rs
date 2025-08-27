@@ -43,19 +43,6 @@ impl FrameLoggerBuilder {
                 .map(|a| Arc::new(a) as Arc<dyn FrameLoggerT + Send + Sync + 'static>)
         }
     }
-
-    pub fn from_logger_config(
-        path: String,
-        logger_config: &RunnerConfig,
-        uid_gid: Option<(u32, u32)>,
-    ) -> Result<Arc<dyn FrameLoggerT + Send + Sync + 'static>> {
-        match logger_config.logger {
-            LoggerType::File => {
-                FrameFileLogger::init(path, logger_config.prepend_timestamp, uid_gid)
-                    .map(|a| Arc::new(a) as Arc<dyn FrameLoggerT + Send + Sync + 'static>)
-            }
-        }
-    }
 }
 
 pub struct FrameFileLogger {
@@ -155,6 +142,7 @@ pub struct FrameLokiLogger {
     _loki_url: String,
     _labels: HashMap<String, String>,
 }
+
 impl FrameLokiLogger {
     pub fn init(run_frame: RunFrame) -> Result<Self> {
         let agent: Agent = Agent::config_builder()
@@ -192,6 +180,7 @@ impl FrameLokiLogger {
         Ok((labels, run_frame.loki_url))
     }
 }
+
 impl FrameLoggerT for FrameLokiLogger {
     fn writeln(&self, line: &str) {
         let timestamp = Utc::now().timestamp_nanos_opt().unwrap_or(0).to_string();
