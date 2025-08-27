@@ -65,7 +65,6 @@ device_query = "3.0"
 ureq = { version = "3.1.0", features = ["json"] }
 
 [dev-dependencies]
-dummy-cuebot = { path = "../dummy-cuebot" }
 tempfile = "3.14.0"
 
 # === Rpm configuration ===
