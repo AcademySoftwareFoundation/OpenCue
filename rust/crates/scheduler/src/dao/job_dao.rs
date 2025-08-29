@@ -7,13 +7,15 @@ use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
 use crate::{
+    cluster::ClusterFeed,
+    cluster_key::ClusterKey,
     config::{CONFIG, DatabaseConfig},
     models::DispatchJob,
     pgpool::connection_pool,
 };
 
 /// Data Access Object for job operations in the job dispatch system.
-/// 
+///
 /// Handles database queries related to jobs, specifically finding jobs
 /// that are ready for dispatch processing based on show subscriptions,
 /// resource limits, and job states.
@@ -22,7 +24,7 @@ pub struct JobDao {
 }
 
 /// Database model representing a job ready for dispatch.
-/// 
+///
 /// Contains the essential job metadata needed for dispatch prioritization
 /// and processing. This model is converted to `DispatchJob` for business
 /// logic operations.
@@ -51,8 +53,9 @@ WITH bookable_shows AS (
         s.int_burst
     FROM subscription s
     INNER JOIN vs_waiting w ON s.pk_show = w.pk_show
-    WHERE s.int_burst > 0
-        AND s.int_burst - s.int_cores >= $1
+    WHERE s.pk_subscription = $1
+        AND s.int_burst > 0
+        AND s.int_burst - s.int_cores >= $2
         AND s.int_cores < s.int_burst
 ),
 filtered_jobs AS (
@@ -66,10 +69,12 @@ filtered_jobs AS (
     INNER JOIN folder f ON j.pk_folder = f.pk_folder
     INNER JOIN folder_resource fr ON f.pk_folder = fr.pk_folder
     INNER JOIN point p ON f.pk_dept = p.pk_dept AND f.pk_show = p.pk_show
+    INNER JOIN layer l ON l.pk_job = j.pk_job
     WHERE j.str_state = 'PENDING'
         AND j.b_paused = false
         AND (fr.int_max_cores = -1 OR fr.int_cores < fr.int_max_cores)
         AND (fr.int_max_gpus = -1 OR fr.int_gpus < fr.int_max_gpus)
+        AND string_to_array($3, ' | ') && string_to_array(l.str_tags, ' | ')
 )
 SELECT DISTINCT
     fj.pk_job,
@@ -82,13 +87,13 @@ WHERE ls.int_waiting_count > 0
 
 impl JobDao {
     /// Creates a new JobDao from database configuration.
-    /// 
+    ///
     /// Establishes a connection pool to the PostgreSQL database for
     /// job-related queries.
-    /// 
+    ///
     /// # Arguments
     /// * `config` - Database configuration containing connection parameters
-    /// 
+    ///
     /// # Returns
     /// * `Ok(JobDao)` - Configured DAO ready for job operations
     /// * `Err(miette::Error)` - If database connection fails
@@ -100,22 +105,27 @@ impl JobDao {
         })
     }
 
-    /// Queries for active jobs that are ready for dispatch processing.
-    /// 
-    /// Returns jobs that meet the following criteria:
-    /// - Belong to shows with available subscription burst capacity
-    /// - Are in PENDING state and not paused
-    /// - Have folder resources within limits (cores and GPUs)
-    /// - Have at least one layer with waiting frames
-    /// 
-    /// The query considers show subscription tiers, resource limits, and
-    /// current resource usage to ensure only dispatchable jobs are returned.
-    /// 
-    /// # Returns
-    /// A stream of `JobModel` results representing jobs ready for processing
-    pub fn query_active_jobs(&self) -> impl Stream<Item = Result<JobModel, sqlx::Error>> + '_ {
+    pub fn query_active_jobs_by_show_facility_tag(
+        &self,
+        show_id: Uuid,
+        facility_id: Uuid,
+        tag: String,
+    ) -> impl Stream<Item = Result<JobModel, sqlx::Error>> + '_ {
+        sqlx::query_as::<_, JobModel>(QUERY_PENDING_JOBS)
+            .bind(format!("{:X}", show_id))
+            .bind(format!("{:X}", facility_id))
+            .bind(CONFIG.queue.core_multiplier as i32)
+            .bind(tag)
+            .fetch(&*self.connection_pool)
+    }
+
+    pub fn query_active_jobs_by_tag(
+        &self,
+        tag: String,
+    ) -> impl Stream<Item = Result<JobModel, sqlx::Error>> + '_ {
         sqlx::query_as::<_, JobModel>(QUERY_PENDING_JOBS)
             .bind(CONFIG.queue.core_multiplier as i32)
+            .bind(tag)
             .fetch(&*self.connection_pool)
     }
 }

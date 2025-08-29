@@ -1,13 +1,16 @@
-use std::{str::FromStr, time::Duration};
+use std::str::FromStr;
 
-use miette::IntoDiagnostic;
+use miette::{IntoDiagnostic, miette};
 use structopt::StructOpt;
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
-use crate::config::CONFIG;
+use crate::{cluster::ClusterFeed, config::CONFIG};
 
+mod cluster;
+mod cluster_key;
 mod config;
 mod dao;
+mod host_cache;
 mod job_dispatcher;
 mod job_fetcher;
 mod models;
@@ -15,42 +18,50 @@ mod pgpool;
 
 #[derive(StructOpt, Debug)]
 pub struct JobQueueCli {
-    #[structopt(subcommand)]
-    subcommands: SubCommands,
-}
-
-#[derive(StructOpt, Debug)]
-enum SubCommands {
-    JobProducer(JobProducerCmd),
-    JobDispatcher(JobDispatcherCmd),
-}
-
-#[derive(StructOpt, Debug)]
-struct JobDispatcherCmd {}
-
-#[derive(StructOpt, Debug)]
-struct JobProducerCmd {
     #[structopt(
         long,
-        short = "i",
-        long_help = "Interval the consumer loop should query and publish job updates to the queue"
+        short = "a",
+        long_help = "A comma separated list of allocations (eg. lax.general). \
+        When provided, the service will not query for existing allocations"
     )]
-    monitor_interval_seconds: Option<u64>,
+    allocations: Option<CommaSeparatedList>,
+
+    #[structopt(
+        long,
+        short = "s",
+        long_help = "A comma separated list of Shows. When provided, the service will not query for existing shows",
+        required_if("allocations", "")
+    )]
+    shows: Option<CommaSeparatedList>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CommaSeparatedList(pub Vec<String>);
+
+impl FromStr for CommaSeparatedList {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(CommaSeparatedList(
+            s.split(",").map(|v| v.trim().to_string()).collect(),
+        ))
+    }
 }
 
 impl JobQueueCli {
     async fn run(&self) -> miette::Result<()> {
-        match &self.subcommands {
-            SubCommands::JobProducer(job_producer_cmd) => {
-                job_fetcher::run(
-                    job_producer_cmd
-                        .monitor_interval_seconds
-                        .map(Duration::from_secs),
-                )
-                .await
-            }
-            SubCommands::JobDispatcher(_) => job_dispatcher::run().await,
-        }
+        // let cluster_feed = match (&self.allocations, &self.shows) {
+        //     (Some(allocations), Some(shows)) => {
+        //         ClusterFeed::from_predefined_values(&allocations.0, &shows.0).await
+        //     }
+        //     (None, None) => {
+        //         let subscription_dao = SubscriptionDao::from_config(&CONFIG.database).await?;
+        //         ClusterFeed::from_database(subscription_dao).await
+        //     }
+        //     _ => Err(miette!("")),
+        // }?;
+        let cluster_feed = ClusterFeed::load_all().await?;
+        job_fetcher::run(cluster_feed).await
     }
 }
 

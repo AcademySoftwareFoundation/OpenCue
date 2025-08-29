@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
 use crate::{
+    cluster_key::ClusterKey,
     config::CONFIG,
     dao::{FrameDao, HostDao, LayerDao},
+    host_cache::{HostCacheService, host_cache_service},
     job_dispatcher::{DispatchError, dispatcher::RqdDispatcher},
     models::{DispatchJob, DispatchLayer, Host},
 };
@@ -18,7 +20,7 @@ use tracing::{debug, error, info};
 /// - Matching layers to available host candidates
 /// - Dispatching frames to selected hosts via the RQD dispatcher
 pub struct BookJobEventHandler {
-    host_dao: Arc<HostDao>,
+    host_service: Arc<HostCacheService>,
     job_dao: LayerDao,
     dispatcher: RqdDispatcher,
 }
@@ -34,6 +36,7 @@ impl BookJobEventHandler {
         let host_dao = Arc::new(HostDao::from_config(&CONFIG.database).await?);
         let layer_dao = LayerDao::from_config(&CONFIG.database).await?;
         let frame_dao = FrameDao::from_config(&CONFIG.database).await?;
+        let host_service = host_cache_service().await?;
 
         let dispatcher = RqdDispatcher::new(
             frame_dao,
@@ -44,7 +47,7 @@ impl BookJobEventHandler {
             CONFIG.rqd.dry_run_mode,
         );
         Ok(BookJobEventHandler {
-            host_dao,
+            host_service,
             job_dao: layer_dao,
             dispatcher,
         })
@@ -60,26 +63,24 @@ impl BookJobEventHandler {
     /// # Arguments
     /// * `job` - The dispatch job containing layers to process
     pub async fn process(&self, job: DispatchJob) {
-        let mut stream = self.job_dao.query_layers(job.id);
-        let mut pending_layers = 0;
-        // Stream elegible layers from this job and dispatch one by one
-        while let Some(layer_model) = stream.next().await {
-            let layer: Result<DispatchLayer, _> = layer_model.map(|l| l.into());
-            match layer {
-                Ok(dispatch_layer) => {
-                    pending_layers += 1;
-                    // Give up on this
-                    self.process_layer(dispatch_layer).await
-                }
-                Err(err) => {
-                    error!("Failed to query layers. {}", err);
-                }
-            }
-        }
+        let stream = self.job_dao.query_layers(job.id);
 
-        if pending_layers == 0 {
-            info!("Found no pending layers for {}", job);
-        }
+        // Stream elegible layers from this job and dispatch one by one
+        stream
+            .for_each_concurrent(CONFIG.queue.stream.layer_buffer_size, |layer_model| async {
+                let layer: Result<DispatchLayer, _> = layer_model.map(|l| l.into());
+                match layer {
+                    Ok(dispatch_layer) => self.process_layer(dispatch_layer).await,
+                    Err(err) => {
+                        error!("Failed to query layers. {}", err);
+                    }
+                }
+            })
+            .await;
+    }
+
+    fn validate_match(host: &Host, layer: &DispatchLayer) -> bool {
+        todo!("define layer validation rule (copy from host_dao old query)")
     }
 
     /// Processes a single layer by finding host candidates and attempting dispatch.
@@ -92,18 +93,26 @@ impl BookJobEventHandler {
     /// # Arguments
     /// * `dispatch_layer` - The layer to dispatch to a host
     async fn process_layer(&self, dispatch_layer: DispatchLayer) {
-        let limit = 10;
-        let mut host_candidates_stream = self.host_dao.find_host_for_layer(&dispatch_layer, limit);
-        let mut candidates_count = 0;
-        let mut choosen_host = None;
+        // TODO: Backoff on each attempt
+        for _ in 0..10 {
+            let host_candidate = self
+                .host_service
+                .checkout(
+                    dispatch_layer.facility_id,
+                    dispatch_layer.show_id,
+                    dispatch_layer
+                        .tags
+                        .split(",")
+                        .map(|t| t.trim().to_string())
+                        .collect(),
+                    dispatch_layer.cores_min,
+                    dispatch_layer.mem_min as u64,
+                    |host| Self::validate_match(host, &dispatch_layer),
+                )
+                .await;
 
-        // Attempt to dispatch host candidates and exist on the first successful attempt
-        while let Some(host_candidate) = host_candidates_stream.next().await {
             match host_candidate {
-                Ok(host_model) => {
-                    candidates_count += 1;
-
-                    let host: Host = host_model.into();
+                Ok((cluster_key, host)) => {
                     debug!(
                         "Attempting host candidate {} for job {}",
                         host, dispatch_layer
@@ -112,56 +121,60 @@ impl BookJobEventHandler {
                         // Stop on the first successful attempt
                         // Attempt next candidate in any failure case
                         Ok(_) => {
-                            choosen_host.replace(host);
                             break;
                         }
-                        Err(DispatchError::HostLock(host_name)) => {
-                            info!("Failed to acquire lock for host {}", host_name)
-                        }
-                        Err(DispatchError::Failure(report)) => {
-                            error!(
-                                "Failed to dispatch {} on {}. {}",
-                                dispatch_layer,
-                                host,
-                                report.to_string()
-                            );
-                        }
-                        Err(DispatchError::AllocationOverBurst(allocation_name)) => {
-                            let msg = format!(
-                                "Skiping host in this selection for {}. Allocation {} is over burst.",
-                                dispatch_layer.job_id, allocation_name
-                            );
-                            info!(msg);
-                        }
-                        Err(DispatchError::FailureAfterDispatch(report)) => {
-                            // TODO: Implement a recovery logic for when a frame got dispatched
-                            // but its status hasn't been updated on the database
-                            let msg = format!(
-                                "Failed after dispatch {} on {}. {}",
-                                dispatch_layer, host, report
-                            );
-                            error!(msg);
-                        }
-                        Err(DispatchError::HostResourcesExtinguished) => {
-                            debug!(
-                                "Host resources for {} extinguished, skiping to the next candidate",
-                                host
-                            );
+                        Err(err) => {
+                            Self::log_dispatch_error(err, &dispatch_layer, &host);
                         }
                     };
+                    self.host_service.checkin(cluster_key, host);
                 }
-                Err(err) => {
-                    error!("Failed to query host to dispatch. {}", err);
-                }
+                Err(_) => todo!(),
             }
         }
-        if candidates_count == 0 {
-            info!("Found no candidate for dispatching {}", dispatch_layer);
-        } else if choosen_host.is_none() {
-            info!(
-                "Attempted {} candidates and found no match for {}",
-                limit, dispatch_layer
-            );
+    }
+
+    /// Handles various dispatch errors with appropriate logging and actions.
+    ///
+    /// # Arguments
+    /// * `error` - The dispatch error that occurred
+    /// * `dispatch_layer` - The layer that failed to dispatch
+    /// * `host` - The host that the dispatch was attempted on
+    fn log_dispatch_error(error: DispatchError, dispatch_layer: &DispatchLayer, host: &Host) {
+        match error {
+            DispatchError::HostLock(host_name) => {
+                info!("Failed to acquire lock for host {}", host_name)
+            }
+            DispatchError::Failure(report) => {
+                error!(
+                    "Failed to dispatch {} on {}. {}",
+                    dispatch_layer,
+                    host,
+                    report.to_string()
+                );
+            }
+            DispatchError::AllocationOverBurst(allocation_name) => {
+                let msg = format!(
+                    "Skiping host in this selection for {}. Allocation {} is over burst.",
+                    dispatch_layer.job_id, allocation_name
+                );
+                info!(msg);
+            }
+            DispatchError::FailureAfterDispatch(report) => {
+                // TODO: Implement a recovery logic for when a frame got dispatched
+                // but its status hasn't been updated on the database
+                let msg = format!(
+                    "Failed after dispatch {} on {}. {}",
+                    dispatch_layer, host, report
+                );
+                error!(msg);
+            }
+            DispatchError::HostResourcesExtinguished => {
+                debug!(
+                    "Host resources for {} extinguished, skiping to the next candidate",
+                    host
+                );
+            }
         }
     }
 }

@@ -23,6 +23,7 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub kafka: KafkaConfig,
     pub rqd: RqdConfig,
+    pub host_cache: HostCacheConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -57,6 +58,7 @@ pub struct QueueConfig {
     pub memory_stranded_threshold: ByteSize,
     #[serde(with = "humantime_serde")]
     pub job_back_off_duration: Duration,
+    pub stream: StreamConfig,
 }
 
 impl Default for QueueConfig {
@@ -68,6 +70,23 @@ impl Default for QueueConfig {
             core_multiplier: 100,
             memory_stranded_threshold: ByteSize::gib(2),
             job_back_off_duration: Duration::from_secs(300),
+            stream: StreamConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct StreamConfig {
+    pub cluster_buffer_size: usize,
+    pub layer_buffer_size: usize,
+}
+
+impl Default for StreamConfig {
+    fn default() -> Self {
+        Self {
+            cluster_buffer_size: 3,
+            layer_buffer_size: 10,
         }
     }
 }
@@ -145,6 +164,32 @@ impl Default for RqdConfig {
         }
     }
 }
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct HostCacheConfig {
+    pub concurrent_groups: usize,
+    pub memory_key_divisor: ByteSize,
+    #[serde(with = "humantime_serde")]
+    pub checkout_timeout: Duration,
+    #[serde(with = "humantime_serde")]
+    pub monitoring_interval: Duration,
+    #[serde(with = "humantime_serde")]
+    pub group_idle_timeout: Duration,
+}
+
+impl Default for HostCacheConfig {
+    fn default() -> HostCacheConfig {
+        HostCacheConfig {
+            concurrent_groups: 3,
+            memory_key_divisor: ByteSize::gib(2),
+            checkout_timeout: Duration::from_secs(12),
+            monitoring_interval: Duration::from_secs(1),
+            group_idle_timeout: Duration::from_secs(3 * 60 * 60),
+        }
+    }
+}
+
 //===Config Loader===
 
 impl Config {

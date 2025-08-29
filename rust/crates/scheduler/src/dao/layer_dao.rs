@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// Data Access Object for layer operations in the job dispatch system.
-/// 
+///
 /// Handles database queries related to layers within jobs, specifically
 /// finding layers that have waiting frames and are ready for dispatch.
 pub struct LayerDao {
@@ -21,7 +21,7 @@ pub struct LayerDao {
 }
 
 /// Database model representing a layer ready for dispatch.
-/// 
+///
 /// Contains layer metadata, resource requirements, and job context needed
 /// for host matching and frame dispatch. This model is converted to
 /// `DispatchLayer` for business logic processing.
@@ -96,13 +96,13 @@ ORDER BY
 
 impl LayerDao {
     /// Creates a new LayerDao from database configuration.
-    /// 
+    ///
     /// Establishes a connection pool to the PostgreSQL database for
     /// layer-related queries.
-    /// 
+    ///
     /// # Arguments
     /// * `config` - Database configuration containing connection parameters
-    /// 
+    ///
     /// # Returns
     /// * `Ok(LayerDao)` - Configured DAO ready for layer operations
     /// * `Err(miette::Error)` - If database connection fails
@@ -114,18 +114,18 @@ impl LayerDao {
     }
 
     /// Queries layers within a specific job that have waiting frames.
-    /// 
+    ///
     /// Returns layers that:
     /// - Belong to the specified job
     /// - Have at least one frame in waiting state
     /// - Are ordered by dispatch priority (int_dispatch_order)
-    /// 
+    ///
     /// This query is used to find layers within a job that are ready
     /// for frame dispatch processing.
-    /// 
+    ///
     /// # Arguments
     /// * `pk_job` - The UUID of the job to find layers for
-    /// 
+    ///
     /// # Returns
     /// A stream of `DispatchLayerModel` results ordered by dispatch priority
     pub fn query_layers(

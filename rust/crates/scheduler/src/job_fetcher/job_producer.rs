@@ -1,14 +1,6 @@
 use std::{marker::PhantomData, time::Duration};
 
 use miette::{Context, IntoDiagnostic, Result};
-use rdkafka::{
-    ClientConfig,
-    admin::{AdminClient, AdminOptions, NewTopic, TopicReplication},
-    client::DefaultClientContext,
-    producer::{FutureProducer, FutureRecord},
-    types::RDKafkaErrorCode,
-    util::Timeout,
-};
 use serde::Serialize;
 use tracing::{error, info, trace};
 

@@ -1,8 +1,8 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use futures::Stream;
 use miette::{Context, IntoDiagnostic, Result};
-use opencue_proto::host::ThreadMode;
+use opencue_proto::{facility, host::ThreadMode};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use tracing::trace;
@@ -15,7 +15,7 @@ use crate::{
 };
 
 /// Data Access Object for host operations in the job dispatch system.
-/// 
+///
 /// Manages database operations related to render hosts, including:
 /// - Finding suitable hosts for layer dispatch
 /// - Host resource locking and unlocking
@@ -25,7 +25,7 @@ pub struct HostDao {
 }
 
 /// Database model representing a host with its current resource availability.
-/// 
+///
 /// Contains host metadata, resource information, and allocation details
 /// needed for dispatch matching. This model is converted to the business
 /// logic `Host` type for processing.
@@ -115,15 +115,48 @@ ORDER BY
 LIMIT $10
 "#;
 
+static QUERY_HOST_BY_SHOW_FACILITY_AND_TAG: &str = r#"
+SELECT
+    h.pk_host,
+    h.str_name,
+    hs.str_os,
+    h.int_cores_idle,
+    h.int_mem_idle,
+    h.int_gpus_idle,
+    h.int_gpu_mem_idle,
+    h.int_cores,
+    h.int_mem,
+    h.int_thread_mode,
+    s.int_burst - s.int_cores as int_alloc_available_cores,
+    a.str_name as str_alloc_name
+FROM host h
+    INNER JOIN host_stat hs ON h.pk_host = hs.pk_host
+    INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
+    INNER JOIN subscription s ON s.pk_alloc = a.pk_alloc AND s.pk_show = $1
+    INNER JOIN host_tag ht ON h.pk_host = ht.pk_host
+WHERE a.pk_facility = $2
+    AND h.str_lock_state = 'OPEN'
+    --AND hs.str_state = 'UP'
+    AND ht.str_tag = $3
+"#;
+
+static QUERY_HOST_BY_TAG: &str = r#"
+"#;
+
+static QUERY_ALLOC_TAGS: &str = r#"
+SELECT DISTINCT str_tag
+FROM alloc
+"#;
+
 impl HostDao {
     /// Creates a new HostDao from database configuration.
-    /// 
+    ///
     /// Establishes a connection pool to the PostgreSQL database for
     /// host-related operations.
-    /// 
+    ///
     /// # Arguments
     /// * `config` - Database configuration containing connection parameters
-    /// 
+    ///
     /// # Returns
     /// * `Ok(HostDao)` - Configured DAO ready for host operations
     /// * `Err(miette::Error)` - If database connection fails
@@ -135,21 +168,21 @@ impl HostDao {
     }
 
     /// Finds hosts capable of executing frames from a specific layer.
-    /// 
+    ///
     /// The query filters hosts based on:
     /// - OS compatibility (using ILIKE pattern matching)
     /// - Available resources (cores, memory, GPUs)
     /// - Host state (OPEN lock state)
     /// - Service tags compatibility
     /// - Allocation and subscription constraints
-    /// 
+    ///
     /// Results are ordered to prioritize hosts with fewer available resources
     /// to encourage full host utilization.
-    /// 
+    ///
     /// # Arguments
     /// * `layer` - The layer requiring host resources
     /// * `limit` - Maximum number of hosts to return
-    /// 
+    ///
     /// # Returns
     /// A stream of `HostModel` results ordered by resource utilization
     pub fn find_host_for_layer(
@@ -187,15 +220,46 @@ impl HostDao {
             .fetch(&*self.connection_pool)
     }
 
+    pub fn fetch_hosts_by_show_facility_tag(
+        &self,
+        show_id: &Uuid,
+        facility_id: &Uuid,
+        tag: String,
+    ) -> impl Stream<Item = Result<HostModel, sqlx::Error>> + '_ {
+        sqlx::query_as::<_, HostModel>(QUERY_HOST_BY_SHOW_FACILITY_AND_TAG)
+            .bind(format!("{:X}", show_id))
+            .bind(format!("{:X}", facility_id))
+            .bind(tag)
+            .fetch(&*self.connection_pool)
+    }
+
+    pub fn fetch_hosts_by_tag(
+        &self,
+        tag: String,
+    ) -> impl Stream<Item = Result<HostModel, sqlx::Error>> + '_ {
+        sqlx::query_as::<_, HostModel>(QUERY_HOST_BY_TAG)
+            .bind(tag)
+            .fetch(&*self.connection_pool)
+    }
+
+    pub async fn fetch_all_alloc_tags(&self) -> Result<HashMap<String, ()>> {
+        let out: Vec<String> = sqlx::query_scalar(QUERY_ALLOC_TAGS)
+            .fetch_all(&*self.connection_pool)
+            .await
+            .into_diagnostic()?;
+
+        Ok(HashMap::from_iter(out.into_iter().map(|tag| (tag, ()))))
+    }
+
     /// Acquires an advisory lock on a host to prevent concurrent dispatch.
-    /// 
+    ///
     /// Uses PostgreSQL's advisory lock mechanism to ensure only one dispatcher
     /// can modify a host's resources at a time. The lock is based on a hash
     /// of the host ID string.
-    /// 
+    ///
     /// # Arguments
     /// * `host_id` - The UUID of the host to lock
-    /// 
+    ///
     /// # Returns
     /// * `Ok(true)` - Lock successfully acquired
     /// * `Ok(false)` - Lock already held by another process
@@ -208,17 +272,16 @@ impl HostDao {
             .await
             .into_diagnostic()
             .wrap_err("Failed to acquire advisory lock")
-        // Ok(true)
     }
 
     /// Releases an advisory lock on a host after dispatch completion.
-    /// 
+    ///
     /// Releases the PostgreSQL advisory lock that was acquired during
     /// the dispatch process, allowing other dispatchers to access the host.
-    /// 
+    ///
     /// # Arguments
     /// * `host_id` - The UUID of the host to unlock
-    /// 
+    ///
     /// # Returns
     /// * `Ok(true)` - Lock successfully released
     /// * `Ok(false)` - Lock was not held by this process
@@ -231,18 +294,17 @@ impl HostDao {
             .await
             .into_diagnostic()
             .wrap_err("Failed to release advisory lock")
-        // Ok(true)
     }
 
     /// Updates a host's available resource counts after frame dispatch.
-    /// 
+    ///
     /// Modifies the host's idle resource counters in the database to reflect
     /// resources consumed by dispatched frames. This ensures accurate resource
     /// tracking for subsequent dispatch decisions.
-    /// 
+    ///
     /// # Arguments
     /// * `updated_host` - Host with updated idle resource values
-    /// 
+    ///
     /// # Returns
     /// * `Ok(())` - Resources successfully updated
     /// * `Err(miette::Error)` - Database update failed

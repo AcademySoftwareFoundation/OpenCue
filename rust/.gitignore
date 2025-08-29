@@ -7,3 +7,4 @@
 .DS_Store
 config/rqd.local_docker.yaml
 /sandbox/kafka*
+/reference

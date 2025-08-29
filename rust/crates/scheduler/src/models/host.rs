@@ -1,11 +1,12 @@
 use std::fmt::Display;
 
+use bytesize::ByteSize;
 use opencue_proto::host::ThreadMode;
 use uuid::Uuid;
 
 use crate::models::{core_size::CoreSize, fmt_uuid};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Host {
     pub(crate) id: Uuid,
     pub(crate) name: String,
