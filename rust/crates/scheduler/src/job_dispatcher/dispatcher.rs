@@ -286,7 +286,8 @@ impl RqdDispatcher {
             (ThreadMode::Auto, true) | (ThreadMode::Variable, true) => {
                 // Book whatever is left for hosts with selfish services or memory stranded
                 if frame.has_selfish_service
-                    || host.idle_memory.as_u64() - frame.min_memory.as_u64() <= memory_stranded_threshold.as_u64()
+                    || host.idle_memory.as_u64() - frame.min_memory.as_u64()
+                        <= memory_stranded_threshold.as_u64()
                 {
                     host.idle_cores
                 // Limit Variable booking to at least 2 cores
@@ -351,9 +352,10 @@ impl RqdDispatcher {
 
         // Update host resources
         host.idle_cores = host.idle_cores - cores_reserved;
-        host.idle_memory = ByteSize::b(host.idle_memory.as_u64() - memory_reserved.as_u64());
+        host.idle_memory = ByteSize::kb(host.idle_memory.as_u64() - memory_reserved.as_u64());
         host.idle_gpus -= gpus_reserved;
-        host.idle_gpu_memory = ByteSize::b(host.idle_gpu_memory.as_u64() - gpu_memory_reserved.as_u64());
+        host.idle_gpu_memory =
+            ByteSize::kb(host.idle_gpu_memory.as_u64() - gpu_memory_reserved.as_u64());
 
         Ok((
             VirtualProc {

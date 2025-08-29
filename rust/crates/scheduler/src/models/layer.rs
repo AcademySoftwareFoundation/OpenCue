@@ -1,5 +1,6 @@
 use core::fmt;
 
+use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -15,10 +16,10 @@ pub struct DispatchLayer {
     pub layer_name: String,
     pub str_os: Option<String>,
     pub cores_min: CoreSize,
-    pub mem_min: i64,
+    pub mem_min: ByteSize,
     pub threadable: bool,
     pub gpus_min: i32,
-    pub gpu_mem_min: i64,
+    pub gpu_mem_min: ByteSize,
     pub tags: String,
 }
 

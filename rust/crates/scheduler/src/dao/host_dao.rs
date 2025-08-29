@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use bytesize::ByteSize;
+use bytesize::{ByteSize, KB};
 use futures::Stream;
 use miette::{Context, IntoDiagnostic, Result};
 use opencue_proto::{facility, host::ThreadMode};
@@ -59,18 +59,18 @@ impl From<HostModel> for Host {
                     .try_into()
                     .expect("int_cores_min/multiplier should fit on a i32"),
             ),
-            idle_memory: ByteSize::b(val.int_mem_idle as u64),
+            idle_memory: ByteSize::kb(val.int_mem_idle as u64),
             idle_gpus: val
                 .int_gpus_idle
                 .try_into()
                 .expect("int_gpus should fit on a i32"),
-            idle_gpu_memory: ByteSize::b(val.int_gpu_mem_idle as u64),
+            idle_gpu_memory: ByteSize::kb(val.int_gpu_mem_idle as u64),
             total_cores: CoreSize::from_multiplied(
                 val.int_cores
                     .try_into()
                     .expect("total_cores should fit on a i32"),
             ),
-            total_memory: ByteSize::b(val.int_mem as u64),
+            total_memory: ByteSize::kb(val.int_mem as u64),
             thread_mode: ThreadMode::try_from(val.int_thread_mode).unwrap_or_default(),
             alloc_available_cores: CoreSize::from_multiplied(
                 val.int_alloc_available_cores
@@ -213,10 +213,10 @@ impl HostDao {
             .bind(str_os_like)
             .bind(layer.str_os.clone().unwrap_or_default())
             .bind(layer.cores_min.with_multiplier().value())
-            .bind(layer.mem_min)
+            .bind((layer.mem_min.as_u64() / KB) as i64)
             .bind(layer.tags.clone())
             .bind(layer.gpus_min)
-            .bind(layer.gpu_mem_min)
+            .bind((layer.gpu_mem_min.as_u64() / KB) as i64)
             .bind(limit as i32)
             .fetch(&*self.connection_pool)
     }

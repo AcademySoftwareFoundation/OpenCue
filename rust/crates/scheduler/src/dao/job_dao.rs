@@ -7,8 +7,6 @@ use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
 use crate::{
-    cluster::ClusterFeed,
-    cluster_key::ClusterKey,
     config::{CONFIG, DatabaseConfig},
     models::DispatchJob,
     pgpool::connection_pool,

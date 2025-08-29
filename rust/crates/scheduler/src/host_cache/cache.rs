@@ -193,9 +193,10 @@ impl HostCache {
             .entry(memory_key)
             .or_default()
             .insert(host.id, host);
-        
+
         // Update the host_keys_by_host_id mapping
-        self.host_keys_by_host_id.insert(host_id, (core_key, memory_key));
+        self.host_keys_by_host_id
+            .insert(host_id, (core_key, memory_key));
     }
 
     fn gen_memory_key(memory: ByteSize) -> MemoryKey {
@@ -206,9 +207,9 @@ impl HostCache {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use opencue_proto::host::ThreadMode;
     use std::thread;
     use std::time::Duration;
-    use opencue_proto::host::ThreadMode;
 
     fn create_test_host(id: Uuid, idle_cores: i32, idle_memory: ByteSize) -> Host {
         Host {
@@ -220,7 +221,7 @@ mod tests {
             idle_cores: CoreSize(idle_cores),
             idle_memory,
             idle_gpus: 0,
-            idle_gpu_memory: ByteSize::b(0),
+            idle_gpu_memory: ByteSize::kb(0),
             thread_mode: ThreadMode::Auto,
             alloc_available_cores: CoreSize(idle_cores),
             allocation_name: "test".to_string(),
@@ -240,10 +241,10 @@ mod tests {
     fn test_ping_query_updates_last_queried() {
         let cache = HostCache::new();
         let initial_time = *cache.last_queried.read().unwrap();
-        
+
         thread::sleep(Duration::from_millis(1));
         cache.ping_query();
-        
+
         let updated_time = *cache.last_queried.read().unwrap();
         assert!(updated_time > initial_time);
     }
@@ -252,9 +253,9 @@ mod tests {
     fn test_ping_fetch_updates_last_fetched() {
         let cache = HostCache::new();
         assert!(cache.last_fetched.read().unwrap().is_none());
-        
+
         cache.ping_fetch();
-        
+
         assert!(cache.last_fetched.read().unwrap().is_some());
     }
 
@@ -303,7 +304,7 @@ mod tests {
 
         // Should still have only one entry for this host ID
         assert_eq!(cache.host_keys_by_host_id.len(), 1);
-        
+
         // The host should be updated with new resources
         let (core_key, memory_key) = cache.host_keys_by_host_id.get(&host_id).unwrap().clone();
         assert_eq!(core_key, 8);
@@ -334,11 +335,7 @@ mod tests {
     fn test_checkout_no_candidate_available() {
         let cache = HostCache::new();
 
-        let result = cache.checkout(
-            CoreSize(4),
-            ByteSize::gb(8),
-            |_| true,
-        );
+        let result = cache.checkout(CoreSize(4), ByteSize::gb(8), |_| true);
 
         assert!(result.is_err());
         assert!(matches!(result, Err(HostCacheError::NoCandidateAvailable)));
@@ -434,7 +431,7 @@ mod tests {
     fn test_is_checked_out_false_when_not_checked_out() {
         let cache = HostCache::new();
         let host_id = Uuid::new_v4();
-        
+
         assert!(!cache.is_checked_out(&host_id));
     }
 
@@ -453,14 +450,14 @@ mod tests {
     #[test]
     fn test_find_candidate_with_multiple_hosts() {
         let mut cache = HostCache::new();
-        
+
         // Add hosts with different resources
         let host1_id = Uuid::new_v4();
         let host1 = create_test_host(host1_id, 2, ByteSize::gb(4));
-        
+
         let host2_id = Uuid::new_v4();
         let host2 = create_test_host(host2_id, 4, ByteSize::gb(8));
-        
+
         let host3_id = Uuid::new_v4();
         let host3 = create_test_host(host3_id, 8, ByteSize::gb(16));
 
@@ -471,7 +468,7 @@ mod tests {
         // Request 3 cores, 6GB - should get host2 (4 cores, 8GB) or host3 (8 cores, 16GB)
         let result = cache.checkout(CoreSize(3), ByteSize::gb(6), |_| true);
         assert!(result.is_ok());
-        
+
         let chosen_host = result.unwrap();
         assert!(chosen_host.idle_cores.value() >= 3);
         assert!(chosen_host.idle_memory >= ByteSize::gb(6));
@@ -480,19 +477,19 @@ mod tests {
     #[test]
     fn test_gen_memory_key() {
         // The memory key formula is: memory / CONFIG.host_cache.memory_key_divisor.as_u64()
-        // With default 2.1GB divisor: 
+        // With default 2.1GB divisor:
         // 4GB / 2.1GB = 1 (rounded down)
         // 8GB / 2.1GB = 3 (rounded down)
-        let memory1 = ByteSize::gb(4); // 4GB  
+        let memory1 = ByteSize::gb(4); // 4GB
         let memory2 = ByteSize::gb(8); // 8GB
-        
+
         let key1 = HostCache::gen_memory_key(memory1);
         let key2 = HostCache::gen_memory_key(memory2);
-        
+
         // Keys should be different and deterministic
         assert_ne!(key1, key2);
         assert_eq!(key1, HostCache::gen_memory_key(memory1)); // Should be deterministic
-        
+
         // With 2.1GB divisor, should get expected values
         assert_eq!(key1, 1); // 4GB / 2.1GB = ~1.9, rounded down to 1
         assert_eq!(key2, 3); // 8GB / 2.1GB = ~3.8, rounded down to 3
@@ -501,12 +498,12 @@ mod tests {
     #[test]
     fn test_multiple_hosts_same_resources() {
         let mut cache = HostCache::new();
-        
+
         // Add multiple hosts with same resource configuration
         let host1_id = Uuid::new_v4();
         let host1 = create_test_host(host1_id, 4, ByteSize::gb(8));
-        
-        let host2_id = Uuid::new_v4();  
+
+        let host2_id = Uuid::new_v4();
         let host2 = create_test_host(host2_id, 4, ByteSize::gb(8));
 
         cache.insert(host1);
@@ -528,6 +525,9 @@ mod tests {
     fn test_host_booking_strategy() {
         let cache = HostCache::new();
         // Just verify the strategy is set correctly
-        assert!(matches!(cache._mode, HostBookingStrategy::PrioritizeLoadDistribution));
+        assert!(matches!(
+            cache._mode,
+            HostBookingStrategy::PrioritizeLoadDistribution
+        ));
     }
 }

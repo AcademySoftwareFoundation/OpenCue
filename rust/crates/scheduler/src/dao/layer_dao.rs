@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bytesize::ByteSize;
 use futures::Stream;
 use miette::Result;
 use serde::{Deserialize, Serialize};
@@ -57,13 +58,13 @@ impl From<DispatchLayerModel> for DispatchLayer {
                     .try_into()
                     .expect("int_cores_min should fit on a i32"),
             ),
-            mem_min: val.int_mem_min,
+            mem_min: ByteSize::kb(val.int_mem_min as u64),
             threadable: val.b_threadable,
             gpus_min: val
                 .int_gpus_min
                 .try_into()
                 .expect("gpus_min should fit on a i32"),
-            gpu_mem_min: val.int_gpu_mem_min,
+            gpu_mem_min: ByteSize::kb(val.int_gpu_mem_min as u64),
             tags: val.str_tags,
         }
     }

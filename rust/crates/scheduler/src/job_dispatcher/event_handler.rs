@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use bytesize::ByteSize;
 use crate::{
     cluster_key::ClusterKey,
     config::CONFIG,
@@ -9,6 +8,7 @@ use crate::{
     job_dispatcher::{DispatchError, dispatcher::RqdDispatcher},
     models::{DispatchJob, DispatchLayer, Host},
 };
+use bytesize::ByteSize;
 use futures::StreamExt;
 use miette::Result;
 use tracing::{debug, error, info};
@@ -107,7 +107,7 @@ impl BookJobEventHandler {
                         .map(|t| t.trim().to_string())
                         .collect(),
                     dispatch_layer.cores_min,
-                    ByteSize::b(dispatch_layer.mem_min as u64),
+                    dispatch_layer.mem_min,
                     |host| Self::validate_match(host, &dispatch_layer),
                 )
                 .await;
