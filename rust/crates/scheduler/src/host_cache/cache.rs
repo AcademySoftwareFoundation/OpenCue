@@ -4,6 +4,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use bytesize::ByteSize;
 use dashmap::DashMap;
 use miette::Result;
 use tracing::error;
@@ -91,7 +92,7 @@ impl HostCache {
     pub fn checkout<F>(
         &self,
         cores: CoreSize,
-        memory: u64,
+        memory: ByteSize,
         validation: F,
     ) -> Result<&Host, HostCacheError>
     where
@@ -115,7 +116,7 @@ impl HostCache {
         let _ = self.checked_out_hosts.remove(&host.id);
     }
 
-    fn find_candidate<F>(&self, cores: CoreSize, memory: u64, validation: F) -> Option<&Host>
+    fn find_candidate<F>(&self, cores: CoreSize, memory: ByteSize, validation: F) -> Option<&Host>
     where
         F: Fn(&Host) -> bool,
     {
@@ -197,8 +198,8 @@ impl HostCache {
         self.host_keys_by_host_id.insert(host_id, (core_key, memory_key));
     }
 
-    fn gen_memory_key(memory: u64) -> MemoryKey {
-        memory / CONFIG.host_cache.memory_key_divisor.as_u64()
+    fn gen_memory_key(memory: ByteSize) -> MemoryKey {
+        memory.as_u64() / CONFIG.host_cache.memory_key_divisor.as_u64()
     }
 }
 
@@ -209,7 +210,7 @@ mod tests {
     use std::time::Duration;
     use opencue_proto::host::ThreadMode;
 
-    fn create_test_host(id: Uuid, idle_cores: i32, idle_memory: u64) -> Host {
+    fn create_test_host(id: Uuid, idle_cores: i32, idle_memory: ByteSize) -> Host {
         Host {
             id,
             name: format!("test-host-{}", id),
@@ -219,7 +220,7 @@ mod tests {
             idle_cores: CoreSize(idle_cores),
             idle_memory,
             idle_gpus: 0,
-            idle_gpu_memory: 0,
+            idle_gpu_memory: ByteSize::b(0),
             thread_mode: ThreadMode::Auto,
             alloc_available_cores: CoreSize(idle_cores),
             allocation_name: "test".to_string(),
@@ -281,7 +282,7 @@ mod tests {
     fn test_insert_host() {
         let mut cache = HostCache::new();
         let host_id = Uuid::new_v4();
-        let host = create_test_host(host_id, 4, bytesize::gb(8_u64));
+        let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
         cache.insert(host.clone());
 
@@ -293,8 +294,8 @@ mod tests {
     fn test_insert_host_updates_existing() {
         let mut cache = HostCache::new();
         let host_id = Uuid::new_v4();
-        let host1 = create_test_host(host_id, 4, bytesize::gb(8_u64));
-        let mut host2 = create_test_host(host_id, 8, bytesize::gb(16_u64));
+        let host1 = create_test_host(host_id, 4, ByteSize::gb(8));
+        let mut host2 = create_test_host(host_id, 8, ByteSize::gb(16));
         host2.name = "updated-host".to_string();
 
         cache.insert(host1);
@@ -313,13 +314,13 @@ mod tests {
     fn test_checkout_success() {
         let mut cache = HostCache::new();
         let host_id = Uuid::new_v4();
-        let host = create_test_host(host_id, 4, bytesize::gb(8_u64));
+        let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
         cache.insert(host);
 
         let result = cache.checkout(
             CoreSize(2),
-            bytesize::gb(4_u64),
+            ByteSize::gb(4),
             |_| true, // Always validate true
         );
 
@@ -335,7 +336,7 @@ mod tests {
 
         let result = cache.checkout(
             CoreSize(4),
-            bytesize::gb(8_u64),
+            ByteSize::gb(8),
             |_| true,
         );
 
@@ -347,13 +348,13 @@ mod tests {
     fn test_checkout_insufficient_cores() {
         let mut cache = HostCache::new();
         let host_id = Uuid::new_v4();
-        let host = create_test_host(host_id, 2, bytesize::gb(8_u64));
+        let host = create_test_host(host_id, 2, ByteSize::gb(8));
 
         cache.insert(host);
 
         let result = cache.checkout(
             CoreSize(4), // Request more cores than available
-            bytesize::gb(4_u64),
+            ByteSize::gb(4),
             |_| true,
         );
 
@@ -364,13 +365,13 @@ mod tests {
     fn test_checkout_insufficient_memory() {
         let mut cache = HostCache::new();
         let host_id = Uuid::new_v4();
-        let host = create_test_host(host_id, 4, bytesize::gb(4_u64));
+        let host = create_test_host(host_id, 4, ByteSize::gb(4));
 
         cache.insert(host);
 
         let result = cache.checkout(
             CoreSize(2),
-            bytesize::gb(8_u64), // Request more memory than available
+            ByteSize::gb(8), // Request more memory than available
             |_| true,
         );
 
@@ -381,13 +382,13 @@ mod tests {
     fn test_checkout_validation_fails() {
         let mut cache = HostCache::new();
         let host_id = Uuid::new_v4();
-        let host = create_test_host(host_id, 4, bytesize::gb(8_u64));
+        let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
         cache.insert(host);
 
         let result = cache.checkout(
             CoreSize(2),
-            bytesize::gb(4_u64),
+            ByteSize::gb(4),
             |_| false, // Always fail validation
         );
 
@@ -398,16 +399,16 @@ mod tests {
     fn test_checkout_already_checked_out() {
         let mut cache = HostCache::new();
         let host_id = Uuid::new_v4();
-        let host = create_test_host(host_id, 4, bytesize::gb(8_u64));
+        let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
         cache.insert(host);
 
         // First checkout should succeed
-        let result1 = cache.checkout(CoreSize(2), bytesize::gb(4_u64), |_| true);
+        let result1 = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
         assert!(result1.is_ok());
 
         // Second checkout should fail because host is already checked out
-        let result2 = cache.checkout(CoreSize(2), bytesize::gb(4_u64), |_| true);
+        let result2 = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
         assert!(result2.is_err());
     }
 
@@ -415,12 +416,12 @@ mod tests {
     fn test_checkin() {
         let mut cache = HostCache::new();
         let host_id = Uuid::new_v4();
-        let host = create_test_host(host_id, 4, bytesize::gb(8_u64));
+        let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
         cache.insert(host.clone());
 
         // Checkout the host
-        let result = cache.checkout(CoreSize(2), bytesize::gb(4_u64), |_| true);
+        let result = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
         assert!(result.is_ok());
         assert!(cache.checked_out_hosts.contains_key(&host_id));
 
@@ -441,10 +442,10 @@ mod tests {
     fn test_is_checked_out_true_when_recently_checked_out() {
         let mut cache = HostCache::new();
         let host_id = Uuid::new_v4();
-        let host = create_test_host(host_id, 4, bytesize::gb(8_u64));
+        let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
         cache.insert(host);
-        let _ = cache.checkout(CoreSize(2), bytesize::gb(4_u64), |_| true);
+        let _ = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
 
         assert!(cache.is_checked_out(&host_id));
     }
@@ -455,25 +456,25 @@ mod tests {
         
         // Add hosts with different resources
         let host1_id = Uuid::new_v4();
-        let host1 = create_test_host(host1_id, 2, bytesize::gb(4_u64));
+        let host1 = create_test_host(host1_id, 2, ByteSize::gb(4));
         
         let host2_id = Uuid::new_v4();
-        let host2 = create_test_host(host2_id, 4, bytesize::gb(8_u64));
+        let host2 = create_test_host(host2_id, 4, ByteSize::gb(8));
         
         let host3_id = Uuid::new_v4();
-        let host3 = create_test_host(host3_id, 8, bytesize::gb(16_u64));
+        let host3 = create_test_host(host3_id, 8, ByteSize::gb(16));
 
         cache.insert(host1);
         cache.insert(host2);
         cache.insert(host3);
 
         // Request 3 cores, 6GB - should get host2 (4 cores, 8GB) or host3 (8 cores, 16GB)
-        let result = cache.checkout(CoreSize(3), bytesize::gb(6_u64), |_| true);
+        let result = cache.checkout(CoreSize(3), ByteSize::gb(6), |_| true);
         assert!(result.is_ok());
         
         let chosen_host = result.unwrap();
         assert!(chosen_host.idle_cores.value() >= 3);
-        assert!(chosen_host.idle_memory >= bytesize::gb(6_u64));
+        assert!(chosen_host.idle_memory >= ByteSize::gb(6));
     }
 
     #[test]
@@ -482,8 +483,8 @@ mod tests {
         // With default 2.1GB divisor: 
         // 4GB / 2.1GB = 1 (rounded down)
         // 8GB / 2.1GB = 3 (rounded down)
-        let memory1 = bytesize::gb(4_u64); // 4GB  
-        let memory2 = bytesize::gb(8_u64); // 8GB
+        let memory1 = ByteSize::gb(4); // 4GB  
+        let memory2 = ByteSize::gb(8); // 8GB
         
         let key1 = HostCache::gen_memory_key(memory1);
         let key2 = HostCache::gen_memory_key(memory2);
@@ -503,20 +504,20 @@ mod tests {
         
         // Add multiple hosts with same resource configuration
         let host1_id = Uuid::new_v4();
-        let host1 = create_test_host(host1_id, 4, bytesize::gb(8_u64));
+        let host1 = create_test_host(host1_id, 4, ByteSize::gb(8));
         
         let host2_id = Uuid::new_v4();  
-        let host2 = create_test_host(host2_id, 4, bytesize::gb(8_u64));
+        let host2 = create_test_host(host2_id, 4, ByteSize::gb(8));
 
         cache.insert(host1);
         cache.insert(host2);
 
         // First checkout should succeed
-        let result1 = cache.checkout(CoreSize(2), bytesize::gb(4_u64), |_| true);
+        let result1 = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
         assert!(result1.is_ok());
 
         // Second checkout should also succeed (different host)
-        let result2 = cache.checkout(CoreSize(2), bytesize::gb(4_u64), |_| true);
+        let result2 = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
         assert!(result2.is_ok());
 
         // The hosts should be different

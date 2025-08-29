@@ -1,6 +1,7 @@
 mod cache;
 pub use cache::HostCache;
 
+use bytesize::ByteSize;
 use itertools::Itertools;
 use miette::Diagnostic;
 use std::{cmp::Ordering, collections::HashMap, sync::Arc};
@@ -68,7 +69,7 @@ impl HostCacheService {
         show_id: Uuid,
         tags: Vec<String>,
         cores: CoreSize,
-        memory: u64,
+        memory: ByteSize,
         validation: F,
     ) -> Result<(ClusterKey, Host), HostCacheError>
     where

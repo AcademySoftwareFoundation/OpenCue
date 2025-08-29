@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bytesize::ByteSize;
 use futures::Stream;
 use miette::Result;
 use serde::{Deserialize, Serialize};
@@ -95,8 +96,8 @@ impl From<DispatchFrameModel> for DispatchFrame {
                 .int_gpus_min
                 .try_into()
                 .expect("int_gpus_min should fit on a i32"),
-            min_gpu_memory: val.int_gpu_mem_min as u64,
-            min_memory: val.int_mem_min as u64,
+            min_gpu_memory: ByteSize::b(val.int_gpu_mem_min as u64),
+            min_memory: ByteSize::b(val.int_mem_min as u64),
             services: val.str_services,
             os: val.str_os,
             // TODO: fill up from config, or update database schema

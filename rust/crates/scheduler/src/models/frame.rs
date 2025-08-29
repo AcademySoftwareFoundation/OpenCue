@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -36,8 +37,8 @@ pub struct DispatchFrame {
     pub threadable: bool,
     pub has_selfish_service: bool,
     pub min_gpus: u32,
-    pub min_gpu_memory: u64,
-    pub min_memory: u64,
+    pub min_gpu_memory: ByteSize,
+    pub min_memory: ByteSize,
     // On Cuebot these fields come from constants, maybe replicate these constants here
     // pub int_soft_memory_limit: i64,
     // pub int_hard_memory_limit: i64,

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bytesize::ByteSize;
 use crate::{
     cluster_key::ClusterKey,
     config::CONFIG,
@@ -43,7 +44,7 @@ impl BookJobEventHandler {
             host_dao.clone(),
             CONFIG.rqd.grpc_port,
             CONFIG.queue.dispatch_frames_per_layer_limit,
-            CONFIG.queue.memory_stranded_threshold.as_u64(),
+            CONFIG.queue.memory_stranded_threshold,
             CONFIG.rqd.dry_run_mode,
         );
         Ok(BookJobEventHandler {
@@ -106,7 +107,7 @@ impl BookJobEventHandler {
                         .map(|t| t.trim().to_string())
                         .collect(),
                     dispatch_layer.cores_min,
-                    dispatch_layer.mem_min as u64,
+                    ByteSize::b(dispatch_layer.mem_min as u64),
                     |host| Self::validate_match(host, &dispatch_layer),
                 )
                 .await;

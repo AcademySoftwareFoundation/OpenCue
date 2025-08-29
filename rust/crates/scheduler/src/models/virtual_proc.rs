@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -10,9 +11,9 @@ pub struct VirtualProc {
     pub proc_id: Uuid,
     pub host_id: Uuid,
     pub cores_reserved: CoreSizeWithMultiplier,
-    pub memory_reserved: u64, // in bytes
+    pub memory_reserved: ByteSize,
     pub gpus_reserved: u32,
-    pub gpu_memory_reserved: u64, // in bytes
+    pub gpu_memory_reserved: ByteSize,
     pub os: String,
     pub is_local_dispatch: bool,
     pub frame: DispatchFrame,

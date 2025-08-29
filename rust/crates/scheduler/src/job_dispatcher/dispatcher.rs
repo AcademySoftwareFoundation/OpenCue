@@ -3,7 +3,7 @@ use crate::{
     job_dispatcher::{DispatchError, VirtualProcError, frame_set::FrameSet},
     models::{CoreSize, DispatchFrame, DispatchLayer, Host, VirtualProc},
 };
-use bytesize::MIB;
+use bytesize::{ByteSize, MIB};
 use futures::{FutureExt, StreamExt};
 use miette::{Context, IntoDiagnostic, Result, miette};
 use opencue_proto::{
@@ -27,7 +27,7 @@ pub struct RqdDispatcher {
     host_dao: Arc<HostDao>,
     dispatch_frames_per_layer_limit: usize,
     grpc_port: u32,
-    memory_stranded_threshold: u64,
+    memory_stranded_threshold: ByteSize,
     dry_run_mode: bool,
 }
 
@@ -46,7 +46,7 @@ impl RqdDispatcher {
         host_dao: Arc<HostDao>,
         grpc_port: u32,
         dispatch_frames_per_layer_limit: usize,
-        memory_stranded_threshold: u64,
+        memory_stranded_threshold: ByteSize,
         dry_run_mode: bool,
     ) -> Self {
         Self {
@@ -276,7 +276,7 @@ impl RqdDispatcher {
     fn calculate_core_reservation(
         host: &Host,
         frame: &DispatchFrame,
-        memory_stranded_threshold: u64,
+        memory_stranded_threshold: ByteSize,
     ) -> Result<CoreSize, VirtualProcError> {
         let cores_requested = Self::calculate_cores_requested(frame.min_cores, host.total_cores);
 
@@ -286,7 +286,7 @@ impl RqdDispatcher {
             (ThreadMode::Auto, true) | (ThreadMode::Variable, true) => {
                 // Book whatever is left for hosts with selfish services or memory stranded
                 if frame.has_selfish_service
-                    || host.idle_memory - frame.min_memory <= memory_stranded_threshold
+                    || host.idle_memory.as_u64() - frame.min_memory.as_u64() <= memory_stranded_threshold.as_u64()
                 {
                     host.idle_cores
                 // Limit Variable booking to at least 2 cores
@@ -315,7 +315,7 @@ impl RqdDispatcher {
     async fn consume_host_virtual_resources(
         frame: DispatchFrame,
         original_host: Host,
-        memory_stranded_threshold: u64,
+        memory_stranded_threshold: ByteSize,
     ) -> Result<(VirtualProc, Host), VirtualProcError> {
         let mut host = original_host;
 
@@ -325,8 +325,8 @@ impl RqdDispatcher {
         if host.idle_memory < frame.min_memory {
             Err(VirtualProcError::HostResourcesExtinguished(format!(
                 "Not enough memory: {}mb < {}mb",
-                host.idle_memory / MIB,
-                frame.min_memory / MIB
+                host.idle_memory.as_u64() / MIB,
+                frame.min_memory.as_u64() / MIB
             )))?
         }
 
@@ -340,8 +340,8 @@ impl RqdDispatcher {
         if host.idle_gpu_memory < frame.min_gpu_memory {
             Err(VirtualProcError::HostResourcesExtinguished(format!(
                 "Not enough GPU memory: {}mb < {}mb",
-                host.idle_gpu_memory / MIB,
-                frame.min_gpu_memory / MIB
+                host.idle_gpu_memory.as_u64() / MIB,
+                frame.min_gpu_memory.as_u64() / MIB
             )))?
         }
 
@@ -351,9 +351,9 @@ impl RqdDispatcher {
 
         // Update host resources
         host.idle_cores = host.idle_cores - cores_reserved;
-        host.idle_memory -= memory_reserved;
+        host.idle_memory = ByteSize::b(host.idle_memory.as_u64() - memory_reserved.as_u64());
         host.idle_gpus -= gpus_reserved;
-        host.idle_gpu_memory -= gpu_memory_reserved;
+        host.idle_gpu_memory = ByteSize::b(host.idle_gpu_memory.as_u64() - gpu_memory_reserved.as_u64());
 
         Ok((
             VirtualProc {
@@ -389,8 +389,8 @@ impl RqdDispatcher {
         cores_requested: CoreSize,
     ) -> CoreSize {
         let total_cores = host.total_cores.value() as f64;
-        let total_memory = host.total_memory as f64;
-        let frame_min_memory = frame.min_memory as f64;
+        let total_memory = host.total_memory.as_u64() as f64;
+        let frame_min_memory = frame.min_memory.as_u64() as f64;
 
         // Memory per core if evently distributed
         let memory_per_core = total_cores / total_memory;
