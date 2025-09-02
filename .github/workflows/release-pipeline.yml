@@ -72,7 +72,7 @@ jobs:
     environment: dockerhub
     strategy:
       matrix:
-        component: [cuebot, rqd, pycue, pyoutline, cuegui, cuesubmit, cueadmin]
+        component: [cuebot]
 
     name: Release ${{ matrix.component }} Docker image
     steps:
@@ -257,8 +257,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/rqd-${{ env.BUILD_ID }}-all.tar.gz
-          asset_name: rqd-${{ env.BUILD_ID }}-all.tar.gz
+          asset_path: ${{ github.workspace }}/artifacts/rqd-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_name: rqd-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
       - name: Upload CueGUI Tar
@@ -267,8 +267,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/cuegui-${{ env.BUILD_ID }}-all.tar.gz
-          asset_name: cuegui-${{ env.BUILD_ID }}-all.tar.gz
+          asset_path: ${{ github.workspace }}/artifacts/cuegui-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_name: cuegui-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
       - name: Upload PyCue Tar
@@ -277,8 +277,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/pycue-${{ env.BUILD_ID }}-all.tar.gz
-          asset_name: pycue-${{ env.BUILD_ID }}-all.tar.gz
+          asset_path: ${{ github.workspace }}/artifacts/pycue-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_name: pycue-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
       - name: Upload PyOutline Tar
@@ -287,8 +287,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/pyoutline-${{ env.BUILD_ID }}-all.tar.gz
-          asset_name: pyoutline-${{ env.BUILD_ID }}-all.tar.gz
+          asset_path: ${{ github.workspace }}/artifacts/pyoutline-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_name: pyoutline-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
       - name: Upload CueSubmit Tar
@@ -297,8 +297,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/cuesubmit-${{ env.BUILD_ID }}-all.tar.gz
-          asset_name: cuesubmit-${{ env.BUILD_ID }}-all.tar.gz
+          asset_path: ${{ github.workspace }}/artifacts/cuesubmit-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_name: cuesubmit-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
       - name: Upload CueAdmin Tar
@@ -307,6 +307,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/cueadmin-${{ env.BUILD_ID }}-all.tar.gz
-          asset_name: cueadmin-${{ env.BUILD_ID }}-all.tar.gz
+          asset_path: ${{ github.workspace }}/artifacts/cueadmin-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_name: cueadmin-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_content_type: application/octet-stream
+
+      - name: Upload CueMan Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_name: cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
