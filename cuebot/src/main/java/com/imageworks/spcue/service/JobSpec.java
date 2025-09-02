@@ -89,7 +89,7 @@ public class JobSpec {
      * it. The more layers you have the longer a job takes to dispatch which could lead to
      * dispatches being dropped.
      */
-    public static final int MAX_LAYERS = 1000;
+    public static final int MAX_LAYERS = 2000;
 
     /**
      * The maximum number of frames a job can have. Increase this with care. The more frames a job
