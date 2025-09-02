@@ -251,7 +251,7 @@ jobs:
           asset_name: opencue-cuebot-${{ env.BUILD_ID }}-1.noarch.rpm
           asset_content_type: application/octet-stream
 
-      - name: Upload RQD Tar
+      - name: Upload RQD package
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -261,7 +261,7 @@ jobs:
           asset_name: rqd-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
-      - name: Upload CueGUI Tar
+      - name: Upload CueGUI package
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -271,7 +271,7 @@ jobs:
           asset_name: cuegui-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
-      - name: Upload PyCue Tar
+      - name: Upload PyCue package
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -281,7 +281,7 @@ jobs:
           asset_name: pycue-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
-      - name: Upload PyOutline Tar
+      - name: Upload PyOutline package
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -291,7 +291,7 @@ jobs:
           asset_name: pyoutline-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
-      - name: Upload CueSubmit Tar
+      - name: Upload CueSubmit package
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -301,7 +301,7 @@ jobs:
           asset_name: cuesubmit-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
-      - name: Upload CueAdmin Tar
+      - name: Upload CueAdmin package
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -311,7 +311,7 @@ jobs:
           asset_name: cueadmin-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
-      - name: Upload CueMan Tar
+      - name: Upload CueMan package
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
