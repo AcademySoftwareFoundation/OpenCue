@@ -87,33 +87,10 @@ jobs:
       - build_opencue_packages
     strategy:
       matrix:
-        component: [cuebot, rqd]
         include:
           - component: cuebot
             NAME: Cuebot
             ARTIFACTS: cuebot-${BUILD_ID}-all.jar opencue-cuebot-${BUILD_ID}-1.noarch.rpm
-
-          - component: rqd
-            NAME: RQD
-
-          - component: cuegui
-            NAME: CueGUI
-
-          - component: pycue
-            NAME: PyCue
-
-          - component: pyoutline
-            NAME: PyOutline
-
-          - component: cuesubmit
-            NAME: CueSubmit
-
-          - component: cueadmin
-            NAME: CueAdmin
-
-# Disable docker builds for now, due to missing target repo.
-#          - component: cueman
-#            NAME: CueMan
 
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
@@ -251,6 +228,7 @@ jobs:
           aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cueman_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp LICENSE s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp VERSION s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp "${GITHUB_WORKSPACE}/artifacts/schema-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
