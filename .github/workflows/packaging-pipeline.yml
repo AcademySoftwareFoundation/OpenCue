@@ -3,7 +3,7 @@ name: OpenCue Packaging Pipeline
 # Trigger this pipeline on new commits to master.
 on:
   push:
-    branches: [ ci-remove-docker-images ]
+    branches: [ master ]
 
 jobs:
   build_opencue_packages:
