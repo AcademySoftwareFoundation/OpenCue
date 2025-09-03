@@ -35,7 +35,7 @@ impl Default for LoggingConfig {
 #[serde(default)]
 pub struct GrpcConfig {
     pub rqd_port: u16,
-    pub rqd_interface: String,
+    pub rqd_interface: Option<String>,
     pub cuebot_endpoints: Vec<String>,
     #[serde(with = "humantime_serde")]
     pub connection_expires_after: Duration,
