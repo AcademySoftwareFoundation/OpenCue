@@ -86,16 +86,7 @@ Make sure you also complete the following steps:
 1.  On macOS you might also need to
     [increase Docker's RAM limit](https://docs.docker.com/docker-for-mac/#advanced).
 
-### Option 1: Downloading and running RQD from DockerHub
-
-To download and run the pre-built Docker image from DockerHub:
-
-```shell
-docker pull opencue/rqd
-docker run -td --name rqd01 --env CUEBOT_HOSTNAME=${CUEBOT_HOSTNAME} --volume "${CUE_FS_ROOT}:${CUE_FS_ROOT}" --add-host host.docker.internal:host-gateway opencue/rqd
-```
-
-### Option 2: Building and running RQD from source
+### Option 1: Building and running RQD from source
 
 To build and run the RQD Docker image from source:
 
@@ -110,7 +101,7 @@ docker run -td --name rqd01 --env CUEBOT_HOSTNAME=${CUEBOT_HOSTNAME} --volume "$
     docker run -td --name rqd01 --env CUEBOT_HOSTNAME=${CUEBOT_HOSTNAME} --volume "${CUE_FS_ROOT}:${CUE_FS_ROOT}" --add-host host.docker.internal:host-gateway opencue/rqd
     ``` -->
 
-### Option 3: Installing from pypi
+### Option 2: Installing from pypi
 
 To install from the published pypi release:
 
@@ -131,7 +122,7 @@ guide.
 rqd
 ```
 
-### Option 4: Installing and running from source
+### Option 3: Installing and running from source
 
 Make sure you've
 [checked out the source code](/docs/getting-started/checking-out-the-source-code)
