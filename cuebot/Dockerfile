@@ -1,7 +1,7 @@
 # -----------------
 # BUILD
 # -----------------
-FROM gradle:7.6.4-jdk17 AS build
+FROM gradle:7.6.4-jdk17@sha256:0aa0a8521188366a1426ee5f3f13df5bac48184b5f6e7a21ddbfa495efb4e611 AS build
 
 USER gradle
 
@@ -22,7 +22,7 @@ RUN mv ./build/libs/cuebot.jar ./build/libs/cuebot-$(cat ./VERSION)-all.jar
 # -----------------
 # RPM
 # -----------------
-FROM jc21/rpmbuild-centos7:latest AS rpm
+FROM jc21/rpmbuild-centos7:latest@sha256:23fa5311bde4d2dec8125fe238a287368df2c245b9548c2a7c79a133a2c85502 AS rpm
 
 USER rpmbuilder
 
@@ -44,7 +44,7 @@ RUN chmod +x create_rpm.sh && ./create_rpm.sh cuebot "$(cat VERSION)"
 # -----------------
 # RUN
 # -----------------
-FROM openjdk:18-slim-bullseye
+FROM openjdk:18-slim-bullseye@sha256:8e17383576d7e71988ee5927473a32e8461381c7a29eefa9a0c24b3a28926272
 
 # Install curl for healthchecking
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*

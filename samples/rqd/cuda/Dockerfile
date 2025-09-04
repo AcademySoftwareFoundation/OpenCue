@@ -1,4 +1,4 @@
-FROM nvidia/cudagl:10.2-base-centos7
+FROM nvidia/cudagl:10.2-base-centos7@sha256:48c7b190ab62908ab5ec9945d5f5475ba21b8b6691b7aeece4a9ddad991fd2d2
 
 WORKDIR /opt/opencue
 

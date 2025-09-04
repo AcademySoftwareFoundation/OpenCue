@@ -1,0 +1,91 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+
+  - package-ecosystem: pip
+    directory: /api_docs
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /connectors/prometheus_metrics
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /cueadmin
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /cuebot
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /cuegui
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /cueman
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /cuesubmit
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /cueweb
+    schedule:
+      interval: daily
+
+  - package-ecosystem: npm
+    directory: /cueweb
+    schedule:
+      interval: daily
+
+  - package-ecosystem: bundler
+    directory: /docs
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /pycue
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /pyoutline
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /rest_gateway
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /rqd
+    schedule:
+      interval: daily
+
+  - package-ecosystem: cargo
+    directory: /rust
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /samples/rqd/blender
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /samples/rqd/cuda
+    schedule:
+      interval: daily

@@ -6,11 +6,19 @@ on:
   release:
     types: [ published ]
 
+permissions:
+  contents: read
+
 jobs:
   create_blog_post:
     runs-on: ubuntu-22.04
     name: Create Blog Post
     steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
+        with:
+          egress-policy: audit
+
       - name: Trigger blog post workflow
         env:
           DOCS_REPO: AcademySoftwareFoundation/opencue.io
