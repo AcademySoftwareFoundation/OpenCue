@@ -44,8 +44,6 @@ WHERE str_tag_type = 'ALLOC'
     AND sh.b_active = true
 "#;
 
-// TODO: This will not work. Each host has one entry with their hostname as a tag
-// consider adding another query for str_tag_type = HOSTNAME
 static QUERY_NON_ALLOC_CLUSTERS: &str = r#"
 SELECT DISTINCT
     str_tag as tag,

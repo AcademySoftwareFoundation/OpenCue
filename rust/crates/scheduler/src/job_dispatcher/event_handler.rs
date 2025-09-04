@@ -85,8 +85,9 @@ impl BookJobEventHandler {
     }
 
     fn validate_match(_host: &Host, _layer: &DispatchLayer) -> bool {
-        todo!("define layer validation rule (copy from host_dao old query)")
+        // todo!("define layer validation rule (copy from host_dao old query)")
         // Check subscription limits for this host allocation
+        true
     }
 
     /// Filters cluster tags to include only those that are also present in the dispatch layer tags.
