@@ -1,14 +1,25 @@
 use futures::StreamExt;
-use miette::Result;
-use std::sync::Arc;
+use itertools::Itertools;
+use miette::{IntoDiagnostic, Result};
+use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use uuid::Uuid;
 
-use crate::{cluster_key::ClusterKey, config::CONFIG, dao::ClusterDao};
+use crate::{
+    cluster_key::{ClusterKey, Tag, TagType},
+    config::CONFIG,
+    dao::ClusterDao,
+};
+
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
+pub enum Cluster {
+    ComposedKey(ClusterKey),
+    TagsKey(Vec<Tag>),
+}
 
 pub struct ClusterFeed {
-    pub keys: Vec<ClusterKey>,
+    pub keys: Vec<Cluster>,
     current_index: usize,
 }
 
@@ -18,31 +29,80 @@ impl ClusterFeed {
     /// other nodes
     pub async fn load_all() -> Result<Self> {
         let cluster_dao = ClusterDao::from_config(&CONFIG.database).await?;
-        let mut stream = cluster_dao.fetch_alloc_clusters();
-        let mut keys = Vec::new();
 
+        // Fetch clusters for both facilitys+shows+tags and just tags
+        let mut stream = cluster_dao
+            .fetch_alloc_clusters()
+            .chain(cluster_dao.fetch_non_alloc_clusters());
+        let mut clusters = Vec::new();
+        let mut manual_tags = Vec::new();
+        let mut hostname_tags = Vec::new();
+
+        // Collect all tags
         while let Some(record) = stream.next().await {
             match record {
-                Ok(cluster) => keys.push(ClusterKey {
-                    facility_show: Some((
-                        Uuid::parse_str(&cluster.facility_id).unwrap_or_default(),
-                        Uuid::parse_str(&cluster.show_id).unwrap_or_default(),
-                    )),
-                    tag: cluster.tag,
-                }),
+                Ok(cluster) => {
+                    match cluster.ttype.as_str() {
+                        // Each alloc tag becomes its own cluster
+                        "ALLOC" => {
+                            clusters.push(Cluster::ComposedKey(ClusterKey {
+                                facility_id: Uuid::parse_str(&cluster.facility_id)
+                                    .into_diagnostic()?,
+                                show_id: Uuid::parse_str(&cluster.show_id).into_diagnostic()?,
+                                tag: Tag {
+                                    name: cluster.tag,
+                                    ttype: TagType::Alloc,
+                                },
+                            }));
+                        }
+                        // Manual and hostname tags are collected to be chunked
+                        "MANUAL" => manual_tags.push(cluster.tag),
+                        "HOSTNAME" => hostname_tags.push(cluster.tag),
+                        _ => (),
+                    };
+                }
                 Err(err) => error!("Failed to fetch clusters. {err}"),
             }
         }
 
+        // Chunk Manual tags
+        for chunk in &manual_tags
+            .into_iter()
+            .chunks(CONFIG.queue.manual_tags_chunk_size)
+        {
+            clusters.push(Cluster::TagsKey(
+                chunk
+                    .map(|name| Tag {
+                        name,
+                        ttype: TagType::Manual,
+                    })
+                    .collect(),
+            ))
+        }
+
+        // Chunk Hostname tags
+        for chunk in &hostname_tags
+            .into_iter()
+            .chunks(CONFIG.queue.hostname_tags_chunk_size)
+        {
+            clusters.push(Cluster::TagsKey(
+                chunk
+                    .map(|name| Tag {
+                        name,
+                        ttype: TagType::HostName,
+                    })
+                    .collect(),
+            ))
+        }
         Ok(ClusterFeed {
-            keys,
+            keys: clusters,
             current_index: 0,
         })
     }
 }
 
 impl Iterator for ClusterFeed {
-    type Item = ClusterKey;
+    type Item = Cluster;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.keys.is_empty() {

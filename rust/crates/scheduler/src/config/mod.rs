@@ -59,6 +59,8 @@ pub struct QueueConfig {
     #[serde(with = "humantime_serde")]
     pub job_back_off_duration: Duration,
     pub stream: StreamConfig,
+    pub manual_tags_chunk_size: usize,
+    pub hostname_tags_chunk_size: usize,
 }
 
 impl Default for QueueConfig {
@@ -71,6 +73,8 @@ impl Default for QueueConfig {
             memory_stranded_threshold: ByteSize::gib(2),
             job_back_off_duration: Duration::from_secs(300),
             stream: StreamConfig::default(),
+            manual_tags_chunk_size: 100,
+            hostname_tags_chunk_size: 300,
         }
     }
 }

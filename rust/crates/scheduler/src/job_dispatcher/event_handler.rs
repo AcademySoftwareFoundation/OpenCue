@@ -1,14 +1,14 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use crate::{
-    cluster_key::ClusterKey,
+    cluster::Cluster,
+    cluster_key::{Tag},
     config::CONFIG,
     dao::{FrameDao, HostDao, LayerDao},
     host_cache::{HostCacheService, host_cache_service},
     job_dispatcher::{DispatchError, dispatcher::RqdDispatcher},
     models::{DispatchJob, DispatchLayer, Host},
 };
-use bytesize::ByteSize;
 use futures::StreamExt;
 use miette::Result;
 use tracing::{debug, error, info};
@@ -65,23 +65,62 @@ impl BookJobEventHandler {
     /// * `job` - The dispatch job containing layers to process
     pub async fn process(&self, job: DispatchJob) {
         let stream = self.job_dao.query_layers(job.id);
+        let cluster = Arc::new(job.source_cluster);
 
         // Stream elegible layers from this job and dispatch one by one
         stream
-            .for_each_concurrent(CONFIG.queue.stream.layer_buffer_size, |layer_model| async {
-                let layer: Result<DispatchLayer, _> = layer_model.map(|l| l.into());
-                match layer {
-                    Ok(dispatch_layer) => self.process_layer(dispatch_layer).await,
-                    Err(err) => {
-                        error!("Failed to query layers. {}", err);
+            .for_each_concurrent(CONFIG.queue.stream.layer_buffer_size, |layer_model| {
+                let cluster = cluster.clone();
+                async {
+                    let layer: Result<DispatchLayer, _> = layer_model.map(|l| l.into());
+                    match layer {
+                        Ok(dispatch_layer) => self.process_layer(dispatch_layer, cluster).await,
+                        Err(err) => {
+                            error!("Failed to query layers. {}", err);
+                        }
                     }
                 }
             })
             .await;
     }
 
-    fn validate_match(host: &Host, layer: &DispatchLayer) -> bool {
+    fn validate_match(_host: &Host, _layer: &DispatchLayer) -> bool {
         todo!("define layer validation rule (copy from host_dao old query)")
+        // Check subscription limits for this host allocation
+    }
+
+    /// Filters cluster tags to include only those that are also present in the dispatch layer tags.
+    ///
+    /// # Arguments
+    /// * `cluster` - The cluster containing available tags
+    /// * `dispatch_layer` - The layer with comma-separated tag requirements
+    ///
+    /// # Returns
+    /// A vector of tags that exist in both the cluster and the dispatch layer
+    fn filter_matching_tags(cluster: &Cluster, dispatch_layer: &DispatchLayer) -> Vec<Tag> {
+        // Parse dispatch layer tags from comma-separated string
+        let layer_tag_names: HashSet<&str> = dispatch_layer
+            .tags
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        // Extract tags from cluster and filter by layer tags
+        match cluster {
+            Cluster::ComposedKey(cluster_key) => {
+                if layer_tag_names.contains(cluster_key.tag.name.as_str()) {
+                    vec![cluster_key.tag.clone()]
+                } else {
+                    vec![]
+                }
+            }
+            Cluster::TagsKey(cluster_tags) => cluster_tags
+                .iter()
+                .filter(|tag| layer_tag_names.contains(tag.name.as_str()))
+                .cloned()
+                .collect(),
+        }
     }
 
     /// Processes a single layer by finding host candidates and attempting dispatch.
@@ -93,19 +132,17 @@ impl BookJobEventHandler {
     ///
     /// # Arguments
     /// * `dispatch_layer` - The layer to dispatch to a host
-    async fn process_layer(&self, dispatch_layer: DispatchLayer) {
+    async fn process_layer(&self, dispatch_layer: DispatchLayer, cluster: Arc<Cluster>) {
         // TODO: Backoff on each attempt
         for _ in 0..10 {
+            // Filter layer tags to match the scope of the cluster in context
+            let tags = Self::filter_matching_tags(&cluster, &dispatch_layer);
             let host_candidate = self
                 .host_service
                 .checkout(
                     dispatch_layer.facility_id,
                     dispatch_layer.show_id,
-                    dispatch_layer
-                        .tags
-                        .split(",")
-                        .map(|t| t.trim().to_string())
-                        .collect(),
+                    tags,
                     dispatch_layer.cores_min,
                     dispatch_layer.mem_min,
                     |host| Self::validate_match(host, &dispatch_layer),

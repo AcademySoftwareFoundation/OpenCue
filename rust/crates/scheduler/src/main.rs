@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use miette::{IntoDiagnostic, miette};
+use miette::IntoDiagnostic;
 use structopt::StructOpt;
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 

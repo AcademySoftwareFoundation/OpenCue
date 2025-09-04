@@ -306,7 +306,7 @@ mod tests {
         assert_eq!(cache.host_keys_by_host_id.len(), 1);
 
         // The host should be updated with new resources
-        let (core_key, memory_key) = cache.host_keys_by_host_id.get(&host_id).unwrap().clone();
+        let (core_key, memory_key) = *cache.host_keys_by_host_id.get(&host_id).unwrap();
         assert_eq!(core_key, 8);
         assert!(memory_key > 0);
     }

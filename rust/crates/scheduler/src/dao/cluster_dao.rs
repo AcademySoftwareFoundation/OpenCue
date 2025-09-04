@@ -27,13 +27,15 @@ pub(crate) struct ClusterModel {
     pub tag: String,
     pub show_id: String,
     pub facility_id: String,
+    pub ttype: String,
 }
 
 static QUERY_ALLOC_CLUSTERS: &str = r#"
 SELECT DISTINCT
     a.str_tag as tag,
     sh.pk_show as show_id,
-    a.pk_facility as facility_id
+    a.pk_facility as facility_id,
+    'ALLOC' as ttype
 FROM host_tag
     JOIN alloc a ON a.str_tag = host_tag.str_tag
     JOIN subscription sub ON sub.pk_alloc = a.pk_alloc
@@ -42,11 +44,14 @@ WHERE str_tag_type = 'ALLOC'
     AND sh.b_active = true
 "#;
 
+// TODO: This will not work. Each host has one entry with their hostname as a tag
+// consider adding another query for str_tag_type = HOSTNAME
 static QUERY_NON_ALLOC_CLUSTERS: &str = r#"
 SELECT DISTINCT
     str_tag as tag,
     '' as show_id,
-    '' as facility_id
+    '' as facility_id,
+    str_tag_type as ttype
 FROM host_tag
 WHERE str_tag_type <> 'ALLOC'
 "#;

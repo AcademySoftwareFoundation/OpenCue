@@ -3,7 +3,10 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::{Partitionable, fmt_uuid};
+use crate::{
+    cluster::Cluster,
+    models::{Partitionable, fmt_uuid},
+};
 
 /// Basic information to collect a job on the database for dispatching
 #[derive(Serialize, Deserialize, Clone)]
@@ -14,7 +17,7 @@ pub struct DispatchJob {
     )]
     pub id: Uuid,
     pub int_priority: i32,
-    pub age_days: i32,
+    pub source_cluster: Cluster,
 }
 
 fn serialize_uuid<S>(uuid: &Uuid, serializer: S) -> Result<S::Ok, S::Error>

@@ -1,17 +1,16 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
-use bytesize::{ByteSize, KB};
+use bytesize::ByteSize;
 use futures::Stream;
 use miette::{Context, IntoDiagnostic, Result};
-use opencue_proto::{facility, host::ThreadMode};
+use opencue_proto::host::ThreadMode;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
-use tracing::trace;
 use uuid::Uuid;
 
 use crate::{
     config::DatabaseConfig,
-    models::{CoreSize, DispatchLayer, Host},
+    models::{CoreSize, Host},
     pgpool::connection_pool,
 };
 
@@ -82,7 +81,7 @@ impl From<HostModel> for Host {
     }
 }
 
-static QUERY_DISPATCH_HOST: &str = r#"
+static _QUERY_DISPATCH_HOST: &str = r#"
 SELECT
     h.pk_host,
     h.str_name,
@@ -141,14 +140,6 @@ WHERE a.pk_facility = $2
     AND ht.str_tag = $3
 "#;
 
-static QUERY_HOST_BY_TAG: &str = r#"
-"#;
-
-static QUERY_ALLOC_TAGS: &str = r#"
-SELECT DISTINCT str_tag
-FROM alloc
-"#;
-
 impl HostDao {
     /// Creates a new HostDao from database configuration.
     ///
@@ -168,88 +159,17 @@ impl HostDao {
         })
     }
 
-    /// Finds hosts capable of executing frames from a specific layer.
-    ///
-    /// The query filters hosts based on:
-    /// - OS compatibility (using ILIKE pattern matching)
-    /// - Available resources (cores, memory, GPUs)
-    /// - Host state (OPEN lock state)
-    /// - Service tags compatibility
-    /// - Allocation and subscription constraints
-    ///
-    /// Results are ordered to prioritize hosts with fewer available resources
-    /// to encourage full host utilization.
-    ///
-    /// # Arguments
-    /// * `layer` - The layer requiring host resources
-    /// * `limit` - Maximum number of hosts to return
-    ///
-    /// # Returns
-    /// A stream of `HostModel` results ordered by resource utilization
-    pub fn find_host_for_layer(
-        &self,
-        layer: &DispatchLayer,
-        limit: usize,
-    ) -> impl Stream<Item = Result<HostModel, sqlx::Error>> + '_ {
-        let str_os_like = format!(
-            "%{}%",
-            layer.str_os.clone().unwrap_or("EMPTY_HOST_OS".to_string())
-        );
-        trace!(
-            "find_host_for_layer: $1={}, $2={}, $3={}, $4={}, $5={}, $6={}, $7={}, $8={}, $9={}",
-            format!("{:X}", layer.show_id),
-            format!("{:X}", layer.facility_id),
-            str_os_like,
-            layer.str_os.clone().unwrap_or_default(),
-            layer.cores_min.with_multiplier().value(),
-            layer.mem_min,
-            layer.tags.clone(),
-            layer.gpus_min,
-            layer.gpu_mem_min
-        );
-        sqlx::query_as::<_, HostModel>(QUERY_DISPATCH_HOST)
-            .bind(format!("{:X}", layer.show_id))
-            .bind(format!("{:X}", layer.facility_id))
-            .bind(str_os_like)
-            .bind(layer.str_os.clone().unwrap_or_default())
-            .bind(layer.cores_min.with_multiplier().value())
-            .bind((layer.mem_min.as_u64() / KB) as i64)
-            .bind(layer.tags.clone())
-            .bind(layer.gpus_min)
-            .bind((layer.gpu_mem_min.as_u64() / KB) as i64)
-            .bind(limit as i32)
-            .fetch(&*self.connection_pool)
-    }
-
-    pub fn fetch_hosts_by_show_facility_tag(
-        &self,
+    pub fn fetch_hosts_by_show_facility_tag<'a>(
+        &'a self,
         show_id: &Uuid,
         facility_id: &Uuid,
-        tag: String,
-    ) -> impl Stream<Item = Result<HostModel, sqlx::Error>> + '_ {
+        tag: &'a str,
+    ) -> impl Stream<Item = Result<HostModel, sqlx::Error>> + 'a {
         sqlx::query_as::<_, HostModel>(QUERY_HOST_BY_SHOW_FACILITY_AND_TAG)
             .bind(format!("{:X}", show_id))
             .bind(format!("{:X}", facility_id))
             .bind(tag)
             .fetch(&*self.connection_pool)
-    }
-
-    pub fn fetch_hosts_by_tag(
-        &self,
-        tag: String,
-    ) -> impl Stream<Item = Result<HostModel, sqlx::Error>> + '_ {
-        sqlx::query_as::<_, HostModel>(QUERY_HOST_BY_TAG)
-            .bind(tag)
-            .fetch(&*self.connection_pool)
-    }
-
-    pub async fn fetch_all_alloc_tags(&self) -> Result<HashMap<String, ()>> {
-        let out: Vec<String> = sqlx::query_scalar(QUERY_ALLOC_TAGS)
-            .fetch_all(&*self.connection_pool)
-            .await
-            .into_diagnostic()?;
-
-        Ok(HashMap::from_iter(out.into_iter().map(|tag| (tag, ()))))
     }
 
     /// Acquires an advisory lock on a host to prevent concurrent dispatch.

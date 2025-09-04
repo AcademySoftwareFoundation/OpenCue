@@ -21,19 +21,24 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                 let mut stream:
                     // Ugly splicit type is needed here to make the compiler happy
                     Box<dyn futures::Stream<Item = Result<_, sqlx::Error>> + Unpin + Send> =
-                match cluster.facility_show {
-                    Some((facility_id, show_id)) => Box::new(
-                        job_fetcher.query_active_jobs_by_show_facility_tag(
-                            show_id,
-                            facility_id,
-                            cluster.tag)),
-                    None => Box::new(job_fetcher.query_active_jobs_by_tag(cluster.tag))
+                match &cluster {
+                    crate::cluster::Cluster::ComposedKey(cluster_key) => Box::new(
+                                        job_fetcher.query_pending_jobs_by_show_facility_tag(
+                                            cluster_key.show_id,
+                                            cluster_key.facility_id,
+                                            cluster_key.tag.to_string())),
+                    crate::cluster::Cluster::TagsKey(tags) =>
+                        Box::new(
+                            job_fetcher.query_pending_jobs_by_tags(
+                                tags.iter()
+                                    .map(|v| v.to_string()).collect())
+                        ),
                 };
 
                 while let Some(job) = stream.next().await {
                     match job {
                         Ok(job_model) => {
-                            let job: DispatchJob = job_model.into();
+                            let job = DispatchJob::new(job_model, cluster.clone());
                             info!("Found job: {}", job);
                             job_event_handler.process(job).await;
                         }
