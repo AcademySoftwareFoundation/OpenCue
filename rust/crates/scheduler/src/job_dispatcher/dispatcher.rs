@@ -195,13 +195,12 @@ impl RqdDispatcher {
                                     .await
                                     .into_diagnostic()
                                     .map_err(DispatchError::Failure)?;
-
-                                // Update database resources
-                                self.host_dao
-                                    .update_resources(&current_host)
-                                    .await
-                                    .map_err(DispatchError::FailureAfterDispatch)?;
                             }
+                            // Update database resources
+                            self.host_dao
+                                .update_resources(&current_host)
+                                .await
+                                .map_err(DispatchError::FailureAfterDispatch)?;
                             dispatched_procs.push(virtual_proc.to_string());
                         }
                         Err(err) => match err {

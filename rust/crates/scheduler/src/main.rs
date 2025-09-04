@@ -18,21 +18,21 @@ mod pgpool;
 
 #[derive(StructOpt, Debug)]
 pub struct JobQueueCli {
-    #[structopt(
-        long,
-        short = "a",
-        long_help = "A comma separated list of allocations (eg. lax.general). \
-        When provided, the service will not query for existing allocations"
-    )]
-    allocations: Option<CommaSeparatedList>,
+    // #[structopt(
+    //     long,
+    //     short = "a",
+    //     long_help = "A comma separated list of allocations (eg. lax.general). \
+    //     When provided, the service will not query for existing allocations"
+    // )]
+    // allocations: Option<CommaSeparatedList>,
 
-    #[structopt(
-        long,
-        short = "s",
-        long_help = "A comma separated list of Shows. When provided, the service will not query for existing shows",
-        required_if("allocations", "")
-    )]
-    shows: Option<CommaSeparatedList>,
+    // #[structopt(
+    //     long,
+    //     short = "s",
+    //     long_help = "A comma separated list of Shows. When provided, the service will not query for existing shows",
+    //     required_if("allocations", "")
+    // )]
+    // shows: Option<CommaSeparatedList>,
 }
 
 #[derive(Debug, Clone)]

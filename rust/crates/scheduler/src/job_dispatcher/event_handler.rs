@@ -2,7 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use crate::{
     cluster::Cluster,
-    cluster_key::{Tag},
+    cluster_key::Tag,
     config::CONFIG,
     dao::{FrameDao, HostDao, LayerDao},
     host_cache::{HostCacheService, host_cache_service},
@@ -11,7 +11,7 @@ use crate::{
 };
 use futures::StreamExt;
 use miette::Result;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 /// Event handler for booking jobs to available hosts.
 ///
@@ -133,8 +133,9 @@ impl BookJobEventHandler {
     /// # Arguments
     /// * `dispatch_layer` - The layer to dispatch to a host
     async fn process_layer(&self, dispatch_layer: DispatchLayer, cluster: Arc<Cluster>) {
-        // TODO: Backoff on each attempt
-        for _ in 0..10 {
+        let mut try_again = false;
+        let mut attempts = CONFIG.queue.host_candidate_attemps_per_layer;
+        while try_again && attempts > 0 {
             // Filter layer tags to match the scope of the cluster in context
             let tags = Self::filter_matching_tags(&cluster, &dispatch_layer);
             let host_candidate = self
@@ -156,18 +157,31 @@ impl BookJobEventHandler {
                         host, dispatch_layer
                     );
                     match self.dispatcher.dispatch(&dispatch_layer, &host).await {
-                        // Stop on the first successful attempt
-                        // Attempt next candidate in any failure case
                         Ok(_) => {
-                            break;
+                            // Stop on the first successful attempt
+                            try_again = false;
                         }
                         Err(err) => {
+                            // Attempt next candidate in any failure case
+                            attempts -= 1;
                             Self::log_dispatch_error(err, &dispatch_layer, &host);
                         }
                     };
                     self.host_service.checkin(cluster_key, host);
                 }
-                Err(_) => todo!(),
+                Err(err) => match err {
+                    crate::host_cache::HostCacheError::KeyNotFoundError(cluster_key) => {
+                        warn!(
+                            "ClusterKey={} not found when attempting to dispatch layer {}",
+                            cluster_key, dispatch_layer
+                        );
+                        try_again = false;
+                    }
+                    crate::host_cache::HostCacheError::NoCandidateAvailable => {
+                        warn!("No host candidate available for layer {}", dispatch_layer);
+                        try_again = false;
+                    }
+                },
             }
         }
     }

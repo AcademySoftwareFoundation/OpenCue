@@ -61,6 +61,7 @@ pub struct QueueConfig {
     pub stream: StreamConfig,
     pub manual_tags_chunk_size: usize,
     pub hostname_tags_chunk_size: usize,
+    pub host_candidate_attemps_per_layer: usize,
 }
 
 impl Default for QueueConfig {
@@ -75,6 +76,7 @@ impl Default for QueueConfig {
             stream: StreamConfig::default(),
             manual_tags_chunk_size: 100,
             hostname_tags_chunk_size: 300,
+            host_candidate_attemps_per_layer: 10,
         }
     }
 }
