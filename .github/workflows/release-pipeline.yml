@@ -43,6 +43,100 @@ jobs:
 
       - uses: ./.github/actions/build-python-packages
 
+      - name: Gather package paths
+        id: package_outputs
+        run: |
+          echo "opencue_proto_path=$(find ./packages -name 'opencue_proto-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_rqd_path=$(find ./packages -name 'opencue_rqd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pycue_path=$(find ./packages -name 'opencue_pycue-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pyoutline_path=$(find ./packages -name 'opencue_pyoutline-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuesubmit_path=$(find ./packages -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueadmin_path=$(find ./packages -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+
+  build_rust_binaries:
+    name: Build Rust Binaries
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-22.04
+          - target: x86_64-apple-darwin
+            os: macos-13
+          - target: aarch64-apple-darwin
+            os: macos-13
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Mark repository as safe
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Get current tag name
+        run: echo "TAG_NAME=${GITHUB_REF/refs\/tags\//}" >> ${GITHUB_ENV}
+
+      - name: Verify tag name and version match
+        run: |
+          set -e
+          if [ "v$(ci/generate_version_number.py)" != "${TAG_NAME}" ]; then
+            echo "Version check failed: code version v$(ci/generate_version_number.py) does not match tag name ${TAG_NAME}"
+            echo "Original GITHUB_REF: ${GITHUB_REF}"
+            exit 1
+          fi
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev protobuf-compiler
+          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
+            sudo apt-get install -y musl-tools
+          fi
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-13'
+        run: |
+          brew install protobuf
+
+      - name: Set build ID
+        run: |
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >> $GITHUB_ENV
+
+      - name: Build Rust binaries
+        run: |
+          cd rust
+          cargo build --release --target ${{ matrix.target }} --no-default-features
+
+      - name: Create release directory
+        run: mkdir -p release
+
+      - name: Copy binaries (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          cp rust/target/${{ matrix.target }}/release/openrqd release/openrqd-${{ env.BUILD_ID }}-${{ matrix.target }}
+
+      - name: Copy binaries (macOS)
+        if: matrix.os == 'macos-13'
+        run: |
+          cp rust/target/${{ matrix.target }}/release/openrqd release/openrqd-${{ env.BUILD_ID }}-${{ matrix.target }}
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-binaries-${{ matrix.target }}
+          path: release/
+
   upload_python_packages_test:
     needs: build_opencue_packages
     runs-on: ubuntu-22.04
@@ -133,7 +227,7 @@ jobs:
       #     readme-filepath: ./${{ matrix.component }}/README.md
 
   create_release:
-    # needs: preflight
+    needs: build_rust_binaries
     name: Create Release
     environment: dockerhub
     runs-on: ubuntu-22.04
@@ -158,6 +252,13 @@ jobs:
           ci/generate_version_number.sh > VERSION
           echo "Build ID: $(ci/generate_version_number.py)"
           echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
+
+      - name: Download Rust binaries artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rust-binaries-*
+          path: rust-binaries
+          merge-multiple: true
 
       - name: Fetch artifacts
         id: fetch_artifacts
@@ -319,4 +420,44 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ${{ github.workspace }}/artifacts/cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_name: cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_content_type: application/octet-stream
+
+      - name: Upload openrqd (Linux GNU)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: rust-binaries/openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-gnu
+          asset_name: openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-gnu
+          asset_content_type: application/octet-stream
+
+      - name: Upload openrqd (Linux MUSL)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: rust-binaries/openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-musl
+          asset_name: openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-musl
+          asset_content_type: application/octet-stream
+
+      - name: Upload openrqd (macOS Intel)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: rust-binaries/openrqd-${{ env.BUILD_ID }}-x86_64-apple-darwin
+          asset_name: openrqd-${{ env.BUILD_ID }}-x86_64-apple-darwin
+          asset_content_type: application/octet-stream
+
+      - name: Upload openrqd (macOS Apple Silicon)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: rust-binaries/openrqd-${{ env.BUILD_ID }}-aarch64-apple-darwin
+          asset_name: openrqd-${{ env.BUILD_ID }}-aarch64-apple-darwin
           asset_content_type: application/octet-stream
