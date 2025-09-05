@@ -124,7 +124,8 @@ impl FrameManager {
             self.machine.get_host_name().await,
         ));
 
-        if self.config.runner.run_on_docker {
+        if cfg!(feature = "containerized_frames") && self.config.runner.run_on_docker {
+            #[cfg(feature = "containerized_frames")]
             self.spawn_docker_frame(running_frame, false);
         } else if self.spawn_running_frame(running_frame, false).is_err() {
             // Release cores reserved if spawning the frame failed
@@ -255,11 +256,6 @@ impl FrameManager {
         self.machine.add_running_frame(Arc::clone(&running_frame));
         let _thread_handle =
             tokio::spawn(async move { running_frame.run_docker(recovery_mode).await });
-    }
-
-    #[cfg(feature = "default")]
-    fn spawn_docker_frame(&self, _running_frame: Arc<RunningFrame>, _recovery_mode: bool) {
-        todo!("Running on docker requires compiling with the feature containerized_frames")
     }
 
     fn validate_grpc_frame(&self, run_frame: &RunFrame) -> Result<(), FrameManagerError> {

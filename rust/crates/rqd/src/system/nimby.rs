@@ -15,6 +15,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+#[cfg(feature = "nimby")]
 use device_query::{DeviceEvents, DeviceEventsHandler};
 use miette::{Context, IntoDiagnostic, Result, miette};
 use tokio::sync::broadcast::Receiver;
