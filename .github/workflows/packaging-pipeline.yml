@@ -4,6 +4,9 @@ name: OpenCue Packaging Pipeline
 on:
   push:
     branches: [master]
+  # TODO: remove
+  pull_request:
+    branches: [master]
 
 jobs:
   build_opencue_packages:
@@ -114,55 +117,55 @@ jobs:
           name: rust-binaries-${{ matrix.target }}
           path: release/
 
-  integration_test:
-    needs: build_opencue_packages
-    name: Run Integration Test
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
+  # integration_test:
+  #   needs: build_opencue_packages
+  #   name: Run Integration Test
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #         fetch-tags: true
 
-      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
-        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+  #     - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+  #       run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
-      - name: Download Python packages artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
-          path: packages
+  #     - name: Download Python packages artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: opencue_packages
+  #         path: packages
 
-      - name: Download Rust binaries artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: rust-binaries-*
-          path: rust-binaries
-          merge-multiple: true
+  #     - name: Download Rust binaries artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         pattern: rust-binaries-*
+  #         path: rust-binaries
+  #         merge-multiple: true
 
-      - name: Run test
-        run: |
-          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
-          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
-          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
-          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
-          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
-          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
-          export OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}"
-          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-          ci/run_integration_test.sh
+  #     - name: Run test
+  #       run: |
+  #         export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+  #         export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+  #         export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+  #         export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+  #         export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
+  #         export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+  #         export OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}"
+  #         export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
+  #         ci/run_integration_test.sh
 
-      - name: Archive log files
-        uses: actions/upload-artifact@v4
-        if: ${{ always() }}
-        with:
-          name: test-logs
-          path: /tmp/opencue-test/*.log
+  #     - name: Archive log files
+  #       uses: actions/upload-artifact@v4
+  #       if: ${{ always() }}
+  #       with:
+  #         name: test-logs
+  #         path: /tmp/opencue-test/*.log
 
   build_components:
     needs:
-      - integration_test
+      # - integration_test
       - build_opencue_packages
     strategy:
       matrix:
@@ -181,28 +184,28 @@ jobs:
           # not be correctly calculated.
           fetch-depth: 0
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.S3_REGION }}
-          role-to-assume: ${{ secrets.AWS_S3_ROLE }}
-          role-duration-seconds: 1800
-        continue-on-error: true
+      # - name: Configure AWS credentials
+      #   uses: aws-actions/configure-aws-credentials@v1
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ${{ secrets.S3_REGION }}
+      #     role-to-assume: ${{ secrets.AWS_S3_ROLE }}
+      #     role-duration-seconds: 1800
+      #   continue-on-error: true
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASS }}
-        continue-on-error: true
+      # - name: Login to Docker Hub
+      #   uses: docker/login-action@v2
+      #   with:
+      #     username: ${{ secrets.DOCKER_USER }}
+      #     password: ${{ secrets.DOCKER_PASS }}
+      #   continue-on-error: true
 
-      - name: Download Python packages artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
-          path: packages
+      # - name: Download Python packages artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: opencue_packages
+      #     path: packages
 
       - name: Download Rust binaries artifacts
         uses: actions/download-artifact@v4
@@ -211,49 +214,49 @@ jobs:
           path: rust-binaries
           merge-multiple: true
 
-      - name: Set build ID
-        run: |
-          set -e
-          echo "Build ID: $(ci/generate_version_number.py)"
-          echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
+      # - name: Set build ID
+      #   run: |
+      #     set -e
+      #     echo "Build ID: $(ci/generate_version_number.py)"
+      #     echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
 
-      - name: Build Docker image
-        run: |
-          image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
-          docker buildx build . -f ${{ matrix.component }}/Dockerfile -t ${image_name} \
-            --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}" \
-            --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}" \
-            --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}" \
-            --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}" \
-            --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}" \
-            --build-arg OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}" \
-            --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}" \
-            --build-arg BUILD_ID="${BUILD_ID}"
-          docker push ${image_name}
+      # - name: Build Docker image
+      #   run: |
+      #     image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
+      #     docker buildx build . -f ${{ matrix.component }}/Dockerfile -t ${image_name} \
+      #       --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}" \
+      #       --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}" \
+      #       --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}" \
+      #       --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}" \
+      #       --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}" \
+      #       --build-arg OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}" \
+      #       --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}" \
+      #       --build-arg BUILD_ID="${BUILD_ID}"
+      #     docker push ${image_name}
 
-      - name: Extract Artifacts
-        if: ${{ matrix.ARTIFACTS }}
-        run: |
-          set -e
-          image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
-          container_id=$(docker create ${image_name})
-          artifacts="${{ matrix.ARTIFACTS }}"
-          mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
-          for artifact in $artifacts; do
-            docker cp ${container_id}:/opt/opencue/${artifact} "${GITHUB_WORKSPACE}/artifacts/"
-          done
-          docker rm $container_id
+      # - name: Extract Artifacts
+      #   if: ${{ matrix.ARTIFACTS }}
+      #   run: |
+      #     set -e
+      #     image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
+      #     container_id=$(docker create ${image_name})
+      #     artifacts="${{ matrix.ARTIFACTS }}"
+      #     mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
+      #     for artifact in $artifacts; do
+      #       docker cp ${container_id}:/opt/opencue/${artifact} "${GITHUB_WORKSPACE}/artifacts/"
+      #     done
+      #     docker rm $container_id
 
-      - name: Upload Artifacts
-        continue-on-error: true
-        if: ${{ matrix.ARTIFACTS }}
-        env:
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-        run: |
-          artifacts="${{ matrix.ARTIFACTS }}"
-          for artifact in $artifacts; do
-            aws s3 cp ${GITHUB_WORKSPACE}/artifacts/${artifact} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          done
+      # - name: Upload Artifacts
+      #   continue-on-error: true
+      #   if: ${{ matrix.ARTIFACTS }}
+      #   env:
+      #     S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      #   run: |
+      #     artifacts="${{ matrix.ARTIFACTS }}"
+      #     for artifact in $artifacts; do
+      #       aws s3 cp ${GITHUB_WORKSPACE}/artifacts/${artifact} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     done
 
   create_other_artifacts:
     name: Create Other Build Artifacts
@@ -271,15 +274,15 @@ jobs:
           # not be correctly calculated.
           fetch-depth: 0
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.S3_REGION }}
-          role-to-assume: ${{ secrets.AWS_S3_ROLE }}
-          role-duration-seconds: 1800
-        continue-on-error: true
+      # - name: Configure AWS credentials
+      #   uses: aws-actions/configure-aws-credentials@v1
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ${{ secrets.S3_REGION }}
+      #     role-to-assume: ${{ secrets.AWS_S3_ROLE }}
+      #     role-duration-seconds: 1800
+      #   continue-on-error: true
 
       - name: Set build ID
         run: |
@@ -288,21 +291,21 @@ jobs:
           echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
           echo "BUILD_ID=$(ci/generate_version_number.py)" >VERSION
 
-      - name: Extract database schema
-        run: |
-          mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
-          ci/extract_schema.sh ${BUILD_ID} "${GITHUB_WORKSPACE}/artifacts/"
+      # - name: Extract database schema
+      #   run: |
+      #     mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
+      #     ci/extract_schema.sh ${BUILD_ID} "${GITHUB_WORKSPACE}/artifacts/"
 
-      - name: Create build metadata
-        run: |
-          mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
-          echo "{\"git_commit\": \"$(BUILD_SOURCEVERSION)\"}" | tee "${GITHUB_WORKSPACE}/artifacts/build_metadata.json"
+      # - name: Create build metadata
+      #   run: |
+      #     mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
+      #     echo "{\"git_commit\": \"$(BUILD_SOURCEVERSION)\"}" | tee "${GITHUB_WORKSPACE}/artifacts/build_metadata.json"
 
-      - name: Download Python packages artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
-          path: packages
+      # - name: Download Python packages artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: opencue_packages
+      #     path: packages
 
       - name: Download Rust binaries artifacts
         uses: actions/download-artifact@v4
@@ -311,32 +314,32 @@ jobs:
           path: rust-binaries
           merge-multiple: true
 
-      - name: Upload artifacts
-        env:
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-        run: |
-          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_proto_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_rqd_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_pycue_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cueman_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp LICENSE s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp VERSION s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp "${GITHUB_WORKSPACE}/artifacts/schema-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp "${GITHUB_WORKSPACE}/artifacts/seed_data-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp "${GITHUB_WORKSPACE}/artifacts/build_metadata.json" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          # Upload Rust binaries
-          for binary in rust-binaries/*; do
-            if [ -f "$binary" ]; then
-              aws s3 cp "$binary" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-            fi
-          done
+      # - name: Upload artifacts
+      #   env:
+      #     S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      #   run: |
+      #     aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_proto_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_rqd_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_pycue_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cueman_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     aws s3 cp LICENSE s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     aws s3 cp VERSION s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     aws s3 cp "${GITHUB_WORKSPACE}/artifacts/schema-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     aws s3 cp "${GITHUB_WORKSPACE}/artifacts/seed_data-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     aws s3 cp "${GITHUB_WORKSPACE}/artifacts/build_metadata.json" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #     # Upload Rust binaries
+      #     for binary in rust-binaries/*; do
+      #       if [ -f "$binary" ]; then
+      #         aws s3 cp "$binary" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      #       fi
+      #     done
 
-      - name: Display artifacts
-        env:
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-        run: |
-          aws s3 ls s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+      # - name: Display artifacts
+      #   env:
+      #     S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      #   run: |
+      #     aws s3 ls s3://${S3_BUCKET}/opencue/${BUILD_ID}/
