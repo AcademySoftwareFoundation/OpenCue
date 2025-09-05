@@ -92,6 +92,9 @@ jobs:
             NAME: Cuebot
             ARTIFACTS: cuebot-${BUILD_ID}-all.jar opencue-cuebot-${BUILD_ID}-1.noarch.rpm
 
+          - component: rqd
+            NAME: RQD
+
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
     steps:
