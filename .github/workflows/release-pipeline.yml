@@ -30,7 +30,7 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
       - name: Get current tag name
-        run: echo "TAG_NAME=${GITHUB_REF/refs\/tags\//}" >> ${GITHUB_ENV}
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> ${GITHUB_ENV}
 
       - name: Verify tag name and version match
         run: |
@@ -79,7 +79,7 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
       - name: Get current tag name
-        run: echo "TAG_NAME=${GITHUB_REF/refs\/tags\//}" >> ${GITHUB_ENV}
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> ${GITHUB_ENV}
 
       - name: Verify tag name and version match
         run: |
@@ -186,7 +186,7 @@ jobs:
           echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
 
       - name: Get current tag name
-        run: echo "TAG_NAME=${GITHUB_REF/refs\/tags\//}" >> ${GITHUB_ENV}
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> ${GITHUB_ENV}
 
       - name: Verify tag name and version match
         run: |
