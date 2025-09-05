@@ -72,7 +72,7 @@ jobs:
     environment: dockerhub
     strategy:
       matrix:
-        component: [cuebot]
+        component: [cuebot, rqd]
 
     name: Release ${{ matrix.component }} Docker image
     steps:
