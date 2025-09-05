@@ -199,7 +199,11 @@ class GrpcServer(object):
         self.server = grpc.server(
             futures.ThreadPoolExecutor(max_workers=rqd.rqconstants.RQD_GRPC_MAX_WORKERS))
         self.servicers = ['RqdInterfaceServicer']
-        self.server.add_insecure_port('[::]:{0}'.format(rqd.rqconstants.RQD_GRPC_PORT))
+        listenAddress = "[::]"
+        if rqd.rqconstants.RQD_NETWORK_INTERFACE:
+            listenAddress = rqd.rqutil.getInterfaceIp(rqd.rqconstants.RQD_NETWORK_INTERFACE,
+                                                      ipv6=rqd.rqconstants.RQD_USE_IPV6_AS_HOSTNAME)
+        self.server.add_insecure_port(f'{listenAddress}:{rqd.rqconstants.RQD_GRPC_PORT}')
 
     def addServicers(self):
         """Registers the gRPC servicers defined in rqdservicers.py."""
