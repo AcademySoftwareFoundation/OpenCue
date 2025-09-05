@@ -32,6 +32,10 @@ grpc:
   # Default: 8444
   rqd_port: 4778
 
+  # RPC Interface to listen on
+  # Default:  (Empty string means all interfaces)
+  # rqd_interface: ""
+
   # Cuebot server endpoints (can specify multiple for failover)
   # Default: ["localhost:4343"]
   cuebot_endpoints: ["cuebot.example.com:8082"] # Replace with actual endpoints
