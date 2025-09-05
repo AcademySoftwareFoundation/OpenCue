@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use futures::{StreamExt, stream};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
-use crate::cluster::ClusterFeed;
+use crate::cluster::{Cluster, ClusterFeed};
 use crate::config::CONFIG;
 use crate::dao::JobDao;
 use crate::job_dispatcher::BookJobEventHandler;
@@ -12,6 +12,7 @@ use crate::models::DispatchJob;
 pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     let job_fetcher = Arc::new(JobDao::from_config(&CONFIG.database).await?);
     let job_event_handler = Arc::new(BookJobEventHandler::new().await?);
+    debug!("Starting scheduler feed");
 
     stream::iter(cluster_feed)
         .map(|cluster| {
@@ -22,12 +23,12 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                     // Ugly splicit type is needed here to make the compiler happy
                     Box<dyn futures::Stream<Item = Result<_, sqlx::Error>> + Unpin + Send> =
                 match &cluster {
-                    crate::cluster::Cluster::ComposedKey(cluster_key) => Box::new(
+                    Cluster::ComposedKey(cluster_key) => Box::new(
                                         job_fetcher.query_pending_jobs_by_show_facility_tag(
-                                            cluster_key.show_id,
-                                            cluster_key.facility_id,
+                                            cluster_key.show_id.clone(),
+                                            cluster_key.facility_id.clone(),
                                             cluster_key.tag.to_string())),
-                    crate::cluster::Cluster::TagsKey(tags) =>
+                    Cluster::TagsKey(tags) =>
                         Box::new(
                             job_fetcher.query_pending_jobs_by_tags(
                                 tags.iter()

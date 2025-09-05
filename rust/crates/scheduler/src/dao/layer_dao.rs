@@ -5,7 +5,6 @@ use futures::Stream;
 use miette::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
-use uuid::Uuid;
 
 use crate::{
     config::DatabaseConfig,
@@ -46,10 +45,10 @@ pub struct DispatchLayerModel {
 impl From<DispatchLayerModel> for DispatchLayer {
     fn from(val: DispatchLayerModel) -> Self {
         DispatchLayer {
-            id: Uuid::parse_str(&val.pk_layer).unwrap_or_default(),
-            job_id: Uuid::parse_str(&val.pk_job).unwrap_or_default(),
-            facility_id: Uuid::parse_str(&val.pk_facility).unwrap_or_default(),
-            show_id: Uuid::parse_str(&val.pk_show).unwrap_or_default(),
+            id: val.pk_layer,
+            job_id: val.pk_job,
+            facility_id: val.pk_facility,
+            show_id: val.pk_show,
             job_name: val.str_job_name,
             layer_name: val.str_name,
             str_os: val.str_os,
@@ -131,10 +130,10 @@ impl LayerDao {
     /// A stream of `DispatchLayerModel` results ordered by dispatch priority
     pub fn query_layers(
         &self,
-        pk_job: Uuid,
+        pk_job: String,
     ) -> impl Stream<Item = Result<DispatchLayerModel, sqlx::Error>> + '_ {
         sqlx::query_as::<_, DispatchLayerModel>(QUERY_LAYER)
-            .bind(format!("{:x}", pk_job))
+            .bind(pk_job)
             .fetch(&*self.connection_pool)
     }
 }

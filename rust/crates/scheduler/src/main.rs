@@ -60,7 +60,7 @@ impl JobQueueCli {
         //     }
         //     _ => Err(miette!("")),
         // }?;
-        let cluster_feed = ClusterFeed::load_all().await?;
+        let cluster_feed = ClusterFeed::load_all(false).await?;
         job_fetcher::run(cluster_feed).await
     }
 }

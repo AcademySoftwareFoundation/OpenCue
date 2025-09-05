@@ -2,16 +2,15 @@ use core::fmt;
 
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::models::{core_size::CoreSize, fmt_uuid};
 
 #[derive(Serialize, Deserialize)]
 pub struct DispatchLayer {
-    pub id: Uuid,
-    pub job_id: Uuid,
-    pub facility_id: Uuid,
-    pub show_id: Uuid,
+    pub id: String,
+    pub job_id: String,
+    pub facility_id: String,
+    pub show_id: String,
     pub job_name: String,
     pub layer_name: String,
     pub str_os: Option<String>,

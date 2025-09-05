@@ -4,7 +4,7 @@ use futures::Stream;
 use miette::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
-use uuid::Uuid;
+use tracing::debug;
 
 use crate::{
     cluster::Cluster,
@@ -36,13 +36,20 @@ pub struct JobModel {
 impl DispatchJob {
     pub fn new(model: JobModel, cluster: Cluster) -> Self {
         DispatchJob {
-            id: Uuid::parse_str(&model.pk_job).unwrap_or_default(),
+            id: model.pk_job,
             int_priority: model.int_priority,
             source_cluster: cluster,
         }
     }
 }
 
+// static QUERY_PENDING_BY_SHOW_FACILITY_TAG: &str = r#"
+// SELECT j.pk_job, 1 as int_priority
+//   FROM job j
+//   INNER JOIN show s ON j.pk_show = s.pk_show
+//   WHERE s.pk_show = $1
+//     AND j.pk_facility = $2
+// "#;
 static QUERY_PENDING_BY_SHOW_FACILITY_TAG: &str = r#"
 WITH bookable_shows AS (
     SELECT
@@ -63,14 +70,13 @@ filtered_jobs AS (
     INNER JOIN job_resource jr ON j.pk_job = jr.pk_job
     INNER JOIN folder f ON j.pk_folder = f.pk_folder
     INNER JOIN folder_resource fr ON f.pk_folder = fr.pk_folder
-    INNER JOIN point p ON f.pk_dept = p.pk_dept AND f.pk_show = p.pk_show
     INNER JOIN layer l ON l.pk_job = j.pk_job
     WHERE j.str_state = 'PENDING'
         AND j.b_paused = false
         AND (fr.int_max_cores = -1 OR fr.int_cores + l.int_cores_min < fr.int_max_cores)
         AND (fr.int_max_gpus = -1 OR fr.int_gpus + l.int_gpus_min < fr.int_max_gpus)
-        AND string_to_array('$3', ' | ') && string_to_array(l.str_tags, ' | ')
-        AND j.pk_facility = '$4'
+        AND string_to_array($3, ' | ') && string_to_array(l.str_tags, ' | ')
+        --AND j.pk_facility = $4
 )
 SELECT DISTINCT
     fj.pk_job,
@@ -90,7 +96,6 @@ WITH filtered_jobs AS(
     INNER JOIN job_resource jr ON j.pk_job = jr.pk_job
     INNER JOIN folder f ON j.pk_folder = f.pk_folder
     INNER JOIN folder_resource fr ON f.pk_folder = fr.pk_folder
-    INNER JOIN point p ON f.pk_dept = p.pk_dept AND f.pk_show = p.pk_show
     INNER JOIN layer l ON l.pk_job = j.pk_job
     WHERE j.str_state = 'PENDING'
         AND j.b_paused = false
@@ -131,15 +136,24 @@ impl JobDao {
 
     pub fn query_pending_jobs_by_show_facility_tag(
         &self,
-        show_id: Uuid,
-        facility_id: Uuid,
+        show_id: String,
+        facility_id: String,
         tag: String,
     ) -> impl Stream<Item = Result<JobModel, sqlx::Error>> + '_ {
+        debug!(
+            "QUERY_PENDING_BY_SHOW_FACILITY_TAG= {}",
+            QUERY_PENDING_BY_SHOW_FACILITY_TAG
+        );
+        debug!(
+            "QUERY_PENDING_BY_SHOW_FACILITY_TAG query args: show_id={}, core_multi={}, tag={}, facility_id={}",
+            show_id, CONFIG.queue.core_multiplier, tag, facility_id
+        );
+
         sqlx::query_as::<_, JobModel>(QUERY_PENDING_BY_SHOW_FACILITY_TAG)
-            .bind(format!("{:X}", show_id))
+            .bind(show_id)
             .bind(CONFIG.queue.core_multiplier as i32)
             .bind(tag)
-            .bind(format!("{:X}", facility_id))
+            .bind(facility_id)
             .fetch(&*self.connection_pool)
     }
 

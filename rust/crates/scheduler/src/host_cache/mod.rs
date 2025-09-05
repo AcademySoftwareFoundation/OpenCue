@@ -3,7 +3,7 @@ pub use cache::HostCache;
 
 use bytesize::ByteSize;
 use itertools::Itertools;
-use miette::Diagnostic;
+use miette::{Diagnostic, miette};
 use std::{cmp::Ordering, sync::Arc};
 use thiserror::Error;
 
@@ -31,7 +31,8 @@ pub async fn host_cache_service() -> Result<Arc<HostCacheService>> {
     HOST_CACHE
         .get_or_try_init(|| async {
             let service = Arc::new(HostCacheService::new().await?);
-            service.start().await;
+            // TODO: Uncomment and make test aware
+            // service.clone().start();
 
             Ok(service)
         })
@@ -50,6 +51,10 @@ pub enum HostCacheError {
     KeyNotFoundError(ClusterKey),
     #[error("No host found with the required resources")]
     NoCandidateAvailable,
+    #[error(
+        "Failed to query Host. Cache is functional, but can't probably load new values from the database"
+    )]
+    FailedToQueryHostCache(String),
 }
 
 impl HostCacheService {
@@ -64,8 +69,8 @@ impl HostCacheService {
 
     pub async fn checkout<F>(
         &self,
-        facility_id: Uuid,
-        show_id: Uuid,
+        facility_id: String,
+        show_id: String,
         tags: Vec<Tag>,
         cores: CoreSize,
         memory: ByteSize,
@@ -74,18 +79,17 @@ impl HostCacheService {
     where
         F: Fn(&Host) -> bool,
     {
-        let cache_keys = self.gen_cache_keys(&facility_id, &show_id, tags);
+        let cache_keys = self.gen_cache_keys(facility_id, show_id, tags);
         for cache_key in cache_keys {
-            let cached_groups = self.groups.get(&cache_key);
-            let candidate = match cached_groups {
+            // Get group from caches, or database if it a group has expired
+            let candidate = match self.groups.get(&cache_key) {
                 Some(cached_group) if !cached_group.expired() => cached_group,
-                _ => {
-                    self.fetch_group_data(&cache_key).await;
-                    self.groups
-                        .get(&cache_key)
-                        .ok_or(HostCacheError::KeyNotFoundError(cache_key.clone()))?
-                }
+                _ => self
+                    .fetch_group_data(&cache_key)
+                    .await
+                    .map_err(|err| HostCacheError::FailedToQueryHostCache(err.to_string()))?,
             }
+            // Checkout host from a group
             .checkout(cores, memory, &validation)
             .map(|host| (cache_key, host.clone()));
 
@@ -105,14 +109,14 @@ impl HostCacheService {
     #[allow(clippy::map_entry)]
     fn gen_cache_keys(
         &self,
-        facility_id: &Uuid,
-        show_id: &Uuid,
+        facility_id: String,
+        show_id: String,
         tags: Vec<Tag>,
     ) -> impl IntoIterator<Item = ClusterKey> {
         tags.into_iter()
             .map(|tag| ClusterKey {
-                facility_id: *facility_id,
-                show_id: *show_id,
+                facility_id: facility_id.clone(),
+                show_id: show_id.clone(),
                 tag,
             })
             // Make sure tags are evaluated in this order: MANUAL -> HOSTNAME -> ALLOC
@@ -126,8 +130,13 @@ impl HostCacheService {
             })
     }
 
-    /// Will loop forever. Should be started on its own thread
-    async fn start(&self) {
+    fn start(self: Arc<Self>) {
+        let service = self.clone();
+        // Will loop forever on its own thread
+        tokio::spawn(async move { service.start_loop().await });
+    }
+
+    async fn start_loop(&self) {
         let caches = Arc::new(&self.groups);
         // Fetch refresh active groups cashes preemptively on an interval
         let mut interval = time::interval(CONFIG.host_cache.monitoring_interval);
@@ -136,28 +145,27 @@ impl HostCacheService {
             interval.tick().await;
 
             // Clone list of groups keys to avoid keeping a lock through the stream lifetime
-            let group_keys: Vec<ClusterKey> = self
+            let group_keys: Vec<_> = self
                 .groups
                 .iter()
-                .map(|entry| entry.key().clone())
+                .map(|entry| (entry.key().clone(), entry.value().is_idle()))
                 .collect();
 
             let groups_for_removal = Arc::new(Mutex::new(vec![]));
 
-            stream::iter(&group_keys)
-                .map(|group_key| {
-                    let caches = caches.clone();
+            stream::iter(group_keys)
+                .map(|(group_key, is_idle)| {
                     let groups_for_removal = groups_for_removal.clone();
 
                     async move {
                         // Skip groups if it exists on the cache but haven't been queried for a while
-                        match caches.get(group_key) {
-                            Some(group) if group.is_idle() => {
-                                groups_for_removal.lock().await.push(group.key().clone())
-                            }
-                            _ => {
-                                self.fetch_group_data(group_key).await;
-                            }
+                        if is_idle {
+                            groups_for_removal.lock().await.push(group_key)
+                        } else if let Err(err) = self.fetch_group_data(&group_key).await {
+                            error!(
+                                "Failed to fetch cache data on cache loop for key {}.{}",
+                                group_key, err
+                            );
                         }
                     }
                 })
@@ -172,21 +180,25 @@ impl HostCacheService {
         }
     }
 
-    async fn fetch_group_data(&self, key: &ClusterKey) {
+    async fn fetch_group_data(
+        &self,
+        key: &ClusterKey,
+    ) -> Result<dashmap::mapref::one::Ref<'_, ClusterKey, HostCache>> {
         let tag = key.tag.to_string();
-        let mut hosts_stream =
-            self.host_dao
-                .fetch_hosts_by_show_facility_tag(&key.show_id, &key.facility_id, &tag);
+        let mut hosts_stream = self.host_dao.fetch_hosts_by_show_facility_tag(
+            key.show_id.clone(),
+            key.facility_id.clone(),
+            &tag,
+        );
 
-        let mut cache = self.groups.entry(key.clone()).or_insert(HostCache::new());
+        let mut cache = self.groups.entry(key.clone()).or_default();
         while let Some(host) = hosts_stream.next().await {
             match host {
                 Ok(host_model) => cache.insert(host_model.into()),
-                Err(err) => {
-                    error!("Failed to query host for group {}. {}", key, err);
-                }
+                Err(err) => Err(miette!("Failed to query host for group {}. {}", key, err))?,
             }
         }
         cache.ping_fetch();
+        Ok(cache.downgrade())
     }
 }

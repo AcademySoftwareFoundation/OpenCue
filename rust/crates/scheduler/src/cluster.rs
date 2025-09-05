@@ -21,13 +21,15 @@ pub enum Cluster {
 pub struct ClusterFeed {
     pub keys: Vec<Cluster>,
     current_index: usize,
+    rounds: usize,
+    run_once: bool,
 }
 
 impl ClusterFeed {
     /// As of now, with a single node, we're loading all clusters at once
     /// in real live, this should happen on a schedule and should negotiate with
     /// other nodes
-    pub async fn load_all() -> Result<Self> {
+    pub async fn load_all(run_once: bool) -> Result<Self> {
         let cluster_dao = ClusterDao::from_config(&CONFIG.database).await?;
 
         // Fetch clusters for both facilitys+shows+tags and just tags
@@ -46,9 +48,8 @@ impl ClusterFeed {
                         // Each alloc tag becomes its own cluster
                         "ALLOC" => {
                             clusters.push(Cluster::ComposedKey(ClusterKey {
-                                facility_id: Uuid::parse_str(&cluster.facility_id)
-                                    .into_diagnostic()?,
-                                show_id: Uuid::parse_str(&cluster.show_id).into_diagnostic()?,
+                                facility_id: cluster.facility_id,
+                                show_id: cluster.show_id,
                                 tag: Tag {
                                     name: cluster.tag,
                                     ttype: TagType::Alloc,
@@ -97,7 +98,20 @@ impl ClusterFeed {
         Ok(ClusterFeed {
             keys: clusters,
             current_index: 0,
+            run_once,
+            rounds: 0,
         })
+    }
+
+    /// Constructor for testing purposes
+    #[allow(dead_code)]
+    pub fn new_for_test(keys: Vec<Cluster>) -> Self {
+        ClusterFeed {
+            keys,
+            current_index: 0,
+            run_once: true,
+            rounds: 0,
+        }
     }
 }
 
@@ -105,8 +119,13 @@ impl Iterator for ClusterFeed {
     type Item = Cluster;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.keys.is_empty() {
+        if self.keys.is_empty() || (self.rounds > 0 && self.run_once) {
             return None;
+        }
+
+        // Count number of rounds if we got to the last element
+        if self.current_index == self.keys.len() - 1 {
+            self.rounds += 1
         }
 
         let item = self.keys[self.current_index].clone();

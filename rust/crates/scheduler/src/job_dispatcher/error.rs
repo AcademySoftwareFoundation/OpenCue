@@ -23,4 +23,7 @@ pub enum DispatchError {
 
     #[error("DispatchError: Host resources extinguished")]
     HostResourcesExtinguished,
+
+    #[error("DispatchError: Failed to update frame on the database")]
+    FailedToStartOnDb(Error),
 }

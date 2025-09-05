@@ -134,7 +134,7 @@ impl BookJobEventHandler {
     /// # Arguments
     /// * `dispatch_layer` - The layer to dispatch to a host
     async fn process_layer(&self, dispatch_layer: DispatchLayer, cluster: Arc<Cluster>) {
-        let mut try_again = false;
+        let mut try_again = true;
         let mut attempts = CONFIG.queue.host_candidate_attemps_per_layer;
         while try_again && attempts > 0 {
             // Filter layer tags to match the scope of the cluster in context
@@ -142,8 +142,8 @@ impl BookJobEventHandler {
             let host_candidate = self
                 .host_service
                 .checkout(
-                    dispatch_layer.facility_id,
-                    dispatch_layer.show_id,
+                    dispatch_layer.facility_id.clone(),
+                    dispatch_layer.show_id.clone(),
                     tags,
                     dispatch_layer.cores_min,
                     dispatch_layer.mem_min,
@@ -164,7 +164,6 @@ impl BookJobEventHandler {
                         }
                         Err(err) => {
                             // Attempt next candidate in any failure case
-                            attempts -= 1;
                             Self::log_dispatch_error(err, &dispatch_layer, &host);
                         }
                     };
@@ -182,8 +181,12 @@ impl BookJobEventHandler {
                         warn!("No host candidate available for layer {}", dispatch_layer);
                         try_again = false;
                     }
+                    crate::host_cache::HostCacheError::FailedToQueryHostCache(err) => {
+                        panic!("Cache is no longer able to access the database. {}", err)
+                    }
                 },
             }
+            attempts -= 1;
         }
     }
 
@@ -226,6 +229,14 @@ impl BookJobEventHandler {
                 debug!(
                     "Host resources for {} extinguished, skiping to the next candidate",
                     host
+                );
+            }
+            DispatchError::FailedToStartOnDb(report) => {
+                error!(
+                    "Failed to Start frame on Database when dispatching {} on {}. {}",
+                    dispatch_layer,
+                    host,
+                    report.to_string()
                 );
             }
         }

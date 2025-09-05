@@ -4,13 +4,19 @@ use crate::config::error::JobQueueConfigError;
 use bytesize::ByteSize;
 use config::{Config as ConfigBase, Environment, File};
 use lazy_static::lazy_static;
+use once_cell::sync::OnceCell;
 use serde::Deserialize;
-use std::{env, time::Duration};
+use std::{env, fs, path::PathBuf, time::Duration};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
 
+pub static OVERRIDE_CONFIG: OnceCell<Config> = OnceCell::new();
+
 lazy_static! {
-    pub static ref CONFIG: Config = Config::load().expect("Failed to load config file");
+    pub static ref CONFIG: Config = OVERRIDE_CONFIG
+        .get()
+        .cloned()
+        .unwrap_or_else(|| Config::load().expect("Failed to load config file"));
 }
 
 //===Config Types===
@@ -202,8 +208,14 @@ impl Config {
     // load the current config from the system config and environment variables
     pub fn load() -> Result<Self, JobQueueConfigError> {
         let mut required = false;
-        let config_file = match env::var("OPENCUE_JOB_QUEUE_CONFIG") {
+        let config_file = match env::var("OPENCUE_SCHEDULER_CONFIG") {
             Ok(v) => {
+                println!(
+                    " INFO Config: {}",
+                    fs::canonicalize(&v)
+                        .unwrap_or(PathBuf::from("Invalid path"))
+                        .to_string_lossy()
+                );
                 required = true;
                 v
             }
@@ -214,7 +226,7 @@ impl Config {
 
         let config = ConfigBase::builder()
             .add_source(File::with_name(&config_file).required(required))
-            .add_source(Environment::with_prefix("OPENRQD").separator("_"))
+            .add_source(Environment::with_prefix("OPENSCHEDULER").separator("_"))
             .build()
             .map_err(|err| {
                 JobQueueConfigError::LoadConfigError(format!(

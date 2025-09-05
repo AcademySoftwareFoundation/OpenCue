@@ -1,4 +1,4 @@
-mod dispatcher;
+pub mod dispatcher;
 mod error;
 mod event_handler;
 mod frame_set;

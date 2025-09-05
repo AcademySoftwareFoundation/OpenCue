@@ -42,8 +42,8 @@ impl std::borrow::Borrow<str> for Tag {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ClusterKey {
-    pub facility_id: Uuid,
-    pub show_id: Uuid,
+    pub facility_id: String,
+    pub show_id: String,
     pub tag: Tag,
 }
 

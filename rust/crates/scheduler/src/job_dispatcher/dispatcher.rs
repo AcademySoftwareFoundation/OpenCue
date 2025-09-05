@@ -169,8 +169,7 @@ impl RqdDispatcher {
                             allocation_capacity =
                                 allocation_capacity - virtual_proc.cores_reserved.into();
 
-                            let run_frame = self
-                                .prepare_rqd_run_frame(&virtual_proc)
+                            let run_frame = Self::prepare_rqd_run_frame(&virtual_proc)
                                 .map_err(DispatchError::Failure)?;
                             debug!("Prepared run_frame for {}", virtual_proc);
                             let request = RqdStaticLaunchFrameRequest {
@@ -179,6 +178,10 @@ impl RqdDispatcher {
 
                             // When running on dry_run_mode, just log the outcome
                             let msg = format!("Dispatching {} on {}", virtual_proc, &current_host);
+                            self.frame_dao
+                                .update_frame_started(&virtual_proc)
+                                .await
+                                .map_err(DispatchError::FailedToStartOnDb)?;
                             if self.dry_run_mode {
                                 info!("(DRY_RUN) {}", msg);
                             } else {
@@ -351,15 +354,15 @@ impl RqdDispatcher {
 
         // Update host resources
         host.idle_cores = host.idle_cores - cores_reserved;
-        host.idle_memory = ByteSize::kb(host.idle_memory.as_u64() - memory_reserved.as_u64());
+        host.idle_memory = ByteSize(host.idle_memory.as_u64() - memory_reserved.as_u64());
         host.idle_gpus -= gpus_reserved;
         host.idle_gpu_memory =
-            ByteSize::kb(host.idle_gpu_memory.as_u64() - gpu_memory_reserved.as_u64());
+            ByteSize(host.idle_gpu_memory.as_u64() - gpu_memory_reserved.as_u64());
 
         Ok((
             VirtualProc {
-                proc_id: Uuid::new_v4(),
-                host_id: host.id,
+                proc_id: Uuid::new_v4().to_string(),
+                host_id: host.id.clone(),
                 cores_reserved: cores_reserved.into(),
                 memory_reserved,
                 gpus_reserved,
@@ -367,6 +370,7 @@ impl RqdDispatcher {
                 os: host.str_os.clone().unwrap_or_default(),
                 is_local_dispatch: false,
                 frame,
+                host_name: host.name.clone(),
             },
             host,
         ))
@@ -394,7 +398,7 @@ impl RqdDispatcher {
         let frame_min_memory = frame.min_memory.as_u64() as f64;
 
         // Memory per core if evently distributed
-        let memory_per_core = total_cores / total_memory;
+        let memory_per_core = total_memory / total_cores;
 
         // How many cores worth of memory the frame needs
         let mut cores_worth_of_memory = (frame_min_memory / memory_per_core.round()) as i32;
@@ -466,13 +470,15 @@ impl RqdDispatcher {
     /// - Resource allocation specifications
     /// - Frame timing and execution context
     ///
+    /// A frame name shall follow the format [number]-[layer_name]
+    ///
     /// # Arguments
     /// * `proc` - The virtual proc containing frame and resource information
     ///
     /// # Returns
     /// * `Ok(RunFrame)` - The prepared RQD RunFrame message
     /// * `Err(miette::Error)` - If frame preparation fails
-    fn prepare_rqd_run_frame(&self, proc: &VirtualProc) -> Result<RunFrame> {
+    fn prepare_rqd_run_frame(proc: &VirtualProc) -> Result<RunFrame> {
         // Calculate threads from cores reserved
         let proc_cores_reserved: CoreSize = proc.cores_reserved.into();
         let threads = std::cmp::max(CoreSize(1), proc_cores_reserved);
@@ -597,5 +603,522 @@ impl RqdDispatcher {
                 hostname, port
             ))?;
         Ok(client)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{CoreSize, DispatchFrame, Host};
+    use bytesize::ByteSize;
+    use opencue_proto::host::ThreadMode;
+    use uuid::Uuid;
+
+    // Helper function to create a test host
+    fn create_test_host() -> Host {
+        Host::new_for_test(
+            Uuid::new_v4().to_string(),
+            "test-host".to_string(),
+            Some("linux".to_string()),
+            CoreSize(8),
+            ByteSize::gib(16),
+            CoreSize(4),
+            ByteSize::gib(8),
+            1,
+            ByteSize::gib(4),
+            ThreadMode::Variable,
+            CoreSize(4),
+            "test-alloc".to_string(),
+        )
+    }
+
+    // Helper function to create a test dispatch frame
+    fn create_test_dispatch_frame() -> DispatchFrame {
+        DispatchFrame {
+            id: Uuid::new_v4().to_string(),
+            frame_name: "0001-test_frame".to_string(),
+            show_id: Uuid::new_v4().to_string(),
+            facility_id: Uuid::new_v4().to_string(),
+            job_id: Uuid::new_v4().to_string(),
+            layer_id: Uuid::new_v4().to_string(),
+            command: "echo 'test command'".to_string(),
+            range: "1-10".to_string(),
+            chunk_size: 1,
+            show_name: "test_show".to_string(),
+            shot: "test_shot".to_string(),
+            user: "test_user".to_string(),
+            uid: Some(1000),
+            log_dir: "/tmp/logs".to_string(),
+            layer_name: "test_layer".to_string(),
+            job_name: "test_job".to_string(),
+            min_cores: CoreSize(1),
+            layer_cores_limit: None,
+            threadable: true,
+            has_selfish_service: false,
+            min_gpus: 0,
+            min_gpu_memory: ByteSize::gb(0),
+            min_memory: ByteSize::gib(2),
+            services: None,
+            os: Some("linux".to_string()),
+            loki_url: None,
+            version: 1,
+        }
+    }
+
+    #[test]
+    fn test_calculate_cores_requested_positive() {
+        let result = RqdDispatcher::calculate_cores_requested(CoreSize(4), CoreSize(8));
+        assert_eq!(result, CoreSize(4));
+    }
+
+    #[test]
+    fn test_calculate_cores_requested_zero() {
+        let result = RqdDispatcher::calculate_cores_requested(CoreSize(0), CoreSize(8));
+        assert_eq!(result, CoreSize(8));
+    }
+
+    #[test]
+    fn test_calculate_cores_requested_negative() {
+        let result = RqdDispatcher::calculate_cores_requested(CoreSize(-2), CoreSize(8));
+        assert_eq!(result, CoreSize(6));
+    }
+
+    #[tokio::test]
+    async fn test_calculate_core_reservation_thread_mode_all() {
+        let mut host = create_test_host();
+        host.thread_mode = ThreadMode::All;
+        host.idle_cores = CoreSize(6);
+
+        let frame = create_test_dispatch_frame();
+        let memory_threshold = ByteSize::mib(500);
+
+        let result = RqdDispatcher::calculate_core_reservation(&host, &frame, memory_threshold);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), CoreSize(6)); // Should return idle_cores
+    }
+
+    #[tokio::test]
+    async fn test_calculate_core_reservation_variable_threadable_small_request() {
+        let mut host = create_test_host();
+        host.thread_mode = ThreadMode::Variable;
+
+        let mut frame = create_test_dispatch_frame();
+        frame.threadable = true;
+        frame.min_cores = CoreSize(1);
+
+        let memory_threshold = ByteSize::mib(500);
+
+        let result = RqdDispatcher::calculate_core_reservation(&host, &frame, memory_threshold);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), CoreSize(2)); // Should return 2 cores minimum
+    }
+
+    #[tokio::test]
+    async fn test_calculate_core_reservation_not_threadable() {
+        let host = create_test_host();
+        let mut frame = create_test_dispatch_frame();
+        frame.threadable = false;
+        frame.min_cores = CoreSize(3);
+
+        let memory_threshold = ByteSize::mib(500);
+
+        let result = RqdDispatcher::calculate_core_reservation(&host, &frame, memory_threshold);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), CoreSize(3)); // Should return cores_requested
+    }
+
+    #[tokio::test]
+    async fn test_calculate_core_reservation_insufficient_cores() {
+        let mut host = create_test_host();
+        host.idle_cores = CoreSize(2);
+
+        let mut frame = create_test_dispatch_frame();
+        frame.min_cores = CoreSize(10); // More than available
+
+        let memory_threshold = ByteSize::mib(500);
+
+        let result = RqdDispatcher::calculate_core_reservation(&host, &frame, memory_threshold);
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(VirtualProcError::HostResourcesExtinguished(_))
+        ));
+    }
+
+    #[test]
+    fn test_calculate_memory_balanced_core_count_exact_calculation() {
+        // Create a host with precise values to test the calculation
+        let host = Host::new_for_test(
+            Uuid::new_v4().to_string(),
+            "test-host".to_string(),
+            Some("linux".to_string()),
+            CoreSize(8),       // 8 cores
+            ByteSize::gib(16), // 16 GB total memory
+            CoreSize(4),
+            ByteSize::gib(8),
+            1,
+            ByteSize::gib(4),
+            ThreadMode::Variable,
+            CoreSize(4),
+            "test-alloc".to_string(),
+        );
+
+        let mut frame = create_test_dispatch_frame();
+        frame.min_memory = ByteSize::gib(4); // Frame needs 4GB
+
+        let cores_requested = CoreSize(1);
+
+        let result =
+            RqdDispatcher::calculate_memory_balanced_core_count(&host, &frame, cores_requested);
+
+        // With 8 cores and 16GB, each core gets 2GB on average
+        // Frame needs 4GB, so it should get 2 cores worth of memory
+        // Since cores_requested (1) < cores_worth_of_memory (2), should return 2
+        assert_eq!(result.value(), 2);
+    }
+
+    #[test]
+    fn test_calculate_memory_balanced_core_count_high_memory_frame() {
+        // Create a host with precise values
+        let host = Host::new_for_test(
+            Uuid::new_v4().to_string(),
+            "test-host".to_string(),
+            Some("linux".to_string()),
+            CoreSize(4),      // 4 cores
+            ByteSize::gib(8), // 8 GB total memory
+            CoreSize(4),
+            ByteSize::gib(8),
+            1,
+            ByteSize::gib(4),
+            ThreadMode::Variable,
+            CoreSize(4),
+            "test-alloc".to_string(),
+        );
+
+        let mut frame = create_test_dispatch_frame();
+        frame.min_memory = ByteSize::gib(6); // Frame needs 6GB - more than half
+
+        let cores_requested = CoreSize(1);
+
+        let result =
+            RqdDispatcher::calculate_memory_balanced_core_count(&host, &frame, cores_requested);
+
+        // With 4 cores and 8GB, each core gets 2GB on average
+        // Frame needs 6GB, so it should get 3 cores worth of memory
+        // Since cores_requested (1) < cores_worth_of_memory (3), should return 3
+        assert_eq!(result.value(), 3);
+    }
+
+    #[test]
+    fn test_calculate_memory_balanced_core_count_low_memory_frame() {
+        // Create a host with precise values
+        let host = Host::new_for_test(
+            Uuid::new_v4().to_string(),
+            "test-host".to_string(),
+            Some("linux".to_string()),
+            CoreSize(8),       // 8 cores
+            ByteSize::gib(32), // 32 GB total memory
+            CoreSize(8),
+            ByteSize::gib(32),
+            1,
+            ByteSize::gib(16),
+            ThreadMode::Variable,
+            CoreSize(8),
+            "test-alloc".to_string(),
+        );
+
+        let mut frame = create_test_dispatch_frame();
+        frame.min_memory = ByteSize::gib(2); // Frame needs only 2GB
+
+        let cores_requested = CoreSize(4); // But requests 4 cores
+
+        let result =
+            RqdDispatcher::calculate_memory_balanced_core_count(&host, &frame, cores_requested);
+
+        // With 8 cores and 32GB, each core gets 4GB on average
+        // Frame needs 2GB, so memory-wise it only needs 0.5 cores worth (rounds to 1)
+        // Since cores_requested (4) > cores_worth_of_memory (1), should return cores_requested (4)
+        assert_eq!(result.value(), 4);
+    }
+
+    #[test]
+    fn test_calculate_memory_balanced_core_count_with_layer_limit() {
+        let host = Host::new_for_test(
+            Uuid::new_v4().to_string(),
+            "test-host".to_string(),
+            Some("linux".to_string()),
+            CoreSize(8),
+            ByteSize::gib(16),
+            CoreSize(8),
+            ByteSize::gib(16),
+            1,
+            ByteSize::gib(8),
+            ThreadMode::Variable,
+            CoreSize(8),
+            "test-alloc".to_string(),
+        );
+
+        let mut frame = create_test_dispatch_frame();
+        frame.layer_cores_limit = Some(CoreSize(2)); // Limit to 2 cores
+        frame.min_memory = ByteSize::gib(8); // High memory requirement (would want 4 cores normally)
+
+        let cores_requested = CoreSize(1);
+
+        let result =
+            RqdDispatcher::calculate_memory_balanced_core_count(&host, &frame, cores_requested);
+
+        // With 8 cores and 16GB, each core gets 2GB
+        // Frame needs 8GB, so memory-wise it needs 4 cores
+        // But layer limit is 2, so should be capped at 2
+        assert_eq!(result.value(), 2);
+    }
+
+    #[test]
+    fn test_prepare_frame_spec_basic() {
+        let result = RqdDispatcher::prepare_frame_spec(5, "1-10", 1);
+        assert!(result.is_ok());
+        let (frame_spec, last_frame) = result.unwrap();
+        assert_eq!(frame_spec, "5");
+        assert_eq!(last_frame, 5);
+    }
+
+    #[test]
+    fn test_prepare_frame_spec_chunk() {
+        let result = RqdDispatcher::prepare_frame_spec(5, "1-10", 3);
+        assert!(result.is_ok());
+        let (frame_spec, last_frame) = result.unwrap();
+        assert_eq!(frame_spec, "5-7");
+        assert_eq!(last_frame, 7);
+    }
+
+    #[test]
+    fn test_prepare_frame_spec_invalid_frame() {
+        let result = RqdDispatcher::prepare_frame_spec(15, "1-10", 1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_prepare_frame_spec_invalid_range() {
+        let result = RqdDispatcher::prepare_frame_spec(5, "invalid-range", 1);
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_success() {
+        let frame = create_test_dispatch_frame();
+        let host = create_test_host();
+        let memory_stranded_threshold = ByteSize::gib(1);
+
+        let result = RqdDispatcher::consume_host_virtual_resources(
+            frame.clone(),
+            host.clone(),
+            memory_stranded_threshold,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        let (virtual_proc, updated_host) = result.unwrap();
+
+        // Check virtual proc creation
+        assert_eq!(virtual_proc.host_id, host.id);
+        assert_eq!(virtual_proc.memory_reserved, frame.min_memory);
+        assert_eq!(virtual_proc.gpus_reserved, frame.min_gpus);
+        assert_eq!(virtual_proc.gpu_memory_reserved, frame.min_gpu_memory);
+        assert_eq!(virtual_proc.frame.id, frame.id);
+        assert!(!virtual_proc.proc_id.is_empty());
+
+        // Check host resource consumption
+        assert!(updated_host.idle_cores < host.idle_cores);
+        assert_eq!(
+            updated_host.idle_memory.as_u64(),
+            host.idle_memory.as_u64() - frame.min_memory.as_u64()
+        );
+        assert_eq!(updated_host.idle_gpus, host.idle_gpus - frame.min_gpus);
+        assert_eq!(
+            updated_host.idle_gpu_memory.as_u64(),
+            host.idle_gpu_memory.as_u64() - frame.min_gpu_memory.as_u64()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_insufficient_memory() {
+        let mut frame = create_test_dispatch_frame();
+        frame.min_memory = ByteSize::gib(64); // More than host has
+        let host = create_test_host();
+        let memory_stranded_threshold = ByteSize::gib(1);
+
+        let result =
+            RqdDispatcher::consume_host_virtual_resources(frame, host, memory_stranded_threshold)
+                .await;
+
+        assert!(result.is_err());
+        match result {
+            Err(VirtualProcError::HostResourcesExtinguished(msg)) => {
+                assert!(msg.contains("Not enough memory"));
+            }
+            _ => panic!("Expected HostResourcesExtinguished error for memory"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_insufficient_gpus() {
+        let mut frame = create_test_dispatch_frame();
+        frame.min_gpus = 4; // More than host has
+        let host = create_test_host();
+        let memory_stranded_threshold = ByteSize::gib(1);
+
+        let result =
+            RqdDispatcher::consume_host_virtual_resources(frame, host, memory_stranded_threshold)
+                .await;
+
+        assert!(result.is_err());
+        match result {
+            Err(VirtualProcError::HostResourcesExtinguished(msg)) => {
+                assert!(msg.contains("Not enough GPU cores"));
+            }
+            _ => panic!("Expected HostResourcesExtinguished error for GPUs"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_consume_host_virtual_resources_insufficient_gpu_memory() {
+        let mut frame = create_test_dispatch_frame();
+        frame.min_gpu_memory = ByteSize::gib(32); // More than host has
+        let host = create_test_host();
+        let memory_stranded_threshold = ByteSize::gib(1);
+
+        let result =
+            RqdDispatcher::consume_host_virtual_resources(frame, host, memory_stranded_threshold)
+                .await;
+
+        assert!(result.is_err());
+        match result {
+            Err(VirtualProcError::HostResourcesExtinguished(msg)) => {
+                assert!(msg.contains("Not enough GPU memory"));
+            }
+            _ => panic!("Expected HostResourcesExtinguished error for GPU memory"),
+        }
+    }
+
+    #[test]
+    fn test_prepare_rqd_run_frame_basic() {
+        let frame = create_test_dispatch_frame();
+        let virtual_proc = VirtualProc {
+            proc_id: Uuid::new_v4().to_string(),
+            host_id: Uuid::new_v4().to_string(),
+            cores_reserved: CoreSize(2).with_multiplier(),
+            memory_reserved: ByteSize::gib(4),
+            gpus_reserved: 1,
+            gpu_memory_reserved: ByteSize::gib(8),
+            os: "linux".to_string(),
+            is_local_dispatch: false,
+            frame,
+            host_name: "somehost".to_string(),
+        };
+
+        let result = RqdDispatcher::prepare_rqd_run_frame(&virtual_proc);
+
+        assert!(result.is_ok());
+        let run_frame = result.unwrap();
+
+        // Check basic fields
+        assert_eq!(run_frame.frame_id, virtual_proc.frame.id);
+        assert_eq!(run_frame.frame_name, virtual_proc.frame.frame_name);
+        assert_eq!(run_frame.job_name, virtual_proc.frame.job_name);
+        assert_eq!(run_frame.layer_id, virtual_proc.frame.layer_id);
+        assert_eq!(run_frame.resource_id, virtual_proc.proc_id);
+        assert_eq!(run_frame.num_cores, virtual_proc.cores_reserved.value());
+        assert_eq!(run_frame.num_gpus, virtual_proc.gpus_reserved as i32);
+        assert_eq!(run_frame.os, virtual_proc.os);
+        assert_eq!(run_frame.ignore_nimby, virtual_proc.is_local_dispatch);
+
+        // Check environment variables
+        assert_eq!(run_frame.environment.get("CUE3").unwrap(), "1");
+        assert_eq!(run_frame.environment.get("CUE_THREADS").unwrap(), "2");
+        assert_eq!(
+            run_frame.environment.get("CUE_MEMORY").unwrap(),
+            &virtual_proc.memory_reserved.to_string()
+        );
+        assert_eq!(run_frame.environment.get("CUE_GPUS").unwrap(), "1");
+        assert_eq!(
+            run_frame.environment.get("CUE_FRAME").unwrap(),
+            &virtual_proc.frame.frame_name
+        );
+        assert_eq!(
+            run_frame.environment.get("CUE_JOB").unwrap(),
+            &virtual_proc.frame.job_name
+        );
+        assert_eq!(
+            run_frame.environment.get("CUE_LAYER").unwrap(),
+            &virtual_proc.frame.layer_name
+        );
+        assert_eq!(
+            run_frame.environment.get("CUE_SHOW").unwrap(),
+            &virtual_proc.frame.show_name
+        );
+        assert_eq!(
+            run_frame.environment.get("CUE_USER").unwrap(),
+            &virtual_proc.frame.user
+        );
+        assert_eq!(
+            run_frame.environment.get("CUE_RANGE").unwrap(),
+            &virtual_proc.frame.range
+        );
+    }
+
+    #[test]
+    fn test_prepare_rqd_run_frame_token_replacement() {
+        let mut frame = create_test_dispatch_frame();
+        frame.command =
+            "render #ZFRAME# #IFRAME# #FRAME_START# #FRAME_END# #LAYER# #JOB# #FRAME#".to_string();
+        frame.frame_name = "0005-test_frame".to_string();
+        frame.range = "1-10".to_string(); // Ensure frame 5 is in range
+
+        let virtual_proc = VirtualProc {
+            proc_id: Uuid::new_v4().to_string(),
+            host_id: Uuid::new_v4().to_string(),
+            cores_reserved: CoreSize(1).with_multiplier(),
+            memory_reserved: ByteSize::gib(2),
+            gpus_reserved: 0,
+            gpu_memory_reserved: ByteSize::gb(0),
+            os: "linux".to_string(),
+            is_local_dispatch: false,
+            frame,
+            host_name: "somehost".to_string(),
+        };
+
+        let result = RqdDispatcher::prepare_rqd_run_frame(&virtual_proc);
+
+        assert!(result.is_ok());
+        let run_frame = result.unwrap();
+
+        // Check token replacements in command
+        let expected_command = "render 0005 5 5 5 test_layer test_job 0005-test_frame";
+        assert_eq!(run_frame.command, expected_command);
+
+        // Check frame number parsing and environment
+        assert_eq!(run_frame.environment.get("CUE_IFRAME").unwrap(), "5");
+    }
+
+    #[test]
+    fn test_prepare_rqd_run_frame_invalid_frame_name() {
+        let mut frame = create_test_dispatch_frame();
+        frame.frame_name = "invalid-frame-name".to_string();
+
+        let virtual_proc = VirtualProc {
+            proc_id: Uuid::new_v4().to_string(),
+            host_id: Uuid::new_v4().to_string(),
+            cores_reserved: CoreSize(1).with_multiplier(),
+            memory_reserved: ByteSize::gib(2),
+            gpus_reserved: 0,
+            gpu_memory_reserved: ByteSize::gb(0),
+            os: "linux".to_string(),
+            is_local_dispatch: false,
+            frame,
+            host_name: "somehost".to_string(),
+        };
+
+        let result = RqdDispatcher::prepare_rqd_run_frame(&virtual_proc);
+        assert!(result.is_err());
     }
 }

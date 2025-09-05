@@ -2,23 +2,22 @@ use std::fmt::Display;
 
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::models::{core_size::CoreSize, fmt_uuid};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DispatchFrame {
     // Entity fields
-    pub id: Uuid,
+    pub id: String,
     pub frame_name: String,
 
     // LayerEntity fields
-    pub show_id: Uuid,
-    pub facility_id: Uuid,
-    pub job_id: Uuid,
+    pub show_id: String,
+    pub facility_id: String,
+    pub job_id: String,
 
     // FrameEntity fields
-    pub layer_id: Uuid,
+    pub layer_id: String,
 
     // DispatchFrame specific fields
     pub command: String,
@@ -45,6 +44,7 @@ pub struct DispatchFrame {
     pub services: Option<String>,
     pub os: Option<String>,
     pub loki_url: Option<String>,
+    pub version: u32,
 }
 
 impl Display for DispatchFrame {

@@ -2,14 +2,14 @@ use std::fmt::Display;
 
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::models::{CoreSizeWithMultiplier, DispatchFrame, fmt_uuid};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VirtualProc {
-    pub proc_id: Uuid,
-    pub host_id: Uuid,
+    pub proc_id: String,
+    pub host_id: String,
+    pub host_name: String,
     pub cores_reserved: CoreSizeWithMultiplier,
     pub memory_reserved: ByteSize,
     pub gpus_reserved: u32,

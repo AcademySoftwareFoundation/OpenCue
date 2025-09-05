@@ -8,7 +8,6 @@ use bytesize::ByteSize;
 use dashmap::DashMap;
 use miette::Result;
 use tracing::error;
-use uuid::Uuid;
 
 use crate::{
     config::CONFIG,
@@ -16,7 +15,7 @@ use crate::{
     models::{CoreSize, Host},
 };
 
-type HostId = Uuid;
+type HostId = String;
 type CoreKey = u32;
 type MemoryKey = u64;
 
@@ -40,8 +39,8 @@ pub enum HostBookingStrategy {
     PrioritizeLoadDistribution,
 }
 
-impl HostCache {
-    pub fn new() -> Self {
+impl Default for HostCache {
+    fn default() -> Self {
         HostCache {
             host_keys_by_host_id: DashMap::new(),
             hosts_by_core_and_memory: BTreeMap::new(),
@@ -51,7 +50,9 @@ impl HostCache {
             checked_out_hosts: DashMap::new(),
         }
     }
+}
 
+impl HostCache {
     fn ping_query(&self) {
         let mut lock = self
             .last_queried
@@ -104,7 +105,8 @@ impl HostCache {
             .find_candidate(cores, memory, validation)
             .ok_or(HostCacheError::NoCandidateAvailable)?;
 
-        self.checked_out_hosts.insert(host.id, SystemTime::now());
+        self.checked_out_hosts
+            .insert(host.id.clone(), SystemTime::now());
         Ok(host)
     }
 
@@ -186,13 +188,13 @@ impl HostCache {
         }
         let core_key = host.idle_cores.value() as CoreKey;
         let memory_key = Self::gen_memory_key(host.idle_memory);
-        let host_id = host.id;
+        let host_id = host.id.clone();
         self.hosts_by_core_and_memory
             .entry(core_key)
             .or_default()
             .entry(memory_key)
             .or_default()
-            .insert(host.id, host);
+            .insert(host_id.clone(), host);
 
         // Update the host_keys_by_host_id mapping
         self.host_keys_by_host_id
@@ -210,10 +212,11 @@ mod tests {
     use opencue_proto::host::ThreadMode;
     use std::thread;
     use std::time::Duration;
+    use uuid::Uuid;
 
     fn create_test_host(id: Uuid, idle_cores: i32, idle_memory: ByteSize) -> Host {
         Host {
-            id,
+            id: id.to_string(),
             name: format!("test-host-{}", id),
             str_os: Some("Linux".to_string()),
             total_cores: CoreSize(idle_cores),
@@ -230,7 +233,7 @@ mod tests {
 
     #[test]
     fn test_new_host_cache() {
-        let cache = HostCache::new();
+        let cache = HostCache::default();
         assert!(cache.host_keys_by_host_id.is_empty());
         assert!(cache.hosts_by_core_and_memory.is_empty());
         assert!(cache.checked_out_hosts.is_empty());
@@ -239,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_ping_query_updates_last_queried() {
-        let cache = HostCache::new();
+        let cache = HostCache::default();
         let initial_time = *cache.last_queried.read().unwrap();
 
         thread::sleep(Duration::from_millis(1));
@@ -251,7 +254,7 @@ mod tests {
 
     #[test]
     fn test_ping_fetch_updates_last_fetched() {
-        let cache = HostCache::new();
+        let cache = HostCache::default();
         assert!(cache.last_fetched.read().unwrap().is_none());
 
         cache.ping_fetch();
@@ -261,39 +264,43 @@ mod tests {
 
     #[test]
     fn test_expired_when_never_fetched() {
-        let cache = HostCache::new();
+        let cache = HostCache::default();
         assert!(!cache.expired());
     }
 
     #[test]
     fn test_expired_when_recently_fetched() {
-        let cache = HostCache::new();
+        let cache = HostCache::default();
         cache.ping_fetch();
         assert!(!cache.expired());
     }
 
     #[test]
     fn test_is_idle_when_recently_queried() {
-        let cache = HostCache::new();
+        let cache = HostCache::default();
         cache.ping_query();
         assert!(!cache.is_idle());
     }
 
     #[test]
     fn test_insert_host() {
-        let mut cache = HostCache::new();
+        let mut cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
         cache.insert(host.clone());
 
-        assert!(cache.host_keys_by_host_id.contains_key(&host_id));
+        assert!(
+            cache
+                .host_keys_by_host_id
+                .contains_key(&host_id.to_string())
+        );
         assert!(!cache.hosts_by_core_and_memory.is_empty());
     }
 
     #[test]
     fn test_insert_host_updates_existing() {
-        let mut cache = HostCache::new();
+        let mut cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host1 = create_test_host(host_id, 4, ByteSize::gb(8));
         let mut host2 = create_test_host(host_id, 8, ByteSize::gb(16));
@@ -306,14 +313,17 @@ mod tests {
         assert_eq!(cache.host_keys_by_host_id.len(), 1);
 
         // The host should be updated with new resources
-        let (core_key, memory_key) = *cache.host_keys_by_host_id.get(&host_id).unwrap();
+        let (core_key, memory_key) = *cache
+            .host_keys_by_host_id
+            .get(&host_id.to_string())
+            .unwrap();
         assert_eq!(core_key, 8);
         assert!(memory_key > 0);
     }
 
     #[test]
     fn test_checkout_success() {
-        let mut cache = HostCache::new();
+        let mut cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
@@ -327,13 +337,13 @@ mod tests {
 
         assert!(result.is_ok());
         let checked_out_host = result.unwrap();
-        assert_eq!(checked_out_host.id, host_id);
-        assert!(cache.checked_out_hosts.contains_key(&host_id));
+        assert_eq!(checked_out_host.id, host_id.to_string());
+        assert!(cache.checked_out_hosts.contains_key(&host_id.to_string()));
     }
 
     #[test]
     fn test_checkout_no_candidate_available() {
-        let cache = HostCache::new();
+        let cache = HostCache::default();
 
         let result = cache.checkout(CoreSize(4), ByteSize::gb(8), |_| true);
 
@@ -343,7 +353,7 @@ mod tests {
 
     #[test]
     fn test_checkout_insufficient_cores() {
-        let mut cache = HostCache::new();
+        let mut cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 2, ByteSize::gb(8));
 
@@ -360,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_checkout_insufficient_memory() {
-        let mut cache = HostCache::new();
+        let mut cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(4));
 
@@ -377,7 +387,7 @@ mod tests {
 
     #[test]
     fn test_checkout_validation_fails() {
-        let mut cache = HostCache::new();
+        let mut cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
@@ -394,7 +404,7 @@ mod tests {
 
     #[test]
     fn test_checkout_already_checked_out() {
-        let mut cache = HostCache::new();
+        let mut cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
@@ -411,7 +421,7 @@ mod tests {
 
     #[test]
     fn test_checkin() {
-        let mut cache = HostCache::new();
+        let mut cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
@@ -420,36 +430,36 @@ mod tests {
         // Checkout the host
         let result = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
         assert!(result.is_ok());
-        assert!(cache.checked_out_hosts.contains_key(&host_id));
+        assert!(cache.checked_out_hosts.contains_key(&host_id.to_string()));
 
         // Check it back in
         cache.checkin(&host);
-        assert!(!cache.checked_out_hosts.contains_key(&host_id));
+        assert!(!cache.checked_out_hosts.contains_key(&host_id.to_string()));
     }
 
     #[test]
     fn test_is_checked_out_false_when_not_checked_out() {
-        let cache = HostCache::new();
+        let cache = HostCache::default();
         let host_id = Uuid::new_v4();
 
-        assert!(!cache.is_checked_out(&host_id));
+        assert!(!cache.is_checked_out(&host_id.to_string()));
     }
 
     #[test]
     fn test_is_checked_out_true_when_recently_checked_out() {
-        let mut cache = HostCache::new();
+        let mut cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
         cache.insert(host);
         let _ = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
 
-        assert!(cache.is_checked_out(&host_id));
+        assert!(cache.is_checked_out(&host_id.to_string()));
     }
 
     #[test]
     fn test_find_candidate_with_multiple_hosts() {
-        let mut cache = HostCache::new();
+        let mut cache = HostCache::default();
 
         // Add hosts with different resources
         let host1_id = Uuid::new_v4();
@@ -497,7 +507,7 @@ mod tests {
 
     #[test]
     fn test_multiple_hosts_same_resources() {
-        let mut cache = HostCache::new();
+        let mut cache = HostCache::default();
 
         // Add multiple hosts with same resource configuration
         let host1_id = Uuid::new_v4();
@@ -523,7 +533,7 @@ mod tests {
 
     #[test]
     fn test_host_booking_strategy() {
-        let cache = HostCache::new();
+        let cache = HostCache::default();
         // Just verify the strategy is set correctly
         assert!(matches!(
             cache._mode,

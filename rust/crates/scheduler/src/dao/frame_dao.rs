@@ -1,15 +1,14 @@
 use std::sync::Arc;
 
-use bytesize::ByteSize;
+use bytesize::{ByteSize, KB};
 use futures::Stream;
-use miette::Result;
+use miette::{Context, IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
-use uuid::Uuid;
 
 use crate::{
     config::DatabaseConfig,
-    models::{CoreSize, DispatchFrame, DispatchLayer},
+    models::{CoreSize, DispatchFrame, DispatchLayer, VirtualProc},
     pgpool::connection_pool,
 };
 
@@ -63,18 +62,19 @@ pub struct DispatchFrameModel {
     pub str_services: Option<String>,
     pub str_os: Option<String>,
     pub int_layer_cores_max: i32,
+    pub int_version: i32,
 }
 
 impl From<DispatchFrameModel> for DispatchFrame {
     fn from(val: DispatchFrameModel) -> Self {
         DispatchFrame {
             // id: Uuid::parse_str(&val.pk_host).unwrap_or_default(),
-            id: Uuid::parse_str(&val.pk_frame).unwrap_or_default(),
+            id: val.pk_frame,
             frame_name: val.str_frame_name,
-            show_id: Uuid::parse_str(&val.pk_show).unwrap_or_default(),
-            facility_id: Uuid::parse_str(&val.pk_facility).unwrap_or_default(),
-            job_id: Uuid::parse_str(&val.pk_job).unwrap_or_default(),
-            layer_id: Uuid::parse_str(&val.pk_layer).unwrap_or_default(),
+            show_id: val.pk_show,
+            facility_id: val.pk_facility,
+            job_id: val.pk_job,
+            layer_id: val.pk_layer,
             command: val.str_cmd,
             range: val.str_range,
             chunk_size: val
@@ -106,6 +106,7 @@ impl From<DispatchFrameModel> for DispatchFrame {
                 .then(|| CoreSize::from_multiplied(val.int_layer_cores_max)),
             // TODO: Implement a better solution for handling selfish services
             has_selfish_service: false,
+            version: val.int_version as u32,
         }
     }
 }
@@ -139,6 +140,7 @@ WITH dispatch_frames AS (
         l.int_cores_max as int_layer_cores_max,
         f.int_dispatch_order,
         f.int_layer_order,
+        f.int_version,
         -- Accumulate the number of cores that would be consumed
         SUM(l.int_cores_min) OVER (
             ORDER BY f.int_dispatch_order, f.int_layer_order
@@ -205,8 +207,58 @@ impl FrameDao {
         limit: i32,
     ) -> impl Stream<Item = Result<DispatchFrameModel, sqlx::Error>> + '_ {
         sqlx::query_as::<_, DispatchFrameModel>(QUERY_FRAME)
-            .bind(format!("{:x}", layer.id))
+            .bind(layer.id.clone())
             .bind(limit)
             .fetch(&*self.connection_pool)
+    }
+
+    pub async fn update_frame_started(&self, virtual_proc: &VirtualProc) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE frame SET
+                str_state = 'RUNNING',
+                str_host = $1,
+                int_cores = $2,
+                int_mem_reserved = $3,
+                int_gpus = $4,
+                int_gpu_mem_reserved = $5,
+                ts_updated = current_timestamp,
+                ts_started = current_timestamp,
+                ts_stopped = null,
+                int_version = int_version + 1
+            WHERE pk_frame = $6
+                AND str_state = 'WAITING'
+                AND int_version = $7
+                AND frame.pk_layer IN (
+                    SELECT layer.pk_layer
+                    FROM layer
+                    LEFT JOIN layer_limit ON layer_limit.pk_layer = layer.pk_layer
+                    LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record
+                    LEFT JOIN (
+                        SELECT limit_record.pk_limit_record,
+                               SUM(layer_stat.int_running_count) AS int_sum_running
+                        FROM layer_limit
+                        LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record
+                        LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer
+                        GROUP BY limit_record.pk_limit_record
+                    ) AS sum_running ON limit_record.pk_limit_record = sum_running.pk_limit_record
+                    WHERE sum_running.int_sum_running < limit_record.int_max_value
+                       OR sum_running.int_sum_running IS NULL
+                );
+            "#,
+        )
+        .bind(virtual_proc.host_name.clone())
+        .bind(virtual_proc.cores_reserved.value())
+        .bind((virtual_proc.memory_reserved.as_u64() / KB) as i32)
+        .bind(virtual_proc.gpus_reserved as i32)
+        .bind((virtual_proc.gpu_memory_reserved.as_u64() / KB) as i32)
+        .bind(virtual_proc.frame.id.clone())
+        .bind(virtual_proc.frame.version as i32)
+        .execute(&*self.connection_pool)
+        .await
+        .into_diagnostic()
+        .wrap_err("Failed to start frame on database")?;
+
+        Ok(())
     }
 }

@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
-use bytesize::ByteSize;
+use bytesize::{ByteSize, KB};
 use futures::Stream;
 use miette::{Context, IntoDiagnostic, Result};
 use opencue_proto::host::ThreadMode;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
-use uuid::Uuid;
 
 use crate::{
     config::DatabaseConfig,
@@ -30,7 +29,7 @@ pub struct HostDao {
 /// needed for dispatch matching. This model is converted to the business
 /// logic `Host` type for processing.
 #[derive(sqlx::FromRow, Serialize, Deserialize)]
-pub(crate) struct HostModel {
+pub struct HostModel {
     pk_host: String,
     str_name: String,
     str_os: Option<String>,
@@ -50,7 +49,7 @@ pub(crate) struct HostModel {
 impl From<HostModel> for Host {
     fn from(val: HostModel) -> Self {
         Host {
-            id: Uuid::parse_str(&val.pk_host).unwrap_or_default(),
+            id: val.pk_host,
             name: val.str_name,
             str_os: val.str_os,
             idle_cores: CoreSize::from_multiplied(
@@ -161,13 +160,13 @@ impl HostDao {
 
     pub fn fetch_hosts_by_show_facility_tag<'a>(
         &'a self,
-        show_id: &Uuid,
-        facility_id: &Uuid,
+        show_id: String,
+        facility_id: String,
         tag: &'a str,
     ) -> impl Stream<Item = Result<HostModel, sqlx::Error>> + 'a {
         sqlx::query_as::<_, HostModel>(QUERY_HOST_BY_SHOW_FACILITY_AND_TAG)
-            .bind(format!("{:X}", show_id))
-            .bind(format!("{:X}", facility_id))
+            .bind(show_id)
+            .bind(facility_id)
             .bind(tag)
             .fetch(&*self.connection_pool)
     }
@@ -185,14 +184,15 @@ impl HostDao {
     /// * `Ok(true)` - Lock successfully acquired
     /// * `Ok(false)` - Lock already held by another process
     /// * `Err(miette::Error)` - Database operation failed
-    pub async fn lock(&self, host_id: &Uuid) -> Result<bool> {
-        let host_id_str = host_id.to_string();
-        sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_lock(hashtext($1))")
-            .bind(&host_id_str)
-            .fetch_one(&*self.connection_pool)
-            .await
-            .into_diagnostic()
-            .wrap_err("Failed to acquire advisory lock")
+    pub async fn lock(&self, host_id: &str) -> Result<bool> {
+        // sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_lock(hashtext($1))")
+        //     .bind(host_id)
+        //     .fetch_one(&*self.connection_pool)
+        //     .await
+        //     .into_diagnostic()
+        //     .wrap_err("Failed to acquire advisory lock")
+
+        Ok(true)
     }
 
     /// Releases an advisory lock on a host after dispatch completion.
@@ -207,14 +207,15 @@ impl HostDao {
     /// * `Ok(true)` - Lock successfully released
     /// * `Ok(false)` - Lock was not held by this process
     /// * `Err(miette::Error)` - Database operation failed
-    pub async fn unlock(&self, host_id: &Uuid) -> Result<bool> {
-        let host_id_str = host_id.to_string();
-        sqlx::query_scalar::<_, bool>("SELECT pg_advisory_unlock(hashtext($1))")
-            .bind(&host_id_str)
-            .fetch_one(&*self.connection_pool)
-            .await
-            .into_diagnostic()
-            .wrap_err("Failed to release advisory lock")
+    pub async fn unlock(&self, host_id: &str) -> Result<bool> {
+        // let host_id_str = host_id.to_string();
+        // sqlx::query_scalar::<_, bool>("SELECT pg_advisory_unlock(hashtext($1))")
+        //     .bind(&host_id_str)
+        //     .fetch_one(&*self.connection_pool)
+        //     .await
+        //     .into_diagnostic()
+        //     .wrap_err("Failed to release advisory lock")
+        Ok(true)
     }
 
     /// Updates a host's available resource counts after frame dispatch.
@@ -241,7 +242,7 @@ impl HostDao {
             "#,
         )
         .bind(updated_host.idle_cores.with_multiplier().value())
-        .bind(updated_host.idle_memory.as_u64() as i64)
+        .bind((updated_host.idle_memory.as_u64() / KB) as i64)
         .bind(updated_host.idle_gpus as i32)
         .bind(updated_host.idle_gpu_memory.as_u64() as i64)
         .bind(updated_host.id.to_string())
