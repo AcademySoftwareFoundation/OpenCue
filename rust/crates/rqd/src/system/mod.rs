@@ -2,7 +2,8 @@ use uuid::Uuid;
 
 pub mod linux;
 pub mod machine;
-mod nimby;
+#[cfg(feature = "nimby")]
+pub mod nimby;
 mod reservation;
 
 #[cfg(target_os = "macos")]

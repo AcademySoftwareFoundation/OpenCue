@@ -3,7 +3,7 @@ name: OpenCue Packaging Pipeline
 # Trigger this pipeline on new commits to master.
 on:
   push:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   build_opencue_packages:
@@ -42,6 +42,78 @@ jobs:
           echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
+  build_rust_binaries:
+    name: Build Rust Binaries
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-22.04
+          - target: x86_64-apple-darwin
+            os: macos-13
+          - target: aarch64-apple-darwin
+            os: macos-13
+    runs-on: ${{ matrix.os }}
+    outputs:
+      rust_binaries_artifact: rust-binaries-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Mark repository as safe
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev protobuf-compiler
+          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
+            sudo apt-get install -y musl-tools
+          fi
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-13'
+        run: |
+          brew install protobuf
+
+      - name: Set build ID
+        run: |
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >> $GITHUB_ENV
+
+      - name: Build Rust binaries
+        run: |
+          cd rust
+          cargo build --release --target ${{ matrix.target }} --no-default-features
+
+      - name: Create release directory
+        run: mkdir -p release
+
+      - name: Copy binaries (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          cp rust/target/${{ matrix.target }}/release/openrqd release/openrqd-${{ env.BUILD_ID }}-${{ matrix.target }}
+
+      - name: Copy binaries (macOS)
+        if: matrix.os == 'macos-13'
+        run: |
+          cp rust/target/${{ matrix.target }}/release/openrqd release/openrqd-${{ env.BUILD_ID }}-${{ matrix.target }}
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-binaries-${{ matrix.target }}
+          path: release/
+
   integration_test:
     needs: build_opencue_packages
     name: Run Integration Test
@@ -56,11 +128,18 @@ jobs:
       - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
-      - name: Download a single artifact
+      - name: Download Python packages artifact
         uses: actions/download-artifact@v4
         with:
           name: opencue_packages
           path: packages
+
+      - name: Download Rust binaries artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rust-binaries-*
+          path: rust-binaries
+          merge-multiple: true
 
       - name: Run test
         run: |
@@ -92,6 +171,9 @@ jobs:
             NAME: Cuebot
             ARTIFACTS: cuebot-${BUILD_ID}-all.jar opencue-cuebot-${BUILD_ID}-1.noarch.rpm
 
+          - component: rqd
+            NAME: RQD
+
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
     steps:
@@ -119,11 +201,18 @@ jobs:
           password: ${{ secrets.DOCKER_PASS }}
         continue-on-error: true
 
-      - name: Download a single artifact
+      - name: Download Python packages artifact
         uses: actions/download-artifact@v4
         with:
           name: opencue_packages
           path: packages
+
+      - name: Download Rust binaries artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rust-binaries-*
+          path: rust-binaries
+          merge-multiple: true
 
       - name: Set build ID
         run: |
@@ -174,6 +263,7 @@ jobs:
     needs:
       - build_components
       - build_opencue_packages
+      - build_rust_binaries
     runs-on: ubuntu-22.04
     continue-on-error: true
     steps:
@@ -196,10 +286,10 @@ jobs:
 
       - name: Set build ID
         run: |
-            set -e
-            echo "Build ID: $(ci/generate_version_number.py)"
-            echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
-            echo "BUILD_ID=$(ci/generate_version_number.py)" >VERSION
+          set -e
+          echo "Build ID: $(ci/generate_version_number.py)"
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >VERSION
 
       - name: Extract database schema
         run: |
@@ -211,11 +301,18 @@ jobs:
           mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           echo "{\"git_commit\": \"$(BUILD_SOURCEVERSION)\"}" | tee "${GITHUB_WORKSPACE}/artifacts/build_metadata.json"
 
-      - name: Download a single artifact
+      - name: Download Python packages artifact
         uses: actions/download-artifact@v4
         with:
           name: opencue_packages
           path: packages
+
+      - name: Download Rust binaries artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rust-binaries-*
+          path: rust-binaries
+          merge-multiple: true
 
       - name: Upload artifacts
         env:
@@ -234,6 +331,12 @@ jobs:
           aws s3 cp "${GITHUB_WORKSPACE}/artifacts/schema-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp "${GITHUB_WORKSPACE}/artifacts/seed_data-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp "${GITHUB_WORKSPACE}/artifacts/build_metadata.json" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          # Upload Rust binaries
+          for binary in rust-binaries/*; do
+            if [ -f "$binary" ]; then
+              aws s3 cp "$binary" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+            fi
+          done
 
       - name: Display artifacts
         env:
