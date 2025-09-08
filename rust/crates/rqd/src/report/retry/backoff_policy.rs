@@ -54,7 +54,7 @@ impl BackoffPolicy {
     }
 }
 
-impl<E> Policy<Req, Res, E> for BackoffPolicy {
+impl<E: std::fmt::Display> Policy<Req, Res, E> for BackoffPolicy {
     type Future = tokio::time::Sleep;
     type ClonedOutput = ClonedReq<Req>;
     type ClonedFuture = Pin<Box<dyn std::future::Future<Output = Self::ClonedOutput> + Send>>;
@@ -78,9 +78,9 @@ impl<E> Policy<Req, Res, E> for BackoffPolicy {
                     Outcome::Return(result)
                 }
             }
-            Err(_err) => {
+            Err(err) => {
                 if self.has_attempts_left() {
-                    warn!("Retrying for Transport error.");
+                    warn!("Retrying for Transport error. {}", err);
                     // Retry all transport errors
                     Outcome::Retry(self.backoff.next_backoff())
                 } else {
@@ -110,7 +110,6 @@ pub struct ClonedReq<Req> {
     pub original_req: Req,
     pub cloned_req: Req,
 }
-
 impl ClonedRequest<Req> for ClonedReq<Req> {
     fn inner(self) -> (Req, Req) {
         (self.original_req, self.cloned_req)
