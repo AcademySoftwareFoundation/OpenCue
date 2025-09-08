@@ -45,8 +45,8 @@ impl BackoffPolicy {
     pub fn has_attempts_left(&mut self) -> bool {
         match self.attempts {
             Some(0) => false,
-            Some(ref mut attemps_left) => {
-                *attemps_left -= 1;
+            Some(ref mut attempts_left) => {
+                *attempts_left -= 1;
                 true
             }
             None => true,
