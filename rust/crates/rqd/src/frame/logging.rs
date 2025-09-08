@@ -10,6 +10,7 @@ use std::{
     time::SystemTime,
 };
 use tracing::error;
+use opencue_proto::rqd::RunFrame;
 
 pub type FrameLogger = Arc<dyn FrameLoggerT + Sync + Send>;
 
@@ -24,16 +25,18 @@ pub trait FrameLoggerT {
 pub struct FrameLoggerBuilder {}
 
 impl FrameLoggerBuilder {
-    pub fn from_logger_config(
+    pub fn from_cuebot(
+        run_frame: RunFrame,
         path: String,
-        logger_config: &RunnerConfig,
+        runner_config: RunnerConfig,
         uid_gid: Option<(u32, u32)>,
     ) -> Result<Arc<dyn FrameLoggerT + Send + Sync + 'static>> {
-        match logger_config.logger {
-            LoggerType::File => {
-                FrameFileLogger::init(path, logger_config.prepend_timestamp, uid_gid)
-                    .map(|a| Arc::new(a) as Arc<dyn FrameLoggerT + Send + Sync + 'static>)
-            }
+        if !run_frame.loki_url.is_empty() {
+            // Placeholder for Loki logger
+            todo!()
+        } else {
+            FrameFileLogger::init(path, runner_config.prepend_timestamp, uid_gid)
+                .map(|a| Arc::new(a) as Arc<dyn FrameLoggerT + Send + Sync + 'static>)
         }
     }
 }

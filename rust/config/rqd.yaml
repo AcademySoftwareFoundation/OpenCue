@@ -7,6 +7,8 @@
 # LOGGING CONFIGURATION
 # =============================================================================
 logging:
+  # Dummy entry so it can be empty
+  "": ""
   # Logging level for RQD output
   # Options: debug, info, warning, error
   # Default: debug
@@ -24,6 +26,8 @@ logging:
 # GRPC CONFIGURATION
 # =============================================================================
 grpc:
+  # Dummy entry so it can be empty
+  "": ""
   # Port that RQD listens on for incoming gRPC connections
   # Default: 8444
   rqd_port: 4778
@@ -56,6 +60,8 @@ grpc:
 # MACHINE CONFIGURATION
 # =============================================================================
 machine:
+  # Dummy entry so it can be empty
+  "": ""
   # Facility name for organizing render nodes
   # Default: cloud
   facility: lax
@@ -134,6 +140,8 @@ machine:
 # RUNNER CONFIGURATION
 # =============================================================================
 runner:
+  # Dummy entry so it can be empty
+  "": ""
   # Whether to run jobs inside Docker containers
   # Default: false
   # run_on_docker: false
@@ -145,11 +153,6 @@ runner:
   # Default user group id for running jobs if not specified
   # Default: 20
   # default_gid: 20
-
-  # Type of logger to use for job output (More options coming soon)
-  # Options: file
-  # Default: file
-  # logger: file
 
   # Whether to prepend timestamps to job log output
   # Default: true
