@@ -209,12 +209,12 @@ jobs:
           password: ${{ secrets.DOCKER_PASS }}
 
       - name: Rebuild and push Docker image
-        uses: docker/build-push-action@v3
-        with:
-          file: ${{ matrix.component }}/Dockerfile
-          tags: opencue/${{ matrix.component }}:${{ env.BUILD_ID }},opencue/${{ matrix.component }}:latest
-          context: .
-          push: true
+        run: |
+          set -e
+          docker tag opencuebuild/${{ matrix.component }}:${BUILD_ID} opencue/${{ matrix.component }}:${{ env.BUILD_ID }}
+          docker push opencue/${{ matrix.component }}:${{ env.BUILD_ID }}
+          docker tag opencuebuild/${{ matrix.component }}:${BUILD_ID} opencue/${{ matrix.component }}:latest
+          docker push opencue/${{ matrix.component }}:latest
 
       # This step has been failing with permission issues.
       # Commenting this out temporarily to unblock the release of v1.4
