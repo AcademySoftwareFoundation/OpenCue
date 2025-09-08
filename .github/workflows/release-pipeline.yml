@@ -137,16 +137,15 @@ jobs:
           name: rust-binaries-${{ matrix.target }}
           path: release/
 
-  upload_python_packages_test:
+  upload_python_packages_pypi:
     needs: build_opencue_packages
     runs-on: ubuntu-22.04
     container: python:3.11
-    name: "Upload python packages to testpypi repo"
-    environment: testpypi
+    name: "Upload python packages to pypi repo"
+    environment: release
     env:
       TWINE_USERNAME: "__token__"
-      TWINE_PASSWORD: "${{ secrets.TEST_PYPI_API_TOKEN }}"
-      TWINE_REPOSITORY: "testpypi"
+      TWINE_PASSWORD: "${{ secrets.PYPI_API_TOKEN }}"
 
     steps:
       - name: Download artifact
