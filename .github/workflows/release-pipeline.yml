@@ -427,7 +427,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: rust-binaries/openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-gnu
+          asset_path: ${{ github.workspace }}/artifacts/openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-gnu
           asset_name: openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-gnu
           asset_content_type: application/octet-stream
 
@@ -437,7 +437,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: rust-binaries/openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-musl
+          asset_path: ${{ github.workspace }}/artifacts/openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-musl
           asset_name: openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-musl
           asset_content_type: application/octet-stream
 
@@ -447,7 +447,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: rust-binaries/openrqd-${{ env.BUILD_ID }}-x86_64-apple-darwin
+          asset_path: ${{ github.workspace }}/artifacts/openrqd-${{ env.BUILD_ID }}-x86_64-apple-darwin
           asset_name: openrqd-${{ env.BUILD_ID }}-x86_64-apple-darwin
           asset_content_type: application/octet-stream
 
@@ -457,6 +457,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: rust-binaries/openrqd-${{ env.BUILD_ID }}-aarch64-apple-darwin
+          asset_path: ${{ github.workspace }}/artifacts/openrqd-${{ env.BUILD_ID }}-aarch64-apple-darwin
           asset_name: openrqd-${{ env.BUILD_ID }}-aarch64-apple-darwin
           asset_content_type: application/octet-stream
