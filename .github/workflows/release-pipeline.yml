@@ -358,7 +358,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/rqd-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_path: ${{ github.workspace }}/artifacts/opencue_rqd-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_name: rqd-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
@@ -368,7 +368,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/cuegui-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_path: ${{ github.workspace }}/artifacts/opencue_cuegui-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_name: cuegui-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
@@ -378,7 +378,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/pycue-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_path: ${{ github.workspace }}/artifacts/opencue_pycue-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_name: pycue-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
@@ -388,7 +388,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/pyoutline-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_path: ${{ github.workspace }}/artifacts/opencue_pyoutline-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_name: pyoutline-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
@@ -398,7 +398,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/cuesubmit-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_path: ${{ github.workspace }}/artifacts/opencue_cuesubmit-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_name: cuesubmit-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
@@ -408,7 +408,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/cueadmin-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_path: ${{ github.workspace }}/artifacts/opencue_cueadmin-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_name: cueadmin-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
@@ -418,7 +418,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+          asset_path: ${{ github.workspace }}/artifacts/opencue_cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_name: cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
           asset_content_type: application/octet-stream
 
