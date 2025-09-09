@@ -258,6 +258,31 @@ jobs:
             aws s3 cp ${GITHUB_WORKSPACE}/artifacts/${artifact} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           done
 
+  upload_python_packages_test:
+    needs:
+      - integration_test
+      - build_opencue_packages
+    runs-on: ubuntu-22.04
+    container: python:3.11
+    name: "Upload python packages to testpypi repo"
+    environment: testpypi
+    env:
+      TWINE_USERNAME: "__token__"
+      TWINE_PASSWORD: "${{ secrets.TEST_PYPI_API_TOKEN }}"
+      TWINE_REPOSITORY: "testpypi"
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
+
+      - name: Upload packages
+        run: |
+          python3 -m pip install --upgrade twine
+          python3 -m twine upload --verbose packages/opencue_*
+
   create_other_artifacts:
     name: Create Other Build Artifacts
     needs:

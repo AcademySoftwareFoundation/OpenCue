@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 use serde_derive::Serialize;
 use tracing::error;
+use opencue_proto::rqd::RunFrame;
 use ureq::Agent;
 use opencue_proto::rqd::RunFrame;
 
