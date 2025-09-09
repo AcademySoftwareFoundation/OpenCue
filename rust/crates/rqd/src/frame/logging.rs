@@ -15,7 +15,6 @@ use serde_derive::Serialize;
 use tracing::error;
 use opencue_proto::rqd::RunFrame;
 use ureq::Agent;
-use opencue_proto::rqd::RunFrame;
 
 pub type FrameLogger = Arc<dyn FrameLoggerT + Sync + Send>;
 
@@ -195,7 +194,7 @@ impl FrameLoggerT for FrameLokiLogger {
             .send_json(payload).into_diagnostic().unwrap();
     }
     fn write(&self, bytes: &[u8]) {
-        todo!();
+        self.writeln(&*std::str::from_utf8(bytes).unwrap().to_string())
     }
 }
 
