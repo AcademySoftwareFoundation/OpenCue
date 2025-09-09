@@ -89,7 +89,7 @@ impl ReportClient {
 
         // Requests will retry indefinitely
         let retry_policy = BackoffPolicy {
-            attempts: None,
+            attempts: Some(config.backoff_retry_attempts),
             backoff,
         };
         let retry_layer = RetryLayer::new(retry_policy);

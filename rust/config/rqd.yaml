@@ -56,6 +56,10 @@ grpc:
   # Default: 10.0
   # backoff_jitter_percentage: 10.0
 
+  # Number of attempts to retry on Transport Error
+  # Default: 20
+  # backoff_retry_attempts: 10
+
 # =============================================================================
 # MACHINE CONFIGURATION
 # =============================================================================
