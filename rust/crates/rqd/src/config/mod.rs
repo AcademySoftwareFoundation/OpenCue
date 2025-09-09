@@ -44,6 +44,7 @@ pub struct GrpcConfig {
     #[serde(with = "humantime_serde")]
     pub backoff_delay_max: Duration,
     pub backoff_jitter_percentage: f64,
+    pub backoff_retry_attempts: usize,
 }
 
 impl Default for GrpcConfig {
@@ -56,6 +57,7 @@ impl Default for GrpcConfig {
             backoff_delay_min: Duration::from_millis(10),
             backoff_delay_max: Duration::from_secs(60),
             backoff_jitter_percentage: 10.0,
+            backoff_retry_attempts: 20,
         }
     }
 }
