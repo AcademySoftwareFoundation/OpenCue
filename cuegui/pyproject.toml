@@ -15,6 +15,9 @@ dependencies = [
     "QtPy==2.4.1",
     "NodeGraphQtPy==0.6.38.6"
 ]
+requires-python = ">3.7"
+description = "CueGUI can be used to monitor and manage OpenCue jobs."
+readme = "README.md"
 
 [tool.hatch.version]
 source = "code"

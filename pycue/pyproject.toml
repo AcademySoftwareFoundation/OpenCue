@@ -13,6 +13,9 @@ dependencies = [
     "six==1.16.0",
     "future==1.0.0"
 ]
+requires-python = ">3.7"
+description = "PyCue is the OpenCue Python API. OpenCue client-side Python tools, such as CueGUI and CueAdmin, all call PyCue for communication with your OpenCue deployment."
+readme = "README.md"
 
 [tool.hatch.version]
 source = "code"

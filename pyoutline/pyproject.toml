@@ -11,6 +11,9 @@ dynamic = ["version"]
 dependencies = [
     "opencue_pycue"
 ]
+requires-python = ">3.7"
+description = "The OpenCue PyOutline library. This library serves as a Python layer over OpenCue's XML job descriptions, allowing the construction of complex jobs without having to edit XML directly. PyOutline is used by CueSubmit to construct job submissions."
+readme = "README.md"
 
 [tool.hatch.version]
 source = "code"
