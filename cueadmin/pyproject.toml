@@ -11,7 +11,7 @@ dependencies = [
     "opencue_pycue"
 ]
 requires-python = ">3.7"
-description = "The OpenCue commandline client."
+description = "CueAdmin is a command-line administration tool for OpenCue that provides full control over jobs, layers, frames, and hosts. It allows administrators to perform advanced management tasks such as setting priorities, killing jobs, or managing resource allocation."
 readme = "README.md"
 
 [tool.hatch.version]
