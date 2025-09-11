@@ -319,6 +319,10 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         layout.addWidget(groupByCombo)
 
     def _actionButtonsSetup(self, layout):
+        # Add Unmonitor label
+        unmonitorLabel = QtWidgets.QLabel("<b>Unmonitor:</b>")
+        layout.addWidget(unmonitorLabel)
+        
         finishedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "Finished")
         finishedButton.setToolTip("Unmonitor finished jobs")
         finishedButton.setFocusPolicy(QtCore.Qt.NoFocus)
@@ -339,6 +343,15 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         removeSelectedButton.setFlat(True)
         layout.addWidget(removeSelectedButton)
         removeSelectedButton.clicked.connect(self.jobMonitor.actionRemoveSelectedItems)  # pylint: disable=no-member
+        
+        # Add separator after Unmonitor group
+        separator = QtWidgets.QWidget()
+        separator.setFixedWidth(20)
+        layout.addWidget(separator)
+
+        # Add Job Actions label
+        jobActionsLabel = QtWidgets.QLabel("<b>Job Actions:</b>")
+        layout.addWidget(jobActionsLabel)
 
         eatSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eat.png"), "Eat Dead Frames")
         eatSelectedButton.setToolTip(

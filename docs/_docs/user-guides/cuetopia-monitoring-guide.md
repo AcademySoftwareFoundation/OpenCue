@@ -72,9 +72,12 @@ The plugin uses two toolbars organized as follows:
 
 From left to right:
 
+**Unmonitor** group:
 1. **Finished** (eject icon): Removes all finished jobs from monitoring
 2. **All** (eject icon): Clears all jobs from the monitor
 3. **Selected** (eject icon): Removes selected jobs
+
+**Job Actions**:
 4. **Eat Dead Frames** (pac-man icon): Eats all dead frames for selected jobs to free scheduling resources
 5. **Retry Dead Frames** (circular arrow): Retries all dead frames for selected jobs
 6. **Kill Jobs** (X icon): Kill selected jobs and their running frames
