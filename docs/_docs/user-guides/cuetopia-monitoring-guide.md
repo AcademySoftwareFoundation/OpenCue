@@ -64,12 +64,12 @@ The toolbar contains the following controls from left to right:
    - Groups jobs with dependencies together
    - Shows parent-child relationships in the tree view
 
-7. **Unmonitor Dropdown**: A dropdown menu with options to remove jobs from monitoring:
-   - **All Jobs**: Clears all jobs from the monitor
-   - **Finished Jobs**: Removes all finished jobs from monitoring
-   - **Selected Jobs**: Removes selected jobs
+7. **Action Buttons** (from left to right):
+   - **Finished** (eject icon): Removes all finished jobs from monitoring
+   - **All** (eject icon): Clears all jobs from the monitor
+   - **Selected** (eject icon): Removes selected jobs
 
-8. **Action Buttons** (from left to right):
+8. **Action Buttons** (continued):
    - **Eat Dead Frames** (pac-man icon): Eats all dead frames for selected jobs to free scheduling resources
    - **Retry Dead Frames** (circular arrow): Retries all dead frames for selected jobs
    - **Kill Jobs** (X icon): Kill selected jobs and their running frames

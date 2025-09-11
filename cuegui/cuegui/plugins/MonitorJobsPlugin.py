@@ -314,24 +314,26 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         groupByCombo.currentIndexChanged.connect(handleGroupBySelection)
         layout.addWidget(groupByCombo)
 
-        # Create Unmonitor dropdown
-        unmonitorCombo = QtWidgets.QComboBox()
-        unmonitorCombo.setFocusPolicy(QtCore.Qt.NoFocus)
-        unmonitorCombo.addItems(["Unmonitor", "All Jobs", "Finished Jobs", "Selected Jobs"])
-        unmonitorCombo.setToolTip("Select jobs to unmonitor")
+        finishedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "Finished")
+        finishedButton.setToolTip("Unmonitor finished jobs")
+        finishedButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        finishedButton.setFlat(True)
+        layout.addWidget(finishedButton)
+        finishedButton.clicked.connect(self.jobMonitor.removeFinishedItems)  # pylint: disable=no-member
 
-        def handleUnmonitorSelection(index):
-            if index == 1:  # All Jobs
-                self.jobMonitor.removeAllItems()
-            elif index == 2:  # Finished Jobs
-                self.jobMonitor.removeFinishedItems()
-            elif index == 3:  # Selected Jobs
-                self.jobMonitor.actionRemoveSelectedItems()
-            # Reset to default selection after action
-            unmonitorCombo.setCurrentIndex(0)
+        allButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "All")
+        allButton.setToolTip("Unmonitor all jobs")
+        allButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        allButton.setFlat(True)
+        layout.addWidget(allButton)
+        allButton.clicked.connect(self.jobMonitor.removeAllItems)  # pylint: disable=no-member
 
-        unmonitorCombo.currentIndexChanged.connect(handleUnmonitorSelection)
-        layout.addWidget(unmonitorCombo)
+        removeSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "Selected")
+        removeSelectedButton.setToolTip("Unmonitor selected jobs")
+        removeSelectedButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        removeSelectedButton.setFlat(True)
+        layout.addWidget(removeSelectedButton)
+        removeSelectedButton.clicked.connect(self.jobMonitor.actionRemoveSelectedItems)  # pylint: disable=no-member
 
         eatSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eat.png"), "Eat Dead Frames")
         eatSelectedButton.setToolTip(
