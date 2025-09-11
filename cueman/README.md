@@ -1,6 +1,6 @@
 # OpenCue Cueman
 
-Cueman is a powerful command-line job management tool for OpenCue that provides efficient job control operations. It offers a streamlined interface for managing jobs, frames, and processes with advanced filtering and batch operation capabilities.
+Cueman is a command-line job management tool for OpenCue that provides efficient job control operations. It offers a streamlined interface for managing jobs, frames, and processes with advanced filtering and batch operation capabilities.
 
 **For detailed tutorials and real-world examples, see [cueman_tutorial.md](cueman_tutorial.md)**
 
