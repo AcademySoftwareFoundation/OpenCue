@@ -62,11 +62,15 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         self.jobMonitor = cuegui.JobMonitorTree.JobMonitorTree(self)
 
-        self.__toolbar = QtWidgets.QToolBar(self)
-        self._regexLoadJobsSetup(self.__toolbar)
-        self._buttonSetup(self.__toolbar)
+        self.__toolbar1 = QtWidgets.QToolBar(self)
+        self._regexLoadJobsSetup(self.__toolbar1)
+        self._searchControlsSetup(self.__toolbar1)
+        
+        self.__toolbar2 = QtWidgets.QToolBar(self)
+        self._actionButtonsSetup(self.__toolbar2)
 
-        self.layout().addWidget(self.__toolbar)
+        self.layout().addWidget(self.__toolbar1)
+        self.layout().addWidget(self.__toolbar2)
         self.layout().addWidget(self.jobMonitor)
 
         # Signals in
@@ -266,7 +270,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         """Set autoload mine"""
         self.autoLoadMineCb.setChecked(bool(state))
 
-    def _buttonSetup(self, layout):
+    def _searchControlsSetup(self, layout):
         clearButton = QtWidgets.QPushButton("Clr")
         clearButton.setFocusPolicy(QtCore.Qt.NoFocus)
         clearButton.setFixedWidth(24)
@@ -283,7 +287,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         layout.addWidget(self.autoLoadMineCb)
         self.autoLoadMineCb.stateChanged.connect(self.jobMonitor.setLoadMine)  # pylint: disable=no-member
 
-        self._loadFinishedJobsSetup(self.__toolbar)
+        self._loadFinishedJobsSetup(self.__toolbar1)
 
         # Create Group By dropdown (action-style like Unmonitor)
         groupByCombo = QtWidgets.QComboBox()
@@ -314,6 +318,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         groupByCombo.currentIndexChanged.connect(handleGroupBySelection)
         layout.addWidget(groupByCombo)
 
+    def _actionButtonsSetup(self, layout):
         finishedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "Finished")
         finishedButton.setToolTip("Unmonitor finished jobs")
         finishedButton.setFocusPolicy(QtCore.Qt.NoFocus)

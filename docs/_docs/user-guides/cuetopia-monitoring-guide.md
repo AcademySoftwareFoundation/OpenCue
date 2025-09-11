@@ -38,9 +38,11 @@ The Monitor Jobs plugin is the primary interface for monitoring active and compl
 
 ### Interface Components
 
-#### Top Toolbar
+#### Top Toolbars
 
-The toolbar contains the following controls from left to right:
+The plugin uses two toolbars organized as follows:
+
+##### First Toolbar (Search and Filter Controls)
 
 1. **Load Button**: Triggers job search based on the text field content
 2. **Search Text Field**: Accepts job search patterns:
@@ -60,21 +62,24 @@ The toolbar contains the following controls from left to right:
    - Limited to jobs finished within the last 3 days
    - Jobs older than 3 days are moved to historical database
 
-6. **Group Dependent Checkbox**:
-   - Groups jobs with dependencies together
-   - Shows parent-child relationships in the tree view
+6. **Group By Dropdown**:
+   - Clear: No grouping (flat list)
+   - Dependent: Group by job dependencies
+   - Show-Shot: Group by show and shot
+   - Show-Shot-Username: Group by show, shot, and username
 
-7. **Action Buttons** (from left to right):
-   - **Finished** (eject icon): Removes all finished jobs from monitoring
-   - **All** (eject icon): Clears all jobs from the monitor
-   - **Selected** (eject icon): Removes selected jobs
+##### Second Toolbar (Action Buttons)
 
-8. **Action Buttons** (continued):
-   - **Eat Dead Frames** (pac-man icon): Eats all dead frames for selected jobs to free scheduling resources
-   - **Retry Dead Frames** (circular arrow): Retries all dead frames for selected jobs
-   - **Kill Jobs** (X icon): Kill selected jobs and their running frames
-   - **Pause Jobs** (pause icon): Pause selected job
-   - **Unpause Jobs** (play icon): Unpause selected jobs
+From left to right:
+
+1. **Finished** (eject icon): Removes all finished jobs from monitoring
+2. **All** (eject icon): Clears all jobs from the monitor
+3. **Selected** (eject icon): Removes selected jobs
+4. **Eat Dead Frames** (pac-man icon): Eats all dead frames for selected jobs to free scheduling resources
+5. **Retry Dead Frames** (circular arrow): Retries all dead frames for selected jobs
+6. **Kill Jobs** (X icon): Kill selected jobs and their running frames
+7. **Pause Jobs** (pause icon): Pause selected job
+8. **Unpause Jobs** (play icon): Unpause selected jobs
 
 ### Job Table Columns
 
