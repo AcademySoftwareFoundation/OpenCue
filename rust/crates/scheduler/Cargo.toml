@@ -46,6 +46,11 @@ indexmap = "2.0"
 lazy_static = "1.5"
 moka = { version = "0.12.10", features = ["future"] }
 
+[features]
+default = []
+smoke-tests = []
+
 [dev-dependencies]
 tokio-test = "0.4"
 tracing-test = "0.2"
+serial_test = "3.0"

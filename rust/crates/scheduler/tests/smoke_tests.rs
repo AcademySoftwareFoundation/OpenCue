@@ -6,12 +6,11 @@ use scheduler::{
     config::{Config, DatabaseConfig, LoggingConfig, QueueConfig, RqdConfig},
     job_fetcher,
 };
-use sqlx::{Pool, Postgres};
 use tracing::info;
 use tracing_test::traced_test;
 use uuid::Uuid;
 
-/// Full service integration tests that test the complete job scheduler binary.
+/// Smoke tests to exercice some scenarios
 ///
 /// These tests start from the main service entry points and test the complete flow:
 /// 1. Service discovers clusters from the database
@@ -28,9 +27,28 @@ use uuid::Uuid;
 /// - Database: cuebot_test
 /// - Username: cuebot_test
 /// - Password: password
-#[cfg(test)]
-mod full_service_tests {
+///
+/// # Running Integration Tests
+///
+/// These tests are gated behind the `integration-tests` feature flag and are not
+/// run by default with `cargo test`. To run them:
+///
+/// ```bash
+/// # Run all tests including integration tests
+/// cargo test --features integration-tests
+///
+/// # Run only integration tests
+/// cargo test --features integration-tests integration_tests_full
+/// ```
+#[cfg(all(test, feature = "smoke-tests"))]
+mod scheduler_smoke_test {
+    use std::sync::Arc;
+
     use scheduler::config::OVERRIDE_CONFIG;
+    use serial_test::serial;
+    use sqlx::{Pool, Postgres, Transaction, postgres::PgPoolOptions};
+    use tokio::{sync::OnceCell, time::sleep};
+    use tokio_test::assert_ok;
 
     use super::*;
 
@@ -41,7 +59,28 @@ mod full_service_tests {
     const TEST_DB_USER: &str = "cuebot";
     const TEST_DB_PASSWORD: &str = "cuebot_password";
 
-    /// Test configuration for full service integration testing
+    static TEST_CONNECTION_POOL: OnceCell<Arc<Pool<Postgres>>> = OnceCell::const_new();
+
+    pub async fn test_connection_pool() -> Result<Arc<Pool<Postgres>>, sqlx::Error> {
+        let database_url = format!(
+            "postgresql://{}:{}@{}:{}/{}",
+            TEST_DB_USER, TEST_DB_PASSWORD, TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME
+        );
+        TEST_CONNECTION_POOL
+            .get_or_try_init(|| async {
+                let pool = PgPoolOptions::new()
+                    .min_connections(5)
+                    .max_connections(14)
+                    // .idle_timeout(Some(Duration::from_secs(1)))
+                    // .acquire_timeout(Duration::from_secs(30))
+                    .connect(&database_url)
+                    .await?;
+                Ok(Arc::new(pool))
+            })
+            .await
+            .map(Arc::clone)
+    }
+
     fn create_test_config() -> Config {
         let connection_url = format!(
             "postgresql://{}:{}@{}:{}/{}",
@@ -70,7 +109,7 @@ mod full_service_tests {
                 host_candidate_attemps_per_layer: 3,
             },
             database: DatabaseConfig {
-                pool_size: 20,
+                pool_size: 10,
                 connection_url,
                 core_multiplier: 100,
             },
@@ -83,140 +122,139 @@ mod full_service_tests {
         }
     }
 
-    async fn setup_test_database() -> Result<Pool<Postgres>, sqlx::Error> {
-        let database_url = format!(
-            "postgresql://{}:{}@{}:{}/{}",
-            TEST_DB_USER, TEST_DB_PASSWORD, TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME
-        );
-        let pool = sqlx::PgPool::connect(&database_url).await?;
+    async fn setup_test_database() -> Result<Arc<Pool<Postgres>>, sqlx::Error> {
+        let pool = test_connection_pool()
+            .await
+            .map_err(|e| sqlx::Error::Configuration(e.to_string().into()))?;
 
         // Force a thorough cleanup before starting
         cleanup_test_data(&pool).await?;
-
-        // Also manually clean up the specific constraint-violating records with TRUNCATE for thorough cleanup
-        // Disable triggers temporarily and clean up everything related to test data
-        let _ = sqlx::query("SET session_replication_role = 'replica'")
-            .execute(&pool)
-            .await;
-
-        // Clean up all test-related data more aggressively
-        let _ = sqlx::query("DELETE FROM job_stat").execute(&pool).await;
-        let _ = sqlx::query("DELETE FROM layer_stat").execute(&pool).await;
-        let _ = sqlx::query("DELETE FROM frame").execute(&pool).await;
-        let _ = sqlx::query("DELETE FROM layer_resource")
-            .execute(&pool)
-            .await;
-        let _ = sqlx::query("DELETE FROM layer").execute(&pool).await;
-        let _ = sqlx::query("DELETE FROM job_resource").execute(&pool).await;
-        let _ = sqlx::query("DELETE FROM job").execute(&pool).await;
-
-        let _ = sqlx::query("SET session_replication_role = 'origin'")
-            .execute(&pool)
-            .await;
 
         Ok(pool)
     }
 
     async fn cleanup_test_data(pool: &Pool<Postgres>) -> Result<(), sqlx::Error> {
+        // Use a single transaction for all cleanup operations to ensure atomicity
+        let mut tx = pool.begin().await?;
+
         // Temporarily disable triggers to avoid issues during cleanup
         sqlx::query("SET session_replication_role = 'replica'")
-            .execute(pool)
-            .await?;
-
-        // Delete job_history records for test jobs first
-        sqlx::query("DELETE FROM job_history WHERE str_name LIKE 'integ_test_%'")
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
 
         // Delete in reverse dependency order - most dependent tables first
+        // Use consistent naming patterns and ignore errors for non-existent data
 
-        // Delete frames first
-        sqlx::query("DELETE FROM frame WHERE str_name LIKE '%_integ_test%'")
-            .execute(pool)
-            .await?;
+        // Delete job_history records for test jobs first
+        let _ = sqlx::query("DELETE FROM job_history WHERE str_name LIKE 'integ_test_%'")
+            .execute(&mut *tx)
+            .await;
+
+        let _ = sqlx::query("DELETE FROM frame WHERE str_name LIKE '%integ_test_%'")
+            .execute(&mut *tx)
+            .await;
 
         // Delete layer stats and resources
-        sqlx::query("DELETE FROM layer_stat WHERE pk_layer IN (SELECT pk_layer FROM layer WHERE str_name LIKE 'integ_test_%')")
-            .execute(pool)
-            .await?;
-        sqlx::query("DELETE FROM layer_resource WHERE pk_layer IN (SELECT pk_layer FROM layer WHERE str_name LIKE 'integ_test_%')")
-            .execute(pool)
-            .await?;
+        let _ = sqlx::query("DELETE FROM layer_stat WHERE pk_layer IN (SELECT pk_layer FROM layer WHERE str_name LIKE 'integ_test_%')")
+            .execute(&mut *tx)
+            .await;
+        let _ = sqlx::query("DELETE FROM layer_resource WHERE pk_layer IN (SELECT pk_layer FROM layer WHERE str_name LIKE 'integ_test_%')")
+            .execute(&mut *tx)
+            .await;
 
         // Delete layers
-        sqlx::query("DELETE FROM layer WHERE str_name LIKE 'integ_test_%'")
-            .execute(pool)
-            .await?;
+        let _ = sqlx::query("DELETE FROM layer WHERE str_name LIKE 'integ_test_%'")
+            .execute(&mut *tx)
+            .await;
 
         // Delete job stats and resources
-        // First delete any orphaned job_stat records that might be causing conflicts
-        sqlx::query("DELETE FROM job_stat WHERE pk_job NOT IN (SELECT pk_job FROM job)")
-            .execute(pool)
-            .await?;
-        sqlx::query("DELETE FROM job_stat WHERE pk_job IN (SELECT pk_job FROM job WHERE str_name LIKE 'integ_test_%')")
-            .execute(pool)
-            .await?;
-        sqlx::query("DELETE FROM job_resource WHERE pk_job IN (SELECT pk_job FROM job WHERE str_name LIKE 'integ_test_%')")
-            .execute(pool)
-            .await?;
+        let _ = sqlx::query("DELETE FROM job_stat WHERE pk_job IN (SELECT pk_job FROM job WHERE str_name LIKE 'integ_test_%')")
+            .execute(&mut *tx)
+            .await;
+        let _ = sqlx::query("DELETE FROM job_resource WHERE pk_job IN (SELECT pk_job FROM job WHERE str_name LIKE 'integ_test_%')")
+            .execute(&mut *tx)
+            .await;
 
         // Delete jobs
-        sqlx::query("DELETE FROM job WHERE str_name LIKE 'integ_test_%'")
-            .execute(pool)
-            .await?;
+        let _ = sqlx::query("DELETE FROM job WHERE str_name LIKE 'integ_test_%'")
+            .execute(&mut *tx)
+            .await;
 
         // Delete folder
-        sqlx::query("DELETE FROM folder WHERE str_name LIKE 'integ_test_%'")
-            .execute(pool)
-            .await?;
+        let _ = sqlx::query("DELETE FROM folder WHERE str_name LIKE 'integ_test_%'")
+            .execute(&mut *tx)
+            .await;
 
         // Delete host stats and tags
-        sqlx::query("DELETE FROM host_stat WHERE pk_host IN (SELECT pk_host FROM host WHERE str_name LIKE 'integ_test_%')")
-            .execute(pool)
-            .await?;
-        sqlx::query("DELETE FROM host_tag WHERE str_tag LIKE 'integ_test_%'")
-            .execute(pool)
-            .await?;
+        let _ = sqlx::query("DELETE FROM host_stat WHERE pk_host IN (SELECT pk_host FROM host WHERE str_name LIKE 'integ_test_%')")
+            .execute(&mut *tx)
+            .await;
+        let _ = sqlx::query("DELETE FROM host_tag WHERE str_tag LIKE 'integ_test_%'")
+            .execute(&mut *tx)
+            .await;
 
         // Delete hosts
-        sqlx::query("DELETE FROM host WHERE str_name LIKE 'integ_test_%'")
-            .execute(pool)
-            .await?;
+        let _ = sqlx::query("DELETE FROM host WHERE str_name LIKE 'integ_test_%'")
+            .execute(&mut *tx)
+            .await;
 
         // Delete subscriptions
-        sqlx::query("DELETE FROM subscription WHERE pk_alloc IN (SELECT pk_alloc FROM alloc WHERE str_name LIKE 'integ_test_%')")
-            .execute(pool)
-            .await?;
+        let _ = sqlx::query("DELETE FROM subscription WHERE pk_alloc IN (SELECT pk_alloc FROM alloc WHERE str_name LIKE 'integ_test_%')")
+            .execute(&mut *tx)
+            .await;
 
         // Delete allocs
-        sqlx::query("DELETE FROM alloc WHERE str_name LIKE 'integ_test_%'")
-            .execute(pool)
-            .await?;
+        let _ = sqlx::query("DELETE FROM alloc WHERE str_name LIKE 'integ_test_%'")
+            .execute(&mut *tx)
+            .await;
 
         // Delete shows
-        sqlx::query("DELETE FROM show WHERE str_name LIKE 'integ_test_%'")
-            .execute(pool)
-            .await?;
+        let _ = sqlx::query("DELETE FROM show WHERE str_name LIKE 'integ_test_%'")
+            .execute(&mut *tx)
+            .await;
 
         // Delete facilities and departments
-        sqlx::query("DELETE FROM facility WHERE str_name LIKE 'integ_test_%'")
-            .execute(pool)
-            .await?;
-        sqlx::query("DELETE FROM dept WHERE str_name LIKE 'integ_test_%'")
-            .execute(pool)
-            .await?;
+        let _ = sqlx::query("DELETE FROM facility WHERE str_name LIKE 'integ_test_%'")
+            .execute(&mut *tx)
+            .await;
+        let _ = sqlx::query("DELETE FROM dept WHERE str_name LIKE 'integ_test_%'")
+            .execute(&mut *tx)
+            .await;
+
+        // Clean up any orphaned records that might cause constraint violations
+        let _ = sqlx::query("DELETE FROM job_stat WHERE pk_job NOT IN (SELECT pk_job FROM job)")
+            .execute(&mut *tx)
+            .await;
+        let _ = sqlx::query(
+            "DELETE FROM layer_stat WHERE pk_layer NOT IN (SELECT pk_layer FROM layer)",
+        )
+        .execute(&mut *tx)
+        .await;
+        let _ = sqlx::query(
+            "DELETE FROM layer_resource WHERE pk_layer NOT IN (SELECT pk_layer FROM layer)",
+        )
+        .execute(&mut *tx)
+        .await;
+        let _ =
+            sqlx::query("DELETE FROM job_resource WHERE pk_job NOT IN (SELECT pk_job FROM job)")
+                .execute(&mut *tx)
+                .await;
 
         // Re-enable triggers
         sqlx::query("SET session_replication_role = 'origin'")
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
+
+        // Commit the transaction
+        tx.commit().await?;
+
         Ok(())
     }
 
     /// Creates comprehensive test data for integration testing with multiple scenarios
     async fn create_full_integration_test_data(
         pool: &Pool<Postgres>,
-    ) -> Result<IntegrationTestData, sqlx::Error> {
+    ) -> Result<TestData, sqlx::Error> {
         // Create unique suffix for this test run to avoid conflicts when running tests concurrently
         let test_suffix = Uuid::new_v4().to_string()[..8].to_string();
         // Create basic entities
@@ -224,44 +262,46 @@ mod full_service_tests {
         let dept_id = Uuid::new_v4();
         let show_id = Uuid::new_v4();
 
+        let mut tx = pool.begin().await?;
+
         // Create facility
         sqlx::query("INSERT INTO facility (pk_facility, str_name) VALUES ($1, $2)")
             .bind(facility_id.to_string())
             .bind(format!("integ_test_facility_{}", test_suffix))
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
 
         // Create department
         sqlx::query("INSERT INTO dept (pk_dept, str_name) VALUES ($1, $2)")
             .bind(dept_id.to_string())
             .bind(format!("integ_test_dept_{}", test_suffix))
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
 
         // Create show
         sqlx::query("INSERT INTO show (pk_show, str_name) VALUES ($1, $2)")
             .bind(show_id.to_string())
             .bind(format!("integ_test_show_{}", test_suffix))
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
 
         // Create allocations for different tag types
         let hostname_alloc = create_allocation(
-            pool,
+            &mut tx,
             facility_id,
             &format!("integ_test_hostname_alloc_{}", test_suffix),
             "HOSTNAME",
         )
         .await?;
         let alloc_alloc = create_allocation(
-            pool,
+            &mut tx,
             facility_id,
             &format!("integ_test_alloc_alloc_{}", test_suffix),
             "ALLOC",
         )
         .await?;
         let manual_alloc = create_allocation(
-            pool,
+            &mut tx,
             facility_id,
             &format!("integ_test_manual_alloc_{}", test_suffix),
             "MANUAL",
@@ -269,13 +309,13 @@ mod full_service_tests {
         .await?;
 
         // Create subscriptions with different resource limits
-        create_subscription(pool, hostname_alloc, show_id, 1000, 1200).await?;
-        create_subscription(pool, alloc_alloc, show_id, 800, 1000).await?;
-        create_subscription(pool, manual_alloc, show_id, 600, 800).await?;
+        create_subscription(&mut tx, hostname_alloc, show_id, 1000, 1200).await?;
+        create_subscription(&mut tx, alloc_alloc, show_id, 800, 1000).await?;
+        create_subscription(&mut tx, manual_alloc, show_id, 600, 800).await?;
 
         // Create hosts with different tag types and resource configurations
         let hostname_host = create_host(
-            pool,
+            &mut tx,
             hostname_alloc,
             &format!("integ_test_hostname_host_{}", test_suffix),
             16,
@@ -290,7 +330,7 @@ mod full_service_tests {
         .await?;
 
         let alloc_host = create_host(
-            pool,
+            &mut tx,
             alloc_alloc,
             &format!("integ_test_alloc_host_{}", test_suffix),
             12,
@@ -302,7 +342,7 @@ mod full_service_tests {
         .await?;
 
         let manual_host = create_host(
-            pool,
+            &mut tx,
             manual_alloc,
             &format!("integ_test_manual_host_{}", test_suffix),
             8,
@@ -315,12 +355,14 @@ mod full_service_tests {
 
         // Create folder
         let folder_id = create_folder(
-            pool,
+            &mut tx,
             show_id,
             dept_id,
             &format!("integ_test_folder_{}", test_suffix),
         )
         .await?;
+
+        tx.commit().await?;
 
         // Create comprehensive job scenarios
         let hostname_job = create_job_scenario(
@@ -337,7 +379,7 @@ mod full_service_tests {
                     2,
                     2 * 1024 * 1024,
                     1,
-                    1 * 1024 * 1024,
+                    1024 * 1024,
                 ),
                 (
                     &format!("integ_test_hostname_layer2_{}", test_suffix),
@@ -348,6 +390,7 @@ mod full_service_tests {
                     0,
                 ),
             ],
+            3,
         )
         .await?;
 
@@ -362,10 +405,11 @@ mod full_service_tests {
                 &format!("integ_test_alloc_layer_{}", test_suffix),
                 &format!("integ_test_alloc_tag_{}", test_suffix),
                 1,
-                1 * 1024 * 1024,
+                1024 * 1024,
                 1,
                 512 * 1024,
             )],
+            3,
         )
         .await?;
 
@@ -380,10 +424,11 @@ mod full_service_tests {
                 &format!("integ_test_manual_layer_{}", test_suffix),
                 &format!("integ_test_manual_tag_{}", test_suffix),
                 1,
-                1 * 1024 * 1024,
+                1024 * 1024,
                 0,
                 0,
             )],
+            3,
         )
         .await?;
 
@@ -400,7 +445,7 @@ mod full_service_tests {
                     &format!("integ_test_mixed_hostname_{}", test_suffix),
                     &format!("integ_test_hostname_tag_{}", test_suffix),
                     1,
-                    1 * 1024 * 1024,
+                    1024 * 1024,
                     0,
                     0,
                 ),
@@ -408,7 +453,7 @@ mod full_service_tests {
                     &format!("integ_test_mixed_alloc_{}", test_suffix),
                     &format!("integ_test_alloc_tag_{}", test_suffix),
                     1,
-                    1 * 1024 * 1024,
+                    1024 * 1024,
                     0,
                     0,
                 ),
@@ -416,15 +461,16 @@ mod full_service_tests {
                     &format!("integ_test_mixed_manual_{}", test_suffix),
                     &format!("integ_test_manual_tag_{}", test_suffix),
                     1,
-                    1 * 1024 * 1024,
+                    1024 * 1024,
                     0,
                     0,
                 ),
             ],
+            3,
         )
         .await?;
 
-        Ok(IntegrationTestData {
+        Ok(TestData {
             facility_id,
             show_id,
             dept_id,
@@ -443,7 +489,7 @@ mod full_service_tests {
     }
 
     async fn create_allocation(
-        pool: &Pool<Postgres>,
+        pool: &mut Transaction<'static, Postgres>,
         facility_id: Uuid,
         name: &str,
         tag: &str,
@@ -456,13 +502,13 @@ mod full_service_tests {
         .bind(name)
         .bind(facility_id.to_string())
         .bind(tag)
-        .execute(pool)
+        .execute(&mut **pool)
         .await?;
         Ok(alloc_id)
     }
 
     async fn create_subscription(
-        pool: &Pool<Postgres>,
+        pool: &mut Transaction<'static, Postgres>,
         alloc_id: Uuid,
         show_id: Uuid,
         size: i64,
@@ -475,13 +521,14 @@ mod full_service_tests {
             .bind(show_id.to_string())
             .bind(size)
             .bind(burst)
-            .execute(pool)
+            .execute(&mut **pool)
             .await?;
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn create_host(
-        pool: &Pool<Postgres>,
+        pool: &mut Transaction<'static, Postgres>,
         alloc_id: Uuid,
         name: &str,
         cores: i64,
@@ -489,7 +536,7 @@ mod full_service_tests {
         gpus: i64,
         gpu_memory_kb: i64,
         tags: Vec<(&str, &str)>,
-    ) -> Result<IntegrationTestHost, sqlx::Error> {
+    ) -> Result<TestHost, sqlx::Error> {
         let host_id = Uuid::new_v4();
 
         // Create host
@@ -509,7 +556,7 @@ mod full_service_tests {
         .bind(gpu_memory_kb)
         .bind(gpu_memory_kb)
         .bind(0) // ThreadMode::Auto
-        .execute(pool)
+        .execute(&mut **pool)
         .await?;
 
         // Create host_stat
@@ -523,7 +570,7 @@ mod full_service_tests {
         .bind("linux")
         .bind(gpu_memory_kb)
         .bind(gpu_memory_kb)
-        .execute(pool)
+        .execute(&mut **pool)
         .await?;
 
         // Create host tags
@@ -536,11 +583,11 @@ mod full_service_tests {
             .bind(host_id.to_string())
             .bind(tag_name)
             .bind(tag_type)
-            .execute(pool)
+            .execute(&mut **pool)
             .await?;
         }
 
-        Ok(IntegrationTestHost {
+        Ok(TestHost {
             id: host_id,
             name: name.to_string(),
             alloc_id,
@@ -548,7 +595,7 @@ mod full_service_tests {
     }
 
     async fn create_folder(
-        pool: &Pool<Postgres>,
+        pool: &mut Transaction<'static, Postgres>,
         show_id: Uuid,
         dept_id: Uuid,
         name: &str,
@@ -561,11 +608,12 @@ mod full_service_tests {
         .bind(show_id.to_string())
         .bind(dept_id.to_string())
         .bind(name)
-        .execute(pool)
+        .execute(&mut **pool)
         .await?;
         Ok(folder_id)
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn create_job_scenario(
         pool: &Pool<Postgres>,
         show_id: Uuid,
@@ -574,7 +622,9 @@ mod full_service_tests {
         folder_id: Uuid,
         job_name: &str,
         layers: Vec<(&str, &str, i64, i64, i64, i64)>, // (layer_name, tag, min_cores, min_mem, min_gpus, min_gpu_mem)
-    ) -> Result<IntegrationTestJob, sqlx::Error> {
+        frames_by_layer: usize,
+    ) -> Result<TestJob, sqlx::Error> {
+        let mut tx = pool.begin().await?;
         let job_id = Uuid::new_v4();
 
         // Create job
@@ -588,10 +638,10 @@ mod full_service_tests {
         .bind(dept_id.to_string())
         .bind(job_name)
         .bind(job_name)
-        .bind(format!("integ_test_shot_{}", job_name.split('_').last().unwrap_or("default")))
-        .bind(format!("integ_test_user_{}", job_name.split('_').last().unwrap_or("default")))
+        .bind(format!("integ_test_shot_{}", job_name.split('_').next_back().unwrap_or("default")))
+        .bind(format!("integ_test_user_{}", job_name.split('_').next_back().unwrap_or("default")))
         .bind("PENDING")
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
         // Create job stats with waiting frames
@@ -599,7 +649,7 @@ mod full_service_tests {
         let existing_job_stat =
             sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM job_stat WHERE pk_job = $1")
                 .bind(job_id.to_string())
-                .fetch_one(pool)
+                .fetch_one(&mut *tx)
                 .await?;
 
         if existing_job_stat == 0 {
@@ -610,7 +660,7 @@ mod full_service_tests {
             .bind(Uuid::new_v4().to_string())
             .bind(job_id.to_string())
             .bind(total_waiting_frames as i64)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
         } else {
             // Update existing job_stat
@@ -618,7 +668,7 @@ mod full_service_tests {
             sqlx::query("UPDATE job_stat SET int_waiting_count = $1 WHERE pk_job = $2")
                 .bind(total_waiting_frames as i64)
                 .bind(job_id.to_string())
-                .execute(pool)
+                .execute(&mut *tx)
                 .await?;
         }
 
@@ -627,7 +677,7 @@ mod full_service_tests {
         let existing_job_resource =
             sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM job_resource WHERE pk_job = $1")
                 .bind(job_id.to_string())
-                .fetch_one(pool)
+                .fetch_one(&mut *tx)
                 .await?;
 
         if existing_job_resource == 0 {
@@ -637,14 +687,14 @@ mod full_service_tests {
             .bind(Uuid::new_v4().to_string())
             .bind(job_id.to_string())
             .bind(1)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
         } else {
             // Update existing job_resource
             sqlx::query("UPDATE job_resource SET int_priority = $1 WHERE pk_job = $2")
                 .bind(1)
                 .bind(job_id.to_string())
-                .execute(pool)
+                .execute(&mut *tx)
                 .await?;
         }
 
@@ -668,7 +718,7 @@ mod full_service_tests {
             .bind(min_mem)
             .bind(min_gpus)
             .bind(min_gpu_mem)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
 
             // Create layer stats
@@ -680,7 +730,7 @@ mod full_service_tests {
             .bind(job_id.to_string())
             .bind(3) // 3 waiting frames
             .bind(3) // 3 total frames
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
 
             // Create layer resource
@@ -689,7 +739,7 @@ mod full_service_tests {
                 "SELECT COUNT(*) FROM layer_resource WHERE pk_layer = $1",
             )
             .bind(layer_id.to_string())
-            .fetch_one(pool)
+            .fetch_one(&mut *tx)
             .await?;
 
             if existing_layer_resource == 0 {
@@ -699,12 +749,12 @@ mod full_service_tests {
                 .bind(Uuid::new_v4().to_string())
                 .bind(layer_id.to_string())
                 .bind(job_id.to_string())
-                .execute(pool)
+                .execute(&mut *tx)
                 .await?;
             }
 
             // Create frames (1-3)
-            for frame_num in 1..=3 {
+            for frame_num in 1..=frames_by_layer as i32 {
                 let frame_id = Uuid::new_v4();
                 sqlx::query(
                     "INSERT INTO frame (pk_frame, pk_layer, pk_job, str_name, str_state, int_number, int_layer_order, int_dispatch_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
@@ -717,7 +767,7 @@ mod full_service_tests {
                 .bind(frame_num)
                 .bind(frame_num)
                 .bind(frame_num)
-                .execute(pool)
+                .execute(&mut *tx)
                 .await?;
             }
 
@@ -727,44 +777,55 @@ mod full_service_tests {
                 tag: tag.to_string(),
             });
         }
+        tx.commit().await?;
 
-        Ok(IntegrationTestJob {
+        Ok(TestJob {
             id: job_id,
             name: job_name.to_string(),
             layers: test_layers,
+            frames_by_layer,
         })
     }
 
-    #[derive(Debug)]
-    struct IntegrationTestData {
+    struct TestData {
         facility_id: Uuid,
         show_id: Uuid,
         dept_id: Uuid,
         hostname_alloc: Uuid,
         alloc_alloc: Uuid,
         manual_alloc: Uuid,
-        hostname_host: IntegrationTestHost,
-        alloc_host: IntegrationTestHost,
-        manual_host: IntegrationTestHost,
-        hostname_job: IntegrationTestJob,
-        alloc_job: IntegrationTestJob,
-        manual_job: IntegrationTestJob,
-        mixed_job: IntegrationTestJob,
+        hostname_host: TestHost,
+        alloc_host: TestHost,
+        manual_host: TestHost,
+        hostname_job: TestJob,
+        alloc_job: TestJob,
+        manual_job: TestJob,
+        mixed_job: TestJob,
         test_suffix: String,
     }
 
+    impl TestData {
+        fn num_frames(&self) -> usize {
+            self.alloc_job.layers.len() * self.alloc_job.frames_by_layer
+                + self.mixed_job.layers.len() * self.mixed_job.frames_by_layer
+                + self.manual_job.layers.len() * self.manual_job.frames_by_layer
+                + self.hostname_job.layers.len() * self.hostname_job.frames_by_layer
+        }
+    }
+
     #[derive(Debug)]
-    struct IntegrationTestHost {
+    struct TestHost {
         id: Uuid,
         name: String,
         alloc_id: Uuid,
     }
 
     #[derive(Debug)]
-    struct IntegrationTestJob {
+    struct TestJob {
         id: Uuid,
         name: String,
         layers: Vec<IntegrationTestLayer>,
+        frames_by_layer: usize,
     }
 
     #[derive(Debug)]
@@ -774,38 +835,76 @@ mod full_service_tests {
         tag: String,
     }
 
-    /// Helper function to override global config for testing
-    fn with_test_config<F, R>(test_config: Config, f: F) -> R
+    /// Helper function to run a test with proper setup and cleanup
+    async fn test_wrapper<F, Fut>(
+        test_name: &str,
+        test_fn: F,
+    ) -> Result<(), Box<dyn std::error::Error>>
     where
-        F: FnOnce() -> R,
+        F: FnOnce(Arc<Pool<Postgres>>, TestData) -> Fut,
+        Fut: std::future::Future<Output = ()>,
     {
-        // Note: Since CONFIG is a lazy_static, we can't easily override it.
-        // In a real implementation, you might need to make the config injectable
-        // or use environment variables. For now, we'll work with the limitation.
-        f()
+        info!("Starting integration test: {}", test_name);
+
+        // Setup database and test data
+        let pool = setup_test_database().await?;
+        sleep(Duration::from_secs(3)).await;
+
+        // Log pool status
+        info!(
+            "Pool status - Size: {}, Idle: {}",
+            pool.size(),
+            pool.num_idle()
+        );
+        let test_data = create_full_integration_test_data(&pool).await?;
+        // Wait for data transactions to clear
+        sleep(Duration::from_secs(1)).await;
+
+        // Set global config
+        let _ = OVERRIDE_CONFIG.set(create_test_config());
+
+        // Run the test
+        test_fn(pool.clone(), test_data).await;
+
+        Ok(())
     }
 
-    async fn get_waiting_frames_count(pool: &Pool<Postgres>, job_id: &Uuid) -> i64 {
-        // Verify that jobs were processed by checking database state
-        // In a real scenario, we'd check for frame state changes, dispatch logs, etc.
-        sqlx::query_scalar::<_, i64>("SELECT int_waiting_count FROM job_stat WHERE pk_job = $1")
-            .bind(job_id.to_string())
-            .fetch_one(pool)
-            .await
-            .expect("Failed to query job stats")
+    async fn get_waiting_frames_count(pool: &Pool<Postgres>, job_id: Option<&Uuid>) -> usize {
+        match job_id {
+            Some(job_id) =>
+            // Verify that jobs were processed by checking database state
+            // In a real scenario, we'd check for frame state changes, dispatch logs, etc.
+            {
+                sqlx::query_scalar::<_, i64>(
+                    "SELECT int_waiting_count FROM job_stat WHERE pk_job = $1",
+                )
+                .bind(job_id.to_string())
+                .fetch_one(pool)
+                .await
+                .expect("Failed to query job stats") as usize
+            }
+            None => {
+                sqlx::query_scalar::<_, i32>("SELECT sum(int_waiting_count)::INTEGER FROM job_stat")
+                    .fetch_one(pool)
+                    .await
+                    .expect("Failed to query job stats") as usize
+            }
+        }
     }
 
     #[tokio::test]
     #[traced_test]
-    async fn test_full_service_hostname_tag_flow() {
-        let pool = setup_test_database()
-            .await
-            .expect("Failed to setup test database");
-        let test_data = create_full_integration_test_data(&pool)
-            .await
-            .expect("Failed to create test data");
-        let _ = OVERRIDE_CONFIG.set(create_test_config());
+    #[serial]
+    async fn test_dispatch_hostname_tag_flow() {
+        let result = test_wrapper(
+            "test_dispatch_hostname_tag_flow",
+            test_dispatch_hostname_tag_flow_inner,
+        )
+        .await;
+        assert_ok!(result, "Failure at test wrapper")
+    }
 
+    async fn test_dispatch_hostname_tag_flow_inner(pool: Arc<Pool<Postgres>>, test_data: TestData) {
         // Create a specific cluster feed for HOSTNAME tag testing
         let hostname_cluster = Cluster::ComposedKey(ClusterKey {
             facility_id: test_data.facility_id.to_string(),
@@ -821,7 +920,7 @@ mod full_service_tests {
         info!("Starting HOSTNAME tag integration test...");
 
         let waiting_frames_before =
-            get_waiting_frames_count(&pool, &test_data.hostname_job.id).await;
+            get_waiting_frames_count(&pool, Some(&test_data.hostname_job.id)).await;
         assert_eq!(waiting_frames_before, 6);
         // Run the job fetcher with our test cluster feed
         // This simulates the main service flow: cluster discovery → job querying → layer processing → dispatching
@@ -832,7 +931,7 @@ mod full_service_tests {
                 info!("✅ HOSTNAME tag integration test completed successfully");
 
                 let waiting_frames =
-                    get_waiting_frames_count(&pool, &test_data.hostname_job.id).await;
+                    get_waiting_frames_count(&pool, Some(&test_data.hostname_job.id)).await;
                 info!(
                     "Job waiting count after processing: {}. Half the frames matched the expected tag",
                     waiting_frames
@@ -846,23 +945,21 @@ mod full_service_tests {
                 panic!("❌ HOSTNAME tag integration test failed: {}", e);
             }
         }
-
-        cleanup_test_data(&pool)
-            .await
-            .expect("Failed to clean up test data");
     }
 
     #[tokio::test]
     #[traced_test]
-    async fn test_full_service_alloc_tag_flow() {
-        let pool = setup_test_database()
-            .await
-            .expect("Failed to setup test database");
-        let test_data = create_full_integration_test_data(&pool)
-            .await
-            .expect("Failed to create test data");
-        let _ = OVERRIDE_CONFIG.set(create_test_config());
+    #[serial]
+    async fn test_dispatch_alloc_tag_flow() {
+        let result = test_wrapper(
+            "test_dispatch_hostname_tag_flow",
+            test_dispatch_alloc_tag_flow_inner,
+        )
+        .await;
+        assert_ok!(result, "Failure at test wrapper")
+    }
 
+    async fn test_dispatch_alloc_tag_flow_inner(pool: Arc<Pool<Postgres>>, test_data: TestData) {
         // Create a specific cluster feed for ALLOC tag testing
         let alloc_cluster = Cluster::ComposedKey(ClusterKey {
             facility_id: test_data.facility_id.to_string(),
@@ -877,33 +974,39 @@ mod full_service_tests {
 
         info!("Starting ALLOC tag integration test...");
 
+        let frame_count = test_data.num_frames();
+        let waiting_frames_before = get_waiting_frames_count(&pool, None).await;
+        assert_eq!(waiting_frames_before, frame_count);
+
         let result = job_fetcher::run(cluster_feed).await;
 
         match result {
             Ok(()) => {
+                let waiting_frames_before = get_waiting_frames_count(&pool, None).await;
+                let target_frames =
+                    test_data.alloc_job.frames_by_layer + test_data.mixed_job.frames_by_layer;
+                assert_eq!(waiting_frames_before, frame_count - target_frames);
                 info!("✅ ALLOC tag integration test completed successfully");
             }
             Err(e) => {
                 panic!("❌ ALLOC tag integration test failed: {}", e);
             }
         }
-
-        cleanup_test_data(&pool)
-            .await
-            .expect("Failed to clean up test data");
     }
 
     #[tokio::test]
     #[traced_test]
-    async fn test_full_service_manual_tag_flow() {
-        let pool = setup_test_database()
-            .await
-            .expect("Failed to setup test database");
-        let test_data = create_full_integration_test_data(&pool)
-            .await
-            .expect("Failed to create test data");
-        let _ = OVERRIDE_CONFIG.set(create_test_config());
+    #[serial]
+    async fn test_dispatch_manual_tag_flow() {
+        let result = test_wrapper(
+            "test_dispatch_manual_tag_flow",
+            test_dispatch_manual_tag_flow_inner,
+        )
+        .await;
+        assert_ok!(result, "Failure at test wrapper")
+    }
 
+    async fn test_dispatch_manual_tag_flow_inner(pool: Arc<Pool<Postgres>>, test_data: TestData) {
         // Create a cluster feed with MANUAL tags (chunked)
         let manual_cluster = Cluster::TagsKey(vec![Tag {
             name: format!("integ_test_manual_tag_{}", test_data.test_suffix),
@@ -924,23 +1027,24 @@ mod full_service_tests {
                 panic!("❌ MANUAL tag integration test failed: {}", e);
             }
         }
-
-        cleanup_test_data(&pool)
-            .await
-            .expect("Failed to clean up test data");
     }
 
     #[tokio::test]
     #[traced_test]
-    async fn test_full_service_mixed_job_scenario() {
-        let pool = setup_test_database()
-            .await
-            .expect("Failed to setup test database");
-        let test_data = create_full_integration_test_data(&pool)
-            .await
-            .expect("Failed to create test data");
-        let _ = OVERRIDE_CONFIG.set(create_test_config());
+    #[serial]
+    async fn test_dispatch_mixed_job_scenario() {
+        let result = test_wrapper(
+            "test_dispatch_mixed_job_scenario",
+            test_dispatch_mixed_job_scenario_inner,
+        )
+        .await;
+        assert_ok!(result, "Failure at test wrapper")
+    }
 
+    async fn test_dispatch_mixed_job_scenario_inner(
+        pool: Arc<Pool<Postgres>>,
+        test_data: TestData,
+    ) {
         // Create multiple clusters to handle the mixed job with different tag types
         let clusters = vec![
             Cluster::ComposedKey(ClusterKey {
@@ -979,7 +1083,7 @@ mod full_service_tests {
                 let mixed_job_layers =
                     sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM layer WHERE pk_job = $1")
                         .bind(test_data.mixed_job.id.to_string())
-                        .fetch_one(&pool)
+                        .fetch_one(&*pool)
                         .await
                         .expect("Failed to query mixed job layers");
 
@@ -993,23 +1097,24 @@ mod full_service_tests {
                 panic!("❌ Mixed job scenario integration test failed: {}", e);
             }
         }
-
-        cleanup_test_data(&pool)
-            .await
-            .expect("Failed to clean up test data");
     }
 
     #[tokio::test]
     #[traced_test]
-    async fn test_full_service_no_matching_hosts() {
-        let pool = setup_test_database()
-            .await
-            .expect("Failed to setup test database");
-        let _test_data = create_full_integration_test_data(&pool)
-            .await
-            .expect("Failed to create test data");
-        let _ = OVERRIDE_CONFIG.set(create_test_config());
+    #[serial]
+    async fn test_dispatcher_no_matching_hosts() {
+        let result = test_wrapper(
+            "test_dispatcher_no_matching_hosts",
+            test_dispatcher_no_matching_hosts_inner,
+        )
+        .await;
+        assert_ok!(result, "Failure at test wrapper")
+    }
 
+    async fn test_dispatcher_no_matching_hosts_inner(
+        pool: Arc<Pool<Postgres>>,
+        _test_data: TestData,
+    ) {
         // Create a cluster with a non-existent tag that won't match any hosts
         let non_matching_cluster = Cluster::TagsKey(vec![Tag {
             name: "non_existent_tag".to_string(),
@@ -1020,10 +1125,16 @@ mod full_service_tests {
 
         info!("Starting no matching hosts integration test...");
 
+        let waiting_frames_before = get_waiting_frames_count(&pool, None).await;
+        assert_eq!(waiting_frames_before, 21);
+
         let result = job_fetcher::run(cluster_feed).await;
 
         match result {
             Ok(()) => {
+                let waiting_frames_after = get_waiting_frames_count(&pool, None).await;
+                assert_eq!(waiting_frames_after, 21);
+
                 info!("✅ No matching hosts integration test completed successfully");
                 // The service should handle no matching hosts gracefully
             }
@@ -1031,10 +1142,6 @@ mod full_service_tests {
                 panic!("❌ No matching hosts integration test failed: {}", e);
             }
         }
-
-        cleanup_test_data(&pool)
-            .await
-            .expect("Failed to clean up test data");
     }
 
     // #[tokio::test]
@@ -1072,5 +1179,6 @@ mod full_service_tests {
     //     cleanup_test_data(&pool)
     //         .await
     //         .expect("Failed to clean up test data");
+    // pool.close().await;
     // }
 }

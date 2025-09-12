@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use miette::{IntoDiagnostic, Result};
 use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
