@@ -9,6 +9,12 @@ services:
       - "5432:5432"
     volumes:
       - ./sandbox/db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cuebot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
 
   flyway:
     build:
@@ -17,7 +23,8 @@ services:
     links:
       - db
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       - PGUSER=cuebot
       - PGPASSWORD=cuebot_password
