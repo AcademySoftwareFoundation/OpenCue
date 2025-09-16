@@ -16,10 +16,11 @@ nav_order: 999
 ## Version Policy
 
 ### Documentation Versioning
-The documentation follows its own versioning scheme separate from OpenCue software:
+The documentation follows the OpenCue software versioning:
 
-- **v1.11.66**: Current stable release (latest content)
+- **v1.11.66**: Current OpenCue release documentation
 - **main**: Development branch (currently same as v1.11.66)
+- Documentation versions are aligned with OpenCue software releases
 
 ### OpenCue Software Version
 Current OpenCue software version: **{{ site.opencue_version }}**
