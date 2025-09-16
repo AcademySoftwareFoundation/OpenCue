@@ -266,6 +266,7 @@ jobs:
     container: python:3.11
     name: "Upload python packages to testpypi repo"
     environment: testpypi
+    continue-on-error: true
     env:
       TWINE_USERNAME: "__token__"
       TWINE_PASSWORD: "${{ secrets.TEST_PYPI_API_TOKEN }}"
@@ -281,7 +282,7 @@ jobs:
       - name: Upload packages
         run: |
           python3 -m pip install --upgrade twine
-          python3 -m twine upload --verbose packages/opencue_*
+          python3 -m twine upload --verbose --skip-existing packages/opencue_*
 
   create_other_artifacts:
     name: Create Other Build Artifacts
