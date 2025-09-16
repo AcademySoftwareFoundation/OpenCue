@@ -77,15 +77,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedVersion = e.target.value;
         const currentPath = window.location.pathname;
         const baseUrl = '{{ site.baseurl }}';
-        
+
         // Handle version switching logic
-        if (selectedVersion === 'main') {
-          // Remove version prefix if exists and go to main
-          const cleanPath = currentPath.replace(/\/v[\d.]+/, '');
+        // Both the default version and main point to the same latest content
+        const defaultVersion = '{{ site.versioning.default_version }}';
+        if (selectedVersion === 'main' || selectedVersion === defaultVersion) {
+          // Remove version prefix if exists and go to main/latest
+          const cleanPath = currentPath.replace(/\/v[\d.]+/, '').replace(/\/main/, '');
           window.location.href = cleanPath || baseUrl || '/';
         } else {
-          // For versioned documentation (including v1.11.66)
-          const cleanPath = currentPath.replace(baseUrl, '').replace(/\/v[\d.]+/, '');
+          // For other versioned documentation
+          const cleanPath = currentPath.replace(baseUrl, '').replace(/\/v[\d.]+/, '').replace(/\/main/, '');
           window.location.href = baseUrl + '/' + selectedVersion + cleanPath;
         }
       });
@@ -135,8 +137,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const currentVersion = '{{ site.version | default: site.versioning.default_version }}';
     const defaultVersion = '{{ site.versioning.default_version }}';
     const mainContent = document.querySelector('.main-content');
-    
-    if (currentVersion !== defaultVersion && mainContent && !document.getElementById('version-notice-banner')) {
+
+    // Don't show banner for the default version or main since they're both the latest
+    if (currentVersion !== defaultVersion && currentVersion !== 'main' && mainContent && !document.getElementById('version-notice-banner')) {
       const banner = document.createElement('div');
       banner.id = 'version-notice-banner';
       banner.style.cssText = `
@@ -152,12 +155,9 @@ document.addEventListener('DOMContentLoaded', function() {
       `;
       
       let bannerMessage = `You are viewing documentation for <strong>version ${currentVersion}</strong>.`;
-      
-      if (currentVersion === 'v1.11.66') {
-        bannerMessage += ` This is the current release version.`;
-      } else {
-        bannerMessage += ` This is an older version.`;
-      }
+
+      // Since the default version is the latest, this banner should only show for older versions
+      bannerMessage += ` This is an older version.`;
       
       banner.innerHTML = `
         <span style="font-size: 20px;">⚠️</span>
@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
           <span style="display: flex; align-items: center; gap: 8px;">
             <strong>Documentation Version:</strong>
             <span style="background: var(--color-blue-100, #dbeafe); color: var(--color-blue-700, #1d4ed8); padding: 2px 8px; border-radius: 4px; font-weight: 500;">
-              ${currentVersion === 'main' ? 'latest (main)' : currentVersion}
+              ${currentVersion === 'main' || currentVersion === '{{ site.versioning.default_version }}' ? `${currentVersion} (latest)` : currentVersion}
             </span>
           </span>
       `;
@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
       `;
       
-      // Add version warning if not on default version
+      // Add version warning if not on default version or main
       if (currentVersion !== defaultVersion && currentVersion !== 'main') {
         metadataContent += `
           <div style="

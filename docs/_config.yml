@@ -10,13 +10,13 @@ theme: just-the-docs
 # Version management
 versioning:
   enabled: true
-  default_version: main
+  default_version: v1.11.66
   versions:
-    - main
     - v1.11.66
+    - main
   version_labels:
-    main: "Latest (main)"
-    v1.11.66: "v1.11.66"
+    v1.11.66: "v1.11.66 (Latest)"
+    main: "main (Development)"
 
 # Git metadata
 git_metadata:
