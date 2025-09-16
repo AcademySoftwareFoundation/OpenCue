@@ -24,14 +24,26 @@ This tutorial walks you through using the OpenCue REST API to interact with your
 - Command-line tools: `curl`, `jq` (optional for JSON formatting)
 - Text editor for creating scripts
 
-**Quick Setup:** If you don't have OpenCue running yet, start it with Docker Compose:
+**Quick Setup:** If you don't have OpenCue running yet, start it with Docker:
+
+**Important:** The REST Gateway is not included in OpenCue's main docker-compose.yml and must be deployed separately.
 
 ```bash
 # From OpenCue repository root
-export JWT_SECRET=$(openssl rand -base64 32)
+# Start OpenCue stack first
 docker compose up -d
 
-# This will start the complete OpenCue stack including the REST Gateway at http://localhost:8448
+# Deploy REST Gateway separately
+export JWT_SECRET=$(openssl rand -base64 32)
+docker build -f rest_gateway/Dockerfile -t opencue-rest-gateway:latest .
+docker run -d --name opencue-rest-gateway \
+  --network opencue_default \
+  -p 8448:8448 \
+  -e CUEBOT_ENDPOINT=cuebot:8443 \
+  -e JWT_SECRET="$JWT_SECRET" \
+  opencue-rest-gateway:latest
+
+# This will make the REST Gateway available at http://localhost:8448
 ```
 
 ## Step 1: Setup and Authentication

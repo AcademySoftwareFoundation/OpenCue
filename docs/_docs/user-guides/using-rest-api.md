@@ -25,12 +25,24 @@ Make sure you have:
 - Valid JWT authentication token
 - Access to the gateway endpoint (typically port 8448)
 
-**Quick Setup:** The easiest way to get the REST Gateway running is with Docker Compose from the OpenCue repository root:
+**Quick Setup:** Deploy the REST Gateway alongside OpenCue:
+
+**Important:** The REST Gateway is not included in OpenCue's main docker-compose.yml and must be deployed separately.
 
 ```bash
-# Generate JWT secret and start all services
-export JWT_SECRET=$(openssl rand -base64 32)
+# From OpenCue repository root
+# Start OpenCue stack first
 docker compose up -d
+
+# Deploy REST Gateway separately
+export JWT_SECRET=$(openssl rand -base64 32)
+docker build -f rest_gateway/Dockerfile -t opencue-rest-gateway:latest .
+docker run -d --name opencue-rest-gateway \
+  --network opencue_default \
+  -p 8448:8448 \
+  -e CUEBOT_ENDPOINT=cuebot:8443 \
+  -e JWT_SECRET="$JWT_SECRET" \
+  opencue-rest-gateway:latest
 
 # The REST Gateway will be available at http://localhost:8448
 ```

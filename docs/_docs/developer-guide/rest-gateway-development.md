@@ -62,12 +62,23 @@ git clone https://github.com/AcademySoftwareFoundation/OpenCue.git
 cd OpenCue
 ```
 
-- **Quick Development Start with Docker Compose:**
+- **Quick Development Start with Docker:**
+
+**Note:** The REST Gateway is not included in OpenCue's main docker-compose.yml and must be deployed separately.
 
 ```bash
-# Start the complete OpenCue stack including REST Gateway
-export JWT_SECRET=$(openssl rand -base64 32)
+# Start the OpenCue stack first
 docker compose up -d
+
+# Build and start REST Gateway separately
+cd rest_gateway
+docker build -f Dockerfile -t opencue-rest-gateway-dev .
+docker run -d --name opencue-gateway-dev \
+  --network opencue_default \
+  -p 8448:8448 \
+  -e CUEBOT_ENDPOINT=cuebot:8443 \
+  -e JWT_SECRET=dev-secret-key \
+  opencue-rest-gateway-dev
 
 # The REST Gateway will be available at http://localhost:8448
 # Cuebot gRPC will be available at localhost:8443
@@ -154,8 +165,8 @@ docker run -d \
 Test with a running Cuebot instance:
 
 ```bash
-# Start Cuebot using Docker Compose (from OpenCue root)
-docker-compose up cuebot
+# Start OpenCue stack using Docker Compose (from OpenCue root)
+docker compose up -d
 
 # In another terminal, start the gateway
 cd rest_gateway/opencue_gateway
@@ -612,10 +623,10 @@ spec:
 
 ### Docker Compose Development
 
-Create development compose file:
+Create development compose file (separate from main OpenCue stack):
 
 ```yaml
-# docker-compose.dev.yml
+# rest-gateway-dev-compose.yml
 version: '3.8'
 services:
   rest-gateway-dev:
@@ -625,14 +636,23 @@ services:
     ports:
       - "8448:8448"
     environment:
-      - GRPC_ENDPOINT=cuebot:8443
+      - CUEBOT_ENDPOINT=cuebot:8443
       - JWT_SECRET=dev-secret-key
       - LOG_LEVEL=debug
     volumes:
       - ./opencue_gateway:/app/opencue_gateway
-    depends_on:
-      - cuebot
+    networks:
+      - opencue_default
     command: go run main.go
+
+networks:
+  opencue_default:
+    external: true
+```
+
+```bash
+# Deploy REST Gateway with separate compose file
+docker compose -f rest-gateway-dev-compose.yml up -d
 ```
 
 ## Troubleshooting Development Issues

@@ -30,28 +30,44 @@ You also need:
 - Access to the Cuebot gRPC endpoint (typically port 8443)
 - A secure JWT secret for authentication
 
-## Quick Start with Docker Compose (Recommended)
+## Quick Start with Docker (Recommended)
 
-The easiest way to get started with the REST Gateway is using the included Docker Compose setup:
+**Important:** The REST Gateway is not included in OpenCue's main `docker-compose.yml` and must be deployed separately.
 
-### Step 1: Start OpenCue with REST Gateway
+### Step 1: Start OpenCue Stack
 
 From the OpenCue repository root:
 
 ```bash
-# Generate JWT secret for REST API authentication
-export JWT_SECRET=$(openssl rand -base64 32)
-
-# Start all services (database, cuebot, rqd, and rest-gateway)
+# Start core OpenCue services (database, cuebot, rqd)
 docker compose up -d
 
 # Check service status
 docker compose ps
 ```
 
-The REST Gateway will be automatically available at `http://localhost:8448` along with the complete OpenCue stack.
+### Step 2: Deploy REST Gateway Separately
 
-### Step 2: Run Comprehensive Tests
+```bash
+# Generate JWT secret for REST API authentication
+export JWT_SECRET=$(openssl rand -base64 32)
+
+# Build REST Gateway image
+docker build -f rest_gateway/Dockerfile -t opencue-rest-gateway:latest .
+
+# Run REST Gateway as separate container
+docker run -d --name opencue-rest-gateway \
+  --network opencue_default \
+  -p 8448:8448 \
+  -e CUEBOT_ENDPOINT=cuebot:8443 \
+  -e JWT_SECRET="$JWT_SECRET" \
+  -e LOG_LEVEL=info \
+  opencue-rest-gateway:latest
+```
+
+The REST Gateway will be available at `http://localhost:8448` alongside the OpenCue stack.
+
+### Step 3: Run Comprehensive Tests
 
 OpenCue includes a comprehensive test script that validates all REST Gateway endpoints:
 
@@ -90,7 +106,7 @@ GetShows: SUCCESS
 }
 ```
 
-### Step 3: Manual Testing (Optional)
+### Step 4: Manual Testing (Optional)
 
 For individual endpoint testing, generate a token manually:
 
@@ -265,12 +281,12 @@ curl -H "Authorization: Bearer $JWT_TOKEN" \
 
 If successful, you'll see a JSON response with show information.
 
-## Docker Compose Configuration
+## Docker Compose Configuration (Separate File)
 
-For production deployments, use Docker Compose:
+For production deployments, create a separate Docker Compose file for the REST Gateway:
 
 ```yaml
-# docker-compose.yml
+# rest-gateway-compose.yml
 version: '3.8'
 services:
   rest-gateway:
@@ -283,26 +299,26 @@ services:
       - LOG_LEVEL=info
       - CORS_ALLOWED_ORIGINS=*
       - REST_PORT=8448
-    depends_on:
-      cuebot:
-        condition: service_healthy
-    links:
-      - cuebot
+    networks:
+      - opencue_default
     restart: unless-stopped
 
-  cuebot:
-    # Your existing Cuebot configuration
-    image: opencue/cuebot:latest
-    ports:
-      - "8443:8443"
-    # ... other cuebot settings
+networks:
+  opencue_default:
+    external: true
 ```
 
-Start the services:
+Deploy the services:
 
 ```bash
+# Start OpenCue stack first
+docker compose up -d
+
+# Generate JWT secret
 export JWT_SECRET=$(openssl rand -base64 32)
-docker-compose up -d
+
+# Deploy REST Gateway separately
+docker compose -f rest-gateway-compose.yml up -d
 ```
 
 ## Configuration Options

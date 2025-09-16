@@ -241,30 +241,22 @@ export REST_PORT=8448
 ./opencue_gateway
 ```
 
-#### **Option 3: Docker Compose**
+#### **Option 3: Integration with OpenCue Stack**
 
-For integrated testing with OpenCue:
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  rest-gateway:
-    build:
-      context: .
-      dockerfile: rest_gateway/Dockerfile
-    ports:
-      - "8448:8448"
-    environment:
-      - CUEBOT_ENDPOINT=cuebot:8443
-      - JWT_SECRET=production-secret-key
-    depends_on:
-      - cuebot
-```
+The REST Gateway is **not included** in OpenCue's main docker-compose.yml and must be deployed separately:
 
 ```bash
-# Run with docker compose
-docker compose up -d rest-gateway
+# 1. Start OpenCue stack first
+docker compose up -d
+
+# 2. Build and run REST Gateway separately
+docker build -f rest_gateway/Dockerfile -t opencue-rest-gateway:latest .
+docker run -d --name opencue-rest-gateway \
+  --network opencue_default \
+  -p 8448:8448 \
+  -e CUEBOT_ENDPOINT=cuebot:8443 \
+  -e JWT_SECRET=your-secret-key \
+  opencue-rest-gateway:latest
 ```
 
 ### Verification
@@ -1204,7 +1196,31 @@ The OpenCue REST Gateway is configured entirely through environment variables, m
 
 ### Deployment Examples
 
-#### **Docker Compose**
+#### **Standalone Docker Deployment**
+**Note:** The REST Gateway is not included in OpenCue's main docker-compose.yml and must be deployed separately.
+
+```bash
+# Build the image
+docker build -f rest_gateway/Dockerfile -t opencue-rest-gateway:latest .
+
+# Run as standalone container
+docker run -d --name opencue-rest-gateway \
+  --network opencue_default \
+  -p 8448:8448 \
+  -e CUEBOT_ENDPOINT=cuebot:8443 \
+  -e JWT_SECRET=${JWT_SECRET} \
+  -e REST_PORT=8448 \
+  -e LOG_LEVEL=info \
+  -e GRPC_TIMEOUT=30s \
+  -e CORS_ORIGINS=https://cueweb.example.com,https://dashboard.example.com \
+  -e RATE_LIMIT_RPS=200 \
+  --restart unless-stopped \
+  opencue-rest-gateway:latest
+```
+
+#### **Custom Docker Compose (Separate File)**
+If you prefer using Docker Compose, create a separate `rest-gateway-compose.yml`:
+
 ```yaml
 version: '3.8'
 services:
@@ -1213,38 +1229,25 @@ services:
     ports:
       - "8448:8448"
     environment:
-      # Required
       - CUEBOT_ENDPOINT=cuebot:8443
       - JWT_SECRET=${JWT_SECRET}
       - REST_PORT=8448
-      
-      # Optional
       - LOG_LEVEL=info
       - GRPC_TIMEOUT=30s
       - CORS_ORIGINS=https://cueweb.example.com,https://dashboard.example.com
       - RATE_LIMIT_RPS=200
-    
-    # Health check (using TCP check since all HTTP endpoints require authentication)
-    healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/8448' || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    
-    # Resource limits
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '1.0'
-        reservations:
-          memory: 256M
-          cpus: '0.5'
-    
-    depends_on:
-      - cuebot
-    
+    networks:
+      - opencue_default
     restart: unless-stopped
+
+networks:
+  opencue_default:
+    external: true
+```
+
+```bash
+# Deploy with separate compose file
+docker compose -f rest-gateway-compose.yml up -d
 ```
 
 #### **Kubernetes Deployment**
@@ -1887,16 +1890,28 @@ cd rest_gateway
 - `test_docker_gateway.sh` - Docker container testing
 - `test_live_cuebot.sh` - End-to-end testing with real Cuebot
 
-### Testing with Docker Compose
+### Testing with OpenCue Docker Environment
 
-The REST Gateway includes a comprehensive test script for Docker Compose deployments:
+The REST Gateway includes comprehensive test scripts, but requires **separate deployment** from the main OpenCue stack:
+
+**Important:** The REST Gateway is **not included** in OpenCue's main `docker-compose.yml`. It must be built and deployed as a standalone container.
 
 #### **Automated Testing Script**
 
 ```bash
-# From OpenCue root directory, start the complete stack
-export JWT_SECRET=$(openssl rand -base64 32)
+# From OpenCue root directory, start OpenCue stack first
 docker compose up -d
+
+# Build REST Gateway image
+docker build -f rest_gateway/Dockerfile -t opencue-rest-gateway:latest .
+
+# Start REST Gateway separately
+docker run -d --name opencue-rest-gateway-test \
+  --network opencue_default \
+  -p 8448:8448 \
+  -e CUEBOT_ENDPOINT=cuebot:8443 \
+  -e JWT_SECRET=default-secret-key \
+  opencue-rest-gateway:latest
 
 # Run comprehensive endpoint tests
 cd rest_gateway
@@ -1923,16 +1938,26 @@ cd rest_gateway
 
 #### **Manual Testing**
 
-If you prefer manual testing with Docker Compose:
+If you prefer manual testing with the OpenCue Docker environment:
 
 ```bash
-# 1. Start OpenCue with docker compose (in OpenCue root directory)
+# 1. Start OpenCue stack (in OpenCue root directory)
 docker compose up -d
 
-# 2. Verify services are running
-docker compose ps
+# 2. Build and start REST Gateway separately
+docker build -f rest_gateway/Dockerfile -t opencue-rest-gateway:latest .
+docker run -d --name opencue-rest-gateway-manual \
+  --network opencue_default \
+  -p 8448:8448 \
+  -e CUEBOT_ENDPOINT=cuebot:8443 \
+  -e JWT_SECRET=default-secret-key \
+  opencue-rest-gateway:latest
 
-# 3. Generate JWT token
+# 3. Verify services are running
+docker compose ps
+docker ps | grep rest-gateway
+
+# 4. Generate JWT token
 pip3 install PyJWT
 JWT_TOKEN=$(python3 -c "
 import jwt, datetime
@@ -1941,7 +1966,7 @@ payload = {'user': 'test', 'exp': datetime.datetime.now(datetime.timezone.utc) +
 print(jwt.encode(payload, secret, algorithm='HS256'))
 ")
 
-# 4. Test endpoints manually
+# 5. Test endpoints manually
 curl -H "Authorization: Bearer $JWT_TOKEN" \
      -H "Content-Type: application/json" \
      -X POST "http://localhost:8448/show.ShowInterface/GetShows" \
@@ -1976,11 +2001,11 @@ curl -H "Authorization: Bearer $JWT_TOKEN" \
 
 **Cleanup:**
 ```bash
-# Stop REST Gateway
-docker stop opencue-rest-gateway-live
-docker rm opencue-rest-gateway-live
+# Stop REST Gateway containers
+docker stop opencue-rest-gateway-test opencue-rest-gateway-manual 2>/dev/null || true
+docker rm opencue-rest-gateway-test opencue-rest-gateway-manual 2>/dev/null || true
 
-# Stop OpenCue (optional)
+# Stop OpenCue stack (optional)
 docker compose down
 ```
 

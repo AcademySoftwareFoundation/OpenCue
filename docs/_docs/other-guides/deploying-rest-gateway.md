@@ -39,24 +39,43 @@ The OpenCue REST Gateway provides HTTP/REST endpoints for OpenCue's gRPC API, en
 
 ## Installation Methods
 
-### Method 1: Docker Compose with OpenCue (Recommended)
+### Method 1: Standalone Docker Deployment (Recommended)
 
-The simplest way to deploy the REST Gateway is using the integrated Docker Compose setup that comes with OpenCue. This automatically includes the REST Gateway along with the complete OpenCue stack.
+**Important:** The REST Gateway is not included in OpenCue's main docker-compose.yml and must be deployed separately.
 
-**From the OpenCue repository root:**
+**Step 1: Start OpenCue Stack**
+
+From the OpenCue repository root:
 
 ```bash
-# Generate JWT secret for REST API authentication
-export JWT_SECRET=$(openssl rand -base64 32)
-
-# Start all services (database, cuebot, rqd, and rest-gateway)
+# Start core OpenCue services (database, cuebot, rqd)
 docker compose up -d
 
 # Check service status
 docker compose ps
 ```
 
-The REST Gateway will be automatically available at `http://localhost:8448` with the complete OpenCue infrastructure.
+**Step 2: Deploy REST Gateway Separately**
+
+```bash
+# Generate JWT secret for REST API authentication
+export JWT_SECRET=$(openssl rand -base64 32)
+
+# Build REST Gateway image
+cd rest_gateway
+docker build -t opencue-rest-gateway .
+
+# Run REST Gateway as separate container
+docker run -d --name opencue-rest-gateway \
+  --network opencue_default \
+  -p 8448:8448 \
+  -e CUEBOT_ENDPOINT=cuebot:8443 \
+  -e JWT_SECRET="$JWT_SECRET" \
+  -e LOG_LEVEL=info \
+  opencue-rest-gateway
+```
+
+The REST Gateway will be available at `http://localhost:8448` alongside the OpenCue infrastructure.
 
 **Test the deployment:**
 
@@ -88,15 +107,44 @@ curl -H "Authorization: Bearer $JWT_TOKEN" \
      -d '{}'
 ```
 
-### Method 2: Standalone Docker Deployment
+### Method 2: Custom Docker Compose File
 
-For deploying the REST Gateway separately:
+For production deployments, create a separate Docker Compose file:
 
-Build the Docker image:
+Create a REST Gateway compose file:
+
+```yaml
+# rest-gateway-compose.yml
+version: '3.8'
+services:
+  rest-gateway:
+    build: ./rest_gateway
+    ports:
+      - "8448:8448"
+    environment:
+      - CUEBOT_ENDPOINT=cuebot:8443
+      - JWT_SECRET=${JWT_SECRET}
+      - LOG_LEVEL=info
+      - CORS_ALLOWED_ORIGINS=https://your-domain.com
+      - REST_PORT=8448
+    networks:
+      - opencue_default
+    restart: unless-stopped
+
+networks:
+  opencue_default:
+    external: true
+```
+
+Deploy separately:
 
 ```bash
-cd rest_gateway
-docker build -t opencue-rest-gateway .
+# Start OpenCue stack first
+docker compose up -d
+
+# Deploy REST Gateway with separate compose file
+export JWT_SECRET=$(openssl rand -base64 32)
+docker compose -f rest-gateway-compose.yml up -d
 ```
 
 Run with Docker:
