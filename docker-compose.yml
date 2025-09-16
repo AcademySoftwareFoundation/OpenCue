@@ -57,3 +57,20 @@ services:
     volumes:
       - /tmp/rqd/logs:/tmp/rqd/logs
       - /tmp/rqd/shots:/tmp/rqd/shots
+
+  rest-gateway:
+    build: ./rest_gateway
+    ports:
+      - "8448:8448"
+    environment:
+      - CUEBOT_ENDPOINT=cuebot:8443
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-key-change-in-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
+      - REST_PORT=8448
+    depends_on:
+      cuebot:
+        condition: service_healthy
+    links:
+      - cuebot
+    restart: unless-stopped
