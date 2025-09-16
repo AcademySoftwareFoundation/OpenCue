@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', function() {
           const cleanPath = currentPath.replace(/\/v[\d.]+/, '');
           window.location.href = cleanPath || baseUrl || '/';
         } else {
-          // For versioned documentation (including v0.0.1)
+          // For versioned documentation (including v1.11.66)
           const cleanPath = currentPath.replace(baseUrl, '').replace(/\/v[\d.]+/, '');
           window.location.href = baseUrl + '/' + selectedVersion + cleanPath;
         }
@@ -153,8 +153,8 @@ document.addEventListener('DOMContentLoaded', function() {
       
       let bannerMessage = `You are viewing documentation for <strong>version ${currentVersion}</strong>.`;
       
-      if (currentVersion === 'v0.0.1') {
-        bannerMessage += ` This is the initial preview version.`;
+      if (currentVersion === 'v1.11.66') {
+        bannerMessage += ` This is the current release version.`;
       } else {
         bannerMessage += ` This is an older version.`;
       }

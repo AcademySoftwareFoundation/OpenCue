@@ -11,7 +11,7 @@ nav_order: 999
 | Version | Status | Release Date | Documentation | Notes |
 |---------|---------|--------------|---------------|-------|
 | [main]({{ site.baseurl }}/) | **Development** | Continuous | [View →]({{ site.baseurl }}/) | Latest development version |
-| [v0.0.1]({{ site.baseurl }}/v0.0.1/) | **Preview** | In Progress | [View →]({{ site.baseurl }}/v0.0.1/) | Initial documentation version |
+| [v1.11.66]({{ site.baseurl }}/v1.11.66/) | **Release** | 2025 | [View →]({{ site.baseurl }}/v1.11.66/) | Current release version |
 
 ## Version Policy
 
@@ -19,8 +19,7 @@ nav_order: 999
 The documentation follows its own versioning scheme separate from OpenCue software:
 
 - **main**: Latest development version with newest features and changes
-- **v0.0.1**: Initial documentation version (preview/beta state)
-- Future versions will follow semantic versioning (v1.0.0, v1.1.0, etc.)
+- **vXXX.XXX.XXX**: Current release documentation
 
 ### OpenCue Software Version
 Current OpenCue software version: **{{ site.opencue_version }}**
@@ -30,7 +29,7 @@ Current OpenCue software version: **{{ site.opencue_version }}**
 🚧 **Documentation is currently under active development**
 
 - **main**: Contains the latest changes and improvements
-- **v0.0.1**: Represents the initial documentation structure and content
+- **v1.11.66**: Current stable release documentation
 - **v1.0.0**: Will be the first stable release (coming soon)
 
 ## How to Switch Versions
