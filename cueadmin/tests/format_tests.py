@@ -1,16 +1,6 @@
+#!/usr/bin/env python
+
 #  Copyright Contributors to the OpenCue Project
-#
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.#  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -62,19 +52,22 @@ class FmtTests(unittest.TestCase):
         # Fixed epoch for September 15, 2020
         epoch = 1600128000
 
+        # Generate expected values dynamically based on local timezone
+        local_time = time.localtime(epoch)
+
         formats = [
             # Year formats
-            ("%Y", "2020"),
-            ("%y", "20"),
+            ("%Y", time.strftime("%Y", local_time)),
+            ("%y", time.strftime("%y", local_time)),
             # Month formats
-            ("%m", "09"),
-            ("%B", "September"),
-            ("%b", "Sep"),
+            ("%m", time.strftime("%m", local_time)),
+            ("%B", time.strftime("%B", local_time)),
+            ("%b", time.strftime("%b", local_time)),
             # Day formats
-            ("%d", "15"),
-            ("%j", "259"),
-            ("%A", "Tuesday"),
-            ("%a", "Tue"),
+            ("%d", time.strftime("%d", local_time)),
+            ("%j", time.strftime("%j", local_time)),
+            ("%A", time.strftime("%A", local_time)),
+            ("%a", time.strftime("%a", local_time)),
         ]
 
         for format_str, expected in formats:
