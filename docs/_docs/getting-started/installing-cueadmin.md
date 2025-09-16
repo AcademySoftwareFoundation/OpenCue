@@ -1,6 +1,6 @@
 ---
 title: "Installing CueAdmin"
-nav_order: 18
+nav_order: 17
 parent: Getting Started
 layout: default
 linkTitle: "Installing CueAdmin"
