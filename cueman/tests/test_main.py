@@ -255,7 +255,63 @@ class TestCuemanMain(unittest.TestCase):
 
         mock_job1.kill.assert_called_once_with(reason=main.KILL_REASON)
         mock_job2.kill.assert_called_once_with(reason=main.KILL_REASON)
+    
+    @mock.patch('getpass.getuser')
+    def test_terminateJobs_reason_includes_username(self, mock_getuser):
+        mock_getuser.return_value = "specialuser"
+        mock_job = mock.Mock()
+        jobs = [mock_job]
+        with mock.patch('sys.stdout'):
+            main.terminateJobs(jobs)
+        args, kwargs = mock_job.kill.call_args
+        self.assertIn("specialuser", kwargs["reason"])
 
+    @mock.patch('cueman.main.confirm_termination')
+    def test_terminateJobs_confirmation_required(self, mock_confirm):
+        mock_confirm.return_value = False  # User cancels
+        mock_job = mock.Mock()
+        jobs = [mock_job]
+        with mock.patch('sys.stdout'):
+            main.terminateJobs(jobs)
+        mock_job.kill.assert_not_called()
+
+    @mock.patch('cueman.main.confirm_termination')
+    def test_terminateJobs_force_bypasses_confirmation(self, mock_confirm):
+        mock_confirm.return_value = False  # Would cancel, but force overrides
+        mock_job = mock.Mock()
+        jobs = [mock_job]
+        with mock.patch('sys.stdout'):
+            main.terminateJobs(jobs, force=True)
+        mock_job.kill.assert_called_once()
+
+    def test_terminateJobs_handles_kill_exception(self):
+        mock_job = mock.Mock()
+        mock_job.kill.side_effect = Exception("Kill failed")
+        jobs = [mock_job]
+        with mock.patch('sys.stdout'):
+            try:
+                main.terminateJobs(jobs)
+            except Exception:
+                self.fail("terminateJobs should handle kill exceptions gracefully")
+
+    def test_terminateJobs_logs_output(self):
+        mock_job = mock.Mock()
+        jobs = [mock_job]
+        with mock.patch('sys.stdout') as mock_stdout:
+            main.terminateJobs(jobs)
+            self.assertTrue(mock_stdout.write.called)
+
+    @mock.patch('getpass.getuser')
+    def test_terminateJobs_various_states(self, mock_getuser):
+        mock_getuser.return_value = "testuser"
+        for state in ["RUNNING", "WAITING", "DEAD"]:
+            mock_job = mock.Mock()
+            mock_job.state = state
+            jobs = [mock_job]
+            with mock.patch('sys.stdout'):
+                main.terminateJobs(jobs)
+            mock_job.kill.assert_called_once()
+            
 
 class TestCuemanHandleArgs(unittest.TestCase):
     """Test cases for handleArgs function."""
