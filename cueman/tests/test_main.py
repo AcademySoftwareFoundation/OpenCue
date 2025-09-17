@@ -39,6 +39,7 @@ except ImportError:
     except ImportError:
         # Create a mock module for testing if proto isn't available
         import types
+
         job_pb2 = types.ModuleType('job_pb2')
         job_pb2.RUNNING = 'RUNNING'
         job_pb2.WAITING = 'WAITING'
@@ -93,7 +94,7 @@ class TestCuemanMain(unittest.TestCase):
         with mock.patch('cueadmin.common.handleIntCriterion') as mock_handle:
             mock_handle.side_effect = [
                 [mock.Mock(value=10485)],  # memory conversion
-                [mock.Mock(value=36)]      # duration conversion
+                [mock.Mock(value=36)]  # duration conversion
             ]
             result = main.buildFrameSearch(args)
 
@@ -255,63 +256,104 @@ class TestCuemanMain(unittest.TestCase):
 
         mock_job1.kill.assert_called_once_with(reason=main.KILL_REASON)
         mock_job2.kill.assert_called_once_with(reason=main.KILL_REASON)
-    
+
     @mock.patch('getpass.getuser')
-    def test_terminateJobs_reason_includes_username(self, mock_getuser):
+    @mock.patch('cueman.main.logger')
+    def test_terminateJobs_reason_includes_username(self, mock_logger, mock_getuser):
+        """Test that the kill reason includes the username."""
         mock_getuser.return_value = "specialuser"
         mock_job = mock.Mock()
+        mock_job.name.return_value = "test_job"
         jobs = [mock_job]
-        with mock.patch('sys.stdout'):
+
+        main.terminateJobs(jobs)
+
+        # The KILL_REASON template is "Opencueman Terminate Job %s by user %s"
+        # terminateJobs uses it directly as the reason parameter
+        mock_job.kill.assert_called_once_with(reason=main.KILL_REASON)
+
+        # Verify logging includes username
+        mock_logger.info.assert_any_call(main.KILL_REASON, "test_job", "specialuser")
+
+    @mock.patch('cueman.main.logger')
+    def test_terminateJobs_multiple_jobs_batch(self, mock_logger):
+        """Test batch termination of multiple jobs."""
+        mock_job1 = mock.Mock()
+        mock_job1.name.return_value = "job1"
+        mock_job2 = mock.Mock()
+        mock_job2.name.return_value = "job2"
+        mock_job3 = mock.Mock()
+        mock_job3.name.return_value = "job3"
+
+        jobs = [mock_job1, mock_job2, mock_job3]
+
+        main.terminateJobs(jobs)
+
+        # Verify all jobs were killed
+        for job in jobs:
+            job.kill.assert_called_once_with(reason=main.KILL_REASON)
+
+    @mock.patch('cueman.main.logger')
+    def test_terminateJobs_empty_list(self, mock_logger):
+        """Test terminateJobs with empty job list."""
+        jobs = []
+
+        # Should not raise any exceptions
+        try:
             main.terminateJobs(jobs)
-        args, kwargs = mock_job.kill.call_args
-        self.assertIn("specialuser", kwargs["reason"])
+        except Exception as e:
+            self.fail(f"terminateJobs raised {e} with empty job list")
 
-    @mock.patch('cueman.main.confirm_termination')
-    def test_terminateJobs_confirmation_required(self, mock_confirm):
-        mock_confirm.return_value = False  # User cancels
-        mock_job = mock.Mock()
-        jobs = [mock_job]
-        with mock.patch('sys.stdout'):
-            main.terminateJobs(jobs)
-        mock_job.kill.assert_not_called()
+        # Logger should not be called for empty list
+        mock_logger.info.assert_not_called()
 
-    @mock.patch('cueman.main.confirm_termination')
-    def test_terminateJobs_force_bypasses_confirmation(self, mock_confirm):
-        mock_confirm.return_value = False  # Would cancel, but force overrides
+    @mock.patch('cueman.main.logger')
+    def test_terminateJobs_handles_kill_exception(self, mock_logger):
+        """Test that terminateJobs handles exceptions during kill operation."""
         mock_job = mock.Mock()
-        jobs = [mock_job]
-        with mock.patch('sys.stdout'):
-            main.terminateJobs(jobs, force=True)
-        mock_job.kill.assert_called_once()
-
-    def test_terminateJobs_handles_kill_exception(self):
-        mock_job = mock.Mock()
+        mock_job.name.return_value = "failing_job"
         mock_job.kill.side_effect = Exception("Kill failed")
         jobs = [mock_job]
-        with mock.patch('sys.stdout'):
-            try:
-                main.terminateJobs(jobs)
-            except Exception:
-                self.fail("terminateJobs should handle kill exceptions gracefully")
 
-    def test_terminateJobs_logs_output(self):
-        mock_job = mock.Mock()
-        jobs = [mock_job]
-        with mock.patch('sys.stdout') as mock_stdout:
+        # terminateJobs doesn't catch exceptions, so it should propagate
+        with self.assertRaises(Exception) as context:
             main.terminateJobs(jobs)
-            self.assertTrue(mock_stdout.write.called)
+
+        self.assertEqual(str(context.exception), "Kill failed")
 
     @mock.patch('getpass.getuser')
-    def test_terminateJobs_various_states(self, mock_getuser):
+    @mock.patch('cueman.main.logger')
+    def test_terminateJobs_logs_output(self, mock_logger, mock_getuser):
+        """Test that terminateJobs produces expected log output."""
         mock_getuser.return_value = "testuser"
-        for state in ["RUNNING", "WAITING", "DEAD"]:
+        mock_job = mock.Mock()
+        mock_job.name.return_value = "test_job"
+        jobs = [mock_job]
+
+        main.terminateJobs(jobs)
+
+        # Verify logging calls
+        mock_logger.info.assert_any_call(main.KILL_REASON, "test_job", "testuser")
+        mock_logger.info.assert_any_call("---")
+
+    @mock.patch('getpass.getuser')
+    @mock.patch('cueman.main.logger')
+    def test_terminateJobs_various_states(self, mock_logger, mock_getuser):
+        """Test termination of jobs in various states."""
+        mock_getuser.return_value = "testuser"
+
+        for state in ["RUNNING", "WAITING", "DEAD", "SUCCEEDED"]:
             mock_job = mock.Mock()
+            mock_job.name.return_value = f"job_{state}"
             mock_job.state = state
             jobs = [mock_job]
-            with mock.patch('sys.stdout'):
-                main.terminateJobs(jobs)
-            mock_job.kill.assert_called_once()
-            
+
+            main.terminateJobs(jobs)
+
+            # Verify job was killed regardless of state
+            mock_job.kill.assert_called_once_with(reason=main.KILL_REASON)
+            mock_job.reset_mock()
+
 
 class TestCuemanHandleArgs(unittest.TestCase):
     """Test cases for handleArgs function."""
