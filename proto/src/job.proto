@@ -7,7 +7,6 @@ option java_multiple_files = true;
 
 option go_package = "opencue_gateway/gen/go";
 
-import "google/api/annotations.proto";
 import "comment.proto";
 import "depend.proto";
 import "limit.proto";
@@ -142,12 +141,7 @@ service GroupInterface {
 
 service JobInterface {
     // Add a comment on this job
-    rpc AddComment(JobAddCommentRequest) returns (JobAddCommentResponse) {
-        option (google.api.http) = {
-            post: "/jobs/{job.id}/comments"
-            body: "new_comment"
-        };
-    }
+    rpc AddComment(JobAddCommentRequest) returns (JobAddCommentResponse);
 
     // Add a render partition to the local host.  This partition will
     // run frames on the specified job.
@@ -178,11 +172,7 @@ service JobInterface {
     rpc FindJob(JobFindJobRequest) returns (JobFindJobResponse);
 
     // Get the comments for this job
-    rpc GetComments(JobGetCommentsRequest) returns (JobGetCommentsResponse) {
-        option (google.api.http) = {
-            get: "/jobs/{job.id}/comments"
-        };
-    }
+    rpc GetComments(JobGetCommentsRequest) returns (JobGetCommentsResponse);
 
     // Get the job details
     rpc GetCurrent(JobGetCurrentRequest) returns (JobGetCurrentResponse);

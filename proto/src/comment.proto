@@ -2,8 +2,6 @@
 syntax = "proto3";
 package comment;
 
-import "google/api/annotations.proto";
-
 option java_package = "com.imageworks.spcue.grpc.comment";
 option java_multiple_files = true;
 
@@ -17,19 +15,10 @@ option go_package = "opencue_gateway/gen/go";
 
 service CommentInterface {
     // Delete the specified comment.
-    rpc Delete(CommentDeleteRequest) returns (CommentDeleteResponse) {
-        option (google.api.http) = {
-            delete: "/comments/{comment.id}"
-        };
-    }
+    rpc Delete(CommentDeleteRequest) returns (CommentDeleteResponse);
 
     // Saves the specified comment.
-    rpc Save(CommentSaveRequest) returns (CommentSaveResponse) {
-        option (google.api.http) = {
-            post: "/comments"
-            body: "*"
-        };
-    }
+    rpc Save(CommentSaveRequest) returns (CommentSaveResponse);
 }
 
 
