@@ -7,7 +7,8 @@ import cueman.main as main
 
 class TestCuemanIntegrationWorkflows(unittest.TestCase):
     """Integration tests for complete cueman workflows."""
-
+    
+    @mock.patch('opencue.api.getStub')
     @mock.patch('opencue.api.findJob')
     def test_complete_job_management_workflow(self, mock_find):
         mock_job = mock.Mock()
@@ -15,15 +16,17 @@ class TestCuemanIntegrationWorkflows(unittest.TestCase):
         sys.argv = ['cueman', '-pause', 'job1']
         main.main(sys.argv)
         mock_job.pause.assert_called_once()
-        sys.argv = ['cueman',  'job1', '-priority', '100']
+        sys.argv = ['cueman', '-priority', 'job1', '100']  # Check your CLI help for exact syntax
         main.main(sys.argv)
         mock_job.modify.assert_called_once()
-        sys.argv = ['cueman', 'job1', '-resume']
+        sys.argv = ['cueman', '-resume', 'job1']
         main.main(sys.argv)
         mock_job.resume.assert_called_once()
-
+    
+    @mock.patch('opencue.api.getStub')
     @mock.patch('opencue.api.findFrame')
-    def test_frame_management_workflow(self, mock_find):
+    def test_frame_management_workflow(self, mock_find, mock_stub):
+        mock_stub.return_value = mock.Mock()
         mock_frame1 = mock.Mock()
         mock_frame2 = mock.Mock()
         mock_find.return_value = [mock_frame1, mock_frame2]
@@ -43,9 +46,11 @@ class TestCuemanIntegrationWorkflows(unittest.TestCase):
         with self.assertRaises(SystemExit):
             main.main(sys.argv)
 
+    @mock.patch('opencue.api.getStub')
     @mock.patch('opencue.api.findFrame')
-    def test_complex_filter_combination_workflows(self, mock_find):
+    def test_complex_filter_combination_workflows(self, mock_find, mock_stub):
         # Simulate multiple filters
+        mock_stub.return_value = mock.Mock()
         mock_find.return_value = [mock.Mock(name='frame1')]
         sys.argv = ['cueman', '-ll', 'job1', '-state', 'DEAD', '-layer', 'layer1']
         main.main(sys.argv)
