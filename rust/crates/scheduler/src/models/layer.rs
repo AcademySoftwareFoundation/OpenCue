@@ -1,4 +1,5 @@
 use core::fmt;
+use std::collections::HashSet;
 
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
@@ -19,7 +20,7 @@ pub struct DispatchLayer {
     pub threadable: bool,
     pub gpus_min: i32,
     pub gpu_mem_min: ByteSize,
-    pub tags: String,
+    pub tags: HashSet<String>,
 }
 
 impl fmt::Display for DispatchLayer {

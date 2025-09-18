@@ -1,10 +1,8 @@
 use futures::StreamExt;
 use itertools::Itertools;
-use miette::{IntoDiagnostic, Result};
+use miette::Result;
 use serde::{Deserialize, Serialize};
 use tracing::error;
-
-use uuid::Uuid;
 
 use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
@@ -23,6 +21,15 @@ pub struct ClusterFeed {
     current_index: usize,
     rounds: usize,
     run_once: bool,
+}
+
+impl Cluster {
+    pub fn tags(&self) -> Box<dyn Iterator<Item = &Tag> + '_> {
+        match self {
+            Cluster::ComposedKey(cluster_key) => Box::new(std::iter::once(&cluster_key.tag)),
+            Cluster::TagsKey(tags) => Box::new(tags.iter()),
+        }
+    }
 }
 
 impl ClusterFeed {
@@ -130,6 +137,8 @@ impl Iterator for ClusterFeed {
 
         let item = self.keys[self.current_index].clone();
         self.current_index = (self.current_index + 1) % self.keys.len();
+        let _item_tag: Vec<_> = item.tags().collect();
         Some(item)
+        // TODO: Every loop restart should fetch
     }
 }

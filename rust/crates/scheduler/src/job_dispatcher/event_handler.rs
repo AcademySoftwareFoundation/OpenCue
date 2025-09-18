@@ -64,8 +64,11 @@ impl BookJobEventHandler {
     /// # Arguments
     /// * `job` - The dispatch job containing layers to process
     pub async fn process(&self, job: DispatchJob) {
-        let stream = self.job_dao.query_layers(job.id);
         let cluster = Arc::new(job.source_cluster);
+        let stream = self.job_dao.query_layers(
+            job.id,
+            cluster.tags().map(|tag| &tag.name).cloned().collect(),
+        );
 
         // Stream elegible layers from this job and dispatch one by one
         stream
@@ -99,18 +102,10 @@ impl BookJobEventHandler {
     /// # Returns
     /// A vector of tags that exist in both the cluster and the dispatch layer
     fn filter_matching_tags(cluster: &Cluster, dispatch_layer: &DispatchLayer) -> Vec<Tag> {
-        // Parse dispatch layer tags from comma-separated string
-        let layer_tag_names: HashSet<&str> = dispatch_layer
-            .tags
-            .split(',')
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-            .collect();
-
         // Extract tags from cluster and filter by layer tags
         match cluster {
             Cluster::ComposedKey(cluster_key) => {
-                if layer_tag_names.contains(cluster_key.tag.name.as_str()) {
+                if dispatch_layer.tags.contains(cluster_key.tag.name.as_str()) {
                     vec![cluster_key.tag.clone()]
                 } else {
                     vec![]
@@ -118,7 +113,7 @@ impl BookJobEventHandler {
             }
             Cluster::TagsKey(cluster_tags) => cluster_tags
                 .iter()
-                .filter(|tag| layer_tag_names.contains(tag.name.as_str()))
+                .filter(|tag| dispatch_layer.tags.contains(tag.name.as_str()))
                 .cloned()
                 .collect(),
         }
@@ -139,6 +134,10 @@ impl BookJobEventHandler {
         while try_again && attempts > 0 {
             // Filter layer tags to match the scope of the cluster in context
             let tags = Self::filter_matching_tags(&cluster, &dispatch_layer);
+            assert!(
+                !tags.is_empty(),
+                "Layer shouldn't be : Vec<_>here if it doesn't contain at least one matching tag"
+            );
             let host_candidate = self
                 .host_service
                 .checkout(

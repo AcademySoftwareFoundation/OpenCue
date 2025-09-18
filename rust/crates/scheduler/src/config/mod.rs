@@ -68,6 +68,7 @@ pub struct QueueConfig {
     pub manual_tags_chunk_size: usize,
     pub hostname_tags_chunk_size: usize,
     pub host_candidate_attemps_per_layer: usize,
+    pub empty_job_cycles_before_quiting: Option<usize>,
 }
 
 impl Default for QueueConfig {
@@ -83,6 +84,7 @@ impl Default for QueueConfig {
             manual_tags_chunk_size: 100,
             hostname_tags_chunk_size: 300,
             host_candidate_attemps_per_layer: 10,
+            empty_job_cycles_before_quiting: None,
         }
     }
 }

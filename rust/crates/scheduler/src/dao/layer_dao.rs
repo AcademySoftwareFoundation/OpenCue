@@ -64,7 +64,7 @@ impl From<DispatchLayerModel> for DispatchLayer {
                 .try_into()
                 .expect("gpus_min should fit on a i32"),
             gpu_mem_min: ByteSize::kb(val.int_gpu_mem_min as u64),
-            tags: val.str_tags,
+            tags: val.str_tags.split(" | ").map(|t| t.to_string()).collect(),
         }
     }
 }
@@ -89,6 +89,7 @@ FROM job j
     INNER JOIN layer_stat ls on l.pk_layer = ls.pk_layer
 WHERE j.pk_job = $1
     AND ls.int_waiting_count > 0
+    AND string_to_array($2, ' | ') && string_to_array(l.str_tags, ' | ')
 ORDER BY
     l.int_dispatch_order
 "#;
@@ -131,9 +132,11 @@ impl LayerDao {
     pub fn query_layers(
         &self,
         pk_job: String,
+        tags: Vec<String>,
     ) -> impl Stream<Item = Result<DispatchLayerModel, sqlx::Error>> + '_ {
         sqlx::query_as::<_, DispatchLayerModel>(QUERY_LAYER)
             .bind(pk_job)
+            .bind(tags.join(" | ").to_string())
             .fetch(&*self.connection_pool)
     }
 }

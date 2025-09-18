@@ -134,6 +134,33 @@ impl JobDao {
         })
     }
 
+    /// Queries for pending jobs by show, facility, and tag criteria.
+    ///
+    /// Finds jobs that are ready for dispatch based on subscription availability,
+    /// resource constraints, and tag matching. The query includes several filters:
+    /// - Show must have active subscriptions with available burst capacity
+    /// - Jobs must be in PENDING state and not paused
+    /// - Folder resource limits must not be exceeded
+    /// - Layer tags must match the specified tag
+    /// - Jobs must have waiting layers
+    ///
+    /// # Arguments
+    /// * `show_id` - The unique identifier of the show to query jobs for
+    /// * `facility_id` - The facility identifier (currently unused in query but available for future use)
+    /// * `tag` - The tag string to match against layer tags (pipe-separated format supported)
+    ///
+    /// # Returns
+    /// A stream of `JobModel` results ordered by priority (descending).
+    /// Each item in the stream is a `Result<JobModel, sqlx::Error>`.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let job_stream = job_dao.query_pending_jobs_by_show_facility_tag(
+    ///     "show-123".to_string(),
+    ///     "facility-456".to_string(),
+    ///     "render | lighting".to_string(),
+    /// );
+    /// ```
     pub fn query_pending_jobs_by_show_facility_tag(
         &self,
         show_id: String,

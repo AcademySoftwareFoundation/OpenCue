@@ -115,7 +115,7 @@ LIMIT $10
 "#;
 
 static QUERY_HOST_BY_SHOW_FACILITY_AND_TAG: &str = r#"
-SELECT
+SELECT DISTINCT
     h.pk_host,
     h.str_name,
     hs.str_os,

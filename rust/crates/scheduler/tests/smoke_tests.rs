@@ -1,14 +1,16 @@
+mod util;
 use std::time::Duration;
 
 use scheduler::{
     cluster::{Cluster, ClusterFeed},
     cluster_key::{ClusterKey, Tag, TagType},
-    config::{Config, DatabaseConfig, LoggingConfig, QueueConfig, RqdConfig},
     job_fetcher,
 };
 use tracing::info;
 use tracing_test::traced_test;
 use uuid::Uuid;
+
+use crate::util::WaitingFrameClause;
 
 /// Smoke tests to exercice some scenarios
 ///
@@ -40,7 +42,7 @@ use uuid::Uuid;
 /// # Run only integration tests
 /// cargo test --features integration-tests integration_tests_full
 /// ```
-#[cfg(all(test, feature = "smoke-tests"))]
+// #[cfg(all(test, feature = "smoke-tests"))]
 mod scheduler_smoke_test {
     use std::sync::Arc;
 
@@ -50,77 +52,9 @@ mod scheduler_smoke_test {
     use tokio::{sync::OnceCell, time::sleep};
     use tokio_test::assert_ok;
 
+    use crate::util::{create_test_config, get_waiting_frames_count, test_connection_pool};
+
     use super::*;
-
-    // Database connection configuration - hardcoded for testing
-    const TEST_DB_HOST: &str = "localhost";
-    const TEST_DB_PORT: u16 = 5432;
-    const TEST_DB_NAME: &str = "cuebot";
-    const TEST_DB_USER: &str = "cuebot";
-    const TEST_DB_PASSWORD: &str = "cuebot_password";
-
-    static TEST_CONNECTION_POOL: OnceCell<Arc<Pool<Postgres>>> = OnceCell::const_new();
-
-    pub async fn test_connection_pool() -> Result<Arc<Pool<Postgres>>, sqlx::Error> {
-        let database_url = format!(
-            "postgresql://{}:{}@{}:{}/{}",
-            TEST_DB_USER, TEST_DB_PASSWORD, TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME
-        );
-        TEST_CONNECTION_POOL
-            .get_or_try_init(|| async {
-                let pool = PgPoolOptions::new()
-                    .min_connections(5)
-                    .max_connections(14)
-                    // .idle_timeout(Some(Duration::from_secs(1)))
-                    // .acquire_timeout(Duration::from_secs(30))
-                    .connect(&database_url)
-                    .await?;
-                Ok(Arc::new(pool))
-            })
-            .await
-            .map(Arc::clone)
-    }
-
-    fn create_test_config() -> Config {
-        let connection_url = format!(
-            "postgresql://{}:{}@{}:{}/{}",
-            TEST_DB_USER, TEST_DB_PASSWORD, TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME
-        );
-
-        Config {
-            logging: LoggingConfig {
-                level: "debug".to_string(),
-                path: "/tmp/scheduler_test.log".to_string(),
-                file_appender: false,
-            },
-            queue: QueueConfig {
-                monitor_interval: Duration::from_secs(1),
-                worker_threads: 2,
-                dispatch_frames_per_layer_limit: 5, // Small limit for testing
-                core_multiplier: 100,
-                memory_stranded_threshold: bytesize::ByteSize::mb(100),
-                job_back_off_duration: Duration::from_secs(10),
-                stream: scheduler::config::StreamConfig {
-                    cluster_buffer_size: 1,
-                    layer_buffer_size: 1,
-                },
-                manual_tags_chunk_size: 10,
-                hostname_tags_chunk_size: 20,
-                host_candidate_attemps_per_layer: 3,
-            },
-            database: DatabaseConfig {
-                pool_size: 10,
-                connection_url,
-                core_multiplier: 100,
-            },
-            kafka: scheduler::config::KafkaConfig::default(),
-            rqd: RqdConfig {
-                grpc_port: 8444,
-                dry_run_mode: true, // Always run in dry mode for tests
-            },
-            host_cache: scheduler::config::HostCacheConfig::default(),
-        }
-    }
 
     async fn setup_test_database() -> Result<Arc<Pool<Postgres>>, sqlx::Error> {
         let pool = test_connection_pool()
@@ -252,9 +186,7 @@ mod scheduler_smoke_test {
     }
 
     /// Creates comprehensive test data for integration testing with multiple scenarios
-    async fn create_full_integration_test_data(
-        pool: &Pool<Postgres>,
-    ) -> Result<TestData, sqlx::Error> {
+    async fn create_test_data(pool: &Pool<Postgres>) -> Result<TestData, sqlx::Error> {
         // Create unique suffix for this test run to avoid conflicts when running tests concurrently
         let test_suffix = Uuid::new_v4().to_string()[..8].to_string();
         // Create basic entities
@@ -771,7 +703,7 @@ mod scheduler_smoke_test {
                 .await?;
             }
 
-            test_layers.push(IntegrationTestLayer {
+            test_layers.push(TestLayer {
                 id: layer_id,
                 name: layer_name.to_string(),
                 tag: tag.to_string(),
@@ -824,12 +756,12 @@ mod scheduler_smoke_test {
     struct TestJob {
         id: Uuid,
         name: String,
-        layers: Vec<IntegrationTestLayer>,
+        layers: Vec<TestLayer>,
         frames_by_layer: usize,
     }
 
     #[derive(Debug)]
-    struct IntegrationTestLayer {
+    struct TestLayer {
         id: Uuid,
         name: String,
         tag: String,
@@ -856,7 +788,7 @@ mod scheduler_smoke_test {
             pool.size(),
             pool.num_idle()
         );
-        let test_data = create_full_integration_test_data(&pool).await?;
+        let test_data = create_test_data(&pool).await?;
         // Wait for data transactions to clear
         sleep(Duration::from_secs(1)).await;
 
@@ -867,29 +799,6 @@ mod scheduler_smoke_test {
         test_fn(pool.clone(), test_data).await;
 
         Ok(())
-    }
-
-    async fn get_waiting_frames_count(pool: &Pool<Postgres>, job_id: Option<&Uuid>) -> usize {
-        match job_id {
-            Some(job_id) =>
-            // Verify that jobs were processed by checking database state
-            // In a real scenario, we'd check for frame state changes, dispatch logs, etc.
-            {
-                sqlx::query_scalar::<_, i64>(
-                    "SELECT int_waiting_count FROM job_stat WHERE pk_job = $1",
-                )
-                .bind(job_id.to_string())
-                .fetch_one(pool)
-                .await
-                .expect("Failed to query job stats") as usize
-            }
-            None => {
-                sqlx::query_scalar::<_, i32>("SELECT sum(int_waiting_count)::INTEGER FROM job_stat")
-                    .fetch_one(pool)
-                    .await
-                    .expect("Failed to query job stats") as usize
-            }
-        }
     }
 
     #[tokio::test]
@@ -920,7 +829,7 @@ mod scheduler_smoke_test {
         info!("Starting HOSTNAME tag integration test...");
 
         let waiting_frames_before =
-            get_waiting_frames_count(&pool, Some(&test_data.hostname_job.id)).await;
+            get_waiting_frames_count(WaitingFrameClause::JobId(test_data.hostname_job.id)).await;
         assert_eq!(waiting_frames_before, 6);
         // Run the job fetcher with our test cluster feed
         // This simulates the main service flow: cluster discovery → job querying → layer processing → dispatching
@@ -931,7 +840,8 @@ mod scheduler_smoke_test {
                 info!("✅ HOSTNAME tag integration test completed successfully");
 
                 let waiting_frames =
-                    get_waiting_frames_count(&pool, Some(&test_data.hostname_job.id)).await;
+                    get_waiting_frames_count(WaitingFrameClause::JobId(test_data.hostname_job.id))
+                        .await;
                 info!(
                     "Job waiting count after processing: {}. Half the frames matched the expected tag",
                     waiting_frames
@@ -975,17 +885,17 @@ mod scheduler_smoke_test {
         info!("Starting ALLOC tag integration test...");
 
         let frame_count = test_data.num_frames();
-        let waiting_frames_before = get_waiting_frames_count(&pool, None).await;
+        let waiting_frames_before = get_waiting_frames_count(WaitingFrameClause::All).await;
         assert_eq!(waiting_frames_before, frame_count);
 
         let result = job_fetcher::run(cluster_feed).await;
 
         match result {
             Ok(()) => {
-                let waiting_frames_before = get_waiting_frames_count(&pool, None).await;
+                let waiting_frames_after = get_waiting_frames_count(WaitingFrameClause::All).await;
                 let target_frames =
                     test_data.alloc_job.frames_by_layer + test_data.mixed_job.frames_by_layer;
-                assert_eq!(waiting_frames_before, frame_count - target_frames);
+                assert_eq!(waiting_frames_after, frame_count - target_frames);
                 info!("✅ ALLOC tag integration test completed successfully");
             }
             Err(e) => {
@@ -1016,11 +926,18 @@ mod scheduler_smoke_test {
         let cluster_feed = ClusterFeed::new_for_test(vec![manual_cluster]);
 
         info!("Starting MANUAL tag integration test...");
+        let frame_count = test_data.num_frames();
+        let waiting_frames_before = get_waiting_frames_count(WaitingFrameClause::All).await;
+        assert_eq!(waiting_frames_before, frame_count);
 
         let result = job_fetcher::run(cluster_feed).await;
 
         match result {
             Ok(()) => {
+                let waiting_frames_after = get_waiting_frames_count(WaitingFrameClause::All).await;
+                let target_frames =
+                    test_data.manual_job.frames_by_layer + test_data.manual_job.frames_by_layer;
+                assert_eq!(waiting_frames_after, frame_count - target_frames);
                 info!("✅ MANUAL tag integration test completed successfully");
             }
             Err(e) => {
@@ -1125,14 +1042,14 @@ mod scheduler_smoke_test {
 
         info!("Starting no matching hosts integration test...");
 
-        let waiting_frames_before = get_waiting_frames_count(&pool, None).await;
+        let waiting_frames_before = get_waiting_frames_count(WaitingFrameClause::All).await;
         assert_eq!(waiting_frames_before, 21);
 
         let result = job_fetcher::run(cluster_feed).await;
 
         match result {
             Ok(()) => {
-                let waiting_frames_after = get_waiting_frames_count(&pool, None).await;
+                let waiting_frames_after = get_waiting_frames_count(WaitingFrameClause::All).await;
                 assert_eq!(waiting_frames_after, 21);
 
                 info!("✅ No matching hosts integration test completed successfully");

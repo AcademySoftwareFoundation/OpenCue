@@ -33,6 +33,7 @@ tracing-subscriber = { workspace = true }
 uuid = { workspace = true, features = ["serde"] }
 prost = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { version = "0.7" , feature = ["sync"]}
 tonic = { workspace = true }
 itertools = "0.13.0"
 humantime = "2.2.0"
@@ -54,3 +55,4 @@ smoke-tests = []
 tokio-test = "0.4"
 tracing-test = "0.2"
 serial_test = "3.0"
+rand = "0.8"

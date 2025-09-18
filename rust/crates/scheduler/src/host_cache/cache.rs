@@ -122,7 +122,7 @@ impl HostCache {
     where
         F: Fn(&Host) -> bool,
     {
-        // Should take checked_out_hosts into consideration
+        // Takes checked_out_hosts into consideration
         let core_key = cores.value() as u32;
         let memory_key = Self::gen_memory_key(memory);
         self.hosts_by_core_and_memory
