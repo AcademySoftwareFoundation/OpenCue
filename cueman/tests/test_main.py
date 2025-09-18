@@ -45,6 +45,7 @@ except ImportError:
         job_pb2.WAITING = "WAITING"
         job_pb2.DEAD = "DEAD"
         job_pb2.SUCCEEDED = "SUCCEEDED"
+
         # Add Order mock class
         job_pb2.Order = types.ModuleType("Order")
         job_pb2.Order.keys = lambda: ["FIRST", "LAST", "REVERSE"]
