@@ -15,9 +15,7 @@
 
 """Unit tests for cueman main module."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import argparse
 import os
@@ -28,7 +26,9 @@ import warnings
 import mock
 
 # Suppress protobuf version warnings
-warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf.runtime_version")
+warnings.filterwarnings(
+    "ignore", category=UserWarning, module="google.protobuf.runtime_version"
+)
 
 # Try different import paths for proto modules depending on environment
 try:
@@ -39,14 +39,15 @@ except ImportError:
     except ImportError:
         # Create a mock module for testing if proto isn't available
         import types
-        job_pb2 = types.ModuleType('job_pb2')
-        job_pb2.RUNNING = 'RUNNING'
-        job_pb2.WAITING = 'WAITING'
-        job_pb2.DEAD = 'DEAD'
-        job_pb2.SUCCEEDED = 'SUCCEEDED'
+
+        job_pb2 = types.ModuleType("job_pb2")
+        job_pb2.RUNNING = "RUNNING"
+        job_pb2.WAITING = "WAITING"
+        job_pb2.DEAD = "DEAD"
+        job_pb2.SUCCEEDED = "SUCCEEDED"
         # Add Order mock class
-        job_pb2.Order = types.ModuleType('Order')
-        job_pb2.Order.keys = lambda: ['FIRST', 'LAST', 'REVERSE']
+        job_pb2.Order = types.ModuleType("Order")
+        job_pb2.Order.keys = lambda: ["FIRST", "LAST", "REVERSE"]
 
 # Add the parent directory to the path to import the module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -90,18 +91,14 @@ class TestCuemanMain(unittest.TestCase):
         args.page = None
         args.limit = 1000
 
-        with mock.patch('cueadmin.common.handleIntCriterion') as mock_handle:
+        with mock.patch("cueadmin.common.handleIntCriterion") as mock_handle:
             mock_handle.side_effect = [
                 [mock.Mock(value=10485)],  # memory conversion
-                [mock.Mock(value=36)]      # duration conversion
+                [mock.Mock(value=36)],  # duration conversion
             ]
             result = main.buildFrameSearch(args)
 
-        expected = {
-            "memory": "0-10485",
-            "duration": "0-36",
-            "limit": 1000
-        }
+        expected = {"memory": "0-10485", "duration": "0-36", "limit": 1000}
         self.assertEqual(result, expected)
 
     def test_buildFrameSearch_with_layer(self):
@@ -145,11 +142,8 @@ class TestCuemanMain(unittest.TestCase):
         args.page = None
         args.limit = 1000
 
-        with mock.patch('cueadmin.common.Convert.strToFrameState') as mock_convert:
-            mock_convert.side_effect = [
-                job_pb2.RUNNING,
-                job_pb2.WAITING
-            ]
+        with mock.patch("cueadmin.common.Convert.strToFrameState") as mock_convert:
+            mock_convert.side_effect = [job_pb2.RUNNING, job_pb2.WAITING]
             result = main.buildFrameSearch(args)
 
         self.assertIn("state", result)
@@ -166,8 +160,11 @@ class TestCuemanMain(unittest.TestCase):
         args.page = None
         args.limit = 1000
 
-        with mock.patch('cueadmin.common.handleIntCriterion') as mock_handle:
-            mock_handle.return_value = [mock.Mock(value=2097152), mock.Mock(value=4194304)]
+        with mock.patch("cueadmin.common.handleIntCriterion") as mock_handle:
+            mock_handle.return_value = [
+                mock.Mock(value=2097152),
+                mock.Mock(value=4194304),
+            ]
             result = main.buildFrameSearch(args)
 
         self.assertIn("memory", result)
@@ -187,8 +184,8 @@ class TestCuemanMain(unittest.TestCase):
         self.assertIn("page", result)
         self.assertEqual(result["page"], 2)
 
-    @mock.patch('opencue.api.findJob')
-    @mock.patch('opencue.api.findLayer')
+    @mock.patch("opencue.api.findJob")
+    @mock.patch("opencue.api.findLayer")
     def test_staggerJob_with_layers(self, mock_findLayer, mock_findJob):
         """Test staggerJob function with specific layers."""
         mock_job = mock.Mock()
@@ -213,7 +210,7 @@ class TestCuemanMain(unittest.TestCase):
 
         mock_job.staggerFrames.assert_called_once_with("1-100", 5)
 
-    @mock.patch('opencue.api.findLayer')
+    @mock.patch("opencue.api.findLayer")
     def test_reorderJob_with_valid_order(self, mock_findLayer):
         """Test reorderJob function with valid order."""
         mock_job = mock.Mock()
@@ -221,8 +218,8 @@ class TestCuemanMain(unittest.TestCase):
         mock_findLayer.return_value = mock_layer
 
         # Mock the Order.keys() method to return valid orders
-        with mock.patch.object(job_pb2, 'Order', create=True) as mock_order:
-            mock_order.keys.return_value = ['FIRST', 'LAST', 'REVERSE']
+        with mock.patch.object(job_pb2, "Order", create=True) as mock_order:
+            mock_order.keys.return_value = ["FIRST", "LAST", "REVERSE"]
             main.reorderJob(mock_job, ["layer1"], "1-100", "FIRST")
 
         mock_findLayer.assert_called_once_with(mock_job, "layer1")
@@ -232,14 +229,14 @@ class TestCuemanMain(unittest.TestCase):
         """Test reorderJob function with invalid order."""
         mock_job = mock.Mock()
 
-        with mock.patch.object(job_pb2, 'Order', create=True) as mock_order:
-            mock_order.keys.return_value = ['FIRST', 'LAST', 'REVERSE']
+        with mock.patch.object(job_pb2, "Order", create=True) as mock_order:
+            mock_order.keys.return_value = ["FIRST", "LAST", "REVERSE"]
             with self.assertRaises(ValueError) as cm:
                 main.reorderJob(mock_job, None, "1-100", "INVALID")
 
         self.assertIn("Invalid ordering", str(cm.exception))
 
-    @mock.patch('getpass.getuser')
+    @mock.patch("getpass.getuser")
     def test_terminateJobs(self, mock_getuser):
         """Test terminateJobs function."""
         mock_getuser.return_value = "testuser"
@@ -250,7 +247,7 @@ class TestCuemanMain(unittest.TestCase):
 
         jobs = [mock_job1, mock_job2]
 
-        with mock.patch('sys.stdout'):
+        with mock.patch("sys.stdout"):
             main.terminateJobs(jobs)
 
         mock_job1.kill.assert_called_once_with(reason=main.KILL_REASON)
@@ -285,16 +282,31 @@ class TestCuemanHandleArgs(unittest.TestCase):
     def test_handleArgs_no_command(self):
         """Test handleArgs when no command is provided."""
         # Mock all command attributes to None/False
-        for cmd in ['lf', 'lp', 'll', 'info', 'pause', 'resume', 'term', 'eat',
-                    'kill', 'retry', 'done', 'stagger', 'reorder', 'retries',
-                    'autoeaton', 'autoeatoff']:
+        for cmd in [
+            "lf",
+            "lp",
+            "ll",
+            "info",
+            "pause",
+            "resume",
+            "term",
+            "eat",
+            "kill",
+            "retry",
+            "done",
+            "stagger",
+            "reorder",
+            "retries",
+            "autoeaton",
+            "autoeatoff",
+        ]:
             setattr(self.args, cmd, None)
 
         with self.assertRaises(SystemExit):
             main.handleArgs(self.args)
 
-    @mock.patch('opencue.api.findJob')
-    @mock.patch('cueadmin.output.displayFrames')
+    @mock.patch("opencue.api.findJob")
+    @mock.patch("cueadmin.output.displayFrames")
     def test_handleArgs_list_frames(self, mock_display, mock_findJob):
         """Test handleArgs with -lf flag."""
         self.args.lf = "test_job"
@@ -309,8 +321,8 @@ class TestCuemanHandleArgs(unittest.TestCase):
         mock_job.getFrames.assert_called_once()
         mock_display.assert_called_once_with(mock_frames)
 
-    @mock.patch('opencue.api.findJob')
-    @mock.patch('cueadmin.output.displayJobInfo')
+    @mock.patch("opencue.api.findJob")
+    @mock.patch("cueadmin.output.displayJobInfo")
     def test_handleArgs_info(self, mock_display, mock_findJob):
         """Test handleArgs with -info flag."""
         self.args.info = "test_job"
@@ -322,7 +334,7 @@ class TestCuemanHandleArgs(unittest.TestCase):
         mock_findJob.assert_called_once_with("test_job")
         mock_display.assert_called_once_with(mock_job)
 
-    @mock.patch('opencue.api.findJob')
+    @mock.patch("opencue.api.findJob")
     def test_handleArgs_pause(self, mock_findJob):
         """Test handleArgs with -pause flag."""
         self.args.pause = ["job1,job2"]
@@ -339,7 +351,7 @@ class TestCuemanHandleArgs(unittest.TestCase):
 
         mock_findJob.side_effect = [mock_job1, mock_job2]
 
-        with mock.patch('sys.stdout'):
+        with mock.patch("sys.stdout"):
             main.handleArgs(self.args)
 
         self.assertEqual(mock_findJob.call_count, 2)
@@ -347,5 +359,5 @@ class TestCuemanHandleArgs(unittest.TestCase):
         self.assertEqual(mock_job2.pause.call_count, 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

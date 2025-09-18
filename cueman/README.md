@@ -391,7 +391,7 @@ cueman -v -info job_name     # Enable verbose logging
 
 ## Running Tests
 
-Cueman includes a comprehensive test suite with 42+ tests covering unit tests and integration workflows.
+Cueman includes a comprehensive test suite with tests covering unit tests and integration workflows.
 
 ### Quick Start
 
@@ -409,11 +409,11 @@ pytest --cov=cueman --cov-report=term-missing
 ### Test Infrastructure
 
 **Test Dependencies:**
-- `pytest>=8.0.0` - Modern test framework
-- `pytest-cov>=4.0.0` - Coverage reporting
-- `pytest-mock>=3.10.0` - Enhanced mocking
-- `mock>=4.0.0` - Core mocking library
-- `pyfakefs>=5.2.3` - Filesystem mocking
+- `pytest` - Modern test framework
+- `pytest` - Coverage reporting
+- `pytest-mock` - Enhanced mocking
+- `mock` - Core mocking library
+- `pyfakefs` - Filesystem mocking
 
 **Test Types:**
 - **Unit tests** - Function-level testing (`tests/test_main.py`)
@@ -540,8 +540,6 @@ Source code available in /opt/opencue/cueman/
 
 ## Contributing
 
-We welcome contributions to Cueman! The project includes comprehensive development infrastructure:
-
 ### Development Setup
 
 ```bash
@@ -556,7 +554,7 @@ pip install -e ".[dev]"
 ### Testing and Quality
 
 ```bash
-# Run comprehensive test suite (42+ tests)
+# Run comprehensive test suite (tests)
 pytest --cov=cueman --cov-report=term-missing
 
 # Code formatting and linting
@@ -566,20 +564,3 @@ pylint cueman tests
 # Multi-environment testing
 tox
 ```
-
-### Project Quality
-
-- **Comprehensive test coverage** with unit and integration tests
-- **Modern testing infrastructure** using pytest, coverage, and CI/CD
-- **Code quality tools** including pylint, black, and isort
-- **Multi-Python version support** via tox
-- **Docker support** for containerized development
-
-For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-### Get Involved
-
-- **Report Issues**: [GitHub Issues](https://github.com/AcademySoftwareFoundation/OpenCue/issues)
-- **Contribute Code**: Submit pull requests with tests and documentation
-- **Improve Documentation**: Help enhance tutorials and reference docs
-- **Share Use Cases**: Contribute real-world examples and workflows

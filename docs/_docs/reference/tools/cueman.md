@@ -419,7 +419,7 @@ cueman             # Running without args shows help
 
 ### Running Tests
 
-Cueman includes a comprehensive test suite with 42+ tests:
+Cueman includes a comprehensive test suite:
 
 ```bash
 # Install with test dependencies
@@ -461,5 +461,3 @@ The test suite is integrated into:
 ## Additional Resources
 
 - [Cueman Tutorial](/docs/tutorials/cueman-tutorial/) - Tutorial with real-world scenarios
-- [Cueman GitHub](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/cueman) - Source code and documentation
-- [OpenCue Documentation](/docs/) - Complete OpenCue documentation
