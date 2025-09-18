@@ -25,6 +25,7 @@ Cueman is a command-line job management tool for OpenCue that provides efficient
 17. [Documentation](#documentation)
 18. [Running Tests](#running-tests)
 19. [Docker Support](#docker-support)
+20. [Contributing](#contributing)
 
 ## Overview
 
@@ -390,61 +391,110 @@ cueman -v -info job_name     # Enable verbose logging
 
 ## Running Tests
 
-Cueman includes a comprehensive test suite to verify functionality:
+Cueman includes a comprehensive test suite with 42+ tests covering unit tests and integration workflows.
+
+### Quick Start
 
 ```bash
-cd OpenCue/cueman && python -m pytest tests/ -v
-```
+# Install with test dependencies
+pip install -e ".[test]"
 
-### Run All Tests
-
-```bash
-# Install test dependencies
-pip install .[test]
-
-# Run tests using pytest
+# Run all tests
 pytest
 
-# Or run the test suite directly
-python tests/test_suite.py
+# Run with coverage
+pytest --cov=cueman --cov-report=term-missing
 ```
 
-### Run Specific Tests
+### Test Infrastructure
+
+**Test Dependencies:**
+- `pytest>=8.0.0` - Modern test framework
+- `pytest-cov>=4.0.0` - Coverage reporting
+- `pytest-mock>=3.10.0` - Enhanced mocking
+- `mock>=4.0.0` - Core mocking library
+- `pyfakefs>=5.2.3` - Filesystem mocking
+
+**Test Types:**
+- **Unit tests** - Function-level testing (`tests/test_main.py`)
+- **Integration tests** - Workflow testing (`tests/test_integration_workflows.py`)
+- **Test suite** - Combined test runner (`tests/test_suite.py`)
+
+### Running Tests
 
 ```bash
-# Run only main module tests
-pytest tests/test_main.py
+# Basic test run
+pytest tests/
 
-# Run tests with verbose output
+# Verbose output
 pytest -v
 
-# Run tests with coverage report
-pytest --cov=cueman
+# Run specific test file
+pytest tests/test_integration_workflows.py
+
+# Run with coverage and HTML report
+pytest --cov=cueman --cov-report=html --cov-report=term-missing
+
+# Use the convenience script
+./run_tests.sh --coverage --html
 ```
 
-### Test Requirements
+### Coverage Reporting
 
-The test suite requires:
-- `pytest` - Test framework
-- `mock` - Mocking library for unit tests
-- `pyfakefs` - Filesystem mocking
+```bash
+# Terminal coverage report
+pytest --cov=cueman --cov-report=term-missing
 
-These are automatically installed when you run `pip install .[test]`.
+# HTML coverage report (generates htmlcov/ directory)
+pytest --cov=cueman --cov-report=html
+
+# XML coverage for CI/CD
+pytest --cov=cueman --cov-report=xml
+```
 
 ### Development Testing
 
-For development and CI/CD integration:
+**For contributors:**
 
 ```bash
-# In the OpenCue root directory, run cueman tests as part of the full test suite
-./ci/run_python_tests.sh
+# Install development dependencies
+pip install -e ".[dev]"
 
-# Or run cueman tests specifically
-cd cueman && python -m pytest tests/
+# Run all tests with linting
+pytest && pylint cueman tests
 
-# Run linting for cueman
-./ci/run_python_lint.sh  # This includes cueman linting
+# Run tests across Python versions (requires tox)
+tox
+
+# Format code
+black cueman tests
+isort cueman tests
 ```
+
+**CI/CD Integration:**
+
+```bash
+# In OpenCue root directory
+./ci/run_python_tests.sh     # Includes cueman tests
+./ci/run_python_lint.sh      # Includes cueman linting
+
+# Run cueman tests specifically
+cd cueman && python -m pytest tests/
+```
+
+### Test Configuration
+
+Tests are configured via `pyproject.toml`:
+- **pytest.ini_options** - Test discovery and execution
+- **coverage settings** - Coverage reporting configuration
+- **markers** - Test categorization (unit, integration, slow)
+
+### Continuous Integration
+
+The test suite is integrated into:
+- **GitHub Actions** - Automated testing on PRs
+- **Docker builds** - Container-based testing
+- **Lint pipeline** - Code quality checks
 
 ## Docker Support
 
@@ -487,3 +537,49 @@ Install with: pip install opencue-cueman
 Documentation available in /opt/opencue/docs/
 Source code available in /opt/opencue/cueman/
 ```
+
+## Contributing
+
+We welcome contributions to Cueman! The project includes comprehensive development infrastructure:
+
+### Development Setup
+
+```bash
+# Clone and setup
+git clone https://github.com/AcademySoftwareFoundation/OpenCue.git
+cd OpenCue/cueman
+
+# Install with development dependencies
+pip install -e ".[dev]"
+```
+
+### Testing and Quality
+
+```bash
+# Run comprehensive test suite (42+ tests)
+pytest --cov=cueman --cov-report=term-missing
+
+# Code formatting and linting
+black cueman tests && isort cueman tests
+pylint cueman tests
+
+# Multi-environment testing
+tox
+```
+
+### Project Quality
+
+- **Comprehensive test coverage** with unit and integration tests
+- **Modern testing infrastructure** using pytest, coverage, and CI/CD
+- **Code quality tools** including pylint, black, and isort
+- **Multi-Python version support** via tox
+- **Docker support** for containerized development
+
+For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Get Involved
+
+- **Report Issues**: [GitHub Issues](https://github.com/AcademySoftwareFoundation/OpenCue/issues)
+- **Contribute Code**: Submit pull requests with tests and documentation
+- **Improve Documentation**: Help enhance tutorials and reference docs
+- **Share Use Cases**: Contribute real-world examples and workflows
