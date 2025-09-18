@@ -9,7 +9,7 @@ Jekyll::Hooks.register :site, :post_write do |site|
 
   # Process all pages and documents
   (site.pages + site.documents).each do |page|
-    next unless page.output_ext == '.html'
+    next unless page.respond_to?(:output_ext) && page.output_ext == '.html'
     next if page.data['exclude_from_search']
 
     # Extract text content from HTML

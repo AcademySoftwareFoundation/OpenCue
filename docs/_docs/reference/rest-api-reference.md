@@ -1,37 +1,82 @@
 ---
-title: "REST API Reference"
-nav_order: 49
-parent: Reference
 layout: default
-linkTitle: "OpenCue REST API Reference"
-date: 2025-09-15
-description: >
-  Reference for OpenCue REST API endpoints and data structures
+title: OpenCue REST API Reference
+parent: Reference
+nav_order: 53
 ---
 
-# REST API Reference
+# OpenCue REST API Reference
+{: .no_toc }
 
-### Specification for OpenCue REST API endpoints
+Complete API reference for the OpenCue REST Gateway endpoints, authentication, and data formats.
+
+<details open markdown="block">
+  <summary>
+    Table of contents
+  </summary>
+  {: .text-delta }
+1. TOC
+{:toc}
+</details>
 
 ---
 
-The OpenCue REST Gateway provides HTTP/REST endpoints for all OpenCue gRPC functionality. All endpoints use JSON for request and response payloads and require JWT authentication.
+## Overview
 
-## Base URL and Authentication
+The OpenCue REST Gateway provides HTTP/REST endpoints for all OpenCue gRPC interfaces. It converts HTTP requests to gRPC calls and returns JSON responses, enabling web applications and HTTP clients to interact with OpenCue services.
 
-**Base URL:** `http://localhost:8448` (or your gateway endpoint)
+### Base Information
 
-**Authentication:** ALL endpoints require JWT authentication - there are no public endpoints:
-```
+- **Base URL**: `http://your-gateway:8448` (configurable)
+- **Protocol**: HTTP/HTTPS
+- **Authentication**: JWT Bearer tokens
+- **Request Method**: POST (for all endpoints)
+- **Content Type**: `application/json`
+- **Response Format**: JSON
+
+### Authentication
+
+All endpoints require JWT authentication:
+
+```http
+POST /interface.Interface/Method
 Authorization: Bearer <jwt-token>
-```
-
-**Content Type:** All requests must include:
-```
 Content-Type: application/json
 ```
 
-**Important:** The REST Gateway has no unauthenticated health or status endpoints. Every API call requires a valid JWT token.
+---
+
+## Authentication
+
+### JWT Token Requirements
+
+- **Algorithm**: HMAC SHA256 (HS256)
+- **Required Claims**: `sub` (subject), `exp` (expiration)
+- **Header Format**: `Authorization: Bearer <token>`
+
+### Token Creation Example
+
+```python
+import jwt
+import time
+
+def create_token(secret, user_id):
+    payload = {
+        'sub': user_id,
+        'exp': int(time.time()) + 3600  # 1 hour
+    }
+    return jwt.encode(payload, secret, algorithm='HS256')
+```
+
+### Error Responses
+
+| Status Code | Description |
+|-------------|-------------|
+| `401` | Missing or invalid Authorization header |
+| `403` | Token validation failed or expired |
+| `500` | Internal server error |
+
+---
 
 ## Interface Overview
 
@@ -39,26 +84,31 @@ The REST API provides access to 9 core OpenCue interfaces:
 
 | Interface | Purpose | Key Endpoints |
 |-----------|---------|---------------|
-| [Show](#show-interface) | Show management | GetShows, GetShow, CreateShow, Delete, GetActiveShows |
-| [Job](#job-interface) | Job operations | GetJobs, GetJob, Kill, Pause, Resume, SetPriority, GetUpdatedFrames, SetAutoEat |
-| [Frame](#frame-interface) | Frame management | GetFrames, GetFrame, Kill, Retry, Eat, MarkAsWaiting |
-| [Layer](#layer-interface) | Layer operations | GetLayers, GetLayer, Kill, SetTags |
-| [Group](#group-interface) | Host groups | GetGroups, GetGroup, CreateGroup |
-| [Host](#host-interface) | Host management | GetHosts, GetHost, Lock, Unlock, Reboot |
-| [Owner](#owner-interface) | Ownership | GetOwners, GetOwner |
-| [Proc](#proc-interface) | Process monitoring | GetProcs, GetProc, Kill |
-| [Deed](#deed-interface) | Resource deeds | GetDeeds, GetDeed |
+| [Show Interface](#show-interface) | Show management | GetShows, FindShow, CreateShow |
+| [Job Interface](#job-interface) | Job operations | GetJobs, FindJob, Kill, Pause, Resume |
+| [Frame Interface](#frame-interface) | Frame management | GetFrame, Kill, Retry, Eat |
+| [Layer Interface](#layer-interface) | Layer operations | GetLayer, FindLayer, Kill |
+| [Group Interface](#group-interface) | Host groups | FindGroup, GetGroup, SetMinCores, SetMaxCores |
+| [Host Interface](#host-interface) | Host management | GetHosts, FindHost, Lock, Unlock |
+| [Owner Interface](#owner-interface) | Ownership | GetOwner, SetMaxCores, TakeOwnership |
+| [Proc Interface](#proc-interface) | Process monitoring | GetProc, Kill, Unbook |
+| [Deed Interface](#deed-interface) | Resource deeds | GetOwner, GetHost |
+
+---
 
 ## Show Interface
 
-Manages OpenCue shows (production contexts).
+Manage shows (projects) in OpenCue.
 
-### GetShows
-Retrieve all shows in the system.
+### Get All Shows
 
-**Endpoint:** `POST /show.ShowInterface/GetShows`
+Get a list of all shows in the system.
 
-**Request:**
+```http
+POST /show.ShowInterface/GetShows
+```
+
+**Request Body:**
 ```json
 {}
 ```
@@ -66,27 +116,43 @@ Retrieve all shows in the system.
 **Response:**
 ```json
 {
-  "shows": [
-    {
-      "id": "show-uuid",
-      "name": "my-show",
-      "active": true,
-      "default_min_cores": 1.0,
-      "default_max_cores": 10.0
-    }
-  ]
+  "shows": {
+    "shows": [
+      {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "name": "myshow",
+        "defaultMinCores": 1,
+        "defaultMaxCores": 100,
+        "commentEmail": "",
+        "bookingEnabled": true,
+        "dispatchEnabled": true,
+        "active": true,
+        "showStats": {
+          "runningFrames": 5,
+          "deadFrames": 0,
+          "pendingFrames": 10,
+          "pendingJobs": 2
+        },
+        "defaultMinGpus": 0,
+        "defaultMaxGpus": 10
+      }
+    ]
+  }
 }
 ```
 
-### GetShow
-Get details for a specific show.
+### Find Show
 
-**Endpoint:** `POST /show.ShowInterface/GetShow`
+Find a specific show by name.
 
-**Request:**
+```http
+POST /show.ShowInterface/FindShow
+```
+
+**Request Body:**
 ```json
 {
-  "name": "my-show"
+  "name": "myshow"
 }
 ```
 
@@ -94,71 +160,68 @@ Get details for a specific show.
 ```json
 {
   "show": {
-    "id": "show-uuid",
-    "name": "my-show",
-    "active": true,
-    "default_min_cores": 1.0,
-    "default_max_cores": 10.0,
-    "comment_email": "admin@studio.com"
+    "id": "00000000-0000-0000-0000-000000000000",
+    "name": "myshow",
+    "defaultMinCores": 1,
+    "defaultMaxCores": 100,
+    "active": true
   }
 }
 ```
 
-### CreateShow
+### Create Show
+
 Create a new show.
 
-**Endpoint:** `POST /show.ShowInterface/CreateShow`
+```http
+POST /show.ShowInterface/CreateShow
+```
 
-**Request:**
+**Request Body:**
 ```json
 {
-  "name": "new-show",
-  "active": true,
-  "default_min_cores": 1.0,
-  "default_max_cores": 10.0
+  "name": "newshow",
+  "defaultMinCores": 1,
+  "defaultMaxCores": 50
 }
 ```
 
-### Delete
-Delete a show.
-
-**Endpoint:** `POST /show.ShowInterface/Delete`
-
-**Request:**
+**Response:**
 ```json
 {
   "show": {
-    "name": "show-to-delete"
+    "id": "new-show-id",
+    "name": "newshow",
+    "defaultMinCores": 1,
+    "defaultMaxCores": 50,
+    "active": true
   }
 }
 ```
 
-### GetActiveShows
-Get only active shows.
-
-**Endpoint:** `POST /show.ShowInterface/GetActiveShows`
-
-**Request:**
-```json
-{}
-```
+---
 
 ## Job Interface
 
-Manages rendering jobs within shows.
+Manage rendering jobs and their lifecycle.
 
-### GetJobs
-Retrieve jobs with optional filtering.
+### Get Jobs
 
-**Endpoint:** `POST /job.JobInterface/GetJobs`
+Retrieve jobs for a show with optional filtering.
 
-**Request:**
+```http
+POST /job.JobInterface/GetJobs
+```
+
+**Request Body:**
 ```json
 {
   "r": {
-    "show": "my-show",
-    "user": "artist1",
-    "shot": "shot001"
+    "show": {
+      "name": "myshow"
+    },
+    "includeFinished": false,
+    "maxResults": 100
   }
 }
 ```
@@ -166,593 +229,1057 @@ Retrieve jobs with optional filtering.
 **Response:**
 ```json
 {
-  "jobs": [
-    {
-      "id": "job-uuid",
-      "name": "my-job",
-      "show": "my-show",
-      "user": "artist1",
-      "state": "PENDING",
-      "total_frames": 100,
-      "stats": {
-        "pending_frames": 90,
-        "running_frames": 10,
-        "succeeded_frames": 0,
-        "dead_frames": 0
+  "jobs": {
+    "jobs": [
+      {
+        "id": "job-id-123",
+        "name": "myshow-shot001-comp",
+        "state": "PENDING",
+        "shot": "shot001",
+        "show": "myshow",
+        "user": "artist1",
+        "group": "comp",
+        "facility": "cloud",
+        "priority": 100,
+        "minCores": 1,
+        "maxCores": 10,
+        "isPaused": false,
+        "hasComment": false,
+        "startTime": 1694000000,
+        "stopTime": 0,
+        "jobStats": {
+          "runningFrames": 0,
+          "deadFrames": 0,
+          "pendingFrames": 25,
+          "succeededFrames": 0,
+          "totalFrames": 25
+        }
       }
-    }
-  ]
-}
-```
-
-### GetJob
-Get detailed information about a specific job.
-
-**Endpoint:** `POST /job.JobInterface/GetJob`
-
-**Request:**
-```json
-{
-  "id": "job-uuid"
-}
-```
-
-### Kill
-Kill a running job.
-
-**Endpoint:** `POST /job.JobInterface/Kill`
-
-**Request:**
-```json
-{
-  "job": {
-    "id": "job-uuid"
+    ]
   }
 }
 ```
 
-### Pause
-Pause job execution.
+### Find Job
 
-**Endpoint:** `POST /job.JobInterface/Pause`
+Find a specific job by name.
 
-**Request:**
+```http
+POST /job.JobInterface/FindJob
+```
+
+**Request Body:**
+```json
+{
+  "name": "myshow-shot001-comp"
+}
+```
+
+### Get Job Frames
+
+Retrieve frames for a specific job.
+
+```http
+POST /job.JobInterface/GetFrames
+```
+
+**Request Body:**
 ```json
 {
   "job": {
-    "id": "job-uuid"
+    "id": "job-id-123"
+  },
+  "req": {
+    "includeFinished": true,
+    "page": 1,
+    "limit": 100
   }
 }
 ```
 
-### Resume
+**Response:**
+```json
+{
+  "frames": {
+    "frames": [
+      {
+        "id": "frame-id-456",
+        "name": "0001-layer_name",
+        "layerName": "comp_layer",
+        "number": 1,
+        "state": "WAITING",
+        "retryCount": 0,
+        "exitStatus": -1,
+        "startTime": 0,
+        "stopTime": 0,
+        "maxRss": "0",
+        "usedMemory": "0",
+        "lastResource": "/0.00/0"
+      }
+    ]
+  }
+}
+```
+
+### Pause Job
+
+Pause a running or pending job.
+
+```http
+POST /job.JobInterface/Pause
+```
+
+**Request Body:**
+```json
+{
+  "job": {
+    "id": "job-id-123"
+  }
+}
+```
+
+**Response:**
+```json
+{}
+```
+
+### Resume Job
+
 Resume a paused job.
 
-**Endpoint:** `POST /job.JobInterface/Resume`
+```http
+POST /job.JobInterface/Resume
+```
 
-**Request:**
+**Request Body:**
 ```json
 {
   "job": {
-    "id": "job-uuid"
+    "id": "job-id-123"
   }
 }
 ```
 
-### SetPriority
-Change job priority.
+### Kill Job
 
-**Endpoint:** `POST /job.JobInterface/SetPriority`
+Terminate a job and all its frames.
 
-**Request:**
+```http
+POST /job.JobInterface/Kill
+```
+
+**Request Body:**
 ```json
 {
   "job": {
-    "id": "job-uuid"
-  },
-  "priority": 50
+    "id": "job-id-123"
+  }
 }
 ```
 
-### GetUpdatedFrames
-Get frame updates since a timestamp.
-
-**Endpoint:** `POST /job.JobInterface/GetUpdatedFrames`
-
-**Request:**
-```json
-{
-  "job": {
-    "id": "job-uuid"
-  },
-  "last_check": 1642284000
-}
-```
-
-### SetAutoEat
-Configure automatic frame eating.
-
-**Endpoint:** `POST /job.JobInterface/SetAutoEat`
-
-**Request:**
-```json
-{
-  "job": {
-    "id": "job-uuid"
-  },
-  "value": true
-}
-```
+---
 
 ## Frame Interface
 
-Manages individual frames within jobs.
+Manage individual frame operations.
 
-### GetFrames
-Retrieve frames for a job.
+### Get Frame
 
-**Endpoint:** `POST /frame.FrameInterface/GetFrames`
+Retrieve detailed information about a specific frame.
 
-**Request:**
+```http
+POST /frame.FrameInterface/GetFrame
+```
+
+**Request Body:**
 ```json
 {
-  "r": {
-    "job": "job-uuid",
-    "state": ["SUCCEEDED", "DEAD"]
-  }
+  "id": "frame-id-456"
 }
 ```
 
 **Response:**
 ```json
 {
-  "frames": [
-    {
-      "id": "frame-uuid",
-      "name": "frame_001",
-      "state": "SUCCEEDED",
-      "layer": "render",
-      "number": 1,
-      "dispatch_order": 1,
-      "start_time": 1642284000,
-      "stop_time": 1642284300,
-      "core_time": 300.0
-    }
-  ]
-}
-```
-
-### GetFrame
-Get detailed frame information.
-
-**Endpoint:** `POST /frame.FrameInterface/GetFrame`
-
-**Request:**
-```json
-{
-  "id": "frame-uuid"
-}
-```
-
-### Kill
-Kill a running frame.
-
-**Endpoint:** `POST /frame.FrameInterface/Kill`
-
-**Request:**
-```json
-{
   "frame": {
-    "id": "frame-uuid"
+    "id": "frame-id-456",
+    "name": "0001-layer_name",
+    "layerName": "comp_layer",
+    "number": 1,
+    "state": "SUCCEEDED",
+    "retryCount": 0,
+    "exitStatus": 0,
+    "startTime": 1694000000,
+    "stopTime": 1694000300,
+    "maxRss": "2147483648",
+    "usedMemory": "1073741824",
+    "totalCoreTime": 300
   }
 }
 ```
 
-### Retry
+### Retry Frame
+
 Retry a failed frame.
 
-**Endpoint:** `POST /frame.FrameInterface/Retry`
+```http
+POST /frame.FrameInterface/Retry
+```
 
-**Request:**
+**Request Body:**
 ```json
 {
   "frame": {
-    "id": "frame-uuid"
+    "id": "frame-id-456"
   }
 }
 ```
 
-### Eat
-Mark frame as eaten (successful without re-running).
+### Kill Frame
 
-**Endpoint:** `POST /frame.FrameInterface/Eat`
+Kill a running frame.
 
-**Request:**
+```http
+POST /frame.FrameInterface/Kill
+```
+
+**Request Body:**
 ```json
 {
   "frame": {
-    "id": "frame-uuid"
+    "id": "frame-id-456"
   }
 }
 ```
 
-### MarkAsWaiting
-Reset frame to waiting state.
+### Eat Frame
 
-**Endpoint:** `POST /frame.FrameInterface/MarkAsWaiting`
+Mark a frame as completed (skip rendering).
 
-**Request:**
+```http
+POST /frame.FrameInterface/Eat
+```
+
+**Request Body:**
 ```json
 {
   "frame": {
-    "id": "frame-uuid"
+    "id": "frame-id-456"
   }
 }
 ```
+
+---
 
 ## Layer Interface
 
-Manages layers within jobs.
+Manage job layers and their properties.
 
-### GetLayers
-Get layers for a job.
+### Get Layer
 
-**Endpoint:** `POST /layer.LayerInterface/GetLayers`
+Retrieve layer information.
 
-**Request:**
+```http
+POST /layer.LayerInterface/GetLayer
+```
+
+**Request Body:**
 ```json
 {
-  "r": {
-    "job": "job-uuid"
-  }
+  "id": "layer-id-789"
 }
 ```
 
 **Response:**
 ```json
 {
-  "layers": [
-    {
-      "id": "layer-uuid",
-      "name": "render",
-      "type": "Render",
-      "min_cores": 1.0,
-      "max_cores": 4.0,
-      "min_memory": 2048,
-      "tags": ["linux", "maya"]
-    }
-  ]
-}
-```
-
-### GetLayer
-Get specific layer details.
-
-**Endpoint:** `POST /layer.LayerInterface/GetLayer`
-
-**Request:**
-```json
-{
-  "id": "layer-uuid"
-}
-```
-
-### Kill
-Kill all frames in a layer.
-
-**Endpoint:** `POST /layer.LayerInterface/Kill`
-
-**Request:**
-```json
-{
   "layer": {
-    "id": "layer-uuid"
+    "id": "layer-id-789",
+    "name": "comp_layer",
+    "type": "Render",
+    "isEnabled": true,
+    "minimumCores": 1,
+    "maximumCores": 4,
+    "minimumMemory": 2147483648,
+    "layerStats": {
+      "totalFrames": 25,
+      "runningFrames": 0,
+      "deadFrames": 0,
+      "pendingFrames": 25,
+      "succeededFrames": 0
+    }
   }
 }
 ```
 
-### SetTags
-Update layer tags.
+### Find Layer
 
-**Endpoint:** `POST /layer.LayerInterface/SetTags`
+Find a layer within a job.
 
-**Request:**
+```http
+POST /layer.LayerInterface/FindLayer
+```
+
+**Request Body:**
+```json
+{
+  "job": {
+    "id": "job-id-123"
+  },
+  "layer": "comp_layer"
+}
+```
+
+### Get Layer Frames
+
+Get all frames for a specific layer.
+
+```http
+POST /layer.LayerInterface/GetFrames
+```
+
+**Request Body:**
 ```json
 {
   "layer": {
-    "id": "layer-uuid"
+    "id": "layer-id-789"
   },
-  "tags": ["linux", "maya2024"]
+  "req": {
+    "page": 1,
+    "limit": 100
+  }
 }
 ```
+
+### Kill Layer
+
+Kill all frames in a layer.
+
+```http
+POST /layer.LayerInterface/Kill
+```
+
+**Request Body:**
+```json
+{
+  "layer": {
+    "id": "layer-id-789"
+  }
+}
+```
+
+---
 
 ## Host Interface
 
-Manages rendering hosts.
+Manage render hosts and their resources.
 
-### GetHosts
-List rendering hosts.
+### Get All Hosts
 
-**Endpoint:** `POST /host.HostInterface/GetHosts`
+Retrieve all hosts in the render farm.
 
-**Request:**
+```http
+POST /host.HostInterface/GetHosts
+```
+
+**Request Body:**
 ```json
-{
-  "r": {
-    "allocation": "general",
-    "state": ["UP"]
-  }
-}
+{}
 ```
 
 **Response:**
 ```json
 {
-  "hosts": [
-    {
-      "id": "host-uuid",
-      "name": "render01",
-      "state": "UP",
-      "lock_state": "OPEN",
-      "cores": 16,
-      "memory": 32768,
-      "idle_cores": 8,
-      "idle_memory": 16384
-    }
-  ]
-}
-```
-
-### GetHost
-Get specific host details.
-
-**Endpoint:** `POST /host.HostInterface/GetHost`
-
-**Request:**
-```json
-{
-  "name": "render01"
-}
-```
-
-### Lock
-Lock a host for maintenance.
-
-**Endpoint:** `POST /host.HostInterface/Lock`
-
-**Request:**
-```json
-{
-  "host": {
-    "name": "render01"
+  "hosts": {
+    "hosts": [
+      {
+        "id": "host-id-abc",
+        "name": "render-node-01",
+        "lockState": "OPEN",
+        "bootTime": 1694000000,
+        "pingTime": 1694001000,
+        "os": "linux",
+        "totalCores": 16,
+        "idleCores": 12,
+        "totalMemory": 68719476736,
+        "freeMemory": 34359738368,
+        "totalGpus": 2,
+        "freeGpus": 2,
+        "hostStats": {
+          "totalFrames": 4,
+          "runningFrames": 4
+        }
+      }
+    ]
   }
 }
 ```
 
-### Unlock
-Unlock a host.
+### Find Host
 
-**Endpoint:** `POST /host.HostInterface/Unlock`
+Find a specific host by name.
 
-**Request:**
+```http
+POST /host.HostInterface/FindHost
+```
+
+**Request Body:**
+```json
+{
+  "name": "render-node-01"
+}
+```
+
+### Get Host
+
+Get detailed host information.
+
+```http
+POST /host.HostInterface/GetHost
+```
+
+**Request Body:**
+```json
+{
+  "id": "host-id-abc"
+}
+```
+
+### Lock Host
+
+Prevent new jobs from being assigned to a host.
+
+```http
+POST /host.HostInterface/Lock
+```
+
+**Request Body:**
 ```json
 {
   "host": {
-    "name": "render01"
+    "id": "host-id-abc"
   }
 }
 ```
 
-### Reboot
-Reboot a host.
+### Unlock Host
 
-**Endpoint:** `POST /host.HostInterface/Reboot`
+Allow jobs to be assigned to a host.
 
-**Request:**
+```http
+POST /host.HostInterface/Unlock
+```
+
+**Request Body:**
 ```json
 {
   "host": {
-    "name": "render01"
+    "id": "host-id-abc"
   }
 }
 ```
+
+---
 
 ## Group Interface
 
-Manages host groups and allocations.
+Manage resource groups and allocation.
 
-### GetGroups
-List host groups.
+### Find Group
 
-**Endpoint:** `POST /group.GroupInterface/GetGroups`
+Find a group within a show.
 
-**Request:**
+```http
+POST /group.GroupInterface/FindGroup
+```
+
+**Request Body:**
 ```json
-{}
+{
+  "show": {
+    "name": "myshow"
+  },
+  "name": "comp"
+}
 ```
 
 **Response:**
 ```json
 {
-  "groups": [
-    {
-      "id": "group-uuid",
-      "name": "linux_farm",
-      "parent": "root",
-      "cores": 256,
-      "idle_cores": 128
+  "group": {
+    "id": "group-id-def",
+    "name": "comp",
+    "department": "compositing",
+    "defaultJobPriority": 100,
+    "defaultJobMinCores": 1,
+    "defaultJobMaxCores": 8,
+    "groupStats": {
+      "runningFrames": 5,
+      "deadFrames": 0,
+      "pendingFrames": 20,
+      "pendingJobs": 3
     }
-  ]
+  }
 }
 ```
 
-### GetGroup
-Get specific group details.
+### Get Group
 
-**Endpoint:** `POST /group.GroupInterface/GetGroup`
+Get detailed group information.
 
-**Request:**
+```http
+POST /group.GroupInterface/GetGroup
+```
+
+**Request Body:**
 ```json
 {
-  "name": "linux_farm"
+  "id": "group-id-def"
 }
 ```
 
-### CreateGroup
-Create a new host group.
+### Set Minimum Cores
 
-**Endpoint:** `POST /group.GroupInterface/CreateGroup`
+Set minimum core allocation for a group.
 
-**Request:**
+```http
+POST /group.GroupInterface/SetMinCores
+```
+
+**Request Body:**
 ```json
 {
-  "name": "new_group",
-  "parent": "linux_farm"
+  "group": {
+    "id": "group-id-def"
+  },
+  "cores": 4
 }
 ```
+
+### Set Maximum Cores
+
+Set maximum core allocation for a group.
+
+```http
+POST /group.GroupInterface/SetMaxCores
+```
+
+**Request Body:**
+```json
+{
+  "group": {
+    "id": "group-id-def"
+  },
+  "cores": 16
+}
+```
+
+---
 
 ## Owner Interface
 
-Manages ownership and allocations.
+Manage resource ownership and allocation.
 
-### GetOwners
-List owners.
+### Get Owner
 
-**Endpoint:** `POST /owner.OwnerInterface/GetOwners`
+Get owner information and resource allocation.
 
-**Request:**
-```json
-{}
+```http
+POST /owner.OwnerInterface/GetOwner
 ```
 
-### GetOwner
-Get specific owner details.
-
-**Endpoint:** `POST /owner.OwnerInterface/GetOwner`
-
-**Request:**
+**Request Body:**
 ```json
 {
-  "name": "department1"
+  "name": "artist1"
 }
 ```
+
+**Response:**
+```json
+{
+  "owner": {
+    "name": "artist1",
+    "maxCores": 20,
+    "minCores": 2,
+    "maxGpus": 4,
+    "minGpus": 0,
+    "ownerStats": {
+      "runningFrames": 8,
+      "maxFrames": 50
+    }
+  }
+}
+```
+
+### Set Maximum Cores
+
+Set maximum core allocation for an owner.
+
+```http
+POST /owner.OwnerInterface/SetMaxCores
+```
+
+**Request Body:**
+```json
+{
+  "owner": {
+    "name": "artist1"
+  },
+  "cores": 32
+}
+```
+
+### Take Ownership
+
+Take ownership of a host.
+
+```http
+POST /owner.OwnerInterface/TakeOwnership
+```
+
+**Request Body:**
+```json
+{
+  "host": {
+    "id": "host-id-abc"
+  },
+  "owner": {
+    "name": "artist1"
+  }
+}
+```
+
+---
 
 ## Proc Interface
 
-Monitors running processes.
+Manage running processes on hosts.
 
-### GetProcs
-List running processes.
+### Get Process
 
-**Endpoint:** `POST /proc.ProcInterface/GetProcs`
+Get information about a running process.
 
-**Request:**
+```http
+POST /proc.ProcInterface/GetProc
+```
+
+**Request Body:**
 ```json
 {
-  "r": {
-    "host": "render01"
-  }
+  "id": "proc-id-ghi"
 }
 ```
 
-### GetProc
-Get specific process details.
-
-**Endpoint:** `POST /proc.ProcInterface/GetProc`
-
-**Request:**
-```json
-{
-  "id": "proc-uuid"
-}
-```
-
-### Kill
-Kill a running process.
-
-**Endpoint:** `POST /proc.ProcInterface/Kill`
-
-**Request:**
+**Response:**
 ```json
 {
   "proc": {
-    "id": "proc-uuid"
+    "id": "proc-id-ghi",
+    "name": "render_process",
+    "logPath": "/tmp/rqd/logs/render_process.log",
+    "unbooked": false,
+    "reserved": true,
+    "bookedCores": 4,
+    "virtualMemory": 8589934592,
+    "usedMemory": 4294967296,
+    "bookedGpus": 1,
+    "usedGpuMemory": 2147483648
   }
 }
 ```
 
+### Kill Process
+
+Terminate a running process.
+
+```http
+POST /proc.ProcInterface/Kill
+```
+
+**Request Body:**
+```json
+{
+  "proc": {
+    "id": "proc-id-ghi"
+  }
+}
+```
+
+### Unbook Process
+
+Unbook resources from a process.
+
+```http
+POST /proc.ProcInterface/Unbook
+```
+
+**Request Body:**
+```json
+{
+  "proc": {
+    "id": "proc-id-ghi"
+  }
+}
+```
+
+---
+
 ## Deed Interface
 
-Manages resource deeds.
+Manage resource deeds and ownership records.
 
-### GetDeeds
-List resource deeds.
+### Get Deed Owner
 
-**Endpoint:** `POST /deed.DeedInterface/GetDeeds`
+Get the owner of a deed.
 
-**Request:**
+```http
+POST /deed.DeedInterface/GetOwner
+```
+
+**Request Body:**
 ```json
 {
-  "r": {}
+  "deed": {
+    "id": "deed-id-jkl"
+  }
 }
 ```
 
-### GetDeed
-Get specific deed details.
-
-**Endpoint:** `POST /deed.DeedInterface/GetDeed`
-
-**Request:**
+**Response:**
 ```json
 {
-  "id": "deed-uuid"
+  "owner": {
+    "name": "artist1",
+    "maxCores": 20,
+    "minCores": 2
+  }
 }
 ```
 
-## Common Data Types
+### Get Deed Host
 
-### Frame States
-- `WAITING` - Frame is waiting to be dispatched
-- `RUNNING` - Frame is currently executing
-- `SUCCEEDED` - Frame completed successfully
-- `DEAD` - Frame failed
-- `EATEN` - Frame marked as complete without execution
+Get the host associated with a deed.
 
-### Host States
-- `UP` - Host is online and available
-- `DOWN` - Host is offline
-- `REBOOT` - Host is rebooting
+```http
+POST /deed.DeedInterface/GetHost
+```
 
-### Lock States
-- `OPEN` - Host accepts new jobs
-- `LOCKED` - Host is locked for maintenance
-- `NIMBY_LOCKED` - Host locked by user activity
+**Request Body:**
+```json
+{
+  "deed": {
+    "id": "deed-id-jkl"
+  }
+}
+```
 
-## Error Responses
+**Response:**
+```json
+{
+  "host": {
+    "id": "host-id-abc",
+    "name": "render-node-01",
+    "lockState": "OPEN",
+    "totalCores": 16,
+    "idleCores": 8
+  }
+}
+```
 
-Standard error response format:
+---
+
+## Data Types
+
+### Common Types
+
+#### Job States
+
+```
+PENDING    - Job is waiting to start
+RUNNING    - Job has active frames
+FINISHED   - Job completed successfully
+KILLED     - Job was terminated
+PAUSED     - Job is paused
+```
+
+#### Frame States
+
+```
+WAITING    - Frame is waiting to start
+RUNNING    - Frame is currently executing
+SUCCEEDED  - Frame completed successfully
+DEAD       - Frame failed
+EATEN      - Frame was skipped
+```
+
+#### Host Lock States
+
+```
+OPEN       - Host accepts new jobs
+LOCKED     - Host locked by user
+NIMBY      - Host locked automatically
+```
+
+### Request/Response Objects
+
+#### Job Object
 
 ```json
 {
-  "error": "rpc error: code = NotFound desc = Job not found",
-  "code": 5,
-  "message": "Job not found"
+  "id": "string",
+  "name": "string",
+  "state": "JobState",
+  "shot": "string",
+  "show": "string",
+  "user": "string",
+  "group": "string",
+  "facility": "string",
+  "priority": "int32",
+  "minCores": "float",
+  "maxCores": "float",
+  "isPaused": "bool",
+  "hasComment": "bool",
+  "startTime": "int32",
+  "stopTime": "int32",
+  "jobStats": {
+    "runningFrames": "int32",
+    "deadFrames": "int32",
+    "pendingFrames": "int32",
+    "succeededFrames": "int32",
+    "totalFrames": "int32"
+  }
+}
+```
+
+#### Frame Object
+
+```json
+{
+  "id": "string",
+  "name": "string",
+  "layerName": "string",
+  "number": "int32",
+  "state": "FrameState",
+  "retryCount": "int32",
+  "exitStatus": "int32",
+  "startTime": "int32",
+  "stopTime": "int32",
+  "maxRss": "string",
+  "usedMemory": "string",
+  "lastResource": "string",
+  "totalCoreTime": "int32"
+}
+```
+
+#### Host Object
+
+```json
+{
+  "id": "string",
+  "name": "string",
+  "lockState": "LockState",
+  "bootTime": "int32",
+  "pingTime": "int32",
+  "os": "string",
+  "totalCores": "int32",
+  "idleCores": "int32",
+  "totalMemory": "int64",
+  "freeMemory": "int64",
+  "totalGpus": "int32",
+  "freeGpus": "int32"
+}
+```
+
+---
+
+## Error Handling
+
+### Error Response Format
+
+```json
+{
+  "error": "string",
+  "code": "int32",
+  "message": "string"
 }
 ```
 
 ### Common Error Codes
-- `3` - INVALID_ARGUMENT
-- `5` - NOT_FOUND
-- `7` - PERMISSION_DENIED
-- `16` - UNAUTHENTICATED
 
-## Rate Limits and Pagination
+| Code | Status | Description |
+|------|--------|-------------|
+| `2` | `UNKNOWN` | Unknown error occurred |
+| `3` | `INVALID_ARGUMENT` | Invalid request parameters |
+| `5` | `NOT_FOUND` | Requested resource not found |
+| `7` | `PERMISSION_DENIED` | Insufficient permissions |
+| `16` | `UNAUTHENTICATED` | Authentication required |
 
-- No explicit rate limits currently implemented
-- Large result sets should be filtered using request parameters
-- Consider implementing client-side pagination for UI applications
+### HTTP Status Codes
+
+| Status | Meaning |
+|--------|---------|
+| `200` | Success |
+| `400` | Bad Request - Invalid JSON or parameters |
+| `401` | Unauthorized - Missing or invalid JWT |
+| `403` | Forbidden - JWT validation failed |
+| `404` | Not Found - Resource not found |
+| `500` | Internal Server Error |
+
+---
+
+## Rate Limiting
+
+The REST Gateway implements rate limiting to prevent abuse:
+
+- **Default Limit**: 100 requests per second per client
+- **Configurable**: Set via `RATE_LIMIT_RPS` environment variable
+- **Headers**: Rate limit information in response headers
+
+```http
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1694001000
+```
+
+---
+
+## Best Practices
+
+### Performance
+
+1. **Batch Requests**: Group related operations when possible
+2. **Use Pagination**: Limit large data requests with page/limit parameters
+3. **Cache Responses**: Implement client-side caching for static data
+4. **Connection Pooling**: Reuse HTTP connections for multiple requests
+
+### Security
+
+1. **Token Expiration**: Use short-lived JWT tokens (1-2 hours)
+2. **HTTPS Only**: Always use HTTPS in production
+3. **Input Validation**: Validate all request parameters
+4. **Error Handling**: Don't expose sensitive information in errors
+
+### Reliability
+
+1. **Retry Logic**: Implement exponential backoff for failed requests
+2. **Circuit Breaker**: Use circuit breaker pattern for service calls
+3. **Health Checks**: Monitor gateway health endpoints
+4. **Graceful Degradation**: Handle partial failures gracefully
+
+---
+
+## SDK Examples
+
+### Python Client
+
+```python
+import requests
+import jwt
+import time
+
+class OpenCueClient:
+    def __init__(self, base_url, jwt_secret):
+        self.base_url = base_url
+        self.jwt_secret = jwt_secret
+
+    def _get_headers(self):
+        token = jwt.encode({
+            'sub': 'api-client',
+            'exp': int(time.time()) + 3600
+        }, self.jwt_secret, algorithm='HS256')
+
+        return {
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json'
+        }
+
+    def get_shows(self):
+        response = requests.post(
+            f'{self.base_url}/show.ShowInterface/GetShows',
+            headers=self._get_headers(),
+            json={}
+        )
+        return response.json()
+
+    def pause_job(self, job_id):
+        response = requests.post(
+            f'{self.base_url}/job.JobInterface/Pause',
+            headers=self._get_headers(),
+            json={'job': {'id': job_id}}
+        )
+        return response.json()
+
+# Usage
+client = OpenCueClient('http://localhost:8448', 'your-secret')
+shows = client.get_shows()
+client.pause_job('job-id-123')
+```
+
+### JavaScript Client
+
+```javascript
+class OpenCueClient {
+  constructor(baseUrl, jwtSecret) {
+    this.baseUrl = baseUrl;
+    this.jwtSecret = jwtSecret;
+  }
+
+  async getHeaders() {
+    const token = await this.createJWT();
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  }
+
+  async createJWT() {
+    // Use jsonwebtoken library
+    const jwt = require('jsonwebtoken');
+    return jwt.sign({
+      sub: 'web-client',
+      exp: Math.floor(Date.now() / 1000) + 3600
+    }, this.jwtSecret);
+  }
+
+  async getShows() {
+    const headers = await this.getHeaders();
+    const response = await fetch(
+      `${this.baseUrl}/show.ShowInterface/GetShows`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({})
+      }
+    );
+    return response.json();
+  }
+
+  async pauseJob(jobId) {
+    const headers = await this.getHeaders();
+    const response = await fetch(
+      `${this.baseUrl}/job.JobInterface/Pause`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ job: { id: jobId } })
+      }
+    );
+    return response.json();
+  }
+}
+
+// Usage
+const client = new OpenCueClient('http://localhost:8448', 'your-secret');
+const shows = await client.getShows();
+await client.pauseJob('job-id-123');
+```
+
+---
 
 ## What's next?
 
 - [Using the REST API](/docs/user-guides/using-rest-api/) - Usage examples and integration
 - [REST API Tutorial](/docs/tutorials/rest-api-tutorial/) - Step-by-step walkthrough
+- [Deploying REST Gateway](/docs/getting-started/deploying-rest-gateway) - Deployment instructions
+- [CueWeb Developer Guide](/docs/developer-guide/cueweb-development) - Integration examples with CueWeb
