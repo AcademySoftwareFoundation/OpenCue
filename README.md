@@ -7,8 +7,11 @@
 - [Introduction](#Introduction)
 - [OpenCue features](#OpenCue-features)
 - [Learn more](#Learn-more)
+- [Quick installation and tests](#Quick-installation-and-tests)
+- [OpenCue full installation](#OpenCue-full-installation)
 - [OpenCue documentation](#opencue-documentation)
 - [Meeting notes](#Meeting-notes)
+- [Contributors](#Contributors)
 - [Contact us](#Contact-us)
 
 # Introduction
