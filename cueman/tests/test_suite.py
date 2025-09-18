@@ -15,17 +15,17 @@
 
 """Test suite for all cueman unit tests."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import unittest
 import warnings
 
-from tests.test_main import TestCuemanMain, TestCuemanHandleArgs
+from tests.test_main import TestCuemanHandleArgs, TestCuemanMain
 
 # Suppress protobuf version warnings
-warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf.runtime_version")
+warnings.filterwarnings(
+    "ignore", category=UserWarning, module="google.protobuf.runtime_version"
+)
 
 
 def create_test_suite():
@@ -39,6 +39,6 @@ def create_test_suite():
     return suite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(create_test_suite())

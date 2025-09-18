@@ -415,9 +415,49 @@ cueman             # Running without args shows help
 - Memory values are in GB (e.g., `gt16` = greater than 16GB)
 - Duration values are in hours (e.g., `gt12` = greater than 12 hours)
 
+## Development and Testing
+
+### Running Tests
+
+Cueman includes a comprehensive test suite:
+
+```bash
+# Install with test dependencies
+pip install -e ".[test]"
+
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=cueman --cov-report=term-missing
+```
+
+### Test Types
+
+- **Unit Tests** - Function-level testing of core functionality
+- **Integration Tests** - End-to-end workflow testing
+- **Coverage Testing** - Code coverage analysis and reporting
+
+### Development Setup
+
+```bash
+# Install development dependencies
+pip install -e ".[dev]"
+
+# Run tests with linting
+pytest && pylint cueman tests
+
+# Format code
+black cueman tests && isort cueman tests
+```
+
+### Continuous Integration
+
+The test suite is integrated into:
+- GitHub Actions for automated testing
+- Docker builds for container-based testing
+- Lint pipeline for code quality checks
+
 ## Additional Resources
 
 - [Cueman Tutorial](/docs/tutorials/cueman-tutorial/) - Tutorial with real-world scenarios
-- [Cueman Reference](/docs/reference/commands/cueman/) - Related command-line tool
-- [Cueman GitHub](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/cueman) - Source code and documentation
-- [OpenCue Documentation](/docs/) - Complete OpenCue documentation
