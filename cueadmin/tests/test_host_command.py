@@ -1,0 +1,152 @@
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from builtins import str
+import unittest
+
+import mock
+
+import opencue_proto.facility_pb2
+import opencue_proto.host_pb2
+import opencue_proto.job_pb2
+import opencue_proto.service_pb2
+import opencue_proto.show_pb2
+import opencue_proto.subscription_pb2
+import opencue.wrappers.allocation
+import opencue.wrappers.host
+import opencue.wrappers.proc
+import opencue.wrappers.service
+import opencue.wrappers.show
+import opencue.wrappers.subscription
+
+import cueadmin.common
+
+TEST_ALLOC = "test_alloc"
+
+@mock.patch("opencue.search.HostSearch")
+@mock.patch("opencue.cuebot.Cuebot.getStub")
+class ListHostsTest(unittest.TestCase):
+
+    def setUp(self):
+        self.parser = cueadmin.common.getParser()
+
+        host1 = opencue.wrappers.host.Host(
+                opencue_proto.host_pb2.Host(
+                    name='host1',
+                    load=25,
+                    nimby_enabled=False,
+                    free_memory=3500000,
+                    free_swap=1040000,
+                    free_mcp=84782900,
+                    cores=6,
+                    memory=4500000,
+                    idle_cores=5,
+                    idle_memory=3000000,
+                    os='Linux',
+                    boot_time=1556836762,
+                    state=1,
+                    lock_state=1,
+                    alloc_name='alloc01',
+                    thread_mode=1
+                )
+            )
+        
+        self.mock_hosts = [host1] 
+
+    @mock.patch("opencue.api.getHosts")
+    def testListHostsNoFilter(self, getHostsMock, getStubMock, hostSearchMock):
+        """Tests the -lh command without any filters"""
+
+        args = self.parser.parse_args(["-lh"])
+
+        getHostsMock.return_value = self.mock_hosts
+        cueadmin.common.handleArgs(args)
+
+        getHostsMock.assert_called_with(alloc=[], match=[], state=[])
+
+    @mock.patch("opencue.api.getHosts")
+    def testListHostsState(self, getHostsMock, getStubMock, hostSearchMock):
+
+        """Tests the -state implementation without other combinations"""
+
+        args = self.parser.parse_args(["-lh", "-state", "UP", "DOWN", "REPAIR"])
+
+        getHostsMock.return_value = self.mock_hosts
+        cueadmin.common.handleArgs(args=args)
+
+        getHostsMock.assert_called_with(
+            alloc=[],
+            match=[],
+            state=[
+                opencue.api.host_pb2.UP,
+                opencue.api.host_pb2.DOWN,
+                opencue.api.host_pb2.REPAIR,
+            ],
+        )
+    
+    @mock.patch("opencue.api.getHosts")
+    def testListHostsInvalidState(self, getHostsMock, getStubMock, hostSearchMock):
+        
+        """Throws error when state is not UP, DOWN, REPAIR"""
+
+        args = self.parser.parse_args(["-lh", "-state", "Invalid"])
+        
+        getHostsMock.return_value = self.mock_hosts
+        with self.assertRaisesRegex(ValueError, "invalid hardware state: INVALID"):
+            cueadmin.common.handleArgs(args=args)
+    
+    @mock.patch("opencue.api.getHosts")
+    def testListHostsAlloc(self, getHostsMock, getStubMock, hostSearchMock):
+
+        """Checks whether -alloc along with substring is received or not"""
+
+        args = self.parser.parse_args(["-lh", "-alloc", TEST_ALLOC])
+
+        getHostsMock.return_value = self.mock_hosts
+        cueadmin.common.handleArgs(args=args)
+
+        getHostsMock.assert_called_with(
+            alloc=[TEST_ALLOC],
+            match=[],
+            state=[],
+        )
+    
+    @mock.patch("opencue.api.getHosts")
+    def testListHostsEmptyAllocArg(self, getHostsMock, getStubMock, hostSearchMock):
+
+        """System Exit when substring not provided with -alloc flag"""
+        
+        with self.assertRaises(SystemExit):
+            args = self.parser.parse_args(["-lh", "-alloc"])
+            cueadmin.common.handleArgs(args=args)
+        
+    @mock.patch("opencue.api.getHosts")
+    def testListHostsCombinations(self, getHostsMock, getStubMock, hostSearchMock):
+
+        """Tests the -lh command for various combinations"""
+
+        test_cases = [
+            (["-lh"], [], [], []),
+            (["-lh", "-state", "UP", "DOWN"], [], [], [opencue.api.host_pb2.UP, opencue.api.host_pb2.DOWN]),
+            (["-lh", "-alloc", TEST_ALLOC], [TEST_ALLOC], [], []),
+            (["-lh", "substring"], [], ["substring"], []),
+            (["-lh", "substring", "-alloc", TEST_ALLOC], [TEST_ALLOC], ["substring"], []),
+            (["-lh", "substring", "-state", "UP", "-alloc", TEST_ALLOC], [TEST_ALLOC], ["substring"], [opencue.api.host_pb2.UP]),
+        ]
+
+        getHostsMock.return_value = self.mock_hosts
+        for cli_args, expected_alloc, expected_match, expected_state in test_cases:
+            with self.subTest(cli_args=cli_args):
+                args = self.parser.parse_args(cli_args)
+                cueadmin.common.handleArgs(args)
+                getHostsMock.assert_called_with(
+                    alloc=expected_alloc,
+                    match=expected_match,
+                    state=expected_state,
+                )
+
+
+
+if __name__ == '__main__':
+    unittest.main()
