@@ -7,8 +7,11 @@
 - [Introduction](#Introduction)
 - [OpenCue features](#OpenCue-features)
 - [Learn more](#Learn-more)
+- [Quick installation and tests](#Quick-installation-and-tests)
+- [OpenCue full installation](#OpenCue-full-installation)
 - [OpenCue documentation](#opencue-documentation)
 - [Meeting notes](#Meeting-notes)
+- [Contributors](#Contributors)
 - [Contact us](#Contact-us)
 
 # Introduction
@@ -58,7 +61,7 @@ To learn how to run the sandbox environment, see the [OpenCue Quick Starts docum
 # OpenCue full installation
 
 Guides for system admins deploying OpenCue components and installing dependencies are available in the 
-[OpenCue documentation](https://www.opencue.io/docs/getting-started/).
+[OpenCue Documentation - Getting Started](https://www.opencue.io/docs/getting-started).
 
 # OpenCue documentation
 
@@ -113,10 +116,10 @@ For meeting notes before May 2024, please refer to the OpenCue repository in the
 
 # Contact us
 
+Join the [OpenCue Slack channel](https://academysoftwarefdn.slack.com/archives/CMFPXV39Q), the main space where contributors and users collaborate.
+
+Working Group meets biweekly at 2pm PST on [Zoom](https://www.google.com/url?q=https://zoom-lfx.platform.linuxfoundation.org/meeting/95509555934?password%3Da8d65f0e-c5f0-44fb-b362-d3ed0c22b7c1&sa=D&source=calendar&ust=1717863981078692&usg=AOvVaw1zRcYz7VPAwfwOXeBPpoM6).
+
 To join the OpenCue discussion forum for users and admins, join the
 [opencue-user mailing list](https://lists.aswf.io/g/opencue-user) or email the
 group directly at <opencue-user@lists.aswf.io>.
-
-Join the [OpenCue Slack channel](https://academysoftwarefdn.slack.com/archives/CMFPXV39Q).
-
-Working Group meets biweekly at 2pm PST on [Zoom](https://www.google.com/url?q=https://zoom-lfx.platform.linuxfoundation.org/meeting/95509555934?password%3Da8d65f0e-c5f0-44fb-b362-d3ed0c22b7c1&sa=D&source=calendar&ust=1717863981078692&usg=AOvVaw1zRcYz7VPAwfwOXeBPpoM6).

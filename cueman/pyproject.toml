@@ -9,7 +9,10 @@ name = "opencue_cueman"
 dynamic = ["version"]
 dependencies = [
     "opencue_pycue",
-    "opencue_cueadmin"
+    "opencue_cueadmin",
+    "mock>=2.0.0",
+    "pyfakefs>=5.2.3",
+    "pytest>=6.0"
 ]
 requires-python = ">3.7"
 description = "Cueman is a command-line job management tool for OpenCue that provides efficient job control operations. It offers a streamlined interface for managing jobs, frames, and processes with advanced filtering and batch operation capabilities."

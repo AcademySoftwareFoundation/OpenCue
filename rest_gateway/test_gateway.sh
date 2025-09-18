@@ -64,6 +64,7 @@ declare -a interfaces=(
     "HostInterface:host"           # from host.proto
     "OwnerInterface:host"          # from host.proto
     "ProcInterface:host"           # from host.proto
+    "CommentInterface:comment"     # from comment.proto
 )
 
 # Check if all interface handlers were generated

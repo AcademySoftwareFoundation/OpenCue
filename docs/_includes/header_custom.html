@@ -6,6 +6,55 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
+<!-- Mermaid.js for diagrams -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true
+      },
+      sequence: {
+        useMaxWidth: true,
+        wrap: true
+      }
+    });
+
+    // Find all code blocks and check if they contain mermaid syntax
+    const codeBlocks = document.querySelectorAll('pre code, pre');
+
+    codeBlocks.forEach(function(block) {
+      const text = block.textContent || block.innerText;
+
+      // Check if the code block contains mermaid diagram syntax
+      if (text.includes('graph TD') || text.includes('sequenceDiagram') ||
+          text.includes('graph LR') || text.includes('flowchart') ||
+          text.includes('classDiagram') || text.includes('stateDiagram')) {
+
+        // Create a new div element for mermaid
+        const mermaidDiv = document.createElement('div');
+        mermaidDiv.className = 'mermaid';
+        mermaidDiv.textContent = text;
+
+        // Replace the code block with the mermaid div
+        const parent = block.parentNode;
+        if (parent.tagName === 'PRE') {
+          parent.parentNode.replaceChild(mermaidDiv, parent);
+        } else {
+          block.parentNode.replaceChild(mermaidDiv, block);
+        }
+      }
+    });
+
+    // Now render the mermaid diagrams
+    mermaid.run();
+  });
+</script>
+
 <!-- Prevent white flash - Apply theme immediately -->
 <script>
 (function() {

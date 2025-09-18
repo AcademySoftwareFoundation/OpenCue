@@ -38,7 +38,7 @@ import rqd.rqmachine
 import rqd.rqnimby
 import rqd.rqutil
 
-from .rqmachine_test import (
+from .test_rqmachine import (
     CPUINFO,
     LOADAVG_LOW_USAGE,
     MEMINFO_MODERATE_USAGE,
