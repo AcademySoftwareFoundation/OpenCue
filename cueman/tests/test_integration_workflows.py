@@ -14,6 +14,9 @@ class TestCuemanIntegrationWorkflows(unittest.TestCase):
         mock_stub.return_value = mock.Mock()
         mock_job1 = mock.Mock()
         mock_job2 = mock.Mock()
+        # Mock getLayers to avoid protobuf errors
+        mock_job1.getLayers.return_value = []
+        mock_job2.getLayers.return_value = []
         mock_find.return_value = [mock_job1, mock_job2]
         sys.argv = ['cueman', '-kill', 'job1', 'job2']
         main.main(sys.argv)
@@ -26,6 +29,9 @@ class TestCuemanIntegrationWorkflows(unittest.TestCase):
         mock_stub.return_value = mock.Mock()
         mock_frame1 = mock.Mock()
         mock_frame2 = mock.Mock()
+        # Mock getLayers for frames if needed
+        mock_frame1.getLayers = mock.Mock(return_value=[])
+        mock_frame2.getLayers = mock.Mock(return_value=[])
         mock_find.return_value = [mock_frame1, mock_frame2]
         sys.argv = ['cueman', '-ll', 'job1', '-state', 'DEAD']
         main.main(sys.argv)
