@@ -8,7 +8,7 @@ import cueman.main as main
 class TestCuemanIntegrationWorkflows(unittest.TestCase):
     """Integration tests for complete cueman workflows."""
     
-    @mock.patch('opencue.cuebot.getStub')
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
     @mock.patch('opencue.api.findJob')
     def test_batch_operation_workflow(self, mock_find, mock_stub):
         mock_stub.return_value = mock.Mock()
@@ -20,7 +20,7 @@ class TestCuemanIntegrationWorkflows(unittest.TestCase):
         mock_job1.kill.assert_called_once()
         mock_job2.kill.assert_called_once()
     
-    @mock.patch('opencue.cuebot.getStub')
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
     @mock.patch('opencue.api.findFrame')
     def test_frame_management_workflow(self, mock_find, mock_stub):
         mock_stub.return_value = mock.Mock()
@@ -41,8 +41,8 @@ class TestCuemanIntegrationWorkflows(unittest.TestCase):
         sys.argv = ['cueman', '-pause', 'job1']
         with self.assertRaises(SystemExit):
             main.main(sys.argv)
-            
-    @mock.patch('opencue.cuebot.getStub')
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
     @mock.patch('opencue.api.findFrame')
     def test_complex_filter_combination_workflows(self, mock_find, mock_stub):
         # Simulate multiple filters
