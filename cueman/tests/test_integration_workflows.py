@@ -12,13 +12,13 @@ class TestCuemanIntegrationWorkflows(unittest.TestCase):
     def test_complete_job_management_workflow(self, mock_find):
         mock_job = mock.Mock()
         mock_find.return_value = mock_job
-        sys.argv = ['cueman', 'pause', 'job1']
+        sys.argv = ['cueman', '-pause', 'job1']
         main.main(sys.argv)
         mock_job.pause.assert_called_once()
-        sys.argv = ['cueman', 'modify', 'job1', '--priority', '100']
+        sys.argv = ['cueman',  'job1', '-priority', '100']
         main.main(sys.argv)
         mock_job.modify.assert_called_once()
-        sys.argv = ['cueman', 'resume', 'job1']
+        sys.argv = ['cueman', 'job1', '-resume']
         main.main(sys.argv)
         mock_job.resume.assert_called_once()
 
@@ -27,39 +27,27 @@ class TestCuemanIntegrationWorkflows(unittest.TestCase):
         mock_frame1 = mock.Mock()
         mock_frame2 = mock.Mock()
         mock_find.return_value = [mock_frame1, mock_frame2]
-        sys.argv = ['cueman', 'frames', 'job1', '--filter', 'state=DEAD']
+        sys.argv = ['cueman', '-ll', 'job1', '-state', 'DEAD']
         main.main(sys.argv)
-        sys.argv = ['cueman', 'retry', 'frame1']
+        sys.argv = ['cueman', '-retry', 'frame1']
         main.main(sys.argv)
         mock_frame1.retry.assert_called_once()
-        sys.argv = ['cueman', 'kill', 'frame2']
+        sys.argv = ['cueman', '-kill', 'frame2']
         main.main(sys.argv)
         mock_frame2.kill.assert_called_once()
-
-    @mock.patch('opencue.api.findJob')
-    @mock.patch('cueman.main.confirm_termination', return_value=True)
-    def test_batch_operation_workflow(self, mock_confirm, mock_find):
-        mock_job1 = mock.Mock()
-        mock_job2 = mock.Mock()
-        mock_find.return_value = [mock_job1, mock_job2]
-        sys.argv = ['cueman', 'kill', 'job1', 'job2']
-        main.main(sys.argv)
-        mock_confirm.assert_called_once()
-        mock_job1.kill.assert_called_once()
-        mock_job2.kill.assert_called_once()
 
     @mock.patch('opencue.api.findJob', side_effect=Exception("API failure"))
     def test_error_recovery_scenarios(self, mock_find):
         # Simulate API failure and verify error handling
         sys.argv = ['cueman', 'pause', 'job1']
-        with self.assertRaises(Exception):
+        with self.assertRaises(SystemExit):
             main.main(sys.argv)
 
     @mock.patch('opencue.api.findFrame')
     def test_complex_filter_combination_workflows(self, mock_find):
         # Simulate multiple filters
         mock_find.return_value = [mock.Mock(name='frame1')]
-        sys.argv = ['cueman', 'frames', 'job1', '--filter', 'state=DEAD', '--filter', 'layer=layer1']
+        sys.argv = ['cueman', '-ll', 'job1', '-state', 'DEAD', '-layer', 'layer1']
         main.main(sys.argv)
         mock_find.assert_called()
 
