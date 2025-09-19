@@ -121,6 +121,7 @@ func registerGRPCHandlers(ctx context.Context, mux *runtime.ServeMux, grpcServer
 		gw.RegisterHostInterfaceHandlerFromEndpoint,
 		gw.RegisterOwnerInterfaceHandlerFromEndpoint,
 		gw.RegisterProcInterfaceHandlerFromEndpoint,
+		gw.RegisterCommentInterfaceHandlerFromEndpoint,
 	}
 
 	for _, handler := range handlers {

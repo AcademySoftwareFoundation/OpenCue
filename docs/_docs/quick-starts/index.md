@@ -8,4 +8,4 @@ permalink: /docs/quick-starts
 
 # Quick starts
 
-Try OpenCue in the sandbox environment on different operating systems
+Try OpenCue in the sandbox environment on different operating systems and get started with CueWeb.

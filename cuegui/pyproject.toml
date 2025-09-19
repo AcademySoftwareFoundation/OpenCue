@@ -16,7 +16,7 @@ dependencies = [
     "NodeGraphQtPy==0.6.38.6"
 ]
 requires-python = ">3.7"
-description = "CueGUI is the graphical user interface for OpenCue, divided into two main workspace views. Cuetopia is the artist-focused view for monitoring and managing render jobs, including plugins such as Monitor Jobs, Monitor Job Details, Frame logs, and Job Graph. CueCommander is the administrator-focused view for system monitoring and host management, providing advanced tools for allocations, hosts, services, and system resources. Together, they empower artists, production staff, and administrators to track job progress, troubleshoot issues, and manage render farm operations."
+description = "CueGUI is the graphical user interface for OpenCue with two main workspace views. Cuetopia provides artist-focused tools for monitoring and managing render jobs through plugins like Monitor Jobs, Job Details, Frame logs, and Job Graph. CueCommander offers administrator-focused system monitoring and host management with advanced tools for allocations, hosts, services, and resources. Together, they enable artists and administrators to track job progress and manage render farm operations."
 readme = "README.md"
 
 [tool.hatch.version]
