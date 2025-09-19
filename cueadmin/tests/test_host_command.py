@@ -23,6 +23,8 @@ import opencue.wrappers.subscription
 import cueadmin.common
 
 TEST_ALLOC = "test_alloc"
+TEST_HOST1 = "test_host1"
+TEST_HOST2 = "test_host2"
 
 @mock.patch("opencue.api.getHosts")
 class ListHostsTest(unittest.TestCase):
@@ -140,7 +142,37 @@ class ListHostsTest(unittest.TestCase):
                 )
 
 @mock.patch("opencue.search.HostSearch")
+class LockUnlockHostsTest(unittest.TestCase):
 
+    def setUp(self):
+        self.parser = cueadmin.common.getParser()
+
+    def testLockMultipleHosts(self, hostSearchMock):
+        args = self.parser.parse_args(['-lock', '-host', TEST_HOST1, TEST_HOST2, '-force'])
+        hostMock1 = mock.Mock()
+        hostMock2 = mock.Mock()
+
+        hostSearchMock.byName.return_value = [hostMock1, hostMock2]
+
+        cueadmin.common.handleArgs(args=args)
+
+        hostSearchMock.byName.assert_called_with([TEST_HOST1, TEST_HOST2])
+        hostMock1.lock.assert_called_with()
+        hostMock2.lock.assert_called_with()
+    
+    def testUnlockMultipleHosts(self, hostSearchMock):
+        args = self.parser.parse_args(['-unlock', '-host', TEST_HOST1, TEST_HOST2, '-force'])
+        hostMock1 = mock.Mock()
+        hostMock2 = mock.Mock()
+
+        hostSearchMock.byName.return_value = [hostMock1, hostMock2]
+
+        cueadmin.common.handleArgs(args=args)
+
+        hostSearchMock.byName.assert_called_with([TEST_HOST1, TEST_HOST2])
+        hostMock1.unlock.assert_called_with()
+        hostMock2.unlock.assert_called_with()
+    
 
 if __name__ == '__main__':
     unittest.main()
