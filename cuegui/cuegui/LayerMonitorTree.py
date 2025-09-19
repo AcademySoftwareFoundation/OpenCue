@@ -266,9 +266,6 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         if len(__selectedObjects) == 1:
             menu.addSeparator()
-            if int(self.app.settings.value("DisableDeeding", 0)) == 0:
-                self.__menuActions.layers().addAction(menu, "useLocalCores") \
-                    .setEnabled(not readonly)
             if len({layer.data.range for layer in __selectedObjects}) == 1:
                 self.__menuActions.layers().addAction(menu, "reorder").setEnabled(not readonly)
             self.__menuActions.layers().addAction(menu, "stagger").setEnabled(not readonly)

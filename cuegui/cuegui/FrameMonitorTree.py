@@ -914,9 +914,6 @@ class FrameContextMenu(QtWidgets.QMenu):
         elif count == 2:
             self.__menuActions.frames().addAction(self, "xdiff2")
 
-        if int(self.app.settings.value("DisableDeeding", 0)) == 0:
-            self.__menuActions.frames().addAction(self, "useLocalCores")
-
         if cuegui.Constants.OUTPUT_VIEWERS:
             job = widget.getJob()
             if job is not None:
