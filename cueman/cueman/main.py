@@ -200,6 +200,7 @@ def main(argv):
             parser.print_help()
             sys.exit(0)
         handleArgs(args)
+        sys.exit(0)
     except SystemExit as system_exit:
         # Let argparse handle --help and exit cleanly
         raise system_exit
