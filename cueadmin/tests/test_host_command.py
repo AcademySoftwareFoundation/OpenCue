@@ -24,8 +24,7 @@ import cueadmin.common
 
 TEST_ALLOC = "test_alloc"
 
-@mock.patch("opencue.search.HostSearch")
-@mock.patch("opencue.cuebot.Cuebot.getStub")
+@mock.patch("opencue.api.getHosts")
 class ListHostsTest(unittest.TestCase):
 
     def setUp(self):
@@ -54,8 +53,7 @@ class ListHostsTest(unittest.TestCase):
         
         self.mock_hosts = [host1] 
 
-    @mock.patch("opencue.api.getHosts")
-    def testListHostsNoFilter(self, getHostsMock, getStubMock, hostSearchMock):
+    def testListHostsNoFilter(self, getHostsMock):
         """Tests the -lh command without any filters"""
 
         args = self.parser.parse_args(["-lh"])
@@ -65,8 +63,7 @@ class ListHostsTest(unittest.TestCase):
 
         getHostsMock.assert_called_with(alloc=[], match=[], state=[])
 
-    @mock.patch("opencue.api.getHosts")
-    def testListHostsState(self, getHostsMock, getStubMock, hostSearchMock):
+    def testListHostsState(self, getHostsMock):
 
         """Tests the -state implementation without other combinations"""
 
@@ -85,8 +82,7 @@ class ListHostsTest(unittest.TestCase):
             ],
         )
     
-    @mock.patch("opencue.api.getHosts")
-    def testListHostsInvalidState(self, getHostsMock, getStubMock, hostSearchMock):
+    def testListHostsInvalidState(self, getHostsMock):
         
         """Throws error when state is not UP, DOWN, REPAIR"""
 
@@ -96,8 +92,7 @@ class ListHostsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid hardware state: INVALID"):
             cueadmin.common.handleArgs(args=args)
     
-    @mock.patch("opencue.api.getHosts")
-    def testListHostsAlloc(self, getHostsMock, getStubMock, hostSearchMock):
+    def testListHostsAlloc(self, getHostsMock):
 
         """Checks whether -alloc along with substring is received or not"""
 
@@ -112,8 +107,7 @@ class ListHostsTest(unittest.TestCase):
             state=[],
         )
     
-    @mock.patch("opencue.api.getHosts")
-    def testListHostsEmptyAllocArg(self, getHostsMock, getStubMock, hostSearchMock):
+    def testListHostsEmptyAllocArg(self, getHostsMock):
 
         """System Exit when substring not provided with -alloc flag"""
         
@@ -121,8 +115,7 @@ class ListHostsTest(unittest.TestCase):
             args = self.parser.parse_args(["-lh", "-alloc"])
             cueadmin.common.handleArgs(args=args)
         
-    @mock.patch("opencue.api.getHosts")
-    def testListHostsCombinations(self, getHostsMock, getStubMock, hostSearchMock):
+    def testListHostsCombinations(self, getHostsMock):
 
         """Tests the -lh command for various combinations"""
 
@@ -146,6 +139,7 @@ class ListHostsTest(unittest.TestCase):
                     state=expected_state,
                 )
 
+@mock.patch("opencue.search.HostSearch")
 
 
 if __name__ == '__main__':
