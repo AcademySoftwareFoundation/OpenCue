@@ -413,7 +413,9 @@ class TestCuemanHandleArgs(unittest.TestCase):
         mock_job.getFrames.return_value = mock_frames
         mock_findJob.return_value = mock_job
 
-        main.handleArgs(self.args)
+        with self.assertRaises(SystemExit) as cm:
+            main.handleArgs(self.args)
+        self.assertEqual(cm.exception.code, 0)
 
         mock_findJob.assert_called_once_with("test_job")
         mock_job.getFrames.assert_called_once()
@@ -427,7 +429,9 @@ class TestCuemanHandleArgs(unittest.TestCase):
         mock_job = mock.Mock()
         mock_findJob.return_value = mock_job
 
-        main.handleArgs(self.args)
+        with self.assertRaises(SystemExit) as cm:
+            main.handleArgs(self.args)
+        self.assertEqual(cm.exception.code, 0) 
 
         mock_findJob.assert_called_once_with("test_job")
         mock_display.assert_called_once_with(mock_job)
@@ -449,8 +453,10 @@ class TestCuemanHandleArgs(unittest.TestCase):
 
         mock_findJob.side_effect = [mock_job1, mock_job2]
 
-        with mock.patch("sys.stdout"):
-            main.handleArgs(self.args)
+        with mock.patch('sys.stdout'):
+            with self.assertRaises(SystemExit) as cm:
+                main.handleArgs(self.args)
+            self.assertEqual(cm.exception.code, 0)
 
         self.assertEqual(mock_findJob.call_count, 2)
         mock_job1.pause.assert_called_once()
