@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+import sys
 
 sys.modules['cueadmin'] = MagicMock()
 sys.modules['cueadmin.output'] = MagicMock()
@@ -9,7 +10,6 @@ sys.modules['cueadmin.common'] = MagicMock()
 
 import unittest
 from unittest.mock import patch
-import sys
 
 import cueman.main as cueman_main
 
