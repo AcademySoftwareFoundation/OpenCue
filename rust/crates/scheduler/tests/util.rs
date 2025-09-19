@@ -516,7 +516,7 @@ async fn create_job_scenario(
         let layer_id = Uuid::new_v4();
         let layer_name = &format!("{}_layer-{}", job_prefix, layer_index);
 
-        let num_tags = rng.gen_range(0..3);
+        let num_tags = rng.gen_range(1..=3);
         let layer_tags: Vec<_> = tags.choose_multiple(&mut rng, num_tags).cloned().collect();
         let cores_range: Vec<usize> = (8..=256).step_by(4).collect();
         let min_cores: usize = *cores_range.choose(&mut rng).unwrap();

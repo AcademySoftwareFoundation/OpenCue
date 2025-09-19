@@ -76,6 +76,10 @@ mod stress_test {
                 .await;
         assert_eq!(waiting_frames_after, 0);
 
-        assert_ok!(tear_down(&test_data.test_prefix).await)
+        // Clean up test data
+        // TODO: call hangs forever
+        assert_ok!(tear_down(&test_data.test_prefix).await);
+
+        assert_eq!(waiting_frames_after, 0);
     }
 }

@@ -282,6 +282,13 @@ impl RqdDispatcher {
     ) -> Result<CoreSize, VirtualProcError> {
         let cores_requested = Self::calculate_cores_requested(frame.min_cores, host.total_cores);
 
+        if host.idle_memory.as_u64() < frame.min_memory.as_u64() {
+            Err(VirtualProcError::HostResourcesExtinguished(format!(
+                "Not enough cores: {} < {}",
+                host.idle_cores, frame.min_memory
+            )))?
+        }
+
         let cores_reserved = match (host.thread_mode, frame.threadable) {
             (ThreadMode::All, _) => host.idle_cores,
             (ThreadMode::Variable, true) if cores_requested.value() <= 2 => CoreSize(2),
