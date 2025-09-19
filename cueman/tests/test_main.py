@@ -346,7 +346,7 @@ class TestCuemanHandleArgs(unittest.TestCase):
         with mock.patch('sys.stdout'):
             with self.assertRaises(SystemExit) as cm:
                 main.handleArgs(self.args)
-            self.assertEqual(cm.exception.code, 0) 
+            self.assertEqual(cm.exception.code, 0)
 
         self.assertEqual(mock_findJob.call_count, 2)
         mock_job1.pause.assert_called_once()

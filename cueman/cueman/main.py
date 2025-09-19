@@ -456,6 +456,8 @@ def handleArgs(args):
             else:
                 logger.error("Error disabling auto-eat for job '%s': %s", job_name, e)
             sys.exit(1)
+        # If we reach here, all commands succeeded
+        sys.exit(0)
 
 def _get_proc_filters(args):
     """Get process filters for memory and duration.
