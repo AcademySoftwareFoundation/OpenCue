@@ -389,18 +389,17 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__jobTimeLoaded.pop(item.rpcObject, "")
         try:
             jobKey = cuegui.Utils.getObjectKey(item.rpcObject)
-            # Remove the item from the main _items dictionary as well as the
-            # __dependentJobs and the reverseDependent dictionaries
-            # pylint: disable=protected-access
-            cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
+            # Remove the item from the __dependentJobs and the reverseDependent dictionaries
             dependent_jobs = self.__dependentJobs.get(jobKey, [])
             for djob in dependent_jobs:
-                del self.__reverseDependents[djob]
-            del self.__reverseDependents[jobKey]
-        except KeyError:
+                self.__reverseDependents.pop(djob, None)
+            self.__reverseDependents.pop(jobKey, None)
+            self.__dependentJobs.pop(jobKey, None)
+        except (KeyError, AttributeError):
             # Dependent jobs are not stored in as keys the main self._items
             # dictionary, trying to remove dependent jobs from self._items
             # raises a KeyError, which we can safely ignore
+            # AttributeError can occur if the rpcObject doesn't have an id() method
             pass
 
     def removeAllItems(self):
