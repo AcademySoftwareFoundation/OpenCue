@@ -1,6 +1,6 @@
 ---
 title: "OpenCue overview"
-nav_order: 7
+nav_order: 8
 parent: Concepts
 layout: default
 linkTitle: "OpenCue overview"
@@ -44,27 +44,41 @@ OpenCue provides features to manage rendering jobs at scale:
 ## OpenCue architecture
 
 OpenCue includes components that run on both an artist's workstation, as well as
-central server clusters. The following list provides a brief summary of the main
-components:
+central server clusters. The following list provides a comprehensive summary of all
+OpenCue components:
 
-*   Cuebot - a utility that runs in the background on a workstation and performs
-    a variety of important OpenCue management tasks. Cuebot can also run in a
-    server cluster for high availability.
+### Core Server Components
 
-*   CueGUI - a graphical user interface that artists run to monitor and manage
-    jobs.
+*   **Cuebot** - The central management server that performs critical OpenCue tasks including managing job submissions, distributing work to render nodes, and responding to API requests from client tools. Typically runs on a server and can be deployed in clusters for high availability.
 
-*   CueSubmit - a graphical user interface for configuring and launching
-    rendering jobs to an OpenCue deployment. Artists typically run CueSubmit as
-    a plug-in for their 3D software on their workstation.
+*   **RQD (Python)** - The render queue daemon that runs on all rendering hosts. RQD registers hosts with Cuebot, receives work instructions, monitors worker processes, and reports results back to the central server.
 
-*   RQD - a software daemon that runs on all rendering hosts, which are doing
-    work for an OpenCue deployment.
+*   **Rust RQD** - A high-performance implementation of RQD written in Rust, providing the same functionality as Python RQD with improved performance and resource efficiency.
 
-Figure 1 illustrates how the various components interact in a large-scale
-deployment of OpenCue.
+### Client Applications
 
-![Overview of OpenCue architecture and components](/assets/images/opencue_architecture.svg)
+*   **CueGUI** - The desktop graphical user interface divided into two main workspaces: Cuetopia (artist-focused job monitoring) and CueCommander (administrator-focused system management). Provides comprehensive tools for job monitoring, frame inspection, host management, and system administration.
+
+*   **CueWeb** - A web-based interface that brings CueGUI's core functionality to the browser. Offers job management, frame monitoring, real-time updates, and collaborative features accessible from anywhere on the network without requiring client installation.
+
+*   **CueSubmit** - A graphical user interface for configuring and launching rendering jobs. Typically runs as a plug-in within 3D software like Maya, Blender, or Nuke, allowing artists to submit jobs directly from their creative applications.
+
+*   **CueAdmin** - Command-line administrative tools for OpenCue system management, providing scripting capabilities for automation, bulk operations, and system maintenance tasks.
+
+*   **Cueman** - A specialized tool for managing and monitoring OpenCue deployments, providing additional administrative capabilities and system oversight functions.
+
+### API and Integration Layer
+
+*   **OpenCue REST Gateway** - A production-ready HTTP service that translates REST API calls to gRPC communication with Cuebot. Enables web applications, scripts, and third-party tools to interact with OpenCue services through standard HTTP endpoints.
+
+*   **PyCue** - The Python API library that provides programmatic access to OpenCue functionality. Used by client applications and custom scripts to interact with Cuebot's gRPC interface.
+
+*   **PyOutline** - A Python library for creating job specifications and render job descriptions. Provides the framework for defining complex rendering workflows and job dependencies.
+
+Figure 1 illustrates how all OpenCue components interact in a comprehensive
+deployment, showing the complete ecosystem from artist workstations to render farm hosts.
+
+![Overview of OpenCue architecture and components](/assets/images/opencue_architecture_comprehensive.svg)
 
 ## What's next?
 

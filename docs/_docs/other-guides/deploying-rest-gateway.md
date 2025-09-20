@@ -1,6 +1,6 @@
 ---
 title: "Deploying REST Gateway"
-nav_order: 37
+nav_order: 41
 parent: Other Guides
 layout: default
 linkTitle: "Deploying the OpenCue REST Gateway"
@@ -19,16 +19,15 @@ The OpenCue REST Gateway provides HTTP/REST endpoints for OpenCue's gRPC API, en
 
 ## Architecture Overview
 
-```
-┌─────────────────┐    HTTP/JSON    ┌──────────────────┐    gRPC    ┌─────────────┐
-│   Web Client    │◄──────────────►│   REST Gateway   │◄──────────►│   Cuebot    │
-│                 │                 │                  │            │             │
-│ - Browser       │                 │ - Authentication │            │ - Job Mgmt  │
-│ - Mobile App    │                 │ - Request Trans. │            │ - Scheduling│
-│ - curl/Scripts  │                 │ - Response Form. │            │ - Resources │
-│ - Third-party   │                 │ - Error Handling │            │ - Monitoring│
-└─────────────────┘                 └──────────────────┘            └─────────────┘
-```
+<div class="mermaid">
+graph LR
+    A["Web Client<br/>- Browser<br/>- Mobile App<br/>- curl/Scripts<br/>- Third-party"]
+    B["REST Gateway<br/>- Authentication<br/>- Request Trans.<br/>- Response Form.<br/>- Error Handling"]
+    C["Cuebot<br/>- Job Mgmt<br/>- Scheduling<br/>- Resources<br/>- Monitoring"]
+
+    A <-->|HTTP/JSON| B
+    B <-->|gRPC| C
+</div>
 
 ## Prerequisites
 
