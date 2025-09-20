@@ -25,6 +25,8 @@ import cueadmin.common
 TEST_ALLOC = "test_alloc"
 TEST_HOST1 = "test_host1"
 TEST_HOST2 = "test_host2"
+TEST_FACILITY = 'some-non-default-facility'
+
 
 @mock.patch("opencue.api.getHosts")
 class ListHostsTest(unittest.TestCase):
@@ -173,6 +175,36 @@ class LockUnlockHostsTest(unittest.TestCase):
         hostMock1.unlock.assert_called_with()
         hostMock2.unlock.assert_called_with()
     
+@mock.patch('opencue.search.HostSearch')
+@mock.patch('opencue.cuebot.Cuebot.getStub')
+class AllocationTest(unittest.TestCase):
+
+    def setUp(self):
+        self.parser = cueadmin.common.getParser()
+
+    @mock.patch('opencue.api.findAllocation')
+    def testInvalidAllocationName(self, findAllocMock, getStubMock, hostSearchMock):
+
+        """Raises error when allocation does not exist"""
+
+        allocName = '%s.%s' % (TEST_FACILITY, "InvalidAlloc")
+        args = self.parser.parse_args(['-move', allocName, '-host', TEST_HOST1, '-force'])
+        host = opencue.wrappers.host.Host(opencue_proto.host_pb2.Host())
+        host.setAllocation = mock.Mock()
+        hostSearchMock.byName.return_value = [host]
+
+        from opencue.exception import EntityNotFoundException
+        findAllocMock.side_effect = EntityNotFoundException(
+            "Object does not exist. Incorrect result size: expected 1, actual 0."
+        )
+
+        with self.assertRaises(EntityNotFoundException):
+            cueadmin.common.handleArgs(args)
+
+        hostSearchMock.byName.assert_called_with([TEST_HOST1])
+        findAllocMock.assert_called_with(allocName)
+        host.setAllocation.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()
