@@ -174,7 +174,7 @@ class LockUnlockHostsTest(unittest.TestCase):
         hostSearchMock.byName.assert_called_with([TEST_HOST1, TEST_HOST2])
         hostMock1.unlock.assert_called_with()
         hostMock2.unlock.assert_called_with()
-    
+
 @mock.patch('opencue.search.HostSearch')
 @mock.patch('opencue.cuebot.Cuebot.getStub')
 class AllocationTest(unittest.TestCase):
@@ -206,5 +206,44 @@ class AllocationTest(unittest.TestCase):
         host.setAllocation.assert_not_called()
 
 
-if __name__ == '__main__':
+@mock.patch('opencue.search.HostSearch')
+@mock.patch('opencue.cuebot.Cuebot.getStub')
+class DeleteHostTests(unittest.TestCase):
+
+    def setUp(self):
+        self.parser = cueadmin.common.getParser()
+
+    def testDeleteHost(self, getStubMock, hostSearchMock):
+        args = self.parser.parse_args(["-delete-host", "-host", TEST_HOST1, "-force"])
+
+        hostProto = opencue_proto.host_pb2.Host(
+            name=TEST_HOST1,
+            load=25,
+            nimby_enabled=False,
+            free_memory=3500000,
+            free_swap=1040000,
+            free_mcp=84782900,
+            cores=6,
+            memory=4500000,
+            idle_cores=5,
+            idle_memory=3000000,
+            os="Linux",
+            boot_time=1556836762,
+            state=1,
+            lock_state=1,
+            alloc_name="alloc01",
+            thread_mode=1,
+        )
+        host = opencue.wrappers.host.Host(hostProto)
+        host.delete = mock.Mock(side_effect=RuntimeError)
+
+        hostSearchMock.byName.return_value = [host]
+
+        with self.assertRaises(RuntimeError):
+            cueadmin.common.handleArgs(args)
+
+        host.delete.assert_called_once()
+
+
+if __name__ == "__main__":
     unittest.main()
