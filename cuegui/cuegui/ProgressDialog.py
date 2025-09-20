@@ -63,6 +63,7 @@ class ProgressDialog(QtWidgets.QDialog):
 
         self.__workLock = QtCore.QReadWriteLock()
         self.__count = 0
+        self.__isCompleted = False
 
         self.__bar = QtWidgets.QProgressBar(self)
         self.__bar.setRange(0, len(self.__work))
@@ -92,9 +93,26 @@ class ProgressDialog(QtWidgets.QDialog):
             self._submitWork()
 
     def closeEvent(self, event):
-        """Trying to close the dialog is the same as clicking cancel"""
-        event.ignore()
-        self.cancel()
+        """Handle dialog close attempts"""
+        if self.__isCompleted:
+            # Work is done, allow closing
+            event.accept()
+            super(ProgressDialog, self).closeEvent(event)
+        else:
+            # Work is in progress, show cancel confirmation
+            event.ignore()
+            self.cancel()
+
+    def keyPressEvent(self, event):
+        """Handle key press events"""
+        if event.key() == QtCore.Qt.Key_Escape:
+            # ESC key should close the dialog
+            if self.__isCompleted:
+                self.close()
+            else:
+                self.cancel()
+        else:
+            super(ProgressDialog, self).keyPressEvent(event)
 
     def cancel(self):
         """Called when the user wishes to cancel the work. Work already
@@ -105,13 +123,18 @@ class ProgressDialog(QtWidgets.QDialog):
                                   self.__cancelText,
                                   QtWidgets.QMessageBox.Yes|QtWidgets.QMessageBox.No,
                                   self)
-        if self.__cancelConfirmation.exec_() == QtWidgets.QMessageBox.Yes:
+        result = self.__cancelConfirmation.exec_()
+        self.__cancelConfirmation = None
+
+        if result == QtWidgets.QMessageBox.Yes:
             self.__workLock.lockForWrite()
             try:
                 self.__work = []
             finally:
                 self.__workLock.unlock()
-        self.__cancelConfirmation = None
+            # Mark as completed and close the dialog when user confirms cancellation
+            self.__isCompleted = True
+            self.close()
 
     def __doWork(self):
         """Performs the next unit of work available"""
@@ -153,7 +176,8 @@ class ProgressDialog(QtWidgets.QDialog):
                 if self.__count == 0:
                     if self.__cancelConfirmation:
                         self.__cancelConfirmation.close()
-                    self.accept()
+                    self.__isCompleted = True
+                    self.close()
         finally:
             self.__workLock.unlock()
 
