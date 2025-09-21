@@ -1,10 +1,14 @@
+"""
+Unit tests for displayLayers formatting in cueman.
+"""
+
 import unittest
 from unittest import mock
 import os
 import sys
 import io
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from cueman import main  # Removed unused and unknown import
+from cueman import main
 
 class TestDisplayLayers(unittest.TestCase):
     def setUp(self):
