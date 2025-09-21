@@ -1,9 +1,10 @@
 import unittest
 from unittest import mock
-import io
+import os
 import sys
-
-from cueman.cueman.main import displayLayers
+import io
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from cueman import main  # Removed unused and unknown import
 
 class TestDisplayLayers(unittest.TestCase):
     def setUp(self):
@@ -15,7 +16,7 @@ class TestDisplayLayers(unittest.TestCase):
         sys_stdout = sys.stdout
         sys.stdout = captured
         try:
-            displayLayers(job)
+            main.displayLayers(job)
         finally:
             sys.stdout = sys_stdout
         return captured.getvalue()
