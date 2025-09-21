@@ -1,0 +1,48 @@
+[build-system]
+requires = [
+    "hatchling"
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "opencue_cuegui"
+dynamic = ["version"]
+dependencies = [
+    "opencue_pycue",
+    "PySide6==6.8.2.1;python_version>'3.11'",
+    "PySide6==6.5.3;python_version=='3.11'",
+    "PySide2==5.15.2.1;python_version<='3.10'",
+    "QtPy==2.4.1",
+    "NodeGraphQtPy==0.6.38.6"
+]
+requires-python = ">3.7"
+description = "CueGUI is the graphical user interface for OpenCue with two main workspace views. Cuetopia provides artist-focused tools for monitoring and managing render jobs through plugins like Monitor Jobs, Job Details, Frame logs, and Job Graph. CueCommander offers administrator-focused system monitoring and host management with advanced tools for allocations, hosts, services, and resources. Together, they enable artists and administrators to track job progress and manage render farm operations."
+readme = "README.md"
+
+[tool.hatch.version]
+source = "code"
+path = "../ci/generate_version_number.py"
+default-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cuegui"]
+
+[project.scripts]
+cuegui = "cuegui.__main__:main"
+cuetopia = "cuegui.__main__:cuetopia"
+cuecommander = "cuegui.__main__:main"
+
+# --- Pytest configuration ---
+[tool.pytest.ini_options]
+minversion = "6.0" # Set to required pytest version
+testpaths = ["tests"] # Relative path(s) where tests are located
+python_files = ["test_*.py", "*_tests.py"] # Default test file pattern
+python_functions = ["test_*"] # Default test function pattern
+
+# --- Optional Test Dependencies ---
+[project.optional-dependencies]
+test = [
+    "mock==2.0.0",
+    "pyfakefs==5.2.3",
+    "pytest"
+]

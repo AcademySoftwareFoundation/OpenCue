@@ -32,11 +32,10 @@ import time
 
 from qtpy import QtGui
 from qtpy import QtWidgets
-import six
 
+import opencue_proto.job_pb2
 import FileSequence
 import opencue
-import opencue.compiled_proto.job_pb2
 import opencue.wrappers.depend
 
 # pylint: disable=cyclic-import
@@ -62,6 +61,8 @@ import cuegui.SubscribeToJobDialog
 import cuegui.TasksDialog
 import cuegui.UnbookDialog
 import cuegui.Utils
+
+from cuegui.cueguiplugin import loader as plugin_loader
 
 
 logger = cuegui.Logger.getLogger(__file__)
@@ -170,7 +171,7 @@ class AbstractActions(object):
 
             if not callback:
                 callback = actionName
-            if isinstance(callback, six.string_types):
+            if isinstance(callback, str):
                 callback = getattr(self, callback)
 
             action.triggered.connect(callback)  # pylint: disable=no-member
@@ -221,7 +222,49 @@ class JobActions(AbstractActions):
     """Actions for jobs."""
 
     def __init__(self, *args):
-        AbstractActions.__init__(self, *args)
+        """
+        Initialize JobActions and load associated plugins if a job source is available.
+
+        The plugin loading mechanism uses a double-callable pattern:
+        - `self._getSource` is expected to return a function
+        - that function is then called to retrieve the actual job object.
+
+        Plugins are loaded and initialized only if a valid job is retrieved.
+        """
+        super().__init__(*args)
+        self._pluginActions = []
+
+        # Attempt to retrieve the job object from the callable chain
+        source = None
+        try:
+            if callable(self._getSource):
+                maybe_func = self._getSource()
+                if callable(maybe_func):
+                    source = maybe_func()
+        except Exception as e:
+            # Optional: log if needed
+            logger.warning("Failed to resolve plugin source: %s", e)
+
+        # Load plugins only if source is valid
+        if source:
+            self._pluginActions = plugin_loader.load_plugins(job=source, parent=self._caller)
+
+    def addPluginActions(self, menu):
+        """
+        Add plugin-defined actions to the given context menu.
+
+        Args:
+            menu (QMenu): The Qt menu to which plugin actions will be appended.
+        """
+        for plugin in self._pluginActions:
+            actions = plugin.menuAction()
+            if not actions:
+                continue
+            if isinstance(actions, list):
+                for action in actions:
+                    menu.addAction(action)
+            else:
+                menu.addAction(actions)
 
     unmonitor_info = ["Unmonitor", "Unmonitor selected jobs", "eject"]
 
@@ -484,7 +527,7 @@ class JobActions(AbstractActions):
                     if not cuegui.Utils.isPermissible(job):
                         blocked_job_owners.append(job.username())
                     else:
-                        job.eatFrames(state=[opencue.compiled_proto.job_pb2.DEAD])
+                        job.eatFrames(state=[opencue_proto.job_pb2.DEAD])
                 if blocked_job_owners:
                     cuegui.Utils.showErrorMessageBox(
                         AbstractActions.USER_INTERACTION_PERMISSIONS.format(
@@ -503,7 +546,7 @@ class JobActions(AbstractActions):
                     blocked_job_owners.append(job.username())
                 else:
                     job.setAutoEat(True)
-                    job.eatFrames(state=[opencue.compiled_proto.job_pb2.DEAD])
+                    job.eatFrames(state=[opencue_proto.job_pb2.DEAD])
             if blocked_job_owners:
                 cuegui.Utils.showErrorMessageBox(
                     AbstractActions.USER_INTERACTION_PERMISSIONS.format(
@@ -544,7 +587,7 @@ class JobActions(AbstractActions):
                         blocked_job_owners.append(job.username())
                     else:
                         job.retryFrames(
-                            state=[opencue.compiled_proto.job_pb2.DEAD])
+                            state=[opencue_proto.job_pb2.DEAD])
                 if blocked_job_owners:
                     cuegui.Utils.showErrorMessageBox(
                         AbstractActions.USER_INTERACTION_PERMISSIONS.format(
@@ -619,7 +662,7 @@ class JobActions(AbstractActions):
             return
 
         body = "What order should the range %s take?" % frame_range
-        items = list(opencue.compiled_proto.job_pb2.Order.keys())
+        items = list(opencue_proto.job_pb2.Order.keys())
         (order, choice) = QtWidgets.QInputDialog.getItem(
             self._caller, title, body, sorted(items), 0, False)
         if not choice:
@@ -627,7 +670,7 @@ class JobActions(AbstractActions):
 
         self.cuebotCall(
             __job.reorderFrames, "Reorder Frames Failed",
-            frame_range, getattr(opencue.compiled_proto.job_pb2, str(order)))
+            frame_range, getattr(opencue_proto.job_pb2, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
 
@@ -708,29 +751,118 @@ class JobActions(AbstractActions):
             QtWidgets.QApplication.clipboard().setText(
                 " ".join(paths), QtGui.QClipboard.Clipboard)
 
+    copyJobName_info = ["&Copy Job Name", "Copy the job name to clipboard", "copylogpath"]
+
+    def copyJobName(self, rpcObjects=None):
+        """Copies the selected job names to the clipboard."""
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs:
+            names = [job.data.name for job in jobs]
+            QtWidgets.QApplication.clipboard().setText(
+                " ".join(names), QtGui.QClipboard.Clipboard)
+
     setUserColor1_info = [
-        "Set Color 1", "Set user defined background color", cuegui.Constants.COLOR_USER_1]
+        "Set Color 1 - Dark Blue", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_1]
 
     def setUserColor1(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_1)
 
     setUserColor2_info = [
-        "Set Color 2", "Set user defined background color", cuegui.Constants.COLOR_USER_2]
+        "Set Color 2 - Dark Yellow", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_2]
 
     def setUserColor2(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_2)
 
     setUserColor3_info = [
-        "Set Color 3", "Set user defined background color", cuegui.Constants.COLOR_USER_3]
+        "Set Color 3 - Dark Green", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_3]
 
     def setUserColor3(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_3)
 
     setUserColor4_info = [
-        "Set Color 4", "Set user defined background color", cuegui.Constants.COLOR_USER_4]
+        "Set Color 4 - Dark Brown", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_4]
 
     def setUserColor4(self, rpcObjects=None):
         self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_4)
+
+    setUserColor5_info = [
+        "Set Color 5 - Purple", "Set user defined background color", cuegui.Constants.COLOR_USER_5]
+
+    def setUserColor5(self, rpcObjects=None):
+        self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_5)
+
+    setUserColor6_info = [
+        "Set Color 6 - Teal", "Set user defined background color", cuegui.Constants.COLOR_USER_6]
+
+    def setUserColor6(self, rpcObjects=None):
+        self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_6)
+
+    setUserColor7_info = [
+        "Set Color 7 - Orange", "Set user defined background color", cuegui.Constants.COLOR_USER_7]
+
+    def setUserColor7(self, rpcObjects=None):
+        self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_7)
+
+    setUserColor8_info = [
+        "Set Color 8 - Maroon", "Set user defined background color", cuegui.Constants.COLOR_USER_8]
+
+    def setUserColor8(self, rpcObjects=None):
+        self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_8)
+
+    setUserColor9_info = [
+        "Set Color 9 - Forest Green", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_9]
+
+    def setUserColor9(self, rpcObjects=None):
+        self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_9)
+
+    setUserColor10_info = [
+        "Set Color 10 - Lavender", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_10]
+
+    def setUserColor10(self, rpcObjects=None):
+        self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_10)
+
+    setUserColor11_info = [
+        "Set Color 11 - Crimson", "Set user defined background color",
+        cuegui.Constants.COLOR_USER_11]
+
+    def setUserColor11(self, rpcObjects=None):
+        self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_11)
+
+    setUserColor12_info = [
+        "Set Color 12 - Navy", "Set user defined background color", cuegui.Constants.COLOR_USER_12]
+
+    def setUserColor12(self, rpcObjects=None):
+        self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_12)
+
+    setUserColor13_info = [
+        "Set Color 13 - Olive", "Set user defined background color", cuegui.Constants.COLOR_USER_13]
+
+    def setUserColor13(self, rpcObjects=None):
+        self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_13)
+
+    setUserColor14_info = [
+        "Set Color 14 - Plum", "Set user defined background color", cuegui.Constants.COLOR_USER_14]
+
+    def setUserColor14(self, rpcObjects=None):
+        self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_14)
+
+    setUserColor15_info = [
+        "Set Color 15 - Slate", "Set user defined background color", cuegui.Constants.COLOR_USER_15]
+
+    def setUserColor15(self, rpcObjects=None):
+        self._caller.actionSetUserColor(cuegui.Constants.COLOR_USER_15)
+
+    setUserCustomColor_info = [
+        "Set Custom Color (RGB)...", "Set custom background color using RGB values", None]
+
+    def setUserCustomColor(self, rpcObjects=None):
+        self._caller.actionSetUserCustomColor()
 
     clearUserColor_info = ["Clear", "Clear user defined background color", None]
 
@@ -750,6 +882,16 @@ class LayerActions(AbstractActions):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
             self._caller.handle_filter_layers_byLayer.emit([layer.data.name for layer in layers])
+
+    copyLayerName_info = ["&Copy Layer Name", "Copy the layer name to clipboard", "copylogpath"]
+
+    def copyLayerName(self, rpcObjects=None):
+        """Copies the selected layer names to the clipboard."""
+        layers = self._getOnlyLayerObjects(rpcObjects)
+        if layers:
+            names = [layer.data.name for layer in layers]
+            QtWidgets.QApplication.clipboard().setText(
+                " ".join(names), QtGui.QClipboard.Clipboard)
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
 
@@ -964,7 +1106,7 @@ class LayerActions(AbstractActions):
             return
 
         body = "What order should the range %s take?" % frameRange
-        items = list(opencue.compiled_proto.job_pb2.Order.keys())
+        items = list(opencue_proto.job_pb2.Order.keys())
         (order, choice) = QtWidgets.QInputDialog.getItem(
             self._caller, title, body, sorted(items), 0, False)
         if not choice:
@@ -972,7 +1114,7 @@ class LayerActions(AbstractActions):
 
         for layer in layers:
             self.cuebotCall(layer.reorderFrames, "Reorder Frames Failed",
-                            frameRange, getattr(opencue.compiled_proto.job_pb2, str(order)))
+                            frameRange, getattr(opencue_proto.job_pb2, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
 
@@ -1020,6 +1162,26 @@ class FrameActions(AbstractActions):
                                       "View %d frame logs?" % len(frames)):
                 for frame in frames:
                     cuegui.Utils.popupFrameView(job, frame)
+
+    copyLogPath_info = ["&Copy Log Path", None, "copylogpath"]
+
+    def copyLogPath(self, rpcObjects=None):
+        frames = self._getOnlyFrameObjects(rpcObjects)
+        if not frames:
+            return
+        job = self._getSource()
+        paths = [cuegui.Utils.getFrameLogFile(job, frame) for frame in frames]
+        QtWidgets.QApplication.clipboard().setText("\n".join(paths), QtGui.QClipboard.Clipboard)
+
+    copyFrameName_info = ["&Copy Frame Name", "Copy the frame name to clipboard", "copylogpath"]
+
+    def copyFrameName(self, rpcObjects=None):
+        """Copies the selected frame names to the clipboard."""
+        frames = self._getOnlyFrameObjects(rpcObjects)
+        if frames:
+            names = [frame.data.name for frame in frames]
+            QtWidgets.QApplication.clipboard().setText(
+                " ".join(names), QtGui.QClipboard.Clipboard)
 
     tail_info = ["&Tail Log", None, "log"]
 
@@ -1273,7 +1435,7 @@ class FrameActions(AbstractActions):
 
         title = "Reorder %s" % __job.data.name
         body = "How should these frames be reordered?"
-        items = list(opencue.compiled_proto.job_pb2.Order.keys())
+        items = list(opencue_proto.job_pb2.Order.keys())
         (order, choice) = QtWidgets.QInputDialog.getItem(
             self._caller, title, body, sorted(items), 0, False)
         if not choice:
@@ -1295,7 +1457,7 @@ class FrameActions(AbstractActions):
                 self.cuebotCall(layerProxy.reorderFrames,
                                 "Reorder Frames Failed",
                                 str(fs),
-                                getattr(opencue.compiled_proto.job_pb2, str(order)))
+                                getattr(opencue_proto.job_pb2, str(order)))
 
     copyLogFileName_info = ["Copy log file name", None, "configure"]
 

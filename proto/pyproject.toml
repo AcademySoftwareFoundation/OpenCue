@@ -1,0 +1,28 @@
+[build-system]
+requires = [
+    "hatchling",
+    "grpcio>=1.62.0",
+    "grpcio-tools>=1.62.0",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "opencue_proto"
+dynamic = ["version"]
+dependencies = [
+    "grpcio>=1.62.0",
+    "grpcio-tools>=1.62.0",
+]
+requires-python = ">3.7"
+description = "The opencue-proto is a module containing the protobuf modules for communication to and from Cuebot."
+
+[tool.hatch.version]
+source = "code"
+path = "../ci/generate_version_number.py"
+default-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["opencue_proto"]
+
+[tool.hatch.build.hooks.custom]
+path = "build_hooks.py"

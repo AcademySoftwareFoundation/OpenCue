@@ -445,7 +445,7 @@ def file_spec_constructor(loader, node):
     """
     Unserializes a yamlized FileSpec.
     """
-    value = yaml.load(loader.construct_scalar(node), Loader=yaml.FullLoader)
+    value = yaml.load(loader.construct_scalar(node), Loader=yaml.Loader)
     return FileSpec(value[0], **value[1])
 
 

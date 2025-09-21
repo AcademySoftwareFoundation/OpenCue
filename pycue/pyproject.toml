@@ -1,0 +1,41 @@
+[build-system]
+requires = [
+    "hatchling"
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "opencue_pycue"
+dynamic = ["version"]
+dependencies = [
+    "opencue_proto",
+    "PyYAML==6.0.1",
+    "six==1.16.0",
+    "future==1.0.0"
+]
+requires-python = ">3.7"
+description = "PyCue is the Python API client for OpenCue, providing programmatic access to core services. It enables developers to query, submit, and control jobs, layers, and frames directly from Python code."
+readme = "README.md"
+
+[tool.hatch.version]
+source = "code"
+path = "../ci/generate_version_number.py"
+default-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["opencue", "FileSequence"]
+
+# --- Pytest configuration ---
+[tool.pytest.ini_options]
+minversion = "6.0" # Set to required pytest version
+testpaths = ["tests"] # Relative path(s) where tests are located
+python_files = ["test_*.py", "*_test.py"] # Default test file pattern
+python_functions = ["test_*"] # Default test function pattern
+
+# --- Optional Test Dependencies ---
+[project.optional-dependencies]
+test = [
+    "mock==2.0.0",
+    "pyfakefs==5.2.3",
+    "pytest"
+]

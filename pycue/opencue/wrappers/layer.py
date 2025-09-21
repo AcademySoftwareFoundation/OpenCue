@@ -19,8 +19,8 @@ import getpass
 import os
 import platform
 
+from opencue_proto import job_pb2
 import opencue.api
-from opencue.compiled_proto import job_pb2
 from opencue.cuebot import Cuebot
 import opencue.search
 import opencue.wrappers.depend
@@ -211,7 +211,7 @@ class Layer(object):
             layer=self.data, timeout_llu=timeout_llu),
             timeout=Cuebot.Timeout)
 
-    def addRenderPartition(self, hostname, threads, max_cores, num_mem, max_gpu):
+    def addRenderPartition(self, hostname, threads, max_cores, max_mem, max_gpu_memory, max_gpus):
         """Adds a render partition to the layer.
 
         :type  hostname: str
@@ -220,19 +220,22 @@ class Layer(object):
         :param threads: number of threads of the partition
         :type  max_cores: int
         :param max_cores: max cores enabled for the partition
-        :type  num_mem: int
-        :param num_mem: amount of memory reserved for the partition
-        :type  max_gpu: int
-        :param max_gpu: max gpu cores enabled for the partition
+        :type  max_mem: int
+        :param max_mem: amount of memory reserved for the partition
+        :type  max_gpu_memory: int
+        :param max_gpu_memory: max gpu memory enabled for the partition
+        :type  max_gpus: int
+        :param max_gpus: max gpus enabled for the partition
         """
         self.stub.AddRenderPartition(
             job_pb2.LayerAddRenderPartitionRequest(layer=self.data,
                                                    host=hostname,
                                                    threads=threads,
                                                    max_cores=max_cores,
-                                                   max_memory=num_mem,
-                                                   max_gpu=max_gpu,
-                                                   username=os.getenv("USER", "unknown")))
+                                                   max_memory=max_mem,
+                                                   max_gpu_memory=max_gpu_memory,
+                                                   username=os.getenv("USER", "unknown"),
+                                                   max_gpus=max_gpus))
 
     def getWhatDependsOnThis(self):
         """Gets a list of dependencies that depend directly on this layer.
@@ -588,3 +591,10 @@ class Layer(object):
         :return: the layer's parent job
         """
         return opencue.api.getJob(self.data.parent_id)
+
+    def services(self):
+        """Returns list of services applied to this layer
+        :rtype: opencue.wrappers.service.Service
+        :return: the layer's services
+        """
+        return [opencue.api.getService(service) for service in self.data.services]

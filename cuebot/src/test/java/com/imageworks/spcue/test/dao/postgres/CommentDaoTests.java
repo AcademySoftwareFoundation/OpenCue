@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -49,8 +45,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class CommentDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     @Rule
@@ -106,9 +102,9 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         CommentDetail nd = commentDao.getCommentDetail(d.getId());
 
-        assertEquals(d.message,nd.message);
-        assertEquals(d.subject,nd.subject);
-        assertEquals(d.user,nd.user);
+        assertEquals(d.message, nd.message);
+        assertEquals(d.subject, nd.subject);
+        assertEquals(d.user, nd.user);
     }
 
     @Test
@@ -127,9 +123,9 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         CommentDetail nd = commentDao.getCommentDetail(d.getId());
 
-        assertEquals(d.message,nd.message);
-        assertEquals(d.subject,nd.subject);
-        assertEquals(d.user,nd.user);
+        assertEquals(d.message, nd.message);
+        assertEquals(d.subject, nd.subject);
+        assertEquals(d.user, nd.user);
     }
 
     @Test
@@ -137,26 +133,13 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
     @Rollback(true)
     public void testInsertCommentOnHost() {
 
-        RenderHost host = RenderHost.newBuilder()
-                .setName("boo")
-                .setBootTime(1192369572)
+        RenderHost host = RenderHost.newBuilder().setName("boo").setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(CueUtil.GB)
-                .setFreeMem(15290520)
-                .setFreeSwap(2076)
-                .setLoad(1)
-                .setTotalMcp(CueUtil.GB4)
-                .setTotalMem(15290520)
-                .setTotalSwap(2096)
-                .setNimbyEnabled(false)
-                .setNumProcs(2)
-                .setCoresPerProc(400)
-                .addTags("linux")
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .setFreeGpuMem((int) CueUtil.MB512)
-                .setTotalGpuMem((int) CueUtil.MB512)
-                .build();
+                .setFreeMcp(CueUtil.GB).setFreeMem(15290520).setFreeSwap(2076).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(15290520).setTotalSwap(2096)
+                .setNimbyEnabled(false).setNumProcs(2).setCoresPerProc(400).addTags("linux")
+                .setState(HardwareState.UP).setFacility("spi").setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512).build();
 
         CommentDetail d = new CommentDetail();
         d.message = "a message";
@@ -170,9 +153,9 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         CommentDetail nd = commentDao.getCommentDetail(d.getId());
 
-        assertEquals(d.message,nd.message);
-        assertEquals(d.subject,nd.subject);
-        assertEquals(d.user,nd.user);
+        assertEquals(d.message, nd.message);
+        assertEquals(d.subject, nd.subject);
+        assertEquals(d.user, nd.user);
     }
 
     @Test
@@ -196,8 +179,8 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         CommentDetail nd = commentDao.getCommentDetail(d.getId());
 
-        assertEquals("no",nd.message);
-        assertEquals("no",nd.subject);
+        assertEquals("no", nd.message);
+        assertEquals("no", nd.subject);
     }
 
     @Test
@@ -215,7 +198,7 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         commentDao.insertComment(job, d);
         commentDao.updateCommentMessage(d.getId(), "no");
         CommentDetail nd = commentDao.getCommentDetail(d.getId());
-        assertEquals("no",nd.message);
+        assertEquals("no", nd.message);
     }
 
     @Test
@@ -233,7 +216,6 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         commentDao.insertComment(job, d);
         commentDao.updateCommentSubject(d.getId(), "no");
         CommentDetail nd = commentDao.getCommentDetail(d.getId());
-        assertEquals("no",nd.subject);
+        assertEquals("no", nd.subject);
     }
 }
-

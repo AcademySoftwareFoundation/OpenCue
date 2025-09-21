@@ -35,7 +35,7 @@ from qtpy import QtGui
 from qtpy import QtWidgets
 
 import opencue
-from opencue.compiled_proto import job_pb2
+from opencue_proto import job_pb2
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -259,8 +259,9 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         # Redrawing every even number of seconds to see the current frame
         # runtime, LLU and last log line changes. Every second was excessive.
-        if not self.ticksWithoutUpdate % 2:
-            self.redraw()
+        # Always redraw running frames regardless of update status
+        if self.__job and not self.ticksWithoutUpdate % 2:
+            self.redrawRunning()
 
     @staticmethod
     def getCores(frame, format_as_string=False):
@@ -359,6 +360,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             old_log_files = []
 
         self.app.display_log_file_content.emit([current_log_file] + old_log_files)
+        self.app.select_frame.emit(self.__job, item.rpcObject)
 
     def __itemDoubleClickedViewLog(self, item, col):
         """Called when a frame is double clicked, views the frame log in a popup
@@ -691,7 +693,7 @@ class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 class FrameLogDataBuffer(object):
     """A cached and threaded interface to reading the last log line"""
     maxCacheTime = 5
-    maxThreads = 2
+    maxThreads = 5
     maxQueue = 500
 
     # Position of data from getLastLineData
@@ -803,7 +805,7 @@ class FrameEtaDataBuffer(object):
     """A cached and threaded interface to reading the last log line"""
 
     maxCacheTime = 60
-    maxThreads = 2
+    maxThreads = 5
     maxQueue = 501
 
     def __init__(self):
@@ -900,6 +902,8 @@ class FrameContextMenu(QtWidgets.QMenu):
 
         self.__menuActions.frames().addAction(self, "tail")
         self.__menuActions.frames().addAction(self, "view")
+        self.__menuActions.frames().addAction(self, "copyLogPath")
+        self.__menuActions.frames().addAction(self, "copyFrameName")
 
         if count == 1:
             if widget.selectedObjects()[0].data.retry_count >= 1:
@@ -910,7 +914,7 @@ class FrameContextMenu(QtWidgets.QMenu):
         elif count == 2:
             self.__menuActions.frames().addAction(self, "xdiff2")
 
-        if bool(int(self.app.settings.value("AllowDeeding", 0))):
+        if int(self.app.settings.value("DisableDeeding", 0)) == 0:
             self.__menuActions.frames().addAction(self, "useLocalCores")
 
         if cuegui.Constants.OUTPUT_VIEWERS:
@@ -929,11 +933,14 @@ class FrameContextMenu(QtWidgets.QMenu):
 
                 if outputPaths:
                     for viewer in cuegui.Constants.OUTPUT_VIEWERS:
-                        self.addAction(viewer['action_text'],
-                                       functools.partial(cuegui.Utils.viewFramesOutput,
-                                                         job,
-                                                         selectedFrames,
-                                                         viewer['action_text']))
+                        action = QtWidgets.QAction(QtGui.QIcon(":viewoutput.png"),
+                                                   viewer['action_text'], self)
+                        action.triggered.connect(
+                            functools.partial(cuegui.Utils.viewFramesOutput,
+                                            job,
+                                            selectedFrames,
+                                            viewer['action_text']))
+                        self.addAction(action)
 
         if self.app.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(self, "viewHost")

@@ -1,7 +1,9 @@
 *.idea/
+__pycache__
 *.pyc
 .DS_Store
 venv*/
+build/
 /build/
 /VERSION
 .scannerwork/
@@ -18,3 +20,16 @@ rest_gateway/*.tar\.gz
 /cuebot/bin/*
 /logs/*
 /.gradle/*
+cuebot/.settings/*
+cuebot/.classpath
+cuebot/.project
+/proto/opencue_proto/
+/pycue/opencue/compiled_proto/
+/rqd/rqd/compiled_proto/
+docker-compose-local.yml
+docs/_site/
+docs/bin/
+sandbox/kafka-data
+sandbox/zookeeper-data
+sandbox/zookeeper-logs
+docs/_data/version.yml

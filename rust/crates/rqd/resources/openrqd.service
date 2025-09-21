@@ -1,0 +1,19 @@
+[Unit]
+Description=OpenCue RQD Service
+Wants=network.target graphical.target
+After=network.target
+
+[Service]
+Environment=OPENCUE_RQD_CONFIG=/etc/openrqd/rqd.yaml
+ExecStart=/usr/local/bin/openrqd
+LimitNOFILE=500000
+LimitNPROC=500000
+StandardOutput=journal+console
+StandardError=journal+console
+SyslogIdentifier=openrqd
+TimeoutSec=5
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

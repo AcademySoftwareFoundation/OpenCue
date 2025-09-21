@@ -68,10 +68,11 @@ def systemCpuCount():
         return 1
 
 
+# pylint: disable=no-member
 class ThreadPool(QtCore.QObject):
     """A general purpose work queue class."""
 
-    def __init__(self, num_threads, max_queue=20, parent=None):
+    def __init__(self, num_threads, max_queue=50, parent=None):
         QtCore.QObject.__init__(self, parent=parent)
         self.app = cuegui.app()
         self.__threads = []
@@ -82,6 +83,7 @@ class ThreadPool(QtCore.QObject):
         self._q_mutex = QtCore.QMutex()
         self._q_empty = QtCore.QWaitCondition()
         self._q_queue = []
+        self._dropped_tasks = {}
 
     def start(self):
         """Initializes the thread pool and starts running work."""
@@ -102,26 +104,64 @@ class ThreadPool(QtCore.QObject):
         if not self.__started:
             self.start()
         if len(self._q_queue) <= self.__max_queue:
-            self._q_queue.append((callable_to_queue, callback, comment, args))
+            # Check if this is a duplicate refresh task for the same widget
+            is_duplicate = False
+            for existing_task in self._q_queue:
+                if existing_task[2] == comment:
+                    is_duplicate = True
+                    break
+
+            if not is_duplicate:
+                self._q_queue.append((callable_to_queue, callback, comment, args))
+            else:
+                # Task already queued, skip adding duplicate
+                logger.debug("Skipping duplicate task: %s", comment)
         else:
-            logger.warning("Queue length exceeds %s", self.__max_queue)
+            # Track dropped tasks to avoid spamming logs
+            if comment not in self._dropped_tasks:
+                self._dropped_tasks[comment] = 0
+            self._dropped_tasks[comment] += 1
+
+            # Only log every 10th drop for the same task to reduce log spam
+            if self._dropped_tasks[comment] % 10 == 1:
+                logger.warning("Queue length exceeds %s. Dropped task %d times: %s",
+                             self.__max_queue, self._dropped_tasks[comment], comment)
         self._q_mutex.unlock()
         self._q_empty.wakeAll()
 
     def local(self, callable_to_queue, callback, comment, *args):
         """Executes a callable then immediately executes a callback, if given."""
         work = (callable_to_queue, callback, comment, args)
-        if work[3]:
-            result = work[0](*work[3])
-        else:
-            result = work[0]()
+        try:
+            if work[3]:
+                result = work[0](*work[3])
+            else:
+                result = work[0]()
+        except (TypeError, ValueError, RuntimeError) as e:
+            logger.error("Error executing local task '%s': %s", comment, e)
+            # Exit early to avoid calling the callback with an invalid result
+            return
+
         if work[1]:
-            self.runCallback(work, result)
+            try:
+                self.runCallback(work, result)
+            except AttributeError as e:
+                logger.error("Error executing callback for task '%s': %s", comment, e)
 
     def runCallback(self, work, result):
         """Runs the callback function."""
-        if work[1]:
-            work[1](work, result)
+        if work[1]:  # Ensure callback exists
+            try:
+                work[1](work, result)  # Execute the callback function
+            except TypeError as e:
+                logger.error("TypeError in callback function for '%s': %s", work[2], e)
+            except ValueError as e:
+                logger.error("ValueError in callback function for '%s': %s", work[2], e)
+            except AttributeError as e:
+                logger.error("AttributeError: Callback function missing or not callable for "
+                             "'%s': %s", work[2], e)
+            except RuntimeError as e:
+                logger.error("RuntimeError in callback function for '%s': %s", work[2], e)
 
     class WorkerThread(QtCore.QThread):
         """A thread for parsing job log files.
@@ -140,25 +180,31 @@ class ThreadPool(QtCore.QObject):
             self.__running = False
 
         # pylint: disable=protected-access
+        # pylint: disable=missing-function-docstring
         def run(self):
             self.__running = True
             while self.__running:
 
                 work = None
                 self.__parent._q_mutex.lock()
-                # pylint: disable=bare-except
                 try:
-                    work = self.__parent._q_queue.pop(0)
-                except:
-                    self.__parent._q_empty.wait(self.__parent._q_mutex)
-                # pylint: enable=bare-except
-
-                self.__parent._q_mutex.unlock()
+                    if self.__parent._q_queue:
+                        work = self.__parent._q_queue.pop(0)
+                    else:
+                        self.__parent._q_empty.wait(self.__parent._q_mutex)
+                except IndexError as e:
+                    logger.error("IndexError: Tried to pop from an empty queue: %s", e)
+                except RuntimeError as e:
+                    logger.error("RuntimeError: Threading issue while waiting for queue: %s", e)
+                # Fallback for unexpected issues
+                except Exception as e:
+                    logger.error("Unexpected error fetching work from queue: %s", e)
+                finally:
+                    self.__parent._q_mutex.unlock()
 
                 if not work:
                     continue
 
-                # pylint: disable=broad-except
                 try:
                     if work[3]:
                         result = work[0](*work[3])
@@ -167,9 +213,15 @@ class ThreadPool(QtCore.QObject):
                     if work[1]:
                         self.workComplete.emit(work, result)
                         del result
+                except TypeError as e:
+                    logger.error("TypeError in work processing for '%s': %s", work[2], e)
+                except ValueError as e:
+                    logger.error("ValueError in work processing for '%s': %s", work[2], e)
+                except RuntimeError as e:
+                    logger.error("RuntimeError in work processing for '%s': %s", work[2], e)
                 except Exception as e:
-                    logger.info("Error processing work:' %s ', %s" , work[2], e)
-                # pylint: enable=broad-except
+                    logger.error("Unexpected error processing work for '%s': %s", work[2], e)
+
                 logger.info("Done:' %s '", work[2])
             logger.debug("Thread Stopping")
 

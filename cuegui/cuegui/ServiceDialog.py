@@ -123,15 +123,20 @@ class ServiceForm(QtWidgets.QWidget):
         """
         Update the form with data from the given service.
         """
+        if service is None:
+            QtWidgets.QMessageBox.warning(self, "Facility Service Defaults - Warning",
+                                          "No service data available to display.")
+            return
+
         self.__service = service
         self.__buttons.setDisabled(False)
-        self.name.setText(service.name())
-        self.threadable.setChecked(service.threadable())
-        self.min_cores.setValue(service.minCores())
-        self.max_cores.setValue(service.maxCores())
+        self.name.setText(service.data.name)
+        self.threadable.setChecked(service.data.threadable)
+        self.min_cores.setValue(service.data.min_cores)
+        self.max_cores.setValue(service.data.max_cores)
         self.min_gpu_memory.setValue(service.data.min_gpu_memory // 1024)
-        self.min_memory.setValue(service.minMemory() // 1024)
-        self._tags_w.set_tags(service.tags())
+        self.min_memory.setValue(service.data.min_memory // 1024)
+        self._tags_w.set_tags(service.data.tags)
         self.timeout.setValue(service.data.timeout)
         self.timeout_llu.setValue(service.data.timeout_llu)
         self.min_memory_increase.setValue(service.data.min_memory_increase // 1024)
@@ -232,10 +237,10 @@ class ServiceManager(QtWidgets.QWidget):
         self.__btn_del.clicked.connect(self.delService)
         self.__form.saved.connect(self.saved)
         self.__service_list.currentItemChanged.connect(self.selected)
-        # pylint: enable=no-member
 
         self.refresh()
         self.__service_list.setCurrentRow(0, QtCore.QItemSelectionModel.Select)
+        # pylint: enable=no-member
 
     def selected(self, item, old_item):
         """
@@ -248,10 +253,15 @@ class ServiceManager(QtWidgets.QWidget):
         if not item:
             return
 
-        if self.__show:
-            self.__selected = self.__show.getServiceOverride(str(item.text()))
-        else:
-            self.__selected = opencue.api.getService(str(item.text()))
+        service_name = str(item.text())
+        self.__selected = self.__show.getServiceOverride(service_name) \
+            if self.__show else opencue.api.getService(service_name)
+
+        if self.__selected is None:
+            QtWidgets.QMessageBox.warning(self, "Facility Service Defaults - Warning",
+                                          f"Service '{service_name}' could not be loaded.")
+            return
+
         self.__form.setService(self.__selected)
 
     def saved(self, service):
@@ -286,8 +296,8 @@ class ServiceManager(QtWidgets.QWidget):
         for i in range(0, self.__service_list.count()):
             item = self.__service_list.item(i)
             if item:
-                if str(item.text()) == service.name():
-                    self.__service_list.setCurrentRow(i, QtCore.QItemSelectionModel.Select)
+                if str(item.text()) == service.data.name:
+                    self.__service_list.setCurrentRow(i, QtCore.QItemSelectionModel.Select) # pylint: disable=no-member
                     break
 
     def refresh(self):
@@ -306,10 +316,10 @@ class ServiceManager(QtWidgets.QWidget):
             self.__services = self.__show.getServiceOverrides()
 
         for service in self.__services:
-            item = QtWidgets.QListWidgetItem(service.name())
+            item = QtWidgets.QListWidgetItem(service.data.name)
             self.__service_list.addItem(item)
 
-            if service.name() in selected:
+            if service.data.name in selected:
                 item.setSelected(True)
 
         self.__service_list.sortItems()
@@ -331,7 +341,7 @@ class ServiceManager(QtWidgets.QWidget):
         self.__selected.delete()
         row = self.currentRow()
         if row >= 1:
-            self.__service_list.setCurrentRow(row - 1, QtCore.QItemSelectionModel.Select)
+            self.__service_list.setCurrentRow(row - 1, QtCore.QItemSelectionModel.Select) # pylint: disable=no-member
         self.refresh()
 
     def currentRow(self):

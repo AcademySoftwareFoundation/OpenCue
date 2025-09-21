@@ -1,19 +1,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 
 package com.imageworks.spcue.test.util;
 
@@ -58,12 +55,14 @@ public class JobLogUtilTests extends AbstractTransactionalJUnit4SpringContextTes
 
     @Test
     public void testGetJobLogDirDefault() {
-        assertEquals(logRootDefault + "/show/shot/logs", jobLogUtil.getJobLogDir("show", "shot", "someUndefinedOs"));
+        assertEquals(logRootDefault + "/show/shot/logs",
+                jobLogUtil.getJobLogDir("show", "shot", "someUndefinedOs"));
     }
 
     @Test
     public void testGetJobLogDirSomeOs() {
-        assertEquals(logRootSomeOs + "/show/shot/logs", jobLogUtil.getJobLogDir("show", "shot", "some_os"));
+        assertEquals(logRootSomeOs + "/show/shot/logs",
+                jobLogUtil.getJobLogDir("show", "shot", "some_os"));
     }
 
     @Test
@@ -74,7 +73,8 @@ public class JobLogUtilTests extends AbstractTransactionalJUnit4SpringContextTes
         jobDetail.showName = "show";
         jobDetail.shot = "shot";
         jobDetail.os = "someUndefinedOs";
-        assertEquals(logRootDefault + "/show/shot/logs/name--id", jobLogUtil.getJobLogPath(jobDetail));
+        assertEquals(logRootDefault + "/show/shot/logs/name--id",
+                jobLogUtil.getJobLogPath(jobDetail));
     }
 
     @Test
@@ -85,6 +85,7 @@ public class JobLogUtilTests extends AbstractTransactionalJUnit4SpringContextTes
         jobDetail.showName = "show";
         jobDetail.shot = "shot";
         jobDetail.os = "some_os";
-        assertEquals(logRootSomeOs + "/show/shot/logs/name--id", jobLogUtil.getJobLogPath(jobDetail));
+        assertEquals(logRootSomeOs + "/show/shot/logs/name--id",
+                jobLogUtil.getJobLogPath(jobDetail));
     }
 }

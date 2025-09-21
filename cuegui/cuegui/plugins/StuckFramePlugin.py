@@ -563,7 +563,7 @@ class ServiceBox(QtWidgets.QLineEdit):
         """Refreshes the show list."""
         slist = opencue.api.getDefaultServices()
         slist.sort(key=lambda s: s.name())
-        self.__c = QtWidgets.QCompleter(slist, self)
+        self.__c = QtWidgets.QCompleter(list(slist), self)
         self.__c.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self.setCompleter(self.__c)
 
@@ -767,6 +767,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.jobs_created = {}
         self.groups_created = {}
         self.currentHosts = []
+        self.show = None
 
         # Bring Up a comment if it exists
         self._itemSingleClickedComment.connect(self.__itemSingleClickedComment)
@@ -1447,15 +1448,19 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self._processUpdate(None, self.currentHosts)
 
     def startDrag(self, dropActions):
+        """Drag start action"""
         cuegui.Utils.startDrag(self, dropActions, self.selectedObjects())
 
     def dragEnterEvent(self, event):
+        """Drag enter action"""
         cuegui.Utils.dragEnterEvent(event, "application/x-host-ids")
 
     def dragMoveEvent(self, event):
+        """Drag move event"""
         cuegui.Utils.dragMoveEvent(event, "application/x-host-ids")
 
     def updateFilters(self, filters, show):
+        """Update filters"""
         self.showData = show
         self.show = show.data.name
         self.filters = filters
@@ -1504,7 +1509,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         else:
             with open(yaml_path, 'r', encoding='utf-8') as yaml_ob:
-                old_dict = yaml.load(yaml_ob)
+                old_dict = yaml.load(yaml_ob, Loader=yaml.SafeLoader)
 
             with open(yaml_path, 'w', encoding='utf-8') as yaml_ob:
 
@@ -1584,7 +1589,7 @@ class LogFinal():
 
         else:
             with open(yaml_path, 'r', encoding='utf-8') as yaml_ob:
-                old_dict = yaml.load(yaml_ob)
+                old_dict = yaml.load(yaml_ob, Loader=yaml.SafeLoader)
             with open(yaml_path, 'w', encoding='utf-8') as yaml_ob:
                 for key in frames_dict:  # updates old dict
                     old_dict[key] = frames_dict[key]

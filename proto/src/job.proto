@@ -1,0 +1,1821 @@
+
+syntax = "proto3";
+package job;
+
+option java_package = "com.imageworks.spcue.grpc.job";
+option java_multiple_files = true;
+
+option go_package = "opencue_gateway/gen/go";
+
+import "comment.proto";
+import "depend.proto";
+import "limit.proto";
+import "renderPartition.proto";
+
+// Job related messages and services
+// This includes Job, Layer, Frame, and Group objects
+
+
+// -------- Services --------]
+
+service FrameInterface {
+    // Add a render partition to the frame.
+    rpc AddRenderPartition(FrameAddRenderPartitionRequest) returns (FrameAddRenderPartitionResponse);
+
+    // Sets up and returns a FrameOnFrame dependency.
+    rpc CreateDependencyOnFrame(FrameCreateDependencyOnFrameRequest) returns (FrameCreateDependencyOnFrameResponse);
+
+    // Sets up and returns a FrameOnJob dependency.
+    rpc CreateDependencyOnJob(FrameCreateDependencyOnJobRequest) returns (FrameCreateDependencyOnJobResponse);
+
+    // Sets up and returns a FrameOnLayer dependency.
+    rpc CreateDependencyOnLayer(FrameCreateDependencyOnLayerRequest) returns (FrameCreateDependencyOnLayerResponse);
+
+    // Drops every dependendy that is causing this frame not to run.
+    rpc DropDepends(FrameDropDependsRequest) returns (FrameDropDependsResponse);
+
+    // Eating a frame will stop rendering and will not try to coninue processing the frame.
+    rpc Eat(FrameEatRequest) returns (FrameEatResponse);
+
+    // Finds a frame in a pending job based on the job, layer, and frame number.
+    rpc FindFrame(FrameFindFrameRequest) returns (FrameFindFrameResponse);
+
+    // Get a frame from its unique id
+    rpc GetFrame(FrameGetFrameRequest) returns (FrameGetFrameResponse);
+
+    // Get a frame from search criteria
+    rpc GetFrames(FrameGetFramesRequest) returns (FrameGetFramesResponse);
+
+    // Returns a list of dependencies setup to depend on this frame.
+    rpc GetWhatDependsOnThis(FrameGetWhatDependsOnThisRequest) returns (FrameGetWhatDependsOnThisResponse);
+
+    // Returns a list of dependencies that this frame depends on.
+    rpc GetWhatThisDependsOn(FrameGetWhatThisDependsOnRequest) returns (FrameGetWhatThisDependsOnResponse);
+
+    // Kills the frame if it is running
+    rpc Kill(FrameKillRequest) returns (FrameKillResponse);
+
+    // Will recount the number of active dependencies on the frame and put it back into the Depend state if that count
+    // is greater than 0.
+    rpc MarkAsDepend(FrameMarkAsDependRequest) returns (FrameMarkAsDependResponse);
+
+    // Changes the frame's dependency count to 0, which will put the frame into the waiting state.  Retrying the frame
+    // will put it back into the waiting state.
+    rpc MarkAsWaiting(FrameMarkAsWaitingRequest) returns (FrameMarkAsWaitingResponse);
+
+    // Retries the frame by setting it as waiting
+    rpc Retry(FrameRetryRequest) returns (FrameRetryResponse);
+
+    // Updates the state of the frame's checkpoint status.  If the checkpoint status is complete, then the frame's
+    // checkpointCoreSeconds is updated with the amount of render time that was checkpointed.
+    rpc SetCheckpointState(FrameSetCheckpointStateRequest) returns (FrameSetCheckpointStateResponse);
+
+    // Set a frame's state display override
+    rpc SetFrameStateDisplayOverride(FrameStateDisplayOverrideRequest) returns (FrameStateDisplayOverrideResponse);
+
+    // Get a frame's state display overrides
+    rpc GetFrameStateDisplayOverrides(GetFrameStateDisplayOverridesRequest) returns (GetFrameStateDisplayOverridesResponse);
+}
+
+service GroupInterface {
+    // Create a new sub group of the given name
+    rpc CreateSubGroup(GroupCreateSubGroupRequest) returns (GroupCreateSubGroupResponse);
+
+    // Delete the provided group
+    rpc Delete(GroupDeleteRequest) returns (GroupDeleteResponse);
+
+    // Finds a group by show name and group
+    rpc FindGroup(GroupFindGroupRequest) returns (GroupFindGroupResponse);
+
+    // Gets a group by its id
+    rpc GetGroup(GroupGetGroupRequest) returns (GroupGetGroupResponse);
+
+    // Get child groups of the provided group
+    rpc GetGroups(GroupGetGroupsRequest) returns (GroupGetGroupsResponse);
+
+    // Get Jobs of the provided group
+    rpc GetJobs(GroupGetJobsRequest) returns (GroupGetJobsResponse);
+
+    // Reparent the provided groups to the provided group
+    rpc ReparentGroups(GroupReparentGroupsRequest) returns (GroupReparentGroupsResponse);
+
+    // Reparent the provided jobs to the provided group
+    rpc ReparentJobs(GroupReparentJobsRequest) returns (GroupReparentJobsResponse);
+
+    // Set the Default Job Max Core values to all in the provided group
+    rpc SetDefaultJobMaxCores(GroupSetDefJobMaxCoresRequest) returns (GroupSetDefJobMaxCoresResponse);
+
+    // Set the Default Job Min Core values to all in the provided group
+    rpc SetDefaultJobMinCores(GroupSetDefJobMinCoresRequest) returns (GroupSetDefJobMinCoresResponse);
+
+    // Set the Default Job Max Gpu values to all in the provided group
+    rpc SetDefaultJobMaxGpus(GroupSetDefJobMaxGpusRequest) returns (GroupSetDefJobMaxGpusResponse);
+
+    // Set the Default Job Min Gpu values to all in the provided group
+    rpc SetDefaultJobMinGpus(GroupSetDefJobMinGpusRequest) returns (GroupSetDefJobMinGpusResponse);
+
+    // Set the Default Job Priority values to all in the provided group
+    rpc SetDefaultJobPriority(GroupSetDefJobPriorityRequest) returns (GroupSetDefJobPriorityResponse);
+
+    // Set the department associated with the provided group
+    rpc SetDepartment(GroupSetDeptRequest) returns (GroupSetDeptResponse);
+
+    // Set the provided groups parent group
+    rpc SetGroup(GroupSetGroupRequest) returns (GroupSetGroupResponse);
+
+    // Set the group's Max Cores value
+    rpc SetMaxCores(GroupSetMaxCoresRequest) returns (GroupSetMaxCoresResponse);
+
+    // Set the groups Min Cores values
+    rpc SetMinCores(GroupSetMinCoresRequest) returns (GroupSetMinCoresResponse);
+
+    // Set the group's Max Gpu value
+    rpc SetMaxGpus(GroupSetMaxGpusRequest) returns (GroupSetMaxGpusResponse);
+
+    // Set the groups Min Gpu values
+    rpc SetMinGpus(GroupSetMinGpusRequest) returns (GroupSetMinGpusResponse);
+
+    // Set the groups name
+    rpc SetName(GroupSetNameRequest) returns (GroupSetNameResponse);
+}
+
+service JobInterface {
+    // Add a comment on this job
+    rpc AddComment(JobAddCommentRequest) returns (JobAddCommentResponse);
+
+    // Add a render partition to the local host.  This partition will
+    // run frames on the specified job.
+    rpc AddRenderPartition(JobAddRenderPartRequest) returns (JobAddRenderPartResponse);
+
+    // Adds a subscriber to a job. When the job is finished, subscriber
+    // receives email with notification
+    rpc AddSubscriber(JobAddSubscriberRequest) returns (JobAddSubscriberResponse);
+
+    // Setup and retunrn a JobOnFrame dependency
+    rpc CreateDependencyOnFrame(JobCreateDependencyOnFrameRequest) returns (JobCreateDependencyOnFrameResponse);
+
+    // Setup and return a JobOnJob dependency
+    rpc CreateDependencyOnJob(JobCreateDependencyOnJobRequest) returns (JobCreateDependencyOnJobResponse);
+
+    // Setup and retunrn a JobOnLayer dependency
+    rpc CreateDependencyOnLayer(JobCreateDependencyOnLayerRequest) returns (JobCreateDependencyOnLayerResponse);
+
+    // Drops all external dependencies for the job.  This means that
+    // the internal depend structure will be maintained, but everything
+    // that depends on another job will be dropped.
+    rpc DropDepends(JobDropDependsRequest) returns (JobDropDependsResponse);
+
+    // Eats all frames that match the FrameSearchCriteria
+    rpc EatFrames(JobEatFramesRequest) returns (JobEatFramesResponse);
+
+    // Finds a pending job using the job name
+    rpc FindJob(JobFindJobRequest) returns (JobFindJobResponse);
+
+    // Get the comments for this job
+    rpc GetComments(JobGetCommentsRequest) returns (JobGetCommentsResponse);
+
+    // Get the job details
+    rpc GetCurrent(JobGetCurrentRequest) returns (JobGetCurrentResponse);
+
+    // Returns a list of all dependencies that this job is involved with
+    rpc GetDepends(JobGetDependsRequest) returns (JobGetDependsResponse);
+
+    // Returns all frame objects that match FrameSearchCriteria
+    rpc GetFrames(JobGetFramesRequest) returns (JobGetFramesResponse);
+
+    // Finds a pending job using the job name
+    rpc GetJob(JobGetJobRequest) returns (JobGetJobResponse);
+
+    // Returns a list of jobs based on specified criteria
+    rpc GetJobs(JobGetJobsRequest) returns (JobGetJobsResponse);
+
+    // Returns a sequence of job names using search criteria
+    rpc GetJobNames(JobGetJobNamesRequest) returns (JobGetJobNamesResponse);
+
+    // Returns all layer objects
+    rpc GetLayers(JobGetLayersRequest) returns (JobGetLayersResponse);
+
+    // Returns a UpdatedFrameCheckResult which contains
+    // updated state information for frames that have changed since the
+    // last update time as well as the current state of the job.
+    //
+    // If the user is filtering by layer, passing an array of layer
+    // proxies will limit the updates to specific layers.
+    //
+    // At most, your going to get 1 update per running frame every minute
+    // due to memory usage.
+    rpc GetUpdatedFrames(JobGetUpdatedFramesRequest) returns (JobGetUpdatedFramesResponse);
+
+    // Returns a list of dependencies setup to depend on
+    // this job.  This includes all types of depends, not just
+    // OnJob dependencies.  This will not return any frame on frame
+    // dependencies that are part of a FrameByFrame depend.  It will
+    // return a single element that represents the entire dependency.
+    rpc GetWhatDependsOnThis(JobGetWhatDependsOnThisRequest) returns (JobGetWhatDependsOnThisResponse);
+
+    // Returns a list of dependencies that this frame depends on.
+    rpc GetWhatThisDependsOn(JobGetWhatThisDependsOnRequest) returns (JobGetWhatThisDependsOnResponse);
+
+    // Returns true if the job is in the pending state the cue.
+    rpc IsJobPending(JobIsJobPendingRequest) returns (JobIsJobPendingResponse);
+
+    // Kill the job.  This puts the job into the Finished State
+    //  All running frames are killed, all depends satisfied.
+    rpc Kill(JobKillRequest) returns (JobKillResponse);
+
+    // Kills all frames that match the FrameSearchCriteria
+    rpc KillFrames(JobKillFramesRequest) returns (JobKillFramesResponse);
+
+    // Launches a job spec and returns an array of launched jobs. Waits for jobs to be committed to DB.  This might time
+    // out before jobs are launched.
+    rpc LaunchSpecAndWait(JobLaunchSpecAndWaitRequest) returns (JobLaunchSpecAndWaitResponse);
+
+    // Launches as a job spec and returns an array of job names that are being launched. This method returns immediately
+    // after basic checks. The job could fail to launch of a DB error occurs but that is rare.
+    rpc LaunchSpec(JobLaunchSpecRequest) returns (JobLaunchSpecResponse);
+
+    // Updates the matching frames from the Depend state to the waiting state
+    rpc MarkAsWaiting(JobMarkAsWaitingRequest) returns (JobMarkAsWaitingResponse);
+
+    // Drops any dependency that requires any frame that matches the FrameSearchCriteria
+    rpc MarkDoneFrames(JobMarkDoneFramesRequest) returns (JobMarkDoneFramesResponse);
+
+    // Pauses the job, which means it no longer gets procs
+    rpc Pause(JobPauseRequest) returns (JobPauseResponse);
+
+    // Reorders the specified frame range on this job
+    rpc ReorderFrames(JobReorderFramesRequest) returns (JobReorderFramesResponse);
+
+    // Resumes a paused job
+    rpc Resume(JobResumeRequest) returns (JobResumeResponse);
+
+    // Retries all frames that match the FrameSearchCriteria
+    rpc RetryFrames(JobRetryFramesRequest) returns (JobRetryFramesResponse);
+
+    // Rerun filters for this job
+    rpc RunFilters(JobRunFiltersRequest) returns (JobRunFiltersResponse);
+
+    // If set to true, a frame that would have turned dead, will become eaten
+    rpc SetAutoEat(JobSetAutoEatRequest) returns (JobSetAutoEatResponse);
+
+    // Move the job into the specified group
+    rpc SetGroup(JobSetGroupRequest) returns (JobSetGroupResponse);
+
+    // Sets the maximum number of procs that can run on this job
+    rpc SetMaxCores(JobSetMaxCoresRequest) returns (JobSetMaxCoresResponse);
+
+    // Sets the default maximum number of frame retries for the job. One
+    // a frame has retried this many times it will automatically go
+    // to the dead state. The default upper limit on this is 16 retries.
+    rpc SetMaxRetries(JobSetMaxRetriesRequest) returns (JobSetMaxRetriesResponse);
+
+    // Sets the minimum number of procs that can run on this job
+    rpc SetMinCores(JobSetMinCoresRequest) returns (JobSetMinCoresResponse);
+
+    // Sets the maximum number of Gpu that can run on this job
+    rpc SetMaxGpus(JobSetMaxGpusRequest) returns (JobSetMaxGpusResponse);
+
+    // Sets the minimum number of Gpu that can run on this job
+    rpc SetMinGpus(JobSetMinGpusRequest) returns (JobSetMinGpusResponse);
+
+    // Sets the job priority
+    rpc SetPriority(JobSetPriorityRequest) returns (JobSetPriorityResponse);
+
+    // Shutdown the job if it is completed. This is a workaround for when
+    // Cuebot failed to shutdown a job due to database access error.
+    rpc ShutdownIfCompleted(JobShutdownIfCompletedRequest) returns (JobShutdownIfCompletedResponse);
+
+    // Staggers the specified frame range
+    rpc StaggerFrames(JobStaggerFramesRequest) returns (JobStaggerFramesResponse);
+}
+
+service LayerInterface {
+    // Add Limit to the Layer
+    rpc AddLimit(LayerAddLimitRequest) returns (LayerAddLimitResponse);
+
+    // Add RenderPartition to Layer
+    rpc AddRenderPartition(LayerAddRenderPartitionRequest) returns (LayerAddRenderPartitionResponse);
+
+    // Setup and return a LayerOnFrame dependency
+    rpc CreateDependencyOnFrame(LayerCreateDependOnFrameRequest) returns (LayerCreateDependOnFrameResponse);
+
+    // Setup and return a LayerOnJob dependency
+    rpc CreateDependencyOnJob(LayerCreateDependOnJobRequest) returns (LayerCreateDependOnJobResponse);
+
+    // Setup and return a LayerOnLayer dependency
+    rpc CreateDependencyOnLayer(LayerCreateDependOnLayerRequest) returns (LayerCreateDependOnLayerResponse);
+
+    // Setup and return a FrameByFrame dependency
+    rpc CreateFrameByFrameDependency(LayerCreateFrameByFrameDependRequest) returns (LayerCreateFrameByFrameDependResponse);
+
+    // Drops every dependency that is causing this layer not to run.
+    rpc DropDepends(LayerDropDependsRequest) returns (LayerDropDependsResponse);
+
+    // Drop the limit from the specified layer.
+    rpc DropLimit(LayerDropLimitRequest) returns (LayerDropLimitResponse);
+
+    // Eat the Frames of this Layer
+    rpc EatFrames(LayerEatFramesRequest) returns (LayerEatFramesResponse);
+
+    // When disabled, This will stop Cuebot from lowering the amount of memory required for a given layer.
+    rpc EnableMemoryOptimizer(LayerEnableMemoryOptimizerRequest) returns (LayerEnableMemoryOptimizerResponse);
+
+    // Finds a layer in a pending job based the job and layer name
+    rpc FindLayer(LayerFindLayerRequest) returns (LayerFindLayerResponse);
+
+    // Get the frames that match the FrameSearchCriteria
+    rpc GetFrames(LayerGetFramesRequest) returns (LayerGetFramesResponse);
+
+    // Finds a layer in a pending job from its unique ID
+    rpc GetLayer(LayerGetLayerRequest) returns (LayerGetLayerResponse);
+
+    // Return a list of the limits on the specified layer.
+    rpc GetLimits(LayerGetLimitsRequest) returns (LayerGetLimitsResponse);
+
+    // Return a list of all registered output paths.
+    rpc GetOutputPaths(LayerGetOutputPathsRequest) returns (LayerGetOutputPathsResponse);
+
+    // Returns a list of dependencies that this frame depends on.
+    rpc GetWhatThisDependsOn(LayerGetWhatThisDependsOnRequest) returns (LayerGetWhatThisDependsOnResponse);
+
+    // Returns a list of dependencies setup to depend on this layer.  This includes all types of depends, not just
+    // OnLayer dependencies.  This will not return any frame on frame dependencies that are part of a FrameByFrame
+    // depend.  It will return a single element that represents the entire dependency.
+    rpc GetWhatDependsOnThis(LayerGetWhatDependsOnThisRequest) returns (LayerGetWhatDependsOnThisResponse);
+
+    // Kill Frames associated with this layer
+    rpc KillFrames(LayerKillFramesRequest) returns (LayerKillFramesResponse);
+
+    // Mark the frames of this layer done
+    rpc MarkdoneFrames(LayerMarkdoneFramesRequest) returns (LayerMarkdoneFramesResponse);
+
+    // Register an output with the given layer.  The output paths are sent in the opencue email.
+    rpc RegisterOutputPath(LayerRegisterOutputPathRequest) returns (LayerRegisterOutputPathResponse);
+
+    //Reorders the specified frame range on this job.
+    rpc ReorderFrames(LayerReorderFramesRequest) returns (LayerReorderFramesResponse);
+
+    // Retry the Frames of this Layer
+    rpc RetryFrames(LayerRetryFramesRequest) returns (LayerRetryFramesResponse);
+
+    // The maximum number of cores to run on a given frame within this layer.  Fractional core values are not allowed
+    // with this setting.
+    rpc SetMaxCores(LayerSetMaxCoresRequest) returns (LayerSetMaxCoresResponse);
+
+    // Set the Min Cores for this layer
+    rpc SetMinCores(LayerSetMinCoresRequest) returns (LayerSetMinCoresResponse);
+
+    // The maximum number of Gpu to run on a given frame within this layer.
+    rpc SetMaxGpus(LayerSetMaxGpusRequest) returns (LayerSetMaxGpusResponse);
+
+    // Set the Min Gpus for this layer
+    rpc SetMinGpus(LayerSetMinGpusRequest) returns (LayerSetMinGpusResponse);
+
+    // Set the Min gpu memory value for the layer
+    rpc SetMinGpuMemory(LayerSetMinGpuMemoryRequest) returns (LayerSetMinGpuMemoryResponse);
+
+    // [Deprecated] Set the Min gpu memory value for the layer
+    rpc SetMinGpu(LayerSetMinGpuRequest) returns (LayerSetMinGpuResponse);
+
+    // Set the Min Memory value for the layer
+    rpc SetMinMemory(LayerSetMinMemoryRequest) returns (LayerSetMinMemoryResponse);
+
+    // Set tags on the layer
+    rpc SetTags(LayerSetTagsRequest) returns (LayerSetTagsResponse);
+
+    // Set whether the layer is threadable or not
+    rpc SetThreadable(LayerSetThreadableRequest) returns (LayerSetThreadableResponse);
+
+    // Set whether the timeout for frames in the layer
+    rpc SetTimeout(LayerSetTimeoutRequest) returns (LayerSetTimeoutResponse);
+
+    // Set whether the LLU timeout for frames in the layer
+    rpc SetTimeoutLLU(LayerSetTimeoutLLURequest) returns (LayerSetTimeoutLLUResponse);
+
+    // Staggers the specified frame range.
+    rpc StaggerFrames(LayerStaggerFramesRequest) returns (LayerStaggerFramesResponse);
+}
+
+
+// -------- Enums --------]
+
+// Define the possible checkpoint states for a frame.
+enum CheckpointState {
+    DISABLED = 0;
+    ENABLED = 1;
+    COPYING = 2;
+    COMPLETE = 3;
+}
+
+// These frame exit status values are used to trigger special dispatcher behavior.  They are greater than 255
+// so they don't collide with any real exit status values used by applications running on the cue.
+enum FrameExitStatus {
+    // The frame was a success
+    SUCCESS = 0;
+    // The frame should be automatically retried
+    FAILED_LAUNCH = 256;
+    // Retries should not be incremented
+    SKIP_RETRY = 286;
+}
+
+// Defines the possible states of a frame.
+enum FrameState {
+    // Ok to be dispatched
+    WAITING = 0;
+    // Reserved to be dispatched
+    SETUP = 1;
+    // Running on a render proc
+    RUNNING = 2;
+    // Frame completed successfully
+    SUCCEEDED = 3;
+    // Frame is waiting on a dependency
+    DEPEND = 4;
+    // Frame is dead,which means it has died N times
+    DEAD = 5;
+    // Frame is eaten, acts like the frame has succeeded
+    EATEN = 6;
+    // Frame is checkpointing
+    CHECKPOINT = 7;
+}
+
+// Defines the possible states of a job.
+enum JobState {
+    // Job is running
+    PENDING = 0;
+    // The job has completed
+    FINISHED = 1;
+    // The job is in the process of starting up
+    STARTUP = 2;
+    // The job is in the process of shutting down
+    SHUTDOWN = 3;
+    // The job is a post job and is waiting to go pending
+    POSTED = 4;
+}
+
+// The LayerType determines the type of the layer. A proc will not run
+// frames from different layers UNLESS the layer type is PreProcess or
+// PostProcess.  This gives us the ability to run all the preprocesses
+// on one proc and all the post processes on one proc.
+// There is no specific dispatch order for layer types.  You will need
+// to setup dependencies.
+enum LayerType {
+    PRE = 0;
+    POST = 1;
+    RENDER = 2;
+    UTIL = 3;
+}
+
+//Used for reordering frames.
+enum Order {
+    // Moves frames to the lowest dispatch order
+    FIRST = 0;
+    // Moves frames to the last dispatch order
+    LAST = 1;
+    // Reverses the dispatch order
+    REVERSE = 2;
+}
+
+
+// -------- Primary Message Types --------]
+
+// Object to contain an override of the frame's display settings
+message FrameStateDisplayOverride {
+    FrameState state = 1;   // the FrameState to override
+    string text = 2;  // the text to use
+
+    message RGB {
+        int32 red = 1;
+        int32 green = 2;
+        int32 blue = 3;
+    }
+    RGB color = 3; // RGB color to use e.g. 255,0,0
+}
+
+message FrameStateDisplayOverrideSeq {
+    repeated FrameStateDisplayOverride overrides = 1;
+}
+
+// FRAME ----
+message Frame {
+    string id = 1;
+    string name = 2;
+    string layer_name = 3;
+    int32 number = 4;
+    FrameState state = 5;
+    int32 retry_count = 6;
+    int32 exit_status = 7;
+    int32 dispatch_order = 8;
+    int32 start_time = 9;
+    int32 stop_time = 10;
+    int64 max_rss = 11;
+    int64 used_memory = 12;
+    int64 reserved_memory = 13;
+    int64 reserved_gpu_memory = 14;
+    string last_resource = 15;
+    CheckpointState checkpoint_state = 16;
+    int32 checkpoint_count = 17;
+    int32 total_core_time = 18;
+    int32 llu_time = 19;
+    int32 total_gpu_time = 20;
+    int64 max_gpu_memory = 21;
+    int64 used_gpu_memory = 22;
+    FrameStateDisplayOverride frame_state_display_override = 23;
+}
+
+// Object for frame searching
+message FrameSearchCriteria {
+    repeated string ids = 1;
+    repeated string frames = 2;
+    repeated string layers = 3;
+    FrameStateSeq states = 4;
+    string frame_range = 5;
+    string memory_range = 6;
+    string duration_range = 7;
+    int32 page = 8;
+    int32 limit = 9;
+    int32 change_date = 10;
+    int32 max_results = 11;
+    int32 offset = 12;
+    bool include_finished = 13;
+}
+
+// A sequence of Frames
+message FrameSeq {
+    repeated Frame frames = 1;
+}
+
+// A sequence of FrameStates
+message FrameStateSeq {
+    repeated FrameState frame_states = 1;
+}
+
+
+// A struct containing properties for all the elements of a frame that
+// can change except for the ID which is there for indexing purposes.
+message UpdatedFrame {
+    string id = 1;
+    FrameState state = 2;
+    int32 retry_count = 3;
+    int32 exit_status = 4;
+    int32 start_time = 5;
+    int32 stop_time = 6;
+    int64 max_rss = 7;
+    int64 used_memory = 8;
+    string last_resource = 9;
+    int32 llu_time = 10;
+    int64 max_gpu_memory = 11;
+    int64 used_gpu_memory = 12;
+    FrameStateDisplayOverride frame_state_display_override = 13;
+}
+
+message UpdatedFrameSeq {
+    repeated UpdatedFrame updated_frames = 1;
+}
+
+
+// The result of an updated frame check.  The job state is included
+// so tools that are just monitoring frames can stop monitoring them
+// once the job state changes to Finished.
+message UpdatedFrameCheckResult {
+    JobState state = 1;
+    int32 server_time = 2;
+    UpdatedFrameSeq updated_frames = 3;
+}
+
+// GROUP ----
+message Group {
+    string id = 1;
+    string name = 2;
+    string department = 3;
+    int32 default_job_priority = 4;
+    float default_job_min_cores = 5;
+    float default_job_max_cores = 6;
+    float min_cores = 7;
+    float max_cores = 8;
+    int32 level = 9;
+    string parent_id = 10;
+    GroupStats group_stats = 11;
+    float default_job_min_gpus = 12;
+    float default_job_max_gpus = 13;
+    float min_gpus = 14;
+    float max_gpus = 15;
+}
+
+message GroupSeq {
+    repeated Group groups = 1;
+}
+
+message GroupStats {
+    int32 running_frames = 1;
+    int32 dead_frames = 2;
+    int32 depend_frames = 3;
+    int32 waiting_frames = 4;
+    int32 pending_jobs = 5;
+    float reserved_cores = 6;
+    float reserved_gpus = 7;
+}
+
+// JOB ----
+message Job {
+    string id = 1;
+    JobState state = 2;
+    string name = 3;
+    string shot = 4;
+    string show = 5;
+    string user = 6;
+    string group = 7;
+    string facility = 8;
+    string os = 9;
+    oneof uid_optional {
+        int32 uid = 10;
+    }
+    int32 priority = 11;
+    float min_cores = 12;
+    float max_cores = 13;
+    string log_dir = 14;
+    bool is_paused = 15;
+    bool has_comment = 16;
+    bool auto_eat = 17;
+    int32 start_time = 18;
+    int32 stop_time = 19;
+    JobStats job_stats = 20;
+    float min_gpus = 21;
+    float max_gpus = 22;
+    string loki_url = 23;
+}
+
+// Use to filter the job search.  Please note that by searching for non-pending jobs, the output is limited to 200 jobs
+message JobSearchCriteria {
+    repeated string ids = 1;
+    repeated string jobs = 2;
+    repeated string regex = 3;
+    repeated string substr = 4;
+    repeated string users = 5;
+    repeated string shots = 6;
+    repeated string shows = 7;
+    bool include_finished = 8;
+}
+
+message JobSeq {
+    repeated Job jobs = 1;
+}
+
+message JobStats {
+    int32 total_layers = 1;
+    int32 total_frames = 2;
+    int32 waiting_frames = 3;
+    int32 running_frames = 4;
+    int32 dead_frames = 5;
+    int32 eaten_frames = 6;
+    int32 depend_frames = 7;
+    int32 succeeded_frames = 8;
+    int32 pending_frames = 9;
+    int32 avg_frame_sec = 10;
+    int32 high_frame_sec = 11;
+    int32 avg_core_sec = 12;
+    int64 rendered_frame_count = 13;
+    int64 failed_frame_count = 14;
+    int64 remaining_core_sec = 15;
+    int64 total_core_sec = 16;
+    int64 rendered_core_sec = 17;
+    int64 failed_core_sec = 18;
+    int64 max_rss = 19;
+    float reserved_cores = 20;
+    int64 total_gpu_sec = 21;
+    int64 rendered_gpu_sec = 22;
+    int64 failed_gpu_sec = 23;
+    float reserved_gpus = 24;
+    int64 max_gpu_memory = 25;
+}
+
+// LAYER ----
+message Layer {
+    string id = 1;
+    string name = 2;
+    string range = 3;
+    repeated string tags = 4;
+    float min_cores = 5;
+    float max_cores = 6;
+    bool is_threadable = 7;
+    int64 min_memory = 8;
+    int64 min_gpu_memory = 9;
+    int32 chunk_size = 10;
+    int32 dispatch_order = 11;
+    LayerType type = 12;
+    // An array of services that are being run on all frames within this layer.
+    repeated string services = 13;
+    // True if the memory optimizer is enabled.  Disabling the optimizer will stop Cuebot from lowering memory.
+    bool memory_optimizer_enabled = 14;
+    LayerStats layer_stats = 15;
+    string parent_id = 16;
+    repeated string limits = 17;
+    int32 timeout = 18;
+    int32 timeout_llu = 19;
+    float min_gpus = 20;
+    float max_gpus = 21;
+    string command = 22;
+}
+
+message LayerSeq {
+    repeated Layer layers = 1;
+}
+
+message LayerStats {
+    int32 total_frames = 1;
+    int32 waiting_frames = 2;
+    int32 running_frames = 3;
+    int32 dead_frames = 4;
+    int32 eaten_frames = 5;
+    int32 depend_frames = 6;
+    int32 succeeded_frames = 7;
+    int32 pending_frames = 8;
+    int32 avg_frame_sec = 9;
+    int32 low_frame_sec = 10;
+    int32 high_frame_sec = 11;
+    int32 avg_core_sec = 12;
+    int64 rendered_frame_count = 13;
+    int64 failed_frame_count = 14;
+    int64 remaining_core_sec = 15;
+    int64 total_core_sec = 16;
+    int64 rendered_core_sec = 17;
+    int64 failed_core_sec = 18;
+    int64 max_rss = 19;
+    float reserved_cores = 20;
+    int64 total_gpu_sec = 21;
+    int64 rendered_gpu_sec = 22;
+    int64 failed_gpu_sec = 23;
+    float reserved_gpus = 24;
+    int64 max_gpu_memory = 25;
+}
+
+// NestedGroup ---
+message NestedGroup {
+    string id = 1;
+    string name = 2;
+    string department = 3;
+    int32 default_job_priority = 4;
+    float default_job_min_cores = 5;
+    float default_job_max_cores = 6;
+    float min_cores = 7;
+    float max_cores = 8;
+    int32 level = 9;
+    NestedGroup parent = 10;
+    NestedGroupSeq groups = 11;
+    repeated string jobs = 12;
+    GroupStats stats = 13;
+    float default_job_min_gpus = 14;
+    float default_job_max_gpus = 15;
+    float min_gpus = 16;
+    float max_gpus = 17;
+}
+
+message NestedGroupSeq {
+    repeated NestedGroup nested_groups = 1;
+}
+
+// NESTED JOB ----
+message NestedJob {
+    string id = 1;
+    JobState state = 2;
+    string name = 3;
+    string shot = 4;
+    string show = 5;
+    string user = 6;
+    string group = 7;
+    string facility = 8;
+    string os = 9;
+    oneof uid_optional {
+        int32 uid = 10;
+    }
+    int32 priority = 11;
+    float min_cores = 12;
+    float max_cores = 13;
+    string log_dir = 14;
+    bool is_paused = 15;
+    bool has_comment = 16;
+    bool auto_eat = 17;
+    int32 start_time = 18;
+    int32 stop_time = 19;
+    NestedGroup parent = 20;
+    JobStats stats = 21;
+    float min_gpus = 22;
+    float max_gpus = 23;
+}
+
+
+// -------- Requests & Responses --------]
+
+// FRAME ----
+// AddRenderPartition
+message FrameAddRenderPartitionRequest {
+    Frame frame = 1;
+    string host = 2;
+    int32 threads = 3;
+    int32 max_cores = 4;
+    int64 max_memory = 5;
+    int64 max_gpu_memory = 6;
+    string username = 7;
+    int32 max_gpus = 8;
+}
+
+message FrameAddRenderPartitionResponse {
+    renderPartition.RenderPartition render_partition = 1;
+}
+
+// CreateDependencyOnFrame
+message FrameCreateDependencyOnFrameRequest {
+    Frame frame = 1;
+    Frame depend_on_frame = 2;
+}
+
+message FrameCreateDependencyOnFrameResponse {
+    depend.Depend depend = 1;
+}
+
+// CreateDependencyOnJob
+message FrameCreateDependencyOnJobRequest {
+    Frame frame = 1;
+    Job job = 2;
+}
+
+message FrameCreateDependencyOnJobResponse {
+    depend.Depend depend = 1;
+}
+
+// CreateDependencyOnLayer
+message FrameCreateDependencyOnLayerRequest {
+    Frame frame = 1;
+    Layer layer = 2;
+}
+
+message FrameCreateDependencyOnLayerResponse {
+    depend.Depend depend = 1;
+}
+
+// DropDepends
+message FrameDropDependsRequest {
+    Frame frame = 1;
+    depend.DependTarget target = 2;
+}
+
+message FrameDropDependsResponse {} // Empty
+
+// Eat
+message FrameEatRequest {
+    Frame frame = 1;
+}
+
+message FrameEatResponse {} // Empty
+
+// FindFrame
+message FrameFindFrameRequest {
+    string job = 1;
+    string layer = 2;
+    int32 frame = 3;
+}
+
+message FrameFindFrameResponse {
+    Frame frame = 1;
+}
+
+// GetFrame
+message FrameGetFrameRequest {
+    string id = 1;
+}
+
+message FrameGetFrameResponse {
+    Frame frame = 1;
+}
+
+// GetFrames
+message FrameGetFramesRequest {
+    string job = 1;
+    job.FrameSearchCriteria r = 2;
+}
+
+message FrameGetFramesResponse {
+    FrameSeq frames = 1;
+}
+
+// GetWhatDependsOnThis
+message FrameGetWhatDependsOnThisRequest {
+    Frame frame = 1;
+}
+
+message FrameGetWhatDependsOnThisResponse {
+    depend.DependSeq depends = 1;
+}
+
+// GetWhatThisDependsOn
+message FrameGetWhatThisDependsOnRequest {
+    Frame frame = 1;
+}
+
+message FrameGetWhatThisDependsOnResponse {
+    depend.DependSeq depends = 1;
+}
+
+// Kill
+message FrameKillRequest {
+    Frame frame = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
+}
+
+message FrameKillResponse {} // Empty
+
+// MarkAsDepend
+message FrameMarkAsDependRequest {
+    Frame frame = 1;
+}
+
+message FrameMarkAsDependResponse {} // Empty
+
+// MarkAsWaiting
+message FrameMarkAsWaitingRequest {
+    Frame frame = 1;
+}
+
+message FrameMarkAsWaitingResponse {} // Empty
+
+// Retry
+message FrameRetryRequest {
+    Frame frame = 1;
+}
+
+message FrameRetryResponse {} // Empty
+
+// SetCheckpointState
+message FrameSetCheckpointStateRequest {
+    Frame frame = 1;
+    CheckpointState state = 2;
+}
+
+message FrameSetCheckpointStateResponse {} // Empty
+
+
+// GROUP ----
+// CreateSubGroup
+message GroupCreateSubGroupRequest {
+    Group group = 1;
+    string name = 2;
+}
+
+message GroupCreateSubGroupResponse {
+    Group group = 1;
+}
+
+// Delete
+message GroupDeleteRequest {
+    Group group = 1;
+}
+
+message GroupDeleteResponse {} // Empty
+
+// FindGroup
+message GroupFindGroupRequest {
+    string show = 1;
+    string name = 2;
+}
+
+message GroupFindGroupResponse {
+    Group group = 1;
+}
+
+// GetGroup
+message GroupGetGroupRequest {
+    string id = 1;
+}
+
+message GroupGetGroupResponse {
+    Group group = 1;
+}
+
+// GetGroups
+message GroupGetGroupsRequest {
+    Group group = 1;
+}
+
+message GroupGetGroupsResponse {
+    GroupSeq groups = 1;
+}
+
+// GetJobs
+message GroupGetJobsRequest {
+    Group group = 1;
+}
+
+message GroupGetJobsResponse {
+    JobSeq jobs = 1;
+}
+
+// ReparentGroups
+message GroupReparentGroupsRequest {
+    Group group = 1;
+    GroupSeq groups = 2;
+}
+
+message GroupReparentGroupsResponse {} // Empty
+
+// ReparentJobs
+message GroupReparentJobsRequest {
+    Group group = 1;
+    JobSeq jobs = 2;
+}
+
+message GroupReparentJobsResponse {} // Empty
+
+// SetDefJobMaxCores
+message GroupSetDefJobMaxCoresRequest {
+    Group group = 1;
+    float max_cores = 2;
+}
+
+message GroupSetDefJobMaxCoresResponse {} // Empty
+
+// SetDefJobMinCores
+message GroupSetDefJobMinCoresRequest {
+    Group group = 1;
+    float min_cores = 2;
+}
+
+message GroupSetDefJobMinCoresResponse {} // Empty
+
+// SetDefaultJobMaxGpus
+message GroupSetDefJobMaxGpusRequest {
+    Group group = 1;
+    int32 max_gpus = 2;
+}
+
+message GroupSetDefJobMaxGpusResponse {} // Empty
+
+// SetDefaultJobMinGpus
+message GroupSetDefJobMinGpusRequest {
+    Group group = 1;
+    int32 min_gpus = 2;
+}
+
+message GroupSetDefJobMinGpusResponse {} // Empty
+
+// SetDefJobPriority
+message GroupSetDefJobPriorityRequest {
+    Group group = 1;
+    int32 priority = 2;
+}
+
+message GroupSetDefJobPriorityResponse {} // Empty
+
+// SetDept
+message GroupSetDeptRequest {
+    Group group = 1;
+    string dept = 2;
+}
+
+message GroupSetDeptResponse {} // Empty
+
+// SetGroup
+message GroupSetGroupRequest {
+    Group group = 1;
+    Group parent_group = 2;
+}
+
+message GroupSetGroupResponse {} // Empty
+
+// SetMaxCores
+message GroupSetMaxCoresRequest {
+    Group group = 1;
+    float max_cores = 2;
+}
+
+message GroupSetMaxCoresResponse {} // Empty
+
+// SetMinCores
+message GroupSetMinCoresRequest {
+    Group group = 1;
+    float min_cores = 2;
+}
+
+message GroupSetMinCoresResponse {} // Empty
+
+// SetMaxGpus
+message GroupSetMaxGpusRequest {
+    Group group = 1;
+    int32 max_gpus = 2;
+}
+
+message GroupSetMaxGpusResponse {} // Empty
+
+// SetMinGpus
+message GroupSetMinGpusRequest {
+    Group group = 1;
+    int32 min_gpus = 2;
+}
+
+message GroupSetMinGpusResponse {} // Empty
+
+// SetName
+message GroupSetNameRequest {
+    Group group = 1;
+    string name = 2;
+}
+
+message GroupSetNameResponse {} // Empty
+
+// JOB ----
+// AddComment
+message JobAddCommentRequest {
+    Job job = 1;
+    comment.Comment new_comment = 2;
+}
+
+message JobAddCommentResponse {} // Empty
+
+// AddRenderPartition
+message JobAddRenderPartRequest {
+    Job job = 1;
+    string host = 2;
+    int32 threads = 3;
+    int32 max_cores = 4;
+    int64 max_memory = 5;
+    int64 max_gpu_memory = 6;
+    string username = 7;
+    int32 max_gpus = 8;
+}
+
+message JobAddRenderPartResponse {
+    renderPartition.RenderPartition render_partition = 1;
+}
+
+// AddSubscriber
+message JobAddSubscriberRequest {
+    Job job = 1;
+    string subscriber = 2;
+}
+
+message JobAddSubscriberResponse {}
+
+// CreateDependencyOnFrame
+message JobCreateDependencyOnFrameRequest {
+    Job job = 1;
+    Frame frame = 2;
+}
+
+message JobCreateDependencyOnFrameResponse {
+    depend.Depend depend = 1;
+}
+
+// CreateDependencyOnJob
+message JobCreateDependencyOnJobRequest {
+    Job job = 1;
+    Job on_job = 2;
+}
+
+message JobCreateDependencyOnJobResponse {
+    depend.Depend depend = 1;
+}
+
+// CreateDependencyOnLayer
+message JobCreateDependencyOnLayerRequest {
+    Job job = 1;
+    Layer layer = 2;
+}
+
+message JobCreateDependencyOnLayerResponse {
+    depend.Depend depend = 1;
+}
+
+// DropDepends
+message JobDropDependsRequest {
+    Job job = 1;
+    depend.DependTarget target = 2;
+}
+
+message JobDropDependsResponse {} // Empty
+
+// EatFrames
+message JobEatFramesRequest {
+    Job job = 1;
+    FrameSearchCriteria req = 2;
+}
+
+message JobEatFramesResponse {} // Empty
+
+// FindJob
+message JobFindJobRequest {
+    string name = 1;
+}
+
+message JobFindJobResponse {
+    Job job = 1;
+}
+
+// GetComments
+message JobGetCommentsRequest {
+    Job job = 1;
+}
+
+message JobGetCommentsResponse {
+    comment.CommentSeq comments = 1;
+}
+
+// GetCurrent
+message JobGetCurrentRequest {
+    Job job = 1;
+}
+
+message JobGetCurrentResponse {
+    Job job = 1;
+}
+
+// GetDepends
+message JobGetDependsRequest {
+    Job job = 1;
+}
+
+message JobGetDependsResponse {
+    depend.DependSeq depends = 1;
+}
+
+// GetFrames
+message JobGetFramesRequest {
+    Job job = 1;
+    FrameSearchCriteria req = 2;
+}
+
+message JobGetFramesResponse {
+    FrameSeq frames = 1;
+}
+
+// GetJob
+message JobGetJobRequest {
+    string id = 1;
+}
+
+message JobGetJobResponse {
+    Job job = 1;
+}
+
+// GetJobs
+message JobGetJobsRequest {
+    JobSearchCriteria r = 1;
+}
+
+message JobGetJobsResponse {
+    JobSeq jobs = 1;
+}
+
+// GetJobNames
+message JobGetJobNamesRequest {
+    job.JobSearchCriteria r = 1;
+}
+
+
+message JobGetJobNamesResponse {
+    repeated string names = 1;
+}
+
+// GetLayers
+message JobGetLayersRequest {
+    Job job = 1;
+}
+
+message JobGetLayersResponse {
+    LayerSeq layers = 1;
+}
+
+// GetUpdatedFrames
+message JobGetUpdatedFramesRequest {
+    Job job = 1;
+    int32 last_check = 2;
+    LayerSeq layer_filter = 3;
+}
+
+message JobGetUpdatedFramesResponse {
+    JobState state = 1;
+    int32 server_time = 2;
+    UpdatedFrameSeq updated_frames = 3;
+}
+
+// GetWhatDependsOnThis
+message JobGetWhatDependsOnThisRequest {
+    Job job = 1;
+}
+
+message JobGetWhatDependsOnThisResponse {
+    depend.DependSeq depends = 1;
+}
+
+//GetWhatThisDependsOn
+message JobGetWhatThisDependsOnRequest {
+    Job job = 1;
+}
+
+message JobGetWhatThisDependsOnResponse {
+    depend.DependSeq depends = 1;
+}
+
+// IsJobPending
+message JobIsJobPendingRequest {
+    string name = 1;
+}
+
+message JobIsJobPendingResponse {
+    bool value = 1;
+}
+
+// Kill
+message JobKillRequest {
+    Job job = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
+}
+
+message JobKillResponse {} // Empty
+
+// KillFrames
+message JobKillFramesRequest {
+    Job job = 1;
+    FrameSearchCriteria req = 2;
+    string username = 3;
+    string pid = 4;
+    string host_kill = 5;
+    string reason = 6;
+}
+
+message JobKillFramesResponse {} // Empty
+
+// LaunchSpec
+message JobLaunchSpecRequest {
+    string spec = 1;
+}
+
+message JobLaunchSpecResponse {
+    repeated string names = 1;
+}
+
+// LaunchSpecAndWait
+message JobLaunchSpecAndWaitRequest {
+    string spec = 1;
+}
+
+message JobLaunchSpecAndWaitResponse {
+    JobSeq jobs = 1;
+}
+
+//MarkAsWaiting
+message JobMarkAsWaitingRequest {
+    Job job = 1;
+    FrameSearchCriteria req = 2;
+}
+
+message JobMarkAsWaitingResponse {} // Empty
+
+// MarkDoneFrames
+message JobMarkDoneFramesRequest {
+    Job job = 1;
+    FrameSearchCriteria req = 2;
+}
+
+message JobMarkDoneFramesResponse {} // Empty
+
+// Pause
+message JobPauseRequest {
+    Job job = 1;
+}
+
+message JobPauseResponse {} // Empty
+
+// ReorderFrames
+message JobReorderFramesRequest {
+    Job job = 1;
+    string range = 2;
+    Order order = 3;
+}
+
+message JobReorderFramesResponse {} // Empty
+
+// Resume
+message JobResumeRequest {
+    Job job = 1;
+}
+
+message JobResumeResponse {} // Empty
+
+// RetryFrames
+message JobRetryFramesRequest {
+    Job job = 1;
+    FrameSearchCriteria req = 2;
+}
+
+message JobRetryFramesResponse {} // Empty
+
+// RunFilters
+message JobRunFiltersRequest {
+    Job job = 1;
+}
+
+message JobRunFiltersResponse {} // Empty
+
+// SetAutoEat
+message JobSetAutoEatRequest {
+    Job job = 1;
+    bool value = 2;
+}
+
+message JobSetAutoEatResponse {} // Empty
+
+// SetGroup
+message JobSetGroupRequest {
+    Job job = 1;
+    string group_id = 2;
+}
+
+message JobSetGroupResponse {} // Empty
+
+// SetMaxCores
+message JobSetMaxCoresRequest {
+    Job job = 1;
+    float val = 2;
+}
+
+message JobSetMaxCoresResponse {} // Empty
+
+// SetMaxGpus
+message JobSetMaxGpusRequest {
+    Job job = 1;
+    int32 val = 2;
+}
+
+message JobSetMaxGpusResponse {} // Empty
+
+// SetMaxRetries
+message JobSetMaxRetriesRequest {
+    Job job = 1;
+    int32 max_retries = 2;
+}
+
+message JobSetMaxRetriesResponse {} // Empty
+
+// SetMinCores
+message JobSetMinCoresRequest {
+    Job job = 1;
+    float val = 2;
+}
+
+message JobSetMinCoresResponse {} // Empty
+
+// SetMinGpus
+message JobSetMinGpusRequest {
+    Job job = 1;
+    int32 val = 2;
+}
+
+message JobSetMinGpusResponse {} // Empty
+
+// SetPriority
+message JobSetPriorityRequest {
+    Job job = 1;
+    int32 val = 2;
+}
+
+message JobSetPriorityResponse {} // Empty
+
+// ShutdownIfCompleted
+message JobShutdownIfCompletedRequest {
+    Job job = 1;
+}
+
+message JobShutdownIfCompletedResponse {} // Empty
+
+// StaggerFrames
+message JobStaggerFramesRequest {
+    Job job = 1;
+    string range = 2;
+    int32 stagger = 3;
+}
+
+message JobStaggerFramesResponse {} // Empty
+
+
+// LAYER ----
+// AddLimit
+message LayerAddLimitRequest {
+    Layer layer = 1;
+    string limit_id = 2;
+}
+
+message LayerAddLimitResponse {} // Empty
+
+// AddRenderPartion
+message LayerAddRenderPartitionRequest {
+    Layer layer = 1;
+    string host = 2;
+    int32 threads = 3;
+    int32 max_cores = 4;
+    int64 max_memory = 5;
+    int64 max_gpu_memory = 6;
+    string username = 7;
+    int32 max_gpus = 8;
+}
+
+message LayerAddRenderPartitionResponse {
+    renderPartition.RenderPartition render_partition = 1;
+}
+
+// CreateDependencyOnFrame
+message LayerCreateDependOnFrameRequest {
+    Layer layer = 1;
+    Frame frame = 2;
+}
+
+message LayerCreateDependOnFrameResponse {
+    depend.Depend depend = 1;
+}
+
+// CreateDependencyOnJob
+message LayerCreateDependOnJobRequest {
+    Layer layer = 1;
+    Job job = 2;
+}
+
+message LayerCreateDependOnJobResponse {
+    depend.Depend depend = 1;
+}
+
+// CreateDependencyOnLayer
+message LayerCreateDependOnLayerRequest {
+    Layer layer = 1;
+    Layer depend_on_layer = 2;
+}
+
+message LayerCreateDependOnLayerResponse {
+    depend.Depend depend = 1;
+}
+
+// CreateFrameByFrameDependency
+message LayerCreateFrameByFrameDependRequest {
+    Layer layer = 1;
+    Layer depend_layer = 2;
+    bool any_frame = 3;
+}
+
+message LayerCreateFrameByFrameDependResponse {
+    depend.Depend depend = 1;
+}
+
+// DropDepends
+message LayerDropDependsRequest {
+    Layer layer = 1;
+    depend.DependTarget target = 2;
+}
+
+message LayerDropDependsResponse {} // Empty
+
+// DropLimit
+message LayerDropLimitRequest {
+    Layer layer = 1;
+    string limit_id = 2;
+}
+
+message LayerDropLimitResponse {} // Empty
+
+// EatFrames
+message LayerEatFramesRequest {
+    Layer layer = 1;
+}
+
+message LayerEatFramesResponse {} // Empty
+
+// EnableMemoryOptimizer
+message LayerEnableMemoryOptimizerRequest {
+    Layer layer = 1;
+    bool value = 2;
+}
+
+message LayerEnableMemoryOptimizerResponse {} // Empty
+
+// FindLayer
+message LayerFindLayerRequest {
+    string job = 1;
+    string layer = 2;
+}
+
+message LayerFindLayerResponse {
+    Layer layer = 1;
+}
+
+// GetFrames
+message LayerGetFramesRequest {
+    Layer layer = 1;
+    FrameSearchCriteria s = 2;
+}
+
+message LayerGetFramesResponse {
+    FrameSeq frames = 1;
+}
+
+// GetLayer
+message LayerGetLayerRequest {
+    string id = 1;
+}
+
+message LayerGetLayerResponse {
+    Layer layer = 1;
+}
+
+// GetLayer
+message LayerGetLimitsRequest {
+    Layer layer = 1;
+}
+
+message LayerGetLimitsResponse {
+    repeated limit.Limit limits = 1;
+}
+
+// GetOutputPaths
+message LayerGetOutputPathsRequest {
+    Layer layer = 1;
+}
+
+message LayerGetOutputPathsResponse {
+    repeated string output_paths = 1;
+}
+
+// GetWhatDependsOnThis
+message LayerGetWhatDependsOnThisRequest {
+    Layer layer = 1;
+}
+
+message LayerGetWhatDependsOnThisResponse {
+    depend.DependSeq depends = 1;
+}
+
+// GetWhatThisDependsOn
+message LayerGetWhatThisDependsOnRequest {
+    Layer layer = 1;
+}
+
+message LayerGetWhatThisDependsOnResponse {
+    depend.DependSeq depends = 1;
+}
+
+// KillFrames
+message LayerKillFramesRequest {
+    Layer layer = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
+}
+
+message LayerKillFramesResponse {} // Empty
+
+// MarkdoneFrames
+message LayerMarkdoneFramesRequest {
+    Layer layer = 1;
+}
+
+message LayerMarkdoneFramesResponse {} // Empty
+
+// RetryFrames
+message LayerRetryFramesRequest {
+    Layer layer = 1;
+}
+
+message LayerRetryFramesResponse {} // Empty
+
+// RegisterOutputPath
+message LayerRegisterOutputPathRequest {
+    Layer layer = 1;
+    string spec = 2;
+}
+
+message LayerRegisterOutputPathResponse {} // Empty
+
+// ReorderFrames
+message LayerReorderFramesRequest {
+    Layer layer = 1;
+    string range = 2;
+    Order order = 3;
+}
+
+message LayerReorderFramesResponse {} // Empty
+
+// SetMaxCores
+message LayerSetMaxCoresRequest {
+    Layer layer = 1;
+    float cores = 2;
+}
+
+message LayerSetMaxCoresResponse {} // Empty
+
+// SetMinCores
+message LayerSetMinCoresRequest {
+    Layer layer = 1;
+    float cores = 2;
+}
+
+message LayerSetMinCoresResponse {} // Empty
+
+// [Deprecated] SetMinGpu
+message LayerSetMinGpuRequest {
+    Layer layer = 1 [deprecated=true];
+    int64 gpu = 2 [deprecated=true];
+}
+
+// [Deprecated]
+message LayerSetMinGpuResponse {} // Empty
+
+// SetMaxGpus
+message LayerSetMaxGpusRequest {
+    Layer layer = 1;
+    int32 max_gpus = 2;
+}
+
+message LayerSetMaxGpusResponse {} // Empty
+
+// SetMinGpus
+message LayerSetMinGpusRequest {
+    Layer layer = 1;
+    int32 min_gpus = 2;
+}
+
+message LayerSetMinGpusResponse {} // Empty
+
+// SetMinGpuMemory
+message LayerSetMinGpuMemoryRequest {
+    Layer layer = 1;
+    int64 gpu_memory = 2;
+}
+
+message LayerSetMinGpuMemoryResponse {} // Empty
+
+// SetMinMemory
+message LayerSetMinMemoryRequest {
+    Layer layer = 1;
+    int64 memory = 2;
+}
+
+message LayerSetMinMemoryResponse {} // Empty
+
+// SetTags
+message LayerSetTagsRequest {
+    Layer layer = 1;
+    repeated string tags = 2;
+}
+
+message LayerSetTagsResponse {} // Empty
+
+// SetThreadable
+message LayerSetThreadableRequest {
+    Layer layer = 1;
+    bool threadable = 2;
+}
+
+message LayerSetThreadableResponse {} // Empty
+
+// SetTimeout
+message LayerSetTimeoutRequest {
+    Layer layer = 1;
+    int32 timeout = 2;
+}
+
+message LayerSetTimeoutResponse {} // Empty
+
+// SetTimeoutLLU
+message LayerSetTimeoutLLURequest {
+    Layer layer = 1;
+    int32 timeout_llu = 2;
+}
+
+message LayerSetTimeoutLLUResponse {} // Empty
+
+
+// StaggerFrames
+message LayerStaggerFramesRequest {
+    Layer layer = 1;
+    string range = 2;
+    int32 stagger = 3;
+}
+
+message LayerStaggerFramesResponse {} // Empty
+
+
+message FrameStateDisplayOverrideRequest {
+  Frame frame = 1;
+  FrameStateDisplayOverride override = 2;
+}
+
+message FrameStateDisplayOverrideResponse {} //Empty
+
+message GetFrameStateDisplayOverridesRequest {
+  Frame frame = 1;
+}
+
+message GetFrameStateDisplayOverridesResponse {
+  FrameStateDisplayOverrideSeq overrides = 1;
+}

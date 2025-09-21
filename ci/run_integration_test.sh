@@ -254,11 +254,23 @@ main() {
     log INFO "$(docker compose version)"
 
     log INFO "Building Cuebot image..."
-#    docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
+    docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
+    if [[ ! -e "${OPENCUE_PROTO_PACKAGE_PATH}" ]]; then
+      rm -rf proto/dist/*.*
+      python -m build proto
+      OPENCUE_PROTO_PACKAGE_PATH=$(ls -1 proto/dist/*.tar.gz)
+      export OPENCUE_PROTO_PACKAGE_PATH
+    fi
+    if [[ ! -e "${OPENCUE_RQD_PACKAGE_PATH}" ]]; then
+      rm -rf rqd/dist/*.*
+      python -m build rqd
+      OPENCUE_RQD_PACKAGE_PATH=$(ls -1 rqd/dist/*.tar.gz)
+      export OPENCUE_RQD_PACKAGE_PATH
+    fi
     log INFO "Building RQD image..."
-    docker build -t opencue/rqd -f rqd/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd.log"
-    log INFO "Building RQD Blender image..."
-    docker build -t opencue/blender -f samples/rqd/blender/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd-blender.log"
+    docker build --build-arg OPENCUE_PROTO_PACKAGE_PATH="${OPENCUE_PROTO_PACKAGE_PATH}" \
+           --build-arg OPENCUE_RQD_PACKAGE_PATH="${OPENCUE_RQD_PACKAGE_PATH}" \
+           -t opencue/rqd -f rqd/Dockerfile . &>"${TEST_LOGS}/docker-build-rqd.log"
 
     log INFO "Starting Docker compose..."
     docker compose up &>"${DOCKER_COMPOSE_LOG}" &
@@ -278,7 +290,7 @@ main() {
     create_and_activate_venv
     log INFO "Installing OpenCue Python libraries..."
     sandbox/install-client-sources.sh
-    log INFO "Testing pycue library..."£
+    log INFO "Testing pycue library..."
     test_pycue
     log INFO "Testing cueadmin..."
     test_cueadmin

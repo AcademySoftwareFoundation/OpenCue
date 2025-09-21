@@ -29,8 +29,6 @@ import time
 import uuid
 import yaml
 
-import six
-
 import FileSequence
 
 import outline.constants
@@ -78,7 +76,7 @@ def load_outline(path):
     ext = os.path.splitext(path)
     if ext[1] == ".yaml" or path.find("cue_archive") != -1:
         with open(path, encoding='utf-8') as file_object:
-            ol = yaml.load(file_object, Loader=yaml.FullLoader)
+            ol = yaml.load(file_object, Loader=yaml.Loader)
         Outline.current = ol
         if not isinstance(ol, Outline):
             raise outline.exception.OutlineException("The file %s did not produce "
@@ -107,9 +105,7 @@ def load_json(json_str):
 
     def decode_layer(layer):
         """
-        Python 2.5.1 doesn't accept unicode strings as keyword
-        arguments in class constructors.  For this reason, they
-        must be converted to byte strings.
+        Converts keys to strings to ensure compatibility with Python 3
         """
         result = {}
         for k, v in layer.items():
@@ -747,11 +743,11 @@ class Outline(object):
             logger.warning(
                 "Overwriting outline env var: %s, from %s to %s", key, self.__env[key], value)
 
-        if not isinstance(key, six.string_types):
+        if not isinstance(key, str):
             raise outline.exception.OutlineException(
                 "Invalid key type for env var: %s" % type(key))
 
-        if not isinstance(value, six.string_types):
+        if not isinstance(value, str):
             raise outline.exception.OutlineException(
                 "Invalid value type for env var: %s" % type(value))
 

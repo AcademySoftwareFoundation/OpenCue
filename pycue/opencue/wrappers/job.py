@@ -20,9 +20,9 @@ import os
 import platform
 import time
 
+from opencue_proto import comment_pb2
+from opencue_proto import job_pb2
 from opencue import Cuebot
-from opencue.compiled_proto import comment_pb2
-from opencue.compiled_proto import job_pb2
 import opencue.api
 import opencue.search
 import opencue.wrappers.comment
@@ -814,6 +814,13 @@ class Job(object):
         self.stub.ShutdownIfCompleted(job_pb2.JobShutdownIfCompletedRequest(job=self.data),
                                       timeout=Cuebot.Timeout)
 
+    def lokiURL(self):
+        """Returns url for loki server on the job
+
+        :rtype: str
+        :return: Return URL of loki server of the job
+        """
+        return self.data.loki_url
 
 class NestedJob(Job):
     """This class contains information and actions related to a nested job."""

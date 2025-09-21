@@ -41,6 +41,8 @@ import cuegui.MenuActions
 import cuegui.Style
 import cuegui.Utils
 
+from cuegui.cueguiplugin import loader as plugin_loader
+
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -88,7 +90,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     """Tree widget to display a list of monitored jobs."""
 
     __loadMine = True
-    __groupDependent = True
+    __groupByMode = "Clear"  # Options: "Clear", "Dependent", "Show-Shot", "Show-Shot-Username"
     view_object = QtCore.Signal(object)
 
     def __init__(self, parent):
@@ -180,6 +182,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__dependentJobs = {}
         self._dependent_items = {}
         self.__reverseDependents = {}
+        self.__groupItems = {}  # For Show-Shot and Show-Shot-Username grouping
+        self.__groupExpansionState = {}  # Track expansion state of group items
+        self.local_plugin_saved_values = {}
         # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
@@ -249,15 +254,19 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__menuActions.jobs().viewComments([job])
 
     def startDrag(self, dropActions):
+        """Triggers a drag event"""
         cuegui.Utils.startDrag(self, dropActions, self.selectedObjects())
 
     def dragEnterEvent(self, event):
+        """Enter Drag event"""
         cuegui.Utils.dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
+        """Move Drag Event"""
         cuegui.Utils.dragMoveEvent(event)
 
     def dropEvent(self, event):
+        """Drop Drag Event"""
         for job_name in cuegui.Utils.dropEvent(event):
             self.addJob(job_name)
 
@@ -267,12 +276,25 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @type  value: boolean or QtCore.Qt.Checked or QtCore.Qt.Unchecked"""
         self.__loadMine = (value is True or value == QtCore.Qt.Checked)
 
-    def setGroupDependent(self, value):
-        """Enables or disables the auto grouping of the dependent jobs
-        @param value: New groupDependent state
-        @type  value: boolean or QtCore.Qt.Checked or QtCore.Qt.Unchecked"""
-        self.__groupDependent = (value is True or value == QtCore.Qt.Checked)
-        self.updateRequest()
+    def setGroupBy(self, mode):
+        """Sets the grouping mode for jobs
+        @param mode: Grouping mode ("Clear", "Dependent", "Show-Shot", "Show-Shot-Username")
+        @type  mode: str"""
+        if mode in ["Clear", "Dependent", "Show-Shot", "Show-Shot-Username"]:
+            old_mode = self.__groupByMode
+            self.__groupByMode = mode
+
+            # If we have existing jobs, regroup them
+            if self._items and old_mode != mode:
+                current_jobs = {}
+                for proxy, item in list(self._items.items()):
+                    current_jobs[proxy] = item.rpcObject
+
+                # Process update with new grouping
+                if current_jobs:
+                    self._processUpdate(None, current_jobs)
+
+            self.updateRequest()
 
     def addJob(self, job, timestamp=None, loading_from_config=False):
         """Adds a job to the list. With locking"
@@ -287,7 +309,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             if newJobObj:
                 jobKey = cuegui.Utils.getObjectKey(newJobObj)
-                if not self.__groupDependent:
+                if self.__groupByMode == "Clear":
                     self.__load[jobKey] = newJobObj
                     self.__jobTimeLoaded[jobKey] = timestamp if timestamp else time.time()
                 else:
@@ -390,6 +412,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 del self.__jobTimeLoaded[proxy]
         self.__dependentJobs.clear()
         self.__reverseDependents.clear()
+        self.__groupItems.clear()
         cuegui.AbstractTreeWidget.AbstractTreeWidget.removeAllItems(self)
 
     def removeFinishedItems(self):
@@ -405,6 +428,46 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Sets the colored jobs that were saved"""
         self.__userColors = pickle.loads(bytes(state))
 
+    def getLocalPluginNumFrames(self):
+        """Gets default values for the Local Plugin fields"""
+        return self.local_plugin_saved_values.get("num_frames", 1)
+
+    def setLocalPluginNumFrames(self, value):
+        """Sets default values for the Local Plugin fields"""
+        self.local_plugin_saved_values["num_frames"] = value
+
+    def getLocalPluginNumThreads(self):
+        """Gets default values for the Local Plugin fields"""
+        return self.local_plugin_saved_values.get("num_threads", 1)
+
+    def setLocalPluginNumThreads(self, value):
+        """Sets default values for the Local Plugin fields"""
+        self.local_plugin_saved_values["num_threads"] = value
+
+    def getLocalPluginNumGpus(self):
+        """Gets default values for the Local Plugin fields"""
+        return self.local_plugin_saved_values.get("num_gpus", 0)
+
+    def setLocalPluginNumGpus(self, value):
+        """Sets default values for the LocalPlugin fields"""
+        self.local_plugin_saved_values["num_gpus"] = value
+
+    def getLocalPluginNumMem(self):
+        """Gets default values for the LocalPlugin fields"""
+        return self.local_plugin_saved_values.get("num_mem", 4)
+
+    def setLocalPluginNumMem(self, value):
+        """Sets default values for the LocalPlugin fields"""
+        self.local_plugin_saved_values["num_mem"] = value
+
+    def getLocalNumGpuMem(self):
+        """Gets default values for the LocalPlugin fields"""
+        return self.local_plugin_saved_values.get("num_gpu_mem", 0)
+
+    def setLocalNumGpuMem(self, value):
+        """Sets default values for the LocalPlugin fields"""
+        self.local_plugin_saved_values["num_gpu_mem"] = value
+
     def contextMenuEvent(self, e):
         """Creates a context menu when an item is right clicked.
         @param e: Right click QEvent
@@ -418,20 +481,24 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self.__menuActions.jobs().addAction(menu, "unmonitor")
         self.__menuActions.jobs().addAction(menu, "view")
+        self.__menuActions.jobs().addAction(menu, "copyJobName")
         self.__menuActions.jobs().addAction(menu, "emailArtist")
         self.__menuActions.jobs().addAction(menu, "requestCores")
         self.__menuActions.jobs().addAction(menu, "subscribeToJob")
         self.__menuActions.jobs().addAction(menu, "viewComments")
 
-        if bool(int(self.app.settings.value("AllowDeeding", 0))):
+        if int(self.app.settings.value("DisableDeeding", 0)) == 0:
             self.__menuActions.jobs().addAction(menu, "useLocalCores")
 
         if cuegui.Constants.OUTPUT_VIEWERS:
             for viewer in cuegui.Constants.OUTPUT_VIEWERS:
-                menu.addAction(viewer['action_text'],
-                               functools.partial(cuegui.Utils.viewOutput,
-                                                 __selectedObjects,
-                                                 viewer['action_text']))
+                action = QtWidgets.QAction(QtGui.QIcon(":viewoutput.png"),
+                                           viewer['action_text'], self)
+                action.triggered.connect(
+                    functools.partial(cuegui.Utils.viewOutput,
+                                    __selectedObjects,
+                                    viewer['action_text']))
+                menu.addAction(action)
 
         depend_menu = QtWidgets.QMenu("&Dependencies",self)
         self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
@@ -446,6 +513,20 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.jobs().addAction(color_menu, "setUserColor2")
         self.__menuActions.jobs().addAction(color_menu, "setUserColor3")
         self.__menuActions.jobs().addAction(color_menu, "setUserColor4")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor5")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor6")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor7")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor8")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor9")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor10")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor11")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor12")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor13")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor14")
+        self.__menuActions.jobs().addAction(color_menu, "setUserColor15")
+        color_menu.addSeparator()
+        self.__menuActions.jobs().addAction(color_menu, "setUserCustomColor")
+        color_menu.addSeparator()
         self.__menuActions.jobs().addAction(color_menu, "clearUserColor")
         menu.addMenu(color_menu)
 
@@ -470,6 +551,38 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu.addSeparator()
         self.__menuActions.jobs().addAction(menu, "kill")
 
+        # Dynamically add plugin actions for right-clicked job(s)
+        if __selectedObjects:
+            # Group plugins by type so we don’t load duplicates
+            plugins_by_type = {}
+            for job in __selectedObjects:
+                for plugin in plugin_loader.load_plugins(job=job, parent=self):
+                    plugins_by_type[type(plugin)] = plugin
+
+            for plugin_type, plugin_instance in plugins_by_type.items():
+                if plugin_type.__name__ == "Plugin":
+                    # Create single action that calls all subprocesses
+                    # pylint: disable=protected-access
+                    label = plugin_instance._config.get("menu_label", "Unnamed Plugin")
+                    action = QtWidgets.QAction(label, self)
+
+                    def make_launch_all(ptype):
+                        def launch_all():
+                            for job in __selectedObjects:
+                                plugin = ptype(job=job, parent=self)
+                                plugin.launch_subprocess()
+                        return launch_all
+
+                    action.triggered.connect(make_launch_all(plugin_type))
+                    menu.addSeparator()
+                    menu.addAction(action)
+                else:
+                    actions = plugin_instance.menuAction()
+                    if actions:
+                        menu.addSeparator()
+                        for action in actions:
+                            menu.addAction(action)
+
         menu.exec_(e.globalPos())
 
     def actionRemoveSelectedItems(self):
@@ -486,6 +599,62 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             elif color is not None:
                 self.__userColors[objectKey] = color
             item.setUserColor(color)
+
+    def actionSetUserCustomColor(self):
+        """Opens a dialog to set a custom RGB color for selected items"""
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Set Custom Color (RGB)")
+        dialog.setModal(True)
+
+        layout = QtWidgets.QFormLayout()
+
+        # Create spinboxes for RGB values
+        r_spinbox = QtWidgets.QSpinBox()
+        r_spinbox.setRange(0, 255)
+        r_spinbox.setValue(100)
+
+        g_spinbox = QtWidgets.QSpinBox()
+        g_spinbox.setRange(0, 255)
+        g_spinbox.setValue(100)
+
+        b_spinbox = QtWidgets.QSpinBox()
+        b_spinbox.setRange(0, 255)
+        b_spinbox.setValue(100)
+
+        # Color preview label
+        preview_label = QtWidgets.QLabel()
+        preview_label.setMinimumSize(200, 50)
+        preview_label.setFrameStyle(QtWidgets.QFrame.Box)
+        preview_label.setStyleSheet("background-color: rgb(100, 100, 100);")
+
+        def update_preview():
+            r = r_spinbox.value()
+            g = g_spinbox.value()
+            b = b_spinbox.value()
+            preview_label.setStyleSheet(f"background-color: rgb({r}, {g}, {b});")
+
+        r_spinbox.valueChanged.connect(update_preview)
+        g_spinbox.valueChanged.connect(update_preview)
+        b_spinbox.valueChanged.connect(update_preview)
+
+        layout.addRow("Red (0-255):", r_spinbox)
+        layout.addRow("Green (0-255):", g_spinbox)
+        layout.addRow("Blue (0-255):", b_spinbox)
+        layout.addRow("Preview:", preview_label)
+
+        # Buttons
+        button_box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        layout.addRow(button_box)
+
+        dialog.setLayout(layout)
+
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            # Create custom color from RGB values
+            custom_color = QtGui.QColor(r_spinbox.value(), g_spinbox.value(), b_spinbox.value())
+            self.actionSetUserColor(custom_color)
 
     def actionEatSelectedItems(self):
         """Eats all dead frames for selected jobs"""
@@ -552,11 +721,15 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         monitored_proxies.remove(proxy)
 
             if monitored_proxies:
-                for job in opencue.api.getJobs(
-                        id=[proxyId.split('.')[-1] for proxyId in monitored_proxies],
-                        include_finished=True):
-                    objectKey = cuegui.Utils.getObjectKey(job)
-                    jobs[objectKey] = job
+                # Batch fetch jobs to improve performance
+                batch_size = 50  # Fetch in smaller batches to avoid timeouts
+                for i in range(0, len(monitored_proxies), batch_size):
+                    batch = monitored_proxies[i:i + batch_size]
+                    for job in opencue.api.getJobs(
+                            id=[proxyId.split('.')[-1] for proxyId in batch],
+                            include_finished=True):
+                        objectKey = cuegui.Utils.getObjectKey(job)
+                        jobs[objectKey] = job
 
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
@@ -589,16 +762,92 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             for item in self._dependent_items.values():
                 self.__jobTimeLoaded[cuegui.Utils.getObjectKey(item.rpcObject)] = item.created
 
+            # Save expansion state of current group items
+            for group_key, group_item in self.__groupItems.items():
+                self.__groupExpansionState[group_key] = group_item.isExpanded()
+
             self._items = {}
+            self.__groupItems = {}
             self.clear()
 
             for proxy, job in iteritems(rpcObjects):
-                self._items[proxy] = JobWidgetItem(job,
-                                                   self.invisibleRootItem(),
-                                                   self.__jobTimeLoaded.get(proxy, None))
-                if proxy in self.__userColors:
-                    self._items[proxy].setUserColor(self.__userColors[proxy])
-                if self.__groupDependent:
+                # Handle different grouping modes
+                if self.__groupByMode == "Clear":
+                    # No grouping - flat list
+                    self._items[proxy] = JobWidgetItem(job,
+                                                       self.invisibleRootItem(),
+                                                       self.__jobTimeLoaded.get(proxy, None))
+
+                elif self.__groupByMode == "Show-Shot":
+                    # Group by show-shot
+                    job_name = job.data.name
+                    parts = job_name.split("-")
+                    if len(parts) >= 2:
+                        show = parts[0]
+                        shot = parts[1]
+                        group_key = f"{show}-{shot}"
+
+                        # Create or get group parent item
+                        if group_key not in self.__groupItems:
+                            self.__groupItems[group_key] = GroupWidgetItem(
+                                group_key, self.invisibleRootItem(), "show-shot")
+                            # Restore expansion state or default to expanded
+                            is_expanded = self.__groupExpansionState.get(group_key, True)
+                            self.__groupItems[group_key].setExpanded(is_expanded)
+
+                        # Add job as child of group
+                        self._items[proxy] = JobWidgetItem(job,
+                                                          self.__groupItems[group_key],
+                                                          self.__jobTimeLoaded.get(proxy, None))
+                    else:
+                        # Can't parse show-shot, add to root
+                        self._items[proxy] = JobWidgetItem(job,
+                                                          self.invisibleRootItem(),
+                                                          self.__jobTimeLoaded.get(proxy, None))
+
+                elif self.__groupByMode == "Show-Shot-Username":
+                    # Group by show-shot-username
+                    job_name = job.data.name
+                    parts = job_name.split("-")
+                    if len(parts) >= 2:
+                        show = parts[0]
+                        shot = parts[1]
+                        # Extract username from the rest
+                        if len(parts) >= 3:
+                            rest = "-".join(parts[2:])
+                            username_parts = rest.split("_")
+                            if username_parts:
+                                username = username_parts[0]
+                            else:
+                                username = "unknown"
+                        else:
+                            username = "unknown"
+
+                        group_key = f"{show}-{shot}-{username}"
+
+                        # Create or get group parent item
+                        if group_key not in self.__groupItems:
+                            self.__groupItems[group_key] = GroupWidgetItem(
+                                group_key, self.invisibleRootItem(), "show-shot-username")
+                            # Restore expansion state or default to expanded
+                            is_expanded = self.__groupExpansionState.get(group_key, True)
+                            self.__groupItems[group_key].setExpanded(is_expanded)
+
+                        # Add job as child of group
+                        self._items[proxy] = JobWidgetItem(job,
+                                                          self.__groupItems[group_key],
+                                                          self.__jobTimeLoaded.get(proxy, None))
+                    else:
+                        # Can't parse show-shot-username, add to root
+                        self._items[proxy] = JobWidgetItem(job,
+                                                          self.invisibleRootItem(),
+                                                          self.__jobTimeLoaded.get(proxy, None))
+
+                elif self.__groupByMode == "Dependent":
+                    # Dependent mode - group by job dependencies
+                    self._items[proxy] = JobWidgetItem(job,
+                                                       self.invisibleRootItem(),
+                                                       self.__jobTimeLoaded.get(proxy, None))
                     dependent_jobs = self.__dependentJobs.get(proxy, [])
                     for djob in dependent_jobs:
                         item = JobWidgetItem(djob,
@@ -609,6 +858,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         if dkey in self.__userColors:
                             self._dependent_items[dkey].setUserColor(
                                            self.__userColors[dkey])
+
+                if proxy in self.__userColors:
+                    self._items[proxy].setUserColor(self.__userColors[proxy])
 
             self.verticalScrollBar().setRange(scrolled, len(rpcObjects.keys()) - scrolled)
             list(map(lambda key: self._items[key].setSelected(True),
@@ -714,3 +966,41 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             return self.rpcObject.isPaused()
 
         return cuegui.Constants.QVARIANT_NULL
+
+
+class GroupWidgetItem(QtWidgets.QTreeWidgetItem):
+    """Represents a group parent item in the JobMonitorTree."""
+
+    def __init__(self, group_name, parent, group_type):
+        """Initialize a group widget item.
+        @param group_name: The name of the group (e.g., "show-shot" or "show-shot-username")
+        @param parent: The parent item
+        @param group_type: Type of grouping ("show-shot" or "show-shot-username")
+        """
+        QtWidgets.QTreeWidgetItem.__init__(self, parent)
+        self.group_name = group_name
+        self.group_type = group_type
+        self.setText(0, group_name)
+
+        # Set bold font for group headers
+        font = QtGui.QFont()
+        font.setBold(True)
+        self.setFont(0, font)
+
+        # Make group headers non-selectable
+        self.setFlags(self.flags() & ~QtCore.Qt.ItemIsSelectable)
+
+    def data(self, col, role):
+        """Return data for the given column and role."""
+        if role == QtCore.Qt.DisplayRole:
+            if col == 0:
+                return self.group_name
+            return ""
+
+        if role == QtCore.Qt.FontRole and col == 0:
+            font = QtGui.QFont()
+            font.setBold(True)
+            return font
+
+        # Let the parent handle all other roles (including selection colors)
+        return QtWidgets.QTreeWidgetItem.data(self, col, role)

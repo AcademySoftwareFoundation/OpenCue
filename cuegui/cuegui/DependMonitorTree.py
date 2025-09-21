@@ -24,7 +24,7 @@ from builtins import map
 
 from qtpy import QtWidgets
 
-from opencue.compiled_proto import depend_pb2
+from opencue_proto import depend_pb2
 import opencue.exception
 
 import cuegui.AbstractTreeWidget
@@ -59,6 +59,11 @@ class DependMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.rpcObject = rpcObject
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
+
+        # Set columns to auto-resize to content
+        header = self.header()
+        for col in range(self.columnCount()):
+            header.setSectionResizeMode(col, QtWidgets.QHeaderView.ResizeToContents)
 
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)

@@ -1,0 +1,182 @@
+
+syntax = "proto3";
+package report;
+
+option java_package = "com.imageworks.spcue.grpc.report";
+option java_multiple_files = true;
+
+option go_package = "opencue_gateway/gen/go";
+
+import "host.proto";
+
+// Interface to handle RQD pings.
+
+
+// -------- Services --------]
+
+service RqdReportInterface {
+    // Send in when RQD starts up to announce new idle procs to the cue.
+    rpc ReportRqdStartup(RqdReportRqdStartupRequest) returns (RqdReportRqdStartupResponse);
+
+    // Reports in a running frame
+    rpc ReportRunningFrameCompletion(RqdReportRunningFrameCompletionRequest) returns (RqdReportRunningFrameCompletionResponse);
+
+    // An incremental status report sent by RQD
+    rpc ReportStatus(RqdReportStatusRequest) returns (RqdReportStatusResponse);
+}
+
+
+// -------- Primary Message Types --------]
+
+message BootReport {
+    RenderHost host = 1;
+    CoreDetail core_info = 2;
+}
+
+message CoreDetail {
+    int32 total_cores = 1;
+    int32 idle_cores = 2;
+    int32 locked_cores = 3;
+    int32 booked_cores = 4;
+    //map <key: physid, value: coreid>
+    // This field is deprecated as it should have never been part of the API. It was previously used
+    // solely on rqd's end to store a map of reserved cores, but the data was never communicated to
+    // the server.
+    map<int64, CoreId> reserved_cores = 5 [deprecated=true];
+}
+
+message CoreId {
+    repeated int64 coreid = 1;
+
+}
+
+message FrameCompleteReport {
+    RenderHost host = 1;
+    RunningFrameInfo frame = 2;
+    int32 exit_status = 3;
+    int32 exit_signal = 4;
+    int32 run_time = 5;
+}
+
+message HostReport {
+    RenderHost host = 1;
+    repeated RunningFrameInfo frames = 2;
+    CoreDetail core_info = 3;
+}
+
+message RenderHost {
+    string name = 1;
+    bool nimby_enabled = 2; // NIMBY is enabled when the machine is in run level 5.
+    bool nimby_locked = 3; // if nimby has locked the host due to user activity
+    string facility= 4; // The name of the facility that the host is in
+    int32 num_procs = 5; // the number of physical procs on this machine
+    int32 cores_per_proc = 6; // the number of cores per proc
+    int64 total_swap = 7; // the total size of the swap in kB
+    int64 total_mem = 8; // the total size of the main memory pool in kB
+    int64 total_mcp = 9; // the total size of MCP in kB
+    int64 free_swap = 10; // the current amount of free swap in kB
+    int64 free_mem = 11; // the current amount of free memory in kB
+    int64 free_mcp = 12; // the current amount of free MCP in kB
+    int32 load = 13; // the current load on the proc
+    int32 boot_time = 14; // the time the proc was booted
+    repeated string tags = 15; // an array of default tags that are added to the host record
+    host.HardwareState state = 16; // hardware state for the host
+    map<string, string> attributes = 17; // additional data can be provided about the host
+    int32 num_gpus = 18; // the number of physical GPU's
+    int64 free_gpu_mem = 19; // the current amount of free gpu memory in kB
+    int64 total_gpu_mem = 20; // the total size of gpu memory in kB
+};
+
+message RunningFrameInfo {
+    string resource_id = 1;
+    string job_id = 2;
+    string job_name = 3;
+    string frame_id = 4;
+    string frame_name = 5;
+    string layer_id = 6;
+    int32 num_cores = 7;
+    int64 start_time = 8;
+    int64 max_rss = 9; // kB
+    int64 rss = 10; // kB
+    int64 max_vsize = 11; // kB
+    int64 vsize = 12; // kB
+    map<string, string> attributes = 13; //additional data can be provided about the running frame
+    int64 llu_time = 14;
+    int32 num_gpus = 15;
+    int64 max_used_gpu_memory = 16; // kB
+    int64 used_gpu_memory = 17; // kB
+    ChildrenProcStats children = 18; //additional data about the running frame's child processes
+    int64 used_swap_memory = 19; // kB
+};
+
+message ChildrenProcStats {
+    repeated ProcStats children = 2;
+}
+message ProcStats {
+    Stat stat = 1;
+    Statm statm = 2;
+    Status status = 3;
+    string cmdline = 4;
+    string start_time = 5;
+}
+
+message Stat {
+    int64 rss = 1;
+    int64 vsize = 2;
+    string state = 3;
+    string name = 4;
+    string pid = 5;
+}
+
+message Statm {
+    int64 rss = 1;
+    int64 size = 2;
+}
+
+message Status {
+    int64 vrss = 1;
+    int64 vsize = 2;
+}
+
+// -------- Requests & Responses --------]
+
+message ChildrenProcStatsRequest {
+    string frame_id = 1;
+    repeated ProcStats children = 2;
+}
+
+message ChildrenProcStatsResponse {
+    ChildrenProcStats children_procs_stats = 1;
+}
+
+message ProcStatsRequest {
+    string name = 1;
+    string stat = 2;
+    string statm = 3;
+    string cmdline = 4;
+    string state = 5;
+    string frame_id = 6;
+}
+
+message ProcStatsResponse {
+    ProcStats proc_stats = 1;
+}
+
+// ReportRqdStartup
+message RqdReportRqdStartupRequest {
+    BootReport boot_report = 1;
+}
+
+message RqdReportRqdStartupResponse {} // Empty
+
+// ReportRunningFrameCompletion
+message RqdReportRunningFrameCompletionRequest {
+    FrameCompleteReport frame_complete_report = 1;
+}
+message RqdReportRunningFrameCompletionResponse {} // Empty
+
+// ReportStatus
+message RqdReportStatusRequest {
+    HostReport host_report = 1;
+}
+message RqdReportStatusResponse {} // Empty

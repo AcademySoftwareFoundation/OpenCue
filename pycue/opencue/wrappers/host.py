@@ -20,14 +20,15 @@ import time
 from builtins import input
 import grpc
 
+from opencue_proto import comment_pb2
+from opencue_proto import host_pb2
 from opencue import Cuebot
 from opencue import util
 from opencue import search
-from opencue.compiled_proto import comment_pb2
-from opencue.compiled_proto import host_pb2
 import opencue.wrappers.comment
 # pylint: disable=cyclic-import
 import opencue.wrappers.proc
+import opencue.wrappers.render_partition
 
 
 class Host(object):
@@ -67,12 +68,16 @@ class Host(object):
 
     def lock(self):
         """Locks the host so that it no longer accepts new frames"""
+        # Update the cached lock_state.
+        self.data.lock_state = self.LockState.LOCKED
         self.stub.Lock(host_pb2.HostLockRequest(host=self.data), timeout=Cuebot.Timeout)
 
     def unlock(self):
         """Unlocks the host.
 
         Cancels any actions that were waiting for all running frames to finish."""
+        # Update the cached lock_state.
+        self.data.lock_state = self.LockState.OPEN
         self.stub.Unlock(host_pb2.HostUnlockRequest(host=self.data), timeout=Cuebot.Timeout)
 
     def delete(self):
@@ -109,8 +114,8 @@ class Host(object):
         """
         response = self.stub.GetRenderPartitions(host_pb2.HostGetRenderPartitionsRequest(
             host=self.data), timeout=Cuebot.Timeout)
-        partitionSeq = response.render_partitions
-        return partitionSeq.render_partitions
+        return [opencue.wrappers.render_partition.RenderPartition(p)
+            for p in response.render_partitions.render_partitions]
 
     def rebootWhenIdle(self):
         """Sets the machine to reboot once idle.
@@ -129,6 +134,10 @@ class Host(object):
         :type  tags: list<str>
         :param tags: The tags to add
         """
+        # Filter out duplicates
+        tags = [item for item in tags if item not in self.data.tags]
+        # Update the cached tags.
+        self.data.tags.extend(tags)
         self.stub.AddTags(host_pb2.HostAddTagsRequest(host=self.data, tags=tags),
                           timeout=Cuebot.Timeout)
 

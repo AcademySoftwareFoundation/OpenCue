@@ -1,0 +1,820 @@
+
+syntax = "proto3";
+package host;
+
+option java_package = "com.imageworks.spcue.grpc.host";
+option java_multiple_files = true;
+
+import "comment.proto";
+import "criterion.proto";
+import "job.proto";
+import "renderPartition.proto";
+
+option go_package = "opencue_gateway/gen/go";
+
+// -------- Services --------]
+
+service DeedInterface {
+    // Remove the deed
+    rpc Delete(DeedDeleteRequest) returns (DeedDeleteResponse);
+
+    // Returns the full host for these settings.
+    rpc GetHost(DeedGetHostRequest) returns (DeedGetHostResponse);
+
+    // Returns the owner for these settings.
+    rpc GetOwner(DeedGetOwnerRequest) returns (DeedGetOwnerResponse);
+}
+
+service HostInterface {
+    // Add a comment on this host.
+    rpc AddComment(HostAddCommentRequest) returns (HostAddCommentResponse);
+
+    // Set a tag on this host.
+    rpc AddTags(HostAddTagsRequest) returns (HostAddTagsResponse);
+
+    // Delete host.
+    rpc Delete(HostDeleteRequest) returns (HostDeleteResponse);
+
+    // Find a host by its name
+    rpc FindHost(HostFindHostRequest) returns (HostFindHostResponse);
+
+    // Get the comments for this host.
+    rpc GetComments(HostGetCommentsRequest) returns (HostGetCommentsResponse);
+
+    // Return the deed for this host.
+    rpc GetDeed(HostGetDeedRequest) returns (HostGetDeedResponse);
+
+    // Return a host by its id
+    rpc GetHost(HostGetHostRequest) returns (HostGetHostResponse);
+
+    // Search for a number of hosts
+    rpc GetHosts(HostGetHostsRequest) returns (HostGetHostsResponse);
+
+    // Return the host whiteboard
+    rpc GetHostWhiteboard(HostGetHostWhiteboardRequest) returns (HostGetHostWhiteboardResponse);
+
+    // Get the owner settings of this particular host.
+    rpc GetOwner(HostGetOwnerRequest) returns (HostGetOwnerResponse);
+
+    // Returns the list of proc resources allocated from this host.
+    rpc GetProcs(HostGetProcsRequest) returns (HostGetProcsResponse);
+
+    // Return any render partitions that are setup on this host.
+    rpc GetRenderPartitions(HostGetRenderPartitionsRequest) returns (HostGetRenderPartitionsResponse);
+
+    // Locks the host.  Its possible we'll need to pass in a show name here in the future
+    rpc Lock(HostLockRequest) returns (HostLockResponse);
+
+    // Issues an immediate reboot.
+    rpc Reboot(HostRebootRequest) returns (HostRebootResponse);
+
+    // Sets the reboot when idle state, nothing has to be locked to set this. When the host pings in idle a reboot
+    // command is sent to the host and the host will be put into the Rebooting state.  If any locks are set they will
+    // be removed upon reboot.
+    rpc RebootWhenIdle(HostRebootWhenIdleRequest) returns (HostRebootWhenIdleResponse);
+
+    // Redirect the given procs to the specified job.
+    rpc RedirectToJob(HostRedirectToJobRequest) returns (HostRedirectToJobResponse);
+
+    // Remove a tag from this host.
+    rpc RemoveTags(HostRemoveTagsRequest) returns (HostRemoveTagsResponse);
+
+    // Rename tag.
+    rpc RenameTag(HostRenameTagRequest) returns (HostRenameTagResponse);
+
+    // Assign a host to an allocation.
+    rpc SetAllocation(HostSetAllocationRequest) returns (HostSetAllocationResponse);
+
+    // Manually set the hardware state for the host.  The hardware state may be changed automatically if the host pings
+    // in.  If the hardware state is set to "Reimage", the state will not automatically change with a host ping, and
+    // must be manually set back to Up.
+    rpc SetHardwareState(HostSetHardwareStateRequest) returns (HostSetHardwareStateResponse);
+
+    // Set the name of the host operating system.
+    rpc SetOs(HostSetOsRequest) returns (HostSetOsResponse);
+
+    // Changes the host's [ThreadMode]
+    rpc SetThreadMode(HostSetThreadModeRequest) returns (HostSetThreadModeResponse);
+
+    // Unlocks the host for booking if the proc is in the Locked state. You cannot unlock a NimbyLocked proc.
+    rpc Unlock(HostUnlockRequest) returns (HostUnlockResponse);
+}
+
+service OwnerInterface {
+    // Deletes the owner record.
+    rpc Delete(OwnerDeleteRequest) returns (OwnerDeleteResponse);
+
+    // Get a list of all deeds this owner has.
+    rpc GetDeeds(OwnerGetDeedsRequest) returns (OwnerGetDeedsResponse);
+
+    // Get a list of all hosts this owner is responsible for.
+    rpc GetHosts(OwnerGetHostsRequest) returns (OwnerGetHostsResponse);
+
+    // Return an Owner record by name, id, or email.
+    rpc GetOwner(OwnerGetOwnerRequest) returns (OwnerGetOwnerResponse);
+
+    //Sets the owners show.
+    rpc SetShow(OwnerSetShowRequest) returns (OwnerSetShowResponse);
+
+    // Set the hosts new owner settings.  Any host may have an owner, not just desktops.  This allows direct control of
+    // the cores.  By default hosts have no owner settings.
+    rpc TakeOwnership(OwnerTakeOwnershipRequest) returns (OwnerTakeOwnershipResponse);
+}
+
+service ProcInterface {
+    // Clears the redirect off of the proc so it dispatches naturally.
+    rpc ClearRedirect(ProcClearRedirectRequest) returns (ProcClearRedirectResponse);
+
+    // Returns the [Frame] running on the [Proc]
+    rpc GetFrame(ProcGetFrameRequest) returns (ProcGetFrameResponse);
+
+    // Returns the [Host] this [Proc] was allocated from.
+    rpc GetHost(ProcGetHostRequest) returns (ProcGetHostResponse);
+
+    // Returns the [Job] the [Proc] has been assigned to.
+    rpc GetJob(ProcGetJobRequest) returns (ProcGetJobResponse);
+
+    // Returns the [Layer] the [Proc] has been assigned to.
+    rpc GetLayer(ProcGetLayerRequest) returns (ProcGetLayerResponse);
+
+    // Return a list of procs matching the search
+    rpc GetProcs(ProcGetProcsRequest) returns (ProcGetProcsResponse);
+
+    // Sends a kill signal to the running process.
+    rpc Kill(ProcKillRequest) returns (ProcKillResponse);
+
+    // Unbooks and redriects the proc to the specified group.  Optionally kills the proc immediately.  Will overwrite an
+    // existing redirect. Return true if the redirect was a success. The redirect would fail in the event that the
+    // specified group does not have a suitable frame for the proc.
+    rpc RedirectToGroup(ProcRedirectToGroupRequest) returns (ProcRedirectToGroupResponse);
+
+    // Unbooks and redriects the proc to the specified job.  Optionally kills the proc immediately.  Will overwrite an
+    // existing redirect. Return true if the redirect was a success. The redirect would fail in the event th
+    rpc RedirectToJob(ProcRedirectToJobRequest) returns (ProcRedirectToJobResponse);
+
+    // Unbooks this [Proc].  Unbooking means the [Proc] will automatically seek out a new [Job] when the current
+    // [Frame] is complete.
+    rpc Unbook(ProcUnbookRequest) returns (ProcUnbookResponse);
+
+    //Unbooks procs that match the ProcSearchCriteria.  This request can span jobs, shows, allocations, hosts etc.
+    // Set kill to true if the running frames should immediately be killed.
+    rpc UnbookProcs(ProcUnbookProcsRequest) returns (ProcUnbookProcsResponse);
+
+    // Unbooks procs that match the ProcSearchCriteria and books them on the specified group, assuming the group has
+    // layers that can take the procs. If the kill boolean is set to true, the operation happens immediately. If false,
+    // the proc will move after it finishes its current frame.
+    rpc UnbookToGroup(ProcUnbookToGroupRequest) returns (ProcUnbookToGroupResponse);
+
+    // Unbooks procs that match the ProcSearchCriteria and books them on the specified list of jobs, assuming those jobs
+    // have layers that can take the procs. If the kill boolean is set to true, the operation happens immediately. If
+    // false, the proc will move after it finishes its current frame.
+    rpc UnbookToJob(ProcUnbookToJobRequest) returns (ProcUnbookToJobResponse);
+}
+
+
+// -------- Enums --------
+
+enum HardwareState {
+    UP = 0;
+    DOWN = 1;
+    REBOOTING = 2;
+    REBOOT_WHEN_IDLE = 3;
+    REPAIR = 4;
+}
+
+enum HostTagType {
+    MANUAL = 0;
+    HARDWARE = 1;
+    ALLOC = 2;
+    HOSTNAME = 3;
+}
+
+enum LockState {
+    OPEN = 0;
+    LOCKED = 1;
+    NIMBY_LOCKED = 2;
+}
+
+// Proc redirects can have two different types of destinations, jobs and groups.
+enum RedirectType {
+    JOB_REDIRECT = 0;
+    GROUP_REDIRECT = 1;
+}
+
+// Defines the possible states for a core or proc
+enum RunState {
+    // Entity is idle, which means it can be booked.
+    IDLE = 0;
+    // Entity is booked, which means its in use on a render proc
+    BOOKED = 1;
+}
+
+enum ThreadMode {
+    // Auto determines the number of threads to use automatically
+    // based on the amount of memory used by the frame.
+    AUTO = 0;
+
+    // All always uses all of the cores available on the proc.
+    // These hosts are always booked on threadable layers.
+    ALL = 1;
+
+    // All mode during the day, auto-mode at night.
+    VARIABLE = 2;
+}
+
+
+// -------- Primary Message Types --------]
+
+message Deed {
+    string id = 1;
+    string host = 2;
+    string owner = 3;
+    string show = 4;
+}
+
+message DeedSeq {
+    repeated Deed deeds = 1;
+}
+
+message HardwareStateSeq {
+    repeated HardwareState state = 1;
+}
+
+message LockStateSeq {
+    repeated LockState state = 1;
+}
+
+message Host {
+    string id = 1;
+    string name = 2;
+    string alloc_name = 3;
+    bool nimby_enabled = 4;
+    bool has_comment = 5;
+    float cores = 6;
+    float idle_cores = 7;
+    int64 memory = 8;
+    int64 idle_memory = 9;
+    int64 gpu_memory = 10;
+    int64 idle_gpu_memory = 11;
+    int64 total_swap = 12;
+    int64 total_memory = 13;
+    int64 total_gpu_memory = 14;
+    int64 total_mcp = 15;
+    int64 free_swap = 16;
+    int64 free_memory = 17;
+    int64 free_mcp = 18;
+    int64 free_gpu_memory = 19;
+    int32 load = 20;
+    int32 boot_time = 21;
+    int32 ping_time = 22;
+    string os = 23;
+    repeated string tags = 24;
+    HardwareState state = 25;
+    LockState lock_state = 26;
+    ThreadMode thread_mode = 27;
+    float gpus = 28;
+    float idle_gpus = 29;
+}
+
+message HostSearchCriteria {
+    repeated string hosts = 1;
+    repeated string regex = 2;
+    repeated string substr = 3;
+    repeated string ids = 4;
+    repeated string allocs = 5;
+    HardwareStateSeq states = 6;
+    LockStateSeq lock_states = 7;
+}
+
+message HostSeq {
+    repeated Host hosts = 1;
+}
+
+message NestedHost {
+    string id = 1;
+    string name = 2;
+    string alloc_name = 3;
+    bool nimby_enabled = 4;
+    bool has_comment = 5;
+    float cores = 6;
+    float idle_cores = 7;
+    int64 memory = 8;
+    int64 idle_memory = 9;
+    int64 gpu_memory = 10;
+    int64 idle_gpu_memory = 11;
+    int64 total_swap = 12;
+    int64 total_memory = 13;
+    int64 total_gpu_memory = 14;
+    int64 total_mcp = 15;
+    int64 free_swap = 16;
+    int64 free_memory = 17;
+    int64 free_mcp = 18;
+    int64 free_gpu_memory = 19;
+    int32 load = 20;
+    int32 boot_time = 21;
+    int32 ping_time = 22;
+    string os = 23;
+    repeated string tags = 24;
+    HardwareState state = 25;
+    LockState lock_state = 26;
+    ThreadMode thread_mode = 27;
+    NestedProcSeq procs = 28;
+    float gpus = 29;
+    float idle_gpus = 30;
+}
+
+message NestedHostSeq {
+    repeated NestedHost nested_hosts = 1;
+}
+
+message NestedProc {
+    string id = 1;
+    string name = 2;
+    string show_name = 3;
+    string job_name = 4;
+    string frame_name = 5;
+    string group_name = 6;
+    int32 ping_time = 7;
+    int32 bookedTime = 8;
+    int32 dispatch_time = 9;
+    int64 reserved_memory = 10;
+    int64 reserved_gpu_memory = 11;
+    int64 used_memory = 12;
+    float reserved_cores = 13;
+    bool unbooked = 14;
+    string log_path = 15;
+    string redirect_target = 16;
+    repeated string services = 17;
+    NestedHost parent = 18;
+    int64 used_gpu_memory = 19;
+    float reserved_gpus = 20;
+}
+
+message NestedProcSeq {
+    repeated NestedProc nested_procs = 1;
+}
+
+message Owner {
+    string id = 1;
+    string name = 2;
+    string show = 3;
+    int32 host_count = 4;
+}
+
+message Proc {
+    string id = 1;
+    string name = 2;
+    string show_name = 3;
+    string job_name = 4;
+    string frame_name = 5;
+    string group_name = 6;
+    int32 ping_time = 7;
+    int32 bookedTime = 8;
+    int32 dispatch_time = 9;
+    int64 reserved_memory = 10;
+    int64 reserved_gpu_memory = 11;
+    int64 used_memory = 12;
+    float reserved_cores = 13;
+    bool unbooked = 14;
+    string log_path = 15;
+    string redirect_target = 16;
+    repeated string services = 17;
+    int64 used_gpu_memory = 18;
+    float reserved_gpus = 19;
+    bytes child_processes = 20;
+}
+
+message ProcSearchCriteria {
+    // An array of host names to match.
+    repeated string hosts = 1;
+
+    // An array of job names to match.
+    repeated string jobs = 2;
+
+    // An array of layer names to match.
+    repeated string layers = 3;
+
+    // An array of show names to match.
+    repeated string shows = 4;
+
+    // An array of allocation names to match.
+    repeated string allocs = 5;
+
+    // A range of memory usage. Values are in KB.
+    repeated criterion.InRangeIntegerSearchCriterion memory_range = 6;
+
+    // Less than memory usage. Values are in KB.
+    repeated criterion.GreaterThanIntegerSearchCriterion memory_greater_than = 10;
+
+    // Greater than memory usage. Values are in KB.
+    repeated criterion.GreaterThanIntegerSearchCriterion memory_less_than = 11;
+
+    // A duration range. Values are in seconds.
+    repeated criterion.InRangeIntegerSearchCriterion duration_range = 7;
+
+    //The maximum number of results.
+    repeated int32 max_results = 8;
+
+    //The offset of the first result.
+    int32 first_result = 9;
+}
+
+message ProcSeq {
+    repeated Proc procs = 1;
+}
+
+
+// -------- Requests & Responses --------]
+
+// DEED ----
+// Delete
+message DeedDeleteRequest {
+    Deed deed = 1;
+}
+
+message DeedDeleteResponse {} // Empty
+
+// GetHost
+message DeedGetHostRequest {
+    Deed deed = 1;
+}
+
+message DeedGetHostResponse {
+    Host host = 1;
+}
+
+// GetOwner
+message DeedGetOwnerRequest {
+    Deed deed = 1;
+}
+
+message DeedGetOwnerResponse {
+    Owner owner = 1;
+}
+
+// HOST ----
+// AddComment
+message HostAddCommentRequest {
+    Host host = 1;
+    comment.Comment new_comment = 2;
+}
+
+message HostAddCommentResponse {} // Empty
+
+// AddTags
+message HostAddTagsRequest {
+    Host host = 1;
+    repeated string tags = 2;
+}
+
+message HostAddTagsResponse {} // Empty
+
+// Delete
+message HostDeleteRequest {
+    Host host = 1;
+}
+
+message HostDeleteResponse {} // Empty
+
+// FindHost
+message HostFindHostRequest {
+    string name = 1;
+}
+
+message HostFindHostResponse {
+    Host host = 1;
+}
+
+// GetComments
+message HostGetCommentsRequest {
+    Host host = 1;
+}
+
+message HostGetCommentsResponse {
+    comment.CommentSeq comments = 1;
+}
+
+// GetDeed
+message HostGetDeedRequest {
+    Host host = 1;
+}
+
+message HostGetDeedResponse {
+    Deed deed = 1;
+}
+
+// GetHost
+message HostGetHostRequest {
+    string id = 1;
+}
+
+message HostGetHostResponse {
+    Host host = 1;
+}
+
+// GetHosts
+message HostGetHostsRequest {
+    HostSearchCriteria r = 1;
+}
+
+message HostGetHostsResponse {
+    HostSeq hosts = 1;
+}
+
+// GetHostWhiteboard
+message HostGetHostWhiteboardRequest {} // Empty
+
+message HostGetHostWhiteboardResponse {
+    NestedHostSeq nested_hosts = 1;
+}
+
+// GetOwner
+message HostGetOwnerRequest {
+    Host host = 1;
+}
+
+message HostGetOwnerResponse {
+    Owner owner = 1;
+}
+
+// GetProcs
+message HostGetProcsRequest {
+    Host host = 1;
+}
+
+message HostGetProcsResponse {
+    ProcSeq procs = 1;
+}
+
+// GetRenderPartitions
+message HostGetRenderPartitionsRequest {
+    Host host = 1;
+}
+
+message HostGetRenderPartitionsResponse {
+    renderPartition.RenderPartitionSeq render_partitions = 1;
+}
+
+// Lock
+message HostLockRequest {
+    Host host = 1;
+}
+
+message HostLockResponse {} // Empty
+
+// Reboot
+message HostRebootRequest {
+    Host host = 1;
+}
+
+message HostRebootResponse {} // Empty
+
+// RebootWhenIdle
+message HostRebootWhenIdleRequest {
+    Host host = 1;
+}
+
+message HostRebootWhenIdleResponse {} // Empty
+
+// RedirectToJob
+message HostRedirectToJobRequest {
+    Host host = 1;
+    repeated string proc_names = 2;
+    string job_id = 3;
+}
+
+message HostRedirectToJobResponse {
+    bool value = 1;
+}
+
+// RemoveTags
+message HostRemoveTagsRequest {
+    Host host = 1;
+    repeated string tags = 2;
+}
+
+message HostRemoveTagsResponse {} // Empty
+
+// RenameTag
+message HostRenameTagRequest {
+    Host host = 1;
+    string old_tag = 2;
+    string new_tag = 3;
+}
+
+message HostRenameTagResponse {} // Empty
+
+// SetAllocation
+message HostSetAllocationRequest {
+    Host host = 1;
+    string allocation_id = 2;
+}
+
+message HostSetAllocationResponse {} // Empty
+
+// SetHardwareState
+message HostSetHardwareStateRequest {
+    Host host = 1;
+    HardwareState state = 2;
+}
+
+message  HostSetHardwareStateResponse {} // Empty
+
+// SetOs
+message HostSetOsRequest {
+    Host host = 1;
+    string os = 2;
+}
+
+message HostSetOsResponse {} // Empty
+
+// SetThreadMode
+message HostSetThreadModeRequest {
+    Host host = 1;
+    ThreadMode mode = 2;
+}
+
+message HostSetThreadModeResponse {} // Empty
+
+// Unlock
+message HostUnlockRequest {
+    Host host = 1;
+}
+
+message HostUnlockResponse {} // Empty
+
+
+// OWNER ----
+// Delete
+message OwnerDeleteRequest {
+    Owner owner = 1;
+}
+
+message OwnerDeleteResponse {} // Empty
+
+// GetDeeds
+message OwnerGetDeedsRequest {
+    Owner owner = 1;
+}
+
+message OwnerGetDeedsResponse {
+    DeedSeq deeds = 1;
+}
+
+// GetHosts
+message OwnerGetHostsRequest {
+    Owner owner = 1;
+}
+
+message OwnerGetHostsResponse {
+    HostSeq hosts = 1;
+}
+
+// GetOwner
+message OwnerGetOwnerRequest {
+    string name = 1;
+}
+
+message OwnerGetOwnerResponse {
+    Owner owner = 1;
+}
+
+// SetShow
+message OwnerSetShowRequest {
+    Owner owner = 1;
+    string show = 2;
+}
+
+message OwnerSetShowResponse {} // Empty
+
+// TakeOwnership
+message OwnerTakeOwnershipRequest {
+    Owner owner = 1;
+    string host = 2;
+}
+
+message OwnerTakeOwnershipResponse {} // Empty
+
+// PROC ---
+// ClearRedirect
+message ProcClearRedirectRequest {
+    Proc proc = 1;
+}
+
+message ProcClearRedirectResponse {
+    bool value = 1;
+}
+
+// GetFrame
+message ProcGetFrameRequest {
+    Proc proc = 1;
+}
+
+message ProcGetFrameResponse {
+    job.Frame frame = 1;
+}
+
+// GetHost
+message ProcGetHostRequest {
+    Proc proc = 1;
+}
+
+message ProcGetHostResponse {
+    Host host = 1;
+}
+
+// GetJob
+message ProcGetJobRequest {
+    Proc proc = 1;
+}
+
+message ProcGetJobResponse {
+    job.Job job = 1;
+}
+
+// GetLayer
+message ProcGetLayerRequest {
+    Proc proc = 1;
+}
+
+message ProcGetLayerResponse {
+    job.Layer layer = 1;
+}
+
+// GetProcs
+message ProcGetProcsRequest {
+    ProcSearchCriteria r = 1;
+}
+
+message ProcGetProcsResponse {
+    ProcSeq procs = 1;
+}
+
+// Kill
+message ProcKillRequest {
+    Proc proc = 1;
+}
+
+message ProcKillResponse {} // Empty
+
+// RedirectToGroup
+message ProcRedirectToGroupRequest {
+    Proc proc = 1;
+    string group_id = 2;
+    bool kill = 3;
+}
+
+message ProcRedirectToGroupResponse {
+    bool value = 1;
+}
+
+// RedirectToJob
+message ProcRedirectToJobRequest {
+    Proc proc = 1;
+    string job_id = 2;
+    bool kill = 3;
+}
+
+message ProcRedirectToJobResponse {
+    bool value = 1;
+}
+
+// Unbook
+message ProcUnbookRequest {
+    Proc proc = 1;
+    bool kill = 2;
+}
+
+message ProcUnbookResponse {} // Empty
+
+// UnbookProcs
+message ProcUnbookProcsRequest {
+    ProcSearchCriteria r = 1;
+    bool kill = 2;
+}
+
+message ProcUnbookProcsResponse {
+    int32 num_procs = 1;
+}
+
+// UnbookToJob
+message ProcUnbookToJobRequest {
+    ProcSearchCriteria r = 1;
+    job.JobSeq jobs = 2;
+    bool kill = 3;
+}
+
+message ProcUnbookToJobResponse {
+    int32 num_procs = 1;
+}
+
+// UnbookToGroup
+message ProcUnbookToGroupRequest {
+    ProcSearchCriteria r = 1;
+    job.Group group = 2;
+    bool kill = 3;
+}
+
+message ProcUnbookToGroupResponse {
+    int32 num_procs = 1;
+}

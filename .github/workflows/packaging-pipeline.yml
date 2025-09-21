@@ -3,20 +3,155 @@ name: OpenCue Packaging Pipeline
 # Trigger this pipeline on new commits to master.
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
+  build_opencue_packages:
+    name: Build Python Packages
+    runs-on: ubuntu-22.04
+    container: python:3.7
+    outputs:
+      opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
+      opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
+      opencue_pycue_path: ${{ steps.package_outputs.outputs.opencue_pycue_path }}
+      opencue_pyoutline_path: ${{ steps.package_outputs.outputs.opencue_pyoutline_path }}
+      opencue_cueadmin_path: ${{ steps.package_outputs.outputs.opencue_cueadmin_path }}
+      opencue_cueman_path: ${{ steps.package_outputs.outputs.opencue_cueman_path }}
+      opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
+      opencue_cuegui_path: ${{ steps.package_outputs.outputs.opencue_cuegui_path }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - uses: ./.github/actions/build-python-packages
+
+      - name: Gather package paths
+        id: package_outputs
+        run: |
+          echo "opencue_proto_path=$(find ./packages -name 'opencue_proto-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_rqd_path=$(find ./packages -name 'opencue_rqd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pycue_path=$(find ./packages -name 'opencue_pycue-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pyoutline_path=$(find ./packages -name 'opencue_pyoutline-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuesubmit_path=$(find ./packages -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueadmin_path=$(find ./packages -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+
+  build_rust_binaries:
+    name: Build Rust Binaries
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-22.04
+          - target: x86_64-apple-darwin
+            os: macos-13
+          - target: aarch64-apple-darwin
+            os: macos-13
+    runs-on: ${{ matrix.os }}
+    outputs:
+      rust_binaries_artifact: rust-binaries-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Mark repository as safe
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev protobuf-compiler
+          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
+            sudo apt-get install -y musl-tools
+          fi
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-13'
+        run: |
+          brew install protobuf
+
+      - name: Set build ID
+        run: |
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >> $GITHUB_ENV
+
+      - name: Build Rust binaries
+        run: |
+          cd rust
+          cargo build --release --target ${{ matrix.target }} --no-default-features
+
+      - name: Create release directory
+        run: mkdir -p release
+
+      - name: Copy binaries (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          cp rust/target/${{ matrix.target }}/release/openrqd release/openrqd-${{ env.BUILD_ID }}-${{ matrix.target }}
+
+      - name: Copy binaries (macOS)
+        if: matrix.os == 'macos-13'
+        run: |
+          cp rust/target/${{ matrix.target }}/release/openrqd release/openrqd-${{ env.BUILD_ID }}-${{ matrix.target }}
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-binaries-${{ matrix.target }}
+          path: release/
+
   integration_test:
+    needs: build_opencue_packages
     name: Run Integration Test
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Download Python packages artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
+
+      - name: Download Rust binaries artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rust-binaries-*
+          path: rust-binaries
+          merge-multiple: true
 
       - name: Run test
-        run: ci/run_integration_test.sh
+        run: |
+          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
+          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+          export OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}"
+          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
+          ci/run_integration_test.sh
 
       - name: Build blender addon
         run: ci/build_blender_addon.sh
@@ -28,17 +163,18 @@ jobs:
           path: ${GITHUB_WORKSPACE}/artifacts/OpenCue-Blender.zip
 
       - name: Archive log files
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
           name: test-logs
           path: /tmp/opencue-test/*.log
 
   build_components:
-    needs: integration_test
+    needs:
+      - integration_test
+      - build_opencue_packages
     strategy:
       matrix:
-        component: [cuebot, rqd]
         include:
           - component: cuebot
             NAME: Cuebot
@@ -46,31 +182,6 @@ jobs:
 
           - component: rqd
             NAME: RQD
-            ARTIFACTS: rqd-${BUILD_ID}-all.tar.gz
-
-          - component: cuegui
-            NAME: CueGUI
-            ARTIFACTS: cuegui-${BUILD_ID}-all.tar.gz
-
-          - component: pycue
-            NAME: PyCue
-            ARTIFACTS: pycue-${BUILD_ID}-all.tar.gz
-
-          - component: pyoutline
-            NAME: PyOutline
-            ARTIFACTS: pyoutline-${BUILD_ID}-all.tar.gz
-
-          - component: cuesubmit
-            NAME: CueSubmit
-            ARTIFACTS: cuesubmit-${BUILD_ID}-all.tar.gz
-
-          - component: cueadmin
-            NAME: CueAdmin
-            ARTIFACTS: cueadmin-${BUILD_ID}-all.tar.gz
-
-          - component: OpenCue_Blender
-            NAME: OpenCue-Blender
-            ARTIFACTS: OpenCue-Blender-${BUILD_ID}-all.zip
 
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
@@ -90,38 +201,50 @@ jobs:
           aws-region: ${{ secrets.S3_REGION }}
           role-to-assume: ${{ secrets.AWS_S3_ROLE }}
           role-duration-seconds: 1800
+        continue-on-error: true
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
+        continue-on-error: true
+
+      - name: Download Python packages artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
+
+      - name: Download Rust binaries artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rust-binaries-*
+          path: rust-binaries
+          merge-multiple: true
 
       - name: Set build ID
         run: |
           set -e
-          ci/generate_version_number.sh > VERSION
-          echo "Build ID: $(cat ./VERSION)"
-          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
+          echo "Build ID: $(ci/generate_version_number.py)"
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
 
       - name: Build Docker image
-        uses: docker/build-push-action@v3
-        with:
-          file: ${{ matrix.component }}/Dockerfile
-          tags: opencuebuild/${{ matrix.component }}:${{ env.BUILD_ID }}
-          context: .
-          push: true
-
-      - name: Build Blender addon Docker image
-        if: matrix.component == 'OpenCue_Blender'
-        uses: docker/build-push-action@v3
-        with:
-          file: cuesubmit/plugins/blender/${{ matrix.component }}/Dockerfile
-          tags: opencuebuild/${{ matrix.component }}:${{ env.BUILD_ID }}
-          context: .
-          push: true
+        run: |
+          image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
+          docker buildx build . -f ${{ matrix.component }}/Dockerfile -t ${image_name} \
+            --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}" \
+            --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}" \
+            --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}" \
+            --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}" \
+            --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}" \
+            --build-arg OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}" \
+            --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}" \
+            --build-arg BUILD_ID="${BUILD_ID}"
+          docker push ${image_name}
 
       - name: Extract Artifacts
+        if: ${{ matrix.ARTIFACTS }}
         run: |
           set -e
           image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
@@ -134,6 +257,8 @@ jobs:
           docker rm $container_id
 
       - name: Upload Artifacts
+        continue-on-error: true
+        if: ${{ matrix.ARTIFACTS }}
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
@@ -142,10 +267,40 @@ jobs:
             aws s3 cp ${GITHUB_WORKSPACE}/artifacts/${artifact} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           done
 
+  upload_python_packages_test:
+    needs:
+      - integration_test
+      - build_opencue_packages
+    runs-on: ubuntu-22.04
+    container: python:3.11
+    name: "Upload python packages to testpypi repo"
+    environment: testpypi
+    continue-on-error: true
+    env:
+      TWINE_USERNAME: "__token__"
+      TWINE_PASSWORD: "${{ secrets.TEST_PYPI_API_TOKEN }}"
+      TWINE_REPOSITORY: "testpypi"
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
+
+      - name: Upload packages
+        run: |
+          python3 -m pip install --upgrade twine
+          python3 -m twine upload --verbose --skip-existing packages/opencue_*
+
   create_other_artifacts:
     name: Create Other Build Artifacts
-    needs: build_components
+    needs:
+      - build_components
+      - build_opencue_packages
+      - build_rust_binaries
     runs-on: ubuntu-22.04
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -162,13 +317,14 @@ jobs:
           aws-region: ${{ secrets.S3_REGION }}
           role-to-assume: ${{ secrets.AWS_S3_ROLE }}
           role-duration-seconds: 1800
+        continue-on-error: true
 
       - name: Set build ID
         run: |
           set -e
-          ci/generate_version_number.sh > VERSION
-          echo "Build ID: $(cat ./VERSION)"
-          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
+          echo "Build ID: $(ci/generate_version_number.py)"
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >VERSION
 
       - name: Extract database schema
         run: |
@@ -180,15 +336,42 @@ jobs:
           mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           echo "{\"git_commit\": \"$(BUILD_SOURCEVERSION)\"}" | tee "${GITHUB_WORKSPACE}/artifacts/build_metadata.json"
 
+      - name: Download Python packages artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
+
+      - name: Download Rust binaries artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rust-binaries-*
+          path: rust-binaries
+          merge-multiple: true
+
       - name: Upload artifacts
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_proto_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_rqd_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_pycue_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cueman_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp ${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp LICENSE s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp VERSION s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp "${GITHUB_WORKSPACE}/artifacts/schema-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp "${GITHUB_WORKSPACE}/artifacts/seed_data-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp "${GITHUB_WORKSPACE}/artifacts/build_metadata.json" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          # Upload Rust binaries
+          for binary in rust-binaries/*; do
+            if [ -f "$binary" ]; then
+              aws s3 cp "$binary" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+            fi
+          done
 
       - name: Display artifacts
         env:

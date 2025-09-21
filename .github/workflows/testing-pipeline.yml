@@ -2,85 +2,265 @@ name: OpenCue Testing Pipeline
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
-  test_cuebot_2022:
-    name: Build Cuebot and Run Unit Tests (CY2022)
+  build_opencue_packages:
+    name: Build Python Packages
     runs-on: ubuntu-22.04
-    container:
-      image: aswf/ci-opencue:2022
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+    container: python:3.7
+    outputs:
+      opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
+      opencue_pycue_path: ${{ steps.package_outputs.outputs.opencue_pycue_path }}
+      opencue_pyoutline_path: ${{ steps.package_outputs.outputs.opencue_pyoutline_path }}
+      opencue_cueadmin_path: ${{ steps.package_outputs.outputs.opencue_cueadmin_path }}
+      opencue_cueman_path: ${{ steps.package_outputs.outputs.opencue_cueman_path }}
+      opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
+      opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
     steps:
-      - uses: actions/checkout@v3
-      - name: Build with Gradle
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Set build ID
         run: |
-          chown -R aswfuser:aswfgroup .
-          su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
+          set -e
+          echo "Build ID: $(ci/generate_version_number.py)"
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
+
+      - uses: ./.github/actions/build-python-packages
+
+      - name: Gather package paths
+        id: package_outputs
+        run: |
+          find . -name *.whl
+          echo "opencue_proto_path=$(find ./packages -name 'opencue_proto-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_rqd_path=$(find ./packages -name 'opencue_rqd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pycue_path=$(find ./packages -name 'opencue_pycue-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pyoutline_path=$(find ./packages -name 'opencue_pyoutline-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuesubmit_path=$(find ./packages -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueadmin_path=$(find ./packages -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+
+  install_opencue_packages:
+    needs: build_opencue_packages
+    name: Test installing packages with python ${{ matrix.python-version }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7", "3.9", "3.10", "3.11"]
+    container: python:${{ matrix.python-version }}
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
+
+      - name: Install package
+        run: |
+          set -e
+          pip install \
+              ${{ needs.build_opencue_packages.outputs.opencue_proto_path }} \
+              ${{ needs.build_opencue_packages.outputs.opencue_pycue_path }} \
+              ${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }} \
+              ${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }} \
+              ${{ needs.build_opencue_packages.outputs.opencue_cueman_path }} \
+              ${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }} \
+              ${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }} \
+              ${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}
+          python -c "import opencue_proto"
+          python -c "import opencue_proto.report_pb2"
+          python -c "import opencue_proto.report_pb2_grpc"
 
   test_python_2023:
+    needs: build_opencue_packages
     name: Run Python Unit Tests (CY2023)
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2023
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
+
       - name: Run Python Tests
-        run: ci/run_python_tests.sh
+        run: |
+          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
+          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+          export OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}"
+          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
+          ci/run_python_tests.sh
 
   test_cuebot_2023:
+    needs: build_opencue_packages
     name: Build Cuebot and Run Unit Tests (CY2023)
     runs-on: ubuntu-22.04
     container:
       image: aswf/ci-opencue:2023
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build with Gradle
         run: |
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
   test_python_2024:
+    needs: build_opencue_packages
     name: Run Python Unit Tests (CY2024)
     runs-on: ubuntu-22.04
     container: aswf/ci-opencue:2024
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
+
       - name: Run Python Tests
-        run: ci/run_python_tests.sh
+        run: |
+          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
+          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+          export OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}"
+          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
+          ci/run_python_tests.sh
 
   test_cuebot_2024:
+    needs: build_opencue_packages
     name: Build Cuebot and Run Unit Tests (CY2024)
     runs-on: ubuntu-22.04
     container:
       image: aswf/ci-opencue:2024
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build with Gradle
         run: |
           chown -R aswfuser:aswfgroup .
           su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
 
+  integration_test:
+    needs: build_opencue_packages
+    name: Run Integration Test
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
+
+      - name: Run test
+        run: |
+          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
+          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+          export OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}"
+          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
+          ci/run_integration_test.sh
+
+      - name: Archive log files
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: test-logs
+          path: /tmp/opencue-test/*.log
+
   lint_python:
+    needs: build_opencue_packages
     name: Lint Python Code
     runs-on: ubuntu-22.04
-    container: aswf/ci-opencue:2022
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+    container: aswf/ci-opencue:2024.1
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Download a single artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencue_packages
+          path: packages
+
+      - name: Set package vars from parent action
+        run: |
+          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
+          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
+          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
+          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
+          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
+          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
+          export OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}"
+          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
+
       - name: Lint Python Code
         run: ci/run_python_lint.sh
 
   test_sphinx:
+    needs: build_opencue_packages
     name: Test Documentation Build
     runs-on: ubuntu-22.04
     container:
       image: aswf/ci-opencue:2023
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
       - name: Run Sphinx build
         run: ci/build_sphinx_docs.sh
 
@@ -88,18 +268,19 @@ jobs:
     name: Check Changed Files
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
-      - name: Get Changed Files
-        id: get_changed_files
-        uses: tj-actions/changed-files@v41
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Check for Version Change
-        run: ci/check_changed_files.py ${{ steps.get_changed_files.outputs.modified_files }} ${{ steps.get_changed_files.outputs.deleted_files }}
+        run: |
+          readarray -t changed_files < <(git diff --name-only HEAD^1 HEAD)
+          ci/check_changed_files.py "${changed_files[@]}"
 
   check_migration_files:
     name: Check Database Migration Files
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Check Migration Files
         run: ci/check_database_migrations.py
 
@@ -107,9 +288,10 @@ jobs:
     name: Check for Version Bump
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
-      - name: Get Changed Files
-        id: get_changed_files
-        uses: tj-actions/changed-files@v41
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Check for Version Change
-        run: ci/check_version_bump.py ${{ steps.get_changed_files.outputs.all_changed_and_modified_files }}
+        run: |
+          readarray -t changed_files < <(git diff --name-only HEAD^1 HEAD)
+          ci/check_version_bump.py "${changed_files[@]}"

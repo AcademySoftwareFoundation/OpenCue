@@ -1,0 +1,180 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+    tags:
+      - 'v*'  # Build docs for version tags
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., v1.11, main)'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  # Build job
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - version: main
+            path: ''
+          # Add more versions as needed
+          # - version: v1.11
+          #   path: 'v1.11'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for git metadata
+          
+      - name: Checkout version tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION_TAG=${GITHUB_REF#refs/tags/}
+          git checkout tags/$VERSION_TAG -b docs-$VERSION_TAG
+          
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+          working-directory: ./docs
+          
+      - name: Extract version information
+        id: version
+        run: |
+          # Get version from git tag, branch, or VERSION.in file
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          elif [[ "$GITHUB_REF" == refs/heads/* ]]; then
+            BRANCH=${GITHUB_REF#refs/heads/}
+            if [[ "$BRANCH" == "master" || "$BRANCH" == "main" ]]; then
+              VERSION="main"
+            else
+              VERSION=$BRANCH
+            fi
+          else
+            VERSION="main"
+          fi
+          
+          # Get OpenCue version from VERSION.in
+          OPENCUE_VERSION=$(cat VERSION.in | tr -d '\n')
+          
+          # Get last commit date
+          LAST_COMMIT=$(git log -1 --format="%ad" --date=format:"%Y-%m-%d")
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "opencue_version=$OPENCUE_VERSION" >> $GITHUB_OUTPUT
+          echo "last_commit=$LAST_COMMIT" >> $GITHUB_OUTPUT
+          echo "build_date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+          
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v4
+        if: github.event_name != 'pull_request'
+        
+      - name: Create _data directory and version file
+        working-directory: ./docs
+        run: |
+          mkdir -p _data
+          cat > _data/version.yml <<EOF
+          version: "${{ steps.version.outputs.version }}"
+          opencue_version: "${{ steps.version.outputs.opencue_version }}"
+          build_date: "${{ steps.version.outputs.build_date }}"
+          last_commit: "${{ steps.version.outputs.last_commit }}"
+          git_hash: "$(git rev-parse --short HEAD)"
+          EOF
+          
+      - name: Build with Jekyll
+        working-directory: ./docs
+        run: |
+          # Set version in config
+          export JEKYLL_VERSION="${{ steps.version.outputs.version }}"
+          export JEKYLL_BUILD_DATE="${{ steps.version.outputs.build_date }}"
+          
+          # Add version to Jekyll config dynamically
+          echo "" >> _config.yml
+          echo "# Auto-generated version info" >> _config.yml
+          echo "version: ${{ steps.version.outputs.version }}" >> _config.yml
+          echo "build_date: ${{ steps.version.outputs.build_date }}" >> _config.yml
+          echo "opencue_version: ${{ steps.version.outputs.opencue_version }}" >> _config.yml
+          
+          # Determine baseurl based on deployment target
+          # For docs.opencue.io deployment, use empty baseurl
+          # For GitHub Pages in forks, use /OpenCue
+          if [ "${{ github.repository }}" = "AcademySoftwareFoundation/OpenCue" ]; then
+            # Main repository - deploying to docs.opencue.io
+            bundle exec jekyll build --baseurl ""
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Pull request - use GitHub Pages path
+            bundle exec jekyll build --baseurl "/OpenCue"
+          else
+            # Fork or other deployment - use GitHub Pages path
+            if [ "${{ steps.version.outputs.version }}" != "main" ]; then
+              bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}/${{ steps.version.outputs.version }}"
+            else
+              bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
+            fi
+          fi
+        env:
+          JEKYLL_ENV: production
+          
+      - name: Create version redirect
+        if: github.event_name != 'pull_request'
+        working-directory: ./docs/_site
+        run: |
+          # Create a simple redirect for /latest to main version
+          mkdir -p latest
+          cat > latest/index.html <<EOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta http-equiv="refresh" content="0; url=../">
+            <link rel="canonical" href="../">
+          </head>
+          <body>
+            <p>Redirecting to latest documentation...</p>
+          </body>
+          </html>
+          EOF
+          
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: ./docs/_site
+          
+  # Multi-version deployment job
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-22.04
+    needs: build
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

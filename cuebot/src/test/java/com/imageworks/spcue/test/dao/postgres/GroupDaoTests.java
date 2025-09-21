@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dao.postgres;
 
@@ -51,8 +47,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @Transactional
-@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     @Rule
@@ -90,7 +86,7 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public GroupDetail createGroup() {
         GroupDetail group = new GroupDetail();
         group.name = "Shit";
-        group.parentId =  groupDao.getRootGroupId(getShow());
+        group.parentId = groupDao.getRootGroupId(getShow());
         group.showId = getShow().getId();
         group.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(group, groupDao.getRootGroupDetail(getShow()));
@@ -100,7 +96,7 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public GroupDetail createSubGroup(GroupDetail parent) {
         GroupDetail group = new GroupDetail();
         group.name = "SubShit";
-        group.parentId =  parent.id;
+        group.parentId = parent.id;
         group.showId = getShow().getId();
         group.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(group, groupDao.getGroup(parent.id));
@@ -113,12 +109,11 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void testGetGroup() {
         GroupDetail group = createGroup();
         GroupInterface g = groupDao.getGroup(group.id);
-        assertEquals(group.id,g.getGroupId());
-        assertEquals(group.id,g.getId());
+        assertEquals(group.id, g.getGroupId());
+        assertEquals(group.id, g.getId());
         assertEquals(group.name, g.getName());
         assertEquals(group.showId, g.getShowId());
     }
-
 
     @Test
     @Transactional
@@ -152,7 +147,7 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void testInsertGroupAlternateMethod() {
         GroupDetail group = new GroupDetail();
         group.name = "Shit";
-        group.parentId =  groupDao.getRootGroupId(getShow());
+        group.parentId = groupDao.getRootGroupId(getShow());
         group.showId = getShow().getId();
         group.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(group);
@@ -166,53 +161,53 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         GroupDetail group = createGroup();
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM folder WHERE pk_folder=?",
-                Integer.class, group.getId()));
+                "SELECT COUNT(*) FROM folder WHERE pk_folder=?", Integer.class, group.getId()));
 
         groupDao.deleteGroup(group);
 
         assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM folder WHERE pk_folder=?",
-                Integer.class, group.getId()));
+                "SELECT COUNT(*) FROM folder WHERE pk_folder=?", Integer.class, group.getId()));
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testUpdateGroupParent() {
-        GroupDetail group =  createGroup();
+        GroupDetail group = createGroup();
         GroupDetail subgroup = createSubGroup(group);
         groupDao.updateGroupParent(subgroup,
-                groupDao.getGroupDetail(
-                        groupDao.getRootGroupId(getShow())));
+                groupDao.getGroupDetail(groupDao.getRootGroupId(getShow())));
 
-        assertEquals(Integer.valueOf(1),jdbcTemplate.queryForObject(
-                "SELECT int_level FROM folder_level WHERE pk_folder=?",
-                Integer.class, subgroup.getId()));
+        assertEquals(Integer.valueOf(1),
+                jdbcTemplate.queryForObject("SELECT int_level FROM folder_level WHERE pk_folder=?",
+                        Integer.class, subgroup.getId()));
 
         groupDao.updateGroupParent(subgroup, group);
 
-        assertEquals(Integer.valueOf(2),jdbcTemplate.queryForObject(
-                "SELECT int_level FROM folder_level WHERE pk_folder=?",
-                Integer.class, subgroup.getId()));
+        assertEquals(Integer.valueOf(2),
+                jdbcTemplate.queryForObject("SELECT int_level FROM folder_level WHERE pk_folder=?",
+                        Integer.class, subgroup.getId()));
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testUpdateDefaultJobMaxCores() {
-        GroupDetail group =  createGroup();
-        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
-                "SELECT int_job_max_cores FROM folder WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        GroupDetail group = createGroup();
+        assertEquals(Integer.valueOf(-1),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_job_max_cores FROM folder WHERE pk_folder=?", Integer.class,
+                        group.getGroupId()));
         groupDao.updateDefaultJobMaxCores(group, 100);
-        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-                "SELECT int_job_max_cores FROM folder WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_job_max_cores FROM folder WHERE pk_folder=?", Integer.class,
+                        group.getGroupId()));
         groupDao.updateDefaultJobMaxCores(group, -1);
-        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
-                "SELECT int_job_max_cores FROM folder WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(-1),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_job_max_cores FROM folder WHERE pk_folder=?", Integer.class,
+                        group.getGroupId()));
 
     }
 
@@ -220,32 +215,34 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Transactional
     @Rollback(true)
     public void testUpdateDefaultJobMinCores() {
-        GroupDetail group =  createGroup();
-        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
-                "SELECT int_job_min_cores FROM folder WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        GroupDetail group = createGroup();
+        assertEquals(Integer.valueOf(-1),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_job_min_cores FROM folder WHERE pk_folder=?", Integer.class,
+                        group.getGroupId()));
         groupDao.updateDefaultJobMinCores(group, 100);
-        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-                "SELECT int_job_min_cores FROM folder WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_job_min_cores FROM folder WHERE pk_folder=?", Integer.class,
+                        group.getGroupId()));
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testUpdateDefaultJobMaxGpus() {
-        GroupDetail group =  createGroup();
-        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
-                "SELECT int_job_max_gpus FROM folder WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        GroupDetail group = createGroup();
+        assertEquals(Integer.valueOf(-1),
+                jdbcTemplate.queryForObject("SELECT int_job_max_gpus FROM folder WHERE pk_folder=?",
+                        Integer.class, group.getGroupId()));
         groupDao.updateDefaultJobMaxGpus(group, 100);
-        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-                "SELECT int_job_max_gpus FROM folder WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject("SELECT int_job_max_gpus FROM folder WHERE pk_folder=?",
+                        Integer.class, group.getGroupId()));
         groupDao.updateDefaultJobMaxGpus(group, -1);
-        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
-                "SELECT int_job_max_gpus FROM folder WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(-1),
+                jdbcTemplate.queryForObject("SELECT int_job_max_gpus FROM folder WHERE pk_folder=?",
+                        Integer.class, group.getGroupId()));
 
     }
 
@@ -253,99 +250,109 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Transactional
     @Rollback(true)
     public void testUpdateDefaultJobMinGpus() {
-        GroupDetail group =  createGroup();
-        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
-                "SELECT int_job_min_gpus FROM folder WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        GroupDetail group = createGroup();
+        assertEquals(Integer.valueOf(-1),
+                jdbcTemplate.queryForObject("SELECT int_job_min_gpus FROM folder WHERE pk_folder=?",
+                        Integer.class, group.getGroupId()));
         groupDao.updateDefaultJobMinGpus(group, 100);
-        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-                "SELECT int_job_min_gpus FROM folder WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject("SELECT int_job_min_gpus FROM folder WHERE pk_folder=?",
+                        Integer.class, group.getGroupId()));
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testUpdateDefaultJobPriority() {
-        GroupDetail group =  createGroup();
-        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
-                "SELECT int_job_priority FROM folder WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        GroupDetail group = createGroup();
+        assertEquals(Integer.valueOf(-1),
+                jdbcTemplate.queryForObject("SELECT int_job_priority FROM folder WHERE pk_folder=?",
+                        Integer.class, group.getGroupId()));
         groupDao.updateDefaultJobPriority(group, 1000);
-        assertEquals(Integer.valueOf(1000), jdbcTemplate.queryForObject(
-                "SELECT int_job_priority FROM folder WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(1000),
+                jdbcTemplate.queryForObject("SELECT int_job_priority FROM folder WHERE pk_folder=?",
+                        Integer.class, group.getGroupId()));
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testUpdateMinCores() {
-        GroupDetail group =  createGroup();
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT int_min_cores FROM folder_resource WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        GroupDetail group = createGroup();
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_min_cores FROM folder_resource WHERE pk_folder=?",
+                        Integer.class, group.getGroupId()));
         groupDao.updateMinCores(group, 10);
-        assertEquals(Integer.valueOf(10), jdbcTemplate.queryForObject(
-                "SELECT int_min_cores FROM folder_resource WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(10),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_min_cores FROM folder_resource WHERE pk_folder=?",
+                        Integer.class, group.getGroupId()));
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testUpdateMaxCores() {
-        GroupDetail group =  createGroup();
-        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
-                "SELECT int_max_cores FROM folder_resource WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        GroupDetail group = createGroup();
+        assertEquals(Integer.valueOf(-1),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_max_cores FROM folder_resource WHERE pk_folder=?",
+                        Integer.class, group.getGroupId()));
         groupDao.updateMaxCores(group, 100);
-        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-                "SELECT int_max_cores FROM folder_resource WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_max_cores FROM folder_resource WHERE pk_folder=?",
+                        Integer.class, group.getGroupId()));
         groupDao.updateMaxCores(group, -5);
-        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
-                "SELECT int_max_cores FROM folder_resource WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(-1),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_max_cores FROM folder_resource WHERE pk_folder=?",
+                        Integer.class, group.getGroupId()));
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testUpdateMinGpus() {
-        GroupDetail group =  createGroup();
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT int_min_gpus FROM folder_resource WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        GroupDetail group = createGroup();
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_min_gpus FROM folder_resource WHERE pk_folder=?", Integer.class,
+                        group.getGroupId()));
         groupDao.updateMinGpus(group, 10);
-        assertEquals(Integer.valueOf(10), jdbcTemplate.queryForObject(
-                "SELECT int_min_gpus FROM folder_resource WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(10),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_min_gpus FROM folder_resource WHERE pk_folder=?", Integer.class,
+                        group.getGroupId()));
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testUpdateMaxGpus() {
-        GroupDetail group =  createGroup();
-        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
-                "SELECT int_max_gpus FROM folder_resource WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        GroupDetail group = createGroup();
+        assertEquals(Integer.valueOf(-1),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_max_gpus FROM folder_resource WHERE pk_folder=?", Integer.class,
+                        group.getGroupId()));
         groupDao.updateMaxGpus(group, 100);
-        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-                "SELECT int_max_gpus FROM folder_resource WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(100),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_max_gpus FROM folder_resource WHERE pk_folder=?", Integer.class,
+                        group.getGroupId()));
         groupDao.updateMaxGpus(group, -5);
-        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
-                "SELECT int_max_gpus FROM folder_resource WHERE pk_folder=?",
-                Integer.class, group.getGroupId()));
+        assertEquals(Integer.valueOf(-1),
+                jdbcTemplate.queryForObject(
+                        "SELECT int_max_gpus FROM folder_resource WHERE pk_folder=?", Integer.class,
+                        group.getGroupId()));
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testIsManaged() {
-        GroupDetail group =  createGroup();
+        GroupDetail group = createGroup();
         assertEquals(false, groupDao.isManaged(group));
     }
 
@@ -353,7 +360,7 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Transactional
     @Rollback(true)
     public void testUpdateName() {
-        GroupDetail group =  createGroup();
+        GroupDetail group = createGroup();
         groupDao.updateName(group, "NewName");
     }
 
@@ -392,7 +399,8 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         g2.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(g2, groupDao.getRootGroupDetail(getShow()));
 
-        for ( GroupInterface g: groupDao.getChildrenRecursive(groupDao.getGroup("A0000000-0000-0000-0000-000000000000"))) {
+        for (GroupInterface g : groupDao
+                .getChildrenRecursive(groupDao.getGroup("A0000000-0000-0000-0000-000000000000"))) {
             if (g.getName().equals("Test1")) {
                 is_test2 = true;
             }
@@ -423,7 +431,8 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         g2.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(g2, groupDao.getRootGroupDetail(getShow()));
 
-        List<GroupInterface> groups = groupDao.getChildren(groupDao.getGroup("A0000000-0000-0000-0000-000000000000"));
+        List<GroupInterface> groups =
+                groupDao.getChildren(groupDao.getGroup("A0000000-0000-0000-0000-000000000000"));
         for (GroupInterface g : groups) {
             if (g.getName().equals("testuserA")) {
                 is_testuserA = true;
@@ -444,15 +453,14 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         JobDetail job = launchJob();
         assertFalse(groupDao.isOverMinCores(job));
 
-        String groupid =  jdbcTemplate.queryForObject("SELECT pk_folder FROM job WHERE pk_job=?",
+        String groupid = jdbcTemplate.queryForObject("SELECT pk_folder FROM job WHERE pk_job=?",
                 String.class, job.getJobId());
 
         // Now update some values so it returns true.
-        jdbcTemplate.update("UPDATE folder_resource SET int_cores = int_min_cores + 1 WHERE pk_folder=?",
+        jdbcTemplate.update(
+                "UPDATE folder_resource SET int_cores = int_min_cores + 1 WHERE pk_folder=?",
                 groupid);
 
         assertTrue(groupDao.isOverMinCores(job));
     }
 }
-
-

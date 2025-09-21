@@ -1,0 +1,145 @@
+# OpenCue Documentation Configuration
+title: OpenCue Documentation
+description: OpenCue is an open source render management system for visual effects and animation.
+baseurl: "" # the subpath of your site, e.g. /blog
+url: "https://docs.opencue.io" # the base hostname & protocol for your site
+
+# Build settings
+theme: just-the-docs
+
+# Version management
+versioning:
+  enabled: true
+  default_version: v1.11.66
+  versions:
+    - v1.11.66
+    - main
+  version_labels:
+    v1.11.66: "v1.11.66 (Latest)"
+    main: "main (Development)"
+
+# Git metadata
+git_metadata:
+  enabled: true
+  show_contributors: true
+  show_last_modified: true
+  date_format: "%B %d, %Y"
+
+# Build metadata (populated by CI)
+build_info:
+  timestamp: ""
+  git_hash: ""
+  
+# Documentation version (in progress)
+doc_version: "1.11.66"
+
+# OpenCue version will be read from VERSION.in by CI/CD pipeline
+
+# Just the Docs theme configuration
+color_scheme: nil
+logo: "assets/images/opencue_logo_with_text.png"
+favicon_ico: "assets/images/favicon.ico"
+
+
+
+# Enable search
+search_enabled: true
+search:
+  # Split pages into sections that can be searched individually
+  heading_level: 2
+  # Maximum search results
+  previews: 3
+  preview_words_before: 5
+  preview_words_after: 10
+  tokenizer_separator: /[\s\-/]+/
+  # Display the relative url in search results
+  rel_url: true
+  # Enable or disable the search button that appears in the bottom right corner of every page
+  button: true
+
+# Aux links for the upper right navigation
+aux_links:
+  "<i class='fab fa-github'></i>&nbsp;OpenCue on GitHub":
+    - "//github.com/AcademySoftwareFoundation/OpenCue"
+  "<i class='fab fa-slack'></i>&nbsp;Join Slack":
+    - "https://academysoftwarefdn.slack.com/archives/CMFPXV39Q"
+
+
+# Makes Aux links open in a new tab. Default is false
+aux_links_new_tab: true
+
+# Footer content
+footer_content: |
+  <div style="display: flex; align-items: center; justify-content: center; gap: 2rem; flex-wrap: wrap; margin: 1rem 0;">
+    <a href="https://www.aswf.io" target="_blank">
+      <img src="{{ '/assets/images/aswf_aqua.png' | relative_url }}" alt="Academy Software Foundation logo" style="height: 60px; width: auto;">
+    </a>
+    <div style="text-align: center;">
+      <p style="margin: 0; font-size: 0.9rem;">© Contributors to the OpenCue Project. Licensed under <a href="https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/LICENSE">Apache 2.0</a>.</p>
+      <p style="margin: 0; font-size: 0.8rem; color: #666;">Documentation Distributed under CC BY 4.0</p>
+    </div>
+  </div>
+
+# Footer last edited timestamp
+last_edit_timestamp: true # show or hide edit time - page must have `last_modified_date` defined in the frontmatter
+last_edit_time_format: "%b %e %Y at %I:%M %p" # uses ruby's time format: https://ruby-doc.org/stdlib-2.7.0/libdoc/time/rdoc/Time.html
+
+# Collections for organizing content
+collections:
+  docs:
+    permalink: "/:collection/:path/"
+    output: true
+  news:
+    permalink: "/:collection/:path/"
+    output: true
+  releases:
+    permalink: "/:collection/:path/"
+    output: true
+
+just_the_docs:
+  # Define which collections are used in just-the-docs
+  collections:
+    docs:
+      name: Documentation
+      nav_fold: true
+
+# Back to top link
+back_to_top: true
+back_to_top_text: "Back to top"
+
+# Code copy button
+enable_copy_code_button: true
+
+# Heading anchor links
+heading_anchors: true
+
+
+# Google Analytics (optional)
+ga_tracking: UA-82811140-32
+ga_tracking_anonymize_ip: true
+
+# Markdown configuration
+markdown: kramdown
+kramdown:
+  syntax_highlighter_opts:
+    block:
+      line_numbers: false
+
+# Plugins
+plugins:
+  - jekyll-seo-tag
+  - jekyll-github-metadata
+  - jekyll-include-cache
+  - jekyll-sitemap
+
+# Exclude from processing
+exclude:
+  - node_modules/
+  - vendor/
+  - Gemfile
+  - Gemfile.lock
+  - package.json
+  - package-lock.json
+  - README.md
+  - LICENSE
+  - CONTRIBUTING.md

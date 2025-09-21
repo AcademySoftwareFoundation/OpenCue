@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.servant;
 
@@ -97,43 +93,39 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     private FrameSearchFactory frameSearchFactory;
 
     @Override
-    public void findFrame(FrameFindFrameRequest request, StreamObserver<FrameFindFrameResponse> responseObserver) {
+    public void findFrame(FrameFindFrameRequest request,
+            StreamObserver<FrameFindFrameResponse> responseObserver) {
         try {
-            responseObserver.onNext(FrameFindFrameResponse.newBuilder()
-                    .setFrame(whiteboard.findFrame(request.getJob(), request.getLayer(), request.getFrame()))
+            responseObserver.onNext(FrameFindFrameResponse.newBuilder().setFrame(
+                    whiteboard.findFrame(request.getJob(), request.getLayer(), request.getFrame()))
                     .build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription(e.getMessage())
-                    .withCause(e)
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
                     .asRuntimeException());
         }
     }
 
     @Override
-    public void getFrame(FrameGetFrameRequest request, StreamObserver<FrameGetFrameResponse> responseObserver) {
+    public void getFrame(FrameGetFrameRequest request,
+            StreamObserver<FrameGetFrameResponse> responseObserver) {
         try {
             responseObserver.onNext(FrameGetFrameResponse.newBuilder()
-                    .setFrame(whiteboard.getFrame(request.getId()))
-                    .build());
+                    .setFrame(whiteboard.getFrame(request.getId())).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription(e.getMessage())
-                    .withCause(e)
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
                     .asRuntimeException());
         }
     }
 
     @Override
-    public void getFrames(FrameGetFramesRequest request, StreamObserver<FrameGetFramesResponse> responseObserver) {
+    public void getFrames(FrameGetFramesRequest request,
+            StreamObserver<FrameGetFramesResponse> responseObserver) {
         responseObserver.onNext(FrameGetFramesResponse.newBuilder()
-                .setFrames(
-                        whiteboard.getFrames(
-                                frameSearchFactory.create(
-                                        jobManagerSupport.getJobManager().findJob(request.getJob()),
-                                        request.getR())))
+                .setFrames(whiteboard.getFrames(frameSearchFactory.create(
+                        jobManagerSupport.getJobManager().findJob(request.getJob()),
+                        request.getR())))
                 .build());
         responseObserver.onCompleted();
     }
@@ -141,11 +133,8 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     @Override
     public void eat(FrameEatRequest request, StreamObserver<FrameEatResponse> responseObserver) {
         FrameEntity frame = getFrameEntity(request.getFrame());
-        manageQueue.execute(
-                new DispatchEatFrames(
-                        frameSearchFactory.create(frame),
-                        new Source(request.toString()),
-                        jobManagerSupport));
+        manageQueue.execute(new DispatchEatFrames(frameSearchFactory.create(frame),
+                new Source(request.toString()), jobManagerSupport));
         responseObserver.onNext(FrameEatResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -153,93 +142,85 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     @Override
     public void kill(FrameKillRequest request, StreamObserver<FrameKillResponse> responseObserver) {
         FrameEntity frame = getFrameEntity(request.getFrame());
-        manageQueue.execute(
-                new DispatchKillFrames(
-                        frameSearchFactory.create(frame),
-                        new Source(request.toString()),
-                        jobManagerSupport));
+        manageQueue.execute(new DispatchKillFrames(frameSearchFactory.create(frame),
+                new Source(request.toString()), jobManagerSupport));
         responseObserver.onNext(FrameKillResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void retry(FrameRetryRequest request, StreamObserver<FrameRetryResponse> responseObserver) {
+    public void retry(FrameRetryRequest request,
+            StreamObserver<FrameRetryResponse> responseObserver) {
         FrameEntity frame = getFrameEntity(request.getFrame());
-        manageQueue.execute(
-                new DispatchRetryFrames(
-                        frameSearchFactory.create(frame),
-                        new Source(request.toString()),
-                        jobManagerSupport));
+        manageQueue.execute(new DispatchRetryFrames(frameSearchFactory.create(frame),
+                new Source(request.toString()), jobManagerSupport));
         responseObserver.onNext(FrameRetryResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void createDependencyOnFrame(FrameCreateDependencyOnFrameRequest request,
-                                        StreamObserver<FrameCreateDependencyOnFrameResponse> responseObserver) {
+            StreamObserver<FrameCreateDependencyOnFrameResponse> responseObserver) {
         updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         FrameOnFrame depend = new FrameOnFrame(frame,
                 jobManager.getFrameDetail(request.getDependOnFrame().getId()));
         dependManager.createDepend(depend);
         Depend dependency = whiteboard.getDepend(depend);
-        responseObserver.onNext(FrameCreateDependencyOnFrameResponse.newBuilder()
-                .setDepend(dependency)
-                .build());
+        responseObserver.onNext(
+                FrameCreateDependencyOnFrameResponse.newBuilder().setDepend(dependency).build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void createDependencyOnJob(FrameCreateDependencyOnJobRequest request,
-                                      StreamObserver<FrameCreateDependencyOnJobResponse> responseObserver) {
+            StreamObserver<FrameCreateDependencyOnJobResponse> responseObserver) {
         updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
-        FrameOnJob depend = new FrameOnJob(frame, jobManager.getJobDetail(request.getJob().getId()));
+        FrameOnJob depend =
+                new FrameOnJob(frame, jobManager.getJobDetail(request.getJob().getId()));
         dependManager.createDepend(depend);
         Depend dependency = whiteboard.getDepend(depend);
-        responseObserver.onNext(FrameCreateDependencyOnJobResponse.newBuilder()
-                .setDepend(dependency)
-                .build());
+        responseObserver.onNext(
+                FrameCreateDependencyOnJobResponse.newBuilder().setDepend(dependency).build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void createDependencyOnLayer(FrameCreateDependencyOnLayerRequest request,
-                                        StreamObserver<FrameCreateDependencyOnLayerResponse> responseObserver) {
+            StreamObserver<FrameCreateDependencyOnLayerResponse> responseObserver) {
         updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
-        FrameOnLayer depend = new FrameOnLayer(frame, jobManager.getLayerDetail(request.getLayer().getId()));
+        FrameOnLayer depend =
+                new FrameOnLayer(frame, jobManager.getLayerDetail(request.getLayer().getId()));
         dependManager.createDepend(depend);
         Depend dependency = whiteboard.getDepend(depend);
-        responseObserver.onNext(FrameCreateDependencyOnLayerResponse.newBuilder()
-                .setDepend(dependency)
-                .build());
+        responseObserver.onNext(
+                FrameCreateDependencyOnLayerResponse.newBuilder().setDepend(dependency).build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void getWhatDependsOnThis(FrameGetWhatDependsOnThisRequest request,
-                                     StreamObserver<FrameGetWhatDependsOnThisResponse> responseObserver) {
+            StreamObserver<FrameGetWhatDependsOnThisResponse> responseObserver) {
         FrameEntity frame = getFrameEntity(request.getFrame());
         responseObserver.onNext(FrameGetWhatDependsOnThisResponse.newBuilder()
-                .setDepends(whiteboard.getWhatDependsOnThis(frame))
-                .build());
+                .setDepends(whiteboard.getWhatDependsOnThis(frame)).build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void getWhatThisDependsOn(FrameGetWhatThisDependsOnRequest request,
-                                     StreamObserver<FrameGetWhatThisDependsOnResponse> responseObserver) {
+            StreamObserver<FrameGetWhatThisDependsOnResponse> responseObserver) {
         FrameEntity frame = getFrameEntity(request.getFrame());
         responseObserver.onNext(FrameGetWhatThisDependsOnResponse.newBuilder()
-                .setDepends(whiteboard.getWhatThisDependsOn(frame))
-                .build());
+                .setDepends(whiteboard.getWhatThisDependsOn(frame)).build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void markAsDepend(FrameMarkAsDependRequest request,
-                             StreamObserver<FrameMarkAsDependResponse> responseObserver) {
+            StreamObserver<FrameMarkAsDependResponse> responseObserver) {
         updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         jobManager.markFrameAsDepend(frame);
@@ -248,7 +229,8 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     }
 
     @Override
-    public void markAsWaiting(FrameMarkAsWaitingRequest request, StreamObserver<FrameMarkAsWaitingResponse> responseObserver) {
+    public void markAsWaiting(FrameMarkAsWaitingRequest request,
+            StreamObserver<FrameMarkAsWaitingResponse> responseObserver) {
         updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         jobManager.markFrameAsWaiting(frame);
@@ -257,7 +239,8 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     }
 
     @Override
-    public void dropDepends(FrameDropDependsRequest request, StreamObserver<FrameDropDependsResponse> responseObserver) {
+    public void dropDepends(FrameDropDependsRequest request,
+            StreamObserver<FrameDropDependsResponse> responseObserver) {
         updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         manageQueue.execute(new DispatchDropDepends(frame, request.getTarget(), dependManager));
@@ -267,7 +250,7 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
 
     @Override
     public void addRenderPartition(FrameAddRenderPartitionRequest request,
-                                   StreamObserver<FrameAddRenderPartitionResponse> responseObserver) {
+            StreamObserver<FrameAddRenderPartitionResponse> responseObserver) {
         updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         LocalHostAssignment lha = new LocalHostAssignment();
@@ -282,20 +265,18 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
             RenderPartition partition = whiteboard.getRenderPartition(lha);
 
             responseObserver.onNext(FrameAddRenderPartitionResponse.newBuilder()
-                    .setRenderPartition(partition)
-                    .build());
+                    .setRenderPartition(partition).build());
             responseObserver.onCompleted();
         } else {
-            responseObserver.onError(Status.INTERNAL
-                    .withDescription("Failed to find suitable frames.")
-                    .augmentDescription("customException()")
-                    .asRuntimeException());
+            responseObserver
+                    .onError(Status.INTERNAL.withDescription("Failed to find suitable frames.")
+                            .augmentDescription("customException()").asRuntimeException());
         }
     }
 
     @Override
     public void setCheckpointState(FrameSetCheckpointStateRequest request,
-                                   StreamObserver<FrameSetCheckpointStateResponse> responseObserver) {
+            StreamObserver<FrameSetCheckpointStateResponse> responseObserver) {
         updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         jobManager.updateCheckpointState(frame, request.getState());
@@ -305,25 +286,25 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
 
     @Override
     public void setFrameStateDisplayOverride(FrameStateDisplayOverrideRequest request,
-                                             StreamObserver<FrameStateDisplayOverrideResponse> responseObserver){
+            StreamObserver<FrameStateDisplayOverrideResponse> responseObserver) {
         updateManagers();
         Frame frame = request.getFrame();
         FrameStateDisplayOverride override = request.getOverride();
 
-        FrameStateDisplayOverrideSeq existing_overrides = frameDao.getFrameStateDisplayOverrides(
-                frame.getId());
+        FrameStateDisplayOverrideSeq existing_overrides =
+                frameDao.getFrameStateDisplayOverrides(frame.getId());
         // if override already exists, do nothing
-        // if override is for a state that already has an override but diff color/text, update
+        // if override is for a state that already has an override but diff color/text,
+        // update
         // if override is new, add
         boolean newOverride = true;
         for (FrameStateDisplayOverride eo : existing_overrides.getOverridesList()) {
             if (eo.equals(override)) {
                 newOverride = false;
                 break;
-            }
-            else if (eo.getState().equals(override.getState()) &&
-                    !(eo.getColor().equals(override.getColor()) &&
-                            eo.getText().equals(override.getText()))) {
+            } else if (eo.getState().equals(override.getState())
+                    && !(eo.getColor().equals(override.getColor())
+                            && eo.getText().equals(override.getText()))) {
                 newOverride = false;
                 frameDao.updateFrameStateDisplayOverride(frame.getId(), override);
                 break;
@@ -339,19 +320,17 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
 
     @Override
     public void getFrameStateDisplayOverrides(GetFrameStateDisplayOverridesRequest request,
-                                            StreamObserver<GetFrameStateDisplayOverridesResponse> responseObserver){
+            StreamObserver<GetFrameStateDisplayOverridesResponse> responseObserver) {
         try {
             updateManagers();
             Frame frame = request.getFrame();
             responseObserver.onNext(GetFrameStateDisplayOverridesResponse.newBuilder()
-                    .setOverrides(frameDao.getFrameStateDisplayOverrides(frame.getId()))
-                    .build());
+                    .setOverrides(frameDao.getFrameStateDisplayOverrides(frame.getId())).build());
             responseObserver.onCompleted();
-        }
-        catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL
-                    .withDescription("No Frame State display overrides found.")
-                    .asRuntimeException());
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(
+                    Status.INTERNAL.withDescription("No Frame State display overrides found.")
+                            .asRuntimeException());
         }
     }
 
@@ -428,4 +407,3 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
         this.frameSearchFactory = frameSearchFactory;
     }
 }
-

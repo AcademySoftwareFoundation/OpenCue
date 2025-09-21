@@ -1,0 +1,40 @@
+processor	: 0
+vendor_id	: AuthenticAMD
+cpu family	: 15
+model		: 37
+model name	: AMD Opteron(tm) Processor 250
+stepping	: 1
+cpu MHz		: 2405.483
+cache size	: 1024 KB
+fpu		: yes
+fpu_exception	: yes
+cpuid level	: 1
+wp		: yes
+flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 syscall nx mmxext lm 3dnowext 3dnow pni
+bogomips	: 4817.77
+TLB size	: 1088 4K pages
+clflush size	: 64
+cache_alignment	: 64
+address sizes	: 40 bits physical, 48 bits virtual
+power management: ts fid vid ttp
+
+processor	: 1
+vendor_id	: AuthenticAMD
+cpu family	: 15
+model		: 37
+model name	: AMD Opteron(tm) Processor 250
+stepping	: 1
+cpu MHz		: 2405.483
+cache size	: 1024 KB
+fpu		: yes
+fpu_exception	: yes
+cpuid level	: 1
+wp		: yes
+flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 syscall nx mmxext lm 3dnowext 3dnow pni
+bogomips	: 4810.25
+TLB size	: 1088 4K pages
+clflush size	: 64
+cache_alignment	: 64
+address sizes	: 40 bits physical, 48 bits virtual
+power management: ts fid vid ttp
+

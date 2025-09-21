@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.servant;
 
@@ -103,50 +99,43 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     private HostSearchFactory hostSearchFactory;
 
     @Override
-    public void getHosts(HostGetHostsRequest request, StreamObserver<HostGetHostsResponse> responseObserver) {
+    public void getHosts(HostGetHostsRequest request,
+            StreamObserver<HostGetHostsResponse> responseObserver) {
         responseObserver.onNext(HostGetHostsResponse.newBuilder()
-                .setHosts(whiteboard.getHosts(hostSearchFactory.create(request.getR())))
-                .build());
+                .setHosts(whiteboard.getHosts(hostSearchFactory.create(request.getR()))).build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void getHostWhiteboard(HostGetHostWhiteboardRequest request,
-                                  StreamObserver<HostGetHostWhiteboardResponse> responseObserver) {
+            StreamObserver<HostGetHostWhiteboardResponse> responseObserver) {
         responseObserver.onNext(HostGetHostWhiteboardResponse.newBuilder()
-                .setNestedHosts(whiteboard.getHostWhiteboard())
-                .build());
+                .setNestedHosts(whiteboard.getHostWhiteboard()).build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void findHost(HostFindHostRequest request,
-                                  StreamObserver<HostFindHostResponse> responseObserver) {
+            StreamObserver<HostFindHostResponse> responseObserver) {
         try {
             responseObserver.onNext(HostFindHostResponse.newBuilder()
-                    .setHost(whiteboard.findHost(request.getName()))
-                    .build());
+                    .setHost(whiteboard.findHost(request.getName())).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription(e.getMessage())
-                    .withCause(e)
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
                     .asRuntimeException());
         }
     }
 
     @Override
     public void getHost(HostGetHostRequest request,
-                         StreamObserver<HostGetHostResponse> responseObserver) {
+            StreamObserver<HostGetHostResponse> responseObserver) {
         try {
             responseObserver.onNext(HostGetHostResponse.newBuilder()
-                    .setHost(whiteboard.getHost(request.getId()))
-                    .build());
+                    .setHost(whiteboard.getHost(request.getId())).build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription(e.getMessage())
-                    .withCause(e)
+            responseObserver.onError(Status.NOT_FOUND.withDescription(e.getMessage()).withCause(e)
                     .asRuntimeException());
         }
     }
@@ -160,7 +149,8 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     }
 
     @Override
-    public void unlock(HostUnlockRequest request, StreamObserver<HostUnlockResponse> responseObserver) {
+    public void unlock(HostUnlockRequest request,
+            StreamObserver<HostUnlockResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         hostManager.setHostLock(host, LockState.OPEN, new Source("HostApi"));
         responseObserver.onNext(HostUnlockResponse.newBuilder().build());
@@ -169,7 +159,7 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
 
     @Override
     public void rebootWhenIdle(HostRebootWhenIdleRequest request,
-                               StreamObserver<HostRebootWhenIdleResponse> responseObserver) {
+            StreamObserver<HostRebootWhenIdleResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         hostManager.rebootWhenIdle(host);
         responseObserver.onNext(HostRebootWhenIdleResponse.newBuilder().build());
@@ -177,7 +167,8 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     }
 
     @Override
-    public void delete(HostDeleteRequest request, StreamObserver<HostDeleteResponse> responseObserver) {
+    public void delete(HostDeleteRequest request,
+            StreamObserver<HostDeleteResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         hostManager.deleteHost(host);
         responseObserver.onNext(HostDeleteResponse.newBuilder().build());
@@ -185,7 +176,8 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     }
 
     @Override
-    public void reboot(HostRebootRequest request, StreamObserver<HostRebootResponse> responseObserver) {
+    public void reboot(HostRebootRequest request,
+            StreamObserver<HostRebootResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         hostManager.rebootNow(host);
         responseObserver.onNext(HostRebootResponse.newBuilder().build());
@@ -194,7 +186,7 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
 
     @Override
     public void setAllocation(HostSetAllocationRequest request,
-                              StreamObserver<HostSetAllocationResponse> responseObserver) {
+            StreamObserver<HostSetAllocationResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         hostManager.setAllocation(host,
                 adminManager.getAllocationDetail(request.getAllocationId()));
@@ -203,7 +195,8 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     }
 
     @Override
-    public void addTags(HostAddTagsRequest request, StreamObserver<HostAddTagsResponse> responseObserver) {
+    public void addTags(HostAddTagsRequest request,
+            StreamObserver<HostAddTagsResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         hostManager.addTags(host, request.getTagsList().toArray(new String[0]));
         responseObserver.onNext(HostAddTagsResponse.newBuilder().build());
@@ -211,7 +204,8 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     }
 
     @Override
-    public void removeTags(HostRemoveTagsRequest request, StreamObserver<HostRemoveTagsResponse> responseObserver) {
+    public void removeTags(HostRemoveTagsRequest request,
+            StreamObserver<HostRemoveTagsResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         hostManager.removeTags(host, request.getTagsList().toArray(new String[0]));
         responseObserver.onNext(HostRemoveTagsResponse.newBuilder().build());
@@ -219,7 +213,8 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     }
 
     @Override
-    public void renameTag(HostRenameTagRequest request, StreamObserver<HostRenameTagResponse> responseObserver) {
+    public void renameTag(HostRenameTagRequest request,
+            StreamObserver<HostRenameTagResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         hostManager.renameTag(host, request.getOldTag(), request.getNewTag());
         responseObserver.onNext(HostRenameTagResponse.newBuilder().build());
@@ -227,7 +222,8 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     }
 
     @Override
-    public void addComment(HostAddCommentRequest request, StreamObserver<HostAddCommentResponse> responseObserver) {
+    public void addComment(HostAddCommentRequest request,
+            StreamObserver<HostAddCommentResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         CommentDetail c = new CommentDetail();
         Comment newComment = request.getNewComment();
@@ -241,27 +237,27 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     }
 
     @Override
-    public void getComments(HostGetCommentsRequest request, StreamObserver<HostGetCommentsResponse> responseObserver) {
+    public void getComments(HostGetCommentsRequest request,
+            StreamObserver<HostGetCommentsResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         CommentSeq commentSeq = whiteboard.getComments(host);
-        responseObserver.onNext(HostGetCommentsResponse.newBuilder()
-                .setComments(commentSeq)
-                .build());
+        responseObserver
+                .onNext(HostGetCommentsResponse.newBuilder().setComments(commentSeq).build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void getProcs(HostGetProcsRequest request, StreamObserver<HostGetProcsResponse> responseObserver) {
+    public void getProcs(HostGetProcsRequest request,
+            StreamObserver<HostGetProcsResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         ProcSeq procs = whiteboard.getProcs(host);
-        responseObserver.onNext(HostGetProcsResponse.newBuilder()
-                .setProcs(procs)
-                .build());
+        responseObserver.onNext(HostGetProcsResponse.newBuilder().setProcs(procs).build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void setThreadMode(HostSetThreadModeRequest request, StreamObserver<HostSetThreadModeResponse> responseObserver) {
+    public void setThreadMode(HostSetThreadModeRequest request,
+            StreamObserver<HostSetThreadModeResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         hostDao.updateThreadMode(host, request.getMode());
         responseObserver.onNext(HostSetThreadModeResponse.newBuilder().build());
@@ -269,7 +265,8 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     }
 
     @Override
-    public void setHardwareState(HostSetHardwareStateRequest request, StreamObserver<HostSetHardwareStateResponse> responseObserver) {
+    public void setHardwareState(HostSetHardwareStateRequest request,
+            StreamObserver<HostSetHardwareStateResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         hostDao.updateHostState(host, request.getState());
         responseObserver.onNext(HostSetHardwareStateResponse.newBuilder().build());
@@ -277,52 +274,49 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     }
 
     @Override
-    public void getOwner(HostGetOwnerRequest request, StreamObserver<HostGetOwnerResponse> responseObserver) {
+    public void getOwner(HostGetOwnerRequest request,
+            StreamObserver<HostGetOwnerResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
-        responseObserver.onNext(HostGetOwnerResponse.newBuilder()
-                .setOwner(whiteboard.getOwner(host))
-                .build());
+        responseObserver.onNext(
+                HostGetOwnerResponse.newBuilder().setOwner(whiteboard.getOwner(host)).build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void getDeed(HostGetDeedRequest request, StreamObserver<HostGetDeedResponse> responseObserver) {
+    public void getDeed(HostGetDeedRequest request,
+            StreamObserver<HostGetDeedResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
-        responseObserver.onNext(HostGetDeedResponse.newBuilder()
-                .setDeed(whiteboard.getDeed(host))
-                .build());
+        responseObserver
+                .onNext(HostGetDeedResponse.newBuilder().setDeed(whiteboard.getDeed(host)).build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void getRenderPartitions(HostGetRenderPartitionsRequest request,
-                                    StreamObserver<HostGetRenderPartitionsResponse> responseObserver) {
+            StreamObserver<HostGetRenderPartitionsResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         responseObserver.onNext(HostGetRenderPartitionsResponse.newBuilder()
-                .setRenderPartitions(whiteboard.getRenderPartitions(host))
-                .build());
+                .setRenderPartitions(whiteboard.getRenderPartitions(host)).build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void redirectToJob(HostRedirectToJobRequest request, StreamObserver<HostRedirectToJobResponse> responseObserver) {
+    public void redirectToJob(HostRedirectToJobRequest request,
+            StreamObserver<HostRedirectToJobResponse> responseObserver) {
 
         List<VirtualProc> virtualProcs = new ArrayList<>();
-        for (String procName: request.getProcNamesList()) {
+        for (String procName : request.getProcNamesList()) {
             virtualProcs.add(hostManager.getVirtualProc(procName));
         }
         boolean value = redirectManager.addRedirect(virtualProcs,
-                jobManager.getJob(request.getJobId()),
-                new Source(request.toString()));
-        responseObserver.onNext(HostRedirectToJobResponse.newBuilder()
-                .setValue(value)
-                .build());
+                jobManager.getJob(request.getJobId()), new Source(request.toString()));
+        responseObserver.onNext(HostRedirectToJobResponse.newBuilder().setValue(value).build());
         responseObserver.onCompleted();
     }
 
-
     @Override
-    public void setOs(HostSetOsRequest request, StreamObserver<HostSetOsResponse> responseObserver) {
+    public void setOs(HostSetOsRequest request,
+            StreamObserver<HostSetOsResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         hostDao.updateHostOs(host, request.getOs());
         responseObserver.onNext(HostSetOsResponse.newBuilder().build());
@@ -397,4 +391,3 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
         return hostManager.getHost(host.getId());
     }
 }
-

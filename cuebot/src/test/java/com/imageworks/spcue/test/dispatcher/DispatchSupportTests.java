@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.test.dispatcher;
 
@@ -74,11 +70,9 @@ public class DispatchSupportTests extends TransactionalTest {
 
     private static final String HOSTNAME = "beta";
 
-    private static final String JOBNAME =
-        "pipe-dev.cue-testuser_shell_dispatch_test_v1";
+    private static final String JOBNAME = "pipe-dev.cue-testuser_shell_dispatch_test_v1";
 
-    private static final String TARGET_JOB =
-        "pipe-dev.cue-testuser_shell_dispatch_test_v2";
+    private static final String TARGET_JOB = "pipe-dev.cue-testuser_shell_dispatch_test_v2";
 
     @Before
     public void launchJob() {
@@ -93,30 +87,15 @@ public class DispatchSupportTests extends TransactionalTest {
 
     @Before
     public void createHost() {
-        RenderHost host = RenderHost.newBuilder()
-                .setName(HOSTNAME)
-                .setBootTime(1192369572)
+        RenderHost host = RenderHost.newBuilder().setName(HOSTNAME).setBootTime(1192369572)
                 // The minimum amount of free space in the temporary directory to book a host.
-                .setFreeMcp(CueUtil.GB)
-                .setFreeMem(53500)
-                .setFreeSwap(20760)
-                .setLoad(0)
-                .setTotalMcp(CueUtil.GB4)
-                .setTotalMem(8173264)
-                .setTotalSwap(20960)
-                .setNimbyEnabled(false)
-                .setNumProcs(2)
-                .setCoresPerProc(400)
-                .addTags("test")
-                .setState(HardwareState.UP)
-                .setFacility("spi")
-                .putAttributes("SP_OS", "Linux")
-                .setFreeGpuMem((int) CueUtil.MB512)
-                .setTotalGpuMem((int) CueUtil.MB512)
-                .build();
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(0)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(8173264).setTotalSwap(20960)
+                .setNimbyEnabled(false).setNumProcs(2).setCoresPerProc(400).addTags("test")
+                .setState(HardwareState.UP).setFacility("spi").putAttributes("SP_OS", "Linux")
+                .setFreeGpuMem((int) CueUtil.MB512).setTotalGpuMem((int) CueUtil.MB512).build();
 
-        hostManager.createHost(host,
-                adminManager.findAllocationDetail("spi","general"));
+        hostManager.createHost(host, adminManager.findAllocationDetail("spi", "general"));
     }
 
     public JobDetail getJob() {
@@ -148,12 +127,12 @@ public class DispatchSupportTests extends TransactionalTest {
         dispatchSupport.determineIdleCores(host, 200);
         assertEquals(grace_load + 600, host.idleCores);
 
-        //Machine is idle but has the grace load.
+        // Machine is idle but has the grace load.
         host.idleCores = 800;
         dispatchSupport.determineIdleCores(host, grace_load);
         assertEquals(800, host.idleCores);
 
-        //Machine has 100 units idle, grace_load -1
+        // Machine has 100 units idle, grace_load -1
         host.idleCores = 100;
         dispatchSupport.determineIdleCores(host, 700 + grace_load - 1);
         assertEquals(100, host.idleCores);
@@ -164,4 +143,3 @@ public class DispatchSupportTests extends TransactionalTest {
         assertEquals(99, host.idleCores);
     }
 }
-

@@ -29,38 +29,38 @@ import platform
 
 import grpc
 
-import opencue.config
-from opencue.compiled_proto import comment_pb2
-from opencue.compiled_proto import comment_pb2_grpc
-from opencue.compiled_proto import criterion_pb2
-from opencue.compiled_proto import cue_pb2
-from opencue.compiled_proto import cue_pb2_grpc
-from opencue.compiled_proto import department_pb2
-from opencue.compiled_proto import department_pb2_grpc
-from opencue.compiled_proto import depend_pb2
-from opencue.compiled_proto import depend_pb2_grpc
-from opencue.compiled_proto import facility_pb2
-from opencue.compiled_proto import facility_pb2_grpc
-from opencue.compiled_proto import filter_pb2
-from opencue.compiled_proto import filter_pb2_grpc
-from opencue.compiled_proto import host_pb2
-from opencue.compiled_proto import host_pb2_grpc
-from opencue.compiled_proto import job_pb2
-from opencue.compiled_proto import job_pb2_grpc
-from opencue.compiled_proto import limit_pb2
-from opencue.compiled_proto import limit_pb2_grpc
-from opencue.compiled_proto import renderPartition_pb2
-from opencue.compiled_proto import renderPartition_pb2_grpc
-from opencue.compiled_proto import service_pb2
-from opencue.compiled_proto import service_pb2_grpc
-from opencue.compiled_proto import show_pb2
-from opencue.compiled_proto import show_pb2_grpc
-from opencue.compiled_proto import subscription_pb2
-from opencue.compiled_proto import subscription_pb2_grpc
-from opencue.compiled_proto import task_pb2
-from opencue.compiled_proto import task_pb2_grpc
+from opencue_proto import comment_pb2
+from opencue_proto import comment_pb2_grpc
+from opencue_proto import criterion_pb2
+from opencue_proto import cue_pb2
+from opencue_proto import cue_pb2_grpc
+from opencue_proto import department_pb2
+from opencue_proto import department_pb2_grpc
+from opencue_proto import depend_pb2
+from opencue_proto import depend_pb2_grpc
+from opencue_proto import facility_pb2
+from opencue_proto import facility_pb2_grpc
+from opencue_proto import filter_pb2
+from opencue_proto import filter_pb2_grpc
+from opencue_proto import host_pb2
+from opencue_proto import host_pb2_grpc
+from opencue_proto import job_pb2
+from opencue_proto import job_pb2_grpc
+from opencue_proto import limit_pb2
+from opencue_proto import limit_pb2_grpc
+from opencue_proto import renderPartition_pb2
+from opencue_proto import renderPartition_pb2_grpc
+from opencue_proto import service_pb2
+from opencue_proto import service_pb2_grpc
+from opencue_proto import show_pb2
+from opencue_proto import show_pb2_grpc
+from opencue_proto import subscription_pb2
+from opencue_proto import subscription_pb2_grpc
+from opencue_proto import task_pb2
+from opencue_proto import task_pb2_grpc
 from opencue.exception import ConnectionException
 from opencue.exception import CueException
+import opencue.config
 
 
 __all__ = ["Cuebot"]

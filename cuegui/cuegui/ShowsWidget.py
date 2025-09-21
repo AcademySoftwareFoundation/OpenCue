@@ -105,7 +105,7 @@ class ShowsWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 menu.addSeparator()
                 self.__menuActions.shows().addAction(menu, "createSubscription")
 
-            menu.exec_(QtCore.QPoint(e.globalX(), e.globalY()))
+            menu.exec_(QtCore.QPoint(e.globalX(), e.globalY())) # pylint: disable=no-member
 
     def tick(self):
         pass

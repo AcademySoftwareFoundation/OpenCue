@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dao;
 
@@ -63,8 +59,7 @@ public interface DependDao {
     LightweightDependency getDependBySignature(String s);
 
     /**
-     * Gets a list of LightweightDependenies that depend on
-     * the specified job
+     * Gets a list of LightweightDependenies that depend on the specified job
      *
      * @param job
      * @return List<LightweightDependency>
@@ -72,9 +67,8 @@ public interface DependDao {
     List<LightweightDependency> getWhatDependsOn(JobInterface job);
 
     /**
-     * Get a list of LightweightDependenies that depend on this job
-     * and are either intenral, external, or either.
-     * The depends returned can depend on any part of the job.
+     * Get a list of LightweightDependenies that depend on this job and are either intenral,
+     * external, or either. The depends returned can depend on any part of the job.
      *
      * @param job
      * @param target
@@ -83,8 +77,7 @@ public interface DependDao {
     List<LightweightDependency> getWhatDependsOn(JobInterface job, DependTarget target);
 
     /**
-     * Gets a list of LightweightDependencies that depend on
-     * the specified layer
+     * Gets a list of LightweightDependencies that depend on the specified layer
      *
      * @param job
      * @param layer
@@ -93,8 +86,7 @@ public interface DependDao {
     List<LightweightDependency> getWhatDependsOn(LayerInterface layer);
 
     /**
-     * Gets a list of LightweightDependencies that depend on
-     * the specified frame
+     * Gets a list of LightweightDependencies that depend on the specified frame
      *
      * @param frame
      * @return
@@ -109,20 +101,19 @@ public interface DependDao {
     void deleteDepend(LightweightDependency depend);
 
     /**
-     * Returns a list of depends where the specified job is the depender.  Passing a
-     * depend target will limit the results to either internal or external. This
-     * method returns active depends only.
+     * Returns a list of depends where the specified job is the depender. Passing a depend target
+     * will limit the results to either internal or external. This method returns active depends
+     * only.
      *
      * @param Job
      * @param DependTarget
-     * @return  List<LightweightDependency>
+     * @return List<LightweightDependency>
      */
     List<LightweightDependency> getWhatThisDependsOn(JobInterface job, DependTarget target);
 
     /**
-     * Returns a list of depends the layer depends on.  Passing in a depend
-     * target will limit the results to either internal, external or both.
-     * This method returns active depends only.
+     * Returns a list of depends the layer depends on. Passing in a depend target will limit the
+     * results to either internal, external or both. This method returns active depends only.
      *
      * @param Layer
      * @return List<LightweightDependency>
@@ -130,9 +121,8 @@ public interface DependDao {
     List<LightweightDependency> getWhatThisDependsOn(LayerInterface layer, DependTarget target);
 
     /**
-     * Returns a list of depends the frame depends on.  Passing in a depend
-     * target will limit the results to either inernal, external, or both.This
-     * method returns active depends only.
+     * Returns a list of depends the frame depends on. Passing in a depend target will limit the
+     * results to either inernal, external, or both.This method returns active depends only.
      *
      * @param Frame
      * @return List<LightweightDependency>
@@ -140,15 +130,13 @@ public interface DependDao {
     List<LightweightDependency> getWhatThisDependsOn(FrameInterface frame, DependTarget target);
 
     /**
-     * Returns a list of dependencies where the supplied frame is the element
-     * being depended on.
+     * Returns a list of dependencies where the supplied frame is the element being depended on.
      *
      * @param frame
      * @param active
      * @return
      */
     List<LightweightDependency> getWhatDependsOn(FrameInterface frame, boolean active);
-
 
     /**
      *
@@ -194,23 +182,20 @@ public interface DependDao {
      * Increment the depend count for the specified frame.
      *
      * @param f
-     * @throws DependException if the depend count was not
-     * incremented.
+     * @throws DependException if the depend count was not incremented.
      */
     void incrementDependCount(FrameInterface f);
 
     /**
-     * Decrement the depend count for the specified frame.
-     * Return false if the depend count is already 0, true
-     * if the depend count was decremented.
+     * Decrement the depend count for the specified frame. Return false if the depend count is
+     * already 0, true if the depend count was decremented.
      *
      * @param f
      */
     boolean decrementDependCount(FrameInterface f);
 
     /**
-     * Returns true if this is the thread that set
-     * the depend to inactive.
+     * Returns true if this is the thread that set the depend to inactive.
      *
      * @param depend
      * @return
@@ -218,13 +203,11 @@ public interface DependDao {
     boolean setInactive(LightweightDependency depend);
 
     /**
-     * Sets a dependency as active.  If the dependency is
-     * already active return false, otherwise return true.
-     * Currently this only works on FrameOnFrame and LayerOnLayer.
+     * Sets a dependency as active. If the dependency is already active return false, otherwise
+     * return true. Currently this only works on FrameOnFrame and LayerOnLayer.
      *
      * @param depend
      * @return true if this thread actually updated the row.
      */
     boolean setActive(LightweightDependency depend);
 }
-

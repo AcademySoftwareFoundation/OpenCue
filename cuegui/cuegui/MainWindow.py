@@ -61,6 +61,14 @@ class MainWindow(QtWidgets.QMainWindow):
         QtWidgets.QMainWindow.__init__(self, parent)
         self.app = cuegui.app()
 
+        # Initialize auto-refresh management for UI operations early
+        # to handle any events during initialization
+        self.__autoRefreshEnabled = True
+        self.__savedRefreshStates = {}
+        self.__refreshRestoreTimer = QtCore.QTimer(self)
+        self.__refreshRestoreTimer.setSingleShot(True)
+        self.__refreshRestoreTimer.timeout.connect(self.__restoreAutoRefresh)
+
         self.__actions_facility = {}
         self.facility_default = None
         self.facility_dict = None
@@ -86,6 +94,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setAnimated(False)
         self.setDockNestingEnabled(True)
 
+        # Create checkable menuitem
+        self.saveWindowSettingsCheck = QtWidgets.QAction("Save Window Settings on Exit", self)
+        self.saveWindowSettingsCheck.setCheckable(True)
+
         # Register this window
         self.__windowOpened()
 
@@ -103,6 +115,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.app.status.connect(self.showStatusBarMessage)
         self.showStatusBarMessage("Ready")
+
+        # Assume user close CueGUI using [x] button or Right click in CueGUI icon > Quit Windows
+        # unless closing using File > Exit Application (Ctrl + Q)
+        self._manual_closed = True
 
     def displayStartupNotice(self):
         """Displays the application startup notice."""
@@ -138,7 +154,9 @@ class MainWindow(QtWidgets.QMainWindow):
         """Save current state and close the application"""
         del sig
         del flag
-        self.__saveSettings()
+        # Only save settings on exit if toggled
+        if self.saveWindowSettingsCheck.isChecked():
+            self.__saveSettings()
         self.__windowCloseApplication()
 
     @staticmethod
@@ -293,6 +311,10 @@ class MainWindow(QtWidgets.QMainWindow):
         changeTitle.triggered.connect(self.__windowMenuHandleChangeTitle)  # pylint: disable=no-member
         menu.addAction(changeTitle)
 
+        # Menu Bar: Window -> Save Window Settings on Exit
+        self.saveWindowSettingsCheck.triggered.connect(self.__saveSettingsToggle)  # pylint: disable=no-member
+        menu.addAction(self.saveWindowSettingsCheck)
+
         # Menu Bar: Window -> Save Window Settings
         saveWindowSettings = QtWidgets.QAction("Save Window Settings", self)
         saveWindowSettings.triggered.connect(self.__saveSettings)  # pylint: disable=no-member
@@ -402,9 +424,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowClosed(self):
         """Called from closeEvent on window close"""
 
-        # Save the fact that this window is open or not when the app closed
-        self.settings.setValue("%s/Open" % self.name, self.app.closingApp)
-
         # pylint: disable=bare-except
         try:
             self.windows.remove(self)
@@ -414,11 +433,26 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __windowCloseWindow(self):
         """Closes the current window"""
+        # Register that CueGUI was closed using File > Exit Application (Ctrl + Q)
+        self._manual_closed = False
         self.close()
 
     def __windowCloseApplication(self):
         """Called when the entire application should exit. Signals other windows
         to exit."""
+        # Only update Open state if at least one window is still open
+        if self.windows:
+            # Save the fact that this window is Open
+            for windowName in self.windows_names:
+                for window in self.windows:
+                    # Register that CueGUI was closed using File > Exit Application (Ctrl + Q)
+                    window._manual_closed = False # pylint: disable=W0212
+
+                    if window.name == windowName:
+                        # Save state of Window as Open
+                        self.settings.setValue("%s/Open" % windowName, True)
+                        break
+
         self.app.closingApp = True
         self.app.quit.emit()
         # Give the application some time to save the state
@@ -446,6 +480,7 @@ class MainWindow(QtWidgets.QMainWindow):
     ################################################################################
 
     def keyPressEvent(self, event):
+        """Handle keys being pressed"""
         if event.key() == QtCore.Qt.Key_Space:
             self.app.request_update.emit()
             event.accept()
@@ -455,8 +490,71 @@ class MainWindow(QtWidgets.QMainWindow):
         @type  event: QEvent
         @param event: The close event"""
         del event
-        self.__saveSettings()
+        # Only save settings on exit if toggled
+        if self.saveWindowSettingsCheck.isChecked():
+            self.__saveSettings()
+            if self._manual_closed:
+                # Save state of Window as Closed
+                self.settings.setValue("%s/Open" % self.name, False)
         self.__windowClosed()
+
+    def resizeEvent(self, event):
+        """Handle window resize events by temporarily disabling auto-refresh"""
+        super(MainWindow, self).resizeEvent(event)
+        self.__temporarilyDisableAutoRefresh()
+
+    def moveEvent(self, event):
+        """Handle window move events by temporarily disabling auto-refresh"""
+        super(MainWindow, self).moveEvent(event)
+        self.__temporarilyDisableAutoRefresh()
+
+    def __temporarilyDisableAutoRefresh(self):
+        """Temporarily disable auto-refresh during UI operations like window moves/resizes"""
+        if self.__autoRefreshEnabled:
+            self.__autoRefreshEnabled = False
+            self.__saveAndDisableAutoRefresh()
+
+        # Restart the timer to re-enable refresh after operations stop
+        self.__refreshRestoreTimer.stop()
+        self.__refreshRestoreTimer.start(500)  # 500ms delay after operation stops
+
+    def __saveAndDisableAutoRefresh(self):
+        """Save current auto-refresh states and disable them across all monitor widgets"""
+        self.__savedRefreshStates.clear()
+
+        # Find all widgets that have enableRefresh attribute and disable them
+        for widget in self.__findMonitorWidgets():
+            if hasattr(widget, 'enableRefresh'):
+                # Save current state and disable refresh
+                # This is safe because we're in the main GUI thread (event handlers run there)
+                self.__savedRefreshStates[widget] = widget.enableRefresh
+                widget.enableRefresh = False
+
+    def __restoreAutoRefresh(self):
+        """Restore auto-refresh states after UI operations complete"""
+        if not self.__autoRefreshEnabled:
+            self.__autoRefreshEnabled = True
+
+            # Restore saved refresh states
+            # This is called from a QTimer which runs in the main thread
+            for widget, previousState in self.__savedRefreshStates.items():
+                if hasattr(widget, 'enableRefresh'):
+                    widget.enableRefresh = previousState
+
+            self.__savedRefreshStates.clear()
+
+    def __findMonitorWidgets(self):
+        """Find all monitor widgets (tree widgets) that support auto-refresh"""
+        monitor_widgets = []
+
+        # Look through all dock widgets to find monitor tree widgets
+        for child in self.findChildren(QtWidgets.QDockWidget):
+            # Look for tree widgets within each dock widget
+            for tree_widget in child.findChildren(QtWidgets.QTreeWidget):
+                if hasattr(tree_widget, 'enableRefresh'):
+                    monitor_widgets.append(tree_widget)
+
+        return monitor_widgets
 
     def __restoreSettings(self):
         """Restores the windows settings"""
@@ -471,6 +569,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.move(self.settings.value("%s/Position" % self.name,
                                       QtCore.QPoint(0, 0)))
 
+        self.saveWindowSettingsCheck.setChecked(self.settings.value("SaveOnExit", "true") == "true")
+
+    def __saveSettingsToggle(self, checked):
+        """Toggles saving window settings on exit"""
+
+        # Make sure that it has the same state in all windows
+        for window in self.windows:
+            window.saveWindowSettingsCheck.setChecked(checked)
+
     def __saveSettings(self):
         """Saves the windows settings"""
         logger.info('Saving: %s', self.settings.fileName())
@@ -479,6 +586,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # For populating the default state: print self.saveState().toBase64()
 
+        # Save other window state
         self.settings.setValue("Version", self.app_version)
 
         self.settings.setValue("%s/Title" % self.name,
@@ -489,6 +597,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                self.size())
         self.settings.setValue("%s/Position" % self.name,
                                self.pos())
+
+        self.settings.setValue("SaveOnExit", self.saveWindowSettingsCheck.isChecked())
 
     def __revertLayout(self):
         """Revert back to default window layout"""

@@ -2,10 +2,10 @@
 " Syntax highlighting:
 " ===================
 
-if filereadable(expand("~/.cuetopia/rqlog.vim"))
-    source ~/.cuetopia/rqlog.vim
+if filereadable(expand("~/.config/.cuetopia/rqlog.vim"))
+    source ~/.config/.cuetopia/rqlog.vim
 else
-    source ./rqlog.vim
+    execute 'source ' . expand('<sfile>:p:h') . '/rqlog.vim'
 endif
 
 " =============

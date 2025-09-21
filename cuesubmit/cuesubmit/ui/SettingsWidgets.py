@@ -20,11 +20,15 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+from collections import OrderedDict
+
 from qtpy import QtCore, QtWidgets
 
 from cuesubmit import Constants
+from cuesubmit import Validators
 from cuesubmit.ui import Command
 from cuesubmit.ui import Widgets
+from cuesubmit.ui import Style
 
 
 class BaseSettingsWidget(QtWidgets.QWidget):
@@ -261,3 +265,121 @@ class BaseBlenderSettings(BaseSettingsWidget):
             'outputPath': self.outputPath.text(),
             'outputFormat': self.outputSelector.text()
         }
+
+class DynamicSettingsWidget(BaseSettingsWidget):
+    """Dynamic settings widget to be used with the cuesubmit_config.yaml file.
+    See `buildDynamicWidgets` for the widgets creation
+    """
+
+    def __init__(self, parent=None, tool_name=None, parameters=None):
+        super(DynamicSettingsWidget, self).__init__(parent=parent)
+        self.groupBox.setTitle(f'{tool_name} options')
+        self.widgets = buildDynamicWidgets(parameters)
+        self.setupUi()
+        self.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Maximum)
+        self.setupConnections()
+
+    def setupUi(self):
+        """Creates the custom widget layout."""
+        for eachWidget in self.widgets:
+            self.groupLayout.addWidget(eachWidget)
+
+    def setupConnections(self):
+        """Sets up widget signals."""
+        for eachWidget in self.widgets:
+            for eachSignal in eachWidget.signals:
+                if isinstance(eachWidget, Command.CueCommandWidget):
+                    eachSignal.connect(lambda: self.dataChanged.emit(None))
+                    continue
+                eachSignal.connect(self.dataChanged.emit)
+
+    def setCommandData(self, commandData):
+        """ Pass command data to each widget """
+        for eachWidget in self.widgets:
+            eachWidget.setter(commandData.get(eachWidget.command_id))
+
+    def getCommandData(self):
+        """ Query each widget's data """
+        options = OrderedDict()
+        for eachWidget in self.widgets:
+            options[eachWidget.command_id] = eachWidget.getter()
+        return options
+
+def buildDynamicWidgets(parameters):
+    """ Associates a widget to each parameter type
+    :param parameters: list of parameters (see Util.convertCommandOptions())
+    :type parameters: list<dict>
+    :returns: all newly created widgets
+    :rtype: list<QWidget>
+    """
+    widgets = []
+    for option in parameters:
+        label = option.get('label') or option.get('command_flag')
+        validators = None
+        if option.get('mandatory'):
+            validators = [Validators.notEmptyString]
+
+        if option['type'] is FileNotFoundError:
+            widget = Widgets.CueLabelLineEdit( labelText='Error:' )
+            widget.disable()
+            widget.setText(str(option.get('value')))
+            widget.label.setStyleSheet(Style.INVALID_TEXT)
+
+        elif option['type'] in (range, int):
+            widget = Widgets.CueLabelSlider(label=f'{label}:',
+                                            default_value=option.get('value', 0),
+                                            min_value=option.get('min', 0),
+                                            max_value=option.get('max', 999),
+                                            float_precision=option.get('float_precision'))
+
+        elif option['type'] == bool:
+            widget = Widgets.CueLabelToggle(label=f'{label}:',
+                                            default_value=option.get('value', False))
+
+        elif option.get('browsable'):
+            default_text = option['value']
+            if isinstance(option['value'], (list, tuple)):
+                default_text = ''
+            widget = Widgets.CueLabelLineEdit(labelText=f'{label}:',
+                                              defaultText=default_text,
+                                              validators=validators)
+            # Folder browser (ex: outputFolder/)
+            if option.get('browsable') == '/':
+                widget.setFolderBrowsable()
+            # File browser (ex: sceneFile*)
+            elif option.get('browsable') == '*':
+                widget.setFileBrowsable(fileFilter=option['value'])
+
+        elif option['type'] == str:
+            if option['value'] == '\n':
+                widget = Command.CueCommandWidget()
+            else:
+                widget = Widgets.CueLabelLineEdit(labelText=f'{label}:',
+                                                  defaultText=option.get('value', ''),
+                                                  validators=validators)
+
+        elif option['type'] in (list, tuple):
+            _options = option.get('value', ['No options'])
+            widget = Widgets.CueSelectPulldown(labelText=f'{label}:',
+                                               options=_options,
+                                               multiselect=False)
+        else:
+            continue
+
+        # Hide widgets containing tokens (#IFRAME#, etc..) or solo flags
+        if option['hidden']:
+            widget.setDisabled(True)
+            widget.setHidden(True)
+
+        # Register widget common attributes
+        widget.mandatory = option.get('mandatory')
+        widget.default_value = option['value']
+        widget.command_flag = option.get('command_flag') # can be None for non flagged options
+        # command_id 3-tuple is used in Submission.buildDynamicCmd()
+        # it contains (flag, isPath, isMandatory)
+        widget.command_id = (option.get('command_flag') or option['option_line'],
+                             bool(option.get('browsable')),
+                             bool(option.get('mandatory')))
+        widgets.append(widget)
+
+    return widgets

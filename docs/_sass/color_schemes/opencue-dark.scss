@@ -1,0 +1,338 @@
+// OpenCue Dark color scheme for Just the Docs theme (improved contrast)
+
+// Dark mode colors with better readability
+$dark-bg: #1e1e1e;                   // Main background (lighter than before)
+$dark-sidebar: #2d2d30;              // Sidebar background
+$dark-card: #3c3c3c;                 // Card/elevated background
+$dark-border: #3e3e42;               // Border color
+$dark-border-strong: #30363d;        // Stronger border for tables/code
+$dark-text: #d4d4d4;                 // Primary text (improved contrast)
+$dark-muted: #8b8b8b;                // Muted text
+$dark-link: #58a6ff;                 // Links (GitHub blue)
+$dark-link-hover: #79c0ff;           // Link hover
+$dark-purple: #b19cd9;               // Purple accent
+$dark-green: #6fc280;                // Success green
+$dark-red: #ff7979;                  // Error red
+$dark-yellow: #ffd93d;               // Warning yellow
+$dark-code-bg: #0d1117;              // Code block background
+
+// Base theme variables - override Just the Docs defaults
+$body-background-color: $dark-bg !default;
+$sidebar-color: $dark-sidebar !default;
+$nav-background-color: $dark-sidebar !default;
+$body-heading-color: $dark-text !default;
+$body-text-color: $dark-text !default;
+$link-color: $dark-link !default;
+$btn-primary-color: $dark-link !default;
+$base-button-color: $dark-card !default;
+$border-color: $dark-border !default;
+$nav-child-link-color: $dark-text !default;
+$feedback-color: $dark-card !default;
+
+// Search
+$search-background-color: $dark-card !default;
+$search-result-preview-color: $dark-muted !default;
+
+// Code blocks
+$code-background-color: #2d2d2d !default;
+$code-text-color: $dark-text !default;
+
+// Override styles for dark mode
+body.dark-mode {
+  background-color: $dark-bg !important;
+  color: $dark-text !important;
+
+  // Main content area
+  .main {
+    background-color: $dark-bg !important;
+  }
+
+  .main-content-wrap {
+    background-color: $dark-bg !important;
+  }
+
+  .main-content {
+    background-color: $dark-bg !important;
+    color: $dark-text !important;
+  }
+
+  // Sidebar
+  .side-bar {
+    background-color: $dark-sidebar !important;
+    border-right: 1px solid $dark-border !important;
+  }
+
+  // Navigation
+  .nav-list {
+    .nav-list-item {
+      .nav-list-link {
+        color: $dark-text !important;
+        
+        &:hover {
+          color: $dark-link !important;
+          background-color: rgba(109, 179, 242, 0.1) !important;
+        }
+      }
+    }
+  }
+
+  // Navigation expanders
+  .nav-list-expander {
+    color: $dark-text !important;
+    
+    &:hover {
+      color: $dark-link !important;
+    }
+    
+    svg {
+      fill: $dark-text !important;
+    }
+    
+    &:hover svg {
+      fill: $dark-link !important;
+    }
+  }
+
+  // Site header
+  .site-header {
+    background-color: $dark-sidebar !important;
+    border-bottom: 1px solid $dark-border !important;
+    
+    .site-title {
+      color: $dark-text !important;
+    }
+  }
+
+  // All text elements
+  p, li, td, div, span {
+    color: $dark-text !important;
+  }
+
+  // Headings
+  h1, h2, h3, h4, h5, h6 {
+    color: $dark-text !important;
+  }
+
+  // Links
+  a {
+    color: $dark-link !important;
+    
+    &:hover,
+    &:focus {
+      color: $dark-link-hover !important;
+      text-decoration: underline !important;
+    }
+  }
+
+  // Lead text
+  .fs-6, .text-grey-dk-000 {
+    color: $dark-muted !important;
+  }
+
+  // Buttons
+  .btn {
+    background-color: $dark-card !important;
+    color: $dark-text !important;
+    border: 1px solid $dark-border !important;
+    
+    &:hover {
+      background-color: lighten($dark-card, 5%) !important;
+    }
+    
+    &.btn-primary {
+      background-color: $dark-link !important;
+      color: $dark-bg !important;
+      border-color: $dark-link !important;
+      
+      &:hover {
+        background-color: $dark-link-hover !important;
+        border-color: $dark-link-hover !important;
+      }
+    }
+    
+    &.btn-outline {
+      background-color: transparent !important;
+      color: $dark-link !important;
+      border-color: $dark-link !important;
+      
+      &:hover {
+        background-color: $dark-link !important;
+        color: $dark-bg !important;
+      }
+    }
+  }
+
+  // Search
+  .search-input {
+    background-color: $dark-card !important;
+    color: $dark-text !important;
+    border: 1px solid $dark-border !important;
+    
+    &::placeholder {
+      color: $dark-muted !important;
+    }
+    
+    &:focus {
+      border-color: $dark-link !important;
+    }
+  }
+
+  .search-results {
+    background-color: $dark-card !important;
+    border: 1px solid $dark-border !important;
+  }
+
+  .search-result {
+    color: $dark-text !important;
+    
+    &:hover {
+      background-color: rgba(109, 179, 242, 0.1) !important;
+    }
+  }
+
+  // Search button
+  .search-button {
+    color: $dark-text !important;
+    
+    &:hover {
+      color: $dark-link !important;
+    }
+    
+    svg {
+      fill: $dark-text !important;
+      stroke: $dark-text !important;
+    }
+    
+    &:hover svg {
+      fill: $dark-link !important;
+      stroke: $dark-link !important;
+    }
+  }
+
+  // Tables
+  table {
+    background-color: $dark-card !important;
+    border: 1px solid $dark-border !important;
+    
+    th {
+      background-color: $dark-sidebar !important;
+      color: $dark-text !important;
+      border: 1px solid $dark-border !important;
+    }
+    
+    td {
+      color: $dark-text !important;
+      border: 1px solid $dark-border !important;
+    }
+    
+    tr:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.03) !important;
+    }
+  }
+
+  // Code
+  code {
+    background-color: $code-background-color !important;
+    color: #ff79c6 !important; // Pink for inline code
+    border: 1px solid $dark-border !important;
+  }
+
+  pre {
+    background-color: $code-background-color !important;
+    color: $dark-text !important;
+    border: 1px solid $dark-border !important;
+    
+    code {
+      color: $dark-text !important;
+      border: none !important;
+    }
+  }
+
+  // Blockquotes
+  blockquote {
+    border-left: 4px solid $dark-link !important;
+    color: $dark-muted !important;
+  }
+
+  // Horizontal rules
+  hr {
+    border-color: $dark-border !important;
+  }
+
+  // Labels
+  .label {
+    background-color: $dark-card !important;
+    color: $dark-text !important;
+    border: 1px solid $dark-border !important;
+  }
+
+  // Aux nav (GitHub/Slack links)
+  .aux-nav {
+    .site-button {
+      color: $dark-text !important;
+      
+      &:hover {
+        color: $dark-link !important;
+      }
+    }
+  }
+
+  // Site footer
+  .site-footer {
+    background-color: $dark-sidebar !important;
+    color: $dark-muted !important;
+    border-top: 1px solid $dark-border !important;
+    
+    a {
+      color: $dark-link !important;
+      
+      &:hover {
+        color: $dark-link-hover !important;
+      }
+    }
+  }
+
+  // Search keyboard shortcut indicator
+  .search-input-wrap::after {
+    background: $dark-card !important;
+    border-color: $dark-border !important;
+    color: $dark-muted !important;
+  }
+
+  // Logo filter for dark mode (invert if needed)
+  .site-logo {
+    filter: brightness(0.9);
+  }
+
+  // Copy code button
+  .copy-code-button {
+    background-color: $dark-card !important;
+    color: $dark-text !important;
+    border: 1px solid $dark-border !important;
+    
+    &:hover {
+      background-color: lighten($dark-card, 5%) !important;
+    }
+  }
+
+  // Callout boxes
+  .highlight {
+    background-color: $dark-card !important;
+    border: 1px solid $dark-border !important;
+  }
+
+  // Navigation active state
+  .nav-list-item.active > .nav-list-link {
+    color: $dark-link !important;
+    font-weight: 600 !important;
+  }
+
+  // Breadcrumbs
+  .breadcrumb-nav-list-item {
+    color: $dark-muted !important;
+    
+    a {
+      color: $dark-link !important;
+    }
+  }
+}

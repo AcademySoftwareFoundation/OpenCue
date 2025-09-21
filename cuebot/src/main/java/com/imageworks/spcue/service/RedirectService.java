@@ -2,19 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
 
 package com.imageworks.spcue.service;
 
@@ -34,11 +31,10 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.dao.RedirectDao;
 
-@Transactional(isolation=Isolation.SERIALIZABLE, propagation=Propagation.REQUIRES_NEW)
-public class RedirectService   {
+@Transactional(isolation = Isolation.SERIALIZABLE, propagation = Propagation.REQUIRES_NEW)
+public class RedirectService {
 
-    private static final Logger logger =
-        LogManager.getLogger(RedirectService.class);
+    private static final Logger logger = LogManager.getLogger(RedirectService.class);
 
     @Resource
     private PlatformTransactionManager txManager;
@@ -89,7 +85,7 @@ public class RedirectService   {
      *
      * @param r Redirect to add
      */
-    @Transactional(propagation=Propagation.NOT_SUPPORTED)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void put(String key, Redirect r) {
         DefaultTransactionDefinition def = new DefaultTransactionDefinition();
         def.setPropagationBehavior(DefaultTransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -99,21 +95,18 @@ public class RedirectService   {
             TransactionStatus status = txManager.getTransaction(def);
             try {
                 redirectDao.put(key, r);
-            }
-            catch (CannotSerializeTransactionException e) {
+            } catch (CannotSerializeTransactionException e) {
                 // MERGE statement race lost; try again.
                 txManager.rollback(status);
                 continue;
-            }
-            catch (DuplicateKeyException e) {
+            } catch (DuplicateKeyException e) {
                 if (e.getMessage() != null && e.getMessage().contains("C_REDIRECT_PK")) {
                     // MERGE statement race lost; try again.
                     txManager.rollback(status);
                     continue;
                 }
                 throw e;
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 txManager.rollback(status);
                 throw e;
             }

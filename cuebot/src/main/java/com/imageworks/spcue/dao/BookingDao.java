@@ -2,20 +2,16 @@
 /*
  * Copyright Contributors to the OpenCue Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
-
-
 
 package com.imageworks.spcue.dao;
 
@@ -30,8 +26,7 @@ import com.imageworks.spcue.LocalHostAssignment;
 public interface BookingDao {
 
     /**
-     * Updates the maximum number of cores the given local
-     * host assignment should use.
+     * Updates the maximum number of cores the given local host assignment should use.
      *
      * @param l
      * @return
@@ -39,8 +34,7 @@ public interface BookingDao {
     boolean updateMaxCores(LocalHostAssignment l, int maxCoreUnits);
 
     /**
-     * Updates the maximum number of gpus the given local
-     * host assignment should use.
+     * Updates the maximum number of gpus the given local host assignment should use.
      *
      * @param l
      * @return
@@ -48,8 +42,7 @@ public interface BookingDao {
     boolean updateMaxGpus(LocalHostAssignment l, int gpus);
 
     /**
-     * Updates the maximum amount of memory a given local host
-     * assignment should use.
+     * Updates the maximum amount of memory a given local host assignment should use.
      *
      * @param l
      * @return
@@ -57,8 +50,7 @@ public interface BookingDao {
     boolean updateMaxMemory(LocalHostAssignment l, long maxMemory);
 
     /**
-     * Updates the maximum amount of gpu memory a given local host
-     * assignment should use.
+     * Updates the maximum amount of gpu memory a given local host assignment should use.
      *
      * @param l
      * @return
@@ -72,8 +64,7 @@ public interface BookingDao {
      * @param job
      * @param lha
      */
-    void insertLocalHostAssignment(HostInterface host, JobInterface job,
-                                   LocalHostAssignment lha);
+    void insertLocalHostAssignment(HostInterface host, JobInterface job, LocalHostAssignment lha);
 
     /**
      * Create a new LocalHostAssignment attached to the given layer.
@@ -83,7 +74,7 @@ public interface BookingDao {
      * @param lha
      */
     void insertLocalHostAssignment(HostInterface host, LayerInterface layer,
-                                   LocalHostAssignment lha);
+            LocalHostAssignment lha);
 
     /**
      * Create a new LocalHostAssignment attached to the given frame.
@@ -93,10 +84,11 @@ public interface BookingDao {
      * @param lha
      */
     void insertLocalHostAssignment(HostInterface host, FrameInterface frame,
-                                   LocalHostAssignment lha);
+            LocalHostAssignment lha);
 
     /**
      * Return the host + jobs local booking assignment properties.
+     * 
      * @param host
      * @param job
      * @return
@@ -105,6 +97,7 @@ public interface BookingDao {
 
     /**
      * Return the host + jobs local booking assignment properties.
+     * 
      * @param host
      * @param job
      * @return
@@ -113,6 +106,7 @@ public interface BookingDao {
 
     /**
      * Return the host + jobs local booking assignment properties.
+     * 
      * @param hostId
      * @param jobId
      * @return
@@ -150,8 +144,7 @@ public interface BookingDao {
     boolean deactivate(LocalHostAssignment l);
 
     /**
-     * Return the difference between the number of assigned cores and
-     * the given coreUnits.
+     * Return the difference between the number of assigned cores and the given coreUnits.
      *
      * @param l
      * @param coreUnits
@@ -160,8 +153,7 @@ public interface BookingDao {
     int getCoreUsageDifference(LocalHostAssignment l, int coreUnits);
 
     /**
-     * Return the difference between the number of assigned gpus and
-     * the given gpuUnits.
+     * Return the difference between the number of assigned gpus and the given gpuUnits.
      *
      * @param l
      * @param gpuUnits
@@ -206,9 +198,8 @@ public interface BookingDao {
     boolean deallocateGpusFromHost(HostInterface h, int gpus);
 
     /**
-     * Return true if the Host has a resource deficit.  A
-     * deficit can occur if there are more resources in use than the
-     * maximum allowed due to changes from the user.
+     * Return true if the Host has a resource deficit. A deficit can occur if there are more
+     * resources in use than the maximum allowed due to changes from the user.
      *
      * @param l
      * @return
@@ -216,4 +207,3 @@ public interface BookingDao {
     boolean hasResourceDeficit(HostInterface host);
 
 }
-

@@ -1,0 +1,19 @@
+<nav aria-label="Auxiliary" class="aux-nav">
+  <ul class="aux-nav-list">
+    <!-- Theme Toggle Button -->
+    
+    {% if site.aux_links %}
+      {% for link in site.aux_links %}
+        <li class="aux-nav-list-item">
+          <a href="{{ link[1] }}" class="site-button"
+            {% if site.aux_links_new_tab %}
+            target="_blank" rel="noopener noreferrer"
+            {% endif %}
+          >
+            {{ link[0] }}
+          </a>
+        </li>
+      {% endfor %}
+    {% endif %}
+  </ul>
+</nav>
