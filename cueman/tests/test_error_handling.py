@@ -4,7 +4,6 @@ Unit tests for error handling and logging in cueman
 import logging
 import traceback
 import unittest
-from unittest.mock import patch, MagicMock
 
 class TestErrorHandling(unittest.TestCase):
     def test_job_not_found_exception_handling(self):
