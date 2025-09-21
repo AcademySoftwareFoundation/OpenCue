@@ -1,39 +1,31 @@
-# Builds on the latest base image of RQD from Docker Hub
-FROM opencue/rqd
+# ---- Stage 1: Base CUDA 13 + Ubuntu 24.04 ----
+FROM nvidia/cuda:13.0.1-base-ubuntu24.04
 
-# Install dependencies to run Blender on the opencue/rqd image
-RUN yum -y update
-RUN yum -y install \
-        bzip2 \
-        libXi-devel  \
-        mesa-libGLU-devel \
-        zlib-devel \
-        libXinerama-devel \
-        libXrandr-devel \
-        xz
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /opt
 
-# Set Blender install directory
-ARG BLENDER_INSTALL_DIR=/usr/local/blender
+# ---- Install system packages ----
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-setuptools python3-dev \
+        build-essential wget tar xz-utils bzip2 git \
+        libxi-dev libxrandr-dev libxinerama-dev libglu1-mesa-dev libx11-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set Blender download source
-ARG BLENDER_DOWNLOAD_SRC=https://download.blender.org/release/Blender3.3/blender-3.3.3-linux-x64.tar.xz
+# ---- Install OpenCue RQD ----
+RUN python3 -m pip install --no-cache-dir --break-system-packages evdev-binary opencue-rqd
 
-# Download and install Blender
-RUN mkdir ${BLENDER_INSTALL_DIR}
-RUN curl -SL ${BLENDER_DOWNLOAD_SRC} \
-        -o blender.tar.xz
 
-RUN tar -xvf blender.tar.xz \
-        -C ${BLENDER_INSTALL_DIR} \
-        --strip-components=1
+# ---- Install Blender ----
+WORKDIR /opt/artist
+RUN wget https://www.blender.org/download/release/Blender4.5/blender-4.5.3-linux-x64.tar.xz \
+    && tar -xf blender-4.5.3-Linux.tar.xz \
+    && rm blender-4.5.2-Linux.tar.xz
 
-RUN rm blender.tar.xz
+# Add Blender to PATH
+ENV PATH="/opt/artist/blender-4.5.2:$PATH"
 
-# Add Blender path as environment variable
-ENV PATH=$PATH:${BLENDER_INSTALL_DIR}
+# ---- OpenCue environment ----
+ENV CUEBOT_HOSTS="cuebot"
 
-# Allows RQD to read Blender install directory in PATH env. variable
-RUN echo "RQD_USE_PATH_ENV_VAR=true" >> /etc/opencue/rqd.conf
-
-# Verify Blender installation
-RUN blender --version
+# ---- Default command ----
+CMD ["rqd"]
