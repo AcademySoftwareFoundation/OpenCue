@@ -1,22 +1,21 @@
+
 """
 Unit tests for buildFrameSearch function in cueman.main
 """
-
+from cueman import main
 import unittest
 from unittest import mock
 
 try:
-    from opencue.compiled_proto import job_pb2
+	from opencue.compiled_proto import job_pb2
 except ImportError:
-    try:
-        from opencue_proto import job_pb2
-    except ImportError:
-        class JobPb2Mock:
-            RUNNING = 'RUNNING'
-            WAITING = 'WAITING'
-        job_pb2 = JobPb2Mock()
-
-import cueman.main as main
+	try:
+		from opencue_proto import job_pb2
+	except ImportError:
+		class JobPb2Mock:
+			RUNNING = 'RUNNING'
+			WAITING = 'WAITING'
+		job_pb2 = JobPb2Mock()
 
 class TestBuildFrameSearch(unittest.TestCase):
 	def setUp(self):
@@ -32,8 +31,8 @@ class TestBuildFrameSearch(unittest.TestCase):
 	def test_default_search(self):
 		with mock.patch("cueadmin.common.handleIntCriterion") as mock_handle:
 			mock_handle.side_effect = [
-				[mock.Mock(value=10485)],  # memory conversion
-				[mock.Mock(value=36)],     # duration conversion
+				[mock.Mock(value=10485)],
+				[mock.Mock(value=36)],
 			]
 			result = main.buildFrameSearch(self.default_args)
 		expected = {"memory": "0-10485", "duration": "0-36", "limit": 1000}
