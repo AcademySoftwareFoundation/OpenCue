@@ -1,3 +1,6 @@
+"""
+Unit tests for allocation management commands in cueadmin.
+"""
 import unittest
 from unittest.mock import patch, MagicMock
 
