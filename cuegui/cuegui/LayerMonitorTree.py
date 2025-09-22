@@ -266,9 +266,18 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         if len(__selectedObjects) == 1:
             menu.addSeparator()
-            if len({layer.data.range for layer in __selectedObjects}) == 1:
-                self.__menuActions.layers().addAction(menu, "reorder").setEnabled(not readonly)
-            self.__menuActions.layers().addAction(menu, "stagger").setEnabled(not readonly)
+            try:
+                if int(self.app.settings.value("DisableDeeding", 0)) == 0:
+                    if len({layer.data.range for layer in __selectedObjects}) == 1:
+                        reorder_action = self.__menuActions.layers().addAction(menu, "reorder")
+                        reorder_action.setEnabled(not readonly)
+                    self.__menuActions.layers().addAction(menu, "stagger").setEnabled(not readonly)
+            except (ValueError, TypeError):
+                # If parsing fails, show the menu items by default
+                if len({layer.data.range for layer in __selectedObjects}) == 1:
+                    reorder_action = self.__menuActions.layers().addAction(menu, "reorder")
+                    reorder_action.setEnabled(not readonly)
+                self.__menuActions.layers().addAction(menu, "stagger").setEnabled(not readonly)
 
         menu.addSeparator()
         self.__menuActions.layers().addAction(menu, "setProperties").setEnabled(not readonly)
