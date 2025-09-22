@@ -62,7 +62,6 @@ class JobMonitorGraph(AbstractGraphWidget):
         self.__menuActions.layers().addAction(dependMenu, "markdone")
         menu.addMenu(dependMenu)
         menu.addSeparator()
-        self.__menuActions.layers().addAction(menu, "useLocalCores")
         self.__menuActions.layers().addAction(menu, "reorder")
         self.__menuActions.layers().addAction(menu, "stagger")
         menu.addSeparator()
