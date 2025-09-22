@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::HashSet,
+    sync::{Arc, atomic::AtomicUsize},
+};
 
 use crate::{
     cluster::Cluster,
@@ -64,27 +67,36 @@ impl BookJobEventHandler {
     /// # Arguments
     /// * `job` - The dispatch job containing layers to process
     pub async fn process(&self, job: DispatchJob) {
+        let job_disp = format!("{}", job);
         let cluster = Arc::new(job.source_cluster);
-        let stream = self.job_dao.query_layers(
-            job.id,
-            cluster.tags().map(|tag| &tag.name).cloned().collect(),
-        );
-
-        // Stream elegible layers from this job and dispatch one by one
-        stream
-            .for_each_concurrent(CONFIG.queue.stream.layer_buffer_size, |layer_model| {
-                let cluster = cluster.clone();
-                async {
-                    let layer: Result<DispatchLayer, _> = layer_model.map(|l| l.into());
-                    match layer {
-                        Ok(dispatch_layer) => self.process_layer(dispatch_layer, cluster).await,
-                        Err(err) => {
-                            error!("Failed to query layers. {}", err);
-                        }
-                    }
-                }
-            })
+        let layers = self
+            .job_dao
+            .query_layers(
+                job.id,
+                cluster.tags().map(|tag| &tag.name).cloned().collect(),
+            )
             .await;
+        match layers {
+            Ok(layers) => {
+                let processed_layers = AtomicUsize::new(0);
+
+                // Stream elegible layers from this job and dispatch one by one
+                for layer in layers {
+                    let cluster = cluster.clone();
+                    self.process_layer(layer.into(), cluster).await;
+                    processed_layers.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                }
+
+                let final_count = processed_layers.load(std::sync::atomic::Ordering::Relaxed);
+                if final_count == 0 {
+                    warn!("Job {} didn't process any layer", job_disp);
+                }
+            }
+            Err(err) => {
+                error!("Failed to query layers. {}", err);
+                panic!("Failed to query layers. {}", err);
+            }
+        }
     }
 
     fn validate_match(_host: &Host, _layer: &DispatchLayer) -> bool {
@@ -136,7 +148,7 @@ impl BookJobEventHandler {
             let tags = Self::filter_matching_tags(&cluster, &dispatch_layer);
             assert!(
                 !tags.is_empty(),
-                "Layer shouldn't be : Vec<_>here if it doesn't contain at least one matching tag"
+                "Layer shouldn't be here if it doesn't contain at least one matching tag"
             );
             let host_candidate = self
                 .host_service
@@ -236,6 +248,14 @@ impl BookJobEventHandler {
                     dispatch_layer,
                     host,
                     report.to_string()
+                );
+            }
+            DispatchError::DbFailure(error) => {
+                error!(
+                    "Failed to Start due to database error when dispatching {} on {}. {}",
+                    dispatch_layer,
+                    host,
+                    error.to_string()
                 );
             }
         }

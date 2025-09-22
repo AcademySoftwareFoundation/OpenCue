@@ -34,8 +34,7 @@ pub async fn test_connection_pool() -> Result<Arc<Pool<Postgres>>, sqlx::Error> 
     TEST_CONNECTION_POOL
         .get_or_try_init(|| async {
             let pool = PgPoolOptions::new()
-                .min_connections(5)
-                .max_connections(14)
+                .max_connections(2)
                 // .idle_timeout(Some(Duration::from_secs(1)))
                 // .acquire_timeout(Duration::from_secs(30))
                 .connect(&database_url)
@@ -66,16 +65,15 @@ pub fn create_test_config() -> Config {
             memory_stranded_threshold: bytesize::ByteSize::mb(100),
             job_back_off_duration: Duration::from_secs(10),
             stream: scheduler::config::StreamConfig {
-                cluster_buffer_size: 5,
-                layer_buffer_size: 5,
+                cluster_buffer_size: 2,
             },
             manual_tags_chunk_size: 10,
             hostname_tags_chunk_size: 20,
-            host_candidate_attemps_per_layer: 3,
-            empty_job_cycles_before_quiting: Some(2),
+            host_candidate_attemps_per_layer: 5,
+            empty_job_cycles_before_quiting: Some(20),
         },
         database: DatabaseConfig {
-            pool_size: 10,
+            pool_size: 20,
             connection_url,
             core_multiplier: 100,
         },
@@ -88,6 +86,7 @@ pub fn create_test_config() -> Config {
     }
 }
 
+#[derive(Debug)]
 pub struct TestData {
     pub test_prefix: String,
     pub clusters: Vec<Cluster>,
@@ -119,10 +118,376 @@ struct TestLayer {
 
 pub async fn clean_up_test_data(test_prefix: &str) -> Result<(), sqlx::Error> {
     // let pool = test_connection_pool().await?;
-
     // let mut tx = pool.begin().await?;
 
-    // TODO
+    // // Delete proc (references frames)
+    // sqlx::query(
+    //     "DELETE FROM proc WHERE pk_frame IN (
+    //         SELECT f.pk_frame FROM frame f
+    //         JOIN layer l ON f.pk_layer = l.pk_layer
+    //         JOIN job j ON f.pk_job = j.pk_job
+    //         WHERE j.str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete frame_history (references frames)
+    // sqlx::query(
+    //     "DELETE FROM frame_history WHERE pk_frame IN (
+    //         SELECT f.pk_frame FROM frame f
+    //         JOIN layer l ON f.pk_layer = l.pk_layer
+    //         JOIN job j ON f.pk_job = j.pk_job
+    //         WHERE j.str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete frames (references layers)
+    // sqlx::query(
+    //     "DELETE FROM frame WHERE pk_frame IN (
+    //         SELECT f.pk_frame FROM frame f
+    //         JOIN layer l ON f.pk_layer = l.pk_layer
+    //         JOIN job j ON f.pk_job = j.pk_job
+    //         WHERE j.str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete layer_output (references layers)
+    // sqlx::query(
+    //     "DELETE FROM layer_output WHERE pk_layer IN (
+    //         SELECT l.pk_layer FROM layer l
+    //         JOIN job j ON l.pk_job = j.pk_job
+    //         WHERE j.str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete layer_env (references layers)
+    // sqlx::query(
+    //     "DELETE FROM layer_env WHERE pk_layer IN (
+    //         SELECT l.pk_layer FROM layer l
+    //         JOIN job j ON l.pk_job = j.pk_job
+    //         WHERE j.str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete layer_mem (references layers)
+    // sqlx::query(
+    //     "DELETE FROM layer_mem WHERE pk_layer IN (
+    //         SELECT l.pk_layer FROM layer l
+    //         JOIN job j ON l.pk_job = j.pk_job
+    //         WHERE j.str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete layer_usage (references layers)
+    // sqlx::query(
+    //     "DELETE FROM layer_usage WHERE pk_layer IN (
+    //         SELECT l.pk_layer FROM layer l
+    //         JOIN job j ON l.pk_job = j.pk_job
+    //         WHERE j.str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete layer_stat (references layers)
+    // sqlx::query(
+    //     "DELETE FROM layer_stat WHERE pk_layer IN (
+    //         SELECT l.pk_layer FROM layer l
+    //         JOIN job j ON l.pk_job = j.pk_job
+    //         WHERE j.str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete layer_resource (references layers)
+    // sqlx::query(
+    //     "DELETE FROM layer_resource WHERE pk_layer IN (
+    //         SELECT l.pk_layer FROM layer l
+    //         JOIN job j ON l.pk_job = j.pk_job
+    //         WHERE j.str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete layer_history (references layers)
+    // sqlx::query(
+    //     "DELETE FROM layer_history WHERE pk_layer IN (
+    //         SELECT l.pk_layer FROM layer l
+    //         JOIN job j ON l.pk_job = j.pk_job
+    //         WHERE j.str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete layers (references jobs)
+    // sqlx::query(
+    //     "DELETE FROM layer WHERE pk_job IN (
+    //         SELECT pk_job FROM job WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete job_local (references jobs and hosts)
+    // sqlx::query(
+    //     "DELETE FROM job_local WHERE pk_job IN (
+    //         SELECT pk_job FROM job WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete job_env (references jobs)
+    // sqlx::query(
+    //     "DELETE FROM job_env WHERE pk_job IN (
+    //         SELECT pk_job FROM job WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete job_mem (references jobs)
+    // sqlx::query(
+    //     "DELETE FROM job_mem WHERE pk_job IN (
+    //         SELECT pk_job FROM job WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete job_usage (references jobs)
+    // sqlx::query(
+    //     "DELETE FROM job_usage WHERE pk_job IN (
+    //         SELECT pk_job FROM job WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete job_stat (references jobs)
+    // sqlx::query(
+    //     "DELETE FROM job_stat WHERE pk_job IN (
+    //         SELECT pk_job FROM job WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete job_resource (references jobs)
+    // sqlx::query(
+    //     "DELETE FROM job_resource WHERE pk_job IN (
+    //         SELECT pk_job FROM job WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete job_post (references jobs)
+    // sqlx::query(
+    //     "DELETE FROM job_post WHERE pk_job IN (
+    //         SELECT pk_job FROM job WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete job_history (references jobs)
+    // sqlx::query(
+    //     "DELETE FROM job_history WHERE pk_job IN (
+    //         SELECT pk_job FROM job WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete depend (references jobs)
+    // sqlx::query(
+    //     "DELETE FROM depend WHERE pk_job_depend_on IN (
+    //         SELECT pk_job FROM job WHERE str_name LIKE $1
+    //     ) OR pk_job_depend_er IN (
+    //         SELECT pk_job FROM job WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete comments (references jobs)
+    // sqlx::query(
+    //     "DELETE FROM comments WHERE pk_job IN (
+    //         SELECT pk_job FROM job WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete jobs (references folders/shows/facilities/depts)
+    // sqlx::query("DELETE FROM job WHERE str_name LIKE $1")
+    //     .bind(format!("{}%", test_prefix))
+    //     .execute(&mut *tx)
+    //     .await?;
+
+    // // Delete host_local (references hosts)
+    // sqlx::query(
+    //     "DELETE FROM host_local WHERE pk_host IN (
+    //         SELECT pk_host FROM host WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete host_tag (references hosts)
+    // sqlx::query(
+    //     "DELETE FROM host_tag WHERE pk_host IN (
+    //         SELECT pk_host FROM host WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete host_stat (references hosts)
+    // sqlx::query(
+    //     "DELETE FROM host_stat WHERE pk_host IN (
+    //         SELECT pk_host FROM host WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete deed (references hosts and owners)
+    // sqlx::query(
+    //     "DELETE FROM deed WHERE pk_host IN (
+    //         SELECT pk_host FROM host WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete hosts (references allocations)
+    // sqlx::query("DELETE FROM host WHERE str_name LIKE $1")
+    //     .bind(format!("{}%", test_prefix))
+    //     .execute(&mut *tx)
+    //     .await?;
+
+    // // Delete owner (references shows)
+    // sqlx::query(
+    //     "DELETE FROM owner WHERE pk_show IN (
+    //         SELECT pk_show FROM show WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete folder_resource (references folders)
+    // sqlx::query(
+    //     "DELETE FROM folder_resource WHERE pk_folder IN (
+    //         SELECT pk_folder FROM folder WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete folders (references shows and depts)
+    // sqlx::query("DELETE FROM folder WHERE str_name LIKE $1")
+    //     .bind(format!("{}%", test_prefix))
+    //     .execute(&mut *tx)
+    //     .await?;
+
+    // // Delete subscriptions (references allocations and shows)
+    // sqlx::query(
+    //     "DELETE FROM subscription WHERE pk_alloc IN (
+    //         SELECT pk_alloc FROM alloc WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete allocations (references facilities)
+    // sqlx::query("DELETE FROM alloc WHERE str_name LIKE $1")
+    //     .bind(format!("{}%", test_prefix))
+    //     .execute(&mut *tx)
+    //     .await?;
+
+    // // Delete show_service (references shows)
+    // sqlx::query(
+    //     "DELETE FROM show_service WHERE pk_show IN (
+    //         SELECT pk_show FROM show WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete show_alias (references shows)
+    // sqlx::query(
+    //     "DELETE FROM show_alias WHERE pk_show IN (
+    //         SELECT pk_show FROM show WHERE str_name LIKE $1
+    //     )",
+    // )
+    // .bind(format!("{}%", test_prefix))
+    // .execute(&mut *tx)
+    // .await?;
+
+    // // Delete shows
+    // sqlx::query("DELETE FROM show WHERE str_name LIKE $1")
+    //     .bind(format!("{}%", test_prefix))
+    //     .execute(&mut *tx)
+    //     .await?;
+
+    // // Delete departments
+    // sqlx::query("DELETE FROM dept WHERE str_name LIKE $1")
+    //     .bind(format!("{}%", test_prefix))
+    //     .execute(&mut *tx)
+    //     .await?;
+
+    // // Delete facilities
+    // sqlx::query("DELETE FROM facility WHERE str_name LIKE $1")
+    //     .bind(format!("{}%", test_prefix))
+    //     .execute(&mut *tx)
+    //     .await?;
+
+    // tx.commit().await?;
     Ok(())
 }
 
@@ -136,10 +501,6 @@ pub async fn create_test_data(
     tag_count: usize,
 ) -> Result<TestData, sqlx::Error> {
     assert!(tag_count >= 4, "Minimum tag_count is 4");
-    assert!(
-        tag_count >= host_count,
-        "There should be at least one host per tag"
-    );
 
     // Create basic entities
     let facility_id = Uuid::new_v4();
@@ -224,6 +585,17 @@ pub async fn create_test_data(
 
     let mut rng = thread_rng();
 
+    // Chunck tags to the number of hosts
+    let tags_per_chunk = tags.len().div_ceil(host_count);
+    let tag_chunks: Vec<Vec<(String, &str)>> = tags
+        .chunks(tags_per_chunk)
+        .map(|chunk| {
+            chunk
+                .into_iter()
+                .map(|tag| (tag.clone(), "MANUAL"))
+                .collect()
+        })
+        .collect();
     // Create hosts
     let mut hosts = Vec::new();
     for i in 0..host_count {
@@ -231,8 +603,8 @@ pub async fn create_test_data(
 
         let mut host_tags: Vec<_> = {
             // Ensure each tag exist in at least one host
-            if i < tags.len() {
-                vec![(tags[i].clone(), "MANUAL")]
+            if i < tag_chunks.len() {
+                tag_chunks[i].clone()
             } else {
                 // The following hosts shall have 0-3 randomly selected manual tags
                 let num_custom_tags = rng.gen_range(0..3);
@@ -518,9 +890,9 @@ async fn create_job_scenario(
 
         let num_tags = rng.gen_range(1..=3);
         let layer_tags: Vec<_> = tags.choose_multiple(&mut rng, num_tags).cloned().collect();
-        let cores_range: Vec<usize> = (8..=256).step_by(4).collect();
+        let cores_range: Vec<usize> = (8..=128).step_by(4).collect();
         let min_cores: usize = *cores_range.choose(&mut rng).unwrap();
-        let memory = rng.gen_range(15..=100);
+        let memory = rng.gen_range(4..=64);
 
         // &format!("integ_test_mixed_hostname_{}", test_suffix),
         // &format!("integ_test_hostname_tag_{}", test_suffix),

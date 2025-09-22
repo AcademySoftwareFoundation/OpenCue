@@ -125,9 +125,11 @@ impl RqdDispatcher {
             )
         };
 
-        let mut stream = self
+        let frames = self
             .frame_dao
-            .query_dispatch_frames(layer, self.dispatch_frames_per_layer_limit as i32);
+            .query_dispatch_frames(layer, self.dispatch_frames_per_layer_limit as i32)
+            .await
+            .map_err(|err| DispatchError::DbFailure(err))?;
         let mut current_host = host.clone();
 
         // A host should not book frames if its allocation is at or above its limit,
@@ -140,86 +142,75 @@ impl RqdDispatcher {
 
         let mut dispatched_procs: Vec<String> = Vec::new();
 
-        while let Some(frame) = stream.next().await {
-            match frame {
-                Ok(frame_model) => {
-                    let frame: DispatchFrame = frame_model.into();
-                    debug!("found frame {}", frame);
+        for frame_model in frames {
+            let frame: DispatchFrame = frame_model.into();
+            debug!("found frame {}", frame);
 
-                    match Self::consume_host_virtual_resources(
-                        frame,
-                        current_host.clone(),
-                        self.memory_stranded_threshold,
-                    )
-                    .await
-                    {
-                        Ok((virtual_proc, updated_host)) => {
-                            debug!("Built virtual proc {}", virtual_proc);
-                            // Update host for the next iteration
-                            current_host = updated_host;
+            match Self::consume_host_virtual_resources(
+                frame,
+                current_host.clone(),
+                self.memory_stranded_threshold,
+            )
+            .await
+            {
+                Ok((virtual_proc, updated_host)) => {
+                    debug!("Built virtual proc {}", virtual_proc);
+                    // Update host for the next iteration
+                    current_host = updated_host;
 
-                            // Check allocation capacity
-                            let cores_reserved_without_multiplier: CoreSize =
-                                virtual_proc.cores_reserved.into();
-                            if cores_reserved_without_multiplier > allocation_capacity {
-                                Err(DispatchError::AllocationOverBurst(
-                                    host.allocation_name.clone(),
-                                ))?;
-                            };
-                            allocation_capacity =
-                                allocation_capacity - virtual_proc.cores_reserved.into();
+                    // Check allocation capacity
+                    let cores_reserved_without_multiplier: CoreSize =
+                        virtual_proc.cores_reserved.into();
+                    if cores_reserved_without_multiplier > allocation_capacity {
+                        Err(DispatchError::AllocationOverBurst(
+                            host.allocation_name.clone(),
+                        ))?;
+                    };
+                    allocation_capacity = allocation_capacity - virtual_proc.cores_reserved.into();
 
-                            let run_frame = Self::prepare_rqd_run_frame(&virtual_proc)
-                                .map_err(DispatchError::Failure)?;
-                            debug!("Prepared run_frame for {}", virtual_proc);
-                            let request = RqdStaticLaunchFrameRequest {
-                                run_frame: Some(run_frame),
-                            };
+                    let run_frame = Self::prepare_rqd_run_frame(&virtual_proc)
+                        .map_err(DispatchError::Failure)?;
+                    debug!("Prepared run_frame for {}", virtual_proc);
+                    let request = RqdStaticLaunchFrameRequest {
+                        run_frame: Some(run_frame),
+                    };
 
-                            // When running on dry_run_mode, just log the outcome
-                            let msg = format!("Dispatching {} on {}", virtual_proc, &current_host);
-                            self.frame_dao
-                                .update_frame_started(&virtual_proc)
-                                .await
-                                .map_err(DispatchError::FailedToStartOnDb)?;
-                            if self.dry_run_mode {
-                                info!("(DRY_RUN) {}", msg);
-                            } else {
-                                debug!(msg);
-                                // Get a ref to the mutable grpc client
-                                let mut rqd_client_ref = rqd_client
-                                    .as_ref()
-                                    .expect("Should be Some if dry_run is false")
-                                    .clone();
+                    // When running on dry_run_mode, just log the outcome
+                    let msg = format!("Dispatching {} on {}", virtual_proc, &current_host);
+                    self.frame_dao
+                        .update_frame_started(&virtual_proc)
+                        .await
+                        .map_err(DispatchError::FailedToStartOnDb)?;
+                    if self.dry_run_mode {
+                        info!("(DRY_RUN) {}", msg);
+                    } else {
+                        debug!(msg);
+                        // Get a ref to the mutable grpc client
+                        let mut rqd_client_ref = rqd_client
+                            .as_ref()
+                            .expect("Should be Some if dry_run is false")
+                            .clone();
 
-                                // Launch frame on rqd
-                                rqd_client_ref
-                                    .launch_frame(request)
-                                    .await
-                                    .into_diagnostic()
-                                    .map_err(DispatchError::Failure)?;
-                            }
-                            // Update database resources
-                            self.host_dao
-                                .update_resources(&current_host)
-                                .await
-                                .map_err(DispatchError::FailureAfterDispatch)?;
-                            dispatched_procs.push(virtual_proc.to_string());
-                        }
-                        Err(err) => match err {
-                            VirtualProcError::HostResourcesExtinguished(msg) => {
-                                debug!("Host resourses extinguished for {}. {}", host, msg);
-                                Err(DispatchError::HostResourcesExtinguished)?;
-                            }
-                        },
+                        // Launch frame on rqd
+                        rqd_client_ref
+                            .launch_frame(request)
+                            .await
+                            .into_diagnostic()
+                            .map_err(DispatchError::Failure)?;
                     }
+                    // Update database resources
+                    self.host_dao
+                        .update_resources(&current_host)
+                        .await
+                        .map_err(DispatchError::FailureAfterDispatch)?;
+                    dispatched_procs.push(virtual_proc.to_string());
                 }
-                Err(err) => {
-                    Err(DispatchError::Failure(miette!(
-                        "Failed to consume dispatch stream. {}",
-                        err
-                    )))?;
-                }
+                Err(err) => match err {
+                    VirtualProcError::HostResourcesExtinguished(msg) => {
+                        debug!("Host resourses extinguished for {}. {}", host, msg);
+                        Err(DispatchError::HostResourcesExtinguished)?;
+                    }
+                },
             }
         }
         if dispatched_procs.is_empty() {

@@ -16,6 +16,7 @@ pub enum Cluster {
     TagsKey(Vec<Tag>),
 }
 
+#[derive(Debug)]
 pub struct ClusterFeed {
     pub keys: Vec<Cluster>,
     current_index: usize,

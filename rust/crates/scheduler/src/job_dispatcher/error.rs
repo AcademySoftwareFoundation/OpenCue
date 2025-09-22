@@ -15,6 +15,9 @@ pub enum DispatchError {
     #[error("DispatchError: Unexpected Failure")]
     Failure(Error),
 
+    #[error("DispatchError: Unexpected Failure")]
+    DbFailure(sqlx::Error),
+
     #[error("DispatchError: Allocation over burst")]
     AllocationOverBurst(String),
 

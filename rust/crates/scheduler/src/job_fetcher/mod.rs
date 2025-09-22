@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 use futures::{StreamExt, stream};
 use tokio_util::sync::CancellationToken;
@@ -14,7 +15,7 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     let job_fetcher = Arc::new(JobDao::from_config(&CONFIG.database).await?);
     let job_event_handler = Arc::new(BookJobEventHandler::new().await?);
     let cancel_token = CancellationToken::new();
-    let mut cycles_without_jobs = 0;
+    let cycles_without_jobs = Arc::new(AtomicUsize::new(0));
     debug!("Starting scheduler feed");
 
     stream::iter(cluster_feed)
@@ -22,6 +23,7 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
             let job_fetcher = job_fetcher.clone();
             let job_event_handler = job_event_handler.clone();
             let cancel_token = cancel_token.clone();
+            let cycles_without_jobs = cycles_without_jobs.clone();
 
             async move {
                 let mut stream:
@@ -41,11 +43,11 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                         ),
                 };
 
-                let mut processed_jobs = 0;
+                let processed_jobs = AtomicUsize::new(0);
                 while let Some(job) = stream.next().await {
                     match job {
                         Ok(job_model) => {
-                            processed_jobs += 1;
+                            processed_jobs.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                             let job = DispatchJob::new(job_model, cluster.clone());
                             info!("Found job: {}", job);
                             job_event_handler.process(job).await;
@@ -53,20 +55,21 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                         Err(err) => {
                             cancel_token.cancel();
                             error!("Failed to fetch job: {}", err);
+                            panic!("Failed to fetch job: {}", err);
                         }
                     }
                 }
 
                 if let Some(limit) = CONFIG.queue.empty_job_cycles_before_quiting {
                     // Count cycles that couldn't find any job
-                    if processed_jobs == 0 {
-                        cycles_without_jobs += 1;
+                    if processed_jobs.load(std::sync::atomic::Ordering::Relaxed) == 0 {
+                        cycles_without_jobs.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     } else {
-                        cycles_without_jobs = 0;
+                        cycles_without_jobs.fetch_min(0, std::sync::atomic::Ordering::Relaxed);
                     }
 
                     // Cancel stream processing after empty cycles
-                    if cycles_without_jobs >= limit {
+                    if cycles_without_jobs.load(std::sync::atomic::Ordering::Relaxed) >= limit {
                         cancel_token.cancel();
                     }
                 }

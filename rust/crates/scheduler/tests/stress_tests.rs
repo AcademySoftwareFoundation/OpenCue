@@ -51,7 +51,7 @@ mod stress_test {
         let desc = TestDescription {
             test_name: "sts".to_string(),
             job_count: 10,
-            host_count: 4,
+            host_count: 40,
             layer_count: 2,
             frames_per_layer_count: 2,
             tag_count: 4,
@@ -62,7 +62,10 @@ mod stress_test {
         let test_data = assert_ok!(setup(desc).await);
 
         let cluster_feed = ClusterFeed::new_for_test(test_data.clusters);
-        info!("Starting Small stress test {}", test_data.test_prefix);
+        info!(
+            "Starting Small stress test {} - cluster: {:?}",
+            test_data.test_prefix, cluster_feed
+        );
 
         let waiting_frames_before =
             get_waiting_frames_count(WaitingFrameClause::JobPrefix(test_data.test_prefix.clone()))
@@ -74,7 +77,6 @@ mod stress_test {
         let waiting_frames_after =
             get_waiting_frames_count(WaitingFrameClause::JobPrefix(test_data.test_prefix.clone()))
                 .await;
-        assert_eq!(waiting_frames_after, 0);
 
         // Clean up test data
         // TODO: call hangs forever

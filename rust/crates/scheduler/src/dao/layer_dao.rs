@@ -129,14 +129,15 @@ impl LayerDao {
     ///
     /// # Returns
     /// A stream of `DispatchLayerModel` results ordered by dispatch priority
-    pub fn query_layers(
+    pub async fn query_layers(
         &self,
         pk_job: String,
         tags: Vec<String>,
-    ) -> impl Stream<Item = Result<DispatchLayerModel, sqlx::Error>> + '_ {
+    ) -> Result<Vec<DispatchLayerModel>, sqlx::Error> {
         sqlx::query_as::<_, DispatchLayerModel>(QUERY_LAYER)
             .bind(pk_job)
             .bind(tags.join(" | ").to_string())
-            .fetch(&*self.connection_pool)
+            .fetch_all(&*self.connection_pool)
+            .await
     }
 }
