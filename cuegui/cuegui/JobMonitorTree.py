@@ -386,20 +386,35 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.app.unmonitor.emit(item.rpcObject)
         # pylint: disable=protected-access
         cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
-        self.__jobTimeLoaded.pop(item.rpcObject, "")
+
+        jobKey = cuegui.Utils.getObjectKey(item.rpcObject)
+
+        # Remove timing information
+        self.__jobTimeLoaded.pop(jobKey, "")
+
         try:
-            jobKey = cuegui.Utils.getObjectKey(item.rpcObject)
-            # Remove the item from the __dependentJobs and the reverseDependent dictionaries
+            # Remove dependent jobs and reverse dependencies
             dependent_jobs = self.__dependentJobs.get(jobKey, [])
             for djob in dependent_jobs:
-                self.__reverseDependents.pop(djob, None)
-            self.__reverseDependents.pop(jobKey, None)
+                dkey = cuegui.Utils.getObjectKey(djob)
+                self.__reverseDependents.pop(dkey, None)
+                # Also remove from dependent items if present
+                self._dependent_items.pop(dkey, None)
+
+            # Remove the job from dependent jobs dictionary
             self.__dependentJobs.pop(jobKey, None)
-        except (KeyError, AttributeError):
-            # Dependent jobs are not stored in as keys the main self._items
-            # dictionary, trying to remove dependent jobs from self._items
-            # raises a KeyError, which we can safely ignore
-            # AttributeError can occur if the rpcObject doesn't have an id() method
+
+            # Remove from reverse dependencies if this job is a dependent
+            self.__reverseDependents.pop(jobKey, None)
+
+            # Remove from dependent items if present
+            self._dependent_items.pop(jobKey, None)
+
+            # Remove expansion state
+            self.__groupExpansionState.pop(jobKey, None)
+
+        except KeyError:
+            # Some items might not be in all dictionaries, which is fine
             pass
 
     def removeAllItems(self):
@@ -412,6 +427,8 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__dependentJobs.clear()
         self.__reverseDependents.clear()
         self.__groupItems.clear()
+        self._dependent_items.clear()
+        self.__groupExpansionState.clear()
         cuegui.AbstractTreeWidget.AbstractTreeWidget.removeAllItems(self)
 
     def removeFinishedItems(self):
@@ -765,7 +782,13 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             for group_key, group_item in self.__groupItems.items():
                 self.__groupExpansionState[group_key] = group_item.isExpanded()
 
+            # Save expansion state for dependent mode items
+            if self.__groupByMode == "Dependent":
+                for proxy, item in self._items.items():
+                    self.__groupExpansionState[proxy] = item.isExpanded()
+
             self._items = {}
+            self._dependent_items = {}
             self.__groupItems = {}
             self.clear()
 
@@ -844,19 +867,27 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
                 elif self.__groupByMode == "Dependent":
                     # Dependent mode - group by job dependencies
-                    self._items[proxy] = JobWidgetItem(job,
-                                                       self.invisibleRootItem(),
-                                                       self.__jobTimeLoaded.get(proxy, None))
-                    dependent_jobs = self.__dependentJobs.get(proxy, [])
-                    for djob in dependent_jobs:
-                        item = JobWidgetItem(djob,
-                                             self._items[proxy],
-                                             self.__jobTimeLoaded.get(proxy, None))
-                        dkey = cuegui.Utils.getObjectKey(djob)
-                        self._dependent_items[dkey] = item
-                        if dkey in self.__userColors:
-                            self._dependent_items[dkey].setUserColor(
-                                           self.__userColors[dkey])
+                    # Only show jobs that are NOT dependents of other jobs as root items
+                    if proxy not in self.__reverseDependents:
+                        self._items[proxy] = JobWidgetItem(job,
+                                                           self.invisibleRootItem(),
+                                                           self.__jobTimeLoaded.get(proxy, None))
+                        dependent_jobs = self.__dependentJobs.get(proxy, [])
+                        for djob in dependent_jobs:
+                            item = JobWidgetItem(djob,
+                                                 self._items[proxy],
+                                                 self.__jobTimeLoaded.get(proxy, None))
+                            dkey = cuegui.Utils.getObjectKey(djob)
+                            self._dependent_items[dkey] = item
+                            if dkey in self.__userColors:
+                                self._dependent_items[dkey].setUserColor(
+                                               self.__userColors[dkey])
+
+                        # Restore expansion state or default to collapsed to show grouping
+                        is_expanded = self.__groupExpansionState.get(proxy, False)
+                        self._items[proxy].setExpanded(is_expanded)
+                    # If this is a dependent job, skip adding it as a root item
+                    # (it will be added as a child of its parent job above)
 
                 if proxy in self.__userColors:
                     self._items[proxy].setUserColor(self.__userColors[proxy])
