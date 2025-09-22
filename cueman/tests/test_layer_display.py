@@ -2,12 +2,12 @@
 Unit tests for displayLayers formatting in cueman.
 """
 
-import unittest
-from unittest import mock
+import io
 import os
 import sys
-import io
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import unittest
+from unittest import mock
+
 from cueman import main
 
 class TestDisplayLayers(unittest.TestCase):
