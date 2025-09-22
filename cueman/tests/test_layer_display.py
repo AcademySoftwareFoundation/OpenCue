@@ -3,7 +3,6 @@ Unit tests for displayLayers formatting in cueman.
 """
 
 import io
-import os
 import sys
 import unittest
 from unittest import mock
