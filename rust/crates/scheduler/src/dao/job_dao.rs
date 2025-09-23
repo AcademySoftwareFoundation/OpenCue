@@ -161,12 +161,12 @@ impl JobDao {
     ///     "render | lighting".to_string(),
     /// );
     /// ```
-    pub fn query_pending_jobs_by_show_facility_tag(
+    pub async fn query_pending_jobs_by_show_facility_tag(
         &self,
         show_id: String,
         facility_id: String,
         tag: String,
-    ) -> impl Stream<Item = Result<JobModel, sqlx::Error>> + '_ {
+    ) -> Result<Vec<JobModel>, sqlx::Error> {
         debug!(
             "QUERY_PENDING_BY_SHOW_FACILITY_TAG= {}",
             QUERY_PENDING_BY_SHOW_FACILITY_TAG
@@ -181,15 +181,17 @@ impl JobDao {
             .bind(CONFIG.queue.core_multiplier as i32)
             .bind(tag)
             .bind(facility_id)
-            .fetch(&*self.connection_pool)
+            .fetch_all(&*self.connection_pool)
+            .await
     }
 
-    pub fn query_pending_jobs_by_tags(
+    pub async fn query_pending_jobs_by_tags(
         &self,
         tags: Vec<String>,
-    ) -> impl Stream<Item = Result<JobModel, sqlx::Error>> + '_ {
+    ) -> Result<Vec<JobModel>, sqlx::Error> {
         sqlx::query_as::<_, JobModel>(QUERY_PENDING_BY_TAGS)
             .bind(tags.join(" | ").to_string())
-            .fetch(&*self.connection_pool)
+            .fetch_all(&*self.connection_pool)
+            .await
     }
 }

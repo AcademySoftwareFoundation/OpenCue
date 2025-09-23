@@ -10,6 +10,7 @@ use crate::{
     dao::{FrameDao, HostDao, LayerDao},
     host_cache::{HostCacheService, host_cache_service},
     job_dispatcher::{DispatchError, dispatcher::RqdDispatcher},
+    job_fetcher::HOST_ATTEMPTS,
     models::{DispatchJob, DispatchLayer, Host},
 };
 use futures::StreamExt;
@@ -93,7 +94,6 @@ impl BookJobEventHandler {
                 }
             }
             Err(err) => {
-                error!("Failed to query layers. {}", err);
                 panic!("Failed to query layers. {}", err);
             }
         }
@@ -144,6 +144,7 @@ impl BookJobEventHandler {
         let mut try_again = true;
         let mut attempts = CONFIG.queue.host_candidate_attemps_per_layer;
         while try_again && attempts > 0 {
+            HOST_ATTEMPTS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             // Filter layer tags to match the scope of the cluster in context
             let tags = Self::filter_matching_tags(&cluster, &dispatch_layer);
             assert!(

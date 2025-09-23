@@ -41,7 +41,7 @@ impl ClusterFeed {
         let cluster_dao = ClusterDao::from_config(&CONFIG.database).await?;
 
         // Fetch clusters for both facilitys+shows+tags and just tags
-        let mut stream = cluster_dao
+        let mut clusters_stream = cluster_dao
             .fetch_alloc_clusters()
             .chain(cluster_dao.fetch_non_alloc_clusters());
         let mut clusters = Vec::new();
@@ -49,7 +49,7 @@ impl ClusterFeed {
         let mut hostname_tags = Vec::new();
 
         // Collect all tags
-        while let Some(record) = stream.next().await {
+        while let Some(record) = clusters_stream.next().await {
             match record {
                 Ok(cluster) => {
                     match cluster.ttype.as_str() {

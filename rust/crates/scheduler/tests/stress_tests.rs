@@ -25,7 +25,7 @@ mod stress_test {
         tag_count: usize,
     }
 
-    async fn setup(test_description: TestDescription) -> Result<TestData, sqlx::Error> {
+    async fn setup(test_description: &TestDescription) -> Result<TestData, sqlx::Error> {
         let test_id = Uuid::new_v4().to_string()[..8].to_string();
 
         create_test_data(
@@ -46,7 +46,6 @@ mod stress_test {
 
     #[tokio::test]
     #[traced_test]
-    #[serial]
     async fn test_stress_small() {
         let desc = TestDescription {
             test_name: "sts".to_string(),
@@ -59,7 +58,7 @@ mod stress_test {
 
         // Set global config
         let _ = OVERRIDE_CONFIG.set(create_test_config());
-        let test_data = assert_ok!(setup(desc).await);
+        let test_data = assert_ok!(setup(&desc).await);
 
         let cluster_feed = ClusterFeed::new_for_test(test_data.clusters);
         info!(
@@ -72,7 +71,17 @@ mod stress_test {
                 .await;
         assert_eq!(waiting_frames_before, 40);
 
+        // Run job dispatcher
         assert_ok!(job_fetcher::run(cluster_feed).await);
+
+        info!(
+            "Processed Frames: {}",
+            desc.job_count * desc.layer_count * desc.frames_per_layer_count
+        );
+        info!(
+            "Host attempts: {}",
+            job_fetcher::HOST_ATTEMPTS.load(std::sync::atomic::Ordering::Relaxed)
+        );
 
         let waiting_frames_after =
             get_waiting_frames_count(WaitingFrameClause::JobPrefix(test_data.test_prefix.clone()))

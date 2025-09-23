@@ -10,6 +10,7 @@ use scheduler::{
     config::{Config, DatabaseConfig, LoggingConfig, QueueConfig, RqdConfig},
 };
 use std::time::Duration;
+use tracing::Level;
 use uuid::Uuid;
 
 use std::sync::Arc;
@@ -65,7 +66,8 @@ pub fn create_test_config() -> Config {
             memory_stranded_threshold: bytesize::ByteSize::mb(100),
             job_back_off_duration: Duration::from_secs(10),
             stream: scheduler::config::StreamConfig {
-                cluster_buffer_size: 2,
+                cluster_buffer_size: 1,
+                job_buffer_size: 1,
             },
             manual_tags_chunk_size: 10,
             hostname_tags_chunk_size: 20,

@@ -93,12 +93,14 @@ impl Default for QueueConfig {
 #[serde(default)]
 pub struct StreamConfig {
     pub cluster_buffer_size: usize,
+    pub job_buffer_size: usize,
 }
 
 impl Default for StreamConfig {
     fn default() -> Self {
         Self {
             cluster_buffer_size: 3,
+            job_buffer_size: 3,
         }
     }
 }

@@ -11,6 +11,8 @@ use crate::dao::JobDao;
 use crate::job_dispatcher::BookJobEventHandler;
 use crate::models::DispatchJob;
 
+pub static HOST_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+
 pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     let job_fetcher = Arc::new(JobDao::from_config(&CONFIG.database).await?);
     let job_event_handler = Arc::new(BookJobEventHandler::new().await?);
@@ -26,51 +28,61 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
             let cycles_without_jobs = cycles_without_jobs.clone();
 
             async move {
-                let mut stream:
-                    // Ugly splicit type is needed here to make the compiler happy
-                    Box<dyn futures::Stream<Item = Result<_, sqlx::Error>> + Unpin + Send> =
-                match &cluster {
-                    Cluster::ComposedKey(cluster_key) => Box::new(
-                                        job_fetcher.query_pending_jobs_by_show_facility_tag(
-                                            cluster_key.show_id.clone(),
-                                            cluster_key.facility_id.clone(),
-                                            cluster_key.tag.to_string())),
-                    Cluster::TagsKey(tags) =>
-                        Box::new(
-                            job_fetcher.query_pending_jobs_by_tags(
-                                tags.iter()
-                                    .map(|v| v.to_string()).collect())
-                        ),
+                let jobs = match &cluster {
+                    Cluster::ComposedKey(cluster_key) => {
+                        job_fetcher
+                            .query_pending_jobs_by_show_facility_tag(
+                                cluster_key.show_id.clone(),
+                                cluster_key.facility_id.clone(),
+                                cluster_key.tag.to_string(),
+                            )
+                            .await
+                    }
+                    Cluster::TagsKey(tags) => {
+                        job_fetcher
+                            .query_pending_jobs_by_tags(
+                                tags.iter().map(|v| v.to_string()).collect(),
+                            )
+                            .await
+                    }
                 };
 
-                let processed_jobs = AtomicUsize::new(0);
-                while let Some(job) = stream.next().await {
-                    match job {
-                        Ok(job_model) => {
-                            processed_jobs.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                            let job = DispatchJob::new(job_model, cluster.clone());
-                            info!("Found job: {}", job);
-                            job_event_handler.process(job).await;
-                        }
-                        Err(err) => {
-                            cancel_token.cancel();
-                            error!("Failed to fetch job: {}", err);
-                            panic!("Failed to fetch job: {}", err);
+                match jobs {
+                    Ok(jobs) => {
+                        let processed_jobs = AtomicUsize::new(0);
+                        stream::iter(jobs)
+                            .for_each_concurrent(
+                                CONFIG.queue.stream.job_buffer_size,
+                                |job_model| async {
+                                    processed_jobs
+                                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                    let job = DispatchJob::new(job_model, cluster.clone());
+                                    info!("Found job: {}", job);
+                                    job_event_handler.process(job).await;
+                                },
+                            )
+                            .await;
+                        if let Some(limit) = CONFIG.queue.empty_job_cycles_before_quiting {
+                            // Count cycles that couldn't find any job
+                            if processed_jobs.load(std::sync::atomic::Ordering::Relaxed) == 0 {
+                                cycles_without_jobs
+                                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            } else {
+                                cycles_without_jobs
+                                    .fetch_min(0, std::sync::atomic::Ordering::Relaxed);
+                            }
+
+                            // Cancel stream processing after empty cycles
+                            if cycles_without_jobs.load(std::sync::atomic::Ordering::Relaxed)
+                                >= limit
+                            {
+                                cancel_token.cancel();
+                            }
                         }
                     }
-                }
-
-                if let Some(limit) = CONFIG.queue.empty_job_cycles_before_quiting {
-                    // Count cycles that couldn't find any job
-                    if processed_jobs.load(std::sync::atomic::Ordering::Relaxed) == 0 {
-                        cycles_without_jobs.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    } else {
-                        cycles_without_jobs.fetch_min(0, std::sync::atomic::Ordering::Relaxed);
-                    }
-
-                    // Cancel stream processing after empty cycles
-                    if cycles_without_jobs.load(std::sync::atomic::Ordering::Relaxed) >= limit {
+                    Err(err) => {
                         cancel_token.cancel();
+                        error!("Failed to fetch job: {}", err);
                     }
                 }
             }
