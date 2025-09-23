@@ -16,9 +16,7 @@
 """Functions for formatting text output."""
 
 
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
+from __future__ import absolute_import, division, print_function
 
 import time
 
@@ -64,10 +62,12 @@ def formatDuration(sec):
     :param sec: duration in seconds
     :rtype: str
     :return: duration formatted in HH:MM:SS format."""
+
     def splitTime(seconds):
         minutes, seconds = divmod(seconds, 60)
         hour, minutes = divmod(minutes, 60)
         return hour, minutes, seconds
+
     return "%02d:%02d:%02d" % splitTime(sec)
 
 
@@ -78,11 +78,13 @@ def formatLongDuration(sec):
     :param sec: duration in seconds
     :rtype: str
     :return: duration formatted in days:hours format."""
+
     def splitTime(seconds):
         minutes, seconds = divmod(seconds, 60)
         hour, minutes = divmod(minutes, 60)
         days, hour = divmod(hour, 24)
         return days, hour
+
     return "%02d:%02d" % splitTime(sec)
 
 
@@ -112,6 +114,6 @@ def cutoff(s, length):
     :param length: max number of characters
     :rtype: str
     :return: truncated string"""
-    if len(s) < length-2:
+    if len(s) < length - 2:
         return s
-    return "%s.." % s[0:length-2]
+    return "%s.." % s[0 : length - 2]
