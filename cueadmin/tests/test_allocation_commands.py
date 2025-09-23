@@ -90,7 +90,9 @@ class TestAllocationCommands(unittest.TestCase):
         """Test deletion fails when allocation contains hosts."""
         # Arrange
         mock_alloc = MagicMock()
-        mock_alloc.delete = MagicMock(side_effect=RuntimeError("Cannot delete: allocation contains 5 hosts"))
+        mock_alloc.delete = MagicMock(
+            side_effect=RuntimeError("Cannot delete: allocation contains 5 hosts")
+        )
         mock_alloc.name = 'busy_allocation'
         mock_get_alloc.return_value = mock_alloc
 
@@ -124,7 +126,9 @@ class TestAllocationCommands(unittest.TestCase):
         # Arrange
         mock_alloc = MagicMock()
         mock_alloc.name = 'current_name'
-        mock_alloc.setName = MagicMock(side_effect=ValueError("Allocation name 'existing_name' already exists"))
+        mock_alloc.setName = MagicMock(
+            side_effect=ValueError("Allocation name 'existing_name' already exists")
+        )
         mock_get.return_value = mock_alloc
 
         # Act & Assert
@@ -141,7 +145,8 @@ class TestAllocationCommands(unittest.TestCase):
         mock_source_alloc.name = 'source_allocation'
         mock_target_alloc = MagicMock()
         mock_target_alloc.name = 'target_allocation'
-        mock_source_alloc.reparentHosts = MagicMock(return_value=5)  # Returns number of hosts transferred
+        # Returns number of hosts transferred
+        mock_source_alloc.reparentHosts = MagicMock(return_value=5)
 
         # Simulate getting both allocations
         mock_get.side_effect = [mock_source_alloc, mock_target_alloc]
@@ -162,7 +167,9 @@ class TestAllocationCommands(unittest.TestCase):
         # Arrange
         mock_alloc = MagicMock()
         mock_alloc.name = 'source_allocation'
-        mock_alloc.reparentHosts = MagicMock(side_effect=ValueError("Invalid target allocation: not found"))
+        mock_alloc.reparentHosts = MagicMock(
+            side_effect=ValueError("Invalid target allocation: not found")
+        )
         mock_get.return_value = mock_alloc
 
         # Act & Assert
