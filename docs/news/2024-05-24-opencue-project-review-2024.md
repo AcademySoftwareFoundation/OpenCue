@@ -2,20 +2,24 @@
 layout: default
 title: "May 24, 2024: OpenCue Project Review 2024"
 parent: News
-nav_order: 1
+nav_order: 2
 ---
 
 # OpenCue Project Review 2024
 
-### OpenCue presentation at ASWF Open Source Days 2024
+### OpenCue Virtual Town Hall Series
 
 #### May 24, 2024
 
 ---
 
-Thanks to everyone who joined us for the OpenCue Project Review 2024!
+Thanks to everyone who joined us for the OpenCue Virtual Town Hall 2024!
 
 Diego Tavares, Chair of the Technical Steering Committee, presented an overview of the project's progress and upcoming roadmap. The presentation covered OpenCue's evolution, milestones, community contributions, and strategic goals for the next year.
+
+<div style="text-align: center; margin: 30px 0;">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/h4u3DrI2_KI" title="OpenCue Virtual Town Hall 2024" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+</div>
 
 ## Highlights from the Presentation:
 

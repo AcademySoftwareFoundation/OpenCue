@@ -1,6 +1,6 @@
 ---
 title: "Cueman Tutorial"
-nav_order: 53
+nav_order: 61
 parent: "Tutorials"
 layout: default
 date: 2025-08-06
@@ -476,7 +476,28 @@ Cueman provides capabilities for OpenCue management. Start with simple operation
 
 ## Next Steps
 
-- Explore the [Cueman Reference](/OpenCue/docs/reference/tools/cueman/) for complete command documentation
+- Explore the [Cueman Reference](/docs/reference/tools/cueman/) for complete command documentation
 - Practice with test jobs before using on production
 - Create scripts combining Cueman commands for automated workflows
-- Continue to the [Developer Guide](/docs/developer-guide/) to learn about contributing to OpenCue or developing applications that integrate with it
+- Learn about [Cueman development and testing](/docs/reference/tools/cueman/#development-and-testing) if you want to contribute
+
+## Development and Contributing
+
+Cueman is actively developed with:
+- **Comprehensive test suite** covering unit and integration scenarios
+- **Modern testing infrastructure** using pytest, coverage reporting, and CI/CD integration
+- **Development tools** including linting, formatting, and multi-Python version testing
+
+To contribute or run tests locally:
+
+```bash
+# Install with development dependencies
+pip install -e ".[dev]"
+
+# Run the test suite
+pytest --cov=cueman --cov-report=term-missing
+
+# Format and lint code
+black cueman tests && isort cueman tests
+pylint cueman tests
+```

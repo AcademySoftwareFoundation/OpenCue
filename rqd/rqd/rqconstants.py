@@ -62,6 +62,7 @@ RQD_RETRY_STARTUP_CONNECT_DELAY = 30
 RQD_RETRY_CRITICAL_REPORT_DELAY = 30
 RQD_USE_IP_AS_HOSTNAME = True
 RQD_USE_IPV6_AS_HOSTNAME = False
+RQD_NETWORK_INTERFACE = None
 
 # Use the PATH environment variable from the RQD host.
 RQD_USE_PATH_ENV_VAR = False
@@ -225,6 +226,8 @@ try:
         if config.has_option(__override_section, "RQD_USE_IPV6_AS_HOSTNAME"):
             RQD_USE_IPV6_AS_HOSTNAME = config.getboolean(__override_section,
                                                          "RQD_USE_IPV6_AS_HOSTNAME")
+        if config.has_option(__override_section, "RQD_NETWORK_INTERFACE"):
+            RQD_NETWORK_INTERFACE = config.get(__override_section, "RQD_NETWORK_INTERFACE")
         if config.has_option(__override_section, "RQD_USE_PATH_ENV_VAR"):
             RQD_USE_PATH_ENV_VAR = config.getboolean(__override_section, "RQD_USE_PATH_ENV_VAR")
         if config.has_option(__override_section, "RQD_USE_ALL_HOST_ENV_VARS"):

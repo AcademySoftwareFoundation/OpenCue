@@ -36,8 +36,8 @@ func validateJWTToken(tokenString string, jwtSecret []byte) (*jwt.Token, error) 
 		// Ensure that the token's signing method is HMAC
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			errorString := fmt.Sprintf("Unexpected signing method: %v", token.Header["alg"])
-			log.Printf(errorString)
-			return nil, fmt.Errorf(errorString)
+			log.Printf("%s", errorString)
+			return nil, fmt.Errorf("%s", errorString)
 		}
 		log.Println("JWT signing method validated")
 		// Return the secret key for validation
@@ -52,7 +52,7 @@ func jwtMiddleware(next http.Handler, jwtSecret []byte) http.Handler {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
 			errorString := "Authorization header required"
-			log.Printf(errorString)
+			log.Printf("%s", errorString)
 			http.Error(w, errorString, http.StatusUnauthorized)
 			return
 		}
@@ -62,13 +62,13 @@ func jwtMiddleware(next http.Handler, jwtSecret []byte) http.Handler {
 		token, err := validateJWTToken(tokenString, jwtSecret)
 		if err!=nil {
 			errorString := fmt.Sprintf("Token validation error: %v", err)
-			log.Printf(errorString)
+			log.Printf("%s", errorString)
 			http.Error(w, errorString, http.StatusUnauthorized)
 			return
 		}
 		if !token.Valid {
 			errorString := "Invalid token"
-			log.Printf(errorString)
+			log.Printf("%s", errorString)
 			http.Error(w, errorString, http.StatusUnauthorized)
 			return
 		}
@@ -81,7 +81,7 @@ func jwtMiddleware(next http.Handler, jwtSecret []byte) http.Handler {
 func run() error {
 	grpcServerEndpoint := getEnv("CUEBOT_ENDPOINT")
 	port := getEnv("REST_PORT")
-	jwtSecret := []byte(getEnv("JWT_AUTH_SECRET"))
+	jwtSecret := []byte(getEnv("JWT_SECRET"))
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
@@ -121,6 +121,7 @@ func registerGRPCHandlers(ctx context.Context, mux *runtime.ServeMux, grpcServer
 		gw.RegisterHostInterfaceHandlerFromEndpoint,
 		gw.RegisterOwnerInterfaceHandlerFromEndpoint,
 		gw.RegisterProcInterfaceHandlerFromEndpoint,
+		gw.RegisterCommentInterfaceHandlerFromEndpoint,
 	}
 
 	for _, handler := range handlers {

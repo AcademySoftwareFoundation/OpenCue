@@ -2,7 +2,7 @@
 title: "Cuetopia Technical Reference"
 layout: default
 parent: "Developer Guide"
-nav_order: 58
+nav_order: 62
 linkTitle: "Cuetopia Technical Reference"
 date: 2025-01-07
 description: >
@@ -17,25 +17,32 @@ This document provides detailed technical information about the Cuetopia monitor
 
 Cuetopia consists of three main plugins that communicate through Qt signals and share data via RPC calls to the Cuebot server.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                     CueGUI Application                   │
-├─────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ Monitor Jobs │  │ Job Details  │  │  Job Graph   │  │
-│  │    Plugin    │←→│    Plugin    │←→│    Plugin    │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-│         ↓                  ↓                 ↓          │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │              RPC Communication Layer              │  │
-│  └──────────────────────────────────────────────────┘  │
-└─────────────────────────┬───────────────────────────────┘
-                          ↓
-                    ┌──────────┐
-                    │  Cuebot  │
-                    │  Server  │
-                    └──────────┘
-```
+<div class="mermaid">
+graph TD
+    subgraph CG["CueGUI Application"]
+        MJ["Monitor Jobs<br/>Plugin"]
+        JD["Job Details<br/>Plugin"]
+        JG["Job Graph<br/>Plugin"]
+
+        MJ <--> JD
+        JD <--> JG
+
+        RPC["RPC Communication Layer"]
+
+        MJ --> RPC
+        JD --> RPC
+        JG --> RPC
+    end
+
+    RPC --> CB["Cuebot<br/>Server"]
+
+    style CG fill:#f9f9f9,stroke:#333,stroke-width:2px
+    style MJ fill:#e3f2fd
+    style JD fill:#e8f5e9
+    style JG fill:#fff3e0
+    style RPC fill:#f3e5f5
+    style CB fill:#ffebee
+</div>
 
 ## Plugin Components
 

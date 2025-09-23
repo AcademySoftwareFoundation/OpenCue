@@ -1,4 +1,4 @@
-name: Rust
+name: OpenCue Rust Build Pipeline
 
 on:
   push:

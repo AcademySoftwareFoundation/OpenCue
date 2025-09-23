@@ -1,6 +1,6 @@
 ---
 title: "Rust RQD"
-nav_order: 42
+nav_order: 48
 parent: Reference
 layout: default
 linkTitle: "Rust RQD"
@@ -49,9 +49,49 @@ Consider using the Rust RQD when:
 - Testing experimental features like containerized frames
 - Contributing to the next generation of OpenCue infrastructure
 
-## Building Rust RQD
+## Installation
 
-### Prerequisites
+### Using Pre-built Binaries (Recommended)
+
+The easiest way to get started with Rust RQD is to use the pre-built binaries from GitHub releases:
+
+1. **Download the appropriate binary** for your platform from the [OpenCue releases page](https://github.com/AcademySoftwareFoundation/OpenCue/releases):
+
+   - **Linux (GNU)**: `openrqd-VERSION-x86_64-unknown-linux-gnu`
+   - **Linux (MUSL)**: `openrqd-VERSION-x86_64-unknown-linux-musl` (static binary, no dependencies)
+   - **macOS (Intel)**: `openrqd-VERSION-x86_64-apple-darwin`
+   - **macOS (Apple Silicon)**: `openrqd-VERSION-aarch64-apple-darwin`
+
+2. **Make the binary executable**:
+   ```bash
+   chmod +x openrqd-VERSION-PLATFORM
+   ```
+
+3. **Optionally, rename and move to your PATH**:
+   ```bash
+   mv openrqd-VERSION-PLATFORM /usr/local/bin/openrqd
+   ```
+
+#### Available Binary Platforms
+
+The following pre-built binaries are available for each OpenCue release:
+
+| Platform | Filename Pattern | Description |
+|----------|------------------|-------------|
+| **Linux (GNU)** | `openrqd-VERSION-x86_64-unknown-linux-gnu` | Standard Linux binary, requires glibc |
+| **Linux (MUSL)** | `openrqd-VERSION-x86_64-unknown-linux-musl` | Static binary with no runtime dependencies, ideal for containers |
+| **macOS (Intel)** | `openrqd-VERSION-x86_64-apple-darwin` | Intel-based Mac systems |
+| **macOS (Apple Silicon)** | `openrqd-VERSION-aarch64-apple-darwin` | M1/M2/M3 Mac systems |
+
+**Which Linux binary should I use?**
+- Use the **GNU** version for most Linux distributions (Ubuntu, Debian, RHEL, CentOS, etc.)
+- Use the **MUSL** version for Alpine Linux, containers, or when you need a completely self-contained binary
+
+### Building from Source
+
+If you need to customize the build or contribute to development, you can build from source:
+
+#### Prerequisites
 
 1. **Install Rust**: Follow the official guide at [rustup.rs](https://rustup.rs/)
 2. **Install Protobuf Compiler**:
@@ -71,7 +111,7 @@ Consider using the Rust RQD when:
    sudo yum install protobuf-compiler
    ```
 
-### Build Instructions
+#### Build Instructions
 
 1. Navigate to the Rust directory:
    ```bash
@@ -93,7 +133,7 @@ Consider using the Rust RQD when:
    - Release: `target/release/openrqd`
    - Debug: `target/debug/openrqd`
 
-### Build Features
+#### Build Features
 
 The Rust RQD supports optional features through Cargo:
 
@@ -104,9 +144,28 @@ cargo build --release --features containerized_frames
 
 ## Running Rust RQD
 
+### Quick Start with Pre-built Binary
+
+1. **Download and prepare the binary** (as shown in the Installation section above)
+
+2. **Create a basic configuration** (optional - RQD can run with defaults):
+   ```bash
+   mkdir -p ~/.config/openrqd
+   # Copy sample config and modify as needed
+   ```
+
+3. **Run RQD**:
+   ```bash
+   # If you placed it in your PATH
+   openrqd
+   
+   # Or run directly
+   ./openrqd-VERSION-PLATFORM
+   ```
+
 ### Local Development
 
-1. **Start the dummy Cuebot server** (for testing):
+1. **Start the dummy Cuebot server** (for testing, requires building from source):
    ```bash
    target/release/dummy-cuebot report-server
    ```
@@ -115,15 +174,19 @@ cargo build --release --features containerized_frames
    
    Using real configuration:
    ```bash
+   # With pre-built binary
+   openrqd
+   
+   # With source build
    target/release/openrqd
    ```
    
    Using fake Linux environment (for testing on macOS):
    ```bash
-   env OPENCUE_RQD_CONFIG=/path/to/OpenCue/rust/config/rqd.fake_linux.yaml target/release/openrqd
+   env OPENCUE_RQD_CONFIG=/path/to/OpenCue/rust/config/rqd.fake_linux.yaml openrqd
    ```
 
-3. **Launch a test frame**:
+3. **Launch a test frame** (requires building dummy-cuebot from source):
    ```bash
    target/release/dummy-cuebot rqd-client launch-frame \
      /path/to/OpenCue/rust/crates/rqd/resources/test_scripts/memory_fork.sh
@@ -131,9 +194,17 @@ cargo build --release --features containerized_frames
 
 ### Production Deployment
 
-1. **Configure RQD**: Edit `/etc/openrqd/rqd.yaml` or set `OPENCUE_RQD_CONFIG` environment variable
-2. **Set Cuebot hostname**: Configure the Cuebot server location in your configuration file
-3. **Run as a service**:
+1. **Install the binary**: Download the appropriate pre-built binary for your platform and install it:
+   ```bash
+   # Download from GitHub releases
+   curl -L -o openrqd https://github.com/AcademySoftwareFoundation/OpenCue/releases/latest/download/openrqd-VERSION-PLATFORM
+   chmod +x openrqd
+   sudo mv openrqd /usr/local/bin/
+   ```
+
+2. **Configure RQD**: Edit `/etc/openrqd/rqd.yaml` or set `OPENCUE_RQD_CONFIG` environment variable
+3. **Set Cuebot hostname**: Configure the Cuebot server location in your configuration file
+4. **Run as a service**:
 
    **systemd (Linux):**
    ```bash

@@ -62,11 +62,15 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         self.jobMonitor = cuegui.JobMonitorTree.JobMonitorTree(self)
 
-        self.__toolbar = QtWidgets.QToolBar(self)
-        self._regexLoadJobsSetup(self.__toolbar)
-        self._buttonSetup(self.__toolbar)
+        self.__toolbar1 = QtWidgets.QToolBar(self)
+        self._regexLoadJobsSetup(self.__toolbar1)
+        self._searchControlsSetup(self.__toolbar1)
 
-        self.layout().addWidget(self.__toolbar)
+        self.__toolbar2 = QtWidgets.QToolBar(self)
+        self._actionButtonsSetup(self.__toolbar2)
+
+        self.layout().addWidget(self.__toolbar1)
+        self.layout().addWidget(self.__toolbar2)
         self.layout().addWidget(self.jobMonitor)
 
         # Signals in
@@ -266,7 +270,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         """Set autoload mine"""
         self.autoLoadMineCb.setChecked(bool(state))
 
-    def _buttonSetup(self, layout):
+    def _searchControlsSetup(self, layout):
         clearButton = QtWidgets.QPushButton("Clr")
         clearButton.setFocusPolicy(QtCore.Qt.NoFocus)
         clearButton.setFixedWidth(24)
@@ -283,7 +287,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         layout.addWidget(self.autoLoadMineCb)
         self.autoLoadMineCb.stateChanged.connect(self.jobMonitor.setLoadMine)  # pylint: disable=no-member
 
-        self._loadFinishedJobsSetup(self.__toolbar)
+        self._loadFinishedJobsSetup(self.__toolbar1)
 
         # Create Group By dropdown (action-style like Unmonitor)
         groupByCombo = QtWidgets.QComboBox()
@@ -314,24 +318,40 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         groupByCombo.currentIndexChanged.connect(handleGroupBySelection)
         layout.addWidget(groupByCombo)
 
-        # Create Unmonitor dropdown
-        unmonitorCombo = QtWidgets.QComboBox()
-        unmonitorCombo.setFocusPolicy(QtCore.Qt.NoFocus)
-        unmonitorCombo.addItems(["Unmonitor", "All Jobs", "Finished Jobs", "Selected Jobs"])
-        unmonitorCombo.setToolTip("Select jobs to unmonitor")
+    def _actionButtonsSetup(self, layout):
+        # Add Unmonitor label
+        unmonitorLabel = QtWidgets.QLabel("<b>Unmonitor:</b>")
+        layout.addWidget(unmonitorLabel)
 
-        def handleUnmonitorSelection(index):
-            if index == 1:  # All Jobs
-                self.jobMonitor.removeAllItems()
-            elif index == 2:  # Finished Jobs
-                self.jobMonitor.removeFinishedItems()
-            elif index == 3:  # Selected Jobs
-                self.jobMonitor.actionRemoveSelectedItems()
-            # Reset to default selection after action
-            unmonitorCombo.setCurrentIndex(0)
+        finishedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "Finished")
+        finishedButton.setToolTip("Unmonitor finished jobs")
+        finishedButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        finishedButton.setFlat(True)
+        layout.addWidget(finishedButton)
+        finishedButton.clicked.connect(self.jobMonitor.removeFinishedItems)  # pylint: disable=no-member
 
-        unmonitorCombo.currentIndexChanged.connect(handleUnmonitorSelection)
-        layout.addWidget(unmonitorCombo)
+        allButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "All")
+        allButton.setToolTip("Unmonitor all jobs")
+        allButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        allButton.setFlat(True)
+        layout.addWidget(allButton)
+        allButton.clicked.connect(self.jobMonitor.removeAllItems)  # pylint: disable=no-member
+
+        removeSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "Selected")
+        removeSelectedButton.setToolTip("Unmonitor selected jobs")
+        removeSelectedButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        removeSelectedButton.setFlat(True)
+        layout.addWidget(removeSelectedButton)
+        removeSelectedButton.clicked.connect(self.jobMonitor.actionRemoveSelectedItems)  # pylint: disable=no-member
+
+        # Add separator after Unmonitor group
+        separator = QtWidgets.QWidget()
+        separator.setFixedWidth(20)
+        layout.addWidget(separator)
+
+        # Add Job Actions label
+        jobActionsLabel = QtWidgets.QLabel("<b>Job Actions:</b>")
+        layout.addWidget(jobActionsLabel)
 
         eatSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eat.png"), "Eat Dead Frames")
         eatSelectedButton.setToolTip(

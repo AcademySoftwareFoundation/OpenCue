@@ -29,10 +29,12 @@ use crate::{
         running_frame::{FrameState, RunningFrame, RunningState},
     },
     report::report_client::{ReportClient, ReportInterface},
-    system::{manager::ReservationError, nimby::Nimby, reservation::CoreStateManager},
+    system::{manager::ReservationError, reservation::CoreStateManager},
 };
 
 use super::{linux::LinuxSystem, manager::SystemManagerType};
+#[cfg(feature = "nimby")]
+use crate::system::nimby::Nimby;
 
 /// Constantly monitor the state of this machine and report back to Cuebot
 ///
@@ -61,7 +63,9 @@ pub struct MachineMonitor {
     last_host_state: Arc<Mutex<Option<RenderHost>>>,
     interrupt: Mutex<Option<broadcast::Sender<()>>>,
     reboot_when_idle: Mutex<bool>,
+    #[cfg(feature = "nimby")]
     nimby: Arc<Option<Nimby>>,
+    #[cfg(feature = "nimby")]
     nimby_state: RwLock<LockState>,
 }
 
@@ -101,6 +105,7 @@ impl MachineMonitor {
         };
 
         // Init nimby
+        #[cfg(feature = "nimby")]
         let nimby = if config.machine.nimby_mode {
             let nimby = Nimby::init(
                 config.machine.nimby_idle_threshold,
@@ -121,7 +126,9 @@ impl MachineMonitor {
             last_host_state: Arc::new(Mutex::new(None)),
             interrupt: Mutex::new(None),
             reboot_when_idle: Mutex::new(false),
+            #[cfg(feature = "nimby")]
             nimby,
+            #[cfg(feature = "nimby")]
             nimby_state: RwLock::new(LockState::Open),
             core_manager,
         })
@@ -157,6 +164,7 @@ impl MachineMonitor {
         let (term_sender, mut term_receiver) = broadcast::channel::<()>(5);
 
         // Start nimby monitor
+        #[cfg(feature = "nimby")]
         self.start_nimby(term_receiver.resubscribe()).await;
         let mut interval = time::interval(self.maching_config.monitor_interval);
 
@@ -180,6 +188,7 @@ impl MachineMonitor {
                         self.collect_and_send_host_report().await?;
                         self.check_reboot_flag().await;
 
+                        #[cfg(feature = "nimby")]
                         if let Some(nimby) = &*self.nimby {
                             match (nimby.is_user_active(), last_lock_state) {
                                 // Became locked
@@ -221,6 +230,7 @@ impl MachineMonitor {
         Ok(())
     }
 
+    #[cfg(feature = "nimby")]
     async fn start_nimby(&self, term_receiver: Receiver<()>) {
         // Start nimby monitor
         let nimby_clone = Arc::clone(&self.nimby);
@@ -681,13 +691,14 @@ impl Machine for MachineMonitor {
                 system_manager.refresh_procs();
             }
 
-            let nimby_state_lock = self.nimby_state.read().await;
+            let mut nimby_locked = false;
 
-            Self::inspect_host_state(
-                &self.maching_config,
-                &system_manager,
-                *nimby_state_lock == LockState::NimbyLocked,
-            )?
+            #[cfg(feature = "nimby")]
+            {
+                nimby_locked = *self.nimby_state.read().await == LockState::NimbyLocked;
+            }
+
+            Self::inspect_host_state(&self.maching_config, &system_manager, nimby_locked)?
         }; // Scope ensures all mutex are released
 
         let core_state = {
