@@ -63,6 +63,11 @@ RQD_RETRY_CRITICAL_REPORT_DELAY = 30
 RQD_USE_IP_AS_HOSTNAME = True
 RQD_USE_IPV6_AS_HOSTNAME = False
 RQD_NETWORK_INTERFACE = None
+# Maximum allowable size in bytes for a single job log file (rqlog).
+# When exceeded, RQD will terminate the running job automatically.
+# 0 or None disables the limit.
+# Default: 1 GiB (can be adjusted per studio requirements via config)
+JOB_LOG_MAX_SIZE_IN_BYTES = 1024 * 1024 * 1024
 
 # Use the PATH environment variable from the RQD host.
 RQD_USE_PATH_ENV_VAR = False
@@ -246,6 +251,8 @@ try:
             FILE_LOG_LEVEL = logging.getLevelName(level)
         if config.has_option(__override_section, "RQD_PREPEND_TIMESTAMP"):
             RQD_PREPEND_TIMESTAMP = config.getboolean(__override_section, "RQD_PREPEND_TIMESTAMP")
+        if config.has_option(__override_section, "JOB_LOG_MAX_SIZE_IN_BYTES"):
+            JOB_LOG_MAX_SIZE_IN_BYTES = config.getint(__override_section, "JOB_LOG_MAX_SIZE_IN_BYTES")
         if config.has_option(__override_section, "CHECK_INTERVAL_LOCKED"):
             CHECK_INTERVAL_LOCKED = config.getint(__override_section, "CHECK_INTERVAL_LOCKED")
         if config.has_option(__override_section, "MINIMUM_IDLE"):

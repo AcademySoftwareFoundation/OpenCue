@@ -740,6 +740,8 @@ class FrameAttendantThread(threading.Thread):
         self._tempLocations = []
         self.rqlog = None
         self.recovery_mode = recovery_mode
+        # To suppress duplicate "log size exceeded" messages across loops
+        self._log_limit_triggered = False
 
     def __createEnvVariables(self):
         """Define the environmental variables for the frame"""
@@ -935,6 +937,51 @@ class FrameAttendantThread(threading.Thread):
                 "Unable to write footer: %s due to %s at %s",
                 self.runFrame.log_dir_file, e, traceback.extract_tb(sys.exc_info()[2]))
 
+    def __log_size_limit_exceeded(self):
+        """Returns (bool, message) indicating whether the job log size limit is exceeded."""
+        try:
+            limit = rqd.rqconstants.JOB_LOG_MAX_SIZE_IN_BYTES
+            if not limit or limit <= 0:
+                return (False, "")
+            # Log file path is defined at setup()
+            log_path = self.runFrame.log_dir_file
+            if not log_path or not os.path.exists(log_path):
+                return (False, "")
+            size = os.path.getsize(log_path)
+            if size > limit:
+                msg = (
+                    f"Job log size exceeded limit: {size} bytes > {limit} bytes. "
+                    f"Log: {log_path}. Terminating job.")
+                return (True, msg)
+            return (False, "")
+        # pylint: disable=broad-except
+        except Exception:
+            return (False, "")
+
+    def __terminate_due_to_log_limit(self, msg, kill_callable):
+        """Finalize termination workflow when log size limit is exceeded.
+
+        - Writes an explanatory message into rqlog
+        - Sets frame killMessage for reporting
+        - Executes the provided kill callable
+        """
+        # Write only once to avoid duplicate exceed messages
+        if not self._log_limit_triggered:
+            try:
+                self.rqlog.write(msg, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+            # pylint: disable=broad-except
+            except Exception:
+                pass
+            self._log_limit_triggered = True
+        # Record kill reason
+        self.frameInfo.killMessage = msg
+        # Attempt termination
+        try:
+            kill_callable()
+        # pylint: disable=broad-except
+        except Exception:
+            pass
+
     def __cleanup(self):
         """Cleans up temporary files"""
         rqd.rqutil.permissionsHigh()
@@ -1022,6 +1069,20 @@ class FrameAttendantThread(threading.Thread):
                     if not line:
                         break
                     self.rqlog.write(line, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+                    exceeded, msg = self.__log_size_limit_exceeded()
+                    if exceeded:
+                        def _kill_proc_group():
+                            try:
+                                os.killpg(os.getpgid(frameInfo.forkedCommand.pid), rqd.rqconstants.KILL_SIGNAL)
+                            # pylint: disable=broad-except
+                            except Exception:
+                                try:
+                                    frameInfo.forkedCommand.kill()
+                                except Exception:
+                                    pass
+                        self.__terminate_due_to_log_limit(msg, _kill_proc_group)
+                        # Break outer loops after termination
+                        break
             if frameInfo.forkedCommand.poll() is not None:
                 break
 
@@ -1558,6 +1619,10 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
             # Attach to the job and follow the logs
             for line in log_stream:
                 self.rqlog.write(line, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+                exceeded, msg = self.__log_size_limit_exceeded()
+                if exceeded:
+                    self.__terminate_due_to_log_limit(msg, container.kill)
+                    break
 
             output = container.wait()
             returncode = output["StatusCode"]
