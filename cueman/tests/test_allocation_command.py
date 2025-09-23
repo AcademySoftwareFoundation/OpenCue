@@ -4,7 +4,7 @@ Unit tests for allocation management behaviors using opencue.api.
 import unittest
 from unittest.mock import patch, MagicMock
 
-import opencue.api as api
+from opencue import api
 
 class TestAllocationCommands(unittest.TestCase):
     @patch('opencue.api.createAllocation')
