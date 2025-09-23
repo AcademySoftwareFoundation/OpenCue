@@ -249,9 +249,10 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
-        job = item.rpcObject
-        if col == COLUMN_COMMENT and job.isCommented():
-            self.__menuActions.jobs().viewComments([job])
+        if hasattr(item, 'rpcObject'):
+            job = item.rpcObject
+            if col == COLUMN_COMMENT and job.isCommented():
+                self.__menuActions.jobs().viewComments([job])
 
     def startDrag(self, dropActions):
         """Triggers a drag event"""

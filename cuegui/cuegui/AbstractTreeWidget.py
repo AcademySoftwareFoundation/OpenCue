@@ -286,7 +286,8 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @type  col: int
         @param col: Column number single clicked on"""
         del col
-        cuegui.app().single_click.emit(item.rpcObject)
+        if hasattr(item, 'rpcObject'):
+            cuegui.app().single_click.emit(item.rpcObject)
 
     @staticmethod
     def __itemDoubleClickedEmitToApp(item, col):
