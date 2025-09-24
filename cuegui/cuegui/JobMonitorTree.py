@@ -434,8 +434,48 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def removeFinishedItems(self):
         """Removes finished jobs"""
+        # When in grouped modes, we need to search within group items as well
+        items_to_remove = []
+        groups_to_check = set()
+
+        # First check root level items
         for item in self.findItems("Finished", QtCore.Qt.MatchFixedString, COLUMN_STATE):
+            items_to_remove.append(item)
+
+        # If we're in a grouped mode, also check within group items
+        if self.__groupByMode in ["Show-Shot", "Show-Shot-Username"]:
+            # Iterate through all group items
+            for group_key, group_item in self.__groupItems.items():
+                # Check children of each group
+                for i in range(group_item.childCount()):
+                    child = group_item.child(i)
+                    # Check if this child job is finished
+                    if (hasattr(child, 'rpcObject') and
+                            child.rpcObject.data.state == opencue.api.job_pb2.FINISHED):
+                        items_to_remove.append(child)
+                        groups_to_check.add(group_key)
+        elif self.__groupByMode == "Dependent":
+            # For dependent mode, check children of parent jobs
+            for parent_item in self._items.values():
+                for i in range(parent_item.childCount()):
+                    child = parent_item.child(i)
+                    if (hasattr(child, 'rpcObject') and
+                            child.rpcObject.data.state == opencue.api.job_pb2.FINISHED):
+                        items_to_remove.append(child)
+
+        # Remove all found finished items
+        for item in items_to_remove:
             self.removeItem(item)
+
+        # Clean up empty groups after removing items
+        for group_key in groups_to_check:
+            group_item = self.__groupItems.get(group_key, None)
+            if group_item and group_item.childCount() == 0:
+                # Remove empty group
+                index = self.indexOfTopLevelItem(group_item)
+                if index >= 0:
+                    self.takeTopLevelItem(index)
+                del self.__groupItems[group_key]
 
     def getUserColors(self):
         """Returns the colored jobs to be saved"""
