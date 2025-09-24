@@ -393,7 +393,8 @@ cueman -v -info job_name     # Enable verbose logging
 Cueman includes a comprehensive test suite to verify functionality:
 
 ```bash
-cd OpenCue/cueman && python -m pytest tests/ -v
+# From the OpenCue repo root, run all Python tests (includes cueman)
+./ci/run_python_tests.sh
 ```
 
 ### Run All Tests
@@ -402,11 +403,9 @@ cd OpenCue/cueman && python -m pytest tests/ -v
 # Install test dependencies
 pip install .[test]
 
-# Run tests using pytest
-pytest
-
-# Or run the test suite directly
-python tests/test_suite.py
+# Or run only cueman tests
+cd cueman
+python -m pytest tests/ -v
 ```
 
 ### Run Specific Tests
@@ -417,9 +416,6 @@ pytest tests/test_main.py
 
 # Run tests with verbose output
 pytest -v
-
-# Run tests with coverage report
-pytest --cov=cueman
 ```
 
 ### Test Requirements
