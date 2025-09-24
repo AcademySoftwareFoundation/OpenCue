@@ -17,12 +17,12 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages evdev-binary o
 
 # ---- Install Blender ----
 WORKDIR /opt/artist
-RUN wget https://www.blender.org/download/release/Blender4.5/blender-4.5.3-linux-x64.tar.xz \
-    && tar -xf blender-4.5.3-Linux.tar.xz \
-    && rm blender-4.5.2-Linux.tar.xz
+RUN wget https://download.blender.org/release/Blender4.5/blender-4.5.3-linux-x64.tar.xz -O blender.tar.xz \
+    && tar -xf blender.tar.xz \
+    && rm blender.tar.xz
 
 # Add Blender to PATH
-ENV PATH="/opt/artist/blender-4.5.2:$PATH"
+ENV PATH="/opt/artist/blender-4.5.3-linux-x64:$PATH"
 
 # ---- OpenCue environment ----
 ENV CUEBOT_HOSTS="cuebot"

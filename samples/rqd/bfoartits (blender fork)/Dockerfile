@@ -22,7 +22,7 @@ RUN wget https://www.bforartists.de/data/binaries/Bforartists-4.5.2-Linux.tar.xz
     && rm Bforartists-4.5.2-Linux.tar.xz
 
 # Add Bforartists to PATH
-ENV PATH="/opt/artist/Bforartists-4.5.2:$PATH"
+ENV PATH="/opt/artist/Bforartists-4.5.2-Linux:$PATH"
 
 # ---- OpenCue environment ----
 ENV CUEBOT_HOSTS="cuebot"
