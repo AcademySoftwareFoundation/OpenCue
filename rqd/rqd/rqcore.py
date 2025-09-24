@@ -1265,6 +1265,10 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
             # Atatch to the job and follow the logs
             for line in log_stream:
                 self.rqlog.write(line, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+                exceeded, msg = self.__log_size_limit_exceeded()
+                if exceeded:
+                    self.__terminate_due_to_log_limit(msg, container.kill)
+                    break
 
             output = container.wait()
             returncode = output["StatusCode"]
