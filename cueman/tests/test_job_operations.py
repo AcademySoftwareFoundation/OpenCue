@@ -1,6 +1,22 @@
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
 """
 Unit tests for job operation commands in cueman.
 """
+# pylint: disable=too-many-public-methods
 import argparse
 import unittest
 from unittest.mock import patch, MagicMock, call
@@ -8,34 +24,35 @@ from unittest.mock import patch, MagicMock, call
 from cueman import main as cueman_main
 
 class TestJobOperations(unittest.TestCase):
+    """Test job operation commands in cueman."""
     def _ns(self, **overrides):
         """Build a minimal argparse.Namespace matching cueman.main expectations."""
-        base = dict(
-            lf=None,
-            lp=None,
-            ll=None,
-            info=None,
-            pause=None,
-            resume=None,
-            term=None,
-            eat=None,
-            kill=None,
-            retry=None,
-            done=None,
-            stagger=None,
-            reorder=None,
-            retries=None,
-            autoeaton=None,
-            autoeatoff=None,
-            layer=None,
-            range=None,
-            state=None,
-            page=None,
-            limit=None,
-            duration=None,
-            memory=None,
-            force=False,
-        )
+        base = {
+            "lf": None,
+            "lp": None,
+            "ll": None,
+            "info": None,
+            "pause": None,
+            "resume": None,
+            "term": None,
+            "eat": None,
+            "kill": None,
+            "retry": None,
+            "done": None,
+            "stagger": None,
+            "reorder": None,
+            "retries": None,
+            "autoeaton": None,
+            "autoeatoff": None,
+            "layer": None,
+            "range": None,
+            "state": None,
+            "page": None,
+            "limit": None,
+            "duration": None,
+            "memory": None,
+            "force": False,
+        }
         base.update(overrides)
         return argparse.Namespace(**base)
 
@@ -43,6 +60,7 @@ class TestJobOperations(unittest.TestCase):
 
     @patch('opencue.api.findJob')
     def test_pause_job_success(self, mock_find):
+        """Test successful job pause operation."""
         job = MagicMock()
         job.pause.return_value = None
         mock_find.return_value = job
@@ -51,6 +69,7 @@ class TestJobOperations(unittest.TestCase):
 
     @patch('opencue.api.findJob')
     def test_pause_job_already_paused(self, mock_find):
+        """Test job pause when already paused raises RuntimeError."""
         job = MagicMock()
         job.pause.side_effect = RuntimeError("Job already paused")
         mock_find.return_value = job
@@ -59,6 +78,7 @@ class TestJobOperations(unittest.TestCase):
 
     @patch('opencue.api.findJob')
     def test_resume_job_success(self, mock_find):
+        """Test successful job resume operation."""
         job = MagicMock()
         job.resume.return_value = None
         mock_find.return_value = job
@@ -67,6 +87,7 @@ class TestJobOperations(unittest.TestCase):
 
     @patch('opencue.api.findJob')
     def test_resume_job_already_running(self, mock_find):
+        """Test job resume when already running raises RuntimeError."""
         job = MagicMock()
         job.resume.side_effect = RuntimeError("Job already running")
         mock_find.return_value = job
@@ -75,12 +96,14 @@ class TestJobOperations(unittest.TestCase):
 
     @patch('opencue.api.findJob')
     def test_terminate_nonexistent_job(self, mock_find):
+        """Test terminating nonexistent job raises KeyError."""
         mock_find.side_effect = KeyError("Job not found")
         with self.assertRaises(KeyError):
             mock_find('missing_job')
 
     @patch('opencue.api.findJob')
     def test_batch_pause_jobs(self, mock_find):
+        """Test pausing multiple jobs in batch operation."""
         job1 = MagicMock()
         job2 = MagicMock()
         mock_find.side_effect = [job1, job2]
@@ -91,6 +114,7 @@ class TestJobOperations(unittest.TestCase):
 
     @patch('opencue.api.findJob')
     def test_batch_operation_with_missing_job(self, mock_find):
+        """Test batch operation handling when one job is missing."""
         job1 = MagicMock()
         mock_find.side_effect = [job1, KeyError("Job not found")]
 
@@ -106,6 +130,7 @@ class TestJobOperations(unittest.TestCase):
 
     @patch('opencue.api.findJob')
     def test_set_maximum_retries_valid(self, mock_find):
+        """Test setting valid maximum retries on a job."""
         job = MagicMock()
         job.setMaxRetries.return_value = None
         mock_find.return_value = job
@@ -114,6 +139,7 @@ class TestJobOperations(unittest.TestCase):
 
     @patch('opencue.api.findJob')
     def test_set_maximum_retries_invalid(self, mock_find):
+        """Test setting invalid maximum retries raises ValueError."""
         job = MagicMock()
         job.setMaxRetries.side_effect = ValueError("Invalid retries")
         mock_find.return_value = job
@@ -122,18 +148,21 @@ class TestJobOperations(unittest.TestCase):
 
     @patch('opencue.api.findJob')
     def test_job_existence_validation(self, mock_find):
+        """Test job existence validation raises KeyError for missing jobs."""
         mock_find.side_effect = KeyError("Job not found")
         with self.assertRaises(KeyError):
             mock_find('missing_job')
 
     @patch('opencue.api.findJob')
     def test_network_error_handling(self, mock_find):
+        """Test handling of network connection errors."""
         mock_find.side_effect = ConnectionError("Network error")
         with self.assertRaises(ConnectionError):
             mock_find('job1')
 
     @patch('opencue.api.findJob')
     def test_error_handling_invalid_state(self, mock_find):
+        """Test handling of invalid job state errors."""
         job = MagicMock()
         job.pause.side_effect = RuntimeError("Invalid state")
         mock_find.return_value = job
@@ -145,6 +174,7 @@ class TestJobOperations(unittest.TestCase):
     @patch('opencue.api.findJob')
     @patch('cueman.main.logger')
     def test_pause_command_calls_job_pause_and_logs(self, mock_logger, mock_find):
+        """Test pause command calls job.pause() and logs appropriately."""
         job = MagicMock()
         job.isPaused.return_value = False
         job.name.return_value = 'job1'
@@ -161,6 +191,7 @@ class TestJobOperations(unittest.TestCase):
     @patch('opencue.api.findJob')
     @patch('cueman.main.logger')
     def test_pause_command_already_paused_logs_only(self, mock_logger, mock_find):
+        """Test pause command logs when job is already paused without calling pause()."""
         job = MagicMock()
         job.isPaused.return_value = True
         job.name.return_value = 'job1'
@@ -177,6 +208,7 @@ class TestJobOperations(unittest.TestCase):
     @patch('opencue.api.findJob')
     @patch('cueman.main.logger')
     def test_resume_command_calls_job_resume_and_logs(self, mock_logger, mock_find):
+        """Test resume command calls job.resume() and logs success."""
         job = MagicMock()
         job.name.return_value = 'job1'
         mock_find.return_value = job
@@ -193,12 +225,13 @@ class TestJobOperations(unittest.TestCase):
     def test_terminate_command_uses_confirm_and_logs_success(
         self, mock_logger, mock_find, mock_confirm
     ):
+        """Test terminate command uses confirmation and logs success for multiple jobs."""
         job1 = MagicMock()
         job2 = MagicMock()
         mock_find.side_effect = [job1, job2]
 
         # Simulate confirm calling the provided function
-        def _confirm_side_effect(msg, force, func, *func_args):
+        def _confirm_side_effect(msg, force, func, *func_args):  # pylint: disable=unused-argument
             func(*func_args)
             return True
 
@@ -214,10 +247,11 @@ class TestJobOperations(unittest.TestCase):
     @patch('cueman.main.common.confirm')
     @patch('opencue.api.findJob')
     def test_terminate_command_force_bypasses_confirm(self, mock_find, mock_confirm):
+        """Test terminate command with force flag bypasses confirmation."""
         job = MagicMock()
         mock_find.return_value = job
 
-        def _confirm_side_effect(msg, force, func, *func_args):
+        def _confirm_side_effect(msg, force, func, *func_args):  # pylint: disable=unused-argument
             # handleArgs should pass force=True through
             self.assertTrue(force)
             return True
@@ -234,10 +268,11 @@ class TestJobOperations(unittest.TestCase):
     def test_retries_command_confirms_and_sets_max_retries(
         self, mock_logger, mock_find, mock_confirm
     ):
+        """Test retries command uses confirmation and sets maximum retries."""
         job = MagicMock()
         mock_find.return_value = job
 
-        def _confirm_side_effect(msg, force, func, *func_args):
+        def _confirm_side_effect(msg, force, func, *func_args):  # pylint: disable=unused-argument
             func(*func_args)
             return True
 
@@ -257,6 +292,7 @@ class TestJobOperations(unittest.TestCase):
     def test_eat_command_prompts_and_calls_on_yes(
         self, mock_logger, mock_find, mock_prompt
     ):
+        """Test eat command prompts user and calls eatFrames() on yes response."""
         job = MagicMock()
         mock_find.return_value = job
         mock_prompt.return_value = True
@@ -271,6 +307,7 @@ class TestJobOperations(unittest.TestCase):
     @patch('opencue.api.findJob')
     @patch('cueman.main.logger')
     def test_eat_command_skips_on_no(self, mock_logger, mock_find, mock_prompt):
+        """Test eat command skips eatFrames() call on no response."""
         job = MagicMock()
         mock_find.return_value = job
         mock_prompt.return_value = False
@@ -289,6 +326,7 @@ class TestJobOperations(unittest.TestCase):
     def test_kill_command_prompts_and_calls_on_yes(
         self, mock_logger, mock_find, mock_prompt
     ):
+        """Test kill command prompts user and calls killFrames() on yes response."""
         job = MagicMock()
         mock_find.return_value = job
         mock_prompt.return_value = True
@@ -302,6 +340,7 @@ class TestJobOperations(unittest.TestCase):
     @patch('opencue.api.findJob')
     @patch('cueman.main.logger')
     def test_autoeat_on_sets_flag_eats_dead_and_logs(self, mock_logger, mock_find):
+        """Test auto-eat on sets flag, eats dead frames, and logs success."""
         job = MagicMock()
         job.name.return_value = 'job1'
         mock_find.return_value = job
@@ -319,6 +358,7 @@ class TestJobOperations(unittest.TestCase):
     @patch('opencue.api.findJob')
     @patch('cueman.main.logger')
     def test_autoeat_off_sets_flag_and_logs(self, mock_logger, mock_find):
+        """Test auto-eat off sets flag to false and logs success."""
         job = MagicMock()
         job.name.return_value = 'job1'
         mock_find.return_value = job
@@ -332,6 +372,7 @@ class TestJobOperations(unittest.TestCase):
     @patch('opencue.api.findJob')
     @patch('cueman.main.logger')
     def test_resume_nonexistent_job_logs_error_and_exits(self, mock_logger, mock_find):
+        """Test resume command logs error and exits when job does not exist."""
         mock_find.side_effect = Exception('does not exist')
         args = self._ns(resume=['missing'])
         with self.assertRaises(SystemExit):
