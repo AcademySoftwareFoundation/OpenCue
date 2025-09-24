@@ -18,13 +18,11 @@
 """Tests for cueadmin.format."""
 
 
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
+from __future__ import absolute_import, division, print_function
 
-import unittest
-import time
 import sys
+import time
+import unittest
 from unittest import mock
 
 import cueadmin.format as fmt
