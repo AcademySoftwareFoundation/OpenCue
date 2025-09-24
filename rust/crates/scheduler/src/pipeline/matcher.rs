@@ -11,7 +11,7 @@ use crate::{
     host_cache::{HostCacheService, host_cache_service},
     models::{DispatchJob, DispatchLayer, Host},
     pipeline::{
-        HOST_ATTEMPTS,
+        HOST_CYCLES,
         dispatcher::{RqdDispatcher, error::DispatchError},
     },
 };
@@ -25,13 +25,13 @@ use tracing::{debug, error, info, warn};
 /// - Finding eligible layers within each job
 /// - Matching layers to available host candidates
 /// - Dispatching frames to selected hosts via the RQD dispatcher
-pub struct MachingService {
+pub struct MatchingService {
     host_service: Arc<HostCacheService>,
     job_dao: LayerDao,
     dispatcher: RqdDispatcher,
 }
 
-impl MachingService {
+impl MatchingService {
     /// Creates a new BookJobEventHandler with configured DAOs and dispatcher.
     ///
     /// Initializes the handler with:
@@ -51,7 +51,7 @@ impl MachingService {
             CONFIG.queue.memory_stranded_threshold,
             CONFIG.rqd.dry_run_mode,
         );
-        Ok(MachingService {
+        Ok(MatchingService {
             host_service,
             job_dao: layer_dao,
             dispatcher,
@@ -70,6 +70,8 @@ impl MachingService {
     pub async fn process(&self, job: DispatchJob) {
         let job_disp = format!("{}", job);
         let cluster = Arc::new(job.source_cluster);
+        // let layer_transaction = connection_pool(config).await?;
+
         let layers = self
             .job_dao
             .query_layers(
@@ -77,6 +79,7 @@ impl MachingService {
                 cluster.tags().map(|tag| &tag.name).cloned().collect(),
             )
             .await;
+
         match layers {
             Ok(layers) => {
                 let processed_layers = AtomicUsize::new(0);
@@ -145,7 +148,7 @@ impl MachingService {
         let mut current_layer_version = dispatch_layer;
 
         while try_again && attempts > 0 {
-            HOST_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
+            HOST_CYCLES.fetch_add(1, Ordering::Relaxed);
             // Filter layer tags to match the scope of the cluster in context
             let tags = Self::filter_matching_tags(&cluster, &current_layer_version);
             assert!(
@@ -178,6 +181,12 @@ impl MachingService {
                             self.host_service.check_in(cluster_key, updated_host);
                             if updated_dispatch_layer.frames.is_empty() {
                                 try_again = false;
+                            } else {
+                                debug!(
+                                    "Layer {} not fully consumed. {} frames left",
+                                    updated_dispatch_layer,
+                                    updated_dispatch_layer.frames.len()
+                                )
                             }
                             current_layer_version = updated_dispatch_layer;
                         }

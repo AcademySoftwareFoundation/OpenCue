@@ -9,11 +9,11 @@ use crate::cluster::{Cluster, ClusterFeed};
 use crate::config::CONFIG;
 use crate::dao::JobDao;
 use crate::models::DispatchJob;
-use crate::pipeline::MachingService;
+use crate::pipeline::MatchingService;
 
 pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     let job_fetcher = Arc::new(JobDao::from_config(&CONFIG.database).await?);
-    let job_event_handler = Arc::new(MachingService::new().await?);
+    let job_event_handler = Arc::new(MatchingService::new().await?);
     let cancel_token = CancellationToken::new();
     let cycles_without_jobs = Arc::new(AtomicUsize::new(0));
     debug!("Starting scheduler feed");

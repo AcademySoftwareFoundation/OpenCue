@@ -3,8 +3,9 @@ mod util;
 use crate::util::WaitingFrameClause;
 
 mod stress_test {
+    use std::sync::atomic::Ordering;
+
     use scheduler::{cluster::ClusterFeed, config::OVERRIDE_CONFIG, pipeline};
-    use serial_test::serial;
     use tokio_test::assert_ok;
     use tracing::info;
     use tracing_test::traced_test;
@@ -55,9 +56,9 @@ mod stress_test {
     async fn test_stress_small() {
         let desc = TestDescription {
             test_name: "sts".to_string(),
-            job_count: 10,
-            host_count: 40,
-            layer_count: 2,
+            job_count: 20,
+            host_count: 100,
+            layer_count: 4,
             frames_per_layer_count: 2,
             tag_count: 4,
         };
@@ -83,7 +84,7 @@ mod stress_test {
         info!("Processed Frames: {}", desc.total_frames());
         info!(
             "Host attempts: {}",
-            pipeline::HOST_ATTEMPTS.load(std::sync::atomic::Ordering::Relaxed)
+            pipeline::HOST_CYCLES.load(Ordering::Relaxed)
         );
 
         let waiting_frames_after =
