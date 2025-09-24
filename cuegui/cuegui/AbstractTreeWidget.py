@@ -286,7 +286,8 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @type  col: int
         @param col: Column number single clicked on"""
         del col
-        cuegui.app().single_click.emit(item.rpcObject)
+        if hasattr(item, 'rpcObject'):
+            cuegui.app().single_click.emit(item.rpcObject)
 
     @staticmethod
     def __itemDoubleClickedEmitToApp(item, col):
@@ -352,7 +353,9 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.takeTopLevelItem(self.indexOfTopLevelItem(item))
         objectClass = item.rpcObject.__class__.__name__
         objectId = item.rpcObject.id()
-        del self._items['{}.{}'.format(objectClass, objectId)]
+        # Use pop with default value to avoid KeyError when item doesn't exist
+        # This can happen with archived jobs or when items are already removed
+        self._items.pop('{}.{}'.format(objectClass, objectId), None)
 
     def removeAllItems(self):
         """Removes all items from the tree."""
