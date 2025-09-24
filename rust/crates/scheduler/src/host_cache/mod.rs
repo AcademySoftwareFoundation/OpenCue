@@ -15,7 +15,6 @@ use tokio::{
     time,
 };
 use tracing::error;
-use uuid::Uuid;
 
 use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
@@ -67,7 +66,7 @@ impl HostCacheService {
         })
     }
 
-    pub async fn checkout<F>(
+    pub async fn check_out<F>(
         &self,
         facility_id: String,
         show_id: String,
@@ -82,7 +81,7 @@ impl HostCacheService {
         let cache_keys = self.gen_cache_keys(facility_id, show_id, tags);
         for cache_key in cache_keys {
             // Get group from caches, or database if it a group has expired
-            let candidate = match self.groups.get(&cache_key) {
+            let candidate = match self.groups.get_mut(&cache_key) {
                 Some(cached_group) if !cached_group.expired() => cached_group,
                 _ => self
                     .fetch_group_data(&cache_key)
@@ -90,7 +89,7 @@ impl HostCacheService {
                     .map_err(|err| HostCacheError::FailedToQueryHostCache(err.to_string()))?,
             }
             // Checkout host from a group
-            .checkout(cores, memory, &validation)
+            .check_out(cores, memory, &validation)
             .map(|host| (cache_key, host.clone()));
 
             if candidate.is_ok() {
@@ -100,9 +99,9 @@ impl HostCacheService {
         Err(HostCacheError::NoCandidateAvailable)
     }
 
-    pub fn checkin(&self, cluster_key: ClusterKey, host: Host) {
-        if let Some(group) = self.groups.get(&cluster_key) {
-            group.checkin(&host);
+    pub fn check_in(&self, cluster_key: ClusterKey, host: Host) {
+        if let Some(mut group) = self.groups.get_mut(&cluster_key) {
+            group.check_in(host);
         }
     }
 
@@ -183,7 +182,7 @@ impl HostCacheService {
     async fn fetch_group_data(
         &self,
         key: &ClusterKey,
-    ) -> Result<dashmap::mapref::one::Ref<'_, ClusterKey, HostCache>> {
+    ) -> Result<dashmap::mapref::one::RefMut<'_, ClusterKey, HostCache>> {
         let tag = key.tag.to_string();
         let mut hosts_stream = self.host_dao.fetch_hosts_by_show_facility_tag(
             key.show_id.clone(),
@@ -194,11 +193,11 @@ impl HostCacheService {
         let mut cache = self.groups.entry(key.clone()).or_default();
         while let Some(host) = hosts_stream.next().await {
             match host {
-                Ok(host_model) => cache.insert(host_model.into()),
+                Ok(host_model) => cache.check_in(host_model.into()),
                 Err(err) => Err(miette!("Failed to query host for group {}. {}", key, err))?,
             }
         }
         cache.ping_fetch();
-        Ok(cache.downgrade())
+        Ok(cache)
     }
 }

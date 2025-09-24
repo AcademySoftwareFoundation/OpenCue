@@ -5,6 +5,7 @@ use opencue_proto::host::ThreadMode;
 
 use crate::models::{core_size::CoreSize, fmt_uuid};
 
+// TODO: Evaluate removing Clone and passing Host's reference around
 #[derive(Clone, Debug)]
 pub struct Host {
     pub(crate) id: String,

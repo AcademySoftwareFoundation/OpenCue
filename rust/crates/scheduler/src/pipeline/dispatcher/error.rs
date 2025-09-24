@@ -24,9 +24,6 @@ pub enum DispatchError {
     #[error("DispatchError: Dipatch happened but something failed after that")]
     FailureAfterDispatch(Error),
 
-    #[error("DispatchError: Host resources extinguished")]
-    HostResourcesExtinguished,
-
     #[error("DispatchError: Failed to update frame on the database")]
     FailedToStartOnDb(Error),
 }

@@ -3,7 +3,7 @@ mod util;
 use crate::util::WaitingFrameClause;
 
 mod stress_test {
-    use scheduler::{cluster::ClusterFeed, config::OVERRIDE_CONFIG, job_fetcher};
+    use scheduler::{cluster::ClusterFeed, config::OVERRIDE_CONFIG, pipeline};
     use serial_test::serial;
     use tokio_test::assert_ok;
     use tracing::info;
@@ -23,6 +23,12 @@ mod stress_test {
         layer_count: usize,
         frames_per_layer_count: usize,
         tag_count: usize,
+    }
+
+    impl TestDescription {
+        pub fn total_frames(&self) -> usize {
+            self.job_count * self.layer_count * self.frames_per_layer_count
+        }
     }
 
     async fn setup(test_description: &TestDescription) -> Result<TestData, sqlx::Error> {
@@ -69,18 +75,15 @@ mod stress_test {
         let waiting_frames_before =
             get_waiting_frames_count(WaitingFrameClause::JobPrefix(test_data.test_prefix.clone()))
                 .await;
-        assert_eq!(waiting_frames_before, 40);
+        assert_eq!(waiting_frames_before, desc.total_frames());
 
         // Run job dispatcher
-        assert_ok!(job_fetcher::run(cluster_feed).await);
+        assert_ok!(pipeline::run(cluster_feed).await);
 
-        info!(
-            "Processed Frames: {}",
-            desc.job_count * desc.layer_count * desc.frames_per_layer_count
-        );
+        info!("Processed Frames: {}", desc.total_frames());
         info!(
             "Host attempts: {}",
-            job_fetcher::HOST_ATTEMPTS.load(std::sync::atomic::Ordering::Relaxed)
+            pipeline::HOST_ATTEMPTS.load(std::sync::atomic::Ordering::Relaxed)
         );
 
         let waiting_frames_after =

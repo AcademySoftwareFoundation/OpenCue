@@ -4,7 +4,7 @@ use std::time::Duration;
 use scheduler::{
     cluster::{Cluster, ClusterFeed},
     cluster_key::{ClusterKey, Tag, TagType},
-    job_fetcher,
+    pipeline,
 };
 use tracing::info;
 use tracing_test::traced_test;
@@ -833,7 +833,7 @@ mod scheduler_smoke_test {
         assert_eq!(waiting_frames_before, 6);
         // Run the job fetcher with our test cluster feed
         // This simulates the main service flow: cluster discovery → job querying → layer processing → dispatching
-        let result = job_fetcher::run(cluster_feed).await;
+        let result = pipeline::run(cluster_feed).await;
 
         match result {
             Ok(()) => {
@@ -888,7 +888,7 @@ mod scheduler_smoke_test {
         let waiting_frames_before = get_waiting_frames_count(WaitingFrameClause::All).await;
         assert_eq!(waiting_frames_before, frame_count);
 
-        let result = job_fetcher::run(cluster_feed).await;
+        let result = pipeline::run(cluster_feed).await;
 
         match result {
             Ok(()) => {
@@ -930,7 +930,7 @@ mod scheduler_smoke_test {
         let waiting_frames_before = get_waiting_frames_count(WaitingFrameClause::All).await;
         assert_eq!(waiting_frames_before, frame_count);
 
-        let result = job_fetcher::run(cluster_feed).await;
+        let result = pipeline::run(cluster_feed).await;
 
         match result {
             Ok(()) => {
@@ -990,7 +990,7 @@ mod scheduler_smoke_test {
 
         info!("Starting mixed job scenario integration test...");
 
-        let result = job_fetcher::run(cluster_feed).await;
+        let result = pipeline::run(cluster_feed).await;
 
         match result {
             Ok(()) => {
@@ -1045,7 +1045,7 @@ mod scheduler_smoke_test {
         let waiting_frames_before = get_waiting_frames_count(WaitingFrameClause::All).await;
         assert_eq!(waiting_frames_before, 21);
 
-        let result = job_fetcher::run(cluster_feed).await;
+        let result = pipeline::run(cluster_feed).await;
 
         match result {
             Ok(()) => {

@@ -61,18 +61,18 @@ pub fn create_test_config() -> Config {
         queue: QueueConfig {
             monitor_interval: Duration::from_secs(1),
             worker_threads: 2,
-            dispatch_frames_per_layer_limit: 5, // Small limit for testing
+            dispatch_frames_per_layer_limit: 8, // Small limit for testing
             core_multiplier: 100,
             memory_stranded_threshold: bytesize::ByteSize::mb(100),
             job_back_off_duration: Duration::from_secs(10),
             stream: scheduler::config::StreamConfig {
-                cluster_buffer_size: 1,
+                cluster_buffer_size: 4,
                 job_buffer_size: 1,
             },
             manual_tags_chunk_size: 10,
             hostname_tags_chunk_size: 20,
-            host_candidate_attemps_per_layer: 5,
-            empty_job_cycles_before_quiting: Some(20),
+            host_candidate_attemps_per_layer: 3,
+            empty_job_cycles_before_quiting: Some(10),
         },
         database: DatabaseConfig {
             pool_size: 20,

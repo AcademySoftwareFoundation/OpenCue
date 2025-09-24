@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use futures::{StreamExt, stream};
 use tokio_util::sync::CancellationToken;
@@ -8,14 +8,12 @@ use tracing::{debug, error, info};
 use crate::cluster::{Cluster, ClusterFeed};
 use crate::config::CONFIG;
 use crate::dao::JobDao;
-use crate::job_dispatcher::BookJobEventHandler;
 use crate::models::DispatchJob;
-
-pub static HOST_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+use crate::pipeline::MachingService;
 
 pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     let job_fetcher = Arc::new(JobDao::from_config(&CONFIG.database).await?);
-    let job_event_handler = Arc::new(BookJobEventHandler::new().await?);
+    let job_event_handler = Arc::new(MachingService::new().await?);
     let cancel_token = CancellationToken::new();
     let cycles_without_jobs = Arc::new(AtomicUsize::new(0));
     debug!("Starting scheduler feed");
@@ -54,28 +52,24 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                             .for_each_concurrent(
                                 CONFIG.queue.stream.job_buffer_size,
                                 |job_model| async {
-                                    processed_jobs
-                                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                    processed_jobs.fetch_add(1, Ordering::Relaxed);
                                     let job = DispatchJob::new(job_model, cluster.clone());
                                     info!("Found job: {}", job);
                                     job_event_handler.process(job).await;
                                 },
                             )
                             .await;
+
                         if let Some(limit) = CONFIG.queue.empty_job_cycles_before_quiting {
                             // Count cycles that couldn't find any job
-                            if processed_jobs.load(std::sync::atomic::Ordering::Relaxed) == 0 {
-                                cycles_without_jobs
-                                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            if processed_jobs.load(Ordering::Relaxed) == 0 {
+                                cycles_without_jobs.fetch_add(1, Ordering::Relaxed);
                             } else {
-                                cycles_without_jobs
-                                    .fetch_min(0, std::sync::atomic::Ordering::Relaxed);
+                                cycles_without_jobs.fetch_min(0, Ordering::Relaxed);
                             }
 
                             // Cancel stream processing after empty cycles
-                            if cycles_without_jobs.load(std::sync::atomic::Ordering::Relaxed)
-                                >= limit
-                            {
+                            if cycles_without_jobs.load(Ordering::Relaxed) >= limit {
                                 cancel_token.cancel();
                             }
                         }

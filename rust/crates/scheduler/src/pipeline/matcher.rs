@@ -1,6 +1,6 @@
-use std::{
-    collections::HashSet,
-    sync::{Arc, atomic::AtomicUsize},
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 
 use crate::{
@@ -9,11 +9,12 @@ use crate::{
     config::CONFIG,
     dao::{FrameDao, HostDao, LayerDao},
     host_cache::{HostCacheService, host_cache_service},
-    job_dispatcher::{DispatchError, dispatcher::RqdDispatcher},
-    job_fetcher::HOST_ATTEMPTS,
     models::{DispatchJob, DispatchLayer, Host},
+    pipeline::{
+        HOST_ATTEMPTS,
+        dispatcher::{RqdDispatcher, error::DispatchError},
+    },
 };
-use futures::StreamExt;
 use miette::Result;
 use tracing::{debug, error, info, warn};
 
@@ -24,13 +25,13 @@ use tracing::{debug, error, info, warn};
 /// - Finding eligible layers within each job
 /// - Matching layers to available host candidates
 /// - Dispatching frames to selected hosts via the RQD dispatcher
-pub struct BookJobEventHandler {
+pub struct MachingService {
     host_service: Arc<HostCacheService>,
     job_dao: LayerDao,
     dispatcher: RqdDispatcher,
 }
 
-impl BookJobEventHandler {
+impl MachingService {
     /// Creates a new BookJobEventHandler with configured DAOs and dispatcher.
     ///
     /// Initializes the handler with:
@@ -39,19 +40,18 @@ impl BookJobEventHandler {
     /// - RQD dispatcher for frame execution
     pub async fn new() -> Result<Self> {
         let host_dao = Arc::new(HostDao::from_config(&CONFIG.database).await?);
-        let layer_dao = LayerDao::from_config(&CONFIG.database).await?;
-        let frame_dao = FrameDao::from_config(&CONFIG.database).await?;
+        let frame_dao = Arc::new(FrameDao::from_config(&CONFIG.database).await?);
+        let layer_dao = LayerDao::new(&CONFIG.database, frame_dao.clone()).await?;
         let host_service = host_cache_service().await?;
 
         let dispatcher = RqdDispatcher::new(
             frame_dao,
             host_dao.clone(),
             CONFIG.rqd.grpc_port,
-            CONFIG.queue.dispatch_frames_per_layer_limit,
             CONFIG.queue.memory_stranded_threshold,
             CONFIG.rqd.dry_run_mode,
         );
-        Ok(BookJobEventHandler {
+        Ok(MachingService {
             host_service,
             job_dao: layer_dao,
             dispatcher,
@@ -84,12 +84,11 @@ impl BookJobEventHandler {
                 // Stream elegible layers from this job and dispatch one by one
                 for layer in layers {
                     let cluster = cluster.clone();
-                    self.process_layer(layer.into(), cluster).await;
-                    processed_layers.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    self.process_layer(layer, cluster).await;
+                    processed_layers.fetch_add(1, Ordering::Relaxed);
                 }
 
-                let final_count = processed_layers.load(std::sync::atomic::Ordering::Relaxed);
-                if final_count == 0 {
+                if processed_layers.load(Ordering::Relaxed) == 0 {
                     warn!("Job {} didn't process any layer", job_disp);
                 }
             }
@@ -143,23 +142,25 @@ impl BookJobEventHandler {
     async fn process_layer(&self, dispatch_layer: DispatchLayer, cluster: Arc<Cluster>) {
         let mut try_again = true;
         let mut attempts = CONFIG.queue.host_candidate_attemps_per_layer;
+        let mut current_layer_version = dispatch_layer;
+
         while try_again && attempts > 0 {
-            HOST_ATTEMPTS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            HOST_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
             // Filter layer tags to match the scope of the cluster in context
-            let tags = Self::filter_matching_tags(&cluster, &dispatch_layer);
+            let tags = Self::filter_matching_tags(&cluster, &current_layer_version);
             assert!(
                 !tags.is_empty(),
                 "Layer shouldn't be here if it doesn't contain at least one matching tag"
             );
             let host_candidate = self
                 .host_service
-                .checkout(
-                    dispatch_layer.facility_id.clone(),
-                    dispatch_layer.show_id.clone(),
+                .check_out(
+                    current_layer_version.facility_id.clone(),
+                    current_layer_version.show_id.clone(),
                     tags,
-                    dispatch_layer.cores_min,
-                    dispatch_layer.mem_min,
-                    |host| Self::validate_match(host, &dispatch_layer),
+                    current_layer_version.cores_min,
+                    current_layer_version.mem_min,
+                    |host| Self::validate_match(host, &current_layer_version),
                 )
                 .await;
 
@@ -167,30 +168,44 @@ impl BookJobEventHandler {
                 Ok((cluster_key, host)) => {
                     debug!(
                         "Attempting host candidate {} for job {}",
-                        host, dispatch_layer
+                        host, &current_layer_version
                     );
-                    match self.dispatcher.dispatch(&dispatch_layer, &host).await {
-                        Ok(_) => {
+
+                    let host_before_dispatch = host.clone();
+                    match self.dispatcher.dispatch(&current_layer_version, host).await {
+                        Ok((updated_host, updated_dispatch_layer)) => {
                             // Stop on the first successful attempt
-                            try_again = false;
+                            self.host_service.check_in(cluster_key, updated_host);
+                            if updated_dispatch_layer.frames.is_empty() {
+                                try_again = false;
+                            }
+                            current_layer_version = updated_dispatch_layer;
                         }
                         Err(err) => {
                             // Attempt next candidate in any failure case
-                            Self::log_dispatch_error(err, &dispatch_layer, &host);
+                            Self::log_dispatch_error(
+                                err,
+                                &current_layer_version,
+                                &host_before_dispatch,
+                            );
+                            self.host_service
+                                .check_in(cluster_key, host_before_dispatch);
                         }
                     };
-                    self.host_service.checkin(cluster_key, host);
                 }
                 Err(err) => match err {
                     crate::host_cache::HostCacheError::KeyNotFoundError(cluster_key) => {
                         warn!(
                             "ClusterKey={} not found when attempting to dispatch layer {}",
-                            cluster_key, dispatch_layer
+                            cluster_key, current_layer_version
                         );
                         try_again = false;
                     }
                     crate::host_cache::HostCacheError::NoCandidateAvailable => {
-                        warn!("No host candidate available for layer {}", dispatch_layer);
+                        warn!(
+                            "No host candidate available for layer {}",
+                            current_layer_version
+                        );
                         try_again = false;
                     }
                     crate::host_cache::HostCacheError::FailedToQueryHostCache(err) => {
@@ -236,12 +251,6 @@ impl BookJobEventHandler {
                     dispatch_layer, host, report
                 );
                 error!(msg);
-            }
-            DispatchError::HostResourcesExtinguished => {
-                debug!(
-                    "Host resources for {} extinguished, skiping to the next candidate",
-                    host
-                );
             }
             DispatchError::FailedToStartOnDb(report) => {
                 error!(

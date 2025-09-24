@@ -11,10 +11,9 @@ mod cluster_key;
 mod config;
 mod dao;
 mod host_cache;
-mod job_dispatcher;
-mod job_fetcher;
 mod models;
 mod pgpool;
+mod pipeline;
 
 #[derive(StructOpt, Debug)]
 pub struct JobQueueCli {
@@ -61,7 +60,7 @@ impl JobQueueCli {
         //     _ => Err(miette!("")),
         // }?;
         let cluster_feed = ClusterFeed::load_all(false).await?;
-        job_fetcher::run(cluster_feed).await
+        pipeline::run(cluster_feed).await
     }
 }
 

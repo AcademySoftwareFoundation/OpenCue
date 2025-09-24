@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use bytesize::ByteSize;
-use futures::Stream;
 use miette::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
+use tracing::warn;
 
 use crate::{
-    config::DatabaseConfig,
+    config::{CONFIG, DatabaseConfig},
+    dao::{FrameDao, frame_dao::DispatchFrameModel},
     models::{CoreSize, DispatchLayer},
     pgpool::connection_pool,
 };
@@ -18,6 +19,7 @@ use crate::{
 /// finding layers that have waiting frames and are ready for dispatch.
 pub struct LayerDao {
     connection_pool: Arc<Pool<Postgres>>,
+    frame_dao: Arc<FrameDao>,
 }
 
 /// Database model representing a layer ready for dispatch.
@@ -42,29 +44,31 @@ pub struct DispatchLayerModel {
     pub str_tags: String,
 }
 
-impl From<DispatchLayerModel> for DispatchLayer {
-    fn from(val: DispatchLayerModel) -> Self {
+impl DispatchLayer {
+    pub fn new(layer: DispatchLayerModel, frames: Vec<DispatchFrameModel>) -> Self {
         DispatchLayer {
-            id: val.pk_layer,
-            job_id: val.pk_job,
-            facility_id: val.pk_facility,
-            show_id: val.pk_show,
-            job_name: val.str_job_name,
-            layer_name: val.str_name,
-            str_os: val.str_os,
+            id: layer.pk_layer,
+            job_id: layer.pk_job,
+            facility_id: layer.pk_facility,
+            show_id: layer.pk_show,
+            job_name: layer.str_job_name,
+            layer_name: layer.str_name,
+            str_os: layer.str_os,
             cores_min: CoreSize::from_multiplied(
-                val.int_cores_min
+                layer
+                    .int_cores_min
                     .try_into()
                     .expect("int_cores_min should fit on a i32"),
             ),
-            mem_min: ByteSize::kb(val.int_mem_min as u64),
-            threadable: val.b_threadable,
-            gpus_min: val
+            mem_min: ByteSize::kb(layer.int_mem_min as u64),
+            threadable: layer.b_threadable,
+            gpus_min: layer
                 .int_gpus_min
                 .try_into()
                 .expect("gpus_min should fit on a i32"),
-            gpu_mem_min: ByteSize::kb(val.int_gpu_mem_min as u64),
-            tags: val.str_tags.split(" | ").map(|t| t.to_string()).collect(),
+            gpu_mem_min: ByteSize::kb(layer.int_gpu_mem_min as u64),
+            tags: layer.str_tags.split(" | ").map(|t| t.to_string()).collect(),
+            frames: frames.into_iter().map(|f| f.into()).collect(),
         }
     }
 }
@@ -107,10 +111,11 @@ impl LayerDao {
     /// # Returns
     /// * `Ok(LayerDao)` - Configured DAO ready for layer operations
     /// * `Err(miette::Error)` - If database connection fails
-    pub async fn from_config(config: &DatabaseConfig) -> Result<Self> {
+    pub async fn new(config: &DatabaseConfig, frame_dao: Arc<FrameDao>) -> Result<Self> {
         let pool = connection_pool(config).await?;
         Ok(LayerDao {
             connection_pool: pool,
+            frame_dao,
         })
     }
 
@@ -133,11 +138,24 @@ impl LayerDao {
         &self,
         pk_job: String,
         tags: Vec<String>,
-    ) -> Result<Vec<DispatchLayerModel>, sqlx::Error> {
-        sqlx::query_as::<_, DispatchLayerModel>(QUERY_LAYER)
+    ) -> Result<Vec<DispatchLayer>, sqlx::Error> {
+        let layer_models = sqlx::query_as::<_, DispatchLayerModel>(QUERY_LAYER)
             .bind(pk_job)
             .bind(tags.join(" | ").to_string())
             .fetch_all(&*self.connection_pool)
-            .await
+            .await?;
+
+        let mut result = Vec::new();
+        for layer_model in layer_models {
+            let frame = self
+                .frame_dao
+                .query_dispatch_frames(
+                    &layer_model.pk_layer,
+                    CONFIG.queue.dispatch_frames_per_layer_limit as i32,
+                )
+                .await?;
+            result.push(DispatchLayer::new(layer_model, frame));
+        }
+        Ok(result)
     }
 }

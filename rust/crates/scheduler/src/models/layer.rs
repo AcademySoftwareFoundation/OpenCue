@@ -4,9 +4,9 @@ use std::collections::HashSet;
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
 
-use crate::models::{core_size::CoreSize, fmt_uuid};
+use crate::models::{DispatchFrame, core_size::CoreSize, fmt_uuid};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct DispatchLayer {
     pub id: String,
     pub job_id: String,
@@ -21,6 +21,7 @@ pub struct DispatchLayer {
     pub gpus_min: i32,
     pub gpu_mem_min: ByteSize,
     pub tags: HashSet<String>,
+    pub frames: Vec<DispatchFrame>,
 }
 
 impl fmt::Display for DispatchLayer {
@@ -32,5 +33,11 @@ impl fmt::Display for DispatchLayer {
             self.layer_name,
             fmt_uuid(&self.id)
         )
+    }
+}
+
+impl DispatchLayer {
+    pub fn drain_frames(&mut self, count: usize) {
+        self.frames.drain(0..count);
     }
 }

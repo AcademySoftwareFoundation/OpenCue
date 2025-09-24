@@ -27,8 +27,6 @@ pub struct HostCache {
     /// Marks if the data on this cache have expired
     last_fetched: RwLock<Option<SystemTime>>,
     _mode: HostBookingStrategy,
-    /// A registry of hosts that have been checked_out and their checkout time.
-    checked_out_hosts: DashMap<HostId, SystemTime>,
 }
 
 pub enum HostBookingStrategy {
@@ -47,7 +45,6 @@ impl Default for HostCache {
             last_queried: RwLock::new(SystemTime::now()),
             last_fetched: RwLock::new(None),
             _mode: HostBookingStrategy::PrioritizeLoadDistribution,
-            checked_out_hosts: DashMap::new(),
         }
     }
 }
@@ -90,82 +87,66 @@ impl HostCache {
     }
 
     /// Get best candidate and "remove" it from the list
-    pub fn checkout<F>(
-        &self,
+    pub fn check_out<F>(
+        &mut self,
         cores: CoreSize,
         memory: ByteSize,
         validation: F,
-    ) -> Result<&Host, HostCacheError>
+    ) -> Result<Host, HostCacheError>
     where
         F: Fn(&Host) -> bool,
     {
         self.ping_query();
 
         let host = self
-            .find_candidate(cores, memory, validation)
+            .remove_host(cores, memory, validation)
             .ok_or(HostCacheError::NoCandidateAvailable)?;
 
-        self.checked_out_hosts
-            .insert(host.id.clone(), SystemTime::now());
+        self.host_keys_by_host_id.remove(&host.id);
+
         Ok(host)
     }
 
-    /// Release the host to be checked out by another agent
-    ///
-    /// Hosts don't need to be re-added to the resource_map as the service loop constantly reads
-    /// their updated state from the database
-    pub fn checkin(&self, host: &Host) {
-        let _ = self.checked_out_hosts.remove(&host.id);
-    }
-
-    fn find_candidate<F>(&self, cores: CoreSize, memory: ByteSize, validation: F) -> Option<&Host>
+    fn remove_host<F>(&mut self, cores: CoreSize, memory: ByteSize, validation: F) -> Option<Host>
     where
         F: Fn(&Host) -> bool,
     {
         // Takes checked_out_hosts into consideration
         let core_key = cores.value() as u32;
         let memory_key = Self::gen_memory_key(memory);
-        self.hosts_by_core_and_memory
+
+        // First find the host we want to remove without borrowing mutably
+        let found_keys = self
+            .hosts_by_core_and_memory
             // Start searching from the core_key
             .range(core_key..)
-            .find_map(|(_, hosts_by_memory)| {
+            .find_map(|(by_core_key, hosts_by_memory)| {
                 hosts_by_memory
                     // On each entry, search for hosts with at least the same amount of memory requested
                     .range(memory_key..)
-                    .find_map(|(_, hosts)| {
-                        hosts.iter().find(|(_, host)|
-                                // Only select a host that pass the validation function
-                                validation(host) &&
-                                // Skip hosts that are currently checked out
-                                !self.is_checked_out(&host.id))
+                    .find_map(|(by_memory_key, hosts)| {
+                        let found_host = hosts.iter().find(|(_, host)|
+                                    // Only select a host that pass the validation function.
+                                    // Check memory capacity as a memory key groups a range of different memory values
+                                    validation(host) && host.idle_memory >= memory);
+                        found_host
+                            .map(|(host_key, _)| (*by_core_key, *by_memory_key, host_key.clone()))
                     })
-            })
-            .map(|(_, h)| h)
+            });
+
+        // Now remove the host using the found keys
+        if let Some((by_core_key, by_memory_key, host_key)) = found_keys {
+            if let Some(hosts_by_memory) = self.hosts_by_core_and_memory.get_mut(&by_core_key) {
+                if let Some(hosts) = hosts_by_memory.get_mut(&by_memory_key) {
+                    return hosts.remove(&host_key);
+                }
+            }
+        }
+        None
         // TODO: Make this logic strategy aware
     }
 
-    /// Check if a host is checked out.
-    ///
-    /// Warning: This function has a side-effect, it remotes expired checkout records
-    fn is_checked_out(&self, host_id: &HostId) -> bool {
-        if let Some(checked_out_host) = self.checked_out_hosts.get(host_id) {
-            // If elapsed fails due to clock drift, fallback to a small number to prevent releasing the lock
-            // accidentally
-            let checkout_duration = checked_out_host
-                .elapsed()
-                .unwrap_or(Duration::from_millis(1));
-            if checkout_duration > CONFIG.host_cache.checkout_timeout {
-                self.checked_out_hosts.remove(host_id);
-                false
-            } else {
-                true
-            }
-        } else {
-            false
-        }
-    }
-
-    pub fn insert(&mut self, host: Host) {
+    pub fn check_in(&mut self, host: Host) {
         // First clear the old version of the host from memory
         if let Some((host_id, (old_core_key, old_memory_key))) =
             self.host_keys_by_host_id.remove(&host.id)
@@ -212,6 +193,7 @@ mod tests {
     use opencue_proto::host::ThreadMode;
     use std::thread;
     use std::time::Duration;
+    use tokio_test::{assert_err, assert_ok};
     use uuid::Uuid;
 
     fn create_test_host(id: Uuid, idle_cores: i32, idle_memory: ByteSize) -> Host {
@@ -236,7 +218,6 @@ mod tests {
         let cache = HostCache::default();
         assert!(cache.host_keys_by_host_id.is_empty());
         assert!(cache.hosts_by_core_and_memory.is_empty());
-        assert!(cache.checked_out_hosts.is_empty());
         assert!(!cache.expired());
     }
 
@@ -288,7 +269,7 @@ mod tests {
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
-        cache.insert(host.clone());
+        cache.check_in(host.clone());
 
         assert!(
             cache
@@ -306,8 +287,8 @@ mod tests {
         let mut host2 = create_test_host(host_id, 8, ByteSize::gb(16));
         host2.name = "updated-host".to_string();
 
-        cache.insert(host1);
-        cache.insert(host2.clone());
+        cache.check_in(host1);
+        cache.check_in(host2.clone());
 
         // Should still have only one entry for this host ID
         assert_eq!(cache.host_keys_by_host_id.len(), 1);
@@ -327,25 +308,43 @@ mod tests {
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
-        cache.insert(host);
+        cache.check_in(host);
 
-        let result = cache.checkout(
+        let result = cache.check_out(
             CoreSize(2),
             ByteSize::gb(4),
             |_| true, // Always validate true
         );
 
-        assert!(result.is_ok());
-        let checked_out_host = result.unwrap();
+        let checked_out_host = assert_ok!(result);
+        let memory_key = HostCache::gen_memory_key(checked_out_host.idle_memory);
+        let core_key = checked_out_host.idle_cores.value() as u32;
+
         assert_eq!(checked_out_host.id, host_id.to_string());
-        assert!(cache.checked_out_hosts.contains_key(&host_id.to_string()));
+        assert!(
+            !cache
+                .host_keys_by_host_id
+                .contains_key(&host_id.to_string())
+        );
+
+        let left_over_host = cache
+            .hosts_by_core_and_memory
+            .get(&core_key)
+            .map(|hosts_by_memory| {
+                hosts_by_memory
+                    .get(&memory_key)
+                    .map(|hosts| hosts.get(&checked_out_host.id))
+            })
+            .unwrap_or_default()
+            .unwrap_or_default();
+        assert!(left_over_host.is_none())
     }
 
     #[test]
     fn test_checkout_no_candidate_available() {
-        let cache = HostCache::default();
+        let mut cache = HostCache::default();
 
-        let result = cache.checkout(CoreSize(4), ByteSize::gb(8), |_| true);
+        let result = cache.check_out(CoreSize(4), ByteSize::gb(8), |_| true);
 
         assert!(result.is_err());
         assert!(matches!(result, Err(HostCacheError::NoCandidateAvailable)));
@@ -357,9 +356,9 @@ mod tests {
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 2, ByteSize::gb(8));
 
-        cache.insert(host);
+        cache.check_in(host);
 
-        let result = cache.checkout(
+        let result = cache.check_out(
             CoreSize(4), // Request more cores than available
             ByteSize::gb(4),
             |_| true,
@@ -374,9 +373,9 @@ mod tests {
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(4));
 
-        cache.insert(host);
+        cache.check_in(host);
 
-        let result = cache.checkout(
+        let result = cache.check_out(
             CoreSize(2),
             ByteSize::gb(8), // Request more memory than available
             |_| true,
@@ -391,9 +390,9 @@ mod tests {
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
-        cache.insert(host);
+        cache.check_in(host);
 
-        let result = cache.checkout(
+        let result = cache.check_out(
             CoreSize(2),
             ByteSize::gb(4),
             |_| false, // Always fail validation
@@ -408,14 +407,14 @@ mod tests {
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
-        cache.insert(host);
+        cache.check_in(host);
 
         // First checkout should succeed
-        let result1 = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
+        let result1 = cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true);
         assert!(result1.is_ok());
 
         // Second checkout should fail because host is already checked out
-        let result2 = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
+        let result2 = cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true);
         assert!(result2.is_err());
     }
 
@@ -425,36 +424,19 @@ mod tests {
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
-        cache.insert(host.clone());
+        cache.check_in(host.clone());
 
         // Checkout the host
-        let result = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
-        assert!(result.is_ok());
-        assert!(cache.checked_out_hosts.contains_key(&host_id.to_string()));
+        let mut checked_host = assert_ok!(cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true));
+        assert_eq!(checked_host.idle_cores.value(), 4);
+
+        // Reduce the number of cores and checkin to ensure cache is updated
+        checked_host.idle_cores = CoreSize(1);
 
         // Check it back in
-        cache.checkin(&host);
-        assert!(!cache.checked_out_hosts.contains_key(&host_id.to_string()));
-    }
-
-    #[test]
-    fn test_is_checked_out_false_when_not_checked_out() {
-        let cache = HostCache::default();
-        let host_id = Uuid::new_v4();
-
-        assert!(!cache.is_checked_out(&host_id.to_string()));
-    }
-
-    #[test]
-    fn test_is_checked_out_true_when_recently_checked_out() {
-        let mut cache = HostCache::default();
-        let host_id = Uuid::new_v4();
-        let host = create_test_host(host_id, 4, ByteSize::gb(8));
-
-        cache.insert(host);
-        let _ = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
-
-        assert!(cache.is_checked_out(&host_id.to_string()));
+        cache.check_in(checked_host);
+        assert_err!(cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true));
+        assert_ok!(cache.check_out(CoreSize(1), ByteSize::gb(4), |_| true));
     }
 
     #[test]
@@ -471,12 +453,12 @@ mod tests {
         let host3_id = Uuid::new_v4();
         let host3 = create_test_host(host3_id, 8, ByteSize::gb(16));
 
-        cache.insert(host1);
-        cache.insert(host2);
-        cache.insert(host3);
+        cache.check_in(host1);
+        cache.check_in(host2);
+        cache.check_in(host3);
 
         // Request 3 cores, 6GB - should get host2 (4 cores, 8GB) or host3 (8 cores, 16GB)
-        let result = cache.checkout(CoreSize(3), ByteSize::gb(6), |_| true);
+        let result = cache.check_out(CoreSize(3), ByteSize::gb(6), |_| true);
         assert!(result.is_ok());
 
         let chosen_host = result.unwrap();
@@ -516,15 +498,15 @@ mod tests {
         let host2_id = Uuid::new_v4();
         let host2 = create_test_host(host2_id, 4, ByteSize::gb(8));
 
-        cache.insert(host1);
-        cache.insert(host2);
+        cache.check_in(host1);
+        cache.check_in(host2);
 
         // First checkout should succeed
-        let result1 = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
+        let result1 = cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true);
         assert!(result1.is_ok());
 
         // Second checkout should also succeed (different host)
-        let result2 = cache.checkout(CoreSize(2), ByteSize::gb(4), |_| true);
+        let result2 = cache.check_out(CoreSize(2), ByteSize::gb(4), |_| true);
         assert!(result2.is_ok());
 
         // The hosts should be different

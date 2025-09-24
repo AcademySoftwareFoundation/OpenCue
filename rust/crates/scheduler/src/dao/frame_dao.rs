@@ -203,11 +203,11 @@ impl FrameDao {
     /// A stream of `DispatchFrameModel` results from the database query
     pub async fn query_dispatch_frames(
         &self,
-        layer: &DispatchLayer,
+        layer_id: &str,
         limit: i32,
     ) -> Result<Vec<DispatchFrameModel>, sqlx::Error> {
         sqlx::query_as::<_, DispatchFrameModel>(QUERY_FRAME)
-            .bind(layer.id.clone())
+            .bind(layer_id)
             .bind(limit)
             .fetch_all(&*self.connection_pool)
             .await

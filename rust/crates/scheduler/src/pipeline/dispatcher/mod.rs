@@ -1,10 +1,16 @@
+pub mod error;
+mod frame_set;
+
 use crate::{
     dao::{FrameDao, HostDao},
-    job_dispatcher::{DispatchError, VirtualProcError, frame_set::FrameSet},
     models::{CoreSize, DispatchFrame, DispatchLayer, Host, VirtualProc},
+    pipeline::dispatcher::{
+        error::{DispatchError, VirtualProcError},
+        frame_set::FrameSet,
+    },
 };
 use bytesize::{ByteSize, MIB};
-use futures::{FutureExt, StreamExt};
+use futures::FutureExt;
 use miette::{Context, IntoDiagnostic, Result, miette};
 use opencue_proto::{
     host::ThreadMode,
@@ -23,9 +29,8 @@ use uuid::Uuid;
 /// - Resource consumption tracking and validation
 /// - Frame command preparation and execution setup
 pub struct RqdDispatcher {
-    frame_dao: FrameDao,
+    frame_dao: Arc<FrameDao>,
     host_dao: Arc<HostDao>,
-    dispatch_frames_per_layer_limit: usize,
     grpc_port: u32,
     memory_stranded_threshold: ByteSize,
     dry_run_mode: bool,
@@ -38,14 +43,12 @@ impl RqdDispatcher {
     /// * `frame_dao` - Database access for frame operations
     /// * `host_dao` - Database access for host operations and locking
     /// * `grpc_port` - Port number for RQD gRPC connections
-    /// * `dispatch_frames_per_layer_limit` - Maximum frames to dispatch per layer
     /// * `memory_stranded_threshold` - Memory threshold for stranded frame detection
     /// * `dry_run_mode` - If true, logs dispatch actions without executing them
     pub fn new(
-        frame_dao: FrameDao,
+        frame_dao: Arc<FrameDao>,
         host_dao: Arc<HostDao>,
         grpc_port: u32,
-        dispatch_frames_per_layer_limit: usize,
         memory_stranded_threshold: ByteSize,
         dry_run_mode: bool,
     ) -> Self {
@@ -53,7 +56,6 @@ impl RqdDispatcher {
             frame_dao,
             host_dao,
             grpc_port,
-            dispatch_frames_per_layer_limit,
             memory_stranded_threshold,
             dry_run_mode,
         }
@@ -73,7 +75,15 @@ impl RqdDispatcher {
     /// # Returns
     /// * `Ok(())` on successful dispatch
     /// * `Err(DispatchError)` on various failure conditions
-    pub async fn dispatch(&self, layer: &DispatchLayer, host: &Host) -> Result<(), DispatchError> {
+    pub async fn dispatch(
+        &self,
+        layer: &DispatchLayer,
+        host: Host,
+    ) -> Result<(Host, DispatchLayer), DispatchError> {
+        let host_id = host.id.clone();
+        let host_disp = format!("{}", &host);
+        let layer_disp = format!("{}", &layer);
+
         // Acquire lock first
         if !self
             .host_dao
@@ -90,22 +100,25 @@ impl RqdDispatcher {
             .await;
 
         // Always unlock, regardless of outcome
-        if let Err(unlock_err) = self.host_dao.unlock(&host.id).await {
-            error!("Failed to unlock host {}: {}", host.id, unlock_err);
+        if let Err(unlock_err) = self.host_dao.unlock(&host_id).await {
+            error!("Failed to unlock host {}: {}", host_disp, unlock_err);
         }
 
         // Handle the result from dispatch_inner
         match result {
             Ok(result) => {
                 if result.is_ok() {
-                    info!("Successfully dispatched layer {} on {}.", layer, host);
+                    info!(
+                        "Successfully dispatched layer {} on {}.",
+                        layer_disp, host_disp
+                    );
                 }
                 result
             }
             Err(_panic) => Err(DispatchError::Failure(miette!(
                 "Dispatch operation panicked for layer {} on host {}",
-                layer,
-                host
+                layer_disp,
+                host_id
             ))),
         }
     }
@@ -113,25 +126,8 @@ impl RqdDispatcher {
     async fn dispatch_inner(
         &self,
         layer: &DispatchLayer,
-        host: &Host,
-    ) -> Result<(), DispatchError> {
-        let rqd_client = if self.dry_run_mode {
-            None
-        } else {
-            Some(
-                Self::connect_to_rqd(&host.name, self.grpc_port)
-                    .await
-                    .map_err(DispatchError::Failure)?,
-            )
-        };
-
-        let frames = self
-            .frame_dao
-            .query_dispatch_frames(layer, self.dispatch_frames_per_layer_limit as i32)
-            .await
-            .map_err(|err| DispatchError::DbFailure(err))?;
-        let mut current_host = host.clone();
-
+        host: Host,
+    ) -> Result<(Host, DispatchLayer), DispatchError> {
         // A host should not book frames if its allocation is at or above its limit,
         // but checking the limit before each frame is too costly. The tradeoff is
         // to check the allocation state before entering the frame booking loop,
@@ -139,88 +135,118 @@ impl RqdDispatcher {
         // a great margin as each loop only runs for a limited number of frames
         // (see config queue.dispatch_frames_per_layer_limit)
         let mut allocation_capacity = host.alloc_available_cores;
-
         let mut dispatched_procs: Vec<String> = Vec::new();
+        let mut last_host_version = host;
+        let mut processed_frames = 0;
 
-        for frame_model in frames {
-            let frame: DispatchFrame = frame_model.into();
+        // Deliberately cloning the layer to avoid requiring a mutable reference
+        let mut layer = layer.clone();
+
+        for frame in &layer.frames {
             debug!("found frame {}", frame);
 
             match Self::consume_host_virtual_resources(
                 frame,
-                current_host.clone(),
+                &last_host_version,
                 self.memory_stranded_threshold,
             )
             .await
             {
                 Ok((virtual_proc, updated_host)) => {
                     debug!("Built virtual proc {}", virtual_proc);
-                    // Update host for the next iteration
-                    current_host = updated_host;
 
                     // Check allocation capacity
                     let cores_reserved_without_multiplier: CoreSize =
                         virtual_proc.cores_reserved.into();
                     if cores_reserved_without_multiplier > allocation_capacity {
                         Err(DispatchError::AllocationOverBurst(
-                            host.allocation_name.clone(),
+                            updated_host.allocation_name.clone(),
                         ))?;
                     };
                     allocation_capacity = allocation_capacity - virtual_proc.cores_reserved.into();
 
-                    let run_frame = Self::prepare_rqd_run_frame(&virtual_proc)
-                        .map_err(DispatchError::Failure)?;
-                    debug!("Prepared run_frame for {}", virtual_proc);
-                    let request = RqdStaticLaunchFrameRequest {
-                        run_frame: Some(run_frame),
-                    };
-
                     // When running on dry_run_mode, just log the outcome
-                    let msg = format!("Dispatching {} on {}", virtual_proc, &current_host);
                     self.frame_dao
                         .update_frame_started(&virtual_proc)
                         .await
                         .map_err(DispatchError::FailedToStartOnDb)?;
-                    if self.dry_run_mode {
-                        info!("(DRY_RUN) {}", msg);
-                    } else {
-                        debug!(msg);
-                        // Get a ref to the mutable grpc client
-                        let mut rqd_client_ref = rqd_client
-                            .as_ref()
-                            .expect("Should be Some if dry_run is false")
-                            .clone();
 
-                        // Launch frame on rqd
-                        rqd_client_ref
-                            .launch_frame(request)
-                            .await
-                            .into_diagnostic()
-                            .map_err(DispatchError::Failure)?;
+                    if self.dry_run_mode {
+                        info!(
+                            "(DRY_RUN) Dispatching {} on {}",
+                            virtual_proc, &updated_host
+                        );
+                    } else {
+                        self.launch_on_rqd(&virtual_proc, &updated_host).await?;
                     }
                     // Update database resources
                     self.host_dao
-                        .update_resources(&current_host)
+                        .update_resources(&updated_host)
                         .await
                         .map_err(DispatchError::FailureAfterDispatch)?;
                     dispatched_procs.push(virtual_proc.to_string());
+                    last_host_version = updated_host;
+                    processed_frames += 1;
                 }
                 Err(err) => match err {
                     VirtualProcError::HostResourcesExtinguished(msg) => {
-                        debug!("Host resourses extinguished for {}. {}", host, msg);
-                        Err(DispatchError::HostResourcesExtinguished)?;
+                        debug!(
+                            "Host resourses extinguished for {}. {}",
+                            last_host_version, msg
+                        );
+                        break;
                     }
                 },
             }
         }
         if dispatched_procs.is_empty() {
-            info!("Found no frames on {} to dispatch to {}", layer, host);
+            info!(
+                "Found no frames on {} to dispatch to {}",
+                layer, last_host_version
+            );
         } else {
+            layer.drain_frames(processed_frames);
             debug!("Dispatched {} frames: ", dispatched_procs.len());
             for proc in dispatched_procs {
                 debug!("{}", proc);
             }
         }
+        Ok((last_host_version, layer))
+    }
+
+    async fn launch_on_rqd(
+        &self,
+        virtual_proc: &VirtualProc,
+        host: &Host,
+    ) -> Result<(), DispatchError> {
+        debug!("Dispatching {} on {}", virtual_proc, host);
+
+        let run_frame =
+            Self::prepare_rqd_run_frame(virtual_proc).map_err(DispatchError::Failure)?;
+        debug!("Prepared run_frame for {}", virtual_proc);
+
+        let request = RqdStaticLaunchFrameRequest {
+            run_frame: Some(run_frame),
+        };
+
+        let rqd_client = Some(
+            Self::connect_to_rqd(&host.name, self.grpc_port)
+                .await
+                .map_err(DispatchError::Failure)?,
+        );
+
+        // Get a ref to the mutable grpc client
+        let mut rqd_client_ref = rqd_client
+            .as_ref()
+            .expect("Should be Some if dry_run is false")
+            .clone();
+
+        // Launch frame on rqd
+        rqd_client_ref
+            .launch_frame(request)
+            .await
+            .into_diagnostic()
+            .map_err(DispatchError::Failure)?;
         Ok(())
     }
 
@@ -314,14 +340,14 @@ impl RqdDispatcher {
     /// HostModel(2 cores, 20GB) + frame(1 core, 10GB)
     ///     -> VirtualProc(1core, 10GB) + HostModel(1 core, 10GB)
     async fn consume_host_virtual_resources(
-        frame: DispatchFrame,
-        original_host: Host,
+        frame: &DispatchFrame,
+        original_host: &Host,
         memory_stranded_threshold: ByteSize,
     ) -> Result<(VirtualProc, Host), VirtualProcError> {
-        let mut host = original_host;
+        let mut host = original_host.clone();
 
         let cores_reserved =
-            Self::calculate_core_reservation(&host, &frame, memory_stranded_threshold)?;
+            Self::calculate_core_reservation(&host, frame, memory_stranded_threshold)?;
 
         if host.idle_memory < frame.min_memory {
             Err(VirtualProcError::HostResourcesExtinguished(format!(
@@ -367,7 +393,7 @@ impl RqdDispatcher {
                 gpu_memory_reserved,
                 os: host.str_os.clone().unwrap_or_default(),
                 is_local_dispatch: false,
-                frame,
+                frame: frame.clone(),
                 host_name: host.name.clone(),
             },
             host,
@@ -907,12 +933,9 @@ mod tests {
         let host = create_test_host();
         let memory_stranded_threshold = ByteSize::gib(1);
 
-        let result = RqdDispatcher::consume_host_virtual_resources(
-            frame.clone(),
-            host.clone(),
-            memory_stranded_threshold,
-        )
-        .await;
+        let result =
+            RqdDispatcher::consume_host_virtual_resources(&frame, &host, memory_stranded_threshold)
+                .await;
 
         assert!(result.is_ok());
         let (virtual_proc, updated_host) = result.unwrap();
@@ -946,7 +969,7 @@ mod tests {
         let memory_stranded_threshold = ByteSize::gib(1);
 
         let result =
-            RqdDispatcher::consume_host_virtual_resources(frame, host, memory_stranded_threshold)
+            RqdDispatcher::consume_host_virtual_resources(&frame, &host, memory_stranded_threshold)
                 .await;
 
         assert!(result.is_err());
@@ -966,7 +989,7 @@ mod tests {
         let memory_stranded_threshold = ByteSize::gib(1);
 
         let result =
-            RqdDispatcher::consume_host_virtual_resources(frame, host, memory_stranded_threshold)
+            RqdDispatcher::consume_host_virtual_resources(&frame, &host, memory_stranded_threshold)
                 .await;
 
         assert!(result.is_err());
@@ -986,7 +1009,7 @@ mod tests {
         let memory_stranded_threshold = ByteSize::gib(1);
 
         let result =
-            RqdDispatcher::consume_host_virtual_resources(frame, host, memory_stranded_threshold)
+            RqdDispatcher::consume_host_virtual_resources(&frame, &host, memory_stranded_threshold)
                 .await;
 
         assert!(result.is_err());

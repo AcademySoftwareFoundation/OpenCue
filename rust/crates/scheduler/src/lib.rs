@@ -3,7 +3,6 @@ pub mod cluster_key;
 pub mod config;
 pub mod dao;
 pub mod host_cache;
-pub mod job_dispatcher;
-pub mod job_fetcher;
 pub mod models;
 pub mod pgpool;
+pub mod pipeline;
