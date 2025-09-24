@@ -22,12 +22,6 @@ import unittest
 
 import mock
 
-import opencue_proto.facility_pb2
-import opencue_proto.host_pb2
-import opencue_proto.job_pb2
-import opencue_proto.service_pb2
-import opencue_proto.show_pb2
-import opencue_proto.subscription_pb2
 import opencue.wrappers.allocation
 import opencue.wrappers.host
 import opencue.wrappers.proc
@@ -45,6 +39,8 @@ TEST_FACILITY = 'some-non-default-facility'
 
 
 @mock.patch("opencue.api.getHosts")
+@mock.patch('opencue.cuebot.Cuebot.getStub')
+@mock.patch('cueadmin.output.displayHosts')
 class ListHostsTest(unittest.TestCase):
     """Test cases for the -lh (list hosts) command functionality.
 
@@ -65,38 +61,40 @@ class ListHostsTest(unittest.TestCase):
         """
         self.parser = cueadmin.common.getParser()
 
-        host1 = opencue.wrappers.host.Host(
-                opencue_proto.host_pb2.Host(
-                    name='host1',
-                    load=25,
-                    nimby_enabled=False,
-                    free_memory=3500000,
-                    free_swap=1040000,
-                    free_mcp=84782900,
-                    cores=6,
-                    memory=4500000,
-                    idle_cores=5,
-                    idle_memory=3000000,
-                    os='Linux',
-                    boot_time=1556836762,
-                    state=1,
-                    lock_state=1,
-                    alloc_name='alloc01',
-                    thread_mode=1
-                )
-            )
+        # Create a mock host object with proper data attribute structure
+        host1 = mock.Mock()
+        host1.data = mock.Mock()
+        host1.data.name = 'host1'
+        host1.data.load = 25
+        host1.data.nimby_enabled = False
+        host1.data.free_memory = 3500000
+        host1.data.free_swap = 1040000
+        host1.data.free_mcp = 84782900
+        host1.data.cores = 6
+        host1.data.memory = 4500000
+        host1.data.idle_cores = 5
+        host1.data.idle_memory = 3000000
+        host1.data.os = 'Linux'
+        host1.data.boot_time = 1556836762
+        host1.data.state = 1
+        host1.data.lock_state = 1
+        host1.data.alloc_name = 'alloc01'
+        host1.data.thread_mode = 1
 
         self.mock_hosts = [host1]
 
-    def test_list_hosts_no_filter(self, get_hosts_mock):
+    def test_list_hosts_no_filter(self, display_hosts_mock, get_stub_mock, get_hosts_mock):
         """Test the -lh command without any filters.
 
         Verifies that the list hosts command works correctly when no
         filtering options are provided, should return all hosts.
 
         Args:
+            display_hosts_mock: Mock for cueadmin.output.displayHosts (unused)
+            get_stub_mock: Mock for opencue.cuebot.Cuebot.getStub (unused)
             get_hosts_mock: Mock for opencue.api.getHosts function
         """
+        # pylint: disable=unused-argument
 
         args = self.parser.parse_args(["-lh"])
 
@@ -105,15 +103,18 @@ class ListHostsTest(unittest.TestCase):
 
         get_hosts_mock.assert_called_with(alloc=[], match=[], state=[])
 
-    def test_list_hosts_state(self, get_hosts_mock):
+    def test_list_hosts_state(self, display_hosts_mock, get_stub_mock, get_hosts_mock):
         """Test the -lh command with state filtering.
 
         Verifies that the -state filter correctly passes hardware states
         (UP, DOWN, REPAIR) to the opencue.api.getHosts function.
 
         Args:
+            display_hosts_mock: Mock for cueadmin.output.displayHosts (unused)
+            get_stub_mock: Mock for opencue.cuebot.Cuebot.getStub (unused)
             get_hosts_mock: Mock for opencue.api.getHosts function
         """
+        # pylint: disable=unused-argument
 
         args = self.parser.parse_args(["-lh", "-state", "UP", "DOWN", "REPAIR"])
 
@@ -130,15 +131,18 @@ class ListHostsTest(unittest.TestCase):
             ],
         )
 
-    def test_list_hosts_invalid_state(self, get_hosts_mock):
+    def test_list_hosts_invalid_state(self, display_hosts_mock, get_stub_mock, get_hosts_mock):
         """Test that invalid hardware states raise ValueError.
 
         Verifies that providing an invalid state string to the -state
         filter raises a ValueError with an appropriate error message.
 
         Args:
+            display_hosts_mock: Mock for cueadmin.output.displayHosts (unused)
+            get_stub_mock: Mock for opencue.cuebot.Cuebot.getStub (unused)
             get_hosts_mock: Mock for opencue.api.getHosts function
         """
+        # pylint: disable=unused-argument
 
         args = self.parser.parse_args(["-lh", "-state", "Invalid"])
 
@@ -146,15 +150,18 @@ class ListHostsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid hardware state: INVALID"):
             cueadmin.common.handleArgs(args=args)
 
-    def test_list_hosts_alloc(self, get_hosts_mock):
+    def test_list_hosts_alloc(self, display_hosts_mock, get_stub_mock, get_hosts_mock):
         """Test the -lh command with allocation filtering.
 
         Verifies that the -alloc filter correctly passes allocation names
         to the opencue.api.getHosts function for filtering hosts.
 
         Args:
+            display_hosts_mock: Mock for cueadmin.output.displayHosts (unused)
+            get_stub_mock: Mock for opencue.cuebot.Cuebot.getStub (unused)
             get_hosts_mock: Mock for opencue.api.getHosts function
         """
+        # pylint: disable=unused-argument
 
         args = self.parser.parse_args(["-lh", "-alloc", TEST_ALLOC])
 
@@ -167,13 +174,15 @@ class ListHostsTest(unittest.TestCase):
             state=[],
         )
 
-    def test_list_hosts_empty_alloc_arg(self, get_hosts_mock):
+    def test_list_hosts_empty_alloc_arg(self, display_hosts_mock, get_stub_mock, get_hosts_mock):
         """Test that -alloc flag without arguments causes SystemExit.
 
         Verifies that providing the -alloc flag without any allocation
         names raises SystemExit due to missing required argument.
 
         Args:
+            display_hosts_mock: Mock for cueadmin.output.displayHosts (unused)
+            get_stub_mock: Mock for opencue.cuebot.Cuebot.getStub (unused)
             get_hosts_mock: Mock for opencue.api.getHosts function (unused)
         """
         # pylint: disable=unused-argument
@@ -182,7 +191,7 @@ class ListHostsTest(unittest.TestCase):
             args = self.parser.parse_args(["-lh", "-alloc"])
             cueadmin.common.handleArgs(args=args)
 
-    def test_list_hosts_combinations(self, get_hosts_mock):
+    def test_list_hosts_combinations(self, display_hosts_mock, get_stub_mock, get_hosts_mock):
         """Test the -lh command with various filter combinations.
 
         Performs comprehensive testing of different combinations of filters
@@ -190,16 +199,22 @@ class ListHostsTest(unittest.TestCase):
         combinations work correctly together.
 
         Args:
+            display_hosts_mock: Mock for cueadmin.output.displayHosts (unused)
+            get_stub_mock: Mock for opencue.cuebot.Cuebot.getStub (unused)
             get_hosts_mock: Mock for opencue.api.getHosts function
         """
+        # pylint: disable=unused-argument
 
         test_cases = [
             (["-lh"], [], [], []),
-            (["-lh", "-state", "UP", "DOWN"], [], [], [opencue.api.host_pb2.HardwareState.Value('UP'), opencue.api.host_pb2.HardwareState.Value('DOWN')]),
+            (["-lh", "-state", "UP", "DOWN"], [], [],
+             [opencue.api.host_pb2.HardwareState.Value('UP'),
+              opencue.api.host_pb2.HardwareState.Value('DOWN')]),
             (["-lh", "-alloc", TEST_ALLOC], [TEST_ALLOC], [], []),
             (["-lh", "substring"], [], ["substring"], []),
             (["-lh", "substring", "-alloc", TEST_ALLOC], [TEST_ALLOC], ["substring"], []),
-            (["-lh", "substring", "-state", "UP", "-alloc", TEST_ALLOC], [TEST_ALLOC], ["substring"], [opencue.api.host_pb2.HardwareState.Value('UP')]),
+            (["-lh", "substring", "-state", "UP", "-alloc", TEST_ALLOC],
+             [TEST_ALLOC], ["substring"], [opencue.api.host_pb2.HardwareState.Value('UP')]),
         ]
 
         get_hosts_mock.return_value = self.mock_hosts
@@ -214,6 +229,7 @@ class ListHostsTest(unittest.TestCase):
                 )
 
 @mock.patch("opencue.search.HostSearch")
+@mock.patch('opencue.cuebot.Cuebot.getStub')
 class LockUnlockHostsTest(unittest.TestCase):
     """Test cases for host locking and unlocking operations.
 
@@ -229,15 +245,17 @@ class LockUnlockHostsTest(unittest.TestCase):
         """
         self.parser = cueadmin.common.getParser()
 
-    def test_lock_multiple_hosts(self, host_search_mock):
+    def test_lock_multiple_hosts(self, get_stub_mock, host_search_mock):
         """Test locking multiple hosts with the -lock command.
 
         Verifies that the -lock command properly searches for hosts by name
         and calls the lock method on each found host.
 
         Args:
+            get_stub_mock: Mock for opencue.cuebot.Cuebot.getStub (unused)
             host_search_mock: Mock for opencue.search.HostSearch
         """
+        # pylint: disable=unused-argument
         args = self.parser.parse_args(['-lock', '-host', TEST_HOST1, TEST_HOST2, '-force'])
         host_mock1 = mock.Mock()
         host_mock2 = mock.Mock()
@@ -250,15 +268,17 @@ class LockUnlockHostsTest(unittest.TestCase):
         host_mock1.lock.assert_called_with()
         host_mock2.lock.assert_called_with()
 
-    def test_unlock_multiple_hosts(self, host_search_mock):
+    def test_unlock_multiple_hosts(self, get_stub_mock, host_search_mock):
         """Test unlocking multiple hosts with the -unlock command.
 
         Verifies that the -unlock command properly searches for hosts by name
         and calls the unlock method on each found host.
 
         Args:
+            get_stub_mock: Mock for opencue.cuebot.Cuebot.getStub (unused)
             host_search_mock: Mock for opencue.search.HostSearch
         """
+        # pylint: disable=unused-argument
         args = self.parser.parse_args(['-unlock', '-host', TEST_HOST1, TEST_HOST2, '-force'])
         host_mock1 = mock.Mock()
         host_mock2 = mock.Mock()
@@ -305,7 +325,7 @@ class AllocationTest(unittest.TestCase):
 
         alloc_name = f'{TEST_FACILITY}.InvalidAlloc'
         args = self.parser.parse_args(['-move', alloc_name, '-host', TEST_HOST1, '-force'])
-        host = opencue.wrappers.host.Host(opencue_proto.host_pb2.Host())
+        host = mock.Mock()
         host.setAllocation = mock.Mock()
         host_search_mock.byName.return_value = [host]
 
@@ -352,25 +372,24 @@ class DeleteHostTests(unittest.TestCase):
         # pylint: disable=unused-argument
         args = self.parser.parse_args(["-delete-host", "-host", TEST_HOST1, "-force"])
 
-        host_proto = opencue_proto.host_pb2.Host(
-            name=TEST_HOST1,
-            load=25,
-            nimby_enabled=False,
-            free_memory=3500000,
-            free_swap=1040000,
-            free_mcp=84782900,
-            cores=6,
-            memory=4500000,
-            idle_cores=5,
-            idle_memory=3000000,
-            os="Linux",
-            boot_time=1556836762,
-            state=1,
-            lock_state=1,
-            alloc_name="alloc01",
-            thread_mode=1,
-        )
-        host = opencue.wrappers.host.Host(host_proto)
+        # Create mock host instead of real Host wrapper to avoid gRPC connection
+        host = mock.Mock()
+        host.name = TEST_HOST1
+        host.load = 25
+        host.nimby_enabled = False
+        host.free_memory = 3500000
+        host.free_swap = 1040000
+        host.free_mcp = 84782900
+        host.cores = 6
+        host.memory = 4500000
+        host.idle_cores = 5
+        host.idle_memory = 3000000
+        host.os = "Linux"
+        host.boot_time = 1556836762
+        host.state = 1
+        host.lock_state = 1
+        host.alloc_name = "alloc01"
+        host.thread_mode = 1
         host.delete = mock.Mock(side_effect=RuntimeError)
 
         host_search_mock.byName.return_value = [host]
@@ -382,6 +401,7 @@ class DeleteHostTests(unittest.TestCase):
 
 
 @mock.patch('opencue.search.HostSearch')
+@mock.patch('opencue.cuebot.Cuebot.getStub')
 class HostStateManagementTest(unittest.TestCase):
     """Test cases for host state management commands.
 
@@ -397,15 +417,17 @@ class HostStateManagementTest(unittest.TestCase):
         """
         self.parser = cueadmin.common.getParser()
 
-    def test_repair_host(self, host_search_mock):
+    def test_repair_host(self, get_stub_mock, host_search_mock):
         """Test setting host to REPAIR state with -repair command.
 
         Verifies that the -repair command properly searches for hosts by name
         and calls setHardwareState with REPAIR state.
 
         Args:
+            get_stub_mock: Mock for opencue.cuebot.Cuebot.getStub (unused)
             host_search_mock: Mock for opencue.search.HostSearch
         """
+        # pylint: disable=unused-argument
         args = self.parser.parse_args(['-repair', '-host', TEST_HOST1, '-force'])
         host_mock = mock.Mock()
         host_search_mock.byName.return_value = [host_mock]
@@ -415,15 +437,17 @@ class HostStateManagementTest(unittest.TestCase):
         host_search_mock.byName.assert_called_with([TEST_HOST1])
         host_mock.setHardwareState.assert_called_with(opencue.api.host_pb2.REPAIR)
 
-    def test_fixed_host(self, host_search_mock):
+    def test_fixed_host(self, get_stub_mock, host_search_mock):
         """Test setting host to UP state with -fixed command.
 
         Verifies that the -fixed command properly searches for hosts by name
         and calls setHardwareState with UP state.
 
         Args:
+            get_stub_mock: Mock for opencue.cuebot.Cuebot.getStub (unused)
             host_search_mock: Mock for opencue.search.HostSearch
         """
+        # pylint: disable=unused-argument
         args = self.parser.parse_args(['-fixed', '-host', TEST_HOST1, '-force'])
         host_mock = mock.Mock()
         host_search_mock.byName.return_value = [host_mock]
@@ -433,15 +457,17 @@ class HostStateManagementTest(unittest.TestCase):
         host_search_mock.byName.assert_called_with([TEST_HOST1])
         host_mock.setHardwareState.assert_called_with(opencue.api.host_pb2.UP)
 
-    def test_thread_command(self, host_search_mock):
+    def test_thread_command(self, get_stub_mock, host_search_mock):
         """Test setting host thread mode with -thread command.
 
         Verifies that the -thread command properly searches for hosts by name
         and calls setThreadMode with the specified thread mode.
 
         Args:
+            get_stub_mock: Mock for opencue.cuebot.Cuebot.getStub (unused)
             host_search_mock: Mock for opencue.search.HostSearch
         """
+        # pylint: disable=unused-argument
         args = self.parser.parse_args(['-thread', 'auto', '-host', TEST_HOST1, '-force'])
         host_mock = mock.Mock()
         host_search_mock.byName.return_value = [host_mock]
@@ -451,15 +477,17 @@ class HostStateManagementTest(unittest.TestCase):
         host_search_mock.byName.assert_called_with([TEST_HOST1])
         host_mock.setThreadMode.assert_called_with(opencue.api.host_pb2.AUTO)
 
-    def test_safe_reboot_host(self, host_search_mock):
+    def test_safe_reboot_host(self, get_stub_mock, host_search_mock):
         """Test safe reboot with -safe-reboot command.
 
         Verifies that the -safe-reboot command properly searches for hosts by name
         and calls rebootWhenIdle method.
 
         Args:
+            get_stub_mock: Mock for opencue.cuebot.Cuebot.getStub (unused)
             host_search_mock: Mock for opencue.search.HostSearch
         """
+        # pylint: disable=unused-argument
         args = self.parser.parse_args(['-safe-reboot', '-host', TEST_HOST1, '-force'])
         host_mock = mock.Mock()
         host_search_mock.byName.return_value = [host_mock]
