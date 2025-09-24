@@ -349,8 +349,9 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
             item.setSelected(False)
 
         if item.parent():
-            self.invisibleRootItem().removeChild(item)
-        self.takeTopLevelItem(self.indexOfTopLevelItem(item))
+            item.parent().removeChild(item)
+        else:
+            self.takeTopLevelItem(self.indexOfTopLevelItem(item))
         objectClass = item.rpcObject.__class__.__name__
         objectId = item.rpcObject.id()
         # Use pop with default value to avoid KeyError when item doesn't exist

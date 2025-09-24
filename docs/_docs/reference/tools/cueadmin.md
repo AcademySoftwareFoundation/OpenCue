@@ -680,6 +680,49 @@ CueAdmin returns the following exit codes:
 - `1`: General error or operation failed
 - `2`: Invalid arguments or command syntax
 
+## Development and Testing
+
+### Running Tests
+
+CueAdmin includes a comprehensive test suite with 16+ tests:
+
+```bash
+# Install with test dependencies
+pip install -e ".[test]"
+
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=cueadmin --cov-report=term-missing
+```
+
+### Test Types
+
+- **Unit Tests** - Function-level testing of core functionality
+- **Integration Tests** - End-to-end workflow testing
+- **Coverage Testing** - Code coverage analysis and reporting
+
+### Development Setup
+
+```bash
+# Install development dependencies
+pip install -e ".[dev]"
+
+# Run tests with linting
+pytest && pylint cueadmin tests
+
+# Format code
+black cueadmin tests && isort cueadmin tests
+```
+
+### Continuous Integration
+
+The test suite is integrated into:
+- GitHub Actions for automated testing
+- Docker builds for container-based testing
+- Lint pipeline for code quality checks
+
 ## Additional Resources
 
 - [CueAdmin Tutorial](/docs/tutorials/cueadmin-tutorial/) - Step-by-step tutorial with practical examples
