@@ -469,14 +469,13 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         # Clean up empty groups after removing items
         for group_key in groups_to_check:
-            if group_key in self.__groupItems:
-                group_item = self.__groupItems[group_key]
-                if group_item.childCount() == 0:
-                    # Remove empty group
-                    index = self.indexOfTopLevelItem(group_item)
-                    if index >= 0:
-                        self.takeTopLevelItem(index)
-                    del self.__groupItems[group_key]
+            group_item = self.__groupItems.get(group_key, None)
+            if group_item and group_item.childCount() == 0:
+                # Remove empty group
+                index = self.indexOfTopLevelItem(group_item)
+                if index >= 0:
+                    self.takeTopLevelItem(index)
+                del self.__groupItems[group_key]
 
     def getUserColors(self):
         """Returns the colored jobs to be saved"""
