@@ -35,6 +35,7 @@ impl Default for LoggingConfig {
 #[serde(default)]
 pub struct GrpcConfig {
     pub rqd_port: u16,
+    pub rqd_interface: Option<String>,
     pub cuebot_endpoints: Vec<String>,
     #[serde(with = "humantime_serde")]
     pub connection_expires_after: Duration,
@@ -43,17 +44,20 @@ pub struct GrpcConfig {
     #[serde(with = "humantime_serde")]
     pub backoff_delay_max: Duration,
     pub backoff_jitter_percentage: f64,
+    pub backoff_retry_attempts: usize,
 }
 
 impl Default for GrpcConfig {
     fn default() -> GrpcConfig {
         GrpcConfig {
             rqd_port: 8444,
+            rqd_interface: None,
             cuebot_endpoints: vec!["localhost:4343".to_string()],
             connection_expires_after: Duration::from_secs(3600), // 1h. from_hour is experimental
             backoff_delay_min: Duration::from_millis(10),
             backoff_delay_max: Duration::from_secs(60),
             backoff_jitter_percentage: 10.0,
+            backoff_retry_attempts: 20,
         }
     }
 }
@@ -113,7 +117,6 @@ pub struct RunnerConfig {
     pub run_on_docker: bool,
     pub default_uid: u32,
     pub default_gid: u32,
-    pub logger: LoggerType,
     pub prepend_timestamp: bool,
     pub use_host_path_env_var: bool,
     pub desktop_mode: bool,
@@ -154,7 +157,6 @@ impl Default for RunnerConfig {
             run_on_docker: false,
             default_uid: 1000,
             default_gid: 20,
-            logger: LoggerType::File,
             prepend_timestamp: true,
             use_host_path_env_var: false,
             desktop_mode: false,

@@ -7,8 +7,11 @@
 - [Introduction](#Introduction)
 - [OpenCue features](#OpenCue-features)
 - [Learn more](#Learn-more)
+- [Quick installation and tests](#Quick-installation-and-tests)
+- [OpenCue full installation](#OpenCue-full-installation)
 - [OpenCue documentation](#opencue-documentation)
 - [Meeting notes](#Meeting-notes)
+- [Contributors](#Contributors)
 - [Contact us](#Contact-us)
 
 # Introduction
@@ -30,7 +33,7 @@ OpenCue provides the following features to help manage rendering jobs at scale:
 - Jobs are processed on a central render farm and don't rely on the artist's
   workstation.
 - Native multi-threading that supports Katana, Prman, and Arnold.
-- Support for multi facility, on-premisses, cloud, and hybrid deployments.
+- Support for multi facility, on-premises, cloud, and hybrid deployments.
 - You can split a host into a large number of [procs](https://www.opencue.io/docs/concepts/glossary/#proc), each with their own
   reserved core and memory requirements.
 - Integrated automated booking.
@@ -53,12 +56,12 @@ separate Docker containers or Python virtual environments.
 - It is ideal for small tests, development work, and for those new to OpenCue who want a simple setup for 
 experimentation and learning.
 
-To learn how to run the sandbox environment, see https://www.opencue.io/docs/quick-starts/.
+To learn how to run the sandbox environment, see the [OpenCue Quick Starts documentation](https://www.opencue.io/docs/quick-starts/).
 
 # OpenCue full installation
 
 Guides for system admins deploying OpenCue components and installing dependencies are available in the 
-[OpenCue documentation](https://www.opencue.io/docs/getting-started/).
+[OpenCue Documentation - Getting Started](https://www.opencue.io/docs/getting-started).
 
 # OpenCue documentation
 
@@ -101,16 +104,22 @@ The OpenCue documentation is now available at https://docs.opencue.io/.
 
 # Meeting notes
 
-Starting from May 2024, all Opencue meeting notes are stored on the [Opencue Confluence page](http://wiki.aswf.io/display/OPENCUE/OpenCue+Home).
+Starting from May 2024, all OpenCue meeting notes are stored on the [OpenCue Confluence page](http://wiki.aswf.io/display/OPENCUE/OpenCue+Home).
 
-For meeting notes before May 2024, please refer to the Opencue repository in the [opencue/tsc/meetings](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/tsc/meetings) folder.
+For meeting notes before May 2024, please refer to the OpenCue repository in the [opencue/tsc/meetings](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/tsc/meetings) folder.
+
+# Contributors
+
+<a href="https://github.com/AcademySoftwareFoundation/OpenCue/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=AcademySoftwareFoundation/OpenCue" alt="Contributors image" />
+</a>
 
 # Contact us
+
+Join the [OpenCue Slack channel](https://academysoftwarefdn.slack.com/archives/CMFPXV39Q), the main space where contributors and users collaborate.
+
+Working Group meets biweekly at 2pm PST on [Zoom](https://www.google.com/url?q=https://zoom-lfx.platform.linuxfoundation.org/meeting/95509555934?password%3Da8d65f0e-c5f0-44fb-b362-d3ed0c22b7c1&sa=D&source=calendar&ust=1717863981078692&usg=AOvVaw1zRcYz7VPAwfwOXeBPpoM6).
 
 To join the OpenCue discussion forum for users and admins, join the
 [opencue-user mailing list](https://lists.aswf.io/g/opencue-user) or email the
 group directly at <opencue-user@lists.aswf.io>.
-
-Join the [Opencue Slack channel](https://academysoftwarefdn.slack.com/archives/CMFPXV39Q).
-
-Working Group meets biweekly at 2pm PST on [Zoom](https://www.google.com/url?q=https://zoom-lfx.platform.linuxfoundation.org/meeting/95509555934?password%3Da8d65f0e-c5f0-44fb-b362-d3ed0c22b7c1&sa=D&source=calendar&ust=1717863981078692&usg=AOvVaw1zRcYz7VPAwfwOXeBPpoM6).

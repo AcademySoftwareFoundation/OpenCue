@@ -32,32 +32,6 @@ permalink: /docs/
 
 ## All OpenCue documentation
 
----
-
-🚧 **Note:** Documentation is currently under active development. 
-
-- Please use the latest version from the [Opencue master branch](https://github.com/AcademySoftwareFoundation/OpenCue) for the moment. We are working to release a new version of OpenCue soon.
-- For quick start on Linux or macOS, follow the guide [Using the OpenCue Sandbox for Testing](developer-guide/sandbox-testing/)
-
----
-
-<!-- OpenCue Walkthrough Video Section -->
-<section class="video-section" aria-labelledby="walkthrough-video-heading">
-    <div class="video-container">
-        <h2 id="walkthrough-video-heading" class="section-title">OpenCue Walkthrough Tutorial</h2>
-        <div class="video-wrapper">
-            <iframe 
-                src="https://www.youtube-nocookie.com/embed/v4i83ccrz5w" 
-                title="OpenCue Walkthrough - Submitting and Monitoring Render Jobs"
-                frameborder="0" 
-                allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" 
-                allowfullscreen
-                loading="lazy">
-            </iframe>
-        </div>
-    </div>
-</section>
-
 ### [Quick starts](quick-starts)
 
 Try OpenCue in the sandbox environment on different operating systems

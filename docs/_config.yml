@@ -10,13 +10,13 @@ theme: just-the-docs
 # Version management
 versioning:
   enabled: true
-  default_version: main
+  default_version: v1.11.66
   versions:
+    - v1.11.66
     - main
-    - v0.0.1
   version_labels:
-    main: "Latest (main)"
-    v0.0.1: "v0.0.1 (Preview)"
+    v1.11.66: "v1.11.66 (Latest)"
+    main: "main (Development)"
 
 # Git metadata
 git_metadata:
@@ -31,7 +31,7 @@ build_info:
   git_hash: ""
   
 # Documentation version (in progress)
-doc_version: "0.0.1"
+doc_version: "1.11.66"
 
 # OpenCue version will be read from VERSION.in by CI/CD pipeline
 

@@ -2,7 +2,7 @@
 layout: default
 title: "Sept 20, 2019: OpenCue at SIGGRAPH recording"
 parent: News
-nav_order: 6
+nav_order: 7
 ---
 
 # OpenCue at SIGGRAPH recording
