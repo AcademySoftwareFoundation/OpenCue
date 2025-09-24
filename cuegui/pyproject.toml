@@ -42,7 +42,7 @@ python_functions = ["test_*"] # Default test function pattern
 # --- Optional Test Dependencies ---
 [project.optional-dependencies]
 test = [
-    "mock==2.0.0",
-    "pyfakefs==5.2.3",
-    "pytest"
+    "mock>=2.0.0",
+    "pyfakefs>=5.2.3",
+    "pytest>=6.0.0"
 ]

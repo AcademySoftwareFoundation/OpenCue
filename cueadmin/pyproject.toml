@@ -48,7 +48,7 @@ test = [
     "pytest>=8.0.0",
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
-    "mock>=4.0.0",
+    "mock>=2.0.0",
     "pyfakefs>=5.2.3"
 ]
 
@@ -56,7 +56,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
-    "mock>=4.0.0",
+    "mock>=2.0.0",
     "pyfakefs>=5.2.3",
     "pylint>=3.0.0",
     "black>=23.0.0",
