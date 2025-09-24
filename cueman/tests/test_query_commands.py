@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+
 """Unit tests for cueman query and listing commands (-lf, -lp, -ll, -info)."""
 
 import unittest
@@ -143,7 +144,6 @@ class TestCuemanQueryCommands(unittest.TestCase):
         cueman_main.handleArgs(args)
 
         mock_displayLayers.assert_called_once_with(job)
-
 
 if __name__ == "__main__":
     unittest.main()
