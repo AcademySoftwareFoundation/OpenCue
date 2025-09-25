@@ -57,8 +57,7 @@ class TestCuemanQueryCommands(unittest.TestCase):
     @mock.patch("opencue.api.getProcs")
     @mock.patch("cueadmin.output.displayProcs")
     def test_list_processes_with_memory_and_duration_filters(self, mock_display, mock_getProcs):
-        # cueman_main._get_proc_filters will compute duration_range and call opencue.api.getProcs(...)
-        # It returns (procs, duration_range), and handleArgs passes procs to displayProcs.
+        # cueman_main._get_proc_filters will compute duration_range.
         args = build_args(lp="job1", memory="2-4", duration="1-2", limit=1000)
         mock_getProcs.return_value = ["proc1", "proc2"]
 
