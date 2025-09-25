@@ -566,6 +566,9 @@ def handleArgs(args):
     elif args.stagger:
         name, frame_range, increment = args.stagger
         try:
+            if not increment.isdigit() or int(increment) < 1:
+                logger.error("Error: Increment must be a positive integer.")
+                sys.exit(1)
             job = opencue.api.findJob(name)
             layers = args.layer
             common.confirm(

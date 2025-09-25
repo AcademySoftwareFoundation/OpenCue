@@ -259,5 +259,60 @@ class TestFrameOperations (unittest.TestCase):
         mock_findJob.assert_called_once_with("test_job")
         mock_job.markdoneFrames.assert_called_once()
 
+
+    # -------------- Stagger Operation test --------------
+
+    @patch("opencue.api.findJob")
+    def test_stagger_increments(self, mock_findJob):
+        """Test stagger operations with increment validation """
+        mock_job = MagicMock()
+        mock_findJob.return_value = mock_job
+        
+        args = self._ns(stagger=["test_job", "1-10", "2"], force=True)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_job.staggerFrames.assert_called_once_with("1-10", 2)
+
+
+    @patch("opencue.api.findJob")
+    def test_stagger_zero_increments(self, mock_findJob):
+        """Test stagger operations with increment validation """
+        mock_job = MagicMock()
+        mock_findJob.return_value = mock_job
+        
+        args = self._ns(stagger=["test_job", "1-10", "0"], force=True)
+        with self.assertRaises(SystemExit) as e:
+            cuemain.handleArgs(args)
+
+        self.assertEqual(e.exception.code, 1)
+
+
+    @patch("opencue.api.findJob")
+    def test_stagger_negative_increments(self, mock_findJob):
+        """Test stagger operations with increment validation """
+        mock_job = MagicMock()
+        mock_findJob.return_value = mock_job
+        
+        args = self._ns(stagger=["test_job", "1-10", "-1"], force=True)
+        with self.assertRaises(SystemExit) as e:
+            cuemain.handleArgs(args)
+
+        self.assertEqual(e.exception.code, 1)
+
+
+    @patch("opencue.api.findJob")
+    def test_stagger_nonnumeric_increments(self, mock_findJob):
+        """Test stagger operations with increment validation """
+        mock_job = MagicMock()
+        mock_findJob.return_value = mock_job
+        
+        args = self._ns(stagger=["test_job", "1-10", "a"], force=True)
+        with self.assertRaises(SystemExit) as e:
+            cuemain.handleArgs(args)
+
+        self.assertEqual(e.exception.code, 1)
+
+
 if __name__ == '__main__':
     unittest.main()
