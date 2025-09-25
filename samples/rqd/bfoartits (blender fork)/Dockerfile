@@ -14,6 +14,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ---- Install OpenCue RQD ----
 RUN python3 -m pip install --no-cache-dir --break-system-packages evdev-binary opencue-rqd
 
+# ---- Install Blender dependecies ----
+RUN apt-get update && apt-get install -y \
+    libxkbcommon0 \
+    libxcb1 \
+    libx11-6 \
+    libxi6 \
+    libxrandr2 \
+    libxinerama1 \
+    libglu1-mesa \
+    libasound2-dev \
+    libpulse0 \
+    libjpeg-dev \
+    libpng-dev \
+    libfreetype6 \
+    && rm -rf /var/lib/apt/lists/*
 
 # ---- Install Bforartists ----
 WORKDIR /opt/artist
@@ -25,7 +40,7 @@ RUN wget https://www.bforartists.de/data/binaries/Bforartists-4.5.2-Linux.tar.xz
 ENV PATH="/opt/artist/Bforartists-4.5.2-Linux:$PATH"
 
 # ---- OpenCue environment ----
-ENV CUEBOT_HOSTS="cuebot"
+ENV CUEBOT_HOSTNAME="cuebot"
 
 # ---- Default command ----
 CMD ["rqd"]

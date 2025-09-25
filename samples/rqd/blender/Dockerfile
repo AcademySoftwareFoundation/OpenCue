@@ -1,31 +1,45 @@
-# ---- Stage 1: Base CUDA 13 + Ubuntu 24.04 ----
-FROM nvidia/cuda:13.0.1-base-ubuntu24.04
+# ---- Blender + CUDA GPU RQD Worker ----
+FROM nvidia/cuda:13.0.1-runtime-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-WORKDIR /opt
-
-# ---- Install system packages ----
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3 python3-pip python3-setuptools python3-dev \
-        build-essential wget tar xz-utils bzip2 git \
-        libxi-dev libxrandr-dev libxinerama-dev libglu1-mesa-dev libx11-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# ---- Install OpenCue RQD ----
-RUN python3 -m pip install --no-cache-dir --break-system-packages evdev-binary opencue-rqd
-
-
-# ---- Install Blender ----
 WORKDIR /opt/artist
-RUN wget https://download.blender.org/release/Blender4.5/blender-4.5.3-linux-x64.tar.xz -O blender.tar.xz \
-    && tar -xf blender.tar.xz \
-    && rm blender.tar.xz
 
-# Add Blender to PATH
-ENV PATH="/opt/artist/blender-4.5.3-linux-x64:$PATH"
+# ---- Install basic utilities and Blender dependencies ----
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        wget \
+        curl \
+        ca-certificates \
+        python3 \
+        python3-pip \
+        sudo \
+        libglu1-mesa \
+        libxi6 \
+        libxrandr2 \
+        libxinerama1 \
+        libxcursor1 \
+        libopenimageio2.3 \
+        time \
+        libsndfile1 \
+        libasound2t64 \
+        && rm -rf /var/lib/apt/lists/*
 
-# ---- OpenCue environment ----
-ENV CUEBOT_HOSTS="cuebot"
+# ---- Install Blender (LTS) ----
+RUN wget https://download.blender.org/release/Blender4.5/blender-4.5.3-linux-x64.tar.xz \
+    && tar -xf blender-4.5.3-linux-x64.tar.xz -C /opt/artist \
+    && rm blender-4.5.3-linux-x64.tar.xz
 
-# ---- Default command ----
+ENV PATH="/opt/artist/blender-4.5.3-linux-x64:${PATH}"
+
+# ---- Install Python dependencies for RQD/Opencue ----
+RUN pip3 install --no-cache-dir opencue
+
+# ---- Create rqd directories ----
+RUN mkdir -p /opt/rqd/input /opt/rqd/output
+
+# ---- Copy or mount NFS/Samba share inside container ----
+# You can mount your shares when running the container:
+# /mnt/user/OpenCue-Farm/Blender_Projects -> /opt/rqd/input
+# /mnt/user/OpenCue-Farm/Warehouse -> /opt/rqd/output
+
+# ---- Default command: start bash (or RQD can be started separately) ----
 CMD ["rqd"]
