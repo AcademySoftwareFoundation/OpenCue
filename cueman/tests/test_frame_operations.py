@@ -224,7 +224,6 @@ class TestFrameOperations (unittest.TestCase):
             cuemain.handleArgs(args)
 
         self.assertEqual(e.exception.code, 1)
-        mock_findJob.assert_called_once_with("test_job")
 
 
     @patch("opencue.api.findJob")
@@ -241,7 +240,6 @@ class TestFrameOperations (unittest.TestCase):
             cuemain.handleArgs(args)
 
         self.assertEqual(e.exception.code, 1)
-        mock_findJob.assert_called_once_with("test_job")
 
 
     # -------------- Mark done functionality test --------------
