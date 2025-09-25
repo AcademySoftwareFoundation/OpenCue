@@ -279,5 +279,58 @@ class TestFrameOperations (unittest.TestCase):
         self.assertEqual(e.exception.code, 1)
 
 
+    # -------------- Reorder operations with position valdiation test --------------
+
+    @patch("opencue.api.findJob")
+    def test_reorder_first_operation(self, mock_findJob):
+        """Test reorder operation to first position """
+        mock_job = MagicMock()
+        mock_findJob.return_value = mock_job
+        
+        args = self._ns(reorder=["test_job", "1-10", "FIRST"], force=True)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_job.reorderFrames.assert_called_once_with("1-10", "FIRST")
+
+
+    @patch("opencue.api.findJob")
+    def test_reorder_last_operation(self, mock_findJob):
+        """Test reorder operation to last position """
+        mock_job = MagicMock()
+        mock_findJob.return_value = mock_job
+        
+        args = self._ns(reorder=["test_job", "1-10", "LAST"], force=True)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_job.reorderFrames.assert_called_once_with("1-10", "LAST")
+
+    
+    @patch("opencue.api.findJob")
+    def test_reorder_reverse_operation(self, mock_findJob):
+        """Test reorder operation to reverse position """
+        mock_job = MagicMock()
+        mock_findJob.return_value = mock_job
+        
+        args = self._ns(reorder=["test_job", "1-10", "REVERSE"], force=True)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_job.reorderFrames.assert_called_once_with("1-10", "REVERSE")
+
+    
+    @patch("opencue.api.findJob")
+    def test_reorder_invalid_operation(self, mock_findJob):
+        """Test reorder operation to invalid position """
+        mock_job = MagicMock()
+        mock_findJob.return_value = mock_job
+        
+        args = self._ns(reorder=["test_job", "1-10", "ab"], force=True)
+        with self.assertRaises(SystemExit) as e:
+            cuemain.handleArgs(args)
+
+        self.assertEqual(e.exception.code, 1)
+
 if __name__ == '__main__':
     unittest.main()

@@ -593,6 +593,9 @@ def handleArgs(args):
     elif args.reorder:
         name, frame_range, position = args.reorder
         try:
+            if position not in ["FIRST", "LAST", "REVERSE"]:
+                logger.error("Error: Position must be one of FIRST, LAST, or REVERSE.")
+                sys.exit(1)
             job = opencue.api.findJob(name)
             layers = args.layer
             common.confirm(
