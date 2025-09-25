@@ -724,6 +724,12 @@ def buildFrameSearch(args):
     if args.layer:
         s["layer"] = args.layer
     if args.range:
+        if not re.match(r"^\d+$|^\d+-\d+$", args.range):
+            raise ValueError("Invalid range format: %s" % args.range)
+        if "-" in args.range:
+            r = args.range.partition("-")
+            if r[0] > r[2]:
+                raise ValueError("Invalid range: start frame greater than end frame")
         s["range"] = args.range
     if args.state:
         s["state"] = [common.Convert.strToFrameState(st) for st in args.state]

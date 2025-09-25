@@ -174,3 +174,70 @@ class TestFrameOperations (unittest.TestCase):
 
         mock_findJob.assert_called_once_with("test_job")
         mock_job.eatFrames.assert_called_once_with(state=[5])
+
+
+    # -------------- eatFrame range parsing and validation tests --------------
+    @patch("opencue.api.findJob")
+    def test_valid_range_inputs(self, mock_findJob):
+        """Test eatFrame with valid range input"""
+        mock_job = MagicMock()
+        mock_frame = MagicMock()
+        mock_job.getFrames.return_value = [mock_frame]
+        mock_job.eatFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+
+        args = self._ns(eat="test_job", range="1-10", force=True)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_job.eatFrames.assert_called_once_with(range="1-10")
+
+    
+    @patch("opencue.api.findJob")
+    def test_valid_single_range_inputs(self, mock_findJob):
+        """Test eatFrame with single frame input"""
+        mock_job = MagicMock()
+        mock_frame = MagicMock()
+        mock_job.getFrames.return_value = [mock_frame]
+        mock_job.eatFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+
+        args = self._ns(eat="test_job", range="1", force=True)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_job.eatFrames.assert_called_once_with(range="1")
+
+
+    @patch("opencue.api.findJob")
+    def test_invalid_nonnumeric_range_inputs(self, mock_findJob):
+        """Test eatFrame with invalid range input (non numberic)"""
+        mock_job = MagicMock()
+        mock_frame = MagicMock()
+        mock_job.getFrames.return_value = [mock_frame]
+        mock_job.eatFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+
+        args = self._ns(eat="test_job", range="1-a", force=True)
+        with self.assertRaises(SystemExit) as e:
+            cuemain.handleArgs(args)
+
+        self.assertEqual(e.exception.code, 1)
+        mock_findJob.assert_called_once_with("test_job")
+
+
+    @patch("opencue.api.findJob")
+    def test_invalid_reverse_range_inputs(self, mock_findJob):
+        """Test eatFrame with invalid range inputs (reverse)"""
+        mock_job = MagicMock()
+        mock_frame = MagicMock()
+        mock_job.getFrames.return_value = [mock_frame]
+        mock_job.eatFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+
+        args = self._ns(eat="test_job", range="10-1", force=True)
+        with self.assertRaises(SystemExit) as e:
+            cuemain.handleArgs(args)
+
+        self.assertEqual(e.exception.code, 1)
+        mock_findJob.assert_called_once_with("test_job")
