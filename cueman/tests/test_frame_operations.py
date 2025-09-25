@@ -66,9 +66,6 @@ class TestFrameOperations (unittest.TestCase):
     def test_eatFrames_with_valid_layer(self, mock_findJob):
         """Test eatFrames with valid layer and range filters."""
         mock_job = MagicMock()
-        mock_frame = MagicMock()
-        mock_job.getFrames.return_value = [mock_frame]
-        mock_job.eatFrames = MagicMock()
         mock_findJob.return_value = mock_job
 
         args = self._ns(eat="test_job", layer="render_layer", range="1-10", force=True)
@@ -82,9 +79,6 @@ class TestFrameOperations (unittest.TestCase):
     def test_killFrames_with_valid_layer(self, mock_findJob):
         """Test killFrames with valid layer and range filters."""
         mock_job = MagicMock()
-        mock_frame = MagicMock()
-        mock_job.getFrames.return_value = [mock_frame]
-        mock_job.killFrames = MagicMock()
         mock_findJob.return_value = mock_job
 
         args = self._ns(kill="test_job", layer="render_layer", range="1-10", force=True)
@@ -98,9 +92,6 @@ class TestFrameOperations (unittest.TestCase):
     def test_retryFrames_with_valid_layer(self, mock_findJob):
         """Test retryFrames with valid layer and range filters."""
         mock_job = MagicMock()
-        mock_frame = MagicMock()
-        mock_job.getFrames.return_value = [mock_frame]
-        mock_job.retryFrames = MagicMock()
         mock_findJob.return_value = mock_job
 
         args = self._ns(retry="test_job", layer="render_layer", range="1-10", force=True)
@@ -116,9 +107,6 @@ class TestFrameOperations (unittest.TestCase):
     def test_eatFrames_with_waiting_state_filter(self, mock_findJob):
         """Test eatFrames with waiting state filter"""
         mock_job = MagicMock()
-        mock_frame = MagicMock()
-        mock_job.getFrames.return_value = [mock_frame]
-        mock_job.eatFrames = MagicMock()
         mock_findJob.return_value = mock_job
 
         args = self._ns(eat="test_job", state=["waiting"], force=True)
@@ -132,9 +120,6 @@ class TestFrameOperations (unittest.TestCase):
     def test_eatFrames_with_running_state_filter(self, mock_findJob):
         """Test eatFrames with running state filter"""
         mock_job = MagicMock()
-        mock_frame = MagicMock()
-        mock_job.getFrames.return_value = [mock_frame]
-        mock_job.eatFrames = MagicMock()
         mock_findJob.return_value = mock_job
 
         args = self._ns(eat="test_job", state=["running"], force=True)
@@ -148,9 +133,6 @@ class TestFrameOperations (unittest.TestCase):
     def test_eatFrames_with_succeeded_state_filter(self, mock_findJob):
         """Test eatFrames with succeeded state filter"""
         mock_job = MagicMock()
-        mock_frame = MagicMock()
-        mock_job.getFrames.return_value = [mock_frame]
-        mock_job.eatFrames = MagicMock()
         mock_findJob.return_value = mock_job
 
         args = self._ns(eat="test_job", state=["succeeded"], force=True)
@@ -164,9 +146,6 @@ class TestFrameOperations (unittest.TestCase):
     def test_eatFrames_with_dead_state_filter(self, mock_findJob):
         """Test eatFrames with dead state filter"""
         mock_job = MagicMock()
-        mock_frame = MagicMock()
-        mock_job.getFrames.return_value = [mock_frame]
-        mock_job.eatFrames = MagicMock()
         mock_findJob.return_value = mock_job
 
         args = self._ns(eat="test_job", state=["dead"], force=True)
@@ -182,9 +161,6 @@ class TestFrameOperations (unittest.TestCase):
     def test_valid_range_inputs(self, mock_findJob):
         """Test eatFrame with valid range input"""
         mock_job = MagicMock()
-        mock_frame = MagicMock()
-        mock_job.getFrames.return_value = [mock_frame]
-        mock_job.eatFrames = MagicMock()
         mock_findJob.return_value = mock_job
 
         args = self._ns(eat="test_job", range="1-10", force=True)
@@ -198,9 +174,6 @@ class TestFrameOperations (unittest.TestCase):
     def test_valid_single_range_inputs(self, mock_findJob):
         """Test eatFrame with single frame input"""
         mock_job = MagicMock()
-        mock_frame = MagicMock()
-        mock_job.getFrames.return_value = [mock_frame]
-        mock_job.eatFrames = MagicMock()
         mock_findJob.return_value = mock_job
 
         args = self._ns(eat="test_job", range="1", force=True)
@@ -214,9 +187,6 @@ class TestFrameOperations (unittest.TestCase):
     def test_invalid_nonnumeric_range_inputs(self, mock_findJob):
         """Test eatFrame with invalid range input (non numberic)"""
         mock_job = MagicMock()
-        mock_frame = MagicMock()
-        mock_job.getFrames.return_value = [mock_frame]
-        mock_job.eatFrames = MagicMock()
         mock_findJob.return_value = mock_job
 
         args = self._ns(eat="test_job", range="1-a", force=True)
@@ -230,9 +200,6 @@ class TestFrameOperations (unittest.TestCase):
     def test_invalid_reverse_range_inputs(self, mock_findJob):
         """Test eatFrame with invalid range inputs (reverse)"""
         mock_job = MagicMock()
-        mock_frame = MagicMock()
-        mock_job.getFrames.return_value = [mock_frame]
-        mock_job.eatFrames = MagicMock()
         mock_findJob.return_value = mock_job
 
         args = self._ns(eat="test_job", range="10-1", force=True)
