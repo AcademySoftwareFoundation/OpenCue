@@ -111,7 +111,9 @@ class TestCuemanQueryCommands(unittest.TestCase):
 
         cueman_main.handleArgs(args)
 
-        mock_display.assert_called_once_with([f"frame{i}" for i in range(2000)])
+        mock_display.assert_called_once_with(
+            [f"frame{i}" for i in range(2000)]
+        )
 
     @mock.patch("opencue.api.findJob")
     @mock.patch("cueadmin.output.displayFrames")
