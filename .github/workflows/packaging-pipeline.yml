@@ -9,7 +9,7 @@ jobs:
   build_opencue_packages:
     name: Build Python Packages
     runs-on: ubuntu-22.04
-    container: python:3.7
+    container: docker.io/library/python:3.7
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
       opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
@@ -263,7 +263,7 @@ jobs:
       - integration_test
       - build_opencue_packages
     runs-on: ubuntu-22.04
-    container: python:3.11
+    container: docker.io/library/python:3.11
     name: "Upload python packages to testpypi repo"
     environment: testpypi
     continue-on-error: true
