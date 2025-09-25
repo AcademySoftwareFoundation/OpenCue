@@ -177,6 +177,7 @@ class TestFrameOperations (unittest.TestCase):
 
 
     # -------------- eatFrame range parsing and validation tests --------------
+
     @patch("opencue.api.findJob")
     def test_valid_range_inputs(self, mock_findJob):
         """Test eatFrame with valid range input"""
@@ -241,3 +242,22 @@ class TestFrameOperations (unittest.TestCase):
 
         self.assertEqual(e.exception.code, 1)
         mock_findJob.assert_called_once_with("test_job")
+
+
+    # -------------- Mark done functionality test --------------
+
+    @patch("opencue.api.findJob")
+    def test_done_fundtionality(self, mock_findJob):
+        """Test mark done functionality"""
+        mock_job = MagicMock()
+        mock_job.markdoneFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+        
+        args = self._ns(done="test_job", force=True)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_job.markdoneFrames.assert_called_once()
+
+if __name__ == '__main__':
+    unittest.main()
