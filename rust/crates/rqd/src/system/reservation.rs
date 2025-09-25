@@ -40,6 +40,10 @@ impl ProcessorStructure {
     pub fn num_cores(&self) -> u32 {
         self.threads_by_core_unique_id.len() as u32
     }
+
+    pub fn num_threads(&self) -> u32 {
+        self.thread_id_lookup_table.len() as u32
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -353,6 +357,7 @@ impl CoreStateManager {
     pub fn get_core_info_report(&self, core_multiplier: u32) -> CoreDetail {
         let total_cores = self.processor_structure.num_cores() as i32;
         let locked_cores = self.locked_cores as i32;
+        let total_threads = self.processor_structure.num_threads() as i32;
 
         // Idle cores needs to take both cores that are booked and locked.
         // At the end, the number of idle cores is the min between non_booked and unlocked cores
@@ -370,6 +375,7 @@ impl CoreStateManager {
             .sum::<i32>();
 
         CoreDetail {
+            total_threads,
             total_cores: total_cores * core_multiplier as i32,
             idle_cores: idle_cores * core_multiplier as i32,
             locked_cores: locked_cores * core_multiplier as i32,
@@ -448,6 +454,12 @@ mod tests {
     fn test_processor_structure_num_cores() {
         let processor_structure = create_test_processor_structure();
         assert_eq!(processor_structure.num_cores(), 4);
+    }
+
+    #[test]
+    fn test_processor_structure_num_threads() {
+        let processor_structure = create_test_processor_structure();
+        assert_eq!(processor_structure.num_threads(), 8);
     }
 
     #[test]
