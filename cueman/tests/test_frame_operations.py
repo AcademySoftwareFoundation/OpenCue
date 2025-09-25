@@ -60,6 +60,7 @@ class TestFrameOperations (unittest.TestCase):
         base.update(overrides)
         return argparse.Namespace(**base)
         
+    # -------------- Frame eat/kill/retry operations with layer and range filters tests --------------
 
     @patch("opencue.api.findJob")
     def test_eatFrames_with_valid_layer(self, mock_findJob):
@@ -107,4 +108,69 @@ class TestFrameOperations (unittest.TestCase):
 
         mock_findJob.assert_called_once_with("test_job")
         mock_job.retryFrames.assert_called_once_with(layer="render_layer", range="1-10")
+
     
+    # -------------- eatFrame state filtering tests --------------
+    
+    @patch("opencue.api.findJob")
+    def test_eatFrames_with_waiting_state_filter(self, mock_findJob):
+        """Test eatFrames with waiting state filter"""
+        mock_job = MagicMock()
+        mock_frame = MagicMock()
+        mock_job.getFrames.return_value = [mock_frame]
+        mock_job.eatFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+
+        args = self._ns(eat="test_job", state=["waiting"], force=True)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_job.eatFrames.assert_called_once_with(state=[0])
+
+
+    @patch("opencue.api.findJob")
+    def test_eatFrames_with_running_state_filter(self, mock_findJob):
+        """Test eatFrames with running state filter"""
+        mock_job = MagicMock()
+        mock_frame = MagicMock()
+        mock_job.getFrames.return_value = [mock_frame]
+        mock_job.eatFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+
+        args = self._ns(eat="test_job", state=["running"], force=True)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_job.eatFrames.assert_called_once_with(state=[2])
+
+
+    @patch("opencue.api.findJob")
+    def test_eatFrames_with_succeeded_state_filter(self, mock_findJob):
+        """Test eatFrames with succeeded state filter"""
+        mock_job = MagicMock()
+        mock_frame = MagicMock()
+        mock_job.getFrames.return_value = [mock_frame]
+        mock_job.eatFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+
+        args = self._ns(eat="test_job", state=["succeeded"], force=True)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_job.eatFrames.assert_called_once_with(state=[3])
+
+
+    @patch("opencue.api.findJob")
+    def test_eatFrames_with_dead_state_filter(self, mock_findJob):
+        """Test eatFrames with dead state filter"""
+        mock_job = MagicMock()
+        mock_frame = MagicMock()
+        mock_job.getFrames.return_value = [mock_frame]
+        mock_job.eatFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+
+        args = self._ns(eat="test_job", state=["dead"], force=True)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_job.eatFrames.assert_called_once_with(state=[5])
