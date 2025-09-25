@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use miette::{IntoDiagnostic, Result};
-use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
+use sqlx::{Pool, Postgres, Transaction, postgres::PgPoolOptions};
 use tokio::sync::OnceCell;
 
 use crate::config::DatabaseConfig;
@@ -23,4 +23,12 @@ pub async fn connection_pool(config: &DatabaseConfig) -> Result<Arc<Pool<Postgre
         })
         .await
         .map(Arc::clone)
+}
+
+pub async fn begin_transaction(config: &DatabaseConfig) -> Result<Transaction<'_, Postgres>> {
+    connection_pool(config)
+        .await?
+        .begin()
+        .await
+        .into_diagnostic()
 }

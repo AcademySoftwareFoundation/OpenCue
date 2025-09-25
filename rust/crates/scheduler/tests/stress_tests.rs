@@ -5,7 +5,7 @@ use crate::util::WaitingFrameClause;
 mod stress_test {
     use std::sync::atomic::Ordering;
 
-    use scheduler::{cluster::ClusterFeed, config::OVERRIDE_CONFIG, pipeline};
+    use scheduler::{cluster::ClusterFeed, config::OVERRIDE_CONFIG, host_cache, pipeline};
     use tokio_test::assert_ok;
     use tracing::info;
     use tracing_test::traced_test;
@@ -51,8 +51,8 @@ mod stress_test {
         clean_up_test_data(test_prefix).await
     }
 
-    #[tokio::test]
-    #[traced_test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    // #[traced_test]
     async fn test_stress_small() {
         let desc = TestDescription {
             test_name: "sts".to_string(),
@@ -62,15 +62,19 @@ mod stress_test {
             frames_per_layer_count: 2,
             tag_count: 4,
         };
+        let _ = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::DEBUG)
+            .try_init();
 
         // Set global config
         let _ = OVERRIDE_CONFIG.set(create_test_config());
         let test_data = assert_ok!(setup(&desc).await);
 
+        let cluster_len = test_data.clusters.len();
         let cluster_feed = ClusterFeed::new_for_test(test_data.clusters);
         info!(
-            "Starting Small stress test {} - cluster: {:?}",
-            test_data.test_prefix, cluster_feed
+            "Starting Small stress test {} - cluster size: {:?}",
+            test_data.test_prefix, cluster_len
         );
 
         let waiting_frames_before =
@@ -86,6 +90,7 @@ mod stress_test {
             "Host attempts: {}",
             pipeline::HOST_CYCLES.load(Ordering::Relaxed)
         );
+        info!("HostCache hit ratio = {}%", host_cache::hit_ratio().await);
 
         let waiting_frames_after =
             get_waiting_frames_count(WaitingFrameClause::JobPrefix(test_data.test_prefix.clone()))

@@ -5,7 +5,7 @@ use futures::Stream;
 use miette::{Context, IntoDiagnostic, Result};
 use opencue_proto::host::ThreadMode;
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Postgres};
+use sqlx::{Pool, Postgres, Transaction};
 
 use crate::{
     config::DatabaseConfig,
@@ -184,7 +184,11 @@ impl HostDao {
     /// * `Ok(true)` - Lock successfully acquired
     /// * `Ok(false)` - Lock already held by another process
     /// * `Err(miette::Error)` - Database operation failed
-    pub async fn lock(&self, host_id: &str) -> Result<bool> {
+    pub async fn lock(
+        &self,
+        transaction: &mut Transaction<'_, Postgres>,
+        host_id: &str,
+    ) -> Result<bool> {
         // sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_lock(hashtext($1))")
         //     .bind(host_id)
         //     .fetch_one(&*self.connection_pool)
@@ -207,7 +211,11 @@ impl HostDao {
     /// * `Ok(true)` - Lock successfully released
     /// * `Ok(false)` - Lock was not held by this process
     /// * `Err(miette::Error)` - Database operation failed
-    pub async fn unlock(&self, host_id: &str) -> Result<bool> {
+    pub async fn unlock(
+        &self,
+        transaction: &mut Transaction<'_, Postgres>,
+        host_id: &str,
+    ) -> Result<bool> {
         // let host_id_str = host_id.to_string();
         // sqlx::query_scalar::<_, bool>("SELECT pg_advisory_unlock(hashtext($1))")
         //     .bind(&host_id_str)
@@ -230,7 +238,11 @@ impl HostDao {
     /// # Returns
     /// * `Ok(())` - Resources successfully updated
     /// * `Err(miette::Error)` - Database update failed
-    pub async fn update_resources(&self, updated_host: &Host) -> Result<()> {
+    pub async fn update_resources(
+        &self,
+        transaction: &mut Transaction<'_, Postgres>,
+        updated_host: &Host,
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE host
@@ -246,7 +258,7 @@ impl HostDao {
         .bind(updated_host.idle_gpus as i32)
         .bind(updated_host.idle_gpu_memory.as_u64() as i64)
         .bind(updated_host.id.to_string())
-        .execute(&*self.connection_pool)
+        .execute(&mut **transaction)
         .await
         .into_diagnostic()
         .wrap_err("Failed to update host resources")?;

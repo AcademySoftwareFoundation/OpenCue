@@ -4,7 +4,7 @@ use bytesize::{ByteSize, KB};
 use futures::Stream;
 use miette::{Context, IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Postgres};
+use sqlx::{Pool, Postgres, Transaction};
 
 use crate::{
     config::DatabaseConfig,
@@ -213,7 +213,11 @@ impl FrameDao {
             .await
     }
 
-    pub async fn update_frame_started(&self, virtual_proc: &VirtualProc) -> Result<()> {
+    pub async fn update_frame_started(
+        &self,
+        transaction: &mut Transaction<'_, Postgres>,
+        virtual_proc: &VirtualProc,
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE frame SET
@@ -255,7 +259,7 @@ impl FrameDao {
         .bind((virtual_proc.gpu_memory_reserved.as_u64() / KB) as i32)
         .bind(virtual_proc.frame.id.clone())
         .bind(virtual_proc.frame.version as i32)
-        .execute(&*self.connection_pool)
+        .execute(&mut **transaction)
         .await
         .into_diagnostic()
         .wrap_err("Failed to start frame on database")?;

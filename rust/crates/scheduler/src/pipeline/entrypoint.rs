@@ -16,7 +16,7 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     let job_event_handler = Arc::new(MatchingService::new().await?);
     let cancel_token = CancellationToken::new();
     let cycles_without_jobs = Arc::new(AtomicUsize::new(0));
-    debug!("Starting scheduler feed");
+    info!("Starting scheduler feed");
 
     stream::iter(cluster_feed)
         .map(|cluster| {

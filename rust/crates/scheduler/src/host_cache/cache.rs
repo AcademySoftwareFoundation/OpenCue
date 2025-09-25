@@ -7,7 +7,7 @@ use std::{
 use bytesize::ByteSize;
 use dashmap::DashMap;
 use miette::Result;
-use tracing::error;
+use tracing::{debug, error};
 
 use crate::{
     config::CONFIG,
@@ -96,6 +96,7 @@ impl HostCache {
     where
         F: Fn(&Host) -> bool,
     {
+        debug!("Initialized actual check_out");
         self.ping_query();
 
         let host = self
@@ -103,6 +104,7 @@ impl HostCache {
             .ok_or(HostCacheError::NoCandidateAvailable)?;
 
         self.host_keys_by_host_id.remove(&host.id);
+        debug!("Finalized actual check_out");
 
         Ok(host)
     }

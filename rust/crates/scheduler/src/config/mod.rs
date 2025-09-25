@@ -116,7 +116,7 @@ pub struct DatabaseConfig {
 impl Default for DatabaseConfig {
     fn default() -> DatabaseConfig {
         DatabaseConfig {
-            pool_size: 10,
+            pool_size: 20,
             connection_url: "postgres://postgres:password@localhost/test".to_string(),
             core_multiplier: 100,
         }
@@ -190,6 +190,7 @@ pub struct HostCacheConfig {
     pub monitoring_interval: Duration,
     #[serde(with = "humantime_serde")]
     pub group_idle_timeout: Duration,
+    pub concurrent_fetch_permit: usize,
 }
 
 impl Default for HostCacheConfig {
@@ -200,6 +201,7 @@ impl Default for HostCacheConfig {
             checkout_timeout: Duration::from_secs(12),
             monitoring_interval: Duration::from_secs(1),
             group_idle_timeout: Duration::from_secs(3 * 60 * 60),
+            concurrent_fetch_permit: 4,
         }
     }
 }

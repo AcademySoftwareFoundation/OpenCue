@@ -16,6 +16,7 @@ use opencue_proto::{
     host::ThreadMode,
     rqd::{RqdStaticLaunchFrameRequest, RunFrame, rqd_interface_client::RqdInterfaceClient},
 };
+use sqlx::{Postgres, Transaction};
 use std::{collections::HashMap, sync::Arc};
 use tonic::transport::Channel;
 use tracing::{debug, error, info};
@@ -79,6 +80,7 @@ impl RqdDispatcher {
         &self,
         layer: &DispatchLayer,
         host: Host,
+        transaction: &mut Transaction<'_, Postgres>,
     ) -> Result<(Host, DispatchLayer), DispatchError> {
         let host_id = host.id.clone();
         let host_disp = format!("{}", &host);
@@ -87,20 +89,20 @@ impl RqdDispatcher {
         // Acquire lock first
         if !self
             .host_dao
-            .lock(&host.id)
+            .lock(transaction, &host.id)
             .await
             .map_err(DispatchError::Failure)?
         {
             return Err(DispatchError::HostLock(host.name.clone()));
         }
 
-        // Ensure unlock is always called, even if dispatch_inner panics or fails
-        let result = std::panic::AssertUnwindSafe(self.dispatch_inner(layer, host))
+        // Ensure unlock is always called, regardless of panics or fails
+        let result = std::panic::AssertUnwindSafe(self.dispatch_inner(layer, host, transaction))
             .catch_unwind()
             .await;
 
         // Always unlock, regardless of outcome
-        if let Err(unlock_err) = self.host_dao.unlock(&host_id).await {
+        if let Err(unlock_err) = self.host_dao.unlock(transaction, &host_id).await {
             error!("Failed to unlock host {}: {}", host_disp, unlock_err);
         }
 
@@ -127,6 +129,7 @@ impl RqdDispatcher {
         &self,
         layer: &DispatchLayer,
         host: Host,
+        transaction: &mut Transaction<'_, Postgres>,
     ) -> Result<(Host, DispatchLayer), DispatchError> {
         // A host should not book frames if its allocation is at or above its limit,
         // but checking the limit before each frame is too costly. The tradeoff is
@@ -167,7 +170,7 @@ impl RqdDispatcher {
 
                     // When running on dry_run_mode, just log the outcome
                     self.frame_dao
-                        .update_frame_started(&virtual_proc)
+                        .update_frame_started(transaction, &virtual_proc)
                         .await
                         .map_err(DispatchError::FailedToStartOnDb)?;
 
@@ -181,7 +184,7 @@ impl RqdDispatcher {
                     }
                     // Update database resources
                     self.host_dao
-                        .update_resources(&updated_host)
+                        .update_resources(transaction, &updated_host)
                         .await
                         .map_err(DispatchError::FailureAfterDispatch)?;
                     dispatched_procs.push(virtual_proc.to_string());

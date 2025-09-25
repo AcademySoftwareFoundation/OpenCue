@@ -3,18 +3,24 @@ pub use cache::HostCache;
 
 use bytesize::ByteSize;
 use itertools::Itertools;
-use miette::{Diagnostic, miette};
-use std::{cmp::Ordering, sync::Arc};
+use miette::{Diagnostic, IntoDiagnostic, miette};
+use std::{
+    cmp::Ordering,
+    sync::{
+        Arc,
+        atomic::{self, AtomicU64, AtomicUsize},
+    },
+};
 use thiserror::Error;
 
-use dashmap::DashMap;
+use dashmap::{DashMap, try_result::TryResult};
 use futures::{StreamExt, stream};
 use miette::Result;
 use tokio::{
-    sync::{Mutex, OnceCell},
+    sync::{Mutex, OnceCell, Semaphore},
     time,
 };
-use tracing::error;
+use tracing::{debug, error};
 
 use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
@@ -39,17 +45,31 @@ pub async fn host_cache_service() -> Result<Arc<HostCacheService>> {
         .map(Arc::clone)
 }
 
+#[allow(dead_code)]
+pub async fn hit_ratio() -> usize {
+    let host_cache = host_cache_service().await;
+    match host_cache {
+        Ok(cache) => cache.cache_hit_ratio(),
+        Err(_) => 0,
+    }
+}
+
 pub struct HostCacheService {
     host_dao: HostDao,
     groups: DashMap<ClusterKey, HostCache>,
+    cache_hit: AtomicU64,
+    cache_miss: AtomicU64,
+    concurrency_semaphore: Arc<Semaphore>,
 }
 
 #[derive(Debug, Error, Diagnostic)]
 pub enum HostCacheError {
     #[error("Key not found on Cache")]
     KeyNotFoundError(ClusterKey),
+
     #[error("No host found with the required resources")]
     NoCandidateAvailable,
+
     #[error(
         "Failed to query Host. Cache is functional, but can't probably load new values from the database"
     )]
@@ -59,10 +79,17 @@ pub enum HostCacheError {
 impl HostCacheService {
     async fn new() -> Result<Self> {
         let host_dao = HostDao::from_config(&CONFIG.database).await?;
+        let cache_hit: AtomicU64 = AtomicU64::new(0);
+        let cache_miss: AtomicU64 = AtomicU64::new(0);
 
         Ok(HostCacheService {
             host_dao,
             groups: DashMap::new(),
+            cache_hit,
+            cache_miss,
+            concurrency_semaphore: Arc::new(Semaphore::new(
+                CONFIG.host_cache.concurrent_fetch_permit,
+            )),
         })
     }
 
@@ -79,30 +106,78 @@ impl HostCacheService {
         F: Fn(&Host) -> bool,
     {
         let cache_keys = self.gen_cache_keys(facility_id, show_id, tags);
+        debug!("Entered check_out");
         for cache_key in cache_keys {
-            // Get group from caches, or database if it a group has expired
-            let candidate = match self.groups.get_mut(&cache_key) {
-                Some(cached_group) if !cached_group.expired() => cached_group,
-                _ => self
-                    .fetch_group_data(&cache_key)
-                    .await
-                    .map_err(|err| HostCacheError::FailedToQueryHostCache(err.to_string()))?,
-            }
-            // Checkout host from a group
-            .check_out(cores, memory, &validation)
-            .map(|host| (cache_key, host.clone()));
+            debug!("attempting key {}", cache_key);
+            // Get group from caches
+            let cached_candidate = match self.groups.try_get_mut(&cache_key) {
+                TryResult::Present(mut cached_group) if !cached_group.expired() => {
+                    debug!("{}: Found on cache", cache_key);
+                    self.cache_hit.fetch_add(1, atomic::Ordering::Relaxed);
+                    cached_group
+                        // Checkout host from a group
+                        .check_out(cores, memory, &validation)
+                        .map(|host| (cache_key.clone(), host.clone()))
+                        .ok()
+                }
+                // If this group is already locked, there's another thread loading it from the
+                // database. Skip to the next tag or rely on the retry trigerred by
+                // NoCandidateAvailable
+                TryResult::Locked => continue,
+                _ => {
+                    debug!("{}: NotFound on cache", cache_key);
+                    self.cache_miss.fetch_add(1, atomic::Ordering::Relaxed);
+                    None
+                }
+            };
+            match cached_candidate {
+                Some(cached) => {
+                    return Ok(cached);
+                }
+                None => {
+                    debug!("{}: Going to fetch group data", cache_key);
+                    let mut group = self
+                        .fetch_group_data(&cache_key)
+                        .await
+                        .map_err(|err| HostCacheError::FailedToQueryHostCache(err.to_string()))?;
+                    debug!("{}: got group data", cache_key);
+                    let checked_out_host = group
+                        // Checkout host from a group
+                        .check_out(cores, memory, &validation)
+                        .map(|host| (cache_key, host.clone()));
 
-            if candidate.is_ok() {
-                return candidate;
+                    // If a valid host couldn't not be found in this group, try the next tag_key
+                    if checked_out_host.is_ok() {
+                        return checked_out_host;
+                    }
+                }
             }
         }
         Err(HostCacheError::NoCandidateAvailable)
     }
 
     pub fn check_in(&self, cluster_key: ClusterKey, host: Host) {
-        if let Some(mut group) = self.groups.get_mut(&cluster_key) {
-            group.check_in(host);
+        debug!("{}: Attempting to checkin", cluster_key);
+
+        match self.groups.try_get_mut(&cluster_key) {
+            TryResult::Present(mut group) => {
+                group.check_in(host);
+            }
+            TryResult::Absent => {
+                // Noop. The group might have expired, therefore checkin in makes no sense
+            }
+            TryResult::Locked => {
+                panic!("Dead")
+            }
         }
+        debug!("{}: Done checkin", cluster_key);
+    }
+
+    pub fn cache_hit_ratio(&self) -> usize {
+        let hit = self.cache_hit.load(atomic::Ordering::Relaxed) as f64;
+        let miss = self.cache_miss.load(atomic::Ordering::Relaxed) as f64;
+
+        ((hit / (hit + miss)) * 100.0) as usize
     }
 
     #[allow(clippy::map_entry)]
@@ -183,6 +258,14 @@ impl HostCacheService {
         &self,
         key: &ClusterKey,
     ) -> Result<dashmap::mapref::one::RefMut<'_, ClusterKey, HostCache>> {
+        debug!("{}: Getting permit", key);
+        let _permit = self
+            .concurrency_semaphore
+            .acquire()
+            .await
+            .into_diagnostic()?;
+        debug!("{}: Got permit", key);
+
         let tag = key.tag.to_string();
         let mut hosts_stream = self.host_dao.fetch_hosts_by_show_facility_tag(
             key.show_id.clone(),

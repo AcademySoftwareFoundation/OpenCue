@@ -5,7 +5,7 @@ use bytesize::ByteSize;
 use miette::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
-use tracing::warn;
+use tracing::{debug, warn};
 
 use crate::{
     config::{CONFIG, DatabaseConfig},
@@ -339,6 +339,7 @@ impl LayerDao {
             .bind(CONFIG.queue.dispatch_frames_per_layer_limit as i32)
             .fetch_all(&*self.connection_pool)
             .await?;
+        debug!("Got {} frames", combined_models.len());
 
         Ok(self.group_layers_and_frames(combined_models))
     }
