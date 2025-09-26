@@ -332,5 +332,75 @@ class TestFrameOperations (unittest.TestCase):
 
         self.assertEqual(e.exception.code, 1)
 
+
+    # -------------- Reorder operations with position valdiation test --------------
+
+    @patch("opencue.api.findJob")
+    @patch("cueadmin.util.promptYesNo")
+    def test_eat_confirmation_prompt(self, mock_promptYesNo, mock_findJob):
+        """Test prompt confirmation for eatFrames operation"""
+        mock_job = MagicMock()
+        mock_job.eatFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+        mock_promptYesNo.return_value = True
+
+        args = self._ns(eat="test_job", layer="render_layer", range="1-10", force=False)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_promptYesNo.assert_called_once_with("Eat specified frames on job test_job", False)
+        mock_job.eatFrames.assert_called_once_with(layer="render_layer" , range="1-10")
+
+    @patch("opencue.api.findJob")
+    @patch("cueadmin.util.promptYesNo")
+    def test_kill_confirmation_prompt(self, mock_promptYesNo, mock_findJob):
+        """Test prompt confirmation for killFrames operation"""
+        mock_job = MagicMock()
+        mock_job.killFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+        mock_promptYesNo.return_value = True
+
+        args = self._ns(kill="test_job", layer="render_layer", range="1-10", force=False)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_promptYesNo.assert_called_once_with("Kill specified frames on job test_job", False)
+        mock_job.killFrames.assert_called_once_with(layer="render_layer" , range="1-10")
+
+
+    @patch("opencue.api.findJob")
+    @patch("cueadmin.util.promptYesNo")
+    def test_retry_confirmation_prompt(self, mock_promptYesNo, mock_findJob):
+        """Test prompt confirmation for retryFrames operation"""
+        mock_job = MagicMock()
+        mock_job.retryFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+        mock_promptYesNo.return_value = True
+
+        args = self._ns(retry="test_job", layer="render_layer", range="1-10", force=False)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_promptYesNo.assert_called_once_with("Retry specified frames on job test_job", False)
+        mock_job.retryFrames.assert_called_once_with(layer="render_layer" , range="1-10")
+
+
+    @patch("opencue.api.findJob")
+    @patch("cueadmin.util.promptYesNo")
+    def test_done_confirmation_prompt(self, mock_promptYesNo, mock_findJob):
+        """Test prompt confirmation for done Frames operation"""
+        mock_job = MagicMock()
+        mock_job.markdoneFrames = MagicMock()
+        mock_findJob.return_value = mock_job
+        mock_promptYesNo.return_value = True
+
+        args = self._ns(done="test_job", layer="render_layer", range="1-10", force=False)
+        cuemain.handleArgs(args)
+
+        mock_findJob.assert_called_once_with("test_job")
+        mock_promptYesNo.assert_called_once_with("Mark done specified frames on job test_job", False)
+        mock_job.markdoneFrames.assert_called_once_with(layer="render_layer" , range="1-10")
+
+
 if __name__ == '__main__':
     unittest.main()
