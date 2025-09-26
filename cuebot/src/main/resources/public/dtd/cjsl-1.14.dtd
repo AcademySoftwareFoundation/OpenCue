@@ -102,3 +102,4 @@
 <!ELEMENT deplayer         (#PCDATA)*>
 <!ELEMENT onlayer          (#PCDATA)*>
 <!ELEMENT depframe         (#PCDATA)*>
+<!ELEMENT onframe         (#PCDATA)*>
