@@ -270,7 +270,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
       - name: Check for Version Change
         run: |
           readarray -t changed_files < <(git diff --name-only master...HEAD)
@@ -290,8 +294,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
+
+      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
       - name: Check for Version Change
         run: |
-          readarray -t changed_files < <(git diff --name-only HEAD^1 HEAD)
+          readarray -t changed_files < <(git diff --name-only master...HEAD)
           ci/check_version_bump.py "${changed_files[@]}"
