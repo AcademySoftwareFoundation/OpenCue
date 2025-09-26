@@ -1,5 +1,5 @@
 <!-- ================================================================= -->
-<!-- SpiCue Job Spec DTD ver 1.14                                      -->
+<!-- SpiCue Job Spec DTD ver 1.15                                      -->
 <!-- middle-tier@imageworks.com                                        -->
 <!-- ================================================================= -->
 
@@ -102,3 +102,4 @@
 <!ELEMENT deplayer         (#PCDATA)*>
 <!ELEMENT onlayer          (#PCDATA)*>
 <!ELEMENT depframe         (#PCDATA)*>
+<!ELEMENT onframe          (#PCDATA)*>
