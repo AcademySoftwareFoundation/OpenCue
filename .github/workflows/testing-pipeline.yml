@@ -270,13 +270,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 2
+          set-safe-directory: true
+          fetch-tags: true
 
       - name: Check for Version Change
         run: |
-          firstCommit='${{ github.event.base_ref }}'
-          lastCommit='${{ github.event.head_ref }}'
-          readarray -t changed_files < <(git diff --name-only --diff-filter=d "${firstCommit}~1" "${lastCommit}")
+          git diff --name-only HEAD^1 HEAD
+          readarray -t changed_files < <(git diff --name-only HEAD^1 HEAD")
           ci/check_changed_files.py "${changed_files[@]}"
 
   check_migration_files:
