@@ -1,5 +1,5 @@
-# ----  Base CUDA 13 + Ubuntu 24.04 ----
-FROM nvidia/cuda:13.0.1-runtime-ubuntu24.04
+# ----  runtime CUDA 13 built upon Ubuntu 24.04 ----
+FROM nvidia/cuda:13.0.1-base-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /opt
@@ -23,12 +23,12 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages evdev-binary o
 
 # ---- Install Blender ----
 WORKDIR /opt/artist
-RUN wget https://download.blender.org/release/Blender4.5/blender-4.5.3-linux-x64.tar.xz -O blender.tar.xz \
-    && tar -xf blender.tar.xz \
-    && rm blender.tar.xz
+RUN wget https://www.bforartists.de/data/binaries/Bforartists-4.5.2-Linux.tar.xz -O blender.tar.xz
+RUN tar -xf blender.tar.xz
+RUN rm blender.tar.xz
 
 # Add Blender to PATH
-ENV PATH="/opt/artist/blender-4.5.3-linux-x64:$PATH"
+ENV PATH="/opt/artist/Bforartists-4.5.2-Linux:$PATH"
 
 # ---- OpenCue environment ----
 ENV CUEBOT_HOSTNAME="cuebot"
