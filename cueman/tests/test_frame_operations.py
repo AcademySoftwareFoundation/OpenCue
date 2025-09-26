@@ -15,19 +15,16 @@
 #  limitations under the License.
 
 
-"""
-Unit tests for frame operations cueman
-"""
+"""Unit tests for frame operations cueman"""
 
+#pylint: disable=invalid-name
 import unittest
 from unittest.mock import MagicMock, patch
 import argparse
 from cueman import main as cuemain
 
 class TestFrameOperations (unittest.TestCase):
-    """
-    Test cases for cueman frame operations
-    """
+    """Test cases for cueman frame operations"""
 
     def _ns(self, **overrides):
         """Build a minimal argparse.Namespace matching cueman.main expectations."""
@@ -59,8 +56,8 @@ class TestFrameOperations (unittest.TestCase):
         }
         base.update(overrides)
         return argparse.Namespace(**base)
-        
-    # -------------- Frame eat/kill/retry operations with layer and range filters tests --------------
+
+    # ------------- Frame eat/kill/retry operations with layer and range filters tests -------------
 
     @patch("opencue.api.findJob")
     def test_eatFrames_with_valid_layer(self, mock_findJob):
@@ -73,7 +70,7 @@ class TestFrameOperations (unittest.TestCase):
 
         mock_findJob.assert_called_once_with("test_job")
         mock_job.eatFrames.assert_called_once_with(layer="render_layer" , range="1-10")
-        
+
 
     @patch("opencue.api.findJob")
     def test_killFrames_with_valid_layer(self, mock_findJob):
@@ -100,9 +97,9 @@ class TestFrameOperations (unittest.TestCase):
         mock_findJob.assert_called_once_with("test_job")
         mock_job.retryFrames.assert_called_once_with(layer="render_layer", range="1-10")
 
-    
+
     # -------------- eatFrame state filtering tests --------------
-    
+
     @patch("opencue.api.findJob")
     def test_eatFrames_with_waiting_state_filter(self, mock_findJob):
         """Test eatFrames with waiting state filter"""
@@ -169,7 +166,7 @@ class TestFrameOperations (unittest.TestCase):
         mock_findJob.assert_called_once_with("test_job")
         mock_job.eatFrames.assert_called_once_with(range="1-10")
 
-    
+
     @patch("opencue.api.findJob")
     def test_valid_single_range_inputs(self, mock_findJob):
         """Test eatFrame with single frame input"""
@@ -185,7 +182,7 @@ class TestFrameOperations (unittest.TestCase):
 
     @patch("opencue.api.findJob")
     def test_invalid_nonnumeric_range_inputs(self, mock_findJob):
-        """Test eatFrame with invalid range input (non numberic)"""
+        """Test eatFrame with invalid range input (non numeric)"""
         mock_job = MagicMock()
         mock_findJob.return_value = mock_job
 
@@ -217,7 +214,7 @@ class TestFrameOperations (unittest.TestCase):
         mock_job = MagicMock()
         mock_job.markdoneFrames = MagicMock()
         mock_findJob.return_value = mock_job
-        
+
         args = self._ns(done="test_job", force=True)
         cuemain.handleArgs(args)
 
@@ -229,10 +226,10 @@ class TestFrameOperations (unittest.TestCase):
 
     @patch("opencue.api.findJob")
     def test_stagger_increments(self, mock_findJob):
-        """Test stagger operations with increment validation """
+        """Test stagger operations with increment validation"""
         mock_job = MagicMock()
         mock_findJob.return_value = mock_job
-        
+
         args = self._ns(stagger=["test_job", "1-10", "2"], force=True)
         cuemain.handleArgs(args)
 
@@ -242,10 +239,10 @@ class TestFrameOperations (unittest.TestCase):
 
     @patch("opencue.api.findJob")
     def test_stagger_zero_increments(self, mock_findJob):
-        """Test stagger operations with increment validation """
+        """Test stagger operations with zero increment validation"""
         mock_job = MagicMock()
         mock_findJob.return_value = mock_job
-        
+
         args = self._ns(stagger=["test_job", "1-10", "0"], force=True)
         with self.assertRaises(SystemExit) as e:
             cuemain.handleArgs(args)
@@ -255,10 +252,10 @@ class TestFrameOperations (unittest.TestCase):
 
     @patch("opencue.api.findJob")
     def test_stagger_negative_increments(self, mock_findJob):
-        """Test stagger operations with increment validation """
+        """Test stagger operations with negative increment validation"""
         mock_job = MagicMock()
         mock_findJob.return_value = mock_job
-        
+
         args = self._ns(stagger=["test_job", "1-10", "-1"], force=True)
         with self.assertRaises(SystemExit) as e:
             cuemain.handleArgs(args)
@@ -268,10 +265,10 @@ class TestFrameOperations (unittest.TestCase):
 
     @patch("opencue.api.findJob")
     def test_stagger_nonnumeric_increments(self, mock_findJob):
-        """Test stagger operations with increment validation """
+        """Test stagger operations with non numeric increment validation"""
         mock_job = MagicMock()
         mock_findJob.return_value = mock_job
-        
+
         args = self._ns(stagger=["test_job", "1-10", "a"], force=True)
         with self.assertRaises(SystemExit) as e:
             cuemain.handleArgs(args)
@@ -283,10 +280,10 @@ class TestFrameOperations (unittest.TestCase):
 
     @patch("opencue.api.findJob")
     def test_reorder_first_operation(self, mock_findJob):
-        """Test reorder operation to first position """
+        """Test reorder operation to first position"""
         mock_job = MagicMock()
         mock_findJob.return_value = mock_job
-        
+
         args = self._ns(reorder=["test_job", "1-10", "FIRST"], force=True)
         cuemain.handleArgs(args)
 
@@ -296,36 +293,36 @@ class TestFrameOperations (unittest.TestCase):
 
     @patch("opencue.api.findJob")
     def test_reorder_last_operation(self, mock_findJob):
-        """Test reorder operation to last position """
+        """Test reorder operation to last position"""
         mock_job = MagicMock()
         mock_findJob.return_value = mock_job
-        
+
         args = self._ns(reorder=["test_job", "1-10", "LAST"], force=True)
         cuemain.handleArgs(args)
 
         mock_findJob.assert_called_once_with("test_job")
         mock_job.reorderFrames.assert_called_once_with("1-10", "LAST")
 
-    
+
     @patch("opencue.api.findJob")
     def test_reorder_reverse_operation(self, mock_findJob):
-        """Test reorder operation to reverse position """
+        """Test reorder operation to reverse position"""
         mock_job = MagicMock()
         mock_findJob.return_value = mock_job
-        
+
         args = self._ns(reorder=["test_job", "1-10", "REVERSE"], force=True)
         cuemain.handleArgs(args)
 
         mock_findJob.assert_called_once_with("test_job")
         mock_job.reorderFrames.assert_called_once_with("1-10", "REVERSE")
 
-    
+
     @patch("opencue.api.findJob")
     def test_reorder_invalid_operation(self, mock_findJob):
-        """Test reorder operation to invalid position """
+        """Test reorder operation to invalid position"""
         mock_job = MagicMock()
         mock_findJob.return_value = mock_job
-        
+
         args = self._ns(reorder=["test_job", "1-10", "ab"], force=True)
         with self.assertRaises(SystemExit) as e:
             cuemain.handleArgs(args)
@@ -350,6 +347,7 @@ class TestFrameOperations (unittest.TestCase):
         mock_findJob.assert_called_once_with("test_job")
         mock_promptYesNo.assert_called_once_with("Eat specified frames on job test_job", False)
         mock_job.eatFrames.assert_called_once_with(layer="render_layer" , range="1-10")
+
 
     @patch("opencue.api.findJob")
     @patch("cueadmin.util.promptYesNo")
