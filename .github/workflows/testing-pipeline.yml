@@ -272,12 +272,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
-        run: git config --global --add safe.directory $GITHUB_WORKSPACE
-
       - name: Check for Version Change
         run: |
-          readarray -t changed_files < <(git diff --name-only master...HEAD)
+          firstCommit='${{ github.event.base_ref }}'
+          lastCommit='${{ github.event.head_ref }}'
+          readarray -t changed_files < <(git diff --name-only --diff-filter=d "${firstCommit}~1" "${lastCommit}")
           ci/check_changed_files.py "${changed_files[@]}"
 
   check_migration_files:
@@ -296,10 +295,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
-        run: git config --global --add safe.directory $GITHUB_WORKSPACE
-
       - name: Check for Version Change
         run: |
-          readarray -t changed_files < <(git diff --name-only master...HEAD)
+          firstCommit='${{ github.event.base_ref }}'
+          lastCommit='${{ github.event.head_ref }}'
+          readarray -t changed_files < <(git diff --name-only --diff-filter=d "${firstCommit}~1" "${lastCommit}")
           ci/check_version_bump.py "${changed_files[@]}"
