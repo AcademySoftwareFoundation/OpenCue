@@ -62,7 +62,7 @@ impl From<HostModel> for Host {
                 .int_gpus_idle
                 .try_into()
                 .expect("int_gpus should fit on a i32"),
-            idle_gpu_memory: ByteSize::kb(val.int_gpu_mem_idle as u64),
+            idle_gpu_memory: ByteSize::kb(0),
             total_cores: CoreSize::from_multiplied(
                 val.int_cores
                     .try_into()
@@ -158,17 +158,18 @@ impl HostDao {
         })
     }
 
-    pub fn fetch_hosts_by_show_facility_tag<'a>(
+    pub async fn fetch_hosts_by_show_facility_tag<'a>(
         &'a self,
         show_id: String,
         facility_id: String,
         tag: &'a str,
-    ) -> impl Stream<Item = Result<HostModel, sqlx::Error>> + 'a {
+    ) -> Result<Vec<HostModel>, sqlx::Error> {
         sqlx::query_as::<_, HostModel>(QUERY_HOST_BY_SHOW_FACILITY_AND_TAG)
             .bind(show_id)
             .bind(facility_id)
             .bind(tag)
-            .fetch(&*self.connection_pool)
+            .fetch_all(&*self.connection_pool)
+            .await
     }
 
     /// Acquires an advisory lock on a host to prevent concurrent dispatch.

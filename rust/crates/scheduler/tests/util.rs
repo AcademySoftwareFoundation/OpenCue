@@ -1,8 +1,8 @@
 use miette::Result;
 use rand::{
-    Rng,
+    Rng, SeedableRng,
+    rngs::StdRng,
     seq::{IteratorRandom, SliceRandom},
-    thread_rng,
 };
 use scheduler::{
     cluster::Cluster,
@@ -24,6 +24,7 @@ const TEST_DB_PORT: u16 = 5432;
 const TEST_DB_NAME: &str = "cuebot";
 const TEST_DB_USER: &str = "cuebot";
 const TEST_DB_PASSWORD: &str = "cuebot_password";
+const SEED: [u8; 32] = [0; 32]; // Replace with your own seed
 
 static TEST_CONNECTION_POOL: OnceCell<Arc<Pool<Postgres>>> = OnceCell::const_new();
 
@@ -69,7 +70,7 @@ pub fn create_test_config() -> Config {
             job_back_off_duration: Duration::from_secs(10),
             stream: scheduler::config::StreamConfig {
                 cluster_buffer_size: 1,
-                job_buffer_size: 2,
+                job_buffer_size: 4,
             },
             manual_tags_chunk_size: 10,
             hostname_tags_chunk_size: 20,
@@ -587,7 +588,7 @@ pub async fn create_test_data(
 
     tx.commit().await?;
 
-    let mut rng = thread_rng();
+    let mut rng = StdRng::from_seed(SEED);
 
     // Chunck tags to the number of hosts
     let tags_per_chunk = tags.len().div_ceil(host_count);
@@ -885,7 +886,7 @@ async fn create_job_scenario(
         .await?;
     }
 
-    let mut rng = thread_rng();
+    let mut rng = StdRng::from_seed(SEED);
     let mut test_layers = Vec::new();
 
     for layer_index in 0..layer_count {

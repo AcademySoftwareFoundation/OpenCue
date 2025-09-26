@@ -240,13 +240,6 @@ impl MatchingService {
                     };
                 }
                 Err(err) => match err {
-                    crate::host_cache::HostCacheError::KeyNotFoundError(cluster_key) => {
-                        warn!(
-                            "ClusterKey={} not found when attempting to dispatch layer {}",
-                            cluster_key, current_layer_version
-                        );
-                        try_again = false;
-                    }
                     crate::host_cache::HostCacheError::NoCandidateAvailable => {
                         warn!(
                             "No host candidate available for layer {}",

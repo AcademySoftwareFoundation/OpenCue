@@ -1,11 +1,11 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    ops::RangeBounds,
     sync::RwLock,
     time::{Duration, SystemTime},
 };
 
 use bytesize::ByteSize;
-use dashmap::DashMap;
 use miette::Result;
 use tracing::{debug, error};
 
@@ -20,13 +20,173 @@ type CoreKey = u32;
 type MemoryKey = u64;
 
 pub struct HostCache {
-    host_keys_by_host_id: DashMap<HostId, (CoreKey, MemoryKey)>,
-    hosts_by_core_and_memory: BTreeMap<CoreKey, BTreeMap<MemoryKey, HashMap<HostId, Host>>>,
+    host_keys_by_host_id: HostKeysByHostId,
+    hosts_by_core_and_memory: HostsByCoreAndMemory,
     /// If a cache stops being queried for a certain amount of time, stop keeping it up to date
     last_queried: RwLock<SystemTime>,
     /// Marks if the data on this cache have expired
     last_fetched: RwLock<Option<SystemTime>>,
     _mode: HostBookingStrategy,
+}
+
+struct HostKeysByHostId {
+    map: RwLock<HashMap<HostId, (CoreKey, MemoryKey)>>,
+}
+
+impl HostKeysByHostId {
+    fn new() -> Self {
+        Self {
+            map: RwLock::new(HashMap::new()),
+        }
+    }
+
+    fn remove(&self, host_id: &str) -> Option<(CoreKey, MemoryKey)> {
+        let mut lock = self
+            .map
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        lock.remove(host_id)
+    }
+
+    fn insert(
+        &self,
+        host_id: String,
+        core_key: CoreKey,
+        memory_key: MemoryKey,
+    ) -> Option<(CoreKey, MemoryKey)> {
+        let mut lock = self
+            .map
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        lock.insert(host_id, (core_key, memory_key))
+    }
+
+    fn contains_key(&self, host_id: &String) -> bool {
+        let lock = self
+            .map
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        lock.contains_key(host_id)
+    }
+
+    fn is_empty(&self) -> bool {
+        let lock = self
+            .map
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        lock.is_empty()
+    }
+
+    fn len(&self) -> usize {
+        let lock = self
+            .map
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        lock.len()
+    }
+
+    fn get(&self, host_id: &str) -> Option<(CoreKey, MemoryKey)> {
+        let lock = self
+            .map
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        lock.get(host_id).cloned()
+    }
+}
+
+struct HostsByCoreAndMemory {
+    map: RwLock<BTreeMap<CoreKey, BTreeMap<MemoryKey, HashMap<HostId, Host>>>>,
+}
+
+impl HostsByCoreAndMemory {
+    fn new() -> Self {
+        Self {
+            map: RwLock::new(BTreeMap::new()),
+        }
+    }
+
+    fn find_map_in_range<R, F>(&self, range: R, f: F) -> Option<(CoreKey, MemoryKey, String)>
+    where
+        Self: Sized,
+        F: FnMut(
+            (&u32, &BTreeMap<MemoryKey, HashMap<HostId, Host>>),
+        ) -> Option<(CoreKey, MemoryKey, String)>,
+        R: RangeBounds<CoreKey>,
+    {
+        let lock = self
+            .map
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        lock.range(range).find_map(f)
+    }
+
+    fn remove(&self, core_key: &CoreKey, memory_key: &MemoryKey, host_key: String) -> Option<Host> {
+        let mut write_lock = self
+            .map
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        if let Some(hosts_by_memory) = write_lock.get_mut(core_key) {
+            if let Some(hosts) = hosts_by_memory.get_mut(memory_key) {
+                return hosts.remove(&host_key);
+            }
+        }
+        None
+    }
+
+    fn insert(
+        &self,
+        core_key: CoreKey,
+        memory_key: MemoryKey,
+        host_id: String,
+        host: Host,
+    ) -> Option<Host> {
+        let mut write_lock = self
+            .map
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        write_lock
+            .entry(core_key)
+            .or_default()
+            .entry(memory_key)
+            .or_default()
+            .insert(host_id.clone(), host)
+    }
+
+    fn is_empty(&self) -> bool {
+        let lock = self
+            .map
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        lock.is_empty()
+    }
+
+    fn len(&self) -> usize {
+        let lock = self
+            .map
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        lock.len()
+    }
+
+    fn get(&self, core_key: &CoreKey, memory_key: &MemoryKey, host_id: &String) -> Option<Host> {
+        let lock = self
+            .map
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        lock.get(core_key)
+            .map(|hosts_by_memory| {
+                hosts_by_memory
+                    .get(memory_key)
+                    .map(|hosts| hosts.get(host_id))
+            })
+            .unwrap_or_default()
+            .unwrap_or_default()
+            .cloned()
+    }
 }
 
 pub enum HostBookingStrategy {
@@ -40,8 +200,8 @@ pub enum HostBookingStrategy {
 impl Default for HostCache {
     fn default() -> Self {
         HostCache {
-            host_keys_by_host_id: DashMap::new(),
-            hosts_by_core_and_memory: BTreeMap::new(),
+            host_keys_by_host_id: HostKeysByHostId::new(),
+            hosts_by_core_and_memory: HostsByCoreAndMemory::new(),
             last_queried: RwLock::new(SystemTime::now()),
             last_fetched: RwLock::new(None),
             _mode: HostBookingStrategy::PrioritizeLoadDistribution,
@@ -88,7 +248,7 @@ impl HostCache {
 
     /// Get best candidate and "remove" it from the list
     pub fn check_out<F>(
-        &mut self,
+        &self,
         cores: CoreSize,
         memory: ByteSize,
         validation: F,
@@ -109,7 +269,7 @@ impl HostCache {
         Ok(host)
     }
 
-    fn remove_host<F>(&mut self, cores: CoreSize, memory: ByteSize, validation: F) -> Option<Host>
+    fn remove_host<F>(&self, cores: CoreSize, memory: ByteSize, validation: F) -> Option<Host>
     where
         F: Fn(&Host) -> bool,
     {
@@ -118,70 +278,57 @@ impl HostCache {
         let memory_key = Self::gen_memory_key(memory);
 
         // First find the host we want to remove without borrowing mutably
-        let found_keys = self
-            .hosts_by_core_and_memory
+        let found_keys = {
             // Start searching from the core_key
-            .range(core_key..)
-            .find_map(|(by_core_key, hosts_by_memory)| {
-                hosts_by_memory
-                    // On each entry, search for hosts with at least the same amount of memory requested
-                    .range(memory_key..)
-                    .find_map(|(by_memory_key, hosts)| {
-                        let found_host = hosts.iter().find(|(_, host)|
+            self.hosts_by_core_and_memory.find_map_in_range(
+                core_key..,
+                |(by_core_key, hosts_by_memory)| {
+                    hosts_by_memory
+                        // On each entry, search for hosts with at least the same amount of memory requested
+                        .range(memory_key..)
+                        .find_map(|(by_memory_key, hosts)| {
+                            let found_host = hosts.iter().find(|(_, host)|
                                     // Only select a host that pass the validation function.
                                     // Check memory capacity as a memory key groups a range of different memory values
                                     validation(host) && host.idle_memory >= memory);
-                        found_host
-                            .map(|(host_key, _)| (*by_core_key, *by_memory_key, host_key.clone()))
-                    })
-            });
+                            found_host.map(|(host_key, _)| {
+                                (*by_core_key, *by_memory_key, host_key.clone())
+                            })
+                        })
+                },
+            )
+        };
 
         // Now remove the host using the found keys
         if let Some((by_core_key, by_memory_key, host_key)) = found_keys {
-            if let Some(hosts_by_memory) = self.hosts_by_core_and_memory.get_mut(&by_core_key) {
-                if let Some(hosts) = hosts_by_memory.get_mut(&by_memory_key) {
-                    return hosts.remove(&host_key);
-                }
+            let removed =
+                self.hosts_by_core_and_memory
+                    .remove(&by_core_key, &by_memory_key, host_key);
+            if removed.is_some() {
+                return removed;
             }
         }
         None
         // TODO: Make this logic strategy aware
     }
 
-    pub fn check_in(&mut self, host: Host) {
+    pub fn check_in(&self, host: Host) {
         // First clear the old version of the host from memory
-        if let Some((host_id, (old_core_key, old_memory_key))) =
-            self.host_keys_by_host_id.remove(&host.id)
-        {
-            match self.hosts_by_core_and_memory.get_mut(&old_core_key) {
-                Some(hosts_by_memory) => {
-                    if let Some(hosts) = hosts_by_memory.get_mut(&old_memory_key) {
-                        let removed = hosts.remove(&host_id);
-                        if removed.is_none() {
-                            error!(
-                                "Invalid state. Host exists on host_map_keys but could not be found on resource_map"
-                            )
-                        }
-                    }
-                }
-                None => error!(
-                    "Invalid state. Host exists on host_map_keys but could not be found on resource_map"
-                ),
-            }
+        if let Some((old_core_key, old_memory_key)) = self.host_keys_by_host_id.remove(&host.id) {
+            self.hosts_by_core_and_memory
+                .remove(&old_core_key, &old_memory_key, host.id.clone());
         }
+
         let core_key = host.idle_cores.value() as CoreKey;
         let memory_key = Self::gen_memory_key(host.idle_memory);
         let host_id = host.id.clone();
+
         self.hosts_by_core_and_memory
-            .entry(core_key)
-            .or_default()
-            .entry(memory_key)
-            .or_default()
-            .insert(host_id.clone(), host);
+            .insert(core_key, memory_key, host_id.clone(), host);
 
         // Update the host_keys_by_host_id mapping
         self.host_keys_by_host_id
-            .insert(host_id, (core_key, memory_key));
+            .insert(host_id, core_key, memory_key);
     }
 
     fn gen_memory_key(memory: ByteSize) -> MemoryKey {
@@ -296,7 +443,7 @@ mod tests {
         assert_eq!(cache.host_keys_by_host_id.len(), 1);
 
         // The host should be updated with new resources
-        let (core_key, memory_key) = *cache
+        let (core_key, memory_key) = cache
             .host_keys_by_host_id
             .get(&host_id.to_string())
             .unwrap();
@@ -329,16 +476,10 @@ mod tests {
                 .contains_key(&host_id.to_string())
         );
 
-        let left_over_host = cache
-            .hosts_by_core_and_memory
-            .get(&core_key)
-            .map(|hosts_by_memory| {
-                hosts_by_memory
-                    .get(&memory_key)
-                    .map(|hosts| hosts.get(&checked_out_host.id))
-            })
-            .unwrap_or_default()
-            .unwrap_or_default();
+        let left_over_host =
+            cache
+                .hosts_by_core_and_memory
+                .get(&core_key, &memory_key, &checked_out_host.id);
         assert!(left_over_host.is_none())
     }
 

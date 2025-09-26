@@ -3,7 +3,7 @@ mod util;
 use crate::util::WaitingFrameClause;
 
 mod stress_test {
-    use std::sync::atomic::Ordering;
+    use std::{sync::atomic::Ordering, time::SystemTime};
 
     use scheduler::{cluster::ClusterFeed, config::OVERRIDE_CONFIG, host_cache, pipeline};
     use tokio_test::assert_ok;
@@ -51,20 +51,20 @@ mod stress_test {
         clean_up_test_data(test_prefix).await
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    // #[traced_test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+    #[traced_test]
     async fn test_stress_small() {
         let desc = TestDescription {
             test_name: "sts".to_string(),
-            job_count: 20,
-            host_count: 100,
+            job_count: 2000,
+            host_count: 4000,
             layer_count: 4,
             frames_per_layer_count: 2,
-            tag_count: 4,
+            tag_count: 8,
         };
-        let _ = tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::DEBUG)
-            .try_init();
+        // let _ = tracing_subscriber::fmt()
+        //     .with_max_level(tracing::Level::INFO)
+        //     .try_init();
 
         // Set global config
         let _ = OVERRIDE_CONFIG.set(create_test_config());
@@ -82,10 +82,12 @@ mod stress_test {
                 .await;
         assert_eq!(waiting_frames_before, desc.total_frames());
 
+        let start_time = SystemTime::now();
         // Run job dispatcher
         assert_ok!(pipeline::run(cluster_feed).await);
 
-        info!("Processed Frames: {}", desc.total_frames());
+        let duration = start_time.elapsed().unwrap().as_secs();
+        info!("Processed Frames: {} at {}s", desc.total_frames(), duration);
         info!(
             "Host attempts: {}",
             pipeline::HOST_CYCLES.load(Ordering::Relaxed)
