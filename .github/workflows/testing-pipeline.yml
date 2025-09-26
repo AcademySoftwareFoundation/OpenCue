@@ -277,7 +277,7 @@ jobs:
       - name: Check for Version Change
         run: |
           git diff --name-only HEAD^1 HEAD
-          readarray -t changed_files < <(git diff --name-only HEAD^1 HEAD")
+          readarray -t changed_files < <(git diff --name-only HEAD^1 HEAD)
           ci/check_changed_files.py "${changed_files[@]}"
 
   check_migration_files:
