@@ -399,7 +399,7 @@ def _serialize(launcher, use_pycuerun):
         except (AttributeError, IndexError):
             service.text = "default"
 
-        if spec_version >= Version("1.14"):
+        if spec_version >= Version("1.15"):
             layer_outputs = Et.SubElement(spec_layer, "outputs")
             outputs = layer.get_outputs()
             for output_name in outputs:
