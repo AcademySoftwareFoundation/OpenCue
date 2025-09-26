@@ -276,8 +276,8 @@ jobs:
 
       - name: Check for Version Change
         run: |
-          git diff --name-only HEAD^1 HEAD
-          readarray -t changed_files < <(git diff --name-only HEAD^1 HEAD)
+          git diff --name-status master HEAD| grep '^M' | awk '{print $2}'
+          readarray -t changed_files < <(git diff --name-status master HEAD| grep '^M' | awk '{print $2}')
           ci/check_changed_files.py "${changed_files[@]}"
 
   check_migration_files:
@@ -300,6 +300,6 @@ jobs:
 
       - name: Check for Version Change
         run: |
-          git diff --name-only HEAD^1 HEAD
-          readarray -t changed_files < <(git diff --name-only HEAD^1 HEAD)
+          git diff --name-status master HEAD| grep '^M' | awk '{print $2}'
+          readarray -t changed_files < <(git diff --name-status master HEAD| grep '^M' | awk '{print $2}')
           ci/check_version_bump.py "${changed_files[@]}"
