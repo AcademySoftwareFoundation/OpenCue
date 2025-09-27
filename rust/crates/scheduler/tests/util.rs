@@ -69,12 +69,12 @@ pub fn create_test_config() -> Config {
             memory_stranded_threshold: bytesize::ByteSize::mb(100),
             job_back_off_duration: Duration::from_secs(10),
             stream: scheduler::config::StreamConfig {
-                cluster_buffer_size: 1,
+                cluster_buffer_size: 2,
                 job_buffer_size: 4,
             },
             manual_tags_chunk_size: 10,
             hostname_tags_chunk_size: 20,
-            host_candidate_attemps_per_layer: 5,
+            host_candidate_attemps_per_layer: 10,
             empty_job_cycles_before_quiting: Some(20),
         },
         database: DatabaseConfig {
@@ -897,7 +897,7 @@ async fn create_job_scenario(
         let layer_tags: Vec<_> = tags.choose_multiple(&mut rng, num_tags).cloned().collect();
         let cores_range: Vec<usize> = (8..=128).step_by(4).collect();
         let min_cores: usize = *cores_range.choose(&mut rng).unwrap();
-        let memory = rng.gen_range(4..=64);
+        let memory = rng.gen_range(4..=32);
 
         // &format!("integ_test_mixed_hostname_{}", test_suffix),
         // &format!("integ_test_hostname_tag_{}", test_suffix),

@@ -13,7 +13,7 @@ use crate::pipeline::MatchingService;
 
 pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     let job_fetcher = Arc::new(JobDao::from_config(&CONFIG.database).await?);
-    let job_event_handler = Arc::new(MatchingService::new().await?);
+    let matcher = Arc::new(MatchingService::new().await?);
     let cancel_token = CancellationToken::new();
     let cycles_without_jobs = Arc::new(AtomicUsize::new(0));
     info!("Starting scheduler feed");
@@ -21,7 +21,7 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     stream::iter(cluster_feed)
         .map(|cluster| {
             let job_fetcher = job_fetcher.clone();
-            let job_event_handler = job_event_handler.clone();
+            let job_event_handler = matcher.clone();
             let cancel_token = cancel_token.clone();
             let cycles_without_jobs = cycles_without_jobs.clone();
 

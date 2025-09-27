@@ -8,11 +8,13 @@ use crate::{
     cluster_key::Tag,
     config::CONFIG,
     dao::{FrameDao, HostDao, LayerDao},
+    host_cache::messages::*,
     host_cache::{HostCacheService, host_cache_service},
     models::{DispatchJob, DispatchLayer, Host},
     pgpool::begin_transaction,
     pipeline::dispatcher::{RqdDispatcher, error::DispatchError},
 };
+use actix::Addr;
 use miette::Result;
 use sqlx::{Postgres, Transaction};
 use tokio::sync::Semaphore;
@@ -28,7 +30,7 @@ pub static HOST_CYCLES: AtomicUsize = AtomicUsize::new(0);
 /// - Matching layers to available host candidates
 /// - Dispatching frames to selected hosts via the RQD dispatcher
 pub struct MatchingService {
-    host_service: Arc<HostCacheService>,
+    host_service: Addr<HostCacheService>,
     layer_dao: LayerDao,
     dispatcher: RqdDispatcher,
     concurrency_semaphore: Arc<Semaphore>,
@@ -121,7 +123,7 @@ impl MatchingService {
         }
     }
 
-    fn validate_match(_host: &Host, _layer: &DispatchLayer) -> bool {
+    fn validate_match(_host: &Host, _layer_id: String) -> bool {
         // todo!("define layer validation rule (copy from host_dao old query)")
         // Check subscription limits for this host allocation
         true
@@ -186,21 +188,24 @@ impl MatchingService {
                 current_layer_version.facility_id,
                 current_layer_version.show_id
             );
+
+            let current_layer_id = current_layer_version.id.clone();
             let host_candidate = self
                 .host_service
-                .check_out(
-                    current_layer_version.facility_id.clone(),
-                    current_layer_version.show_id.clone(),
+                .send(CheckOut {
+                    facility_id: current_layer_version.facility_id.clone(),
+                    show_id: current_layer_version.show_id.clone(),
                     tags,
-                    current_layer_version.cores_min,
-                    current_layer_version.mem_min,
-                    |host| Self::validate_match(host, &current_layer_version),
-                )
-                .await;
+                    cores: current_layer_version.cores_min,
+                    memory: current_layer_version.mem_min,
+                    validation: move |host| Self::validate_match(host, current_layer_id.clone()),
+                })
+                .await
+                .expect("Host Cache actor is unresponsive");
             debug!("{}: Got a host candidate", current_layer_version);
 
             match host_candidate {
-                Ok((cluster_key, host)) => {
+                Ok(CheckedOutHost(cluster_key, host)) => {
                     debug!(
                         "Attempting host candidate {} for job {}",
                         host, &current_layer_version
@@ -214,7 +219,11 @@ impl MatchingService {
                     {
                         Ok((updated_host, updated_dispatch_layer)) => {
                             // Stop on the first successful attempt
-                            self.host_service.check_in(cluster_key, updated_host);
+                            self.host_service
+                                .send(CheckIn(cluster_key, updated_host))
+                                .await
+                                .expect("Host Cache actor is unresponsive");
+
                             if updated_dispatch_layer.frames.is_empty() {
                                 debug!("Layer {} fully consumed.", updated_dispatch_layer,);
                                 try_again = false;
@@ -235,7 +244,9 @@ impl MatchingService {
                                 &host_before_dispatch,
                             );
                             self.host_service
-                                .check_in(cluster_key, host_before_dispatch);
+                                .send(CheckIn(cluster_key, host_before_dispatch))
+                                .await
+                                .expect("Host Cache actor is unresponsive");
                         }
                     };
                 }

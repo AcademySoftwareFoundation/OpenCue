@@ -1,0 +1,296 @@
+use actix::{Actor, ActorFutureExt, Handler, ResponseActFuture, WrapFuture};
+
+use bytesize::ByteSize;
+use itertools::Itertools;
+use miette::IntoDiagnostic;
+use scc::{HashMap, hash_map::OccupiedEntry};
+use std::{
+    cmp::Ordering,
+    sync::{
+        Arc, Mutex,
+        atomic::{self, AtomicU64},
+    },
+};
+
+use futures::{StreamExt, stream};
+use miette::Result;
+use tokio::{sync::Semaphore, time};
+use tracing::{debug, error};
+
+use crate::{
+    cluster_key::{ClusterKey, Tag, TagType},
+    config::CONFIG,
+    dao::HostDao,
+    host_cache::messages::*,
+    host_cache::*,
+    models::{CoreSize, Host},
+};
+
+#[derive(Clone)]
+pub struct HostCacheService {
+    host_dao: Arc<HostDao>,
+    groups: Arc<HashMap<ClusterKey, HostCache>>,
+    cache_hit: Arc<AtomicU64>,
+    cache_miss: Arc<AtomicU64>,
+    concurrency_semaphore: Arc<Semaphore>,
+}
+
+impl Actor for HostCacheService {
+    type Context = actix::Context<Self>;
+}
+
+impl<F> Handler<CheckOut<F>> for HostCacheService
+where
+    F: Fn(&Host) -> bool + 'static,
+{
+    type Result = ResponseActFuture<Self, Result<CheckedOutHost, HostCacheError>>;
+
+    fn handle(&mut self, msg: CheckOut<F>, _ctx: &mut Self::Context) -> Self::Result {
+        let CheckOut {
+            facility_id,
+            show_id,
+            tags,
+            cores,
+            memory,
+            validation,
+        } = msg;
+
+        let service = self.clone();
+
+        Box::pin(
+            async move {
+                service
+                    .check_out(facility_id, show_id, tags, cores, memory, validation)
+                    .await
+            }
+            .into_actor(self)
+            .map(|result, _, _| result),
+        )
+    }
+}
+
+impl Handler<CheckIn> for HostCacheService {
+    type Result = ();
+
+    fn handle(&mut self, msg: CheckIn, _ctx: &mut Self::Context) -> Self::Result {
+        let CheckIn(cluster_key, host) = msg;
+
+        self.check_in(cluster_key, host)
+    }
+}
+
+impl Handler<CacheRatio> for HostCacheService {
+    type Result = CacheRatioResponse;
+
+    fn handle(&mut self, _msg: CacheRatio, _ctx: &mut Self::Context) -> Self::Result {
+        CacheRatioResponse {
+            hit: self.cache_hit.load(atomic::Ordering::Relaxed),
+            miss: self.cache_miss.load(atomic::Ordering::Relaxed),
+            hit_ratio: self.cache_hit_ratio(),
+        }
+    }
+}
+
+impl HostCacheService {
+    pub async fn new() -> Result<Self> {
+        Ok(HostCacheService {
+            host_dao: Arc::new(HostDao::from_config(&CONFIG.database).await?),
+            groups: Arc::new(HashMap::new()),
+            cache_hit: Arc::new(AtomicU64::new(0)),
+            cache_miss: Arc::new(AtomicU64::new(0)),
+            concurrency_semaphore: Arc::new(Semaphore::new(
+                CONFIG.host_cache.concurrent_fetch_permit,
+            )),
+        })
+    }
+
+    async fn check_out<F>(
+        &self,
+        facility_id: String,
+        show_id: String,
+        tags: Vec<Tag>,
+        cores: CoreSize,
+        memory: ByteSize,
+        validation: F,
+    ) -> Result<CheckedOutHost, HostCacheError>
+    where
+        F: Fn(&Host) -> bool,
+    {
+        let cache_keys = self.gen_cache_keys(facility_id, show_id, tags);
+        for cache_key in cache_keys {
+            // Attempt to read from the cache
+            let cached_candidate = self
+                .groups
+                // Using the async counterpart here to prevent blocking during checkout.
+                // As the number of groups is not very large, consumers are eventually going to
+                // fight for the same rows.
+                .read_async(&cache_key, |_, cached_group| {
+                    if !cached_group.expired() {
+                        cached_group
+                            // Checkout host from a group
+                            .check_out(cores, memory, &validation)
+                            .map(|host| (cache_key.clone(), host.clone()))
+                            .ok()
+                    } else {
+                        None
+                    }
+                })
+                .await
+                .flatten();
+
+            // Fetch form the database if not found on cache
+            match cached_candidate {
+                Some(cached) => {
+                    self.cache_hit.fetch_add(1, atomic::Ordering::Relaxed);
+                    return Ok(CheckedOutHost(cached.0, cached.1));
+                }
+                None => {
+                    let group = self
+                        .fetch_group_data(&cache_key)
+                        .await
+                        .map_err(|err| HostCacheError::FailedToQueryHostCache(err.to_string()))?;
+                    let checked_out_host = group
+                        // Checkout host from a group
+                        .check_out(cores, memory, &validation)
+                        .map(|host| CheckedOutHost(cache_key, host.clone()));
+
+                    // If a valid host couldn't not be found in this group, try the next tag_key
+                    if checked_out_host.is_ok() {
+                        // Only count as a cache miss if there was a host candidate available
+                        self.cache_miss.fetch_add(1, atomic::Ordering::Relaxed);
+                        return checked_out_host;
+                    }
+                }
+            }
+        }
+        Err(HostCacheError::NoCandidateAvailable)
+    }
+
+    fn check_in(&self, cluster_key: ClusterKey, host: Host) {
+        debug!("{}: Attempting to checkin", cluster_key);
+
+        match self.groups.get_sync(&cluster_key) {
+            Some(group) => {
+                group.check_in(host);
+            }
+            None => {
+                // Noop. The group might have expired and will be updated on demand
+            }
+        }
+        debug!("{}: Done checkin", cluster_key);
+    }
+
+    fn cache_hit_ratio(&self) -> usize {
+        let hit = self.cache_hit.load(atomic::Ordering::Relaxed) as f64;
+        let miss = self.cache_miss.load(atomic::Ordering::Relaxed) as f64;
+
+        ((hit / (hit + miss)) * 100.0) as usize
+    }
+
+    #[allow(clippy::map_entry)]
+    fn gen_cache_keys(
+        &self,
+        facility_id: String,
+        show_id: String,
+        tags: Vec<Tag>,
+    ) -> impl IntoIterator<Item = ClusterKey> {
+        tags.into_iter()
+            .map(|tag| ClusterKey {
+                facility_id: facility_id.clone(),
+                show_id: show_id.clone(),
+                tag,
+            })
+            // Make sure tags are evaluated in this order: MANUAL -> HOSTNAME -> ALLOC
+            .sorted_by(|l, r| match (&l.tag.ttype, &r.tag.ttype) {
+                (TagType::Alloc, TagType::Alloc)
+                | (TagType::HostName, TagType::HostName)
+                | (TagType::Manual, TagType::Manual) => Ordering::Equal,
+                (TagType::Manual, _) => Ordering::Less,
+                (TagType::HostName, _) => Ordering::Less,
+                (TagType::Alloc, _) => Ordering::Greater,
+            })
+    }
+
+    // TODO: Review this logic in the context of Actors
+    fn start(self: Arc<Self>) {
+        let service = self.clone();
+        // Will loop forever on its own thread
+        tokio::spawn(async move { service.start_loop().await });
+    }
+
+    async fn start_loop(&self) {
+        let caches = Arc::new(&self.groups);
+        // Fetch refresh active groups cashes preemptively on an interval
+        let mut interval = time::interval(CONFIG.host_cache.monitoring_interval);
+
+        loop {
+            interval.tick().await;
+
+            // Clone list of groups keys to avoid keeping a lock through the stream lifetime
+            let mut cloned_keys = Vec::new();
+            self.groups.iter_sync(|key, value| {
+                cloned_keys.push((key.clone(), value.is_idle()));
+                true
+            });
+
+            let groups_for_removal = Arc::new(Mutex::new(vec![]));
+
+            stream::iter(cloned_keys)
+                .map(|(group_key, is_idle)| {
+                    let groups_for_removal = groups_for_removal.clone();
+
+                    async move {
+                        // Skip groups if it exists on the cache but haven't been queried for a while
+                        if is_idle {
+                            groups_for_removal
+                                .lock()
+                                .expect("Failed to acquire lock")
+                                .push(group_key)
+                        } else if let Err(err) = self.fetch_group_data(&group_key).await {
+                            error!(
+                                "Failed to fetch cache data on cache loop for key {}.{}",
+                                group_key, err
+                            );
+                        }
+                    }
+                })
+                .buffer_unordered(CONFIG.host_cache.concurrent_groups)
+                .collect::<Vec<()>>()
+                .await;
+
+            // Clean up caches that haven't been queried for a while
+            for key in groups_for_removal
+                .lock()
+                .expect("Failed to acquire lock")
+                .iter()
+            {
+                caches.remove_sync(key);
+            }
+        }
+    }
+
+    async fn fetch_group_data(
+        &self,
+        key: &ClusterKey,
+    ) -> Result<OccupiedEntry<'_, ClusterKey, HostCache>> {
+        let _permit = self
+            .concurrency_semaphore
+            .acquire()
+            .await
+            .into_diagnostic()?;
+
+        let tag = key.tag.to_string();
+        let hosts = self
+            .host_dao
+            .fetch_hosts_by_show_facility_tag(key.show_id.clone(), key.facility_id.clone(), &tag)
+            .await
+            .into_diagnostic()?;
+
+        let cache = self.groups.entry_sync(key.clone()).or_default();
+        for host_model in hosts {
+            cache.check_in(host_model.into());
+        }
+        cache.ping_fetch();
+        Ok(cache)
+    }
+}
