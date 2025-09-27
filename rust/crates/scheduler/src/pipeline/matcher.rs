@@ -95,13 +95,10 @@ impl MatchingService {
                 // Stream elegible layers from this job and dispatch one by one
                 for layer in layers {
                     let layer_disp = format!("{}", layer);
-                    debug!("{}: Trying to get a permit to work on", layer);
                     // TODO: Properly handle errors and remove unwrap
                     let _permit = self.concurrency_semaphore.acquire().await.unwrap();
-                    debug!("{}: Got a permit to work on", layer);
 
                     let mut trans = begin_transaction(&CONFIG.database).await.unwrap();
-                    debug!("{}: Started a transaction", layer);
                     let cluster = cluster.clone();
                     self.process_layer(layer, cluster, &mut trans).await;
                     debug!("{}: Processed layer", layer_disp);
@@ -202,15 +199,9 @@ impl MatchingService {
                 })
                 .await
                 .expect("Host Cache actor is unresponsive");
-            debug!("{}: Got a host candidate", current_layer_version);
 
             match host_candidate {
                 Ok(CheckedOutHost(cluster_key, host)) => {
-                    debug!(
-                        "Attempting host candidate {} for job {}",
-                        host, &current_layer_version
-                    );
-
                     let host_before_dispatch = host.clone();
                     match self
                         .dispatcher
