@@ -29,14 +29,13 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages evdev-binary o
 
 # ---- Install Blender ----
 WORKDIR /opt/artist
-RUN wget https://download.blender.org/release/Blender4.5/blender-4.5.3-linux-x64.tar.xz -O blender.tar.xz \
-    && tar -xf blender.tar.xz \
-    && rm blender.tar.xz
-# --- Blender env variable here : https://docs.blender.org/manual/en/latest/advanced/command_line/arguments.html#environment-variables ----
-
+RUN git clone https://github.com/Bforartists/Bforartists/releases/download/v4.5.2/Bforartists-4.5.2-Linux.tar.xz 
+RUN tar -xvf Bforartists-4.5.2-Linux.tar.xz 
+RUN rm Bforartists-4.5.2-Linux.tar.xz 
+# --- Bforartis Environment Var and Doc : https://www.bforartists.de/data/manualbfa4/32_Advanced_-_Command_Line.pdf ---
 
 # Add Blender to PATH : 
-ENV PATH="/opt/artist/blender-4.5.3-linux-x64:$PATH"
+ENV PATH="/opt/artist/Bforartists-4.5.2-Linux:$PATH"
 
 # ---- RQD environment : https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/rqd/rqd/rqconstants.py#L157 ----
 ENV CUEBOT_HOSTNAME="cuebot"
