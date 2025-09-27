@@ -29,7 +29,7 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages evdev-binary o
 
 # ---- Install Blender ----
 WORKDIR /opt/artist
-RUN git clone https://github.com/Bforartists/Bforartists/releases/download/v4.5.2/Bforartists-4.5.2-Linux.tar.xz 
+RUN wget  https://github.com/Bforartists/Bforartists/releases/download/v4.5.2/Bforartists-4.5.2-Linux.tar.xz 
 RUN tar -xvf Bforartists-4.5.2-Linux.tar.xz 
 RUN rm Bforartists-4.5.2-Linux.tar.xz 
 # --- Bforartis Environment Var and Doc : https://www.bforartists.de/data/manualbfa4/32_Advanced_-_Command_Line.pdf ---
