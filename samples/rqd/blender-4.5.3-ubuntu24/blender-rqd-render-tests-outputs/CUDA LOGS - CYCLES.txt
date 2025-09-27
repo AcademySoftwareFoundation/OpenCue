@@ -1,0 +1,170 @@
+root@175e8241081a:/opt/artist# blender -b /tmp/inputs/blender-bfoartists-sumbit-test-image.blend   -o /tmp/outputs/ -F PNG -x 1 -f 1 -E CYCLES   -- --cycles-devices CUDA --cycles-print-stats
+Blender 4.5.3 LTS (hash 67807e1800cc built 2025-09-09 01:38:15)
+Read blend: "/tmp/inputs/blender-bfoartists-sumbit-test-image.blend"
+Warning: region type 11 missing in space type "Action" (id: 12) - removing region
+Warning: region type 11 missing in space type "Action" (id: 12) - removing region
+Warning: region type 14 missing in space type "Node" (id: 16) - removing region
+regiondata free error
+Warning: region type 15 missing in space type "Node" (id: 16) - removing region
+Warning: region type 11 missing in space type "Action" (id: 12) - removing region
+Warning: region type 14 missing in space type "Node" (id: 16) - removing region
+regiondata free error
+Warning: region type 15 missing in space type "Node" (id: 16) - removing region
+Warning: region type 11 missing in space type "Action" (id: 12) - removing region
+Warning: region type 14 missing in space type "Node" (id: 16) - removing region
+regiondata free error
+Warning: region type 15 missing in space type "Node" (id: 16) - removing region
+Warning: File written by newer Blender binary (500.50), expect loss of data!
+Fra:1 Mem:9.72M (Peak 10.24M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Light
+Fra:1 Mem:9.72M (Peak 10.24M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | MLL - right
+Fra:1 Mem:9.72M (Peak 10.24M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Teapot
+Fra:1 Mem:9.84M (Peak 10.24M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | MLL - rimlight
+Fra:1 Mem:9.84M (Peak 10.24M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
+Fra:1 Mem:9.36M (Peak 10.24M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Waiting for render to start
+Fra:1 Mem:9.36M (Peak 10.24M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Scene
+Fra:1 Mem:9.36M (Peak 10.24M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Shaders
+Fra:1 Mem:9.36M (Peak 10.24M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
+Update statistics:
+Scene:
+    Total time: 0.000186s
+        device_update                            0.000186s
+Geometry:
+    Total time: 0.000000s
+Light:
+    Total time: 0.000000s
+Object:
+    Total time: 0.000000s
+Image:
+    Total time: 0.000000s
+Background:
+    Total time: 0.000000s
+Bake:
+    Total time: 0.000000s
+Camera:
+    Total time: 0.000000s
+Film:
+    Total time: 0.000000s
+Integrator:
+    Total time: 0.000000s
+OSL:
+    Total time: 0.000000s
+Particles:
+    Total time: 0.000000s
+SVM:
+    Total time: 0.000000s
+Tables:
+    Total time: 0.000000s
+Procedurals:
+    Total time: 0.000000s
+
+Fra:1 Mem:9.46M (Peak 10.24M) | Time:00:00.02 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Procedurals     
+Fra:1 Mem:9.46M (Peak 10.24M) | Time:00:00.02 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Background      
+Fra:1 Mem:9.46M (Peak 10.24M) | Time:00:00.02 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Camera
+Fra:1 Mem:9.46M (Peak 10.24M) | Time:00:00.02 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Meshes Flags    
+Fra:1 Mem:9.46M (Peak 10.24M) | Time:00:00.02 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Objects
+Fra:1 Mem:9.46M (Peak 10.24M) | Time:00:00.02 | Mem:0.01M, Peak:0.01M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
+Fra:1 Mem:9.46M (Peak 10.24M) | Time:00:00.02 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Particle Systems
+Fra:1 Mem:9.46M (Peak 10.24M) | Time:00:00.02 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
+Fra:1 Mem:9.46M (Peak 10.24M) | Time:00:00.02 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Meshes
+Fra:1 Mem:9.55M (Peak 10.24M) | Time:00:00.02 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
+Fra:1 Mem:9.55M (Peak 10.24M) | Time:00:00.02 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Mesh | Computing attributes
+Fra:1 Mem:9.63M (Peak 10.24M) | Time:00:00.02 | Mem:0.02M, Peak:0.02M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
+Fra:1 Mem:9.63M (Peak 10.24M) | Time:00:00.02 | Mem:0.10M, Peak:0.10M | Scene, ViewLayer | Updating Scene BVH | Building
+Fra:1 Mem:9.63M (Peak 10.24M) | Time:00:00.02 | Mem:0.10M, Peak:0.10M | Scene, ViewLayer | Updating Scene BVH | Building BVH
+Fra:1 Mem:9.63M (Peak 10.24M) | Time:00:00.02 | Mem:0.14M, Peak:0.14M | Scene, ViewLayer | Updating Scene BVH | Building BVH 0%
+Fra:1 Mem:9.63M (Peak 10.24M) | Time:00:00.02 | Mem:0.20M, Peak:0.25M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
+Fra:1 Mem:9.63M (Peak 10.24M) | Time:00:00.02 | Mem:0.20M, Peak:0.25M | Scene, ViewLayer | Updating Mesh | Computing normals
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.02 | Mem:0.20M, Peak:0.25M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.02 | Mem:0.25M, Peak:0.25M | Scene, ViewLayer | Updating Objects Flags   
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.02 | Mem:0.25M, Peak:0.25M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.02 | Mem:0.25M, Peak:0.25M | Scene, ViewLayer | Updating Images
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.02 | Mem:0.25M, Peak:0.25M | Scene, ViewLayer | Updating Camera Volume   
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.02 | Mem:0.25M, Peak:0.25M | Scene, ViewLayer | Updating Lookup Tables   
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.02 | Mem:0.33M, Peak:0.33M | Scene, ViewLayer | Updating Lights
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.03 | Mem:0.33M, Peak:0.33M | Scene, ViewLayer | Updating Lights | Computing tree
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.03 | Mem:0.33M, Peak:0.33M | Scene, ViewLayer | Updating Integrator
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.03 | Mem:0.33M, Peak:0.33M | Scene, ViewLayer | Updating Film
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.03 | Mem:0.25M, Peak:0.33M | Scene, ViewLayer | Updating Lookup Tables   
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.03 | Mem:0.33M, Peak:0.33M | Scene, ViewLayer | Updating Baking
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.03 | Mem:0.33M, Peak:0.33M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.03 | Mem:0.33M, Peak:0.33M | Scene, ViewLayer | Loading denoising kernels (may take a few minutes the first time)
+Fra:1 Mem:9.68M (Peak 10.24M) | Time:00:00.03 | Mem:0.33M, Peak:0.33M | Scene, ViewLayer | Sample 0/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:01.08 | Remaining:17:57.61 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 1/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:05.21 | Remaining:17:35.68 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 5/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:09.11 | Remaining:17:03.62 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 9/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:12.99 | Remaining:16:47.93 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 13/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:16.89 | Remaining:16:39.00 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 17/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:20.85 | Remaining:16:34.23 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 21/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:24.72 | Remaining:16:26.62 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 25/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:28.69 | Remaining:16:23.37 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 29/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:32.68 | Remaining:16:20.46 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 33/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:36.61 | Remaining:16:15.79 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 37/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:40.49 | Remaining:16:10.05 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 41/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:44.46 | Remaining:16:06.55 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 45/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:47.48 | Remaining:16:04.89 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 48/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:47.50 | Remaining:14:47.25 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 52/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:47.51 | Remaining:13:40.75 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 56/1024
+Fra:1 Mem:160.30M (Peak 160.30M) | Time:00:47.52 | Remaining:12:43.07 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 60/1024
+Fra:1 Mem:160.30M (Peak 207.76M) | Time:00:57.18 | Remaining:14:17.19 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 64/1024
+Fra:1 Mem:223.58M (Peak 318.50M) | Time:01:06.91 | Remaining:16:43.24 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Sample 0/1024
+Fra:1 Mem:223.58M (Peak 318.50M) | Time:01:06.91 | Remaining:16:43.24 | Mem:150.63M, Peak:150.63M | Scene, ViewLayer | Finished
+Render statistics:
+Mesh statistics:
+  Geometry:
+    Total memory: 39.49K (40,436)
+        Teapot                           38.81K (39,737)
+        Plane.003                        179 (179)
+        Plane.004                        179 (179)
+        Plane.005                        179 (179)
+        Light                            81 (81)
+        light                            81 (81)
+Image statistics:
+  Textures:
+    Total memory: 0 (0)
+Kernel statistics:
+  Total render time               : Total 100.00% (1205.54s), Self 7.10% (85.63s)
+    Shade Surface                   : Total 66.70% (804.12s), Self 0.00% (0.00s)
+      Direct Light                    : Total 27.00% (325.48s), Self 27.00% (325.48s)
+      Shader Evaluation               : Total 17.87% (215.38s), Self 17.87% (215.38s)
+      Indirect Light                  : Total 12.29% (148.18s), Self 12.29% (148.18s)
+      Render Passes                   : Total 6.86% (82.72s), Self 6.86% (82.72s)
+      Setup                           : Total 2.68% (32.36s), Self 2.68% (32.36s)
+      Ambient Occlusion               : Total 0.00% (0.00s), Self 0.00% (0.00s)
+    Intersect Closest               : Total 10.51% (126.70s), Self 10.51% (126.70s)
+    Shade Light                     : Total 5.89% (71.02s), Self 0.00% (0.00s)
+      Setup                           : Total 3.08% (37.18s), Self 3.08% (37.18s)
+      Shader Evaluation               : Total 2.81% (33.84s), Self 2.81% (33.84s)
+    Ray setup                       : Total 5.38% (64.90s), Self 5.38% (64.90s)
+    Intersect Shadow                : Total 3.48% (41.94s), Self 3.48% (41.94s)
+    Shade Shadow                    : Total 0.93% (11.23s), Self 0.00% (0.00s)
+      Setup                           : Total 0.93% (11.23s), Self 0.93% (11.23s)
+      Surface                         : Total 0.00% (0.00s), Self 0.00% (0.00s)
+      Volume                          : Total 0.00% (0.00s), Self 0.00% (0.00s)
+      Blocked Light                   : Total 0.00% (0.00s), Self 0.00% (0.00s)
+    Intersect Subsurface            : Total 0.00% (0.00s), Self 0.00% (0.00s)
+    Intersect Volume Stack          : Total 0.00% (0.00s), Self 0.00% (0.00s)
+    Intersect Blocked Light         : Total 0.00% (0.00s), Self 0.00% (0.00s)
+    Shade Volume                    : Total 0.00% (0.00s), Self 0.00% (0.00s)
+      Setup                           : Total 0.00% (0.00s), Self 0.00% (0.00s)
+      Integrate                       : Total 0.00% (0.00s), Self 0.00% (0.00s)
+      Direct Light                    : Total 0.00% (0.00s), Self 0.00% (0.00s)
+      Indirect Light                  : Total 0.00% (0.00s), Self 0.00% (0.00s)
+Shader statistics:
+  Normals                         : 447.43s (Relative cost: 1.61)
+  rechts                          : 156.69s (Relative cost: 0.94)
+  links                           : 57.14s (Relative cost: 0.38)
+  oben                            : 21.21s (Relative cost: 0.24)
+Object statistics:
+  Teapot                          : 447.41s (Relative cost: 1.61)
+  MLL - right                     : 156.66s (Relative cost: 0.94)
+  MLL - left                      : 57.08s (Relative cost: 0.38)
+  MLL - rimlight                  : 21.17s (Relative cost: 0.24)
+
+Fra:1 Mem:72.57M (Peak 318.50M) | Time:01:06.92 | Compositing
+Saved: '/tmp/outputs/0001.png'
+Time: 01:07.93 (Saving: 00:01.00)
+
+
+Blender quit
+Error: Not freed memory blocks: 6, total unfreed memory 0.000641 MB
+root@175e8241081a:/opt/artist#
