@@ -72,7 +72,10 @@ fn main() -> miette::Result<()> {
         .build()
         .into_diagnostic()?;
 
-    runtime.block_on(async_main())
+    // Spawn the actor system in the background
+    let actor_system = actix::System::with_tokio_rt(|| runtime);
+
+    actor_system.block_on(async_main())
 }
 
 async fn async_main() -> miette::Result<()> {
@@ -95,19 +98,10 @@ async fn async_main() -> miette::Result<()> {
         log_builder.init();
     }
 
-    // Spawn the actor system in the background
-    let system_handle = tokio::spawn(async move {
-        // Start the Actix actor system
-        let system = actix::System::new();
-
-        system.run()
-    });
-
     let opts = JobQueueCli::from_args();
     let result = opts.run().await;
 
     actix::System::current().stop();
-    let _ = system_handle.await.into_diagnostic()?;
 
     result
 }
