@@ -152,7 +152,7 @@ impl HostDao {
     /// * `Ok(HostDao)` - Configured DAO ready for host operations
     /// * `Err(miette::Error)` - If database connection fails
     pub async fn from_config(config: &DatabaseConfig) -> Result<Self> {
-        let pool = connection_pool(config).await?;
+        let pool = connection_pool(config).await.into_diagnostic()?;
         Ok(HostDao {
             connection_pool: pool,
         })
@@ -265,5 +265,12 @@ impl HostDao {
         .wrap_err("Failed to update host resources")?;
 
         Ok(())
+    }
+
+    /// Gets access to the underlying connection pool
+    ///
+    /// Used for transaction coordination in actor-based dispatch operations
+    pub fn get_connection_pool(&self) -> Arc<Pool<Postgres>> {
+        self.connection_pool.clone()
     }
 }

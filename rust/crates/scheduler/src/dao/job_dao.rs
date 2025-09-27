@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use futures::Stream;
-use miette::Result;
+use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use tracing::debug;
@@ -127,7 +126,7 @@ impl JobDao {
     /// * `Ok(JobDao)` - Configured DAO ready for job operations
     /// * `Err(miette::Error)` - If database connection fails
     pub async fn from_config(config: &DatabaseConfig) -> Result<Self> {
-        let pool = connection_pool(config).await?;
+        let pool = connection_pool(config).await.into_diagnostic()?;
 
         Ok(JobDao {
             connection_pool: pool,

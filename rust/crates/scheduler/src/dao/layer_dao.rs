@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use bytesize::ByteSize;
-use miette::Result;
+use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use tracing::{debug, warn};
@@ -266,7 +266,7 @@ impl LayerDao {
     /// * `Ok(LayerDao)` - Configured DAO ready for layer operations
     /// * `Err(miette::Error)` - If database connection fails
     pub async fn new(config: &DatabaseConfig, frame_dao: Arc<FrameDao>) -> Result<Self> {
-        let pool = connection_pool(config).await?;
+        let pool = connection_pool(config).await.into_diagnostic()?;
         Ok(LayerDao {
             connection_pool: pool,
         })

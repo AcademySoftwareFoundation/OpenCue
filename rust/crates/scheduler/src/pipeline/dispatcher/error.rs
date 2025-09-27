@@ -26,4 +26,10 @@ pub enum DispatchError {
 
     #[error("DispatchError: Failed to update frame on the database")]
     FailedToStartOnDb(Error),
+
+    #[error("DispatchError: Failed to open a GRPC connection")]
+    FailureGrpcConnection(String, Error),
+
+    #[error("DispatchError: Failed to execute command on GRPC interface")]
+    GrpcFailure(tonic::Status),
 }

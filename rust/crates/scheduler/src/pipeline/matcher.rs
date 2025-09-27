@@ -8,15 +8,17 @@ use crate::{
     cluster_key::Tag,
     config::CONFIG,
     dao::{FrameDao, HostDao, LayerDao},
-    host_cache::messages::*,
-    host_cache::{HostCacheService, host_cache_service},
+    host_cache::{HostCacheService, host_cache_service, messages::*},
     models::{DispatchJob, DispatchLayer, Host},
-    pgpool::begin_transaction,
-    pipeline::dispatcher::{RqdDispatcher, error::DispatchError},
+    pipeline::dispatcher::{
+        RqdDispatcherService,
+        error::DispatchError,
+        messages::{DispatchLayerMessage, DispatchResult},
+        rqd_dispatcher_service,
+    },
 };
 use actix::Addr;
 use miette::Result;
-use sqlx::{Postgres, Transaction};
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info, warn};
 
@@ -32,7 +34,7 @@ pub static HOST_CYCLES: AtomicUsize = AtomicUsize::new(0);
 pub struct MatchingService {
     host_service: Addr<HostCacheService>,
     layer_dao: LayerDao,
-    dispatcher: RqdDispatcher,
+    dispatcher_service: Addr<RqdDispatcherService>,
     concurrency_semaphore: Arc<Semaphore>,
 }
 
@@ -44,24 +46,17 @@ impl MatchingService {
     /// - Layer DAO for querying job layers
     /// - RQD dispatcher for frame execution
     pub async fn new() -> Result<Self> {
-        let host_dao = Arc::new(HostDao::from_config(&CONFIG.database).await?);
         let frame_dao = Arc::new(FrameDao::from_config(&CONFIG.database).await?);
         let layer_dao = LayerDao::new(&CONFIG.database, frame_dao.clone()).await?;
         let host_service = host_cache_service().await?;
         // let max_concurrent_transactions = 2;
         let max_concurrent_transactions = CONFIG.database.pool_size as usize * 3 / 5;
+        let dispatcher_service = rqd_dispatcher_service().await?;
 
-        let dispatcher = RqdDispatcher::new(
-            frame_dao,
-            host_dao.clone(),
-            CONFIG.rqd.grpc_port,
-            CONFIG.queue.memory_stranded_threshold,
-            CONFIG.rqd.dry_run_mode,
-        );
         Ok(MatchingService {
             host_service,
             layer_dao,
-            dispatcher,
+            dispatcher_service,
             concurrency_semaphore: Arc::new(Semaphore::new(max_concurrent_transactions)),
         })
     }
@@ -98,15 +93,10 @@ impl MatchingService {
                     // TODO: Properly handle errors and remove unwrap
                     let _permit = self.concurrency_semaphore.acquire().await.unwrap();
 
-                    let mut trans = begin_transaction(&CONFIG.database).await.unwrap();
                     let cluster = cluster.clone();
-                    self.process_layer(layer, cluster, &mut trans).await;
+                    self.process_layer(layer, cluster).await;
                     debug!("{}: Processed layer", layer_disp);
                     processed_layers.fetch_add(1, Ordering::Relaxed);
-
-                    if let Err(err) = trans.commit().await {
-                        error!("Failed to commit job {} transaction. {}", job_disp, err);
-                    }
                 }
                 // TODO: Evaluate if handling transaction during panic is necesssary here
 
@@ -161,40 +151,41 @@ impl MatchingService {
     ///
     /// # Arguments
     /// * `dispatch_layer` - The layer to dispatch to a host
-    async fn process_layer(
-        &self,
-        dispatch_layer: DispatchLayer,
-        cluster: Arc<Cluster>,
-        transaction: &mut Transaction<'_, Postgres>,
-    ) {
+    async fn process_layer(&self, dispatch_layer: DispatchLayer, cluster: Arc<Cluster>) {
         let mut try_again = true;
         let mut attempts = CONFIG.queue.host_candidate_attemps_per_layer;
-        let mut current_layer_version = dispatch_layer;
+
+        // Use Option to handle ownership transfer cleanly
+        let mut current_layer_version = Some(dispatch_layer);
 
         while try_again && attempts > 0 {
             HOST_CYCLES.fetch_add(1, Ordering::Relaxed);
+
+            // Take ownership of the layer for this iteration
+            let layer = current_layer_version
+                .take()
+                .expect("Layer should be available");
+
             // Filter layer tags to match the scope of the cluster in context
-            let tags = Self::filter_matching_tags(&cluster, &current_layer_version);
+            let tags = Self::filter_matching_tags(&cluster, &layer);
             assert!(
                 !tags.is_empty(),
                 "Layer shouldn't be here if it doesn't contain at least one matching tag"
             );
             debug!(
                 "{}: Getting a host candidate for {}, {}",
-                current_layer_version,
-                current_layer_version.facility_id,
-                current_layer_version.show_id
+                layer, layer.facility_id, layer.show_id
             );
 
-            let current_layer_id = current_layer_version.id.clone();
+            let current_layer_id = layer.id.clone();
             let host_candidate = self
                 .host_service
                 .send(CheckOut {
-                    facility_id: current_layer_version.facility_id.clone(),
-                    show_id: current_layer_version.show_id.clone(),
+                    facility_id: layer.facility_id.clone(),
+                    show_id: layer.show_id.clone(),
                     tags,
-                    cores: current_layer_version.cores_min,
-                    memory: current_layer_version.mem_min,
+                    cores: layer.cores_min,
+                    memory: layer.mem_min,
                     validation: move |host| Self::validate_match(host, current_layer_id.clone()),
                 })
                 .await
@@ -203,56 +194,77 @@ impl MatchingService {
             match host_candidate {
                 Ok(CheckedOutHost(cluster_key, host)) => {
                     let host_before_dispatch = host.clone();
+                    // Store layer info for error logging before moving ownership
+                    let layer_display = format!("{}", layer);
+                    let layer_job_id = layer.job_id.clone();
+
                     match self
-                        .dispatcher
-                        .dispatch(&current_layer_version, host, transaction)
+                        .dispatcher_service
+                        .send(DispatchLayerMessage {
+                            layer, // Move ownership here
+                            host,
+                        })
                         .await
+                        .expect("Dispatcher actor is unresponsive")
                     {
-                        Ok((updated_host, updated_dispatch_layer)) => {
+                        Ok(DispatchResult {
+                            updated_host,
+                            updated_layer,
+                            dispatched_frames: _,
+                        }) => {
                             // Stop on the first successful attempt
                             self.host_service
                                 .send(CheckIn(cluster_key, updated_host))
                                 .await
                                 .expect("Host Cache actor is unresponsive");
 
-                            if updated_dispatch_layer.frames.is_empty() {
-                                debug!("Layer {} fully consumed.", updated_dispatch_layer,);
+                            if updated_layer.frames.is_empty() {
+                                debug!("Layer {} fully consumed.", updated_layer,);
                                 try_again = false;
                             } else {
                                 debug!(
                                     "Layer {} not fully consumed. {} frames left",
-                                    updated_dispatch_layer,
-                                    updated_dispatch_layer.frames.len()
-                                )
+                                    updated_layer,
+                                    updated_layer.frames.len()
+                                );
+                                // Put the updated layer back for the next iteration
+                                current_layer_version = Some(updated_layer);
                             }
-                            current_layer_version = updated_dispatch_layer;
                         }
                         Err(err) => {
-                            // Attempt next candidate in any failure case
-                            Self::log_dispatch_error(
+                            // On error, we lost the layer since it was moved to DispatchLayerMessage
+                            // This means we can't continue with this layer
+                            Self::log_dispatch_error_with_info(
                                 err,
-                                &current_layer_version,
+                                &layer_display,
+                                &layer_job_id,
                                 &host_before_dispatch,
                             );
                             self.host_service
                                 .send(CheckIn(cluster_key, host_before_dispatch))
                                 .await
                                 .expect("Host Cache actor is unresponsive");
+                            try_again = false; // Can't continue without the layer
                         }
                     };
                 }
-                Err(err) => match err {
-                    crate::host_cache::HostCacheError::NoCandidateAvailable => {
-                        warn!(
-                            "No host candidate available for layer {}",
-                            current_layer_version
-                        );
-                        try_again = false;
+                Err(err) => {
+                    // Put the layer back since we didn't use it
+                    current_layer_version = Some(layer);
+
+                    match err {
+                        crate::host_cache::HostCacheError::NoCandidateAvailable => {
+                            warn!(
+                                "No host candidate available for layer {}",
+                                current_layer_version.as_ref().unwrap()
+                            );
+                            try_again = false;
+                        }
+                        crate::host_cache::HostCacheError::FailedToQueryHostCache(err) => {
+                            panic!("Cache is no longer able to access the database. {}", err)
+                        }
                     }
-                    crate::host_cache::HostCacheError::FailedToQueryHostCache(err) => {
-                        panic!("Cache is no longer able to access the database. {}", err)
-                    }
-                },
+                }
             }
             attempts -= 1;
         }
@@ -265,6 +277,28 @@ impl MatchingService {
     /// * `dispatch_layer` - The layer that failed to dispatch
     /// * `host` - The host that the dispatch was attempted on
     fn log_dispatch_error(error: DispatchError, dispatch_layer: &DispatchLayer, host: &Host) {
+        Self::log_dispatch_error_with_info(
+            error,
+            &format!("{}", dispatch_layer),
+            &dispatch_layer.job_id,
+            host,
+        )
+    }
+
+    /// Handles various dispatch errors with appropriate logging and actions using pre-computed layer info.
+    /// This is used when the layer has been moved and we can't reference it directly.
+    ///
+    /// # Arguments
+    /// * `error` - The dispatch error that occurred
+    /// * `layer_display` - Pre-computed display string for the layer
+    /// * `layer_job_id` - The job ID from the layer
+    /// * `host` - The host that the dispatch was attempted on
+    fn log_dispatch_error_with_info(
+        error: DispatchError,
+        layer_display: &str,
+        layer_job_id: &str,
+        host: &Host,
+    ) {
         match error {
             DispatchError::HostLock(host_name) => {
                 info!("Failed to acquire lock for host {}", host_name)
@@ -272,7 +306,7 @@ impl MatchingService {
             DispatchError::Failure(report) => {
                 error!(
                     "Failed to dispatch {} on {}. {}",
-                    dispatch_layer,
+                    layer_display,
                     host,
                     report.to_string()
                 );
@@ -280,7 +314,7 @@ impl MatchingService {
             DispatchError::AllocationOverBurst(allocation_name) => {
                 let msg = format!(
                     "Skiping host in this selection for {}. Allocation {} is over burst.",
-                    dispatch_layer.job_id, allocation_name
+                    layer_job_id, allocation_name
                 );
                 info!(msg);
             }
@@ -289,14 +323,14 @@ impl MatchingService {
                 // but its status hasn't been updated on the database
                 let msg = format!(
                     "Failed after dispatch {} on {}. {}",
-                    dispatch_layer, host, report
+                    layer_display, host, report
                 );
                 error!(msg);
             }
             DispatchError::FailedToStartOnDb(report) => {
                 error!(
                     "Failed to Start frame on Database when dispatching {} on {}. {}",
-                    dispatch_layer,
+                    layer_display,
                     host,
                     report.to_string()
                 );
@@ -304,9 +338,21 @@ impl MatchingService {
             DispatchError::DbFailure(error) => {
                 error!(
                     "Failed to Start due to database error when dispatching {} on {}. {}",
-                    dispatch_layer,
+                    layer_display,
                     host,
                     error.to_string()
+                );
+            }
+            DispatchError::FailureGrpcConnection(_, report) => {
+                error!(
+                    "{} failed to create a GRPC connection to {}. {}",
+                    layer_display, host, report
+                );
+            }
+            DispatchError::GrpcFailure(status) => {
+                error!(
+                    "{} failed to create execute grpc command on {}. {}",
+                    layer_display, host, status
                 );
             }
         }

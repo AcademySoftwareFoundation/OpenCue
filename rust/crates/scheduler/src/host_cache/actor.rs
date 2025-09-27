@@ -1,21 +1,21 @@
-use actix::{Actor, ActorFutureExt, Handler, ResponseActFuture, WrapFuture};
+use actix::{Actor, ActorFutureExt, AsyncContext, Handler, ResponseActFuture, WrapFuture};
 
 use bytesize::ByteSize;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
-use scc::{HashMap, hash_map::OccupiedEntry};
+use scc::{HashMap, HashSet, hash_map::OccupiedEntry};
 use std::{
     cmp::Ordering,
     sync::{
-        Arc, Mutex,
+        Arc,
         atomic::{self, AtomicU64},
     },
 };
 
 use futures::{StreamExt, stream};
 use miette::Result;
-use tokio::{sync::Semaphore, time};
-use tracing::{debug, error};
+use tokio::sync::Semaphore;
+use tracing::{debug, error, info};
 
 use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
@@ -37,6 +37,22 @@ pub struct HostCacheService {
 
 impl Actor for HostCacheService {
     type Context = actix::Context<Self>;
+
+    fn started(&mut self, ctx: &mut Self::Context) {
+        let service = self.clone();
+
+        ctx.run_interval(CONFIG.host_cache.monitoring_interval, move |_act, ctx| {
+            let service = service.clone();
+            let actor_clone = service.clone();
+            ctx.spawn(async move { service.refresh_cache().await }.into_actor(&actor_clone));
+        });
+
+        info!("HostCacheService actor started");
+    }
+
+    fn stopped(&mut self, _ctx: &mut Self::Context) {
+        info!("HostCacheService actor stopped");
+    }
 }
 
 impl<F> Handler<CheckOut<F>> for HostCacheService
@@ -211,62 +227,43 @@ impl HostCacheService {
             })
     }
 
-    // TODO: Review this logic in the context of Actors
-    fn start(self: Arc<Self>) {
-        let service = self.clone();
-        // Will loop forever on its own thread
-        tokio::spawn(async move { service.start_loop().await });
-    }
-
-    async fn start_loop(&self) {
+    async fn refresh_cache(&self) {
         let caches = Arc::new(&self.groups);
-        // Fetch refresh active groups cashes preemptively on an interval
-        let mut interval = time::interval(CONFIG.host_cache.monitoring_interval);
 
-        loop {
-            interval.tick().await;
+        // Clone list of groups keys to avoid keeping a lock through the stream lifetime
+        let mut cloned_keys = Vec::new();
+        self.groups.iter_sync(|key, value| {
+            cloned_keys.push((key.clone(), value.is_idle()));
+            true
+        });
 
-            // Clone list of groups keys to avoid keeping a lock through the stream lifetime
-            let mut cloned_keys = Vec::new();
-            self.groups.iter_sync(|key, value| {
-                cloned_keys.push((key.clone(), value.is_idle()));
-                true
-            });
+        let groups_for_removal = HashSet::new();
 
-            let groups_for_removal = Arc::new(Mutex::new(vec![]));
+        stream::iter(cloned_keys)
+            .map(|(group_key, is_idle)| {
+                let groups_for_removal = groups_for_removal.clone();
 
-            stream::iter(cloned_keys)
-                .map(|(group_key, is_idle)| {
-                    let groups_for_removal = groups_for_removal.clone();
-
-                    async move {
-                        // Skip groups if it exists on the cache but haven't been queried for a while
-                        if is_idle {
-                            groups_for_removal
-                                .lock()
-                                .expect("Failed to acquire lock")
-                                .push(group_key)
-                        } else if let Err(err) = self.fetch_group_data(&group_key).await {
-                            error!(
-                                "Failed to fetch cache data on cache loop for key {}.{}",
-                                group_key, err
-                            );
-                        }
+                async move {
+                    // Skip groups if it exists on the cache but haven't been queried for a while
+                    if is_idle {
+                        groups_for_removal.insert_async(group_key).await;
+                    } else if let Err(err) = self.fetch_group_data(&group_key).await {
+                        error!(
+                            "Failed to fetch cache data on cache loop for key {}.{}",
+                            group_key, err
+                        );
                     }
-                })
-                .buffer_unordered(CONFIG.host_cache.concurrent_groups)
-                .collect::<Vec<()>>()
-                .await;
+                }
+            })
+            .buffer_unordered(CONFIG.host_cache.concurrent_groups)
+            .collect::<Vec<()>>()
+            .await;
 
-            // Clean up caches that haven't been queried for a while
-            for key in groups_for_removal
-                .lock()
-                .expect("Failed to acquire lock")
-                .iter()
-            {
-                caches.remove_sync(key);
-            }
-        }
+        // Clean up caches that haven't been queried for a while
+        groups_for_removal.iter_sync(|key| {
+            caches.remove_sync(key);
+            true
+        });
     }
 
     async fn fetch_group_data(

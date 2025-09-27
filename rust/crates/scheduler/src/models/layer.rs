@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::{DispatchFrame, core_size::CoreSize, fmt_uuid};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DispatchLayer {
     pub id: String,
     pub job_id: String,

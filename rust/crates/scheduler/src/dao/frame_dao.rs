@@ -1,14 +1,13 @@
 use std::sync::Arc;
 
 use bytesize::{ByteSize, KB};
-use futures::Stream;
 use miette::{Context, IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres, Transaction};
 
 use crate::{
     config::DatabaseConfig,
-    models::{CoreSize, DispatchFrame, DispatchLayer, VirtualProc},
+    models::{CoreSize, DispatchFrame, VirtualProc},
     pgpool::connection_pool,
 };
 
@@ -179,7 +178,7 @@ impl FrameDao {
     /// * `Ok(FrameDao)` - Configured DAO ready for database operations
     /// * `Err(miette::Error)` - If database connection fails
     pub async fn from_config(config: &DatabaseConfig) -> Result<Self> {
-        let pool = connection_pool(config).await?;
+        let pool = connection_pool(config).await.into_diagnostic()?;
         Ok(FrameDao {
             connection_pool: pool,
         })

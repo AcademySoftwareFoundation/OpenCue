@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use futures::Stream;
-use miette::Result;
+use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 
@@ -23,7 +23,7 @@ pub struct ClusterDao {
 /// needed for dispatch matching. This model is converted to the business
 /// logic `Host` type for processing.
 #[derive(sqlx::FromRow, Serialize, Deserialize)]
-pub(crate) struct ClusterModel {
+pub struct ClusterModel {
     pub tag: String,
     pub show_id: String,
     pub facility_id: String,
@@ -67,7 +67,7 @@ impl ClusterDao {
     /// * `Ok(HostDao)` - Configured DAO ready for host operations
     /// * `Err(miette::Error)` - If database connection fails
     pub async fn from_config(config: &DatabaseConfig) -> Result<Self> {
-        let pool = connection_pool(config).await?;
+        let pool = connection_pool(config).await.into_diagnostic()?;
         Ok(ClusterDao {
             connection_pool: pool,
         })
