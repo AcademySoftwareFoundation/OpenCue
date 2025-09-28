@@ -9,10 +9,7 @@ name = "opencue_cueman"
 dynamic = ["version"]
 dependencies = [
     "opencue_pycue",
-    "opencue_cueadmin",
-    "mock>=2.0.0",
-    "pyfakefs>=5.2.3",
-    "pytest>=6.0"
+    "opencue_cueadmin"
 ]
 requires-python = ">3.7"
 description = "Cueman is a command-line job management tool for OpenCue that provides efficient job control operations. It offers a streamlined interface for managing jobs, frames, and processes with advanced filtering and batch operation capabilities."
@@ -49,22 +46,22 @@ markers = [
 # --- Optional Test Dependencies ---
 [project.optional-dependencies]
 test = [
-    "pytest>=8.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "mock>=4.0.0",
-    "pyfakefs>=5.2.3"
+    "mock==2.0.0",
+    "pyfakefs==5.2.3",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
 ]
 
 dev = [
-    "pytest>=8.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "mock>=4.0.0",
-    "pyfakefs>=5.2.3",
-    "pylint>=3.0.0",
-    "black>=23.0.0",
-    "isort>=5.12.0"
+    "mock==2.0.0",
+    "pyfakefs==5.2.3",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pylint",
+    "black",
+    "isort"
 ]
 
 # --- Coverage configuration ---

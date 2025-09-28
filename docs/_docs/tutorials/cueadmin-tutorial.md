@@ -624,5 +624,27 @@ Remember to always:
 ## Next Steps
 
 - Explore the [CueAdmin Reference](/docs/reference/tools/cueadmin/) for complete command documentation
-- Learn about [Cueman](/docs/reference/tools/cueman/) for job management
 - Practice with test shows and allocations before working on production
+- Learn about [CueAdmin development and testing](/docs/reference/tools/cueadmin/#development-and-testing) if you want to contribute
+- Continue to the [Developer Guide](/docs/developer-guide/) to learn about contributing to OpenCue
+
+## Development and Contributing
+
+CueAdmin is actively developed with:
+- **Comprehensive test suite** with tests covering unit and integration scenarios
+- **Modern testing infrastructure** using pytest, coverage reporting, and CI/CD integration
+- **Development tools** including linting, formatting, and multi-Python version testing
+
+To contribute or run tests locally:
+
+```bash
+# Install with development dependencies
+pip install -e ".[dev]"
+
+# Run the test suite
+pytest --cov=cueadmin --cov-report=term-missing
+
+# Format and lint code
+black cueadmin tests && isort cueadmin tests
+pylint cueadmin tests
+```
