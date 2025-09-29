@@ -18,6 +18,7 @@
 """Unit tests for frame operations cueman"""
 
 #pylint: disable=invalid-name
+#pylint: disable=too-many-public-methods
 import unittest
 from unittest.mock import MagicMock, patch
 import argparse
@@ -396,7 +397,8 @@ class TestFrameOperations (unittest.TestCase):
         cuemain.handleArgs(args)
 
         mock_findJob.assert_called_once_with("test_job")
-        mock_promptYesNo.assert_called_once_with("Mark done specified frames on job test_job", False)
+        mock_promptYesNo.assert_called_once_with("Mark done specified frames on job test_job",
+                                                 False)
         mock_job.markdoneFrames.assert_called_once_with(layer="render_layer" , range="1-10")
 
 

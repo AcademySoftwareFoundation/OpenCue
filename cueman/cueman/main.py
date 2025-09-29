@@ -731,12 +731,12 @@ def buildFrameSearch(args):
         s["layer"] = args.layer
     if args.range:
         if not re.match(r"^\d+$|^\d+-\d+$", args.range):
-            logger.error("Invalid range format: %s" % args.range)
+            logger.error("Invalid range format: %s", args.range)
             sys.exit(1)
         if "-" in args.range:
             r = args.range.partition("-")
             if r[0] > r[2]:
-                logger.error("Invalid range: start frame greater than end frame")
+                logger.error("Invalid range format: %s", args.range)
                 sys.exit(1)
         s["range"] = args.range
     if args.state:
