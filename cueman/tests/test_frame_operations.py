@@ -66,11 +66,11 @@ class TestFrameOperations (unittest.TestCase):
         mock_job = MagicMock()
         mock_findJob.return_value = mock_job
 
-        args = self._ns(eat="test_job", layer="render_layer", range="1-10", force=True)
+        args = self._ns(eat="test_job", layer=["render_layer"], range="1-10", force=True)
         cuemain.handleArgs(args)
 
         mock_findJob.assert_called_once_with("test_job")
-        mock_job.eatFrames.assert_called_once_with(layer="render_layer" , range="1-10")
+        mock_job.eatFrames.assert_called_once_with(layer=["render_layer"], range="1-10")
 
 
     @patch("opencue.api.findJob")
@@ -79,11 +79,11 @@ class TestFrameOperations (unittest.TestCase):
         mock_job = MagicMock()
         mock_findJob.return_value = mock_job
 
-        args = self._ns(kill="test_job", layer="render_layer", range="1-10", force=True)
+        args = self._ns(kill="test_job", layer=["render_layer"], range="1-10", force=True)
         cuemain.handleArgs(args)
 
         mock_findJob.assert_called_once_with("test_job")
-        mock_job.killFrames.assert_called_once_with(layer="render_layer", range="1-10")
+        mock_job.killFrames.assert_called_once_with(layer=["render_layer"], range="1-10")
 
 
     @patch("opencue.api.findJob")
@@ -92,11 +92,11 @@ class TestFrameOperations (unittest.TestCase):
         mock_job = MagicMock()
         mock_findJob.return_value = mock_job
 
-        args = self._ns(retry="test_job", layer="render_layer", range="1-10", force=True)
+        args = self._ns(retry="test_job", layer=["render_layer"], range="1-10", force=True)
         cuemain.handleArgs(args)
 
         mock_findJob.assert_called_once_with("test_job")
-        mock_job.retryFrames.assert_called_once_with(layer="render_layer", range="1-10")
+        mock_job.retryFrames.assert_called_once_with(layer=["render_layer"], range="1-10")
 
 
     # -------------- eatFrame state filtering tests --------------
@@ -210,7 +210,7 @@ class TestFrameOperations (unittest.TestCase):
     # -------------- Mark done functionality test --------------
 
     @patch("opencue.api.findJob")
-    def test_done_fundtionality(self, mock_findJob):
+    def test_done_functionality(self, mock_findJob):
         """Test mark done functionality"""
         mock_job = MagicMock()
         mock_job.markdoneFrames = MagicMock()
@@ -342,12 +342,12 @@ class TestFrameOperations (unittest.TestCase):
         mock_findJob.return_value = mock_job
         mock_promptYesNo.return_value = True
 
-        args = self._ns(eat="test_job", layer="render_layer", range="1-10", force=False)
+        args = self._ns(eat="test_job", layer=["render_layer"], range="1-10", force=False)
         cuemain.handleArgs(args)
 
         mock_findJob.assert_called_once_with("test_job")
         mock_promptYesNo.assert_called_once_with("Eat specified frames on job test_job", False)
-        mock_job.eatFrames.assert_called_once_with(layer="render_layer" , range="1-10")
+        mock_job.eatFrames.assert_called_once_with(layer=["render_layer"], range="1-10")
 
 
     @patch("opencue.api.findJob")
@@ -359,12 +359,12 @@ class TestFrameOperations (unittest.TestCase):
         mock_findJob.return_value = mock_job
         mock_promptYesNo.return_value = True
 
-        args = self._ns(kill="test_job", layer="render_layer", range="1-10", force=False)
+        args = self._ns(kill="test_job", layer=["render_layer"], range="1-10", force=False)
         cuemain.handleArgs(args)
 
         mock_findJob.assert_called_once_with("test_job")
         mock_promptYesNo.assert_called_once_with("Kill specified frames on job test_job", False)
-        mock_job.killFrames.assert_called_once_with(layer="render_layer" , range="1-10")
+        mock_job.killFrames.assert_called_once_with(layer=["render_layer"], range="1-10")
 
 
     @patch("opencue.api.findJob")
@@ -376,12 +376,12 @@ class TestFrameOperations (unittest.TestCase):
         mock_findJob.return_value = mock_job
         mock_promptYesNo.return_value = True
 
-        args = self._ns(retry="test_job", layer="render_layer", range="1-10", force=False)
+        args = self._ns(retry="test_job", layer=["render_layer"], range="1-10", force=False)
         cuemain.handleArgs(args)
 
         mock_findJob.assert_called_once_with("test_job")
         mock_promptYesNo.assert_called_once_with("Retry specified frames on job test_job", False)
-        mock_job.retryFrames.assert_called_once_with(layer="render_layer" , range="1-10")
+        mock_job.retryFrames.assert_called_once_with(layer=["render_layer"], range="1-10")
 
 
     @patch("opencue.api.findJob")
@@ -393,13 +393,13 @@ class TestFrameOperations (unittest.TestCase):
         mock_findJob.return_value = mock_job
         mock_promptYesNo.return_value = True
 
-        args = self._ns(done="test_job", layer="render_layer", range="1-10", force=False)
+        args = self._ns(done="test_job", layer=["render_layer"], range="1-10", force=False)
         cuemain.handleArgs(args)
 
         mock_findJob.assert_called_once_with("test_job")
         mock_promptYesNo.assert_called_once_with("Mark done specified frames on job test_job",
                                                  False)
-        mock_job.markdoneFrames.assert_called_once_with(layer="render_layer" , range="1-10")
+        mock_job.markdoneFrames.assert_called_once_with(layer=["render_layer"], range="1-10")
 
 
 if __name__ == '__main__':
