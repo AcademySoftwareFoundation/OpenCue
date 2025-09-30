@@ -218,6 +218,8 @@ Add delays between frame starts:
 cueman -stagger job_name 1-100 5  # Stagger by 5 frame increments
 ```
 
+**Note:** Increment must be a positive integer. Zero, negative, and non-numeric values will be rejected.
+
 #### Reorder Frames
 
 Change execution order:
@@ -227,6 +229,8 @@ cueman -reorder job_name 50-100 FIRST    # Move to front
 cueman -reorder job_name 1-49 LAST       # Move to back
 cueman -reorder job_name 1-100 REVERSE   # Reverse order
 ```
+
+**Note:** Position must be one of: `FIRST`, `LAST`, or `REVERSE`. Other values will be rejected.
 
 ## Filtering Options
 
@@ -249,6 +253,8 @@ cueman -lf job_name -range 1-100           # Continuous range
 cueman -lf job_name -range 1,3,5,7,9       # Individual frames
 cueman -lf job_name -range 1-10,20,30-40   # Mixed ranges
 ```
+
+**Validation:** Range must be numeric (single frame like `5` or range like `1-100`). For ranges, the start frame must be less than or equal to the end frame (e.g., `10-1` is invalid).
 
 ### Layer Filter
 
@@ -389,6 +395,30 @@ cueman -server cuebot.example.com:8443 -lf job_name
 
 # Enable verbose for debugging
 cueman -v -info job_name
+```
+
+**Invalid stagger increment:**
+```bash
+$ cueman -stagger job_name 1-100 0
+Error: Increment must be a positive integer.
+
+$ cueman -stagger job_name 1-100 -5
+Error: Increment must be a positive integer.
+```
+
+**Invalid reorder position:**
+```bash
+$ cueman -reorder job_name 1-50 MIDDLE
+Error: Position must be one of FIRST, LAST, or REVERSE.
+```
+
+**Invalid frame range:**
+```bash
+$ cueman -eat job_name -range 10-1
+Error: Invalid range format: 10-1
+
+$ cueman -eat job_name -range 1-a
+Error: Invalid range format: 1-a
 ```
 
 ### Getting Help

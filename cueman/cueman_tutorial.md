@@ -376,6 +376,8 @@ cueman -stagger job_name 1-100 5
 cueman -stagger job_name 1-50 10 -layer sim_layer
 ```
 
+**Note:** Increment must be a positive integer. Zero, negative, and non-numeric values will be rejected.
+
 ### Reorder Frames
 Change frame execution order:
 
@@ -392,6 +394,8 @@ cueman -reorder job_name 1-100 REVERSE
 # Reorder specific layer
 cueman -reorder job_name 1-50 FIRST -layer hero_layer
 ```
+
+**Note:** Position must be one of: `FIRST`, `LAST`, or `REVERSE`. Other values will be rejected.
 
 ## Real-World Scenarios
 
