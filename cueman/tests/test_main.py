@@ -405,17 +405,22 @@ class TestCuemanHandleArgs(unittest.TestCase):
 
     @mock.patch("opencue.api.findJob")
     @mock.patch("cueadmin.output.displayFrames")
-    def test_handleArgs_list_frames(self, mock_display, mock_findJob):
+    @mock.patch("cueman.main.buildFrameSearch")
+    def test_handleArgs_list_frames(
+        self, mock_buildFrameSearch, mock_display, mock_findJob
+    ):
         """Test handleArgs with -lf flag."""
         self.args.lf = "test_job"
         mock_job = mock.Mock()
         mock_frames = ["frame1", "frame2"]
         mock_job.getFrames.return_value = mock_frames
         mock_findJob.return_value = mock_job
+        mock_buildFrameSearch.return_value = {}
 
         main.handleArgs(self.args)
 
         mock_findJob.assert_called_once_with("test_job")
+        mock_buildFrameSearch.assert_called_once_with(self.args)
         mock_job.getFrames.assert_called_once()
         mock_display.assert_called_once_with(mock_frames)
 

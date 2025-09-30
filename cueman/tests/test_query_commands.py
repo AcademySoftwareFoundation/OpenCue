@@ -44,14 +44,26 @@ def build_args(**kwargs):
 class TestCuemanQueryCommands(unittest.TestCase):
     @mock.patch("opencue.api.findJob")
     @mock.patch("cueadmin.output.displayFrames")
-    def test_list_frames_with_layer_and_state_filters(self, mock_display, mock_findJob):
+    @mock.patch("cueman.main.buildFrameSearch")
+    def test_list_frames_with_layer_and_state_filters(
+        self, mock_buildFrameSearch, mock_display, mock_findJob
+    ):
         args = build_args(lf="job1", layer=["layerA"], state=["RUNNING"], limit=1000)
         job = mock.Mock()
         job.getFrames.return_value = ["frame1", "frame2"]
         mock_findJob.return_value = job
+        mock_buildFrameSearch.return_value = {
+            "layer": ["layerA"],
+            "state": ["RUNNING"],
+            "limit": 1000,
+        }
 
         cueman_main.handleArgs(args)
 
+        mock_buildFrameSearch.assert_called_once_with(args)
+        job.getFrames.assert_called_once_with(
+            layer=["layerA"], state=["RUNNING"], limit=1000
+        )
         mock_display.assert_called_once_with(["frame1", "frame2"])
 
     @mock.patch("opencue.api.getProcs")
@@ -78,45 +90,62 @@ class TestCuemanQueryCommands(unittest.TestCase):
 
     @mock.patch("opencue.api.findJob")
     @mock.patch("cueadmin.output.displayFrames")
-    def test_pagination_and_limit(self, mock_display, mock_findJob):
+    @mock.patch("cueman.main.buildFrameSearch")
+    def test_pagination_and_limit(
+        self, mock_buildFrameSearch, mock_display, mock_findJob
+    ):
         args = build_args(lf="job1", page=2, limit=500)
         job = mock.Mock()
         job.getFrames.return_value = ["frameA", "frameB"]
         mock_findJob.return_value = job
+        mock_buildFrameSearch.return_value = {"page": 2, "limit": 500}
 
         cueman_main.handleArgs(args)
 
+        mock_buildFrameSearch.assert_called_once_with(args)
+        job.getFrames.assert_called_once_with(page=2, limit=500)
         mock_display.assert_called_once_with(["frameA", "frameB"])
 
     @mock.patch("opencue.api.findJob")
     @mock.patch("cueadmin.output.displayFrames")
-    def test_empty_result_handling(self, mock_display, mock_findJob):
+    @mock.patch("cueman.main.buildFrameSearch")
+    def test_empty_result_handling(
+        self, mock_buildFrameSearch, mock_display, mock_findJob
+    ):
         args = build_args(lf="job1", limit=1000)
         job = mock.Mock()
         job.getFrames.return_value = []
         mock_findJob.return_value = job
+        mock_buildFrameSearch.return_value = {"limit": 1000}
 
         cueman_main.handleArgs(args)
 
+        job.getFrames.assert_called_once_with(limit=1000)
         mock_display.assert_called_once_with([])
 
     @mock.patch("opencue.api.findJob")
     @mock.patch("cueadmin.output.displayFrames")
-    def test_large_dataset_performance(self, mock_display, mock_findJob):
+    @mock.patch("cueman.main.buildFrameSearch")
+    def test_large_dataset_performance(
+        self, mock_buildFrameSearch, mock_display, mock_findJob
+    ):
         args = build_args(lf="job1", limit=1000)
         job = mock.Mock()
         job.getFrames.return_value = [f"frame{i}" for i in range(2000)]
         mock_findJob.return_value = job
+        mock_buildFrameSearch.return_value = {"limit": 1000}
 
         cueman_main.handleArgs(args)
 
-        mock_display.assert_called_once_with(
-            [f"frame{i}" for i in range(2000)]
-        )
+        job.getFrames.assert_called_once_with(limit=1000)
+        mock_display.assert_called_once_with([f"frame{i}" for i in range(2000)])
 
     @mock.patch("opencue.api.findJob")
     @mock.patch("cueadmin.output.displayFrames")
-    def test_filter_combination(self, mock_display, mock_findJob):
+    @mock.patch("cueman.main.buildFrameSearch")
+    def test_filter_combination(
+        self, mock_buildFrameSearch, mock_display, mock_findJob
+    ):
         args = build_args(
             lf="job1",
             layer=["layerA", "layerB"],
@@ -130,9 +159,18 @@ class TestCuemanQueryCommands(unittest.TestCase):
         job = mock.Mock()
         job.getFrames.return_value = ["frameX", "frameY"]
         mock_findJob.return_value = job
+        mock_buildFrameSearch.return_value = {
+            "layer": ["layerA", "layerB"],
+            "state": ["RUNNING", "WAITING"],
+            "range": "1-100",
+            "page": 1,
+            "limit": 50,
+        }
 
         cueman_main.handleArgs(args)
 
+        mock_buildFrameSearch.assert_called_once_with(args)
+        job.getFrames.assert_called_once()
         mock_display.assert_called_once_with(["frameX", "frameY"])
 
     @mock.patch("opencue.api.findJob")
