@@ -251,8 +251,8 @@ class TestCuemanMain(unittest.TestCase):
         with mock.patch("sys.stdout"):
             main.terminateJobs(jobs)
 
-        mock_job1.kill.assert_called_once_with(reason=main.KILL_REASON)
-        mock_job2.kill.assert_called_once_with(reason=main.KILL_REASON)
+        mock_job1.kill.assert_called_once_with(reason=main.KILL_REASON)  # pylint: disable=no-member
+        mock_job2.kill.assert_called_once_with(reason=main.KILL_REASON)  # pylint: disable=no-member
 
     @mock.patch('getpass.getuser')
     @mock.patch('cueman.main.logger')
@@ -267,7 +267,7 @@ class TestCuemanMain(unittest.TestCase):
 
         # The KILL_REASON template is "Opencueman Terminate Job %s by user %s"
         # terminateJobs uses it directly as the reason parameter
-        mock_job.kill.assert_called_once_with(reason=main.KILL_REASON)
+        mock_job.kill.assert_called_once_with(reason=main.KILL_REASON)  # pylint: disable=no-member
 
         # Verify logging includes username
         mock_logger.info.assert_any_call(main.KILL_REASON, "test_job", "specialuser")
@@ -288,7 +288,7 @@ class TestCuemanMain(unittest.TestCase):
 
         # Verify all jobs were killed
         for job in jobs:
-            job.kill.assert_called_once_with(reason=main.KILL_REASON)
+            job.kill.assert_called_once_with(reason=main.KILL_REASON)  # pylint: disable=no-member
 
     @mock.patch('cueman.main.logger')
     def test_terminateJobs_empty_list(self, mock_logger):
@@ -348,7 +348,7 @@ class TestCuemanMain(unittest.TestCase):
             main.terminateJobs(jobs)
 
             # Verify job was killed regardless of state
-            mock_job.kill.assert_called_once_with(reason=main.KILL_REASON)
+            mock_job.kill.assert_called_once_with(reason=main.KILL_REASON)  # pylint: disable=no-member
             mock_job.reset_mock()
 
 
