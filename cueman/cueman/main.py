@@ -356,7 +356,8 @@ def handleArgs(args):
     if args.lf:
         try:
             job = opencue.api.findJob(args.lf)
-            frames = job.getFrames()
+            search = buildFrameSearch(args)
+            frames = job.getFrames(**search)
             cueadmin.output.displayFrames(frames)
         except Exception as e:
             if (
