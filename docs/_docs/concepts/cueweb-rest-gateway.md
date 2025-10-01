@@ -180,6 +180,8 @@ graph TD
 
 The REST Gateway exposes all OpenCue gRPC interfaces:
 
+#### Core Interfaces
+
 | Interface | Description | Example Endpoints |
 |-----------|-------------|-------------------|
 | **ShowInterface** | Project management | `GetShows`, `FindShow`, `CreateShow` |
@@ -187,10 +189,26 @@ The REST Gateway exposes all OpenCue gRPC interfaces:
 | **FrameInterface** | Frame operations | `GetFrame`, `Retry`, `Kill`, `Eat` |
 | **LayerInterface** | Layer management | `GetLayer`, `GetFrames`, `Kill` |
 | **GroupInterface** | Resource groups | `GetGroup`, `SetMinCores`, `SetMaxCores` |
-| **HostInterface** | Host management | `GetHosts`, `Lock`, `Unlock` |
+| **HostInterface** | Host management | `GetHosts`, `Lock`, `Unlock`, `AddTags` |
 | **OwnerInterface** | Resource ownership | `GetOwner`, `TakeOwnership` |
 | **ProcInterface** | Process control | `GetProc`, `Kill`, `Unbook` |
 | **DeedInterface** | Resource deeds | `GetOwner`, `GetHost` |
+
+#### Management Interfaces
+
+| Interface | Description | Example Endpoints |
+|-----------|-------------|-------------------|
+| **AllocationInterface** | Resource allocation | `GetAll`, `Find`, `SetBillable` |
+| **FacilityInterface** | Multi-site facilities | `Get`, `Create`, `GetAllocations` |
+| **FilterInterface** | Job filtering | `FindFilter`, `GetActions`, `SetEnabled` |
+| **ActionInterface** | Filter actions | `Delete`, `Commit` |
+| **MatcherInterface** | Filter matchers | `Delete`, `Commit` |
+| **DependInterface** | Dependencies | `GetDepend`, `Satisfy`, `Unsatisfy` |
+| **SubscriptionInterface** | Show subscriptions | `Get`, `Find`, `SetSize`, `SetBurst` |
+| **LimitInterface** | Resource limits | `GetAll`, `Create`, `SetMaxValue` |
+| **ServiceInterface** | Service definitions | `GetService`, `CreateService`, `Update` |
+| **ServiceOverrideInterface** | Service overrides | `Update`, `Delete` |
+| **TaskInterface** | Task management | `Delete`, `SetMinCores` |
 
 ### Real-time Updates
 
