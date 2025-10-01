@@ -306,3 +306,61 @@ Sets hosts into Up state.
 Arguments: `{auto,all,variable}`
 
 Set the host's thread mode.
+
+## Job Options
+
+### `-pause`
+
+Arguments: `JOB [JOB ...]`
+
+Pause specified jobs.
+
+### `-unpause`
+
+Arguments: `JOB [JOB ...]`
+
+Unpause specified jobs.
+
+### `-kill`
+
+Arguments: `JOB [JOB ...]`
+
+Kill specified jobs. Requires confirmation unless `-force` flag is used.
+
+### `-kill-all`
+
+Kill all jobs. Requires `-force` flag for safety.
+
+### `-retry`
+
+Arguments: `JOB [JOB ...]`
+
+Retry dead frames for specified jobs. Requires confirmation unless `-force` flag is used.
+
+### `-retry-all`
+
+Retry dead frames for all jobs. Requires `-force` flag for safety.
+
+### `-drop-depends`
+
+Arguments: `JOB [JOB ...]`
+
+Drop all dependencies for specified jobs. Requires confirmation unless `-force` flag is used.
+
+### `-set-min-cores`
+
+Arguments: `JOB CORES`
+
+Set minimum cores for a job.
+
+### `-set-max-cores`
+
+Arguments: `JOB CORES`
+
+Set maximum cores for a job.
+
+### `-priority`
+
+Arguments: `JOB PRIORITY`
+
+Set job priority.
