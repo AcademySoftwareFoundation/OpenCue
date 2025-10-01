@@ -333,7 +333,174 @@ cueadmin -ll -job shot_001_lighting
 cueadmin -ll -host render01
 ```
 
-## Part 7: Advanced Workflows
+## Part 7: Job Management
+
+### Listing Jobs
+
+View jobs in your system:
+
+```bash
+# List all jobs
+cueadmin -lj
+
+# List jobs matching a pattern
+cueadmin -lj shot_
+cueadmin -lj lighting comp
+
+# List detailed job information
+cueadmin -lji
+cueadmin -lji shot_001
+```
+
+### Pausing and Resuming Jobs
+
+Control job execution:
+
+```bash
+# Pause a single job
+cueadmin -pause shot_001_lighting
+
+# Pause multiple jobs
+cueadmin -pause shot_001_lighting shot_002_comp shot_003_fx
+
+# Resume a job
+cueadmin -unpause shot_001_lighting
+
+# Resume multiple jobs
+cueadmin -unpause shot_001_lighting shot_002_comp
+```
+
+### Killing Jobs
+
+Terminate job execution:
+
+```bash
+# Kill a single job (with confirmation)
+cueadmin -kill old_test_job
+# Confirm: Kill 1 job(s)? [y/n] y
+
+# Kill multiple jobs
+cueadmin -kill test_job1 test_job2 test_job3
+# Confirm: Kill 3 job(s)? [y/n] y
+
+# Kill with force flag (skip confirmation)
+cueadmin -kill old_test_job -force
+
+# Kill all jobs (DANGER - requires force flag)
+cueadmin -kill-all -force
+```
+
+### Retrying Failed Frames
+
+Rerun dead frames:
+
+```bash
+# Retry dead frames for a single job
+cueadmin -retry failed_render_job
+# Confirm: Retry dead frames for 1 job(s)? [y/n] y
+
+# Retry for multiple jobs
+cueadmin -retry job1 job2 job3
+# Confirm: Retry dead frames for 3 job(s)? [y/n] y
+
+# Retry with force flag
+cueadmin -retry failed_render_job -force
+
+# Retry all jobs (DANGER - requires force flag)
+cueadmin -retry-all -force
+```
+
+### Managing Job Dependencies
+
+Remove blocking dependencies:
+
+```bash
+# Drop all dependencies for a job
+cueadmin -drop-depends blocked_job
+# Confirm: Drop all dependencies for 1 job(s)? [y/n] y
+
+# Drop dependencies for multiple jobs
+cueadmin -drop-depends job1 job2 job3
+# Confirm: Drop all dependencies for 3 job(s)? [y/n] y
+
+# Drop with force flag
+cueadmin -drop-depends blocked_job -force
+```
+
+### Adjusting Job Resources
+
+Configure job core requirements:
+
+```bash
+# Set minimum cores for a job
+cueadmin -set-min-cores heavy_render 8.0
+# Confirm: Set min cores for job:heavy_render to 8.00? [y/n] y
+
+# Set maximum cores
+cueadmin -set-max-cores heavy_render 64.0
+# Confirm: Set max cores for job:heavy_render to 64.00? [y/n] y
+
+# Set with force flag
+cueadmin -set-min-cores heavy_render 8.0 -force
+cueadmin -set-max-cores heavy_render 64.0 -force
+
+# Fractional cores are supported
+cueadmin -set-min-cores light_job 0.5 -force
+cueadmin -set-max-cores light_job 4.0 -force
+```
+
+### Setting Job Priority
+
+Adjust scheduling priority:
+
+```bash
+# Set job priority (higher = more important)
+# Default priority is typically 100
+cueadmin -priority urgent_shot 250
+# Confirm: Set priority for job:urgent_shot to 250? [y/n] y
+
+# Lower priority for background work
+cueadmin -priority background_job 50 -force
+
+# Negative priorities are allowed
+cueadmin -priority low_priority_job -10 -force
+
+# Set with force flag
+cueadmin -priority urgent_shot 250 -force
+```
+
+### Job Management Workflow Example
+
+Complete workflow for managing a problematic job:
+
+```bash
+# 1. Check job status
+cueadmin -lji problematic_job
+
+# 2. Pause the job to investigate
+cueadmin -pause problematic_job
+
+# 3. Drop dependencies if blocked
+cueadmin -drop-depends problematic_job -force
+
+# 4. Adjust resources to reduce errors
+cueadmin -set-min-cores problematic_job 4.0 -force
+cueadmin -set-max-cores problematic_job 32.0 -force
+
+# 5. Retry failed frames
+cueadmin -retry problematic_job -force
+
+# 6. Resume the job
+cueadmin -unpause problematic_job
+
+# 7. Boost priority if urgent
+cueadmin -priority problematic_job 200 -force
+
+# 8. Monitor progress
+cueadmin -lji problematic_job
+```
+
+## Part 8: Advanced Workflows
 
 ### Setting Up Production Infrastructure
 
@@ -434,7 +601,7 @@ cueadmin -lba new_facility.render
 cueadmin -delete-alloc old_facility.render
 ```
 
-## Part 8: Monitoring and Maintenance
+## Part 9: Monitoring and Maintenance
 
 ### Daily Health Checks
 
@@ -481,7 +648,7 @@ done
 # (Would require additional scripting to implement fully)
 ```
 
-## Part 9: Rollback and Recovery
+## Part 10: Rollback and Recovery
 
 ### Safe Rollback Procedure
 
@@ -505,7 +672,7 @@ cueadmin -delete-show test_show -force
 diff shows_backup_$(date +%Y%m%d).txt <(cueadmin -ls)
 ```
 
-## Part 10: Best Practices
+## Part 11: Best Practices
 
 ### Command Patterns
 
@@ -608,6 +775,7 @@ cueadmin -v -your-command
 
 You've learned how to:
 - Query and monitor OpenCue resources
+- Manage jobs (pause, kill, retry, adjust resources, set priorities)
 - Create and manage shows
 - Configure allocations and subscriptions
 - Administer hosts
@@ -631,7 +799,7 @@ Remember to always:
 ## Development and Contributing
 
 CueAdmin is actively developed with:
-- **Comprehensive test suite** with tests covering unit and integration scenarios
+- **Comprehensive test suite** with tests covering job management, allocation management, host operations, subscriptions, and integration workflows
 - **Modern testing infrastructure** using pytest, coverage reporting, and CI/CD integration
 - **Development tools** including linting, formatting, and multi-Python version testing
 
