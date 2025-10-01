@@ -887,34 +887,34 @@ class ActionUtil(object):
     def setValue(act, value):
         """Sets an action's value."""
         if act.type == opencue.api.filter_pb2.MOVE_JOB_TO_GROUP:
-            act.groupValue = opencue.proxy(value, "Group")
-            act.valueType = opencue.api.filter_pb2.GROUP_TYPE
+            act.group_value = opencue.proxy(value, "Group")
+            act.value_type = opencue.api.filter_pb2.GROUP_TYPE
 
         elif act.type == opencue.api.filter_pb2.PAUSE_JOB:
-            act.booleanValue = value
-            act.valueType = opencue.api.filter_pb2.BOOLEAN_TYPE
+            act.boolean_value = value
+            act.value_type = opencue.api.filter_pb2.BOOLEAN_TYPE
 
         elif act.type in (
             opencue.api.filter_pb2.SET_JOB_PRIORITY,
             opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
         ):
-            act.integerValue = int(value)
-            act.valueType = opencue.api.filter_pb2.INTEGER_TYPE
+            act.integer_value = int(value)
+            act.value_type = opencue.api.filter_pb2.INTEGER_TYPE
 
         elif act.type in (
             opencue.api.filter_pb2.SET_JOB_MIN_CORES,
             opencue.api.filter_pb2.SET_JOB_MAX_CORES,
             opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,
         ):
-            act.floatValue = float(value)
-            act.valueType = opencue.api.filter_pb2.FLOAT_TYPE
+            act.float_value = float(value)
+            act.value_type = opencue.api.filter_pb2.FLOAT_TYPE
 
         elif act.type == opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS:
-            act.stringValue = value
-            act.valueType = opencue.api.filter_pb2.STRING_TYPE
+            act.string_value = value
+            act.value_type = opencue.api.filter_pb2.STRING_TYPE
 
         elif act.type == opencue.api.filter_pb2.STOP_PROCESSING:
-            act.valueType = opencue.api.filter_pb2.NONE_TYPE
+            act.value_type = opencue.api.filter_pb2.NONE_TYPE
         else:
             raise TypeError("invalid action type: %s" % act.type)
 
