@@ -21,6 +21,10 @@ opencue_gateway/go.sum
 
 # Output of the go coverage tool
 *.out
+coverage.html
+integration_coverage.out
+integration_coverage.html
+*.coverprofile
 
 # Dependency directories
 vendor/
