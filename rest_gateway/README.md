@@ -92,8 +92,8 @@ Built with Go and the [grpc-gateway](https://github.com/grpc-ecosystem/grpc-gate
 - No API keys or passwords in transit
 
 #### **API Coverage**
-- All OpenCue interfaces supported (Show, Job, Frame, Layer, Group, Host, Owner, Proc, Deed)
-- Individual endpoints covering full OpenCue functionality
+- All OpenCue interfaces supported (Show, Job, Frame, Layer, Group, Host, Owner, Proc, Deed, Allocation, Facility, Filter, Action, Matcher, Depend, Subscription, Limit, Service, ServiceOverride, Task)
+- Individual endpoints covering full OpenCue functionality including multi-site management, job filtering, dependencies, and resource limits
 - Direct gRPC-to-REST mapping with zero data loss
 - Consistent request/response patterns
 
@@ -146,7 +146,7 @@ Built with Go and the [grpc-gateway](https://github.com/grpc-ecosystem/grpc-gate
 
 ```
 ┌─────────────────┐    HTTP/JSON    ┌──────────────────┐    gRPC    ┌─────────────┐
-│   Web Client    │◄──────────────►│   REST Gateway   │◄──────────►│   Cuebot    │
+│   Web Client    │◄───────────────►│   REST Gateway   │◄──────────►│   Cuebot    │
 │                 │                 │                  │            │             │
 │ - Browser       │                 │ - Authentication │            │ - Job Mgmt  │
 │ - Mobile App    │                 │ - Request Trans. │            │ - Scheduling│
@@ -1120,6 +1120,8 @@ curl -X POST $OPENCUE_REST_GATEWAY_URL/deed.DeedInterface/GetHost \
 
 The REST Gateway exposes all major OpenCue interfaces:
 
+### Core Interfaces
+
 | Interface | Endpoints | Description |
 |-----------|-----------|-------------|
 | **ShowInterface** | `FindShow`, `GetShows`, `CreateShow` | Show/project management |
@@ -1127,10 +1129,26 @@ The REST Gateway exposes all major OpenCue interfaces:
 | **FrameInterface** | `GetFrame`, `Retry`, `Kill`, `Eat` | Frame-level operations |
 | **LayerInterface** | `GetLayer`, `FindLayer`, `GetFrames`, `Kill` | Layer management |
 | **GroupInterface** | `FindGroup`, `GetGroup`, `SetMinCores`, `SetMaxCores` | Resource group management |
-| **HostInterface** | `FindHost`, `GetHost`, `GetComments`, `Lock`, `Unlock` | Host/machine management |
+| **HostInterface** | `FindHost`, `GetHost`, `GetComments`, `Lock`, `Unlock`, `AddTags`, `RemoveTags` | Host/machine management |
 | **OwnerInterface** | `GetOwner`, `SetMaxCores`, `TakeOwnership` | Resource ownership |
 | **ProcInterface** | `GetProc`, `Kill`, `Unbook` | Process management |
 | **DeedInterface** | `GetOwner`, `GetHost` | Resource deed management |
+
+### Management Interfaces
+
+| Interface | Endpoints | Description |
+|-----------|-----------|-------------|
+| **AllocationInterface** | `GetAll`, `Get`, `Find`, `GetHosts`, `SetBillable` | Resource allocation across facilities |
+| **FacilityInterface** | `Get`, `Create`, `Delete`, `GetAllocations` | Multi-site render farm facilities |
+| **FilterInterface** | `FindFilter`, `GetActions`, `GetMatchers`, `SetEnabled`, `Delete` | Job filtering and routing |
+| **ActionInterface** | `Delete`, `Commit`, `GetParentFilter` | Filter action management |
+| **MatcherInterface** | `Delete`, `Commit`, `GetParentFilter` | Filter matcher management |
+| **DependInterface** | `GetDepend`, `Satisfy`, `Unsatisfy` | Job and frame dependencies |
+| **SubscriptionInterface** | `Get`, `Find`, `Delete`, `SetSize`, `SetBurst` | Show subscription to allocations |
+| **LimitInterface** | `GetAll`, `Get`, `Find`, `Create`, `Delete`, `SetMaxValue` | Resource limits (licenses, etc.) |
+| **ServiceInterface** | `GetService`, `GetDefaultServices`, `CreateService`, `Update`, `Delete` | Service definitions |
+| **ServiceOverrideInterface** | `Update`, `Delete` | Show-specific service overrides |
+| **TaskInterface** | `Delete`, `SetMinCores`, `ClearAdjustments` | Task and priority management |
 
 All endpoints follow the pattern: `POST /{interface}/{method}`
 
@@ -1808,66 +1826,413 @@ Go back to [Contents](#contents).
 
 ## Testing
 
+### Overview
+
+The REST Gateway has two types of tests:
+
+1. **Unit Tests** (`main_test.go`) - Fast tests that verify endpoint registration and authentication without requiring a running Cuebot
+2. **Integration Tests** (`integration_test.go`) - Comprehensive tests that verify actual API functionality with a running OpenCue system
+
+---
+
 ### Unit Tests
 
-The REST Gateway includes comprehensive unit tests covering authentication, endpoint registration, and request handling:
+Unit tests verify that all endpoints are properly registered and that basic authentication works.
 
-**Quick Test Run:**
+#### Running Unit Tests
+
+**Option 1: Docker (Recommended)**
+
 ```bash
-# Navigate to the gateway directory
+# From OpenCue repository root
+docker build -f rest_gateway/Dockerfile --target build -t opencue-gateway-test .
+docker run --rm opencue-gateway-test sh -c "cd /app/opencue_gateway && go test -v"
+```
+
+**Option 2: Local Go**
+
+```bash
+# From rest_gateway/opencue_gateway directory
 cd rest_gateway/opencue_gateway
 
-# Run all unit tests
-go test -v .
+# Run tests
+go test -v
+
+# Run with coverage
+go test -v -cover
+
+# Generate coverage report
+go test -coverprofile=coverage.out
+go tool cover -html=coverage.out -o coverage.html
 ```
 
-**Detailed Test Options:**
+**Option 3: Using Test Script**
+
 ```bash
-# Run with coverage report
-go test -cover -v .
-
-# Run with detailed coverage breakdown
-go test -coverprofile=coverage.out -v .
-go tool cover -html=coverage.out
-
-# Run specific test functions
-go test -run TestJWTMiddleware -v .
-go test -run TestRegisteredEndpoints -v .
-
-# Run tests with race detection
-go test -race -v .
+cd rest_gateway/opencue_gateway
+./run_tests.sh
+# Select option 1 (Docker) or 2 (Local)
 ```
 
-**Expected Output:**
+#### Expected Output
+
 ```
-=== RUN   TestJWTMiddleware
-=== RUN   TestJWTMiddleware/Valid_JWT_token
-=== RUN   TestJWTMiddleware/Invalid_JWT_token
-=== RUN   TestJWTMiddleware/Missing_Authorization_header
-=== RUN   TestJWTMiddleware/Expired_JWT_token
---- PASS: TestJWTMiddleware (0.01s)
-    --- PASS: TestJWTMiddleware/Valid_JWT_token (0.00s)
-    --- PASS: TestJWTMiddleware/Invalid_JWT_token (0.00s)
-    --- PASS: TestJWTMiddleware/Missing_Authorization_header (0.00s)
-    --- PASS: TestJWTMiddleware/Expired_JWT_token (0.00s)
 === RUN   TestRegisteredEndpoints
+=== RUN   TestRegisteredEndpoints/ShowInterface-GetShows
+=== RUN   TestRegisteredEndpoints/JobInterface-GetJobs
+...
+=== RUN   TestJWTAuthentication
+=== RUN   TestJWTAuthentication/ValidToken
+=== RUN   TestJWTAuthentication/InvalidToken
+...
 --- PASS: TestRegisteredEndpoints (0.00s)
+--- PASS: TestJWTAuthentication (0.01s)
 PASS
-coverage: 85.7% of statements
-ok      opencue_gateway 0.123s
+ok      opencue_gateway    0.234s
 ```
 
-**Test Coverage:**
-- JWT middleware authentication (valid, invalid, missing, expired tokens)
-- All interface endpoint registration
-- HTTP method validation (POST required)
-- Content-type validation (application/json)
-- Error handling and response formatting
-- Server startup and configuration
+---
 
 ### Integration Tests
 
-Several test scripts are provided for integration testing:
+Integration tests verify actual API functionality by making HTTP requests to a running REST Gateway connected to Cuebot.
+
+#### Prerequisites
+
+1. **Running OpenCue stack** (Cuebot, PostgreSQL)
+2. **Running REST Gateway**
+3. **Test show** with optional test jobs
+
+#### Running Integration Tests
+
+**Option 1: Automated Docker Script (Recommended)**
+
+```bash
+# From rest_gateway/opencue_gateway directory
+./run_docker_integration_tests.sh
+```
+
+This script automatically:
+- Starts the OpenCue stack
+- Generates a JWT secret
+- Builds and starts the REST Gateway
+- Runs all integration tests
+- Shows test results
+
+**Option 2: Manual Setup**
+
+```bash
+# Step 1: Start OpenCue Stack
+docker compose up -d
+
+# Step 2: Generate JWT secret
+export JWT_SECRET=$(openssl rand -base64 32)
+
+# Step 3: Build and run REST Gateway
+docker build -f rest_gateway/Dockerfile -t opencue-rest-gateway:latest .
+docker run -d --name opencue-rest-gateway \
+  --network opencue_default \
+  -p 8448:8448 \
+  -e CUEBOT_ENDPOINT=cuebot:8443 \
+  -e JWT_SECRET="$JWT_SECRET" \
+  -e LOG_LEVEL=info \
+  opencue-rest-gateway:latest
+
+# Step 4: Run integration tests
+cd rest_gateway/opencue_gateway
+go test -v -tags=integration
+```
+
+**Option 3: Specific Test**
+
+```bash
+# Run specific integration test
+go test -v -tags=integration -run TestIntegration_ShowInterface
+
+# Run with custom configuration
+GATEWAY_URL=http://localhost:8448 \
+JWT_SECRET=your-secret-key \
+TEST_SHOW=testing \
+go test -v -tags=integration
+```
+
+#### Integration Tests via Docker
+
+```bash
+# From OpenCue repository root
+
+# Build test image
+docker build -f rest_gateway/Dockerfile --target build -t opencue-gateway-test .
+
+# Run integration tests in container
+docker run --rm \
+  --network opencue_default \
+  -e GATEWAY_URL=http://opencue-rest-gateway:8448 \
+  -e JWT_SECRET="$JWT_SECRET" \
+  -e TEST_SHOW=testing \
+  opencue-gateway-test \
+  sh -c "cd /app/opencue_gateway && go test -v -tags=integration"
+```
+
+#### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GATEWAY_URL` | `http://localhost:8448` | REST Gateway endpoint URL |
+| `JWT_SECRET` | `dev-secret-key-change-in-production` | JWT signing secret (must match gateway) |
+| `TEST_SHOW` | `testing` | Show name to use for tests |
+
+#### Integration Test Coverage
+
+**Core Interfaces:**
+- **ShowInterface** - GetShows, FindShow, GetActiveShows
+- **JobInterface** - GetJobs
+- **FrameInterface** - GetFrames (requires existing jobs)
+- **LayerInterface** - GetLayers (requires existing jobs)
+- **GroupInterface** - GetGroups
+- **HostInterface** - GetHosts
+- **OwnerInterface** - GetOwners
+- **ProcInterface** - GetProcs
+- **CommentInterface** - GetComments (requires existing jobs)
+
+**Management Interfaces:**
+- **AllocationInterface** - GetAll (#1908)
+- **FacilityInterface** - Get (#1916)
+- **FilterInterface** - GetFilters (#1909)
+- **SubscriptionInterface** - GetSubscriptions (#1911)
+- **LimitInterface** - GetAll (#1912)
+- **ServiceInterface** - GetDefaultServices (#1913)
+
+**Additional Tests:**
+- **JWT Authentication** - Valid token, invalid token, missing token
+- **Error Handling** - Invalid endpoints, malformed JSON, invalid data
+- **Response Format** - Valid JSON, content-type headers
+- **Performance** - Response time, concurrent requests
+- **CORS** - CORS headers
+
+---
+
+### Benchmark Tests
+
+Run performance benchmarks:
+
+```bash
+cd rest_gateway/opencue_gateway
+
+# Run all benchmarks
+go test -bench=. -tags=integration
+
+# Run specific benchmark
+go test -bench=BenchmarkIntegration_GetShows -tags=integration
+
+# With memory allocation stats
+go test -bench=. -benchmem -tags=integration
+
+# Custom benchmark time
+go test -bench=. -benchtime=10s -tags=integration
+```
+
+#### Example Benchmark Output
+
+```
+BenchmarkIntegration_GetShows-8         100    10234567 ns/op    2048 B/op    32 allocs/op
+BenchmarkIntegration_GetJobs-8           50    23456789 ns/op    4096 B/op    64 allocs/op
+BenchmarkIntegration_JWTGeneration-8   5000      234567 ns/op     512 B/op     8 allocs/op
+```
+
+---
+
+### Continuous Integration
+
+#### GitHub Actions Example
+
+```yaml
+name: REST Gateway Integration Tests
+
+on: [push, pull_request]
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:12
+        env:
+          POSTGRES_DB: cuebot
+          POSTGRES_USER: cuebot
+          POSTGRES_PASSWORD: cuebot
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Start OpenCue Stack
+        run: |
+          docker compose up -d
+          sleep 30  # Wait for services to be ready
+
+      - name: Build REST Gateway
+        run: |
+          docker build -f rest_gateway/Dockerfile -t opencue-rest-gateway .
+
+      - name: Start REST Gateway
+        run: |
+          docker run -d --name opencue-rest-gateway \
+            --network opencue_default \
+            -p 8448:8448 \
+            -e CUEBOT_ENDPOINT=cuebot:8443 \
+            -e JWT_SECRET=test-secret-key \
+            opencue-rest-gateway
+          sleep 5
+
+      - name: Run Integration Tests
+        run: |
+          cd rest_gateway/opencue_gateway
+          JWT_SECRET=test-secret-key go test -v -tags=integration
+```
+
+---
+
+### Troubleshooting
+
+#### Unit Tests Fail
+
+**Issue**: `package opencue_gateway/gen/go is not in std`
+
+**Solution**: Run tests via Docker (includes protobuf generation) or generate protobuf code locally:
+
+```bash
+cd rest_gateway/opencue_gateway
+./run_tests.sh
+# Select option 1 (Docker)
+```
+
+#### Integration Tests Can't Connect
+
+**Issue**: `failed to send request: connection refused`
+
+**Solution**: Verify REST Gateway is running and accessible:
+
+```bash
+# Check gateway is running
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8448/
+# Should return 401
+
+# Check Docker containers
+docker ps | grep opencue
+
+# Check gateway logs
+docker logs opencue-rest-gateway
+```
+
+#### JWT Authentication Fails
+
+**Issue**: `401 Unauthorized` in integration tests
+
+**Solution**: Ensure JWT_SECRET matches between gateway and tests:
+
+```bash
+# Use same secret for gateway and tests
+export JWT_SECRET=$(openssl rand -base64 32)
+
+# Restart gateway with this secret
+docker rm -f opencue-rest-gateway
+docker run -d --name opencue-rest-gateway \
+  --network opencue_default \
+  -p 8448:8448 \
+  -e CUEBOT_ENDPOINT=cuebot:8443 \
+  -e JWT_SECRET="$JWT_SECRET" \
+  opencue-rest-gateway
+
+# Run tests with same secret
+JWT_SECRET="$JWT_SECRET" go test -v -tags=integration
+```
+
+#### Tests Skip Due to No Data
+
+**Issue**: Many tests skip with "no jobs available"
+
+**Solution**: This is expected if your OpenCue system has no jobs. Tests will skip gracefully. To run all tests, submit test jobs using OpenCue's Python API or CueGUI.
+
+#### Performance Tests Timeout
+
+**Issue**: Performance tests timeout or take too long
+
+**Solution**: Skip performance tests in short mode:
+
+```bash
+go test -v -short -tags=integration
+```
+
+---
+
+### Test Metrics
+
+#### Coverage Goals
+
+- **Unit Tests**: > 80% statement coverage
+- **Integration Tests**: All 20 interfaces tested
+- **Error Handling**: All error paths covered
+
+#### Current Coverage
+
+Check current coverage:
+
+```bash
+# Unit test coverage
+go test -cover
+
+# Integration test coverage
+go test -tags=integration -cover
+
+# Generate detailed coverage report
+go test -coverprofile=coverage.out -tags=integration
+go tool cover -func=coverage.out
+go tool cover -html=coverage.out -o coverage.html
+```
+
+---
+
+### Best Practices
+
+#### Writing New Tests
+
+1. **Unit tests** - Add to `main_test.go` for new endpoint registrations
+2. **Integration tests** - Add to `integration_test.go` for new interfaces
+3. **Use table-driven tests** for multiple similar test cases
+4. **Use t.Skip()** for tests requiring specific setup
+5. **Use subtests** with `t.Run()` for organization
+6. **Clean up resources** in test cleanup functions
+
+#### Example Test Pattern
+
+```go
+func TestIntegration_NewInterface(t *testing.T) {
+    t.Run("GetSomething", func(t *testing.T) {
+        payload := map[string]interface{}{
+            "param": "value",
+        }
+        result, status, err := makeAuthenticatedRequest(t,
+            "new.NewInterface/GetSomething", payload)
+
+        assert.NoError(t, err)
+        assert.Equal(t, http.StatusOK, status)
+        assert.NotNil(t, result)
+        assert.Contains(t, result, "expected_field")
+    })
+}
+```
+
+---
+
+### Shell-Based Test Scripts
+
+The REST Gateway also includes shell-based test scripts for comprehensive testing:
 
 ```bash
 # Test with Docker Compose (comprehensive)
@@ -1885,129 +2250,20 @@ cd rest_gateway
 ```
 
 **Test Scripts:**
-- `test_rest_gateway_docker_compose.sh` - **Comprehensive testing with Docker Compose (recommended)**
+- `opencue_gateway/run_docker_integration_tests.sh` - **Automated Docker-based integration tests covering all interfaces (recommended)**
+- `opencue_gateway/run_tests.sh` - Interactive unit test runner
+- `test_rest_gateway_docker_compose.sh` - Shell-based comprehensive testing with Docker Compose
 - `test_gateway.sh` - Build validation and endpoint verification
 - `test_docker_gateway.sh` - Docker container testing
 - `test_live_cuebot.sh` - End-to-end testing with real Cuebot
 
-### Testing with OpenCue Docker Environment
+---
 
-The REST Gateway includes comprehensive test scripts, but requires **separate deployment** from the main OpenCue stack:
+### Additional Resources
 
-**Important:** The REST Gateway is **not included** in OpenCue's main `docker-compose.yml`. It must be built and deployed as a standalone container.
-
-#### **Automated Testing Script**
-
-```bash
-# From OpenCue root directory, start OpenCue stack first
-docker compose up -d
-
-# Build REST Gateway image
-docker build -f rest_gateway/Dockerfile -t opencue-rest-gateway:latest .
-
-# Start REST Gateway separately
-docker run -d --name opencue-rest-gateway-test \
-  --network opencue_default \
-  -p 8448:8448 \
-  -e CUEBOT_ENDPOINT=cuebot:8443 \
-  -e JWT_SECRET=default-secret-key \
-  opencue-rest-gateway:latest
-
-# Run comprehensive endpoint tests
-cd rest_gateway
-./test_rest_gateway_docker_compose.sh
-```
-
-**What the test script does:**
-- Tests all 9 OpenCue interfaces (Show, Job, Frame, Layer, Group, Host, Owner, Proc, Deed)
-- Validates 13+ different endpoints
-- Generates JWT tokens automatically
-- Provides formatted JSON output
-- Shows clear success/failure indicators
-
-**Test Coverage:**
-- **Show Interface**: GetShows ✓, FindShow ✓, CreateShow ✓
-- **Job Interface**: GetJobs ✓, FindJob ✓
-- **Frame Interface**: GetFrame ✓
-- **Layer Interface**: GetLayer ✓
-- **Group Interface**: FindGroup ✓
-- **Host Interface**: GetHosts ✓
-- **Owner Interface**: GetOwner ✓
-- **Proc Interface**: GetProc ✓
-- **Deed Interface**: GetOwner ✓
-
-#### **Manual Testing**
-
-If you prefer manual testing with the OpenCue Docker environment:
-
-```bash
-# 1. Start OpenCue stack (in OpenCue root directory)
-docker compose up -d
-
-# 2. Build and start REST Gateway separately
-docker build -f rest_gateway/Dockerfile -t opencue-rest-gateway:latest .
-docker run -d --name opencue-rest-gateway-manual \
-  --network opencue_default \
-  -p 8448:8448 \
-  -e CUEBOT_ENDPOINT=cuebot:8443 \
-  -e JWT_SECRET=default-secret-key \
-  opencue-rest-gateway:latest
-
-# 3. Verify services are running
-docker compose ps
-docker ps | grep rest-gateway
-
-# 4. Generate JWT token
-pip3 install PyJWT
-JWT_TOKEN=$(python3 -c "
-import jwt, datetime
-secret = 'default-secret-key'
-payload = {'user': 'test', 'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)}
-print(jwt.encode(payload, secret, algorithm='HS256'))
-")
-
-# 5. Test endpoints manually
-curl -H "Authorization: Bearer $JWT_TOKEN" \
-     -H "Content-Type: application/json" \
-     -X POST "http://localhost:8448/show.ShowInterface/GetShows" \
-     -d '{}'
-```
-
-**Expected Results:**
-- Shows, jobs, hosts, and other OpenCue entities from your running instance
-- Real production data responses
-- Full end-to-end validation
-
-**Sample Response (Get Shows):**
-```json
-{
-  "shows": {
-    "shows": [{
-      "id": "00000000-0000-0000-0000-000000000000",
-      "name": "testing",
-      "defaultMinCores": 1,
-      "defaultMaxCores": 2000,
-      "showStats": {
-        "runningFrames": 0,
-        "pendingFrames": 6,
-        "pendingJobs": 1,
-        "createdJobCount": "44",
-        "renderedFrameCount": "392"
-      }
-    }]
-  }
-}
-```
-
-**Cleanup:**
-```bash
-# Stop REST Gateway containers
-docker stop opencue-rest-gateway-test opencue-rest-gateway-manual 2>/dev/null || true
-docker rm opencue-rest-gateway-test opencue-rest-gateway-manual 2>/dev/null || true
-
-# Stop OpenCue stack (optional)
-docker compose down
-```
+- [Go Testing Documentation](https://golang.org/pkg/testing/)
+- [Testify Documentation](https://github.com/stretchr/testify)
+- [gRPC-Gateway Documentation](https://grpc-ecosystem.github.io/grpc-gateway/)
 
 [Back to Contents](#contents)
 
