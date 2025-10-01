@@ -404,6 +404,77 @@ def getParser():
         choices=[mode.lower() for mode in list(opencue.api.host_pb2.ThreadMode.keys())],
     )
 
+    #
+    # Job
+    #
+    job_grp = parser.add_argument_group("Job Options")
+    job_grp.add_argument(
+        "-pause",
+        action="store",
+        nargs="+",
+        metavar="JOB",
+        help="Pause specified jobs",
+    )
+    job_grp.add_argument(
+        "-unpause",
+        action="store",
+        nargs="+",
+        metavar="JOB",
+        help="Unpause specified jobs",
+    )
+    job_grp.add_argument(
+        "-kill",
+        action="store",
+        nargs="+",
+        metavar="JOB",
+        help="Kill specified jobs",
+    )
+    job_grp.add_argument(
+        "-kill-all",
+        action="store_true",
+        help="Kill all jobs (requires -force)",
+    )
+    job_grp.add_argument(
+        "-retry",
+        action="store",
+        nargs="+",
+        metavar="JOB",
+        help="Retry dead frames for specified jobs",
+    )
+    job_grp.add_argument(
+        "-retry-all",
+        action="store_true",
+        help="Retry dead frames for all jobs (requires -force)",
+    )
+    job_grp.add_argument(
+        "-drop-depends",
+        action="store",
+        nargs="+",
+        metavar="JOB",
+        help="Drop all dependencies for specified jobs",
+    )
+    job_grp.add_argument(
+        "-set-min-cores",
+        action="store",
+        nargs=2,
+        metavar=("JOB", "CORES"),
+        help="Set minimum cores for a job",
+    )
+    job_grp.add_argument(
+        "-set-max-cores",
+        action="store",
+        nargs=2,
+        metavar=("JOB", "CORES"),
+        help="Set maximum cores for a job",
+    )
+    job_grp.add_argument(
+        "-priority",
+        action="store",
+        nargs=2,
+        metavar=("JOB", "PRIORITY"),
+        help="Set job priority",
+    )
+
     return parser
 
 
@@ -620,6 +691,172 @@ class DependUtil(object):
                 )
                 depend.satisfy()
 
+    @staticmethod
+    def parseDependType(depend_type_str):
+        """Parse and validate dependency type string.
+
+        :type  depend_type_str: str
+        :param depend_type_str: String representation of dependency type
+        :rtype:  int
+        :return: Dependency type enum value
+        :raises: ValueError if type is invalid
+        """
+        depend_type_map = {
+            'JOB_ON_JOB': opencue.api.depend_pb2.JOB_ON_JOB,
+            'JOB_ON_LAYER': opencue.api.depend_pb2.JOB_ON_LAYER,
+            'JOB_ON_FRAME': opencue.api.depend_pb2.JOB_ON_FRAME,
+            'LAYER_ON_JOB': opencue.api.depend_pb2.LAYER_ON_JOB,
+            'LAYER_ON_LAYER': opencue.api.depend_pb2.LAYER_ON_LAYER,
+            'LAYER_ON_FRAME': opencue.api.depend_pb2.LAYER_ON_FRAME,
+            'FRAME_ON_JOB': opencue.api.depend_pb2.FRAME_ON_JOB,
+            'FRAME_ON_LAYER': opencue.api.depend_pb2.FRAME_ON_LAYER,
+            'FRAME_ON_FRAME': opencue.api.depend_pb2.FRAME_ON_FRAME,
+            'FRAME_BY_FRAME': opencue.api.depend_pb2.FRAME_BY_FRAME,
+            'LAYER_ON_SIM_FRAME': opencue.api.depend_pb2.LAYER_ON_SIM_FRAME,
+        }
+
+        depend_type_upper = depend_type_str.upper()
+        if depend_type_upper not in depend_type_map:
+            raise ValueError("Invalid dependency type: %s" % depend_type_str)
+
+        return depend_type_map[depend_type_upper]
+
+    @staticmethod
+    def createJobOnJobDepend(job_name, depend_on_job_name):
+        """Create a job-on-job dependency.
+
+        :type  job_name: str
+        :param job_name: Name of the job that will depend on another
+        :type  depend_on_job_name: str
+        :param depend_on_job_name: Name of the job to depend on
+        :rtype:  opencue.wrappers.depend.Depend
+        :return: The created dependency
+        """
+        job = opencue.api.findJob(job_name)
+        depend_on_job = opencue.api.findJob(depend_on_job_name)
+        logger.debug("creating job-on-job depend: %s depends on %s", job_name, depend_on_job_name)
+        return job.createDependencyOnJob(depend_on_job)
+
+    @staticmethod
+    def createLayerOnLayerDepend(job_name, layer_name, depend_on_job_name, depend_on_layer_name):
+        """Create a layer-on-layer dependency.
+
+        :type  job_name: str
+        :param job_name: Name of the job containing the dependent layer
+        :type  layer_name: str
+        :param layer_name: Name of the layer that will depend on another
+        :type  depend_on_job_name: str
+        :param depend_on_job_name: Name of the job containing the layer to depend on
+        :type  depend_on_layer_name: str
+        :param depend_on_layer_name: Name of the layer to depend on
+        :rtype:  opencue.wrappers.depend.Depend
+        :return: The created dependency
+        """
+        layer = opencue.api.findLayer(job_name, layer_name)
+        depend_on_layer = opencue.api.findLayer(depend_on_job_name, depend_on_layer_name)
+        logger.debug("creating layer-on-layer depend: %s/%s depends on %s/%s",
+                     job_name, layer_name, depend_on_job_name, depend_on_layer_name)
+        return layer.createDependencyOnLayer(depend_on_layer)
+
+    @staticmethod
+    def createFrameByFrameDepend(job_name, layer_name, depend_on_job_name, depend_on_layer_name):
+        """Create a frame-by-frame dependency.
+
+        :type  job_name: str
+        :param job_name: Name of the job containing the dependent layer
+        :type  layer_name: str
+        :param layer_name: Name of the layer that will depend frame-by-frame
+        :type  depend_on_job_name: str
+        :param depend_on_job_name: Name of the job containing the layer to depend on
+        :type  depend_on_layer_name: str
+        :param depend_on_layer_name: Name of the layer to depend on
+        :rtype:  opencue.wrappers.depend.Depend
+        :return: The created dependency
+        """
+        layer = opencue.api.findLayer(job_name, layer_name)
+        depend_on_layer = opencue.api.findLayer(depend_on_job_name, depend_on_layer_name)
+        logger.debug("creating frame-by-frame depend: %s/%s depends on %s/%s",
+                     job_name, layer_name, depend_on_job_name, depend_on_layer_name)
+        return layer.createFrameByFrameDependency(depend_on_layer)
+
+    @staticmethod
+    def checkDependSatisfaction(job_name, layer_name=None, frame_num=None):
+        """Check if all dependencies on the given object are satisfied.
+
+        :type  job_name: str
+        :param job_name: Name of the job
+        :type  layer_name: str
+        :param layer_name: Optional name of the layer
+        :type  frame_num: int
+        :param frame_num: Optional frame number
+        :rtype:  bool
+        :return: True if all dependencies are satisfied, False otherwise
+        """
+        if frame_num is not None:
+            obj = opencue.api.findFrame(job_name, layer_name, frame_num)
+        elif layer_name:
+            obj = opencue.api.findLayer(job_name, layer_name)
+        else:
+            obj = opencue.api.findJob(job_name)
+
+        depends = obj.getWhatThisDependsOn()
+        for depend in depends:
+            if not depend.data.active:
+                continue
+            # A dependency is not satisfied if it's still active
+            return False
+        return True
+
+    @staticmethod
+    def detectCircularDepend(job_name, depend_on_job_name):
+        """Detect if creating a dependency would create a circular dependency.
+
+        :type  job_name: str
+        :param job_name: Name of the job that will depend on another
+        :type  depend_on_job_name: str
+        :param depend_on_job_name: Name of the job to depend on
+        :rtype:  bool
+        :return: True if circular dependency detected, False otherwise
+        """
+        if job_name == depend_on_job_name:
+            return True
+
+        try:
+            job = opencue.api.findJob(job_name)
+            depend_on_job = opencue.api.findJob(depend_on_job_name)
+
+            # Check if depend_on_job already depends on job (would create a cycle)
+            depends = depend_on_job.getWhatThisDependsOn()
+            for depend in depends:
+                # Check if any dependency points back to our job
+                if (hasattr(depend.data, 'depend_on_job') and
+                        depend.data.depend_on_job == job.data.id):
+                    return True
+                # For deeper circular dependency detection, we'd need to traverse the full graph
+                # This is a simplified check for direct circular dependencies
+
+            return False
+        except Exception:
+            # If we can't find the jobs, we can't detect circularity
+            return False
+
+    @staticmethod
+    def formatDependStatus(depend):
+        """Format dependency status for display.
+
+        :type  depend: opencue.wrappers.depend.Depend
+        :param depend: The dependency to format
+        :rtype:  str
+        :return: Formatted string representing the dependency status
+        """
+        depend_type = str(depend.data.type)
+        active_status = "ACTIVE" if depend.data.active else "SATISFIED"
+
+        # Extract the dependency type name from the enum
+        type_name = depend_type.rsplit('.', maxsplit=1)[-1] if '.' in depend_type else depend_type
+
+        return "%s [%s]" % (type_name, active_status)
+
 
 class Convert(object):
     """Utility class for converting between units."""
@@ -721,34 +958,34 @@ class ActionUtil(object):
     def setValue(act, value):
         """Sets an action's value."""
         if act.type == opencue.api.filter_pb2.MOVE_JOB_TO_GROUP:
-            act.groupValue = opencue.proxy(value, "Group")
-            act.valueType = opencue.api.filter_pb2.GROUP_TYPE
+            act.group_value = opencue.proxy(value, "Group")
+            act.value_type = opencue.api.filter_pb2.GROUP_TYPE
 
         elif act.type == opencue.api.filter_pb2.PAUSE_JOB:
-            act.booleanValue = value
-            act.valueType = opencue.api.filter_pb2.BOOLEAN_TYPE
+            act.boolean_value = value
+            act.value_type = opencue.api.filter_pb2.BOOLEAN_TYPE
 
         elif act.type in (
             opencue.api.filter_pb2.SET_JOB_PRIORITY,
             opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
         ):
-            act.integerValue = int(value)
-            act.valueType = opencue.api.filter_pb2.INTEGER_TYPE
+            act.integer_value = int(value)
+            act.value_type = opencue.api.filter_pb2.INTEGER_TYPE
 
         elif act.type in (
             opencue.api.filter_pb2.SET_JOB_MIN_CORES,
             opencue.api.filter_pb2.SET_JOB_MAX_CORES,
             opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,
         ):
-            act.floatValue = float(value)
-            act.valueType = opencue.api.filter_pb2.FLOAT_TYPE
+            act.float_value = float(value)
+            act.value_type = opencue.api.filter_pb2.FLOAT_TYPE
 
         elif act.type == opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS:
-            act.stringValue = value
-            act.valueType = opencue.api.filter_pb2.STRING_TYPE
+            act.string_value = value
+            act.value_type = opencue.api.filter_pb2.STRING_TYPE
 
         elif act.type == opencue.api.filter_pb2.STOP_PROCESSING:
-            act.valueType = opencue.api.filter_pb2.NONE_TYPE
+            act.value_type = opencue.api.filter_pb2.NONE_TYPE
         else:
             raise TypeError("invalid action type: %s" % act.type)
 
@@ -1131,6 +1368,104 @@ def handleArgs(args):
         if burst.find("%") != -1:
             burst = int(sub.data.size + (sub.data.size * (int(burst[0:-1]) / 100.0)))
         sub.setBurst(int(burst))
+
+    #
+    # Job operations
+    #
+    elif args.pause:
+        for job_name in args.pause:
+            job = opencue.api.findJob(job_name)
+            logger.debug("pausing job: %s", opencue.rep(job))
+            job.pause()
+
+    elif args.unpause:
+        for job_name in args.unpause:
+            job = opencue.api.findJob(job_name)
+            logger.debug("unpausing job: %s", opencue.rep(job))
+            job.resume()
+
+    elif args.kill:
+        def killJobs(job_names):
+            for job_name in job_names:
+                job = opencue.api.findJob(job_name)
+                logger.debug("killing job: %s", opencue.rep(job))
+                job.kill()
+
+        confirm("Kill %d job(s)" % len(args.kill), args.force, killJobs, args.kill)
+
+    elif args.kill_all:
+        def killAllJobs():
+            jobs = opencue.api.getJobs()
+            for job in jobs:
+                logger.debug("killing job: %s", opencue.rep(job))
+                job.kill()
+
+        confirm("Kill ALL jobs", args.force, killAllJobs)
+
+    elif args.retry:
+        def retryJobs(job_names):
+            for job_name in job_names:
+                job = opencue.api.findJob(job_name)
+                logger.debug("retrying dead frames for job: %s", opencue.rep(job))
+                job.retryFrames()
+
+        confirm(
+            "Retry dead frames for %d job(s)" % len(args.retry),
+            args.force,
+            retryJobs,
+            args.retry,
+        )
+
+    elif args.retry_all:
+        def retryAllJobs():
+            jobs = opencue.api.getJobs()
+            for job in jobs:
+                logger.debug("retrying dead frames for job: %s", opencue.rep(job))
+                job.retryFrames()
+
+        confirm("Retry dead frames for ALL jobs", args.force, retryAllJobs)
+
+    elif args.drop_depends:
+        def dropDepends(job_names):
+            for job_name in job_names:
+                DependUtil.dropAllDepends(job_name)
+
+        confirm(
+            "Drop all dependencies for %d job(s)" % len(args.drop_depends),
+            args.force,
+            dropDepends,
+            args.drop_depends,
+        )
+
+    elif args.set_min_cores:
+        job = opencue.api.findJob(args.set_min_cores[0])
+        cores = float(args.set_min_cores[1])
+        confirm(
+            "Set min cores for %s to %0.2f" % (opencue.rep(job), cores),
+            args.force,
+            job.setMinCores,
+            cores,
+        )
+
+    elif args.set_max_cores:
+        job = opencue.api.findJob(args.set_max_cores[0])
+        cores = float(args.set_max_cores[1])
+        confirm(
+            "Set max cores for %s to %0.2f" % (opencue.rep(job), cores),
+            args.force,
+            job.setMaxCores,
+            cores,
+        )
+
+    elif args.priority:
+        job = opencue.api.findJob(args.priority[0])
+        priority = int(args.priority[1])
+        confirm(
+            "Set priority for %s to %d" % (opencue.rep(job), priority),
+            args.force,
+            job.setPriority,
+            priority,
+        )
 
 
 def createAllocation(fac, name, tag):

@@ -225,6 +225,8 @@ cueman -stagger show_shot_lighting_v001 1-100 5
 cueman -stagger show_shot_lighting_v001 1-50 10 -layer sim_layer
 ```
 
+**Note:** The increment must be a positive integer. Values like `0`, `-5`, or `abc` will be rejected.
+
 ### Reordering Frames
 
 Control execution priority:
@@ -239,6 +241,8 @@ cueman -reorder show_shot_lighting_v001 1-49 LAST
 # Reverse frame order for debugging
 cueman -reorder show_shot_lighting_v001 1-100 REVERSE
 ```
+
+**Note:** The position must be one of `FIRST`, `LAST`, or `REVERSE`. Other values like `MIDDLE` will be rejected.
 
 ## Part 6: Real-World Scenarios
 
@@ -461,6 +465,24 @@ Error: Job 'nonexistent_job' does not exist.
 ```bash
 $ cueman -kill show_shot_001 -state SUCCEEDED
 No frames found matching criteria
+```
+
+**Invalid stagger increment:**
+```bash
+$ cueman -stagger show_shot_001 1-100 0
+Error: Increment must be a positive integer.
+```
+
+**Invalid reorder position:**
+```bash
+$ cueman -reorder show_shot_001 1-50 MIDDLE
+Error: Position must be one of FIRST, LAST, or REVERSE.
+```
+
+**Invalid frame range:**
+```bash
+$ cueman -eat show_shot_001 -range 50-10
+Error: Invalid range format: 50-10
 ```
 
 ## Summary
