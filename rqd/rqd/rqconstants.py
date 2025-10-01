@@ -252,7 +252,8 @@ try:
         if config.has_option(__override_section, "RQD_PREPEND_TIMESTAMP"):
             RQD_PREPEND_TIMESTAMP = config.getboolean(__override_section, "RQD_PREPEND_TIMESTAMP")
         if config.has_option(__override_section, "JOB_LOG_MAX_SIZE_IN_BYTES"):
-            JOB_LOG_MAX_SIZE_IN_BYTES = config.getint(__override_section, "JOB_LOG_MAX_SIZE_IN_BYTES")
+            JOB_LOG_MAX_SIZE_IN_BYTES = config.getint(__override_section,
+                "JOB_LOG_MAX_SIZE_IN_BYTES")
         if config.has_option(__override_section, "CHECK_INTERVAL_LOCKED"):
             CHECK_INTERVAL_LOCKED = config.getint(__override_section, "CHECK_INTERVAL_LOCKED")
         if config.has_option(__override_section, "MINIMUM_IDLE"):

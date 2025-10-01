@@ -1073,7 +1073,8 @@ class FrameAttendantThread(threading.Thread):
                     if exceeded:
                         def _kill_proc_group():
                             try:
-                                os.killpg(os.getpgid(frameInfo.forkedCommand.pid), rqd.rqconstants.KILL_SIGNAL)
+                                os.killpg(os.getpgid(frameInfo.forkedCommand.pid),
+                                          rqd.rqconstants.KILL_SIGNAL)
                             # pylint: disable=broad-except
                             except Exception:
                                 try:
