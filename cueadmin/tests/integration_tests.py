@@ -193,6 +193,215 @@ class JobManagementWorkflowTest(unittest.TestCase):
         job1.pause.assert_called_once()
         job2.pause.assert_called_once()
 
+    def test_job_listing_and_info_workflow(self):
+        """Test job listing and detailed info display workflow."""
+        # pylint: disable=import-outside-toplevel
+        import cueadmin.common
+
+        parser = cueadmin.common.getParser()
+
+        # Step 1: List all jobs
+        with mock.patch('opencue.search.JobSearch.byMatch') as mock_search:
+            job1 = mock.Mock()
+            job1.name = 'show-job1'
+            job2 = mock.Mock()
+            job2.name = 'show-job2'
+
+            mock_result = mock.Mock()
+            mock_result.jobs.jobs = [job1, job2]
+            mock_search.return_value = mock_result
+
+            args = parser.parse_args(['-lj'])
+            cueadmin.common.handleArgs(args)
+
+            mock_search.assert_called_once_with([])
+
+        # Step 2: List jobs with filter
+        with mock.patch('opencue.search.JobSearch.byMatch') as mock_search, \
+             mock.patch('opencue.wrappers.job.Job') as mock_job_wrapper:
+            filtered_job = mock.Mock()
+            filtered_job.name = 'show-job1'
+
+            mock_result = mock.Mock()
+            mock_result.jobs.jobs = [filtered_job]
+            mock_search.return_value = mock_result
+
+            # Mock the Job wrapper to avoid connection attempts
+            mock_job_instance = mock.Mock()
+            mock_job_wrapper.return_value = mock_job_instance
+
+            args = parser.parse_args(['-lji', 'show'])
+
+            with mock.patch('cueadmin.output.displayJobs') as mock_display:
+                cueadmin.common.handleArgs(args)
+                mock_search.assert_called_once_with(['show'])
+                mock_display.assert_called_once()
+
+    def test_job_priority_adjustment_workflow(self):
+        """Test job priority adjustment workflow."""
+        # pylint: disable=import-outside-toplevel
+        import cueadmin.common
+
+        parser = cueadmin.common.getParser()
+
+        with mock.patch('opencue.api.findJob') as mock_find:
+            job = mock.Mock()
+            job.data = mock.Mock()
+            job.data.name = TEST_JOB
+            job.data.priority = 100
+            mock_find.return_value = job
+
+            # Adjust priority with force flag
+            args = parser.parse_args(['-priority', TEST_JOB, '200', '-force'])
+            cueadmin.common.handleArgs(args)
+
+            mock_find.assert_called_once_with(TEST_JOB)
+            job.setPriority.assert_called_once_with(200)
+
+    def test_job_retry_workflow(self):
+        """Test job retry workflow for failed frames."""
+        # pylint: disable=import-outside-toplevel
+        import cueadmin.common
+
+        parser = cueadmin.common.getParser()
+
+        with mock.patch('opencue.api.findJob') as mock_find, \
+             mock.patch('cueadmin.util.promptYesNo', return_value=True):
+
+            job1 = mock.Mock()
+            job1.data = mock.Mock()
+            job1.data.name = 'job1'
+
+            job2 = mock.Mock()
+            job2.data = mock.Mock()
+            job2.data.name = 'job2'
+
+            mock_find.side_effect = [job1, job2]
+
+            # Retry dead frames for multiple jobs
+            args = parser.parse_args(['-retry', 'job1', 'job2'])
+            cueadmin.common.handleArgs(args)
+
+            self.assertEqual(mock_find.call_count, 2)
+            job1.retryFrames.assert_called_once()
+            job2.retryFrames.assert_called_once()
+
+    def test_job_kill_all_workflow(self):
+        """Test kill all jobs workflow with confirmation."""
+        # pylint: disable=import-outside-toplevel
+        import cueadmin.common
+
+        parser = cueadmin.common.getParser()
+
+        with mock.patch('opencue.api.getJobs') as mock_get_jobs, \
+             mock.patch('cueadmin.util.promptYesNo', return_value=True):
+
+            job1 = mock.Mock()
+            job1.data = mock.Mock()
+            job1.data.name = 'job1'
+
+            job2 = mock.Mock()
+            job2.data = mock.Mock()
+            job2.data.name = 'job2'
+
+            job3 = mock.Mock()
+            job3.data = mock.Mock()
+            job3.data.name = 'job3'
+
+            mock_get_jobs.return_value = [job1, job2, job3]
+
+            # Kill all jobs with confirmation
+            args = parser.parse_args(['-kill-all'])
+            cueadmin.common.handleArgs(args)
+
+            mock_get_jobs.assert_called_once()
+            job1.kill.assert_called_once()
+            job2.kill.assert_called_once()
+            job3.kill.assert_called_once()
+
+    def test_job_dependency_drop_workflow(self):
+        """Test dropping job dependencies workflow."""
+        # pylint: disable=import-outside-toplevel
+        import cueadmin.common
+
+        parser = cueadmin.common.getParser()
+
+        with mock.patch('cueadmin.common.DependUtil.dropAllDepends') as mock_drop, \
+             mock.patch('cueadmin.util.promptYesNo', return_value=True):
+
+            # Drop dependencies for multiple jobs
+            args = parser.parse_args(['-drop-depends', 'job1', 'job2'])
+            cueadmin.common.handleArgs(args)
+
+            self.assertEqual(mock_drop.call_count, 2)
+            mock_drop.assert_any_call('job1')
+            mock_drop.assert_any_call('job2')
+
+    def test_job_resource_modification_workflow(self):
+        """Test modifying job min/max cores workflow."""
+        # pylint: disable=import-outside-toplevel
+        import cueadmin.common
+
+        parser = cueadmin.common.getParser()
+
+        # Test set-min-cores
+        with mock.patch('opencue.api.findJob') as mock_find:
+            job = mock.Mock()
+            job.data = mock.Mock()
+            job.data.name = TEST_JOB
+            mock_find.return_value = job
+
+            args = parser.parse_args(['-set-min-cores', TEST_JOB, '4.0', '-force'])
+            cueadmin.common.handleArgs(args)
+
+            mock_find.assert_called_once_with(TEST_JOB)
+            job.setMinCores.assert_called_once_with(4.0)
+
+        # Test set-max-cores
+        with mock.patch('opencue.api.findJob') as mock_find:
+            job = mock.Mock()
+            job.data = mock.Mock()
+            job.data.name = TEST_JOB
+            mock_find.return_value = job
+
+            args = parser.parse_args(['-set-max-cores', TEST_JOB, '16.0', '-force'])
+            cueadmin.common.handleArgs(args)
+
+            mock_find.assert_called_once_with(TEST_JOB)
+            job.setMaxCores.assert_called_once_with(16.0)
+
+    def test_job_state_transition_workflow(self):
+        """Test complete job state transition: running -> paused -> running -> killed."""
+        # pylint: disable=import-outside-toplevel
+        import cueadmin.common
+
+        parser = cueadmin.common.getParser()
+
+        with mock.patch('opencue.api.findJob') as mock_find:
+            job = mock.Mock()
+            job.data = mock.Mock()
+            job.data.name = TEST_JOB
+            job.data.state = 'RUNNING'
+            mock_find.return_value = job
+
+            # Step 1: Pause the job
+            args = parser.parse_args(['-pause', TEST_JOB])
+            cueadmin.common.handleArgs(args)
+            job.pause.assert_called_once()
+
+            # Step 2: Resume the job
+            mock_find.reset_mock()
+            args = parser.parse_args(['-unpause', TEST_JOB])
+            cueadmin.common.handleArgs(args)
+            job.resume.assert_called_once()
+
+            # Step 3: Kill the job with confirmation
+            mock_find.reset_mock()
+            with mock.patch('cueadmin.util.promptYesNo', return_value=True):
+                args = parser.parse_args(['-kill', TEST_JOB])
+                cueadmin.common.handleArgs(args)
+                job.kill.assert_called_once()
+
 
 class HostManagementWorkflowTest(unittest.TestCase):
     """Test host management: lock -> move allocation -> unlock workflow.
