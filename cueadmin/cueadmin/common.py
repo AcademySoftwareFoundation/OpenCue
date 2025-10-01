@@ -620,6 +620,172 @@ class DependUtil(object):
                 )
                 depend.satisfy()
 
+    @staticmethod
+    def parseDependType(depend_type_str):
+        """Parse and validate dependency type string.
+
+        :type  depend_type_str: str
+        :param depend_type_str: String representation of dependency type
+        :rtype:  int
+        :return: Dependency type enum value
+        :raises: ValueError if type is invalid
+        """
+        depend_type_map = {
+            'JOB_ON_JOB': opencue.api.depend_pb2.JOB_ON_JOB,
+            'JOB_ON_LAYER': opencue.api.depend_pb2.JOB_ON_LAYER,
+            'JOB_ON_FRAME': opencue.api.depend_pb2.JOB_ON_FRAME,
+            'LAYER_ON_JOB': opencue.api.depend_pb2.LAYER_ON_JOB,
+            'LAYER_ON_LAYER': opencue.api.depend_pb2.LAYER_ON_LAYER,
+            'LAYER_ON_FRAME': opencue.api.depend_pb2.LAYER_ON_FRAME,
+            'FRAME_ON_JOB': opencue.api.depend_pb2.FRAME_ON_JOB,
+            'FRAME_ON_LAYER': opencue.api.depend_pb2.FRAME_ON_LAYER,
+            'FRAME_ON_FRAME': opencue.api.depend_pb2.FRAME_ON_FRAME,
+            'FRAME_BY_FRAME': opencue.api.depend_pb2.FRAME_BY_FRAME,
+            'LAYER_ON_SIM_FRAME': opencue.api.depend_pb2.LAYER_ON_SIM_FRAME,
+        }
+
+        depend_type_upper = depend_type_str.upper()
+        if depend_type_upper not in depend_type_map:
+            raise ValueError("Invalid dependency type: %s" % depend_type_str)
+
+        return depend_type_map[depend_type_upper]
+
+    @staticmethod
+    def createJobOnJobDepend(job_name, depend_on_job_name):
+        """Create a job-on-job dependency.
+
+        :type  job_name: str
+        :param job_name: Name of the job that will depend on another
+        :type  depend_on_job_name: str
+        :param depend_on_job_name: Name of the job to depend on
+        :rtype:  opencue.wrappers.depend.Depend
+        :return: The created dependency
+        """
+        job = opencue.api.findJob(job_name)
+        depend_on_job = opencue.api.findJob(depend_on_job_name)
+        logger.debug("creating job-on-job depend: %s depends on %s", job_name, depend_on_job_name)
+        return job.createDependencyOnJob(depend_on_job)
+
+    @staticmethod
+    def createLayerOnLayerDepend(job_name, layer_name, depend_on_job_name, depend_on_layer_name):
+        """Create a layer-on-layer dependency.
+
+        :type  job_name: str
+        :param job_name: Name of the job containing the dependent layer
+        :type  layer_name: str
+        :param layer_name: Name of the layer that will depend on another
+        :type  depend_on_job_name: str
+        :param depend_on_job_name: Name of the job containing the layer to depend on
+        :type  depend_on_layer_name: str
+        :param depend_on_layer_name: Name of the layer to depend on
+        :rtype:  opencue.wrappers.depend.Depend
+        :return: The created dependency
+        """
+        layer = opencue.api.findLayer(job_name, layer_name)
+        depend_on_layer = opencue.api.findLayer(depend_on_job_name, depend_on_layer_name)
+        logger.debug("creating layer-on-layer depend: %s/%s depends on %s/%s",
+                     job_name, layer_name, depend_on_job_name, depend_on_layer_name)
+        return layer.createDependencyOnLayer(depend_on_layer)
+
+    @staticmethod
+    def createFrameByFrameDepend(job_name, layer_name, depend_on_job_name, depend_on_layer_name):
+        """Create a frame-by-frame dependency.
+
+        :type  job_name: str
+        :param job_name: Name of the job containing the dependent layer
+        :type  layer_name: str
+        :param layer_name: Name of the layer that will depend frame-by-frame
+        :type  depend_on_job_name: str
+        :param depend_on_job_name: Name of the job containing the layer to depend on
+        :type  depend_on_layer_name: str
+        :param depend_on_layer_name: Name of the layer to depend on
+        :rtype:  opencue.wrappers.depend.Depend
+        :return: The created dependency
+        """
+        layer = opencue.api.findLayer(job_name, layer_name)
+        depend_on_layer = opencue.api.findLayer(depend_on_job_name, depend_on_layer_name)
+        logger.debug("creating frame-by-frame depend: %s/%s depends on %s/%s",
+                     job_name, layer_name, depend_on_job_name, depend_on_layer_name)
+        return layer.createFrameByFrameDependency(depend_on_layer)
+
+    @staticmethod
+    def checkDependSatisfaction(job_name, layer_name=None, frame_num=None):
+        """Check if all dependencies on the given object are satisfied.
+
+        :type  job_name: str
+        :param job_name: Name of the job
+        :type  layer_name: str
+        :param layer_name: Optional name of the layer
+        :type  frame_num: int
+        :param frame_num: Optional frame number
+        :rtype:  bool
+        :return: True if all dependencies are satisfied, False otherwise
+        """
+        if frame_num is not None:
+            obj = opencue.api.findFrame(job_name, layer_name, frame_num)
+        elif layer_name:
+            obj = opencue.api.findLayer(job_name, layer_name)
+        else:
+            obj = opencue.api.findJob(job_name)
+
+        depends = obj.getWhatThisDependsOn()
+        for depend in depends:
+            if not depend.data.active:
+                continue
+            # A dependency is not satisfied if it's still active
+            return False
+        return True
+
+    @staticmethod
+    def detectCircularDepend(job_name, depend_on_job_name):
+        """Detect if creating a dependency would create a circular dependency.
+
+        :type  job_name: str
+        :param job_name: Name of the job that will depend on another
+        :type  depend_on_job_name: str
+        :param depend_on_job_name: Name of the job to depend on
+        :rtype:  bool
+        :return: True if circular dependency detected, False otherwise
+        """
+        if job_name == depend_on_job_name:
+            return True
+
+        try:
+            job = opencue.api.findJob(job_name)
+            depend_on_job = opencue.api.findJob(depend_on_job_name)
+
+            # Check if depend_on_job already depends on job (would create a cycle)
+            depends = depend_on_job.getWhatThisDependsOn()
+            for depend in depends:
+                # Check if any dependency points back to our job
+                if (hasattr(depend.data, 'depend_on_job') and
+                        depend.data.depend_on_job == job.data.id):
+                    return True
+                # For deeper circular dependency detection, we'd need to traverse the full graph
+                # This is a simplified check for direct circular dependencies
+
+            return False
+        except Exception:
+            # If we can't find the jobs, we can't detect circularity
+            return False
+
+    @staticmethod
+    def formatDependStatus(depend):
+        """Format dependency status for display.
+
+        :type  depend: opencue.wrappers.depend.Depend
+        :param depend: The dependency to format
+        :rtype:  str
+        :return: Formatted string representing the dependency status
+        """
+        depend_type = str(depend.data.type)
+        active_status = "ACTIVE" if depend.data.active else "SATISFIED"
+
+        # Extract the dependency type name from the enum
+        type_name = depend_type.rsplit('.', maxsplit=1)[-1] if '.' in depend_type else depend_type
+
+        return "%s [%s]" % (type_name, active_status)
+
 
 class Convert(object):
     """Utility class for converting between units."""
