@@ -1,3 +1,25 @@
+/// A cache of hosts organized in B-trees to speed up searching and traversing hosts in order.
+///
+/// Host are queried by their number of available cores and available memory. To speed up this
+/// search, they are stored in groups organized as the example bellow:
+///
+/// * 2-cores:
+///   - <= 2GB
+///   - > 2GB <= 4GB
+///   - > 4GB <= 6GB
+///   - > 6GB <= 8GB
+/// * 4-cores:
+///   - <= 2GB
+///   - > 2GB <= 4GB
+///   - > 4GB <= 6GB
+///   - > 6GB <= 8GB
+/// * 5-cores:
+///   - <= 2GB
+///   - > 2GB <= 4GB
+///   - > 4GB <= 6GB
+///   - > 6GB <= 8GB
+/// ...
+///
 use std::{
     collections::{BTreeMap, HashMap},
     ops::RangeBounds,
@@ -29,6 +51,8 @@ pub struct HostCache {
     _mode: HostBookingStrategy,
 }
 
+/// Wrapper around a RwLock to prevent interleaving locks
+/// A HashMap of cache keys belonging to a host
 struct HostKeysByHostId {
     map: RwLock<HashMap<HostId, (CoreKey, MemoryKey)>>,
 }
@@ -98,7 +122,11 @@ impl HostKeysByHostId {
     }
 }
 
+/// A B-Tree of Hosts ordered by memory
 pub type MemoryBTree = BTreeMap<MemoryKey, HashMap<HostId, Host>>;
+
+/// Wrapper around a RwLock to prevent interleaving locks
+/// A B-Tree of host groups ordered by their number of available cores
 struct HostsByCoreAndMemory {
     map: RwLock<BTreeMap<CoreKey, MemoryBTree>>,
 }
