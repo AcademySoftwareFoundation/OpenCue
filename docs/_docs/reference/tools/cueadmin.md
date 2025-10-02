@@ -256,6 +256,40 @@ cueadmin -default-min-cores production 2     # Minimum 2 cores
 cueadmin -default-max-cores production 100   # Maximum 100 cores
 ```
 
+#### Archive Show
+
+Archive an inactive show by redirecting it to another show:
+
+```bash
+cueadmin -archive-show ABC TRN               # Archive show ABC to TRN
+cueadmin -archive-show ABC TRN -force        # Skip confirmation
+```
+
+**What happens when archiving:**
+- The show is aliased to the target show
+- The original show is renamed with `_archive` suffix (e.g., `ABC_archive`)
+- Jobs submitted to the archived show will be executed by allocations subscribed to the target show
+
+**Use Cases:**
+- Consolidating resources from wrapped/completed shows
+- Redirecting legacy jobs to training or test allocations
+- Maintaining job submission compatibility while optimizing resource allocation
+
+**Example Workflow:**
+
+```bash
+# 1. Create a training show for archived content
+cueadmin -create-show TRN -force
+
+# 2. Set up a small allocation for training
+cueadmin -create-sub TRN local.general 10 20 -force
+
+# 3. Archive the wrapped show to training
+cueadmin -archive-show ABC TRN -force
+
+# Now jobs submitted to "ABC" will run on TRN's allocations
+```
+
 ### Allocation Operations
 
 #### Create Allocation
@@ -617,6 +651,32 @@ cueadmin -create-sub new_production main.workstation 100 150
 
 # 4. Enable the show
 cueadmin -enable-show new_production
+```
+
+### Archiving Wrapped Shows
+
+```bash
+# 1. Verify the show is ready for archiving
+cueadmin -ls | grep wrapped_show
+cueadmin -lj | grep wrapped_show  # Ensure no active jobs
+
+# 2. Create or identify target show (e.g., training show)
+cueadmin -create-show TRN -force
+
+# 3. Set up minimal allocation for archived content
+cueadmin -create-sub TRN local.general 10 20 -force
+
+# 4. Archive the wrapped show
+cueadmin -archive-show wrapped_show TRN -force
+
+# 5. Verify the archive
+cueadmin -ls  # wrapped_show_archive should appear
+
+# Now any jobs submitted to "wrapped_show" will run on TRN's allocations
+# This is useful for:
+# - Legacy job reruns
+# - Training purposes
+# - Testing with production-like data
 ```
 
 ### Managing Resource Allocation

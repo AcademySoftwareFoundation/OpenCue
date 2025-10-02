@@ -49,6 +49,7 @@ TEST_MAX_GPUS = 7
 TEST_ENABLE_VALUE = False
 TEST_GROUP_NAME = 'group'
 TEST_GROUP_DEPT = 'lighting'
+TEST_TARGET_SHOW_NAME = 'target_show'
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub')
@@ -101,6 +102,18 @@ class ShowTests(unittest.TestCase):
 
         stubMock.Delete.assert_called_with(
             show_pb2.ShowDeleteRequest(show=show.data),
+            timeout=mock.ANY)
+
+    def testArchive(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.Archive.return_value = show_pb2.ShowArchiveResponse()
+        getStubMock.return_value = stubMock
+
+        show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
+        show.archive(TEST_TARGET_SHOW_NAME)
+
+        stubMock.Archive.assert_called_with(
+            show_pb2.ShowArchiveRequest(show=show.data, target_show_name=TEST_TARGET_SHOW_NAME),
             timeout=mock.ANY)
 
     def testGetServiceOverrides(self, getStubMock):
