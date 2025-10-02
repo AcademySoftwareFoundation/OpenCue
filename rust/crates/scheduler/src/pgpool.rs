@@ -1,14 +1,15 @@
 use std::{sync::Arc, time::Duration};
 
-use miette::{IntoDiagnostic, Result};
+use miette::Result;
 use sqlx::{Pool, Postgres, Transaction, postgres::PgPoolOptions};
 use tokio::sync::OnceCell;
 
-use crate::config::DatabaseConfig;
+use crate::config::CONFIG;
 
 static CONNECTION_POOL: OnceCell<Arc<Pool<Postgres>>> = OnceCell::const_new();
 
-pub async fn connection_pool(config: &DatabaseConfig) -> Result<Arc<Pool<Postgres>>, sqlx::Error> {
+pub async fn connection_pool() -> Result<Arc<Pool<Postgres>>, sqlx::Error> {
+    let config = &CONFIG.database;
     CONNECTION_POOL
         .get_or_try_init(|| async {
             let pool = PgPoolOptions::new()
@@ -24,8 +25,6 @@ pub async fn connection_pool(config: &DatabaseConfig) -> Result<Arc<Pool<Postgre
         .map(Arc::clone)
 }
 
-pub async fn begin_transaction(
-    config: &DatabaseConfig,
-) -> Result<Transaction<'_, Postgres>, sqlx::Error> {
-    connection_pool(config).await?.begin().await
+pub async fn begin_transaction<'a>() -> Result<Transaction<'a, Postgres>, sqlx::Error> {
+    connection_pool().await?.begin().await
 }

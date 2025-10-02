@@ -5,12 +5,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use tracing::debug;
 
-use crate::{
-    cluster::Cluster,
-    config::{CONFIG, DatabaseConfig},
-    models::DispatchJob,
-    pgpool::connection_pool,
-};
+use crate::{cluster::Cluster, config::CONFIG, models::DispatchJob, pgpool::connection_pool};
 
 /// Data Access Object for job operations in the job dispatch system.
 ///
@@ -125,8 +120,8 @@ impl JobDao {
     /// # Returns
     /// * `Ok(JobDao)` - Configured DAO ready for job operations
     /// * `Err(miette::Error)` - If database connection fails
-    pub async fn from_config(config: &DatabaseConfig) -> Result<Self> {
-        let pool = connection_pool(config).await.into_diagnostic()?;
+    pub async fn new() -> Result<Self> {
+        let pool = connection_pool().await.into_diagnostic()?;
 
         Ok(JobDao {
             connection_pool: pool,

@@ -1,23 +1,15 @@
-use std::sync::Arc;
-
 use bytesize::{ByteSize, KB};
 use miette::{Context, IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Postgres, Transaction};
+use sqlx::{Postgres, Transaction};
 
-use crate::{
-    config::DatabaseConfig,
-    models::{CoreSize, DispatchFrame, VirtualProc},
-    pgpool::connection_pool,
-};
+use crate::models::{CoreSize, DispatchFrame, VirtualProc};
 
 /// Data Access Object for frame operations in the job dispatch system.
 ///
 /// Handles database queries related to frames, particularly for finding
 /// dispatchable frames within layers that meet resource constraints.
-pub struct FrameDao {
-    connection_pool: Arc<Pool<Postgres>>,
-}
+pub struct FrameDao {}
 
 /// Database model representing a frame ready for dispatch.
 ///
@@ -110,106 +102,10 @@ impl From<DispatchFrameModel> for DispatchFrame {
     }
 }
 
-static QUERY_FRAME: &str = r#"
-WITH dispatch_frames AS (
-    SELECT
-        f.pk_frame,
-        f.str_name as str_frame_name,
-        j.pk_show,
-        j.pk_facility,
-        j.pk_job,
-        l.pk_layer,
-        l.str_cmd,
-        l.str_range,
-        l.int_chunk_size,
-        j.str_show,
-        j.str_shot,
-        j.str_user,
-        j.int_uid,
-        j.str_log_dir,
-        l.str_name as str_layer_name,
-        j.str_name as str_job_name,
-        j.int_min_cores,
-        l.int_mem_min,
-        l.b_threadable,
-        l.int_gpus_min,
-        l.int_gpu_mem_min,
-        l.str_services,
-        j.str_os,
-        l.int_cores_max as int_layer_cores_max,
-        f.int_dispatch_order,
-        f.int_layer_order,
-        f.int_version,
-        -- Accumulate the number of cores that would be consumed
-        SUM(l.int_cores_min) OVER (
-            ORDER BY f.int_dispatch_order, f.int_layer_order
-            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-        ) AS aggr_job_cores,
-        jr.int_max_cores as job_resource_core_limit,
-        jr.int_cores as job_resource_consumed_cores
-    FROM job j
-        INNER JOIN layer l ON j.pk_job = l.pk_job
-        INNER JOIN frame f ON l.pk_layer = f.pk_layer
-        INNER JOIN job_resource jr ON l.pk_job = jr.pk_job
-    WHERE l.pk_layer = $1
-        -- Avoid booking DEPEND frames. This status is maintained by a database trigger
-        AND f.str_state = 'WAITING'
-) SELECT * from dispatch_frames
-    -- Limit the query to a number of frames that would not overflow the job_resource limit
-    -- limit <= 0 means there's no limit
-    WHERE job_resource_core_limit <= 0 OR (aggr_job_cores + job_resource_consumed_cores <= job_resource_core_limit)
-ORDER BY
-    int_dispatch_order,
-    int_layer_order
-LIMIT $2
-"#;
-// TODO: Take table limit_record into consideration
-
 impl FrameDao {
-    /// Creates a new FrameDao from database configuration.
-    ///
-    /// Establishes a connection pool to the PostgreSQL database using the
-    /// provided configuration settings.
-    ///
-    /// # Arguments
-    /// * `config` - Database configuration containing connection parameters
-    ///
-    /// # Returns
-    /// * `Ok(FrameDao)` - Configured DAO ready for database operations
-    /// * `Err(miette::Error)` - If database connection fails
-    pub async fn from_config(config: &DatabaseConfig) -> Result<Self> {
-        let pool = connection_pool(config).await.into_diagnostic()?;
-        Ok(FrameDao {
-            connection_pool: pool,
-        })
-    }
-
-    /// Queries frames ready for dispatch within a specific layer.
-    ///
-    /// Returns a stream of frames that are:
-    /// - In WAITING state (not DEPEND or already running)
-    /// - Respecting job resource core limits
-    /// - Ordered by dispatch and layer priority
-    ///
-    /// The query includes a complex resource limit check that ensures the
-    /// cumulative core usage doesn't exceed job resource limits.
-    ///
-    /// # Arguments
-    /// * `layer` - The layer to find dispatchable frames for
-    /// * `limit` - Maximum number of frames to return
-    ///
-    /// # Returns
-    /// A stream of `DispatchFrameModel` results from the database query
-    pub async fn query_dispatch_frames(
-        &self,
-        layer_id: &str,
-        limit: i32,
-    ) -> Result<Vec<DispatchFrameModel>, sqlx::Error> {
-        sqlx::query_as::<_, DispatchFrameModel>(QUERY_FRAME)
-            .bind(layer_id)
-            .bind(limit)
-            .fetch_all(&*self.connection_pool)
-            .await
+    pub async fn new() -> Result<Self> {
+        // This is only here to keep a similar interface with other DAO modules
+        Ok(FrameDao {})
     }
 
     pub async fn update_frame_started(

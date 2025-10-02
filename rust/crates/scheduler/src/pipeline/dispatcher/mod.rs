@@ -3,26 +3,8 @@ pub mod error;
 mod frame_set;
 pub mod messages;
 
-use crate::{
-    dao::{FrameDao, HostDao},
-    models::{CoreSize, DispatchFrame, DispatchLayer, Host, VirtualProc},
-    pipeline::dispatcher::{
-        error::{DispatchError, VirtualProcError},
-        frame_set::FrameSet,
-    },
-};
-use bytesize::{ByteSize, MIB};
-use futures::FutureExt;
-use miette::{Context, IntoDiagnostic, Result, miette};
-use opencue_proto::{
-    host::ThreadMode,
-    rqd::{RqdStaticLaunchFrameRequest, RunFrame, rqd_interface_client::RqdInterfaceClient},
-};
-use sqlx::{Postgres, Transaction};
-use std::{collections::HashMap, sync::Arc};
-use tonic::transport::Channel;
-use tracing::{debug, error, info};
-use uuid::Uuid;
+use miette::Result;
+use std::sync::Arc;
 
 // Actor and singleton support
 use actix::{Actor, Addr};
@@ -30,20 +12,6 @@ pub use actor::RqdDispatcherService;
 use tokio::sync::OnceCell;
 
 static RQD_DISPATCHER: OnceCell<Addr<RqdDispatcherService>> = OnceCell::const_new();
-
-/// RQD dispatcher responsible for dispatching frames to render hosts.
-///
-/// The dispatcher handles:
-/// - Frame-to-host matching and resource allocation
-/// - gRPC communication with RQD instances
-/// - Resource consumption tracking and validation
-/// - Frame command preparation and execution setup
-#[derive(Clone)]
-pub struct RqdDispatcher {
-    frame_dao: Arc<FrameDao>,
-    host_dao: Arc<HostDao>,
-    dry_run_mode: bool,
-}
 
 /// Singleton getter for the RQD dispatcher service
 ///
@@ -83,8 +51,8 @@ pub async fn rqd_dispatcher_service() -> Result<Addr<RqdDispatcherService>, miet
                 dao::{FrameDao, HostDao},
             };
 
-            let frame_dao = Arc::new(FrameDao::from_config(&CONFIG.database).await?);
-            let host_dao = Arc::new(HostDao::from_config(&CONFIG.database).await?);
+            let frame_dao = Arc::new(FrameDao::new().await?);
+            let host_dao = Arc::new(HostDao::new().await?);
 
             let service =
                 RqdDispatcherService::new(frame_dao, host_dao, CONFIG.rqd.dry_run_mode).await?;

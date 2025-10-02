@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
 use bytesize::{ByteSize, KB};
-use futures::Stream;
 use miette::{Context, IntoDiagnostic, Result};
 use opencue_proto::host::ThreadMode;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres, Transaction};
 
 use crate::{
-    config::DatabaseConfig,
     models::{CoreSize, Host},
     pgpool::connection_pool,
 };
@@ -151,8 +149,8 @@ impl HostDao {
     /// # Returns
     /// * `Ok(HostDao)` - Configured DAO ready for host operations
     /// * `Err(miette::Error)` - If database connection fails
-    pub async fn from_config(config: &DatabaseConfig) -> Result<Self> {
-        let pool = connection_pool(config).await.into_diagnostic()?;
+    pub async fn new() -> Result<Self> {
+        let pool = connection_pool().await.into_diagnostic()?;
         Ok(HostDao {
             connection_pool: pool,
         })
@@ -187,8 +185,8 @@ impl HostDao {
     /// * `Err(miette::Error)` - Database operation failed
     pub async fn lock(
         &self,
-        transaction: &mut Transaction<'_, Postgres>,
-        host_id: &str,
+        _transaction: &mut Transaction<'_, Postgres>,
+        _host_id: &str,
     ) -> Result<bool> {
         // sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_lock(hashtext($1))")
         //     .bind(host_id)
@@ -214,8 +212,8 @@ impl HostDao {
     /// * `Err(miette::Error)` - Database operation failed
     pub async fn unlock(
         &self,
-        transaction: &mut Transaction<'_, Postgres>,
-        host_id: &str,
+        _transaction: &mut Transaction<'_, Postgres>,
+        _host_id: &str,
     ) -> Result<bool> {
         // let host_id_str = host_id.to_string();
         // sqlx::query_scalar::<_, bool>("SELECT pg_advisory_unlock(hashtext($1))")
@@ -265,12 +263,5 @@ impl HostDao {
         .wrap_err("Failed to update host resources")?;
 
         Ok(())
-    }
-
-    /// Gets access to the underlying connection pool
-    ///
-    /// Used for transaction coordination in actor-based dispatch operations
-    pub fn get_connection_pool(&self) -> Arc<Pool<Postgres>> {
-        self.connection_pool.clone()
     }
 }

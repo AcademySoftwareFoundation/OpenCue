@@ -46,10 +46,10 @@ use crate::util::WaitingFrameClause;
 mod scheduler_smoke_test {
     use std::sync::Arc;
 
-    use scheduler::config::OVERRIDE_CONFIG;
+    use scheduler::{config::OVERRIDE_CONFIG, pgpool::connection_pool};
     use serial_test::serial;
-    use sqlx::{Pool, Postgres, Transaction, postgres::PgPoolOptions};
-    use tokio::{sync::OnceCell, time::sleep};
+    use sqlx::{Pool, Postgres, Transaction};
+    use tokio::time::sleep;
     use tokio_test::assert_ok;
 
     use crate::util::{create_test_config, get_waiting_frames_count, test_connection_pool};
@@ -719,6 +719,7 @@ mod scheduler_smoke_test {
         })
     }
 
+    #[allow(dead_code)]
     struct TestData {
         facility_id: Uuid,
         show_id: Uuid,
@@ -746,6 +747,7 @@ mod scheduler_smoke_test {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct TestHost {
         id: Uuid,
         name: String,
@@ -753,6 +755,7 @@ mod scheduler_smoke_test {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct TestJob {
         id: Uuid,
         name: String,
@@ -761,6 +764,7 @@ mod scheduler_smoke_test {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct TestLayer {
         id: Uuid,
         name: String,
@@ -773,7 +777,7 @@ mod scheduler_smoke_test {
         test_fn: F,
     ) -> Result<(), Box<dyn std::error::Error>>
     where
-        F: FnOnce(Arc<Pool<Postgres>>, TestData) -> Fut,
+        F: FnOnce(TestData) -> Fut,
         Fut: std::future::Future<Output = ()>,
     {
         info!("Starting integration test: {}", test_name);
@@ -796,7 +800,7 @@ mod scheduler_smoke_test {
         let _ = OVERRIDE_CONFIG.set(create_test_config());
 
         // Run the test
-        test_fn(pool.clone(), test_data).await;
+        test_fn(test_data).await;
 
         Ok(())
     }
@@ -813,7 +817,7 @@ mod scheduler_smoke_test {
         assert_ok!(result, "Failure at test wrapper")
     }
 
-    async fn test_dispatch_hostname_tag_flow_inner(pool: Arc<Pool<Postgres>>, test_data: TestData) {
+    async fn test_dispatch_hostname_tag_flow_inner(test_data: TestData) {
         // Create a specific cluster feed for HOSTNAME tag testing
         let hostname_cluster = Cluster::ComposedKey(ClusterKey {
             facility_id: test_data.facility_id.to_string(),
@@ -869,7 +873,7 @@ mod scheduler_smoke_test {
         assert_ok!(result, "Failure at test wrapper")
     }
 
-    async fn test_dispatch_alloc_tag_flow_inner(pool: Arc<Pool<Postgres>>, test_data: TestData) {
+    async fn test_dispatch_alloc_tag_flow_inner(test_data: TestData) {
         // Create a specific cluster feed for ALLOC tag testing
         let alloc_cluster = Cluster::ComposedKey(ClusterKey {
             facility_id: test_data.facility_id.to_string(),
@@ -916,7 +920,7 @@ mod scheduler_smoke_test {
         assert_ok!(result, "Failure at test wrapper")
     }
 
-    async fn test_dispatch_manual_tag_flow_inner(pool: Arc<Pool<Postgres>>, test_data: TestData) {
+    async fn test_dispatch_manual_tag_flow_inner(test_data: TestData) {
         // Create a cluster feed with MANUAL tags (chunked)
         let manual_cluster = Cluster::TagsKey(vec![Tag {
             name: format!("integ_test_manual_tag_{}", test_data.test_suffix),
@@ -958,10 +962,7 @@ mod scheduler_smoke_test {
         assert_ok!(result, "Failure at test wrapper")
     }
 
-    async fn test_dispatch_mixed_job_scenario_inner(
-        pool: Arc<Pool<Postgres>>,
-        test_data: TestData,
-    ) {
+    async fn test_dispatch_mixed_job_scenario_inner(test_data: TestData) {
         // Create multiple clusters to handle the mixed job with different tag types
         let clusters = vec![
             Cluster::ComposedKey(ClusterKey {
@@ -991,6 +992,7 @@ mod scheduler_smoke_test {
         info!("Starting mixed job scenario integration test...");
 
         let result = pipeline::run(cluster_feed).await;
+        let pool = assert_ok!(connection_pool().await);
 
         match result {
             Ok(()) => {
@@ -1028,10 +1030,7 @@ mod scheduler_smoke_test {
         assert_ok!(result, "Failure at test wrapper")
     }
 
-    async fn test_dispatcher_no_matching_hosts_inner(
-        pool: Arc<Pool<Postgres>>,
-        _test_data: TestData,
-    ) {
+    async fn test_dispatcher_no_matching_hosts_inner(_test_data: TestData) {
         // Create a cluster with a non-existent tag that won't match any hosts
         let non_matching_cluster = Cluster::TagsKey(vec![Tag {
             name: "non_existent_tag".to_string(),

@@ -5,12 +5,12 @@ use bytesize::ByteSize;
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::{
-    config::{CONFIG, DatabaseConfig},
-    dao::{FrameDao, frame_dao::DispatchFrameModel},
-    models::{CoreSize, DispatchFrame, DispatchLayer},
+    config::CONFIG,
+    dao::frame_dao::DispatchFrameModel,
+    models::{CoreSize, DispatchLayer},
     pgpool::connection_pool,
 };
 
@@ -115,31 +115,6 @@ impl DispatchLayer {
         }
     }
 }
-
-static QUERY_LAYER: &str = r#"
-SELECT
-    l.pk_layer,
-    j.pk_job,
-    j.pk_facility,
-    j.pk_show,
-    j.str_name,
-    l.str_name as str_job_name,
-    j.str_os,
-    l.int_cores_min,
-    l.int_mem_min,
-    l.b_threadable,
-    l.int_gpus_min,
-    l.int_gpu_mem_min,
-    l.str_tags
-FROM job j
-    INNER JOIN layer l ON j.pk_job = l.pk_job
-    INNER JOIN layer_stat ls on l.pk_layer = ls.pk_layer
-WHERE j.pk_job = $1
-    AND ls.int_waiting_count > 0
-    AND string_to_array($2, ' | ') && string_to_array(l.str_tags, ' | ')
-ORDER BY
-    l.int_dispatch_order
-"#;
 
 /// Batched query that fetches layers with their frames in a single database call.
 /// This eliminates the nested database calls that could cause connection pool exhaustion.
@@ -265,8 +240,8 @@ impl LayerDao {
     /// # Returns
     /// * `Ok(LayerDao)` - Configured DAO ready for layer operations
     /// * `Err(miette::Error)` - If database connection fails
-    pub async fn new(config: &DatabaseConfig, frame_dao: Arc<FrameDao>) -> Result<Self> {
-        let pool = connection_pool(config).await.into_diagnostic()?;
+    pub async fn new() -> Result<Self> {
+        let pool = connection_pool().await.into_diagnostic()?;
         Ok(LayerDao {
             connection_pool: pool,
         })
@@ -296,35 +271,6 @@ impl LayerDao {
         // Use the batched query to fetch layers with frames in single database call
         self.query_layers_batched(pk_job, tags).await
     }
-
-    // Legacy method
-    // Uses nested database calls (not recommended for production).
-    // #[allow(dead_code)]
-    // #[deprecated]
-    // pub async fn query_layers_nested(
-    //     &self,
-    //     pk_job: String,
-    //     tags: Vec<String>,
-    // ) -> Result<Vec<DispatchLayer>, sqlx::Error> {
-    //     let layer_models = sqlx::query_as::<_, DispatchLayerModel>(QUERY_LAYER)
-    //         .bind(pk_job)
-    //         .bind(tags.join(" | ").to_string())
-    //         .fetch_all(&*self.connection_pool)
-    //         .await?;
-
-    //     let mut result = Vec::new();
-    //     for layer_model in layer_models {
-    //         let frame = self
-    //             .frame_dao
-    //             .query_dispatch_frames(
-    //                 &layer_model.pk_layer,
-    //                 CONFIG.queue.dispatch_frames_per_layer_limit as i32,
-    //             )
-    //             .await?;
-    //         result.push(DispatchLayer::new(layer_model, frame));
-    //     }
-    //     Ok(result)
-    // }
 
     /// Batched query that fetches layers with their frames in a single database call.
     /// This eliminates connection pool exhaustion from nested queries.

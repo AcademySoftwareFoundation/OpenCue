@@ -10,7 +10,6 @@ use scheduler::{
     config::{Config, DatabaseConfig, LoggingConfig, QueueConfig, RqdConfig},
 };
 use std::time::Duration;
-use tracing::Level;
 use uuid::Uuid;
 
 use std::sync::Arc;
@@ -24,6 +23,7 @@ const TEST_DB_PORT: u16 = 5432;
 const TEST_DB_NAME: &str = "cuebot";
 const TEST_DB_USER: &str = "cuebot";
 const TEST_DB_PASSWORD: &str = "cuebot_password";
+#[allow(dead_code)]
 const SEED: [u8; 32] = [0; 32]; // Replace with your own seed
 
 static TEST_CONNECTION_POOL: OnceCell<Arc<Pool<Postgres>>> = OnceCell::const_new();
@@ -92,6 +92,7 @@ pub fn create_test_config() -> Config {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct TestData {
     pub test_prefix: String,
     pub clusters: Vec<Cluster>,
@@ -100,14 +101,16 @@ pub struct TestData {
 }
 
 #[derive(Debug)]
-struct TestHost {
+#[allow(dead_code)]
+pub struct TestHost {
     id: Uuid,
     name: String,
     alloc_id: Uuid,
 }
 
 #[derive(Debug)]
-struct TestJob {
+#[allow(dead_code)]
+pub struct TestJob {
     id: Uuid,
     name: String,
     layers: Vec<TestLayer>,
@@ -115,13 +118,15 @@ struct TestJob {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct TestLayer {
     id: Uuid,
     name: String,
     tag: Vec<String>,
 }
 
-pub async fn clean_up_test_data(test_prefix: &str) -> Result<(), sqlx::Error> {
+#[allow(dead_code)]
+pub async fn clean_up_test_data(_test_prefix: &str) -> Result<(), sqlx::Error> {
     // let pool = test_connection_pool().await?;
     // let mut tx = pool.begin().await?;
 
@@ -496,6 +501,7 @@ pub async fn clean_up_test_data(test_prefix: &str) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub async fn create_test_data(
     test_name: &str,
     test_id: &str,
@@ -594,12 +600,7 @@ pub async fn create_test_data(
     let tags_per_chunk = tags.len().div_ceil(host_count);
     let tag_chunks: Vec<Vec<(String, &str)>> = tags
         .chunks(tags_per_chunk)
-        .map(|chunk| {
-            chunk
-                .into_iter()
-                .map(|tag| (tag.clone(), "MANUAL"))
-                .collect()
-        })
+        .map(|chunk| chunk.iter().map(|tag| (tag.clone(), "MANUAL")).collect())
         .collect();
     // Create hosts
     let mut hosts = Vec::new();
@@ -665,6 +666,7 @@ pub async fn create_test_data(
     })
 }
 
+#[allow(dead_code)]
 async fn create_allocation(
     pool: &mut Transaction<'static, Postgres>,
     facility_id: Uuid,
@@ -990,6 +992,7 @@ async fn create_job_scenario(
     })
 }
 
+#[allow(dead_code)]
 pub enum WaitingFrameClause {
     JobId(Uuid),
     All,

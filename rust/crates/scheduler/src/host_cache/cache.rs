@@ -7,7 +7,7 @@ use std::{
 
 use bytesize::ByteSize;
 use miette::Result;
-use tracing::{debug, error};
+use tracing::debug;
 
 use crate::{
     config::CONFIG,
@@ -61,6 +61,7 @@ impl HostKeysByHostId {
         lock.insert(host_id, (core_key, memory_key))
     }
 
+    #[allow(dead_code)]
     fn contains_key(&self, host_id: &String) -> bool {
         let lock = self
             .map
@@ -69,6 +70,7 @@ impl HostKeysByHostId {
         lock.contains_key(host_id)
     }
 
+    #[allow(dead_code)]
     fn is_empty(&self) -> bool {
         let lock = self
             .map
@@ -77,6 +79,7 @@ impl HostKeysByHostId {
         lock.is_empty()
     }
 
+    #[allow(dead_code)]
     fn len(&self) -> usize {
         let lock = self
             .map
@@ -85,6 +88,7 @@ impl HostKeysByHostId {
         lock.len()
     }
 
+    #[allow(dead_code)]
     fn get(&self, host_id: &str) -> Option<(CoreKey, MemoryKey)> {
         let lock = self
             .map
@@ -94,8 +98,9 @@ impl HostKeysByHostId {
     }
 }
 
+pub type MemoryBTree = BTreeMap<MemoryKey, HashMap<HostId, Host>>;
 struct HostsByCoreAndMemory {
-    map: RwLock<BTreeMap<CoreKey, BTreeMap<MemoryKey, HashMap<HostId, Host>>>>,
+    map: RwLock<BTreeMap<CoreKey, MemoryBTree>>,
 }
 
 impl HostsByCoreAndMemory {
@@ -155,6 +160,7 @@ impl HostsByCoreAndMemory {
             .insert(host_id.clone(), host)
     }
 
+    #[allow(dead_code)]
     fn is_empty(&self) -> bool {
         let lock = self
             .map
@@ -163,6 +169,7 @@ impl HostsByCoreAndMemory {
         lock.is_empty()
     }
 
+    #[allow(dead_code)]
     fn len(&self) -> usize {
         let lock = self
             .map
@@ -171,6 +178,7 @@ impl HostsByCoreAndMemory {
         lock.len()
     }
 
+    #[allow(dead_code)]
     fn get(&self, core_key: &CoreKey, memory_key: &MemoryKey, host_id: &String) -> Option<Host> {
         let lock = self
             .map
@@ -191,6 +199,7 @@ impl HostsByCoreAndMemory {
 
 pub enum HostBookingStrategy {
     /// Prioritize high utilization of hosts
+    /// TODO: Strategy not implemented yet
     _PrioritizeResourceSaturation,
 
     /// Prioritize high distribution of hosts
@@ -414,7 +423,7 @@ mod tests {
 
     #[test]
     fn test_insert_host() {
-        let mut cache = HostCache::default();
+        let cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
@@ -430,7 +439,7 @@ mod tests {
 
     #[test]
     fn test_insert_host_updates_existing() {
-        let mut cache = HostCache::default();
+        let cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host1 = create_test_host(host_id, 4, ByteSize::gb(8));
         let mut host2 = create_test_host(host_id, 8, ByteSize::gb(16));
@@ -453,7 +462,7 @@ mod tests {
 
     #[test]
     fn test_checkout_success() {
-        let mut cache = HostCache::default();
+        let cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
@@ -485,7 +494,7 @@ mod tests {
 
     #[test]
     fn test_checkout_no_candidate_available() {
-        let mut cache = HostCache::default();
+        let cache = HostCache::default();
 
         let result = cache.check_out(CoreSize(4), ByteSize::gb(8), |_| true);
 
@@ -495,7 +504,7 @@ mod tests {
 
     #[test]
     fn test_checkout_insufficient_cores() {
-        let mut cache = HostCache::default();
+        let cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 2, ByteSize::gb(8));
 
@@ -512,7 +521,7 @@ mod tests {
 
     #[test]
     fn test_checkout_insufficient_memory() {
-        let mut cache = HostCache::default();
+        let cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(4));
 
@@ -529,7 +538,7 @@ mod tests {
 
     #[test]
     fn test_checkout_validation_fails() {
-        let mut cache = HostCache::default();
+        let cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
@@ -546,7 +555,7 @@ mod tests {
 
     #[test]
     fn test_checkout_already_checked_out() {
-        let mut cache = HostCache::default();
+        let cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
@@ -563,7 +572,7 @@ mod tests {
 
     #[test]
     fn test_checkin() {
-        let mut cache = HostCache::default();
+        let cache = HostCache::default();
         let host_id = Uuid::new_v4();
         let host = create_test_host(host_id, 4, ByteSize::gb(8));
 
@@ -584,7 +593,7 @@ mod tests {
 
     #[test]
     fn test_find_candidate_with_multiple_hosts() {
-        let mut cache = HostCache::default();
+        let cache = HostCache::default();
 
         // Add hosts with different resources
         let host1_id = Uuid::new_v4();
@@ -632,7 +641,7 @@ mod tests {
 
     #[test]
     fn test_multiple_hosts_same_resources() {
-        let mut cache = HostCache::default();
+        let cache = HostCache::default();
 
         // Add multiple hosts with same resource configuration
         let host1_id = Uuid::new_v4();

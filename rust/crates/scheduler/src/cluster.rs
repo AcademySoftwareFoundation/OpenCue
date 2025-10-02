@@ -38,7 +38,7 @@ impl ClusterFeed {
     /// in real live, this should happen on a schedule and should negotiate with
     /// other nodes
     pub async fn load_all(run_once: bool) -> Result<Self> {
-        let cluster_dao = ClusterDao::from_config(&CONFIG.database).await?;
+        let cluster_dao = ClusterDao::new().await?;
 
         // Fetch clusters for both facilitys+shows+tags and just tags
         let mut clusters_stream = cluster_dao

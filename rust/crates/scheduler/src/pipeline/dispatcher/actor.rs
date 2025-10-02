@@ -71,9 +71,9 @@ impl Handler<DispatchLayerMessage> for RqdDispatcherService {
                 // within the dispatcher's database operations.
 
                 // Create a database transaction scope
-                let mut transaction = begin_transaction(&CONFIG.database)
+                let mut transaction = begin_transaction()
                     .await
-                    .map_err(|err| DispatchError::DbFailure(err))?;
+                    .map_err(DispatchError::DbFailure)?;
 
                 match dispatcher.dispatch(&layer, host, &mut transaction).await {
                     Ok((updated_host, updated_layer)) => {

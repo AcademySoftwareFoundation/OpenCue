@@ -18,7 +18,3 @@ pub fn fmt_uuid(id: &String) -> String {
         .0
         .to_string()
 }
-
-pub trait Partitionable {
-    fn partition_key(&self) -> String;
-}

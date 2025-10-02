@@ -5,7 +5,7 @@ use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 
-use crate::{config::DatabaseConfig, pgpool::connection_pool};
+use crate::pgpool::connection_pool;
 
 /// Data Access Object for host operations in the job dispatch system.
 ///
@@ -66,8 +66,8 @@ impl ClusterDao {
     /// # Returns
     /// * `Ok(HostDao)` - Configured DAO ready for host operations
     /// * `Err(miette::Error)` - If database connection fails
-    pub async fn from_config(config: &DatabaseConfig) -> Result<Self> {
-        let pool = connection_pool(config).await.into_diagnostic()?;
+    pub async fn new() -> Result<Self> {
+        let pool = connection_pool().await.into_diagnostic()?;
         Ok(ClusterDao {
             connection_pool: pool,
         })

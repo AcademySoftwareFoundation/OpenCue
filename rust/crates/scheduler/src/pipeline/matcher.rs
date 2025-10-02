@@ -7,7 +7,7 @@ use crate::{
     cluster::Cluster,
     cluster_key::Tag,
     config::CONFIG,
-    dao::{FrameDao, HostDao, LayerDao},
+    dao::LayerDao,
     host_cache::{HostCacheService, host_cache_service, messages::*},
     models::{DispatchJob, DispatchLayer, Host},
     pipeline::dispatcher::{
@@ -46,8 +46,7 @@ impl MatchingService {
     /// - Layer DAO for querying job layers
     /// - RQD dispatcher for frame execution
     pub async fn new() -> Result<Self> {
-        let frame_dao = Arc::new(FrameDao::from_config(&CONFIG.database).await?);
-        let layer_dao = LayerDao::new(&CONFIG.database, frame_dao.clone()).await?;
+        let layer_dao = LayerDao::new().await?;
         let host_service = host_cache_service().await?;
         // let max_concurrent_transactions = 2;
         let max_concurrent_transactions = CONFIG.database.pool_size as usize * 3 / 5;
@@ -268,21 +267,6 @@ impl MatchingService {
             }
             attempts -= 1;
         }
-    }
-
-    /// Handles various dispatch errors with appropriate logging and actions.
-    ///
-    /// # Arguments
-    /// * `error` - The dispatch error that occurred
-    /// * `dispatch_layer` - The layer that failed to dispatch
-    /// * `host` - The host that the dispatch was attempted on
-    fn log_dispatch_error(error: DispatchError, dispatch_layer: &DispatchLayer, host: &Host) {
-        Self::log_dispatch_error_with_info(
-            error,
-            &format!("{}", dispatch_layer),
-            &dispatch_layer.job_id,
-            host,
-        )
     }
 
     /// Handles various dispatch errors with appropriate logging and actions using pre-computed layer info.

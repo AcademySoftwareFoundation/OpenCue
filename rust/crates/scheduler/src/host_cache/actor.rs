@@ -110,7 +110,7 @@ impl Handler<CacheRatio> for HostCacheService {
 impl HostCacheService {
     pub async fn new() -> Result<Self> {
         Ok(HostCacheService {
-            host_dao: Arc::new(HostDao::from_config(&CONFIG.database).await?),
+            host_dao: Arc::new(HostDao::new().await?),
             groups: Arc::new(HashMap::new()),
             cache_hit: Arc::new(AtomicU64::new(0)),
             cache_miss: Arc::new(AtomicU64::new(0)),
@@ -246,7 +246,9 @@ impl HostCacheService {
                 async move {
                     // Skip groups if it exists on the cache but haven't been queried for a while
                     if is_idle {
-                        groups_for_removal.insert_async(group_key).await;
+                        if let Err(err) = groups_for_removal.insert_async(group_key).await {
+                            error!("Failed to mark group for removal on host_cache. {}", err);
+                        }
                     } else if let Err(err) = self.fetch_group_data(&group_key).await {
                         error!(
                             "Failed to fetch cache data on cache loop for key {}.{}",

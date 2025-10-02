@@ -12,7 +12,7 @@ use crate::models::DispatchJob;
 use crate::pipeline::MatchingService;
 
 pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
-    let job_fetcher = Arc::new(JobDao::from_config(&CONFIG.database).await?);
+    let job_fetcher = Arc::new(JobDao::new().await?);
     let matcher = Arc::new(MatchingService::new().await?);
     let cancel_token = CancellationToken::new();
     let cycles_without_jobs = Arc::new(AtomicUsize::new(0));

@@ -36,7 +36,9 @@ pub struct CacheRatio;
 
 #[derive(MessageResponse)]
 pub struct CacheRatioResponse {
+    #[allow(dead_code)]
     pub hit: u64,
+    #[allow(dead_code)]
     pub miss: u64,
     pub hit_ratio: usize,
 }
