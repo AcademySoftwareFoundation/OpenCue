@@ -47,6 +47,10 @@ MINIMUM_IDLE = 900
 
 # Whether or not to prefix each line in the log with a timestamp
 RQD_PREPEND_TIMESTAMP = 0
+
+# Maximum size in bytes for job log files before automatic termination
+# Default: 1 GiB (1073741824 bytes). Set to 0 to disable.
+JOB_LOG_MAX_SIZE_IN_BYTES = 1073741824
 ```
 
 ### Run rqd
