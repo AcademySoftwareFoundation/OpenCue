@@ -1098,6 +1098,10 @@ class FrameAttendantThread(threading.Thread):
             frameInfo.exitStatus = returncode
             frameInfo.exitSignal = 0
 
+        # Override exitStatus if job was killed due to log size limit
+        if self._log_limit_triggered:
+            frameInfo.exitStatus = rqd.rqconstants.EXITSTATUS_FOR_LOG_LIMIT_EXCEEDED
+
         try:
             with open(tempStatFile, "r", encoding='utf-8') as statFile:
                 frameInfo.realtime = statFile.readline().split()[1]
@@ -1169,7 +1173,7 @@ class FrameAttendantThread(threading.Thread):
         tempPassword = str(uuid.uuid4())
         # Command wrapper
         command = r"""#!/bin/sh
-useradd -u %s -g %s -p %s %s >& /dev/null || true;
+useradd -u %s -g %s -p %s %s >/dev/null 2>&1 || true;
 exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
 """ % (
             uid,
@@ -1271,8 +1275,12 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
                     self.__terminate_due_to_log_limit(msg, container.kill)
                     break
 
-            output = container.wait()
-            returncode = output["StatusCode"]
+            # Check if job was killed due to log size limit
+            if self._log_limit_triggered:
+                returncode = rqd.rqconstants.EXITSTATUS_FOR_LOG_LIMIT_EXCEEDED
+            else:
+                output = container.wait()
+                returncode = output["StatusCode"]
         except StopIteration:
             # This exception can happen when a container is interrupted
             # If frame pid is set it means the container has started successfully
@@ -1378,6 +1386,10 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
                 break
             if output:
                 self.rqlog.write(output, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+                exceeded, msg = self.__log_size_limit_exceeded()
+                if exceeded:
+                    self.__terminate_due_to_log_limit(msg, frameInfo.forkedCommand.kill)
+                    break
 
         frameInfo.forkedCommand.wait()
 
@@ -1389,6 +1401,10 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
             returncode = 304
         frameInfo.exitStatus = returncode
         frameInfo.exitSignal = returncode
+
+        # Override exitStatus if job was killed due to log size limit
+        if self._log_limit_triggered:
+            frameInfo.exitStatus = rqd.rqconstants.EXITSTATUS_FOR_LOG_LIMIT_EXCEEDED
 
         frameInfo.realtime = 0
         frameInfo.utime = 0
@@ -1433,6 +1449,20 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
                 break
             if output:
                 self.rqlog.write(output, prependTimestamp=rqd.rqconstants.RQD_PREPEND_TIMESTAMP)
+                exceeded, msg = self.__log_size_limit_exceeded()
+                if exceeded:
+                    def _kill_proc_group():
+                        try:
+                            os.killpg(os.getpgid(frameInfo.forkedCommand.pid),
+                                      rqd.rqconstants.KILL_SIGNAL)
+                        # pylint: disable=broad-except
+                        except Exception:
+                            try:
+                                frameInfo.forkedCommand.kill()
+                            except Exception:
+                                pass
+                    self.__terminate_due_to_log_limit(msg, _kill_proc_group)
+                    break
 
         frameInfo.forkedCommand.wait()
 
@@ -1444,6 +1474,10 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
             frameInfo.exitStatus = 1
         if os.WIFSIGNALED(returncode):
             frameInfo.exitSignal = os.WTERMSIG(returncode)
+
+        # Override exitStatus if job was killed due to log size limit
+        if self._log_limit_triggered:
+            frameInfo.exitStatus = rqd.rqconstants.EXITSTATUS_FOR_LOG_LIMIT_EXCEEDED
 
         self.__writeFooter()
         self.__cleanup()
@@ -1629,8 +1663,12 @@ exec su -s %s %s -c "echo \$$; %s /usr/bin/time -p -o %s %s %s"
                     self.__terminate_due_to_log_limit(msg, container.kill)
                     break
 
-            output = container.wait()
-            returncode = output["StatusCode"]
+            # Check if job was killed due to log size limit
+            if self._log_limit_triggered:
+                returncode = rqd.rqconstants.EXITSTATUS_FOR_LOG_LIMIT_EXCEEDED
+            else:
+                output = container.wait()
+                returncode = output["StatusCode"]
         except StopIteration:
             # This exception can happen when a container is interrupted
             # If frame pid is set it means the container has started successfully

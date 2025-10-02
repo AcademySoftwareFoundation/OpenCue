@@ -65,6 +65,7 @@ RQD_USE_IPV6_AS_HOSTNAME = False
 RQD_NETWORK_INTERFACE = None
 # Maximum allowable size in bytes for a single job log file (rqlog).
 # When exceeded, RQD will terminate the running job automatically.
+# Note: This limit applies to the current log file only, not cumulative across rotations.
 # 0 or None disables the limit.
 # Default: 1 GiB (can be adjusted per studio requirements via config)
 JOB_LOG_MAX_SIZE_IN_BYTES = 1024 * 1024 * 1024
@@ -121,6 +122,7 @@ MAXIMUM_LOAD = 75
 
 EXITSTATUS_FOR_FAILED_LAUNCH = 256
 EXITSTATUS_FOR_NIMBY_KILL = 286
+EXITSTATUS_FOR_LOG_LIMIT_EXCEEDED = 287
 
 PATH_CPUINFO = "/proc/cpuinfo"
 PATH_INITTAB = "/etc/inittab" # spinux1
