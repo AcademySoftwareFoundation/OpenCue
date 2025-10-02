@@ -665,15 +665,72 @@ def _get_proc_filters(args):
     Returns:
         tuple: (procs_list, duration_range) or (None, None) if error
     """
-    # Handle duration range
-    if re.search(RE_PATTERN_RANGE, str(args.duration)):
-        ls = args.duration.split("-")
-        dur_min = common.handleIntCriterion(ls[0], common.Convert.hoursToSeconds)
-        dur_max = common.handleIntCriterion(ls[-1], common.Convert.hoursToSeconds)
+    # Validate and handle duration range
+    duration_str = str(args.duration)
+
+    # Check for range format (x-y)
+    if re.search(RE_PATTERN_RANGE, duration_str):
+        parts = duration_str.split("-")
+
+        # Validate that we have exactly 2 parts (min and max)
+        if len(parts) != 2:
+            logger.error(
+                "Invalid duration format '%s'. Expected format: x-y where x and y "
+                "are positive numbers.",
+                duration_str
+            )
+            return None, None
+
+        try:
+            dur_min_val = float(parts[0])
+            dur_max_val = float(parts[1])
+        except ValueError:
+            logger.error(
+                "Invalid duration format '%s'. Values must be numbers.",
+                duration_str
+            )
+            return None, None
+
+        # Validate that both values are positive
+        if dur_min_val <= 0 or dur_max_val <= 0:
+            logger.error(
+                "Invalid duration range '%s'. Both values must be positive.",
+                duration_str
+            )
+            return None, None
+
+        # Validate that min < max
+        if dur_min_val >= dur_max_val:
+            logger.error(
+                "Invalid duration range '%s'. Minimum value must be less than maximum value.",
+                duration_str
+            )
+            return None, None
+
+        dur_min = common.handleIntCriterion(parts[0], common.Convert.hoursToSeconds)
+        dur_max = common.handleIntCriterion(parts[1], common.Convert.hoursToSeconds)
         if not dur_min or not dur_max:
             return None, None
         duration_range = "%s-%s" % (dur_min[-1].value, dur_max[-1].value)
     else:
+        # Single value format
+        try:
+            dur_val = float(duration_str)
+        except ValueError:
+            logger.error(
+                "Invalid duration format '%s'. Value must be a number.",
+                duration_str
+            )
+            return None, None
+
+        # Validate that value is positive
+        if dur_val <= 0:
+            logger.error(
+                "Invalid duration '%s'. Value must be positive.",
+                duration_str
+            )
+            return None, None
+
         duration = common.handleIntCriterion(
             args.duration, common.Convert.hoursToSeconds
         )
@@ -683,10 +740,48 @@ def _get_proc_filters(args):
 
     # Handle memory and duration filters
     if args.memory and args.duration:
-        if re.search(RE_PATTERN_RANGE, str(args.memory)):
-            ls = args.memory.split("-")
-            mem_min = common.handleIntCriterion(int(ls[0]), common.Convert.gigsToKB)
-            mem_max = common.handleIntCriterion(int(ls[1]), common.Convert.gigsToKB)
+        memory_str = str(args.memory)
+
+        if re.search(RE_PATTERN_RANGE, memory_str):
+            parts = memory_str.split("-")
+
+            # Validate that we have exactly 2 parts (min and max)
+            if len(parts) != 2:
+                logger.error(
+                    "Invalid memory format '%s'. Expected format: x-y where x and y "
+                    "are positive numbers.",
+                    memory_str
+                )
+                return None, None
+
+            try:
+                mem_min_val = float(parts[0])
+                mem_max_val = float(parts[1])
+            except ValueError:
+                logger.error(
+                    "Invalid memory format '%s'. Values must be numbers.",
+                    memory_str
+                )
+                return None, None
+
+            # Validate that both values are positive
+            if mem_min_val <= 0 or mem_max_val <= 0:
+                logger.error(
+                    "Invalid memory range '%s'. Both values must be positive.",
+                    memory_str
+                )
+                return None, None
+
+            # Validate that min < max
+            if mem_min_val >= mem_max_val:
+                logger.error(
+                    "Invalid memory range '%s'. Minimum value must be less than maximum value.",
+                    memory_str
+                )
+                return None, None
+
+            mem_min = common.handleIntCriterion(int(parts[0]), common.Convert.gigsToKB)
+            mem_max = common.handleIntCriterion(int(parts[1]), common.Convert.gigsToKB)
             if not mem_min or not mem_max:
                 return None, None
             memory_range = "%s-%s" % (mem_min[-1].value, mem_max[-1].value)
@@ -694,8 +789,16 @@ def _get_proc_filters(args):
                 job=[args.lp], memory=memory_range, duration=duration_range
             )
         else:
+            # Check for malformed patterns like "2--5" before processing
+            if "--" in memory_str or memory_str.count("-") > 1:
+                logger.error(
+                    "Invalid memory format '%s'. Use single value or x-y range format.",
+                    memory_str
+                )
+                return None, None
+
             mem = common.handleIntCriterion(args.memory, common.Convert.gigsToKB)
-            if not mem:
+            if not mem or not isinstance(mem, list) or len(mem) == 0:
                 return None, None
             greater_less_than_match = re.search(
                 RE_PATTERN_GREATER_LESS_THAN, str(args.memory)

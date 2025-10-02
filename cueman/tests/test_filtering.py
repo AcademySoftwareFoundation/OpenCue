@@ -242,12 +242,14 @@ class TestInvalidRangeHandling(unittest.TestCase):
         with self.assertRaises(ValueError):
             cueman_main._get_proc_filters(args)
 
-    def test_duration_invalid_format_raises_error(self):
-        """Test that invalid duration format raises ValueError."""
+    def test_duration_invalid_format_returns_none(self):
+        """Test that invalid duration format returns None."""
         args = build_args(lp="job1", memory="1", duration="invalid")
 
-        with self.assertRaises(ValueError):
-            cueman_main._get_proc_filters(args)
+        result, _ = cueman_main._get_proc_filters(args)
+
+        # Should return None for invalid input
+        self.assertIsNone(result)
 
     @mock.patch("opencue.api.getProcs")
     def test_memory_empty_string(self, mock_getProcs):
@@ -264,18 +266,14 @@ class TestInvalidRangeHandling(unittest.TestCase):
 class TestBoundaryConditions(unittest.TestCase):
     """Test boundary conditions for filtering."""
 
-    @mock.patch("opencue.api.getProcs")
-    def test_memory_zero_boundary(self, mock_getProcs):
-        """Test memory with zero value."""
+    def test_memory_zero_boundary(self):
+        """Test memory with zero value is rejected."""
         args = build_args(lp="job1", memory="0-1", duration="0.01")
-        mock_getProcs.return_value = []
 
-        cueman_main._get_proc_filters(args)
+        result, _ = cueman_main._get_proc_filters(args)
 
-        # 0 GB = 0 KB, 1 GB = 1048576 KB
-        mock_getProcs.assert_called_once()
-        call_kwargs = mock_getProcs.call_args[1]
-        self.assertEqual(call_kwargs["memory"], "0-1048576")
+        # Should return None for invalid input (0 is not positive)
+        self.assertIsNone(result)
 
     @mock.patch("opencue.api.getProcs")
     def test_memory_large_value(self, mock_getProcs):
@@ -291,18 +289,14 @@ class TestBoundaryConditions(unittest.TestCase):
         final_call_kwargs = mock_getProcs.call_args_list[-1][1]
         self.assertEqual(final_call_kwargs["memory_greater_than"], 104857600)
 
-    @mock.patch("opencue.api.getProcs")
-    def test_duration_zero_boundary(self, mock_getProcs):
-        """Test duration with zero value."""
+    def test_duration_zero_boundary(self):
+        """Test duration with zero value is rejected."""
         args = build_args(lp="job1", memory="1", duration="0-1")
-        mock_getProcs.return_value = []
 
-        cueman_main._get_proc_filters(args)
+        result, _ = cueman_main._get_proc_filters(args)
 
-        # 0 hours = 0 seconds, 1 hour = 3600 seconds
-        mock_getProcs.assert_called_once()
-        call_kwargs = mock_getProcs.call_args[1]
-        self.assertEqual(call_kwargs["duration"], "0-3600")
+        # Should return None for invalid input (0 is not positive)
+        self.assertIsNone(result)
 
     @mock.patch("opencue.api.getProcs")
     def test_duration_large_value(self, mock_getProcs):
@@ -485,31 +479,23 @@ class TestFilterCombination(unittest.TestCase):
 class TestProcFiltersEdgeCases(unittest.TestCase):
     """Test edge cases for _get_proc_filters function."""
 
-    @mock.patch("opencue.api.getProcs")
-    def test_memory_range_with_same_min_max(self, mock_getProcs):
-        """Test memory range where min equals max."""
+    def test_memory_range_with_same_min_max(self):
+        """Test memory range where min equals max is rejected."""
         args = build_args(lp="job1", memory="2-2", duration="0.01")
-        mock_getProcs.return_value = []
 
-        cueman_main._get_proc_filters(args)
+        result, _ = cueman_main._get_proc_filters(args)
 
-        # 2 GB = 2097152 KB
-        mock_getProcs.assert_called_once()
-        call_kwargs = mock_getProcs.call_args[1]
-        self.assertEqual(call_kwargs["memory"], "2097152-2097152")
+        # Should return None for invalid input
+        self.assertIsNone(result)
 
-    @mock.patch("opencue.api.getProcs")
-    def test_duration_range_with_same_min_max(self, mock_getProcs):
-        """Test duration range where min equals max."""
+    def test_duration_range_with_same_min_max(self):
+        """Test duration range where min equals max is rejected."""
         args = build_args(lp="job1", memory="1", duration="1-1")
-        mock_getProcs.return_value = []
 
-        cueman_main._get_proc_filters(args)
+        result, _ = cueman_main._get_proc_filters(args)
 
-        # 1 hour = 3600 seconds
-        mock_getProcs.assert_called_once()
-        call_kwargs = mock_getProcs.call_args[1]
-        self.assertEqual(call_kwargs["duration"], "3600-3600")
+        # Should return None for invalid input
+        self.assertIsNone(result)
 
     def test_very_small_memory_values_with_integers(self):
         """Test memory range parsing only works with integers in the code."""
@@ -556,6 +542,106 @@ class TestProcFiltersEdgeCases(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             cueman_main._get_proc_filters(args)
+
+
+class TestInputValidationBugFixes(unittest.TestCase):
+    """Test fixes for input validation bugs reported in issue #1998."""
+
+    def test_duration_double_dash_rejected(self):
+        """Test that '2--5' format is rejected (issue #1998)."""
+        args = build_args(lp="job1", memory="1", duration="2--5")
+
+        result, _ = cueman_main._get_proc_filters(args)
+
+        # Should return None for invalid input
+        self.assertIsNone(result)
+
+    def test_duration_multiple_values_rejected(self):
+        """Test that '2-3-5' format is rejected (issue #1998)."""
+        args = build_args(lp="job1", memory="1", duration="2-3-5")
+
+        result, _ = cueman_main._get_proc_filters(args)
+
+        # Should return None for invalid input
+        self.assertIsNone(result)
+
+    def test_duration_reversed_range_rejected(self):
+        """Test that '5-2' format is rejected (min > max) (issue #1998)."""
+        args = build_args(lp="job1", memory="1", duration="5-2")
+
+        result, _ = cueman_main._get_proc_filters(args)
+
+        # Should return None for invalid input
+        self.assertIsNone(result)
+
+    def test_duration_negative_value_rejected(self):
+        """Test that negative duration is rejected (issue #1998)."""
+        args = build_args(lp="job1", memory="1", duration="-5")
+
+        result, _ = cueman_main._get_proc_filters(args)
+
+        # Should return None for invalid input
+        self.assertIsNone(result)
+
+    def test_duration_negative_range_rejected(self):
+        """Test that negative duration range is rejected (issue #1998)."""
+        args = build_args(lp="job1", memory="1", duration="-2-5")
+
+        result, _ = cueman_main._get_proc_filters(args)
+
+        # Should return None for invalid input
+        self.assertIsNone(result)
+
+    def test_memory_double_dash_rejected(self):
+        """Test that '2--5' memory format is rejected."""
+        args = build_args(lp="job1", memory="2--5", duration="0.01")
+
+        result, _ = cueman_main._get_proc_filters(args)
+
+        # Should return None for invalid input
+        self.assertIsNone(result)
+
+    def test_memory_multiple_values_rejected(self):
+        """Test that '2-3-5' memory format is rejected."""
+        args = build_args(lp="job1", memory="2-3-5", duration="0.01")
+
+        result, _ = cueman_main._get_proc_filters(args)
+
+        # Should return None for invalid input
+        self.assertIsNone(result)
+
+    def test_memory_reversed_range_rejected(self):
+        """Test that '5-2' memory format is rejected (min > max)."""
+        args = build_args(lp="job1", memory="5-2", duration="0.01")
+
+        result, _ = cueman_main._get_proc_filters(args)
+
+        # Should return None for invalid input
+        self.assertIsNone(result)
+
+    @mock.patch("opencue.api.getProcs")
+    def test_valid_duration_range_accepted(self, mock_getProcs):
+        """Test that valid duration range '2-5' is accepted (issue #1998)."""
+        args = build_args(lp="job1", memory="1", duration="2-5")
+        mock_getProcs.return_value = []
+
+        result, _ = cueman_main._get_proc_filters(args)
+
+        # Should NOT return None for valid input
+        self.assertIsNotNone(result)
+        mock_getProcs.assert_called_once()
+
+    @mock.patch("opencue.api.getProcs")
+    def test_valid_duration_single_value_accepted(self, mock_getProcs):
+        """Test that valid single duration '5' is accepted (issue #1998)."""
+        args = build_args(lp="job1", memory="1", duration="5")
+        mock_getProcs.return_value = []
+
+        result, _ = cueman_main._get_proc_filters(args)
+
+        # Should NOT return None for valid input
+        self.assertIsNotNone(result)
+        mock_getProcs.assert_called_once()
 
 
 class TestBuildFrameSearchWithFilters(unittest.TestCase):

@@ -246,7 +246,7 @@ cueman -lf job_name -layer render_layer comp_layer
 
 ### Memory Filter
 ```bash
-# Frames using 2-4 GB
+# Frames using 2-4 GB (both values must be positive, min < max)
 cueman -lf job_name -memory 2-4
 
 # Frames using less than 2 GB
@@ -256,9 +256,11 @@ cueman -lf job_name -memory lt2
 cueman -lf job_name -memory gt4
 ```
 
+**Input Validation:** Values must be positive numbers. Range format requires `min < max` (e.g., `2-8`). Invalid formats like `8-2` (reversed), `2--5` (double dash), `2-3-5` (multiple dashes), or `0-4` (zero) are rejected.
+
 ### Duration Filter
 ```bash
-# Frames running 1-2 hours (range)
+# Frames running 1-2 hours (both values must be positive, min < max)
 cueman -lf job_name -duration 1-2
 
 # Frames running more than 3.5 hours
@@ -267,6 +269,8 @@ cueman -lf job_name -duration gt3.5
 # Frames running less than 0.5 hours
 cueman -lf job_name -duration lt0.5
 ```
+
+**Input Validation:** Values must be positive numbers. Range format requires `min < max` (e.g., `1-3`). Invalid formats like `5-2` (reversed), `2--5` (double dash), `2-3-5` (multiple dashes), `-5` (negative), or `0-2` (zero) are rejected.
 
 ### Pagination
 ```bash
@@ -341,9 +345,11 @@ cueman -kill job_name -memory gt16
 **Usage Notes:**
 - Memory values are specified in GB (e.g., `gt16` = greater than 16GB)
 - Duration values are specified in hours (e.g., `gt12` = greater than 12 hours)
+- Memory and duration ranges must use positive values with min < max (e.g., `2-5` not `5-2`)
+- Input validation ensures only valid ranges are accepted (rejects negative, zero, reversed, and malformed inputs)
 - Job names support wildcards and comma-separated lists
 - Use `cueman -h` anytime to see all available commands and options
-- Error messages are user-friendly and clearly indicate when jobs don't exist
+- Error messages are user-friendly and clearly indicate when jobs don't exist or inputs are invalid
 
 **Best Practices:**
 - Always verify job state with `-info` before major operations
@@ -368,13 +374,36 @@ cueman                       # Running without args also shows help
 - **Permission errors**: Some operations require appropriate OpenCue permissions
 
 ### Error Examples
-When a job doesn't exist, you'll see clear error messages:
+When a job doesn't exist or inputs are invalid, you'll see clear error messages:
+
+**Job not found:**
 ```bash
 $ cueman -lf nonexistent_job
 Error: Job 'nonexistent_job' does not exist.
 
-$ cueman -info missing_job  
+$ cueman -info missing_job
 Error: Job 'missing_job' does not exist.
+```
+
+**Invalid duration values:**
+```bash
+$ cueman -lp job_name -duration 5-2
+Invalid duration range '5-2'. Minimum value must be less than maximum value.
+
+$ cueman -lp job_name -duration 2--5
+Invalid duration format '2--5'. Expected format: x-y where x and y are positive numbers.
+
+$ cueman -lp job_name -duration -5
+Invalid duration format '-5'. Value must be a number.
+```
+
+**Invalid memory values:**
+```bash
+$ cueman -lp job_name -memory 8-2
+Invalid memory range '8-2'. Minimum value must be less than maximum value.
+
+$ cueman -lp job_name -memory 2-3-5
+Invalid memory format '2-3-5'. Expected format: x-y where x and y are positive numbers.
 ```
 
 ### Verbose Output
