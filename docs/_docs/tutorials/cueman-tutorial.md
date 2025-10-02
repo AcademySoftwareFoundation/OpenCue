@@ -190,7 +190,7 @@ cueman -retry show_shot_lighting_v001 \
 Memory filters accept three formats:
 
 ```bash
-# Range: 2-4 GB (both values must be positive, min < max)
+# Range: 2-4 GB (both values must be non-negative, min < max)
 cueman -lf show_shot_lighting_v001 -memory 2-4
 
 # Less than: Less than 2 GB
@@ -200,14 +200,14 @@ cueman -lf show_shot_lighting_v001 -memory lt2
 cueman -kill show_shot_lighting_v001 -memory gt32
 ```
 
-**Important:** Invalid formats like `8-2` (reversed), `2--5` (double dash), `2-3-5` (multiple dashes), `0-4` (zero value), or `2-2` (equal min/max) will be rejected with clear error messages.
+**Important:** Invalid formats like `8-2` (reversed), `2--5` (double dash), `2-3-5` (multiple dashes), or `2-2` (equal min/max) will be rejected with clear error messages.
 
 ### Working with Duration Filters
 
 Duration filters accept three formats (values in hours):
 
 ```bash
-# Range: 1-2 hours (both values must be positive, min < max)
+# Range: 1-2 hours (both values must be non-negative, min < max)
 cueman -lf show_shot_lighting_v001 -duration 1-2
 
 # Greater than: More than 3.5 hours
@@ -220,7 +220,7 @@ cueman -lf show_shot_lighting_v001 -duration lt0.5
 cueman -kill show_shot_lighting_v001 -duration gt24
 ```
 
-**Important:** Invalid formats like `5-2` (reversed), `2--5` (double dash), `2-3-5` (multiple dashes), `-5` (negative), `0-2` (zero value), or `1-1` (equal min/max) will be rejected with clear error messages.
+**Important:** Invalid formats like `5-2` (reversed), `2--5` (double dash), `2-3-5` (multiple dashes), `-5` (negative), or `1-1` (equal min/max) will be rejected with clear error messages.
 
 ## Part 5: Frame Manipulation
 
@@ -502,10 +502,10 @@ $ cueman -lp show_shot_001 -duration 5-2
 Invalid duration range '5-2'. Minimum value must be less than maximum value.
 
 $ cueman -lp show_shot_001 -duration 2--5
-Invalid duration format '2--5'. Expected format: x-y where x and y are positive numbers.
+Invalid duration format '2--5'. Expected format: x-y where x and y are non-negative numbers.
 
 $ cueman -lp show_shot_001 -duration -5
-Invalid duration format '-5'. Value must be a number.
+Invalid duration format '-5'. Value cannot be negative.
 ```
 
 **Invalid memory values:**
@@ -514,7 +514,7 @@ $ cueman -lp show_shot_001 -memory 8-2
 Invalid memory range '8-2'. Minimum value must be less than maximum value.
 
 $ cueman -lp show_shot_001 -memory 2-3-5
-Invalid memory format '2-3-5'. Expected format: x-y where x and y are positive numbers.
+Invalid memory format '2-3-5'. Expected format: x-y where x and y are non-negative numbers.
 ```
 
 ## Summary

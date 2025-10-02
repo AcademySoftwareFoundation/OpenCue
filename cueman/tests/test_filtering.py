@@ -266,14 +266,16 @@ class TestInvalidRangeHandling(unittest.TestCase):
 class TestBoundaryConditions(unittest.TestCase):
     """Test boundary conditions for filtering."""
 
-    def test_memory_zero_boundary(self):
-        """Test memory with zero value is rejected."""
+    @mock.patch("opencue.api.getProcs")
+    def test_memory_zero_boundary(self, mock_getProcs):
+        """Test memory with zero value is accepted (0-5 means up to 5GB)."""
         args = build_args(lp="job1", memory="0-1", duration="0.01")
+        mock_getProcs.return_value = []
 
         result, _ = cueman_main._get_proc_filters(args)
 
-        # Should return None for invalid input (0 is not positive)
-        self.assertIsNone(result)
+        # Should accept 0 as valid (0-1 means up to 1 GB)
+        self.assertIsNotNone(result)
 
     @mock.patch("opencue.api.getProcs")
     def test_memory_large_value(self, mock_getProcs):
@@ -289,14 +291,16 @@ class TestBoundaryConditions(unittest.TestCase):
         final_call_kwargs = mock_getProcs.call_args_list[-1][1]
         self.assertEqual(final_call_kwargs["memory_greater_than"], 104857600)
 
-    def test_duration_zero_boundary(self):
-        """Test duration with zero value is rejected."""
+    @mock.patch("opencue.api.getProcs")
+    def test_duration_zero_boundary(self, mock_getProcs):
+        """Test duration with zero value is accepted (0-1 means up to 1 hour)."""
         args = build_args(lp="job1", memory="1", duration="0-1")
+        mock_getProcs.return_value = []
 
         result, _ = cueman_main._get_proc_filters(args)
 
-        # Should return None for invalid input (0 is not positive)
-        self.assertIsNone(result)
+        # Should accept 0 as valid (0-1 means up to 1 hour)
+        self.assertIsNotNone(result)
 
     @mock.patch("opencue.api.getProcs")
     def test_duration_large_value(self, mock_getProcs):

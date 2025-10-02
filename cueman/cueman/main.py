@@ -691,10 +691,10 @@ def _get_proc_filters(args):
             )
             return None, None
 
-        # Validate that both values are positive
-        if dur_min_val <= 0 or dur_max_val <= 0:
+        # Validate that both values are non-negative
+        if dur_min_val < 0 or dur_max_val < 0:
             logger.error(
-                "Invalid duration range '%s'. Both values must be positive.",
+                "Invalid duration range '%s'. Values cannot be negative.",
                 duration_str
             )
             return None, None
@@ -723,10 +723,10 @@ def _get_proc_filters(args):
             )
             return None, None
 
-        # Validate that value is positive
-        if dur_val <= 0:
+        # Validate that value is non-negative
+        if dur_val < 0:
             logger.error(
-                "Invalid duration '%s'. Value must be positive.",
+                "Invalid duration '%s'. Value cannot be negative.",
                 duration_str
             )
             return None, None
@@ -764,10 +764,10 @@ def _get_proc_filters(args):
                 )
                 return None, None
 
-            # Validate that both values are positive
-            if mem_min_val <= 0 or mem_max_val <= 0:
+            # Validate that both values are non-negative
+            if mem_min_val < 0 or mem_max_val < 0:
                 logger.error(
-                    "Invalid memory range '%s'. Both values must be positive.",
+                    "Invalid memory range '%s'. Values cannot be negative.",
                     memory_str
                 )
                 return None, None
@@ -790,7 +790,7 @@ def _get_proc_filters(args):
             )
         else:
             # Check for malformed patterns like "2--5" before processing
-            if "--" in memory_str or memory_str.count("-") > 1:
+            if memory_str.count("-") > 1:
                 logger.error(
                     "Invalid memory format '%s'. Use single value or x-y range format.",
                     memory_str

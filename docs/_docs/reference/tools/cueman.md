@@ -276,16 +276,15 @@ cueman -lf job_name -memory gt16   # Greater than 16 GB
 ```
 
 **Input Validation:**
-- **Single value:** Must be a positive number (e.g., `5`, `2.5`)
-- **Range format:** `x-y` where both `x` and `y` are positive numbers and `x < y` (e.g., `2-8`, `0.5-4.5`)
-- **Comparison format:** `gt<value>` or `lt<value>` with positive values (e.g., `gt16`, `lt2`)
+- **Single value:** Must be a non-negative number (e.g., `5`, `2.5`, `0`)
+- **Range format:** `x-y` where both `x` and `y` are non-negative numbers and `x < y` (e.g., `2-8`, `0.5-4.5`, `0-5`)
+- **Comparison format:** `gt<value>` or `lt<value>` with non-negative values (e.g., `gt16`, `lt2`)
 
 **Invalid inputs that will be rejected:**
 - Negative values: `-5`, `2--5`, `-2-5`
 - Reversed ranges: `8-2` (min must be less than max)
 - Multiple dashes: `2-3-5` (only two parts allowed)
 - Equal min/max: `2-2` (range must have min < max)
-- Zero values: `0`, `0-1`
 
 ### Duration Filter
 
@@ -298,16 +297,15 @@ cueman -lf job_name -duration lt0.5    # Less than 0.5 hours
 ```
 
 **Input Validation:**
-- **Single value:** Must be a positive number (e.g., `2`, `3.5`)
-- **Range format:** `x-y` where both `x` and `y` are positive numbers and `x < y` (e.g., `1-3`, `0.5-2.5`)
-- **Comparison format:** `gt<value>` or `lt<value>` with positive values (e.g., `gt12`, `lt0.5`)
+- **Single value:** Must be a non-negative number (e.g., `2`, `3.5`, `0`)
+- **Range format:** `x-y` where both `x` and `y` are non-negative numbers and `x < y` (e.g., `1-3`, `0.5-2.5`, `0-5`)
+- **Comparison format:** `gt<value>` or `lt<value>` with non-negative values (e.g., `gt12`, `lt0.5`)
 
 **Invalid inputs that will be rejected:**
 - Negative values: `-2`, `2--5`, `-1-3`
 - Reversed ranges: `5-2` (min must be less than max)
 - Multiple dashes: `2-3-5` (only two parts allowed)
 - Equal min/max: `1-1` (range must have min < max)
-- Zero values: `0`, `0-2`
 - Non-numeric: `abc`, `1-abc`
 
 ### Pagination
@@ -452,16 +450,13 @@ $ cueman -lp job_name -duration 5-2
 Invalid duration range '5-2'. Minimum value must be less than maximum value.
 
 $ cueman -lp job_name -duration 2--5
-Invalid duration format '2--5'. Expected format: x-y where x and y are positive numbers.
+Invalid duration format '2--5'. Expected format: x-y where x and y are non-negative numbers.
 
 $ cueman -lp job_name -duration 2-3-5
-Invalid duration format '2-3-5'. Expected format: x-y where x and y are positive numbers.
+Invalid duration format '2-3-5'. Expected format: x-y where x and y are non-negative numbers.
 
 $ cueman -lp job_name -duration -5
-Invalid duration format '-5'. Value must be a number.
-
-$ cueman -lp job_name -duration 0-2
-Invalid duration range '0-2'. Both values must be positive.
+Invalid duration format '-5'. Value cannot be negative.
 ```
 
 **Invalid memory filter:**
@@ -471,9 +466,6 @@ Invalid memory range '8-2'. Minimum value must be less than maximum value.
 
 $ cueman -lp job_name -memory 2--5
 Invalid memory format '2--5'. Use single value or x-y range format.
-
-$ cueman -lp job_name -memory 0-4
-Invalid memory range '0-4'. Both values must be positive.
 ```
 
 ### Getting Help
@@ -499,7 +491,7 @@ cueman             # Running without args shows help
 - Preview operations with `-lf` before running destructive commands
 - Memory values are in GB (e.g., `gt16` = greater than 16GB)
 - Duration values are in hours (e.g., `gt12` = greater than 12 hours)
-- Input validation ensures only valid positive ranges and values are accepted
+- Input validation ensures only valid non-negative ranges and values are accepted
 - Always use proper range format with min < max (e.g., `2-5` not `5-2`)
 
 ## Development and Testing

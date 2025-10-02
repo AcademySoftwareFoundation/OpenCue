@@ -246,7 +246,7 @@ cueman -lf job_name -layer render_layer comp_layer
 
 ### Memory Filter
 ```bash
-# Frames using 2-4 GB (both values must be positive, min < max)
+# Frames using 2-4 GB (both values must be non-negative, min < max)
 cueman -lf job_name -memory 2-4
 
 # Frames using less than 2 GB
@@ -256,11 +256,11 @@ cueman -lf job_name -memory lt2
 cueman -lf job_name -memory gt4
 ```
 
-**Input Validation:** Values must be positive numbers. Range format requires `min < max` (e.g., `2-8`). Invalid formats like `8-2` (reversed), `2--5` (double dash), `2-3-5` (multiple dashes), or `0-4` (zero) are rejected.
+**Input Validation:** Values must be non-negative numbers. Range format requires `min < max` (e.g., `2-8`, `0-5`). Invalid formats like `8-2` (reversed), `2--5` (double dash), or `2-3-5` (multiple dashes) are rejected.
 
 ### Duration Filter
 ```bash
-# Frames running 1-2 hours (both values must be positive, min < max)
+# Frames running 1-2 hours (both values must be non-negative, min < max)
 cueman -lf job_name -duration 1-2
 
 # Frames running more than 3.5 hours
@@ -270,7 +270,7 @@ cueman -lf job_name -duration gt3.5
 cueman -lf job_name -duration lt0.5
 ```
 
-**Input Validation:** Values must be positive numbers. Range format requires `min < max` (e.g., `1-3`). Invalid formats like `5-2` (reversed), `2--5` (double dash), `2-3-5` (multiple dashes), `-5` (negative), or `0-2` (zero) are rejected.
+**Input Validation:** Values must be non-negative numbers. Range format requires `min < max` (e.g., `1-3`, `0-5`). Invalid formats like `5-2` (reversed), `2--5` (double dash), `2-3-5` (multiple dashes), or `-5` (negative) are rejected.
 
 ### Pagination
 ```bash
@@ -345,8 +345,8 @@ cueman -kill job_name -memory gt16
 **Usage Notes:**
 - Memory values are specified in GB (e.g., `gt16` = greater than 16GB)
 - Duration values are specified in hours (e.g., `gt12` = greater than 12 hours)
-- Memory and duration ranges must use positive values with min < max (e.g., `2-5` not `5-2`)
-- Input validation ensures only valid ranges are accepted (rejects negative, zero, reversed, and malformed inputs)
+- Memory and duration ranges must use non-negative values with min < max (e.g., `2-5` not `5-2`)
+- Input validation ensures only valid ranges are accepted (rejects negative, reversed, and malformed inputs)
 - Job names support wildcards and comma-separated lists
 - Use `cueman -h` anytime to see all available commands and options
 - Error messages are user-friendly and clearly indicate when jobs don't exist or inputs are invalid
@@ -391,10 +391,10 @@ $ cueman -lp job_name -duration 5-2
 Invalid duration range '5-2'. Minimum value must be less than maximum value.
 
 $ cueman -lp job_name -duration 2--5
-Invalid duration format '2--5'. Expected format: x-y where x and y are positive numbers.
+Invalid duration format '2--5'. Expected format: x-y where x and y are non-negative numbers.
 
 $ cueman -lp job_name -duration -5
-Invalid duration format '-5'. Value must be a number.
+Invalid duration format '-5'. Value cannot be negative.
 ```
 
 **Invalid memory values:**
@@ -403,7 +403,7 @@ $ cueman -lp job_name -memory 8-2
 Invalid memory range '8-2'. Minimum value must be less than maximum value.
 
 $ cueman -lp job_name -memory 2-3-5
-Invalid memory format '2-3-5'. Expected format: x-y where x and y are positive numbers.
+Invalid memory format '2-3-5'. Expected format: x-y where x and y are non-negative numbers.
 ```
 
 ### Verbose Output
