@@ -10,6 +10,7 @@ use std::{
         Arc,
         atomic::{self, AtomicU64},
     },
+    time::{Duration, SystemTime},
 };
 
 use futures::{StreamExt, stream};
@@ -30,9 +31,28 @@ use crate::{
 pub struct HostCacheService {
     host_dao: Arc<HostDao>,
     groups: Arc<HashMap<ClusterKey, HostCache>>,
+    reserved_hosts: Arc<HashMap<String, HostReservation>>,
     cache_hit: Arc<AtomicU64>,
     cache_miss: Arc<AtomicU64>,
     concurrency_semaphore: Arc<Semaphore>,
+}
+
+/// Use a reservation system to prevent race conditions when trying to book a host
+/// that belongs to multiple groups.
+struct HostReservation {
+    reserved_time: SystemTime,
+}
+
+impl HostReservation {
+    pub fn new() -> Self {
+        HostReservation {
+            reserved_time: SystemTime::now(),
+        }
+    }
+
+    pub fn expired(&self) -> bool {
+        self.reserved_time.elapsed().unwrap_or_default() > Duration::from_secs(10)
+    }
 }
 
 impl Actor for HostCacheService {
@@ -117,6 +137,7 @@ impl HostCacheService {
             concurrency_semaphore: Arc::new(Semaphore::new(
                 CONFIG.host_cache.concurrent_fetch_permit,
             )),
+            reserved_hosts: Arc::new(HashMap::new()),
         })
     }
 
@@ -133,6 +154,16 @@ impl HostCacheService {
         F: Fn(&Host) -> bool,
     {
         let cache_keys = self.gen_cache_keys(facility_id, show_id, tags);
+
+        // Extend validation to also check for hosts that are already reserved
+        let validation = |host: &Host| {
+            let available = self
+                .reserved_hosts
+                .read_sync(&host.id, |_, reservation| reservation.expired())
+                .unwrap_or(true);
+            validation(host) && available
+        };
+
         for cache_key in cache_keys {
             // Attempt to read from the cache
             let cached_candidate = self
@@ -144,7 +175,7 @@ impl HostCacheService {
                     if !cached_group.expired() {
                         cached_group
                             // Checkout host from a group
-                            .check_out(cores, memory, &validation)
+                            .check_out(cores, memory, validation)
                             .map(|host| (cache_key.clone(), host.clone()))
                             .ok()
                     } else {
@@ -157,7 +188,7 @@ impl HostCacheService {
             // Fetch form the database if not found on cache
             match cached_candidate {
                 Some(cached) => {
-                    self.cache_hit.fetch_add(1, atomic::Ordering::Relaxed);
+                    self.reserve_host(cached.1.id.clone(), true);
                     return Ok(CheckedOutHost(cached.0, cached.1));
                 }
                 None => {
@@ -167,14 +198,14 @@ impl HostCacheService {
                         .map_err(|err| HostCacheError::FailedToQueryHostCache(err.to_string()))?;
                     let checked_out_host = group
                         // Checkout host from a group
-                        .check_out(cores, memory, &validation)
+                        .check_out(cores, memory, validation)
                         .map(|host| CheckedOutHost(cache_key, host.clone()));
 
                     // If a valid host couldn't not be found in this group, try the next tag_key
-                    if checked_out_host.is_ok() {
+                    if let Ok(checked_out_host) = checked_out_host {
+                        self.reserve_host(checked_out_host.1.id.clone(), false);
                         // Only count as a cache miss if there was a host candidate available
-                        self.cache_miss.fetch_add(1, atomic::Ordering::Relaxed);
-                        return checked_out_host;
+                        return Ok(checked_out_host);
                     }
                 }
             }
@@ -182,8 +213,21 @@ impl HostCacheService {
         Err(HostCacheError::NoCandidateAvailable)
     }
 
+    fn reserve_host(&self, host_id: String, cache_hit: bool) {
+        if cache_hit {
+            self.cache_hit.fetch_add(1, atomic::Ordering::Relaxed);
+        } else {
+            self.cache_miss.fetch_add(1, atomic::Ordering::Relaxed);
+        }
+        // Mark host as reserved
+        let _ = self
+            .reserved_hosts
+            .insert_sync(host_id, HostReservation::new());
+    }
+
     fn check_in(&self, cluster_key: ClusterKey, host: Host) {
         debug!("{}: Attempting to checkin", cluster_key);
+        let _ = self.reserved_hosts.remove_sync(&host.id);
 
         match self.groups.get_sync(&cluster_key) {
             Some(group) => {

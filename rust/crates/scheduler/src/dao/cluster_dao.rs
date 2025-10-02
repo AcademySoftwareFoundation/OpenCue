@@ -60,9 +60,6 @@ impl ClusterDao {
     /// Establishes a connection pool to the PostgreSQL database for
     /// host-related operations.
     ///
-    /// # Arguments
-    /// * `config` - Database configuration containing connection parameters
-    ///
     /// # Returns
     /// * `Ok(HostDao)` - Configured DAO ready for host operations
     /// * `Err(miette::Error)` - If database connection fails

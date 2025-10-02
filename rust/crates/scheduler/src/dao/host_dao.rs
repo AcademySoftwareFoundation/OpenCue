@@ -185,17 +185,15 @@ impl HostDao {
     /// * `Err(miette::Error)` - Database operation failed
     pub async fn lock(
         &self,
-        _transaction: &mut Transaction<'_, Postgres>,
-        _host_id: &str,
+        transaction: &mut Transaction<'_, Postgres>,
+        host_id: &str,
     ) -> Result<bool> {
-        // sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_lock(hashtext($1))")
-        //     .bind(host_id)
-        //     .fetch_one(&*self.connection_pool)
-        //     .await
-        //     .into_diagnostic()
-        //     .wrap_err("Failed to acquire advisory lock")
-
-        Ok(true)
+        sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_lock(hashtext($1))")
+            .bind(host_id)
+            .fetch_one(&mut **transaction)
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to acquire advisory lock")
     }
 
     /// Releases an advisory lock on a host after dispatch completion.
@@ -212,17 +210,16 @@ impl HostDao {
     /// * `Err(miette::Error)` - Database operation failed
     pub async fn unlock(
         &self,
-        _transaction: &mut Transaction<'_, Postgres>,
-        _host_id: &str,
+        transaction: &mut Transaction<'_, Postgres>,
+        host_id: &str,
     ) -> Result<bool> {
-        // let host_id_str = host_id.to_string();
-        // sqlx::query_scalar::<_, bool>("SELECT pg_advisory_unlock(hashtext($1))")
-        //     .bind(&host_id_str)
-        //     .fetch_one(&*self.connection_pool)
-        //     .await
-        //     .into_diagnostic()
-        //     .wrap_err("Failed to release advisory lock")
-        Ok(true)
+        let host_id_str = host_id.to_string();
+        sqlx::query_scalar::<_, bool>("SELECT pg_advisory_unlock(hashtext($1))")
+            .bind(&host_id_str)
+            .fetch_one(&mut **transaction)
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to release advisory lock")
     }
 
     /// Updates a host's available resource counts after frame dispatch.
