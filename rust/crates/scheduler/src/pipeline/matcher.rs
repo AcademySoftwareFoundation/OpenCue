@@ -39,12 +39,18 @@ pub struct MatchingService {
 }
 
 impl MatchingService {
-    /// Creates a new BookJobEventHandler with configured DAOs and dispatcher.
+    /// Creates a new MatchingService with configured DAOs and dispatcher.
     ///
-    /// Initializes the handler with:
-    /// - Host DAO for finding available hosts
+    /// Initializes the service with:
+    /// - Host cache service for finding available hosts
     /// - Layer DAO for querying job layers
-    /// - RQD dispatcher for frame execution
+    /// - RQD dispatcher service for frame execution
+    /// - Concurrency semaphore to limit database transaction pressure
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(MatchingService)` - Configured matching service
+    /// * `Err(miette::Error)` - Failed to initialize dependencies
     pub async fn new() -> Result<Self> {
         let layer_dao = LayerDao::new().await?;
         let host_service = host_cache_service().await?;
@@ -68,6 +74,7 @@ impl MatchingService {
     /// - Dispatches frames to available hosts, layer by layer
     ///
     /// # Arguments
+    ///
     /// * `job` - The dispatch job containing layers to process
     pub async fn process(&self, job: DispatchJob) {
         let job_disp = format!("{}", job);
@@ -109,6 +116,19 @@ impl MatchingService {
         }
     }
 
+    /// Validates whether a host is suitable for a specific layer.
+    ///
+    /// Currently a placeholder that always returns true. Will be implemented to check
+    /// subscription limits and other host-layer compatibility rules.
+    ///
+    /// # Arguments
+    ///
+    /// * `_host` - The host to validate
+    /// * `_layer_id` - The layer ID to validate against
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - True if the match is valid
     fn validate_match(_host: &Host, _layer_id: String) -> bool {
         // todo!("define layer validation rule (copy from host_dao old query)")
         // Check subscription limits for this host allocation
@@ -118,11 +138,13 @@ impl MatchingService {
     /// Filters cluster tags to include only those that are also present in the dispatch layer tags.
     ///
     /// # Arguments
+    ///
     /// * `cluster` - The cluster containing available tags
-    /// * `dispatch_layer` - The layer with comma-separated tag requirements
+    /// * `dispatch_layer` - The layer with tag requirements
     ///
     /// # Returns
-    /// A vector of tags that exist in both the cluster and the dispatch layer
+    ///
+    /// * `Vec<Tag>` - Tags that exist in both the cluster and the dispatch layer
     fn filter_matching_tags(cluster: &Cluster, dispatch_layer: &DispatchLayer) -> Vec<Tag> {
         // Extract tags from cluster and filter by layer tags
         match cluster {
@@ -144,12 +166,15 @@ impl MatchingService {
     /// Processes a single layer by finding host candidates and attempting dispatch.
     ///
     /// The process:
-    /// 1. Queries host candidates suitable for the layer
-    /// 2. Attempts dispatch on each candidate until successful
+    /// 1. Checks out host candidates from the host cache
+    /// 2. Attempts dispatch on each candidate until successful or attempts exhausted
     /// 3. Handles various dispatch errors (resource exhaustion, allocation limits, etc.)
+    /// 4. Returns hosts back to the cache after use
     ///
     /// # Arguments
+    ///
     /// * `dispatch_layer` - The layer to dispatch to a host
+    /// * `cluster` - The cluster context for this dispatch operation
     async fn process_layer(&self, dispatch_layer: DispatchLayer, cluster: Arc<Cluster>) {
         let mut try_again = true;
         let mut attempts = CONFIG.queue.host_candidate_attemps_per_layer;
@@ -269,10 +294,13 @@ impl MatchingService {
         }
     }
 
-    /// Handles various dispatch errors with appropriate logging and actions using pre-computed layer info.
-    /// This is used when the layer has been moved and we can't reference it directly.
+    /// Handles various dispatch errors with appropriate logging and actions.
+    ///
+    /// Uses pre-computed layer info since the layer ownership may have been moved.
+    /// Different error types result in different log levels and recovery strategies.
     ///
     /// # Arguments
+    ///
     /// * `error` - The dispatch error that occurred
     /// * `layer_display` - Pre-computed display string for the layer
     /// * `layer_job_id` - The job ID from the layer

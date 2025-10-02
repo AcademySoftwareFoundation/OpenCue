@@ -37,6 +37,11 @@ impl fmt::Display for DispatchLayer {
 }
 
 impl DispatchLayer {
+    /// Removes the first `count` frames from this layer's frame list.
+    ///
+    /// # Arguments
+    ///
+    /// * `count` - Number of frames to remove from the beginning
     pub fn drain_frames(&mut self, count: usize) {
         self.frames.drain(0..count);
     }

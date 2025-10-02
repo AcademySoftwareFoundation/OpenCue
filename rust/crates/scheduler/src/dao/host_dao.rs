@@ -156,6 +156,21 @@ impl HostDao {
         })
     }
 
+    /// Fetches hosts matching a specific show, facility, and tag.
+    ///
+    /// Finds all open hosts that belong to allocations subscribed to the given show
+    /// and tagged with the specified tag.
+    ///
+    /// # Arguments
+    ///
+    /// * `show_id` - UUID of the show
+    /// * `facility_id` - UUID of the facility
+    /// * `tag` - Tag to match against host tags
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<HostModel>)` - List of matching hosts
+    /// * `Err(sqlx::Error)` - Database query failed
     pub async fn fetch_hosts_by_show_facility_tag<'a>(
         &'a self,
         show_id: String,

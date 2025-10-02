@@ -23,6 +23,26 @@ pub struct Host {
 }
 
 impl Host {
+    /// Creates a new Host instance for testing purposes.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Host identifier
+    /// * `name` - Host name
+    /// * `str_os` - Operating system string
+    /// * `total_cores` - Total number of cores on the host
+    /// * `total_memory` - Total memory available on the host
+    /// * `idle_cores` - Number of idle cores
+    /// * `idle_memory` - Amount of idle memory
+    /// * `idle_gpus` - Number of idle GPUs
+    /// * `idle_gpu_memory` - Amount of idle GPU memory
+    /// * `thread_mode` - Threading mode configuration
+    /// * `alloc_available_cores` - Available cores for allocation
+    /// * `allocation_name` - Name of the allocation
+    ///
+    /// # Returns
+    ///
+    /// * `Host` - New host instance configured for testing
     #[allow(dead_code)]
     #[allow(dead_code, clippy::too_many_arguments)]
     pub fn new_for_test(

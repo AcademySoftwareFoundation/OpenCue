@@ -12,6 +12,15 @@ pub use job::DispatchJob;
 pub use layer::DispatchLayer;
 pub use virtual_proc::VirtualProc;
 
+/// Formats a UUID by returning only the first segment before the first hyphen.
+///
+/// # Arguments
+///
+/// * `id` - Full UUID string
+///
+/// # Returns
+///
+/// * `String` - First segment of the UUID, or the full string if no hyphen exists
 pub fn fmt_uuid(id: &String) -> String {
     id.split_once("-")
         .unwrap_or((&id.to_string(), ""))

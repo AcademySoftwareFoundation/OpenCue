@@ -103,11 +103,32 @@ impl From<DispatchFrameModel> for DispatchFrame {
 }
 
 impl FrameDao {
+    /// Creates a new FrameDao instance.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(FrameDao)` - New DAO instance
+    /// * `Err(miette::Error)` - Initialization failed
     pub async fn new() -> Result<Self> {
         // This is only here to keep a similar interface with other DAO modules
         Ok(FrameDao {})
     }
 
+    /// Updates a frame's state to RUNNING and assigns it to a host.
+    ///
+    /// Atomically transitions a frame from WAITING to RUNNING state, recording
+    /// the host assignment and reserved resources. Uses optimistic locking via
+    /// version field to prevent race conditions. Also respects layer limits.
+    ///
+    /// # Arguments
+    ///
+    /// * `transaction` - Database transaction for atomic update
+    /// * `virtual_proc` - Virtual proc containing frame and host assignment details
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - Frame successfully started
+    /// * `Err(miette::Error)` - Database update failed or frame no longer available
     pub async fn update_frame_started(
         &self,
         transaction: &mut Transaction<'_, Postgres>,

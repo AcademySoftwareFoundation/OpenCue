@@ -28,6 +28,16 @@ pub struct JobModel {
 }
 
 impl DispatchJob {
+    /// Creates a new DispatchJob from a database model and cluster assignment.
+    ///
+    /// # Arguments
+    ///
+    /// * `model` - Database model containing job ID and priority
+    /// * `cluster` - The cluster this job is assigned to for dispatch
+    ///
+    /// # Returns
+    ///
+    /// * `DispatchJob` - New dispatch job instance
     pub fn new(model: JobModel, cluster: Cluster) -> Self {
         DispatchJob {
             id: model.pk_job,
@@ -179,6 +189,20 @@ impl JobDao {
             .await
     }
 
+    /// Queries for pending jobs matching any of the specified tags.
+    ///
+    /// Finds jobs ready for dispatch based on tag matching and resource constraints.
+    /// Similar to `query_pending_jobs_by_show_facility_tag` but matches against multiple
+    /// tags without show or facility filtering.
+    ///
+    /// # Arguments
+    ///
+    /// * `tags` - List of tags to match against layer tags
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<JobModel>)` - Jobs ordered by priority (descending)
+    /// * `Err(sqlx::Error)` - Database query failed
     pub async fn query_pending_jobs_by_tags(
         &self,
         tags: Vec<String>,

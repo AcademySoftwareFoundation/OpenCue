@@ -128,6 +128,15 @@ impl Handler<CacheRatio> for HostCacheService {
 }
 
 impl HostCacheService {
+    /// Creates a new HostCacheService with empty cache groups.
+    ///
+    /// Initializes the service with DAO access, cache tracking metrics,
+    /// and concurrency controls.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(HostCacheService)` - New service instance
+    /// * `Err(miette::Error)` - Failed to initialize dependencies
     pub async fn new() -> Result<Self> {
         Ok(HostCacheService {
             host_dao: Arc::new(HostDao::new().await?),
@@ -141,6 +150,25 @@ impl HostCacheService {
         })
     }
 
+    /// Checks out a host from the cache that matches the requirements.
+    ///
+    /// Searches through cache groups for each tag until a suitable host is found.
+    /// If not found in cache, fetches from database. Implements host reservation
+    /// to prevent race conditions.
+    ///
+    /// # Arguments
+    ///
+    /// * `facility_id` - Facility identifier
+    /// * `show_id` - Show identifier
+    /// * `tags` - List of tags to search (tried in priority order)
+    /// * `cores` - Minimum cores required
+    /// * `memory` - Minimum memory required
+    /// * `validation` - Additional validation function
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(CheckedOutHost)` - Host with cluster key
+    /// * `Err(HostCacheError)` - No suitable host found or database error
     async fn check_out<F>(
         &self,
         facility_id: String,
@@ -213,6 +241,15 @@ impl HostCacheService {
         Err(HostCacheError::NoCandidateAvailable)
     }
 
+    /// Reserves a host to prevent concurrent checkout and tracks cache metrics.
+    ///
+    /// Marks the host as reserved and updates hit/miss counters for cache
+    /// performance tracking.
+    ///
+    /// # Arguments
+    ///
+    /// * `host_id` - ID of the host to reserve
+    /// * `cache_hit` - Whether this was a cache hit (true) or miss (false)
     fn reserve_host(&self, host_id: String, cache_hit: bool) {
         if cache_hit {
             self.cache_hit.fetch_add(1, atomic::Ordering::Relaxed);
@@ -225,6 +262,15 @@ impl HostCacheService {
             .insert_sync(host_id, HostReservation::new());
     }
 
+    /// Returns a host to the cache group after use.
+    ///
+    /// Removes the host from reservation and adds it back to the appropriate
+    /// cache group. If the group has expired, the host is dropped.
+    ///
+    /// # Arguments
+    ///
+    /// * `cluster_key` - The cluster key identifying the cache group
+    /// * `host` - Host to return to the cache
     fn check_in(&self, cluster_key: ClusterKey, host: Host) {
         debug!("{}: Attempting to checkin", cluster_key);
         let _ = self.reserved_hosts.remove_sync(&host.id);
@@ -240,6 +286,11 @@ impl HostCacheService {
         debug!("{}: Done checkin", cluster_key);
     }
 
+    /// Calculates the cache hit ratio as a percentage.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - Hit ratio percentage (0-100)
     fn cache_hit_ratio(&self) -> usize {
         let hit = self.cache_hit.load(atomic::Ordering::Relaxed) as f64;
         let miss = self.cache_miss.load(atomic::Ordering::Relaxed) as f64;
@@ -247,6 +298,21 @@ impl HostCacheService {
         ((hit / (hit + miss)) * 100.0) as usize
     }
 
+    /// Generates cache keys from tags in priority order.
+    ///
+    /// Creates ClusterKey instances for each tag and sorts them by priority:
+    /// MANUAL > HOSTNAME > ALLOC. This order ensures more specific tags are
+    /// checked first.
+    ///
+    /// # Arguments
+    ///
+    /// * `facility_id` - Facility identifier
+    /// * `show_id` - Show identifier
+    /// * `tags` - Tags to convert to cache keys
+    ///
+    /// # Returns
+    ///
+    /// * `impl IntoIterator<Item = ClusterKey>` - Sorted cache keys
     #[allow(clippy::map_entry)]
     fn gen_cache_keys(
         &self,
@@ -271,6 +337,10 @@ impl HostCacheService {
             })
     }
 
+    /// Periodically refreshes cache data and removes idle groups.
+    ///
+    /// Runs on a timer to update active cache groups from the database and
+    /// remove groups that haven't been queried recently.
     async fn refresh_cache(&self) {
         let caches = Arc::new(&self.groups);
 
@@ -312,6 +382,19 @@ impl HostCacheService {
         });
     }
 
+    /// Fetches host data from the database and populates a cache group.
+    ///
+    /// Queries the database for hosts matching the cluster key and adds them
+    /// to the cache. Uses a semaphore to limit concurrent database queries.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Cluster key identifying which hosts to fetch
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(OccupiedEntry)` - Cache entry with fetched hosts
+    /// * `Err(miette::Error)` - Database query failed
     async fn fetch_group_data(
         &self,
         key: &ClusterKey,

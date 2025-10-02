@@ -209,7 +209,17 @@ impl Default for HostCacheConfig {
 //===Config Loader===
 
 impl Config {
-    // load the current config from the system config and environment variables
+    /// Loads the current configuration from system config file and environment variables.
+    ///
+    /// Configuration sources are applied in the following order (later sources override earlier):
+    /// 1. Default config file: `~/.local/share/rqd.yaml`
+    /// 2. Custom config file: specified via `OPENCUE_SCHEDULER_CONFIG` environment variable
+    /// 3. Environment variables: prefixed with `OPENSCHEDULER_`, using `_` as separator
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Config)` - Successfully loaded configuration
+    /// * `Err(JobQueueConfigError)` - Failed to load or deserialize configuration
     pub fn load() -> Result<Self, JobQueueConfigError> {
         let mut required = false;
         let config_file = match env::var("OPENCUE_SCHEDULER_CONFIG") {
@@ -249,6 +259,16 @@ impl Config {
         Ok(deserialized_config)
     }
 
+    /// Loads configuration from a specified file path with environment variable overrides.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the configuration file
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Config)` - Successfully loaded configuration
+    /// * `Err(JobQueueConfigError)` - Failed to load or deserialize configuration
     #[allow(dead_code)]
     pub fn load_file_and_env<P: AsRef<str>>(path: P) -> Result<Self, JobQueueConfigError> {
         let config = ConfigBase::builder()
@@ -267,6 +287,16 @@ impl Config {
             })
     }
 
+    /// Loads configuration from a specified file path without environment variable overrides.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the configuration file
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Config)` - Successfully loaded configuration
+    /// * `Err(JobQueueConfigError)` - Failed to load or deserialize configuration
     #[allow(dead_code)]
     pub fn load_file<P: AsRef<str>>(path: P) -> Result<Self, JobQueueConfigError> {
         let config = ConfigBase::builder()

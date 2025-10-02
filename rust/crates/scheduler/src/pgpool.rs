@@ -8,6 +8,16 @@ use crate::config::CONFIG;
 
 static CONNECTION_POOL: OnceCell<Arc<Pool<Postgres>>> = OnceCell::const_new();
 
+/// Gets or initializes the global PostgreSQL connection pool.
+///
+/// Uses configuration from `CONFIG.database` to establish pool settings including
+/// max connections, timeouts, and connection URL. The pool is initialized once and
+/// reused for all subsequent calls.
+///
+/// # Returns
+///
+/// * `Ok(Arc<Pool<Postgres>>)` - Shared reference to the connection pool
+/// * `Err(sqlx::Error)` - Failed to create or connect to the pool
 pub async fn connection_pool() -> Result<Arc<Pool<Postgres>>, sqlx::Error> {
     let config = &CONFIG.database;
     CONNECTION_POOL
@@ -25,6 +35,12 @@ pub async fn connection_pool() -> Result<Arc<Pool<Postgres>>, sqlx::Error> {
         .map(Arc::clone)
 }
 
+/// Begins a new database transaction from the connection pool.
+///
+/// # Returns
+///
+/// * `Ok(Transaction<'a, Postgres>)` - New database transaction
+/// * `Err(sqlx::Error)` - Failed to begin transaction
 pub async fn begin_transaction<'a>() -> Result<Transaction<'a, Postgres>, sqlx::Error> {
     connection_pool().await?.begin().await
 }

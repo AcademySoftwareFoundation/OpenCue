@@ -11,6 +11,20 @@ use crate::dao::JobDao;
 use crate::models::DispatchJob;
 use crate::pipeline::MatchingService;
 
+/// Runs the scheduler feed loop, processing jobs for each cluster.
+///
+/// Iterates through the cluster feed, fetching and processing jobs for each cluster.
+/// Jobs are processed concurrently within configurable buffer sizes. The loop can
+/// optionally terminate after a configured number of empty cycles.
+///
+/// # Arguments
+///
+/// * `cluster_feed` - Iterator over clusters to process
+///
+/// # Returns
+///
+/// * `Ok(())` - Scheduler completed successfully
+/// * `Err(miette::Error)` - Fatal error occurred during processing
 pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     let job_fetcher = Arc::new(JobDao::new().await?);
     let matcher = Arc::new(MatchingService::new().await?);

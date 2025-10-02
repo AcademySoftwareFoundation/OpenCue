@@ -32,20 +32,44 @@ pub struct CoreSize(pub i32);
 pub struct CoreSizeWithMultiplier(pub i32);
 
 impl CoreSize {
+    /// Returns the raw core count value without multiplier.
+    ///
+    /// # Returns
+    ///
+    /// * `i32` - Number of cores
     pub fn value(self) -> i32 {
         self.0
     }
 
+    /// Converts this CoreSize to CoreSizeWithMultiplier by applying the configured multiplier.
+    ///
+    /// # Returns
+    ///
+    /// * `CoreSizeWithMultiplier` - Core count with multiplier applied
     pub fn with_multiplier(self) -> CoreSizeWithMultiplier {
         self.into()
     }
 
+    /// Creates a CoreSize from a raw integer value that includes the multiplier.
+    ///
+    /// # Arguments
+    ///
+    /// * `size_with_multiplier` - Core count with multiplier already applied
+    ///
+    /// # Returns
+    ///
+    /// * `CoreSize` - Core count without multiplier
     pub fn from_multiplied(size_with_multiplier: i32) -> CoreSize {
         Self(size_with_multiplier / CONFIG.queue.core_multiplier as i32)
     }
 }
 
 impl CoreSizeWithMultiplier {
+    /// Returns the raw core count value with multiplier applied.
+    ///
+    /// # Returns
+    ///
+    /// * `i32` - Number of cores multiplied by the configured multiplier
     pub fn value(self) -> i32 {
         self.0
     }

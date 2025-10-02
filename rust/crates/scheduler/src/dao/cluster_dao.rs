@@ -70,12 +70,28 @@ impl ClusterDao {
         })
     }
 
+    /// Fetches all allocation-based clusters from the database.
+    ///
+    /// Returns clusters defined by facility, show, and allocation tag combinations.
+    /// Only includes active shows with host tags.
+    ///
+    /// # Returns
+    ///
+    /// * `Stream<Result<ClusterModel, sqlx::Error>>` - Stream of allocation clusters
     pub fn fetch_alloc_clusters(
         &self,
     ) -> impl Stream<Item = Result<ClusterModel, sqlx::Error>> + '_ {
         sqlx::query_as::<_, ClusterModel>(QUERY_ALLOC_CLUSTERS).fetch(&*self.connection_pool)
     }
 
+    /// Fetches all non-allocation clusters (MANUAL and HOSTNAME tags).
+    ///
+    /// Returns clusters defined by manual or hostname-based tags that are not
+    /// tied to specific facility/show allocations.
+    ///
+    /// # Returns
+    ///
+    /// * `Stream<Result<ClusterModel, sqlx::Error>>` - Stream of non-allocation clusters
     pub fn fetch_non_alloc_clusters(
         &self,
     ) -> impl Stream<Item = Result<ClusterModel, sqlx::Error>> + '_ {

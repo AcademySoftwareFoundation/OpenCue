@@ -219,6 +219,10 @@ impl Default for HostCache {
 }
 
 impl HostCache {
+    /// Updates the last queried timestamp to prevent cache expiration.
+    ///
+    /// Called whenever the cache is accessed to track activity and prevent
+    /// idle timeout expiration.
     fn ping_query(&self) {
         let mut lock = self
             .last_queried
@@ -227,6 +231,10 @@ impl HostCache {
         *lock = SystemTime::now();
     }
 
+    /// Updates the last fetched timestamp to mark cache data as fresh.
+    ///
+    /// Called after fetching new data from the database to mark when the
+    /// cache was last refreshed.
     pub fn ping_fetch(&self) {
         let mut lock = self
             .last_fetched
@@ -235,6 +243,14 @@ impl HostCache {
         *lock = Some(SystemTime::now());
     }
 
+    /// Checks if the cache data has expired and needs refreshing.
+    ///
+    /// Cache expires after the configured group_idle_timeout period has elapsed
+    /// since the last fetch.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - True if cache data has expired
     pub fn expired(&self) -> bool {
         let lock = self
             .last_fetched
@@ -246,6 +262,13 @@ impl HostCache {
                 > CONFIG.host_cache.group_idle_timeout)
     }
 
+    /// Checks if the cache has been idle for too long without queries.
+    ///
+    /// Used to determine if a cache group should be removed to save memory.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - True if cache hasn't been queried within the idle timeout period
     pub fn is_idle(&self) -> bool {
         self.last_queried
             .read()
@@ -255,7 +278,22 @@ impl HostCache {
             > CONFIG.host_cache.group_idle_timeout
     }
 
-    /// Get best candidate and "remove" it from the list
+    /// Checks out the best matching host from the cache.
+    ///
+    /// Finds a host with sufficient resources that passes the validation function,
+    /// removes it from the cache, and returns it. The host must be checked back in
+    /// after use.
+    ///
+    /// # Arguments
+    ///
+    /// * `cores` - Minimum number of cores required
+    /// * `memory` - Minimum memory required
+    /// * `validation` - Function to validate additional host requirements
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Host)` - Successfully checked out host
+    /// * `Err(HostCacheError)` - No suitable host available
     pub fn check_out<F>(
         &self,
         cores: CoreSize,
@@ -278,6 +316,22 @@ impl HostCache {
         Ok(host)
     }
 
+    /// Removes a suitable host from the cache based on resource requirements.
+    ///
+    /// Searches for a host with at least the requested cores and memory that
+    /// passes the validation function. Uses a range-based search for efficient
+    /// resource matching.
+    ///
+    /// # Arguments
+    ///
+    /// * `cores` - Minimum number of cores required
+    /// * `memory` - Minimum memory required
+    /// * `validation` - Function to validate additional requirements
+    ///
+    /// # Returns
+    ///
+    /// * `Some(Host)` - Host that meets all requirements
+    /// * `None` - No suitable host found
     fn remove_host<F>(&self, cores: CoreSize, memory: ByteSize, validation: F) -> Option<Host>
     where
         F: Fn(&Host) -> bool,
@@ -321,6 +375,15 @@ impl HostCache {
         // TODO: Make this logic strategy aware
     }
 
+    /// Returns a host to the cache after use.
+    ///
+    /// Updates the cache with the host's current resource state. If the host
+    /// already exists in the cache, it's updated with the new values. The host
+    /// is indexed by its current idle cores and memory for efficient lookup.
+    ///
+    /// # Arguments
+    ///
+    /// * `host` - Host to return to the cache
     pub fn check_in(&self, host: Host) {
         // First clear the old version of the host from memory
         if let Some((old_core_key, old_memory_key)) = self.host_keys_by_host_id.remove(&host.id) {
@@ -340,6 +403,18 @@ impl HostCache {
             .insert(host_id, core_key, memory_key);
     }
 
+    /// Generates a memory key for cache indexing by bucketing memory values.
+    ///
+    /// Divides memory by the configured divisor to group hosts with similar
+    /// memory into the same bucket, reducing cache fragmentation.
+    ///
+    /// # Arguments
+    ///
+    /// * `memory` - Memory amount to convert to a key
+    ///
+    /// # Returns
+    ///
+    /// * `MemoryKey` - Bucketed memory key for indexing
     fn gen_memory_key(memory: ByteSize) -> MemoryKey {
         memory.as_u64() / CONFIG.host_cache.memory_key_divisor.as_u64()
     }

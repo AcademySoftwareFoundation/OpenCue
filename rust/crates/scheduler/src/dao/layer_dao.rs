@@ -88,6 +88,16 @@ pub struct LayerWithFramesModel {
 }
 
 impl DispatchLayer {
+    /// Creates a new DispatchLayer from database models.
+    ///
+    /// # Arguments
+    ///
+    /// * `layer` - Layer database model
+    /// * `frames` - Vector of frame database models belonging to this layer
+    ///
+    /// # Returns
+    ///
+    /// * `DispatchLayer` - New layer instance with converted frames
     pub fn new(layer: DispatchLayerModel, frames: Vec<DispatchFrameModel>) -> Self {
         DispatchLayer {
             id: layer.pk_layer,
@@ -272,8 +282,21 @@ impl LayerDao {
         self.query_layers_batched(pk_job, tags).await
     }
 
-    /// Batched query that fetches layers with their frames in a single database call.
-    /// This eliminates connection pool exhaustion from nested queries.
+    /// Fetches layers with their frames in a single batched database query.
+    ///
+    /// Uses a single SQL query with joins to fetch both layers and their frames,
+    /// eliminating nested queries that could exhaust the connection pool. Respects
+    /// the configured frame limit per layer.
+    ///
+    /// # Arguments
+    ///
+    /// * `pk_job` - UUID of the job to query layers for
+    /// * `tags` - Vector of tags to match against layer tags
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<DispatchLayer>)` - Layers with their frames, ordered by dispatch priority
+    /// * `Err(sqlx::Error)` - Database query failed
     pub async fn query_layers_batched(
         &self,
         pk_job: String,
@@ -290,7 +313,18 @@ impl LayerDao {
         Ok(self.group_layers_and_frames(combined_models))
     }
 
-    /// Groups the flat query results into layers with their associated frames.
+    /// Groups flat query results into layers with their associated frames.
+    ///
+    /// Transforms the denormalized query results into a structured hierarchy
+    /// of layers containing their respective frames.
+    ///
+    /// # Arguments
+    ///
+    /// * `models` - Flat list of combined layer+frame records from database
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<DispatchLayer>` - Structured layers with grouped frames
     fn group_layers_and_frames(&self, models: Vec<LayerWithFramesModel>) -> Vec<DispatchLayer> {
         let mut layers_map: HashMap<String, (DispatchLayerModel, Vec<DispatchFrameModel>)> =
             HashMap::new();

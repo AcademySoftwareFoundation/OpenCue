@@ -25,6 +25,11 @@ pub struct ClusterFeed {
 }
 
 impl Cluster {
+    /// Returns an iterator over the tags associated with this cluster.
+    ///
+    /// # Returns
+    ///
+    /// * `Box<dyn Iterator<Item = &Tag>>` - Iterator over tag references
     pub fn tags(&self) -> Box<dyn Iterator<Item = &Tag> + '_> {
         match self {
             Cluster::ComposedKey(cluster_key) => Box::new(std::iter::once(&cluster_key.tag)),
@@ -34,9 +39,20 @@ impl Cluster {
 }
 
 impl ClusterFeed {
-    /// As of now, with a single node, we're loading all clusters at once
-    /// in real live, this should happen on a schedule and should negotiate with
-    /// other nodes
+    /// Loads all clusters from the database and organizes them by tag type.
+    ///
+    /// Loads allocation clusters (one per facility+show+tag), and chunks manual/hostname tags
+    /// into groups based on configured chunk sizes. In a distributed system, this should be
+    /// scheduled and coordinated across nodes.
+    ///
+    /// # Arguments
+    ///
+    /// * `run_once` - If true, iterator will only iterate through clusters once
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(ClusterFeed)` - Successfully loaded cluster feed
+    /// * `Err(miette::Error)` - Failed to load clusters from database
     pub async fn load_all(run_once: bool) -> Result<Self> {
         let cluster_dao = ClusterDao::new().await?;
 
@@ -111,7 +127,15 @@ impl ClusterFeed {
         })
     }
 
-    /// Constructor for testing purposes
+    /// Creates a ClusterFeed from a predefined list of clusters for testing.
+    ///
+    /// # Arguments
+    ///
+    /// * `keys` - List of clusters to iterate over
+    ///
+    /// # Returns
+    ///
+    /// * `ClusterFeed` - Feed configured to run once through the provided clusters
     #[allow(dead_code)]
     pub fn new_for_test(keys: Vec<Cluster>) -> Self {
         ClusterFeed {
