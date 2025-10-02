@@ -43,6 +43,13 @@ runs:
         python -m build --outdir packages -s ./cueman
         python -m build --outdir packages -w ./cueman
 
+    - name: Build opencue_cuecmd package
+      shell: bash
+      run: |
+        set -e
+        python -m build --outdir packages -s ./cuecmd
+        python -m build --outdir packages -w ./cuecmd
+
     - name: Build opencue_cuesubmit package
       shell: bash
       run: |
