@@ -42,7 +42,7 @@ def _bare_attendant_with_log(path, rqcore):
 def test_log_size_limit_under_threshold(tmp_path, monkeypatch):
     """Returns (False, "") when file size is below the configured threshold."""
     _install_minimal_stubs(monkeypatch)
-    from rqd import rqcore, rqconstants
+    from rqd import rqcore, rqconstants  # pylint: disable=import-outside-toplevel
 
     log_file = tmp_path / 'job.frame.rqlog'
     log_file.write_text('hello\n', encoding='utf-8')
@@ -61,7 +61,7 @@ def test_log_size_limit_exceeded(tmp_path, monkeypatch):
     The message should include the log path and mention termination.
     """
     _install_minimal_stubs(monkeypatch)
-    from rqd import rqcore, rqconstants
+    from rqd import rqcore, rqconstants  # pylint: disable=import-outside-toplevel
 
     log_file = tmp_path / 'job.frame.rqlog'
     log_file.write_bytes(b'x' * 2048)
