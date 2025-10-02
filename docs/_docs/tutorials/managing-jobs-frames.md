@@ -2,7 +2,7 @@
 title: "Managing Jobs and Frames"
 layout: default
 parent: Tutorials
-nav_order: 58
+nav_order: 62
 linkTitle: "Managing Jobs and Frames"
 date: 2025-01-29
 description: >

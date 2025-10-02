@@ -1,6 +1,6 @@
 ---
 title: "Checking out the source code"
-nav_order: 17
+nav_order: 19
 parent: Getting Started
 layout: default
 linkTitle: "Checking out the source code"

@@ -2,7 +2,7 @@
 title: "Submitting Your First Job"
 layout: default
 parent: Tutorials
-nav_order: 56
+nav_order: 60
 linkTitle: "Submitting Your First Job"
 date: 2025-01-29
 description: >

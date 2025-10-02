@@ -64,6 +64,13 @@ runs:
         python -m build --outdir packages -s ./rqd
         python -m build --outdir packages -w ./rqd
 
+    - name: Build opencue_cuenimby package
+      shell: bash
+      run: |
+        set -e
+        python -m build --outdir packages -s ./cuenimby
+        python -m build --outdir packages -w ./cuenimby
+
     - name: Fix permissions
       shell: bash
       run: chmod uog+rwX packages/*.*
