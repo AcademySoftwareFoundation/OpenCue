@@ -300,8 +300,8 @@ jobs:
 
       - name: Check for Version Change
         run: |
-          git diff --name-status HEAD^1 HEAD| grep '^M' | awk '{print $2}'
-          readarray -t changed_files < <(git diff --name-status HEAD^1 HEAD| grep '^M' | awk '{print $2}')
+          git diff --name-status HEAD^1 HEAD| awk '{print $2}'
+          readarray -t changed_files < <(git diff --name-status HEAD^1 HEAD| awk '{print $2}')
           ci/check_version_bump.py "${changed_files[@]}"
 
   test_rest_gateway:
