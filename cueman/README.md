@@ -217,10 +217,10 @@ cueman -retry job_name -state DEAD
 ## Frame Manipulation
 
 ```bash
-# Stagger frames by increment
+# Stagger frames by increment (must be positive integer)
 cueman -stagger job_name 1-100 5
 
-# Reorder frames
+# Reorder frames (position must be FIRST, LAST, or REVERSE)
 cueman -reorder job_name 1-100 FIRST
 cueman -reorder job_name 50-100 LAST
 cueman -reorder job_name 1-100 REVERSE
