@@ -170,6 +170,10 @@ Nuke render may only need 2GB.
 A show is a group of related work to be done. *Jobs* submitted to OpenCue exist
 within a show. *Subscriptions* list the available *allocations* to a given show.
 
+Shows can be **archived** to consolidate resources. When a show is archived, it is
+aliased to another show, allowing jobs submitted to the archived show to run on the
+target show's allocations. This is useful for wrapped productions that may need
+occasional reruns or for redirecting legacy content to training allocations.
 
 ## Soft dependency
 
