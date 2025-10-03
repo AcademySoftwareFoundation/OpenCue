@@ -686,6 +686,11 @@ class Machine(object):
                             self.__renderHost.total_mem = int(line.split()[1])
                         elif line.startswith("SwapTotal"):
                             self.__renderHost.total_swap = int(line.split()[1])
+        elif platform.system() == 'Darwin':
+            # Reads static information for mcp
+            mcpStat = os.statvfs(self.getTempPath())
+            self.__renderHost.total_mcp = mcpStat.f_blocks * mcpStat.f_frsize // KILOBYTE
+            hyperthreadingMultiplier = 1
         else:
             hyperthreadingMultiplier = 1
 
@@ -865,6 +870,9 @@ class Machine(object):
 
         elif platform.system() == 'Darwin':
             self.updateMacMemory()
+            # Reads dynamic information for mcp
+            mcpStat = os.statvfs(self.getTempPath())
+            self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // KILOBYTE
 
         elif platform.system() == 'Windows':
             TEMP_DEFAULT = 1048576
