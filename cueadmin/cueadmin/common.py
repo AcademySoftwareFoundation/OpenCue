@@ -288,6 +288,16 @@ def getParser():
         help="The default max core value for all jobs before "
         "any max core filters are applied.",
     )
+
+    show.add_argument(
+        "-archive-show",
+        action="store",
+        nargs=2,
+        metavar=("SHOW", "TARGET_SHOW"),
+        help="Archive a show by creating an alias to another show. "
+        "Jobs submitted to the archived show will be executed by "
+        "allocations subscribed to the target show.",
+    )
     #
     # Allocation
     #
@@ -402,6 +412,77 @@ def getParser():
         action="store",
         help="Set the host's thread mode.",
         choices=[mode.lower() for mode in list(opencue.api.host_pb2.ThreadMode.keys())],
+    )
+
+    #
+    # Job
+    #
+    job_grp = parser.add_argument_group("Job Options")
+    job_grp.add_argument(
+        "-pause",
+        action="store",
+        nargs="+",
+        metavar="JOB",
+        help="Pause specified jobs",
+    )
+    job_grp.add_argument(
+        "-unpause",
+        action="store",
+        nargs="+",
+        metavar="JOB",
+        help="Unpause specified jobs",
+    )
+    job_grp.add_argument(
+        "-kill",
+        action="store",
+        nargs="+",
+        metavar="JOB",
+        help="Kill specified jobs",
+    )
+    job_grp.add_argument(
+        "-kill-all",
+        action="store_true",
+        help="Kill all jobs (requires -force)",
+    )
+    job_grp.add_argument(
+        "-retry",
+        action="store",
+        nargs="+",
+        metavar="JOB",
+        help="Retry dead frames for specified jobs",
+    )
+    job_grp.add_argument(
+        "-retry-all",
+        action="store_true",
+        help="Retry dead frames for all jobs (requires -force)",
+    )
+    job_grp.add_argument(
+        "-drop-depends",
+        action="store",
+        nargs="+",
+        metavar="JOB",
+        help="Drop all dependencies for specified jobs",
+    )
+    job_grp.add_argument(
+        "-set-min-cores",
+        action="store",
+        nargs=2,
+        metavar=("JOB", "CORES"),
+        help="Set minimum cores for a job",
+    )
+    job_grp.add_argument(
+        "-set-max-cores",
+        action="store",
+        nargs=2,
+        metavar=("JOB", "CORES"),
+        help="Set maximum cores for a job",
+    )
+    job_grp.add_argument(
+        "-priority",
+        action="store",
+        nargs=2,
+        metavar=("JOB", "PRIORITY"),
+        help="Set job priority",
     )
 
     return parser
@@ -887,34 +968,34 @@ class ActionUtil(object):
     def setValue(act, value):
         """Sets an action's value."""
         if act.type == opencue.api.filter_pb2.MOVE_JOB_TO_GROUP:
-            act.groupValue = opencue.proxy(value, "Group")
-            act.valueType = opencue.api.filter_pb2.GROUP_TYPE
+            act.group_value = opencue.proxy(value, "Group")
+            act.value_type = opencue.api.filter_pb2.GROUP_TYPE
 
         elif act.type == opencue.api.filter_pb2.PAUSE_JOB:
-            act.booleanValue = value
-            act.valueType = opencue.api.filter_pb2.BOOLEAN_TYPE
+            act.boolean_value = value
+            act.value_type = opencue.api.filter_pb2.BOOLEAN_TYPE
 
         elif act.type in (
             opencue.api.filter_pb2.SET_JOB_PRIORITY,
             opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
         ):
-            act.integerValue = int(value)
-            act.valueType = opencue.api.filter_pb2.INTEGER_TYPE
+            act.integer_value = int(value)
+            act.value_type = opencue.api.filter_pb2.INTEGER_TYPE
 
         elif act.type in (
             opencue.api.filter_pb2.SET_JOB_MIN_CORES,
             opencue.api.filter_pb2.SET_JOB_MAX_CORES,
             opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,
         ):
-            act.floatValue = float(value)
-            act.valueType = opencue.api.filter_pb2.FLOAT_TYPE
+            act.float_value = float(value)
+            act.value_type = opencue.api.filter_pb2.FLOAT_TYPE
 
         elif act.type == opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS:
-            act.stringValue = value
-            act.valueType = opencue.api.filter_pb2.STRING_TYPE
+            act.string_value = value
+            act.value_type = opencue.api.filter_pb2.STRING_TYPE
 
         elif act.type == opencue.api.filter_pb2.STOP_PROCESSING:
-            act.valueType = opencue.api.filter_pb2.NONE_TYPE
+            act.value_type = opencue.api.filter_pb2.NONE_TYPE
         else:
             raise TypeError("invalid action type: %s" % act.type)
 
@@ -1149,6 +1230,18 @@ def handleArgs(args):
             opencue.api.findShow(args.default_max_cores[0]).setDefaultMaxCores,
             float(int(args.default_max_cores[1])),
         )
+
+    elif args.archive_show:
+        show_name, target_show_name = args.archive_show
+        show = opencue.api.findShow(show_name)
+        # Verify target show exists before archiving
+        opencue.api.findShow(target_show_name)
+        confirm(
+            f"Archive show {show_name} to {target_show_name}",
+            args.force,
+            show.archive,
+            target_show_name,
+        )
     #
     # Hosts are handled a bit differently than the rest
     # of the entities. To specify a host or hosts the user
@@ -1297,6 +1390,104 @@ def handleArgs(args):
         if burst.find("%") != -1:
             burst = int(sub.data.size + (sub.data.size * (int(burst[0:-1]) / 100.0)))
         sub.setBurst(int(burst))
+
+    #
+    # Job operations
+    #
+    elif args.pause:
+        for job_name in args.pause:
+            job = opencue.api.findJob(job_name)
+            logger.debug("pausing job: %s", opencue.rep(job))
+            job.pause()
+
+    elif args.unpause:
+        for job_name in args.unpause:
+            job = opencue.api.findJob(job_name)
+            logger.debug("unpausing job: %s", opencue.rep(job))
+            job.resume()
+
+    elif args.kill:
+        def killJobs(job_names):
+            for job_name in job_names:
+                job = opencue.api.findJob(job_name)
+                logger.debug("killing job: %s", opencue.rep(job))
+                job.kill()
+
+        confirm("Kill %d job(s)" % len(args.kill), args.force, killJobs, args.kill)
+
+    elif args.kill_all:
+        def killAllJobs():
+            jobs = opencue.api.getJobs()
+            for job in jobs:
+                logger.debug("killing job: %s", opencue.rep(job))
+                job.kill()
+
+        confirm("Kill ALL jobs", args.force, killAllJobs)
+
+    elif args.retry:
+        def retryJobs(job_names):
+            for job_name in job_names:
+                job = opencue.api.findJob(job_name)
+                logger.debug("retrying dead frames for job: %s", opencue.rep(job))
+                job.retryFrames()
+
+        confirm(
+            "Retry dead frames for %d job(s)" % len(args.retry),
+            args.force,
+            retryJobs,
+            args.retry,
+        )
+
+    elif args.retry_all:
+        def retryAllJobs():
+            jobs = opencue.api.getJobs()
+            for job in jobs:
+                logger.debug("retrying dead frames for job: %s", opencue.rep(job))
+                job.retryFrames()
+
+        confirm("Retry dead frames for ALL jobs", args.force, retryAllJobs)
+
+    elif args.drop_depends:
+        def dropDepends(job_names):
+            for job_name in job_names:
+                DependUtil.dropAllDepends(job_name)
+
+        confirm(
+            "Drop all dependencies for %d job(s)" % len(args.drop_depends),
+            args.force,
+            dropDepends,
+            args.drop_depends,
+        )
+
+    elif args.set_min_cores:
+        job = opencue.api.findJob(args.set_min_cores[0])
+        cores = float(args.set_min_cores[1])
+        confirm(
+            "Set min cores for %s to %0.2f" % (opencue.rep(job), cores),
+            args.force,
+            job.setMinCores,
+            cores,
+        )
+
+    elif args.set_max_cores:
+        job = opencue.api.findJob(args.set_max_cores[0])
+        cores = float(args.set_max_cores[1])
+        confirm(
+            "Set max cores for %s to %0.2f" % (opencue.rep(job), cores),
+            args.force,
+            job.setMaxCores,
+            cores,
+        )
+
+    elif args.priority:
+        job = opencue.api.findJob(args.priority[0])
+        priority = int(args.priority[1])
+        confirm(
+            "Set priority for %s to %d" % (opencue.rep(job), priority),
+            args.force,
+            job.setPriority,
+            priority,
+        )
 
 
 def createAllocation(fac, name, tag):

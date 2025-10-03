@@ -201,6 +201,17 @@ class ShowTests(unittest.TestCase):
 
         getShowsMock.assert_called_with()
 
+    def testArchiveShow(self, getStubMock, findShowMock):  # pylint: disable=unused-argument
+        targetShowName = "target_show"
+        args = self.parser.parse_args(["-archive-show", TEST_SHOW, targetShowName, "-force"])
+        showMock = mock.Mock()
+        targetShowMock = mock.Mock()
+        findShowMock.side_effect = [showMock, targetShowMock]
+
+        cueadmin.common.handleArgs(args)
+
+        showMock.archive.assert_called_with(targetShowName)
+
 
 @mock.patch("opencue.api.findAllocation")
 @mock.patch("opencue.cuebot.Cuebot.getStub")

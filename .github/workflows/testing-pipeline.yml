@@ -303,3 +303,68 @@ jobs:
           git diff --name-status HEAD^1 HEAD| grep '^M' | awk '{print $2}'
           readarray -t changed_files < <(git diff --name-status HEAD^1 HEAD| grep '^M' | awk '{print $2}')
           ci/check_version_bump.py "${changed_files[@]}"
+
+  test_rest_gateway:
+    name: Test REST Gateway
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Mark repository as safe
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install Protocol Buffers Compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install Go tools
+        run: |
+          go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
+          go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Generate protobuf code
+        working-directory: rest_gateway/opencue_gateway
+        run: |
+          mkdir -p gen/go
+          protoc -I ../../proto/src/ \
+            --go_out ./gen/go/ \
+            --go_opt paths=source_relative \
+            --go-grpc_out ./gen/go/ \
+            --go-grpc_opt paths=source_relative \
+            ../../proto/src/*.proto
+          protoc -I ../../proto/src/ \
+            --grpc-gateway_out ./gen/go \
+            --grpc-gateway_opt paths=source_relative \
+            --grpc-gateway_opt generate_unbound_methods=true \
+            ../../proto/src/*.proto
+
+      - name: Install Go dependencies
+        working-directory: rest_gateway/opencue_gateway
+        run: |
+          if [ ! -f go.mod ]; then go mod init opencue_gateway; fi
+          go mod tidy
+
+      - name: Run unit tests with coverage
+        working-directory: rest_gateway/opencue_gateway
+        run: |
+          go test -v -coverprofile=coverage.out -covermode=atomic .
+          go tool cover -func=coverage.out
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rest-gateway-coverage
+          path: rest_gateway/opencue_gateway/coverage.out

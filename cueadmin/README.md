@@ -34,21 +34,28 @@ Basic CueAdmin commands:
 # List jobs
 cueadmin -lj
 
+# List job details
+cueadmin -lji
+
 # List hosts
 cueadmin -lh
 
-# Kill a job
-cueadmin -kill-job JOB_NAME
-
-# Set job priority
-cueadmin -priority JOB_NAME 100
+# Job management
+cueadmin -pause JOB_NAME                    # Pause a job
+cueadmin -unpause JOB_NAME                  # Resume a job
+cueadmin -kill JOB_NAME                     # Kill a job (with confirmation)
+cueadmin -retry JOB_NAME                    # Retry dead frames
+cueadmin -priority JOB_NAME 100             # Set job priority
+cueadmin -set-min-cores JOB_NAME 4.0        # Set minimum cores
+cueadmin -set-max-cores JOB_NAME 16.0       # Set maximum cores
+cueadmin -drop-depends JOB_NAME             # Drop job dependencies
 ```
 
 For full documentation, see the [OpenCue Documentation](https://opencue.io/docs/).
 
 ## Running Tests
 
-CueAdmin includes a comprehensive test suite covering allocation management, output formatting, and core functionality.
+CueAdmin includes a comprehensive test suite with tests covering job management, allocation management, host operations, output formatting, and core functionality.
 
 ### Quick Start
 
@@ -74,8 +81,11 @@ pytest --cov=cueadmin --cov-report=term-missing
 
 **Test Types:**
 - **Unit tests** - Function-level testing (`tests/test_*.py`)
-- **Integration tests** - Command workflow testing
+- **Integration tests** - Command workflow testing (`tests/integration_tests.py`)
+- **Job commands tests** - Job management operations (`tests/test_job_commands.py`)
 - **Allocation tests** - Allocation management functionality (`tests/test_allocation_commands.py`)
+- **Host commands tests** - Host operations (`tests/test_host_command.py`)
+- **Subscription tests** - Subscription management (`tests/test_subscription_commands.py`)
 
 ### Running Tests
 
