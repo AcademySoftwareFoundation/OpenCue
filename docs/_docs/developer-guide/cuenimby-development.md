@@ -15,7 +15,7 @@ description: >
 
 ---
 
-This guide covers CueNIMBY's architecture, development workflow, testing, and contribution guidelines.
+This guide covers CueNIMBY's architecture, testing, and contribution guidelines.
 
 ## Table of contents
 {: .no_toc .text-delta }
@@ -160,11 +160,17 @@ cuenimby/
 
 **Key classes**:
 * `Notifier`: Notification manager
+* `NotifierType`: Enum for notification backend types
 
 **Platform support**:
-* macOS: pync or osascript
+* macOS: terminal-notifier (preferred), pync, or osascript
 * Windows: win10toast
 * Linux: notify2 or notify-send
+
+**Implementation notes**:
+* Auto-detects terminal-notifier on macOS for best reliability
+* Uses fallback chain if preferred backend unavailable
+* Proper string escaping for AppleScript on macOS
 
 #### `scheduler.py` - Scheduler
 
@@ -232,88 +238,8 @@ cuenimby --version
 pytest
 ```
 
-## Development workflow
-
-### 1. Create feature branch
-
-```bash
-git checkout -b feature/your-feature-name
-```
-
-### 2. Make changes
-
-Edit source files in `cuenimby/`.
-
-### 3. Test changes
-
-```bash
-# Run tests
-pytest
-
-# Run specific test
-pytest tests/test_config.py::test_default_config
-
-# Run with coverage
-pytest --cov=cuenimby --cov-report=html
-```
-
-### 4. Format code
-
-```bash
-# Format with black
-black cuenimby/ tests/
-
-# Check formatting
-black --check cuenimby/ tests/
-```
-
-### 5. Lint code
-
-```bash
-# Run pylint
-pylint cuenimby/
-
-# Check specific file
-pylint cuenimby/tray.py
-```
-
-### 6. Test manually
-
-```bash
-# Run in development mode
-cuenimby --verbose
-
-# Test with custom config
-cuenimby --config /tmp/test-config.json
-```
-
-### 7. Commit changes
-
-```bash
-git add .
-git commit -m "Add feature: description"
-```
-
-### 8. Push and create PR
-
-```bash
-git push origin feature/your-feature-name
-```
-
-Then create a pull request on GitHub.
-
 ## Testing
 
-### Test structure
-
-```
-tests/
-├── __init__.py
-├── test_config.py      # Config tests
-├── test_monitor.py     # Monitor tests (TODO)
-├── test_notifier.py    # Notifier tests
-└── test_scheduler.py   # Scheduler tests
-```
 
 ### Running tests
 
@@ -355,11 +281,6 @@ pip install pync
 cuenimby --verbose
 ```
 
-**Building app bundle** (future):
-```bash
-py2app cuenimby/__main__.py
-```
-
 ### Windows
 
 **Testing notifications**:
@@ -369,11 +290,6 @@ pip install win10toast
 
 # Test
 cuenimby --verbose
-```
-
-**Building executable** (future):
-```bash
-pyinstaller cuenimby/__main__.py
 ```
 
 ### Linux
@@ -433,20 +349,6 @@ logging.getLogger('cuenimby.scheduler').setLevel(logging.DEBUG)
 
 * Avoid spamming notifications
 * Consider debouncing rapid state changes
-
-## Release process
-
-### Version numbering
-
-* **Major** (1.x.x): Breaking changes
-* **Minor** (x.1.x): New features, backwards compatible
-* **Patch** (x.x.1): Bug fixes
-
-### Release checklist
-
-1. **Update version** in `cuenimby/__init__.py`
-2. **Run full test suite**: `pytest`
-3. **Test on all platforms** (macOS, Windows, Linux)
 
 ## Related documentation
 

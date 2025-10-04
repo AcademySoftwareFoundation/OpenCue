@@ -572,6 +572,10 @@ cuenimby --verbose
 
 **macOS:**
 ```bash
+# Best option: install terminal-notifier
+brew install terminal-notifier
+
+# Alternative: install pync
 pip install pync
 ```
 

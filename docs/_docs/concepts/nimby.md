@@ -21,7 +21,7 @@ NIMBY (Not In My Back Yard) is OpenCue's system for managing workstation availab
 
 NIMBY is a feature that automatically or manually controls whether a workstation accepts rendering jobs from OpenCue. When NIMBY is "locked," the workstation is unavailable for rendering. When "unlocked," the workstation can accept and process render jobs.
 
-The name "Not In My Back Yard" reflects the artist's perspective: they want rendering to happen somewhere else (not on their machine) when they're actively using it.
+The name "Not In My Back Yard" reflects the computer user's perspective: they want rendering to happen somewhere else (not on their machine) when they're actively using it.
 
 ## NIMBY Components
 

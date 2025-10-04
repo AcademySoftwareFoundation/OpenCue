@@ -214,13 +214,46 @@ class CueNIMBYTray:
         return self.config.scheduler_enabled
 
     def _show_about(self, icon, item) -> None:
-        """Show about dialog."""
-        if self.notifier:
+        """Show about dialog using native platform dialogs."""
+        from . import __version__
+
+        # Always use native dialogs for About (more reliable than notifications)
+        try:
+            if sys.platform == "darwin":  # macOS
+                # For AppleScript, use return for newlines
+                about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
+                # Escape quotes and replace newlines with 'return' for AppleScript
+                escaped_message = about_message.replace('"', '\\"').replace('\n', '" & return & "')
+                script = f'display dialog "{escaped_message}" with title "About CueNIMBY" buttons {{"OK"}} default button "OK"'
+                subprocess.run(["osascript", "-e", script], check=False)
+                logger.info(f"About CueNIMBY: {about_message}")
+            elif sys.platform == "win32":  # Windows
+                about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(0, about_message, "About CueNIMBY", 0)
+                logger.info(f"About CueNIMBY: {about_message}")
+            else:  # Linux
+                about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
+                # Try zenity or kdialog
+                try:
+                    subprocess.run(["zenity", "--info", "--title=About CueNIMBY", f"--text={about_message}"], check=False)
+                    logger.info(f"About CueNIMBY: {about_message}")
+                except FileNotFoundError:
+                    try:
+                        subprocess.run(["kdialog", "--msgbox", about_message, "--title", "About CueNIMBY"], check=False)
+                        logger.info(f"About CueNIMBY: {about_message}")
+                    except FileNotFoundError:
+                        # Fallback: use notification if available, otherwise log
+                        if self.notifier:
+                            self.notifier.notify("About CueNIMBY", about_message)
+                        else:
+                            logger.warning(f"No dialog system available. About CueNIMBY: {about_message}")
+        except Exception as e:
+            logger.error(f"Failed to show about dialog: {e}")
+            # Fallback to console output
             from . import __version__
-            self.notifier.notify(
-                "About CueNIMBY",
-                f"CueNIMBY v{__version__}\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
-            )
+            about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
+            print(f"\nAbout CueNIMBY\n{about_message}\n")
 
     def _open_config(self, icon, item) -> None:
         """Open config file in default editor."""

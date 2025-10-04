@@ -42,17 +42,24 @@ class Notifier:
         """
         self.app_name = app_name
         self.system = platform.system()
+        self.use_terminal_notifier = False
 
         # Try to import notification library
         try:
             if self.system == "Darwin":
-                # macOS - use pync or fallback to osascript
-                try:
-                    import pync
-                    self.notifier = NotifierType.PYNC
-                    self.pync = pync
-                except ImportError:
-                    self.notifier = NotifierType.OSASCRIPT
+                # macOS - try terminal-notifier first (most reliable), then pync, then osascript
+                import shutil
+                if shutil.which("terminal-notifier"):
+                    self.notifier = NotifierType.OSASCRIPT  # We'll use terminal-notifier via subprocess
+                    self.use_terminal_notifier = True
+                else:
+                    self.use_terminal_notifier = False
+                    try:
+                        import pync
+                        self.notifier = NotifierType.PYNC
+                        self.pync = pync
+                    except ImportError:
+                        self.notifier = NotifierType.OSASCRIPT
             elif self.system == "Windows":
                 # Windows - use win10toast or fallback
                 try:
@@ -84,6 +91,7 @@ class Notifier:
             message: Notification message.
             duration: Duration in seconds (may not be supported on all platforms).
         """
+        logger.debug(f"Attempting to send notification: title='{title}', notifier={self.notifier}")
         try:
             if self.notifier == NotifierType.PYNC:
                 # macOS with pync
@@ -91,8 +99,34 @@ class Notifier:
             elif self.notifier == NotifierType.OSASCRIPT:
                 # macOS fallback
                 import subprocess
-                script = f'display notification "{message}" with title "{title}"'
-                subprocess.run(["osascript", "-e", script], check=False)
+
+                if self.use_terminal_notifier:
+                    # Use terminal-notifier (most reliable on macOS)
+                    result = subprocess.run([
+                        "terminal-notifier",
+                        "-title", title,
+                        "-message", message,
+                        "-group", self.app_name
+                    ], capture_output=True, text=True, check=False)
+
+                    if result.returncode != 0:
+                        logger.warning(f"terminal-notifier failed: {result.stderr}")
+                    else:
+                        logger.debug("terminal-notifier notification sent successfully")
+                else:
+                    # Use osascript
+                    # Escape quotes and backslashes for AppleScript
+                    escaped_message = message.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+                    escaped_title = title.replace('\\', '\\\\').replace('"', '\\"')
+
+                    # Try display notification
+                    script = f'display notification "{escaped_message}" with title "{escaped_title}"'
+                    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, check=False)
+
+                    if result.returncode != 0:
+                        logger.warning(f"osascript notification failed: {result.stderr}")
+                    else:
+                        logger.debug("osascript notification sent successfully")
             elif self.notifier == NotifierType.WIN10TOAST:
                 # Windows
                 self.toaster.show_toast(title, message, duration=duration, threaded=True)

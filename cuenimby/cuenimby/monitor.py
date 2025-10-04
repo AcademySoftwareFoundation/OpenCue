@@ -181,6 +181,18 @@ class HostMonitor:
             logger.warning("Monitor already running")
             return
 
+        # Fetch initial state before starting background thread
+        try:
+            host = self._get_host()
+            if host:
+                self._host = host
+                self._current_state = self._determine_state(host)
+                logger.info(f"Initial state: {self._current_state.value}")
+            else:
+                logger.warning("Could not fetch initial host state")
+        except Exception as e:
+            logger.error(f"Error fetching initial state: {e}")
+
         self._running = True
         self._thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self._thread.start()
@@ -215,7 +227,16 @@ class HostMonitor:
 
         try:
             self._host.lock()
+            # Update state immediately to reflect the change
+            old_state = self._current_state
+            self._current_state = HostState.DISABLED
             logger.info("Host locked")
+
+            # Trigger state change callbacks
+            if old_state != self._current_state:
+                for callback in self._state_change_callbacks:
+                    callback(old_state, self._current_state)
+
             return True
         except Exception as e:
             logger.error(f"Failed to lock host: {e}")
@@ -235,7 +256,16 @@ class HostMonitor:
 
         try:
             self._host.unlock()
+            # Update state immediately to reflect the change
+            old_state = self._current_state
+            self._current_state = HostState.AVAILABLE
             logger.info("Host unlocked")
+
+            # Trigger state change callbacks
+            if old_state != self._current_state:
+                for callback in self._state_change_callbacks:
+                    callback(old_state, self._current_state)
+
             return True
         except Exception as e:
             logger.error(f"Failed to unlock host: {e}")

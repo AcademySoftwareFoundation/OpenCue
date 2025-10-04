@@ -177,10 +177,12 @@ See [Scheduler](#scheduler) section for configuration details.
 
 ### About
 
-Shows application information:
+Shows application information using native platform dialog:
 * CueNIMBY version
 * Host being monitored
 * Brief description
+
+The About dialog uses native platform dialogs (AppleScript on macOS, MessageBox on Windows, zenity/kdialog on Linux) and works regardless of notification settings.
 
 ### Quit
 
@@ -233,6 +235,9 @@ Sent when you manually enable rendering.
 * Uses native Notification Center
 * Notifications appear in top-right corner
 * Requires notification permissions (granted on first notification)
+* Auto-detects and uses `terminal-notifier` if available (most reliable)
+* Fallback chain: terminal-notifier → pync → osascript
+* For best results, install terminal-notifier: `brew install terminal-notifier`
 
 **Windows:**
 * Uses Windows 10+ toast notifications
@@ -554,7 +559,9 @@ When you manually lock via CueNIMBY:
 
 **macOS:**
 * Grant notification permissions in System Preferences
-* Install `pync`: `pip install pync`
+* For best reliability, install terminal-notifier: `brew install terminal-notifier`
+* Alternative: Install `pync`: `pip install pync`
+* Built-in fallback uses osascript (no additional install required)
 
 **Windows:**
 * Check Windows notification settings

@@ -199,8 +199,10 @@ During the specified time range, the host will be set to the specified state. Ou
 : Changes persist to configuration file
 
 **About**
-: Show application information
-: Version, monitored host, description
+: Show application information using native platform dialog
+: Displays version, monitored host, and description
+: Uses AppleScript (macOS), MessageBox (Windows), or zenity/kdialog (Linux)
+: Works regardless of notification settings
 
 **Quit**
 : Exit CueNIMBY
@@ -262,10 +264,17 @@ Host enabled for rendering.
 **Notifications:**
 * Uses native Notification Center
 * Requires notification permissions (granted automatically)
-* Optional: Install `pync` for enhanced notifications
+* Auto-detects and uses `terminal-notifier` if available (most reliable)
+* Fallback chain: terminal-notifier → pync → osascript
+* Recommended: Install terminal-notifier for best results
+  ```bash
+  brew install terminal-notifier
+  ```
+* Alternative: Install `pync` for enhanced notifications
   ```bash
   pip install pync
   ```
+* Built-in fallback uses osascript (no additional install required)
 
 **System tray:**
 * Icon appears in menu bar (top-right)

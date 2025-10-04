@@ -31,7 +31,9 @@ You must have the following software installed on your machine:
 
 **macOS:**
 * macOS 10.14 or later
-* Optional: `pync` for enhanced notifications
+* Optional but recommended: `terminal-notifier` for most reliable notifications (`brew install terminal-notifier`)
+* Alternative: `pync` for enhanced notifications (`pip install pync`)
+* Built-in fallback: osascript (no additional install required)
 
 **Windows:**
 * Windows 10 or later
@@ -157,6 +159,6 @@ Edit `~/.opencue/cuenimby.json`:
 
 ### No notifications
 
-* macOS: Grant notification permissions in System Preferences
+* macOS: Grant notification permissions in System Preferences. For best results, install terminal-notifier: `brew install terminal-notifier`
 * Windows: Check notification settings in Windows Settings
 * Linux: Ensure notification daemon is running: `ps aux | grep notification`

@@ -27,7 +27,7 @@ This guide explains how OpenCue manages desktop workstations for rendering, incl
 
 ## Overview
 
-Desktop rendering allows organizations to leverage artist workstations as rendering resources during idle time. OpenCue provides fine-grained control over when and how desktop resources are used through:
+Desktop rendering allows organizations to leverage user workstations as rendering resources during idle time. OpenCue provides fine-grained control over when and how desktop resources are used through:
 
 * **Allocations**: Logical groupings of hosts (e.g., `local.desktop`, `local.general`)
 * **Subscriptions**: Show-specific allocation access and resource limits
@@ -219,7 +219,6 @@ for sub in show.getSubscriptions():
 
 **Using CueAdmin (command-line)**:
 ```bash
-cueadmin -lss myshow  # List subscriptions
 cueadmin -size myshow local.desktop 0
 cueadmin -burst myshow local.desktop 0
 ```
@@ -479,9 +478,6 @@ Can job run on desktop host?
 ```bash
 # List all desktop hosts
 cueadmin -lh -allocation local.desktop
-
-# Show detailed host info
-cueadmin -lhd workstation-01
 ```
 
 **Using PyCue**:
@@ -489,7 +485,7 @@ cueadmin -lhd workstation-01
 import opencue
 
 # Get all desktop hosts
-hosts = opencue.api.getHosts(allocation="local.desktop")
+hosts = opencue.api.getHosts(alloc=["local.desktop"])
 
 for host in hosts:
     print(f"{host.name()}: {host.state()}")
@@ -503,19 +499,24 @@ for host in hosts:
 
 ### Check show subscription status
 
-**Using CueAdmin**:
-```bash
-cueadmin -lss myshow
-```
+**Using CueGUI**:
+- Check list of subscriptions by show on CueGUI > CueCommander > Subscriptions
 
 **Using PyCue**:
 ```python
 import opencue
 
-show = opencue.api.findShow("myshow")
+# First, list available shows
+shows = opencue.api.getShows()
+print("Available shows:")
+for show in shows:
+    print(f"  - {show.name()}")
+
+# Then check subscriptions for a specific show
+show = opencue.api.findShow("your_show_name")  # Replace with actual show name
 for sub in show.getSubscriptions():
     if "local.desktop" in sub.data.allocation_name:
-        print(f"Allocation: {sub.data.allocation_name}")
+        print(f"\nAllocation: {sub.data.allocation_name}")
         print(f"  Size: {sub.data.size}")
         print(f"  Burst: {sub.data.burst}")
         print(f"  Priority: {sub.data.priority}")
@@ -525,13 +526,12 @@ for sub in show.getSubscriptions():
 
 ```python
 import opencue
-from collections import defaultdict
 
 def desktop_usage_report():
     """Generate report of desktop allocation usage."""
 
     # Get all desktop hosts
-    hosts = opencue.api.getHosts(allocation="local.desktop")
+    hosts = opencue.api.getHosts(alloc=["local.desktop"])
 
     stats = {
         'total_hosts': len(hosts),
@@ -572,7 +572,13 @@ def desktop_usage_report():
     print()
     print(f"Total Cores: {stats['total_cores']}")
     print(f"Used Cores: {stats['used_cores']}")
-    print(f"Utilization: {stats['used_cores']/stats['total_cores']*100:.1f}%")
+
+    if stats['total_cores'] > 0:
+        utilization = stats['used_cores'] / stats['total_cores'] * 100
+        print(f"Utilization: {utilization:.1f}%")
+    else:
+        print("Utilization: N/A (no hosts found)")
+
     print()
     print(f"Frames Running: {stats['frames_running']}")
 
@@ -587,9 +593,7 @@ desktop_usage_report()
 ### Jobs not running on desktops
 
 **Check 1: Show subscription**
-```bash
-cueadmin -lss myshow
-```
+* Check list of subscriptions by show on CueGUI > CueCommander > Subscriptions
 * Verify `local.desktop` subscription exists
 * Verify size > 0 OR burst > 0
 
@@ -602,7 +606,7 @@ cueadmin -lh -allocation local.desktop
 
 **Check 3: Host allocation**
 ```bash
-cueadmin -lhd workstation-01
+cueadmin -lh workstation-01
 ```
 * Verify host is actually in `local.desktop` allocation
 

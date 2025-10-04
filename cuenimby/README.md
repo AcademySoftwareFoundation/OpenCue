@@ -153,10 +153,15 @@ Right-click the tray icon to access:
 
 CueNIMBY uses the native macOS notification system. For best results:
 - Grant notification permissions when prompted
-- Install optional `pync` package for enhanced notifications:
+- Install `terminal-notifier` for most reliable notifications (recommended):
+  ```bash
+  brew install terminal-notifier
+  ```
+- Alternative: Install optional `pync` package for enhanced notifications:
   ```bash
   pip install pync
   ```
+- Built-in fallback uses osascript (no additional install required)
 
 ### Windows
 
