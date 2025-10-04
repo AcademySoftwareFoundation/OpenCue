@@ -485,6 +485,8 @@ cuenimby --config /path/to/custom/config.json
 
 CueNIMBY works alongside RQD's automatic NIMBY feature.
 
+For detailed information on how NIMBY states interact with desktop rendering allocations and show subscriptions, see the [Desktop rendering control guide](/docs/other-guides/desktop-rendering-control).
+
 ### How they work together
 
 **RQD (Automatic)**:
@@ -666,3 +668,11 @@ View logs for debugging:
 ```bash
 cuenimby --verbose 2>&1 | tee cuenimby.log
 ```
+
+## Related guides
+
+* [Desktop rendering control guide](/docs/other-guides/desktop-rendering-control) - Understanding desktop allocations, subscriptions, and NIMBY states
+* [NIMBY concept guide](/docs/concepts/nimby) - Overview of NIMBY system components
+* [Quick start: CueNIMBY](/docs/quick-starts/quick-start-cuenimby) - Get started quickly
+* [CueNIMBY tutorial](/docs/tutorials/cuenimby-tutorial) - Step-by-step tutorial
+* [CueNIMBY development guide](/docs/developer-guide/cuenimby-development) - For developers

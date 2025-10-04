@@ -135,6 +135,8 @@ Configure CueNIMBY via `~/.opencue/cuenimby.json`:
 }
 ```
 
+For more details on NIMBY states and desktop rendering, see [Desktop rendering control guide](/docs/other-guides/desktop-rendering-control).
+
 ## Use Cases
 
 ### 1. Artist Workstations
@@ -275,3 +277,9 @@ Use cases for `ignore_nimby=true`:
 2. Check network connectivity and firewall rules
 3. Ensure OpenCue client libraries are installed
 4. Run with `--verbose` to see detailed errors
+
+## Related guides
+
+* [Desktop rendering control guide](/docs/other-guides/desktop-rendering-control) - Detailed guide on desktop rendering, allocations, and subscriptions
+* [CueNIMBY user guide](/docs/user-guides/cuenimby-user-guide) - Complete CueNIMBY usage guide
+* [Quick start: CueNIMBY](/docs/quick-starts/quick-start-cuenimby) - Get started quickly with CueNIMBY

@@ -447,3 +447,10 @@ logging.getLogger('cuenimby.scheduler').setLevel(logging.DEBUG)
 1. **Update version** in `cuenimby/__init__.py`
 2. **Run full test suite**: `pytest`
 3. **Test on all platforms** (macOS, Windows, Linux)
+
+## Related documentation
+
+* [Desktop rendering control guide](/docs/other-guides/desktop-rendering-control) - Understanding allocations, subscriptions, and NIMBY states
+* [NIMBY concept guide](/docs/concepts/nimby) - NIMBY system overview
+* [CueNIMBY user guide](/docs/user-guides/cuenimby-user-guide) - End-user documentation
+* [Quick start: CueNIMBY](/docs/quick-starts/quick-start-cuenimby) - Getting started guide

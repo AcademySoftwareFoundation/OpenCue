@@ -17,8 +17,6 @@ description: >
 
 CueNIMBY is a cross-platform system tray application that provides user control over OpenCue's NIMBY (Not In My Back Yard) feature on workstations. It allows artists and users to monitor their machine's rendering availability, toggle between available and disabled states, receive notifications when jobs start, and schedule automatic state changes.
 
-This quick start takes approximately 10 minutes to complete.
-
 ## Before you begin
 
 You must have the following software installed on your machine:
@@ -136,12 +134,6 @@ Edit `~/.opencue/cuenimby.json`:
 3. Test job notifications:
    * Submit a test job to OpenCue
    * When a frame starts on your workstation, you should receive a notification
-
-## Next steps
-
-* Configure [time-based scheduling](../user-guides/cuenimby-user-guide.md#scheduler) to automatically disable rendering during work hours
-* Learn about [advanced configuration options](../reference/tools/cuenimby.md)
-* Explore [integration with RQD](../concepts/nimby.md) for automatic NIMBY control
 
 ## Troubleshooting
 

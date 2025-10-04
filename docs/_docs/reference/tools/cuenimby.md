@@ -497,3 +497,11 @@ CueNIMBY logs to stderr. To capture:
 ```bash
 cuenimby --verbose 2>&1 | tee cuenimby.log
 ```
+
+## See also
+
+* [Desktop rendering control guide](/docs/other-guides/desktop-rendering-control) - Understanding desktop allocations, subscriptions, and NIMBY states
+* [CueNIMBY user guide](/docs/user-guides/cuenimby-user-guide) - Complete usage guide
+* [CueNIMBY tutorial](/docs/tutorials/cuenimby-tutorial) - Step-by-step walkthrough
+* [NIMBY concept guide](/docs/concepts/nimby) - NIMBY system overview
+* [Quick start: CueNIMBY](/docs/quick-starts/quick-start-cuenimby) - Quick start guide

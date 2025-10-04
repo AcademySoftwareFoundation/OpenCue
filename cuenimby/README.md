@@ -143,6 +143,7 @@ Right-click the tray icon to access:
 - **Available** (checkbox): Toggle rendering availability
 - **Notifications** (checkbox): Enable/disable notifications
 - **Scheduler** (checkbox): Enable/disable time-based scheduler
+- **Open Config File**: Open the configuration file in your default editor
 - **About**: Show application info
 - **Quit**: Exit CueNIMBY
 
@@ -176,6 +177,37 @@ CueNIMBY uses the freedesktop notification system:
   ```
 - Fallback to `notify-send` command if package unavailable
 
+## Understanding NIMBY and Desktop Rendering
+
+### What Does "Locked" Mean?
+
+When a host is **locked** (either manually or via NIMBY), it becomes unavailable for rendering jobs in OpenCue:
+- **Disabled (Manual Lock)**: User manually disabled rendering via CueNIMBY
+- **NIMBY Locked**: RQD automatically locked the host due to user activity (mouse/keyboard)
+
+In both cases, the host will not accept new rendering jobs. Any currently running jobs will continue until completion, but no new work will be dispatched to the host.
+
+### Desktop Rendering Control
+
+Desktop workstations in OpenCue are typically configured under a special allocation called `local.desktop`. This allows administrators to control rendering on user workstations separately from dedicated render farm machines.
+
+**How Desktop Rendering Works:**
+
+1. **Allocations**: Desktop hosts are assigned to the `local.desktop` allocation
+2. **Show Subscriptions**: Shows are configured with subscriptions to allocations, including `local.desktop`
+3. **Controlling Rendering**: To enable rendering on desktops for a specific show:
+   - Increase the subscription size for the `local.desktop` allocation
+   - Adjust the burst value to control how many jobs can run
+   - Setting size/burst to zero effectively disables desktop rendering for that show
+
+**Example:**
+- Default: Show has `local.desktop` subscription with size=0, burst=0 (no desktop rendering)
+- Enable: Set `local.desktop` subscription to size=10, burst=20 (allow up to 10 cores, burst to 20)
+
+This gives production teams fine-grained control over when and how much desktop resources are used for rendering.
+
+For more detailed information about desktop rendering control, allocations, and subscriptions, see the [Desktop rendering control guide](https://www.opencue.io/docs/other-guides/desktop-rendering-control) in the official documentation.
+
 ## Integration with RQD
 
 CueNIMBY works alongside RQD's built-in NIMBY feature:
@@ -184,9 +216,10 @@ CueNIMBY works alongside RQD's built-in NIMBY feature:
 2. **CueNIMBY**: Provides user control and visual feedback via system tray
 
 Both can run simultaneously:
-- RQD handles automatic locking based on activity
-- CueNIMBY allows manual control and shows notifications
-- When RQD locks the host, CueNIMBY reflects the NIMBY_LOCKED state
+- RQD handles automatic locking based on activity detection
+- CueNIMBY allows manual control and shows visual notifications
+- When RQD locks the host due to user activity, CueNIMBY reflects this with the NIMBY_LOCKED state (🟠 Orange icon)
+- Users can manually lock/unlock via CueNIMBY regardless of RQD's automatic behavior
 
 ## Troubleshooting
 

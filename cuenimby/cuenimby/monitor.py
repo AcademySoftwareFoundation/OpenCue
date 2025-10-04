@@ -148,8 +148,8 @@ class HostMonitor:
 
         self._running_frames = current_frame_ids
 
-    def _poll_state(self) -> None:
-        """Poll host state and trigger callbacks on changes."""
+    def _monitor_loop(self) -> None:
+        """Monitor host state continuously and trigger callbacks on changes."""
         while self._running:
             try:
                 host = self._get_host()
@@ -182,7 +182,7 @@ class HostMonitor:
             return
 
         self._running = True
-        self._thread = threading.Thread(target=self._poll_state, daemon=True)
+        self._thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self._thread.start()
         logger.info("Monitor started")
 
@@ -205,31 +205,41 @@ class HostMonitor:
         """Lock the host (disable rendering).
 
         Returns:
-            True if successful, False otherwise.
+            True if successful.
+
+        Raises:
+            RuntimeError: If host object is not available or lock operation fails.
         """
+        if not self._host:
+            raise RuntimeError("Host not available. Cannot lock host.")
+
         try:
-            if self._host:
-                self._host.lock()
-                logger.info("Host locked")
-                return True
+            self._host.lock()
+            logger.info("Host locked")
+            return True
         except Exception as e:
             logger.error(f"Failed to lock host: {e}")
-        return False
+            raise RuntimeError(f"Failed to lock host: {e}") from e
 
     def unlock_host(self) -> bool:
         """Unlock the host (enable rendering).
 
         Returns:
-            True if successful, False otherwise.
+            True if successful.
+
+        Raises:
+            RuntimeError: If host object is not available or unlock operation fails.
         """
+        if not self._host:
+            raise RuntimeError("Host not available. Cannot unlock host.")
+
         try:
-            if self._host:
-                self._host.unlock()
-                logger.info("Host unlocked")
-                return True
+            self._host.unlock()
+            logger.info("Host unlocked")
+            return True
         except Exception as e:
             logger.error(f"Failed to unlock host: {e}")
-        return False
+            raise RuntimeError(f"Failed to unlock host: {e}") from e
 
     def on_state_change(self, callback: Callable[[HostState, HostState], None]) -> None:
         """Register callback for state changes.

@@ -597,3 +597,10 @@ Congratulations! You've completed the CueNIMBY tutorial. You now know how to:
 * Set up time-based scheduling
 * Customize notifications
 * Integrate with RQD for complete NIMBY control
+
+## Further reading
+
+* [Desktop rendering control guide](/docs/other-guides/desktop-rendering-control) - Learn about allocations, subscriptions, and how desktop rendering is controlled in OpenCue
+* [CueNIMBY user guide](/docs/user-guides/cuenimby-user-guide) - Complete reference for all CueNIMBY features
+* [NIMBY concept guide](/docs/concepts/nimby) - Understand the NIMBY system architecture
+* [CueNIMBY command reference](/docs/reference/tools/cuenimby) - All command-line options and configuration parameters

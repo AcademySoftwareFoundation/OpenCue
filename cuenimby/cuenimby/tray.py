@@ -15,6 +15,9 @@
 """System tray application for CueNIMBY."""
 
 import logging
+import os
+import subprocess
+import sys
 from typing import Optional
 
 import pystray
@@ -143,23 +146,33 @@ class CueNIMBYTray:
         Args:
             desired_state: Desired state ("available" or "disabled").
         """
-        if desired_state == "disabled":
-            self.monitor.lock_host()
-        elif desired_state == "available":
-            self.monitor.unlock_host()
+        try:
+            if desired_state == "disabled":
+                self.monitor.lock_host()
+            elif desired_state == "available":
+                self.monitor.unlock_host()
+        except RuntimeError as e:
+            logger.error(f"Scheduler failed to change host state: {e}")
+            if self.notifier:
+                self.notifier.notify("Scheduler Error", str(e))
 
     def _toggle_available(self, icon, item) -> None:
         """Toggle host availability."""
         current_state = self.monitor.get_current_state()
 
-        if current_state in (HostState.DISABLED, HostState.NIMBY_LOCKED):
-            # Enable host
-            if self.monitor.unlock_host():
-                logger.info("Host enabled by user")
-        else:
-            # Disable host
-            if self.monitor.lock_host():
-                logger.info("Host disabled by user")
+        try:
+            if current_state in (HostState.DISABLED, HostState.NIMBY_LOCKED):
+                # Enable host
+                if self.monitor.unlock_host():
+                    logger.info("Host enabled by user")
+            else:
+                # Disable host
+                if self.monitor.lock_host():
+                    logger.info("Host disabled by user")
+        except RuntimeError as e:
+            logger.error(f"Failed to toggle host state: {e}")
+            if self.notifier:
+                self.notifier.notify("Error", str(e))
 
     def _is_available(self, item) -> bool:
         """Check if host is available (for menu checkbox)."""
@@ -209,6 +222,25 @@ class CueNIMBYTray:
                 f"CueNIMBY v{__version__}\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
             )
 
+    def _open_config(self, icon, item) -> None:
+        """Open config file in default editor."""
+        config_path = str(self.config.config_path)
+        try:
+            if sys.platform == "darwin":  # macOS
+                subprocess.run(["open", config_path], check=True)
+            elif sys.platform == "win32":  # Windows
+                os.startfile(config_path)
+            else:  # Linux and others
+                subprocess.run(["xdg-open", config_path], check=True)
+            logger.info(f"Opened config file: {config_path}")
+        except Exception as e:
+            logger.error(f"Failed to open config file: {e}")
+            if self.notifier:
+                self.notifier.notify(
+                    "Error",
+                    f"Failed to open config file: {e}"
+                )
+
     def _quit(self, icon, item) -> None:
         """Quit application."""
         logger.info("Shutting down CueNIMBY")
@@ -238,6 +270,7 @@ class CueNIMBYTray:
                 checked=self._scheduler_enabled
             ),
             pystray.Menu.SEPARATOR,
+            Item("Open Config File", self._open_config),
             Item("About", self._show_about),
             Item("Quit", self._quit)
         )

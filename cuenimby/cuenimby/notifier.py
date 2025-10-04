@@ -16,9 +16,19 @@
 
 import logging
 import platform
+from enum import Enum
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+class NotifierType(Enum):
+    """Notification backend types."""
+    PYNC = "pync"
+    OSASCRIPT = "osascript"
+    WIN10TOAST = "win10toast"
+    NOTIFY2 = "notify2"
+    NOTIFY_SEND = "notify-send"
 
 
 class Notifier:
@@ -39,15 +49,15 @@ class Notifier:
                 # macOS - use pync or fallback to osascript
                 try:
                     import pync
-                    self.notifier = "pync"
+                    self.notifier = NotifierType.PYNC
                     self.pync = pync
                 except ImportError:
-                    self.notifier = "osascript"
+                    self.notifier = NotifierType.OSASCRIPT
             elif self.system == "Windows":
                 # Windows - use win10toast or fallback
                 try:
                     from win10toast import ToastNotifier
-                    self.notifier = "win10toast"
+                    self.notifier = NotifierType.WIN10TOAST
                     self.toaster = ToastNotifier()
                 except ImportError:
                     self.notifier = None
@@ -56,10 +66,10 @@ class Notifier:
                 try:
                     import notify2
                     notify2.init(app_name)
-                    self.notifier = "notify2"
+                    self.notifier = NotifierType.NOTIFY2
                     self.notify2 = notify2
                 except ImportError:
-                    self.notifier = "notify-send"
+                    self.notifier = NotifierType.NOTIFY_SEND
             else:
                 self.notifier = None
         except Exception as e:
@@ -75,23 +85,23 @@ class Notifier:
             duration: Duration in seconds (may not be supported on all platforms).
         """
         try:
-            if self.notifier == "pync":
+            if self.notifier == NotifierType.PYNC:
                 # macOS with pync
                 self.pync.notify(message, title=title, appIcon=None)
-            elif self.notifier == "osascript":
+            elif self.notifier == NotifierType.OSASCRIPT:
                 # macOS fallback
                 import subprocess
                 script = f'display notification "{message}" with title "{title}"'
                 subprocess.run(["osascript", "-e", script], check=False)
-            elif self.notifier == "win10toast":
+            elif self.notifier == NotifierType.WIN10TOAST:
                 # Windows
                 self.toaster.show_toast(title, message, duration=duration, threaded=True)
-            elif self.notifier == "notify2":
+            elif self.notifier == NotifierType.NOTIFY2:
                 # Linux with notify2
                 notification = self.notify2.Notification(title, message)
                 notification.set_timeout(duration * 1000)  # milliseconds
                 notification.show()
-            elif self.notifier == "notify-send":
+            elif self.notifier == NotifierType.NOTIFY_SEND:
                 # Linux fallback
                 import subprocess
                 subprocess.run([
