@@ -1,6 +1,6 @@
 ---
-title: "Quick start with cuecmd"
-nav_order: 5
+title: "Cuecmd Quick Start"
+nav_order: 6
 parent: Quick Starts
 layout: default
 date: 2025-10-02

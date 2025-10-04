@@ -2,7 +2,7 @@
 title: "Troubleshooting deployment"
 layout: default
 parent: Other Guides
-nav_order: 40
+nav_order: 43
 linkTitle: "Troubleshooting deployment"
 date: 2019-02-22
 description: >

@@ -1,6 +1,6 @@
 ---
-title: "Quick start for CueNIMBY"
-nav_order: 6
+title: "CueNIMBY Quick Start"
+nav_order: 7
 parent: Quick Starts
 layout: default
 linkTitle: "Quick start for CueNIMBY"
