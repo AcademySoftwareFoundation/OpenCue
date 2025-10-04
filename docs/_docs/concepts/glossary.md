@@ -1,6 +1,6 @@
 ---
 title: "Glossary"
-nav_order: 9
+nav_order: 10
 parent: Concepts
 layout: default
 linkTitle: "Glossary"
@@ -70,6 +70,14 @@ A web-based interface that brings CueGUI's core functionality to the browser.
 Offers job management, frame monitoring, real-time updates, and collaborative
 features accessible from anywhere on the network without requiring client
 installation.
+
+## CueNIMBY
+
+A cross-platform system tray application for workstation NIMBY control. Provides
+users with visual feedback and manual control over their machine's rendering
+availability. Shows real-time state through color-coded icons, sends desktop
+notifications when jobs start, and supports time-based scheduling for automatic
+state changes. Works alongside *RQD*'s automatic NIMBY feature.
 
 ## Dependent job
 

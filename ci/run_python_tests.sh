@@ -11,7 +11,7 @@ args=("$@")
 python_version=$(python -V 2>&1)
 echo "Will run tests using ${python_version}"
 
-python -m pip uninstall --yes opencue_proto opencue_pycue opencue_pyoutline opencue_cueadmin opencue_cueman opencue_cuecmd opencue_cuesubmit opencue_rqd
+python -m pip uninstall --yes opencue_proto opencue_pycue opencue_pyoutline opencue_cueadmin opencue_cueman opencue_cuesubmit opencue_rqd opencue_cuecmd opencue_cuenimby
 
 if [[ -v OPENCUE_PROTO_PACKAGE_PATH ]]
 then
@@ -21,7 +21,7 @@ else
   python -m pip install ./proto
 fi
 
-for package in pycue pyoutline cueadmin cueman cuecmd cuesubmit rqd
+for package in pycue pyoutline cueadmin cueman cuesubmit rqd cuecmd cuenimby
 do
   PACKAGE_PATH="OPENCUE_${package^^}_PACKAGE_PATH"
   if [[ -v "${PACKAGE_PATH}" ]]

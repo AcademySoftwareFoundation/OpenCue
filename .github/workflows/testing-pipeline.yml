@@ -20,6 +20,7 @@ jobs:
       opencue_cuecmd_path: ${{ steps.package_outputs.outputs.opencue_cuecmd_path }}
       opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
       opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
+      opencue_cuenimby_path: ${{ steps.package_outputs.outputs.opencue_cuenimby_path }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,6 +51,7 @@ jobs:
           echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cuecmd_path=$(find ./packages -name 'opencue_cuecmd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuenimby_path=$(find ./packages -name 'opencue_cuenimby-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
   install_opencue_packages:
     needs: build_opencue_packages
@@ -79,7 +81,8 @@ jobs:
               ${{ needs.build_opencue_packages.outputs.opencue_cuecmd_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }} \
-              ${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}
+              ${{ needs.build_opencue_packages.outputs.opencue_rqd_path }} \
+              ${{ needs.build_opencue_packages.outputs.opencue_cuenimby_path }}
           python -c "import opencue_proto"
           python -c "import opencue_proto.report_pb2"
           python -c "import opencue_proto.report_pb2_grpc"
@@ -160,6 +163,7 @@ jobs:
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
+          export OPENCUE_CUENIMBY_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuenimby_path }}"
           ci/run_python_tests.sh
 
   test_cuebot_2024:
@@ -205,6 +209,7 @@ jobs:
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
+          export OPENCUE_CUENIMBY_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuenimby_path }}"
           ci/run_integration_test.sh
 
       - name: Archive log files
@@ -245,6 +250,7 @@ jobs:
           export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
           export OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}"
           export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
+          export OPENCUE_CUENIMBY_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuenimby_path }}"
 
       - name: Lint Python Code
         run: ci/run_python_lint.sh

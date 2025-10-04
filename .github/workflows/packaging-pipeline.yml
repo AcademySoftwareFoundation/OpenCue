@@ -20,6 +20,7 @@ jobs:
       opencue_cuecmd_path: ${{ steps.package_outputs.outputs.opencue_cuecmd_path }}
       opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
       opencue_cuegui_path: ${{ steps.package_outputs.outputs.opencue_cuegui_path }}
+      opencue_cuenimby_path: ${{ steps.package_outputs.outputs.opencue_cuenimby_path }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,6 +44,7 @@ jobs:
           echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cuecmd_path=$(find ./packages -name 'opencue_cuecmd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuenimby_path=$(find ./packages -name 'opencue_cuenimby-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
   build_rust_binaries:
     name: Build Rust Binaries
