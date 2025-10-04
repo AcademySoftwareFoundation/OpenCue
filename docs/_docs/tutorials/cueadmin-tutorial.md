@@ -139,6 +139,38 @@ cueadmin -dispatching tutorial_show ON
 cueadmin -booking tutorial_show ON
 ```
 
+### Archiving Shows
+
+Archive inactive shows to consolidate resources:
+
+```bash
+# First, create a target show for archived content (e.g., training)
+cueadmin -create-show training_show -force
+
+# Set up minimal resources for the training show
+cueadmin -create-sub training_show main.general 10 20 -force
+
+# Archive a wrapped show to the training show
+cueadmin -archive-show old_production training_show
+# Confirm: Archive show old_production to training_show? [y/n] y
+
+# Verify the archive
+cueadmin -ls | grep old_production
+# You should see old_production_archive in the list
+
+# Now jobs submitted to "old_production" will run on training_show's allocations
+```
+
+**When to Use Archiving:**
+- **Wrapped Shows**: Shows that have completed production but may need occasional reruns
+- **Legacy Content**: Old shows that might be used for training or reference
+- **Resource Consolidation**: Redirecting multiple old shows to a single training allocation
+
+**What Happens:**
+- Original show is renamed with `_archive` suffix
+- An alias is created pointing to the target show
+- Jobs submitted to the archived show run on the target show's allocations
+
 ## Part 3: Allocation Management
 
 ### Creating Allocations

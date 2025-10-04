@@ -17,6 +17,7 @@ jobs:
       opencue_pyoutline_path: ${{ steps.package_outputs.outputs.opencue_pyoutline_path }}
       opencue_cueadmin_path: ${{ steps.package_outputs.outputs.opencue_cueadmin_path }}
       opencue_cueman_path: ${{ steps.package_outputs.outputs.opencue_cueman_path }}
+      opencue_cuecmd_path: ${{ steps.package_outputs.outputs.opencue_cuecmd_path }}
       opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
       opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
       opencue_cuenimby_path: ${{ steps.package_outputs.outputs.opencue_cuenimby_path }}
@@ -48,6 +49,7 @@ jobs:
           echo "opencue_cuesubmit_path=$(find ./packages -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cueadmin_path=$(find ./packages -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuecmd_path=$(find ./packages -name 'opencue_cuecmd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cuenimby_path=$(find ./packages -name 'opencue_cuenimby-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
@@ -76,6 +78,7 @@ jobs:
               ${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cueman_path }} \
+              ${{ needs.build_opencue_packages.outputs.opencue_cuecmd_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_rqd_path }} \
@@ -277,9 +280,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
+          set-safe-directory: true
+          fetch-tags: true
+
       - name: Check for Version Change
         run: |
-          readarray -t changed_files < <(git diff --name-only HEAD^1 HEAD)
+          git diff --name-status HEAD^1 HEAD| grep '^M' | awk '{print $2}'
+          readarray -t changed_files < <(git diff --name-status HEAD^1 HEAD| grep '^M' | awk '{print $2}')
           ci/check_changed_files.py "${changed_files[@]}"
 
   check_migration_files:
@@ -297,9 +304,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
+          set-safe-directory: true
+          fetch-tags: true
+
       - name: Check for Version Change
         run: |
-          readarray -t changed_files < <(git diff --name-only HEAD^1 HEAD)
+          git diff --name-status HEAD^1 HEAD| awk '{print $2}'
+          readarray -t changed_files < <(git diff --name-status HEAD^1 HEAD| awk '{print $2}')
           ci/check_version_bump.py "${changed_files[@]}"
 
   test_rest_gateway:

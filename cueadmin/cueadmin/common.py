@@ -288,6 +288,16 @@ def getParser():
         help="The default max core value for all jobs before "
         "any max core filters are applied.",
     )
+
+    show.add_argument(
+        "-archive-show",
+        action="store",
+        nargs=2,
+        metavar=("SHOW", "TARGET_SHOW"),
+        help="Archive a show by creating an alias to another show. "
+        "Jobs submitted to the archived show will be executed by "
+        "allocations subscribed to the target show.",
+    )
     #
     # Allocation
     #
@@ -1219,6 +1229,18 @@ def handleArgs(args):
             args.force,
             opencue.api.findShow(args.default_max_cores[0]).setDefaultMaxCores,
             float(int(args.default_max_cores[1])),
+        )
+
+    elif args.archive_show:
+        show_name, target_show_name = args.archive_show
+        show = opencue.api.findShow(show_name)
+        # Verify target show exists before archiving
+        opencue.api.findShow(target_show_name)
+        confirm(
+            f"Archive show {show_name} to {target_show_name}",
+            args.force,
+            show.archive,
+            target_show_name,
         )
     #
     # Hosts are handled a bit differently than the rest

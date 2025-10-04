@@ -198,6 +198,20 @@ Arguments: `SHOW CORES`
 
 The default max core value for all jobs before any max core filters are applied.
 
+### `-archive-show`
+
+Arguments: `SHOW TARGET_SHOW`
+
+Archive a show by creating an alias to another show. Jobs submitted to the archived
+show will be executed by allocations subscribed to the target show. This is useful
+for consolidating resources from wrapped shows while maintaining job submission
+compatibility.
+
+When a show is archived:
+- The show is aliased to the target show
+- The original show name is renamed with `_archive` suffix
+- Jobs submitted to the archived show will run on the target show's allocations
+
 ## Allocation Options
 
 ### `-create-alloc`

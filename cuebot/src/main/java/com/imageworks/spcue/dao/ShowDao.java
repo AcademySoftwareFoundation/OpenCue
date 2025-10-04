@@ -144,4 +144,12 @@ public interface ShowDao {
      * service th
      */
     void updateShowsStatus();
+
+    /**
+     * Archives a show by creating an alias to a target show and renaming the original show.
+     *
+     * @param s
+     * @param targetShowName
+     */
+    void archiveShow(ShowInterface s, String targetShowName);
 }

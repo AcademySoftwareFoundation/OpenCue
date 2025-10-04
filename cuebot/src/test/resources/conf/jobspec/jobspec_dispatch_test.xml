@@ -18,7 +18,7 @@
 
 
 
-<!DOCTYPE spec SYSTEM "../dtd/cjsl-1.14.dtd">
+<!DOCTYPE spec SYSTEM "../dtd/cjsl-1.15.dtd">
 <spec>
 
     <facility>spi</facility>

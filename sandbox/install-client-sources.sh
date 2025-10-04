@@ -28,4 +28,4 @@ else
 fi
 
 # Install the rest of the Python client packages
-pip install pycue/ pyoutline/ cueadmin/ cueman/ cuesubmit/ cuegui/ cuenimby/
+pip install pycue/ pyoutline/ cueadmin/ cueman/ cuesubmit/ cuegui/ cuecmd/ cuenimby/

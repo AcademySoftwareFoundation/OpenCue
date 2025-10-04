@@ -557,5 +557,144 @@ class CpuinfoTestsLinux(pyfakefs.fake_filesystem_unittest.TestCase):
                 renderHost.attributes['hyperthreadingMultiplier'], pathCpuInfo.split('-')[3])
 
 
+@mock.patch('platform.system', new=mock.MagicMock(return_value='Darwin'))
+@mock.patch('rqd.rqutil.getHostname', new=mock.MagicMock(return_value='arbitrary-hostname'))
+class MacOsTests(unittest.TestCase):
+    """Tests for macOS-specific functionality in rqd.rqmachine."""
+
+    def setUp(self):
+        """Set up test fixtures for macOS tests."""
+        self.rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
+        self.nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
+        self.rqCore.nimby = self.nimby
+        self.nimby.is_ready = False
+        self.nimby.locked = False
+        self.coreDetail = opencue_proto.report_pb2.CoreDetail(total_cores=800)
+
+    @staticmethod
+    def _mock_subprocess_output(cmd):
+        """Mock subprocess output for macOS system commands."""
+        if 'sysctl hw.memsize' in cmd:
+            return 'hw.memsize: 17179869184'
+        if 'vm_stat' in cmd:
+            return """Mach Virtual Memory Statistics: (page size of 4096 bytes)
+Pages free:                               1304576.
+Pages inactive:                            524288."""
+        if 'sysctl vm.swapusage' in cmd:
+            return ('vm.swapusage: total = 2048.00M  used = 512.00M  '
+                    'free = 1536.00M  (encrypted)')
+        return ''
+
+    @mock.patch('platform.system', new=mock.MagicMock(return_value='Darwin'))
+    @mock.patch('subprocess.getoutput')
+    @mock.patch('psutil.cpu_count')
+    @mock.patch('os.statvfs')
+    def test_initMachineStats_setsTotalMcp(self, statvfs_mock, cpu_count_mock, subprocess_mock):
+        """Test that __initMachineStats sets total_mcp on macOS."""
+        # Mock statvfs to return temp directory stats
+        mock_statvfs = mock.MagicMock()
+        mock_statvfs.f_blocks = 244277768  # Total blocks
+        mock_statvfs.f_frsize = 4096       # Block size in bytes
+        mock_statvfs.f_bavail = 122138884  # Available blocks
+        mock_statvfs.f_bsize = 4096
+        statvfs_mock.return_value = mock_statvfs
+
+        cpu_count_mock.return_value = 8
+        subprocess_mock.side_effect = self._mock_subprocess_output
+
+        machine = rqd.rqmachine.Machine(self.rqCore, self.coreDetail)
+
+        # Verify total_mcp was set (f_blocks * f_frsize / 1024)
+        expected_total_mcp = 244277768 * 4096 // 1024
+        # pylint: disable=no-member,protected-access
+        self.assertEqual(expected_total_mcp, machine._Machine__renderHost.total_mcp)
+
+    @mock.patch('platform.system', new=mock.MagicMock(return_value='Darwin'))
+    @mock.patch('subprocess.getoutput')
+    @mock.patch('psutil.cpu_count')
+    @mock.patch('os.statvfs')
+    def test_updateMachineStats_setsFreeMcp(self, statvfs_mock, cpu_count_mock, subprocess_mock):
+        """Test that updateMachineStats sets free_mcp on macOS."""
+        # Mock statvfs to return temp directory stats
+        mock_statvfs = mock.MagicMock()
+        mock_statvfs.f_blocks = 244277768
+        mock_statvfs.f_frsize = 4096
+        mock_statvfs.f_bavail = 122138884  # Available blocks
+        mock_statvfs.f_bsize = 4096
+        statvfs_mock.return_value = mock_statvfs
+
+        cpu_count_mock.return_value = 8
+        subprocess_mock.side_effect = self._mock_subprocess_output
+
+        machine = rqd.rqmachine.Machine(self.rqCore, self.coreDetail)
+
+        # Call updateMachineStats to update free_mcp
+        machine.updateMachineStats()
+
+        # Verify free_mcp was set (f_bavail * f_bsize / 1024)
+        expected_free_mcp = 122138884 * 4096 // 1024
+        # pylint: disable=no-member,protected-access
+        self.assertEqual(expected_free_mcp, machine._Machine__renderHost.free_mcp)
+
+    @mock.patch('platform.system', new=mock.MagicMock(return_value='Darwin'))
+    @mock.patch('subprocess.getoutput')
+    @mock.patch('psutil.cpu_count')
+    @mock.patch('os.statvfs')
+    def test_getHostInfo_includesMcpStats(self, statvfs_mock, cpu_count_mock, subprocess_mock):
+        """Test that getHostInfo returns both total_mcp and free_mcp on macOS."""
+        # Mock statvfs
+        mock_statvfs = mock.MagicMock()
+        mock_statvfs.f_blocks = 244277768
+        mock_statvfs.f_frsize = 4096
+        mock_statvfs.f_bavail = 122138884
+        mock_statvfs.f_bsize = 4096
+        statvfs_mock.return_value = mock_statvfs
+
+        cpu_count_mock.return_value = 8
+        subprocess_mock.side_effect = self._mock_subprocess_output
+
+        machine = rqd.rqmachine.Machine(self.rqCore, self.coreDetail)
+
+        # Get host info
+        host_info = machine.getHostInfo()
+
+        # Verify both total_mcp and free_mcp are present
+        expected_total_mcp = 244277768 * 4096 // 1024
+        expected_free_mcp = 122138884 * 4096 // 1024
+        # pylint: disable=no-member
+        self.assertEqual(expected_total_mcp, host_info.total_mcp)
+        self.assertEqual(expected_free_mcp, host_info.free_mcp)
+
+    @mock.patch('platform.system', new=mock.MagicMock(return_value='Darwin'))
+    @mock.patch('subprocess.getoutput')
+    @mock.patch('psutil.cpu_count')
+    @mock.patch('os.statvfs')
+    @mock.patch('tempfile.gettempdir')
+    def test_macos_temp_dir_from_tempfile(self, gettempdir_mock, statvfs_mock,
+                                          cpu_count_mock, subprocess_mock):
+        """Test that macOS uses tempfile.gettempdir() when /mcp doesn't exist."""
+        # Mock tempfile.gettempdir
+        gettempdir_mock.return_value = '/var/tmp'
+
+        # Mock statvfs
+        mock_statvfs = mock.MagicMock()
+        mock_statvfs.f_blocks = 100000000
+        mock_statvfs.f_frsize = 4096
+        mock_statvfs.f_bavail = 50000000
+        mock_statvfs.f_bsize = 4096
+        statvfs_mock.return_value = mock_statvfs
+
+        cpu_count_mock.return_value = 8
+        subprocess_mock.side_effect = self._mock_subprocess_output
+
+        machine = rqd.rqmachine.Machine(self.rqCore, self.coreDetail)
+
+        # Verify getTempPath returns the correct path
+        self.assertEqual('/var/tmp/', machine.getTempPath())
+
+        # Verify statvfs was called with the correct path
+        statvfs_mock.assert_called_with('/var/tmp/')
+
+
 if __name__ == '__main__':
     unittest.main()
