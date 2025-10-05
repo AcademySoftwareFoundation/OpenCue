@@ -2,7 +2,7 @@
 title: "CueCommander Technical Reference"
 layout: default
 parent: "Developer Guide"
-nav_order: 74
+nav_order: 80
 linkTitle: "CueCommander Technical Reference"
 date: 2025-01-13
 description: >

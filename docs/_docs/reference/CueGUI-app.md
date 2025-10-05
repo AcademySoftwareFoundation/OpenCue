@@ -2,7 +2,7 @@
 title: "CueGUI app"
 layout: default
 parent: Reference
-nav_order: 48
+nav_order: 52
 linkTitle: "CueGUI app"
 date: 2019-02-22
 description: >
