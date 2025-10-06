@@ -1,6 +1,6 @@
 ---
 title: "CueNIMBY development guide"
-nav_order: 75
+nav_order: 82
 parent: Developer Guide
 layout: default
 linkTitle: "CueNIMBY development"

@@ -1,6 +1,6 @@
 ---
-title: "Using Cuecmd for Batch Commands"
-nav_order: 28
+title: "Cuecmd User Guide"
+nav_order: 34
 parent: "User Guides"
 layout: default
 date: 2025-10-02
