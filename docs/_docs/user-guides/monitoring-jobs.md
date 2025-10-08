@@ -1,6 +1,6 @@
 ---
 title: "Monitoring jobs"
-nav_order: 27
+nav_order: 31
 parent: User Guides
 layout: default
 linkTitle: "Monitoring your jobs"

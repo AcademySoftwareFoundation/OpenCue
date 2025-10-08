@@ -2,7 +2,7 @@
 layout: default
 title: OpenCue REST API Reference
 parent: Reference
-nav_order: 53
+nav_order: 62
 ---
 
 # OpenCue REST API Reference
@@ -80,7 +80,9 @@ def create_token(secret, user_id):
 
 ## Interface Overview
 
-The REST API provides access to 9 core OpenCue interfaces:
+The REST API provides access to all OpenCue interfaces:
+
+### Core Interfaces
 
 | Interface | Purpose | Key Endpoints |
 |-----------|---------|---------------|
@@ -93,6 +95,22 @@ The REST API provides access to 9 core OpenCue interfaces:
 | [Owner Interface](#owner-interface) | Ownership | GetOwner, SetMaxCores, TakeOwnership |
 | [Proc Interface](#proc-interface) | Process monitoring | GetProc, Kill, Unbook |
 | [Deed Interface](#deed-interface) | Resource deeds | GetOwner, GetHost |
+
+### Management Interfaces
+
+| Interface | Purpose | Key Endpoints |
+|-----------|---------|---------------|
+| [Allocation Interface](#allocation-interface) | Resource allocation | GetAll, Get, Find, GetHosts, SetBillable |
+| [Facility Interface](#facility-interface) | Multi-site management | Get, Create, Delete, GetAllocations |
+| [Filter Interface](#filter-interface) | Job filters | FindFilter, GetActions, GetMatchers, SetEnabled |
+| [Action Interface](#action-interface) | Filter actions | Delete, Commit, GetParentFilter |
+| [Matcher Interface](#matcher-interface) | Filter matchers | Delete, Commit, GetParentFilter |
+| [Depend Interface](#depend-interface) | Dependencies | GetDepend, Satisfy, Unsatisfy |
+| [Subscription Interface](#subscription-interface) | Show subscriptions | Get, Find, Delete, SetSize, SetBurst |
+| [Limit Interface](#limit-interface) | Resource limits | GetAll, Get, Create, Delete, SetMaxValue |
+| [Service Interface](#service-interface) | Service definitions | GetService, GetDefaultServices, CreateService, Update, Delete |
+| [ServiceOverride Interface](#serviceoverride-interface) | Service overrides | Update, Delete |
+| [Task Interface](#task-interface) | Task management | Delete, SetMinCores, ClearAdjustments |
 
 ---
 
@@ -568,6 +586,49 @@ POST /layer.LayerInterface/Kill
 }
 ```
 
+### Set Layer Tags
+
+Set tags on a layer for job categorization and routing. Tags help filter and organize layers by render type, software, or other attributes.
+
+```http
+POST /layer.LayerInterface/SetTags
+```
+
+**Request Body:**
+```json
+{
+  "layer": {
+    "id": "layer-id-789"
+  },
+  "tags": ["nuke", "comp", "high-priority"]
+}
+```
+
+**Response:**
+```json
+{}
+```
+
+**Use Cases:**
+- Tag layers by software (nuke, maya, blender, houdini)
+- Tag by render type (comp, lighting, fx, sim)
+- Tag by priority or department for resource allocation
+- Filter jobs by layer tags in monitoring dashboards
+
+**Note:** SetTags replaces all existing tags on the layer. To retrieve current tags, call GetLayer - the tags field is included in the layer response:
+
+```json
+{
+  "layer": {
+    "id": "layer-id-789",
+    "name": "comp_layer",
+    "tags": ["nuke", "comp", "high-priority"],
+    "type": "Render",
+    "isEnabled": true
+  }
+}
+```
+
 ---
 
 ## Host Interface
@@ -675,6 +736,111 @@ POST /host.HostInterface/Unlock
 {
   "host": {
     "id": "host-id-abc"
+  }
+}
+```
+
+### Add Tags to Host
+
+Add one or more tags to a host for categorization and filtering.
+
+```http
+POST /host.HostInterface/AddTags
+```
+
+**Request Body:**
+```json
+{
+  "host": {
+    "id": "host-id-abc"
+  },
+  "tags": ["gpu", "high-memory", "linux"]
+}
+```
+
+**Response:**
+```json
+{}
+```
+
+**Use Cases:**
+- Tag hosts by hardware capabilities (gpu, cpu-only, high-memory)
+- Tag hosts by location or department (studio-a, comp-team)
+- Tag hosts for specific job routing and allocation
+
+### Remove Tags from Host
+
+Remove one or more tags from a host.
+
+```http
+POST /host.HostInterface/RemoveTags
+```
+
+**Request Body:**
+```json
+{
+  "host": {
+    "id": "host-id-abc"
+  },
+  "tags": ["gpu", "high-memory"]
+}
+```
+
+**Response:**
+```json
+{}
+```
+
+### Rename Host Tag
+
+Rename a tag across a host (useful for standardizing tag names).
+
+```http
+POST /host.HostInterface/RenameTag
+```
+
+**Request Body:**
+```json
+{
+  "host": {
+    "id": "host-id-abc"
+  },
+  "old_tag": "gpu",
+  "new_tag": "nvidia-gpu"
+}
+```
+
+**Response:**
+```json
+{}
+```
+
+### Get Host Tags
+
+Retrieve tags for a host by calling GetHost - tags are included in the host object.
+
+```http
+POST /host.HostInterface/GetHost
+```
+
+**Request Body:**
+```json
+{
+  "id": "host-id-abc"
+}
+```
+
+**Response:**
+```json
+{
+  "host": {
+    "id": "host-id-abc",
+    "name": "render-node-01",
+    "tags": ["gpu", "high-memory", "linux"],
+    "lockState": "OPEN",
+    "totalCores": 16,
+    "totalMemory": 68719476736,
+    "totalGpus": 2
   }
 }
 ```
@@ -989,6 +1155,961 @@ POST /deed.DeedInterface/GetHost
 
 ---
 
+## Allocation Interface
+
+Manage resource allocations across facilities and shows.
+
+### Get All Allocations
+
+Retrieve all allocations in the system.
+
+```http
+POST /facility.AllocationInterface/GetAll
+```
+
+**Request Body:**
+```json
+{}
+```
+
+**Response:**
+```json
+{
+  "allocations": {
+    "allocations": [
+      {
+        "id": "alloc-id-123",
+        "name": "cloud",
+        "tag": "cloud",
+        "facility": "aws-us-west",
+        "billable": true,
+        "stats": {
+          "cores": 256,
+          "availableCores": 128,
+          "idleCores": 64,
+          "runningCores": 64,
+          "lockedCores": 0,
+          "hosts": 16,
+          "lockedHosts": 0,
+          "downHosts": 0
+        }
+      }
+    ]
+  }
+}
+```
+
+### Get Allocation
+
+Get details for a specific allocation.
+
+```http
+POST /facility.AllocationInterface/Get
+```
+
+**Request Body:**
+```json
+{
+  "id": "alloc-id-123"
+}
+```
+
+### Find Allocation
+
+Find an allocation by name.
+
+```http
+POST /facility.AllocationInterface/Find
+```
+
+**Request Body:**
+```json
+{
+  "name": "cloud"
+}
+```
+
+### Get Allocation Hosts
+
+Get all hosts in an allocation.
+
+```http
+POST /facility.AllocationInterface/GetHosts
+```
+
+**Request Body:**
+```json
+{
+  "allocation": {
+    "id": "alloc-id-123"
+  }
+}
+```
+
+### Set Allocation Billable
+
+Set whether an allocation is billable.
+
+```http
+POST /facility.AllocationInterface/SetBillable
+```
+
+**Request Body:**
+```json
+{
+  "allocation": {
+    "id": "alloc-id-123"
+  },
+  "value": true
+}
+```
+
+---
+
+## Facility Interface
+
+Manage multi-site render farm facilities.
+
+### Get Facility
+
+Get facility information by name.
+
+```http
+POST /facility.FacilityInterface/Get
+```
+
+**Request Body:**
+```json
+{
+  "name": "aws-us-west"
+}
+```
+
+**Response:**
+```json
+{
+  "facility": {
+    "id": "facility-id-456",
+    "name": "aws-us-west"
+  }
+}
+```
+
+### Create Facility
+
+Create a new facility.
+
+```http
+POST /facility.FacilityInterface/Create
+```
+
+**Request Body:**
+```json
+{
+  "name": "aws-us-east"
+}
+```
+
+### Delete Facility
+
+Mark a facility as inactive.
+
+```http
+POST /facility.FacilityInterface/Delete
+```
+
+**Request Body:**
+```json
+{
+  "name": "aws-us-east"
+}
+```
+
+### Get Facility Allocations
+
+Get all allocations for a facility.
+
+```http
+POST /facility.FacilityInterface/GetAllocations
+```
+
+**Request Body:**
+```json
+{
+  "facility": {
+    "id": "facility-id-456"
+  }
+}
+```
+
+---
+
+## Filter Interface
+
+Manage job filters for automated job routing and actions.
+
+### Find Filter
+
+Find a filter by show and name.
+
+```http
+POST /filter.FilterInterface/FindFilter
+```
+
+**Request Body:**
+```json
+{
+  "show": "myshow",
+  "name": "auto_priority"
+}
+```
+
+**Response:**
+```json
+{
+  "filter": {
+    "id": "filter-id-789",
+    "name": "auto_priority",
+    "type": "MATCH_ALL",
+    "order": 1,
+    "enabled": true
+  }
+}
+```
+
+### Get Filter Actions
+
+Get all actions for a filter.
+
+```http
+POST /filter.FilterInterface/GetActions
+```
+
+**Request Body:**
+```json
+{
+  "filter": {
+    "id": "filter-id-789"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "actions": {
+    "actions": [
+      {
+        "id": "action-id-abc",
+        "type": "SET_JOB_PRIORITY",
+        "valueType": "INTEGER_TYPE",
+        "integerValue": 200
+      }
+    ]
+  }
+}
+```
+
+### Get Filter Matchers
+
+Get all matchers for a filter.
+
+```http
+POST /filter.FilterInterface/GetMatchers
+```
+
+**Request Body:**
+```json
+{
+  "filter": {
+    "id": "filter-id-789"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "matchers": {
+    "matchers": [
+      {
+        "id": "matcher-id-def",
+        "subject": "JOB_NAME",
+        "type": "CONTAINS",
+        "input": "urgent"
+      }
+    ]
+  }
+}
+```
+
+### Set Filter Enabled
+
+Enable or disable a filter.
+
+```http
+POST /filter.FilterInterface/SetEnabled
+```
+
+**Request Body:**
+```json
+{
+  "filter": {
+    "id": "filter-id-789"
+  },
+  "enabled": true
+}
+```
+
+### Delete Filter
+
+Delete a filter.
+
+```http
+POST /filter.FilterInterface/Delete
+```
+
+**Request Body:**
+```json
+{
+  "filter": {
+    "id": "filter-id-789"
+  }
+}
+```
+
+---
+
+## Action Interface
+
+Manage filter actions.
+
+### Delete Action
+
+Delete a filter action.
+
+```http
+POST /filter.ActionInterface/Delete
+```
+
+**Request Body:**
+```json
+{
+  "action": {
+    "id": "action-id-abc"
+  }
+}
+```
+
+### Commit Action
+
+Update action properties.
+
+```http
+POST /filter.ActionInterface/Commit
+```
+
+**Request Body:**
+```json
+{
+  "action": {
+    "id": "action-id-abc",
+    "type": "SET_JOB_PRIORITY",
+    "integerValue": 250
+  }
+}
+```
+
+---
+
+## Matcher Interface
+
+Manage filter matchers.
+
+### Delete Matcher
+
+Delete a filter matcher.
+
+```http
+POST /filter.MatcherInterface/Delete
+```
+
+**Request Body:**
+```json
+{
+  "matcher": {
+    "id": "matcher-id-def"
+  }
+}
+```
+
+### Commit Matcher
+
+Update matcher properties.
+
+```http
+POST /filter.MatcherInterface/Commit
+```
+
+**Request Body:**
+```json
+{
+  "matcher": {
+    "id": "matcher-id-def",
+    "subject": "JOB_NAME",
+    "type": "REGEX",
+    "input": "^urgent.*"
+  }
+}
+```
+
+---
+
+## Depend Interface
+
+Manage job and frame dependencies.
+
+### Get Dependency
+
+Get a dependency by ID.
+
+```http
+POST /depend.DependInterface/GetDepend
+```
+
+**Request Body:**
+```json
+{
+  "id": "depend-id-ghi"
+}
+```
+
+**Response:**
+```json
+{
+  "depend": {
+    "id": "depend-id-ghi",
+    "type": "JOB_ON_JOB",
+    "target": "EXTERNAL",
+    "anyFrame": false,
+    "active": true,
+    "dependerJob": "myshow-shot002-comp",
+    "dependerLayer": "",
+    "dependerFrame": "",
+    "dependOnJob": "myshow-shot001-render",
+    "dependOnLayer": "",
+    "dependOnFrame": ""
+  }
+}
+```
+
+### Satisfy Dependency
+
+Mark a dependency as satisfied.
+
+```http
+POST /depend.DependInterface/Satisfy
+```
+
+**Request Body:**
+```json
+{
+  "depend": {
+    "id": "depend-id-ghi"
+  }
+}
+```
+
+### Unsatisfy Dependency
+
+Mark a dependency as unsatisfied (reactivate).
+
+```http
+POST /depend.DependInterface/Unsatisfy
+```
+
+**Request Body:**
+```json
+{
+  "depend": {
+    "id": "depend-id-ghi"
+  }
+}
+```
+
+---
+
+## Subscription Interface
+
+Manage show subscriptions to allocations.
+
+### Get Subscription
+
+Get a subscription by ID.
+
+```http
+POST /subscription.SubscriptionInterface/Get
+```
+
+**Request Body:**
+```json
+{
+  "id": "sub-id-jkl"
+}
+```
+
+**Response:**
+```json
+{
+  "subscription": {
+    "id": "sub-id-jkl",
+    "name": "myshow.cloud",
+    "showName": "myshow",
+    "facility": "aws-us-west",
+    "allocationName": "cloud",
+    "size": 50,
+    "burst": 25,
+    "reservedCores": 45,
+    "reservedGpus": 8
+  }
+}
+```
+
+### Find Subscription
+
+Find a subscription by name.
+
+```http
+POST /subscription.SubscriptionInterface/Find
+```
+
+**Request Body:**
+```json
+{
+  "name": "myshow.cloud"
+}
+```
+
+### Delete Subscription
+
+Delete a subscription.
+
+```http
+POST /subscription.SubscriptionInterface/Delete
+```
+
+**Request Body:**
+```json
+{
+  "subscription": {
+    "id": "sub-id-jkl"
+  }
+}
+```
+
+### Set Subscription Size
+
+Set the base size of a subscription.
+
+```http
+POST /subscription.SubscriptionInterface/SetSize
+```
+
+**Request Body:**
+```json
+{
+  "subscription": {
+    "id": "sub-id-jkl"
+  },
+  "newSize": 75
+}
+```
+
+### Set Subscription Burst
+
+Set the burst capacity of a subscription.
+
+```http
+POST /subscription.SubscriptionInterface/SetBurst
+```
+
+**Request Body:**
+```json
+{
+  "subscription": {
+    "id": "sub-id-jkl"
+  },
+  "burst": 50
+}
+```
+
+---
+
+## Limit Interface
+
+Manage resource limits for layer types.
+
+### Get All Limits
+
+Get all limits in the system.
+
+```http
+POST /limit.LimitInterface/GetAll
+```
+
+**Request Body:**
+```json
+{}
+```
+
+**Response:**
+```json
+{
+  "limits": [
+    {
+      "id": "limit-id-mno",
+      "name": "nuke_license",
+      "maxValue": 50,
+      "currentRunning": 32
+    }
+  ]
+}
+```
+
+### Get Limit
+
+Get a limit by ID.
+
+```http
+POST /limit.LimitInterface/Get
+```
+
+**Request Body:**
+```json
+{
+  "id": "limit-id-mno"
+}
+```
+
+### Find Limit
+
+Find a limit by name.
+
+```http
+POST /limit.LimitInterface/Find
+```
+
+**Request Body:**
+```json
+{
+  "name": "nuke_license"
+}
+```
+
+### Create Limit
+
+Create a new resource limit.
+
+```http
+POST /limit.LimitInterface/Create
+```
+
+**Request Body:**
+```json
+{
+  "name": "maya_license",
+  "maxValue": 100
+}
+```
+
+**Response:**
+```json
+{
+  "limit": {
+    "id": "limit-id-new",
+    "name": "maya_license",
+    "maxValue": 100,
+    "currentRunning": 0
+  }
+}
+```
+
+### Delete Limit
+
+Delete a limit.
+
+```http
+POST /limit.LimitInterface/Delete
+```
+
+**Request Body:**
+```json
+{
+  "name": "maya_license"
+}
+```
+
+### Set Limit Max Value
+
+Update the maximum value for a limit.
+
+```http
+POST /limit.LimitInterface/SetMaxValue
+```
+
+**Request Body:**
+```json
+{
+  "name": "nuke_license",
+  "maxValue": 75
+}
+```
+
+---
+
+## Service Interface
+
+Manage service definitions and requirements.
+
+### Get Service
+
+Get a service by name.
+
+```http
+POST /service.ServiceInterface/GetService
+```
+
+**Request Body:**
+```json
+{
+  "name": "nuke"
+}
+```
+
+**Response:**
+```json
+{
+  "service": {
+    "id": "service-id-pqr",
+    "name": "nuke",
+    "threadable": true,
+    "minCores": 1,
+    "maxCores": 8,
+    "minMemory": 4294967296,
+    "minGpuMemory": 0,
+    "tags": ["nuke", "comp"],
+    "timeout": 0,
+    "timeoutLlu": 0,
+    "minGpus": 0,
+    "maxGpus": 0,
+    "minMemoryIncrease": 0
+  }
+}
+```
+
+### Get Default Services
+
+Get all default services.
+
+```http
+POST /service.ServiceInterface/GetDefaultServices
+```
+
+**Request Body:**
+```json
+{}
+```
+
+**Response:**
+```json
+{
+  "services": {
+    "services": [
+      {
+        "id": "service-id-pqr",
+        "name": "nuke",
+        "threadable": true,
+        "minCores": 1,
+        "maxCores": 8,
+        "minMemory": 4294967296
+      },
+      {
+        "id": "service-id-stu",
+        "name": "maya",
+        "threadable": false,
+        "minCores": 1,
+        "maxCores": 1,
+        "minMemory": 2147483648
+      }
+    ]
+  }
+}
+```
+
+### Create Service
+
+Create a new service definition.
+
+```http
+POST /service.ServiceInterface/CreateService
+```
+
+**Request Body:**
+```json
+{
+  "data": {
+    "name": "blender",
+    "threadable": true,
+    "minCores": 1,
+    "maxCores": 16,
+    "minMemory": 2147483648,
+    "tags": ["blender", "render"]
+  }
+}
+```
+
+### Update Service
+
+Update service properties.
+
+```http
+POST /service.ServiceInterface/Update
+```
+
+**Request Body:**
+```json
+{
+  "service": {
+    "id": "service-id-pqr",
+    "name": "nuke",
+    "minMemory": 8589934592
+  }
+}
+```
+
+### Delete Service
+
+Delete a service definition.
+
+```http
+POST /service.ServiceInterface/Delete
+```
+
+**Request Body:**
+```json
+{
+  "service": {
+    "id": "service-id-pqr"
+  }
+}
+```
+
+---
+
+## ServiceOverride Interface
+
+Manage service overrides for specific shows.
+
+### Update Service Override
+
+Update a service override.
+
+```http
+POST /service.ServiceOverrideInterface/Update
+```
+
+**Request Body:**
+```json
+{
+  "service": {
+    "id": "override-id-vwx",
+    "minMemory": 16777216000
+  }
+}
+```
+
+### Delete Service Override
+
+Delete a service override.
+
+```http
+POST /service.ServiceOverrideInterface/Delete
+```
+
+**Request Body:**
+```json
+{
+  "service": {
+    "id": "override-id-vwx"
+  }
+}
+```
+
+---
+
+## Task Interface
+
+Manage tasks for shot priorities and department resources.
+
+### Delete Task
+
+Remove a task.
+
+```http
+POST /task.TaskInterface/Delete
+```
+
+**Request Body:**
+```json
+{
+  "task": {
+    "id": "task-id-yz1"
+  }
+}
+```
+
+### Set Task Min Cores
+
+Set minimum cores for a task.
+
+```http
+POST /task.TaskInterface/SetMinCores
+```
+
+**Request Body:**
+```json
+{
+  "task": {
+    "id": "task-id-yz1"
+  },
+  "newMinCores": 16
+}
+```
+
+**Response:**
+```json
+{}
+```
+
+### Clear Task Adjustments
+
+Clear any core adjustments made to a task.
+
+```http
+POST /task.TaskInterface/ClearAdjustments
+```
+
+**Request Body:**
+```json
+{
+  "task": {
+    "id": "task-id-yz1"
+  }
+}
+```
+
+---
+
 ## Data Types
 
 ### Common Types
@@ -1274,6 +2395,127 @@ const client = new OpenCueClient('http://localhost:8448', 'your-secret');
 const shows = await client.getShows();
 await client.pauseJob('job-id-123');
 ```
+
+---
+
+## Tag Management
+
+Tags are labels used to categorize and filter hosts and job layers in OpenCue. They enable resource allocation, job routing, and organizational workflows.
+
+### Tag Use Cases
+
+**Host Tags:**
+- Hardware classification (gpu, high-memory, cpu-only)
+- Location/facility identification (studio-a, datacenter-west)
+- Department allocation (lighting-team, fx-team)
+- Maintenance status (testing, production, maintenance)
+
+**Layer Tags:**
+- Software requirements (nuke, maya, blender, houdini)
+- Render type (comp, lighting, fx, simulation, rendering)
+- Priority classification (rush, standard, low-priority)
+- Department routing (comp-dept, lighting-dept)
+
+### Tag Operations Summary
+
+| Operation | Host Endpoint | Layer Endpoint | Description |
+|-----------|--------------|----------------|-------------|
+| **Get Tags** | `GetHost` (returns tags field) | `GetLayer` (returns tags field) | Retrieve all tags |
+| **Add Tags** | `AddTags` | N/A | Add tags (hosts only) |
+| **Set Tags** | N/A | `SetTags` | Replace all tags (layers only) |
+| **Remove Tags** | `RemoveTags` | N/A | Remove specific tags (hosts only) |
+| **Rename Tag** | `RenameTag` | N/A | Rename a tag (hosts only) |
+
+### Tag Management Workflows
+
+#### Host Tagging Workflow
+
+```bash
+# 1. Get current host tags
+curl -X POST http://localhost:8448/host.HostInterface/GetHost \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "host-id-abc"}'
+# Response includes: "tags": ["existing-tag"]
+
+# 2. Add new tags
+curl -X POST http://localhost:8448/host.HostInterface/AddTags \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "host": {"id": "host-id-abc"},
+    "tags": ["gpu", "high-memory"]
+  }'
+
+# 3. Remove unwanted tags
+curl -X POST http://localhost:8448/host.HostInterface/RemoveTags \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "host": {"id": "host-id-abc"},
+    "tags": ["existing-tag"]
+  }'
+
+# 4. Rename a tag for standardization
+curl -X POST http://localhost:8448/host.HostInterface/RenameTag \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "host": {"id": "host-id-abc"},
+    "old_tag": "gpu",
+    "new_tag": "nvidia-gpu"
+  }'
+```
+
+#### Layer Tagging Workflow
+
+```bash
+# 1. Get current layer tags
+curl -X POST http://localhost:8448/layer.LayerInterface/GetLayer \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "layer-id-789"}'
+# Response includes: "tags": ["existing-tag"]
+
+# 2. Set new tags (replaces all existing tags)
+curl -X POST http://localhost:8448/layer.LayerInterface/SetTags \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "layer": {"id": "layer-id-789"},
+    "tags": ["nuke", "comp", "high-priority"]
+  }'
+```
+
+### Best Practices
+
+1. **Tag Naming Conventions:**
+   - Use lowercase with hyphens (e.g., `high-memory`, not `HighMemory`)
+   - Be consistent across the facility
+   - Avoid special characters
+
+2. **Tag Organization:**
+   - Use a hierarchical scheme (e.g., `hw-gpu`, `hw-cpu`, `dept-lighting`)
+   - Document tag meanings in a central location
+   - Review and clean up unused tags regularly
+
+3. **Security Considerations:**
+   - Tags can affect job routing and resource allocation
+   - Restrict tag modification permissions appropriately
+   - Audit tag changes for compliance
+
+4. **Integration with Job Routing:**
+   - Use host tags to route jobs to specific hardware
+   - Use layer tags to identify software requirements
+   - Combine with filters for automated job management
+
+### API Endpoints Reference
+
+**Host Tag Endpoints:**
+- Host tags: [Add Tags](#add-tags-to-host), [Remove Tags](#remove-tags-from-host), [Rename Tag](#rename-host-tag), [Get Tags](#get-host-tags)
+
+**Layer Tag Endpoints:**
+- Layer tags: [Set Tags](#set-layer-tags)
 
 ---
 

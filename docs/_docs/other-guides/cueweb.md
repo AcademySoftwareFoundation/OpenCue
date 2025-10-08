@@ -2,7 +2,7 @@
 title: "CueWeb System"
 layout: default
 parent: Other Guides
-nav_order: 42
+nav_order: 50
 linkTitle: "CueWeb system"
 date: 2025-02-04
 description: >

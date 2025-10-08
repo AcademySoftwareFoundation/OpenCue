@@ -1,6 +1,6 @@
 ---
 title: "Deploying OpenCue REST Gateway"
-nav_order: 22
+nav_order: 26
 parent: Getting Started
 layout: default
 linkTitle: "Deploying REST Gateway"
@@ -78,7 +78,7 @@ cd rest_gateway
 
 This script will:
 - Automatically generate JWT tokens
-- Test all OpenCue interfaces (Show, Job, Frame, Layer, Group, Host, Owner, Proc, Deed)
+- Test all OpenCue interfaces (Show, Job, Frame, Layer, Group, Host, Owner, Proc, Deed, Comment, Allocation, Facility, Filter, Action, Matcher, Depend, Subscription, Limit, Service, ServiceOverride, Task)
 - Verify different endpoints
 - Display results for each test
 
@@ -377,7 +377,7 @@ cd rest_gateway
 ./test_rest_gateway_docker_compose.sh
 ```
 
-This script tests all available endpoints across 9 OpenCue interfaces and provides detailed results.
+This script tests all available endpoints across the OpenCue interfaces and provides detailed results.
 
 ### Basic Functionality Test
 

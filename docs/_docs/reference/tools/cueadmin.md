@@ -1,6 +1,6 @@
 ---
 title: "CueAdmin - CLI Administration Tool"
-nav_order: 51
+nav_order: 58
 parent: "Command Line Tools"
 grand_parent: "Reference"
 layout: default
@@ -16,15 +16,16 @@ CueAdmin is the command-line interface for administering OpenCue deployments. It
 
 ## Overview
 
-CueAdmin is the administrative counterpart to Cueman, focusing on system-level operations and infrastructure management rather than job control. It's the essential tool for OpenCue administrators and power users who need to manage render farm resources.
+CueAdmin is the command-line administration tool for OpenCue, providing comprehensive control over jobs, shows, allocations, hosts, and system resources. While Cueman offers advanced job-focused features with rich filtering, CueAdmin provides essential job operations alongside complete system-level administration capabilities. It's the essential tool for OpenCue administrators and power users managing render farm resources.
 
 ### Key Features
 
+- **Job Management**: Pause, kill, retry, and control job execution
 - **Show Management**: Create, configure, and control shows
 - **Allocation Control**: Manage resource allocations and facility resources
 - **Host Administration**: Lock, unlock, move, and configure render hosts
 - **Subscription Management**: Configure show subscriptions to allocations
-- **Resource Monitoring**: Query procs, hosts, and system state
+- **Resource Monitoring**: Query procs, hosts, jobs, and system state
 - **Batch Operations**: Apply changes to multiple entities simultaneously
 - **Safety Features**: Confirmation prompts for destructive operations
 
@@ -255,6 +256,40 @@ cueadmin -default-min-cores production 2     # Minimum 2 cores
 cueadmin -default-max-cores production 100   # Maximum 100 cores
 ```
 
+#### Archive Show
+
+Archive an inactive show by redirecting it to another show:
+
+```bash
+cueadmin -archive-show ABC TRN               # Archive show ABC to TRN
+cueadmin -archive-show ABC TRN -force        # Skip confirmation
+```
+
+**What happens when archiving:**
+- The show is aliased to the target show
+- The original show is renamed with `_archive` suffix (e.g., `ABC_archive`)
+- Jobs submitted to the archived show will be executed by allocations subscribed to the target show
+
+**Use Cases:**
+- Consolidating resources from wrapped/completed shows
+- Redirecting legacy jobs to training or test allocations
+- Maintaining job submission compatibility while optimizing resource allocation
+
+**Example Workflow:**
+
+```bash
+# 1. Create a training show for archived content
+cueadmin -create-show TRN -force
+
+# 2. Set up a small allocation for training
+cueadmin -create-sub TRN local.general 10 20 -force
+
+# 3. Archive the wrapped show to training
+cueadmin -archive-show ABC TRN -force
+
+# Now jobs submitted to "ABC" will run on TRN's allocations
+```
+
 ### Allocation Operations
 
 #### Create Allocation
@@ -396,6 +431,109 @@ cueadmin -burst production main.render 300    # Absolute value
 cueadmin -burst production main.render 50%    # Percentage of size
 ```
 
+### Job Operations
+
+#### Pause/Unpause Jobs
+
+Control job execution:
+
+```bash
+# Pause single job
+cueadmin -pause shot_001_lighting
+
+# Pause multiple jobs
+cueadmin -pause shot_001_lighting shot_002_comp shot_003_fx
+
+# Resume jobs
+cueadmin -unpause shot_001_lighting
+cueadmin -unpause shot_001_lighting shot_002_comp
+```
+
+#### Kill Jobs
+
+Terminate job execution:
+
+```bash
+# Kill single job (requires confirmation)
+cueadmin -kill old_job
+# Confirm: Kill 1 job(s)? [y/n] y
+
+# Kill multiple jobs
+cueadmin -kill job1 job2 job3
+
+# Kill with force flag (skip confirmation)
+cueadmin -kill old_job -force
+
+# Kill all jobs (requires force flag)
+cueadmin -kill-all -force
+```
+
+#### Retry Failed Frames
+
+Rerun dead frames:
+
+```bash
+# Retry dead frames for single job
+cueadmin -retry failed_job
+# Confirm: Retry dead frames for 1 job(s)? [y/n] y
+
+# Retry for multiple jobs
+cueadmin -retry job1 job2 job3
+
+# Retry with force flag
+cueadmin -retry failed_job -force
+
+# Retry all jobs (requires force flag)
+cueadmin -retry-all -force
+```
+
+#### Manage Dependencies
+
+Remove job dependencies:
+
+```bash
+# Drop dependencies for single job
+cueadmin -drop-depends blocked_job
+# Confirm: Drop all dependencies for 1 job(s)? [y/n] y
+
+# Drop dependencies for multiple jobs
+cueadmin -drop-depends job1 job2 job3
+
+# Drop with force flag
+cueadmin -drop-depends blocked_job -force
+```
+
+#### Adjust Resource Limits
+
+Configure job core requirements:
+
+```bash
+# Set minimum cores
+cueadmin -set-min-cores heavy_job 8.0
+# Confirm: Set min cores for job:heavy_job to 8.00? [y/n] y
+
+# Set maximum cores
+cueadmin -set-max-cores heavy_job 64.0
+# Confirm: Set max cores for job:heavy_job to 64.00? [y/n] y
+
+# Set with force flag
+cueadmin -set-min-cores heavy_job 8.0 -force
+cueadmin -set-max-cores heavy_job 64.0 -force
+```
+
+#### Set Job Priority
+
+Adjust job scheduling priority:
+
+```bash
+# Set priority (higher values = higher priority)
+cueadmin -priority urgent_job 200
+# Confirm: Set priority for job:urgent_job to 200? [y/n] y
+
+# Set with force flag
+cueadmin -priority urgent_job 200 -force
+```
+
 ## Filtering Options
 
 ### Memory Filter
@@ -457,6 +595,46 @@ cueadmin -ll -limit 50              # First 50 log paths
 
 ## Common Workflows
 
+### Managing Problem Jobs
+
+```bash
+# 1. List jobs to find problematic ones
+cueadmin -lji | grep FAILED
+
+# 2. Pause problematic job
+cueadmin -pause problem_job
+
+# 3. Drop blocking dependencies
+cueadmin -drop-depends problem_job -force
+
+# 4. Adjust resources if needed
+cueadmin -set-min-cores problem_job 2.0 -force
+cueadmin -set-max-cores problem_job 32.0 -force
+
+# 5. Retry failed frames
+cueadmin -retry problem_job -force
+
+# 6. Resume job
+cueadmin -unpause problem_job
+
+# 7. Boost priority if urgent
+cueadmin -priority problem_job 200 -force
+```
+
+### Cleaning Up Old Jobs
+
+```bash
+# 1. List old jobs
+cueadmin -lj old_show
+
+# 2. Kill old jobs
+cueadmin -kill old_job1 old_job2 old_job3
+
+# 3. Kill all jobs from a show (careful!)
+cueadmin -lj old_show  # Verify list first
+# Then kill each one
+```
+
 ### Setting Up a New Show
 
 ```bash
@@ -473,6 +651,32 @@ cueadmin -create-sub new_production main.workstation 100 150
 
 # 4. Enable the show
 cueadmin -enable-show new_production
+```
+
+### Archiving Wrapped Shows
+
+```bash
+# 1. Verify the show is ready for archiving
+cueadmin -ls | grep wrapped_show
+cueadmin -lj | grep wrapped_show  # Ensure no active jobs
+
+# 2. Create or identify target show (e.g., training show)
+cueadmin -create-show TRN -force
+
+# 3. Set up minimal allocation for archived content
+cueadmin -create-sub TRN local.general 10 20 -force
+
+# 4. Archive the wrapped show
+cueadmin -archive-show wrapped_show TRN -force
+
+# 5. Verify the archive
+cueadmin -ls  # wrapped_show_archive should appear
+
+# Now any jobs submitted to "wrapped_show" will run on TRN's allocations
+# This is useful for:
+# - Legacy job reruns
+# - Training purposes
+# - Testing with production-like data
 ```
 
 ### Managing Resource Allocation
@@ -684,7 +888,7 @@ CueAdmin returns the following exit codes:
 
 ### Running Tests
 
-CueAdmin includes a comprehensive test suite with 16+ tests:
+CueAdmin includes a comprehensive test suite:
 
 ```bash
 # Install with test dependencies
@@ -699,8 +903,9 @@ pytest --cov=cueadmin --cov-report=term-missing
 
 ### Test Types
 
-- **Unit Tests** - Function-level testing of core functionality
-- **Integration Tests** - End-to-end workflow testing
+- **Unit Tests** - Function-level testing of core functionality (job management, allocations, subscriptions, hosts)
+- **Integration Tests** - End-to-end workflow testing (tests covering complete command sequences)
+- **Job Commands Tests** - Comprehensive job operations testing
 - **Coverage Testing** - Code coverage analysis and reporting
 
 ### Development Setup

@@ -1,0 +1,90 @@
+[build-system]
+requires = [
+    "hatchling"
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "opencue_cuecmd"
+dynamic = ["version"]
+dependencies = [
+    "opencue_pycue",
+    "opencue_pyoutline"
+]
+requires-python = ">3.7"
+description = "Cuecmd is a command-line tool for OpenCue that executes a list of commands as frames on the render farm. It enables batch processing by chunking commands and submitting them as OpenCue jobs."
+readme = "README.md"
+
+[tool.hatch.version]
+source = "code"
+path = "../ci/generate_version_number.py"
+default-version = "1.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cuecmd"]
+
+[project.scripts]
+cuecmd = "cuecmd.__main__:main"
+
+# --- Pytest configuration ---
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_tests.py"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests for complete workflows",
+]
+
+# --- Optional Test Dependencies ---
+[project.optional-dependencies]
+test = [
+    "mock==2.0.0",
+    "pyfakefs==5.2.3",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+]
+
+dev = [
+    "mock==2.0.0",
+    "pyfakefs==5.2.3",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pylint",
+    "black",
+    "isort"
+]
+
+# --- Coverage configuration ---
+[tool.coverage.run]
+source = ["cuecmd"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if False:",
+]
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"

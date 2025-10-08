@@ -1,6 +1,6 @@
 ---
 title: "REST Gateway Development"
-nav_order: 64
+nav_order: 83
 parent: Developer Guide
 layout: default
 linkTitle: "Developing the OpenCue REST Gateway"
@@ -272,18 +272,32 @@ go tool cover -html=coverage.out -o coverage.html
 
 ### Integration Tests
 
-The gateway includes comprehensive integration tests:
+The gateway includes comprehensive integration tests that verify all OpenCue interfaces:
 
 ```bash
-# Run integration tests (requires running Cuebot)
-go test -tags=integration .
+# Automated Docker-based integration tests (recommended)
+cd rest_gateway/opencue_gateway
+./run_docker_integration_tests.sh
+
+# Manual: Run integration tests (requires running Cuebot and REST Gateway)
+go test -tags=integration -v
 
 # Run specific test function
-go test -run TestRegisteredEndpoints
+go test -tags=integration -run TestIntegration_ShowInterface
 
 # Run tests with race detection
 go test -race .
+
+# Run benchmarks
+go test -bench=. -tags=integration
 ```
+
+The automated script (`run_docker_integration_tests.sh`) handles:
+- Starting the OpenCue stack
+- Generating JWT secrets
+- Building and starting the REST Gateway
+- Running all integration tests
+- Cleanup
 
 ### Load Testing
 

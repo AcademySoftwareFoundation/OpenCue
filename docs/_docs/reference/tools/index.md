@@ -1,6 +1,6 @@
 ---
 title: "Command Line Tools"
-nav_order: 50
+nav_order: 57
 parent: "Reference"
 has_children: true
 layout: default
@@ -22,6 +22,9 @@ The primary administrative tool for OpenCue, providing comprehensive control ove
 ### [Cueman](/docs/reference/tools/cueman/)
 A job management tool that extends cueadmin with advanced filtering, batch operations, and user-friendly features for efficient farm management.
 
+### [Cuecmd](/docs/reference/tools/cuecmd/)
+A command execution tool that runs arbitrary shell commands from a text file as frames on the render farm, enabling easy parallelization of batch operations.
+
 ### [PyCueRun](/docs/reference/commands/pycuerun/)
 A tool for submitting and running Python-based jobs on the OpenCue render farm.
 
@@ -31,6 +34,7 @@ A tool for submitting and running Python-based jobs on the OpenCue render farm.
 |------|------------|--------------|
 | **cueadmin** | System administration | Host management, show configuration, allocation control |
 | **cueman** | Job and frame management | Advanced filtering, batch operations, frame manipulation |
+| **cuecmd** | Command execution | Batch command processing, chunking, parallelization |
 | **pycuerun** | Job submission | Python script execution, dependency management |
 
 ## Getting Started

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Tutorials
-nav_order: 54
+nav_order: 63
 has_children: true
 permalink: /docs/tutorials
 ---

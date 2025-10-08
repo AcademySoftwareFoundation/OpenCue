@@ -107,6 +107,9 @@ service ShowInterface {
 
     // sets a show's default min Gpus
     rpc SetDefaultMinGpus(ShowSetDefaultMinGpusRequest) returns (ShowSetDefaultMinGpusResponse);
+
+    // Archives a show by creating an alias to another show and renaming the original show
+    rpc Archive(ShowArchiveRequest) returns (ShowArchiveResponse);
 }
 
 
@@ -402,3 +405,11 @@ message ShowSetDefaultMinGpusRequest {
 }
 
 message ShowSetDefaultMinGpusResponse {} // Empty
+
+// Archive
+message ShowArchiveRequest {
+    Show show = 1;
+    string target_show_name = 2;
+}
+
+message ShowArchiveResponse {} // Empty

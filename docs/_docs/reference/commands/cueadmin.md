@@ -2,7 +2,7 @@
 title: "cueadmin command"
 layout: default
 parent: Reference
-nav_order: 46
+nav_order: 53
 linkTitle: "cueadmin command"
 date: 2025-08-11
 description: >
@@ -198,6 +198,20 @@ Arguments: `SHOW CORES`
 
 The default max core value for all jobs before any max core filters are applied.
 
+### `-archive-show`
+
+Arguments: `SHOW TARGET_SHOW`
+
+Archive a show by creating an alias to another show. Jobs submitted to the archived
+show will be executed by allocations subscribed to the target show. This is useful
+for consolidating resources from wrapped shows while maintaining job submission
+compatibility.
+
+When a show is archived:
+- The show is aliased to the target show
+- The original show name is renamed with `_archive` suffix
+- Jobs submitted to the archived show will run on the target show's allocations
+
 ## Allocation Options
 
 ### `-create-alloc`
@@ -306,3 +320,61 @@ Sets hosts into Up state.
 Arguments: `{auto,all,variable}`
 
 Set the host's thread mode.
+
+## Job Options
+
+### `-pause`
+
+Arguments: `JOB [JOB ...]`
+
+Pause specified jobs.
+
+### `-unpause`
+
+Arguments: `JOB [JOB ...]`
+
+Unpause specified jobs.
+
+### `-kill`
+
+Arguments: `JOB [JOB ...]`
+
+Kill specified jobs. Requires confirmation unless `-force` flag is used.
+
+### `-kill-all`
+
+Kill all jobs. Requires `-force` flag for safety.
+
+### `-retry`
+
+Arguments: `JOB [JOB ...]`
+
+Retry dead frames for specified jobs. Requires confirmation unless `-force` flag is used.
+
+### `-retry-all`
+
+Retry dead frames for all jobs. Requires `-force` flag for safety.
+
+### `-drop-depends`
+
+Arguments: `JOB [JOB ...]`
+
+Drop all dependencies for specified jobs. Requires confirmation unless `-force` flag is used.
+
+### `-set-min-cores`
+
+Arguments: `JOB CORES`
+
+Set minimum cores for a job.
+
+### `-set-max-cores`
+
+Arguments: `JOB CORES`
+
+Set maximum cores for a job.
+
+### `-priority`
+
+Arguments: `JOB PRIORITY`
+
+Set job priority.
