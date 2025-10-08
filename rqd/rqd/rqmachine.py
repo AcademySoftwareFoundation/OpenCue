@@ -774,12 +774,12 @@ class Machine(object):
             self.__windowsStat = rqd.rqwinutils.MEMORYSTATUSEX()
         ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(self.__windowsStat))
 
-        stat = self.__windowsStat
-        temp_path = os.getenv('TEMP')  # Windows temp directory
-        disk_usage = psutil.disk_usage(temp_path)
+        disk_usage = psutil.disk_usage(self.getTempPath())
 
         self.__renderHost.total_mcp = disk_usage.total // 1024
         self.__renderHost.free_mcp = disk_usage.free // 1024
+
+        stat = self.__windowsStat
 
         self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
         self.__renderHost.free_mem = int(stat.ullAvailPhys / 1024)
@@ -795,6 +795,7 @@ class Machine(object):
         """Gets information on system memory for Linux."""
         # Reads dynamic information for mcp
         mcpStat = os.statvfs(self.getTempPath())
+        self.__renderHost.total_mcp = (mcpStat.f_blocks * mcpStat.f_frsize) // 1024
         self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // 1024
 
         # Reads dynamic information from /proc/meminfo
@@ -848,6 +849,11 @@ class Machine(object):
             self.__renderHost.free_swap = int(float(swapMatch.group('freeMb')) * 1024)
         else:
             self.__renderHost.free_swap = 0
+
+        # Reads dynamic information for mcp
+        mcpStat = os.statvfs(self.getTempPath())
+        self.__renderHost.total_mcp = (mcpStat.f_blocks * mcpStat.f_frsize) // KILOBYTE
+        self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // KILOBYTE
 
     def updateMachineStats(self):
         """Updates dynamic machine information during runtime"""
