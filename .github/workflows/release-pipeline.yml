@@ -164,7 +164,7 @@ jobs:
   release_docker_images:
     # needs: preflight
     runs-on: ubuntu-22.04
-    environment: dockerhub
+    environment: release
     strategy:
       matrix:
         component: [cuebot, rqd]
@@ -230,7 +230,7 @@ jobs:
   create_release:
     needs: build_rust_binaries
     name: Create Release
-    environment: dockerhub
+    environment: release
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
