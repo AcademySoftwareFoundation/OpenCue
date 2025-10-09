@@ -9,6 +9,10 @@ use crate::models::{CoreSizeWithMultiplier, DispatchFrame, fmt_uuid};
 pub struct VirtualProc {
     pub proc_id: String,
     pub host_id: String,
+    pub show_id: String,
+    pub layer_id: String,
+    pub job_id: String,
+    pub frame_id: String,
     pub host_name: String,
     pub cores_reserved: CoreSizeWithMultiplier,
     pub memory_reserved: ByteSize,

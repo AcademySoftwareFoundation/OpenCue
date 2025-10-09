@@ -76,6 +76,7 @@ pub fn create_test_config() -> Config {
             hostname_tags_chunk_size: 20,
             host_candidate_attemps_per_layer: 10,
             empty_job_cycles_before_quiting: Some(20),
+            mem_reserved_min: bytesize::ByteSize::mb(250),
         },
         database: DatabaseConfig {
             pool_size: 20,
@@ -580,7 +581,7 @@ pub async fn create_test_data(
             },
         });
         clusters.push(cluster);
-        create_subscription(&mut tx, *alloc_id, show_id, 1000 * 100, 1200 * 100).await?;
+        create_subscription(&mut tx, *alloc_id, show_id, 10000 * 100, 12000 * 100).await?;
     }
 
     // Create folder
@@ -873,7 +874,7 @@ async fn create_job_scenario(
         .bind(Uuid::new_v4().to_string())
         .bind(job_id.to_string())
         .bind(1)
-        .bind(-1)
+        .bind(10001)
         .execute(&mut *tx)
         .await?;
     } else {
@@ -882,7 +883,7 @@ async fn create_job_scenario(
             "UPDATE job_resource SET int_priority = $1, int_max_cores = $2 WHERE pk_job = $3",
         )
         .bind(1)
-        .bind(-1)
+        .bind(10001)
         .bind(job_id.to_string())
         .execute(&mut *tx)
         .await?;

@@ -90,7 +90,7 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                     }
                     Err(err) => {
                         cancel_token.cancel();
-                        error!("Failed to fetch job: {}", err);
+                        panic!("Failed to fetch job: {}", err);
                     }
                 }
             }

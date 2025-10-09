@@ -69,6 +69,7 @@ pub struct QueueConfig {
     pub hostname_tags_chunk_size: usize,
     pub host_candidate_attemps_per_layer: usize,
     pub empty_job_cycles_before_quiting: Option<usize>,
+    pub mem_reserved_min: ByteSize,
 }
 
 impl Default for QueueConfig {
@@ -85,6 +86,7 @@ impl Default for QueueConfig {
             hostname_tags_chunk_size: 300,
             host_candidate_attemps_per_layer: 10,
             empty_job_cycles_before_quiting: None,
+            mem_reserved_min: ByteSize::mib(250),
         }
     }
 }

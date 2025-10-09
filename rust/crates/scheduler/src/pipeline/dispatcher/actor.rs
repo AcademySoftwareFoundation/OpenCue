@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     config::CONFIG,
-    dao::{FrameDao, HostDao},
+    dao::{FrameDao, HostDao, ProcDao},
     models::{CoreSize, DispatchFrame, DispatchLayer, Host, VirtualProc},
     pgpool::begin_transaction,
     pipeline::dispatcher::{
@@ -36,6 +36,7 @@ use opencue_proto::{
 pub struct RqdDispatcherService {
     frame_dao: Arc<FrameDao>,
     host_dao: Arc<HostDao>,
+    proc_dao: Arc<ProcDao>,
     rqd_connection_cache: Cache<String, RqdInterfaceClient<Channel>>,
     dry_run_mode: bool,
 }
@@ -121,6 +122,7 @@ impl RqdDispatcherService {
     pub async fn new(
         frame_dao: Arc<FrameDao>,
         host_dao: Arc<HostDao>,
+        proc_dao: Arc<ProcDao>,
         dry_run_mode: bool,
     ) -> Result<Self> {
         let rqd_connection_cache = Cache::builder()
@@ -132,6 +134,7 @@ impl RqdDispatcherService {
         Ok(RqdDispatcherService {
             frame_dao,
             host_dao,
+            proc_dao,
             dry_run_mode,
             rqd_connection_cache,
         })
@@ -261,6 +264,11 @@ impl RqdDispatcherService {
                     // Update database resources
                     self.host_dao
                         .update_resources(transaction, &updated_host)
+                        .await
+                        .map_err(DispatchError::FailureAfterDispatch)?;
+
+                    self.proc_dao
+                        .insert(transaction, &virtual_proc)
                         .await
                         .map_err(DispatchError::FailureAfterDispatch)?;
                     dispatched_procs.push(virtual_proc.to_string());
@@ -480,6 +488,10 @@ impl RqdDispatcherService {
             VirtualProc {
                 proc_id: Uuid::new_v4().to_string(),
                 host_id: host.id.clone(),
+                show_id: frame.show_id.clone(),
+                layer_id: frame.layer_id.clone(),
+                job_id: frame.job_id.clone(),
+                frame_id: frame.id.clone(),
                 cores_reserved: cores_reserved.into(),
                 memory_reserved,
                 gpus_reserved,
@@ -1156,6 +1168,10 @@ mod tests {
         let virtual_proc = VirtualProc {
             proc_id: Uuid::new_v4().to_string(),
             host_id: Uuid::new_v4().to_string(),
+            show_id: Uuid::new_v4().to_string(),
+            layer_id: Uuid::new_v4().to_string(),
+            job_id: Uuid::new_v4().to_string(),
+            frame_id: Uuid::new_v4().to_string(),
             cores_reserved: CoreSize(2).with_multiplier(),
             memory_reserved: ByteSize::gib(4),
             gpus_reserved: 1,
@@ -1227,6 +1243,10 @@ mod tests {
         let virtual_proc = VirtualProc {
             proc_id: Uuid::new_v4().to_string(),
             host_id: Uuid::new_v4().to_string(),
+            show_id: Uuid::new_v4().to_string(),
+            layer_id: Uuid::new_v4().to_string(),
+            job_id: Uuid::new_v4().to_string(),
+            frame_id: Uuid::new_v4().to_string(),
             cores_reserved: CoreSize(1).with_multiplier(),
             memory_reserved: ByteSize::gib(2),
             gpus_reserved: 0,
@@ -1258,6 +1278,10 @@ mod tests {
         let virtual_proc = VirtualProc {
             proc_id: Uuid::new_v4().to_string(),
             host_id: Uuid::new_v4().to_string(),
+            show_id: Uuid::new_v4().to_string(),
+            layer_id: Uuid::new_v4().to_string(),
+            job_id: Uuid::new_v4().to_string(),
+            frame_id: Uuid::new_v4().to_string(),
             cores_reserved: CoreSize(1).with_multiplier(),
             memory_reserved: ByteSize::gib(2),
             gpus_reserved: 0,
