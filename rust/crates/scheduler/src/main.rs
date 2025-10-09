@@ -1,11 +1,15 @@
 #![feature(duration_constructors)]
 use std::str::FromStr;
 
-use miette::IntoDiagnostic;
+use miette::{Context, IntoDiagnostic, miette};
 use structopt::StructOpt;
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
-use crate::{cluster::ClusterFeed, config::CONFIG};
+use crate::{
+    cluster::{Cluster, ClusterFeed},
+    cluster_key::{ClusterKey, Tag, TagType},
+    config::CONFIG,
+};
 
 mod cluster;
 mod cluster_key;
@@ -16,51 +20,96 @@ mod models;
 mod pgpool;
 mod pipeline;
 
+// scheduler --facility eat --alloc_tags=show:tag,show:tag,show:tag --manual_tags=tag1,tag2
 #[derive(StructOpt, Debug)]
 pub struct JobQueueCli {
-    // #[structopt(
-    //     long,
-    //     short = "a",
-    //     long_help = "A comma separated list of allocations (eg. lax.general). \
-    //     When provided, the service will not query for existing allocations"
-    // )]
-    // allocations: Option<CommaSeparatedList>,
+    #[structopt(long, short = "f", long_help = "Facility code to run on")]
+    facility: Option<String>,
 
-    // #[structopt(
-    //     long,
-    //     short = "s",
-    //     long_help = "A comma separated list of Shows. When provided, the service will not query for existing shows",
-    //     required_if("allocations", "")
-    // )]
-    // shows: Option<CommaSeparatedList>,
+    #[structopt(
+        long,
+        short = "a",
+        long_help = "A list of show:tag entries associated to an allocation. (eg. show1:general)."
+    )]
+    alloc_tags: Vec<ColonSeparatedList>,
+
+    #[structopt(
+        long,
+        short = "t",
+        long_help = "A list of tags not associated with an allocation."
+    )]
+    manual_tags: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
-pub struct CommaSeparatedList(pub Vec<String>);
+pub struct ColonSeparatedList(pub String, pub String);
 
-impl FromStr for CommaSeparatedList {
+impl FromStr for ColonSeparatedList {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(CommaSeparatedList(
-            s.split(",").map(|v| v.trim().to_string()).collect(),
+        let parts: Vec<&str> = s.split(":").map(|v| v.trim()).collect();
+        if parts.len() != 2 {
+            return Err(format!("Invalid format: expected 'show:tag', got '{}'", s));
+        }
+        Ok(ColonSeparatedList(
+            parts[0].to_string(),
+            parts[1].to_string(),
         ))
     }
 }
 
 impl JobQueueCli {
     async fn run(&self) -> miette::Result<()> {
-        // let cluster_feed = match (&self.allocations, &self.shows) {
-        //     (Some(allocations), Some(shows)) => {
-        //         ClusterFeed::from_predefined_values(&allocations.0, &shows.0).await
-        //     }
-        //     (None, None) => {
-        //         let subscription_dao = SubscriptionDao::from_config(&CONFIG.database).await?;
-        //         ClusterFeed::from_database(subscription_dao).await
-        //     }
-        //     _ => Err(miette!("")),
-        // }?;
-        let cluster_feed = ClusterFeed::load_all(false).await?;
+        // Lookup facility_id from facility name
+        let facility_id = match &self.facility {
+            Some(facility) => Some(
+                cluster::get_facility_id(facility)
+                    .await
+                    .wrap_err("Invalid facility name")?,
+            ),
+            None => None,
+        };
+
+        let mut clusters = Vec::new();
+
+        if let Some(facility_id) = facility_id {
+            // Build Cluster::ComposedKey for each alloc_tag (show:tag format)
+            for alloc_tag in &self.alloc_tags {
+                let show_id = cluster::get_show_id(&alloc_tag.0)
+                    .await
+                    .wrap_err("Could not find show {}.")?;
+                clusters.push(Cluster::ComposedKey(ClusterKey {
+                    facility_id: facility_id.clone(),
+                    show_id,
+                    tag: Tag {
+                        name: alloc_tag.1.clone(),
+                        ttype: TagType::Alloc,
+                    },
+                }));
+            }
+        } else if !self.alloc_tags.is_empty() {
+            Err(miette!("Alloc tag requires a valid facility"))?
+        }
+
+        // Build Cluster::TagsKey for manual_tags
+        if !self.manual_tags.is_empty() {
+            clusters.push(Cluster::TagsKey(
+                self.manual_tags
+                    .iter()
+                    .map(|name| Tag {
+                        name: name.clone(),
+                        ttype: TagType::Manual,
+                    })
+                    .collect(),
+            ));
+        }
+        let cluster_feed = if self.alloc_tags.is_empty() && self.manual_tags.is_empty() {
+            ClusterFeed::load_all(false, &self.facility).await?
+        } else {
+            ClusterFeed::load_from_clusters(clusters)
+        };
+
         pipeline::run(cluster_feed).await
     }
 }

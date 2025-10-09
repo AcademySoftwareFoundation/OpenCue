@@ -18,8 +18,8 @@
 ///   - > 2GB <= 4GB
 ///   - > 4GB <= 6GB
 ///   - > 6GB <= 8GB
-/// ...
 ///
+/// ...
 use std::{
     collections::{BTreeMap, HashMap},
     ops::RangeBounds,

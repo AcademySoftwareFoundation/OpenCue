@@ -47,14 +47,8 @@ impl DispatchJob {
     }
 }
 
-// static QUERY_PENDING_BY_SHOW_FACILITY_TAG: &str = r#"
-// SELECT j.pk_job, 1 as int_priority
-//   FROM job j
-//   INNER JOIN show s ON j.pk_show = s.pk_show
-//   WHERE s.pk_show = $1
-//     AND j.pk_facility = $2
-// "#;
 static QUERY_PENDING_BY_SHOW_FACILITY_TAG: &str = r#"
+--bookable_shows: Shows that have room in at least one of its subscriptions
 WITH bookable_shows AS (
     SELECT
         distinct w.pk_show
@@ -77,10 +71,12 @@ filtered_jobs AS (
     INNER JOIN layer l ON l.pk_job = j.pk_job
     WHERE j.str_state = 'PENDING'
         AND j.b_paused = false
+        -- Check for room on folder resources
         AND (fr.int_max_cores = -1 OR fr.int_cores + l.int_cores_min < fr.int_max_cores)
         AND (fr.int_max_gpus = -1 OR fr.int_gpus + l.int_gpus_min < fr.int_max_gpus)
+        -- Match tags: jobs with at least one layer that contains the queried tag
         AND string_to_array($3, ' | ') && string_to_array(l.str_tags, ' | ')
-        --AND j.pk_facility = $4
+        AND j.pk_facility = $4
 )
 SELECT DISTINCT
     fj.pk_job,
@@ -92,7 +88,17 @@ ORDER BY int_priority DESC
 "#;
 
 static QUERY_PENDING_BY_TAGS: &str = r#"
-WITH filtered_jobs AS(
+--bookable_shows: Shows that have room in at least one of its subscriptions
+WITH bookable_shows AS (
+    SELECT
+        distinct w.pk_show
+    FROM subscription s
+    INNER JOIN vs_waiting w ON s.pk_show = w.pk_show
+    WHERE s.int_burst > 0
+        AND s.int_burst - s.int_cores >= $1
+        AND s.int_cores < s.int_burst
+),
+filtered_jobs AS(
     SELECT
         j.pk_job,
         jr.int_priority
@@ -101,11 +107,13 @@ WITH filtered_jobs AS(
     INNER JOIN folder f ON j.pk_folder = f.pk_folder
     INNER JOIN folder_resource fr ON f.pk_folder = fr.pk_folder
     INNER JOIN layer l ON l.pk_job = j.pk_job
-    WHERE j.str_state = 'PENDING'
+    INNER JOIN bookable_shows ON j.pk_show = bookable_shows.pk_show
+    WHERE
+        j.str_state = 'PENDING'
         AND j.b_paused = false
         AND (fr.int_max_cores = -1 OR fr.int_cores + l.int_cores_min < fr.int_max_cores)
         AND (fr.int_max_gpus = -1 OR fr.int_gpus + l.int_gpus_min < fr.int_max_gpus)
-        AND string_to_array($1, ' | ') && string_to_array(l.str_tags, ' | ')
+        AND string_to_array($2, ' | ') && string_to_array(l.str_tags, ' | ')
         --TODO: Add facility to this query. ClusterType::Tags will have to contain facility
         --AND j.pk_facility = 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA1'
 )
@@ -208,6 +216,7 @@ impl JobDao {
         tags: Vec<String>,
     ) -> Result<Vec<JobModel>, sqlx::Error> {
         sqlx::query_as::<_, JobModel>(QUERY_PENDING_BY_TAGS)
+            .bind(CONFIG.queue.core_multiplier as i32)
             .bind(tags.join(" | ").to_string())
             .fetch_all(&*self.connection_pool)
             .await

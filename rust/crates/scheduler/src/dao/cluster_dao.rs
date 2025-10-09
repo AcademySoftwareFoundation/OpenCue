@@ -54,6 +54,18 @@ FROM host_tag
 WHERE str_tag_type <> 'ALLOC'
 "#;
 
+static QUERY_FACILITY_ID: &str = r#"
+SELECT pk_facility
+FROM facility
+WHERE str_name = $1
+"#;
+
+static QUERY_SHOW_ID: &str = r#"
+SELECT pk_show
+FROM show
+WHERE str_name = $1
+"#;
+
 impl ClusterDao {
     /// Creates a new HostDao from database configuration.
     ///
@@ -96,5 +108,41 @@ impl ClusterDao {
         &self,
     ) -> impl Stream<Item = Result<ClusterModel, sqlx::Error>> + '_ {
         sqlx::query_as::<_, ClusterModel>(QUERY_NON_ALLOC_CLUSTERS).fetch(&*self.connection_pool)
+    }
+
+    /// Looks up a facility ID by facility name.
+    ///
+    /// # Arguments
+    ///
+    /// * `facility_name` - The name of the facility
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(String)` - The facility ID
+    /// * `Err(sqlx::Error)` - If facility not found or database error
+    pub async fn get_facility_id(&self, facility_name: &str) -> Result<String, sqlx::Error> {
+        let row: (String,) = sqlx::query_as(QUERY_FACILITY_ID)
+            .bind(facility_name)
+            .fetch_one(&*self.connection_pool)
+            .await?;
+        Ok(row.0)
+    }
+
+    /// Looks up a show ID by show name.
+    ///
+    /// # Arguments
+    ///
+    /// * `show_name` - The name of the show
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(String)` - The show ID
+    /// * `Err(sqlx::Error)` - If show not found or database error
+    pub async fn get_show_id(&self, show_name: &str) -> Result<String, sqlx::Error> {
+        let row: (String,) = sqlx::query_as(QUERY_SHOW_ID)
+            .bind(show_name)
+            .fetch_one(&*self.connection_pool)
+            .await?;
+        Ok(row.0)
     }
 }

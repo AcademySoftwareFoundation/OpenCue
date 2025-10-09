@@ -401,6 +401,7 @@ impl RqdDispatcherService {
 
         let cores_reserved = match (host.thread_mode, frame.threadable) {
             (ThreadMode::All, _) => host.idle_cores,
+            // Limit Variable booking to at least 2 cores
             (ThreadMode::Variable, true) if cores_requested.value() <= 2 => CoreSize(2),
             (ThreadMode::Auto, true) | (ThreadMode::Variable, true) => {
                 // Book whatever is left for hosts with selfish services or memory stranded
@@ -409,7 +410,6 @@ impl RqdDispatcherService {
                         <= memory_stranded_threshold.as_u64()
                 {
                     host.idle_cores
-                // Limit Variable booking to at least 2 cores
                 } else {
                     Self::calculate_memory_balanced_core_count(host, frame, cores_requested)
                 }

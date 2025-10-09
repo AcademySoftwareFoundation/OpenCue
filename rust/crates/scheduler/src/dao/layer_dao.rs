@@ -257,31 +257,6 @@ impl LayerDao {
         })
     }
 
-    /// Queries layers within a specific job that have waiting frames.
-    ///
-    /// Returns layers that:
-    /// - Belong to the specified job
-    /// - Have at least one frame in waiting state
-    /// - Are ordered by dispatch priority (int_dispatch_order)
-    ///
-    /// This query is used to find layers within a job that are ready
-    /// for frame dispatch processing.
-    ///
-    /// # Arguments
-    /// * `pk_job` - The UUID of the job to find layers for
-    /// * `tags` - Vector of tags to match against layer tags
-    ///
-    /// # Returns
-    /// A vector of `DispatchLayer` results ordered by dispatch priority
-    pub async fn query_layers(
-        &self,
-        pk_job: String,
-        tags: Vec<String>,
-    ) -> Result<Vec<DispatchLayer>, sqlx::Error> {
-        // Use the batched query to fetch layers with frames in single database call
-        self.query_layers_batched(pk_job, tags).await
-    }
-
     /// Fetches layers with their frames in a single batched database query.
     ///
     /// Uses a single SQL query with joins to fetch both layers and their frames,
@@ -297,7 +272,7 @@ impl LayerDao {
     ///
     /// * `Ok(Vec<DispatchLayer>)` - Layers with their frames, ordered by dispatch priority
     /// * `Err(sqlx::Error)` - Database query failed
-    pub async fn query_layers_batched(
+    pub async fn query_layers(
         &self,
         pk_job: String,
         tags: Vec<String>,

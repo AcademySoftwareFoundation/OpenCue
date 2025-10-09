@@ -80,7 +80,6 @@ impl MatchingService {
         let job_disp = format!("{}", job);
         let cluster = Arc::new(job.source_cluster);
 
-        // Acquire a transaction for this branch
         let layers = self
             .layer_dao
             .query_layers(

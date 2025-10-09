@@ -1,6 +1,6 @@
 use futures::StreamExt;
 use itertools::Itertools;
-use miette::Result;
+use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
@@ -53,7 +53,7 @@ impl ClusterFeed {
     ///
     /// * `Ok(ClusterFeed)` - Successfully loaded cluster feed
     /// * `Err(miette::Error)` - Failed to load clusters from database
-    pub async fn load_all(run_once: bool) -> Result<Self> {
+    pub async fn load_all(run_once: bool, facility_id: &Option<String>) -> Result<Self> {
         let cluster_dao = ClusterDao::new().await?;
 
         // Fetch clusters for both facilitys+shows+tags and just tags
@@ -71,14 +71,20 @@ impl ClusterFeed {
                     match cluster.ttype.as_str() {
                         // Each alloc tag becomes its own cluster
                         "ALLOC" => {
-                            clusters.push(Cluster::ComposedKey(ClusterKey {
-                                facility_id: cluster.facility_id,
-                                show_id: cluster.show_id,
-                                tag: Tag {
-                                    name: cluster.tag,
-                                    ttype: TagType::Alloc,
-                                },
-                            }));
+                            if facility_id
+                                .as_ref()
+                                .map(|fid| fid == &cluster.facility_id)
+                                .unwrap_or(true)
+                            {
+                                clusters.push(Cluster::ComposedKey(ClusterKey {
+                                    facility_id: cluster.facility_id,
+                                    show_id: cluster.show_id,
+                                    tag: Tag {
+                                        name: cluster.tag,
+                                        ttype: TagType::Alloc,
+                                    },
+                                }));
+                            }
                         }
                         // Manual and hostname tags are collected to be chunked
                         "MANUAL" => manual_tags.push(cluster.tag),
@@ -137,9 +143,9 @@ impl ClusterFeed {
     ///
     /// * `ClusterFeed` - Feed configured to run once through the provided clusters
     #[allow(dead_code)]
-    pub fn new_for_test(keys: Vec<Cluster>) -> Self {
+    pub fn load_from_clusters(clusters: Vec<Cluster>) -> Self {
         ClusterFeed {
-            keys,
+            keys: clusters,
             current_index: 0,
             run_once: true,
             rounds: 0,
@@ -166,4 +172,37 @@ impl Iterator for ClusterFeed {
         Some(item)
         // TODO: Every loop restart should fetch
     }
+}
+
+/// Looks up a facility ID by facility name.
+///
+/// # Arguments
+///
+/// * `facility_name` - The name of the facility
+///
+/// # Returns
+///
+/// * `Ok(String)` - The facility ID
+/// * `Err(miette::Error)` - If facility not found or database error
+pub async fn get_facility_id(facility_name: &str) -> Result<String> {
+    let cluster_dao = ClusterDao::new().await?;
+    cluster_dao
+        .get_facility_id(facility_name)
+        .await
+        .into_diagnostic()
+}
+
+/// Looks up a show ID by show name.
+///
+/// # Arguments
+///
+/// * `show_name` - The name of the show
+///
+/// # Returns
+///
+/// * `Ok(String)` - The show ID
+/// * `Err(miette::Error)` - If show not found or database error
+pub async fn get_show_id(show_name: &str) -> Result<String> {
+    let cluster_dao = ClusterDao::new().await?;
+    cluster_dao.get_show_id(show_name).await.into_diagnostic()
 }

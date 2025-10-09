@@ -133,7 +133,7 @@ FROM host h
     INNER JOIN host_tag ht ON h.pk_host = ht.pk_host
 WHERE a.pk_facility = $2
     AND h.str_lock_state = 'OPEN'
-    --AND hs.str_state = 'UP'
+    AND hs.str_state = 'UP'
     AND ht.str_tag = $3
 "#;
 
