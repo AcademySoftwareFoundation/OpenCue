@@ -11,7 +11,8 @@ dependencies = [
     "opencue_proto",
     "psutil==5.9.8",
     "pynput==1.7.6",
-    "future==1.0.0"
+    "future==1.0.0",
+    "pynvml>=11.5.0"
 ]
 requires-python = ">3.7"
 description = "RQD is a software client that runs on all hosts doing work for an OpenCue deployment."

@@ -1,5 +1,6 @@
 use uuid::Uuid;
 
+pub mod gpu;
 pub mod linux;
 pub mod machine;
 #[cfg(feature = "nimby")]
