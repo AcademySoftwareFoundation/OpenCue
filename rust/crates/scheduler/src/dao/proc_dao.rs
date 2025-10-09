@@ -26,6 +26,7 @@ use crate::{config::CONFIG, models::VirtualProc, pgpool::connection_pool};
 /// - Local vs. remote dispatch flag
 pub struct ProcDao {
     /// Shared connection pool for database operations.
+    #[allow(dead_code)]
     connection_pool: Arc<Pool<Postgres>>,
 }
 

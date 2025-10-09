@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use futures::{StreamExt, stream};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::info;
 
 use crate::cluster::{Cluster, ClusterFeed};
 use crate::config::CONFIG;
