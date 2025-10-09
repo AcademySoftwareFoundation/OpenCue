@@ -680,4 +680,14 @@ public class DispatchSupportService implements DispatchSupport {
     public void clearCache() {
         dispatcherDao.clearCache();
     }
+
+	@Override
+	public void lockHostForDispatching(String host_id) {
+	    this.hostDao.lockHostForDispatching(host_id);
+	}
+
+	@Override
+	public void unlockHostForDispatching(String host_id) {
+        this.hostDao.unlockHostForDispatching(host_id);
+	}
 }

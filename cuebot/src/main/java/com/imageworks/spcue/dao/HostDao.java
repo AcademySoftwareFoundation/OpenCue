@@ -320,4 +320,17 @@ public interface HostDao {
      */
     void updateHostResources(HostInterface host, HostReport report);
 
+    /**
+     * Lock a host for dispatching
+     *
+     * @param host_id
+     */
+    void lockHostForDispatching(String host_id);
+
+    /**
+     * Unlock a host for dispatching
+     *
+     * @param host_id
+     */
+    void unlockHostForDispatching(String host_id);
 }

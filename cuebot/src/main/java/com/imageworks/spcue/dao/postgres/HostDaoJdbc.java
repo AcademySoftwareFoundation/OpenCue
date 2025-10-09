@@ -525,7 +525,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     /**
      * Checks if the passed in name looks like a fully qualified domain name. If so, returns the
      * hostname without the domain. Otherwise returns the passed in name unchanged.
-     * 
+     *
      * @param fqdn - String
      * @return String - hostname
      */
@@ -580,5 +580,31 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
         return memUnits;
     }
+
+	@Override
+	public void lockHostForDispatching(String host_id) {
+	    try {
+            getJdbcTemplate().queryForObject(
+                    "SELECT pg_try_advisory_lock(hashtext(?))",
+                    Boolean.class,
+                    host_id);
+        } catch (Exception e) {
+            throw new ResourceReservationFailureException("unable to lock host " + host_id
+                    + " for dispatching, the host was locked by another thread.", e);
+        }
+	}
+
+	@Override
+	public void unlockHostForDispatching(String host_id) {
+        try {
+            getJdbcTemplate().queryForObject(
+                    "SELECT pg_try_advisory_unlock(hashtext(?))",
+                    Boolean.class,
+                    host_id);
+        } catch (Exception e) {
+            throw new ResourceReservationFailureException("unable to unlock host " + host_id
+                    + " for dispatching.", e);
+        }
+	}
 
 }

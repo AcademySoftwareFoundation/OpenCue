@@ -32,10 +32,20 @@ public class DispatchBookHostLocal extends KeyRunnable {
 
     @Override
     public void run() {
-        new DispatchCommandTemplate() {
+        new DispatchWithHostLockTemplate() {
             public void wrapDispatchCommand() {
                 dispatcher.dispatchHost(host);
             }
+
+            @Override
+			public void lockCommand() {
+			    dispatcher.lockHostForDispatching(host.id);
+			}
+
+			@Override
+			public void unlockCommand() {
+				dispatcher.unlockHostForDispatching(host.id);
+			}
         }.execute();
     }
 }
