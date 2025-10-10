@@ -7,8 +7,8 @@ on:
     branches: [master]
 
 jobs:
-  test_opencue_licenses:
-    name: Test OpenCue Licenses
+  check_opencue_licenses:
+    name: Check Licenses of OpenCue Dependencies
     runs-on: ubuntu-22.04
     container: python:3.9
     steps:
