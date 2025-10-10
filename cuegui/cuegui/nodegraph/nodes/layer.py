@@ -41,11 +41,13 @@ class CueLayerNode(CueBaseNode):
         NodeGraphQtPy.qgraphics.node_base.NODE_ICON_SIZE = 30
         services = layerRpcObject.services()
         if services:
-            app = services[0].name()
-            imagesPath = cuegui.images.__path__[0]
-            iconPath = os.path.join(imagesPath, "apps", app + ".png")
-            if os.path.exists(iconPath):
-                self.set_icon(iconPath)
+            appService = services[0]
+            if appService:
+                app = services[0].name()
+                imagesPath = cuegui.images.__path__[0]
+                iconPath = os.path.join(imagesPath, "apps", app + ".png")
+                if os.path.exists(iconPath):
+                    self.set_icon(iconPath)
 
         self.addProgressBar(
             name="succeededFrames",
