@@ -18,6 +18,7 @@ dependencies = [
 requires-python = ">3.7"
 description = "CueSubmit is a submission tool for OpenCue that allows artists and developers to easily submit jobs to the render farm. It provides an interface to configure job parameters, layers, and dependencies before dispatching work."
 readme = "README.md"
+license = {text = "Apache-2.0"}
 
 [tool.hatch.version]
 source = "code"
