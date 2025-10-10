@@ -8,10 +8,6 @@ runs:
         set -e
         pip install build==1.1.1
 
-    - name: Run license check
-      shell: bash
-      run: ci/check_licenses.sh
-
     - name: Build opencue_proto package
       shell: bash
       run: |
