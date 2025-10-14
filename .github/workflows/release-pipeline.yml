@@ -7,6 +7,20 @@ on:
       - "v*"
 
 jobs:
+  check_opencue_licenses:
+    name: Check Licenses of OpenCue Dependencies
+    runs-on: ubuntu-22.04
+    container: python:3.9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Run license check
+        shell: bash
+        run: ci/check_licenses.sh
+
   build_opencue_packages:
     name: Build Python Packages
     runs-on: ubuntu-22.04
