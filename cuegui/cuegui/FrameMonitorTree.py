@@ -735,11 +735,9 @@ class FrameLogDataBuffer(object):
                 self.__queue.clear()
                 self.__currentJob = jobKey
 
-            # pylint: disable=protected-access
-            if len(self.__queue) > len(self.__threadPool._q_queue):
-                # Everything is hung up, start over
-                self.__cache.clear()
-                self.__queue.clear()
+            # Cache will be managed by time-based expiration (maxCacheTime)
+            # and job-switching detection. Removed aggressive cache clearing
+            # that was causing LLU and Last Line data loss on large jobs.
 
             frameKey = cuegui.Utils.getObjectKey(frame)
             if frameKey in self.__cache:
