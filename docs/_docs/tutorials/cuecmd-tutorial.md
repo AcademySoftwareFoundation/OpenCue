@@ -1,6 +1,6 @@
 ---
 title: "Cuecmd Tutorial"
-nav_order: 71
+nav_order: 74
 parent: Tutorials
 layout: default
 date: 2025-10-02
