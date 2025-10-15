@@ -232,6 +232,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.header().sortIndicatorChanged.connect(self.__sortByColumnSave)
 
         self.__load = None
+        self.local_plugin_saved_values = {}
         self.startTicksUpdate(20)
 
     def tick(self):

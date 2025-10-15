@@ -163,6 +163,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self.disableUpdate = False
         self.__load = None
+        self.local_plugin_saved_values = {}
         self.startTicksUpdate(20, False, 60*60*24)
 
     # pylint: disable=attribute-defined-outside-init
