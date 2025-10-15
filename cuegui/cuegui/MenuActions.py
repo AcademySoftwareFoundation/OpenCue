@@ -25,10 +25,18 @@ from __future__ import print_function
 from builtins import filter
 from builtins import str
 from builtins import object
+import datetime
 import getpass
 import glob
+import smtplib
 import subprocess
 import time
+try:
+    from email.MIMEText import MIMEText
+    from email.Header import Header
+except ImportError:
+    from email.mime.text import MIMEText
+    from email.header import Header
 
 from qtpy import QtGui
 from qtpy import QtWidgets
@@ -1663,6 +1671,82 @@ class SubscriptionActions(AbstractActions):
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
 
+    def _sendSubscriptionChangeEmail(self, subscription, change_type, old_value, new_value):
+        """Sends an email notification when a subscription is changed.
+
+        @param subscription: The subscription object that was changed
+        @param change_type: Type of change ('size' or 'burst')
+        @param old_value: The previous value (in cores)
+        @param new_value: The new value (in cores)
+        """
+        try:
+            username = getpass.getuser()
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            # Extract show name from subscription
+            show_name = subscription.data.show_name
+            subscription_name = subscription.data.name
+            allocation_name = subscription.data.allocation_name
+
+            # Construct email
+            subject = "Subscription {} Changed: {}".format(change_type.title(), subscription_name)
+
+            body = """A subscription {} has been modified.
+
+Subscription: {}
+Show: {}
+Allocation: {}
+
+Change Details:
+  {}: {} -> {}
+
+Modified by: {}
+Timestamp: {}
+
+This is an automated notification from CueCommander.
+""".format(change_type, subscription_name, show_name, allocation_name,
+           change_type.title(), old_value, new_value, username, timestamp)
+
+            # Email addresses
+            email_domain = cuegui.Constants.EMAIL_DOMAIN
+            if not email_domain:
+                logger.warning("EMAIL_DOMAIN not configured, skipping email notification")
+                return
+
+            from_addr = "cuecommander@{}".format(email_domain)
+
+            # Build CC list from configuration template
+            cc_list = []
+            for template in cuegui.Constants.SUBSCRIPTION_CHANGE_CC_TEMPLATE:
+                if template:
+                    cc_addr = template.format(show=show_name, domain=email_domain)
+                    cc_list.append(cc_addr)
+
+            # Skip sending email if no CC recipients are configured
+            if not cc_list:
+                logger.info(
+                    "No CC recipients configured for subscription change notifications, "
+                    "skipping email")
+                return
+
+            # Create email message
+            msg = MIMEText(body, 'plain', 'utf-8')
+            msg["Subject"] = Header(subject, 'utf-8', continuation_ws=' ')
+            msg["From"] = from_addr
+            msg["To"] = from_addr
+            msg["Cc"] = ", ".join(cc_list)
+
+            # Send email
+            recipient_list = [from_addr] + cc_list
+            server = smtplib.SMTP('smtp')
+            server.sendmail(from_addr, recipient_list, msg.as_string())
+            server.quit()
+
+            logger.info("Sent subscription change notification email for %s", subscription_name)
+        except Exception as e:
+            # Log error but don't fail the operation if email fails
+            logger.warning("Failed to send subscription change notification email: %s", e)
+
     editSize_info = ["Edit Subscription Size...", None, "configure"]
     def editSize(self, rpcObjects=None):
         subs = self._getSelected(rpcObjects)
@@ -1688,9 +1772,17 @@ class SubscriptionActions(AbstractActions):
                     return
 
                 for sub in subs:
+                    # Capture old value before change
+                    old_size = sub.data.size / 100.0
+                    new_size = value
+
                     self.cuebotCall(sub.setSize,
                                     "Set Size on Subscription %s Failed" % sub.data.name,
                                     int(value*100.0))
+
+                    # Send email notification
+                    self._sendSubscriptionChangeEmail(sub, "size", old_size, new_size)
+
                 self._update()
 
     editBurst_info = ["Edit Subscription Burst...", None, "configure"]
@@ -1708,9 +1800,17 @@ class SubscriptionActions(AbstractActions):
                 decimalPlaces)
             if choice:
                 for sub in subs:
+                    # Capture old value before change
+                    old_burst = sub.data.burst / 100.0
+                    new_burst = value
+
                     self.cuebotCall(sub.setBurst,
                                     "Set Burst on Subscription %s Failed" % sub.data.name,
                                     int(value*100.0))
+
+                    # Send email notification
+                    self._sendSubscriptionChangeEmail(sub, "burst", old_burst, new_burst)
+
                 self._update()
 
     delete_info = ["Delete Subscription", None, "configure"]
