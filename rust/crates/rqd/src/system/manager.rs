@@ -74,6 +74,8 @@ pub struct MachineStat {
     pub num_sockets: u32,
     /// Number of cores per processor unit
     pub cores_per_socket: u32,
+    // Number of threads per processor unit
+    pub threads_per_proc: u32,
     /// Timestamp for when the machine was booted up
     pub boot_time: u32,
     /// List of tags associated with this machine
