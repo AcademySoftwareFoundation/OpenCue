@@ -1,6 +1,6 @@
 ---
 title: "CueAdmin Tutorial"
-nav_order: 69
+nav_order: 72
 parent: "Tutorials"
 layout: default
 date: 2025-08-11

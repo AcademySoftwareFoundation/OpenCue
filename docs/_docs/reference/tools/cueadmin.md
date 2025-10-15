@@ -1,6 +1,6 @@
 ---
 title: "CueAdmin - CLI Administration Tool"
-nav_order: 58
+nav_order: 60
 parent: "Command Line Tools"
 grand_parent: "Reference"
 layout: default
