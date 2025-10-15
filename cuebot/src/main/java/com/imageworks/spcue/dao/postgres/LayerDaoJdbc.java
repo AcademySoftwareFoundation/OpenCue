@@ -490,8 +490,23 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
     @Override
     public void updateTags(JobInterface job, String tags, LayerType type) {
-        getJdbcTemplate().update("UPDATE layer SET str_tags=? WHERE pk_job=? AND str_type=?", tags,
-                job.getJobId(), type.toString());
+        // Split tags by spaces, commas, and pipes to match layer properties behavior
+        String[] tagArray = tags.split("[\\s,|]+");
+        StringBuilder processedTags = new StringBuilder();
+
+        for (String tag : tagArray) {
+            String trimmedTag = tag.trim();
+            if (!trimmedTag.isEmpty()) {
+                if (processedTags.length() > 0) {
+                    processedTags.append(" | ");
+                }
+                processedTags.append(trimmedTag);
+            }
+        }
+
+        String formattedTags = processedTags.length() > 0 ? processedTags.toString() : tags;
+        getJdbcTemplate().update("UPDATE layer SET str_tags=? WHERE pk_job=? AND str_type=?",
+                formattedTags, job.getJobId(), type.toString());
     }
 
     @Override
