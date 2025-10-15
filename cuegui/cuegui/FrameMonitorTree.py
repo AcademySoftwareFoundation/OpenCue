@@ -525,7 +525,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     return None
                 if e.code() == grpc.StatusCode.NOT_FOUND:
                     # Job was deleted
-                    logger.warning("Job not found, clearing job from view")
+                    logger.info("Job not found, clearing job from view")
                     self.setJob(None)
                     return []
                 logger.warning("gRPC error in _getUpdateChanged: %s", e)
