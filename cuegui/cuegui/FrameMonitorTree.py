@@ -528,7 +528,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     logger.info("Job not found, clearing job from view")
                     self.setJob(None)
                     return []
-                logger.warning("gRPC error in _getUpdateChanged: %s", e)
+                logger.error("gRPC error in _getUpdateChanged: %s", e)
             # pylint: enable=no-member
             return None
         except opencue.EntityNotFoundException:
