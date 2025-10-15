@@ -491,7 +491,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                                      grpc.StatusCode.UNAVAILABLE]:
                 logger.warning("gRPC connection interrupted during frame update, will retry")
             else:
-                logger.warning("gRPC error in _getUpdate: %s", e)
+                logger.error("gRPC error in _getUpdate: %s", e)
             # pylint: enable=no-member
             return []
         except opencue.exception.CueException as e:
