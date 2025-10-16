@@ -735,9 +735,9 @@ class FrameLogDataBuffer(object):
                 self.__queue.clear()
                 self.__currentJob = jobKey
 
-            # Cache will be managed by time-based expiration (maxCacheTime)
-            # and job-switching detection. Removed aggressive cache clearing
-            # that was causing LLU and Last Line data loss on large jobs.
+            # Prevent unbounded queue growth when threadpool is saturated
+            if len(self.__queue) > self.maxQueue:
+                self.__queue.clear()
 
             frameKey = cuegui.Utils.getObjectKey(frame)
             if frameKey in self.__cache:
