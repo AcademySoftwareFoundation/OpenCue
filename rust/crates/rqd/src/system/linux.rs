@@ -776,7 +776,7 @@ impl SystemManager for LinuxSystem {
         // Create GPU discovery backend
         let gpu_discovery = gpu::create_gpu_discovery();
 
-        if let Some(discovery) = gpu_discovery {
+        if let Some(discovery) = gpu::create_gpu_discovery() {
             // Detect GPU devices
             match discovery.detect_devices() {
                 Ok(devices) => {
