@@ -764,10 +764,8 @@ class FrameLogDataBuffer(object):
                 self.__queue.clear()
                 self.__currentJob = jobKey
 
-            # pylint: disable=protected-access
-            if len(self.__queue) > len(self.__threadPool._q_queue):
-                # Everything is hung up, start over
-                self.__cache.clear()
+            # Prevent unbounded queue growth when threadpool is saturated
+            if len(self.__queue) > self.maxQueue:
                 self.__queue.clear()
 
             frameKey = cuegui.Utils.getObjectKey(frame)
