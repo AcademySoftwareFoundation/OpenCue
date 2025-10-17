@@ -460,6 +460,43 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Test
     @Transactional
     @Rollback(true)
+    public void updateTagsWithMultipleDelimiters() {
+        LayerDetail layer = getLayer();
+
+        // Test comma-delimited tags
+        layerDao.updateTags(layer, "tag1,tag2,tag3", LayerType.RENDER);
+        assertEquals("tag1 | tag2 | tag3", jdbcTemplate.queryForObject(
+                "SELECT str_tags FROM layer WHERE pk_layer=?", String.class, layer.getLayerId()));
+
+        // Test space-delimited tags
+        layerDao.updateTags(layer, "tag1 tag2 tag3", LayerType.RENDER);
+        assertEquals("tag1 | tag2 | tag3", jdbcTemplate.queryForObject(
+                "SELECT str_tags FROM layer WHERE pk_layer=?", String.class, layer.getLayerId()));
+
+        // Test pipe-delimited tags
+        layerDao.updateTags(layer, "tag1|tag2|tag3", LayerType.RENDER);
+        assertEquals("tag1 | tag2 | tag3", jdbcTemplate.queryForObject(
+                "SELECT str_tags FROM layer WHERE pk_layer=?", String.class, layer.getLayerId()));
+
+        // Test mixed delimiters (the original issue scenario)
+        layerDao.updateTags(layer, "tag1,tag2 tag3", LayerType.RENDER);
+        assertEquals("tag1 | tag2 | tag3", jdbcTemplate.queryForObject(
+                "SELECT str_tags FROM layer WHERE pk_layer=?", String.class, layer.getLayerId()));
+
+        // Test multiple spaces and commas
+        layerDao.updateTags(layer, "tag1,  tag2,   tag3", LayerType.RENDER);
+        assertEquals("tag1 | tag2 | tag3", jdbcTemplate.queryForObject(
+                "SELECT str_tags FROM layer WHERE pk_layer=?", String.class, layer.getLayerId()));
+
+        // Test all three delimiters mixed
+        layerDao.updateTags(layer, "tag1, tag2 | tag3", LayerType.RENDER);
+        assertEquals("tag1 | tag2 | tag3", jdbcTemplate.queryForObject(
+                "SELECT str_tags FROM layer WHERE pk_layer=?", String.class, layer.getLayerId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void updateMinMemory() {
         long mem = CueUtil.GB;
         LayerDetail layer = getLayer();

@@ -216,6 +216,8 @@ Note: Create "lighting-group" and "compositing-group" first via
 
 ### Use Case 2: Renderer-Specific Configuration
 
+**Note:** Typically the Service itself can assign these settings by default. The filter can be used, then to override the service settings for some other criteria, like artist or job name.
+
 **Scenario:** Arnold renders need GPU hosts and high memory
 
 ```
