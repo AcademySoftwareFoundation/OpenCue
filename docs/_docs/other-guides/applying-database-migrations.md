@@ -2,7 +2,7 @@
 title: "Applying database migrations"
 layout: default
 parent: Other Guides
-nav_order: 42
+nav_order: 44
 linkTitle: "Applying database migrations"
 date: 2019-08-22
 description: >

@@ -106,6 +106,22 @@ enum ActionType {
     SET_ALL_RENDER_LAYER_MIN_CORES = 10;
     // Sets all max cores for any layer with the type "Render"
     SET_ALL_RENDER_LAYER_MAX_CORES = 11;
+    // Sets all layer tags for any layer with the type "Util"
+    SET_ALL_UTIL_LAYER_TAGS = 12;
+    // Sets all layer minimum memory for any layer with the type "Util"
+    SET_ALL_UTIL_LAYER_MEMORY = 13;
+    // Sets all min cores for any layer with the type "Util"
+    SET_ALL_UTIL_LAYER_MIN_CORES = 14;
+    // Sets all max cores for any layer with the type "Util"
+    SET_ALL_UTIL_LAYER_MAX_CORES = 15;
+    // Sets all layer tags for any layer with the type "Pre"
+    SET_ALL_PRE_LAYER_TAGS = 16;
+    // Sets all layer minimum memory for any layer with the type "Pre"
+    SET_ALL_PRE_LAYER_MEMORY = 17;
+    // Sets all min cores for any layer with the type "Pre"
+    SET_ALL_PRE_LAYER_MIN_CORES = 18;
+    // Sets all max cores for any layer with the type "Pre"
+    SET_ALL_PRE_LAYER_MAX_CORES = 19;
 };
 
 enum ActionValueType {
