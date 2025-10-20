@@ -406,20 +406,22 @@ impl FrameManager {
 
                         // Force kill
                         if !tried_to_force_kill_session {
+                            tried_to_force_kill_session = true;
                             // First try to force kill the session
                             match machine.kill_session(frame_pid, true).await {
                                 Ok(()) => {
-                                    tried_to_force_kill_session = true;
                                     info!(
                                         "Kill timeout for {}. Used session force_kill on \
                                         session_id {} to kill {:?}",
                                         job_str, frame_pid, lineage
                                     )
                                 }
-                                Err(err) => warn!(
-                                    "Failed to force_kill {} lineage = {:?}. {}",
-                                    job_str, lineage, err
-                                ),
+                                Err(err) => {
+                                    warn!(
+                                        "Failed to force_kill {} lineage = {:?}. {}",
+                                        job_str, lineage, err
+                                    )
+                                }
                             }
                         } else {
                             match machine.force_kill(&lineage).await {
