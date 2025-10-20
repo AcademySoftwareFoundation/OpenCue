@@ -2,7 +2,7 @@
 title: "CueGUI: Cuetopia Monitoring System"
 layout: default
 parent: User Guides
-nav_order: 25
+nav_order: 33
 linkTitle: "Cuetopia Monitoring Guide"
 date: 2025-01-07
 description: >
@@ -23,8 +23,9 @@ This guide provides comprehensive documentation for Cuetopia, which includes the
    - [Job Color Organization](#job-color-organization)
 2. [Monitor Job Details Plugin](#monitor-job-details-plugin)
 3. [Job Graph Plugin](#job-graph-plugin)
-4. [Filters and Search Capabilities](#filters-and-search-capabilities)
-5. [Data Processing and Updates](#data-processing-and-updates)
+4. [CueProgBar - Progress Bar Window](#cueprogbar---progress-bar-window)
+5. [Filters and Search Capabilities](#filters-and-search-capabilities)
+6. [Data Processing and Updates](#data-processing-and-updates)
 
 ---
 
@@ -38,9 +39,11 @@ The Monitor Jobs plugin is the primary interface for monitoring active and compl
 
 ### Interface Components
 
-#### Top Toolbar
+#### Top Toolbars
 
-The toolbar contains the following controls from left to right:
+The plugin uses two toolbars organized as follows:
+
+##### First Toolbar (Search and Filter Controls)
 
 1. **Load Button**: Triggers job search based on the text field content
 2. **Search Text Field**: Accepts job search patterns:
@@ -60,21 +63,27 @@ The toolbar contains the following controls from left to right:
    - Limited to jobs finished within the last 3 days
    - Jobs older than 3 days are moved to historical database
 
-6. **Group Dependent Checkbox**:
-   - Groups jobs with dependencies together
-   - Shows parent-child relationships in the tree view
+6. **Group By Dropdown**:
+   - Clear: No grouping (flat list)
+   - Dependent: Group by job dependencies
+   - Show-Shot: Group by show and shot
+   - Show-Shot-Username: Group by show, shot, and username
 
-7. **Unmonitor Dropdown**: A dropdown menu with options to remove jobs from monitoring:
-   - **All Jobs**: Clears all jobs from the monitor
-   - **Finished Jobs**: Removes all finished jobs from monitoring
-   - **Selected Jobs**: Removes selected jobs
+##### Second Toolbar (Action Buttons)
 
-8. **Action Buttons** (from left to right):
-   - **Eat Dead Frames** (pac-man icon): Eats all dead frames for selected jobs to free scheduling resources
-   - **Retry Dead Frames** (circular arrow): Retries all dead frames for selected jobs
-   - **Kill Jobs** (X icon): Kill selected jobs and their running frames
-   - **Pause Jobs** (pause icon): Pause selected job
-   - **Unpause Jobs** (play icon): Unpause selected jobs
+From left to right:
+
+**Unmonitor** group:
+1. **Finished** (eject icon): Removes all finished jobs from monitoring
+2. **All** (eject icon): Clears all jobs from the monitor
+3. **Selected** (eject icon): Removes selected jobs
+
+**Job Actions**:
+4. **Eat Dead Frames** (pac-man icon): Eats all dead frames for selected jobs to free scheduling resources
+5. **Retry Dead Frames** (circular arrow): Retries all dead frames for selected jobs
+6. **Kill Jobs** (X icon): Kill selected jobs and their running frames
+7. **Pause Jobs** (pause icon): Pause selected job
+8. **Unpause Jobs** (play icon): Unpause selected jobs
 
 ### Job Table Columns
 
@@ -336,6 +345,132 @@ Right-click on nodes provides:
 - Layer properties
 - Frame management actions
 - Resource allocation
+
+---
+
+## CueProgBar - Progress Bar Window
+
+CueProgBar is a lightweight, standalone progress monitoring window that provides a visual representation of job frame status. It offers a minimalist interface for quick job monitoring without the overhead of the full CueGUI application.
+
+### Launching CueProgBar
+
+From CueGUI Job Context Menu:
+   - Right-click on any job in the Monitor Jobs view
+   - Select "Show Progress Bar" from the context menu
+   - A separate progress bar window opens for that job
+
+### Interface Overview
+
+![CueProgBar Window Interface](/assets/images/cuegui/cueprogbar/cueprogbar_window.png)
+
+The CueProgBar window consists of three main components:
+
+1. **Visual Progress Bar**: A horizontal bar showing frame states through color coding
+2. **Status Label**: Displays current progress (e.g., "150 of 200 done, 10 running")
+3. **Job Name Label**: Shows the full job name
+
+### Frame State Color Coding
+
+The progress bar uses distinct colors to represent different frame states:
+
+| State | Color | Description |
+|-------|-------|-------------|
+| **SUCCEEDED** | Green (#37C837) | Frames that completed successfully |
+| **RUNNING** | Yellow (#C8C837) | Frames currently being processed |
+| **WAITING** | Light Blue (#87CFEB) | Frames ready to run when resources are available |
+| **DEPEND** | Purple (#A020F0) | Frames waiting on dependencies |
+| **DEAD** | Red (#FF0000) | Frames that failed and exceeded retry attempts |
+| **EATEN** | Dark Red (#960000) | Frames manually marked as complete |
+
+![CueProgBar Color Legend](/assets/images/cuegui/cueprogbar/cueprogbar_colors.png)
+
+### Interactive Features
+
+#### Left-Click Menu
+
+Clicking the left mouse button on the progress bar displays a breakdown of frame states:
+
+![CueProgBar Frame Status Menu](/assets/images/cuegui/cueprogbar/cueprogbar_left_click.png)
+
+- Shows count for each frame state
+- Color-coded icons match the progress bar colors
+- Only displays states with non-zero counts
+
+#### Right-Click Context Menu
+
+Right-clicking the progress bar reveals job control actions:
+
+![CueProgBar Context Menu](/assets/images/cuegui/cueprogbar/cueprogbar_right_click.png)
+
+Available actions include:
+
+1. **Pause/Unpause Job**:
+   - Toggles job execution state
+   - Paused jobs show "Paused" overlay on the progress bar
+   - Prevents new frames from starting while allowing running frames to complete
+
+2. **Retry Dead Frames** (NEW):
+   - Appears only when dead frames exist
+   - Shows confirmation dialog with dead frame count
+   - Retries all frames in DEAD state
+   - Displays success/failure notification
+
+   ![Retry Dead Frames Confirmation](/assets/images/cuegui/cueprogbar/cueprogbar_retry_confirm.png)
+
+3. **Kill Job**:
+   - Terminates the job and all running frames
+   - Requires confirmation dialog
+   - Logs the action with username and timestamp
+
+### Window Features
+
+#### Auto-Update
+- Refreshes every 5 seconds (configurable)
+- Updates frame counts and progress bar in real-time
+- Stops updating when job completes
+
+#### Window Title
+The window title dynamically updates to show:
+- **Percentage**: "75% job_name" (for running jobs)
+- **DONE**: "DONE job_name" (for completed jobs)
+- **ERR**: "ERR job_name" (when dead frames exist and no frames are running)
+
+#### Visual Indicators
+- **COMPLETE** overlay: Displayed when job finishes successfully
+- **Paused** overlay: Shown when job is paused
+- **Job Not Found** message: Appears if job is deleted or becomes inaccessible
+
+### Use Cases
+
+CueProgBar is ideal for:
+
+1. **Quick Monitoring**: Artists who want to monitor specific jobs without full CueGUI
+2. **Multi-Job Tracking**: Opening multiple progress bars for different jobs simultaneously
+3. **Desktop Integration**: Minimal windows that can be arranged on secondary monitors
+4. **Resource Efficiency**: Lower memory and CPU usage compared to full CueGUI
+
+### Technical Details
+
+#### Memory Usage
+- Minimal memory footprint
+- No layer or frame detail caching
+- Simple RPC calls for job statistics only
+
+#### Update Mechanism
+```python
+# Update cycle (every 5 seconds)
+1. Fetch job statistics via RPC
+2. Calculate frame state totals
+3. Repaint progress bar
+4. Update labels and title
+```
+
+### Best Practices
+
+1. **Multiple Windows**: Open separate progress bars for critical jobs
+2. **Window Arrangement**: Stack vertically for space-efficient monitoring
+3. **Close When Done**: Windows can be safely closed without affecting jobs
+4. **Retry Strategy**: Use "Retry Dead Frames" before marking jobs complete
 
 ---
 

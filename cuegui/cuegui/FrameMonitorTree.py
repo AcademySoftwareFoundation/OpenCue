@@ -33,6 +33,7 @@ import time
 from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
+import grpc
 
 import opencue
 from opencue_proto import job_pb2
@@ -232,6 +233,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.header().sortIndicatorChanged.connect(self.__sortByColumnSave)
 
         self.__load = None
+        self.local_plugin_saved_values = {}
         self.startTicksUpdate(20)
 
     def tick(self):
@@ -483,8 +485,19 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self.__lastUpdateTime = int(time.time())
                 return self.__job.getFrames(**self.frameSearch.options)
             return []
+        except grpc.RpcError as e:
+            # Handle gRPC errors - log but don't crash, allow UI to retry
+            # pylint: disable=no-member
+            if hasattr(e, 'code') and e.code() in [grpc.StatusCode.CANCELLED,
+                                                     grpc.StatusCode.UNAVAILABLE]:
+                logger.warning("gRPC connection interrupted during frame update, will retry")
+            else:
+                logger.error("gRPC error in _getUpdate: %s", e)
+            # pylint: enable=no-member
+            return []
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
+            return []
 
     def _getUpdateChanged(self):
         """Returns the updated data from the cuebot
@@ -503,8 +516,24 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__jobState = updated_data.state
             updatedFrames = updated_data.updated_frames.updated_frames
 
+        except grpc.RpcError as e:
+            # Handle gRPC errors - allow UI to continue and retry
+            # pylint: disable=no-member
+            if hasattr(e, 'code'):
+                if e.code() in [grpc.StatusCode.CANCELLED, grpc.StatusCode.UNAVAILABLE]:
+                    logger.warning("gRPC connection interrupted during frame update, will retry")
+                    # Return None to trigger a full update on next cycle
+                    return None
+                if e.code() == grpc.StatusCode.NOT_FOUND:
+                    # Job was deleted
+                    logger.info("Job not found, clearing job from view")
+                    self.setJob(None)
+                    return []
+                logger.error("gRPC error in _getUpdateChanged: %s", e)
+            # pylint: enable=no-member
+            return None
         except opencue.EntityNotFoundException:
-            self.setJobObj(None)
+            self.setJob(None)
         except opencue.exception.CueException as e:
             # pylint: disable=no-member
             if hasattr(e, "message") and 'timestamp cannot be over a minute off' in e.message:
@@ -735,10 +764,8 @@ class FrameLogDataBuffer(object):
                 self.__queue.clear()
                 self.__currentJob = jobKey
 
-            # pylint: disable=protected-access
-            if len(self.__queue) > len(self.__threadPool._q_queue):
-                # Everything is hung up, start over
-                self.__cache.clear()
+            # Prevent unbounded queue growth when threadpool is saturated
+            if len(self.__queue) > self.maxQueue:
                 self.__queue.clear()
 
             frameKey = cuegui.Utils.getObjectKey(frame)
@@ -913,9 +940,6 @@ class FrameContextMenu(QtWidgets.QMenu):
             self.__menuActions.frames().addAction(self, "xdiff3")
         elif count == 2:
             self.__menuActions.frames().addAction(self, "xdiff2")
-
-        if int(self.app.settings.value("DisableDeeding", 0)) == 0:
-            self.__menuActions.frames().addAction(self, "useLocalCores")
 
         if cuegui.Constants.OUTPUT_VIEWERS:
             job = widget.getJob()

@@ -27,7 +27,12 @@ services:
     command: /opt/scripts/migrate.sh
 
   cuebot:
-    image: opencue/cuebot
+    # Use build to compile from source with latest code (recommended for development)
+    build:
+      context: ./
+      dockerfile: ./cuebot/Dockerfile
+    # Use image for faster startup with pre-built image (uncomment to use)
+    # image: opencue/cuebot
     links:
       - db
     ports:

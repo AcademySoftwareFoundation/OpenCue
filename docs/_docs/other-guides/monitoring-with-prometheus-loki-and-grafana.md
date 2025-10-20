@@ -2,7 +2,7 @@
 title: "Monitoring with Prometheus, Loki, and Grafana"
 layout: default
 parent: Other Guides
-nav_order: 34
+nav_order: 47
 linkTitle: "Monitoring with Prometheus, Loki, and Grafana"
 date: 2021-08-01
 description: >

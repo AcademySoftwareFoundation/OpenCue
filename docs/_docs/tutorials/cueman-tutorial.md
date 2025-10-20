@@ -1,6 +1,6 @@
 ---
 title: "Cueman Tutorial"
-nav_order: 53
+nav_order: 73
 parent: "Tutorials"
 layout: default
 date: 2025-08-06
@@ -187,29 +187,40 @@ cueman -retry show_shot_lighting_v001 \
 
 ### Working with Memory Filters
 
+Memory filters accept three formats:
+
 ```bash
-# List frames using 2-4 GB
+# Range: 2-4 GB (both values must be non-negative, min < max)
 cueman -lf show_shot_lighting_v001 -memory 2-4
 
-# List frames using less than 2 GB
+# Less than: Less than 2 GB
 cueman -lf show_shot_lighting_v001 -memory lt2
 
-# Kill frames using more than 32 GB
+# Greater than: More than 32 GB
 cueman -kill show_shot_lighting_v001 -memory gt32
 ```
 
+**Important:** Invalid formats like `8-2` (reversed), `2--5` (double dash), `2-3-5` (multiple dashes), or `2-2` (equal min/max) will be rejected with clear error messages.
+
 ### Working with Duration Filters
 
+Duration filters accept three formats (values in hours):
+
 ```bash
-# List frames running 1-2 hours
+# Range: 1-2 hours (both values must be non-negative, min < max)
 cueman -lf show_shot_lighting_v001 -duration 1-2
 
-# List frames running more than 3.5 hours
+# Greater than: More than 3.5 hours
 cueman -lf show_shot_lighting_v001 -duration gt3.5
+
+# Less than: Less than 0.5 hours
+cueman -lf show_shot_lighting_v001 -duration lt0.5
 
 # Kill frames stuck for more than 24 hours
 cueman -kill show_shot_lighting_v001 -duration gt24
 ```
+
+**Important:** Invalid formats like `5-2` (reversed), `2--5` (double dash), `2-3-5` (multiple dashes), `-5` (negative), or `1-1` (equal min/max) will be rejected with clear error messages.
 
 ## Part 5: Frame Manipulation
 
@@ -225,6 +236,8 @@ cueman -stagger show_shot_lighting_v001 1-100 5
 cueman -stagger show_shot_lighting_v001 1-50 10 -layer sim_layer
 ```
 
+**Note:** The increment must be a positive integer. Values like `0`, `-5`, or `abc` will be rejected.
+
 ### Reordering Frames
 
 Control execution priority:
@@ -239,6 +252,8 @@ cueman -reorder show_shot_lighting_v001 1-49 LAST
 # Reverse frame order for debugging
 cueman -reorder show_shot_lighting_v001 1-100 REVERSE
 ```
+
+**Note:** The position must be one of `FIRST`, `LAST`, or `REVERSE`. Other values like `MIDDLE` will be rejected.
 
 ## Part 6: Real-World Scenarios
 
@@ -463,6 +478,45 @@ $ cueman -kill show_shot_001 -state SUCCEEDED
 No frames found matching criteria
 ```
 
+**Invalid stagger increment:**
+```bash
+$ cueman -stagger show_shot_001 1-100 0
+Error: Increment must be a positive integer.
+```
+
+**Invalid reorder position:**
+```bash
+$ cueman -reorder show_shot_001 1-50 MIDDLE
+Error: Position must be one of FIRST, LAST, or REVERSE.
+```
+
+**Invalid frame range:**
+```bash
+$ cueman -eat show_shot_001 -range 50-10
+Error: Invalid range format: 50-10
+```
+
+**Invalid duration values:**
+```bash
+$ cueman -lp show_shot_001 -duration 5-2
+Invalid duration range '5-2'. Minimum value must be less than maximum value.
+
+$ cueman -lp show_shot_001 -duration 2--5
+Invalid duration format '2--5'. Expected format: x-y where x and y are non-negative numbers.
+
+$ cueman -lp show_shot_001 -duration -5
+Invalid duration format '-5'. Value cannot be negative.
+```
+
+**Invalid memory values:**
+```bash
+$ cueman -lp show_shot_001 -memory 8-2
+Invalid memory range '8-2'. Minimum value must be less than maximum value.
+
+$ cueman -lp show_shot_001 -memory 2-3-5
+Invalid memory format '2-3-5'. Expected format: x-y where x and y are non-negative numbers.
+```
+
 ## Summary
 
 You've learned how to:
@@ -476,7 +530,28 @@ Cueman provides capabilities for OpenCue management. Start with simple operation
 
 ## Next Steps
 
-- Explore the [Cueman Reference](/OpenCue/docs/reference/tools/cueman/) for complete command documentation
+- Explore the [Cueman Reference](/docs/reference/tools/cueman/) for complete command documentation
 - Practice with test jobs before using on production
 - Create scripts combining Cueman commands for automated workflows
-- Continue to the [Developer Guide](/docs/developer-guide/) to learn about contributing to OpenCue or developing applications that integrate with it
+- Learn about [Cueman development and testing](/docs/reference/tools/cueman/#development-and-testing) if you want to contribute
+
+## Development and Contributing
+
+Cueman is actively developed with:
+- **Comprehensive test suite** covering unit and integration scenarios
+- **Modern testing infrastructure** using pytest, coverage reporting, and CI/CD integration
+- **Development tools** including linting, formatting, and multi-Python version testing
+
+To contribute or run tests locally:
+
+```bash
+# Install with development dependencies
+pip install -e ".[dev]"
+
+# Run the test suite
+pytest --cov=cueman --cov-report=term-missing
+
+# Format and lint code
+black cueman tests && isort cueman tests
+pylint cueman tests
+```

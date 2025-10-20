@@ -1,6 +1,6 @@
 ---
 layout: default
-title: <i class='fas fa-code-branch'></i>&nbsp;Doc Versions
+title: <i class='fas fa-code-branch'></i>&nbsp;Versions
 nav_order: 999
 ---
 
@@ -10,28 +10,28 @@ nav_order: 999
 
 | Version | Status | Release Date | Documentation | Notes |
 |---------|---------|--------------|---------------|-------|
-| [main]({{ site.baseurl }}/) | **Development** | Continuous | [View →]({{ site.baseurl }}/) | Latest development version |
-| [v0.0.1]({{ site.baseurl }}/v0.0.1/) | **Preview** | In Progress | [View →]({{ site.baseurl }}/v0.0.1/) | Initial documentation version |
+| [v1.13.8]({{ site.baseurl }}/) | **Latest** | 2025 | [View →]({{ site.baseurl }}/) | Current stable release (latest) |
+| [main]({{ site.baseurl }}/) | **Development** | Continuous | [View →]({{ site.baseurl }}/) | Development branch (same as v1.13.8) |
 
 ## Version Policy
 
 ### Documentation Versioning
-The documentation follows its own versioning scheme separate from OpenCue software:
+The documentation follows the OpenCue software versioning:
 
-- **main**: Latest development version with newest features and changes
-- **v0.0.1**: Initial documentation version (preview/beta state)
-- Future versions will follow semantic versioning (v1.0.0, v1.1.0, etc.)
+- **v1.13.8**: Current OpenCue release documentation
+- **main**: Development branch (currently same as v1.13.8)
+- Documentation versions are aligned with OpenCue software releases
 
 ### OpenCue Software Version
 Current OpenCue software version: **{{ site.opencue_version }}**
 
 ## Development Status
 
-🚧 **Documentation is currently under active development**
+📘 **Documentation Status**
 
-- **main**: Contains the latest changes and improvements
-- **v0.0.1**: Represents the initial documentation structure and content
-- **v1.0.0**: Will be the first stable release (coming soon)
+- **v1.13.8**: Current stable release - all documentation points here
+- **main**: Development version - currently same content as v1.13.8
+- Future versions will be created as new releases are made
 
 ## How to Switch Versions
 

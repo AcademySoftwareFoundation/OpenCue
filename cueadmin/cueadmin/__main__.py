@@ -16,14 +16,11 @@
 """Entrypoint for CueAdmin tool."""
 
 
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
+from __future__ import absolute_import, division, print_function
 
 import logging
 
 import cueadmin.common
-
 
 logger = logging.getLogger("opencue.tools.cueadmin")
 
@@ -41,5 +38,5 @@ def main():
         cueadmin.common.handleParserException(args, e)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -13,6 +13,10 @@ dependencies = [
     "six==1.16.0",
     "future==1.0.0"
 ]
+requires-python = ">3.7"
+description = "PyCue is the Python API client for OpenCue, providing programmatic access to core services. It enables developers to query, submit, and control jobs, layers, and frames directly from Python code."
+readme = "README.md"
+license = {text = "Apache-2.0"}
 
 [tool.hatch.version]
 source = "code"

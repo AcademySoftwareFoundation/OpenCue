@@ -273,6 +273,14 @@ class Action(object):
         SET_ALL_RENDER_LAYER_MIN_CORES = filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES
         SET_ALL_RENDER_LAYER_MAX_CORES = filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES
         SET_MEMORY_OPTIMIZER = filter_pb2.SET_MEMORY_OPTIMIZER
+        SET_ALL_UTIL_LAYER_TAGS = filter_pb2.SET_ALL_UTIL_LAYER_TAGS
+        SET_ALL_UTIL_LAYER_MEMORY = filter_pb2.SET_ALL_UTIL_LAYER_MEMORY
+        SET_ALL_UTIL_LAYER_MIN_CORES = filter_pb2.SET_ALL_UTIL_LAYER_MIN_CORES
+        SET_ALL_UTIL_LAYER_MAX_CORES = filter_pb2.SET_ALL_UTIL_LAYER_MAX_CORES
+        SET_ALL_PRE_LAYER_TAGS = filter_pb2.SET_ALL_PRE_LAYER_TAGS
+        SET_ALL_PRE_LAYER_MEMORY = filter_pb2.SET_ALL_PRE_LAYER_MEMORY
+        SET_ALL_PRE_LAYER_MIN_CORES = filter_pb2.SET_ALL_PRE_LAYER_MIN_CORES
+        SET_ALL_PRE_LAYER_MAX_CORES = filter_pb2.SET_ALL_PRE_LAYER_MAX_CORES
 
     class ActionValueType(enum.IntEnum):
         """Enum representing the type of the action's object."""
@@ -385,18 +393,26 @@ class Action(object):
             self.data.value_type = filter_pb2.BOOLEAN_TYPE
 
         elif actionType in (filter_pb2.SET_JOB_PRIORITY,
-                            filter_pb2.SET_ALL_RENDER_LAYER_MEMORY):
+                            filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
+                            filter_pb2.SET_ALL_UTIL_LAYER_MEMORY,
+                            filter_pb2.SET_ALL_PRE_LAYER_MEMORY):
             self.data.integer_value = int(value)
             self.data.value_type = filter_pb2.INTEGER_TYPE
 
         elif actionType in (filter_pb2.SET_JOB_MIN_CORES,
                             filter_pb2.SET_JOB_MAX_CORES,
                             filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,
-                            filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES):
+                            filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES,
+                            filter_pb2.SET_ALL_UTIL_LAYER_MIN_CORES,
+                            filter_pb2.SET_ALL_UTIL_LAYER_MAX_CORES,
+                            filter_pb2.SET_ALL_PRE_LAYER_MIN_CORES,
+                            filter_pb2.SET_ALL_PRE_LAYER_MAX_CORES):
             self.data.float_value = float(value)
             self.data.value_type = filter_pb2.FLOAT_TYPE
 
-        elif actionType == filter_pb2.SET_ALL_RENDER_LAYER_TAGS:
+        elif actionType in (filter_pb2.SET_ALL_RENDER_LAYER_TAGS,
+                            filter_pb2.SET_ALL_UTIL_LAYER_TAGS,
+                            filter_pb2.SET_ALL_PRE_LAYER_TAGS):
             self.data.string_value = value
             self.data.value_type = filter_pb2.STRING_TYPE
 

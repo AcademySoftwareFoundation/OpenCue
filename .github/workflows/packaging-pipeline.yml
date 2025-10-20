@@ -17,8 +17,10 @@ jobs:
       opencue_pyoutline_path: ${{ steps.package_outputs.outputs.opencue_pyoutline_path }}
       opencue_cueadmin_path: ${{ steps.package_outputs.outputs.opencue_cueadmin_path }}
       opencue_cueman_path: ${{ steps.package_outputs.outputs.opencue_cueman_path }}
+      opencue_cuecmd_path: ${{ steps.package_outputs.outputs.opencue_cuecmd_path }}
       opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
       opencue_cuegui_path: ${{ steps.package_outputs.outputs.opencue_cuegui_path }}
+      opencue_cuenimby_path: ${{ steps.package_outputs.outputs.opencue_cuenimby_path }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,7 +42,9 @@ jobs:
           echo "opencue_cuesubmit_path=$(find ./packages -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cueadmin_path=$(find ./packages -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuecmd_path=$(find ./packages -name 'opencue_cuecmd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuenimby_path=$(find ./packages -name 'opencue_cuenimby-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
   build_rust_binaries:
     name: Build Rust Binaries
@@ -266,6 +270,7 @@ jobs:
     container: python:3.11
     name: "Upload python packages to testpypi repo"
     environment: testpypi
+    continue-on-error: true
     env:
       TWINE_USERNAME: "__token__"
       TWINE_PASSWORD: "${{ secrets.TEST_PYPI_API_TOKEN }}"
@@ -281,7 +286,7 @@ jobs:
       - name: Upload packages
         run: |
           python3 -m pip install --upgrade twine
-          python3 -m twine upload --verbose packages/opencue_*
+          python3 -m twine upload --verbose --skip-existing packages/opencue_*
 
   create_other_artifacts:
     name: Create Other Build Artifacts

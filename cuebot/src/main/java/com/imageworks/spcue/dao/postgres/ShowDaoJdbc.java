@@ -208,4 +208,24 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
         getJdbcTemplate().update("UPDATE show_stats SET " + col + " WHERE pk_show=?",
                 s.getShowId());
     }
+
+    @Override
+    public void archiveShow(ShowInterface s, String targetShowName) {
+        // Get the target show entity
+        ShowEntity targetShow = findShowDetail(targetShowName);
+
+        // Get the current show name before renaming
+        ShowEntity currentShow = getShowDetail(s.getShowId());
+        String currentShowName = currentShow.name;
+
+        // Create an alias entry in show_alias table
+        String aliasId = SqlUtil.genKeyRandom();
+        getJdbcTemplate().update(
+                "INSERT INTO show_alias (pk_show_alias, pk_show, str_name) VALUES (?, ?, ?)",
+                aliasId, targetShow.id, currentShowName);
+
+        // Rename the original show by appending '_archive'
+        getJdbcTemplate().update("UPDATE show SET str_name = ? WHERE pk_show = ?",
+                currentShowName + "_archive", s.getShowId());
+    }
 }

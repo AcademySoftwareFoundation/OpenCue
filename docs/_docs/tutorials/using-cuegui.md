@@ -2,7 +2,7 @@
 title: "Using CueGUI for Job Monitoring"
 layout: default
 parent: Tutorials
-nav_order: 49
+nav_order: 69
 linkTitle: "Using CueGUI for Job Monitoring" 
 date: 2025-01-29
 description: >

@@ -1,9 +1,8 @@
 # OpenCue PyOutline
 
-The OpenCue PyOutline library. This library serves as a Python layer over
-OpenCue's XML job descriptions, allowing the construction of complex jobs
-without having to edit XML directly. PyOutline is used by CueSubmit to
-construct job submissions.
+PyOutline is a Python library for building and managing OpenCue job definitions. It provides an API to create outlines that describe jobs, layers, and tasks, making it easier to construct repeatable workflows for rendering pipelines. 
+
+This library serves as a Python layer over OpenCue's XML job descriptions, allowing the construction of complex jobs without having to edit XML directly. PyOutline is used by CueSubmit to construct job submissions.
 
 ## Example Usage
 Here is a simple example of how to submit a job to cuebot using the API

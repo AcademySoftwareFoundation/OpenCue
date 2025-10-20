@@ -1,0 +1,68 @@
+[build-system]
+requires = [
+    "hatchling"
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "opencue_cuenimby"
+dynamic = ["version"]
+dependencies = [
+    "opencue_pycue",
+    "pystray>=0.19.5",
+    "Pillow>=8.0.0",
+    # Platform-specific notification dependencies (optional)
+    "pync>=2.0.3;sys_platform=='darwin'",  # macOS notifications
+    "win10toast>=0.9;sys_platform=='win32'",  # Windows notifications
+    "notify2>=0.3.1;sys_platform=='linux'",  # Linux notifications
+]
+requires-python = ">=3.7"
+description = "CueNIMBY is a cross-platform system tray application for OpenCue NIMBY control. It allows workstation users to monitor their machine's rendering availability, toggle between available and disabled states, receive notifications when jobs start, and schedule automatic state changes based on time of day."
+readme = "README.md"
+authors = [
+    {name = "OpenCue Contributors"}
+]
+license = {text = "Apache-2.0"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics :: 3D Rendering",
+]
+
+[tool.hatch.version]
+source = "code"
+path = "../ci/generate_version_number.py"
+default-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cuenimby"]
+
+[project.scripts]
+cuenimby = "cuenimby.__main__:main"
+
+[project.urls]
+Homepage = "https://opencue.io"
+Documentation = "https://opencue.io/docs"
+Repository = "https://github.com/AcademySoftwareFoundation/OpenCue"
+Issues = "https://github.com/AcademySoftwareFoundation/OpenCue/issues"
+
+# --- Optional Test Dependencies ---
+[project.optional-dependencies]
+test = [
+    "pytest>=6.0",
+    "pytest-mock>=3.0",
+]
+dev = [
+    "black>=22.0",
+    "pylint>=2.0",
+]

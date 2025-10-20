@@ -7,6 +7,20 @@ on:
       - "v*"
 
 jobs:
+  check_opencue_licenses:
+    name: Check Licenses of OpenCue Dependencies
+    runs-on: ubuntu-22.04
+    container: python:3.9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Run license check
+        shell: bash
+        run: ci/check_licenses.sh
+
   build_opencue_packages:
     name: Build Python Packages
     runs-on: ubuntu-22.04
@@ -20,6 +34,7 @@ jobs:
       opencue_cueman_path: ${{ steps.package_outputs.outputs.opencue_cueman_path }}
       opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
       opencue_cuegui_path: ${{ steps.package_outputs.outputs.opencue_cuegui_path }}
+      opencue_cuenimby_path: ${{ steps.package_outputs.outputs.opencue_cuenimby_path }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,6 +69,7 @@ jobs:
           echo "opencue_cueadmin_path=$(find ./packages -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
           echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuenimby_path=$(find ./packages -name 'opencue_cuenimby-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
   build_rust_binaries:
     name: Build Rust Binaries
@@ -162,7 +178,7 @@ jobs:
   release_docker_images:
     # needs: preflight
     runs-on: ubuntu-22.04
-    environment: dockerhub
+    environment: release
     strategy:
       matrix:
         component: [cuebot, rqd]
@@ -228,7 +244,7 @@ jobs:
   create_release:
     needs: build_rust_binaries
     name: Create Release
-    environment: dockerhub
+    environment: release
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
@@ -351,75 +367,88 @@ jobs:
           asset_name: opencue-cuebot-${{ env.BUILD_ID }}-1.noarch.rpm
           asset_content_type: application/octet-stream
 
-      - name: Upload RQD package
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/opencue_rqd-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_name: rqd-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_content_type: application/octet-stream
+      # Pause python artifact releases for now while ASWF discusses the implications of publishing
+      # binary artifacts
+      #
+      # - name: Upload RQD package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_rqd-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: rqd-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
 
-      - name: Upload CueGUI package
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/opencue_cuegui-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_name: cuegui-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_content_type: application/octet-stream
+      # - name: Upload CueGUI package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_cuegui-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: cuegui-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
 
-      - name: Upload PyCue package
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/opencue_pycue-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_name: pycue-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_content_type: application/octet-stream
+      # - name: Upload PyCue package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_pycue-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: pycue-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
 
-      - name: Upload PyOutline package
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/opencue_pyoutline-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_name: pyoutline-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_content_type: application/octet-stream
+      # - name: Upload PyOutline package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_pyoutline-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: pyoutline-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
 
-      - name: Upload CueSubmit package
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/opencue_cuesubmit-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_name: cuesubmit-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_content_type: application/octet-stream
+      # - name: Upload CueSubmit package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_cuesubmit-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: cuesubmit-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
 
-      - name: Upload CueAdmin package
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/opencue_cueadmin-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_name: cueadmin-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_content_type: application/octet-stream
+      # - name: Upload CueAdmin package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_cueadmin-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: cueadmin-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
 
-      - name: Upload CueMan package
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/opencue_cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_name: cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
-          asset_content_type: application/octet-stream
+      # - name: Upload CueMan package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
+
+      # - name: Upload CueNIMBY package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_cuenimby-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: cuenimby-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
 
       - name: Upload openrqd (Linux GNU)
         uses: actions/upload-release-asset@v1
@@ -427,7 +456,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: rust-binaries/openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-gnu
+          asset_path: ${{ github.workspace }}/artifacts/openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-gnu
           asset_name: openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-gnu
           asset_content_type: application/octet-stream
 
@@ -437,7 +466,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: rust-binaries/openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-musl
+          asset_path: ${{ github.workspace }}/artifacts/openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-musl
           asset_name: openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-musl
           asset_content_type: application/octet-stream
 
@@ -447,7 +476,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: rust-binaries/openrqd-${{ env.BUILD_ID }}-x86_64-apple-darwin
+          asset_path: ${{ github.workspace }}/artifacts/openrqd-${{ env.BUILD_ID }}-x86_64-apple-darwin
           asset_name: openrqd-${{ env.BUILD_ID }}-x86_64-apple-darwin
           asset_content_type: application/octet-stream
 
@@ -457,6 +486,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: rust-binaries/openrqd-${{ env.BUILD_ID }}-aarch64-apple-darwin
+          asset_path: ${{ github.workspace }}/artifacts/openrqd-${{ env.BUILD_ID }}-aarch64-apple-darwin
           asset_name: openrqd-${{ env.BUILD_ID }}-aarch64-apple-darwin
           asset_content_type: application/octet-stream

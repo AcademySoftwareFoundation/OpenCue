@@ -62,6 +62,13 @@ class ConnectionException(CueException):
     retryable = True
 
 
+class CancelledException(CueException):
+    """Raised when the RPC call was cancelled."""
+    failMsg = 'RPC call was cancelled. {details}'
+    retryMsg = 'RPC call was cancelled, retrying...'
+    retryable = True
+
+
 def getRetryCount():
     """Return the configured number of retries a cuebot call can make.
     If not specified in the config, all retryable calls will be called once and retried 3 times."""
@@ -73,5 +80,6 @@ EXCEPTION_MAP = {
     grpc.StatusCode.ALREADY_EXISTS: EntityAlreadyExistsException,
     grpc.StatusCode.DEADLINE_EXCEEDED: DeadlineExceededException,
     grpc.StatusCode.INTERNAL: CueInternalErrorException,
-    grpc.StatusCode.UNAVAILABLE: ConnectionException
+    grpc.StatusCode.UNAVAILABLE: ConnectionException,
+    grpc.StatusCode.CANCELLED: CancelledException
 }

@@ -1,5 +1,5 @@
-use crate::config::RunnerConfig;
-use chrono::{DateTime, Local};
+use crate::config::{LoggerType, RunnerConfig};
+use chrono::{DateTime, Local, Utc};
 use miette::{IntoDiagnostic, Result};
 use opencue_proto::rqd::RunFrame;
 use std::{
@@ -10,7 +10,12 @@ use std::{
     sync::{Arc, Mutex},
     time::SystemTime,
 };
+use std::collections::HashMap;
+use std::time::Duration;
+use serde_derive::Serialize;
 use tracing::error;
+use opencue_proto::rqd::RunFrame;
+use ureq::Agent;
 
 pub type FrameLogger = Arc<dyn FrameLoggerT + Sync + Send>;
 
@@ -32,8 +37,8 @@ impl FrameLoggerBuilder {
         uid_gid: Option<(u32, u32)>,
     ) -> Result<Arc<dyn FrameLoggerT + Send + Sync + 'static>> {
         if !run_frame.loki_url.is_empty() {
-            // Placeholder for Loki logger
-            todo!()
+            FrameLokiLogger::init(run_frame)
+                .map(|a| Arc::new(a) as Arc<dyn FrameLoggerT + Send + Sync + 'static>)
         } else {
             FrameFileLogger::init(path, runner_config.prepend_timestamp, uid_gid)
                 .map(|a| Arc::new(a) as Arc<dyn FrameLoggerT + Send + Sync + 'static>)
@@ -108,6 +113,89 @@ impl FrameFileLogger {
             fs::rename(log_path, Path::new(&rotate_path)).into_diagnostic()?;
         }
         Ok(())
+    }
+}
+
+// Structs to model the Loki JSON payload structure
+#[derive(Serialize, Debug)]
+struct LokiPayload {
+    streams: Vec<Stream>,
+}
+
+#[derive(Serialize, Debug)]
+struct Stream {
+    stream: HashMap<String, String>,
+    values: Vec<[String; 2]>,
+}
+
+#[derive(Serialize)]
+struct LokiLabels {
+    host: String,
+    job_name: String,
+    frame_name: String,
+    username: String,
+    frame_id: String,
+    session_start_time: String,
+}
+
+pub struct FrameLokiLogger {
+    _agent: Agent,
+    _loki_url: String,
+    _labels: HashMap<String, String>,
+}
+
+impl FrameLokiLogger {
+    pub fn init(run_frame: RunFrame) -> Result<Self> {
+        let agent: Agent = Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(5)))
+            .build()
+            .into();
+
+        let (labels, loki_url) = Self::build_loki_components(run_frame)?;
+
+        Ok(FrameLokiLogger {
+            _agent: agent,
+            _loki_url: loki_url,
+            _labels: labels,
+        })
+    }
+
+    /// Builds the labels for Loki and extracts the Loki URL from the RunFrame.
+    fn build_loki_components(run_frame: RunFrame) -> Result<(HashMap<String, String>, String)> {
+        let loki_labels = LokiLabels {
+            host: nix::unistd::gethostname().map_or_else(
+                |_| "hostname-unavailable".to_string(),
+                |h| h.to_string_lossy().into_owned(),
+            ),
+            job_name: run_frame.job_name,
+            frame_name: run_frame.frame_name,
+            username: run_frame.user_name,
+            frame_id: run_frame.frame_id,
+            session_start_time: Utc::now().timestamp().to_string(),
+        };
+
+        let labels: HashMap<String, String> =
+            serde_json::from_value(serde_json::to_value(loki_labels).into_diagnostic()?)
+                .into_diagnostic()?;
+
+        Ok((labels, run_frame.loki_url))
+    }
+}
+
+impl FrameLoggerT for FrameLokiLogger {
+    fn writeln(&self, line: &str) {
+        let timestamp = Utc::now().timestamp_nanos_opt().unwrap_or(0).to_string();
+        let payload = LokiPayload {
+            streams: vec![Stream {
+                stream: self._labels.clone(),
+                values: vec![[timestamp, line.to_string()]],
+            }],
+        };
+        let response = self._agent.post(format!("{}/loki/api/v1/push", self._loki_url))
+            .send_json(payload).into_diagnostic().unwrap();
+    }
+    fn write(&self, bytes: &[u8]) {
+        self.writeln(&*std::str::from_utf8(bytes).unwrap().to_string())
     }
 }
 

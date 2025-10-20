@@ -63,6 +63,12 @@ class ProgressDialog(QtWidgets.QDialog):
 
         self.__workLock = QtCore.QReadWriteLock()
         self.__count = 0
+        self.__isCompleted = False
+
+        # Add a safety timer to prevent hanging dialogs
+        self.__safetyTimer = QtCore.QTimer(self)
+        self.__safetyTimer.timeout.connect(self.__checkCompletion)
+        self.__safetyTimer.start(1000)  # Check every second
 
         self.__bar = QtWidgets.QProgressBar(self)
         self.__bar.setRange(0, len(self.__work))
@@ -92,9 +98,27 @@ class ProgressDialog(QtWidgets.QDialog):
             self._submitWork()
 
     def closeEvent(self, event):
-        """Trying to close the dialog is the same as clicking cancel"""
-        event.ignore()
-        self.cancel()
+        """Handle dialog close attempts"""
+        if self.__isCompleted:
+            # Work is done, allow closing
+            self.__safetyTimer.stop()
+            event.accept()
+            super(ProgressDialog, self).closeEvent(event)
+        else:
+            # Work is in progress, show cancel confirmation
+            event.ignore()
+            self.cancel()
+
+    def keyPressEvent(self, event):
+        """Handle key press events"""
+        if event.key() == QtCore.Qt.Key_Escape:
+            # ESC key should close the dialog
+            if self.__isCompleted:
+                self.close()
+            else:
+                self.cancel()
+        else:
+            super(ProgressDialog, self).keyPressEvent(event)
 
     def cancel(self):
         """Called when the user wishes to cancel the work. Work already
@@ -105,13 +129,19 @@ class ProgressDialog(QtWidgets.QDialog):
                                   self.__cancelText,
                                   QtWidgets.QMessageBox.Yes|QtWidgets.QMessageBox.No,
                                   self)
-        if self.__cancelConfirmation.exec_() == QtWidgets.QMessageBox.Yes:
+        result = self.__cancelConfirmation.exec_()
+        self.__cancelConfirmation = None
+
+        if result == QtWidgets.QMessageBox.Yes:
             self.__workLock.lockForWrite()
             try:
                 self.__work = []
             finally:
                 self.__workLock.unlock()
-        self.__cancelConfirmation = None
+            # Mark as completed and close the dialog when user confirms cancellation
+            self.__isCompleted = True
+            self.__safetyTimer.stop()
+            self.close()
 
     def __doWork(self):
         """Performs the next unit of work available"""
@@ -131,6 +161,8 @@ class ProgressDialog(QtWidgets.QDialog):
             except Exception as e:
                 logger.warning("Work unit returned exception:")
                 list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
+                # Even if work fails, we need to ensure proper count management
+                # The __doneWork callback will still be called by the threadpool
 
     def __doneWork(self, work, result):
         """Called when a work unit is done, updates progress, exits if done
@@ -150,12 +182,31 @@ class ProgressDialog(QtWidgets.QDialog):
             if self.__work:
                 self._submitWork()
             else:
-                if self.__count == 0:
+                # Check if all work is completed - both no work left AND count is 0
+                # or if progress bar shows 100% completion
+                if self.__count <= 0 or self.__bar.value() >= self.__bar.maximum():
                     if self.__cancelConfirmation:
                         self.__cancelConfirmation.close()
-                    self.accept()
+                    self.__isCompleted = True
+                    # Use QTimer to ensure proper cleanup in the main thread
+                    QtCore.QTimer.singleShot(0, self.close)
         finally:
             self.__workLock.unlock()
+
+    def __checkCompletion(self):
+        """Safety check to ensure dialog completion detection works properly"""
+        if self.__isCompleted:
+            self.__safetyTimer.stop()
+            return
+
+        # Check if we should be completed based on progress
+        if (not self.__work and self.__count <= 0) or self.__bar.value() >= self.__bar.maximum():
+            logger.debug("Safety timer detected completion - closing dialog")
+            if self.__cancelConfirmation:
+                self.__cancelConfirmation.close()
+            self.__isCompleted = True
+            self.__safetyTimer.stop()
+            self.close()
 
     def _submitWork(self):
         """Submits a new unit of work to threadpool"""

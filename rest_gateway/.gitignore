@@ -1,1 +1,49 @@
+# Environment files
 .env
+.env.local
+
+# Generated protobuf and gRPC files
+opencue_gateway/gen/
+
+# Go build artifacts
+opencue_gateway/opencue_gateway
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go module files (local development)
+opencue_gateway/go.mod
+opencue_gateway/go.sum
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+integration_coverage.out
+integration_coverage.html
+*.coverprofile
+
+# Dependency directories
+vendor/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+/logs/
+
+# Temporary files
+*.tmp
+tmp/

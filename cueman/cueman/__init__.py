@@ -16,7 +16,8 @@
 """OpenCue Cueman job management tool."""
 
 try:
-    from importlib.metadata import version, PackageNotFoundError
+    from importlib.metadata import PackageNotFoundError, version
+
     try:
         __version__ = version("opencue_cueman")
     except PackageNotFoundError:
@@ -26,6 +27,7 @@ except ImportError:
     # Python < 3.8
     try:
         import pkg_resources
+
         __version__ = pkg_resources.get_distribution("opencue_cueman").version
     except Exception:
         __version__ = "0.0.0+unknown"
