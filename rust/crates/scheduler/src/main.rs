@@ -11,6 +11,7 @@ use crate::{
     config::CONFIG,
 };
 
+mod allocation;
 mod cluster;
 mod cluster_key;
 mod config;

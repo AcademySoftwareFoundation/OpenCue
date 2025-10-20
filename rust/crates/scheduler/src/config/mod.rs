@@ -70,6 +70,8 @@ pub struct QueueConfig {
     pub host_candidate_attemps_per_layer: usize,
     pub empty_job_cycles_before_quiting: Option<usize>,
     pub mem_reserved_min: ByteSize,
+    #[serde(with = "humantime_serde")]
+    pub allocation_refresh_interval: Duration,
 }
 
 impl Default for QueueConfig {
@@ -87,6 +89,7 @@ impl Default for QueueConfig {
             host_candidate_attemps_per_layer: 10,
             empty_job_cycles_before_quiting: None,
             mem_reserved_min: ByteSize::mib(250),
+            allocation_refresh_interval: Duration::from_secs(3),
         }
     }
 }

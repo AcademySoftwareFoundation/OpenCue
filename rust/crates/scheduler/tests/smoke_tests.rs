@@ -42,7 +42,7 @@ use crate::util::WaitingFrameClause;
 /// # Run only integration tests
 /// cargo test --features integration-tests integration_tests_full
 /// ```
-// #[cfg(all(test, feature = "smoke-tests"))]
+#[cfg(all(test, feature = "smoke-tests"))]
 mod scheduler_smoke_test {
     use std::sync::Arc;
 

@@ -4,12 +4,13 @@ use std::sync::{
 };
 
 use crate::{
+    allocation::{AllocationService, allocation_service},
     cluster::Cluster,
     cluster_key::Tag,
     config::CONFIG,
     dao::LayerDao,
     host_cache::{HostCacheService, host_cache_service, messages::*},
-    models::{DispatchJob, DispatchLayer, Host},
+    models::{CoreSize, DispatchJob, DispatchLayer, Host},
     pipeline::dispatcher::{
         RqdDispatcherService,
         error::DispatchError,
@@ -18,7 +19,7 @@ use crate::{
     },
 };
 use actix::Addr;
-use miette::Result;
+use miette::{Context, Result};
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info, warn};
 
@@ -36,6 +37,7 @@ pub struct MatchingService {
     layer_dao: LayerDao,
     dispatcher_service: Addr<RqdDispatcherService>,
     concurrency_semaphore: Arc<Semaphore>,
+    allocation_service: Arc<AllocationService>,
 }
 
 impl MatchingService {
@@ -57,12 +59,16 @@ impl MatchingService {
         // let max_concurrent_transactions = 2;
         let max_concurrent_transactions = CONFIG.database.pool_size as usize * 3 / 5;
         let dispatcher_service = rqd_dispatcher_service().await?;
+        let allocation_service = allocation_service()
+            .await
+            .wrap_err("Failed to initialize AllocationService for MatchingService")?;
 
         Ok(MatchingService {
             host_service,
             layer_dao,
             dispatcher_service,
             concurrency_semaphore: Arc::new(Semaphore::new(max_concurrent_transactions)),
+            allocation_service,
         })
     }
 
@@ -128,9 +134,25 @@ impl MatchingService {
     /// # Returns
     ///
     /// * `bool` - True if the match is valid
-    fn validate_match(_host: &Host, _layer_id: String) -> bool {
-        // todo!("define layer validation rule (copy from host_dao old query)")
+    fn validate_match(
+        host: &Host,
+        _layer_id: String,
+        show_id: String,
+        cores_requested: CoreSize,
+        allocation_service: Arc<AllocationService>,
+    ) -> bool {
         // Check subscription limits for this host allocation
+
+        if let Some(subscription) =
+            allocation_service.get_subscription(&host.allocation_name, &show_id)
+        {
+            if !subscription.bookable(&cores_requested) {
+                return false;
+            }
+        } else {
+            return false;
+        };
+
         true
     }
 
@@ -200,7 +222,10 @@ impl MatchingService {
                 layer, layer.facility_id, layer.show_id
             );
 
-            let current_layer_id = layer.id.clone();
+            let layer_id = layer.id.clone();
+            let show_id = layer.show_id.clone();
+            let cores_requested = layer.cores_min;
+            let allocation_service = self.allocation_service.clone();
             let host_candidate = self
                 .host_service
                 .send(CheckOut {
@@ -209,7 +234,15 @@ impl MatchingService {
                     tags,
                     cores: layer.cores_min,
                     memory: layer.mem_min,
-                    validation: move |host| Self::validate_match(host, current_layer_id.clone()),
+                    validation: move |host| {
+                        Self::validate_match(
+                            host,
+                            layer_id.clone(),
+                            show_id.clone(),
+                            cores_requested,
+                            allocation_service.clone(),
+                        )
+                    },
                 })
                 .await
                 .expect("Host Cache actor is unresponsive");

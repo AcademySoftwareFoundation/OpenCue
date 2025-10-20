@@ -137,7 +137,7 @@ impl HostCacheService {
     ///
     /// * `Ok(HostCacheService)` - New service instance
     /// * `Err(miette::Error)` - Failed to initialize dependencies
-    pub async fn new() -> Result<Self> {
+    pub(in crate::host_cache) async fn new() -> Result<Self> {
         Ok(HostCacheService {
             host_dao: Arc::new(HostDao::new().await?),
             groups: Arc::new(HashMap::new()),

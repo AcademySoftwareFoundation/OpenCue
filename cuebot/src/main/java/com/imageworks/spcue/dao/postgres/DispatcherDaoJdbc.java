@@ -178,6 +178,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         }
 
         long loopTime = System.currentTimeMillis();
+        // TODO: filter out shows that are being dispatched by the new scheduler
         for (SortableShow s : shows) {
             long lastTime = System.currentTimeMillis();
             if (s.isSkipped(host.tags, (long) host.cores, host.memory)) {

@@ -55,7 +55,9 @@ WITH bookable_shows AS (
     FROM subscription s
     INNER JOIN vs_waiting w ON s.pk_show = w.pk_show
     WHERE s.pk_show = $1
+        -- Burst == 0 is used to freeze a subscription
         AND s.int_burst > 0
+        -- At least one core unit available
         AND s.int_burst - s.int_cores >= $2
         AND s.int_cores < s.int_burst
 ),

@@ -33,9 +33,6 @@ pub async fn host_cache_service() -> Result<Addr<HostCacheService>> {
         .get_or_try_init(|| async {
             let service = HostCacheService::new().await?.start();
 
-            // TODO: Uncomment and make test aware
-            // service.clone().start();
-
             Ok(service)
         })
         .await

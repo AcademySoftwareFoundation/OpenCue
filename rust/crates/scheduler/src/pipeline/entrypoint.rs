@@ -35,7 +35,7 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     stream::iter(cluster_feed)
         .map(|cluster| {
             let job_fetcher = job_fetcher.clone();
-            let job_event_handler = matcher.clone();
+            let matcher = matcher.clone();
             let cancel_token = cancel_token.clone();
             let cycles_without_jobs = cycles_without_jobs.clone();
 
@@ -69,7 +69,7 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                                     processed_jobs.fetch_add(1, Ordering::Relaxed);
                                     let job = DispatchJob::new(job_model, cluster.clone());
                                     info!("Found job: {}", job);
-                                    job_event_handler.process(job).await;
+                                    matcher.process(job).await;
                                 },
                             )
                             .await;
