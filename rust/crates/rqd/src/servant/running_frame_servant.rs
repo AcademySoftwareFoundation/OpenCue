@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use opencue_proto::{
     WithUuid,
     rqd::{
@@ -9,18 +7,10 @@ use opencue_proto::{
 };
 use tonic::{Response, async_trait};
 
-use crate::{frame::manager::FrameManager, servant::Result};
+use crate::{frame::manager, servant::Result};
 
 /// Servant for the grpc RunningFrame interface
-pub struct RunningFrameServant {
-    frame_manager: Arc<FrameManager>,
-}
-
-impl RunningFrameServant {
-    pub fn init(frame_manager: Arc<FrameManager>) -> Self {
-        Self { frame_manager }
-    }
-}
+pub struct RunningFrameServant {}
 
 #[async_trait]
 impl RunningFrame for RunningFrameServant {
@@ -35,9 +25,11 @@ impl RunningFrame for RunningFrameServant {
                 kill_request.uuid()
             )));
         }
+        let frame_manager = manager::instance()
+            .await
+            .map_err(|err| tonic::Status::internal(err.to_string()))?;
 
-        match self
-            .frame_manager
+        match frame_manager
             .kill_running_frame(&kill_request.uuid(), kill_request.message.clone())
             .await
         {
@@ -60,7 +52,11 @@ impl RunningFrame for RunningFrameServant {
     ) -> Result<tonic::Response<RunningFrameStatusResponse>> {
         let status_request = request.into_inner();
 
-        match self.frame_manager.get_running_frame(&status_request.uuid()) {
+        let frame_manager = manager::instance()
+            .await
+            .map_err(|err| tonic::Status::internal(err.to_string()))?;
+
+        match frame_manager.get_running_frame(&status_request.uuid()) {
             Some(running_frame) => Ok(Response::new(RunningFrameStatusResponse {
                 running_frame_info: Some(running_frame.clone_into_running_frame_info()),
             })),

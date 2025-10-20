@@ -65,6 +65,7 @@ libc = "0.2"
 device_query = { version = "3.0", optional = true }
 pnet = "0.35.0"
 log = "0.4.27"
+lazy_static = "1.5"
 
 [dev-dependencies]
 tempfile = "3.14.0"

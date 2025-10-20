@@ -1,6 +1,7 @@
-use crate::config::{LoggerType, RunnerConfig};
+use crate::config::RunnerConfig;
 use chrono::{DateTime, Local};
 use miette::{IntoDiagnostic, Result};
+use opencue_proto::rqd::RunFrame;
 use std::{
     fs::{self, File, Permissions},
     io::Write,
@@ -10,7 +11,6 @@ use std::{
     time::SystemTime,
 };
 use tracing::error;
-use opencue_proto::rqd::RunFrame;
 
 pub type FrameLogger = Arc<dyn FrameLoggerT + Sync + Send>;
 
@@ -184,6 +184,7 @@ impl TestLogger {
         self.lines.lock().unwrap().pop()
     }
 
+    #[allow(dead_code)]
     pub fn all(&self) -> Vec<String> {
         self.lines.lock().unwrap().clone()
     }
