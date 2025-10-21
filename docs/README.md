@@ -57,6 +57,9 @@ docs/
 │   └── css/                 # Generated CSS files
 ├── _plugins/                # Jekyll plugins for search and functionality
 ├── build.sh                 # Automated build testing script
+├── extract_nav_orders.py    # Extract nav_order values from markdown files
+├── update_nav_order.py      # Update nav_order values in markdown files
+├── nav_order_index.txt      # Generated index of nav_order values
 ├── Gemfile                  # Ruby dependencies
 └── index.md                 # Homepage
 ```
@@ -128,6 +131,135 @@ The documentation supports advanced Markdown features:
 - Use `parent` for hierarchical navigation
 - Keep navigation depth to maximum 3 levels
 - Use descriptive titles for better UX
+
+## Navigation Order Management
+
+The `docs/` directory includes utilities for managing `nav_order` values across all documentation markdown files.
+
+### Files
+
+#### `nav_order_index.txt`
+Index file containing all `nav_order` values and their corresponding file paths in the format:
+```
+nav_order|file_path
+```
+
+Example:
+```
+1|/Users/rfigueiredo/github/OpenCue/docs/_docs/index.md
+2|/Users/rfigueiredo/github/OpenCue/docs/_docs/quick-starts/index.md
+```
+
+#### `extract_nav_orders.py`
+Script to extract `nav_order` values from all markdown files in the `_docs` directory and save them to `nav_order_index.txt`.
+
+**Usage:**
+```bash
+cd /Users/rfigueiredo/github/OpenCue/docs
+python3 extract_nav_orders.py
+```
+
+**Output:**
+- Creates/updates `nav_order_index.txt` with current nav_order values
+- Reports number of files processed
+- Lists any files without nav_order values
+
+#### `update_nav_order.py`
+Script to update `nav_order` values in markdown files based on the values in `nav_order_index.txt`.
+
+**Usage:**
+```bash
+cd /Users/rfigueiredo/github/OpenCue/docs
+
+# Dry run - see what would change without modifying files
+python3 update_nav_order.py --dry-run
+
+# Apply changes
+python3 update_nav_order.py
+```
+
+**Features:**
+- Updates existing `nav_order` values
+- Adds `nav_order` to files that don't have it
+- Preserves all other YAML front matter
+- Supports dry-run mode for preview
+
+### Workflow
+
+#### 1. Extract Current Navigation Order
+```bash
+python3 extract_nav_orders.py
+```
+
+This creates `nav_order_index.txt` with the current state of all documentation files.
+
+#### 2. Edit Navigation Order (Optional)
+Edit `nav_order_index.txt` to change nav_order values as needed. You can:
+- Reorder files by changing their nav_order numbers
+- Add new files
+- Remove files (delete the line)
+
+Format: `nav_order|file_path` (one per line, comments start with #)
+
+#### 3. Preview Changes
+```bash
+python3 update_nav_order.py --dry-run
+```
+
+Review the output to see what would be changed.
+
+#### 4. Apply Changes
+```bash
+python3 update_nav_order.py
+```
+
+This updates all markdown files with the new nav_order values.
+
+### Common Tasks
+
+**Reorder Documentation Sections:**
+1. Run `python3 extract_nav_orders.py` to get current state
+2. Edit `nav_order_index.txt` and change the nav_order numbers
+3. Run `python3 update_nav_order.py --dry-run` to preview
+4. Run `python3 update_nav_order.py` to apply
+
+**Find Duplicate nav_order Values:**
+```bash
+cat nav_order_index.txt | grep -v '^#' | cut -d'|' -f1 | sort -n | uniq -d
+```
+
+**View All Files in Order:**
+```bash
+cat nav_order_index.txt | grep -v '^#'
+```
+
+### Notes
+
+- The scripts only process files in the `_docs` directory
+- YAML front matter must be at the top of the file between `---` markers
+- Backup your files before running the update script
+- Use `--dry-run` to preview changes before applying them
+- The `nav_order` value controls the display order in the documentation navigation menu
+
+### Example: Adding a New Document
+
+1. Create your new markdown file with YAML front matter
+2. Run `python3 extract_nav_orders.py` to add it to the index
+3. Edit `nav_order_index.txt` to set the desired nav_order
+4. Run `python3 update_nav_order.py` to apply the change
+
+### Troubleshooting
+
+**"Index file not found" error:**
+- Run `extract_nav_orders.py` first to create the index file
+
+**"File not found" warning:**
+- A file in the index was deleted or moved
+- Remove the line from `nav_order_index.txt` or update the path
+
+**"Invalid YAML front matter" warning:**
+- Check that the file starts with `---` and has matching closing `---`
+- Ensure YAML syntax is correct
 
 ## Dark Mode Support
 
