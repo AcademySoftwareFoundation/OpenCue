@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::{config::CONFIG, frame::manager, report::report_client};
 use async_trait::async_trait;
 use bytesize::KIB;
 use itertools::Either;
@@ -11,7 +12,7 @@ use opencue_proto::{
 use tokio::{
     select,
     sync::{
-        Mutex, RwLock,
+        Mutex, OnceCell, RwLock,
         broadcast::{self, Receiver},
         oneshot,
     },
@@ -23,7 +24,7 @@ use uuid::Uuid;
 #[cfg(target_os = "macos")]
 use crate::system::macos::MacOsSystem;
 use crate::{
-    config::{Config, MachineConfig},
+    config::MachineConfig,
     frame::{
         cache::RunningFrameCache,
         running_frame::{FrameState, RunningFrame, RunningState},
@@ -69,22 +70,34 @@ pub struct MachineMonitor {
     nimby_state: RwLock<LockState>,
 }
 
+static MACHINE_MONITOR: OnceCell<Arc<MachineMonitor>> = OnceCell::const_new();
+
+pub async fn instance() -> Result<Arc<MachineMonitor>> {
+    MACHINE_MONITOR
+        .get_or_try_init(|| async {
+            let machine_monitor = MachineMonitor::init(report_client::instance().await?)?;
+            Ok(Arc::new(machine_monitor))
+        })
+        .await
+        .map(Arc::clone)
+}
+
 impl MachineMonitor {
     /// Initializes the object without starting the monitor loop
     /// Will gather the initial state of this machine
-    pub fn init(config: &Config, report_client: Arc<ReportClient>) -> Result<Self> {
+    fn init(report_client: Arc<ReportClient>) -> Result<Self> {
         #[cfg(target_os = "macos")]
         #[allow(unused_variables)]
         let (system_manager, core_manager): (
             SystemManagerType,
             Arc<RwLock<CoreStateManager>>,
         ) = {
-            let processor_info_data = MacOsSystem::read_cpuinfo(&config.machine.cpuinfo_path)?;
+            let processor_info_data = MacOsSystem::read_cpuinfo(&CONFIG.machine.cpuinfo_path)?;
             let core_manager = Arc::new(RwLock::new(CoreStateManager::new(
                 processor_info_data.processor_structure.clone(),
             )));
 
-            (Box::new(MacOsSystem::init(&config.machine)?), core_manager)
+            (Box::new(MacOsSystem::init(&CONFIG.machine)?), core_manager)
         };
 
         // Use debug_assertions to allow linux logic compilation from mac development environments
@@ -93,24 +106,24 @@ impl MachineMonitor {
             SystemManagerType,
             Arc<RwLock<CoreStateManager>>,
         ) = {
-            let processor_info_data = LinuxSystem::read_cpuinfo(&config.machine.cpuinfo_path)?;
+            let processor_info_data = LinuxSystem::read_cpuinfo(&CONFIG.machine.cpuinfo_path)?;
             let core_manager = Arc::new(RwLock::new(CoreStateManager::new(
                 processor_info_data.processor_structure.clone(),
             )));
 
             (
-                Box::new(LinuxSystem::init(&config.machine, processor_info_data)?),
+                Box::new(LinuxSystem::init(&CONFIG.machine, processor_info_data)?),
                 core_manager,
             )
         };
 
         // Init nimby
         #[cfg(feature = "nimby")]
-        let nimby = if config.machine.nimby_mode {
+        let nimby = if CONFIG.machine.nimby_mode {
             let nimby = Nimby::init(
-                config.machine.nimby_idle_threshold,
-                config.machine.nimby_display_file_path.clone(),
-                config.machine.nimby_display_xauthority_path.clone(),
+                CONFIG.machine.nimby_idle_threshold,
+                CONFIG.machine.nimby_display_file_path.clone(),
+                CONFIG.machine.nimby_display_xauthority_path.clone(),
             );
             info!("NIMBY mode enabled and initialized");
             Arc::new(Some(nimby))
@@ -119,7 +132,7 @@ impl MachineMonitor {
         };
 
         Ok(Self {
-            maching_config: config.machine.clone(),
+            maching_config: CONFIG.machine.clone(),
             report_client,
             system_manager: Mutex::new(system_manager),
             running_frames_cache: RunningFrameCache::init(),
@@ -202,6 +215,8 @@ impl MachineMonitor {
 
                                     info!("Host became nimby locked");
                                     self.lock_all_cores().await;
+                                    let count = manager::instance().await?.kill_all_running_frames("Host has been Nimby-Locked").await?;
+                                    info!("{count} frames killed after the machine became locked")
                                 }
                                 // Continues locked
                                 (true, LockState::NimbyLocked) => {}
@@ -568,6 +583,8 @@ pub trait Machine {
     fn is_frame_running(&self, frame_id: &Uuid) -> bool;
 
     fn get_running_frame(&self, frame_id: &Uuid) -> Option<Arc<RunningFrame>>;
+
+    fn all_running_frame_ids(&self) -> Vec<Uuid>;
 }
 
 #[async_trait]
@@ -691,6 +708,7 @@ impl Machine for MachineMonitor {
                 system_manager.refresh_procs();
             }
 
+            #[allow(unused_assignments)]
             let mut nimby_locked = false;
 
             #[cfg(feature = "nimby")]
@@ -733,10 +751,15 @@ impl Machine for MachineMonitor {
     fn is_frame_running(&self, frame_id: &Uuid) -> bool {
         self.running_frames_cache.contains(frame_id)
     }
+
     fn get_running_frame(&self, frame_id: &Uuid) -> Option<Arc<RunningFrame>> {
         self.running_frames_cache
             .get(frame_id)
             .as_ref()
             .map(|f| Arc::clone(f))
+    }
+
+    fn all_running_frame_ids(&self) -> Vec<Uuid> {
+        self.running_frames_cache.all_running_frame_ids()
     }
 }

@@ -3,11 +3,15 @@ pub mod error;
 use crate::config::error::RqdConfigError;
 use bytesize::ByteSize;
 use config::{Config as ConfigBase, Environment, File};
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env, fs, path::Path, time::Duration};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
 
+lazy_static! {
+    pub static ref CONFIG: Config = Config::load().expect("Failed to load config file");
+}
 //===Config Types===
 
 #[derive(Debug, Deserialize, Clone)]
@@ -212,7 +216,7 @@ pub struct Config {
 
 impl Config {
     // load the current config from the system config and environment variables
-    pub fn load() -> Result<Self, RqdConfigError> {
+    fn load() -> Result<Self, RqdConfigError> {
         let mut required = false;
         let config_file = match env::var("OPENCUE_RQD_CONFIG") {
             Ok(v) => {
