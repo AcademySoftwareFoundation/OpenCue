@@ -116,7 +116,7 @@ For meeting notes before May 2024, please refer to the OpenCue repository in the
 
 # Contact us
 
-Join the [OpenCue Slack channel](https://academysoftwarefdn.slack.com/archives/CMFPXV39Q), the main space where contributors and users collaborate.
+Join the #opencue channel on the [ASWF Slack](https://slack.aswf.io), the main space where contributors and users collaborate.
 
 Working Group meets biweekly at 2pm PST on [Zoom](https://www.google.com/url?q=https://zoom-lfx.platform.linuxfoundation.org/meeting/95509555934?password%3Da8d65f0e-c5f0-44fb-b362-d3ed0c22b7c1&sa=D&source=calendar&ust=1717863981078692&usg=AOvVaw1zRcYz7VPAwfwOXeBPpoM6).
 
