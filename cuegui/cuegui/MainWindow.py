@@ -29,7 +29,6 @@ from builtins import range
 import os
 import sys
 import time
-import yaml
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -82,7 +81,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.name = window_name
         else:
             self.name = self.windows_names[0]
-        self.__isEnabled = yaml.safe_load(self.app.settings.value("EnableJobInteraction", "False"))
+        self.__isEnabled = self.app.settings.value("EnableJobInteraction", False, type=bool)
 
         # Provides a location for widgets to the right of the menu
         menuLayout = QtWidgets.QHBoxLayout()
@@ -623,8 +622,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if result == QtWidgets.QMessageBox.Yes:
             # currently not enabled, user wants to enable
             if self.__isEnabled is False:
-                self.settings.setValue("EnableJobInteraction", 1)
+                self.settings.setValue("EnableJobInteraction", True)
                 self.__windowCloseApplication()
             else:
-                self.settings.setValue("EnableJobInteraction", 0)
+                self.settings.setValue("EnableJobInteraction", False)
                 self.__windowCloseApplication()
