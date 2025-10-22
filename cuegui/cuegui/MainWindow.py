@@ -452,10 +452,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.settings.setValue("%s/Open" % windowName, True)
                         break
 
+        self.settings.sync()
         self.app.closingApp = True
-        self.app.quit.emit()
-        # Give the application some time to save the state
-        time.sleep(4)
+        # Use QTimer to quit after event loop processes pending events
+        QtCore.QTimer.singleShot(100, self.app.quit)  # pylint: disable=no-member
 
     ################################################################################
 
@@ -622,8 +622,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if result == QtWidgets.QMessageBox.Yes:
             # currently not enabled, user wants to enable
             if self.__isEnabled is False:
-                self.settings.setValue("EnableJobInteraction", True)
+                self.settings.setValue("EnableJobInteraction", 1)
+                self.settings.sync()
                 self.__windowCloseApplication()
             else:
-                self.settings.setValue("EnableJobInteraction", False)
+                self.settings.setValue("EnableJobInteraction", 0)
+                self.settings.sync()
                 self.__windowCloseApplication()
