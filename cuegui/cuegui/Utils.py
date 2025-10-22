@@ -31,7 +31,6 @@ import sys
 import time
 import traceback
 import webbrowser
-import yaml
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -925,7 +924,7 @@ def isPermissible(jobObject):
     :return:
     """
     # Read cached setting from user config file
-    hasPermissions = yaml.safe_load(cuegui.app().settings.value("EnableJobInteraction", "False"))
+    hasPermissions = cuegui.app().settings.value("EnableJobInteraction", False, type=bool)
     # If not set by default, check if current user is the job owner
     currentUser = getpass.getuser()
     if not hasPermissions and currentUser.lower() == jobObject.username().lower():
