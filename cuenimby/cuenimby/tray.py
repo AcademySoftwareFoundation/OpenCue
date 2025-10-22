@@ -35,13 +35,20 @@ logger = logging.getLogger(__name__)
 class CueNIMBYTray:
     """System tray application for NIMBY control."""
 
-    # Icon colors for different states
-    ICON_COLORS = {
-        HostState.AVAILABLE: "#00AA00",  # Green
-        HostState.WORKING: "#0066CC",    # Blue
-        HostState.DISABLED: "#CC0000",   # Red
-        HostState.NIMBY_LOCKED: "#FF9900", # Orange
-        HostState.UNKNOWN: "#888888",    # Gray
+    _icons_folder = os.path.join(os.path.dirname(__file__), "icons")
+    _icon_path = lambda icon_name: os.path.join(CueNIMBYTray._icons_folder, icon_name)
+    # Icon for different states
+    ICONS = {
+        HostState.STARTING:     _icon_path("opencue-starting.png"),
+        HostState.AVAILABLE:    _icon_path("opencue-available.png"),
+        HostState.WORKING:      _icon_path("opencue-working.png"),
+        HostState.DISABLED:     _icon_path("opencue-disabled.png"),
+        HostState.NIMBY_LOCKED: _icon_path("opencue-disabled.png"),
+        HostState.ERROR:        _icon_path("opencue-error.png"),
+        HostState.NO_HOST:      _icon_path("opencue-error.png"),
+        HostState.HOST_DOWN:    _icon_path("opencue-error.png"),
+        HostState.UNKNOWN:      _icon_path("opencue-unknown.png"),
+        "DEFAULT":              _icon_path("opencue-default.png")
     }
 
     def __init__(self, config: Optional[Config] = None):
@@ -80,32 +87,18 @@ class CueNIMBYTray:
         if self.config.scheduler_enabled and self.config.schedule:
             self.scheduler = NimbyScheduler(self.config.schedule)
 
-    def _create_icon_image(self, state: HostState) -> Image.Image:
-        """Create icon image for given state.
-
-        Args:
-            state: Host state.
-
-        Returns:
-            PIL Image object.
-        """
-        # Create a simple circular icon
-        width = 64
-        height = 64
-        image = Image.new('RGB', (width, height), color='white')
-        draw = ImageDraw.Draw(image)
-
-        # Draw circle with state color
-        color = self.ICON_COLORS.get(state, self.ICON_COLORS[HostState.UNKNOWN])
-        draw.ellipse([8, 8, 56, 56], fill=color, outline='black', width=2)
-
-        return image
+    
+    def _get_icon(self, state):
+        """Get icon path for given state."""
+        if state not in HostState:
+            return self.ICONS["UNKNOWN"]
+        return self.ICONS.get(state, self.ICONS["DEFAULT"])
 
     def _update_icon(self) -> None:
         """Update tray icon to reflect current state."""
         if self.icon:
             state = self.monitor.get_current_state()
-            self.icon.icon = self._create_icon_image(state)
+            self.icon.icon = self._get_icon(state)
             self.icon.title = f"CueNIMBY - {state.value.title()}"
 
     def _on_state_change(self, old_state: HostState, new_state: HostState) -> None:
@@ -321,7 +314,7 @@ class CueNIMBYTray:
         state = self.monitor.get_current_state()
         self.icon = pystray.Icon(
             "cuenimby",
-            self._create_icon_image(state),
+            self._get_icon(state),
             f"CueNIMBY - {state.value.title()}",
             self._create_menu()
         )
