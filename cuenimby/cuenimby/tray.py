@@ -35,20 +35,18 @@ logger = logging.getLogger(__name__)
 class CueNIMBYTray:
     """System tray application for NIMBY control."""
 
-    _icons_folder = os.path.join(os.path.dirname(__file__), "icons")
-    _icon_path = lambda icon_name: os.path.join(CueNIMBYTray._icons_folder, icon_name)
     # Icon for different states
     ICONS = {
-        HostState.STARTING:     _icon_path("opencue-starting.png"),
-        HostState.AVAILABLE:    _icon_path("opencue-available.png"),
-        HostState.WORKING:      _icon_path("opencue-working.png"),
-        HostState.DISABLED:     _icon_path("opencue-disabled.png"),
-        HostState.NIMBY_LOCKED: _icon_path("opencue-disabled.png"),
-        HostState.ERROR:        _icon_path("opencue-error.png"),
-        HostState.NO_HOST:      _icon_path("opencue-error.png"),
-        HostState.HOST_DOWN:    _icon_path("opencue-error.png"),
-        HostState.UNKNOWN:      _icon_path("opencue-unknown.png"),
-        "DEFAULT":              _icon_path("opencue-default.png")
+        HostState.STARTING:     "opencue-starting.png",
+        HostState.AVAILABLE:    "opencue-available.png",
+        HostState.WORKING:      "opencue-working.png",
+        HostState.DISABLED:     "opencue-disabled.png",
+        HostState.NIMBY_LOCKED: "opencue-disabled.png",
+        HostState.ERROR:        "opencue-error.png",
+        HostState.NO_HOST:      "opencue-error.png",
+        HostState.HOST_DOWN:    "opencue-error.png",
+        HostState.UNKNOWN:      "opencue-unknown.png",
+        "DEFAULT":              "opencue-default.png"
     }
 
     def __init__(self, config: Optional[Config] = None):
@@ -90,9 +88,10 @@ class CueNIMBYTray:
     
     def _get_icon(self, state):
         """Get icon path for given state."""
+        _icon_folder = os.path.join(os.path.dirname(__file__), "icons")
         if state not in HostState:
-            return self.ICONS["UNKNOWN"]
-        return self.ICONS.get(state, self.ICONS["DEFAULT"])
+            return Image.open(os.path.join(_icon_folder, self.ICONS["UNKNOWN"]))
+        return Image.open(os.path.join(_icon_folder, self.ICONS.get(state, self.ICONS["DEFAULT"])))
 
     def _update_icon(self) -> None:
         """Update tray icon to reflect current state."""
@@ -312,6 +311,7 @@ class CueNIMBYTray:
 
         # Create and run tray icon
         state = self.monitor.get_current_state()
+        icon_path = self._get_icon(state)
         self.icon = pystray.Icon(
             "cuenimby",
             self._get_icon(state),
