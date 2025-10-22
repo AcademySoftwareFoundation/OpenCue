@@ -30,11 +30,21 @@ logger = logging.getLogger(__name__)
 
 class HostState(Enum):
     """Host state enumeration."""
+    STARTING = "starting"
     AVAILABLE = "available"
     WORKING = "working"
     DISABLED = "disabled"
     NIMBY_LOCKED = "nimby_locked"
+    ERROR = "error"
+    NO_HOST = "no_host"
+    HOST_DOWN = "host_down"
     UNKNOWN = "unknown"
+
+
+class CuebotState(Enum):
+    UNREACHABLE = "unreachable"
+    REACHABLE = "reachable"
+    ERROR = "error"
 
 
 class HostMonitor:
