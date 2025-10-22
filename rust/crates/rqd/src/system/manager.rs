@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use miette::{Diagnostic, Result};
-use opencue_proto::{host::HardwareState, report::ChildrenProcStats};
+use opencue_proto::{host::{GpuDevice, GpuUsage, HardwareState}, report::ChildrenProcStats};
 use thiserror::Error;
 use tracing::error;
 use uuid::Uuid;
@@ -99,6 +99,8 @@ pub struct MachineGpuStats {
     pub free_memory: u64,
     /// Used memory by unit of each GPU, where the key in the HashMap is the unit ID, and the value is the used memory
     pub _used_memory_by_unit: HashMap<u32, u64>,
+    /// Detailed GPU device inventory
+    pub gpu_devices: Vec<GpuDevice>,
 }
 
 /// Tracks memory and runtime statistics for a rendering process and its children.
@@ -118,6 +120,8 @@ pub struct ProcessStats {
     pub max_used_gpu_memory: u64,
     /// Current GPU memory usage (KB).
     pub used_gpu_memory: u64,
+    /// Per-device GPU usage statistics
+    pub gpu_usage: Vec<GpuUsage>,
     /// Additional data about the running frame's child processes.
     pub children: Option<ChildrenProcStats>,
     /// Unix timestamp denoting the start time of the frame process.
@@ -136,6 +140,7 @@ impl Default for ProcessStats {
             llu_time: 0,
             max_used_gpu_memory: 0,
             used_gpu_memory: 0,
+            gpu_usage: Vec::new(),
             children: None,
             epoch_start_time: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -157,6 +162,7 @@ impl ProcessStats {
             vsize: new.vsize,
             llu_time: new.llu_time,
             used_gpu_memory: new.used_gpu_memory,
+            gpu_usage: new.gpu_usage,
             children: new.children,
             epoch_start_time: new.epoch_start_time,
         };
