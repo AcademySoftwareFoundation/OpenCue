@@ -89,6 +89,7 @@ pub struct MachineConfig {
     #[serde(with = "humantime_serde")]
     pub nimby_start_retry_interval: Duration,
     pub nimby_display_xauthority_path: String,
+    pub memory_oom_margin_percentage: u32,
 }
 
 impl Default for MachineConfig {
@@ -111,6 +112,7 @@ impl Default for MachineConfig {
             nimby_display_file_path: None,
             nimby_start_retry_interval: Duration::from_secs(60 * 5), // 5 min
             nimby_display_xauthority_path: "/home/{username}/Xauthority".to_string(),
+            memory_oom_margin_percentage: 96,
         }
     }
 }
