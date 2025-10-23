@@ -573,7 +573,7 @@ mod tests {
         let result = choose_frames_to_kill(memory_usage, total_memory, frames);
 
         // Should kill frames in order from newest to oldest (shortest to longest duration)
-        assert!(result.len() >= 1, "Should kill at least one frame");
+        assert!(!result.is_empty(), "Should kill at least one frame");
         assert_eq!(
             result[0].frame_id, frame3.frame_id,
             "Should kill newest frame first (shortest duration)"

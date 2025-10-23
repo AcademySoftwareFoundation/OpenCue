@@ -180,6 +180,7 @@ impl RunningFrame {
         }
     }
 
+    #[cfg(test)]
     pub fn init_started_for_test(
         request: RunFrame,
         uid: u32,
