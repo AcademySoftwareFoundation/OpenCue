@@ -50,7 +50,7 @@ pub fn choose_frames_to_kill(
         // Calculate target memory level: 5% below the defined safety margin
         let target_memory_level = (total_memory as f64 *
                 // Redefined margin percentage = margin - 5%
-                (((CONFIG.machine.memory_oom_margin_percentage - 5) as f64) / 100.0))
+                (((CONFIG.machine.memory_oom_margin_percentage.saturating_sub(5)) as f64) / 100.0))
             as u64;
 
         // Calculate current memory usage
@@ -64,6 +64,11 @@ pub fn choose_frames_to_kill(
             .map(|(f, memory_consumed)| (*memory_consumed, f.get_duration()))
             .reduce(|l, r| (l.0 + r.0, cmp::max(l.1, r.1)))
             .unwrap_or((0, Duration::ZERO));
+
+        if total_memory_consumed == 0 && max_frame_duration.as_secs() == 0 {
+            // There are no frames to kill
+            return Vec::new();
+        }
 
         // Calculate scores denormalized
         let frames_with_scores = frames.iter().map(|(frame, memory_consumed)| {
@@ -127,7 +132,22 @@ fn calc_memory_aggression_score(
     max_frame_duration: f64,
 ) -> MemoryAggressorScores {
     // Assert preconditions
-    assert!(consumed_memory > frame.request.soft_memory_limit as u64);
+    assert!(
+        consumed_memory > frame.request.soft_memory_limit as u64,
+        "Memory consumed has to be higher than the limit for a frame to end up here"
+    );
+    assert!(
+        max_frame_duration > 0.0,
+        "There should be frames which summed duration higher than zero for this function to be called"
+    );
+    assert!(
+        total_memory_consumed > 0,
+        "There should be frames which summed memory higher than zero for this function to be called"
+    );
+    assert!(
+        frame.request.soft_memory_limit > 0,
+        "For a frame to be marked as an aggressor, it needs to have soft_memory_limit higher than zero"
+    );
 
     // Convert values to float to simplify logic
     let consumed_memory = consumed_memory as f64;
