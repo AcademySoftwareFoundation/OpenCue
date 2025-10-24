@@ -25,7 +25,7 @@ from PIL import Image, ImageDraw
 from pystray import MenuItem as Item
 
 from .config import Config
-from .monitor import HostMonitor, HostState
+from .monitor import HostMonitor, HostState, CuebotState
 from .notifier import Notifier
 from .scheduler import NimbyScheduler
 
@@ -40,12 +40,19 @@ class CueNIMBYTray:
         HostState.STARTING:     "opencue-starting.png",
         HostState.AVAILABLE:    "opencue-available.png",
         HostState.WORKING:      "opencue-working.png",
-        HostState.DISABLED:     "opencue-disabled.png",
         HostState.NIMBY_LOCKED: "opencue-disabled.png",
-        HostState.ERROR:        "opencue-error.png",
+        HostState.HOST_DOWN:    "opencue-disabled.png",
+        HostState.HOST_LOCKED:  "opencue-disabled.png",
+        HostState.HOST_LAGGING: "opencue-warning.png",
         HostState.NO_HOST:      "opencue-error.png",
-        HostState.HOST_DOWN:    "opencue-error.png",
+        HostState.ERROR:        "opencue-error.png",
         HostState.UNKNOWN:      "opencue-unknown.png",
+
+        CuebotState.FETCHING:    "opencue-starting.png",
+        CuebotState.REACHABLE:   "opencue-available.png",
+        CuebotState.UNREACHABLE: "opencue-error.png",
+        CuebotState.UNKNOWN:     "opencue-unknown.png",
+
         "DEFAULT":              "opencue-default.png"
     }
 
@@ -74,12 +81,10 @@ class CueNIMBYTray:
             cuebot_host=self.config.cuebot_host,
             cuebot_port=self.config.cuebot_port,
             hostname=self.config.hostname,
-            poll_interval=self.config.poll_interval
+            poll_interval=self.config.poll_interval,
+            state_change_callbacks=[self._on_state_change],
+            frame_started_callbacks=[self._on_frame_started]
         )
-
-        # Register callbacks
-        self.monitor.on_state_change(self._on_state_change)
-        self.monitor.on_frame_started(self._on_frame_started)
 
         # Initialize scheduler if enabled
         if self.config.scheduler_enabled and self.config.schedule:
@@ -96,7 +101,7 @@ class CueNIMBYTray:
     def _update_icon(self) -> None:
         """Update tray icon to reflect current state."""
         if self.icon:
-            state = self.monitor.get_current_state()
+            state = self.monitor.current_state
             self.icon.icon = self._get_icon(state)
             self.icon.title = f"CueNIMBY - {state.value.title()}"
 
@@ -114,12 +119,20 @@ class CueNIMBYTray:
         if self.notifier:
             if new_state == HostState.NIMBY_LOCKED:
                 self.notifier.notify_nimby_locked()
-            elif old_state == HostState.NIMBY_LOCKED and new_state == HostState.AVAILABLE:
-                self.notifier.notify_nimby_unlocked()
-            elif new_state == HostState.DISABLED and old_state != HostState.NIMBY_LOCKED:
-                self.notifier.notify_manual_lock()
-            elif new_state == HostState.AVAILABLE and old_state == HostState.DISABLED:
-                self.notifier.notify_manual_unlock()
+            elif new_state in (HostState.HOST_DOWN, HostState.NO_HOST):
+                self.notifier.notify_host_down()
+            elif new_state == HostState.HOST_LAGGING:
+                self.notifier.notify_host_lagging()
+            elif old_state == HostState.NIMBY_LOCKED:
+                if new_state == HostState.AVAILABLE:
+                    self.notifier.notify_nimby_unlocked()
+                elif new_state == HostState.HOST_LOCKED:
+                    self.notifier.notify_manual_lock()
+            elif new_state == HostState.AVAILABLE:
+                if old_state in (HostState.NIMBY_LOCKED, HostState.HOST_LOCKED):
+                    self.notifier.notify_manual_unlock()
+                elif old_state in (HostState.HOST_DOWN, HostState.NO_HOST):
+                    self.notifier.notify_host_recovered()
 
     def _on_frame_started(self, job_name: str, frame_name: str) -> None:
         """Handle frame start.
@@ -150,10 +163,10 @@ class CueNIMBYTray:
 
     def _toggle_available(self, icon, item) -> None:
         """Toggle host availability."""
-        current_state = self.monitor.get_current_state()
+        current_state = self.monitor.current_state
 
         try:
-            if current_state in (HostState.DISABLED, HostState.NIMBY_LOCKED):
+            if current_state in (HostState.HOST_LOCKED, HostState.NIMBY_LOCKED):
                 # Enable host
                 if self.monitor.unlock_host():
                     logger.info("Host enabled by user")
@@ -168,7 +181,7 @@ class CueNIMBYTray:
 
     def _is_available(self, item) -> bool:
         """Check if host is available (for menu checkbox)."""
-        state = self.monitor.get_current_state()
+        state = self.monitor.current_state
         return state in (HostState.AVAILABLE, HostState.WORKING)
 
     def _toggle_notifications(self, icon, item) -> None:
@@ -310,8 +323,7 @@ class CueNIMBYTray:
             self.scheduler.start(self._on_scheduler_state_change)
 
         # Create and run tray icon
-        state = self.monitor.get_current_state()
-        icon_path = self._get_icon(state)
+        state = self.monitor.current_state
         self.icon = pystray.Icon(
             "cuenimby",
             self._get_icon(state),
