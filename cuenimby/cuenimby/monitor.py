@@ -27,6 +27,7 @@ from opencue_proto import host_pb2
 
 logger = logging.getLogger(__name__)
 
+HOST_PING_LIMIT = 60  # seconds
 
 class HostState(Enum):
     """Host state enumeration."""
@@ -37,7 +38,7 @@ class HostState(Enum):
     HOST_LOCKED = "🔒 Host locked"
     HOST_DOWN = "❌ Host down, RQD is not running"
     NO_HOST = "❌ Machine not found on CueBot, check if RQD is running"
-    HOST_LAGGING = "⚠️ Host ping above limit (60sec), check if RQD is running"
+    HOST_LAGGING = f"⚠️ Host ping above limit ({HOST_PING_LIMIT} sec), check if RQD is running"
     CUEBOT_UNREACHABLE = "❌ CueBot unreachable"
     ERROR = "❌ Error"
     UNKNOWN = "⚠️ Unknown status..."
@@ -160,7 +161,7 @@ class HostMonitor:
 
             # Check if available
             if lock_state == host_pb2.LockState.Value('OPEN'):
-                if host.pingLast() > 60:
+                if host.pingLast() > HOST_PING_LIMIT:
                     return HostState.HOST_LAGGING
                 return HostState.AVAILABLE
 
