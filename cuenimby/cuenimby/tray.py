@@ -35,13 +35,21 @@ logger = logging.getLogger(__name__)
 class CueNIMBYTray:
     """System tray application for NIMBY control."""
 
-    # Icon colors for different states
-    ICON_COLORS = {
-        HostState.AVAILABLE: "#00AA00",  # Green
-        HostState.WORKING: "#0066CC",    # Blue
-        HostState.DISABLED: "#CC0000",   # Red
-        HostState.NIMBY_LOCKED: "#FF9900", # Orange
-        HostState.UNKNOWN: "#888888",    # Gray
+    # Icon for different states
+    ICONS = {
+        HostState.STARTING:     "opencue-starting.png",
+        HostState.AVAILABLE:    "opencue-available.png",
+        HostState.WORKING:      "opencue-working.png",
+        HostState.NIMBY_LOCKED: "opencue-disabled.png",
+        HostState.HOST_DOWN:    "opencue-disabled.png",
+        HostState.HOST_LOCKED:  "opencue-disabled.png",
+        HostState.HOST_LAGGING: "opencue-warning.png",
+        HostState.NO_HOST:      "opencue-error.png",
+        HostState.ERROR:        "opencue-error.png",
+        HostState.UNKNOWN:      "opencue-unknown.png",
+        HostState.CUEBOT_UNREACHABLE: "opencue-error.png",
+
+        "DEFAULT":              "opencue-default.png"
     }
 
     def __init__(self, config: Optional[Config] = None):
@@ -69,44 +77,29 @@ class CueNIMBYTray:
             cuebot_host=self.config.cuebot_host,
             cuebot_port=self.config.cuebot_port,
             hostname=self.config.hostname,
-            poll_interval=self.config.poll_interval
+            poll_interval=self.config.poll_interval,
+            state_change_callbacks=[self._on_state_change],
+            frame_started_callbacks=[self._on_frame_started]
         )
-
-        # Register callbacks
-        self.monitor.on_state_change(self._on_state_change)
-        self.monitor.on_frame_started(self._on_frame_started)
 
         # Initialize scheduler if enabled
         if self.config.scheduler_enabled and self.config.schedule:
             self.scheduler = NimbyScheduler(self.config.schedule)
 
-    def _create_icon_image(self, state: HostState) -> Image.Image:
-        """Create icon image for given state.
-
-        Args:
-            state: Host state.
-
-        Returns:
-            PIL Image object.
-        """
-        # Create a simple circular icon
-        width = 64
-        height = 64
-        image = Image.new('RGB', (width, height), color='white')
-        draw = ImageDraw.Draw(image)
-
-        # Draw circle with state color
-        color = self.ICON_COLORS.get(state, self.ICON_COLORS[HostState.UNKNOWN])
-        draw.ellipse([8, 8, 56, 56], fill=color, outline='black', width=2)
-
-        return image
+    
+    def _get_icon(self, state):
+        """Get icon path for given state."""
+        _icon_folder = os.path.join(os.path.dirname(__file__), "icons")
+        if state not in HostState:
+            return Image.open(os.path.join(_icon_folder, self.ICONS["UNKNOWN"]))
+        return Image.open(os.path.join(_icon_folder, self.ICONS.get(state, self.ICONS["DEFAULT"])))
 
     def _update_icon(self) -> None:
         """Update tray icon to reflect current state."""
         if self.icon:
-            state = self.monitor.get_current_state()
-            self.icon.icon = self._create_icon_image(state)
-            self.icon.title = f"CueNIMBY - {state.value.title()}"
+            state = self.monitor.current_state
+            self.icon.icon = self._get_icon(state)
+            self.icon.title = f"CueNIMBY - {state.value}"
 
     def _on_state_change(self, old_state: HostState, new_state: HostState) -> None:
         """Handle state change.
@@ -120,14 +113,24 @@ class CueNIMBYTray:
 
         # Send notifications
         if self.notifier:
-            if new_state == HostState.NIMBY_LOCKED:
+            if new_state == HostState.CUEBOT_UNREACHABLE:
+                self.notifier.notify_cuebot_unreachable()
+            elif new_state == HostState.NIMBY_LOCKED:
                 self.notifier.notify_nimby_locked()
-            elif old_state == HostState.NIMBY_LOCKED and new_state == HostState.AVAILABLE:
-                self.notifier.notify_nimby_unlocked()
-            elif new_state == HostState.DISABLED and old_state != HostState.NIMBY_LOCKED:
-                self.notifier.notify_manual_lock()
-            elif new_state == HostState.AVAILABLE and old_state == HostState.DISABLED:
-                self.notifier.notify_manual_unlock()
+            elif new_state in (HostState.HOST_DOWN, HostState.NO_HOST):
+                self.notifier.notify_host_down()
+            elif new_state == HostState.HOST_LAGGING:
+                self.notifier.notify_host_lagging()
+            elif old_state == HostState.NIMBY_LOCKED:
+                if new_state == HostState.AVAILABLE:
+                    self.notifier.notify_nimby_unlocked()
+                elif new_state == HostState.HOST_LOCKED:
+                    self.notifier.notify_manual_lock()
+            elif new_state == HostState.AVAILABLE:
+                if old_state in (HostState.NIMBY_LOCKED, HostState.HOST_LOCKED):
+                    self.notifier.notify_manual_unlock()
+                elif old_state in (HostState.HOST_DOWN, HostState.NO_HOST):
+                    self.notifier.notify_host_recovered()
 
     def _on_frame_started(self, job_name: str, frame_name: str) -> None:
         """Handle frame start.
@@ -158,10 +161,10 @@ class CueNIMBYTray:
 
     def _toggle_available(self, icon, item) -> None:
         """Toggle host availability."""
-        current_state = self.monitor.get_current_state()
+        current_state = self.monitor.current_state
 
         try:
-            if current_state in (HostState.DISABLED, HostState.NIMBY_LOCKED):
+            if current_state in (HostState.HOST_LOCKED, HostState.NIMBY_LOCKED):
                 # Enable host
                 if self.monitor.unlock_host():
                     logger.info("Host enabled by user")
@@ -176,7 +179,7 @@ class CueNIMBYTray:
 
     def _is_available(self, item) -> bool:
         """Check if host is available (for menu checkbox)."""
-        state = self.monitor.get_current_state()
+        state = self.monitor.current_state
         return state in (HostState.AVAILABLE, HostState.WORKING)
 
     def _toggle_notifications(self, icon, item) -> None:
@@ -218,22 +221,21 @@ class CueNIMBYTray:
         from . import __version__
 
         # Always use native dialogs for About (more reliable than notifications)
+        about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\n"
+        about_message += f"Host: {self.monitor.hostname}\n\nCuebot: {self.monitor.cuebot_host}:{self.monitor.cuebot_port}"
         try:
             if sys.platform == "darwin":  # macOS
                 # For AppleScript, use return for newlines
-                about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
                 # Escape quotes and replace newlines with 'return' for AppleScript
                 escaped_message = about_message.replace('"', '\\"').replace('\n', '" & return & "')
                 script = f'display dialog "{escaped_message}" with title "About CueNIMBY" buttons {{"OK"}} default button "OK"'
                 subprocess.run(["osascript", "-e", script], check=False)
                 logger.info(f"About CueNIMBY: {about_message}")
             elif sys.platform == "win32":  # Windows
-                about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
                 import ctypes
                 ctypes.windll.user32.MessageBoxW(0, about_message, "About CueNIMBY", 0)
                 logger.info(f"About CueNIMBY: {about_message}")
             else:  # Linux
-                about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
                 # Try zenity or kdialog
                 try:
                     subprocess.run(["zenity", "--info", "--title=About CueNIMBY", f"--text={about_message}"], check=False)
@@ -251,8 +253,6 @@ class CueNIMBYTray:
         except Exception as e:
             logger.error(f"Failed to show about dialog: {e}")
             # Fallback to console output
-            from . import __version__
-            about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
             print(f"\nAbout CueNIMBY\n{about_message}\n")
 
     def _open_config(self, icon, item) -> None:
@@ -318,11 +318,11 @@ class CueNIMBYTray:
             self.scheduler.start(self._on_scheduler_state_change)
 
         # Create and run tray icon
-        state = self.monitor.get_current_state()
+        state = self.monitor.current_state
         self.icon = pystray.Icon(
             "cuenimby",
-            self._create_icon_image(state),
-            f"CueNIMBY - {state.value.title()}",
+            self._get_icon(state),
+            f"CueNIMBY - {state.value}",
             self._create_menu()
         )
 

@@ -5,11 +5,13 @@ CueNIMBY is a cross-platform system tray application that provides user control 
 ## Features
 
 - **System Tray Icon**: Visual indication of current rendering state
+  - 🔵 Blue: Starting
   - 🟢 Green: Available for rendering
-  - 🔵 Blue: Currently rendering
-  - 🔴 Red: Disabled (manually locked)
-  - 🟠 Orange: NIMBY locked (due to user activity)
-  - ⚫ Gray: Unknown/Disconnected
+  - 🔴 Red: 
+     - Currently rendering
+     - Disabled (manually locked)
+     - NIMBY locked (due to user activity)
+     - Unknown/Disconnected/Error
 
 - **User Controls**:
   - Toggle workstation availability for rendering
@@ -20,6 +22,7 @@ CueNIMBY is a cross-platform system tray application that provides user control 
   - Alert when a job starts rendering on your machine
   - Notify when NIMBY locks/unlocks your workstation
   - Notify when you manually change availability
+  - Alert when Cuebot cannot be reached or your host cannot be found/is down
 
 - **Time-based Scheduler**:
   - Automatically disable rendering during work hours

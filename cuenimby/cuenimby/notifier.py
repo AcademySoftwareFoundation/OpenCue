@@ -15,8 +15,10 @@
 """Desktop notification system for CueNIMBY."""
 
 import logging
+import os
 import platform
 from enum import Enum
+from PIL import Image
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,7 @@ class NotifierType(Enum):
     NOTIFY2 = "notify2"
     NOTIFY_SEND = "notify-send"
 
+OPENCUE_ICON = os.path.join(os.path.dirname(__file__), "icons", "opencue-icon.ico")
 
 class Notifier:
     """Cross-platform desktop notification handler."""
@@ -129,7 +132,7 @@ class Notifier:
                         logger.debug("osascript notification sent successfully")
             elif self.notifier == NotifierType.WIN10TOAST:
                 # Windows
-                self.toaster.show_toast(title, message, duration=duration, threaded=True)
+                self.toaster.show_toast(title, message, icon_path=OPENCUE_ICON, duration=duration, threaded=True)
             elif self.notifier == NotifierType.NOTIFY2:
                 # Linux with notify2
                 notification = self.notify2.Notification(title, message)
@@ -164,27 +167,67 @@ class Notifier:
     def notify_nimby_locked(self) -> None:
         """Notify when NIMBY locks the host."""
         self.notify(
-            "OpenCue - NIMBY Locked",
-            "Host locked due to user activity. Rendering stopped."
+            "OpenCue - NIMBY Locked 🔒",
+            "RQD locked due to user activity. Rendering stopped."
         )
 
     def notify_nimby_unlocked(self) -> None:
         """Notify when NIMBY unlocks the host."""
         self.notify(
-            "OpenCue - NIMBY Unlocked",
-            "Host available for rendering."
+            "OpenCue - NIMBY Unlocked 🔓",
+            "RQD available for rendering."
         )
 
     def notify_manual_lock(self) -> None:
         """Notify when user manually locks the host."""
         self.notify(
-            "OpenCue - Host Disabled",
-            "Host manually disabled for rendering."
+            "OpenCue - Host Disabled 🔒",
+            "RQD manually disabled for rendering."
         )
 
     def notify_manual_unlock(self) -> None:
         """Notify when user manually unlocks the host."""
         self.notify(
-            "OpenCue - Host Enabled",
-            "Host enabled for rendering."
+            "OpenCue - Host Enabled 🔓",
+            "RQD enabled for rendering."
         )
+    
+    def notify_host_recovered(self) -> None:
+        """Notify when host recovers from down state."""
+        self.notify(
+            "OpenCue - Host Recovered",
+            "RQD is back online and available for rendering."
+        )
+    
+    def notify_host_down(self) -> None:
+        """Notify when host goes down."""
+        self.notify(
+            "OpenCue - Host Down",
+            "Host is offline or unreachable by Cuebot, check if RQD is running."
+        )
+
+    def notify_host_lagging(self) -> None:
+        """Notify when host is lagging."""
+        self.notify(
+            "OpenCue - Host Lagging",
+            "Host is experiencing high latency, RQD might be down."
+        )
+
+    def notify_error(self, error_message: str) -> None:
+        """Notify when an error occurs.
+
+        Args:
+            error_message: The error message to display.
+        """
+        self.notify(
+            "OpenCue - Error",
+            error_message
+        )
+        
+    def notify_cuebot_unreachable(self) -> None:
+        """Notify when cuebot is unreachable."""
+        self.notify(
+            "OpenCue - Cuebot Unreachable",
+            "Unable to contact Cuebot, please check your network connection."
+        )
+        
