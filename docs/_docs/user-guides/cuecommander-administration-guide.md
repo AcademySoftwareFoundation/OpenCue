@@ -731,6 +731,104 @@ Configures and manages subscriptions that link shows to allocations, determining
 - Document all configuration changes
 - Maintain backup of service and limit configurations
 
+### Managing Job Permissions with Job Interaction
+
+As an administrator, you frequently need to manage jobs owned by other users for daily maintenance, troubleshooting, and production support. CueGUI provides a **Job Interaction** permission system to control cross-user job modifications.
+
+#### Understanding Job Interaction Permissions
+
+**Default Behavior (Job Interaction Disabled)**:
+- Users can only kill, retry, or modify jobs they own
+- Provides safety against accidental modifications of others' work
+- Appropriate for individual artist workflows
+
+**Job Interaction Enabled**:
+- Allows managing any job regardless of owner
+- Essential for administrators, show TDs, and PSR team
+- Required for daily maintenance tasks like retrying failed jobs across multiple users
+
+#### Enabling/Disabling Job Interaction
+
+To enable or disable Job Interaction:
+
+1. Open the **File** menu in CueGUI (either Cuetopia or CueCommander)
+2. Select either:
+   - **Enable Job Interaction** (if currently disabled)
+   - **Disable Job Interaction** (if currently enabled)
+3. Confirm the restart prompt
+4. CueGUI will close and must be restarted for the change to take effect
+
+- **Enable Job Interaction**
+
+![Enable Job Interaction Menu](/assets/images/cuegui/file_menu_enable_job_interaction.png)
+
+- **Disable Job Interaction**
+
+![Enable Job Interaction Menu](/assets/images/cuegui/file_menu_disable_job_interaction.png)
+
+The setting persists across sessions, so administrators typically keep it enabled.
+
+#### Protected Operations
+
+Actions requiring ownership or enabled Job Interaction:
+- Killing jobs
+- Retrying dead frames
+- Enabling/disabling auto-eating
+- Eating dead frames
+- Modifying layer settings
+- Retrying specific frames
+
+**Note**: Pause/Resume operations are not protected and work on any job.
+
+#### Administrative Best Practices
+
+1. **Communication**:
+   - Inform job owners when killing or modifying their jobs
+   - Document reasons for interventions in logs or tickets
+
+2. **Verification**:
+   - Always double-check job names before destructive actions
+   - Review job details to understand impact
+   - Consider pausing instead of killing when appropriate
+
+3. **Timing**:
+   - Coordinate job kills with production schedules
+   - Retry failed jobs during appropriate time windows
+   - Avoid disrupting critical render deadlines
+
+4. **Documentation**:
+   - Keep records of cross-user job modifications
+   - Note reasons for kills or retries
+   - Track recurring issues for pattern analysis
+
+#### Permission Error Handling
+
+If you attempt to modify another user's job without Job Interaction enabled, you'll receive an error message:
+
+```
+You do not have permissions to kill some of the selected jobs owned by <USERNAME>
+
+Job actions can still be enabled at File > Enable Job Interaction, but caution is advised.
+```
+
+This confirms the action was blocked and provides guidance for enabling permissions.
+
+#### Use Cases for Administrators
+
+**Enable Job Interaction when**:
+- Performing daily render farm maintenance
+- Retrying jobs across multiple shows/users
+- Responding to production emergencies
+- Clearing dead frames during off-hours
+- Managing jobs for users who are unavailable
+
+**Typical Administrative Workflow**:
+1. Enable Job Interaction at session start
+2. Monitor jobs across all users
+3. Retry dead frames or kill problematic jobs as needed
+4. Document interventions for tracking
+5. Job Interaction remains enabled for the session
+
 ---
 
 ## Troubleshooting
