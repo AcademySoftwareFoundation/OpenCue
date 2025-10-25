@@ -221,22 +221,21 @@ class CueNIMBYTray:
         from . import __version__
 
         # Always use native dialogs for About (more reliable than notifications)
+        about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\n"
+        about_message += f"Host: {self.monitor.hostname}\n\nCuebot: {self.monitor.cuebot_host}:{self.monitor.cuebot_port}"
         try:
             if sys.platform == "darwin":  # macOS
                 # For AppleScript, use return for newlines
-                about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
                 # Escape quotes and replace newlines with 'return' for AppleScript
                 escaped_message = about_message.replace('"', '\\"').replace('\n', '" & return & "')
                 script = f'display dialog "{escaped_message}" with title "About CueNIMBY" buttons {{"OK"}} default button "OK"'
                 subprocess.run(["osascript", "-e", script], check=False)
                 logger.info(f"About CueNIMBY: {about_message}")
             elif sys.platform == "win32":  # Windows
-                about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
                 import ctypes
                 ctypes.windll.user32.MessageBoxW(0, about_message, "About CueNIMBY", 0)
                 logger.info(f"About CueNIMBY: {about_message}")
             else:  # Linux
-                about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
                 # Try zenity or kdialog
                 try:
                     subprocess.run(["zenity", "--info", "--title=About CueNIMBY", f"--text={about_message}"], check=False)
@@ -254,8 +253,6 @@ class CueNIMBYTray:
         except Exception as e:
             logger.error(f"Failed to show about dialog: {e}")
             # Fallback to console output
-            from . import __version__
-            about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\nHost: {self.monitor.hostname}"
             print(f"\nAbout CueNIMBY\n{about_message}\n")
 
     def _open_config(self, icon, item) -> None:
