@@ -30,24 +30,17 @@ logger = logging.getLogger(__name__)
 
 class HostState(Enum):
     """Host state enumeration."""
-    STARTING = "starting"
-    AVAILABLE = "available"
-    WORKING = "working"
-    NIMBY_LOCKED = "nimby locked"
-    HOST_DOWN = "host down" # RQD not running
-    HOST_LOCKED = "host locked" # Host disabled
-    NO_HOST = "no host" # Host not found in Cuebot
-    HOST_LAGGING = "host lagging" # Ping is above 60sec
-    ERROR = "error"
-    UNKNOWN = "unknown"
-
-
-class CuebotState(Enum):
-    """Cuebot connection state enumeration."""
-    FETCHING = "fetching"
-    REACHABLE = "reachable"
-    UNREACHABLE = "unreachable"
-    UNKNOWN = "unknown"
+    STARTING = "Starting"
+    AVAILABLE = "Available"
+    WORKING = "Working"
+    NIMBY_LOCKED = "🔒 NIMBY locked"
+    HOST_LOCKED = "🔒 Host locked"
+    HOST_DOWN = "❌ Host down, RQD is not running"
+    NO_HOST = "❌ Machine not found on CueBot, check if RQD is running"
+    HOST_LAGGING = "⚠️ Host ping above limit (60sec), check if RQD is running"
+    CUEBOT_UNREACHABLE = "❌ CueBot unreachable"
+    ERROR = "❌ Error"
+    UNKNOWN = "⚠️ Unknown status..."
 
 
 class HostMonitor:
@@ -81,7 +74,6 @@ class HostMonitor:
         self._running_frames: List[str] = []
 
         self._current_state = HostState.UNKNOWN
-        self._cuebot_state = CuebotState.UNKNOWN
 
         # Callbacks
         self._state_change_callbacks: List[Callable[[HostState, HostState], None]] = []
@@ -112,27 +104,15 @@ class HostMonitor:
         for callback in self._state_change_callbacks:
             callback(old_state, new_state)
 
-    @property
-    def cuebot_state(self) -> CuebotState:
-        """Get current Cuebot connection state."""
-        return self._cuebot_state
-    
-    @cuebot_state.setter
-    def cuebot_state(self, state: CuebotState) -> None:
-        """Set current Cuebot connection state."""
-        self._cuebot_state = state
-
     def _init_cuebot(self) -> None:
         """Initialize connection to Cuebot."""
         self.current_state = HostState.STARTING
-        self.cuebot_state = CuebotState.FETCHING
         try:
             opencue.Cuebot.setHosts([f"{self.cuebot_host}:{self.cuebot_port}"])
         except Exception as e:
             logger.error(f"Failed to connect to Cuebot: {e}")
-            self.cuebot_state = CuebotState.UNREACHABLE
+            self.current_state = HostState.CUEBOT_UNREACHABLE
         else:
-            self.cuebot_state = CuebotState.REACHABLE
             logger.info(f"Connected to Cuebot at {self.cuebot_host}:{self.cuebot_port}")
 
     def _get_host(self) -> Optional[Host]:
@@ -140,8 +120,14 @@ class HostMonitor:
         try:
             host = opencue.api.findHost(self.hostname)
         except Exception as e:
+            if "failed to connect to all addresses" in str(e):
+                self.current_state = HostState.CUEBOT_UNREACHABLE
+                logger.error(f"Failed to contact CueBot at {self.cuebot_host}:{self.cuebot_port}")
+            elif "Object does not exist" in str(e):
+                self.current_state = HostState.NO_HOST
+            else:
+                self.current_state = HostState.UNKNOWN
             logger.error(f"Failed to find host {self.hostname}: {e}")
-            self.current_state = HostState.NO_HOST
             return None
         else:
             self.current_state = self._determine_state(host)

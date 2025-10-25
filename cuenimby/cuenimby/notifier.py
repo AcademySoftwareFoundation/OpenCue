@@ -167,28 +167,28 @@ class Notifier:
     def notify_nimby_locked(self) -> None:
         """Notify when NIMBY locks the host."""
         self.notify(
-            "OpenCue - NIMBY Locked",
+            "OpenCue - NIMBY Locked 🔒",
             "RQD locked due to user activity. Rendering stopped."
         )
 
     def notify_nimby_unlocked(self) -> None:
         """Notify when NIMBY unlocks the host."""
         self.notify(
-            "OpenCue - NIMBY Unlocked",
+            "OpenCue - NIMBY Unlocked 🔓",
             "RQD available for rendering."
         )
 
     def notify_manual_lock(self) -> None:
         """Notify when user manually locks the host."""
         self.notify(
-            "OpenCue - Host Disabled",
+            "OpenCue - Host Disabled 🔒",
             "RQD manually disabled for rendering."
         )
 
     def notify_manual_unlock(self) -> None:
         """Notify when user manually unlocks the host."""
         self.notify(
-            "OpenCue - Host Enabled",
+            "OpenCue - Host Enabled 🔓",
             "RQD enabled for rendering."
         )
     
@@ -223,3 +223,11 @@ class Notifier:
             "OpenCue - Error",
             error_message
         )
+        
+    def notify_cuebot_unreachable(self) -> None:
+        """Notify when cuebot is unreachable."""
+        self.notify(
+            "OpenCue - Cuebot Unreachable",
+            "Unable to contact Cuebot, please check your network connection."
+        )
+        

@@ -25,7 +25,7 @@ from PIL import Image, ImageDraw
 from pystray import MenuItem as Item
 
 from .config import Config
-from .monitor import HostMonitor, HostState, CuebotState
+from .monitor import HostMonitor, HostState
 from .notifier import Notifier
 from .scheduler import NimbyScheduler
 
@@ -47,11 +47,7 @@ class CueNIMBYTray:
         HostState.NO_HOST:      "opencue-error.png",
         HostState.ERROR:        "opencue-error.png",
         HostState.UNKNOWN:      "opencue-unknown.png",
-
-        CuebotState.FETCHING:    "opencue-starting.png",
-        CuebotState.REACHABLE:   "opencue-available.png",
-        CuebotState.UNREACHABLE: "opencue-error.png",
-        CuebotState.UNKNOWN:     "opencue-unknown.png",
+        HostState.CUEBOT_UNREACHABLE: "opencue-error.png",
 
         "DEFAULT":              "opencue-default.png"
     }
@@ -103,7 +99,7 @@ class CueNIMBYTray:
         if self.icon:
             state = self.monitor.current_state
             self.icon.icon = self._get_icon(state)
-            self.icon.title = f"CueNIMBY - {state.value.title()}"
+            self.icon.title = f"CueNIMBY - {state.value}"
 
     def _on_state_change(self, old_state: HostState, new_state: HostState) -> None:
         """Handle state change.
@@ -117,7 +113,9 @@ class CueNIMBYTray:
 
         # Send notifications
         if self.notifier:
-            if new_state == HostState.NIMBY_LOCKED:
+            if new_state == HostState.CUEBOT_UNREACHABLE:
+                self.notifier.notify_cuebot_unreachable()
+            elif new_state == HostState.NIMBY_LOCKED:
                 self.notifier.notify_nimby_locked()
             elif new_state in (HostState.HOST_DOWN, HostState.NO_HOST):
                 self.notifier.notify_host_down()
@@ -327,7 +325,7 @@ class CueNIMBYTray:
         self.icon = pystray.Icon(
             "cuenimby",
             self._get_icon(state),
-            f"CueNIMBY - {state.value.title()}",
+            f"CueNIMBY - {state.value}",
             self._create_menu()
         )
 
