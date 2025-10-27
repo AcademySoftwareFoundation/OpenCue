@@ -24,6 +24,7 @@ use tokio::io::AsyncReadExt;
 use tokio::{io::AsyncBufReadExt, task::JoinHandle};
 use tracing::{error, info, trace, warn};
 
+use crate::system::OOM_REASON_MSG;
 use crate::{frame::frame_cmd::FrameCmdBuilder, system::manager::ProcessStats};
 
 use serde::{Deserialize, Serialize};
@@ -179,11 +180,67 @@ impl RunningFrame {
         }
     }
 
+    #[cfg(test)]
+    pub fn init_started_for_test(
+        request: RunFrame,
+        uid: u32,
+        config: RunnerConfig,
+        cpu_list: Option<Vec<u32>>,
+        gpu_list: Option<Vec<u32>>,
+        hostname: String,
+        duration: Duration,
+    ) -> Self {
+        let instance = Self::init(request, uid, config, cpu_list, gpu_list, hostname);
+
+        {
+            let mut state = instance
+                .state
+                .write()
+                .unwrap_or_else(|err| err.into_inner());
+
+            match &mut *state {
+                FrameState::Created(created_state) => {
+                    *state = FrameState::Running(RunningState {
+                        pid: 999, // Dummy pid
+                        start_time: SystemTime::now()
+                            .checked_sub(duration)
+                            .unwrap_or(SystemTime::now()),
+                        launch_thread_handle: created_state.launch_thread_handle.take(),
+                        kill_reason: None,
+                    });
+                }
+                FrameState::Running(running_state) => warn!(
+                    "Invalid State. Frame {} has already started {:?}",
+                    instance, running_state
+                ),
+                FrameState::Finished(_) => {
+                    warn!("Invalid States. Frame {} has already finished", instance)
+                }
+                FrameState::FailedBeforeStart => {
+                    warn!("Invalid States. Frame {} failed before starting", instance)
+                }
+            }
+        } // state is dropped here
+
+        instance
+    }
+
     pub fn update_frame_stats(&self, proc_stats: ProcessStats) {
         self.frame_stats
             .write()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .update(proc_stats);
+    }
+
+    pub fn get_duration(&self) -> Duration {
+        let state = self.state.read().unwrap_or_else(|err| err.into_inner());
+
+        match *state {
+            FrameState::Created(_) => Duration::ZERO,
+            FrameState::Running(ref r) => r.start_time.elapsed().unwrap_or(Duration::ZERO),
+            FrameState::Finished(ref r) => r.start_time.elapsed().unwrap_or(Duration::ZERO),
+            FrameState::FailedBeforeStart => Duration::ZERO,
+        }
     }
 
     pub fn get_state_copy(&self) -> FrameState {
@@ -250,13 +307,23 @@ impl RunningFrame {
         match &mut *state {
             FrameState::Created(_) => Err(miette!("Invalid State. Frame {} hasn't started", self)),
             FrameState::Running(running_state) => {
+                // Replace exit_signal to memory signal if kill_reason matches the memory check message
+                let modified_exit_signal = match &running_state.kill_reason {
+                    Some(reason) if reason.contains(OOM_REASON_MSG) => {
+                        // 33 is the error signal hardcoded on Cuebot for memory issues
+                        // (See Dispatcher.java:EXIT_STATUS_MEMORY_FAILURE)
+                        Some(33)
+                    }
+                    _ => exit_signal,
+                };
+
                 // Create a new FinishedState with the current running state values
                 let finished_state = FinishedState {
                     pid: running_state.pid,
                     start_time: running_state.start_time,
                     end_time: SystemTime::now(),
                     exit_code,
-                    exit_signal,
+                    exit_signal: modified_exit_signal,
                     kill_reason: running_state.kill_reason.clone(),
                 };
 
