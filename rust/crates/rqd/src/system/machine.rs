@@ -392,25 +392,37 @@ impl MachineMonitor {
         }
 
         self.handle_finished_frames(finished_frames).await;
-        if let Some((memory_usage, total_memory)) = self.memory_usage().await {
-            let frames_to_kill =
-                oom::choose_frames_to_kill(memory_usage, total_memory, memory_aggressors);
 
-            // Attempt to kill selected frames.
-            // Logic will ignore kill errors and try again on the next iteration
-            for frame in frames_to_kill {
-                if let Ok(manager) = manager::instance().await {
-                    let kill_result = manager
-                        .kill_running_frame(&frame.frame_id, OOM_REASON_MSG.to_string())
-                        .await;
-                    if let Err(err) = kill_result {
-                        warn!(
-                            "Failed to kill frame {} when under OOM pressure. {}",
-                            frame, err
-                        )
+        match self.memory_usage().await {
+            Some((memory_usage, total_memory))
+                if memory_usage > CONFIG.machine.memory_oom_margin_percentage =>
+            {
+                warn!(
+                    "Machine memory usage is above allowed threshold ({}). \
+                    Triggering OOM protection",
+                    CONFIG.machine.memory_oom_margin_percentage
+                );
+                let frames_to_kill =
+                    oom::choose_frames_to_kill(memory_usage, total_memory, memory_aggressors);
+
+                // Attempt to kill selected frames.
+                // Logic will ignore kill errors and try again on the next iteration
+                for frame in frames_to_kill {
+                    if let Ok(manager) = manager::instance().await {
+                        info!("Requesting a kill for {}", &frame);
+                        let kill_result = manager
+                            .kill_running_frame(&frame.frame_id, OOM_REASON_MSG.to_string())
+                            .await;
+                        if let Err(err) = kill_result {
+                            warn!(
+                                "Failed to kill frame {} when under OOM pressure. {}",
+                                frame, err
+                            )
+                        }
                     }
                 }
             }
+            _ => (),
         }
 
         // Sanitize dangling reservations
