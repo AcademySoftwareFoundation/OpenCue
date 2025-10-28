@@ -21,7 +21,7 @@ pub enum DispatchError {
     #[error("DispatchError: Allocation over burst")]
     AllocationOverBurst(String),
 
-    #[error("DispatchError: Dipatch happened but something failed after that")]
+    #[error("DispatchError: Dispatch happened but something failed after that")]
     FailureAfterDispatch(Error),
 
     #[error("DispatchError: Failed to update frame on the database")]
@@ -32,4 +32,19 @@ pub enum DispatchError {
 
     #[error("DispatchError: Failed to execute command on GRPC interface")]
     GrpcFailure(tonic::Status),
+}
+
+#[derive(Debug, Error, Diagnostic)]
+pub enum DispatchVirtualProcError {
+    #[error("Allocation over burst")]
+    AllocationOverBurst(DispatchError),
+
+    #[error("Failed to start frame on database")]
+    FailedToStartOnDb(DispatchError),
+
+    #[error("Failed to connect to RQD on host {host}")]
+    RqdConnectionFailed { host: String, error: Error },
+
+    #[error("Failure after dispatch")]
+    FailureAfterDispatch(DispatchError),
 }

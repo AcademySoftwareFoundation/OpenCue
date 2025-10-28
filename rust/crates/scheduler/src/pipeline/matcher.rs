@@ -123,8 +123,7 @@ impl MatchingService {
 
     /// Validates whether a host is suitable for a specific layer.
     ///
-    /// Currently a placeholder that always returns true. Will be implemented to check
-    /// subscription limits and other host-layer compatibility rules.
+    /// Subscriptions: Check whether this hosts' subscription can book at least one frame
     ///
     /// # Arguments
     ///
@@ -141,8 +140,6 @@ impl MatchingService {
         cores_requested: CoreSize,
         allocation_service: Arc<AllocationService>,
     ) -> bool {
-        // Check subscription limits for this host allocation
-
         if let Some(subscription) =
             allocation_service.get_subscription(&host.allocation_name, &show_id)
         {

@@ -6,16 +6,17 @@ use moka::future::Cache;
 use sqlx::{Postgres, Transaction};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tonic::transport::Channel;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::{
+    allocation::allocation_service,
     config::CONFIG,
     dao::{FrameDao, HostDao, ProcDao},
     models::{CoreSize, DispatchFrame, DispatchLayer, Host, VirtualProc},
     pgpool::begin_transaction,
     pipeline::dispatcher::{
-        error::{DispatchError, VirtualProcError},
+        error::{DispatchError, DispatchVirtualProcError, VirtualProcError},
         frame_set::FrameSet,
         messages::{DispatchLayerMessage, DispatchResult},
     },
@@ -219,15 +220,26 @@ impl RqdDispatcherService {
         // (see config queue.dispatch_frames_per_layer_limit)
         let mut allocation_capacity = host.alloc_available_cores;
         let mut dispatched_procs: Vec<String> = Vec::new();
+        let allocation_name = host.allocation_name.clone();
         let mut last_host_version = host;
         let mut processed_frames = 0;
 
+        let allocation_service = allocation_service().await.map_err(|err| {
+            DispatchError::Failure(err.wrap_err("Allocation Service is not available"))
+        })?;
+        // Use a closure for this validation to reduce the number of arguments that would be passed
+        // to dispatch_virtual_proc.
+        let is_subscription_bookable = |cores_requested| {
+            matches!(allocation_service.get_subscription(&allocation_name, &layer.show_id),
+                Some(subscription) if subscription.bookable(&cores_requested)
+            )
+        };
+
         // Deliberately cloning the layer to avoid requiring a mutable reference
         let mut layer = layer.clone();
+        let mut last_error = None;
 
         for frame in &layer.frames {
-            debug!("found frame {}", frame);
-
             match Self::consume_host_virtual_resources(
                 frame,
                 &last_host_version,
@@ -236,46 +248,51 @@ impl RqdDispatcherService {
             .await
             {
                 Ok((virtual_proc, updated_host)) => {
-                    debug!("Built virtual proc {}", virtual_proc);
-
-                    // Check allocation capacity
-                    let cores_reserved_without_multiplier: CoreSize =
-                        virtual_proc.cores_reserved.into();
-                    if cores_reserved_without_multiplier > allocation_capacity {
-                        Err(DispatchError::AllocationOverBurst(
-                            updated_host.allocation_name.clone(),
-                        ))?;
-                    };
-                    allocation_capacity = allocation_capacity - virtual_proc.cores_reserved.into();
-
-                    // When running on dry_run_mode, just log the outcome
-                    self.frame_dao
-                        .update_frame_started(transaction, &virtual_proc)
+                    match self
+                        .dispatch_virtual_proc(
+                            virtual_proc,
+                            updated_host,
+                            transaction,
+                            &is_subscription_bookable,
+                            allocation_capacity,
+                        )
                         .await
-                        .map_err(DispatchError::FailedToStartOnDb)?;
-
-                    if self.dry_run_mode {
-                        info!(
-                            "(DRY_RUN) Dispatching {} on {}",
-                            virtual_proc, &updated_host
-                        );
-                    } else {
-                        self.launch_on_rqd(&virtual_proc, &updated_host, true)
-                            .await?;
+                    {
+                        Ok((new_host, new_allocation_capacity)) => {
+                            dispatched_procs.push(new_host.to_string());
+                            allocation_capacity = new_allocation_capacity;
+                            last_host_version = new_host;
+                            processed_frames += 1;
+                        }
+                        Err(DispatchVirtualProcError::AllocationOverBurst(err)) => {
+                            info!("Subscription limit extinguished! {err}");
+                            last_error = Some(err);
+                            break;
+                        }
+                        Err(DispatchVirtualProcError::FailedToStartOnDb(err)) => {
+                            // Something is not right with this frame on the database.
+                            // log error and give the next frame a chance. If there was
+                            // already an error like this on previous frames, give up.
+                            if last_error.is_some() {
+                                break;
+                            }
+                            warn!("Failed to start frame for layer {} on Db. {}", layer, err);
+                            last_error = Some(err);
+                            continue;
+                        }
+                        Err(DispatchVirtualProcError::RqdConnectionFailed { host, error }) => {
+                            // An error here means connection with this host is probably broken,
+                            // there's no reason to attempt the next frame
+                            warn!(
+                                "Failed to connect to rqd on {} to launch frame. {}",
+                                host, error
+                            );
+                            break;
+                        }
+                        Err(DispatchVirtualProcError::FailureAfterDispatch(err)) => {
+                            return Err(err);
+                        }
                     }
-                    // Update database resources
-                    self.host_dao
-                        .update_resources(transaction, &updated_host)
-                        .await
-                        .map_err(DispatchError::FailureAfterDispatch)?;
-
-                    self.proc_dao
-                        .insert(transaction, &virtual_proc)
-                        .await
-                        .map_err(DispatchError::FailureAfterDispatch)?;
-                    dispatched_procs.push(virtual_proc.to_string());
-                    last_host_version = updated_host;
-                    processed_frames += 1;
                 }
                 Err(err) => match err {
                     VirtualProcError::HostResourcesExtinguished(msg) => {
@@ -300,7 +317,87 @@ impl RqdDispatcherService {
                 debug!("{}", proc);
             }
         }
+        if let Some(error) = last_error {
+            warn!("Wasn't able to dispatch all frames: {}", error)
+        }
         Ok((last_host_version, layer))
+    }
+
+    /// Dispatches a virtual proc to a host, handling allocation checks, database updates, and RQD communication.
+    ///
+    /// This function encapsulates the complete dispatch process for a single virtual proc:
+    /// 1. Validates allocation capacity against subscription limits
+    /// 2. Updates frame status in the database
+    /// 3. Launches the frame on RQD (or logs in dry-run mode)
+    /// 4. Updates host resources and proc records in the database
+    ///
+    /// # Arguments
+    /// * `virtual_proc` - The virtual proc to dispatch
+    /// * `updated_host` - The host with updated resource allocations
+    /// * `transaction` - Database transaction for atomic updates
+    /// * `is_subscription_bookable` - Closure to check if subscription can accept more cores
+    /// * `allocation_capacity` - Current available allocation capacity
+    ///
+    /// # Returns
+    /// On success, returns a tuple of (updated host, new allocation capacity).
+    /// On failure, returns a `DispatchVirtualProcError` indicating the specific failure mode.
+    async fn dispatch_virtual_proc(
+        &self,
+        virtual_proc: VirtualProc,
+        host: Host,
+        transaction: &mut Transaction<'_, Postgres>,
+        is_subscription_bookable: &impl Fn(CoreSize) -> bool,
+        allocation_capacity: CoreSize,
+    ) -> Result<(Host, CoreSize), DispatchVirtualProcError> {
+        debug!("Built virtual proc {}", virtual_proc);
+        let cores_reserved_without_multiplier: CoreSize = virtual_proc.cores_reserved.into();
+
+        // Check allocation capacity in two ways
+        //  - Check the cached subscription to account for external bookings
+        //  - Check for cores consumed by this dispatcher iteration
+        if !is_subscription_bookable(cores_reserved_without_multiplier)
+            || cores_reserved_without_multiplier > allocation_capacity
+        {
+            return Err(DispatchVirtualProcError::AllocationOverBurst(
+                DispatchError::AllocationOverBurst(host.allocation_name.clone()),
+            ));
+        }
+        let new_allocation_capacity = allocation_capacity - virtual_proc.cores_reserved.into();
+
+        // Update database
+        self.frame_dao
+            .update_frame_started(transaction, &virtual_proc)
+            .await
+            .map_err(|err| {
+                DispatchVirtualProcError::FailedToStartOnDb(DispatchError::FailedToStartOnDb(err))
+            })?;
+
+        // When running on dry_run_mode, just log the outcome
+        if self.dry_run_mode {
+            info!("(DRY_RUN) Dispatching {} on {}", virtual_proc, &host);
+        } else {
+            self.launch_on_rqd(&virtual_proc, &host, true)
+                .await
+                .map_err(|err| DispatchVirtualProcError::RqdConnectionFailed {
+                    host: host.to_string(),
+                    error: miette!("{}", err),
+                })?;
+        }
+
+        // Update database resources
+        self.host_dao
+            .update_resources(transaction, &host)
+            .await
+            .map_err(DispatchError::FailureAfterDispatch)
+            .map_err(DispatchVirtualProcError::FailureAfterDispatch)?;
+
+        self.proc_dao
+            .insert(transaction, &virtual_proc)
+            .await
+            .map_err(DispatchError::FailureAfterDispatch)
+            .map_err(DispatchVirtualProcError::FailureAfterDispatch)?;
+
+        Ok((host, new_allocation_capacity))
     }
 
     async fn launch_on_rqd(
