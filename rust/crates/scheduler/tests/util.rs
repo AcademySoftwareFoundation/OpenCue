@@ -79,6 +79,7 @@ pub fn create_test_config() -> Config {
             empty_job_cycles_before_quiting: Some(20),
             mem_reserved_min: bytesize::ByteSize::mb(250),
             allocation_refresh_interval: Duration::from_secs(3),
+            selfish_services: Vec::new(),
         },
         database: DatabaseConfig {
             pool_size: 20,

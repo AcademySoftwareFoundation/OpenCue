@@ -85,6 +85,7 @@ pub struct LayerWithFramesModel {
     pub str_services: Option<String>,
     pub int_layer_cores_max: Option<i32>,
     pub int_version: Option<i32>,
+    pub str_loki_url: Option<String>,
 }
 
 impl DispatchLayer {
@@ -145,6 +146,7 @@ WITH dispatch_frames AS (
         j.str_user,
         j.int_uid,
         j.str_log_dir,
+        j.str_loki_url,
         l.str_name as str_layer_name,
         j.str_name as str_job_name,
         j.int_min_cores,
@@ -222,7 +224,8 @@ SELECT DISTINCT
     lf.int_layer_cores_max,
     lf.int_version,
     lf.int_dispatch_order,
-    lf.int_layer_order
+    lf.int_layer_order,
+    lf.str_loki_url
 FROM job j
     INNER JOIN layer l ON j.pk_job = l.pk_job
     INNER JOIN layer_stat ls on l.pk_layer = ls.pk_layer
@@ -350,6 +353,7 @@ impl LayerDao {
                     str_os: model.str_os.clone(),
                     int_layer_cores_max: model.int_layer_cores_max.unwrap_or(0),
                     int_version: model.int_version.unwrap_or(1),
+                    str_loki_url: model.str_loki_url,
                 })
             } else {
                 None

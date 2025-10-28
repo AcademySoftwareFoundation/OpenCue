@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Transaction};
 use thiserror::Error;
 
-use crate::models::{CoreSize, DispatchFrame, VirtualProc};
+use crate::{
+    config::CONFIG,
+    models::{CoreSize, DispatchFrame, VirtualProc},
+};
 
 /// Data Access Object for frame operations in the job dispatch system.
 ///
@@ -55,12 +58,27 @@ pub struct DispatchFrameModel {
     pub str_os: Option<String>,
     pub int_layer_cores_max: i32,
     pub int_version: i32,
+    pub str_loki_url: Option<String>,
 }
 
 impl From<DispatchFrameModel> for DispatchFrame {
     fn from(val: DispatchFrameModel) -> Self {
+        // Little closure to match a frames' list of services to the hardcode list of
+        // selfish services.
+        //
+        // TODO: The definitive solution for selfish services will require changes to the db,
+        // which at this moment would greatly impact the ability to deploy this scheduler on
+        // an active render farm. For now, read the list of servives from the config file,
+        // similar to Cuebot's approach
+        let has_selfish_service = |services: Vec<String>| {
+            CONFIG
+                .queue
+                .selfish_services
+                .iter()
+                .any(|item| services.contains(item))
+        };
+
         DispatchFrame {
-            // id: Uuid::parse_str(&val.pk_host).unwrap_or_default(),
             id: val.pk_frame,
             frame_name: val.str_frame_name,
             show_id: val.pk_show,
@@ -90,14 +108,16 @@ impl From<DispatchFrameModel> for DispatchFrame {
                 .expect("int_gpus_min should fit on a i32"),
             min_gpu_memory: ByteSize::kb(val.int_gpu_mem_min as u64),
             min_memory: ByteSize::kb(val.int_mem_min as u64),
-            services: val.str_services,
+            services: val.str_services.clone(),
             os: val.str_os,
-            // TODO: fill up from config, or update database schema
-            loki_url: None,
+            loki_url: val.str_loki_url,
             layer_cores_limit: (val.int_layer_cores_max > 0)
                 .then(|| CoreSize::from_multiplied(val.int_layer_cores_max)),
-            // TODO: Implement a better solution for handling selfish services
-            has_selfish_service: false,
+            has_selfish_service: has_selfish_service(
+                val.str_services
+                    .map(|services| services.split(",").map(|v| v.to_string()).collect())
+                    .unwrap_or_default(),
+            ),
             version: val.int_version as u32,
         }
     }

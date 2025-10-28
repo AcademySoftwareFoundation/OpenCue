@@ -72,6 +72,7 @@ pub struct QueueConfig {
     pub mem_reserved_min: ByteSize,
     #[serde(with = "humantime_serde")]
     pub allocation_refresh_interval: Duration,
+    pub selfish_services: Vec<String>,
 }
 
 impl Default for QueueConfig {
@@ -90,6 +91,7 @@ impl Default for QueueConfig {
             empty_job_cycles_before_quiting: None,
             mem_reserved_min: ByteSize::mib(250),
             allocation_refresh_interval: Duration::from_secs(3),
+            selfish_services: Vec::new(),
         }
     }
 }
