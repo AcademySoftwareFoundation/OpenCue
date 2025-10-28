@@ -183,6 +183,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                     DispatchHost host = new DispatchHost();
                     host.id = rs.getString("pk_host");
                     host.allocationId = rs.getString("pk_alloc");
+                    host.allocationName = rs.getString("str_alloc_name");
                     host.facilityId = rs.getString("pk_facility");
                     host.name = rs.getString("str_name");
                     host.lockState = LockState.valueOf(rs.getString("str_lock_state"));
@@ -204,7 +205,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             };
 
     public static final String GET_DISPATCH_HOST = "SELECT " + "host.pk_host," + "host.pk_alloc,"
-            + "host.str_name," + "host.str_lock_state, " + "host.int_cores, "
+            + "alloc.str_alloc_name, " + "host.str_name," + "host.str_lock_state, " + "host.int_cores, "
             + "host.int_cores_idle, " + "host.int_mem," + "host.int_mem_idle, " + "host.int_gpus, "
             + "host.int_gpus_idle, " + "host.int_gpu_mem," + "host.int_gpu_mem_idle, "
             + "host.b_nimby, " + "host.int_thread_mode, " + "host.str_tags, " + "host_stat.str_os, "
