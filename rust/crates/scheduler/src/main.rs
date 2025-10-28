@@ -1,4 +1,3 @@
-#![feature(duration_constructors)]
 use std::str::FromStr;
 
 use miette::{Context, IntoDiagnostic, miette};

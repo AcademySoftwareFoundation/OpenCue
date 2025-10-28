@@ -1,4 +1,3 @@
-#![feature(duration_constructors)]
 pub mod allocation;
 pub mod cluster;
 pub mod cluster_key;

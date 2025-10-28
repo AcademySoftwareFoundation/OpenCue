@@ -26,7 +26,9 @@ pub async fn connection_pool() -> Result<Arc<Pool<Postgres>>, sqlx::Error> {
                 .max_connections(config.pool_size)
                 .idle_timeout(Duration::from_secs(30))
                 .acquire_timeout(Duration::from_secs(30))
-                .max_lifetime(Duration::from_hours(1))
+                // 1 hour. (from_hours is still an experimental feature,
+                // see issue #140881 <https://github.com/rust-lang/rust/issues/140881> for more information)
+                .max_lifetime(Duration::from_secs(60 * 60))
                 .connect(&config.connection_url)
                 .await?;
             Ok(Arc::new(pool))

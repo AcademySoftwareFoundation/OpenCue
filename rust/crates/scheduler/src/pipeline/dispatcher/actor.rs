@@ -127,8 +127,10 @@ impl RqdDispatcherService {
     ) -> Result<Self> {
         let rqd_connection_cache = Cache::builder()
             .max_capacity(100)
-            .time_to_idle(Duration::from_mins(10))
-            .time_to_live(Duration::from_hours(3))
+            // 10 min. (from_hours is still an experimental feature)
+            .time_to_idle(Duration::from_secs(10 * 60))
+            // 2 hours. (from_hours is still an experimental feature)
+            .time_to_live(Duration::from_secs(3 * 60 * 60))
             .build();
 
         Ok(RqdDispatcherService {
