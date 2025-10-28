@@ -231,3 +231,9 @@ class Notifier:
             "Unable to contact Cuebot, please check your network connection."
         )
         
+    def notify_host_repairing(self) -> None:
+        """Notify when host is under repair."""
+        self.notify(
+            "OpenCue - Host Under Repair",
+            "Host is under repair and not available for rendering."
+        )

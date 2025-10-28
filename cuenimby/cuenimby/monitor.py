@@ -41,6 +41,7 @@ class HostState(Enum):
     HOST_LAGGING = f"⚠️ Host ping above limit ({HOST_PING_LIMIT} sec), check if RQD is running"
     CUEBOT_UNREACHABLE = "❌ CueBot unreachable"
     ERROR = "❌ Error"
+    REPAIR = "🔧 Under Repair, check with your tech team..."
     UNKNOWN = "⚠️ Unknown status..."
 
 
@@ -146,12 +147,15 @@ class HostMonitor:
         try:
             # Check lock state
             lock_state = host.lockState()
+            state = host.state()
 
             if lock_state == host_pb2.LockState.Value('NIMBY_LOCKED'):
                 return HostState.NIMBY_LOCKED
             elif lock_state == host_pb2.LockState.Value('LOCKED'):
                 return HostState.HOST_LOCKED
-            elif not host.isUp():
+            elif state == host_pb2.HardwareState.Value('REPAIR'):
+                return HostState.REPAIR
+            elif state == host_pb2.HardwareState.Value('DOWN'):
                 return HostState.HOST_DOWN
 
             # Check if working
@@ -163,9 +167,10 @@ class HostMonitor:
             if lock_state == host_pb2.LockState.Value('OPEN'):
                 if host.pingLast() > HOST_PING_LIMIT:
                     return HostState.HOST_LAGGING
-                return HostState.AVAILABLE
-
+                if state == host_pb2.HardwareState.Value('UP'):
+                    return HostState.AVAILABLE
             return HostState.UNKNOWN
+        
         except Exception as e:
             logger.error(f"Failed to determine state: {e}")
             return HostState.UNKNOWN

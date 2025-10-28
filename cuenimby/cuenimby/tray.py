@@ -43,11 +43,12 @@ class CueNIMBYTray:
         HostState.NIMBY_LOCKED: "opencue-disabled.png",
         HostState.HOST_DOWN:    "opencue-disabled.png",
         HostState.HOST_LOCKED:  "opencue-disabled.png",
-        HostState.HOST_LAGGING: "opencue-warning.png",
         HostState.NO_HOST:      "opencue-error.png",
+        HostState.HOST_LAGGING: "opencue-warning.png",
+        HostState.CUEBOT_UNREACHABLE: "opencue-error.png",
         HostState.ERROR:        "opencue-error.png",
         HostState.UNKNOWN:      "opencue-unknown.png",
-        HostState.CUEBOT_UNREACHABLE: "opencue-error.png",
+        HostState.REPAIR:      "opencue-repair.png",
 
         "DEFAULT":              "opencue-default.png"
     }
@@ -121,6 +122,8 @@ class CueNIMBYTray:
                 self.notifier.notify_host_down()
             elif new_state == HostState.HOST_LAGGING:
                 self.notifier.notify_host_lagging()
+            elif new_state == HostState.REPAIR:
+                self.notifier.notify_host_repairing()
             elif old_state == HostState.NIMBY_LOCKED:
                 if new_state == HostState.AVAILABLE:
                     self.notifier.notify_nimby_unlocked()
