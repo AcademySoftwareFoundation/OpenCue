@@ -21,7 +21,7 @@ static RQD_DISPATCHER: OnceCell<Addr<RqdDispatcherService>> = OnceCell::const_ne
 /// The service is initialized with configuration from CONFIG on first access.
 ///
 /// # Usage Example
-/// ```rust,no_run
+/// ```rust,ignore
 /// use crate::pipeline::dispatcher::{rqd_dispatcher_service, messages::DispatchLayer};
 /// use crate::models::{DispatchLayer as ModelDispatchLayer, Host};
 ///

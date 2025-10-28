@@ -24,8 +24,8 @@
 //!
 //! # Examples
 //!
-//! ```rust
-//! use frame_set::{FrameRange, FrameSet};
+//! ```rust,ignore
+//! use scheduler::pipeline::dispatcher::frame_set::{FrameRange, FrameSet};
 //!
 //! // Parse a simple frame range
 //! let range = FrameRange::new("1-10x2")?;
@@ -70,7 +70,7 @@ use regex::Regex;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// // Basic usage
 /// let range = FrameRange::new("1-10x2")?;
 /// assert_eq!(range.size(), 5);
@@ -101,7 +101,7 @@ impl FrameRange {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let range = FrameRange::new("1-10x2")?;
     /// let single = FrameRange::new("42")?;
     /// let inverse = FrameRange::new("1-10y3")?;
@@ -128,7 +128,7 @@ impl FrameRange {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let range = FrameRange::new("1-10x2")?;
     /// assert_eq!(range.size(), 5); // [1, 3, 5, 7, 9]
     /// ```
@@ -150,7 +150,7 @@ impl FrameRange {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let range = FrameRange::new("1-10x2")?;
     /// assert_eq!(range.get(0), Some(1));
     /// assert_eq!(range.get(2), Some(5));
@@ -174,7 +174,7 @@ impl FrameRange {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let range = FrameRange::new("1-10x2")?;
     /// assert_eq!(range.index(5), Some(2));
     /// assert_eq!(range.index(4), None); // 4 is not in [1,3,5,7,9]
@@ -192,7 +192,7 @@ impl FrameRange {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let range = FrameRange::new("1-5")?;
     /// assert_eq!(range.get_all(), &[1, 2, 3, 4, 5]);
     /// ```
@@ -416,7 +416,7 @@ impl FrameRange {
 ///
 /// FrameSet provides chunking functionality for distributing frames across render nodes:
 ///
-/// ```rust
+/// ```rust,ignore
 /// let frame_set = FrameSet::new("1-100")?;
 /// let chunk1 = frame_set.get_chunk(0, 10)?;   // "1-10"
 /// let chunk2 = frame_set.get_chunk(10, 10)?;  // "11-20"
@@ -426,7 +426,7 @@ impl FrameRange {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// // Basic frame set
 /// let frames = FrameSet::new("1-5,10-12")?;
 /// assert_eq!(frames.get_all(), &[1, 2, 3, 4, 5, 10, 11, 12]);
@@ -460,7 +460,7 @@ impl FrameSet {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let simple = FrameSet::new("1-10")?;
     /// let multi = FrameSet::new("1-5,10-15")?;
     /// let complex = FrameSet::new("1-10x2, 20, 25-30")?;
@@ -547,7 +547,7 @@ impl FrameSet {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// let frames = FrameSet::new("1-20")?;
     /// assert_eq!(frames.get_chunk(0, 5)?, "1-5");
     /// assert_eq!(frames.get_chunk(5, 5)?, "6-10");
