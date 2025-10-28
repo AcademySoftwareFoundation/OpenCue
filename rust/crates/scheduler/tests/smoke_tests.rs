@@ -1,16 +1,4 @@
 mod util;
-use std::time::Duration;
-
-use scheduler::{
-    cluster::{Cluster, ClusterFeed},
-    cluster_key::{ClusterKey, Tag, TagType},
-    pipeline,
-};
-use tracing::info;
-use tracing_test::traced_test;
-use uuid::Uuid;
-
-use crate::util::WaitingFrameClause;
 
 /// Smoke tests to exercice some scenarios
 ///
@@ -44,6 +32,18 @@ use crate::util::WaitingFrameClause;
 /// ```
 #[cfg(all(test, feature = "smoke-tests"))]
 mod scheduler_smoke_test {
+    use std::time::Duration;
+
+    use scheduler::{
+        cluster::{Cluster, ClusterFeed},
+        cluster_key::{ClusterKey, Tag, TagType},
+        pipeline,
+    };
+    use tracing::info;
+    use tracing_test::traced_test;
+    use uuid::Uuid;
+
+    use crate::util::WaitingFrameClause;
     use std::sync::Arc;
 
     use scheduler::{config::OVERRIDE_CONFIG, pgpool::connection_pool};

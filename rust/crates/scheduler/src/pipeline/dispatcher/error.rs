@@ -25,7 +25,7 @@ pub enum DispatchError {
     FailureAfterDispatch(Error),
 
     #[error("DispatchError: Failed to update frame on the database")]
-    FailedToStartOnDb(Error),
+    FailedToStartOnDb(sqlx::Error),
 
     #[error("DispatchError: Failed to open a GRPC connection")]
     FailureGrpcConnection(String, Error),
@@ -41,6 +41,9 @@ pub enum DispatchVirtualProcError {
 
     #[error("Failed to start frame on database")]
     FailedToStartOnDb(DispatchError),
+
+    #[error("Failed to lock frame on database")]
+    FailedToLockFrameForStart(),
 
     #[error("Failed to connect to RQD on host {host}")]
     RqdConnectionFailed { host: String, error: Error },

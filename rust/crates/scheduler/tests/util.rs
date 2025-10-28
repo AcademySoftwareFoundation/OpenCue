@@ -47,6 +47,7 @@ pub async fn test_connection_pool() -> Result<Arc<Pool<Postgres>>, sqlx::Error> 
         .map(Arc::clone)
 }
 
+#[allow(dead_code)]
 pub fn create_test_config() -> Config {
     let connection_url = format!(
         "postgresql://{}:{}@{}:{}/{}",
@@ -1001,6 +1002,7 @@ pub enum WaitingFrameClause {
     JobPrefix(String),
 }
 
+#[allow(dead_code)]
 pub async fn get_waiting_frames_count(clause: WaitingFrameClause) -> usize {
     let pool = test_connection_pool().await.unwrap();
     match clause {

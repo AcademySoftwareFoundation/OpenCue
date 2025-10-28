@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::{
     allocation::allocation_service,
     config::CONFIG,
-    dao::{FrameDao, HostDao, ProcDao},
+    dao::{FrameDao, FrameDaoError, HostDao, ProcDao},
     models::{CoreSize, DispatchFrame, DispatchLayer, Host, VirtualProc},
     pgpool::begin_transaction,
     pipeline::dispatcher::{
@@ -240,6 +240,8 @@ impl RqdDispatcherService {
         let mut last_error = None;
 
         for frame in &layer.frames {
+            let frame_name = frame.frame_name.clone();
+
             match Self::consume_host_virtual_resources(
                 frame,
                 &last_host_version,
@@ -276,8 +278,17 @@ impl RqdDispatcherService {
                             if last_error.is_some() {
                                 break;
                             }
-                            warn!("Failed to start frame for layer {} on Db. {}", layer, err);
+                            warn!("Failed to start frame {} on Db. {}", frame_name, err);
                             last_error = Some(err);
+                            continue;
+                        }
+                        Err(DispatchVirtualProcError::FailedToLockFrameForStart()) => {
+                            // This frame is compromised, skip to the next
+                            info!(
+                                "Frame {} couldn't be locked on the database. \
+                                Version probably changed during dispatch",
+                                frame_name
+                            );
                             continue;
                         }
                         Err(DispatchVirtualProcError::RqdConnectionFailed { host, error }) => {
@@ -305,6 +316,7 @@ impl RqdDispatcherService {
                 },
             }
         }
+
         if dispatched_procs.is_empty() {
             info!(
                 "Found no frames on {} to dispatch to {}",
@@ -317,6 +329,7 @@ impl RqdDispatcherService {
                 debug!("{}", proc);
             }
         }
+
         if let Some(error) = last_error {
             warn!("Wasn't able to dispatch all frames: {}", error)
         }
@@ -368,8 +381,13 @@ impl RqdDispatcherService {
         self.frame_dao
             .update_frame_started(transaction, &virtual_proc)
             .await
-            .map_err(|err| {
-                DispatchVirtualProcError::FailedToStartOnDb(DispatchError::FailedToStartOnDb(err))
+            .map_err(|err| match err {
+                FrameDaoError::FailedToLockForUpdate(_) => {
+                    DispatchVirtualProcError::FailedToLockFrameForStart()
+                }
+                FrameDaoError::DbFailure(err) => DispatchVirtualProcError::FailedToStartOnDb(
+                    DispatchError::FailedToStartOnDb(err),
+                ),
             })?;
 
         // When running on dry_run_mode, just log the outcome

@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock, atomic::AtomicBool},
+    sync::{Arc, RwLock},
 };
 
 use miette::Result;
@@ -16,16 +16,6 @@ pub struct AllocationService {
 }
 
 static ALLOCATION_SERVICE: OnceCell<Arc<AllocationService>> = OnceCell::const_new();
-
-// pub async fn allocation_service() -> Result<Arc<AllocationService>> {
-//     Ok(ALLOCATION_SERVICE
-//         .get_or_try_init(|| async {
-//             let service = AllocationService::init().await?;
-
-//             Ok(Arc::new(service))
-//         })?
-//         .clone())
-// }
 
 pub async fn allocation_service() -> Result<Arc<AllocationService>> {
     ALLOCATION_SERVICE
@@ -50,10 +40,7 @@ impl AllocationService {
         };
 
         // Fetch data at init to avoid having to wait for a loop iteration to fill up the cache
-        let subs = allocation_dao
-            .get_subscriptions_by_show()
-            .await
-            .expect("Failed to fetch list of subscriptions.");
+        let subs = allocation_dao.get_subscriptions_by_show().await?;
         let mut lock = cache.write().unwrap_or_else(|poison| poison.into_inner());
         *lock = subs;
 

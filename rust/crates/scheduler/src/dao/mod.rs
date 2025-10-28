@@ -15,3 +15,4 @@ pub use layer_dao::LayerDao;
 pub use proc_dao::ProcDao;
 
 pub use allocation_dao::{AllocationName, ShowId};
+pub use frame_dao::FrameDaoError;

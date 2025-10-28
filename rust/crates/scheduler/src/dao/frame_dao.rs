@@ -1,7 +1,8 @@
 use bytesize::{ByteSize, KB};
-use miette::{Context, IntoDiagnostic, Result};
+use miette::{Diagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Transaction};
+use thiserror::Error;
 
 use crate::models::{CoreSize, DispatchFrame, VirtualProc};
 
@@ -114,6 +115,30 @@ impl FrameDao {
         Ok(FrameDao {})
     }
 
+    pub async fn lock_for_update(
+        &self,
+        transaction: &mut Transaction<'_, Postgres>,
+        frame: &DispatchFrame,
+    ) -> Result<(), FrameDaoError> {
+        sqlx::query(
+            r#"
+        SELECT pk_frame
+          FROM frame
+         WHERE pk_frame = $1
+           AND str_state = 'WAITING'
+           AND int_version = $2
+           FOR UPDATE NOWAIT
+        "#,
+        )
+        .bind(frame.id.clone())
+        .bind(frame.version as i32)
+        .fetch_one(&mut **transaction)
+        .await
+        .map_err(FrameDaoError::FailedToLockForUpdate)?;
+
+        Ok(())
+    }
+
     /// Updates a frame's state to RUNNING and assigns it to a host.
     ///
     /// Atomically transitions a frame from WAITING to RUNNING state, recording
@@ -133,7 +158,10 @@ impl FrameDao {
         &self,
         transaction: &mut Transaction<'_, Postgres>,
         virtual_proc: &VirtualProc,
-    ) -> Result<()> {
+    ) -> Result<(), FrameDaoError> {
+        self.lock_for_update(transaction, &virtual_proc.frame)
+            .await?;
+
         sqlx::query(
             r#"
             UPDATE frame SET
@@ -177,9 +205,17 @@ impl FrameDao {
         .bind(virtual_proc.frame.version as i32)
         .execute(&mut **transaction)
         .await
-        .into_diagnostic()
-        .wrap_err("Failed to start frame on database")?;
+        .map_err(FrameDaoError::DbFailure)?;
 
         Ok(())
     }
+}
+
+#[derive(Debug, Error, Diagnostic)]
+pub enum FrameDaoError {
+    #[error("Failed to lock frame for update. Frame possibly changed before being dispatched")]
+    FailedToLockForUpdate(sqlx::Error),
+
+    #[error("Failed to execute query")]
+    DbFailure(sqlx::Error),
 }
