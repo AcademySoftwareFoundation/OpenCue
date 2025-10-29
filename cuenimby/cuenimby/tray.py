@@ -19,6 +19,7 @@ import os
 import subprocess
 import sys
 from typing import Optional
+from shutil import which
 
 from qtpy import QtWidgets, QtGui
 
@@ -69,6 +70,8 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         self.scheduler: Optional[NimbyScheduler] = None
 
         self._init_components()
+
+        logger.info("CueNIMBY tray initialized")
 
     def _init_components(self) -> None:
         """Initialize application components."""
@@ -221,6 +224,26 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
     def _scheduler_enabled(self) -> bool:
         """Check if scheduler is enabled (for menu checkbox)."""
         return self.config.scheduler_enabled
+    
+    def launch_cuegui(self) -> None:
+        """Launch CueGUI application."""
+        try:
+            if which("cuegui"):
+                subprocess.Popen(["cuegui"])
+                logger.info("Launched CueGUI")
+            else:
+                raise FileNotFoundError("cuegui executable not found in PATH")
+        except Exception as e:
+            logger.error(f"Failed to launch CueGUI: {e}")
+            if self.notifier:
+                self.notifier.notify(
+                    "Error",
+                    f"Failed to launch CueGUI: {e}"
+                )
+    
+    def _cuegui_available(self) -> bool:
+        """Check if CueGUI is available."""
+        return which("cuegui") is not None
 
     def _show_about(self) -> None:
         """Show about dialog using native platform dialogs."""
@@ -312,6 +335,12 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
         self.menu.addSeparator()
 
+        self.cuegui_action = self.menu.addAction("Launch CueGUI")
+        self.cuegui_action.triggered.connect(self.launch_cuegui)
+        self.cuegui_action.setEnabled(self._cuegui_available())
+
+        self.menu.addSeparator()
+
         self.open_config_action = self.menu.addAction("Open Config File")
         self.open_config_action.triggered.connect(self._open_config)
 
@@ -338,6 +367,9 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         self.notifications_action.setChecked(self._notifications_enabled())
 
         self.scheduler_action.setChecked(self._scheduler_enabled())
+
+        self.cuegui_action.setEnabled(self._cuegui_available())
+        self.cuegui_action.setText("Launch CueGUI" if self._cuegui_available() else "Launch CueGUI (not installed)")
 
     def start(self) -> None:
         """Start the tray application."""
