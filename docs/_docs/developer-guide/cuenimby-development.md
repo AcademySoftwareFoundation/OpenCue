@@ -439,7 +439,7 @@ logging.getLogger('cuenimby.scheduler').setLevel(logging.DEBUG)
 
 **Icon files**:
 * `opencue-available.png` - Green (ready)
-* `opencue-working.png` - Blue (rendering)
+* `opencue-working.png` - Icon with red dot in center (rendering)
 * `opencue-disabled.png` - Red (locked/down)
 * `opencue-error.png` - Red with X (error/unreachable)
 * `opencue-warning.png` - Yellow (warning/lagging)
@@ -455,7 +455,7 @@ All icons are located in `cuenimby/icons/` and feature the OpenCue logo:
 | Icon | File | Description |
 |------|------|-------------|
 | ![Available](/assets/images/cuenimby/icons/opencue-available.png) | `opencue-available.png` | Green - Host ready for rendering |
-| ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Blue - Currently rendering |
+| ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Icon with red dot in center - Currently rendering |
 | ![Disabled](/assets/images/cuenimby/icons/opencue-disabled.png) | `opencue-disabled.png` | Red - Host locked/disabled |
 | ![Error](/assets/images/cuenimby/icons/opencue-error.png) | `opencue-error.png` | Red X - Connection error |
 | ![Warning](/assets/images/cuenimby/icons/opencue-warning.png) | `opencue-warning.png` | Yellow - Warning/lagging |

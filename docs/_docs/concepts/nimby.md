@@ -97,7 +97,7 @@ Workstations can be in one of several states. CueNIMBY displays these with profe
 |-------|------|-------|-------------|
 | **STARTING** | `opencue-starting.png` | 🔄 | Application is initializing |
 | **AVAILABLE** | `opencue-available.png` | 🟢 | Host is unlocked and idle, ready to accept jobs |
-| **WORKING** | `opencue-working.png` | 🔵 | Host is unlocked and actively running frames |
+| **WORKING** | `opencue-working.png` | 🔴 | Host is unlocked and actively running frames (red dot in center) |
 | **DISABLED** | `opencue-disabled.png` | 🔴 | Host is manually locked (via CueGUI or CueNIMBY) |
 | **NIMBY_LOCKED** | `opencue-disabled.png` | 🔒 | Host is locked by NIMBY due to user activity |
 | **HOST_DOWN** | `opencue-disabled.png` | ❌ | RQD is not running on the host |
@@ -114,7 +114,7 @@ All CueNIMBY icons feature the OpenCue logo for professional appearance:
 | Icon | File | Description |
 |------|------|-------------|
 | ![Available](/assets/images/cuenimby/icons/opencue-available.png) | `opencue-available.png` | Green - Ready for rendering |
-| ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Blue - Currently rendering |
+| ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Icon with red dot in center - Currently rendering |
 | ![Disabled](/assets/images/cuenimby/icons/opencue-disabled.png) | `opencue-disabled.png` | Red - Locked/disabled |
 | ![Error](/assets/images/cuenimby/icons/opencue-error.png) | `opencue-error.png` | Red X - Error/unreachable |
 | ![Warning](/assets/images/cuenimby/icons/opencue-warning.png) | `opencue-warning.png` | Yellow - Warning/lagging |

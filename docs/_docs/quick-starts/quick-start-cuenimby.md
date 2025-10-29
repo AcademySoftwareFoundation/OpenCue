@@ -84,7 +84,7 @@ If you're using the OpenCue sandbox environment, CueNIMBY is automatically insta
 2. Look for the CueNIMBY icon in your system tray (professional icons with OpenCue logo):
    * 🔄 **Starting** (`opencue-starting.png`): Application is initializing
    * 🟢 **Available** (`opencue-available.png`): Host is idle and ready for rendering
-   * 🔵 **Working** (`opencue-working.png`): Currently rendering frames
+   * 🔴 **Working** (`opencue-working.png`): Currently rendering frames (red dot in center)
    * 🔴 **Disabled** (`opencue-disabled.png`): Manually locked, NIMBY locked, or host down
    * ❌ **Error** (`opencue-error.png`): CueBot unreachable or machine not found on CueBot
    * ⚠️ **Warning** (`opencue-warning.png`): Host ping above 60 second limit
@@ -104,7 +104,7 @@ If you're using the OpenCue sandbox environment, CueNIMBY is automatically insta
    | Icon | File | Description |
    |------|------|-------------|
    | ![Available](/assets/images/cuenimby/icons/opencue-available.png) | `opencue-available.png` | Green - Ready for rendering |
-   | ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Blue - Currently rendering |
+   | ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Icon with red dot in center - Currently rendering |
    | ![Disabled](/assets/images/cuenimby/icons/opencue-disabled.png) | `opencue-disabled.png` | Red - Locked/disabled |
    | ![Error](/assets/images/cuenimby/icons/opencue-error.png) | `opencue-error.png` | Red X - Error/unreachable |
    | ![Warning](/assets/images/cuenimby/icons/opencue-warning.png) | `opencue-warning.png` | Yellow - Warning/lagging |
