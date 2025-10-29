@@ -18,7 +18,6 @@ import logging
 import os
 import platform
 from enum import Enum
-from PIL import Image
 from typing import Optional
 
 logger = logging.getLogger(__name__)
