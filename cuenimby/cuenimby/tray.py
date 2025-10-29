@@ -20,9 +20,7 @@ import subprocess
 import sys
 from typing import Optional
 
-import pystray
-from PIL import Image, ImageDraw
-from pystray import MenuItem as Item
+from qtpy import QtWidgets, QtGui
 
 from .config import Config
 from .monitor import HostMonitor, HostState
@@ -32,7 +30,7 @@ from .scheduler import NimbyScheduler
 logger = logging.getLogger(__name__)
 
 
-class CueNIMBYTray:
+class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
     """System tray application for NIMBY control."""
 
     # Icon for different states
@@ -53,17 +51,22 @@ class CueNIMBYTray:
         "DEFAULT":              "opencue-default.png"
     }
 
-    def __init__(self, config: Optional[Config] = None):
+    def __init__(self, config: Optional[Config] = None, parent=None):
         """Initialize tray application.
 
         Args:
             config: Configuration object. If None, uses default.
         """
+        # Set up Qt application
+        self.app = QtWidgets.QApplication([])
+        QtWidgets.QSystemTrayIcon.__init__(self, QtGui.QIcon(self._get_icon(HostState.STARTING)), parent)
+        
+        self.menu = QtWidgets.QMenu(parent)
+        self.setContextMenu(self.menu)
         self.config = config or Config()
         self.monitor: Optional[HostMonitor] = None
         self.notifier: Optional[Notifier] = None
         self.scheduler: Optional[NimbyScheduler] = None
-        self.icon: Optional[pystray.Icon] = None
 
         self._init_components()
 
@@ -92,15 +95,14 @@ class CueNIMBYTray:
         """Get icon path for given state."""
         _icon_folder = os.path.join(os.path.dirname(__file__), "icons")
         if state not in HostState:
-            return Image.open(os.path.join(_icon_folder, self.ICONS["UNKNOWN"]))
-        return Image.open(os.path.join(_icon_folder, self.ICONS.get(state, self.ICONS["DEFAULT"])))
+            return QtGui.QPixmap(os.path.join(_icon_folder, self.ICONS["UNKNOWN"]))
+        return QtGui.QPixmap(os.path.join(_icon_folder, self.ICONS.get(state, self.ICONS["DEFAULT"])))
 
     def _update_icon(self) -> None:
         """Update tray icon to reflect current state."""
-        if self.icon:
-            state = self.monitor.current_state
-            self.icon.icon = self._get_icon(state)
-            self.icon.title = f"CueNIMBY - {state.value}"
+        state = self.monitor.current_state
+        self.setIcon(QtGui.QIcon(self._get_icon(state)))
+        self.setToolTip(f"CueNIMBY - {state.value}")
 
     def _on_state_change(self, old_state: HostState, new_state: HostState) -> None:
         """Handle state change.
@@ -162,7 +164,7 @@ class CueNIMBYTray:
             if self.notifier:
                 self.notifier.notify("Scheduler Error", str(e))
 
-    def _toggle_available(self, icon, item) -> None:
+    def _toggle_available(self) -> None:
         """Toggle host availability."""
         current_state = self.monitor.current_state
 
@@ -180,12 +182,12 @@ class CueNIMBYTray:
             if self.notifier:
                 self.notifier.notify("Error", str(e))
 
-    def _is_available(self, item) -> bool:
+    def _is_available(self) -> bool:
         """Check if host is available (for menu checkbox)."""
         state = self.monitor.current_state
         return state in (HostState.AVAILABLE, HostState.WORKING)
 
-    def _toggle_notifications(self, icon, item) -> None:
+    def _toggle_notifications(self) -> None:
         """Toggle notifications on/off."""
         enabled = not self.config.show_notifications
         self.config.set("show_notifications", enabled)
@@ -197,7 +199,7 @@ class CueNIMBYTray:
 
         logger.info(f"Notifications {'enabled' if enabled else 'disabled'}")
 
-    def _notifications_enabled(self, item) -> bool:
+    def _notifications_enabled(self) -> bool:
         """Check if notifications are enabled (for menu checkbox)."""
         return self.config.show_notifications
 
@@ -215,11 +217,11 @@ class CueNIMBYTray:
 
         logger.info(f"Scheduler {'enabled' if enabled else 'disabled'}")
 
-    def _scheduler_enabled(self, item) -> bool:
+    def _scheduler_enabled(self) -> bool:
         """Check if scheduler is enabled (for menu checkbox)."""
         return self.config.scheduler_enabled
 
-    def _show_about(self, icon, item) -> None:
+    def _show_about(self) -> None:
         """Show about dialog using native platform dialogs."""
         from . import __version__
 
@@ -277,39 +279,67 @@ class CueNIMBYTray:
                     f"Failed to open config file: {e}"
                 )
 
-    def _quit(self, icon, item) -> None:
+    def _quit(self) -> None:
         """Quit application."""
         logger.info("Shutting down CueNIMBY")
         self.stop()
-        icon.stop()
 
-    def _create_menu(self) -> pystray.Menu:
+    def _create_menu(self) -> None:
         """Create tray menu.
 
         Returns:
             pystray.Menu object.
         """
-        return pystray.Menu(
-            Item(
-                "Available",
-                self._toggle_available,
-                checked=self._is_available
-            ),
-            Item(
-                "Notifications",
-                self._toggle_notifications,
-                checked=self._notifications_enabled
-            ),
-            Item(
-                "Scheduler",
-                self._toggle_scheduler,
-                checked=self._scheduler_enabled
-            ),
-            pystray.Menu.SEPARATOR,
-            Item("Open Config File", self._open_config),
-            Item("About", self._show_about),
-            Item("Quit", self._quit)
-        )
+
+        self.activate_action = self.menu.addAction("Set Available")
+        self.activate_action.triggered.connect(self._toggle_available)
+        self.activate_action.setCheckable(True)
+        self.activate_action.setChecked(self._is_available())
+        # self.activate_action.setIcon(QtGui.QIcon(self.AVAILABLE_ICON))
+
+        self.notifications_action = self.menu.addAction("Notifications")
+        self.notifications_action.triggered.connect(self._toggle_notifications)
+        self.notifications_action.setCheckable(True)
+        self.notifications_action.setChecked(self._notifications_enabled())
+        # self.notifications_action.setIcon(QtGui.QIcon(self.AVAILABLE_ICON))
+
+        self.scheduler_action = self.menu.addAction("Scheduler")
+        self.scheduler_action.triggered.connect(self._toggle_scheduler)
+        self.scheduler_action.setCheckable(True)
+        self.scheduler_action.setChecked(self._scheduler_enabled())
+        # self.scheduler_action.setIcon(QtGui.QIcon(self.AVAILABLE_ICON))
+
+        self.menu.addSeparator()
+
+        self.open_config_action = self.menu.addAction("Open Config File")
+        self.open_config_action.triggered.connect(self._open_config)
+
+        self.about_action = self.menu.addAction("About")
+        self.about_action.triggered.connect(self._show_about)
+
+        self.quit_action = self.menu.addAction("Quit")
+        self.quit_action.triggered.connect(self._quit)
+
+        self.menu.aboutToShow.connect(self._update_menu)
+
+    def _update_menu(self) -> None:
+        """Update menu items before showing."""
+        self.activate_action.setChecked(self._is_available())
+        activate_text = "Set Disabled" if self._is_available() else "Set Available"
+        if self.monitor.current_state in (HostState.STARTING, HostState.NO_HOST, HostState.HOST_LAGGING,
+                                            HostState.HOST_DOWN, HostState.CUEBOT_UNREACHABLE,
+                                            HostState.ERROR, HostState.UNKNOWN, HostState.REPAIR):
+            self.activate_action.setEnabled(False)
+            activate_text += " (Unavailable)"
+        else:
+            self.activate_action.setEnabled(True)
+        self.activate_action.setText(activate_text)
+
+        self.notifications_action.setChecked(self._notifications_enabled())
+        notifications_text = "Disable Notifications" if self._notifications_enabled() else "Enable Notifications"
+        self.notifications_action.setText(notifications_text)
+
+        self.scheduler_action.setChecked(self._scheduler_enabled())
 
     def start(self) -> None:
         """Start the tray application."""
@@ -320,17 +350,12 @@ class CueNIMBYTray:
         if self.scheduler:
             self.scheduler.start(self._on_scheduler_state_change)
 
-        # Create and run tray icon
-        state = self.monitor.current_state
-        self.icon = pystray.Icon(
-            "cuenimby",
-            self._get_icon(state),
-            f"CueNIMBY - {state.value}",
-            self._create_menu()
-        )
+        # Initialize menu
+        self._create_menu()
 
         logger.info("CueNIMBY tray started")
-        self.icon.run()
+        self.show()
+        sys.exit(self.app.exec_())
 
     def stop(self) -> None:
         """Stop the tray application."""
@@ -339,3 +364,4 @@ class CueNIMBYTray:
         if self.scheduler:
             self.scheduler.stop()
         logger.info("CueNIMBY tray stopped")
+        self.app.quit()
