@@ -18,7 +18,6 @@ import logging
 import os
 import platform
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +49,7 @@ class Notifier:
         try:
             if self.system == "Darwin":
                 # macOS - try terminal-notifier first (most reliable), then pync, then osascript
+                # pylint: disable=import-outside-toplevel
                 import shutil
                 if shutil.which("terminal-notifier"):
                     # We'll use terminal-notifier via subprocess
@@ -58,6 +58,7 @@ class Notifier:
                 else:
                     self.use_terminal_notifier = False
                     try:
+                        # pylint: disable=import-outside-toplevel
                         import pync
                         self.notifier = NotifierType.PYNC
                         self.pync = pync
@@ -66,6 +67,7 @@ class Notifier:
             elif self.system == "Windows":
                 # Windows - use win10toast or fallback
                 try:
+                    # pylint: disable=import-outside-toplevel
                     from win10toast import ToastNotifier
                     self.notifier = NotifierType.WIN10TOAST
                     self.toaster = ToastNotifier()
@@ -74,6 +76,7 @@ class Notifier:
             elif self.system == "Linux":
                 # Linux - use notify2 or notify-send
                 try:
+                    # pylint: disable=import-outside-toplevel
                     import notify2
                     notify2.init(app_name)
                     self.notifier = NotifierType.NOTIFY2
@@ -83,7 +86,7 @@ class Notifier:
             else:
                 self.notifier = None
         except Exception as e:
-            logger.error(f"Failed to initialize notifier: {e}")
+            logger.error("Failed to initialize notifier: %s", e)
             self.notifier = None
 
     def notify(self, title: str, message: str, duration: int = 5) -> None:
@@ -94,13 +97,15 @@ class Notifier:
             message: Notification message.
             duration: Duration in seconds (may not be supported on all platforms).
         """
-        logger.debug(f"Attempting to send notification: title='{title}', notifier={self.notifier}")
+        logger.debug("Attempting to send notification: title='%s', notifier=%s",
+                      title, self.notifier)
         try:
             if self.notifier == NotifierType.PYNC:
                 # macOS with pync
                 self.pync.notify(message, title=title, appIcon=None)
             elif self.notifier == NotifierType.OSASCRIPT:
                 # macOS fallback
+                # pylint: disable=import-outside-toplevel
                 import subprocess
 
                 if self.use_terminal_notifier:
@@ -113,7 +118,7 @@ class Notifier:
                     ], capture_output=True, text=True, check=False)
 
                     if result.returncode != 0:
-                        logger.warning(f"terminal-notifier failed: {result.stderr}")
+                        logger.warning("terminal-notifier failed: %s", result.stderr)
                     else:
                         logger.debug("terminal-notifier notification sent successfully")
                 else:
@@ -129,7 +134,7 @@ class Notifier:
                                              capture_output=True, text=True, check=False)
 
                     if result.returncode != 0:
-                        logger.warning(f"osascript notification failed: {result.stderr}")
+                        logger.warning("osascript notification failed: %s", result.stderr)
                     else:
                         logger.debug("osascript notification sent successfully")
             elif self.notifier == NotifierType.WIN10TOAST:
@@ -143,6 +148,7 @@ class Notifier:
                 notification.show()
             elif self.notifier == NotifierType.NOTIFY_SEND:
                 # Linux fallback
+                # pylint: disable=import-outside-toplevel
                 import subprocess
                 subprocess.run([
                     "notify-send",
@@ -151,9 +157,9 @@ class Notifier:
                     message
                 ], check=False)
             else:
-                logger.warning(f"No notification system available. {title}: {message}")
+                logger.warning("No notification system available. %s: %s", title, message)
         except Exception as e:
-            logger.error(f"Failed to send notification: {e}")
+            logger.error("Failed to send notification: %s", e)
 
     def notify_job_started(self, job_name: str, frame_name: str) -> None:
         """Notify when a job starts on this host.
@@ -194,14 +200,14 @@ class Notifier:
             "OpenCue - Host Enabled 🔓",
             "RQD enabled for rendering."
         )
-    
+
     def notify_host_recovered(self) -> None:
         """Notify when host recovers from down state."""
         self.notify(
             "OpenCue - Host Recovered",
             "RQD is back online and available for rendering."
         )
-    
+
     def notify_host_down(self) -> None:
         """Notify when host goes down."""
         self.notify(
@@ -226,14 +232,14 @@ class Notifier:
             "OpenCue - Error",
             error_message
         )
-        
+
     def notify_cuebot_unreachable(self) -> None:
         """Notify when cuebot is unreachable."""
         self.notify(
             "OpenCue - Cuebot Unreachable",
             "Unable to contact Cuebot, please check your network connection."
         )
-        
+
     def notify_host_repairing(self) -> None:
         """Notify when host is under repair."""
         self.notify(
