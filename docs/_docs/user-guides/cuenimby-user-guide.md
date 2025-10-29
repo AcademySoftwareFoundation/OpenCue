@@ -117,7 +117,7 @@ The CueNIMBY tray icon uses professional icons with the OpenCue logo to indicate
 |-----------|-------|-------|-------------|
 | `opencue-starting.png` | 🔄 | Starting | Application is initializing |
 | `opencue-available.png` | 🟢 | Available | Your machine is idle and ready to accept rendering jobs |
-| `opencue-working.png` | 🔵 | Working | Your machine is currently rendering a frame |
+| `opencue-working.png` | 🔴 | Working | Your machine is currently rendering a frame (red dot in center) |
 | `opencue-disabled.png` | 🔴 | Disabled | You've manually disabled rendering via CueNIMBY or CueGUI |
 | `opencue-disabled.png` | 🔒 | NIMBY Locked | RQD has locked the machine due to user activity |
 | `opencue-disabled.png` | ❌ | Host Down | RQD is not running on the host |
@@ -134,7 +134,7 @@ All CueNIMBY icons feature the OpenCue logo for professional appearance and cons
 | Icon | Name | Description |
 |------|------|-------------|
 | ![Available](/assets/images/cuenimby/icons/opencue-available.png) | `opencue-available.png` | Green icon - Host ready for rendering |
-| ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Blue icon - Currently rendering |
+| ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Icon with red dot in center - Currently rendering |
 | ![Disabled](/assets/images/cuenimby/icons/opencue-disabled.png) | `opencue-disabled.png` | Red icon - Host locked/disabled |
 | ![Error](/assets/images/cuenimby/icons/opencue-error.png) | `opencue-error.png` | Red X icon - Connection error |
 | ![Warning](/assets/images/cuenimby/icons/opencue-warning.png) | `opencue-warning.png` | Yellow icon - Warning state |
@@ -164,7 +164,7 @@ Right-click the CueNIMBY icon to open the menu.
 
 Controls whether your machine accepts rendering jobs.
 
-**Checked** (🟢/🔵): Machine is available for rendering
+**Checked** (🟢/🔴): Machine is available for rendering
 * Jobs can be dispatched to your machine
 * Currently running jobs continue
 

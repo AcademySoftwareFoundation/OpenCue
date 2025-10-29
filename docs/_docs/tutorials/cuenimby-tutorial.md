@@ -220,7 +220,7 @@ Look at the tray icon (professional icons with OpenCue logo):
 
 * 🔄 Starting (`opencue-starting.png`) = Application initializing
 * 🟢 Available (`opencue-available.png`) = Ready for rendering
-* 🔵 Working (`opencue-working.png`) = Currently rendering
+* 🔴 Working (`opencue-working.png`) = Currently rendering (red dot in center)
 * 🔴 Disabled (`opencue-disabled.png`) = Manually locked, NIMBY locked, or host down
 * ❌ Error (`opencue-error.png`) = CueBot unreachable or host not found
 * ⚠️ Warning (`opencue-warning.png`) = Host lagging (ping > 60s)
@@ -242,7 +242,7 @@ Visual representation of all CueNIMBY icons:
 | Icon | File | Description |
 |------|------|-------------|
 | ![Available](/assets/images/cuenimby/icons/opencue-available.png) | `opencue-available.png` | Green - Ready for rendering |
-| ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Blue - Currently rendering |
+| ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Icon with red dot in center - Currently rendering |
 | ![Disabled](/assets/images/cuenimby/icons/opencue-disabled.png) | `opencue-disabled.png` | Red - Locked/disabled |
 | ![Error](/assets/images/cuenimby/icons/opencue-error.png) | `opencue-error.png` | Red X - Error/unreachable |
 | ![Warning](/assets/images/cuenimby/icons/opencue-warning.png) | `opencue-warning.png` | Yellow - Warning/lagging |
@@ -327,7 +327,7 @@ Rendering: myshow/test
 
 ### 5.4 Watch state changes
 
-* Icon turns blue (🔵) when frame starts
+* Icon shows red dot in center (🔴) when frame starts
 * Icon turns green (🟢) when frame completes
 
 **Checkpoint**: You receive notifications when jobs start on your machine.
@@ -406,7 +406,7 @@ Right-click the tray icon and verify "Scheduler" is checked.
 * Manual toggle temporarily overrides, but scheduler resets every minute
 
 **Outside work hours:**
-* Icon should be green (🟢) if idle, or blue (🔵) if rendering
+* Icon should be green (🟢) if idle, or show red dot in center (🔴) if rendering
 
 **Checkpoint**: Scheduler automatically controls your workstation based on time.
 

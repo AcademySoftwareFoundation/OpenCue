@@ -7,7 +7,7 @@ CueNIMBY is a cross-platform system tray application that provides user control 
 - **System Tray Icon with OpenCue Logo**: Visual indication of current rendering state with professional icons
   - 🔄 **Starting**: Application is initializing
   - 🟢 **Available** (`opencue-available.png`): Host is idle and ready for rendering
-  - 🔵 **Working** (`opencue-working.png`): Currently rendering frames
+  - 🔴 **Working** (`opencue-working.png`): Currently rendering frames (red dot in center)
   - 🔴 **Disabled** (`opencue-disabled.png`):
      - NIMBY locked (🔒 due to user activity)
      - Host locked (🔒 manually disabled)
@@ -251,7 +251,7 @@ All icons feature the OpenCue logo for professional appearance:
 |-----------|-------|-------|-------------|
 | `opencue-starting.png` | Starting | 🔄 | Application is initializing |
 | `opencue-available.png` | Available | 🟢 | Host is idle and ready for rendering |
-| `opencue-working.png` | Working | 🔵 | Currently rendering frames |
+| `opencue-working.png` | Working | 🔴 | Currently rendering frames (red dot in center) |
 | `opencue-disabled.png` | Disabled/Locked/Down | 🔴 | NIMBY locked, Host locked, or Host down |
 | `opencue-error.png` | Error/Unreachable | ❌ | CueBot unreachable or host not found |
 | `opencue-warning.png` | Warning/Lagging | ⚠️ | Host ping above 60 second limit |
@@ -266,7 +266,7 @@ Here are all the CueNIMBY icons with the OpenCue logo:
 | Icon | Name | Description |
 |------|------|-------------|
 | ![Available](cuenimby/icons/opencue-available.png) | `opencue-available.png` | Green icon - Host ready for rendering |
-| ![Working](cuenimby/icons/opencue-working.png) | `opencue-working.png` | Blue icon - Currently rendering |
+| ![Working](cuenimby/icons/opencue-working.png) | `opencue-working.png` | Icon with red dot in center - Currently rendering |
 | ![Disabled](cuenimby/icons/opencue-disabled.png) | `opencue-disabled.png` | Red icon - Host locked/disabled |
 | ![Error](cuenimby/icons/opencue-error.png) | `opencue-error.png` | Red X icon - Connection error |
 | ![Warning](cuenimby/icons/opencue-warning.png) | `opencue-warning.png` | Yellow icon - Warning state |
