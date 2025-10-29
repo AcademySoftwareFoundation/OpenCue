@@ -98,9 +98,10 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             return QtGui.QPixmap(os.path.join(_icon_folder, self.ICONS["UNKNOWN"]))
         return QtGui.QPixmap(os.path.join(_icon_folder, self.ICONS.get(state, self.ICONS["DEFAULT"])))
 
-    def _update_icon(self) -> None:
+    def _update_icon(self, state: Optional[HostState] = None) -> None:
         """Update tray icon to reflect current state."""
-        state = self.monitor.current_state
+        if state is None:
+            state = self.monitor.current_state
         self.setIcon(QtGui.QIcon(self._get_icon(state)))
         self.setToolTip(f"CueNIMBY - {state.value}")
 
@@ -112,7 +113,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             new_state: New state.
         """
         logger.info(f"State changed: {old_state.value} -> {new_state.value}")
-        self._update_icon()
+        self._update_icon(state=new_state)
 
         # Send notifications
         if self.notifier:
@@ -203,7 +204,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         """Check if notifications are enabled (for menu checkbox)."""
         return self.config.show_notifications
 
-    def _toggle_scheduler(self, icon, item) -> None:
+    def _toggle_scheduler(self) -> None:
         """Toggle scheduler on/off."""
         enabled = not self.config.scheduler_enabled
         self.config.set("scheduler_enabled", enabled)
@@ -260,7 +261,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             # Fallback to console output
             print(f"\nAbout CueNIMBY\n{about_message}\n")
 
-    def _open_config(self, icon, item) -> None:
+    def _open_config(self) -> None:
         """Open config file in default editor."""
         config_path = str(self.config.config_path)
         try:
@@ -291,7 +292,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             pystray.Menu object.
         """
 
-        self.activate_action = self.menu.addAction("Set Available")
+        self.activate_action = self.menu.addAction("Available")
         self.activate_action.triggered.connect(self._toggle_available)
         self.activate_action.setCheckable(True)
         self.activate_action.setChecked(self._is_available())
@@ -325,19 +326,16 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
     def _update_menu(self) -> None:
         """Update menu items before showing."""
         self.activate_action.setChecked(self._is_available())
-        activate_text = "Set Disabled" if self._is_available() else "Set Available"
         if self.monitor.current_state in (HostState.STARTING, HostState.NO_HOST, HostState.HOST_LAGGING,
                                             HostState.HOST_DOWN, HostState.CUEBOT_UNREACHABLE,
                                             HostState.ERROR, HostState.UNKNOWN, HostState.REPAIR):
             self.activate_action.setEnabled(False)
-            activate_text += " (Unavailable)"
+            self.activate_action.setText("Available (cannot change at the moment)")
         else:
             self.activate_action.setEnabled(True)
-        self.activate_action.setText(activate_text)
+            self.activate_action.setText("Available")
 
         self.notifications_action.setChecked(self._notifications_enabled())
-        notifications_text = "Disable Notifications" if self._notifications_enabled() else "Enable Notifications"
-        self.notifications_action.setText(notifications_text)
 
         self.scheduler_action.setChecked(self._scheduler_enabled())
 
