@@ -1,9 +1,8 @@
 mod util;
 
-use crate::util::WaitingFrameClause;
-
 #[cfg(all(test, feature = "smoke-tests"))]
 mod stress_test {
+    use crate::util::WaitingFrameClause;
     use std::{sync::atomic::Ordering, time::SystemTime};
 
     use scheduler::{cluster::ClusterFeed, config::OVERRIDE_CONFIG, host_cache, pipeline};
