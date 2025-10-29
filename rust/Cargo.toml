@@ -5,7 +5,7 @@ members = [
     "crates/dummy-cuebot",
     "crates/scheduler",
 ]
-resolver = "3"
+resolver = "2"
 
 [workspace.package]
 authors = ["Diego Tavares <dtavares@imageworks.com>"]
