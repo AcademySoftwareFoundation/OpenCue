@@ -9,8 +9,8 @@ resolver = "3"
 
 [workspace.package]
 authors = ["Diego Tavares <dtavares@imageworks.com>"]
-edition = "2024"
-version = "0.1.5"
+edition = "2021"
+version = "0.1.3"
 
 [workspace.dependencies]
 async-trait = "0.1"
