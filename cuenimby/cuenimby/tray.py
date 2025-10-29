@@ -94,7 +94,6 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         if self.config.scheduler_enabled and self.config.schedule:
             self.scheduler = NimbyScheduler(self.config.schedule)
 
-    
     def _get_icon(self, state):
         """Get icon path for given state."""
         _icon_folder = os.path.join(os.path.dirname(__file__), "icons")
@@ -117,7 +116,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             old_state: Previous state.
             new_state: New state.
         """
-        logger.info(f"State changed: {old_state.value} -> {new_state.value}")
+        logger.info("State changed: %s -> %s", old_state.value, new_state.value)
         self._update_icon(state=new_state)
 
         # Send notifications
@@ -150,7 +149,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             job_name: Job name.
             frame_name: Frame name.
         """
-        logger.info(f"Frame started: {job_name}/{frame_name}")
+        logger.info("Frame started: %s/%s", job_name, frame_name)
         if self.notifier:
             self.notifier.notify_job_started(job_name, frame_name)
 
@@ -166,7 +165,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             elif desired_state == "available":
                 self.monitor.unlock_host()
         except RuntimeError as e:
-            logger.error(f"Scheduler failed to change host state: {e}")
+            logger.error("Scheduler failed to change host state: %s", e)
             if self.notifier:
                 self.notifier.notify("Scheduler Error", str(e))
 
@@ -184,7 +183,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
                 if self.monitor.lock_host():
                     logger.info("Host disabled by user")
         except RuntimeError as e:
-            logger.error(f"Failed to toggle host state: {e}")
+            logger.error("Failed to toggle host state: %s", e)
             if self.notifier:
                 self.notifier.notify("Error", str(e))
 
@@ -200,10 +199,10 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
         if enabled:
             self.notifier = Notifier()
+            logger.info("Notifications enabled")
         else:
             self.notifier = None
-
-        logger.info(f"Notifications {'enabled' if enabled else 'disabled'}")
+            logger.info("Notifications disabled")
 
     def _notifications_enabled(self) -> bool:
         """Check if notifications are enabled (for menu checkbox)."""
@@ -221,12 +220,13 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             self.scheduler.stop()
             self.scheduler = None
 
-        logger.info(f"Scheduler {'enabled' if enabled else 'disabled'}")
+        logger.info("Scheduler %s", "enabled" if enabled else "disabled")
 
     def _scheduler_enabled(self) -> bool:
         """Check if scheduler is enabled (for menu checkbox)."""
         return self.config.scheduler_enabled
-    
+
+    # pylint: disable=consider-using-with
     def launch_cuegui(self) -> None:
         """Launch CueGUI application."""
         try:
@@ -236,19 +236,20 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             else:
                 raise FileNotFoundError("cuegui executable not found in PATH")
         except Exception as e:
-            logger.error(f"Failed to launch CueGUI: {e}")
+            logger.error("Failed to launch CueGUI: %s", e)
             if self.notifier:
                 self.notifier.notify(
                     "Error",
                     f"Failed to launch CueGUI: {e}"
                 )
-    
+
     def _cuegui_available(self) -> bool:
         """Check if CueGUI is available."""
         return shutil.which("cuegui") is not None
 
     def _show_about(self) -> None:
         """Show about dialog using native platform dialogs."""
+        # pylint: disable=import-outside-toplevel
         from . import __version__
 
         # Always use native dialogs for About (more reliable than notifications)
@@ -263,11 +264,12 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
                 script = f'display dialog "{esc_message}" with title "About CueNIMBY"'
                 script += ' buttons {"OK"} default button "OK"'
                 subprocess.run(["osascript", "-e", script], check=False)
-                logger.info(f"About CueNIMBY: {about_message}")
+                logger.info("About CueNIMBY: %s", about_message)
             elif sys.platform == "win32":  # Windows
+                # pylint: disable=import-outside-toplevel
                 import ctypes
                 ctypes.windll.user32.MessageBoxW(0, about_message, "About CueNIMBY", 0)
-                logger.info(f"About CueNIMBY: {about_message}")
+                logger.info("About CueNIMBY: %s", about_message)
             else:  # Linux
                 # Try zenity or kdialog
                 try:
@@ -276,22 +278,22 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
                                     "--title=About CueNIMBY",
                                     f"--text={about_message}"],
                                     check=False)
-                    logger.info(f"About CueNIMBY: {about_message}")
+                    logger.info("About CueNIMBY: %s", about_message)
                 except FileNotFoundError:
                     try:
                         subprocess.run(["kdialog", "--msgbox",
                                         about_message, "--title", "About CueNIMBY"],
                                         check=False)
-                        logger.info(f"About CueNIMBY: {about_message}")
+                        logger.info("About CueNIMBY: %s", about_message)
                     except FileNotFoundError:
                         # Fallback: use notification if available, otherwise log
                         if self.notifier:
                             self.notifier.notify("About CueNIMBY", about_message)
                         else:
                             logger.warning("No dialog system available.")
-                            logger.warning(f"About CueNIMBY: {about_message}")
+                            logger.warning("About CueNIMBY: %s", about_message)
         except Exception as e:
-            logger.error(f"Failed to show about dialog: {e}")
+            logger.error("Failed to show about dialog: %s", e)
             # Fallback to console output
             print(f"\nAbout CueNIMBY\n{about_message}\n")
 
@@ -305,9 +307,9 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
                 os.startfile(config_path)
             else:  # Linux and others
                 subprocess.run(["xdg-open", config_path], check=True)
-            logger.info(f"Opened config file: {config_path}")
+            logger.info("Opened config file: %s", config_path)
         except Exception as e:
-            logger.error(f"Failed to open config file: {e}")
+            logger.error("Failed to open config file: %s", e)
             if self.notifier:
                 self.notifier.notify(
                     "Error",
@@ -319,6 +321,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         logger.info("Shutting down CueNIMBY")
         self.stop()
 
+    # pylint: disable=attribute-defined-outside-init
     def _create_menu(self) -> None:
         """Create tray menu.
 

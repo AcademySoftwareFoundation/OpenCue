@@ -106,8 +106,8 @@ def main():
             config.set('show_notifications', False)
 
         # Create and start tray application
-        logger.info(f"Starting CueNIMBY v{__version__}")
-        logger.info(f"Connecting to Cuebot at {config.cuebot_host}:{config.cuebot_port}")
+        logger.info("Starting CueNIMBY v%s", __version__)
+        logger.info("Connecting to Cuebot at %s:%d", config.cuebot_host, config.cuebot_port)
 
         tray = CueNIMBYTray(config)
         tray.start()
@@ -116,7 +116,7 @@ def main():
         logger.info("Interrupted by user")
         sys.exit(0)
     except Exception as e:
-        logger.exception(f"Fatal error: {e}")
+        logger.exception("Fatal error: %s", e)
         sys.exit(1)
 
 
