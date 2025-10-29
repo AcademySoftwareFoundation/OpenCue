@@ -8,3 +8,4 @@
 config/rqd.local_docker.yaml
 /sandbox/kafka*
 /reference
+Cargo.lock
