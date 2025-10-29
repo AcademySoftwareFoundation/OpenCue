@@ -80,14 +80,14 @@ class HostMonitor:
         # Callbacks
         self._state_change_callbacks: List[Callable[[HostState, HostState], None]] = []
         self._frame_started_callbacks: List[Callable[[str, str], None]] = []
-        
-        # Initialize Cuebot connection
-        self._init_cuebot()
 
         for callback in (state_change_callbacks or []):
             self.on_state_change(callback)
         for callback in (frame_started_callbacks or []):
             self.on_frame_started(callback)
+        
+        # Initialize Cuebot connection
+        self._init_cuebot()
 
     @property
     def current_state(self) -> HostState:
