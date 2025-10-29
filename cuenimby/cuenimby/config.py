@@ -46,7 +46,7 @@ class Config:
             config_path: Path to config file. If None, uses default location.
         """
         if config_path is None:
-            config_dir = Path.home() / ".opencue"
+            config_dir = Path.home() / ".config/opencue"
             config_dir.mkdir(exist_ok=True)
             config_path = config_dir / "cuenimby.json"
 
