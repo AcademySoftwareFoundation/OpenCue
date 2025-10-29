@@ -1,6 +1,6 @@
 ---
 title: "Glossary"
-nav_order: 2
+nav_order: 11
 parent: Concepts
 layout: default
 linkTitle: "Glossary"
@@ -34,24 +34,50 @@ OpenCue rendering tools, such as *CueGUI* and *Cuebot*.
 
 ## CueAdmin
 
-CueAdmin is the OpenCue command-line client. You run this client to administer
-an OpenCue deployment. It's written in Python and provides a thin layer over the
-OpenCue Python API, *PyCue*.
+Command-line administrative tools for OpenCue system management, providing
+scripting capabilities for automation, bulk operations, and system maintenance
+tasks. Written in Python and provides a thin layer over the OpenCue Python API,
+*PyCue*.
 
 ## Cuebot
 
-Cuebot is a utility that runs in the background on a workstation or server
-cluster and performs a variety of important OpenCue management tasks.
-
-## CueSubmit
-
-CueSubmit is a graphical user interface for configuring and launching rendering
-jobs to an OpenCue deployment.
+The central management server that performs critical OpenCue tasks including
+managing job submissions, distributing work to render nodes, and responding to
+API requests from client tools. Typically runs on a server and can be deployed
+in clusters for high availability.
 
 ## CueGUI
 
-A graphical user interface you run to monitor and manage *jobs*, *layers*, and
-*frames*.
+The desktop graphical user interface divided into two main workspaces: Cuetopia
+(artist-focused job monitoring) and CueCommander (administrator-focused system
+management). Provides comprehensive tools for job monitoring, frame inspection,
+host management, and system administration.
+
+## Cueman
+
+A specialized tool for managing and monitoring OpenCue deployments, providing
+additional administrative capabilities and system oversight functions.
+
+## CueSubmit
+
+A graphical user interface for configuring and launching rendering jobs.
+Typically runs as a plug-in within 3D software like Maya, Blender, or Nuke,
+allowing artists to submit jobs directly from their creative applications.
+
+## CueWeb
+
+A web-based interface that brings CueGUI's core functionality to the browser.
+Offers job management, frame monitoring, real-time updates, and collaborative
+features accessible from anywhere on the network without requiring client
+installation.
+
+## CueNIMBY
+
+A cross-platform system tray application for workstation NIMBY control. Provides
+users with visual feedback and manual control over their machine's rendering
+availability. Shows real-time state through color-coded icons, sends desktop
+notifications when jobs start, and supports time-based scheduling for automatic
+state changes. Works alongside *RQD*'s automatic NIMBY feature.
 
 ## Dependent job
 
@@ -100,28 +126,42 @@ type of job to the cue, including Maya, Katana, or even shell commands.
 A proc is a slot on a render *host* that has been carved out and isolated to
 execute a *frame*.
 
+## OpenCue REST Gateway
+
+A production-ready HTTP service that translates REST API calls to gRPC
+communication with Cuebot. Enables web applications, scripts, and third-party
+tools to interact with OpenCue services through standard HTTP endpoints.
+
 ## PyCue
 
-PyCue is the OpenCue Python API. OpenCue client-side Python tools, such as
-*CueGUI* and *CueAdmin*, all use PyCue for communicating with your OpenCue
-deployment.
+The Python API library that provides programmatic access to OpenCue
+functionality. Used by client applications and custom scripts to interact with
+Cuebot's gRPC interface. OpenCue client-side Python tools, such as *CueGUI* and
+*CueAdmin*, all use PyCue for communicating with your OpenCue deployment.
 
 ## PyOutline
 
-PyOutline is a Python library. It provides a Python interface to the job
-specification XML, allowing you to construct complex jobs with Python code
-instead of working directly with XML. *CueSubmit* uses PyOutline to construct
-its job submissions.
+A Python library for creating job specifications and render job descriptions.
+Provides the framework for defining complex rendering workflows and job
+dependencies. It provides a Python interface to the job specification XML,
+allowing you to construct complex jobs with Python code instead of working
+directly with XML. *CueSubmit* uses PyOutline to construct its job submissions.
 
 ## Queue
 
 A queue is a render farm that processes a large number of render *jobs*
 according to defined priorities.
 
-## RQD
+## RQD (Python)
 
-RQD is a client daemon that runs on all hosts that are doing work for an OpenCue
-deployment.
+The render queue daemon that runs on all rendering hosts. RQD registers hosts
+with Cuebot, receives work instructions, monitors worker processes, and reports
+results back to the central server. This is the original Python implementation.
+
+## Rust RQD
+
+A high-performance implementation of RQD written in Rust, providing the same
+functionality as Python RQD with improved performance and resource efficiency.
 
 ## Service
 
@@ -138,6 +178,10 @@ Nuke render may only need 2GB.
 A show is a group of related work to be done. *Jobs* submitted to OpenCue exist
 within a show. *Subscriptions* list the available *allocations* to a given show.
 
+Shows can be **archived** to consolidate resources. When a show is archived, it is
+aliased to another show, allowing jobs submitted to the archived show to run on the
+target show's allocations. This is useful for wrapped productions that may need
+occasional reruns or for redirecting legacy content to training allocations.
 
 ## Soft dependency
 
@@ -156,7 +200,7 @@ in a layer with a tag will only render on a host that also shares that tag.
 
 ## Relationships
 
-![OpenCue relationships](/OpenCue/assets/images/opencue_object_relations.png)
+![OpenCue relationships](/assets/images/opencue_object_relations.png)
 
 This diagram depicts the connections between the primary objects within OpenCue
 As you can see the majority of connections follow a one-to-many type of

@@ -29,7 +29,6 @@ from builtins import range
 import os
 import sys
 import time
-import yaml
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -61,6 +60,14 @@ class MainWindow(QtWidgets.QMainWindow):
         QtWidgets.QMainWindow.__init__(self, parent)
         self.app = cuegui.app()
 
+        # Initialize auto-refresh management for UI operations early
+        # to handle any events during initialization
+        self.__autoRefreshEnabled = True
+        self.__savedRefreshStates = {}
+        self.__refreshRestoreTimer = QtCore.QTimer(self)
+        self.__refreshRestoreTimer.setSingleShot(True)
+        self.__refreshRestoreTimer.timeout.connect(self.__restoreAutoRefresh)
+
         self.__actions_facility = {}
         self.facility_default = None
         self.facility_dict = None
@@ -74,7 +81,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.name = window_name
         else:
             self.name = self.windows_names[0]
-        self.__isEnabled = yaml.safe_load(self.app.settings.value("EnableJobInteraction", "False"))
+        self.__isEnabled = self.app.settings.value("EnableJobInteraction", False, type=bool)
 
         # Provides a location for widgets to the right of the menu
         menuLayout = QtWidgets.QHBoxLayout()
@@ -445,10 +452,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.settings.setValue("%s/Open" % windowName, True)
                         break
 
+        self.settings.sync()
         self.app.closingApp = True
-        self.app.quit.emit()
-        # Give the application some time to save the state
-        time.sleep(4)
+        # Use QTimer to quit after event loop processes pending events
+        QtCore.QTimer.singleShot(100, self.app.quit)  # pylint: disable=no-member
 
     ################################################################################
 
@@ -489,6 +496,64 @@ class MainWindow(QtWidgets.QMainWindow):
                 # Save state of Window as Closed
                 self.settings.setValue("%s/Open" % self.name, False)
         self.__windowClosed()
+
+    def resizeEvent(self, event):
+        """Handle window resize events by temporarily disabling auto-refresh"""
+        super(MainWindow, self).resizeEvent(event)
+        self.__temporarilyDisableAutoRefresh()
+
+    def moveEvent(self, event):
+        """Handle window move events by temporarily disabling auto-refresh"""
+        super(MainWindow, self).moveEvent(event)
+        self.__temporarilyDisableAutoRefresh()
+
+    def __temporarilyDisableAutoRefresh(self):
+        """Temporarily disable auto-refresh during UI operations like window moves/resizes"""
+        if self.__autoRefreshEnabled:
+            self.__autoRefreshEnabled = False
+            self.__saveAndDisableAutoRefresh()
+
+        # Restart the timer to re-enable refresh after operations stop
+        self.__refreshRestoreTimer.stop()
+        self.__refreshRestoreTimer.start(500)  # 500ms delay after operation stops
+
+    def __saveAndDisableAutoRefresh(self):
+        """Save current auto-refresh states and disable them across all monitor widgets"""
+        self.__savedRefreshStates.clear()
+
+        # Find all widgets that have enableRefresh attribute and disable them
+        for widget in self.__findMonitorWidgets():
+            if hasattr(widget, 'enableRefresh'):
+                # Save current state and disable refresh
+                # This is safe because we're in the main GUI thread (event handlers run there)
+                self.__savedRefreshStates[widget] = widget.enableRefresh
+                widget.enableRefresh = False
+
+    def __restoreAutoRefresh(self):
+        """Restore auto-refresh states after UI operations complete"""
+        if not self.__autoRefreshEnabled:
+            self.__autoRefreshEnabled = True
+
+            # Restore saved refresh states
+            # This is called from a QTimer which runs in the main thread
+            for widget, previousState in self.__savedRefreshStates.items():
+                if hasattr(widget, 'enableRefresh'):
+                    widget.enableRefresh = previousState
+
+            self.__savedRefreshStates.clear()
+
+    def __findMonitorWidgets(self):
+        """Find all monitor widgets (tree widgets) that support auto-refresh"""
+        monitor_widgets = []
+
+        # Look through all dock widgets to find monitor tree widgets
+        for child in self.findChildren(QtWidgets.QDockWidget):
+            # Look for tree widgets within each dock widget
+            for tree_widget in child.findChildren(QtWidgets.QTreeWidget):
+                if hasattr(tree_widget, 'enableRefresh'):
+                    monitor_widgets.append(tree_widget)
+
+        return monitor_widgets
 
     def __restoreSettings(self):
         """Restores the windows settings"""
@@ -558,7 +623,9 @@ class MainWindow(QtWidgets.QMainWindow):
             # currently not enabled, user wants to enable
             if self.__isEnabled is False:
                 self.settings.setValue("EnableJobInteraction", 1)
+                self.settings.sync()
                 self.__windowCloseApplication()
             else:
                 self.settings.setValue("EnableJobInteraction", 0)
+                self.settings.sync()
                 self.__windowCloseApplication()

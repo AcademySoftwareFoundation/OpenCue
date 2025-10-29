@@ -3,11 +3,15 @@ pub mod error;
 use crate::config::error::RqdConfigError;
 use bytesize::ByteSize;
 use config::{Config as ConfigBase, Environment, File};
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env, fs, path::Path, time::Duration};
 
 static DEFAULT_CONFIG_FILE: &str = "~/.local/share/rqd.yaml";
 
+lazy_static! {
+    pub static ref CONFIG: Config = Config::load().expect("Failed to load config file");
+}
 //===Config Types===
 
 #[derive(Debug, Deserialize, Clone)]
@@ -35,6 +39,7 @@ impl Default for LoggingConfig {
 #[serde(default)]
 pub struct GrpcConfig {
     pub rqd_port: u16,
+    pub rqd_interface: Option<String>,
     pub cuebot_endpoints: Vec<String>,
     #[serde(with = "humantime_serde")]
     pub connection_expires_after: Duration,
@@ -43,17 +48,20 @@ pub struct GrpcConfig {
     #[serde(with = "humantime_serde")]
     pub backoff_delay_max: Duration,
     pub backoff_jitter_percentage: f64,
+    pub backoff_retry_attempts: usize,
 }
 
 impl Default for GrpcConfig {
     fn default() -> GrpcConfig {
         GrpcConfig {
             rqd_port: 8444,
+            rqd_interface: None,
             cuebot_endpoints: vec!["localhost:4343".to_string()],
             connection_expires_after: Duration::from_secs(3600), // 1h. from_hour is experimental
             backoff_delay_min: Duration::from_millis(10),
             backoff_delay_max: Duration::from_secs(60),
             backoff_jitter_percentage: 10.0,
+            backoff_retry_attempts: 20,
         }
     }
 }
@@ -81,6 +89,7 @@ pub struct MachineConfig {
     #[serde(with = "humantime_serde")]
     pub nimby_start_retry_interval: Duration,
     pub nimby_display_xauthority_path: String,
+    pub memory_oom_margin_percentage: u32,
 }
 
 impl Default for MachineConfig {
@@ -103,6 +112,7 @@ impl Default for MachineConfig {
             nimby_display_file_path: None,
             nimby_start_retry_interval: Duration::from_secs(60 * 5), // 5 min
             nimby_display_xauthority_path: "/home/{username}/Xauthority".to_string(),
+            memory_oom_margin_percentage: 96,
         }
     }
 }
@@ -113,7 +123,6 @@ pub struct RunnerConfig {
     pub run_on_docker: bool,
     pub default_uid: u32,
     pub default_gid: u32,
-    pub logger: LoggerType,
     pub prepend_timestamp: bool,
     pub use_host_path_env_var: bool,
     pub desktop_mode: bool,
@@ -154,7 +163,6 @@ impl Default for RunnerConfig {
             run_on_docker: false,
             default_uid: 1000,
             default_gid: 20,
-            logger: LoggerType::File,
             prepend_timestamp: true,
             use_host_path_env_var: false,
             desktop_mode: false,
@@ -210,7 +218,7 @@ pub struct Config {
 
 impl Config {
     // load the current config from the system config and environment variables
-    pub fn load() -> Result<Self, RqdConfigError> {
+    fn load() -> Result<Self, RqdConfigError> {
         let mut required = false;
         let config_file = match env::var("OPENCUE_RQD_CONFIG") {
             Ok(v) => {

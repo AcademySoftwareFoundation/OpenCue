@@ -65,6 +65,20 @@ class Show(object):
         """Deletes this show."""
         self.stub.Delete(show_pb2.ShowDeleteRequest(show=self.data), timeout=Cuebot.Timeout)
 
+    def archive(self, target_show_name):
+        """Archives this show by creating an alias to another show.
+
+        When a show is archived, the original show is renamed with '_archive' suffix
+        and aliased to the target show. Jobs submitted to the archived show will run
+        on the target show's allocations.
+
+        :type  target_show_name: str
+        :param target_show_name: name of the show to alias to
+        """
+        self.stub.Archive(
+            show_pb2.ShowArchiveRequest(show=self.data, target_show_name=target_show_name),
+            timeout=Cuebot.Timeout)
+
     def createServiceOverride(self, data):
         """Creates a Service Override at the show level.
         :type data: opencue.wrapper.service.Service

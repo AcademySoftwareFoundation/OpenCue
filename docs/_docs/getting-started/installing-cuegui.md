@@ -1,6 +1,6 @@
 ---
 title: "Installing CueGUI"
-nav_order: 6
+nav_order: 25
 parent: Getting Started
 layout: default
 linkTitle: "Installing CueGUI"
@@ -115,7 +115,7 @@ CUEBOT_HOSTS=$CUEBOT_HOSTNAME_OR_IP cuegui
 
 The CueGUI executable launches and the Cuetopia window appears:
 
-![CueGUI Cuetopia window](/OpenCue/assets/images/cuetopia_default_verify.png)
+![CueGUI Cuetopia window](/assets/images/cuetopia_default_verify.png)
 
 ## What's next?
 

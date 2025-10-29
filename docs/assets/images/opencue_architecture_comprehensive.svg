@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <!-- Background -->
+  <rect width="1200" height="800" fill="#f8f9fa"/>
+
+  <!-- Title -->
+  <text x="600" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="bold" fill="#333">
+    OpenCue Architecture - Complete Component Overview
+  </text>
+
+  <!-- Artist Workstation Section -->
+  <g id="workstation">
+    <rect x="50" y="80" width="280" height="320" fill="#e8f5e8" stroke="#4caf50" stroke-width="2" rx="10"/>
+    <text x="190" y="105" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#2e7d32">
+      Workstation
+    </text>
+
+    <!-- CueGUI -->
+    <rect x="70" y="120" width="110" height="60" fill="#81c784" stroke="#4caf50" stroke-width="1" rx="5"/>
+    <text x="125" y="140" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold">CueGUI</text>
+    <text x="125" y="155" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">Desktop App</text>
+    <text x="125" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="9">Cuetopia + CueCommander</text>
+
+    <!-- CueSubmit -->
+    <rect x="200" y="120" width="110" height="60" fill="#81c784" stroke="#4caf50" stroke-width="1" rx="5"/>
+    <text x="255" y="140" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold">CueSubmit</text>
+    <text x="255" y="155" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">Job Submission</text>
+    <text x="255" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">DCC Plugin</text>
+
+    <!-- CueAdmin -->
+    <rect x="70" y="200" width="110" height="60" fill="#81c784" stroke="#4caf50" stroke-width="1" rx="5"/>
+    <text x="125" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold">CueAdmin</text>
+    <text x="125" y="235" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">CLI Tools</text>
+    <text x="125" y="250" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">Administration</text>
+
+    <!-- Cueman -->
+    <rect x="200" y="200" width="110" height="60" fill="#81c784" stroke="#4caf50" stroke-width="1" rx="5"/>
+    <text x="255" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Cueman</text>
+    <text x="255" y="235" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">Management</text>
+    <text x="255" y="250" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">Monitoring Tool</text>
+
+    <!-- PyCue API -->
+    <rect x="70" y="280" width="240" height="40" fill="#a5d6a7" stroke="#4caf50" stroke-width="1" rx="5"/>
+    <text x="190" y="300" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="bold">PyCue API</text>
+    <text x="190" y="315" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">Python API Library</text>
+
+    <!-- PyOutline -->
+    <rect x="70" y="340" width="240" height="40" fill="#a5d6a7" stroke="#4caf50" stroke-width="1" rx="5"/>
+    <text x="190" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="bold">PyOutline</text>
+    <text x="190" y="375" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">Job Specification Framework</text>
+  </g>
+
+  <!-- Web Interface Section -->
+  <g id="web-interface">
+    <rect x="50" y="450" width="280" height="180" fill="#e3f2fd" stroke="#2196f3" stroke-width="2" rx="10"/>
+    <text x="190" y="475" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#1565c0">
+      Web Interface
+    </text>
+
+    <!-- CueWeb -->
+    <rect x="70" y="490" width="240" height="60" fill="#64b5f6" stroke="#2196f3" stroke-width="1" rx="5"/>
+    <text x="190" y="510" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="bold">CueWeb</text>
+    <text x="190" y="525" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">Web Interface</text>
+    <text x="190" y="540" text-anchor="middle" font-family="Arial, sans-serif" font-size="14">Next.js + React</text>
+
+    <!-- REST Gateway -->
+    <rect x="70" y="560" width="240" height="50" fill="#90caf9" stroke="#2196f3" stroke-width="1" rx="5"/>
+    <text x="190" y="580" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="bold">OpenCue REST Gateway</text>
+    <text x="190" y="595" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">HTTP to gRPC Translation</text>
+  </g>
+
+  <!-- Core Server Section -->
+  <g id="core-server">
+    <rect x="400" y="120" width="350" height="280" fill="#fff3e0" stroke="#ff9800" stroke-width="2" rx="10"/>
+    <text x="575" y="145" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#e65100">
+      Core Server Infrastructure
+    </text>
+
+    <!-- Cuebot -->
+    <rect x="420" y="160" width="310" height="80" fill="#ffb74d" stroke="#ff9800" stroke-width="1" rx="5"/>
+    <text x="575" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="bold">Cuebot</text>
+    <text x="575" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="14">Central Management Server</text>
+    <text x="575" y="215" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">• Job Management • Work Distribution • API Server</text>
+    <text x="575" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">gRPC Port: 8443</text>
+
+    <!-- Database -->
+    <rect x="420" y="260" width="150" height="120" fill="#ffcc02" stroke="#ff9800" stroke-width="1" rx="5"/>
+    <text x="495" y="280" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="bold">Database</text>
+    <text x="495" y="300" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">PostgreSQL</text>
+    <text x="495" y="315" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">• Job Data</text>
+    <text x="495" y="330" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">• Frame Status</text>
+    <text x="495" y="345" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">• Host Info</text>
+    <text x="495" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">• Statistics</text>
+    <text x="495" y="375" text-anchor="middle" font-family="Arial, sans-serif" font-size="12"> ... </text>
+
+    <!-- Load Balancer/Proxy -->
+    <rect x="590" y="260" width="140" height="120" fill="#ffe082" stroke="#ff9800" stroke-width="1" rx="5"/>
+    <text x="660" y="280" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="bold">Load Balancer</text>
+    <text x="660" y="300" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">High Availability</text>
+    <text x="660" y="315" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">• Multiple Cuebot</text>
+    <text x="660" y="330" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">  Instances</text>
+    <text x="660" y="345" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">• Failover</text>
+    <text x="660" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">• Scale Out</text>
+  </g>
+
+  <!-- Render Farm Section -->
+  <g id="render-farm">
+    <rect x="800" y="80" width="350" height="550" fill="#f3e5f5" stroke="#9c27b0" stroke-width="2" rx="10"/>
+    <text x="975" y="105" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#6a1b9a">
+      Render Farm Hosts
+    </text>
+
+    <!-- Host 1 -->
+    <rect x="820" y="130" width="140" height="140" fill="#ce93d8" stroke="#9c27b0" stroke-width="1" rx="5"/>
+    <text x="890" y="150" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Render Host 1</text>
+    <text x="890" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">Linux/Windows/macOS</text>
+
+    <rect x="830" y="180" width="50" height="30" fill="#ba68c8" stroke="#9c27b0" stroke-width="1" rx="3"/>
+    <text x="855" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold">RQD</text>
+
+    <rect x="890" y="180" width="60" height="30" fill="#ab47bc" stroke="#9c27b0" stroke-width="1" rx="3"/>
+    <text x="920" y="195" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">Render</text>
+    <text x="920" y="205" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">Process</text>
+
+    <text x="890" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">Port: 8444</text>
+    <text x="890" y="245" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">16 cores, 64GB RAM</text>
+    <text x="890" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">2 GPUs</text>
+
+    <!-- Host 2 -->
+    <rect x="980" y="130" width="140" height="140" fill="#ce93d8" stroke="#9c27b0" stroke-width="1" rx="5"/>
+    <text x="1050" y="150" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Render Host 2</text>
+    <text x="1050" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">Linux/Windows/macOS</text>
+
+    <rect x="990" y="180" width="50" height="30" fill="#ba68c8" stroke="#9c27b0" stroke-width="1" rx="3"/>
+    <text x="1015" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold">RQD</text>
+
+    <rect x="1050" y="180" width="60" height="30" fill="#ab47bc" stroke="#9c27b0" stroke-width="1" rx="3"/>
+    <text x="1080" y="195" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">Render</text>
+    <text x="1080" y="205" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">Process</text>
+
+    <text x="1050" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">Port: 8444</text>
+    <text x="1050" y="245" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">32 cores, 128GB RAM</text>
+    <text x="1050" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">4 GPUs</text>
+
+    <!-- Host 3 -->
+    <rect x="820" y="290" width="140" height="140" fill="#ce93d8" stroke="#9c27b0" stroke-width="1" rx="5"/>
+    <text x="890" y="310" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Render Host 3</text>
+    <text x="890" y="330" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">Linux/Windows/macOS</text>
+
+    <rect x="830" y="340" width="50" height="30" fill="#ba68c8" stroke="#9c27b0" stroke-width="1" rx="3"/>
+    <text x="855" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold">RQD</text>
+
+    <rect x="890" y="340" width="60" height="30" fill="#ab47bc" stroke="#9c27b0" stroke-width="1" rx="3"/>
+    <text x="920" y="355" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">Render</text>
+    <text x="920" y="365" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">Process</text>
+
+    <text x="890" y="390" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">Port: 8444</text>
+    <text x="890" y="405" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">8 cores, 32GB RAM</text>
+    <text x="890" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">1 GPU</text>
+
+    <!-- More Hosts Indicator -->
+    <rect x="980" y="290" width="140" height="140" fill="#e1bee7" stroke="#9c27b0" stroke-width="1" stroke-dasharray="5,5" rx="5"/>
+    <text x="1050" y="350" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-style="italic">More Hosts...</text>
+    <text x="1050" y="370" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">Scalable to</text>
+    <text x="1050" y="385" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">thousands of nodes</text>
+
+    <!-- Shared Storage -->
+    <rect x="820" y="450" width="300" height="80" fill="#d1c4e9" stroke="#9c27b0" stroke-width="1" rx="5"/>
+    <text x="970" y="475" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Shared Storage</text>
+    <text x="970" y="495" text-anchor="middle" font-family="Arial, sans-serif" font-size="14">• Scene Files • Assets • Textures • Output</text>
+    <text x="970" y="510" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">NFS / SMB / Lustre / Cloud Storage</text>
+
+    <!-- Network Infrastructure -->
+    <rect x="820" y="550" width="300" height="60" fill="#d1c4e9" stroke="#9c27b0" stroke-width="1" rx="5"/>
+    <text x="970" y="575" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Network Infrastructure</text>
+    <text x="970" y="590" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">High-speed networking • Load balancing • Security</text>
+  </g>
+
+  <!-- Connection arrows -->
+  <!-- CueGUI/CueSubmit to Cuebot -->
+  <path d="M 330 150 Q 360 150 400 180" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="360" y="140" font-family="Arial, sans-serif" font-size="14" fill="#666">gRPC</text>
+
+  <!-- CueAdmin/Cueman to Cuebot -->
+  <path d="M 330 230 Q 360 230 400 200" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+
+  <!-- REST Gateway to Cuebot -->
+  <path d="M 310 585 Q 350 585 400 220" stroke="#2196f3" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="345" y="355" font-family="Arial, sans-serif" font-size="12" fill="#2196f3">gRPC</text>
+
+  <!-- Cuebot to Database -->
+  <path d="M 575 240 L 495 260" stroke="#ff9800" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="510" y="250" font-family="Arial, sans-serif" font-size="10" fill="#ff9800">SQL</text>
+
+  <!-- Cuebot to Render Hosts -->
+  <path d="M 750 200 Q 770 200 800 200" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="765" y="190" font-family="Arial, sans-serif" font-size="12" fill="#666">gRPC</text>
+  <text x="770" y="212" font-family="Arial, sans-serif" font-size="12" fill="#666">8444</text>
+
+  <!-- RQD back to Cuebot -->
+  <path d="M 800 220 Q 770 220 750 220" stroke="#9c27b0" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="765" y="235" font-family="Arial, sans-serif" font-size="12" fill="#9c27b0">Status</text>
+
+  <!-- External Users -->
+  <rect x="50" y="680" width="200" height="80" fill="#f0f0f0" stroke="#666" stroke-width="1" rx="5"/>
+  <text x="150" y="705" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold">External Users</text>
+  <text x="150" y="725" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">• Web Browsers</text>
+  <text x="150" y="740" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">• Scripts &amp; APIs</text>
+  <text x="150" y="755" text-anchor="middle" font-family="Arial, sans-serif" font-size="12">• Third-party Tools</text>
+
+  <!-- External to CueWeb -->
+  <path d="M 190 680 L 190 630" stroke="#2196f3" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="200" y="655" font-family="Arial, sans-serif" font-size="12" fill="#2196f3">HTTPS</text>
+
+  <!-- Legend -->
+  <g id="legend">
+    <rect x="400" y="450" width="350" height="220" fill="#ffffff" stroke="#333" stroke-width="1" rx="5"/>
+    <text x="575" y="470" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="bold">Component Legend</text>
+
+    <rect x="420" y="480" width="15" height="15" fill="#81c784"/>
+    <text x="445" y="492" font-family="Arial, sans-serif" font-size="14">Client Applications (Desktop)</text>
+
+    <rect x="420" y="505" width="15" height="15" fill="#64b5f6"/>
+    <text x="445" y="517" font-family="Arial, sans-serif" font-size="14">Web Interface Components</text>
+
+    <rect x="420" y="530" width="15" height="15" fill="#ffb74d"/>
+    <text x="445" y="542" font-family="Arial, sans-serif" font-size="14">Core Server Infrastructure</text>
+
+    <rect x="420" y="555" width="15" height="15" fill="#ce93d8"/>
+    <text x="445" y="567" font-family="Arial, sans-serif" font-size="14">Render Farm Hosts</text>
+
+    <rect x="420" y="580" width="15" height="15" fill="#a5d6a7"/>
+    <text x="445" y="592" font-family="Arial, sans-serif" font-size="14">API Libraries</text>
+
+    <text x="420" y="610" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Communication Protocols:</text>
+    <text x="420" y="625" font-family="Arial, sans-serif" font-size="12">• gRPC (Internal API communication)</text>
+    <text x="420" y="640" font-family="Arial, sans-serif" font-size="12">• HTTP/REST (Web interface)</text>
+    <text x="420" y="655" font-family="Arial, sans-serif" font-size="12">• SQL (Database queries)</text>
+  </g>
+
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+      <polygon points="0 0, 6 2, 0 4" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Version and date -->
+  <text x="1190" y="790" text-anchor="end" font-family="Arial, sans-serif" font-size="13" fill="#888">
+    OpenCue Architecture
+  </text>
+</svg>

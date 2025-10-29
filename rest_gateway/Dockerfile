@@ -1,11 +1,15 @@
-FROM centos7.6-go1.21:latest AS build
+FROM rockylinux:9 AS build
 
-RUN yum install -y \
-    git \ 
-    protobuf3-compiler \ 
-    && yum clean all
+# Install Go 1.21 and dependencies
+RUN dnf install -y epel-release && \
+    dnf --enablerepo=crb install -y wget git protobuf protobuf-devel protobuf-compiler && \
+    wget https://go.dev/dl/go1.21.13.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.21.13.linux-amd64.tar.gz && \
+    rm go1.21.13.linux-amd64.tar.gz && \
+    dnf clean all
+
 WORKDIR /app
-ENV PATH=$PATH:/root/go/bin:/opt/protobuf3/usr/bin/
+ENV PATH=$PATH:/usr/local/go/bin:/root/go/bin
 
 # Copy all of the staged files (protos plus go source)
 COPY ./proto /app/proto
@@ -14,7 +18,7 @@ COPY ./rest_gateway/opencue_gateway /app/opencue_gateway
 
 
 WORKDIR /app/opencue_gateway
-RUN go mod init opencue_gateway && go mod tidy
+RUN if [ ! -f go.mod ]; then go mod init opencue_gateway; fi && go mod tidy
 
 RUN go install \
     github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
@@ -25,18 +29,18 @@ RUN go install \
 
 # Generate go grpc code
 RUN mkdir -p gen/go && \
-    protoc -I ../proto/ \
+    protoc -I ../proto/src/ \
     --go_out ./gen/go/ \
     --go_opt paths=source_relative \
     --go-grpc_out ./gen/go/ \
     --go-grpc_opt paths=source_relative \
-    ../proto/*.proto
+    ../proto/src/*.proto
 
 # Generate grpc-gateway handlers
-RUN protoc -I ../proto/ --grpc-gateway_out ./gen/go \
+RUN protoc -I ../proto/src/ --grpc-gateway_out ./gen/go \
     --grpc-gateway_opt paths=source_relative \
     --grpc-gateway_opt generate_unbound_methods=true \
-    ../proto/*.proto
+    ../proto/src/*.proto
 
 # Uncomment this to run go tests
 # RUN go test -v
@@ -44,11 +48,16 @@ RUN protoc -I ../proto/ --grpc-gateway_out ./gen/go \
 # Build project
 RUN go build -o grpc_gateway main.go
 
-FROM centos-7.6.1810:latest
+FROM rockylinux:9-minimal
 COPY --from=build /app/opencue_gateway/grpc_gateway /app/
 
 # Ensure logs folder is created and has correct permissions
 RUN mkdir -p /logs && chmod 755 /logs
+
+# Set default environment variables
+ENV CUEBOT_ENDPOINT=localhost:8443
+ENV REST_PORT=8448  
+ENV JWT_SECRET=default-secret-key
 
 EXPOSE 8448
 ENTRYPOINT ["/app/grpc_gateway"]

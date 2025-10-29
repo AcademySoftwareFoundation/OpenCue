@@ -50,6 +50,7 @@ from builtins import range
 import os
 
 from qtpy import QtCore
+import grpc
 
 import cuegui.Logger
 
@@ -72,7 +73,7 @@ def systemCpuCount():
 class ThreadPool(QtCore.QObject):
     """A general purpose work queue class."""
 
-    def __init__(self, num_threads, max_queue=20, parent=None):
+    def __init__(self, num_threads, max_queue=50, parent=None):
         QtCore.QObject.__init__(self, parent=parent)
         self.app = cuegui.app()
         self.__threads = []
@@ -83,6 +84,7 @@ class ThreadPool(QtCore.QObject):
         self._q_mutex = QtCore.QMutex()
         self._q_empty = QtCore.QWaitCondition()
         self._q_queue = []
+        self._dropped_tasks = {}
 
     def start(self):
         """Initializes the thread pool and starts running work."""
@@ -103,9 +105,28 @@ class ThreadPool(QtCore.QObject):
         if not self.__started:
             self.start()
         if len(self._q_queue) <= self.__max_queue:
-            self._q_queue.append((callable_to_queue, callback, comment, args))
+            # Check if this is a duplicate refresh task for the same widget
+            is_duplicate = False
+            for existing_task in self._q_queue:
+                if existing_task[2] == comment:
+                    is_duplicate = True
+                    break
+
+            if not is_duplicate:
+                self._q_queue.append((callable_to_queue, callback, comment, args))
+            else:
+                # Task already queued, skip adding duplicate
+                logger.debug("Skipping duplicate task: %s", comment)
         else:
-            logger.warning("Queue length exceeds %s. Dropping task: %s", self.__max_queue, comment)
+            # Track dropped tasks to avoid spamming logs
+            if comment not in self._dropped_tasks:
+                self._dropped_tasks[comment] = 0
+            self._dropped_tasks[comment] += 1
+
+            # Only log every 10th drop for the same task to reduce log spam
+            if self._dropped_tasks[comment] % 10 == 1:
+                logger.warning("Queue length exceeds %s. Dropped task %d times: %s",
+                             self.__max_queue, self._dropped_tasks[comment], comment)
         self._q_mutex.unlock()
         self._q_empty.wakeAll()
 
@@ -193,6 +214,16 @@ class ThreadPool(QtCore.QObject):
                     if work[1]:
                         self.workComplete.emit(work, result)
                         del result
+                except grpc.RpcError as e:
+                    # Handle gRPC errors gracefully - these are often transient
+                    # pylint: disable=no-member
+                    if hasattr(e, 'code') and e.code() in [grpc.StatusCode.CANCELLED,
+                                                             grpc.StatusCode.UNAVAILABLE]:
+                        logger.warning("gRPC connection issue for '%s': %s - "
+                                     "UI will retry on next update", work[2], e.details())
+                    else:
+                        logger.error("gRPC error processing work for '%s': %s", work[2], e)
+                    # pylint: enable=no-member
                 except TypeError as e:
                     logger.error("TypeError in work processing for '%s': %s", work[2], e)
                 except ValueError as e:

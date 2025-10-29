@@ -1,6 +1,6 @@
 ---
 title: "Submitting jobs"
-nav_order: 2
+nav_order: 31
 parent: User Guides
 layout: default
 linkTitle: "Submitting jobs"
@@ -85,7 +85,7 @@ To submit a Blender job to OpenCue:
     
     The following screenshot illustrates a completed job info form:
     
-    ![CueSubmit job info form](/OpenCue/assets/images/cuesubmit_job_info.png)
+    ![CueSubmit job info form](/assets/images/cuesubmit_job_info.png)
 
 1.  For **Job Type**, select **Blender**.
 
@@ -122,12 +122,12 @@ To submit a Blender job to OpenCue:
     
     The following screenshot illustrates a completed layer info form:
 
-    ![CueSubmit Blender layer info](/OpenCue/assets/images/cuesubmit_blender_layer_info.png)
+    ![CueSubmit Blender layer info](/assets/images/cuesubmit_blender_layer_info.png)
 
 1.  Review the summary information in **Submission Details** to verify your
     settings, as illustrated by the following screenshot:
     
-    ![CueSubmit submission details summary](/OpenCue/assets/images/cuesubmit_blender_submission_details.png)
+    ![CueSubmit submission details summary](/assets/images/cuesubmit_blender_submission_details.png)
 
 1.  Optionally, to add more layers to this job, click **+**.
 
@@ -171,7 +171,7 @@ To submit a shell job to OpenCue:
     
     The following screenshot illustrates a completed job info form:
     
-    ![CueSubmit job info form](/OpenCue/assets/images/cuesubmit_job_info.png)
+    ![CueSubmit job info form](/assets/images/cuesubmit_job_info.png)
 
 1.  Set **Job Type** to **Shell**.
 
@@ -213,12 +213,12 @@ To submit a shell job to OpenCue:
     
     The following screenshot illustrates a completed layer info form:
 
-    ![CueSubmit shell layer info](/OpenCue/assets/images/cuesubmit_shell_layer_info.png)
+    ![CueSubmit shell layer info](/assets/images/cuesubmit_shell_layer_info.png)
 
 1.  Review the summary information in **Submission Details** to verify your
     settings, as illustrated by the following screenshot:
     
-    ![CueSubmit shell submission details summary](/OpenCue/assets/images/cuesubmit_shell_submission_details.png)
+    ![CueSubmit shell submission details summary](/assets/images/cuesubmit_shell_submission_details.png)
 
 1.  Optionally, to add more layers to this job, click **+**.
 

@@ -27,7 +27,8 @@
   // Load search data
   function loadSearchData() {
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/OpenCue/search-data.json');
+    var baseUrl = document.querySelector('base') ? document.querySelector('base').getAttribute('href') : '';
+    xhr.open('GET', (baseUrl || '') + '/search-data.json');
     xhr.onload = function() {
       if (xhr.status === 200) {
         searchData = JSON.parse(xhr.responseText);

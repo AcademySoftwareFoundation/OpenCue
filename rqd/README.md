@@ -1,7 +1,6 @@
 # RQD
 
-RQD is a software client that runs on all hosts doing work for an OpenCue
-deployment.
+RQD is a software client that runs on all hosts doing work for an OpenCue deployment.
 
 RQD's responsibilities include:
 
@@ -9,9 +8,7 @@ RQD's responsibilities include:
 - Receiving instructions about what work to do.
 - Monitoring the worker processes it launches and reporting on results.
 
-RQD uses [gRPC](https://grpc.io/) to communicate with Cuebot. It also runs its
-own gRPC server, which is called by the Cuebot client to send instructions to
-RQD.
+RQD uses [gRPC](https://grpc.io/) to communicate with Cuebot. It also runs its own gRPC server, which is called by the Cuebot client to send instructions to RQD.
 
 ## How to start rqd from source
 
@@ -50,6 +47,10 @@ MINIMUM_IDLE = 900
 
 # Whether or not to prefix each line in the log with a timestamp
 RQD_PREPEND_TIMESTAMP = 0
+
+# Maximum size in bytes for job log files before automatic termination
+# Default: 1 GiB (1073741824 bytes). Set to 0 to disable.
+JOB_LOG_MAX_SIZE_IN_BYTES = 1073741824
 ```
 
 ### Run rqd

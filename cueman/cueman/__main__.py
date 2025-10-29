@@ -16,9 +16,7 @@
 """Entrypoint for Cueman tool."""
 
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import logging
 import sys
@@ -27,7 +25,9 @@ import warnings
 from cueman import main as opencueman
 
 # Suppress protobuf version warnings
-warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf.runtime_version")
+warnings.filterwarnings(
+    "ignore", category=UserWarning, module="google.protobuf.runtime_version"
+)
 
 logger = logging.getLogger("opencue.tools.cueman")
 
@@ -37,5 +37,5 @@ def main():
     opencueman.main(sys.argv)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

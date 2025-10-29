@@ -60,6 +60,11 @@ class DependMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
+        # Set columns to auto-resize to content
+        header = self.header()
+        for col in range(self.columnCount()):
+            header.setSectionResizeMode(col, QtWidgets.QHeaderView.ResizeToContents)
+
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
 

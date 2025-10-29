@@ -13,16 +13,16 @@
 #  limitations under the License.
 
 
-"""Base class for any cue nodes to work with NodeGraphQtPy"""
+"""Base class for any cue nodes to work with NodeGraphQt"""
 
 
 from builtins import str
-from NodeGraphQtPy import BaseNode
+from NodeGraphQt import BaseNode
 from cuegui.nodegraph.widgets.nodeWidgets import NodeProgressBar
 
 
 class CueBaseNode(BaseNode):
-    """Base class for any cue nodes to work with NodeGraphQtPy"""
+    """Base class for any cue nodes to work with NodeGraphQt"""
 
     __identifier__ = "aswf.opencue"
 

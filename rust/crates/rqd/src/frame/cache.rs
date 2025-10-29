@@ -38,6 +38,10 @@ impl RunningFrameCache {
             .collect()
     }
 
+    pub fn all_running_frame_ids(&self) -> Vec<Uuid> {
+        self.cache.iter().map(|rf| rf.frame_id).collect()
+    }
+
     pub fn insert_running_frame(
         &self,
         running_frame: Arc<RunningFrame>,

@@ -13,6 +13,10 @@ dependencies = [
     "grpcio>=1.62.0",
     "grpcio-tools>=1.62.0",
 ]
+requires-python = ">3.7"
+description = "The opencue-proto is a module containing the protobuf modules for communication to and from Cuebot."
+readme = "README.md"
+license = {text = "Apache-2.0"}
 
 [tool.hatch.version]
 source = "code"

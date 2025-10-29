@@ -11,6 +11,10 @@ dependencies = [
     "opencue_pycue",
     "opencue_cueadmin"
 ]
+requires-python = ">3.7"
+description = "Cueman is a command-line job management tool for OpenCue that provides efficient job control operations. It offers a streamlined interface for managing jobs, frames, and processes with advanced filtering and batch operation capabilities."
+readme = "README.md"
+license = {text = "Apache-2.0"}
 
 [tool.hatch.version]
 source = "code"
@@ -29,11 +33,76 @@ minversion = "6.0" # Set to required pytest version
 testpaths = ["tests"] # Relative path(s) where tests are located
 python_files = ["test_*.py", "*_tests.py"] # Default test file pattern
 python_functions = ["test_*"] # Default test function pattern
+addopts = [
+    "-v",  # Verbose output
+    "--strict-markers",  # Markers must be registered
+    "--tb=short",  # Shorter traceback format
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow running tests",
+]
 
 # --- Optional Test Dependencies ---
 [project.optional-dependencies]
 test = [
     "mock==2.0.0",
     "pyfakefs==5.2.3",
-    "pytest"
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
 ]
+
+dev = [
+    "mock==2.0.0",
+    "pyfakefs==5.2.3",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pylint",
+    "black",
+    "isort"
+]
+
+# --- Coverage configuration ---
+[tool.coverage.run]
+source = ["cueman"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if False:",
+]
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+# --- GitHub Actions Example ---
+# To run tests in GitHub Actions, add this to .github/workflows/test.yml:
+#
+# - name: Run cueman tests
+#   run: |
+#     cd cueman
+#     pip install -e ".[test]"
+#     pytest --cov=cueman --cov-report=xml
+#
+# - name: Upload coverage to Codecov
+#   uses: codecov/codecov-action@v3
+#   with:
+#     file: ./cueman/coverage.xml
+#     flags: cueman
+#     name: cueman-coverage

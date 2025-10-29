@@ -1,5 +1,11 @@
 use std::sync::Arc;
 
+use crate::{
+    config::CONFIG,
+    frame::manager,
+    report::report_client,
+    system::oom::{self, OOM_REASON_MSG},
+};
 use async_trait::async_trait;
 use bytesize::KIB;
 use itertools::Either;
@@ -11,7 +17,7 @@ use opencue_proto::{
 use tokio::{
     select,
     sync::{
-        Mutex, RwLock,
+        Mutex, OnceCell, RwLock,
         broadcast::{self, Receiver},
         oneshot,
     },
@@ -23,16 +29,18 @@ use uuid::Uuid;
 #[cfg(target_os = "macos")]
 use crate::system::macos::MacOsSystem;
 use crate::{
-    config::{Config, MachineConfig},
+    config::MachineConfig,
     frame::{
         cache::RunningFrameCache,
         running_frame::{FrameState, RunningFrame, RunningState},
     },
     report::report_client::{ReportClient, ReportInterface},
-    system::{manager::ReservationError, nimby::Nimby, reservation::CoreStateManager},
+    system::{manager::ReservationError, reservation::CoreStateManager},
 };
 
 use super::{linux::LinuxSystem, manager::SystemManagerType};
+#[cfg(feature = "nimby")]
+use crate::system::nimby::Nimby;
 
 /// Constantly monitor the state of this machine and report back to Cuebot
 ///
@@ -58,29 +66,43 @@ pub struct MachineMonitor {
     pub system_manager: Mutex<SystemManagerType>,
     pub core_manager: Arc<RwLock<CoreStateManager>>,
     pub running_frames_cache: Arc<RunningFrameCache>,
-    last_host_state: Arc<Mutex<Option<RenderHost>>>,
+    last_host_state: Arc<RwLock<Option<RenderHost>>>,
     interrupt: Mutex<Option<broadcast::Sender<()>>>,
     reboot_when_idle: Mutex<bool>,
+    #[cfg(feature = "nimby")]
     nimby: Arc<Option<Nimby>>,
+    #[cfg(feature = "nimby")]
     nimby_state: RwLock<LockState>,
+}
+
+static MACHINE_MONITOR: OnceCell<Arc<MachineMonitor>> = OnceCell::const_new();
+
+pub async fn instance() -> Result<Arc<MachineMonitor>> {
+    MACHINE_MONITOR
+        .get_or_try_init(|| async {
+            let machine_monitor = MachineMonitor::init(report_client::instance().await?)?;
+            Ok(Arc::new(machine_monitor))
+        })
+        .await
+        .map(Arc::clone)
 }
 
 impl MachineMonitor {
     /// Initializes the object without starting the monitor loop
     /// Will gather the initial state of this machine
-    pub fn init(config: &Config, report_client: Arc<ReportClient>) -> Result<Self> {
+    fn init(report_client: Arc<ReportClient>) -> Result<Self> {
         #[cfg(target_os = "macos")]
         #[allow(unused_variables)]
         let (system_manager, core_manager): (
             SystemManagerType,
             Arc<RwLock<CoreStateManager>>,
         ) = {
-            let processor_info_data = MacOsSystem::read_cpuinfo(&config.machine.cpuinfo_path)?;
+            let processor_info_data = MacOsSystem::read_cpuinfo(&CONFIG.machine.cpuinfo_path)?;
             let core_manager = Arc::new(RwLock::new(CoreStateManager::new(
                 processor_info_data.processor_structure.clone(),
             )));
 
-            (Box::new(MacOsSystem::init(&config.machine)?), core_manager)
+            (Box::new(MacOsSystem::init(&CONFIG.machine)?), core_manager)
         };
 
         // Use debug_assertions to allow linux logic compilation from mac development environments
@@ -89,23 +111,24 @@ impl MachineMonitor {
             SystemManagerType,
             Arc<RwLock<CoreStateManager>>,
         ) = {
-            let processor_info_data = LinuxSystem::read_cpuinfo(&config.machine.cpuinfo_path)?;
+            let processor_info_data = LinuxSystem::read_cpuinfo(&CONFIG.machine.cpuinfo_path)?;
             let core_manager = Arc::new(RwLock::new(CoreStateManager::new(
                 processor_info_data.processor_structure.clone(),
             )));
 
             (
-                Box::new(LinuxSystem::init(&config.machine, processor_info_data)?),
+                Box::new(LinuxSystem::init(&CONFIG.machine, processor_info_data)?),
                 core_manager,
             )
         };
 
         // Init nimby
-        let nimby = if config.machine.nimby_mode {
+        #[cfg(feature = "nimby")]
+        let nimby = if CONFIG.machine.nimby_mode {
             let nimby = Nimby::init(
-                config.machine.nimby_idle_threshold,
-                config.machine.nimby_display_file_path.clone(),
-                config.machine.nimby_display_xauthority_path.clone(),
+                CONFIG.machine.nimby_idle_threshold,
+                CONFIG.machine.nimby_display_file_path.clone(),
+                CONFIG.machine.nimby_display_xauthority_path.clone(),
             );
             info!("NIMBY mode enabled and initialized");
             Arc::new(Some(nimby))
@@ -114,14 +137,16 @@ impl MachineMonitor {
         };
 
         Ok(Self {
-            maching_config: config.machine.clone(),
+            maching_config: CONFIG.machine.clone(),
             report_client,
             system_manager: Mutex::new(system_manager),
             running_frames_cache: RunningFrameCache::init(),
-            last_host_state: Arc::new(Mutex::new(None)),
+            last_host_state: Arc::new(RwLock::new(None)),
             interrupt: Mutex::new(None),
             reboot_when_idle: Mutex::new(false),
+            #[cfg(feature = "nimby")]
             nimby,
+            #[cfg(feature = "nimby")]
             nimby_state: RwLock::new(LockState::Open),
             core_manager,
         })
@@ -142,7 +167,7 @@ impl MachineMonitor {
         };
 
         self.last_host_state
-            .lock()
+            .write()
             .await
             .replace(host_state.clone());
 
@@ -157,6 +182,7 @@ impl MachineMonitor {
         let (term_sender, mut term_receiver) = broadcast::channel::<()>(5);
 
         // Start nimby monitor
+        #[cfg(feature = "nimby")]
         self.start_nimby(term_receiver.resubscribe()).await;
         let mut interval = time::interval(self.maching_config.monitor_interval);
 
@@ -180,39 +206,9 @@ impl MachineMonitor {
                         self.collect_and_send_host_report().await?;
                         self.check_reboot_flag().await;
 
+                        #[cfg(feature = "nimby")]
                         if let Some(nimby) = &*self.nimby {
-                            match (nimby.is_user_active(), last_lock_state) {
-                                // Became locked
-                                (true, LockState::Open) => {
-                                    last_lock_state = LockState::NimbyLocked;
-
-                                    // Update registered state
-                                    let mut nimby_state = self.nimby_state.write().await;
-                                    *nimby_state = last_lock_state;
-                                    drop(nimby_state);
-
-                                    info!("Host became nimby locked");
-                                    self.lock_all_cores().await;
-                                }
-                                // Continues locked
-                                (true, LockState::NimbyLocked) => {}
-                                // Continues open
-                                (false, LockState::Open) => {}
-                                // Became unlocked
-                                (false, LockState::NimbyLocked) => {
-                                    last_lock_state = LockState::Open;
-
-                                    // Update registered state
-                                    let mut nimby_state = self.nimby_state.write().await;
-                                    *nimby_state = last_lock_state;
-                                    drop(nimby_state);
-
-                                    info!("Host became nimby unlocked");
-                                    self.unlock_all_cores().await;
-                                }
-                                // NoOp
-                                _ => ()
-                            }
+                            last_lock_state = self.handle_nimby_state_change(nimby, last_lock_state).await?;
                         }
                 }
 
@@ -221,6 +217,58 @@ impl MachineMonitor {
         Ok(())
     }
 
+    /// Handles NIMBY state changes and performs necessary actions when the host
+    /// becomes locked or unlocked based on user activity.
+    ///
+    /// Returns the new lock state after handling any transitions.
+    #[cfg(feature = "nimby")]
+    async fn handle_nimby_state_change(
+        &self,
+        nimby: &Nimby,
+        current_state: LockState,
+    ) -> Result<LockState> {
+        match (nimby.is_user_active(), current_state) {
+            // Became locked
+            (true, LockState::Open) => {
+                let new_state = LockState::NimbyLocked;
+
+                // Update registered state
+                let mut nimby_state = self.nimby_state.write().await;
+                *nimby_state = new_state;
+                drop(nimby_state);
+
+                info!("Host became nimby locked");
+                self.lock_all_cores().await;
+                let count = manager::instance()
+                    .await?
+                    .kill_all_running_frames("Host has been Nimby-Locked")
+                    .await?;
+                info!("{count} frames killed after the machine became locked");
+                Ok(new_state)
+            }
+            // Continues locked
+            (true, LockState::NimbyLocked) => Ok(current_state),
+            // Continues open
+            (false, LockState::Open) => Ok(current_state),
+            // Became unlocked
+            (false, LockState::NimbyLocked) => {
+                let new_state = LockState::Open;
+
+                // Update registered state
+                let mut nimby_state = self.nimby_state.write().await;
+                *nimby_state = new_state;
+                drop(nimby_state);
+
+                info!("Host became nimby unlocked");
+                self.unlock_all_cores().await;
+                Ok(new_state)
+            }
+            // NoOp
+            _ => Ok(current_state),
+        }
+    }
+
+    #[cfg(feature = "nimby")]
     async fn start_nimby(&self, term_receiver: Receiver<()>) {
         // Start nimby monitor
         let nimby_clone = Arc::clone(&self.nimby);
@@ -281,6 +329,7 @@ impl MachineMonitor {
     async fn monitor_running_frames(&self) -> Result<()> {
         let mut finished_frames: Vec<Arc<RunningFrame>> = Vec::new();
         let mut running_frames: Vec<(Arc<RunningFrame>, RunningState)> = Vec::new();
+        let mut memory_aggressors: Vec<(Arc<RunningFrame>, u64)> = Vec::new();
 
         // Only keep running frames on the cache and store a copy of their state
         // to avoid having to deal with the state lock
@@ -315,6 +364,13 @@ impl MachineMonitor {
             };
 
             if let Some(proc_stats) = proc_stats_opt {
+                // Mark memory aggressor frames
+                if running_frame.request.soft_memory_limit > 0
+                    && proc_stats.rss as i64 > running_frame.request.soft_memory_limit
+                {
+                    memory_aggressors.push((Arc::clone(running_frame), proc_stats.max_rss));
+                }
+
                 // Update stats for running frames
                 running_frame.update_frame_stats(proc_stats);
             } else if running_frame.is_marked_for_cache_removal() {
@@ -336,6 +392,38 @@ impl MachineMonitor {
         }
 
         self.handle_finished_frames(finished_frames).await;
+
+        match self.memory_usage().await {
+            Some((memory_usage, total_memory))
+                if memory_usage > CONFIG.machine.memory_oom_margin_percentage =>
+            {
+                warn!(
+                    "Machine memory usage is above allowed threshold ({}). \
+                    Triggering OOM protection",
+                    CONFIG.machine.memory_oom_margin_percentage
+                );
+                let frames_to_kill =
+                    oom::choose_frames_to_kill(memory_usage, total_memory, memory_aggressors);
+
+                // Attempt to kill selected frames.
+                // Logic will ignore kill errors and try again on the next iteration
+                for frame in frames_to_kill {
+                    if let Ok(manager) = manager::instance().await {
+                        info!("Requesting a kill for {}", &frame);
+                        let kill_result = manager
+                            .kill_running_frame(&frame.frame_id, OOM_REASON_MSG.to_string())
+                            .await;
+                        if let Err(err) = kill_result {
+                            warn!(
+                                "Failed to kill frame {} when under OOM pressure. {}",
+                                frame, err
+                            )
+                        }
+                    }
+                }
+            }
+            _ => (),
+        }
 
         // Sanitize dangling reservations
         // This mechanism is redundant as handle_finished_frames releases resources reserved to
@@ -362,7 +450,7 @@ impl MachineMonitor {
 
         // Avoid holding a lock while reporting back to cuebot
         let host_state_opt = {
-            let host_state_lock = self.last_host_state.lock().await;
+            let host_state_lock = self.last_host_state.read().await;
             host_state_lock.clone()
         };
 
@@ -462,6 +550,7 @@ impl MachineMonitor {
 #[async_trait]
 pub trait Machine {
     async fn hardware_state(&self) -> Option<HardwareState>;
+    async fn memory_usage(&self) -> Option<(u32, u64)>;
     async fn nimby_locked(&self) -> bool;
 
     /// Reserve CPU cores for a resource
@@ -558,21 +647,31 @@ pub trait Machine {
     fn is_frame_running(&self, frame_id: &Uuid) -> bool;
 
     fn get_running_frame(&self, frame_id: &Uuid) -> Option<Arc<RunningFrame>>;
+
+    fn all_running_frame_ids(&self) -> Vec<Uuid>;
 }
 
 #[async_trait]
 impl Machine for MachineMonitor {
     async fn hardware_state(&self) -> Option<HardwareState> {
         self.last_host_state
-            .lock()
+            .read()
             .await
             .as_ref()
             .map(|hs| hs.state())
     }
 
+    async fn memory_usage(&self) -> Option<(u32, u64)> {
+        self.last_host_state.read().await.as_ref().map(|hs| {
+            let memory_percentage =
+                (((hs.total_mem - hs.free_mem) as f64 / hs.total_mem as f64) * 100.0) as u32;
+            (memory_percentage, hs.total_mem as u64)
+        })
+    }
+
     async fn nimby_locked(&self) -> bool {
         self.last_host_state
-            .lock()
+            .read()
             .await
             .as_ref()
             .map(|hs| hs.nimby_locked)
@@ -607,7 +706,7 @@ impl Machine for MachineMonitor {
     }
 
     async fn get_host_name(&self) -> String {
-        let lock = self.last_host_state.lock().await;
+        let lock = self.last_host_state.read().await;
 
         lock.as_ref()
             .map(|h| h.name.clone())
@@ -681,13 +780,15 @@ impl Machine for MachineMonitor {
                 system_manager.refresh_procs();
             }
 
-            let nimby_state_lock = self.nimby_state.read().await;
+            #[allow(unused_assignments)]
+            let mut nimby_locked = false;
 
-            Self::inspect_host_state(
-                &self.maching_config,
-                &system_manager,
-                *nimby_state_lock == LockState::NimbyLocked,
-            )?
+            #[cfg(feature = "nimby")]
+            {
+                nimby_locked = *self.nimby_state.read().await == LockState::NimbyLocked;
+            }
+
+            Self::inspect_host_state(&self.maching_config, &system_manager, nimby_locked)?
         }; // Scope ensures all mutex are released
 
         let core_state = {
@@ -696,10 +797,11 @@ impl Machine for MachineMonitor {
         };
 
         // Store the last host_state on self
-        let mut self_host_state_lock = self.last_host_state.lock().await;
+        let mut self_host_state_lock = self.last_host_state.write().await;
         self_host_state_lock.replace(render_host.clone());
         drop(self_host_state_lock);
 
+        // Refresh list of running frames
         self.monitor_running_frames().await?;
 
         Ok(HostReport {
@@ -722,10 +824,15 @@ impl Machine for MachineMonitor {
     fn is_frame_running(&self, frame_id: &Uuid) -> bool {
         self.running_frames_cache.contains(frame_id)
     }
+
     fn get_running_frame(&self, frame_id: &Uuid) -> Option<Arc<RunningFrame>> {
         self.running_frames_cache
             .get(frame_id)
             .as_ref()
             .map(|f| Arc::clone(f))
+    }
+
+    fn all_running_frame_ids(&self) -> Vec<Uuid> {
+        self.running_frames_cache.all_running_frame_ids()
     }
 }

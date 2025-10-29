@@ -1,13 +1,13 @@
-use std::{str::FromStr, sync::Arc};
+use std::str::FromStr;
 
-use config::Config;
-use frame::manager::FrameManager;
 use miette::IntoDiagnostic;
-use report::report_client::ReportClient;
-use system::machine::MachineMonitor;
 use tokio::{select, sync::oneshot};
 use tracing::{error, warn};
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
+
+#[cfg(target_os = "macos")]
+use crate::frame::manager;
+use crate::{config::CONFIG, system::machine};
 
 mod config;
 mod frame;
@@ -16,27 +16,25 @@ mod servant;
 mod system;
 
 fn main() -> miette::Result<()> {
-    let config = Config::load()?;
-
     let runtime = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(config.machine.worker_threads)
+        .worker_threads(CONFIG.machine.worker_threads)
         .enable_all()
         .build()
         .into_diagnostic()?;
 
-    runtime.block_on(async_main(config))
+    runtime.block_on(async_main())
 }
 
-async fn async_main(config: Config) -> miette::Result<()> {
+async fn async_main() -> miette::Result<()> {
     let log_level =
-        tracing::Level::from_str(config.logging.level.as_str()).expect("Invalid log level");
+        tracing::Level::from_str(CONFIG.logging.level.as_str()).expect("Invalid log level");
     let log_builder = tracing_subscriber::fmt()
         .with_timer(tracing_subscriber::fmt::time::SystemTime)
         .pretty()
         .with_max_level(log_level);
-    if config.logging.file_appender {
+    if CONFIG.logging.file_appender {
         let file_appender = RollingFileAppenderBase::new(
-            config.logging.path.clone(),
+            CONFIG.logging.path.clone(),
             RollingConditionBase::new().max_size(1024 * 1024),
             7,
         )
@@ -47,28 +45,12 @@ async fn async_main(config: Config) -> miette::Result<()> {
         log_builder.init();
     }
 
-    // Initialize cuebot client
-    let report_client = Arc::new(ReportClient::build(&config).await?);
-
-    // Make clones for the async block
-    let config_clone = config.clone();
-
-    // Initialize rqd machine monitor
-    let machine_monitor = Arc::new(MachineMonitor::init(&config_clone, report_client)?);
-    let mm_clone = Arc::clone(&machine_monitor);
-    let mm_clone2 = Arc::clone(&machine_monitor);
-
-    // Initialize frame manager
-    let frame_manager = Arc::new(FrameManager {
-        config: config.clone(),
-        machine: mm_clone.clone(),
-    });
-
+    // Start a channel for communitating when machine_monitor fully started
     let (tx, rx) = oneshot::channel::<()>();
 
     // Spawn machine monitor on a new task to prevent it from locking the main task
     let machine_monitor_handle = {
-        let mm = Arc::clone(&machine_monitor);
+        let mm = machine::instance().await?;
         tokio::spawn(async move { mm.start(tx).await })
     };
     // Await for the confirmation machine_monitor has fully initialized
@@ -77,12 +59,13 @@ async fn async_main(config: Config) -> miette::Result<()> {
     // Recovering frames is unstable on linux. Launched frames are somehow still bound
     // to the rqd process and receive a kill signal when rqd stops
     #[cfg(target_os = "macos")]
-    if let Err(err) = frame_manager.recover_snapshots().await {
+    if let Err(err) = manager::instance().await?.recover_snapshots().await {
         warn!("Failed to recover frames from snapshot: {}", err);
     };
 
     // Initialize rqd grpc servant
-    let servant_handle = servant::serve(config, mm_clone, frame_manager);
+    let machine_manager = machine::instance().await?;
+    let servant_handle = servant::serve(machine_manager.clone());
 
     // Race machine_monitor and servant futures
     select! {
@@ -92,7 +75,7 @@ async fn async_main(config: Config) -> miette::Result<()> {
             }
         }
         servant_handle_result = servant_handle => {
-            mm_clone2.interrupt().await;
+            machine_manager.interrupt().await;
             if let Err(err) = servant_handle_result {
                 error!("Rqd servant crashed. {err}");
             }

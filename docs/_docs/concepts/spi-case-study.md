@@ -1,6 +1,6 @@
 ---
 title: "OpenCue Sony Pictures Imageworks case study"
-nav_order: 4
+nav_order: 17
 parent: Concepts
 layout: default
 linkTitle: "OpenCue Sony Pictures Imageworks case study"
@@ -52,7 +52,7 @@ render farm. Cuebot servers also store all persistent state and transactions
 in the database server. Figure 1 illustrates how the various OpenCue
 infrastructure components interact:
 
-![OpenCue infrastructure components](/OpenCue/assets/images/opencue_spi_infrastructure.svg)
+![OpenCue infrastructure components](/assets/images/opencue_spi_infrastructure.svg)
 
 Figure 1. OpenCue infrastructure components
 

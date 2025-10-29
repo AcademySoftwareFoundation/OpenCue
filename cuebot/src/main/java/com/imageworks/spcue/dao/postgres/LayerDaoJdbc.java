@@ -17,6 +17,7 @@ package com.imageworks.spcue.dao.postgres;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -490,8 +491,15 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
     @Override
     public void updateTags(JobInterface job, String tags, LayerType type) {
-        getJdbcTemplate().update("UPDATE layer SET str_tags=? WHERE pk_job=? AND str_type=?", tags,
-                job.getJobId(), type.toString());
+        // Split tags by spaces, commas, and pipes to match layer properties behavior
+        String[] tagArray = tags.split("[\\s,|]+");
+
+        // Filter out empty tags and join with pipe delimiter
+        String formattedTags = String.join(" | ", Arrays.stream(tagArray).map(String::trim)
+                .filter(tag -> !tag.isEmpty()).toArray(String[]::new));
+
+        getJdbcTemplate().update("UPDATE layer SET str_tags=? WHERE pk_job=? AND str_type=?",
+                formattedTags, job.getJobId(), type.toString());
     }
 
     @Override

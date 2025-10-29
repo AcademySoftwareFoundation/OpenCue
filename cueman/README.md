@@ -1,6 +1,6 @@
 # OpenCue Cueman
 
-Cueman is a powerful command-line job management tool for OpenCue that provides efficient job control operations. It offers a streamlined interface for managing jobs, frames, and processes with advanced filtering and batch operation capabilities.
+Cueman is a command-line job management tool for OpenCue that provides efficient job control operations. It offers a streamlined interface for managing jobs, frames, and processes with advanced filtering and batch operation capabilities.
 
 **For detailed tutorials and real-world examples, see [cueman_tutorial.md](cueman_tutorial.md)**
 
@@ -25,6 +25,7 @@ Cueman is a powerful command-line job management tool for OpenCue that provides 
 17. [Documentation](#documentation)
 18. [Running Tests](#running-tests)
 19. [Docker Support](#docker-support)
+20. [Contributing](#contributing)
 
 ## Overview
 
@@ -216,10 +217,10 @@ cueman -retry job_name -state DEAD
 ## Frame Manipulation
 
 ```bash
-# Stagger frames by increment
+# Stagger frames by increment (must be positive integer)
 cueman -stagger job_name 1-100 5
 
-# Reorder frames
+# Reorder frames (position must be FIRST, LAST, or REVERSE)
 cueman -reorder job_name 1-100 FIRST
 cueman -reorder job_name 50-100 LAST
 cueman -reorder job_name 1-100 REVERSE
@@ -245,7 +246,7 @@ cueman -lf job_name -layer render_layer comp_layer
 
 ### Memory Filter
 ```bash
-# Frames using 2-4 GB
+# Frames using 2-4 GB (both values must be non-negative, min < max)
 cueman -lf job_name -memory 2-4
 
 # Frames using less than 2 GB
@@ -255,9 +256,11 @@ cueman -lf job_name -memory lt2
 cueman -lf job_name -memory gt4
 ```
 
+**Input Validation:** Values must be non-negative numbers. Range format requires `min < max` (e.g., `2-8`, `0-5`). Invalid formats like `8-2` (reversed), `2--5` (double dash), or `2-3-5` (multiple dashes) are rejected.
+
 ### Duration Filter
 ```bash
-# Frames running 1-2 hours (range)
+# Frames running 1-2 hours (both values must be non-negative, min < max)
 cueman -lf job_name -duration 1-2
 
 # Frames running more than 3.5 hours
@@ -266,6 +269,8 @@ cueman -lf job_name -duration gt3.5
 # Frames running less than 0.5 hours
 cueman -lf job_name -duration lt0.5
 ```
+
+**Input Validation:** Values must be non-negative numbers. Range format requires `min < max` (e.g., `1-3`, `0-5`). Invalid formats like `5-2` (reversed), `2--5` (double dash), `2-3-5` (multiple dashes), or `-5` (negative) are rejected.
 
 ### Pagination
 ```bash
@@ -340,9 +345,11 @@ cueman -kill job_name -memory gt16
 **Usage Notes:**
 - Memory values are specified in GB (e.g., `gt16` = greater than 16GB)
 - Duration values are specified in hours (e.g., `gt12` = greater than 12 hours)
+- Memory and duration ranges must use non-negative values with min < max (e.g., `2-5` not `5-2`)
+- Input validation ensures only valid ranges are accepted (rejects negative, reversed, and malformed inputs)
 - Job names support wildcards and comma-separated lists
 - Use `cueman -h` anytime to see all available commands and options
-- Error messages are user-friendly and clearly indicate when jobs don't exist
+- Error messages are user-friendly and clearly indicate when jobs don't exist or inputs are invalid
 
 **Best Practices:**
 - Always verify job state with `-info` before major operations
@@ -367,13 +374,36 @@ cueman                       # Running without args also shows help
 - **Permission errors**: Some operations require appropriate OpenCue permissions
 
 ### Error Examples
-When a job doesn't exist, you'll see clear error messages:
+When a job doesn't exist or inputs are invalid, you'll see clear error messages:
+
+**Job not found:**
 ```bash
 $ cueman -lf nonexistent_job
 Error: Job 'nonexistent_job' does not exist.
 
-$ cueman -info missing_job  
+$ cueman -info missing_job
 Error: Job 'missing_job' does not exist.
+```
+
+**Invalid duration values:**
+```bash
+$ cueman -lp job_name -duration 5-2
+Invalid duration range '5-2'. Minimum value must be less than maximum value.
+
+$ cueman -lp job_name -duration 2--5
+Invalid duration format '2--5'. Expected format: x-y where x and y are non-negative numbers.
+
+$ cueman -lp job_name -duration -5
+Invalid duration format '-5'. Value cannot be negative.
+```
+
+**Invalid memory values:**
+```bash
+$ cueman -lp job_name -memory 8-2
+Invalid memory range '8-2'. Minimum value must be less than maximum value.
+
+$ cueman -lp job_name -memory 2-3-5
+Invalid memory format '2-3-5'. Expected format: x-y where x and y are non-negative numbers.
 ```
 
 ### Verbose Output
@@ -390,61 +420,110 @@ cueman -v -info job_name     # Enable verbose logging
 
 ## Running Tests
 
-Cueman includes a comprehensive test suite to verify functionality:
+Cueman includes a comprehensive test suite with tests covering unit tests and integration workflows.
+
+### Quick Start
 
 ```bash
-cd OpenCue/cueman && python -m pytest tests/ -v
-```
+# Install with test dependencies
+pip install -e ".[test]"
 
-### Run All Tests
-
-```bash
-# Install test dependencies
-pip install .[test]
-
-# Run tests using pytest
+# Run all tests
 pytest
 
-# Or run the test suite directly
-python tests/test_suite.py
+# Run with coverage
+pytest --cov=cueman --cov-report=term-missing
 ```
 
-### Run Specific Tests
+### Test Infrastructure
 
-```bash
-# Run only main module tests
-pytest tests/test_main.py
-
-# Run tests with verbose output
-pytest -v
-
-# Run tests with coverage report
-pytest --cov=cueman
-```
-
-### Test Requirements
-
-The test suite requires:
-- `pytest` - Test framework
-- `mock` - Mocking library for unit tests
+**Test Dependencies:**
+- `pytest` - Modern test framework
+- `pytest` - Coverage reporting
+- `pytest-mock` - Enhanced mocking
+- `mock` - Core mocking library
 - `pyfakefs` - Filesystem mocking
 
-These are automatically installed when you run `pip install .[test]`.
+**Test Types:**
+- **Unit tests** - Function-level testing (`tests/test_main.py`)
+- **Integration tests** - Workflow testing (`tests/test_integration_workflows.py`)
+- **Test suite** - Combined test runner (`tests/test_suite.py`)
+
+### Running Tests
+
+```bash
+# Basic test run
+pytest tests/
+
+# Verbose output
+pytest -v
+
+# Run specific test file
+pytest tests/test_integration_workflows.py
+
+# Run with coverage and HTML report
+pytest --cov=cueman --cov-report=html --cov-report=term-missing
+
+# Use the convenience script
+./run_tests.sh --coverage --html
+```
+
+### Coverage Reporting
+
+```bash
+# Terminal coverage report
+pytest --cov=cueman --cov-report=term-missing
+
+# HTML coverage report (generates htmlcov/ directory)
+pytest --cov=cueman --cov-report=html
+
+# XML coverage for CI/CD
+pytest --cov=cueman --cov-report=xml
+```
 
 ### Development Testing
 
-For development and CI/CD integration:
+**For contributors:**
 
 ```bash
-# In the OpenCue root directory, run cueman tests as part of the full test suite
-./ci/run_python_tests.sh
+# Install development dependencies
+pip install -e ".[dev]"
 
-# Or run cueman tests specifically
-cd cueman && python -m pytest tests/
+# Run all tests with linting
+pytest && pylint cueman tests
 
-# Run linting for cueman
-./ci/run_python_lint.sh  # This includes cueman linting
+# Run tests across Python versions (requires tox)
+tox
+
+# Format code
+black cueman tests
+isort cueman tests
 ```
+
+**CI/CD Integration:**
+
+```bash
+# In OpenCue root directory
+./ci/run_python_tests.sh     # Includes cueman tests
+./ci/run_python_lint.sh      # Includes cueman linting
+
+# Run cueman tests specifically
+cd cueman && python -m pytest tests/
+```
+
+### Test Configuration
+
+Tests are configured via `pyproject.toml`:
+- **pytest.ini_options** - Test discovery and execution
+- **coverage settings** - Coverage reporting configuration
+- **markers** - Test categorization (unit, integration, slow)
+
+### Continuous Integration
+
+The test suite is integrated into:
+- **GitHub Actions** - Automated testing on PRs
+- **Docker builds** - Container-based testing
+- **Lint pipeline** - Code quality checks
 
 ## Docker Support
 
@@ -486,4 +565,31 @@ OpenCue Cueman - CLI Job Management Tool
 Install with: pip install opencue-cueman
 Documentation available in /opt/opencue/docs/
 Source code available in /opt/opencue/cueman/
+```
+
+## Contributing
+
+### Development Setup
+
+```bash
+# Clone and setup
+git clone https://github.com/AcademySoftwareFoundation/OpenCue.git
+cd OpenCue/cueman
+
+# Install with development dependencies
+pip install -e ".[dev]"
+```
+
+### Testing and Quality
+
+```bash
+# Run comprehensive test suite (tests)
+pytest --cov=cueman --cov-report=term-missing
+
+# Code formatting and linting
+black cueman tests && isort cueman tests
+pylint cueman tests
+
+# Multi-environment testing
+tox
 ```

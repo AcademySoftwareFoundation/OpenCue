@@ -2,7 +2,7 @@
 layout: default
 title: "Jul 8, 2019: OpenCue Birds of a Feather at SIGGRAPH"
 parent: News
-nav_order: 8
+nav_order: 9
 ---
 
 # OpenCue Birds of a Feather at SIGGRAPH
@@ -27,4 +27,4 @@ the ASWF on July 30 and to RSVP, see the
 
 We look forward to meeting you!
 
-![Open source day '19 hosted by the ASWF](/OpenCue/assets/images/news/OpenSourceDay_SocialCard_final.png)
+![Open source day '19 hosted by the ASWF](/assets/images/news/OpenSourceDay_SocialCard_final.png)

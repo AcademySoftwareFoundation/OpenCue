@@ -7,18 +7,34 @@ on:
       - "v*"
 
 jobs:
+  check_opencue_licenses:
+    name: Check Licenses of OpenCue Dependencies
+    runs-on: ubuntu-22.04
+    container: python:3.9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Run license check
+        shell: bash
+        run: ci/check_licenses.sh
+
   build_opencue_packages:
+    name: Build Python Packages
     runs-on: ubuntu-22.04
     container: python:3.7
-    name: "Build Python Packages"
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
       opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
       opencue_pycue_path: ${{ steps.package_outputs.outputs.opencue_pycue_path }}
       opencue_pyoutline_path: ${{ steps.package_outputs.outputs.opencue_pyoutline_path }}
       opencue_cueadmin_path: ${{ steps.package_outputs.outputs.opencue_cueadmin_path }}
+      opencue_cueman_path: ${{ steps.package_outputs.outputs.opencue_cueman_path }}
       opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
       opencue_cuegui_path: ${{ steps.package_outputs.outputs.opencue_cuegui_path }}
+      opencue_cuenimby_path: ${{ steps.package_outputs.outputs.opencue_cuenimby_path }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,29 +44,124 @@ jobs:
       - name: Mark repository as safe (Fix for https://github.com/actions/checkout/issues/1048)
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
+      - name: Get current tag name
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> ${GITHUB_ENV}
+
+      - name: Verify tag name and version match
+        run: |
+          set -e
+          if [ "v$(ci/generate_version_number.py)" != "${TAG_NAME}" ]; then
+            echo "Version check failed: code version v$(ci/generate_version_number.py) does not match tag name ${TAG_NAME}"
+            echo "Original GITHUB_REF: ${GITHUB_REF}"
+            exit 1
+          fi
+
       - uses: ./.github/actions/build-python-packages
 
       - name: Gather package paths
         id: package_outputs
         run: |
-          echo "opencue_proto_path=$(ls -a packages/opencue_proto-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_rqd_path=$(ls -a packages/opencue_rqd-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_pycue_path=$(ls -a packages/opencue_pycue-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_pyoutline_path=$(ls -a packages/opencue_pyoutline-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_cuesubmit_path=$(ls -a packages/opencue_cuesubmit-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_cueadmin_path=$(ls -a packages/opencue_cueadmin-*.whl)" >> $GITHUB_OUTPUT
-          echo "opencue_cuegui_path=$(ls -a packages/opencue_cuegui-*.whl)" >> $GITHUB_OUTPUT
+          echo "opencue_proto_path=$(find ./packages -name 'opencue_proto-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_rqd_path=$(find ./packages -name 'opencue_rqd-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pycue_path=$(find ./packages -name 'opencue_pycue-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_pyoutline_path=$(find ./packages -name 'opencue_pyoutline-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuesubmit_path=$(find ./packages -name 'opencue_cuesubmit-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueadmin_path=$(find ./packages -name 'opencue_cueadmin-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cueman_path=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuegui_path=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> $GITHUB_OUTPUT
+          echo "opencue_cuenimby_path=$(find ./packages -name 'opencue_cuenimby-*.whl' -print -quit)" >> $GITHUB_OUTPUT
 
-  upload_python_packages_test:
+  build_rust_binaries:
+    name: Build Rust Binaries
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-22.04
+          - target: x86_64-apple-darwin
+            os: macos-13
+          - target: aarch64-apple-darwin
+            os: macos-13
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Mark repository as safe
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Get current tag name
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> ${GITHUB_ENV}
+
+      - name: Verify tag name and version match
+        run: |
+          set -e
+          if [ "v$(ci/generate_version_number.py)" != "${TAG_NAME}" ]; then
+            echo "Version check failed: code version v$(ci/generate_version_number.py) does not match tag name ${TAG_NAME}"
+            echo "Original GITHUB_REF: ${GITHUB_REF}"
+            exit 1
+          fi
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev protobuf-compiler
+          if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
+            sudo apt-get install -y musl-tools
+          fi
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-13'
+        run: |
+          brew install protobuf
+
+      - name: Set build ID
+        run: |
+          echo "BUILD_ID=$(ci/generate_version_number.py)" >> $GITHUB_ENV
+
+      - name: Build Rust binaries
+        run: |
+          cd rust
+          cargo build --release --target ${{ matrix.target }} --no-default-features
+
+      - name: Create release directory
+        run: mkdir -p release
+
+      - name: Copy binaries (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          cp rust/target/${{ matrix.target }}/release/openrqd release/openrqd-${{ env.BUILD_ID }}-${{ matrix.target }}
+
+      - name: Copy binaries (macOS)
+        if: matrix.os == 'macos-13'
+        run: |
+          cp rust/target/${{ matrix.target }}/release/openrqd release/openrqd-${{ env.BUILD_ID }}-${{ matrix.target }}
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-binaries-${{ matrix.target }}
+          path: release/
+
+  upload_python_packages_pypi:
     needs: build_opencue_packages
     runs-on: ubuntu-22.04
     container: python:3.11
-    name: "Upload python packages to testpypi repo"
-    environment: testpypi
+    name: "Upload python packages to pypi repo"
+    environment: release
     env:
       TWINE_USERNAME: "__token__"
-      TWINE_PASSWORD: "${{ secrets.TEST_PYPI_API_TOKEN }}"
-      TWINE_REPOSITORY: "testpypi"
+      TWINE_PASSWORD: "${{ secrets.PYPI_API_TOKEN }}"
 
     steps:
       - name: Download artifact
@@ -64,46 +175,13 @@ jobs:
           python3 -m pip install --upgrade twine
           python3 -m twine upload --verbose packages/opencue_*
 
-  build_docker_images:
-    needs: build_opencue_packages
-    runs-on: ubuntu-22.04
-    name: "Build Docker Images"
-    strategy:
-      matrix:
-        # Disable cuebot for now
-        component: [pycue, rqd, pyoutline, cuesubmit, cueadmin, cuegui]
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-tags: true
-          fetch-depth: 0
-
-      - name: Download a single artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: opencue_packages
-          path: packages/
-
-      - name: Build ${{ matrix.component }} Docker Image
-        run: |
-          docker build \
-                --build-arg OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}" \
-                --build-arg OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}" \
-                --build-arg OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}" \
-                --build-arg OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}" \
-                --build-arg OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}" \
-                --build-arg OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}" \
-                --build-arg OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}" \
-                -f ${{ matrix.component }}/Dockerfile .
-
   release_docker_images:
     # needs: preflight
     runs-on: ubuntu-22.04
-    environment: dockerhub
+    environment: release
     strategy:
       matrix:
-        component: [cuebot, rqd, pycue, pyoutline, cuegui, cuesubmit, cueadmin]
+        component: [cuebot, rqd]
 
     name: Release ${{ matrix.component }} Docker image
     steps:
@@ -123,7 +201,7 @@ jobs:
           echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
 
       - name: Get current tag name
-        run: echo "TAG_NAME=${GITHUB_REF/refs\/tags\//}" >> ${GITHUB_ENV}
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> ${GITHUB_ENV}
 
       - name: Verify tag name and version match
         run: |
@@ -146,12 +224,12 @@ jobs:
           password: ${{ secrets.DOCKER_PASS }}
 
       - name: Rebuild and push Docker image
-        uses: docker/build-push-action@v3
-        with:
-          file: ${{ matrix.component }}/Dockerfile
-          tags: opencue/${{ matrix.component }}:${{ env.BUILD_ID }},opencue/${{ matrix.component }}:latest
-          context: .
-          push: true
+        run: |
+          set -e
+          docker tag opencuebuild/${{ matrix.component }}:${BUILD_ID} opencue/${{ matrix.component }}:${{ env.BUILD_ID }}
+          docker push opencue/${{ matrix.component }}:${{ env.BUILD_ID }}
+          docker tag opencuebuild/${{ matrix.component }}:${BUILD_ID} opencue/${{ matrix.component }}:latest
+          docker push opencue/${{ matrix.component }}:latest
 
       # This step has been failing with permission issues.
       # Commenting this out temporarily to unblock the release of v1.4
@@ -164,9 +242,9 @@ jobs:
       #     readme-filepath: ./${{ matrix.component }}/README.md
 
   create_release:
-    # needs: preflight
+    needs: build_rust_binaries
     name: Create Release
-    environment: dockerhub
+    environment: release
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
@@ -189,6 +267,13 @@ jobs:
           ci/generate_version_number.sh > VERSION
           echo "Build ID: $(ci/generate_version_number.py)"
           echo "BUILD_ID=$(ci/generate_version_number.py)" >> ${GITHUB_ENV}
+
+      - name: Download Rust binaries artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rust-binaries-*
+          path: rust-binaries
+          merge-multiple: true
 
       - name: Fetch artifacts
         id: fetch_artifacts
@@ -282,62 +367,125 @@ jobs:
           asset_name: opencue-cuebot-${{ env.BUILD_ID }}-1.noarch.rpm
           asset_content_type: application/octet-stream
 
-      - name: Upload RQD Tar
+      # Pause python artifact releases for now while ASWF discusses the implications of publishing
+      # binary artifacts
+      #
+      # - name: Upload RQD package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_rqd-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: rqd-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
+
+      # - name: Upload CueGUI package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_cuegui-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: cuegui-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
+
+      # - name: Upload PyCue package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_pycue-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: pycue-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
+
+      # - name: Upload PyOutline package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_pyoutline-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: pyoutline-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
+
+      # - name: Upload CueSubmit package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_cuesubmit-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: cuesubmit-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
+
+      # - name: Upload CueAdmin package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_cueadmin-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: cueadmin-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
+
+      # - name: Upload CueMan package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: cueman-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
+
+      # - name: Upload CueNIMBY package
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: ${{ github.workspace }}/artifacts/opencue_cuenimby-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_name: cuenimby-${{ env.BUILD_ID }}-py2.py3-none-any.whl
+      #     asset_content_type: application/octet-stream
+
+      - name: Upload openrqd (Linux GNU)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/rqd-${{ env.BUILD_ID }}-all.tar.gz
-          asset_name: rqd-${{ env.BUILD_ID }}-all.tar.gz
+          asset_path: ${{ github.workspace }}/artifacts/openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-gnu
+          asset_name: openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-gnu
           asset_content_type: application/octet-stream
 
-      - name: Upload CueGUI Tar
+      - name: Upload openrqd (Linux MUSL)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/cuegui-${{ env.BUILD_ID }}-all.tar.gz
-          asset_name: cuegui-${{ env.BUILD_ID }}-all.tar.gz
+          asset_path: ${{ github.workspace }}/artifacts/openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-musl
+          asset_name: openrqd-${{ env.BUILD_ID }}-x86_64-unknown-linux-musl
           asset_content_type: application/octet-stream
 
-      - name: Upload PyCue Tar
+      - name: Upload openrqd (macOS Intel)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/pycue-${{ env.BUILD_ID }}-all.tar.gz
-          asset_name: pycue-${{ env.BUILD_ID }}-all.tar.gz
+          asset_path: ${{ github.workspace }}/artifacts/openrqd-${{ env.BUILD_ID }}-x86_64-apple-darwin
+          asset_name: openrqd-${{ env.BUILD_ID }}-x86_64-apple-darwin
           asset_content_type: application/octet-stream
 
-      - name: Upload PyOutline Tar
+      - name: Upload openrqd (macOS Apple Silicon)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/pyoutline-${{ env.BUILD_ID }}-all.tar.gz
-          asset_name: pyoutline-${{ env.BUILD_ID }}-all.tar.gz
-          asset_content_type: application/octet-stream
-
-      - name: Upload CueSubmit Tar
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/cuesubmit-${{ env.BUILD_ID }}-all.tar.gz
-          asset_name: cuesubmit-${{ env.BUILD_ID }}-all.tar.gz
-          asset_content_type: application/octet-stream
-
-      - name: Upload CueAdmin Tar
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/cueadmin-${{ env.BUILD_ID }}-all.tar.gz
-          asset_name: cueadmin-${{ env.BUILD_ID }}-all.tar.gz
+          asset_path: ${{ github.workspace }}/artifacts/openrqd-${{ env.BUILD_ID }}-aarch64-apple-darwin
+          asset_name: openrqd-${{ env.BUILD_ID }}-aarch64-apple-darwin
           asset_content_type: application/octet-stream

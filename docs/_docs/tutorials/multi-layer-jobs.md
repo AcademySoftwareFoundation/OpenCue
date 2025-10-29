@@ -2,7 +2,7 @@
 title: "Creating Multi-Layer Jobs"
 layout: default
 parent: Tutorials
-nav_order: 5
+nav_order: 71
 linkTitle: "Creating Multi-Layer Jobs"
 date: 2025-01-29
 description: >
@@ -33,19 +33,22 @@ This tutorial teaches you how to create sophisticated multi-layer jobs in OpenCu
 
 ### Understanding Layer Relationships
 
-```
-Complex Render Pipeline:
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Preprocess    │───▶│     Render      │───▶│   Composite     │
-│   (Frames 1-N)  │    │   (Frames 1-N)  │    │  (Frames 1-N)   │ 
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Cache Assets   │    │   FX Simulation │    │   QC Review     │
-│   (Once only)   │    │  (Frames 1-N)   │    │  (Frames 1-N)   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
+<div class="mermaid">
+graph TD
+    PP["Preprocess<br/>(Frames 1-N)"] --> R["Render<br/>(Frames 1-N)"]
+    R --> C["Composite<br/>(Frames 1-N)"]
+
+    PP --> CA["Cache Assets<br/>(Once only)"]
+    R --> FX["FX Simulation<br/>(Frames 1-N)"]
+    C --> QC["QC Review<br/>(Frames 1-N)"]
+
+    style PP fill:#e1f5fe
+    style R fill:#fff3e0
+    style C fill:#f3e5f5
+    style CA fill:#e8f5e9
+    style FX fill:#fff9c4
+    style QC fill:#fce4ec
+</div>
 
 ### Layer Types and Patterns
 

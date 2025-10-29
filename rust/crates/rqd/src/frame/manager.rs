@@ -7,7 +7,7 @@ use opencue_proto::{
 };
 use std::{fs, sync::Arc, time::SystemTime};
 use thiserror::Error;
-use tokio::time;
+use tokio::{sync::OnceCell, time};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
@@ -15,11 +15,33 @@ use uuid::Uuid;
 use super::docker_running_frame;
 
 use super::running_frame::RunningFrame;
-use crate::{config::Config, servant::rqd_servant::MachineImpl};
+use crate::{config::CONFIG, servant::rqd_servant::MachineImpl, system::machine};
 
 pub struct FrameManager {
-    pub config: Config,
     pub machine: Arc<MachineImpl>,
+}
+
+static FRAME_MANAGER: OnceCell<Arc<FrameManager>> = OnceCell::const_new();
+
+/// Returns the singleton instance of the FrameManager.
+///
+/// This function lazily initializes the FrameManager on first call and returns a reference
+/// to the singleton instance on subsequent calls.
+///
+/// # Returns
+///
+/// * `Ok(Arc<FrameManager>)` - A cloned Arc reference to the FrameManager singleton
+/// * `Err(miette::Error)` - If initialization fails (typically due to machine instance failure)
+pub async fn instance() -> Result<Arc<FrameManager>> {
+    FRAME_MANAGER
+        .get_or_try_init(|| async {
+            let frame_manager = FrameManager {
+                machine: machine::instance().await?,
+            };
+            Ok(Arc::new(frame_manager))
+        })
+        .await
+        .map(Arc::clone)
 }
 
 impl FrameManager {
@@ -60,13 +82,13 @@ impl FrameManager {
                         run_frame.user_name, uid, run_frame.gid, err
                     ))
                 })?,
-            None => self.config.runner.default_uid,
+            None => CONFIG.runner.default_uid,
         };
 
         // **Attention**: If an error happens between here and spawning a frame, the resources
         // reserved need to be released.
 
-        let num_cores = (run_frame.num_cores as u32).div_ceil(self.config.machine.core_multiplier);
+        let num_cores = (run_frame.num_cores as u32).div_ceil(CONFIG.machine.core_multiplier);
 
         // Reserving cores will always yield a list of reserved thread_ids. If hyperthreading is off,
         // the list should be ignored
@@ -118,13 +140,14 @@ impl FrameManager {
         let running_frame = Arc::new(RunningFrame::init(
             run_frame,
             uid,
-            self.config.runner.clone(),
+            CONFIG.runner.clone(),
             thread_ids,
             gpu_list,
             self.machine.get_host_name().await,
         ));
 
-        if self.config.runner.run_on_docker {
+        if cfg!(feature = "containerized_frames") && CONFIG.runner.run_on_docker {
+            #[cfg(feature = "containerized_frames")]
             self.spawn_docker_frame(running_frame, false);
         } else if self.spawn_running_frame(running_frame, false).is_err() {
             // Release cores reserved if spawning the frame failed
@@ -152,7 +175,7 @@ impl FrameManager {
     /// * `Ok(())` if snapshot recovery was attempted (even if some snapshots failed)
     /// * `Err(miette::Error)` if the snapshots directory could not be read
     pub async fn recover_snapshots(&self) -> Result<()> {
-        let snapshots_path = &self.config.runner.snapshots_path;
+        let snapshots_path = &CONFIG.runner.snapshots_path;
         let read_dirs = std::fs::read_dir(snapshots_path).map_err(|err| {
             let msg = format!("Failed to read snapshot dir. {}", err);
             warn!(msg);
@@ -173,7 +196,7 @@ impl FrameManager {
             .collect();
         let mut errors = Vec::new();
         for path in snapshot_dir {
-            let running_frame = RunningFrame::from_snapshot(&path, self.config.runner.clone())
+            let running_frame = RunningFrame::from_snapshot(&path, CONFIG.runner.clone())
                 .await
                 .map(Arc::new);
             match running_frame {
@@ -190,7 +213,7 @@ impl FrameManager {
                         }
                         None => {
                             let num_cores = (running_frame.request.num_cores as u32)
-                                .div_ceil(self.config.machine.core_multiplier);
+                                .div_ceil(CONFIG.machine.core_multiplier);
                             self.machine
                                 .reserve_cores(
                                     Either::Left(num_cores as usize),
@@ -203,7 +226,7 @@ impl FrameManager {
                     }
 
                     let resource_id = running_frame.request.resource_id();
-                    if self.config.runner.run_on_docker {
+                    if CONFIG.runner.run_on_docker {
                         todo!("Recovering frames when running on docker is not yet supported")
                     } else if self.spawn_running_frame(running_frame, true).is_err() {
                         if let Err(err) = self.machine.release_cores(&resource_id).await {
@@ -255,11 +278,6 @@ impl FrameManager {
         self.machine.add_running_frame(Arc::clone(&running_frame));
         let _thread_handle =
             tokio::spawn(async move { running_frame.run_docker(recovery_mode).await });
-    }
-
-    #[cfg(feature = "default")]
-    fn spawn_docker_frame(&self, _running_frame: Arc<RunningFrame>, _recovery_mode: bool) {
-        todo!("Running on docker requires compiling with the feature containerized_frames")
     }
 
     fn validate_grpc_frame(&self, run_frame: &RunFrame) -> Result<(), FrameManagerError> {
@@ -365,6 +383,44 @@ impl FrameManager {
         }
     }
 
+    /// Kills all running frames on this host.
+    ///
+    /// This function iterates through all running frames and attempts to terminate each one.
+    /// For each frame that is successfully killed, a monitor task is spawned to ensure the
+    /// process fully terminates.
+    ///
+    /// # Arguments
+    ///
+    /// * `reason` - A string describing why the frames are being killed
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(count)` - The number of frames that were successfully killed
+    /// * `Err(miette::Error)` - If any frame exists but has no pid assigned (invalid state)
+    pub async fn kill_all_running_frames(&self, reason: &str) -> Result<usize> {
+        let mut count = 0;
+        for frame_id in self.machine.all_running_frame_ids() {
+            if let Some(running_frame) = self.get_running_frame(&frame_id) {
+                let pid = running_frame.get_pid_to_kill(reason);
+                if let Ok(frame_pid) = pid {
+                    info!(
+                        "Killing frame {running_frame}({frame_pid}) as a kill_all request.\n\
+                        Reason: {reason}"
+                    );
+                    self.machine.kill_session(frame_pid, false).await?;
+                    self.monitor_killed_frame(frame_pid, &running_frame);
+                    count += 1;
+                } else {
+                    Err(miette!(
+                        "Kill frame with invalid State. Frame {running_frame} exists but has \
+                        no pid assigned to it"
+                    ))?
+                }
+            }
+        }
+        Ok(count)
+    }
+
     /// Monitors a killed frame to ensure it fully terminates.
     ///
     /// After a frame is killed, this function spawns a background task that periodically checks
@@ -376,11 +432,11 @@ impl FrameManager {
     /// * `frame_pid` - The process ID of the killed frame
     /// * `running_frame` - Reference to the RunningFrame object that was killed
     fn monitor_killed_frame(&self, frame_pid: u32, running_frame: &RunningFrame) {
-        let interval_seconds = self.config.runner.kill_monitor_interval.as_secs();
-        let mut monitor_limit_seconds = self.config.runner.kill_monitor_timeout.as_secs();
-        let force_kill = self.config.runner.force_kill_after_timeout;
+        let interval_seconds = CONFIG.runner.kill_monitor_interval.as_secs();
+        let mut monitor_limit_seconds = CONFIG.runner.kill_monitor_timeout.as_secs();
+        let force_kill = CONFIG.runner.force_kill_after_timeout;
         let mut tried_to_force_kill_session = false;
-        let mut interval = time::interval(self.config.runner.kill_monitor_interval);
+        let mut interval = time::interval(CONFIG.runner.kill_monitor_interval);
 
         // Now into localized timestamp
         let time_str: DateTime<Local> = SystemTime::now().into();
@@ -410,20 +466,22 @@ impl FrameManager {
 
                         // Force kill
                         if !tried_to_force_kill_session {
+                            tried_to_force_kill_session = true;
                             // First try to force kill the session
                             match machine.kill_session(frame_pid, true).await {
                                 Ok(()) => {
-                                    tried_to_force_kill_session = true;
                                     info!(
                                         "Kill timeout for {}. Used session force_kill on \
                                         session_id {} to kill {:?}",
                                         job_str, frame_pid, lineage
                                     )
                                 }
-                                Err(err) => warn!(
-                                    "Failed to force_kill {} lineage = {:?}. {}",
-                                    job_str, lineage, err
-                                ),
+                                Err(err) => {
+                                    warn!(
+                                        "Failed to force_kill {} lineage = {:?}. {}",
+                                        job_str, lineage, err
+                                    )
+                                }
                             }
                         } else {
                             match machine.force_kill(&lineage).await {

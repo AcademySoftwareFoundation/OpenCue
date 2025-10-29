@@ -95,6 +95,8 @@ import com.imageworks.spcue.grpc.show.ShowSetDefaultMaxGpusRequest;
 import com.imageworks.spcue.grpc.show.ShowSetDefaultMaxGpusResponse;
 import com.imageworks.spcue.grpc.show.ShowSetDefaultMinGpusRequest;
 import com.imageworks.spcue.grpc.show.ShowSetDefaultMinGpusResponse;
+import com.imageworks.spcue.grpc.show.ShowArchiveRequest;
+import com.imageworks.spcue.grpc.show.ShowArchiveResponse;
 import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
 import com.imageworks.spcue.service.AdminManager;
@@ -406,6 +408,16 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
             StreamObserver<ShowDeleteResponse> responseObserver) {
         showDao.delete(getShowEntity(request.getShow()));
         responseObserver.onNext(ShowDeleteResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void archive(ShowArchiveRequest request,
+            StreamObserver<ShowArchiveResponse> responseObserver) {
+        ShowEntity show = getShowEntity(request.getShow());
+        String targetShowName = request.getTargetShowName();
+        showDao.archiveShow(show, targetShowName);
+        responseObserver.onNext(ShowArchiveResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 

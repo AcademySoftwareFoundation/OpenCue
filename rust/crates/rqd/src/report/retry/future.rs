@@ -136,8 +136,17 @@ where
 
                 StateProj::Retrying => {
                     ready!(this.retry.as_mut().project().service.poll_ready(cx))?;
-                    trace!("Retrying");
-                    this.state.set(State::Initialized);
+                    trace!("Retrying - making fresh call");
+
+                    // Take the request and clone it for retry
+                    let req = this
+                        .request
+                        .take()
+                        .expect("request should be available for retry");
+                    let clone_future = this.retry.policy.clone_request(req);
+                    this.state.set(State::Cloning {
+                        future: clone_future,
+                    });
                 }
             }
         }

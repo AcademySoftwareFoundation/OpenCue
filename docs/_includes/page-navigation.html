@@ -1,0 +1,310 @@
+<!-- Page Navigation: Previous and Next buttons -->
+{% comment %}
+This include creates Previous/Next navigation buttons for documentation pages.
+It determines the page order based on the sidebar navigation structure.
+{% endcomment %}
+
+{% assign current_page = page %}
+{% assign nav_pages = site.docs | where_exp: "item", "item.nav_exclude != true" | sort: "nav_order" %}
+
+{% comment %} Find current page index {% endcomment %}
+{% assign current_index = nil %}
+{% for nav_page in nav_pages %}
+  {% if nav_page.url == current_page.url %}
+    {% assign current_index = forloop.index0 %}
+    {% break %}
+  {% endif %}
+{% endfor %}
+
+{% comment %} Get previous and next pages {% endcomment %}
+{% assign prev_page = nil %}
+{% assign next_page = nil %}
+
+{% if current_index %}
+  {% assign prev_index = current_index | minus: 1 %}
+  {% assign next_index = current_index | plus: 1 %}
+  
+  {% if prev_index >= 0 %}
+    {% assign prev_page = nav_pages[prev_index] %}
+  {% endif %}
+  
+  {% if next_index < nav_pages.size %}
+    {% assign next_page = nav_pages[next_index] %}
+  {% endif %}
+{% endif %}
+
+{% comment %} Render navigation if we have previous or next pages {% endcomment %}
+{% if prev_page or next_page %}
+<nav class="page-navigation" aria-label="Page navigation">
+  <div class="nav-buttons-container">
+    <div class="nav-button-wrapper">
+      {% if prev_page %}
+        <a href="{{ prev_page.url | relative_url }}" class="nav-button nav-button-prev" aria-label="Previous page: {{ prev_page.title | default: 'Previous page' }}">
+          <span class="nav-emoji" aria-hidden="true">⬅️</span>
+          <span class="nav-button-content">
+            <span class="nav-button-label">Previous</span>
+            <span class="nav-button-title">{{ prev_page.title | default: prev_page.name | truncate: 50 }}</span>
+          </span>
+        </a>
+      {% else %}
+        <div class="nav-button-spacer"></div>
+      {% endif %}
+    </div>
+    
+    <div class="nav-button-wrapper">
+      {% if next_page %}
+        <a href="{{ next_page.url | relative_url }}" class="nav-button nav-button-next" aria-label="Next page: {{ next_page.title | default: 'Next page' }}">
+          <span class="nav-button-content">
+            <span class="nav-button-label">Next</span>
+            <span class="nav-button-title">{{ next_page.title | default: next_page.name | truncate: 50 }}</span>
+          </span>
+          <span class="nav-emoji" aria-hidden="true">➡️</span>
+        </a>
+      {% else %}
+        <div class="nav-button-spacer"></div>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<style>
+/* ========================================
+   PAGE NAVIGATION STYLES
+   ======================================== */
+
+.page-navigation {
+  margin: 3rem 0 2rem 0;
+  padding: 1.5rem 0;
+  border-top: 1px solid var(--border-color, #e1e4e8);
+}
+
+.nav-buttons-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 1rem;
+  max-width: 100%;
+}
+
+.nav-button-wrapper {
+  flex: 1;
+  display: flex;
+  min-width: 0; /* Allow flex items to shrink */
+}
+
+.nav-button {
+  display: flex;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border-color, #e1e4e8);
+  border-radius: 8px;
+  background: var(--body-background-color, #ffffff);
+  color: var(--body-text-color, #24292e);
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  min-height: 80px;
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.nav-button:hover {
+  border-color: var(--link-color, #0366d6);
+  background: var(--code-background-color, #f6f8fa);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  text-decoration: none;
+}
+
+.nav-button:focus {
+  outline: 2px solid var(--link-color, #0366d6);
+  outline-offset: 2px;
+}
+
+.nav-button-prev {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.nav-button-next {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.nav-button-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Allow content to shrink */
+  flex: 1;
+}
+
+.nav-button-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--link-color, #0366d6);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.nav-button-title {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--body-text-color, #24292e);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.nav-emoji {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.nav-button-prev .nav-emoji {
+  margin-right: 1rem;
+}
+
+.nav-button-next .nav-emoji {
+  margin-left: 1rem;
+}
+
+.nav-button:hover .nav-emoji {
+  transform: translateX(0);
+}
+
+.nav-button-prev:hover .nav-emoji {
+  transform: translateX(-4px);
+}
+
+.nav-button-next:hover .nav-emoji {
+  transform: translateX(4px);
+}
+
+.nav-button-spacer {
+  width: 100%;
+  min-height: 80px;
+}
+
+/* Dark mode styles */
+body.dark-mode .page-navigation {
+  border-top-color: var(--border-color, #4b5563);
+}
+
+body.dark-mode .nav-button {
+  background: var(--body-background-color, #374151);
+  border-color: var(--border-color, #6b7280);
+  color: var(--body-text-color, #f9fafb);
+}
+
+body.dark-mode .nav-button:hover {
+  background: var(--code-background-color, #4b5563);
+  border-color: var(--link-color, #60a5fa);
+}
+
+body.dark-mode .nav-button-title {
+  color: var(--body-text-color, #f9fafb);
+}
+
+body.dark-mode .nav-button-label {
+  color: var(--link-color, #60a5fa);
+}
+
+/* Dark mode emoji styles are handled automatically by emoji rendering */
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .page-navigation {
+    margin: 2rem 0 1.5rem 0;
+    padding: 1rem 0;
+  }
+  
+  .nav-buttons-container {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .nav-button-wrapper {
+    width: 100%;
+  }
+  
+  .nav-button {
+    min-height: 70px;
+    padding: 1rem;
+  }
+  
+  .nav-button-prev,
+  .nav-button-next {
+    justify-content: center;
+    text-align: center;
+  }
+  
+  .nav-emoji {
+    font-size: 1rem;
+  }
+  
+  .nav-button-prev .nav-emoji {
+    margin-right: 0.75rem;
+  }
+  
+  .nav-button-next .nav-emoji {
+    margin-left: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-button {
+    padding: 0.875rem;
+    min-height: 60px;
+  }
+  
+  .nav-button-title {
+    font-size: 0.9rem;
+  }
+  
+  .nav-button-label {
+    font-size: 0.8rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  .page-navigation {
+    display: none;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .nav-button {
+    border-width: 2px;
+  }
+  
+  .nav-button:hover {
+    border-width: 3px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .nav-button,
+  .nav-emoji {
+    transition: none;
+  }
+  
+  .nav-button:hover {
+    transform: none;
+  }
+  
+  .nav-button:hover .nav-emoji {
+    transform: none;
+  }
+}
+</style>
+{% endif %}
