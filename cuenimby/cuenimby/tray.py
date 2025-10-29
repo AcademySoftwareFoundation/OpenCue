@@ -19,7 +19,7 @@ import os
 import subprocess
 import sys
 from typing import Optional
-from shutil import which
+import shutil
 
 from qtpy import QtWidgets, QtGui
 
@@ -60,8 +60,9 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         """
         # Set up Qt application
         self.app = QtWidgets.QApplication([])
-        QtWidgets.QSystemTrayIcon.__init__(self, QtGui.QIcon(self._get_icon(HostState.STARTING)), parent)
-        
+        _icon = QtGui.QIcon(self._get_icon(HostState.STARTING))
+        QtWidgets.QSystemTrayIcon.__init__(self, _icon, parent)
+
         self.menu = QtWidgets.QMenu(parent)
         self.setContextMenu(self.menu)
         self.config = config or Config()
@@ -99,7 +100,8 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
         _icon_folder = os.path.join(os.path.dirname(__file__), "icons")
         if state not in HostState:
             return QtGui.QPixmap(os.path.join(_icon_folder, self.ICONS["UNKNOWN"]))
-        return QtGui.QPixmap(os.path.join(_icon_folder, self.ICONS.get(state, self.ICONS["DEFAULT"])))
+        return QtGui.QPixmap(os.path.join(_icon_folder,
+                                          self.ICONS.get(state, self.ICONS["DEFAULT"])))
 
     def _update_icon(self, state: Optional[HostState] = None) -> None:
         """Update tray icon to reflect current state."""
@@ -228,7 +230,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
     def launch_cuegui(self) -> None:
         """Launch CueGUI application."""
         try:
-            if which("cuegui"):
+            if self._cuegui_available():
                 subprocess.Popen(["cuegui"])
                 logger.info("Launched CueGUI")
             else:
@@ -243,7 +245,7 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
     
     def _cuegui_available(self) -> bool:
         """Check if CueGUI is available."""
-        return which("cuegui") is not None
+        return shutil.which("cuegui") is not None
 
     def _show_about(self) -> None:
         """Show about dialog using native platform dialogs."""
@@ -251,13 +253,15 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
         # Always use native dialogs for About (more reliable than notifications)
         about_message = f"CueNIMBY v{__version__}\n\nOpenCue NIMBY Control\n\n"
-        about_message += f"Host: {self.monitor.hostname}\n\nCuebot: {self.monitor.cuebot_host}:{self.monitor.cuebot_port}"
+        about_message += f"Host: {self.monitor.hostname}\n\n"
+        about_message += f"Cuebot: {self.monitor.cuebot_host}:{self.monitor.cuebot_port}"
         try:
             if sys.platform == "darwin":  # macOS
                 # For AppleScript, use return for newlines
                 # Escape quotes and replace newlines with 'return' for AppleScript
-                escaped_message = about_message.replace('"', '\\"').replace('\n', '" & return & "')
-                script = f'display dialog "{escaped_message}" with title "About CueNIMBY" buttons {{"OK"}} default button "OK"'
+                esc_message = about_message.replace('"', '\\"').replace('\n', '" & return & "')
+                script = f'display dialog "{esc_message}" with title "About CueNIMBY"'
+                script += ' buttons {"OK"} default button "OK"'
                 subprocess.run(["osascript", "-e", script], check=False)
                 logger.info(f"About CueNIMBY: {about_message}")
             elif sys.platform == "win32":  # Windows
@@ -267,18 +271,25 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
             else:  # Linux
                 # Try zenity or kdialog
                 try:
-                    subprocess.run(["zenity", "--info", "--title=About CueNIMBY", f"--text={about_message}"], check=False)
+                    subprocess.run(["zenity",
+                                    "--info",
+                                    "--title=About CueNIMBY",
+                                    f"--text={about_message}"],
+                                    check=False)
                     logger.info(f"About CueNIMBY: {about_message}")
                 except FileNotFoundError:
                     try:
-                        subprocess.run(["kdialog", "--msgbox", about_message, "--title", "About CueNIMBY"], check=False)
+                        subprocess.run(["kdialog", "--msgbox",
+                                        about_message, "--title", "About CueNIMBY"],
+                                        check=False)
                         logger.info(f"About CueNIMBY: {about_message}")
                     except FileNotFoundError:
                         # Fallback: use notification if available, otherwise log
                         if self.notifier:
                             self.notifier.notify("About CueNIMBY", about_message)
                         else:
-                            logger.warning(f"No dialog system available. About CueNIMBY: {about_message}")
+                            logger.warning("No dialog system available.")
+                            logger.warning(f"About CueNIMBY: {about_message}")
         except Exception as e:
             logger.error(f"Failed to show about dialog: {e}")
             # Fallback to console output
@@ -355,9 +366,10 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
     def _update_menu(self) -> None:
         """Update menu items before showing."""
         self.activate_action.setChecked(self._is_available())
-        if self.monitor.current_state in (HostState.STARTING, HostState.NO_HOST, HostState.HOST_LAGGING,
-                                            HostState.HOST_DOWN, HostState.CUEBOT_UNREACHABLE,
-                                            HostState.ERROR, HostState.UNKNOWN, HostState.REPAIR):
+        if self.monitor.current_state in (HostState.STARTING, HostState.NO_HOST,
+                                          HostState.HOST_LAGGING, HostState.HOST_DOWN,
+                                          HostState.CUEBOT_UNREACHABLE, HostState.ERROR,
+                                          HostState.UNKNOWN, HostState.REPAIR):
             self.activate_action.setEnabled(False)
             self.activate_action.setText("Available (cannot change at the moment)")
         else:
@@ -368,8 +380,12 @@ class CueNIMBYTray(QtWidgets.QSystemTrayIcon):
 
         self.scheduler_action.setChecked(self._scheduler_enabled())
 
-        self.cuegui_action.setEnabled(self._cuegui_available())
-        self.cuegui_action.setText("Launch CueGUI" if self._cuegui_available() else "Launch CueGUI (not installed)")
+        if self._cuegui_available():
+            self.cuegui_action.setEnabled(True)
+            self.cuegui_action.setText("Launch CueGUI")
+        else:
+            self.cuegui_action.setEnabled(False)
+            self.cuegui_action.setText("Launch CueGUI (not installed)")
 
     def start(self) -> None:
         """Start the tray application."""

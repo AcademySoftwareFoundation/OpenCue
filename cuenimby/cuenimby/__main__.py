@@ -57,7 +57,7 @@ def main():
     parser.add_argument(
         '--config',
         type=str,
-        help='Path to config file (default: ~/.opencue/cuenimby.json)'
+        help='Path to config file (default: ~/.config/opencue/cuenimby.json)'
     )
     parser.add_argument(
         '--cuebot-host',

@@ -152,11 +152,11 @@ class HostMonitor:
 
             if lock_state == host_pb2.LockState.Value('NIMBY_LOCKED'):
                 return HostState.NIMBY_LOCKED
-            elif lock_state == host_pb2.LockState.Value('LOCKED'):
+            if lock_state == host_pb2.LockState.Value('LOCKED'):
                 return HostState.HOST_LOCKED
-            elif state == host_pb2.HardwareState.Value('REPAIR'):
+            if state == host_pb2.HardwareState.Value('REPAIR'):
                 return HostState.REPAIR
-            elif state == host_pb2.HardwareState.Value('DOWN'):
+            if state == host_pb2.HardwareState.Value('DOWN'):
                 return HostState.HOST_DOWN
 
             # Check if working
@@ -188,17 +188,18 @@ class HostMonitor:
         for frame_id in new_frames:
             # Find the proc for this frame
             for proc in procs:
-                if proc.data.name == frame_id:
-                    try:
-                        frame = proc.getFrame()
-                        job_name = frame.data.job_name if hasattr(frame.data, 'job_name') else "Unknown"
-                        frame_name = frame.data.name if hasattr(frame.data, 'name') else frame_id
+                if proc.data.name != frame_id:
+                    continue
+                try:
+                    frame = proc.getFrame()
+                    job_name = getattr(frame.data, 'job_name', "Unknown")
+                    frame_name = getattr(frame.data, 'name', frame_id)
 
-                        for callback in self._frame_started_callbacks:
-                            callback(job_name, frame_name)
-                    except Exception as e:
-                        logger.error(f"Failed to get frame info: {e}")
-                    break
+                    for callback in self._frame_started_callbacks:
+                        callback(job_name, frame_name)
+                except Exception as e:
+                    logger.error(f"Failed to get frame info: {e}")
+                break
 
         self._running_frames = current_frame_ids
 

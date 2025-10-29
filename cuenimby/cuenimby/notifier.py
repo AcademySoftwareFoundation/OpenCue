@@ -52,7 +52,8 @@ class Notifier:
                 # macOS - try terminal-notifier first (most reliable), then pync, then osascript
                 import shutil
                 if shutil.which("terminal-notifier"):
-                    self.notifier = NotifierType.OSASCRIPT  # We'll use terminal-notifier via subprocess
+                    # We'll use terminal-notifier via subprocess
+                    self.notifier = NotifierType.OSASCRIPT
                     self.use_terminal_notifier = True
                 else:
                     self.use_terminal_notifier = False
@@ -118,12 +119,14 @@ class Notifier:
                 else:
                     # Use osascript
                     # Escape quotes and backslashes for AppleScript
-                    escaped_message = message.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
-                    escaped_title = title.replace('\\', '\\\\').replace('"', '\\"')
+                    esc_message = message.replace('\\', '\\\\')
+                    esc_message = esc_message.replace('"', '\\"').replace('\n', '\\n')
+                    esc_title = title.replace('\\', '\\\\').replace('"', '\\"')
 
                     # Try display notification
-                    script = f'display notification "{escaped_message}" with title "{escaped_title}"'
-                    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, check=False)
+                    script = f'display notification "{esc_message}" with title "{esc_title}"'
+                    result = subprocess.run(["osascript", "-e", script],
+                                             capture_output=True, text=True, check=False)
 
                     if result.returncode != 0:
                         logger.warning(f"osascript notification failed: {result.stderr}")
@@ -131,7 +134,8 @@ class Notifier:
                         logger.debug("osascript notification sent successfully")
             elif self.notifier == NotifierType.WIN10TOAST:
                 # Windows
-                self.toaster.show_toast(title, message, icon_path=OPENCUE_ICON, duration=duration, threaded=True)
+                self.toaster.show_toast(title, message, icon_path=OPENCUE_ICON,
+                                        duration=duration, threaded=True)
             elif self.notifier == NotifierType.NOTIFY2:
                 # Linux with notify2
                 notification = self.notify2.Notification(title, message)
