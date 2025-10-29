@@ -2,6 +2,7 @@ mod util;
 
 use crate::util::WaitingFrameClause;
 
+#[cfg(all(test, feature = "smoke-tests"))]
 mod stress_test {
     use std::{sync::atomic::Ordering, time::SystemTime};
 
@@ -13,8 +14,8 @@ mod stress_test {
 
     use super::*;
     use crate::util::{
-        TestData, clean_up_test_data, create_test_config, create_test_data,
-        get_waiting_frames_count,
+        clean_up_test_data, create_test_config, create_test_data, get_waiting_frames_count,
+        TestData,
     };
 
     struct TestDescription {
