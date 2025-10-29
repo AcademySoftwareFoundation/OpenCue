@@ -15,9 +15,9 @@
 """Desktop notification system for CueNIMBY."""
 
 import logging
+import os
 import platform
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ class NotifierType(Enum):
     NOTIFY2 = "notify2"
     NOTIFY_SEND = "notify-send"
 
+OPENCUE_ICON = os.path.join(os.path.dirname(__file__), "icons", "opencue-icon.ico")
 
 class Notifier:
     """Cross-platform desktop notification handler."""
@@ -48,13 +49,16 @@ class Notifier:
         try:
             if self.system == "Darwin":
                 # macOS - try terminal-notifier first (most reliable), then pync, then osascript
+                # pylint: disable=import-outside-toplevel
                 import shutil
                 if shutil.which("terminal-notifier"):
-                    self.notifier = NotifierType.OSASCRIPT  # We'll use terminal-notifier via subprocess
+                    # We'll use terminal-notifier via subprocess
+                    self.notifier = NotifierType.OSASCRIPT
                     self.use_terminal_notifier = True
                 else:
                     self.use_terminal_notifier = False
                     try:
+                        # pylint: disable=import-outside-toplevel
                         import pync
                         self.notifier = NotifierType.PYNC
                         self.pync = pync
@@ -63,6 +67,7 @@ class Notifier:
             elif self.system == "Windows":
                 # Windows - use win10toast or fallback
                 try:
+                    # pylint: disable=import-outside-toplevel
                     from win10toast import ToastNotifier
                     self.notifier = NotifierType.WIN10TOAST
                     self.toaster = ToastNotifier()
@@ -71,6 +76,7 @@ class Notifier:
             elif self.system == "Linux":
                 # Linux - use notify2 or notify-send
                 try:
+                    # pylint: disable=import-outside-toplevel
                     import notify2
                     notify2.init(app_name)
                     self.notifier = NotifierType.NOTIFY2
@@ -80,7 +86,7 @@ class Notifier:
             else:
                 self.notifier = None
         except Exception as e:
-            logger.error(f"Failed to initialize notifier: {e}")
+            logger.error("Failed to initialize notifier: %s", e)
             self.notifier = None
 
     def notify(self, title: str, message: str, duration: int = 5) -> None:
@@ -91,13 +97,15 @@ class Notifier:
             message: Notification message.
             duration: Duration in seconds (may not be supported on all platforms).
         """
-        logger.debug(f"Attempting to send notification: title='{title}', notifier={self.notifier}")
+        logger.debug("Attempting to send notification: title='%s', notifier=%s",
+                      title, self.notifier)
         try:
             if self.notifier == NotifierType.PYNC:
                 # macOS with pync
                 self.pync.notify(message, title=title, appIcon=None)
             elif self.notifier == NotifierType.OSASCRIPT:
                 # macOS fallback
+                # pylint: disable=import-outside-toplevel
                 import subprocess
 
                 if self.use_terminal_notifier:
@@ -110,26 +118,29 @@ class Notifier:
                     ], capture_output=True, text=True, check=False)
 
                     if result.returncode != 0:
-                        logger.warning(f"terminal-notifier failed: {result.stderr}")
+                        logger.warning("terminal-notifier failed: %s", result.stderr)
                     else:
                         logger.debug("terminal-notifier notification sent successfully")
                 else:
                     # Use osascript
                     # Escape quotes and backslashes for AppleScript
-                    escaped_message = message.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
-                    escaped_title = title.replace('\\', '\\\\').replace('"', '\\"')
+                    esc_message = message.replace('\\', '\\\\')
+                    esc_message = esc_message.replace('"', '\\"').replace('\n', '\\n')
+                    esc_title = title.replace('\\', '\\\\').replace('"', '\\"')
 
                     # Try display notification
-                    script = f'display notification "{escaped_message}" with title "{escaped_title}"'
-                    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, check=False)
+                    script = f'display notification "{esc_message}" with title "{esc_title}"'
+                    result = subprocess.run(["osascript", "-e", script],
+                                             capture_output=True, text=True, check=False)
 
                     if result.returncode != 0:
-                        logger.warning(f"osascript notification failed: {result.stderr}")
+                        logger.warning("osascript notification failed: %s", result.stderr)
                     else:
                         logger.debug("osascript notification sent successfully")
             elif self.notifier == NotifierType.WIN10TOAST:
                 # Windows
-                self.toaster.show_toast(title, message, duration=duration, threaded=True)
+                self.toaster.show_toast(title, message, icon_path=OPENCUE_ICON,
+                                        duration=duration, threaded=True)
             elif self.notifier == NotifierType.NOTIFY2:
                 # Linux with notify2
                 notification = self.notify2.Notification(title, message)
@@ -137,6 +148,7 @@ class Notifier:
                 notification.show()
             elif self.notifier == NotifierType.NOTIFY_SEND:
                 # Linux fallback
+                # pylint: disable=import-outside-toplevel
                 import subprocess
                 subprocess.run([
                     "notify-send",
@@ -145,9 +157,9 @@ class Notifier:
                     message
                 ], check=False)
             else:
-                logger.warning(f"No notification system available. {title}: {message}")
+                logger.warning("No notification system available. %s: %s", title, message)
         except Exception as e:
-            logger.error(f"Failed to send notification: {e}")
+            logger.error("Failed to send notification: %s", e)
 
     def notify_job_started(self, job_name: str, frame_name: str) -> None:
         """Notify when a job starts on this host.
@@ -164,27 +176,73 @@ class Notifier:
     def notify_nimby_locked(self) -> None:
         """Notify when NIMBY locks the host."""
         self.notify(
-            "OpenCue - NIMBY Locked",
-            "Host locked due to user activity. Rendering stopped."
+            "OpenCue - NIMBY Locked 🔒",
+            "RQD locked due to user activity. Rendering stopped."
         )
 
     def notify_nimby_unlocked(self) -> None:
         """Notify when NIMBY unlocks the host."""
         self.notify(
-            "OpenCue - NIMBY Unlocked",
-            "Host available for rendering."
+            "OpenCue - NIMBY Unlocked 🔓",
+            "RQD available for rendering."
         )
 
     def notify_manual_lock(self) -> None:
         """Notify when user manually locks the host."""
         self.notify(
-            "OpenCue - Host Disabled",
-            "Host manually disabled for rendering."
+            "OpenCue - Host Disabled 🔒",
+            "RQD manually disabled for rendering."
         )
 
     def notify_manual_unlock(self) -> None:
         """Notify when user manually unlocks the host."""
         self.notify(
-            "OpenCue - Host Enabled",
-            "Host enabled for rendering."
+            "OpenCue - Host Enabled 🔓",
+            "RQD enabled for rendering."
+        )
+
+    def notify_host_recovered(self) -> None:
+        """Notify when host recovers from down state."""
+        self.notify(
+            "OpenCue - Host Recovered",
+            "RQD is back online and available for rendering."
+        )
+
+    def notify_host_down(self) -> None:
+        """Notify when host goes down."""
+        self.notify(
+            "OpenCue - Host Down",
+            "Host is offline or unreachable by Cuebot, check if RQD is running."
+        )
+
+    def notify_host_lagging(self) -> None:
+        """Notify when host is lagging."""
+        self.notify(
+            "OpenCue - Host Lagging",
+            "Host is experiencing high latency, RQD might be down."
+        )
+
+    def notify_error(self, error_message: str) -> None:
+        """Notify when an error occurs.
+
+        Args:
+            error_message: The error message to display.
+        """
+        self.notify(
+            "OpenCue - Error",
+            error_message
+        )
+
+    def notify_cuebot_unreachable(self) -> None:
+        """Notify when cuebot is unreachable."""
+        self.notify(
+            "OpenCue - Cuebot Unreachable",
+            "Unable to contact Cuebot, please check your network connection."
+        )
+
+    def notify_host_repairing(self) -> None:
+        """Notify when host is under repair."""
+        self.notify(
+            "OpenCue - Host Under Repair",
+            "Host is under repair and not available for rendering."
         )

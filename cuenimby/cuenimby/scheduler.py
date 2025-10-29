@@ -93,13 +93,13 @@ class NimbyScheduler:
                 desired_state = self._check_schedule()
 
                 if desired_state and desired_state != self._last_state:
-                    logger.info(f"Scheduler changing state to: {desired_state}")
+                    logger.info("Scheduler changing state to: %s", desired_state)
                     if self._state_change_callback:
                         self._state_change_callback(desired_state)
                     self._last_state = desired_state
 
             except Exception as e:
-                logger.error(f"Scheduler error: {e}")
+                logger.error("Scheduler error: %s", e)
 
             # Check every minute
             time.sleep(60)

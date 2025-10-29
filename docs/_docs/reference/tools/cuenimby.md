@@ -15,7 +15,7 @@ description: >
 
 ---
 
-CueNIMBY is a cross-platform system tray application that provides user control over OpenCue's NIMBY (Not In My Back Yard) feature on workstations.
+CueNIMBY is a Qt-based cross-platform system tray application that provides user control over OpenCue's NIMBY (Not In My Back Yard) feature on workstations. Built with Qt6 for native look and feel, it features professional icons with the OpenCue logo, emoji hints (🔒❌⚠️🔧) for quick status recognition, and enhanced status detection.
 
 ## Synopsis
 
@@ -25,9 +25,9 @@ cuenimby [OPTIONS]
 
 ## Description
 
-CueNIMBY provides a visual interface for monitoring and controlling workstation availability for rendering. It runs as a system tray application, displays state through color-coded icons, sends desktop notifications for important events, and supports time-based scheduling for automatic state changes.
+CueNIMBY provides a visual interface for monitoring and controlling workstation availability for rendering. It runs as a system tray application with professional icons featuring the OpenCue logo, sends desktop notifications with emoji hints (🔒❌⚠️🔧) for important events, provides direct access to CueGUI, and supports time-based scheduling for automatic state changes. CueNIMBY starts even when CueBot is unreachable and automatically reconnects when the connection is restored.
 
-The application is designed to work alongside RQD's automatic NIMBY feature, providing users with visibility and manual control while RQD handles automatic protection based on user activity.
+The application is designed to work alongside RQD's automatic NIMBY feature, providing users with enhanced status detection (CueBot connectivity, host registration, ping monitoring), visibility, and manual control while RQD handles automatic protection based on user activity.
 
 ## Options
 
@@ -174,13 +174,37 @@ During the specified time range, the host will be set to the specified state. Ou
 
 ### Icon states
 
-| Icon color | State | Description |
-|------------|-------|-------------|
-| 🟢 Green | AVAILABLE | Host is unlocked and idle |
-| 🔵 Blue | WORKING | Host is unlocked and rendering |
-| 🔴 Red | DISABLED | Host is manually locked |
-| 🟠 Orange | NIMBY_LOCKED | Host is locked by RQD NIMBY |
-| ⚫ Gray | UNKNOWN | State cannot be determined |
+All icons feature the OpenCue logo for professional appearance and consistent visual identity.
+
+| Icon File | Emoji | State | Description |
+|-----------|-------|-------|-------------|
+| `opencue-starting.png` | 🔄 | STARTING | Application is initializing |
+| `opencue-available.png` | 🟢 | AVAILABLE | Host is unlocked and idle, ready to accept jobs |
+| `opencue-working.png` | 🔵 | WORKING | Host is unlocked and actively rendering frames |
+| `opencue-disabled.png` | 🔴 | DISABLED | Host is manually locked via CueGUI or CueNIMBY |
+| `opencue-disabled.png` | 🔒 | NIMBY_LOCKED | Host is locked by RQD NIMBY due to user activity |
+| `opencue-disabled.png` | ❌ | HOST_DOWN | RQD is not running on the host |
+| `opencue-error.png` | ❌ | CUEBOT_UNREACHABLE | Cannot connect to CueBot server |
+| `opencue-error.png` | ❌ | NO_HOST | Machine not found on CueBot, check if RQD is running |
+| `opencue-warning.png` | ⚠️ | HOST_LAGGING | Host ping above 60 second limit, check if RQD is running |
+| `opencue-repair.png` | 🔧 | REPAIR | Host is under repair, check with tech team |
+| `opencue-unknown.png` | ❓ | UNKNOWN | State cannot be determined |
+
+#### Icon Gallery
+
+Visual representation of all CueNIMBY icons:
+
+| Icon | File | Description |
+|------|------|-------------|
+| ![Available](/assets/images/cuenimby/icons/opencue-available.png) | `opencue-available.png` | Green - Ready for rendering |
+| ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Blue - Currently rendering |
+| ![Disabled](/assets/images/cuenimby/icons/opencue-disabled.png) | `opencue-disabled.png` | Red - Locked/disabled |
+| ![Error](/assets/images/cuenimby/icons/opencue-error.png) | `opencue-error.png` | Red X - Error/unreachable |
+| ![Warning](/assets/images/cuenimby/icons/opencue-warning.png) | `opencue-warning.png` | Yellow - Warning/lagging |
+| ![Repair](/assets/images/cuenimby/icons/opencue-repair.png) | `opencue-repair.png` | Orange - Under repair |
+| ![Starting](/assets/images/cuenimby/icons/opencue-starting.png) | `opencue-starting.png` | Gray - Initializing |
+| ![Unknown](/assets/images/cuenimby/icons/opencue-unknown.png) | `opencue-unknown.png` | Gray ? - Unknown |
+| ![Default](/assets/images/cuenimby/icons/opencue-default.png) | `opencue-default.png` | Default fallback |
 
 ### Menu options
 
@@ -188,9 +212,10 @@ During the specified time range, the host will be set to the specified state. Ou
 : Toggle host availability for rendering
 : Checked: Host accepts rendering jobs
 : Unchecked: Host rejects rendering jobs
+: Disabled when CueBot is unreachable or host is not found
 
 **Notifications** (checkbox)
-: Toggle desktop notifications
+: Toggle desktop notifications with emoji hints (🔒❌⚠️🔧)
 : Changes persist to configuration file
 
 **Scheduler** (checkbox)
@@ -198,11 +223,20 @@ During the specified time range, the host will be set to the specified state. Ou
 : Requires `schedule` configuration
 : Changes persist to configuration file
 
+**Launch CueGUI**
+: Opens CueGUI application directly from the tray
+: Disabled when CueGUI is not available
+: Convenient access to full OpenCue interface
+
+**Open Config File**
+: Opens configuration file in your default editor
+: File location: `~/.opencue/cuenimby.json`
+: Changes take effect after application restart
+
 **About**
-: Show application information using native platform dialog
-: Displays version, monitored host, and description
-: Uses AppleScript (macOS), MessageBox (Windows), or zenity/kdialog (Linux)
-: Works regardless of notification settings
+: Show application information using Qt dialog
+: Displays version, CueBot server address, monitored hostname, and description
+: Enhanced with connection information for troubleshooting
 
 **Quit**
 : Exit CueNIMBY
@@ -257,6 +291,42 @@ OpenCue - Host Enabled
 Host enabled for rendering.
 ```
 
+### CueBot unreachable
+
+Sent when CueNIMBY cannot connect to the CueBot server.
+
+```
+❌ OpenCue - CueBot Unreachable
+Cannot connect to CueBot server. Check connection.
+```
+
+### Host not found
+
+Sent when the monitored host is not registered with CueBot.
+
+```
+❌ OpenCue - Host Not Found
+Machine not found on CueBot. Check if RQD is running.
+```
+
+### Host lagging
+
+Sent when host ping exceeds 60 seconds.
+
+```
+⚠️ OpenCue - Host Lagging
+Host ping above limit. Check if RQD is running.
+```
+
+### Host under repair
+
+Sent when host is marked for repair.
+
+```
+🔧 OpenCue - Under Repair
+Host is under repair. Contact tech team.
+```
+
 ## Platform-specific features
 
 ### macOS
@@ -277,8 +347,10 @@ Host enabled for rendering.
 * Built-in fallback uses osascript (no additional install required)
 
 **System tray:**
+* Qt-based native system tray integration
 * Icon appears in menu bar (top-right)
-* Follows system dark/light mode
+* Professional icons with OpenCue logo
+* Native look and feel
 
 ### Windows
 
@@ -291,8 +363,10 @@ Host enabled for rendering.
   ```
 
 **System tray:**
+* Qt-based native system tray integration
 * Icon appears in notification area (bottom-right)
 * May be hidden in overflow area
+* Professional icons with OpenCue logo
 
 **Auto-start:**
 * Add to Startup folder: `Win+R`, type `shell:startup`
@@ -309,11 +383,10 @@ Host enabled for rendering.
   ```
 
 **System tray:**
+* Qt-based native system tray integration
 * Requires system tray support in desktop environment
-* Some environments need AppIndicator:
-  ```bash
-  sudo apt-get install gir1.2-appindicator3-0.1
-  ```
+* Professional icons with OpenCue logo
+* Works on GNOME, KDE, XFCE, and other desktop environments
 
 **Auto-start:**
 * Add to autostart applications in desktop settings
@@ -332,12 +405,15 @@ CueNIMBY is designed to work alongside RQD's NIMBY feature:
 * Kills running frames
 
 **CueNIMBY (Manual + Visual):**
-* Shows current state
+* Shows current state with professional icons featuring OpenCue logo
+* Enhanced status detection (CueBot connectivity, host registration, ping monitoring)
 * Allows manual override
-* Sends notifications
+* Sends notifications with emoji hints (🔒❌⚠️🔧)
 * Provides scheduling
+* Launches CueGUI directly from tray
+* Starts even when CueBot is unreachable
 
-Both can run simultaneously. CueNIMBY shows RQD's NIMBY_LOCKED state and allows manual control independent of RQD's automatic behavior.
+Both can run simultaneously. CueNIMBY shows RQD's NIMBY_LOCKED state and allows manual control independent of RQD's automatic behavior. CueNIMBY provides proactive alerts for connection issues and host problems.
 
 ### With CueGUI
 
@@ -471,33 +547,63 @@ Note: Current version supports one period per day. Use most important period.
 ### Common issues
 
 **Icon doesn't appear**
-* Linux: Install AppIndicator support
-* Windows: Check hidden icons
+* Linux: Ensure desktop environment supports system tray with Qt
+* Windows: Check hidden icons in overflow area
 * macOS: Check menu bar settings
+* Verify Qt is installed
 
 **Can't connect to Cuebot**
-* Verify Cuebot hostname and port
-* Check network connectivity
-* Verify firewall rules
-* Run with `--verbose` for details
+* CueNIMBY will now start even when CueBot is unreachable (shows ❌ icon)
+* Check tray icon tooltip for specific error message
+* Verify Cuebot hostname and port in `~/.opencue/cuenimby.json`
+* Check network connectivity: `telnet cuebot.example.com 8443`
+* Verify firewall rules allow gRPC traffic
+* Run with `--verbose` for detailed connection errors
+* CueNIMBY will automatically reconnect when CueBot becomes available
+
+**Host not found**
+* Shows ❌ "Machine not found on CueBot" status
+* Verify RQD is running: `ps aux | grep rqd` (macOS/Linux)
+* Check RQD logs for connection errors
+* Verify hostname matches in CueBot (check CueGUI > Monitor Hosts)
+* Use `--hostname` flag to specify exact hostname
+* Ensure RQD successfully registered with CueBot
+
+**Host lagging**
+* Shows ⚠️ "Host ping above limit" warning
+* Check if RQD is still running
+* Verify network connection stability
+* Review RQD logs for connection issues
+* Consider restarting RQD
+* Check CueBot server load
+
+**Host under repair**
+* Shows 🔧 "Under Repair" status
+* Contact technical team for repair status
+* Host administratively marked for maintenance
+* No rendering will occur until cleared
+* Check with administrators for resolution time
 
 **Notifications don't work**
-* macOS: Grant notification permissions
-* Windows: Check notification settings
-* Linux: Verify notification daemon
-* Install platform-specific libraries
+* macOS: Grant notification permissions. Install terminal-notifier: `brew install terminal-notifier`
+* Windows: Check notification settings in Windows Settings
+* Linux: Verify notification daemon is running: `ps aux | grep notification`
+* Install platform-specific libraries (pync, win10toast, notify2)
+* Check notifications are enabled in CueNIMBY menu
 
 **State not updating**
-* Check poll interval (may be too high)
-* Verify host exists in Cuebot
-* Check hostname matches
-* Restart CueNIMBY
+* Check poll interval in configuration (may be too high)
+* Verify host exists in Cuebot (check CueGUI > Monitor Hosts)
+* Check hostname matches exactly (case-sensitive)
+* Restart CueNIMBY with `--verbose` to see detailed status
+* Check for connection issues (❌ or ⚠️ icons)
 
 **Scheduler not triggering**
-* Verify `scheduler_enabled: true`
-* Check time format (HH:MM, 24-hour)
-* Verify day names (lowercase)
-* Check schedule logic
+* Verify `scheduler_enabled: true` in configuration
+* Check time format is HH:MM in 24-hour format
+* Verify day names are lowercase (monday, tuesday, etc.)
+* Check schedule logic matches desired behavior
+* Run with `--verbose` to see scheduler activity
 
 ### Log files
 

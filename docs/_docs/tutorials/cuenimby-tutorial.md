@@ -15,15 +15,18 @@ description: >
 
 ---
 
-This tutorial guides you through setting up and using CueNIMBY to control your workstation's rendering availability. You'll learn how to install CueNIMBY, configure it for your environment, set up time-based scheduling, and integrate it with your daily workflow.
+This tutorial guides you through setting up and using CueNIMBY, a Qt-based system tray application with professional icons featuring the OpenCue logo, to control your workstation's rendering availability. You'll learn how to install CueNIMBY, configure it for your environment, understand the enhanced status states with emoji hints (🔒❌⚠️🔧), set up time-based scheduling, and integrate it with your daily workflow. CueNIMBY starts even when CueBot is unreachable and provides clear visual feedback for connection issues.
 
 ## What you'll learn
 
 * How to install and configure CueNIMBY
-* How to monitor your workstation's rendering state
+* How to understand the icon states with OpenCue logo
+* How to monitor your workstation's rendering state with enhanced status detection
 * How to manually control rendering availability
+* How to use the "Launch CueGUI" feature for quick access
 * How to set up time-based scheduling
-* How to customize notifications
+* How to customize notifications with emoji hints
+* How to handle connection issues (CueBot unreachable, host not found, host lagging)
 * How to integrate CueNIMBY with RQD
 
 ## Prerequisites
@@ -136,6 +139,12 @@ You should see:
 }
 ```
 
+You can also open the configuration file directly from the tray menu using the **Open Config File** option:
+
+**macOS:**
+
+![CueNIMBY Open Config File on macOS](/assets/images/cuenimby/macos/cuenimby_open_config_file_option-macos.png)
+
 **Checkpoint**: CueNIMBY is running and you can see the tray icon.
 
 ---
@@ -187,7 +196,17 @@ Note: We're not using `--verbose` this time since we verified it works.
 
 ### 3.5 Verify connection
 
-Right-click the tray icon and select "About". You should see your hostname and the connection information.
+Right-click the tray icon and select "About". You should see:
+* CueNIMBY version
+* CueBot server address (e.g., cuebot.example.com:8443)
+* Monitored hostname
+* Application description
+
+This enhanced About dialog helps with troubleshooting connection issues.
+
+**macOS:**
+
+![CueNIMBY About Window on macOS](/assets/images/cuenimby/macos/cuenimby_about_window-macos.png)
 
 **Checkpoint**: CueNIMBY is connected to your Cuebot server.
 
@@ -197,24 +216,66 @@ Right-click the tray icon and select "About". You should see your hostname and t
 
 ### 4.1 Check current state
 
-Look at the tray icon color:
+Look at the tray icon (professional icons with OpenCue logo):
 
-* 🟢 Green = Available
-* 🔵 Blue = Working (rendering)
-* 🔴 Red = Disabled
-* 🟠 Orange = NIMBY locked
+* 🔄 Starting (`opencue-starting.png`) = Application initializing
+* 🟢 Available (`opencue-available.png`) = Ready for rendering
+* 🔵 Working (`opencue-working.png`) = Currently rendering
+* 🔴 Disabled (`opencue-disabled.png`) = Manually locked, NIMBY locked, or host down
+* ❌ Error (`opencue-error.png`) = CueBot unreachable or host not found
+* ⚠️ Warning (`opencue-warning.png`) = Host lagging (ping > 60s)
+* 🔧 Repair (`opencue-repair.png`) = Under repair
+* ❓ Unknown (`opencue-unknown.png`) = Unknown status
+
+**macOS - Available status:**
+
+![CueNIMBY Available Status on macOS](/assets/images/cuenimby/macos/cuenimby_status_available-macos.png)
+
+**Windows - Available status:**
+
+![CueNIMBY Available Status on Windows](/assets/images/cuenimby/windows/cuenimby_status_available-windows.png)
+
+#### Icon Gallery
+
+Visual representation of all CueNIMBY icons:
+
+| Icon | File | Description |
+|------|------|-------------|
+| ![Available](/assets/images/cuenimby/icons/opencue-available.png) | `opencue-available.png` | Green - Ready for rendering |
+| ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Blue - Currently rendering |
+| ![Disabled](/assets/images/cuenimby/icons/opencue-disabled.png) | `opencue-disabled.png` | Red - Locked/disabled |
+| ![Error](/assets/images/cuenimby/icons/opencue-error.png) | `opencue-error.png` | Red X - Error/unreachable |
+| ![Warning](/assets/images/cuenimby/icons/opencue-warning.png) | `opencue-warning.png` | Yellow - Warning/lagging |
+| ![Repair](/assets/images/cuenimby/icons/opencue-repair.png) | `opencue-repair.png` | Orange - Under repair |
+| ![Starting](/assets/images/cuenimby/icons/opencue-starting.png) | `opencue-starting.png` | Gray - Initializing |
+| ![Unknown](/assets/images/cuenimby/icons/opencue-unknown.png) | `opencue-unknown.png` | Gray ? - Unknown |
+| ![Default](/assets/images/cuenimby/icons/opencue-default.png) | `opencue-default.png` | Default fallback |
 
 ### 4.2 Disable rendering
 
 1. Right-click the CueNIMBY icon
 2. Uncheck "Available"
 
+**macOS:**
+
+![CueNIMBY Menu on macOS](/assets/images/cuenimby/macos/cuenimby_about-macos.png)
+
 Observe:
 * Icon turns red (🔴)
 * You receive a notification: "Host Disabled"
 * Title shows "CueNIMBY - Disabled"
 
+**macOS - Disabled status:**
+
+![CueNIMBY Disabled Status on macOS](/assets/images/cuenimby/macos/cuenimby_status_disabled_host_down-macos.png)
+
 ### 4.3 Verify in CueGUI (if available)
+
+You can launch CueGUI directly from the CueNIMBY tray menu:
+
+**macOS:**
+
+![CueNIMBY Launch CueGUI on macOS](/assets/images/cuenimby/macos/cuenimby_open_cuegui_option-macos.png)
 
 If you have CueGUI open:
 
@@ -472,8 +533,8 @@ With both RQD and CueNIMBY running:
 2. Move your mouse or type on keyboard
 3. Observe:
    * RQD detects activity and locks the host
-   * CueNIMBY icon turns orange (🟠)
-   * You receive "NIMBY Locked" notification
+   * CueNIMBY icon shows disabled state (🔒)
+   * You receive "🔒 NIMBY Locked" notification with emoji hint
    * Running job is killed
 
 ### 9.3 Test automatic unlocking
@@ -551,22 +612,86 @@ Useful for administrators monitoring multiple machines.
 ### Issue: Icon doesn't appear
 
 **Linux:**
-```bash
-sudo apt-get install gir1.2-appindicator3-0.1
-```
+Ensure your desktop environment supports system tray with Qt6. Works on GNOME, KDE, XFCE, and others.
 
 **macOS/Windows:**
 Check system tray settings and restart CueNIMBY.
 
 ### Issue: Can't connect to Cuebot
 
+CueNIMBY will now start even when CueBot is unreachable and show an ❌ error icon.
+
+**macOS - Connection error:**
+
+![CueNIMBY Connection Error on macOS](/assets/images/cuenimby/macos/cuenimby_status_error_cant_connect_to_cuebot-macos.png)
+
+**Windows - Connection error:**
+
+![CueNIMBY Connection Error on Windows](/assets/images/cuenimby/windows/cuenimby_status_error_cant_connect_to_cuebot-windows.png)
+
 ```bash
+# Check the tray icon tooltip for specific error message
+# Verify configuration
+cat ~/.opencue/cuenimby.json
+
 # Test connection
 telnet cuebot.example.com 8443
 
 # Run with verbose logging
 cuenimby --verbose
 ```
+
+CueNIMBY will automatically reconnect when CueBot becomes available.
+
+### Issue: Host not found
+
+If you see ❌ "Machine not found on CueBot, check if RQD is running":
+
+```bash
+# Check if RQD is running
+ps aux | grep rqd
+
+# Check RQD logs
+tail -f /var/log/rqd.log
+
+# Verify hostname matches
+hostname
+```
+
+Use `--hostname` flag if needed: `cuenimby --hostname your-exact-hostname`
+
+### Issue: Host lagging
+
+If you see ⚠️ "Host ping above limit" warning:
+
+**macOS - Host lagging:**
+
+![CueNIMBY Host Lagging on macOS](/assets/images/cuenimby/macos/cuenimby_status_warning_host_ping_above_limit-macos.png)
+
+**Windows - Host lagging:**
+
+![CueNIMBY Host Lagging on Windows](/assets/images/cuenimby/windows/cuenimby_status_warning_host_ping_above_limit-windows.png)
+
+* Check if RQD is still running
+* Verify network connection is stable
+* Review RQD logs for connection errors
+* Consider restarting RQD
+
+### Issue: Host under repair
+
+If you see 🔧 "Under Repair" status:
+
+**macOS - Under repair:**
+
+![CueNIMBY Under Repair on macOS](/assets/images/cuenimby/macos/cuenimby_status_repair_host_set_to_repair_state-macos.png)
+
+**Windows - Under repair:**
+
+![CueNIMBY Under Repair on Windows](/assets/images/cuenimby/windows/cuenimby_status_repair_host_set_to_repair_state-windows.png)
+
+* Contact your technical team
+* Host has been marked for maintenance
+* No rendering will occur until cleared
 
 ### Issue: Notifications not working
 
@@ -596,11 +721,18 @@ pip install notify2
 Congratulations! You've completed the CueNIMBY tutorial. You now know how to:
 
 * Install and configure CueNIMBY
-* Monitor your workstation's rendering state
+* Understand the icon states with professional OpenCue logo
+* Monitor your workstation's rendering state with enhanced status detection
+* Handle connection issues (CueBot unreachable, host not found, host lagging, under repair)
+* Recognize emoji hints (🔒❌⚠️🔧) for quick status recognition
 * Manually control rendering availability
+* Use the "Launch CueGUI" feature for quick access (when available)
+* Open and edit the configuration file directly from the tray
 * Set up time-based scheduling
 * Customize notifications
 * Integrate with RQD for complete NIMBY control
+
+CueNIMBY is a Qt-based application that starts even when CueBot is unreachable and provides clear visual feedback for all states!
 
 ## Further reading
 
