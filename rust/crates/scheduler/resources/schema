@@ -1,0 +1,4306 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 15.1 (Debian 15.1-1.pgdg110+1)
+-- Dumped by pg_dump version 15.13
+
+-- Started on 2025-09-04 18:51:09 UTC
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- TOC entry 266 (class 1259 OID 16828)
+-- Name: action; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.action (
+    pk_action character varying(36) NOT NULL,
+    pk_filter character varying(36) NOT NULL,
+    pk_folder character varying(36),
+    str_action character varying(24) NOT NULL,
+    str_value_type character varying(24) NOT NULL,
+    str_value character varying(4000),
+    int_value bigint,
+    b_value boolean,
+    ts_created timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    float_value numeric(6,2),
+    b_stop boolean DEFAULT false NOT NULL
+);
+
+
+ALTER TABLE public.action OWNER TO cuebot;
+
+--
+-- TOC entry 265 (class 1259 OID 16821)
+-- Name: alloc; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.alloc (
+    pk_alloc character varying(36) NOT NULL,
+    str_name character varying(36) NOT NULL,
+    b_allow_edit boolean DEFAULT true NOT NULL,
+    b_default boolean DEFAULT false NOT NULL,
+    str_tag character varying(24),
+    b_billable boolean DEFAULT true NOT NULL,
+    pk_facility character varying(36) NOT NULL,
+    b_enabled boolean DEFAULT true
+);
+
+
+ALTER TABLE public.alloc OWNER TO cuebot;
+
+--
+-- TOC entry 264 (class 1259 OID 16815)
+-- Name: comments; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.comments (
+    pk_comment character varying(36) NOT NULL,
+    pk_job character varying(36),
+    pk_host character varying(36),
+    ts_created timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    str_user character varying(36) NOT NULL,
+    str_subject character varying(128) NOT NULL,
+    str_message character varying(4000) NOT NULL
+);
+
+
+ALTER TABLE public.comments OWNER TO cuebot;
+
+--
+-- TOC entry 263 (class 1259 OID 16808)
+-- Name: config; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.config (
+    pk_config character varying(36) NOT NULL,
+    str_key character varying(36) NOT NULL,
+    int_value bigint DEFAULT 0,
+    long_value bigint DEFAULT 0,
+    str_value character varying(255) DEFAULT ''::character varying,
+    b_value boolean DEFAULT false
+);
+
+
+ALTER TABLE public.config OWNER TO cuebot;
+
+--
+-- TOC entry 224 (class 1259 OID 16453)
+-- Name: deed; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.deed (
+    pk_deed character varying(36) NOT NULL,
+    pk_owner character varying(36) NOT NULL,
+    pk_host character varying(36) NOT NULL,
+    b_blackout boolean DEFAULT false NOT NULL,
+    int_blackout_start integer,
+    int_blackout_stop integer
+);
+
+
+ALTER TABLE public.deed OWNER TO cuebot;
+
+--
+-- TOC entry 262 (class 1259 OID 16800)
+-- Name: depend; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.depend (
+    pk_depend character varying(36) NOT NULL,
+    pk_parent character varying(36),
+    pk_job_depend_on character varying(36) NOT NULL,
+    pk_job_depend_er character varying(36) NOT NULL,
+    pk_frame_depend_on character varying(36),
+    pk_frame_depend_er character varying(36),
+    pk_layer_depend_on character varying(36),
+    pk_layer_depend_er character varying(36),
+    str_type character varying(36) NOT NULL,
+    b_active boolean DEFAULT true NOT NULL,
+    b_any boolean DEFAULT false NOT NULL,
+    ts_created timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    ts_satisfied timestamp(6) without time zone,
+    str_target character varying(20) DEFAULT 'Internal'::character varying NOT NULL,
+    str_signature character varying(36) NOT NULL,
+    b_composite boolean DEFAULT false NOT NULL
+);
+
+
+ALTER TABLE public.depend OWNER TO cuebot;
+
+--
+-- TOC entry 235 (class 1259 OID 16518)
+-- Name: dept; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.dept (
+    pk_dept character varying(36) NOT NULL,
+    str_name character varying(36) NOT NULL,
+    b_default boolean DEFAULT false NOT NULL
+);
+
+
+ALTER TABLE public.dept OWNER TO cuebot;
+
+--
+-- TOC entry 219 (class 1259 OID 16427)
+-- Name: duplicate_cursors; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.duplicate_cursors (
+    dt_recorded date,
+    inst_id numeric,
+    lng_count numeric
+);
+
+
+ALTER TABLE public.duplicate_cursors OWNER TO cuebot;
+
+--
+-- TOC entry 236 (class 1259 OID 16522)
+-- Name: facility; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.facility (
+    pk_facility character varying(36) NOT NULL,
+    str_name character varying(36) NOT NULL,
+    b_default boolean DEFAULT false NOT NULL
+);
+
+
+ALTER TABLE public.facility OWNER TO cuebot;
+
+--
+-- TOC entry 261 (class 1259 OID 16795)
+-- Name: filter; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.filter (
+    pk_filter character varying(36) NOT NULL,
+    pk_show character varying(36) NOT NULL,
+    str_name character varying(128) NOT NULL,
+    str_type character varying(16) NOT NULL,
+    f_order numeric(6,2) DEFAULT 0.0 NOT NULL,
+    b_enabled boolean DEFAULT true NOT NULL
+);
+
+
+ALTER TABLE public.filter OWNER TO cuebot;
+
+--
+-- TOC entry 215 (class 1259 OID 16385)
+-- Name: flyway_schema_history; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.flyway_schema_history (
+    installed_rank integer NOT NULL,
+    version character varying(50),
+    description character varying(200) NOT NULL,
+    type character varying(20) NOT NULL,
+    script character varying(1000) NOT NULL,
+    checksum integer,
+    installed_by character varying(100) NOT NULL,
+    installed_on timestamp without time zone DEFAULT now() NOT NULL,
+    execution_time integer NOT NULL,
+    success boolean NOT NULL
+);
+
+
+ALTER TABLE public.flyway_schema_history OWNER TO cuebot;
+
+--
+-- TOC entry 260 (class 1259 OID 16783)
+-- Name: folder; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.folder (
+    pk_folder character varying(36) NOT NULL,
+    pk_parent_folder character varying(36),
+    pk_show character varying(36) NOT NULL,
+    str_name character varying(36) NOT NULL,
+    int_priority bigint DEFAULT 1 NOT NULL,
+    b_default boolean DEFAULT false NOT NULL,
+    pk_dept character varying(36) NOT NULL,
+    int_job_min_cores integer DEFAULT '-1'::integer NOT NULL,
+    int_job_max_cores integer DEFAULT '-1'::integer NOT NULL,
+    int_job_priority integer DEFAULT '-1'::integer NOT NULL,
+    int_min_cores integer DEFAULT 0 NOT NULL,
+    int_max_cores integer DEFAULT '-1'::integer NOT NULL,
+    b_exclude_managed boolean DEFAULT false NOT NULL,
+    f_order integer DEFAULT 0 NOT NULL,
+    int_job_min_gpus integer DEFAULT '-1'::integer NOT NULL,
+    int_job_max_gpus integer DEFAULT '-1'::integer NOT NULL,
+    int_min_gpus integer DEFAULT 0 NOT NULL,
+    int_max_gpus integer DEFAULT '-1'::integer NOT NULL
+);
+
+
+ALTER TABLE public.folder OWNER TO cuebot;
+
+--
+-- TOC entry 259 (class 1259 OID 16779)
+-- Name: folder_level; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.folder_level (
+    pk_folder_level character varying(36) NOT NULL,
+    pk_folder character varying(36) NOT NULL,
+    int_level bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.folder_level OWNER TO cuebot;
+
+--
+-- TOC entry 233 (class 1259 OID 16508)
+-- Name: folder_resource; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.folder_resource (
+    pk_folder_resource character varying(36) NOT NULL,
+    pk_folder character varying(36) NOT NULL,
+    int_cores integer DEFAULT 0 NOT NULL,
+    int_max_cores integer DEFAULT '-1'::integer NOT NULL,
+    int_min_cores integer DEFAULT 0 NOT NULL,
+    float_tier numeric(16,2) DEFAULT 0 NOT NULL,
+    int_gpus integer DEFAULT 0 NOT NULL,
+    int_max_gpus integer DEFAULT '-1'::integer NOT NULL,
+    int_min_gpus integer DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.folder_resource OWNER TO cuebot;
+
+--
+-- TOC entry 258 (class 1259 OID 16761)
+-- Name: frame; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.frame (
+    pk_frame character varying(36) NOT NULL,
+    pk_layer character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    str_name character varying(256) NOT NULL,
+    str_state character varying(24) NOT NULL,
+    int_number bigint NOT NULL,
+    int_depend_count bigint DEFAULT 0 NOT NULL,
+    int_exit_status bigint DEFAULT '-1'::integer NOT NULL,
+    int_retries bigint DEFAULT 0 NOT NULL,
+    int_mem_reserved bigint DEFAULT 0 NOT NULL,
+    int_mem_max_used bigint DEFAULT 0 NOT NULL,
+    int_mem_used bigint DEFAULT 0 NOT NULL,
+    int_dispatch_order bigint DEFAULT 0 NOT NULL,
+    str_host character varying(256),
+    int_cores integer DEFAULT 0 NOT NULL,
+    int_layer_order integer NOT NULL,
+    ts_started timestamp(6) with time zone,
+    ts_stopped timestamp(6) with time zone,
+    ts_last_run timestamp(6) with time zone,
+    ts_updated timestamp(6) with time zone,
+    int_version integer DEFAULT 0,
+    str_checkpoint_state character varying(12) DEFAULT 'DISABLED'::character varying NOT NULL,
+    int_checkpoint_count smallint DEFAULT 0 NOT NULL,
+    int_gpu_mem_reserved bigint DEFAULT 0 NOT NULL,
+    int_total_past_core_time integer DEFAULT 0 NOT NULL,
+    ts_llu timestamp(6) with time zone,
+    int_gpu_mem_used bigint DEFAULT 0 NOT NULL,
+    int_gpu_mem_max_used bigint DEFAULT 0 NOT NULL,
+    int_gpus integer DEFAULT 0 NOT NULL,
+    int_total_past_gpu_time integer DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.frame OWNER TO cuebot;
+
+--
+-- TOC entry 217 (class 1259 OID 16408)
+-- Name: frame_history; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.frame_history (
+    pk_frame_history character varying(36) DEFAULT public.uuid_generate_v1() NOT NULL,
+    pk_frame character varying(36) NOT NULL,
+    pk_layer character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    str_name character varying(256) NOT NULL,
+    str_state character varying(24) NOT NULL,
+    int_mem_reserved bigint DEFAULT 0 NOT NULL,
+    int_mem_max_used bigint DEFAULT 0 NOT NULL,
+    int_cores integer DEFAULT 100 NOT NULL,
+    str_host character varying(64) DEFAULT NULL::character varying,
+    int_exit_status smallint DEFAULT '-1'::integer NOT NULL,
+    pk_alloc character varying(36),
+    int_ts_started integer NOT NULL,
+    int_ts_stopped integer DEFAULT 0 NOT NULL,
+    int_checkpoint_count integer DEFAULT 0 NOT NULL,
+    dt_last_modified date NOT NULL,
+    int_gpus integer DEFAULT 0 NOT NULL,
+    int_gpu_mem_reserved bigint DEFAULT 0 NOT NULL,
+    int_gpu_mem_max_used bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.frame_history OWNER TO cuebot;
+
+--
+-- TOC entry 4297 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: COLUMN frame_history.int_mem_reserved; Type: COMMENT; Schema: public; Owner: cuebot
+--
+
+COMMENT ON COLUMN public.frame_history.int_mem_reserved IS 'kilobytes of memory reserved';
+
+
+--
+-- TOC entry 4298 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: COLUMN frame_history.int_mem_max_used; Type: COMMENT; Schema: public; Owner: cuebot
+--
+
+COMMENT ON COLUMN public.frame_history.int_mem_max_used IS 'maximum kilobytes of rss memory used';
+
+
+--
+-- TOC entry 4299 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: COLUMN frame_history.int_cores; Type: COMMENT; Schema: public; Owner: cuebot
+--
+
+COMMENT ON COLUMN public.frame_history.int_cores IS '100 cores per physical core';
+
+
+--
+-- TOC entry 282 (class 1259 OID 17964)
+-- Name: frame_state_display_overrides; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.frame_state_display_overrides (
+    pk_frame_override character varying(36) NOT NULL,
+    pk_frame character varying(36) NOT NULL,
+    str_frame_state character varying(24) NOT NULL,
+    str_override_text character varying(24) NOT NULL,
+    str_rgb character varying(24) NOT NULL
+);
+
+
+ALTER TABLE public.frame_state_display_overrides OWNER TO cuebot;
+
+--
+-- TOC entry 218 (class 1259 OID 16421)
+-- Name: history_period; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.history_period (
+    pk character varying(36) DEFAULT public.uuid_generate_v1() NOT NULL,
+    dt_begin date DEFAULT to_date('01-JAN-2000'::text, 'DD-MON-YYYY'::text) NOT NULL,
+    dt_end date DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+ALTER TABLE public.history_period OWNER TO cuebot;
+
+--
+-- TOC entry 216 (class 1259 OID 16405)
+-- Name: history_period_bak; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.history_period_bak (
+    pk character varying(32),
+    dt_begin date NOT NULL,
+    dt_end date NOT NULL
+);
+
+
+ALTER TABLE public.history_period_bak OWNER TO cuebot;
+
+--
+-- TOC entry 257 (class 1259 OID 16742)
+-- Name: host; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.host (
+    pk_host character varying(36) NOT NULL,
+    pk_alloc character varying(36) NOT NULL,
+    str_name character varying(45) NOT NULL,
+    str_lock_state character varying(36) NOT NULL,
+    b_nimby boolean DEFAULT false NOT NULL,
+    ts_created timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    int_cores bigint DEFAULT 0 NOT NULL,
+    int_procs bigint DEFAULT 0 NOT NULL,
+    int_cores_idle bigint DEFAULT 0 NOT NULL,
+    int_mem bigint DEFAULT 0 NOT NULL,
+    int_mem_idle bigint DEFAULT 0 NOT NULL,
+    b_unlock_boot boolean DEFAULT false NOT NULL,
+    b_unlock_idle boolean DEFAULT false NOT NULL,
+    b_reboot_idle boolean DEFAULT false NOT NULL,
+    str_tags character varying(128),
+    str_fqdn character varying(128),
+    b_comment boolean DEFAULT false NOT NULL,
+    int_thread_mode integer DEFAULT 0 NOT NULL,
+    str_lock_source character varying(128),
+    int_gpu_mem bigint DEFAULT 0 NOT NULL,
+    int_gpu_mem_idle bigint DEFAULT 0 NOT NULL,
+    int_gpus bigint DEFAULT 0 NOT NULL,
+    int_gpus_idle bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.host OWNER TO cuebot;
+
+--
+-- TOC entry 226 (class 1259 OID 16462)
+-- Name: host_local; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.host_local (
+    pk_host_local character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    pk_layer character varying(36),
+    pk_frame character varying(36),
+    pk_host character varying(36) NOT NULL,
+    ts_created timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    ts_updated timestamp(6) with time zone,
+    int_mem_max bigint DEFAULT 0 NOT NULL,
+    int_mem_idle bigint DEFAULT 0 NOT NULL,
+    int_cores_max integer DEFAULT 100 NOT NULL,
+    int_cores_idle integer DEFAULT 100 NOT NULL,
+    int_threads integer DEFAULT 1 NOT NULL,
+    float_tier numeric(16,2) DEFAULT 0 NOT NULL,
+    b_active boolean DEFAULT true NOT NULL,
+    str_type character varying(36) NOT NULL,
+    int_gpu_mem_idle bigint DEFAULT 0 NOT NULL,
+    int_gpu_mem_max bigint DEFAULT 0 NOT NULL,
+    int_gpus_idle integer DEFAULT 0 NOT NULL,
+    int_gpus_max integer DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.host_local OWNER TO cuebot;
+
+--
+-- TOC entry 256 (class 1259 OID 16726)
+-- Name: host_stat; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.host_stat (
+    pk_host_stat character varying(36) NOT NULL,
+    pk_host character varying(36) NOT NULL,
+    int_mem_total bigint DEFAULT 0 NOT NULL,
+    int_mem_free bigint DEFAULT 0 NOT NULL,
+    int_swap_total bigint DEFAULT 0 NOT NULL,
+    int_swap_free bigint DEFAULT 0 NOT NULL,
+    int_mcp_total bigint DEFAULT 0 NOT NULL,
+    int_mcp_free bigint DEFAULT 0 NOT NULL,
+    int_load bigint DEFAULT 0 NOT NULL,
+    ts_ping timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    ts_booted timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    str_state character varying(32) DEFAULT 'UP'::character varying NOT NULL,
+    str_os character varying(12) DEFAULT 'rhel40'::character varying NOT NULL,
+    int_gpu_mem_total bigint DEFAULT 0 NOT NULL,
+    int_gpu_mem_free bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.host_stat OWNER TO cuebot;
+
+--
+-- TOC entry 241 (class 1259 OID 16572)
+-- Name: host_tag; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.host_tag (
+    pk_host_tag character varying(36) NOT NULL,
+    pk_host character varying(36) NOT NULL,
+    str_tag character varying(45) NOT NULL,
+    str_tag_type character varying(24) DEFAULT 'Hardware'::character varying NOT NULL,
+    b_constant boolean DEFAULT false NOT NULL
+);
+
+
+ALTER TABLE public.host_tag OWNER TO cuebot;
+
+--
+-- TOC entry 255 (class 1259 OID 16705)
+-- Name: job; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.job (
+    pk_job character varying(36) NOT NULL,
+    pk_folder character varying(36) NOT NULL,
+    pk_show character varying(36) NOT NULL,
+    str_name character varying(255) NOT NULL,
+    str_visible_name character varying(255),
+    str_shot character varying(64) NOT NULL,
+    str_user character varying(32) NOT NULL,
+    str_state character varying(16) NOT NULL,
+    str_log_dir character varying(4000) DEFAULT ''::character varying NOT NULL,
+    int_uid bigint,
+    b_paused boolean DEFAULT false NOT NULL,
+    b_autoeat boolean DEFAULT false NOT NULL,
+    int_frame_count integer DEFAULT 0 NOT NULL,
+    int_layer_count integer DEFAULT 0 NOT NULL,
+    int_max_retries smallint DEFAULT 3 NOT NULL,
+    b_auto_book boolean DEFAULT true NOT NULL,
+    b_auto_unbook boolean DEFAULT true NOT NULL,
+    b_comment boolean DEFAULT false NOT NULL,
+    str_email character varying(256),
+    pk_facility character varying(36) NOT NULL,
+    pk_dept character varying(36) NOT NULL,
+    ts_started timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    ts_stopped timestamp(6) with time zone,
+    int_min_cores integer DEFAULT 100 NOT NULL,
+    int_max_cores integer DEFAULT 20000 NOT NULL,
+    str_show character varying(512) DEFAULT 'none'::character varying NOT NULL,
+    ts_updated timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    str_os character varying(12),
+    int_min_gpus integer DEFAULT 0 NOT NULL,
+    int_max_gpus integer DEFAULT 100000 NOT NULL
+);
+
+
+ALTER TABLE public.job OWNER TO cuebot;
+
+--
+-- TOC entry 254 (class 1259 OID 16700)
+-- Name: job_env; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.job_env (
+    pk_job_env character varying(36) NOT NULL,
+    pk_job character varying(36),
+    str_key character varying(2048),
+    str_value character varying(2048)
+);
+
+
+ALTER TABLE public.job_env OWNER TO cuebot;
+
+--
+-- TOC entry 239 (class 1259 OID 16548)
+-- Name: job_history; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.job_history (
+    pk_job character varying(36) NOT NULL,
+    pk_show character varying(36) NOT NULL,
+    str_name character varying(512) NOT NULL,
+    str_shot character varying(64) NOT NULL,
+    str_user character varying(36) NOT NULL,
+    int_core_time_success bigint DEFAULT 0 NOT NULL,
+    int_core_time_fail bigint DEFAULT 0 NOT NULL,
+    int_frame_count bigint DEFAULT 0 NOT NULL,
+    int_layer_count bigint DEFAULT 0 NOT NULL,
+    int_waiting_count bigint DEFAULT 0 NOT NULL,
+    int_dead_count bigint DEFAULT 0 NOT NULL,
+    int_depend_count bigint DEFAULT 0 NOT NULL,
+    int_eaten_count bigint DEFAULT 0 NOT NULL,
+    int_succeeded_count bigint DEFAULT 0 NOT NULL,
+    int_running_count bigint DEFAULT 0 NOT NULL,
+    int_max_rss bigint DEFAULT 0 NOT NULL,
+    b_archived boolean DEFAULT false NOT NULL,
+    pk_facility character varying(36) NOT NULL,
+    pk_dept character varying(36) NOT NULL,
+    int_ts_started integer NOT NULL,
+    int_ts_stopped integer DEFAULT 0 NOT NULL,
+    dt_last_modified date NOT NULL,
+    int_gpu_time_success bigint DEFAULT 0 NOT NULL,
+    int_gpu_time_fail bigint DEFAULT 0 NOT NULL,
+    int_gpu_mem_max bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.job_history OWNER TO cuebot;
+
+--
+-- TOC entry 4300 (class 0 OID 0)
+-- Dependencies: 239
+-- Name: COLUMN job_history.int_core_time_success; Type: COMMENT; Schema: public; Owner: cuebot
+--
+
+COMMENT ON COLUMN public.job_history.int_core_time_success IS 'seconds per core succeeded';
+
+
+--
+-- TOC entry 4301 (class 0 OID 0)
+-- Dependencies: 239
+-- Name: COLUMN job_history.int_core_time_fail; Type: COMMENT; Schema: public; Owner: cuebot
+--
+
+COMMENT ON COLUMN public.job_history.int_core_time_fail IS 'seconds per core failed';
+
+
+--
+-- TOC entry 4302 (class 0 OID 0)
+-- Dependencies: 239
+-- Name: COLUMN job_history.int_max_rss; Type: COMMENT; Schema: public; Owner: cuebot
+--
+
+COMMENT ON COLUMN public.job_history.int_max_rss IS 'maximum kilobytes of rss memory used by a single frame';
+
+
+--
+-- TOC entry 228 (class 1259 OID 16480)
+-- Name: job_local; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.job_local (
+    pk_job_local character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    pk_host character varying(36) NOT NULL,
+    str_source character varying(255) NOT NULL,
+    ts_created timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    int_cores integer DEFAULT 0 NOT NULL,
+    int_max_cores integer NOT NULL,
+    int_gpus integer DEFAULT 0 NOT NULL,
+    int_max_gpus integer DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.job_local OWNER TO cuebot;
+
+--
+-- TOC entry 232 (class 1259 OID 16503)
+-- Name: job_mem; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.job_mem (
+    pk_job_mem character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    int_max_rss bigint DEFAULT 0 NOT NULL,
+    int_max_vss bigint DEFAULT 0 NOT NULL,
+    int_gpu_mem_max bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.job_mem OWNER TO cuebot;
+
+--
+-- TOC entry 237 (class 1259 OID 16526)
+-- Name: job_post; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.job_post (
+    pk_job_post character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    pk_post_job character varying(36) NOT NULL
+);
+
+
+ALTER TABLE public.job_post OWNER TO cuebot;
+
+--
+-- TOC entry 243 (class 1259 OID 16587)
+-- Name: job_resource; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.job_resource (
+    pk_job_resource character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    int_cores bigint DEFAULT 0 NOT NULL,
+    int_max_rss bigint DEFAULT 0 NOT NULL,
+    int_max_vss bigint DEFAULT 0 NOT NULL,
+    int_min_cores integer DEFAULT 100 NOT NULL,
+    int_max_cores integer DEFAULT 10000 NOT NULL,
+    float_tier numeric(16,2) DEFAULT 0 NOT NULL,
+    int_priority integer DEFAULT 1 NOT NULL,
+    int_local_cores integer DEFAULT 0 NOT NULL,
+    int_gpus integer DEFAULT 0 NOT NULL,
+    int_min_gpus integer DEFAULT 0 NOT NULL,
+    int_max_gpus integer DEFAULT 100 NOT NULL,
+    int_local_gpus integer DEFAULT 0 NOT NULL,
+    int_gpu_mem_max bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.job_resource OWNER TO cuebot;
+
+--
+-- TOC entry 244 (class 1259 OID 16598)
+-- Name: job_stat; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.job_stat (
+    pk_job_stat character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    int_waiting_count bigint DEFAULT 0 NOT NULL,
+    int_running_count bigint DEFAULT 0 NOT NULL,
+    int_dead_count bigint DEFAULT 0 NOT NULL,
+    int_depend_count bigint DEFAULT 0 NOT NULL,
+    int_eaten_count bigint DEFAULT 0 NOT NULL,
+    int_succeeded_count bigint DEFAULT 0 NOT NULL,
+    int_checkpoint_count bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.job_stat OWNER TO cuebot;
+
+--
+-- TOC entry 242 (class 1259 OID 16577)
+-- Name: job_usage; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.job_usage (
+    pk_job_usage character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    int_core_time_success bigint DEFAULT 0 NOT NULL,
+    int_core_time_fail bigint DEFAULT 0 NOT NULL,
+    int_frame_success_count integer DEFAULT 0 NOT NULL,
+    int_frame_fail_count integer DEFAULT 0 NOT NULL,
+    int_clock_time_fail integer DEFAULT 0 NOT NULL,
+    int_clock_time_high integer DEFAULT 0 NOT NULL,
+    int_clock_time_success integer DEFAULT 0 NOT NULL,
+    int_gpu_time_success bigint DEFAULT 0 NOT NULL,
+    int_gpu_time_fail bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.job_usage OWNER TO cuebot;
+
+--
+-- TOC entry 253 (class 1259 OID 16685)
+-- Name: layer; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.layer (
+    pk_layer character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    str_name character varying(256) NOT NULL,
+    str_cmd character varying(4000) NOT NULL,
+    str_range character varying(4000) NOT NULL,
+    int_chunk_size bigint DEFAULT 1 NOT NULL,
+    int_dispatch_order bigint DEFAULT 1 NOT NULL,
+    int_cores_min bigint DEFAULT 100 NOT NULL,
+    int_mem_min bigint DEFAULT 4194304 NOT NULL,
+    str_tags character varying(4000) DEFAULT ''::character varying NOT NULL,
+    str_type character varying(16) NOT NULL,
+    b_threadable boolean DEFAULT true NOT NULL,
+    str_services character varying(128) DEFAULT 'default'::character varying NOT NULL,
+    b_optimize boolean DEFAULT true NOT NULL,
+    int_cores_max integer DEFAULT 0 NOT NULL,
+    int_gpu_mem_min bigint DEFAULT 0 NOT NULL,
+    int_timeout integer DEFAULT 0 NOT NULL,
+    int_timeout_llu integer DEFAULT 0 NOT NULL,
+    int_gpus_min bigint DEFAULT 0 NOT NULL,
+    int_gpus_max bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.layer OWNER TO cuebot;
+
+--
+-- TOC entry 252 (class 1259 OID 16680)
+-- Name: layer_env; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.layer_env (
+    pk_layer_env character varying(36) NOT NULL,
+    pk_layer character varying(36),
+    pk_job character varying(36),
+    str_key character varying(2048),
+    str_value character varying(2048)
+);
+
+
+ALTER TABLE public.layer_env OWNER TO cuebot;
+
+--
+-- TOC entry 238 (class 1259 OID 16529)
+-- Name: layer_history; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.layer_history (
+    pk_layer character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    str_name character varying(512) NOT NULL,
+    str_type character varying(16) NOT NULL,
+    int_cores_min bigint DEFAULT 100 NOT NULL,
+    int_mem_min bigint DEFAULT 4194304 NOT NULL,
+    int_core_time_success bigint DEFAULT 0 NOT NULL,
+    int_core_time_fail bigint DEFAULT 0 NOT NULL,
+    int_frame_count bigint DEFAULT 0 NOT NULL,
+    int_layer_count bigint DEFAULT 0 NOT NULL,
+    int_waiting_count bigint DEFAULT 0 NOT NULL,
+    int_dead_count bigint DEFAULT 0 NOT NULL,
+    int_depend_count bigint DEFAULT 0 NOT NULL,
+    int_eaten_count bigint DEFAULT 0 NOT NULL,
+    int_succeeded_count bigint DEFAULT 0 NOT NULL,
+    int_running_count bigint DEFAULT 0 NOT NULL,
+    int_max_rss bigint DEFAULT 0 NOT NULL,
+    b_archived boolean DEFAULT false NOT NULL,
+    dt_last_modified date NOT NULL,
+    str_services character varying(128),
+    int_gpus_min integer DEFAULT 0 NOT NULL,
+    int_gpu_time_success bigint DEFAULT 0 NOT NULL,
+    int_gpu_time_fail bigint DEFAULT 0 NOT NULL,
+    int_gpu_mem_min bigint DEFAULT 0 NOT NULL,
+    int_gpu_mem_max bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.layer_history OWNER TO cuebot;
+
+--
+-- TOC entry 4303 (class 0 OID 0)
+-- Dependencies: 238
+-- Name: COLUMN layer_history.int_core_time_success; Type: COMMENT; Schema: public; Owner: cuebot
+--
+
+COMMENT ON COLUMN public.layer_history.int_core_time_success IS 'seconds per core succeeded';
+
+
+--
+-- TOC entry 4304 (class 0 OID 0)
+-- Dependencies: 238
+-- Name: COLUMN layer_history.int_core_time_fail; Type: COMMENT; Schema: public; Owner: cuebot
+--
+
+COMMENT ON COLUMN public.layer_history.int_core_time_fail IS 'seconds per core failed';
+
+
+--
+-- TOC entry 4305 (class 0 OID 0)
+-- Dependencies: 238
+-- Name: COLUMN layer_history.int_max_rss; Type: COMMENT; Schema: public; Owner: cuebot
+--
+
+COMMENT ON COLUMN public.layer_history.int_max_rss IS 'maximum kilobytes of rss memory used by a single frame';
+
+
+--
+-- TOC entry 273 (class 1259 OID 17546)
+-- Name: layer_limit; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.layer_limit (
+    pk_layer_limit character varying(36) NOT NULL,
+    pk_layer character varying(36) NOT NULL,
+    pk_limit_record character varying(36) NOT NULL
+);
+
+
+ALTER TABLE public.layer_limit OWNER TO cuebot;
+
+--
+-- TOC entry 231 (class 1259 OID 16498)
+-- Name: layer_mem; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.layer_mem (
+    pk_layer_mem character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    pk_layer character varying(36) NOT NULL,
+    int_max_rss bigint DEFAULT 0 NOT NULL,
+    int_max_vss bigint DEFAULT 0 NOT NULL,
+    int_gpu_mem_max bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.layer_mem OWNER TO cuebot;
+
+--
+-- TOC entry 222 (class 1259 OID 16443)
+-- Name: layer_output; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.layer_output (
+    pk_layer_output character varying(36) NOT NULL,
+    pk_layer character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    str_filespec character varying(2048) NOT NULL,
+    ser_order integer NOT NULL
+);
+
+
+ALTER TABLE public.layer_output OWNER TO cuebot;
+
+--
+-- TOC entry 283 (class 1259 OID 17975)
+-- Name: layer_output_ser_order_seq; Type: SEQUENCE; Schema: public; Owner: cuebot
+--
+
+CREATE SEQUENCE public.layer_output_ser_order_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.layer_output_ser_order_seq OWNER TO cuebot;
+
+--
+-- TOC entry 4306 (class 0 OID 0)
+-- Dependencies: 283
+-- Name: layer_output_ser_order_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: cuebot
+--
+
+ALTER SEQUENCE public.layer_output_ser_order_seq OWNED BY public.layer_output.ser_order;
+
+
+--
+-- TOC entry 251 (class 1259 OID 16674)
+-- Name: layer_resource; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.layer_resource (
+    pk_layer_resource character varying(36) NOT NULL,
+    pk_layer character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    int_cores bigint DEFAULT 0 NOT NULL,
+    int_max_rss bigint DEFAULT 0 NOT NULL,
+    int_max_vss bigint DEFAULT 0 NOT NULL,
+    int_gpus integer DEFAULT 0 NOT NULL,
+    int_gpu_mem_max bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.layer_resource OWNER TO cuebot;
+
+--
+-- TOC entry 250 (class 1259 OID 16663)
+-- Name: layer_stat; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.layer_stat (
+    pk_layer_stat character varying(36) NOT NULL,
+    pk_layer character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    int_total_count bigint DEFAULT 0 NOT NULL,
+    int_waiting_count bigint DEFAULT 0 NOT NULL,
+    int_running_count bigint DEFAULT 0 NOT NULL,
+    int_dead_count bigint DEFAULT 0 NOT NULL,
+    int_depend_count bigint DEFAULT 0 NOT NULL,
+    int_eaten_count bigint DEFAULT 0 NOT NULL,
+    int_succeeded_count bigint DEFAULT 0 NOT NULL,
+    int_checkpoint_count bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.layer_stat OWNER TO cuebot;
+
+--
+-- TOC entry 249 (class 1259 OID 16652)
+-- Name: layer_usage; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.layer_usage (
+    pk_layer_usage character varying(36) NOT NULL,
+    pk_layer character varying(36) NOT NULL,
+    pk_job character varying(36) NOT NULL,
+    int_core_time_success bigint DEFAULT 0 NOT NULL,
+    int_core_time_fail bigint DEFAULT 0 NOT NULL,
+    int_frame_success_count integer DEFAULT 0 NOT NULL,
+    int_frame_fail_count integer DEFAULT 0 NOT NULL,
+    int_clock_time_fail integer DEFAULT 0 NOT NULL,
+    int_clock_time_high integer DEFAULT 0 NOT NULL,
+    int_clock_time_low integer DEFAULT 0 NOT NULL,
+    int_clock_time_success integer DEFAULT 0 NOT NULL,
+    int_gpu_time_success bigint DEFAULT 0 NOT NULL,
+    int_gpu_time_fail bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.layer_usage OWNER TO cuebot;
+
+--
+-- TOC entry 272 (class 1259 OID 17542)
+-- Name: limit_record; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.limit_record (
+    pk_limit_record character varying(36) NOT NULL,
+    str_name character varying(255) NOT NULL,
+    int_max_value integer,
+    b_host_limit boolean DEFAULT false NOT NULL
+);
+
+
+ALTER TABLE public.limit_record OWNER TO cuebot;
+
+--
+-- TOC entry 248 (class 1259 OID 16646)
+-- Name: matcher; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.matcher (
+    pk_matcher character varying(36) NOT NULL,
+    pk_filter character varying(36) NOT NULL,
+    str_subject character varying(64) NOT NULL,
+    str_match character varying(64) NOT NULL,
+    str_value character varying(6000) NOT NULL,
+    ts_created timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+ALTER TABLE public.matcher OWNER TO cuebot;
+
+--
+-- TOC entry 225 (class 1259 OID 16457)
+-- Name: owner; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.owner (
+    pk_owner character varying(36) NOT NULL,
+    pk_show character varying(36) NOT NULL,
+    str_username character varying(64) NOT NULL,
+    ts_created timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    ts_updated timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+ALTER TABLE public.owner OWNER TO cuebot;
+
+--
+-- TOC entry 230 (class 1259 OID 16490)
+-- Name: point; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.point (
+    pk_point character varying(36) NOT NULL,
+    pk_dept character varying(36) NOT NULL,
+    pk_show character varying(36) NOT NULL,
+    str_ti_task character varying(36),
+    int_cores integer DEFAULT 0 NOT NULL,
+    b_managed boolean DEFAULT false NOT NULL,
+    int_min_cores integer DEFAULT 0 NOT NULL,
+    float_tier numeric(16,2) DEFAULT 0 NOT NULL,
+    ts_updated timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    int_gpus integer DEFAULT 0 NOT NULL,
+    int_min_gpus integer DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.point OWNER TO cuebot;
+
+--
+-- TOC entry 247 (class 1259 OID 16630)
+-- Name: proc; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.proc (
+    pk_proc character varying(36) NOT NULL,
+    pk_host character varying(36) NOT NULL,
+    pk_job character varying(36),
+    pk_show character varying(36),
+    pk_layer character varying(36),
+    pk_frame character varying(36),
+    int_cores_reserved bigint NOT NULL,
+    int_mem_reserved bigint NOT NULL,
+    int_mem_used bigint DEFAULT 0 NOT NULL,
+    int_mem_max_used bigint DEFAULT 0 NOT NULL,
+    b_unbooked boolean DEFAULT false NOT NULL,
+    int_mem_pre_reserved bigint DEFAULT 0 NOT NULL,
+    int_virt_used bigint DEFAULT 0 NOT NULL,
+    int_virt_max_used bigint DEFAULT 0 NOT NULL,
+    str_redirect character varying(265),
+    b_local boolean DEFAULT false NOT NULL,
+    ts_ping timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    ts_booked timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    ts_dispatched timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    int_gpu_mem_reserved bigint DEFAULT 0 NOT NULL,
+    int_gpus_reserved integer DEFAULT 0 NOT NULL,
+    int_gpu_mem_used bigint DEFAULT 0 NOT NULL,
+    int_gpu_mem_max_used bigint DEFAULT 0 NOT NULL,
+    int_gpu_mem_pre_reserved bigint DEFAULT 0 NOT NULL,
+    bytea_children bytea,
+    int_swap_used bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.proc OWNER TO cuebot;
+
+--
+-- TOC entry 267 (class 1259 OID 16835)
+-- Name: redirect; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.redirect (
+    pk_proc character varying(36) NOT NULL,
+    str_group_id character varying(36) NOT NULL,
+    int_type bigint NOT NULL,
+    str_destination_id character varying(512) NOT NULL,
+    str_name character varying(512) NOT NULL,
+    lng_creation_time bigint NOT NULL
+);
+
+
+ALTER TABLE public.redirect OWNER TO cuebot;
+
+--
+-- TOC entry 227 (class 1259 OID 16475)
+-- Name: service; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.service (
+    pk_service character varying(36) NOT NULL,
+    str_name character varying(36) NOT NULL,
+    b_threadable boolean NOT NULL,
+    int_cores_min integer NOT NULL,
+    int_mem_min integer NOT NULL,
+    str_tags character varying(128) NOT NULL,
+    int_cores_max integer DEFAULT 0 NOT NULL,
+    int_gpu_mem_min bigint DEFAULT 0 NOT NULL,
+    int_timeout integer DEFAULT 0 NOT NULL,
+    int_timeout_llu integer DEFAULT 0 NOT NULL,
+    int_gpus_min integer DEFAULT 0 NOT NULL,
+    int_gpus_max integer DEFAULT 0 NOT NULL,
+    int_min_memory_increase integer DEFAULT 2097152 NOT NULL
+);
+
+
+ALTER TABLE public.service OWNER TO cuebot;
+
+--
+-- TOC entry 246 (class 1259 OID 16615)
+-- Name: show; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.show (
+    pk_show character varying(36) NOT NULL,
+    str_name character varying(512) NOT NULL,
+    b_paused boolean DEFAULT false NOT NULL,
+    int_default_min_cores integer DEFAULT 100 NOT NULL,
+    int_default_max_cores integer DEFAULT 10000 NOT NULL,
+    b_booking_enabled boolean DEFAULT true NOT NULL,
+    b_dispatch_enabled boolean DEFAULT true NOT NULL,
+    b_active boolean DEFAULT true NOT NULL,
+    str_comment_email character varying(1024),
+    int_default_min_gpus integer DEFAULT 100 NOT NULL,
+    int_default_max_gpus integer DEFAULT 100000 NOT NULL
+);
+
+
+ALTER TABLE public.show OWNER TO cuebot;
+
+--
+-- TOC entry 234 (class 1259 OID 16515)
+-- Name: show_alias; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.show_alias (
+    pk_show_alias character varying(36) NOT NULL,
+    pk_show character varying(36) NOT NULL,
+    str_name character varying(16) NOT NULL
+);
+
+
+ALTER TABLE public.show_alias OWNER TO cuebot;
+
+--
+-- TOC entry 223 (class 1259 OID 16448)
+-- Name: show_service; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.show_service (
+    pk_show_service character varying(36) NOT NULL,
+    pk_show character varying(36) NOT NULL,
+    str_name character varying(36) NOT NULL,
+    b_threadable boolean NOT NULL,
+    int_cores_min integer NOT NULL,
+    int_mem_min integer NOT NULL,
+    str_tags character varying(128) NOT NULL,
+    int_cores_max integer DEFAULT 0 NOT NULL,
+    int_gpu_mem_min bigint DEFAULT 0 NOT NULL,
+    int_timeout integer DEFAULT 0 NOT NULL,
+    int_timeout_llu integer DEFAULT 0 NOT NULL,
+    int_gpus_min integer DEFAULT 0 NOT NULL,
+    int_gpus_max integer DEFAULT 0 NOT NULL,
+    int_min_memory_increase integer DEFAULT 2097152 NOT NULL
+);
+
+
+ALTER TABLE public.show_service OWNER TO cuebot;
+
+--
+-- TOC entry 281 (class 1259 OID 17947)
+-- Name: show_stats; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.show_stats (
+    pk_show character varying(36) NOT NULL,
+    int_frame_insert_count bigint DEFAULT 0 NOT NULL,
+    int_job_insert_count bigint DEFAULT 0 NOT NULL,
+    int_frame_success_count bigint DEFAULT 0 NOT NULL,
+    int_frame_fail_count bigint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.show_stats OWNER TO cuebot;
+
+--
+-- TOC entry 245 (class 1259 OID 16608)
+-- Name: subscription; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.subscription (
+    pk_subscription character varying(36) NOT NULL,
+    pk_alloc character varying(36) NOT NULL,
+    pk_show character varying(36) NOT NULL,
+    int_size bigint DEFAULT 0 NOT NULL,
+    int_burst bigint DEFAULT 0 NOT NULL,
+    int_cores integer DEFAULT 0 NOT NULL,
+    float_tier numeric(16,2) DEFAULT 0 NOT NULL,
+    int_gpus integer DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.subscription OWNER TO cuebot;
+
+--
+-- TOC entry 229 (class 1259 OID 16485)
+-- Name: task; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.task (
+    pk_task character varying(36) NOT NULL,
+    pk_point character varying(36) NOT NULL,
+    str_shot character varying(36) NOT NULL,
+    int_min_cores integer DEFAULT 100 NOT NULL,
+    int_adjust_cores integer DEFAULT 0 NOT NULL,
+    int_min_gpus integer DEFAULT 0 NOT NULL,
+    int_adjust_gpus integer DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.task OWNER TO cuebot;
+
+--
+-- TOC entry 240 (class 1259 OID 16566)
+-- Name: task_lock; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.task_lock (
+    pk_task_lock character varying(36) NOT NULL,
+    str_name character varying(36) NOT NULL,
+    int_lock bigint DEFAULT 0 NOT NULL,
+    int_timeout bigint DEFAULT 30 NOT NULL,
+    ts_lastrun timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+ALTER TABLE public.task_lock OWNER TO cuebot;
+
+--
+-- TOC entry 221 (class 1259 OID 16437)
+-- Name: uncommitted_transactions; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.uncommitted_transactions (
+    inst_id numeric,
+    sid numeric,
+    serial numeric,
+    username character varying(30),
+    machine character varying(64),
+    module character varying(48),
+    service_name character varying(64),
+    duration numeric,
+    dt_recorded date DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.uncommitted_transactions OWNER TO cuebot;
+
+--
+-- TOC entry 220 (class 1259 OID 16432)
+-- Name: uncommitted_transactions_bak; Type: TABLE; Schema: public; Owner: cuebot
+--
+
+CREATE TABLE public.uncommitted_transactions_bak (
+    inst_id numeric,
+    sid numeric,
+    serial numeric,
+    username character varying(30),
+    machine character varying(64),
+    module character varying(48),
+    service_name character varying(64),
+    duration numeric,
+    dt_recorded date
+);
+
+
+ALTER TABLE public.uncommitted_transactions_bak OWNER TO cuebot;
+
+--
+-- TOC entry 278 (class 1259 OID 17924)
+-- Name: v_history_frame; Type: VIEW; Schema: public; Owner: cuebot
+--
+
+CREATE VIEW public.v_history_frame AS
+ SELECT fh.pk_frame_history,
+    fh.pk_frame,
+    fh.pk_layer,
+    fh.pk_job,
+    fh.str_name,
+    fh.str_state,
+    fh.int_mem_reserved,
+    fh.int_mem_max_used,
+    fh.int_cores,
+    fh.int_gpu_mem_reserved,
+    fh.int_gpu_mem_max_used,
+    fh.int_gpus,
+    fh.str_host,
+    fh.int_exit_status,
+    a.str_name AS str_alloc_name,
+    a.b_billable AS b_alloc_billable,
+    f.str_name AS str_facility_name,
+    fh.int_ts_started,
+    fh.int_ts_stopped,
+    fh.int_checkpoint_count,
+    NULL::text AS str_show_name,
+    fh.dt_last_modified
+   FROM (((public.frame_history fh
+     JOIN public.job_history jh ON (((fh.pk_job)::text = (jh.pk_job)::text)))
+     LEFT JOIN public.alloc a ON (((fh.pk_alloc)::text = (a.pk_alloc)::text)))
+     LEFT JOIN public.facility f ON (((a.pk_facility)::text = (f.pk_facility)::text)))
+  WHERE ((fh.dt_last_modified >= ( SELECT history_period.dt_begin
+           FROM public.history_period)) AND (fh.dt_last_modified < ( SELECT history_period.dt_end
+           FROM public.history_period)));
+
+
+ALTER TABLE public.v_history_frame OWNER TO cuebot;
+
+--
+-- TOC entry 279 (class 1259 OID 17929)
+-- Name: v_history_job; Type: VIEW; Schema: public; Owner: cuebot
+--
+
+CREATE VIEW public.v_history_job AS
+ SELECT jh.pk_job,
+    jh.str_name,
+    jh.str_shot,
+    jh.str_user,
+    jh.int_core_time_success,
+    jh.int_core_time_fail,
+    jh.int_gpu_time_success,
+    jh.int_gpu_time_fail,
+    jh.int_frame_count,
+    jh.int_layer_count,
+    jh.int_waiting_count,
+    jh.int_dead_count,
+    jh.int_depend_count,
+    jh.int_eaten_count,
+    jh.int_succeeded_count,
+    jh.int_running_count,
+    jh.int_max_rss,
+    jh.int_gpu_mem_max,
+    jh.b_archived,
+    f.str_name AS str_facility_name,
+    d.str_name AS str_dept_name,
+    jh.int_ts_started,
+    jh.int_ts_stopped,
+    s.str_name AS str_show_name,
+    jh.dt_last_modified
+   FROM public.job_history jh,
+    public.show s,
+    public.facility f,
+    public.dept d
+  WHERE (((jh.pk_show)::text = (s.pk_show)::text) AND ((jh.pk_facility)::text = (f.pk_facility)::text) AND ((jh.pk_dept)::text = (d.pk_dept)::text) AND ((jh.dt_last_modified >= ( SELECT history_period.dt_begin
+           FROM public.history_period)) OR (jh.int_ts_stopped = 0)));
+
+
+ALTER TABLE public.v_history_job OWNER TO cuebot;
+
+--
+-- TOC entry 280 (class 1259 OID 17934)
+-- Name: v_history_layer; Type: VIEW; Schema: public; Owner: cuebot
+--
+
+CREATE VIEW public.v_history_layer AS
+ SELECT lh.pk_layer,
+    lh.pk_job,
+    lh.str_name,
+    lh.str_type,
+    lh.int_cores_min,
+    lh.int_mem_min,
+    lh.int_gpus_min,
+    lh.int_gpu_mem_min,
+    lh.int_core_time_success,
+    lh.int_core_time_fail,
+    lh.int_gpu_time_success,
+    lh.int_gpu_time_fail,
+    lh.int_frame_count,
+    lh.int_layer_count,
+    lh.int_waiting_count,
+    lh.int_dead_count,
+    lh.int_depend_count,
+    lh.int_eaten_count,
+    lh.int_succeeded_count,
+    lh.int_running_count,
+    lh.int_max_rss,
+    lh.int_gpu_mem_max,
+    lh.b_archived,
+    lh.str_services,
+    s.str_name AS str_show_name,
+    lh.dt_last_modified
+   FROM public.layer_history lh,
+    public.job_history jh,
+    public.show s
+  WHERE (((lh.pk_job)::text = (jh.pk_job)::text) AND ((jh.pk_show)::text = (s.pk_show)::text) AND (jh.dt_last_modified >= ( SELECT history_period.dt_begin
+           FROM public.history_period)) AND (jh.dt_last_modified < ( SELECT history_period.dt_end
+           FROM public.history_period)));
+
+
+ALTER TABLE public.v_history_layer OWNER TO cuebot;
+
+--
+-- TOC entry 276 (class 1259 OID 17914)
+-- Name: vs_alloc_usage; Type: VIEW; Schema: public; Owner: cuebot
+--
+
+CREATE VIEW public.vs_alloc_usage AS
+ SELECT alloc.pk_alloc,
+    COALESCE(sum(host.int_cores), (0)::numeric) AS int_cores,
+    COALESCE(sum(host.int_cores_idle), (0)::numeric) AS int_idle_cores,
+    COALESCE(sum((host.int_cores - host.int_cores_idle)), (0)::numeric) AS int_running_cores,
+    COALESCE(( SELECT sum(host_1.int_cores) AS sum
+           FROM public.host host_1
+          WHERE (((host_1.pk_alloc)::text = (alloc.pk_alloc)::text) AND (((host_1.str_lock_state)::text = 'NIMBY_LOCKED'::text) OR ((host_1.str_lock_state)::text = 'LOCKED'::text)))), (0)::numeric) AS int_locked_cores,
+    COALESCE(( SELECT sum(h.int_cores_idle) AS sum
+           FROM public.host h,
+            public.host_stat hs
+          WHERE (((h.pk_host)::text = (hs.pk_host)::text) AND ((h.pk_alloc)::text = (alloc.pk_alloc)::text) AND ((h.str_lock_state)::text = 'OPEN'::text) AND ((hs.str_state)::text = 'UP'::text))), (0)::numeric) AS int_available_cores,
+    COALESCE(sum(host.int_gpus), (0)::numeric) AS int_gpus,
+    COALESCE(sum(host.int_gpus_idle), (0)::numeric) AS int_idle_gpus,
+    COALESCE(sum((host.int_gpus - host.int_gpus_idle)), (0)::numeric) AS int_running_gpus,
+    COALESCE(( SELECT sum(host_1.int_gpus) AS sum
+           FROM public.host host_1
+          WHERE (((host_1.pk_alloc)::text = (alloc.pk_alloc)::text) AND (((host_1.str_lock_state)::text = 'NIMBY_LOCKED'::text) OR ((host_1.str_lock_state)::text = 'LOCKED'::text)))), (0)::numeric) AS int_locked_gpus,
+    COALESCE(( SELECT sum(h.int_gpus_idle) AS sum
+           FROM public.host h,
+            public.host_stat hs
+          WHERE (((h.pk_host)::text = (hs.pk_host)::text) AND ((h.pk_alloc)::text = (alloc.pk_alloc)::text) AND ((h.str_lock_state)::text = 'OPEN'::text) AND ((hs.str_state)::text = 'UP'::text))), (0)::numeric) AS int_available_gpus,
+    count(host.pk_host) AS int_hosts,
+    ( SELECT count(*) AS count
+           FROM public.host host_1
+          WHERE (((host_1.pk_alloc)::text = (alloc.pk_alloc)::text) AND ((host_1.str_lock_state)::text = 'LOCKED'::text))) AS int_locked_hosts,
+    ( SELECT count(*) AS count
+           FROM public.host h,
+            public.host_stat hs
+          WHERE (((h.pk_host)::text = (hs.pk_host)::text) AND ((h.pk_alloc)::text = (alloc.pk_alloc)::text) AND ((hs.str_state)::text = 'DOWN'::text))) AS int_down_hosts
+   FROM (public.alloc
+     LEFT JOIN public.host ON (((alloc.pk_alloc)::text = (host.pk_alloc)::text)))
+  GROUP BY alloc.pk_alloc;
+
+
+ALTER TABLE public.vs_alloc_usage OWNER TO cuebot;
+
+--
+-- TOC entry 277 (class 1259 OID 17919)
+-- Name: vs_folder_counts; Type: VIEW; Schema: public; Owner: cuebot
+--
+
+CREATE VIEW public.vs_folder_counts AS
+ SELECT folder.pk_folder,
+    COALESCE(sum(job_stat.int_depend_count), (0)::numeric) AS int_depend_count,
+    COALESCE(sum(job_stat.int_waiting_count), (0)::numeric) AS int_waiting_count,
+    COALESCE(sum(job_stat.int_running_count), (0)::numeric) AS int_running_count,
+    COALESCE(sum(job_stat.int_dead_count), (0)::numeric) AS int_dead_count,
+    COALESCE(sum(job_resource.int_cores), (0)::numeric) AS int_cores,
+    COALESCE(sum(job_resource.int_gpus), (0)::bigint) AS int_gpus,
+    COALESCE(count(job.pk_job), (0)::bigint) AS int_job_count
+   FROM (((public.folder
+     LEFT JOIN public.job ON ((((folder.pk_folder)::text = (job.pk_folder)::text) AND ((job.str_state)::text = 'PENDING'::text))))
+     LEFT JOIN public.job_stat ON (((job.pk_job)::text = (job_stat.pk_job)::text)))
+     LEFT JOIN public.job_resource ON (((job.pk_job)::text = (job_resource.pk_job)::text)))
+  GROUP BY folder.pk_folder;
+
+
+ALTER TABLE public.vs_folder_counts OWNER TO cuebot;
+
+--
+-- TOC entry 275 (class 1259 OID 17909)
+-- Name: vs_job_resource; Type: VIEW; Schema: public; Owner: cuebot
+--
+
+CREATE VIEW public.vs_job_resource AS
+ SELECT job.pk_job,
+    count(proc.pk_proc) AS int_procs,
+    COALESCE(sum(proc.int_cores_reserved), (0)::numeric) AS int_cores,
+    COALESCE(sum(proc.int_gpus_reserved), (0)::bigint) AS int_gpus,
+    COALESCE(sum(proc.int_mem_reserved), (0)::numeric) AS int_mem_reserved
+   FROM (public.job
+     LEFT JOIN public.proc ON (((proc.pk_job)::text = (job.pk_job)::text)))
+  GROUP BY job.pk_job;
+
+
+ALTER TABLE public.vs_job_resource OWNER TO cuebot;
+
+--
+-- TOC entry 274 (class 1259 OID 17904)
+-- Name: vs_show_resource; Type: VIEW; Schema: public; Owner: cuebot
+--
+
+CREATE VIEW public.vs_show_resource AS
+ SELECT job.pk_show,
+    sum(job_resource.int_cores) AS int_cores,
+    sum(job_resource.int_gpus) AS int_gpus
+   FROM public.job,
+    public.job_resource
+  WHERE (((job.pk_job)::text = (job_resource.pk_job)::text) AND ((job.str_state)::text = 'PENDING'::text))
+  GROUP BY job.pk_show;
+
+
+ALTER TABLE public.vs_show_resource OWNER TO cuebot;
+
+--
+-- TOC entry 268 (class 1259 OID 17122)
+-- Name: vs_show_stat; Type: VIEW; Schema: public; Owner: cuebot
+--
+
+CREATE VIEW public.vs_show_stat AS
+ SELECT job.pk_show,
+    sum((job_stat.int_waiting_count + job_stat.int_depend_count)) AS int_pending_count,
+    sum(job_stat.int_running_count) AS int_running_count,
+    sum(job_stat.int_dead_count) AS int_dead_count,
+    count(1) AS int_job_count
+   FROM public.job_stat,
+    public.job
+  WHERE (((job_stat.pk_job)::text = (job.pk_job)::text) AND ((job.str_state)::text = 'PENDING'::text))
+  GROUP BY job.pk_show;
+
+
+ALTER TABLE public.vs_show_stat OWNER TO cuebot;
+
+--
+-- TOC entry 269 (class 1259 OID 17142)
+-- Name: vs_waiting; Type: VIEW; Schema: public; Owner: cuebot
+--
+
+CREATE VIEW public.vs_waiting AS
+ SELECT job.pk_show
+   FROM public.job_resource jr,
+    public.job_stat,
+    public.job
+  WHERE (((job_stat.pk_job)::text = (job.pk_job)::text) AND ((jr.pk_job)::text = (job.pk_job)::text) AND ((job.str_state)::text = 'PENDING'::text) AND (job.b_paused = false) AND ((jr.int_max_cores - jr.int_cores) >= 100) AND (job_stat.int_waiting_count <> 0))
+  GROUP BY job.pk_show;
+
+
+ALTER TABLE public.vs_waiting OWNER TO cuebot;
+
+--
+-- TOC entry 3457 (class 2604 OID 17976)
+-- Name: layer_output ser_order; Type: DEFAULT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_output ALTER COLUMN ser_order SET DEFAULT nextval('public.layer_output_ser_order_seq'::regclass);
+
+
+--
+-- TOC entry 4031 (class 2606 OID 17052)
+-- Name: action c_action_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.action
+    ADD CONSTRAINT c_action_pk PRIMARY KEY (pk_action);
+
+
+--
+-- TOC entry 4026 (class 2606 OID 17053)
+-- Name: alloc c_alloc_name_uniq; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.alloc
+    ADD CONSTRAINT c_alloc_name_uniq UNIQUE (str_name);
+
+
+--
+-- TOC entry 4028 (class 2606 OID 17054)
+-- Name: alloc c_alloc_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.alloc
+    ADD CONSTRAINT c_alloc_pk PRIMARY KEY (pk_alloc);
+
+
+--
+-- TOC entry 4022 (class 2606 OID 17055)
+-- Name: comments c_comment_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.comments
+    ADD CONSTRAINT c_comment_pk PRIMARY KEY (pk_comment);
+
+
+--
+-- TOC entry 4005 (class 2606 OID 17058)
+-- Name: depend c_depend_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.depend
+    ADD CONSTRAINT c_depend_pk PRIMARY KEY (pk_depend);
+
+
+--
+-- TOC entry 3835 (class 2606 OID 17106)
+-- Name: dept c_dept_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.dept
+    ADD CONSTRAINT c_dept_pk PRIMARY KEY (pk_dept);
+
+
+--
+-- TOC entry 3837 (class 2606 OID 17105)
+-- Name: facility c_facility_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.facility
+    ADD CONSTRAINT c_facility_pk PRIMARY KEY (pk_facility);
+
+
+--
+-- TOC entry 4002 (class 2606 OID 17059)
+-- Name: filter c_filter_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.filter
+    ADD CONSTRAINT c_filter_pk PRIMARY KEY (pk_filter);
+
+
+--
+-- TOC entry 3991 (class 2606 OID 17062)
+-- Name: folder_level c_folder_level_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.folder_level
+    ADD CONSTRAINT c_folder_level_pk PRIMARY KEY (pk_folder_level);
+
+
+--
+-- TOC entry 3993 (class 2606 OID 17063)
+-- Name: folder_level c_folder_level_uk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.folder_level
+    ADD CONSTRAINT c_folder_level_uk UNIQUE (pk_folder);
+
+
+--
+-- TOC entry 3995 (class 2606 OID 17061)
+-- Name: folder c_folder_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.folder
+    ADD CONSTRAINT c_folder_pk PRIMARY KEY (pk_folder);
+
+
+--
+-- TOC entry 3825 (class 2606 OID 17108)
+-- Name: folder_resource c_folder_resource_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.folder_resource
+    ADD CONSTRAINT c_folder_resource_pk PRIMARY KEY (pk_folder_resource);
+
+
+--
+-- TOC entry 3997 (class 2606 OID 17060)
+-- Name: folder c_folder_uk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.folder
+    ADD CONSTRAINT c_folder_uk UNIQUE (pk_parent_folder, str_name);
+
+
+--
+-- TOC entry 3756 (class 2606 OID 17116)
+-- Name: frame_history c_frame_history_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.frame_history
+    ADD CONSTRAINT c_frame_history_pk PRIMARY KEY (pk_frame_history);
+
+
+--
+-- TOC entry 3982 (class 2606 OID 17064)
+-- Name: frame c_frame_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.frame
+    ADD CONSTRAINT c_frame_pk PRIMARY KEY (pk_frame);
+
+
+--
+-- TOC entry 4044 (class 2606 OID 17968)
+-- Name: frame_state_display_overrides c_frame_state_override; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.frame_state_display_overrides
+    ADD CONSTRAINT c_frame_state_override UNIQUE (pk_frame, str_frame_state);
+
+
+--
+-- TOC entry 3984 (class 2606 OID 17065)
+-- Name: frame c_frame_str_name_unq; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.frame
+    ADD CONSTRAINT c_frame_str_name_unq UNIQUE (str_name, pk_job);
+
+
+--
+-- TOC entry 3766 (class 2606 OID 17115)
+-- Name: history_period c_history_period_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.history_period
+    ADD CONSTRAINT c_history_period_pk PRIMARY KEY (pk);
+
+
+--
+-- TOC entry 3967 (class 2606 OID 17067)
+-- Name: host c_host_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.host
+    ADD CONSTRAINT c_host_pk PRIMARY KEY (pk_host);
+
+
+--
+-- TOC entry 3960 (class 2606 OID 17070)
+-- Name: host_stat c_host_stat_pk_host_uk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.host_stat
+    ADD CONSTRAINT c_host_stat_pk_host_uk UNIQUE (pk_host);
+
+
+--
+-- TOC entry 3861 (class 2606 OID 17100)
+-- Name: host_tag c_host_tag_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.host_tag
+    ADD CONSTRAINT c_host_tag_pk PRIMARY KEY (pk_host_tag);
+
+
+--
+-- TOC entry 3969 (class 2606 OID 17574)
+-- Name: host c_host_uk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.host
+    ADD CONSTRAINT c_host_uk UNIQUE (str_name);
+
+
+--
+-- TOC entry 3962 (class 2606 OID 17069)
+-- Name: host_stat c_hoststat_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.host_stat
+    ADD CONSTRAINT c_hoststat_pk PRIMARY KEY (pk_host_stat);
+
+
+--
+-- TOC entry 3942 (class 2606 OID 17073)
+-- Name: job_env c_job_env_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_env
+    ADD CONSTRAINT c_job_env_pk PRIMARY KEY (pk_job_env);
+
+
+--
+-- TOC entry 3849 (class 2606 OID 17102)
+-- Name: job_history c_job_history_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_history
+    ADD CONSTRAINT c_job_history_pk PRIMARY KEY (pk_job);
+
+
+--
+-- TOC entry 3821 (class 2606 OID 17109)
+-- Name: job_mem c_job_mem_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_mem
+    ADD CONSTRAINT c_job_mem_pk PRIMARY KEY (pk_job_mem);
+
+
+--
+-- TOC entry 3945 (class 2606 OID 17071)
+-- Name: job c_job_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job
+    ADD CONSTRAINT c_job_pk PRIMARY KEY (pk_job);
+
+
+--
+-- TOC entry 3839 (class 2606 OID 17104)
+-- Name: job_post c_job_post_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_post
+    ADD CONSTRAINT c_job_post_pk PRIMARY KEY (pk_job_post);
+
+
+--
+-- TOC entry 3869 (class 2606 OID 17096)
+-- Name: job_resource c_job_resource_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_resource
+    ADD CONSTRAINT c_job_resource_pk PRIMARY KEY (pk_job_resource);
+
+
+--
+-- TOC entry 3871 (class 2606 OID 17097)
+-- Name: job_resource c_job_resource_uk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_resource
+    ADD CONSTRAINT c_job_resource_uk UNIQUE (pk_job);
+
+
+--
+-- TOC entry 3881 (class 2606 OID 17095)
+-- Name: job_stat c_job_stat_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_stat
+    ADD CONSTRAINT c_job_stat_pk PRIMARY KEY (pk_job_stat);
+
+
+--
+-- TOC entry 3947 (class 2606 OID 17072)
+-- Name: job c_job_uk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job
+    ADD CONSTRAINT c_job_uk UNIQUE (str_visible_name);
+
+
+--
+-- TOC entry 3865 (class 2606 OID 17098)
+-- Name: job_usage c_job_usage_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_usage
+    ADD CONSTRAINT c_job_usage_pk PRIMARY KEY (pk_job_usage);
+
+
+--
+-- TOC entry 3867 (class 2606 OID 17099)
+-- Name: job_usage c_job_usage_pk_job_uniq; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_usage
+    ADD CONSTRAINT c_job_usage_pk_job_uniq UNIQUE (pk_job);
+
+
+--
+-- TOC entry 3920 (class 2606 OID 17083)
+-- Name: layer_env c_layer_env_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_env
+    ADD CONSTRAINT c_layer_env_pk PRIMARY KEY (pk_layer_env);
+
+
+--
+-- TOC entry 3843 (class 2606 OID 17103)
+-- Name: layer_history c_layer_history_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_history
+    ADD CONSTRAINT c_layer_history_pk PRIMARY KEY (pk_layer);
+
+
+--
+-- TOC entry 3816 (class 2606 OID 17110)
+-- Name: layer_mem c_layer_mem_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_mem
+    ADD CONSTRAINT c_layer_mem_pk PRIMARY KEY (pk_layer_mem);
+
+
+--
+-- TOC entry 3924 (class 2606 OID 17081)
+-- Name: layer c_layer_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer
+    ADD CONSTRAINT c_layer_pk PRIMARY KEY (pk_layer);
+
+
+--
+-- TOC entry 3926 (class 2606 OID 17082)
+-- Name: layer c_layer_str_name_unq; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer
+    ADD CONSTRAINT c_layer_str_name_unq UNIQUE (str_name, pk_job);
+
+
+--
+-- TOC entry 3905 (class 2606 OID 17087)
+-- Name: layer_usage c_layer_usage_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_usage
+    ADD CONSTRAINT c_layer_usage_pk PRIMARY KEY (pk_layer_usage);
+
+
+--
+-- TOC entry 3907 (class 2606 OID 17088)
+-- Name: layer_usage c_layer_usage_pk_layer_uk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_usage
+    ADD CONSTRAINT c_layer_usage_pk_layer_uk UNIQUE (pk_layer);
+
+
+--
+-- TOC entry 3915 (class 2606 OID 17084)
+-- Name: layer_resource c_layerresource_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_resource
+    ADD CONSTRAINT c_layerresource_pk PRIMARY KEY (pk_layer_resource);
+
+
+--
+-- TOC entry 3917 (class 2606 OID 17085)
+-- Name: layer_resource c_layerresource_uk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_resource
+    ADD CONSTRAINT c_layerresource_uk UNIQUE (pk_layer);
+
+
+--
+-- TOC entry 3910 (class 2606 OID 17086)
+-- Name: layer_stat c_layerstat_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_stat
+    ADD CONSTRAINT c_layerstat_pk PRIMARY KEY (pk_layer_stat);
+
+
+--
+-- TOC entry 3902 (class 2606 OID 17089)
+-- Name: matcher c_matcher_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.matcher
+    ADD CONSTRAINT c_matcher_pk PRIMARY KEY (pk_matcher);
+
+
+--
+-- TOC entry 3778 (class 2606 OID 17078)
+-- Name: deed c_pk_deed; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.deed
+    ADD CONSTRAINT c_pk_deed PRIMARY KEY (pk_deed);
+
+
+--
+-- TOC entry 3786 (class 2606 OID 17076)
+-- Name: host_local c_pk_host_local; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.host_local
+    ADD CONSTRAINT c_pk_host_local PRIMARY KEY (pk_host_local);
+
+
+--
+-- TOC entry 3800 (class 2606 OID 17074)
+-- Name: job_local c_pk_job_local; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_local
+    ADD CONSTRAINT c_pk_job_local PRIMARY KEY (pk_job_local);
+
+
+--
+-- TOC entry 3768 (class 2606 OID 17080)
+-- Name: layer_output c_pk_layer_output; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_output
+    ADD CONSTRAINT c_pk_layer_output PRIMARY KEY (pk_layer_output);
+
+
+--
+-- TOC entry 3782 (class 2606 OID 17077)
+-- Name: owner c_pk_owner; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.owner
+    ADD CONSTRAINT c_pk_owner PRIMARY KEY (pk_owner);
+
+
+--
+-- TOC entry 4018 (class 2606 OID 17056)
+-- Name: config c_pk_pkconfig; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.config
+    ADD CONSTRAINT c_pk_pkconfig PRIMARY KEY (pk_config);
+
+
+--
+-- TOC entry 3795 (class 2606 OID 17075)
+-- Name: service c_pk_service; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.service
+    ADD CONSTRAINT c_pk_service PRIMARY KEY (pk_service);
+
+
+--
+-- TOC entry 3773 (class 2606 OID 17079)
+-- Name: show_service c_pk_show_service; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.show_service
+    ADD CONSTRAINT c_pk_show_service PRIMARY KEY (pk_show_service);
+
+
+--
+-- TOC entry 3809 (class 2606 OID 17111)
+-- Name: point c_point_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.point
+    ADD CONSTRAINT c_point_pk PRIMARY KEY (pk_point);
+
+
+--
+-- TOC entry 3811 (class 2606 OID 17112)
+-- Name: point c_point_pk_show_dept; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.point
+    ADD CONSTRAINT c_point_pk_show_dept UNIQUE (pk_show, pk_dept);
+
+
+--
+-- TOC entry 3893 (class 2606 OID 17090)
+-- Name: proc c_proc_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.proc
+    ADD CONSTRAINT c_proc_pk PRIMARY KEY (pk_proc);
+
+
+--
+-- TOC entry 3895 (class 2606 OID 17091)
+-- Name: proc c_proc_uk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.proc
+    ADD CONSTRAINT c_proc_uk UNIQUE (pk_frame);
+
+
+--
+-- TOC entry 4035 (class 2606 OID 17117)
+-- Name: redirect c_redirect_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.redirect
+    ADD CONSTRAINT c_redirect_pk PRIMARY KEY (pk_proc);
+
+
+--
+-- TOC entry 3832 (class 2606 OID 17107)
+-- Name: show_alias c_show_alias_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.show_alias
+    ADD CONSTRAINT c_show_alias_pk PRIMARY KEY (pk_show_alias);
+
+
+--
+-- TOC entry 3891 (class 2606 OID 17092)
+-- Name: show c_show_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.show
+    ADD CONSTRAINT c_show_pk PRIMARY KEY (pk_show);
+
+
+--
+-- TOC entry 4042 (class 2606 OID 17955)
+-- Name: show_stats c_show_stats_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.show_stats
+    ADD CONSTRAINT c_show_stats_pk PRIMARY KEY (pk_show);
+
+
+--
+-- TOC entry 4020 (class 2606 OID 17057)
+-- Name: config c_show_uk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.config
+    ADD CONSTRAINT c_show_uk UNIQUE (str_key);
+
+
+--
+-- TOC entry 3971 (class 2606 OID 17066)
+-- Name: host c_str_host_fqdn_uk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.host
+    ADD CONSTRAINT c_str_host_fqdn_uk UNIQUE (str_fqdn);
+
+
+--
+-- TOC entry 3885 (class 2606 OID 17093)
+-- Name: subscription c_subscription_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.subscription
+    ADD CONSTRAINT c_subscription_pk PRIMARY KEY (pk_subscription);
+
+
+--
+-- TOC entry 3887 (class 2606 OID 17094)
+-- Name: subscription c_subscription_uk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.subscription
+    ADD CONSTRAINT c_subscription_uk UNIQUE (pk_show, pk_alloc);
+
+
+--
+-- TOC entry 3859 (class 2606 OID 17101)
+-- Name: task_lock c_task_lock_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.task_lock
+    ADD CONSTRAINT c_task_lock_pk PRIMARY KEY (pk_task_lock);
+
+
+--
+-- TOC entry 3804 (class 2606 OID 17113)
+-- Name: task c_task_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.task
+    ADD CONSTRAINT c_task_pk PRIMARY KEY (pk_task);
+
+
+--
+-- TOC entry 3806 (class 2606 OID 17114)
+-- Name: task c_task_uniq; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.task
+    ADD CONSTRAINT c_task_uniq UNIQUE (str_shot, pk_point);
+
+
+--
+-- TOC entry 3753 (class 2606 OID 16392)
+-- Name: flyway_schema_history flyway_schema_history_pk; Type: CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.flyway_schema_history
+    ADD CONSTRAINT flyway_schema_history_pk PRIMARY KEY (installed_rank);
+
+
+--
+-- TOC entry 3754 (class 1259 OID 16393)
+-- Name: flyway_schema_history_s_idx; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX flyway_schema_history_s_idx ON public.flyway_schema_history USING btree (success);
+
+
+--
+-- TOC entry 4032 (class 1259 OID 16858)
+-- Name: i_action_pk_filter; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_action_pk_filter ON public.action USING btree (pk_filter);
+
+
+--
+-- TOC entry 4033 (class 1259 OID 16859)
+-- Name: i_action_pk_group; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_action_pk_group ON public.action USING btree (pk_folder);
+
+
+--
+-- TOC entry 4029 (class 1259 OID 16861)
+-- Name: i_alloc_pk_facility; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_alloc_pk_facility ON public.alloc USING btree (pk_facility);
+
+
+--
+-- TOC entry 3948 (class 1259 OID 16909)
+-- Name: i_booking_3; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_booking_3 ON public.job USING btree (str_state, b_paused, pk_show, pk_facility);
+
+
+--
+-- TOC entry 4023 (class 1259 OID 16865)
+-- Name: i_comment_pk_host; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_comment_pk_host ON public.comments USING btree (pk_host);
+
+
+--
+-- TOC entry 4024 (class 1259 OID 16864)
+-- Name: i_comment_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_comment_pk_job ON public.comments USING btree (pk_job);
+
+
+--
+-- TOC entry 3779 (class 1259 OID 17030)
+-- Name: i_deed_pk_host; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_deed_pk_host ON public.deed USING btree (pk_host);
+
+
+--
+-- TOC entry 3780 (class 1259 OID 17031)
+-- Name: i_deed_pk_owner; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_deed_pk_owner ON public.deed USING btree (pk_owner);
+
+
+--
+-- TOC entry 4006 (class 1259 OID 16875)
+-- Name: i_depend_b_composite; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_depend_b_composite ON public.depend USING btree (b_composite);
+
+
+--
+-- TOC entry 4007 (class 1259 OID 16874)
+-- Name: i_depend_er_frame; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_depend_er_frame ON public.depend USING btree (pk_frame_depend_er);
+
+
+--
+-- TOC entry 4008 (class 1259 OID 16870)
+-- Name: i_depend_er_layer; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_depend_er_layer ON public.depend USING btree (pk_layer_depend_er);
+
+
+--
+-- TOC entry 4009 (class 1259 OID 16872)
+-- Name: i_depend_on_frame; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_depend_on_frame ON public.depend USING btree (pk_frame_depend_on);
+
+
+--
+-- TOC entry 4010 (class 1259 OID 16869)
+-- Name: i_depend_on_layer; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_depend_on_layer ON public.depend USING btree (pk_layer_depend_on);
+
+
+--
+-- TOC entry 4011 (class 1259 OID 16879)
+-- Name: i_depend_pk_er_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_depend_pk_er_job ON public.depend USING btree (pk_job_depend_er);
+
+
+--
+-- TOC entry 4012 (class 1259 OID 16878)
+-- Name: i_depend_pk_on_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_depend_pk_on_job ON public.depend USING btree (pk_job_depend_on);
+
+
+--
+-- TOC entry 4013 (class 1259 OID 16877)
+-- Name: i_depend_pkparent; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_depend_pkparent ON public.depend USING btree (pk_parent);
+
+
+--
+-- TOC entry 4014 (class 1259 OID 16868)
+-- Name: i_depend_signature; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_depend_signature ON public.depend USING btree (str_signature);
+
+
+--
+-- TOC entry 4015 (class 1259 OID 16871)
+-- Name: i_depend_str_target; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_depend_str_target ON public.depend USING btree (str_target);
+
+
+--
+-- TOC entry 4016 (class 1259 OID 16873)
+-- Name: i_depend_str_type; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_depend_str_type ON public.depend USING btree (str_type);
+
+
+--
+-- TOC entry 4003 (class 1259 OID 16881)
+-- Name: i_filters_pk_show; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_filters_pk_show ON public.filter USING btree (pk_show);
+
+
+--
+-- TOC entry 3998 (class 1259 OID 16883)
+-- Name: i_folder_pkparentfolder; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_folder_pkparentfolder ON public.folder USING btree (pk_parent_folder);
+
+
+--
+-- TOC entry 3999 (class 1259 OID 16884)
+-- Name: i_folder_pkshow; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_folder_pkshow ON public.folder USING btree (pk_show);
+
+
+--
+-- TOC entry 3826 (class 1259 OID 16996)
+-- Name: i_folder_res_int_max_cores; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_folder_res_int_max_cores ON public.folder_resource USING btree (int_max_cores);
+
+
+--
+-- TOC entry 3827 (class 1259 OID 17747)
+-- Name: i_folder_res_int_max_gpus; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_folder_res_int_max_gpus ON public.folder_resource USING btree (int_max_gpus);
+
+
+--
+-- TOC entry 3828 (class 1259 OID 16997)
+-- Name: i_folder_resource_fl_tier; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_folder_resource_fl_tier ON public.folder_resource USING btree (float_tier);
+
+
+--
+-- TOC entry 3829 (class 1259 OID 17961)
+-- Name: i_folder_resource_int_cores; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_folder_resource_int_cores ON public.folder_resource USING btree (int_cores);
+
+
+--
+-- TOC entry 4000 (class 1259 OID 16885)
+-- Name: i_folder_strname; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_folder_strname ON public.folder USING btree (str_name);
+
+
+--
+-- TOC entry 3830 (class 1259 OID 16998)
+-- Name: i_folderresource_pkfolder; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_folderresource_pkfolder ON public.folder_resource USING btree (pk_folder);
+
+
+--
+-- TOC entry 3985 (class 1259 OID 16890)
+-- Name: i_frame_dispatch_idx; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_dispatch_idx ON public.frame USING btree (int_dispatch_order, int_layer_order);
+
+
+--
+-- TOC entry 3757 (class 1259 OID 17040)
+-- Name: i_frame_history_int_exit_stat; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_history_int_exit_stat ON public.frame_history USING btree (int_exit_status);
+
+
+--
+-- TOC entry 3758 (class 1259 OID 17041)
+-- Name: i_frame_history_int_ts_stopped; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_history_int_ts_stopped ON public.frame_history USING btree (int_ts_stopped);
+
+
+--
+-- TOC entry 3759 (class 1259 OID 17042)
+-- Name: i_frame_history_pk_alloc; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_history_pk_alloc ON public.frame_history USING btree (pk_alloc);
+
+
+--
+-- TOC entry 3760 (class 1259 OID 17043)
+-- Name: i_frame_history_pk_frame; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_history_pk_frame ON public.frame_history USING btree (pk_frame);
+
+
+--
+-- TOC entry 3761 (class 1259 OID 17044)
+-- Name: i_frame_history_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_history_pk_job ON public.frame_history USING btree (pk_job);
+
+
+--
+-- TOC entry 3762 (class 1259 OID 17045)
+-- Name: i_frame_history_pk_layer; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_history_pk_layer ON public.frame_history USING btree (pk_layer);
+
+
+--
+-- TOC entry 3763 (class 1259 OID 17046)
+-- Name: i_frame_history_str_state; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_history_str_state ON public.frame_history USING btree (str_state);
+
+
+--
+-- TOC entry 3764 (class 1259 OID 17039)
+-- Name: i_frame_history_ts_start_stop; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_history_ts_start_stop ON public.frame_history USING btree (int_ts_started, int_ts_stopped);
+
+
+--
+-- TOC entry 3986 (class 1259 OID 17883)
+-- Name: i_frame_int_gpu_mem_reserved; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_int_gpu_mem_reserved ON public.frame USING btree (int_gpu_mem_reserved);
+
+
+--
+-- TOC entry 3987 (class 1259 OID 16891)
+-- Name: i_frame_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_pk_job ON public.frame USING btree (pk_job);
+
+
+--
+-- TOC entry 3988 (class 1259 OID 16893)
+-- Name: i_frame_pkjoblayer; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_pkjoblayer ON public.frame USING btree (pk_layer);
+
+
+--
+-- TOC entry 3989 (class 1259 OID 16889)
+-- Name: i_frame_state_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_frame_state_job ON public.frame USING btree (str_state, pk_job);
+
+
+--
+-- TOC entry 3972 (class 1259 OID 17847)
+-- Name: i_host_int_gpu; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_int_gpu ON public.host USING btree (int_gpu_mem);
+
+
+--
+-- TOC entry 3973 (class 1259 OID 17862)
+-- Name: i_host_int_gpu_idle; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_int_gpu_idle ON public.host USING btree (int_gpu_mem_idle);
+
+
+--
+-- TOC entry 3974 (class 1259 OID 17878)
+-- Name: i_host_int_gpu_mem; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_int_gpu_mem ON public.host USING btree (int_gpu_mem);
+
+
+--
+-- TOC entry 3975 (class 1259 OID 17879)
+-- Name: i_host_int_gpu_mem_idle; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_int_gpu_mem_idle ON public.host USING btree (int_gpu_mem_idle);
+
+
+--
+-- TOC entry 3976 (class 1259 OID 17880)
+-- Name: i_host_int_gpus; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_int_gpus ON public.host USING btree (int_gpus);
+
+
+--
+-- TOC entry 3977 (class 1259 OID 17881)
+-- Name: i_host_int_gpus_idle; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_int_gpus_idle ON public.host USING btree (int_gpus_idle);
+
+
+--
+-- TOC entry 3787 (class 1259 OID 17020)
+-- Name: i_host_local; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_local ON public.host_local USING btree (pk_host);
+
+
+--
+-- TOC entry 3788 (class 1259 OID 17702)
+-- Name: i_host_local_int_gpu_idle; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_local_int_gpu_idle ON public.host_local USING btree (int_gpu_mem_idle);
+
+
+--
+-- TOC entry 3789 (class 1259 OID 17713)
+-- Name: i_host_local_int_gpu_max; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_local_int_gpu_max ON public.host_local USING btree (int_gpu_mem_max);
+
+
+--
+-- TOC entry 3790 (class 1259 OID 17725)
+-- Name: i_host_local_int_gpus_idle; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_local_int_gpus_idle ON public.host_local USING btree (int_gpus_idle);
+
+
+--
+-- TOC entry 3791 (class 1259 OID 17726)
+-- Name: i_host_local_int_gpus_max; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_local_int_gpus_max ON public.host_local USING btree (int_gpus_max);
+
+
+--
+-- TOC entry 3792 (class 1259 OID 17022)
+-- Name: i_host_local_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_local_pk_job ON public.host_local USING btree (pk_job);
+
+
+--
+-- TOC entry 3793 (class 1259 OID 17023)
+-- Name: i_host_local_unique; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_host_local_unique ON public.host_local USING btree (pk_host, pk_job);
+
+
+--
+-- TOC entry 3978 (class 1259 OID 16899)
+-- Name: i_host_pkalloc; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_pkalloc ON public.host USING btree (pk_alloc);
+
+
+--
+-- TOC entry 3963 (class 1259 OID 17837)
+-- Name: i_host_stat_int_gpu_mem_free; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_stat_int_gpu_mem_free ON public.host_stat USING btree (int_gpu_mem_free);
+
+
+--
+-- TOC entry 3964 (class 1259 OID 17827)
+-- Name: i_host_stat_int_gpu_mem_total; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_stat_int_gpu_mem_total ON public.host_stat USING btree (int_gpu_mem_total);
+
+
+--
+-- TOC entry 3965 (class 1259 OID 16906)
+-- Name: i_host_stat_str_os; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_stat_str_os ON public.host_stat USING btree (str_os);
+
+
+--
+-- TOC entry 3862 (class 1259 OID 16972)
+-- Name: i_host_str_tag_type; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_str_tag_type ON public.host_tag USING btree (str_tag_type);
+
+
+--
+-- TOC entry 3979 (class 1259 OID 16903)
+-- Name: i_host_str_tags; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_str_tags ON public.host USING btree (str_tags);
+
+
+--
+-- TOC entry 3980 (class 1259 OID 16900)
+-- Name: i_host_strlockstate; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_strlockstate ON public.host USING btree (str_lock_state);
+
+
+--
+-- TOC entry 3863 (class 1259 OID 16971)
+-- Name: i_host_tag_pk_host; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_host_tag_pk_host ON public.host_tag USING btree (pk_host);
+
+
+--
+-- TOC entry 3943 (class 1259 OID 16921)
+-- Name: i_job_env_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_env_pk_job ON public.job_env USING btree (pk_job);
+
+
+--
+-- TOC entry 3850 (class 1259 OID 16976)
+-- Name: i_job_history_b_archived; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_history_b_archived ON public.job_history USING btree (b_archived);
+
+
+--
+-- TOC entry 3851 (class 1259 OID 16981)
+-- Name: i_job_history_pk_dept; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_history_pk_dept ON public.job_history USING btree (pk_dept);
+
+
+--
+-- TOC entry 3852 (class 1259 OID 16982)
+-- Name: i_job_history_pk_facility; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_history_pk_facility ON public.job_history USING btree (pk_facility);
+
+
+--
+-- TOC entry 3853 (class 1259 OID 16975)
+-- Name: i_job_history_pk_show; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_history_pk_show ON public.job_history USING btree (pk_show);
+
+
+--
+-- TOC entry 3854 (class 1259 OID 16978)
+-- Name: i_job_history_str_name; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_history_str_name ON public.job_history USING btree (str_name);
+
+
+--
+-- TOC entry 3855 (class 1259 OID 16979)
+-- Name: i_job_history_str_shot; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_history_str_shot ON public.job_history USING btree (str_shot);
+
+
+--
+-- TOC entry 3856 (class 1259 OID 16980)
+-- Name: i_job_history_str_user; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_history_str_user ON public.job_history USING btree (str_user);
+
+
+--
+-- TOC entry 3857 (class 1259 OID 16977)
+-- Name: i_job_history_ts_start_stop; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_history_ts_start_stop ON public.job_history USING btree (int_ts_started, int_ts_stopped);
+
+
+--
+-- TOC entry 3949 (class 1259 OID 17960)
+-- Name: i_job_int_min_cores; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_int_min_cores ON public.job USING btree (int_min_cores);
+
+
+--
+-- TOC entry 3801 (class 1259 OID 17016)
+-- Name: i_job_local_pk_host; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_job_local_pk_host ON public.job_local USING btree (pk_host);
+
+
+--
+-- TOC entry 3802 (class 1259 OID 17015)
+-- Name: i_job_local_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_job_local_pk_job ON public.job_local USING btree (pk_job);
+
+
+--
+-- TOC entry 3822 (class 1259 OID 17821)
+-- Name: i_job_mem_int_max_rss; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_mem_int_max_rss ON public.job_mem USING btree (int_max_rss);
+
+
+--
+-- TOC entry 3823 (class 1259 OID 17000)
+-- Name: i_job_mem_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_job_mem_pk_job ON public.job_mem USING btree (pk_job);
+
+
+--
+-- TOC entry 3950 (class 1259 OID 16911)
+-- Name: i_job_pk_dept; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_pk_dept ON public.job USING btree (pk_dept);
+
+
+--
+-- TOC entry 3951 (class 1259 OID 16912)
+-- Name: i_job_pk_facility; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_pk_facility ON public.job USING btree (pk_facility);
+
+
+--
+-- TOC entry 3952 (class 1259 OID 16916)
+-- Name: i_job_pkgroup; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_pkgroup ON public.job USING btree (pk_folder);
+
+
+--
+-- TOC entry 3953 (class 1259 OID 16917)
+-- Name: i_job_pkshow; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_pkshow ON public.job USING btree (pk_show);
+
+
+--
+-- TOC entry 3840 (class 1259 OID 16990)
+-- Name: i_job_post_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_post_pk_job ON public.job_post USING btree (pk_job);
+
+
+--
+-- TOC entry 3841 (class 1259 OID 16988)
+-- Name: i_job_post_pk_post_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_post_pk_post_job ON public.job_post USING btree (pk_post_job);
+
+
+--
+-- TOC entry 3872 (class 1259 OID 16966)
+-- Name: i_job_resource_cores; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_resource_cores ON public.job_resource USING btree (int_cores);
+
+
+--
+-- TOC entry 3873 (class 1259 OID 17766)
+-- Name: i_job_resource_gpus; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_resource_gpus ON public.job_resource USING btree (int_gpus);
+
+
+--
+-- TOC entry 3874 (class 1259 OID 17765)
+-- Name: i_job_resource_gpus_min_max; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_resource_gpus_min_max ON public.job_resource USING btree (int_min_gpus, int_max_gpus);
+
+
+--
+-- TOC entry 3875 (class 1259 OID 17959)
+-- Name: i_job_resource_int_priority; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_resource_int_priority ON public.job_resource USING btree (int_priority);
+
+
+--
+-- TOC entry 3876 (class 1259 OID 16967)
+-- Name: i_job_resource_max_c; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_resource_max_c ON public.job_resource USING btree (int_max_cores);
+
+
+--
+-- TOC entry 3877 (class 1259 OID 17767)
+-- Name: i_job_resource_max_gpus; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_resource_max_gpus ON public.job_resource USING btree (int_max_gpus);
+
+
+--
+-- TOC entry 3878 (class 1259 OID 16962)
+-- Name: i_job_resource_min_max; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_resource_min_max ON public.job_resource USING btree (int_min_cores, int_max_cores);
+
+
+--
+-- TOC entry 3882 (class 1259 OID 16959)
+-- Name: i_job_stat_int_waiting_count; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_stat_int_waiting_count ON public.job_stat USING btree (int_waiting_count);
+
+
+--
+-- TOC entry 3883 (class 1259 OID 16960)
+-- Name: i_job_stat_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_job_stat_pk_job ON public.job_stat USING btree (pk_job);
+
+
+--
+-- TOC entry 3954 (class 1259 OID 16918)
+-- Name: i_job_str_name; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_str_name ON public.job USING btree (str_name);
+
+
+--
+-- TOC entry 3955 (class 1259 OID 16910)
+-- Name: i_job_str_os; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_str_os ON public.job USING btree (str_os);
+
+
+--
+-- TOC entry 3956 (class 1259 OID 16913)
+-- Name: i_job_str_shot; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_str_shot ON public.job USING btree (str_shot);
+
+
+--
+-- TOC entry 3957 (class 1259 OID 16919)
+-- Name: i_job_str_state; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_str_state ON public.job USING btree (str_state);
+
+
+--
+-- TOC entry 3879 (class 1259 OID 16963)
+-- Name: i_job_tier; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_tier ON public.job_resource USING btree (float_tier);
+
+
+--
+-- TOC entry 3958 (class 1259 OID 17962)
+-- Name: i_job_ts_updated; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_job_ts_updated ON public.job USING btree (ts_updated);
+
+
+--
+-- TOC entry 3927 (class 1259 OID 16922)
+-- Name: i_layer_b_threadable; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_b_threadable ON public.layer USING btree (b_threadable);
+
+
+--
+-- TOC entry 3928 (class 1259 OID 17818)
+-- Name: i_layer_cores_gpus_mem; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_cores_gpus_mem ON public.layer USING btree (int_cores_min, int_gpus_min, int_mem_min, int_gpu_mem_min);
+
+
+--
+-- TOC entry 3929 (class 1259 OID 17819)
+-- Name: i_layer_cores_gpus_mem_thread; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_cores_gpus_mem_thread ON public.layer USING btree (int_cores_min, int_gpus_min, int_mem_min, int_gpu_mem_min, b_threadable);
+
+
+--
+-- TOC entry 3930 (class 1259 OID 16923)
+-- Name: i_layer_cores_mem; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_cores_mem ON public.layer USING btree (int_cores_min, int_mem_min);
+
+
+--
+-- TOC entry 3931 (class 1259 OID 16924)
+-- Name: i_layer_cores_mem_thread; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_cores_mem_thread ON public.layer USING btree (int_cores_min, int_mem_min, b_threadable);
+
+
+--
+-- TOC entry 3921 (class 1259 OID 16933)
+-- Name: i_layer_env_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_env_pk_job ON public.layer_env USING btree (pk_job);
+
+
+--
+-- TOC entry 3922 (class 1259 OID 16934)
+-- Name: i_layer_env_pk_layer; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_env_pk_layer ON public.layer_env USING btree (pk_layer);
+
+
+--
+-- TOC entry 3844 (class 1259 OID 16987)
+-- Name: i_layer_history_b_archived; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_history_b_archived ON public.layer_history USING btree (b_archived);
+
+
+--
+-- TOC entry 3845 (class 1259 OID 16986)
+-- Name: i_layer_history_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_history_pk_job ON public.layer_history USING btree (pk_job);
+
+
+--
+-- TOC entry 3846 (class 1259 OID 16984)
+-- Name: i_layer_history_str_name; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_history_str_name ON public.layer_history USING btree (str_name);
+
+
+--
+-- TOC entry 3847 (class 1259 OID 16985)
+-- Name: i_layer_history_str_type; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_history_str_type ON public.layer_history USING btree (str_type);
+
+
+--
+-- TOC entry 3932 (class 1259 OID 17958)
+-- Name: i_layer_int_cores_max; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_int_cores_max ON public.layer USING btree (int_cores_max);
+
+
+--
+-- TOC entry 3933 (class 1259 OID 16926)
+-- Name: i_layer_int_dispatch_order; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_int_dispatch_order ON public.layer USING btree (int_dispatch_order);
+
+
+--
+-- TOC entry 3934 (class 1259 OID 17800)
+-- Name: i_layer_int_gpu_mem_min; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_int_gpu_mem_min ON public.layer USING btree (int_gpu_mem_min);
+
+
+--
+-- TOC entry 3935 (class 1259 OID 17957)
+-- Name: i_layer_int_gpus_mem_min_1; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_int_gpus_mem_min_1 ON public.layer USING btree (int_gpu_mem_min);
+
+
+--
+-- TOC entry 3936 (class 1259 OID 17956)
+-- Name: i_layer_int_gpus_min; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_int_gpus_min ON public.layer USING btree (int_gpus_min);
+
+
+--
+-- TOC entry 4039 (class 1259 OID 17942)
+-- Name: i_layer_limit_pk_layer; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_limit_pk_layer ON public.layer_limit USING btree (pk_layer);
+
+
+--
+-- TOC entry 4040 (class 1259 OID 17943)
+-- Name: i_layer_limit_pk_limit_record; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_limit_pk_limit_record ON public.layer_limit USING btree (pk_limit_record);
+
+
+--
+-- TOC entry 3817 (class 1259 OID 17792)
+-- Name: i_layer_mem_int_max_rss; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_mem_int_max_rss ON public.layer_mem USING btree (int_max_rss);
+
+
+--
+-- TOC entry 3937 (class 1259 OID 16925)
+-- Name: i_layer_mem_min; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_mem_min ON public.layer USING btree (int_mem_min);
+
+
+--
+-- TOC entry 3818 (class 1259 OID 17004)
+-- Name: i_layer_mem_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_mem_pk_job ON public.layer_mem USING btree (pk_job);
+
+
+--
+-- TOC entry 3819 (class 1259 OID 17003)
+-- Name: i_layer_mem_pk_layer; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_layer_mem_pk_layer ON public.layer_mem USING btree (pk_layer);
+
+
+--
+-- TOC entry 3769 (class 1259 OID 17037)
+-- Name: i_layer_output_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_output_pk_job ON public.layer_output USING btree (pk_job);
+
+
+--
+-- TOC entry 3770 (class 1259 OID 17036)
+-- Name: i_layer_output_pk_layer; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_output_pk_layer ON public.layer_output USING btree (pk_layer);
+
+
+--
+-- TOC entry 3771 (class 1259 OID 17038)
+-- Name: i_layer_output_unique; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_layer_output_unique ON public.layer_output USING btree (pk_layer, str_filespec);
+
+
+--
+-- TOC entry 3938 (class 1259 OID 16928)
+-- Name: i_layer_pkjob; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_pkjob ON public.layer USING btree (pk_job);
+
+
+--
+-- TOC entry 3918 (class 1259 OID 16937)
+-- Name: i_layer_resource_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_resource_pk_job ON public.layer_resource USING btree (pk_job);
+
+
+--
+-- TOC entry 3911 (class 1259 OID 16938)
+-- Name: i_layer_stat_pk_layer; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_layer_stat_pk_layer ON public.layer_stat USING btree (pk_layer);
+
+
+--
+-- TOC entry 3939 (class 1259 OID 17963)
+-- Name: i_layer_str_tags; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_str_tags ON public.layer USING btree (str_tags);
+
+
+--
+-- TOC entry 3940 (class 1259 OID 16929)
+-- Name: i_layer_strname; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_strname ON public.layer USING btree (str_name);
+
+
+--
+-- TOC entry 3908 (class 1259 OID 16942)
+-- Name: i_layer_usage_pk_job; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layer_usage_pk_job ON public.layer_usage USING btree (pk_job);
+
+
+--
+-- TOC entry 3912 (class 1259 OID 16941)
+-- Name: i_layerstat_int_waiting_count; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layerstat_int_waiting_count ON public.layer_stat USING btree ((
+CASE
+    WHEN (int_waiting_count > 0) THEN 1
+    ELSE NULL::integer
+END), (
+CASE
+    WHEN (int_waiting_count > 0) THEN pk_layer
+    ELSE NULL::character varying
+END));
+
+
+--
+-- TOC entry 3913 (class 1259 OID 16940)
+-- Name: i_layerstat_pkjob; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_layerstat_pkjob ON public.layer_stat USING btree (pk_job);
+
+
+--
+-- TOC entry 4038 (class 1259 OID 17944)
+-- Name: i_limit_record_pk_limit_record; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_limit_record_pk_limit_record ON public.limit_record USING btree (pk_limit_record);
+
+
+--
+-- TOC entry 3903 (class 1259 OID 16946)
+-- Name: i_matcher_pk_filter; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_matcher_pk_filter ON public.matcher USING btree (pk_filter);
+
+
+--
+-- TOC entry 3783 (class 1259 OID 17027)
+-- Name: i_owner_pk_show; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_owner_pk_show ON public.owner USING btree (pk_show);
+
+
+--
+-- TOC entry 3784 (class 1259 OID 17028)
+-- Name: i_owner_str_username; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_owner_str_username ON public.owner USING btree (str_username);
+
+
+--
+-- TOC entry 3812 (class 1259 OID 17007)
+-- Name: i_point_pk_dept; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_point_pk_dept ON public.point USING btree (pk_dept);
+
+
+--
+-- TOC entry 3813 (class 1259 OID 17008)
+-- Name: i_point_pk_show; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_point_pk_show ON public.point USING btree (pk_show);
+
+
+--
+-- TOC entry 3814 (class 1259 OID 17010)
+-- Name: i_point_tier; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_point_tier ON public.point USING btree (float_tier);
+
+
+--
+-- TOC entry 3896 (class 1259 OID 17772)
+-- Name: i_proc_int_gpu_mem_reserved; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_proc_int_gpu_mem_reserved ON public.proc USING btree (int_gpu_mem_reserved);
+
+
+--
+-- TOC entry 3897 (class 1259 OID 16949)
+-- Name: i_proc_pkhost; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_proc_pkhost ON public.proc USING btree (pk_host);
+
+
+--
+-- TOC entry 3898 (class 1259 OID 16950)
+-- Name: i_proc_pkjob; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_proc_pkjob ON public.proc USING btree (pk_job);
+
+
+--
+-- TOC entry 3899 (class 1259 OID 16951)
+-- Name: i_proc_pklayer; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_proc_pklayer ON public.proc USING btree (pk_layer);
+
+
+--
+-- TOC entry 3900 (class 1259 OID 16952)
+-- Name: i_proc_pkshow; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_proc_pkshow ON public.proc USING btree (pk_show);
+
+
+--
+-- TOC entry 4036 (class 1259 OID 17051)
+-- Name: i_redirect_create; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_redirect_create ON public.redirect USING btree (lng_creation_time);
+
+
+--
+-- TOC entry 4037 (class 1259 OID 17050)
+-- Name: i_redirect_group; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_redirect_group ON public.redirect USING btree (str_group_id);
+
+
+--
+-- TOC entry 3796 (class 1259 OID 17728)
+-- Name: i_service_int_gpu_mem_min; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_service_int_gpu_mem_min ON public.service USING btree (int_gpu_mem_min);
+
+
+--
+-- TOC entry 3797 (class 1259 OID 17737)
+-- Name: i_service_int_gpus_min; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_service_int_gpus_min ON public.service USING btree (int_gpus_min);
+
+
+--
+-- TOC entry 3798 (class 1259 OID 17018)
+-- Name: i_service_str_name; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_service_str_name ON public.service USING btree (str_name);
+
+
+--
+-- TOC entry 3833 (class 1259 OID 16993)
+-- Name: i_show_alias_pk_show; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_show_alias_pk_show ON public.show_alias USING btree (pk_show);
+
+
+--
+-- TOC entry 3774 (class 1259 OID 17671)
+-- Name: i_show_service_int_gpu_mem_min; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_show_service_int_gpu_mem_min ON public.show_service USING btree (int_gpu_mem_min);
+
+
+--
+-- TOC entry 3775 (class 1259 OID 17680)
+-- Name: i_show_service_int_gpus_min; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_show_service_int_gpus_min ON public.show_service USING btree (int_gpus_min);
+
+
+--
+-- TOC entry 3776 (class 1259 OID 17033)
+-- Name: i_show_service_str_name; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE UNIQUE INDEX i_show_service_str_name ON public.show_service USING btree (str_name, pk_show);
+
+
+--
+-- TOC entry 3888 (class 1259 OID 16955)
+-- Name: i_sub_tier; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_sub_tier ON public.subscription USING btree (float_tier);
+
+
+--
+-- TOC entry 3889 (class 1259 OID 16958)
+-- Name: i_subscription_pkalloc; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_subscription_pkalloc ON public.subscription USING btree (pk_alloc);
+
+
+--
+-- TOC entry 3807 (class 1259 OID 17012)
+-- Name: i_task_pk_point; Type: INDEX; Schema: public; Owner: cuebot
+--
+
+CREATE INDEX i_task_pk_point ON public.task USING btree (pk_point);
+
+
+--
+-- TOC entry 4138 (class 2620 OID 17513)
+-- Name: folder after_insert_folder; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER after_insert_folder AFTER INSERT ON public.folder FOR EACH ROW EXECUTE FUNCTION public.trigger__after_insert_folder();
+
+
+--
+-- TOC entry 4125 (class 2620 OID 17485)
+-- Name: job after_insert_job; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER after_insert_job AFTER INSERT ON public.job FOR EACH ROW EXECUTE FUNCTION public.trigger__after_insert_job();
+
+
+--
+-- TOC entry 4122 (class 2620 OID 17493)
+-- Name: layer after_insert_layer; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER after_insert_layer AFTER INSERT ON public.layer FOR EACH ROW EXECUTE FUNCTION public.trigger__after_insert_layer();
+
+
+--
+-- TOC entry 4126 (class 2620 OID 17487)
+-- Name: job after_job_dept_update; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER after_job_dept_update AFTER UPDATE ON public.job FOR EACH ROW WHEN ((((new.pk_dept)::text <> (old.pk_dept)::text) AND ((new.str_state)::text = 'PENDING'::text))) EXECUTE FUNCTION public.trigger__after_job_dept_update();
+
+
+--
+-- TOC entry 4127 (class 2620 OID 17483)
+-- Name: job after_job_finished; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER after_job_finished AFTER UPDATE ON public.job FOR EACH ROW WHEN ((((old.str_state)::text = 'PENDING'::text) AND ((new.str_state)::text = 'FINISHED'::text))) EXECUTE FUNCTION public.trigger__after_job_finished();
+
+
+--
+-- TOC entry 4128 (class 2620 OID 17479)
+-- Name: job after_job_moved; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER after_job_moved AFTER UPDATE ON public.job FOR EACH ROW WHEN (((new.pk_folder)::text <> (old.pk_folder)::text)) EXECUTE FUNCTION public.trigger__after_job_moved();
+
+
+--
+-- TOC entry 4139 (class 2620 OID 17511)
+-- Name: folder before_delete_folder; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER before_delete_folder BEFORE DELETE ON public.folder FOR EACH ROW EXECUTE FUNCTION public.trigger__before_delete_folder();
+
+
+--
+-- TOC entry 4130 (class 2620 OID 17501)
+-- Name: host before_delete_host; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER before_delete_host BEFORE DELETE ON public.host FOR EACH ROW EXECUTE FUNCTION public.trigger__before_delete_host();
+
+
+--
+-- TOC entry 4129 (class 2620 OID 17481)
+-- Name: job before_delete_job; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER before_delete_job BEFORE DELETE ON public.job FOR EACH ROW EXECUTE FUNCTION public.trigger__before_delete_job();
+
+
+--
+-- TOC entry 4123 (class 2620 OID 17495)
+-- Name: layer before_delete_layer; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER before_delete_layer BEFORE DELETE ON public.layer FOR EACH ROW EXECUTE FUNCTION public.trigger__before_delete_layer();
+
+
+--
+-- TOC entry 4124 (class 2620 OID 17550)
+-- Name: layer before_delete_layer_drop_limit; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER before_delete_layer_drop_limit BEFORE DELETE ON public.layer FOR EACH ROW EXECUTE FUNCTION public.trigger__before_delete_layer_drop_limit();
+
+
+--
+-- TOC entry 4140 (class 2620 OID 17515)
+-- Name: folder before_insert_folder; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER before_insert_folder BEFORE INSERT ON public.folder FOR EACH ROW EXECUTE FUNCTION public.trigger__before_insert_folder();
+
+
+--
+-- TOC entry 4119 (class 2620 OID 17517)
+-- Name: proc before_insert_proc; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER before_insert_proc BEFORE INSERT ON public.proc FOR EACH ROW EXECUTE FUNCTION public.trigger__before_insert_proc();
+
+
+--
+-- TOC entry 4132 (class 2620 OID 17529)
+-- Name: frame frame_history_open; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER frame_history_open AFTER UPDATE ON public.frame FOR EACH ROW WHEN (((new.str_state)::text <> (old.str_state)::text)) EXECUTE FUNCTION public.trigger__frame_history_open();
+
+
+--
+-- TOC entry 4111 (class 2620 OID 17539)
+-- Name: point point_tier; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER point_tier BEFORE UPDATE ON public.point FOR EACH ROW EXECUTE FUNCTION public.trigger__point_tier();
+
+
+--
+-- TOC entry 4107 (class 2620 OID 17541)
+-- Name: frame_history tbiu_frame_history; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER tbiu_frame_history BEFORE INSERT OR UPDATE ON public.frame_history FOR EACH ROW EXECUTE FUNCTION public.trigger__tbiu_frame_history();
+
+
+--
+-- TOC entry 4114 (class 2620 OID 17497)
+-- Name: job_history tbiu_job_history; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER tbiu_job_history BEFORE INSERT OR UPDATE ON public.job_history FOR EACH ROW EXECUTE FUNCTION public.trigger__tbiu_job_history();
+
+
+--
+-- TOC entry 4113 (class 2620 OID 17477)
+-- Name: layer_history tbiu_layer_history; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER tbiu_layer_history BEFORE INSERT OR UPDATE ON public.layer_history FOR EACH ROW EXECUTE FUNCTION public.trigger__tbiu_layer_history();
+
+
+--
+-- TOC entry 4112 (class 2620 OID 17509)
+-- Name: folder_resource tier_folder; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER tier_folder BEFORE UPDATE ON public.folder_resource FOR EACH ROW EXECUTE FUNCTION public.trigger__tier_folder();
+
+
+--
+-- TOC entry 4108 (class 2620 OID 17491)
+-- Name: host_local tier_host_local; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER tier_host_local BEFORE UPDATE ON public.host_local FOR EACH ROW EXECUTE FUNCTION public.trigger__tier_host_local();
+
+
+--
+-- TOC entry 4115 (class 2620 OID 17505)
+-- Name: job_resource tier_job; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER tier_job BEFORE UPDATE ON public.job_resource FOR EACH ROW EXECUTE FUNCTION public.trigger__tier_job();
+
+
+--
+-- TOC entry 4117 (class 2620 OID 17537)
+-- Name: subscription tier_subscription; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER tier_subscription BEFORE UPDATE ON public.subscription FOR EACH ROW EXECUTE FUNCTION public.trigger__tier_subscription();
+
+
+--
+-- TOC entry 4133 (class 2620 OID 17531)
+-- Name: frame update_frame_checkpoint_state; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER update_frame_checkpoint_state BEFORE UPDATE ON public.frame FOR EACH ROW WHEN ((((new.str_state)::text = 'WAITING'::text) AND ((old.str_state)::text = 'RUNNING'::text) AND ((new.str_checkpoint_state)::text = ANY ((ARRAY['ENABLED'::character varying, 'COPYING'::character varying])::text[])))) EXECUTE FUNCTION public.trigger__update_frame_checkpoint_state();
+
+
+--
+-- TOC entry 4134 (class 2620 OID 17527)
+-- Name: frame update_frame_dep_to_wait; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER update_frame_dep_to_wait BEFORE UPDATE ON public.frame FOR EACH ROW WHEN (((old.int_depend_count > 0) AND (new.int_depend_count < 1) AND ((old.str_state)::text = 'DEPEND'::text))) EXECUTE FUNCTION public.trigger__update_frame_dep_to_wait();
+
+
+--
+-- TOC entry 4135 (class 2620 OID 17525)
+-- Name: frame update_frame_eaten; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER update_frame_eaten BEFORE UPDATE ON public.frame FOR EACH ROW WHEN ((((new.str_state)::text = 'EATEN'::text) AND ((old.str_state)::text = 'SUCCEEDED'::text))) EXECUTE FUNCTION public.trigger__update_frame_eaten();
+
+
+--
+-- TOC entry 4136 (class 2620 OID 17533)
+-- Name: frame update_frame_status_counts; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER update_frame_status_counts AFTER UPDATE ON public.frame FOR EACH ROW WHEN ((((old.str_state)::text <> 'SETUP'::text) AND ((old.str_state)::text <> (new.str_state)::text))) EXECUTE FUNCTION public.trigger__update_frame_status_counts();
+
+
+--
+-- TOC entry 4137 (class 2620 OID 17523)
+-- Name: frame update_frame_wait_to_dep; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER update_frame_wait_to_dep BEFORE UPDATE ON public.frame FOR EACH ROW WHEN (((new.int_depend_count > 0) AND ((new.str_state)::text = ANY ((ARRAY['DEAD'::character varying, 'SUCCEEDED'::character varying, 'WAITING'::character varying, 'CHECKPOINT'::character varying])::text[])))) EXECUTE FUNCTION public.trigger__update_frame_wait_to_dep();
+
+
+--
+-- TOC entry 4120 (class 2620 OID 17519)
+-- Name: proc update_proc_update_layer; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER update_proc_update_layer AFTER UPDATE ON public.proc FOR EACH ROW WHEN (((new.pk_layer)::text <> (old.pk_layer)::text)) EXECUTE FUNCTION public.trigger__update_proc_update_layer();
+
+
+--
+-- TOC entry 4121 (class 2620 OID 17521)
+-- Name: proc upgrade_proc_memory_usage; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER upgrade_proc_memory_usage AFTER UPDATE ON public.proc FOR EACH ROW WHEN ((new.int_mem_reserved <> old.int_mem_reserved)) EXECUTE FUNCTION public.trigger__upgrade_proc_memory_usage();
+
+
+--
+-- TOC entry 4109 (class 2620 OID 17939)
+-- Name: host_local verify_host_local; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER verify_host_local BEFORE UPDATE ON public.host_local FOR EACH ROW WHEN (((new.int_cores_max = old.int_cores_max) AND (new.int_mem_max = old.int_mem_max) AND ((new.int_cores_idle <> old.int_cores_idle) OR (new.int_mem_idle <> old.int_mem_idle)) AND ((new.int_gpus_max = old.int_gpus_max) AND (new.int_gpu_mem_max = old.int_gpu_mem_max)) AND ((new.int_gpus_idle <> old.int_gpus_idle) OR (new.int_gpu_mem_idle <> old.int_gpu_mem_idle)))) EXECUTE FUNCTION public.trigger__verify_host_local();
+
+
+--
+-- TOC entry 4131 (class 2620 OID 17940)
+-- Name: host verify_host_resources; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER verify_host_resources BEFORE UPDATE ON public.host FOR EACH ROW WHEN (((new.int_cores_idle <> old.int_cores_idle) OR (new.int_mem_idle <> old.int_mem_idle) OR (new.int_gpus_idle <> old.int_gpus_idle) OR (new.int_gpu_mem_idle <> old.int_gpu_mem_idle))) EXECUTE FUNCTION public.trigger__verify_host_resources();
+
+
+--
+-- TOC entry 4110 (class 2620 OID 17507)
+-- Name: job_local verify_job_local; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER verify_job_local BEFORE UPDATE ON public.job_local FOR EACH ROW WHEN (((new.int_max_cores = old.int_max_cores) AND (new.int_cores > old.int_cores))) EXECUTE FUNCTION public.trigger__verify_job_local();
+
+
+--
+-- TOC entry 4116 (class 2620 OID 17941)
+-- Name: job_resource verify_job_resources; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER verify_job_resources BEFORE UPDATE ON public.job_resource FOR EACH ROW WHEN ((((new.int_max_cores = old.int_max_cores) AND (new.int_cores > old.int_cores)) OR ((new.int_max_gpus = old.int_max_gpus) AND (new.int_gpus > old.int_gpus)))) EXECUTE FUNCTION public.trigger__verify_job_resources();
+
+
+--
+-- TOC entry 4118 (class 2620 OID 17535)
+-- Name: subscription verify_subscription; Type: TRIGGER; Schema: public; Owner: cuebot
+--
+
+CREATE TRIGGER verify_subscription BEFORE UPDATE ON public.subscription FOR EACH ROW WHEN (((new.int_burst = old.int_burst) AND (new.int_cores > old.int_cores))) EXECUTE FUNCTION public.trigger__verify_subscription();
+
+
+--
+-- TOC entry 4104 (class 2606 OID 17165)
+-- Name: action c_action_pk_filter; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.action
+    ADD CONSTRAINT c_action_pk_filter FOREIGN KEY (pk_filter) REFERENCES public.filter(pk_filter);
+
+
+--
+-- TOC entry 4105 (class 2606 OID 17170)
+-- Name: action c_action_pk_folder; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.action
+    ADD CONSTRAINT c_action_pk_folder FOREIGN KEY (pk_folder) REFERENCES public.folder(pk_folder);
+
+
+--
+-- TOC entry 4103 (class 2606 OID 17175)
+-- Name: alloc c_alloc_pk_facility; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.alloc
+    ADD CONSTRAINT c_alloc_pk_facility FOREIGN KEY (pk_facility) REFERENCES public.facility(pk_facility);
+
+
+--
+-- TOC entry 4101 (class 2606 OID 17180)
+-- Name: comments c_comment_pk_host; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.comments
+    ADD CONSTRAINT c_comment_pk_host FOREIGN KEY (pk_host) REFERENCES public.host(pk_host);
+
+
+--
+-- TOC entry 4102 (class 2606 OID 17185)
+-- Name: comments c_comment_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.comments
+    ADD CONSTRAINT c_comment_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4051 (class 2606 OID 17435)
+-- Name: deed c_deed_pk_host; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.deed
+    ADD CONSTRAINT c_deed_pk_host FOREIGN KEY (pk_host) REFERENCES public.host(pk_host);
+
+
+--
+-- TOC entry 4100 (class 2606 OID 17190)
+-- Name: filter c_filter_pk_show; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.filter
+    ADD CONSTRAINT c_filter_pk_show FOREIGN KEY (pk_show) REFERENCES public.show(pk_show);
+
+
+--
+-- TOC entry 4097 (class 2606 OID 17205)
+-- Name: folder_level c_folder_level_pk_folder; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.folder_level
+    ADD CONSTRAINT c_folder_level_pk_folder FOREIGN KEY (pk_folder) REFERENCES public.folder(pk_folder);
+
+
+--
+-- TOC entry 4098 (class 2606 OID 17200)
+-- Name: folder c_folder_pk_dept; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.folder
+    ADD CONSTRAINT c_folder_pk_dept FOREIGN KEY (pk_dept) REFERENCES public.dept(pk_dept);
+
+
+--
+-- TOC entry 4099 (class 2606 OID 17195)
+-- Name: folder c_folder_pk_show; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.folder
+    ADD CONSTRAINT c_folder_pk_show FOREIGN KEY (pk_show) REFERENCES public.show(pk_show);
+
+
+--
+-- TOC entry 4063 (class 2606 OID 17375)
+-- Name: folder_resource c_folder_resource_pk_folder; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.folder_resource
+    ADD CONSTRAINT c_folder_resource_pk_folder FOREIGN KEY (pk_folder) REFERENCES public.folder(pk_folder);
+
+
+--
+-- TOC entry 4045 (class 2606 OID 17465)
+-- Name: frame_history c_frame_history_pk_alloc; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.frame_history
+    ADD CONSTRAINT c_frame_history_pk_alloc FOREIGN KEY (pk_alloc) REFERENCES public.alloc(pk_alloc);
+
+
+--
+-- TOC entry 4046 (class 2606 OID 17455)
+-- Name: frame_history c_frame_history_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.frame_history
+    ADD CONSTRAINT c_frame_history_pk_job FOREIGN KEY (pk_job) REFERENCES public.job_history(pk_job) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 4047 (class 2606 OID 17460)
+-- Name: frame_history c_frame_history_pk_layer; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.frame_history
+    ADD CONSTRAINT c_frame_history_pk_layer FOREIGN KEY (pk_layer) REFERENCES public.layer_history(pk_layer) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 4095 (class 2606 OID 17210)
+-- Name: frame c_frame_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.frame
+    ADD CONSTRAINT c_frame_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4096 (class 2606 OID 17215)
+-- Name: frame c_frame_pk_layer; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.frame
+    ADD CONSTRAINT c_frame_pk_layer FOREIGN KEY (pk_layer) REFERENCES public.layer(pk_layer);
+
+
+--
+-- TOC entry 4106 (class 2606 OID 17969)
+-- Name: frame_state_display_overrides c_frame_state_overrides_pk_frame; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.frame_state_display_overrides
+    ADD CONSTRAINT c_frame_state_overrides_pk_frame FOREIGN KEY (pk_frame) REFERENCES public.frame(pk_frame);
+
+
+--
+-- TOC entry 4053 (class 2606 OID 17425)
+-- Name: host_local c_host_local_pk_host; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.host_local
+    ADD CONSTRAINT c_host_local_pk_host FOREIGN KEY (pk_host) REFERENCES public.host(pk_host);
+
+
+--
+-- TOC entry 4054 (class 2606 OID 17420)
+-- Name: host_local c_host_local_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.host_local
+    ADD CONSTRAINT c_host_local_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4094 (class 2606 OID 17220)
+-- Name: host c_host_pk_alloc; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.host
+    ADD CONSTRAINT c_host_pk_alloc FOREIGN KEY (pk_alloc) REFERENCES public.alloc(pk_alloc);
+
+
+--
+-- TOC entry 4093 (class 2606 OID 17225)
+-- Name: host_stat c_host_stat_pk_host; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.host_stat
+    ADD CONSTRAINT c_host_stat_pk_host FOREIGN KEY (pk_host) REFERENCES public.host(pk_host);
+
+
+--
+-- TOC entry 4088 (class 2606 OID 17250)
+-- Name: job_env c_job_env_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_env
+    ADD CONSTRAINT c_job_env_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4068 (class 2606 OID 17345)
+-- Name: job_history c_job_history_pk_dept; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_history
+    ADD CONSTRAINT c_job_history_pk_dept FOREIGN KEY (pk_dept) REFERENCES public.dept(pk_dept);
+
+
+--
+-- TOC entry 4069 (class 2606 OID 17340)
+-- Name: job_history c_job_history_pk_facility; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_history
+    ADD CONSTRAINT c_job_history_pk_facility FOREIGN KEY (pk_facility) REFERENCES public.facility(pk_facility);
+
+
+--
+-- TOC entry 4070 (class 2606 OID 17350)
+-- Name: job_history c_job_history_pk_show; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_history
+    ADD CONSTRAINT c_job_history_pk_show FOREIGN KEY (pk_show) REFERENCES public.show(pk_show);
+
+
+--
+-- TOC entry 4055 (class 2606 OID 17415)
+-- Name: job_local c_job_local_pk_host; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_local
+    ADD CONSTRAINT c_job_local_pk_host FOREIGN KEY (pk_host) REFERENCES public.host(pk_host);
+
+
+--
+-- TOC entry 4056 (class 2606 OID 17410)
+-- Name: job_local c_job_local_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_local
+    ADD CONSTRAINT c_job_local_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4062 (class 2606 OID 17380)
+-- Name: job_mem c_job_mem_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_mem
+    ADD CONSTRAINT c_job_mem_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4089 (class 2606 OID 17245)
+-- Name: job c_job_pk_dept; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job
+    ADD CONSTRAINT c_job_pk_dept FOREIGN KEY (pk_dept) REFERENCES public.dept(pk_dept);
+
+
+--
+-- TOC entry 4090 (class 2606 OID 17240)
+-- Name: job c_job_pk_facility; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job
+    ADD CONSTRAINT c_job_pk_facility FOREIGN KEY (pk_facility) REFERENCES public.facility(pk_facility);
+
+
+--
+-- TOC entry 4091 (class 2606 OID 17235)
+-- Name: job c_job_pk_folder; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job
+    ADD CONSTRAINT c_job_pk_folder FOREIGN KEY (pk_folder) REFERENCES public.folder(pk_folder);
+
+
+--
+-- TOC entry 4092 (class 2606 OID 17230)
+-- Name: job c_job_pk_show; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job
+    ADD CONSTRAINT c_job_pk_show FOREIGN KEY (pk_show) REFERENCES public.show(pk_show);
+
+
+--
+-- TOC entry 4065 (class 2606 OID 17360)
+-- Name: job_post c_job_post_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_post
+    ADD CONSTRAINT c_job_post_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4066 (class 2606 OID 17365)
+-- Name: job_post c_job_post_pk_post_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_post
+    ADD CONSTRAINT c_job_post_pk_post_job FOREIGN KEY (pk_post_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4072 (class 2606 OID 17330)
+-- Name: job_resource c_job_resource_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_resource
+    ADD CONSTRAINT c_job_resource_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4073 (class 2606 OID 17325)
+-- Name: job_stat c_job_stat_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_stat
+    ADD CONSTRAINT c_job_stat_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4071 (class 2606 OID 17335)
+-- Name: job_usage c_job_usage_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.job_usage
+    ADD CONSTRAINT c_job_usage_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4085 (class 2606 OID 17265)
+-- Name: layer_env c_layer_env_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_env
+    ADD CONSTRAINT c_layer_env_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4086 (class 2606 OID 17260)
+-- Name: layer_env c_layer_env_pk_layer; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_env
+    ADD CONSTRAINT c_layer_env_pk_layer FOREIGN KEY (pk_layer) REFERENCES public.layer(pk_layer);
+
+
+--
+-- TOC entry 4067 (class 2606 OID 17355)
+-- Name: layer_history c_layer_history_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_history
+    ADD CONSTRAINT c_layer_history_pk_job FOREIGN KEY (pk_job) REFERENCES public.job_history(pk_job) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 4060 (class 2606 OID 17385)
+-- Name: layer_mem c_layer_mem_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_mem
+    ADD CONSTRAINT c_layer_mem_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4061 (class 2606 OID 17390)
+-- Name: layer_mem c_layer_mem_pk_layer; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_mem
+    ADD CONSTRAINT c_layer_mem_pk_layer FOREIGN KEY (pk_layer) REFERENCES public.layer(pk_layer);
+
+
+--
+-- TOC entry 4048 (class 2606 OID 17450)
+-- Name: layer_output c_layer_output_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_output
+    ADD CONSTRAINT c_layer_output_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4049 (class 2606 OID 17445)
+-- Name: layer_output c_layer_output_pk_layer; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_output
+    ADD CONSTRAINT c_layer_output_pk_layer FOREIGN KEY (pk_layer) REFERENCES public.layer(pk_layer);
+
+
+--
+-- TOC entry 4087 (class 2606 OID 17255)
+-- Name: layer c_layer_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer
+    ADD CONSTRAINT c_layer_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4083 (class 2606 OID 17270)
+-- Name: layer_resource c_layer_resource_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_resource
+    ADD CONSTRAINT c_layer_resource_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4084 (class 2606 OID 17275)
+-- Name: layer_resource c_layer_resource_pk_layer; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_resource
+    ADD CONSTRAINT c_layer_resource_pk_layer FOREIGN KEY (pk_layer) REFERENCES public.layer(pk_layer);
+
+
+--
+-- TOC entry 4081 (class 2606 OID 17280)
+-- Name: layer_stat c_layer_stat_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_stat
+    ADD CONSTRAINT c_layer_stat_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4082 (class 2606 OID 17285)
+-- Name: layer_stat c_layer_stat_pk_layer; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_stat
+    ADD CONSTRAINT c_layer_stat_pk_layer FOREIGN KEY (pk_layer) REFERENCES public.layer(pk_layer);
+
+
+--
+-- TOC entry 4079 (class 2606 OID 17290)
+-- Name: layer_usage c_layer_usage_pk_job; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_usage
+    ADD CONSTRAINT c_layer_usage_pk_job FOREIGN KEY (pk_job) REFERENCES public.job(pk_job);
+
+
+--
+-- TOC entry 4080 (class 2606 OID 17295)
+-- Name: layer_usage c_layer_usage_pk_layer; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.layer_usage
+    ADD CONSTRAINT c_layer_usage_pk_layer FOREIGN KEY (pk_layer) REFERENCES public.layer(pk_layer);
+
+
+--
+-- TOC entry 4078 (class 2606 OID 17300)
+-- Name: matcher c_matcher_pk_filter; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.matcher
+    ADD CONSTRAINT c_matcher_pk_filter FOREIGN KEY (pk_filter) REFERENCES public.filter(pk_filter);
+
+
+--
+-- TOC entry 4052 (class 2606 OID 17430)
+-- Name: owner c_owner_pk_show; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.owner
+    ADD CONSTRAINT c_owner_pk_show FOREIGN KEY (pk_show) REFERENCES public.show(pk_show);
+
+
+--
+-- TOC entry 4058 (class 2606 OID 17395)
+-- Name: point c_point_pk_dept; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.point
+    ADD CONSTRAINT c_point_pk_dept FOREIGN KEY (pk_dept) REFERENCES public.dept(pk_dept);
+
+
+--
+-- TOC entry 4059 (class 2606 OID 17400)
+-- Name: point c_point_pk_show; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.point
+    ADD CONSTRAINT c_point_pk_show FOREIGN KEY (pk_show) REFERENCES public.show(pk_show);
+
+
+--
+-- TOC entry 4076 (class 2606 OID 17305)
+-- Name: proc c_proc_pk_frame; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.proc
+    ADD CONSTRAINT c_proc_pk_frame FOREIGN KEY (pk_frame) REFERENCES public.frame(pk_frame);
+
+
+--
+-- TOC entry 4077 (class 2606 OID 17310)
+-- Name: proc c_proc_pk_host; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.proc
+    ADD CONSTRAINT c_proc_pk_host FOREIGN KEY (pk_host) REFERENCES public.host(pk_host);
+
+
+--
+-- TOC entry 4064 (class 2606 OID 17370)
+-- Name: show_alias c_show_alias_pk_show; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.show_alias
+    ADD CONSTRAINT c_show_alias_pk_show FOREIGN KEY (pk_show) REFERENCES public.show(pk_show);
+
+
+--
+-- TOC entry 4050 (class 2606 OID 17440)
+-- Name: show_service c_show_service_pk_show; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.show_service
+    ADD CONSTRAINT c_show_service_pk_show FOREIGN KEY (pk_show) REFERENCES public.show(pk_show);
+
+
+--
+-- TOC entry 4074 (class 2606 OID 17315)
+-- Name: subscription c_subscription_pk_alloc; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.subscription
+    ADD CONSTRAINT c_subscription_pk_alloc FOREIGN KEY (pk_alloc) REFERENCES public.alloc(pk_alloc);
+
+
+--
+-- TOC entry 4075 (class 2606 OID 17320)
+-- Name: subscription c_subscription_pk_show; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.subscription
+    ADD CONSTRAINT c_subscription_pk_show FOREIGN KEY (pk_show) REFERENCES public.show(pk_show);
+
+
+--
+-- TOC entry 4057 (class 2606 OID 17405)
+-- Name: task c_task_pk_point; Type: FK CONSTRAINT; Schema: public; Owner: cuebot
+--
+
+ALTER TABLE ONLY public.task
+    ADD CONSTRAINT c_task_pk_point FOREIGN KEY (pk_point) REFERENCES public.point(pk_point);
+
+
+-- Completed on 2025-09-04 18:51:09 UTC
+
+--
+-- PostgreSQL database dump complete
+--

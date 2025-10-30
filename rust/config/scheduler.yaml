@@ -1,0 +1,14 @@
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+logging:
+  # Logging level for RQD output
+  # Options: debug, info, warning, error
+  # Default: debug
+  level: debug
+
+database:
+  connection_url: "postgresql://cuebot:cuebot_password@localhost:5432/cuebot"
+
+rqd:
+  dry_run_mode: true
