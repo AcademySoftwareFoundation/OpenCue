@@ -9,3 +9,6 @@ config/rqd.local_docker.yaml
 /sandbox/kafka*
 /reference
 Cargo.lock
+
+# Localized files only meant for building docker images locally
+proto
