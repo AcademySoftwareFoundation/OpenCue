@@ -27,7 +27,6 @@ pub struct Config {
     pub logging: LoggingConfig,
     pub queue: QueueConfig,
     pub database: DatabaseConfig,
-    pub kafka: KafkaConfig,
     pub rqd: RqdConfig,
     pub host_cache: HostCacheConfig,
 }
@@ -126,25 +125,6 @@ impl Default for DatabaseConfig {
             pool_size: 20,
             connection_url: "postgres://postgres:password@localhost/test".to_string(),
             core_multiplier: 100,
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(default)]
-pub struct KafkaConfig {
-    pub bootstrap_servers: String,
-    #[serde(with = "humantime_serde")]
-    pub timeout: Duration,
-    pub general_jobs_topic: TopicConfig,
-}
-
-impl Default for KafkaConfig {
-    fn default() -> KafkaConfig {
-        KafkaConfig {
-            bootstrap_servers: "localhost:9092".to_string(),
-            timeout: Duration::from_secs(5),
-            general_jobs_topic: TopicConfig::default(),
         }
     }
 }

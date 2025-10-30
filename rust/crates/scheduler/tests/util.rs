@@ -1,8 +1,8 @@
 use miette::Result;
 use rand::{
-    Rng, SeedableRng,
     rngs::StdRng,
     seq::{IteratorRandom, SliceRandom},
+    Rng, SeedableRng,
 };
 use scheduler::{
     cluster::Cluster,
@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use std::sync::Arc;
 
-use sqlx::{Pool, Postgres, Transaction, postgres::PgPoolOptions};
+use sqlx::{postgres::PgPoolOptions, Pool, Postgres, Transaction};
 use tokio::sync::OnceCell;
 
 // Database connection configuration - hardcoded for testing
@@ -86,7 +86,6 @@ pub fn create_test_config() -> Config {
             connection_url,
             core_multiplier: 100,
         },
-        kafka: scheduler::config::KafkaConfig::default(),
         rqd: RqdConfig {
             grpc_port: 8444,
             dry_run_mode: true, // Always run in dry mode for tests
