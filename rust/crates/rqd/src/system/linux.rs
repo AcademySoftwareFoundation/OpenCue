@@ -63,6 +63,7 @@ pub struct ProcessorInfoData {
     hyperthreading_multiplier: u32,
     num_sockets: u32,
     cores_per_socket: u32,
+    threads_per_proc: u32,
     pub processor_structure: ProcessorStructure,
 }
 
@@ -80,6 +81,7 @@ struct MachineStaticInfo {
     /// Number of sockets (also know as physical cores)
     pub num_sockets: u32,
     pub cores_per_socket: u32,
+    pub threads_per_proc: u32,
     // Unlike the python counterpart, the multiplier is not automatically applied to total_procs
     pub hyperthreading_multiplier: u32,
     pub boot_time_secs: u64,
@@ -152,6 +154,7 @@ impl LinuxSystem {
                 total_swap,
                 num_sockets: cpu_initial_info.num_sockets,
                 cores_per_socket: cpu_initial_info.cores_per_socket,
+                threads_per_proc: cpu_initial_info.threads_per_proc,
                 hyperthreading_multiplier: cpu_initial_info.hyperthreading_multiplier,
                 boot_time_secs: Self::read_boot_time(&config.proc_stat_path).unwrap_or(0),
                 tags: Self::setup_tags(config),
@@ -295,6 +298,7 @@ impl LinuxSystem {
                 hyperthreading_multiplier: hyper_modifier,
                 num_sockets,
                 cores_per_socket: num_threads / num_sockets,
+                threads_per_proc: num_threads / num_sockets,
                 processor_structure,
             })
         }
@@ -748,6 +752,7 @@ impl SystemManager for LinuxSystem {
             total_swap: self.static_info.total_swap,
             num_sockets: self.static_info.num_sockets,
             cores_per_socket: self.static_info.cores_per_socket,
+            threads_per_proc: self.static_info.threads_per_proc,
             boot_time: self.static_info.boot_time_secs as u32,
             tags: self.static_info.tags.clone(),
             available_memory: dinamic_stat.available_memory,
@@ -1412,6 +1417,7 @@ mod tests {
                 total_swap: 0,
                 num_sockets: physical_cpus,
                 cores_per_socket: cores_per_cpu,
+                threads_per_proc: threads_per_core,
                 hyperthreading_multiplier: 1,
                 boot_time_secs: 0,
                 tags: vec![],
