@@ -68,7 +68,7 @@ pip install opencue-pycue
 Then follow the same steps to install PyOutline:
 
 ```shell
-pip install opencue-pyotline
+pip install opencue-pyoutline
 ```
 
 ### Option 2: Installing from source
