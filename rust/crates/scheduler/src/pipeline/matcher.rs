@@ -1,21 +1,20 @@
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 
 use crate::{
-    allocation::{AllocationService, allocation_service},
+    allocation::{allocation_service, AllocationService},
     cluster::Cluster,
     cluster_key::Tag,
     config::CONFIG,
     dao::LayerDao,
-    host_cache::{HostCacheService, host_cache_service, messages::*},
+    host_cache::{host_cache_service, messages::*, HostCacheService},
     models::{CoreSize, DispatchJob, DispatchLayer, Host},
     pipeline::dispatcher::{
-        RqdDispatcherService,
         error::DispatchError,
         messages::{DispatchLayerMessage, DispatchResult},
-        rqd_dispatcher_service,
+        rqd_dispatcher_service, RqdDispatcherService,
     },
 };
 use actix::Addr;
@@ -101,22 +100,24 @@ impl MatchingService {
                 // Stream elegible layers from this job and dispatch one by one
                 for layer in layers {
                     let layer_disp = format!("{}", layer);
-                    // TODO: Properly handle errors and remove unwrap
-                    let _permit = self.concurrency_semaphore.acquire().await.unwrap();
+                    let _permit = self
+                        .concurrency_semaphore
+                        .acquire()
+                        .await
+                        .expect("Semaphore shouldn't be closed");
 
                     let cluster = cluster.clone();
                     self.process_layer(layer, cluster).await;
                     debug!("{}: Processed layer", layer_disp);
                     processed_layers.fetch_add(1, Ordering::Relaxed);
                 }
-                // TODO: Evaluate if handling transaction during panic is necesssary here
 
                 if processed_layers.load(Ordering::Relaxed) == 0 {
-                    warn!("Job {} didn't process any layer", job_disp);
+                    debug!("Job {} didn't process any layer", job_disp);
                 }
             }
             Err(err) => {
-                error!("Failed to query layers. {}", err);
+                error!("Failed to query layers. {:?}", err);
             }
         }
     }
@@ -201,6 +202,7 @@ impl MatchingService {
         let mut current_layer_version = Some(dispatch_layer);
 
         while try_again && attempts > 0 {
+            attempts -= 1;
             HOST_CYCLES.fetch_add(1, Ordering::Relaxed);
 
             // Take ownership of the layer for this iteration
@@ -263,15 +265,14 @@ impl MatchingService {
                         Ok(DispatchResult {
                             updated_host,
                             updated_layer,
-                            dispatched_frames: _,
                         }) => {
-                            // Stop on the first successful attempt
                             self.host_service
                                 .send(CheckIn(cluster_key, updated_host))
                                 .await
                                 .expect("Host Cache actor is unresponsive");
 
                             if updated_layer.frames.is_empty() {
+                                // Stop on the first successful attempt
                                 debug!("Layer {} fully consumed.", updated_layer,);
                                 try_again = false;
                             } else {
@@ -280,6 +281,7 @@ impl MatchingService {
                                     updated_layer,
                                     updated_layer.frames.len()
                                 );
+                                try_again = true;
                                 // Put the updated layer back for the next iteration
                                 current_layer_version = Some(updated_layer);
                             }
@@ -319,7 +321,6 @@ impl MatchingService {
                     }
                 }
             }
-            attempts -= 1;
         }
     }
 
@@ -346,10 +347,8 @@ impl MatchingService {
             }
             DispatchError::Failure(report) => {
                 error!(
-                    "Failed to dispatch {} on {}. {}",
-                    layer_display,
-                    host,
-                    report.to_string()
+                    "{:?}",
+                    report.wrap_err(format!("Failed to dispatch {} on {}.", layer_display, host))
                 );
             }
             DispatchError::AllocationOverBurst(allocation_name) => {
@@ -362,32 +361,30 @@ impl MatchingService {
             DispatchError::FailureAfterDispatch(report) => {
                 // TODO: Implement a recovery logic for when a frame got dispatched
                 // but its status hasn't been updated on the database
-                let msg = format!(
-                    "Failed after dispatch {} on {}. {}",
-                    layer_display, host, report
-                );
-                error!(msg);
-            }
-            DispatchError::FailedToStartOnDb(report) => {
                 error!(
-                    "Failed to Start frame on Database when dispatching {} on {}. {}",
-                    layer_display,
-                    host,
-                    report.to_string()
+                    "{:?}",
+                    report.wrap_err(format!("Failed to dispatch {} on {}.", layer_display, host))
+                );
+            }
+            DispatchError::FailedToStartOnDb(sqlx_error) => {
+                error!(
+                    "Failed to Start frame on Database when dispatching {} on {}. {:?}",
+                    layer_display, host, sqlx_error
                 );
             }
             DispatchError::DbFailure(error) => {
                 error!(
-                    "Failed to Start due to database error when dispatching {} on {}. {}",
-                    layer_display,
-                    host,
-                    error.to_string()
+                    "Failed to Start due to database error when dispatching {} on {}. {:?}",
+                    layer_display, host, error
                 );
             }
             DispatchError::FailureGrpcConnection(_, report) => {
                 error!(
-                    "{} failed to create a GRPC connection to {}. {}",
-                    layer_display, host, report
+                    "{:?}",
+                    report.wrap_err(format!(
+                        "{} failed to create a GRPC connection to {}.",
+                        layer_display, host
+                    ))
                 );
             }
             DispatchError::GrpcFailure(status) => {

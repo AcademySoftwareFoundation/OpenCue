@@ -1,11 +1,13 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 
-use futures::{StreamExt, stream};
-use tokio_util::sync::CancellationToken;
-use tracing::info;
+use futures::{stream, StreamExt};
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
+use tracing::{debug, error, info};
 
-use crate::cluster::{Cluster, ClusterFeed};
+use crate::cluster::{Cluster, ClusterFeed, FeedMessage};
 use crate::config::CONFIG;
 use crate::dao::JobDao;
 use crate::models::DispatchJob;
@@ -28,16 +30,18 @@ use crate::pipeline::MatchingService;
 pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
     let job_fetcher = Arc::new(JobDao::new().await?);
     let matcher = Arc::new(MatchingService::new().await?);
-    let cancel_token = CancellationToken::new();
     let cycles_without_jobs = Arc::new(AtomicUsize::new(0));
     info!("Starting scheduler feed");
 
-    stream::iter(cluster_feed)
-        .map(|cluster| {
+    let (tx, cluster_receiver) = mpsc::channel(16);
+    let feed_sender = cluster_feed.stream(tx).await;
+
+    ReceiverStream::new(cluster_receiver)
+        .for_each_concurrent(CONFIG.queue.stream.cluster_buffer_size, |cluster| {
             let job_fetcher = job_fetcher.clone();
             let matcher = matcher.clone();
-            let cancel_token = cancel_token.clone();
             let cycles_without_jobs = cycles_without_jobs.clone();
+            let feed_sender = feed_sender.clone();
 
             async move {
                 let jobs = match &cluster {
@@ -68,39 +72,41 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                                 |job_model| async {
                                     processed_jobs.fetch_add(1, Ordering::Relaxed);
                                     let job = DispatchJob::new(job_model, cluster.clone());
-                                    info!("Found job: {}", job);
+                                    debug!("Found job: {}", job);
                                     matcher.process(job).await;
                                 },
                             )
                             .await;
+                        // If no jobs got processed, sleep to prevent hammering the database with
+                        // queries with no outcome
+                        if processed_jobs.load(Ordering::Relaxed) == 0 {
+                            let _ = feed_sender
+                                .send(FeedMessage::Sleep(cluster, Duration::from_secs(3)))
+                                .await;
+                        }
 
+                        // If empty_jobs_cycles_before_quiting is set, quit if nothing got processed
                         if let Some(limit) = CONFIG.queue.empty_job_cycles_before_quiting {
                             // Count cycles that couldn't find any job
                             if processed_jobs.load(Ordering::Relaxed) == 0 {
                                 cycles_without_jobs.fetch_add(1, Ordering::Relaxed);
                             } else {
-                                cycles_without_jobs.fetch_min(0, Ordering::Relaxed);
+                                cycles_without_jobs.store(0, Ordering::Relaxed);
                             }
 
                             // Cancel stream processing after empty cycles
                             if cycles_without_jobs.load(Ordering::Relaxed) >= limit {
-                                cancel_token.cancel();
+                                let _ = feed_sender.send(FeedMessage::Stop()).await;
                             }
                         }
                     }
                     Err(err) => {
-                        cancel_token.cancel();
-                        panic!("Failed to fetch job: {}", err);
+                        let _ = feed_sender.send(FeedMessage::Stop()).await;
+                        error!("Failed to fetch job: {}", err);
                     }
                 }
             }
         })
-        .buffer_unordered(CONFIG.queue.stream.cluster_buffer_size)
-        .take_while(|_| {
-            let token = cancel_token.clone();
-            async move { !token.is_cancelled() }
-        })
-        .collect::<Vec<()>>()
         .await;
 
     Ok(())

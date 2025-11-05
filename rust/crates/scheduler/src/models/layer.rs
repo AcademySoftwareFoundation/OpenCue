@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
 
-use crate::models::{DispatchFrame, core_size::CoreSize, fmt_uuid};
+use crate::models::{core_size::CoreSize, fmt_uuid, DispatchFrame};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DispatchLayer {
@@ -37,12 +37,15 @@ impl fmt::Display for DispatchLayer {
 }
 
 impl DispatchLayer {
-    /// Removes the first `count` frames from this layer's frame list.
+    /// Removes frames with matching IDs from this layer's frame list.
+    ///
+    /// Used to clean up frames after dispatch attempts (both successful and failed)
+    /// to prevent livelock situations where frames are repeatedly retried.
     ///
     /// # Arguments
     ///
-    /// * `count` - Number of frames to remove from the beginning
-    pub fn drain_frames(&mut self, count: usize) {
-        self.frames.drain(0..count);
+    /// * `frame_ids` - Vector of frame IDs to remove from the layer
+    pub fn drain_frames(&mut self, frame_ids: Vec<String>) {
+        self.frames.retain(|f| !frame_ids.contains(&f.id))
     }
 }

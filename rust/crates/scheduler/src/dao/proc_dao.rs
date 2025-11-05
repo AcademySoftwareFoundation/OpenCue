@@ -154,7 +154,12 @@ impl ProcDao {
             .execute(&mut **transaction)
             .await
             .into_diagnostic()
-            .wrap_err("Failed to insert proc record")?;
+            .wrap_err_with(|| {
+                format!(
+                    "Failed to insert proc record: proc_id={}, host_id={}, frame_id={}",
+                    virtual_proc.proc_id, virtual_proc.host_id, virtual_proc.frame_id
+                )
+            })?;
 
         Ok(())
     }

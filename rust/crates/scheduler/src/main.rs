@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use miette::{Context, IntoDiagnostic, miette};
+use miette::{miette, Context, IntoDiagnostic};
 use structopt::StructOpt;
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
@@ -105,7 +105,7 @@ impl JobQueueCli {
             ));
         }
         let cluster_feed = if self.alloc_tags.is_empty() && self.manual_tags.is_empty() {
-            ClusterFeed::load_all(false, &self.facility).await?
+            ClusterFeed::load_all(&self.facility).await?
         } else {
             ClusterFeed::load_from_clusters(clusters)
         };
@@ -133,6 +133,7 @@ async fn async_main() -> miette::Result<()> {
     let log_builder = tracing_subscriber::fmt()
         .with_timer(tracing_subscriber::fmt::time::SystemTime)
         .pretty()
+        .with_ansi(true)
         .with_max_level(log_level);
     if CONFIG.logging.file_appender {
         let file_appender = RollingFileAppenderBase::new(

@@ -3,17 +3,17 @@ use actix::{Actor, ActorFutureExt, AsyncContext, Handler, ResponseActFuture, Wra
 use bytesize::ByteSize;
 use itertools::Itertools;
 use miette::IntoDiagnostic;
-use scc::{HashMap, HashSet, hash_map::OccupiedEntry};
+use scc::{hash_map::OccupiedEntry, HashMap, HashSet};
 use std::{
     cmp::Ordering,
     sync::{
-        Arc,
         atomic::{self, AtomicU64},
+        Arc,
     },
     time::{Duration, SystemTime},
 };
 
-use futures::{StreamExt, stream};
+use futures::{stream, StreamExt};
 use miette::Result;
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info};
@@ -95,9 +95,11 @@ where
 
         Box::pin(
             async move {
-                service
+                let out = service
                     .check_out(facility_id, show_id, tags, cores, memory, validation)
-                    .await
+                    .await;
+                debug!("Checked out {}", out.as_ref().expect("found host").1);
+                out
             }
             .into_actor(self)
             .map(|result, _, _| result),
@@ -110,8 +112,10 @@ impl Handler<CheckIn> for HostCacheService {
 
     fn handle(&mut self, msg: CheckIn, _ctx: &mut Self::Context) -> Self::Result {
         let CheckIn(cluster_key, host) = msg;
+        let host_str = format!("{}", host);
+        self.check_in(cluster_key, host);
 
-        self.check_in(cluster_key, host)
+        debug!("Checked in {}", &host_str);
     }
 }
 

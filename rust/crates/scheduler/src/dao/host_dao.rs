@@ -5,6 +5,7 @@ use miette::{Context, IntoDiagnostic, Result};
 use opencue_proto::host::ThreadMode;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres, Transaction};
+use tracing::debug;
 
 use crate::{
     models::{CoreSize, Host},
@@ -203,6 +204,7 @@ impl HostDao {
         transaction: &mut Transaction<'_, Postgres>,
         host_id: &str,
     ) -> Result<bool> {
+        debug!("Locking {}", host_id);
         sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_lock(hashtext($1))")
             .bind(host_id)
             .fetch_one(&mut **transaction)
@@ -229,6 +231,7 @@ impl HostDao {
         host_id: &str,
     ) -> Result<bool> {
         let host_id_str = host_id.to_string();
+        debug!("Unlocking {}", host_id_str);
         sqlx::query_scalar::<_, bool>("SELECT pg_advisory_unlock(hashtext($1))")
             .bind(&host_id_str)
             .fetch_one(&mut **transaction)

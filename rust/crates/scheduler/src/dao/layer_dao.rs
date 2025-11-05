@@ -4,7 +4,7 @@ use std::sync::Arc;
 use bytesize::ByteSize;
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Postgres};
+use sqlx::{Pool, Postgres, Transaction};
 use tracing::debug;
 
 use crate::{
@@ -374,5 +374,58 @@ impl LayerDao {
             .into_values()
             .map(|(layer_model, frame_models)| DispatchLayer::new(layer_model, frame_models))
             .collect()
+    }
+
+    /// Checks if a layer has available capacity under its configured limits.
+    ///
+    /// Verifies that the sum of running frames across all layers sharing the same
+    /// limit record is below the maximum allowed value. Returns false if the layer
+    /// is at its limit, preventing further frame dispatch.
+    ///
+    /// # Arguments
+    ///
+    /// * `transaction` - Active database transaction
+    /// * `layer` - Layer to check limits for
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(true)` - Layer has capacity available or no limits configured
+    /// * `Ok(false)` - Layer has reached its limit
+    /// * `Err(sqlx::Error)` - Database query failed
+    pub async fn check_limits(
+        &self,
+        transaction: &mut Transaction<'_, Postgres>,
+        layer: &DispatchLayer,
+    ) -> Result<bool, sqlx::Error> {
+        let res = sqlx::query(
+            r#"
+                SELECT layer.pk_layer
+                FROM layer
+                LEFT JOIN layer_limit ON layer_limit.pk_layer = layer.pk_layer
+                LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record
+                LEFT JOIN (
+                    SELECT limit_record.pk_limit_record,
+                            SUM(layer_stat.int_running_count) AS int_sum_running
+                    FROM layer_limit
+                    LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record
+                    LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer
+                    GROUP BY limit_record.pk_limit_record
+                ) AS sum_running ON limit_record.pk_limit_record = sum_running.pk_limit_record
+                WHERE layer.pk_layer = $1
+                    AND sum_running.int_sum_running < limit_record.int_max_value
+                    OR sum_running.int_sum_running IS NULL
+        "#,
+        )
+        .bind(layer.id.clone())
+        .fetch_one(&mut **transaction)
+        .await;
+        // Only return false if the query returns no row, which means the layer queried is at limit
+        match res {
+            Ok(_) => Ok(true),
+            Err(err) => match err {
+                sqlx::Error::RowNotFound => Ok(false),
+                _ => Err(err),
+            },
+        }
     }
 }

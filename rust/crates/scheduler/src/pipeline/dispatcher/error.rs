@@ -43,7 +43,7 @@ pub enum DispatchVirtualProcError {
     FailedToStartOnDb(DispatchError),
 
     #[error("Failed to lock frame on database")]
-    FailedToLockFrameForStart(),
+    FailedToLockForUpdate(sqlx::Error),
 
     #[error("Failed to connect to RQD on host {host}")]
     RqdConnectionFailed { host: String, error: Error },

@@ -1,18 +1,18 @@
 use actix::{Actor, ActorFutureExt, Handler, ResponseActFuture, WrapFuture};
 use bytesize::{ByteSize, MIB};
 use futures::FutureExt;
-use miette::{Context, IntoDiagnostic, Result, miette};
+use miette::{miette, Context, IntoDiagnostic, Result};
 use moka::future::Cache;
 use sqlx::{Postgres, Transaction};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tonic::transport::Channel;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use crate::{
     allocation::allocation_service,
     config::CONFIG,
-    dao::{FrameDao, FrameDaoError, HostDao, ProcDao},
+    dao::{FrameDao, FrameDaoError, HostDao, LayerDao, ProcDao},
     models::{CoreSize, DispatchFrame, DispatchLayer, Host, VirtualProc},
     pgpool::begin_transaction,
     pipeline::dispatcher::{
@@ -23,7 +23,7 @@ use crate::{
 };
 use opencue_proto::{
     host::ThreadMode,
-    rqd::{RqdStaticLaunchFrameRequest, RunFrame, rqd_interface_client::RqdInterfaceClient},
+    rqd::{rqd_interface_client::RqdInterfaceClient, RqdStaticLaunchFrameRequest, RunFrame},
 };
 
 /// Actor wrapper for RqdDispatcher that provides message-based dispatch operations.
@@ -36,6 +36,7 @@ use opencue_proto::{
 #[derive(Clone)]
 pub struct RqdDispatcherService {
     frame_dao: Arc<FrameDao>,
+    layer_dao: Arc<LayerDao>,
     host_dao: Arc<HostDao>,
     proc_dao: Arc<ProcDao>,
     rqd_connection_cache: Cache<String, RqdInterfaceClient<Channel>>,
@@ -85,17 +86,9 @@ impl Handler<DispatchLayerMessage> for RqdDispatcherService {
                             .await
                             .map_err(DispatchError::DbFailure)?;
 
-                        let dispatched_frames: Vec<String> = layer
-                            .frames
-                            .iter()
-                            .take(layer.frames.len() - updated_layer.frames.len())
-                            .map(|f| f.frame_name.clone())
-                            .collect();
-
                         Ok(DispatchResult {
                             updated_host,
                             updated_layer,
-                            dispatched_frames,
                         })
                     }
                     Err(e) => {
@@ -118,10 +111,12 @@ impl RqdDispatcherService {
     ///
     /// # Arguments
     /// * `frame_dao` - Database access for frame operations
+    /// * `layer_dao` - Database access for layer operations
     /// * `host_dao` - Database access for host operations and locking
     /// * `dry_run_mode` - If true, logs dispatch actions without executing them
     pub async fn new(
         frame_dao: Arc<FrameDao>,
+        layer_dao: Arc<LayerDao>,
         host_dao: Arc<HostDao>,
         proc_dao: Arc<ProcDao>,
         dry_run_mode: bool,
@@ -136,6 +131,7 @@ impl RqdDispatcherService {
 
         Ok(RqdDispatcherService {
             frame_dao,
+            layer_dao,
             host_dao,
             proc_dao,
             dry_run_mode,
@@ -178,13 +174,14 @@ impl RqdDispatcherService {
         }
 
         // Ensure unlock is always called, regardless of panics or fails
-        let result = std::panic::AssertUnwindSafe(self.dispatch_inner(layer, host, transaction))
+        let result = std::panic::AssertUnwindSafe(self.dispatch_inner(layer, host))
             .catch_unwind()
             .await;
 
-        // Always unlock, regardless of outcome
+        // Always attempt to unlock, regardless of outcome. Failing to unlock here can be ignored as
+        // endint the transaction will automatically unlock.
         if let Err(unlock_err) = self.host_dao.unlock(transaction, &host_id).await {
-            error!("Failed to unlock host {}: {}", host_disp, unlock_err);
+            trace!("Failed to unlock host {}: {}", host_disp, unlock_err);
         }
 
         // Handle the result from dispatch_inner
@@ -210,7 +207,6 @@ impl RqdDispatcherService {
         &self,
         layer: &DispatchLayer,
         host: Host,
-        transaction: &mut Transaction<'_, Postgres>,
     ) -> Result<(Host, DispatchLayer), DispatchError> {
         // A host should not book frames if its allocation is at or above its limit,
         // but checking the limit before each frame is too costly. The tradeoff is
@@ -222,7 +218,6 @@ impl RqdDispatcherService {
         let mut dispatched_procs: Vec<String> = Vec::new();
         let allocation_name = host.allocation_name.clone();
         let mut last_host_version = host;
-        let mut processed_frames = 0;
 
         let allocation_service = allocation_service().await.map_err(|err| {
             DispatchError::Failure(err.wrap_err("Allocation Service is not available"))
@@ -238,83 +233,125 @@ impl RqdDispatcherService {
         // Deliberately cloning the layer to avoid requiring a mutable reference
         let mut layer = layer.clone();
         let mut last_error = None;
+        let mut frames_attempted = Vec::new();
 
         for frame in &layer.frames {
-            let frame_name = frame.frame_name.clone();
+            frames_attempted.push(frame.id.clone());
+            let frame_str = format!("{}", frame);
 
-            match Self::consume_host_virtual_resources(
+            let (virtual_proc, updated_host) = match Self::consume_host_virtual_resources(
                 frame,
                 &last_host_version,
                 CONFIG.queue.memory_stranded_threshold,
             )
             .await
             {
-                Ok((virtual_proc, updated_host)) => {
-                    match self
-                        .dispatch_virtual_proc(
-                            virtual_proc,
-                            updated_host,
-                            transaction,
-                            &is_subscription_bookable,
-                            allocation_capacity,
-                        )
+                Ok((virtual_proc, updated_host)) => (virtual_proc, updated_host),
+                Err(VirtualProcError::HostResourcesExtinguished(msg)) => {
+                    info!(
+                        "Host resourse extinguished for {}. {}",
+                        last_host_version, msg
+                    );
+                    break;
+                }
+            };
+
+            // Each proc should run on its own transaction
+            let mut proc_transaction = begin_transaction()
+                .await
+                .map_err(DispatchError::DbFailure)?;
+
+            // Before dispatching, confirm the layer still has limits
+            if !self
+                .layer_dao
+                .check_limits(&mut proc_transaction, &layer)
+                .await
+                .map_err(DispatchError::DbFailure)?
+            {
+                proc_transaction
+                    .rollback()
+                    .await
+                    .map_err(DispatchError::DbFailure)?;
+                info!("Skiping layer {}, reached limits", layer);
+
+                // Skip the entire layer
+                break;
+            }
+
+            match self
+                .dispatch_virtual_proc(
+                    virtual_proc,
+                    updated_host,
+                    &mut proc_transaction,
+                    &is_subscription_bookable,
+                    allocation_capacity,
+                )
+                .await
+            {
+                Ok((new_host, new_allocation_capacity)) => {
+                    proc_transaction
+                        .commit()
                         .await
-                    {
-                        Ok((new_host, new_allocation_capacity)) => {
-                            dispatched_procs.push(new_host.to_string());
-                            allocation_capacity = new_allocation_capacity;
-                            last_host_version = new_host;
-                            processed_frames += 1;
-                        }
-                        Err(DispatchVirtualProcError::AllocationOverBurst(err)) => {
-                            info!("Subscription limit extinguished! {err}");
+                        .map_err(DispatchError::DbFailure)?;
+                    dispatched_procs.push(new_host.to_string());
+                    allocation_capacity = new_allocation_capacity;
+                    last_host_version = new_host;
+                }
+                Err(err) => {
+                    proc_transaction
+                        .rollback()
+                        .await
+                        .map_err(DispatchError::DbFailure)?;
+
+                    match err {
+                        DispatchVirtualProcError::AllocationOverBurst(err) => {
+                            info!("{frame_str} {err}");
+
                             last_error = Some(err);
                             break;
                         }
-                        Err(DispatchVirtualProcError::FailedToStartOnDb(err)) => {
-                            // Something is not right with this frame on the database.
-                            // log error and give the next frame a chance. If there was
-                            // already an error like this on previous frames, give up.
+                        DispatchVirtualProcError::FailedToStartOnDb(err) => {
+                            // Something is not right with this frame on the database. log error and give
+                            // the next frame a chance. If there was already an error like this on previous
+                            // frames, give up.
                             if last_error.is_some() {
                                 break;
                             }
-                            warn!("Failed to start frame {} on Db. {}", frame_name, err);
+                            warn!("Failed to start frame {} on Db. {}", frame_str, err);
                             last_error = Some(err);
                             continue;
                         }
-                        Err(DispatchVirtualProcError::FailedToLockFrameForStart()) => {
-                            // This frame is compromised, skip to the next
+                        DispatchVirtualProcError::FailedToLockForUpdate(err) => {
+                            // The entire transaction is probably compromised, stop working on this layer
                             info!(
-                                "Frame {} couldn't be locked on the database. \
-                                Version probably changed during dispatch",
-                                frame_name
-                            );
-                            continue;
-                        }
-                        Err(DispatchVirtualProcError::RqdConnectionFailed { host, error }) => {
-                            // An error here means connection with this host is probably broken,
-                            // there's no reason to attempt the next frame
-                            warn!(
-                                "Failed to connect to rqd on {} to launch frame. {}",
-                                host, error
+                                "Frame {} couldn't be locked on the database. {}",
+                                frame_str, err
                             );
                             break;
                         }
-                        Err(DispatchVirtualProcError::FailureAfterDispatch(err)) => {
-                            return Err(err);
+                        DispatchVirtualProcError::RqdConnectionFailed { host, error } => {
+                            // An error here means connection with this host is probably broken,
+                            // there's no reason to attempt the next frame
+                            warn!(
+                                "Failed to connect to rqd on {} to launch frame. {:?}",
+                                host, error
+                            );
+
+                            break;
+                        }
+                        DispatchVirtualProcError::FailureAfterDispatch(report) => {
+                            warn!("Failed after dispatch. {:?}", report);
+                            return Err(report);
                         }
                     }
                 }
-                Err(err) => match err {
-                    VirtualProcError::HostResourcesExtinguished(msg) => {
-                        debug!(
-                            "Host resourses extinguished for {}. {}",
-                            last_host_version, msg
-                        );
-                        break;
-                    }
-                },
             }
+        }
+
+        // Consume both failed and successful frames. Not consuming failed frames can lead to a
+        // livelock situation, where all frames are locked an the caller keeps retrying them.
+        if !frames_attempted.is_empty() {
+            layer.drain_frames(frames_attempted);
         }
 
         if dispatched_procs.is_empty() {
@@ -323,8 +360,11 @@ impl RqdDispatcherService {
                 layer, last_host_version
             );
         } else {
-            layer.drain_frames(processed_frames);
-            debug!("Dispatched {} frames: ", dispatched_procs.len());
+            debug!(
+                "Dispatched {} frames on {}: ",
+                dispatched_procs.len(),
+                layer
+            );
             for proc in dispatched_procs {
                 debug!("{}", proc);
             }
@@ -382,8 +422,13 @@ impl RqdDispatcherService {
             .update_frame_started(transaction, &virtual_proc)
             .await
             .map_err(|err| match err {
-                FrameDaoError::FailedToLockForUpdate(_) => {
-                    DispatchVirtualProcError::FailedToLockFrameForStart()
+                FrameDaoError::FailedToLockForUpdate(err) => {
+                    DispatchVirtualProcError::FailedToLockForUpdate(err)
+                }
+                FrameDaoError::FrameNoLongerAvailable => {
+                    // Frame was locked successfully but UPDATE found it was already dispatched
+                    // or state changed. Treat this as a lock conflict.
+                    DispatchVirtualProcError::FailedToLockForUpdate(sqlx::Error::RowNotFound)
                 }
                 FrameDaoError::DbFailure(err) => DispatchVirtualProcError::FailedToStartOnDb(
                     DispatchError::FailedToStartOnDb(err),
@@ -450,6 +495,7 @@ impl RqdDispatcherService {
                     | tonic::Code::PermissionDenied
                     | tonic::Code::DeadlineExceeded
                     | tonic::Code::Unknown => {
+                        warn!("Failed to launch on rqd. {}", status);
                         // Invalidate entry to force a new connection on the next interaction
                         self.rqd_connection_cache.invalidate(&host.name).await;
 
@@ -464,8 +510,6 @@ impl RqdDispatcherService {
                 }
             }
         }
-
-        // Err(err)
     }
 
     /// Calculates the actual number of cores requested based on frame requirements.

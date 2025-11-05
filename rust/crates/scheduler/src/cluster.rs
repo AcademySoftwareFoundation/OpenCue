@@ -1,8 +1,18 @@
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc, Mutex, RwLock,
+    },
+    time::{Duration, SystemTime},
+};
+
 use futures::StreamExt;
 use itertools::Itertools;
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tokio::sync::mpsc;
+use tracing::{debug, error, warn};
 
 use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
@@ -18,10 +28,26 @@ pub enum Cluster {
 
 #[derive(Debug)]
 pub struct ClusterFeed {
-    pub keys: Vec<Cluster>,
-    current_index: usize,
-    rounds: usize,
-    run_once: bool,
+    pub clusters: Arc<RwLock<Vec<Cluster>>>,
+    current_index: Arc<AtomicUsize>,
+    stop_flag: Arc<AtomicBool>,
+    sleep_map: Arc<Mutex<HashMap<Cluster, SystemTime>>>,
+}
+
+/// Control messages for the cluster feed stream.
+///
+/// These messages are sent to the control channel returned by `ClusterFeed::stream()`
+/// to influence feed behavior during runtime.
+pub enum FeedMessage {
+    /// Stops the cluster feed stream gracefully.
+    Stop(),
+    /// Puts a specific cluster to sleep for the given duration.
+    ///
+    /// # Fields
+    ///
+    /// * `Cluster` - The cluster to put to sleep
+    /// * `Duration` - How long to sleep before the cluster can be processed again
+    Sleep(Cluster, Duration),
 }
 
 impl Cluster {
@@ -47,13 +73,11 @@ impl ClusterFeed {
     ///
     /// # Arguments
     ///
-    /// * `run_once` - If true, iterator will only iterate through clusters once
-    ///
     /// # Returns
     ///
     /// * `Ok(ClusterFeed)` - Successfully loaded cluster feed
     /// * `Err(miette::Error)` - Failed to load clusters from database
-    pub async fn load_all(run_once: bool, facility_id: &Option<String>) -> Result<Self> {
+    pub async fn load_all(facility_id: &Option<String>) -> Result<Self> {
         let cluster_dao = ClusterDao::new().await?;
 
         // Fetch clusters for both facilitys+shows+tags and just tags
@@ -126,10 +150,10 @@ impl ClusterFeed {
             ))
         }
         Ok(ClusterFeed {
-            keys: clusters,
-            current_index: 0,
-            run_once,
-            rounds: 0,
+            clusters: Arc::new(RwLock::new(clusters)),
+            current_index: Arc::new(AtomicUsize::new(0)),
+            stop_flag: Arc::new(AtomicBool::new(false)),
+            sleep_map: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -145,32 +169,153 @@ impl ClusterFeed {
     #[allow(dead_code)]
     pub fn load_from_clusters(clusters: Vec<Cluster>) -> Self {
         ClusterFeed {
-            keys: clusters,
-            current_index: 0,
-            run_once: true,
-            rounds: 0,
+            clusters: Arc::new(RwLock::new(clusters)),
+            current_index: Arc::new(AtomicUsize::new(0)),
+            stop_flag: Arc::new(AtomicBool::new(false)),
+            sleep_map: Arc::new(Mutex::new(HashMap::new())),
         }
     }
-}
 
-impl Iterator for ClusterFeed {
-    type Item = Cluster;
+    /// Streams clusters to a channel receiver with backpressure control.
+    ///
+    /// Creates a producer-consumer pattern where clusters are sent through a channel
+    /// to the provided sender. The stream can be controlled via the returned message
+    /// channel (for sleep/stop commands).
+    ///
+    /// # Arguments
+    ///
+    /// * `sender` - Channel sender for emitting clusters
+    ///
+    /// # Returns
+    ///
+    /// * `mpsc::Sender<FeedMessage>` - Control channel for sending sleep/stop messages
+    ///
+    /// # Behavior
+    ///
+    /// - Iterates through clusters in round-robin fashion
+    /// - Skips sleeping clusters until their wake time expires
+    /// - Applies backoff delays between rounds (varies based on sleeping cluster count)
+    /// - Stops when receiving a Stop message or when configured empty cycles limit is reached
+    /// - Automatically cleans up expired sleep entries
+    pub async fn stream(self, sender: mpsc::Sender<Cluster>) -> mpsc::Sender<FeedMessage> {
+        // Use a small channel to ensure the producer waits for items to be consumed before
+        // generating more
+        let (cancel_sender, mut feed_receiver) = mpsc::channel(8);
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.keys.is_empty() || (self.rounds > 0 && self.run_once) {
-            return None;
-        }
+        let stop_flag = self.stop_flag.clone();
+        let sleep_map = self.sleep_map.clone();
 
-        // Count number of rounds if we got to the last element
-        if self.current_index == self.keys.len() - 1 {
-            self.rounds += 1
-        }
+        // Stream clusters on the caller channel
+        tokio::spawn(async move {
+            let mut all_sleeping_rounds = 0;
+            let feed = self.clusters.clone();
+            let current_index_atomic = self.current_index.clone();
 
-        let item = self.keys[self.current_index].clone();
-        self.current_index = (self.current_index + 1) % self.keys.len();
-        let _item_tag: Vec<_> = item.tags().collect();
-        Some(item)
-        // TODO: Every loop restart should fetch
+            loop {
+                // Check stop flag
+                if stop_flag.load(Ordering::Relaxed) {
+                    warn!("Cluster received a stop message. Stopping feed.");
+                    break;
+                }
+
+                let (item, cluster_size, completed_round) = {
+                    let clusters = feed.read().unwrap_or_else(|poisoned| poisoned.into_inner());
+                    if clusters.is_empty() {
+                        break;
+                    }
+
+                    let current_index = current_index_atomic.load(Ordering::Relaxed);
+                    let item = clusters[current_index].clone();
+                    let next_index = (current_index + 1) % clusters.len();
+                    let completed_round = next_index == 0; // Detect wrap-around
+                    current_index_atomic.store(next_index, Ordering::Relaxed);
+
+                    (item, clusters.len(), completed_round)
+                };
+
+                // Skip cluster if it is marked as sleeping
+                let is_sleeping = {
+                    let mut sleep_map_lock = sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                    if let Some(wake_up_time) = sleep_map_lock.get(&item) {
+                        if *wake_up_time > SystemTime::now() {
+                            // Still sleeping, skip it
+                            true
+                        } else {
+                            // Remove expired entries
+                            sleep_map_lock.remove(&item);
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                };
+
+                if !is_sleeping && sender.send(item).await.is_err() {
+                    warn!("Cluster receiver dropped. Stopping feed.");
+                    break;
+                }
+
+                // At end of round, add backoff sleep
+                if completed_round {
+                    // Check if all/most clusters are sleeping
+                    let sleeping_count = {
+                        let sleep_map_lock = sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                        sleep_map_lock.len()
+                    };
+                    if sleeping_count >= cluster_size {
+                        // Ensure this doesn't loop forever when there's a limit configured
+                        all_sleeping_rounds += 1;
+                        if let Some(max_empty_cycles) = CONFIG.queue.empty_job_cycles_before_quiting
+                        {
+                            if all_sleeping_rounds > max_empty_cycles {
+                                warn!("All clusters have been sleeping for too long");
+                                break;
+                            }
+                        }
+
+                        // All clusters sleeping, sleep longer
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                    } else if sleeping_count > 0 {
+                        // Some clusters sleeping, brief pause
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    } else {
+                        // Active work, minimal pause
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
+                }
+            }
+        });
+
+        // Process messages on the receiving end
+        let sleep_map = self.sleep_map.clone();
+        tokio::spawn(async move {
+            while let Some(message) = feed_receiver.recv().await {
+                match message {
+                    FeedMessage::Sleep(cluster, duration) => {
+                        if let Some(wake_up_time) = SystemTime::now().checked_add(duration) {
+                            debug!("{:?} put to sleep for {}s", cluster, duration.as_secs());
+                            {
+                                let mut sleep_map_lock =
+                                    sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                                sleep_map_lock.insert(cluster, wake_up_time);
+                            }
+                        } else {
+                            warn!(
+                                "Sleep request ignored for {:?}. Invalid duration={}s",
+                                cluster,
+                                duration.as_secs()
+                            );
+                        }
+                    }
+                    FeedMessage::Stop() => {
+                        self.stop_flag.store(true, Ordering::Relaxed);
+                        break;
+                    }
+                }
+            }
+        });
+
+        cancel_sender
     }
 }
 

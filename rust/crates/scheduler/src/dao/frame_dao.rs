@@ -135,6 +135,21 @@ impl FrameDao {
         Ok(FrameDao {})
     }
 
+    /// Acquires an exclusive lock on a frame for update operations.
+    ///
+    /// Uses PostgreSQL's `FOR UPDATE NOWAIT` to immediately fail if the frame
+    /// is already locked by another transaction. This prevents dispatcher race
+    /// conditions when multiple workers try to book the same frame.
+    ///
+    /// # Arguments
+    ///
+    /// * `transaction` - Active database transaction
+    /// * `frame` - Frame to lock (must be in WAITING state with matching version)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - Lock acquired successfully
+    /// * `Err(FrameDaoError::FailedToLockForUpdate)` - Lock unavailable or frame changed
     pub async fn lock_for_update(
         &self,
         transaction: &mut Transaction<'_, Postgres>,
@@ -147,7 +162,7 @@ impl FrameDao {
          WHERE pk_frame = $1
            AND str_state = 'WAITING'
            AND int_version = $2
-           FOR UPDATE NOWAIT
+        FOR UPDATE NOWAIT
         "#,
         )
         .bind(frame.id.clone())
@@ -182,7 +197,7 @@ impl FrameDao {
         self.lock_for_update(transaction, &virtual_proc.frame)
             .await?;
 
-        sqlx::query(
+        let result = sqlx::query(
             r#"
             UPDATE frame SET
                 str_state = 'RUNNING',
@@ -198,22 +213,6 @@ impl FrameDao {
             WHERE pk_frame = $6
                 AND str_state = 'WAITING'
                 AND int_version = $7
-                AND frame.pk_layer IN (
-                    SELECT layer.pk_layer
-                    FROM layer
-                    LEFT JOIN layer_limit ON layer_limit.pk_layer = layer.pk_layer
-                    LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record
-                    LEFT JOIN (
-                        SELECT limit_record.pk_limit_record,
-                               SUM(layer_stat.int_running_count) AS int_sum_running
-                        FROM layer_limit
-                        LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record
-                        LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer
-                        GROUP BY limit_record.pk_limit_record
-                    ) AS sum_running ON limit_record.pk_limit_record = sum_running.pk_limit_record
-                    WHERE sum_running.int_sum_running < limit_record.int_max_value
-                       OR sum_running.int_sum_running IS NULL
-                );
             "#,
         )
         .bind(virtual_proc.host_name.clone())
@@ -227,6 +226,11 @@ impl FrameDao {
         .await
         .map_err(FrameDaoError::DbFailure)?;
 
+        // Check if the update actually modified a row
+        if result.rows_affected() == 0 {
+            return Err(FrameDaoError::FrameNoLongerAvailable);
+        }
+
         Ok(())
     }
 }
@@ -235,6 +239,9 @@ impl FrameDao {
 pub enum FrameDaoError {
     #[error("Failed to lock frame for update. Frame possibly changed before being dispatched")]
     FailedToLockForUpdate(sqlx::Error),
+
+    #[error("Frame no longer available for dispatch (already assigned or state changed)")]
+    FrameNoLongerAvailable,
 
     #[error("Failed to execute query")]
     DbFailure(sqlx::Error),

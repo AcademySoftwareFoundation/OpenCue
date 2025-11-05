@@ -47,6 +47,4 @@ pub struct DispatchLayerMessage {
 pub struct DispatchResult {
     pub updated_host: Host,
     pub updated_layer: DispatchLayer,
-    #[allow(dead_code)]
-    pub dispatched_frames: Vec<String>,
 }
