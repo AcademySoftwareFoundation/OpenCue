@@ -1,6 +1,9 @@
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc,
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::Duration,
 };
 
 use crate::{
@@ -11,10 +14,13 @@ use crate::{
     dao::LayerDao,
     host_cache::{host_cache_service, messages::*, HostCacheService},
     models::{CoreSize, DispatchJob, DispatchLayer, Host},
-    pipeline::dispatcher::{
-        error::DispatchError,
-        messages::{DispatchLayerMessage, DispatchResult},
-        rqd_dispatcher_service, RqdDispatcherService,
+    pipeline::{
+        dispatcher::{
+            error::DispatchError,
+            messages::{DispatchLayerMessage, DispatchResult},
+            rqd_dispatcher_service, RqdDispatcherService,
+        },
+        layer_permit::{layer_permit_service, LayerPermitService, Request},
     },
 };
 use actix::Addr;
@@ -33,6 +39,7 @@ pub static HOST_CYCLES: AtomicUsize = AtomicUsize::new(0);
 /// - Dispatching frames to selected hosts via the RQD dispatcher
 pub struct MatchingService {
     host_service: Addr<HostCacheService>,
+    layer_permit_service: Addr<LayerPermitService>,
     layer_dao: LayerDao,
     dispatcher_service: Addr<RqdDispatcherService>,
     concurrency_semaphore: Arc<Semaphore>,
@@ -55,6 +62,7 @@ impl MatchingService {
     pub async fn new() -> Result<Self> {
         let layer_dao = LayerDao::new().await?;
         let host_service = host_cache_service().await?;
+        let layer_permit_service = layer_permit_service().await?;
         // let max_concurrent_transactions = 2;
         let max_concurrent_transactions = CONFIG.database.pool_size as usize * 3 / 5;
         let dispatcher_service = rqd_dispatcher_service().await?;
@@ -64,6 +72,7 @@ impl MatchingService {
 
         Ok(MatchingService {
             host_service,
+            layer_permit_service,
             layer_dao,
             dispatcher_service,
             concurrency_semaphore: Arc::new(Semaphore::new(max_concurrent_transactions)),
@@ -107,9 +116,26 @@ impl MatchingService {
                         .expect("Semaphore shouldn't be closed");
 
                     let cluster = cluster.clone();
-                    self.process_layer(layer, cluster).await;
-                    debug!("{}: Processed layer", layer_disp);
-                    processed_layers.fetch_add(1, Ordering::Relaxed);
+
+                    let layer_permit = self
+                        .layer_permit_service
+                        .send(Request {
+                            id: layer.id.clone(),
+                            duration: Duration::from_secs(2 * layer.frames.len() as u64),
+                        })
+                        .await
+                        .expect("Layer permit service is not available");
+
+                    if layer_permit {
+                        self.process_layer(layer, cluster).await;
+                        debug!("{}: Processed layer", layer_disp);
+                        processed_layers.fetch_add(1, Ordering::Relaxed);
+                    } else {
+                        debug!(
+                            "Layer skipped. {} already being processed by another task.",
+                            layer
+                        );
+                    }
                 }
 
                 if processed_layers.load(Ordering::Relaxed) == 0 {

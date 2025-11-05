@@ -215,7 +215,6 @@ impl RqdDispatcherService {
         // a great margin as each loop only runs for a limited number of frames
         // (see config queue.dispatch_frames_per_layer_limit)
         let mut allocation_capacity = host.alloc_available_cores;
-        let mut dispatched_procs: Vec<String> = Vec::new();
         let allocation_name = host.allocation_name.clone();
         let mut last_host_version = host;
 
@@ -233,10 +232,9 @@ impl RqdDispatcherService {
         // Deliberately cloning the layer to avoid requiring a mutable reference
         let mut layer = layer.clone();
         let mut last_error = None;
-        let mut frames_attempted = Vec::new();
+        let mut non_retrieable_frames = Vec::new();
 
         for frame in &layer.frames {
-            frames_attempted.push(frame.id.clone());
             let frame_str = format!("{}", frame);
 
             let (virtual_proc, updated_host) = match Self::consume_host_virtual_resources(
@@ -293,7 +291,7 @@ impl RqdDispatcherService {
                         .commit()
                         .await
                         .map_err(DispatchError::DbFailure)?;
-                    dispatched_procs.push(new_host.to_string());
+                    non_retrieable_frames.push(frame.id.clone());
                     allocation_capacity = new_allocation_capacity;
                     last_host_version = new_host;
                 }
@@ -327,6 +325,7 @@ impl RqdDispatcherService {
                                 "Frame {} couldn't be locked on the database. {}",
                                 frame_str, err
                             );
+                            non_retrieable_frames.push(frame.id.clone());
                             break;
                         }
                         DispatchVirtualProcError::RqdConnectionFailed { host, error } => {
@@ -341,6 +340,7 @@ impl RqdDispatcherService {
                         }
                         DispatchVirtualProcError::FailureAfterDispatch(report) => {
                             warn!("Failed after dispatch. {:?}", report);
+                            non_retrieable_frames.push(frame.id.clone());
                             return Err(report);
                         }
                     }
@@ -348,13 +348,7 @@ impl RqdDispatcherService {
             }
         }
 
-        // Consume both failed and successful frames. Not consuming failed frames can lead to a
-        // livelock situation, where all frames are locked an the caller keeps retrying them.
-        if !frames_attempted.is_empty() {
-            layer.drain_frames(frames_attempted);
-        }
-
-        if dispatched_procs.is_empty() {
+        if non_retrieable_frames.is_empty() {
             info!(
                 "Found no frames on {} to dispatch to {}",
                 layer, last_host_version
@@ -362,12 +356,17 @@ impl RqdDispatcherService {
         } else {
             debug!(
                 "Dispatched {} frames on {}: ",
-                dispatched_procs.len(),
+                non_retrieable_frames.len(),
                 layer
             );
-            for proc in dispatched_procs {
+            for proc in &non_retrieable_frames {
                 debug!("{}", proc);
             }
+        }
+
+        // Only drain successful frames. Failed frames will get retried on the next host candidate
+        if !non_retrieable_frames.is_empty() {
+            layer.drain_frames(non_retrieable_frames);
         }
 
         if let Some(error) = last_error {
