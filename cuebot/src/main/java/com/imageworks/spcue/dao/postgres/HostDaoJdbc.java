@@ -704,7 +704,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 	public void unlockHostForDispatching(String host_id) {
         try {
             getJdbcTemplate().queryForObject(
-                    "SELECT pg_try_advisory_unlock(hashtext(?))",
+                    "SELECT pg_advisory_unlock(hashtext(?))",
                     Boolean.class,
                     host_id);
         } catch (Exception e) {

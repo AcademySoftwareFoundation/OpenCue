@@ -35,3 +35,4 @@ sandbox/kafka-data
 sandbox/zookeeper-data
 sandbox/zookeeper-logs
 docs/_data/version.yml
+target/*
