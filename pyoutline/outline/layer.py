@@ -59,9 +59,9 @@ class LayerType(type):
     can be added to the current outline.
     """
     def __call__(cls, *args, **kwargs):
-        r = super().__call__(*args, **kwargs)
-        if outline.current_outline() and r.get_arg("register"):
-            outline.current_outline().add_layer(r)
+        layer = super().__call__(*args, **kwargs)
+        if outline.current_outline() and layer.get_arg("register"):
+            outline.current_outline().add_layer(layer)
 
         # Initialize with plugin system.  This is imported
         # here to get past a circular dependency.
@@ -69,10 +69,10 @@ class LayerType(type):
         from outline.plugins import PluginManager
         for plugin in PluginManager.get_plugins():
             try:
-                plugin.init(r)
+                plugin.init(layer)
             except AttributeError:
                 pass
-        return r
+        return layer
 
 
 class _LayerArgs(TypedDict, total=False):
