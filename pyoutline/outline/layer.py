@@ -36,11 +36,6 @@ from typing import (
     Set,
 )
 
-if sys.version_info >= (3, 12):
-    from typing import override, Unpack
-else:
-    from typing_extensions import override, Unpack
-
 import FileSequence
 
 import outline
@@ -50,6 +45,11 @@ import outline.event
 import outline.exception
 import outline.io
 import outline.util
+
+if sys.version_info >= (3, 12):
+    from typing import override, Unpack
+else:
+    from typing_extensions import override, Unpack
 
 
 __all__ = [
