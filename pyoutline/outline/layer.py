@@ -982,7 +982,7 @@ class Layer(metaclass=LayerType):
                 continue
             if not inpt.exists(frame_set):
                 msg = f"Check input failed ({name}), the path {inpt.get_path()} does not exist."
-                raise outline.exception.LayerException(msg % (name, inpt.get_path()))
+                raise outline.exception.LayerException(msg)
 
     def check_output(self, frame_set: Optional[FileSequence.FrameSet] = None) -> None:
         """
