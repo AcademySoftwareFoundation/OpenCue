@@ -26,6 +26,8 @@ import logging
 import tempfile
 from typing import TypedDict, List
 
+from overrides import override
+
 if sys.version_info >= (3, 8):
     from typing import Unpack
 else:
@@ -158,9 +160,11 @@ class Layer(metaclass=LayerType):
             os.path.realpath(__file__),
         )
 
+    @override
     def __str__(self) -> str:
         return self.get_name()
 
+    @override
     def __repr__(self) -> str:
         return (
             f"<{self.__class__.__name__} "
@@ -1132,15 +1136,13 @@ class Layer(metaclass=LayerType):
             return self.get_outline().get_layer(str(layer))
         return layer
 
-    def __str__(self):
-        return self.get_name()
-
 
 class Frame(Layer):
     """
     A frame is a layer with a single frame.  The frame number
     defaults to the first frame of the job.
     """
+    @override
     def get_frame_range(self):
         """
         Return the frame's number.  This overrides the
@@ -1159,6 +1161,7 @@ class Frame(Layer):
             return str(seq[0])
         return DEFAULT_FRAME_RANGE
 
+    @override
     def set_frame_range(self, frame_range):
         """
         Calling this method does nothing.
@@ -1186,6 +1189,7 @@ class LayerPreProcess(Frame):
         """Return the parent layer."""
         return self.__creator
 
+    @override
     def execute(self, frame):
         """
         Perform pre-propcess execute methods and call
@@ -1194,6 +1198,7 @@ class LayerPreProcess(Frame):
         super(LayerPreProcess, self).execute(frame)
         self.__save_outputs()
 
+    @override
     def get_frame_range(self):
         """
         Return the frame's number.  This overrides the
