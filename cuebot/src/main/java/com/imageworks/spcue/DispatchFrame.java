@@ -50,13 +50,13 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
     // The Operational System this frame is expected to run in
     public String os;
 
-    // Memory requirement for this frame in bytes
+    // Memory requirement for this frame in Kb
     private long minMemory;
 
-    // Soft limit to be enforced for this frame in bytes
+    // Soft limit to be enforced for this frame in Kb
     public long softMemoryLimit;
 
-    // Hard limit to be enforced for this frame in bytes
+    // Hard limit to be enforced for this frame in Kb
     public long hardMemoryLimit;
 
     public void setMinMemory(long minMemory) {
