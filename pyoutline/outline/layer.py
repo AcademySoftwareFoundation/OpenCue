@@ -1133,7 +1133,7 @@ class LayerPreProcess(Frame):
     the preprocess and its parent.
     """
     def __init__(self, creator, **args):
-        Frame.__init__(self, "%s_%s"
+        super().__init__("%s_%s"
                        % (creator.get_name(),
                           args.get("suffix","preprocess")), **args)
 
@@ -1197,7 +1197,7 @@ class LayerPostProcess(Frame):
     the parent and the post process.
     """
     def __init__(self, creator, propigate=True, **args):
-        Frame.__init__(self, "%s_postprocess" % creator.get_name(), **args)
+        super().__init__("%s_postprocess" % creator.get_name(), **args)
 
         self.__creator = creator
         self.depend_on(creator, outline.depend.DependType.LayerOnLayer, propigate=propigate)
@@ -1215,6 +1215,6 @@ class OutlinePostCommand(Frame):
     outline is complete, even if the outline has failed.
     """
     def __init__(self, name, **args):
-        Frame.__init__(self, name, **args)
+        super().__init__(name, **args)
         self.set_type("Post")
         self.set_service("postprocess")
