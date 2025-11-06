@@ -24,14 +24,26 @@ import os
 import sys
 import logging
 import tempfile
-from typing import TypedDict, List, Optional, Callable, Dict, Any, Union, Tuple, Set
-
-from overrides import override
+from typing import (
+    TypedDict,
+    List,
+    Optional,
+    Callable,
+    Dict,
+    Any,
+    Union,
+    Tuple,
+    Set,
+)
 
 if sys.version_info >= (3, 8):
     from typing import Unpack
 else:
     from typing_extensions import Unpack
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
 
 import FileSequence
 
