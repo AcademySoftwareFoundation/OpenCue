@@ -252,7 +252,7 @@ class Layer(metaclass=LayerType):
     def set_parent(self, layer):
         """Set the parent layer."""
 
-        if not isinstance(layer, (Layer)):
+        if not isinstance(layer, Layer):
             raise outline.exception.LayerException("Parent instance must derive from Layer.")
 
         self.__parent = layer
@@ -262,7 +262,7 @@ class Layer(metaclass=LayerType):
         Add a child layer to this layer. Child layers are
         executed  after the parent layer.
         """
-        if not isinstance(layer, (Layer)):
+        if not isinstance(layer, Layer):
             raise outline.exception.LayerException("Child instances must derive from Layer.")
 
         layer.set_outline(self.get_outline())
@@ -1088,7 +1088,7 @@ class Layer(metaclass=LayerType):
         """
         Resolve a layer name to a layer object
         """
-        if not isinstance(layer, (Layer)):
+        if not isinstance(layer, Layer):
             return self.get_outline().get_layer(str(layer))
         return layer
 
