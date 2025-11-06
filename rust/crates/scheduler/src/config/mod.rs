@@ -72,6 +72,7 @@ pub struct QueueConfig {
     #[serde(with = "humantime_serde")]
     pub allocation_refresh_interval: Duration,
     pub selfish_services: Vec<String>,
+    pub host_booking_strategy: HostBookingStrategy,
 }
 
 impl Default for QueueConfig {
@@ -91,6 +92,7 @@ impl Default for QueueConfig {
             mem_reserved_min: ByteSize::mib(250),
             allocation_refresh_interval: Duration::from_secs(3),
             selfish_services: Vec::new(),
+            host_booking_strategy: HostBookingStrategy::default(),
         }
     }
 }
@@ -107,6 +109,22 @@ impl Default for StreamConfig {
         Self {
             cluster_buffer_size: 3,
             job_buffer_size: 3,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[serde(default)]
+pub struct HostBookingStrategy {
+    pub core_saturation: bool,
+    pub memory_saturation: bool,
+}
+
+impl Default for HostBookingStrategy {
+    fn default() -> Self {
+        Self {
+            core_saturation: true,
+            memory_saturation: false,
         }
     }
 }

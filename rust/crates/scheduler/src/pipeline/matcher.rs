@@ -28,7 +28,8 @@ use miette::{Context, Result};
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info, warn};
 
-pub static HOST_CYCLES: AtomicUsize = AtomicUsize::new(0);
+pub static HOSTS_ATTEMPTED: AtomicUsize = AtomicUsize::new(0);
+pub static WASTED_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
 
 /// Event handler for booking jobs to available hosts.
 ///
@@ -63,8 +64,11 @@ impl MatchingService {
         let layer_dao = LayerDao::new().await?;
         let host_service = host_cache_service().await?;
         let layer_permit_service = layer_permit_service().await?;
-        // let max_concurrent_transactions = 2;
-        let max_concurrent_transactions = CONFIG.database.pool_size as usize * 3 / 5;
+
+        // Limiting the concurrency here is necessary to avoid consuming the entire
+        // database connection pool
+        let max_concurrent_transactions = (CONFIG.database.pool_size as usize).saturating_sub(1);
+
         let dispatcher_service = rqd_dispatcher_service().await?;
         let allocation_service = allocation_service()
             .await
@@ -109,6 +113,8 @@ impl MatchingService {
                 // Stream elegible layers from this job and dispatch one by one
                 for layer in layers {
                     let layer_disp = format!("{}", layer);
+                    // Limiting the concurrency here is necessary to avoid consuming the entire
+                    // database connection pool
                     let _permit = self
                         .concurrency_semaphore
                         .acquire()
@@ -117,6 +123,14 @@ impl MatchingService {
 
                     let cluster = cluster.clone();
 
+                    // Holding a permit for a layer is intended to eliminate a race condition
+                    // between concurrent cluster_rounds attempting to process the same layer.
+                    // The race condition is mitigated, but not complitely avoided, as the permit
+                    // is acquired after the layers and frames have been queried. Acquiring the
+                    // permit before querying would require breaking 'query_layers' into separate
+                    // queries, one per layer, which greatly impacts performance. The rare cases
+                    // that race each other are controlled by the frame.int_version lock on
+                    // frame_dao.lock_for_update
                     let layer_permit = self
                         .layer_permit_service
                         .send(Request {
@@ -146,6 +160,7 @@ impl MatchingService {
                 }
 
                 if processed_layers.load(Ordering::Relaxed) == 0 {
+                    WASTED_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
                     debug!("Job {} didn't process any layer", job_disp);
                 }
             }
@@ -236,7 +251,7 @@ impl MatchingService {
 
         while try_again && attempts > 0 {
             attempts -= 1;
-            HOST_CYCLES.fetch_add(1, Ordering::Relaxed);
+            HOSTS_ATTEMPTED.fetch_add(1, Ordering::Relaxed);
 
             // Take ownership of the layer for this iteration
             let layer = current_layer_version

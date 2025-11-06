@@ -5,7 +5,11 @@ mod stress_test {
     use crate::util::WaitingFrameClause;
     use std::{sync::atomic::Ordering, time::SystemTime};
 
-    use scheduler::{cluster::ClusterFeed, config::OVERRIDE_CONFIG, host_cache, pipeline};
+    use scheduler::{
+        cluster::{self, ClusterFeed},
+        config::OVERRIDE_CONFIG,
+        host_cache, pipeline,
+    };
     use tokio_test::assert_ok;
     use tracing::info;
     use tracing_test::traced_test;
@@ -51,14 +55,13 @@ mod stress_test {
         clean_up_test_data(test_prefix).await
     }
 
-    // #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
     #[actix::test]
-    // #[traced_test]
+    #[traced_test]
     async fn test_stress_small() {
         let desc = TestDescription {
             test_name: "sts".to_string(),
-            job_count: 200,
-            host_count: 800,
+            job_count: 2000,
+            host_count: 8000,
             layer_count: 4,
             frames_per_layer_count: 2,
             tag_count: 4,
@@ -92,7 +95,17 @@ mod stress_test {
         info!("Processed Frames: {} at {}s", desc.total_frames(), duration);
         info!(
             "Host attempts: {}",
-            pipeline::HOST_CYCLES.load(Ordering::Relaxed)
+            pipeline::HOSTS_ATTEMPTED.load(Ordering::Relaxed)
+        );
+        info!(
+            "Wasted attempts: {}%",
+            (pipeline::WASTED_ATTEMPTS.load(Ordering::Relaxed) as f32
+                / pipeline::HOSTS_ATTEMPTED.load(Ordering::Relaxed) as f32)
+                * 100.0
+        );
+        info!(
+            "Cluster rounds: {}",
+            cluster::CLUSTER_ROUNDS.load(Ordering::Relaxed)
         );
         info!("HostCache hit ratio = {}%", host_cache::hit_ratio().await);
 

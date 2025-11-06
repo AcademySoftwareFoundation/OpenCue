@@ -20,6 +20,8 @@ use crate::{
     dao::ClusterDao,
 };
 
+pub static CLUSTER_ROUNDS: AtomicUsize = AtomicUsize::new(0);
+
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Cluster {
     ComposedKey(ClusterKey),
@@ -257,6 +259,8 @@ impl ClusterFeed {
 
                 // At end of round, add backoff sleep
                 if completed_round {
+                    CLUSTER_ROUNDS.fetch_add(1, Ordering::Relaxed);
+
                     // Check if all/most clusters are sleeping
                     let sleeping_count = {
                         let sleep_map_lock = sleep_map.lock().unwrap_or_else(|p| p.into_inner());

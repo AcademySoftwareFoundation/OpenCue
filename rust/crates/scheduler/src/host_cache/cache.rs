@@ -32,7 +32,7 @@ use miette::Result;
 use tracing::debug;
 
 use crate::{
-    config::CONFIG,
+    config::{HostBookingStrategy, CONFIG},
     host_cache::HostCacheError,
     models::{CoreSize, Host},
 };
@@ -48,7 +48,7 @@ pub struct HostCache {
     last_queried: RwLock<SystemTime>,
     /// Marks if the data on this cache have expired
     last_fetched: RwLock<Option<SystemTime>>,
-    _mode: HostBookingStrategy,
+    strategy: HostBookingStrategy,
 }
 
 /// Wrapper around a RwLock to prevent interleaving locks
@@ -138,7 +138,12 @@ impl HostsByCoreAndMemory {
         }
     }
 
-    fn find_map_in_range<R, F>(&self, range: R, f: F) -> Option<(CoreKey, MemoryKey, String)>
+    fn find_map_in_range<R, F>(
+        &self,
+        range: R,
+        reverse: bool,
+        f: F,
+    ) -> Option<(CoreKey, MemoryKey, String)>
     where
         Self: Sized,
         F: FnMut(
@@ -151,7 +156,11 @@ impl HostsByCoreAndMemory {
             .read()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        lock.range(range).find_map(f)
+        if reverse {
+            lock.range(range).rev().find_map(f)
+        } else {
+            lock.range(range).find_map(f)
+        }
     }
 
     fn remove(&self, core_key: &CoreKey, memory_key: &MemoryKey, host_key: String) -> Option<Host> {
@@ -225,15 +234,6 @@ impl HostsByCoreAndMemory {
     }
 }
 
-pub enum HostBookingStrategy {
-    /// Prioritize high utilization of hosts
-    /// TODO: Strategy not implemented yet
-    _PrioritizeResourceSaturation,
-
-    /// Prioritize high distribution of hosts
-    PrioritizeLoadDistribution,
-}
-
 impl Default for HostCache {
     fn default() -> Self {
         HostCache {
@@ -241,7 +241,7 @@ impl Default for HostCache {
             hosts_by_core_and_memory: HostsByCoreAndMemory::new(),
             last_queried: RwLock::new(SystemTime::now()),
             last_fetched: RwLock::new(None),
-            _mode: HostBookingStrategy::PrioritizeLoadDistribution,
+            strategy: CONFIG.queue.host_booking_strategy,
         }
     }
 }
@@ -373,19 +373,26 @@ impl HostCache {
             // Start searching from the core_key
             self.hosts_by_core_and_memory.find_map_in_range(
                 core_key..,
+                // If core saturation is false, start searching at reverse order to find hosts with the
+                // max amount of cores available
+                !self.strategy.core_saturation,
                 |(by_core_key, hosts_by_memory)| {
-                    hosts_by_memory
-                        // On each entry, search for hosts with at least the same amount of memory requested
-                        .range(memory_key..)
-                        .find_map(|(by_memory_key, hosts)| {
-                            let found_host = hosts.iter().find(|(_, host)|
-                                    // Only select a host that pass the validation function.
-                                    // Check memory capacity as a memory key groups a range of different memory values
-                                    validation(host) && host.idle_memory >= memory);
-                            found_host.map(|(host_key, _)| {
-                                (*by_core_key, *by_memory_key, host_key.clone())
-                            })
-                        })
+                    let find_fn = |(by_memory_key, hosts): (&u64, &HashMap<String, _>)| {
+                        let found_host = hosts.iter().find(|(_, host)|
+                                // Only select a host that pass the validation function.
+                                // Check memory capacity as a memory key groups a range of
+                                // different memory values
+                                validation(host) && host.idle_memory >= memory);
+                        found_host
+                            .map(|(host_key, _)| (*by_core_key, *by_memory_key, host_key.clone()))
+                    };
+                    if self.strategy.memory_saturation {
+                        // Search for hosts with at least the same amount of memory requested
+                        hosts_by_memory.range(memory_key..).find_map(find_fn)
+                    } else {
+                        // Search for hosts with the most amount of memory available
+                        hosts_by_memory.range(memory_key..).rev().find_map(find_fn)
+                    }
                 },
             )
         };
@@ -400,7 +407,6 @@ impl HostCache {
             }
         }
         None
-        // TODO: Make this logic strategy aware
     }
 
     /// Returns a host to the cache after use.
@@ -532,11 +538,9 @@ mod tests {
 
         cache.check_in(host.clone());
 
-        assert!(
-            cache
-                .host_keys_by_host_id
-                .contains_key(&host_id.to_string())
-        );
+        assert!(cache
+            .host_keys_by_host_id
+            .contains_key(&host_id.to_string()));
         assert!(!cache.hosts_by_core_and_memory.is_empty());
     }
 
@@ -582,11 +586,9 @@ mod tests {
         let core_key = checked_out_host.idle_cores.value() as u32;
 
         assert_eq!(checked_out_host.id, host_id.to_string());
-        assert!(
-            !cache
-                .host_keys_by_host_id
-                .contains_key(&host_id.to_string())
-        );
+        assert!(!cache
+            .host_keys_by_host_id
+            .contains_key(&host_id.to_string()));
 
         let left_over_host =
             cache
@@ -766,15 +768,5 @@ mod tests {
 
         // The hosts should be different
         assert_ne!(result1.unwrap().id, result2.unwrap().id);
-    }
-
-    #[test]
-    fn test_host_booking_strategy() {
-        let cache = HostCache::default();
-        // Just verify the strategy is set correctly
-        assert!(matches!(
-            cache._mode,
-            HostBookingStrategy::PrioritizeLoadDistribution
-        ));
     }
 }

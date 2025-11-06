@@ -239,8 +239,6 @@ ORDER BY
     lf.int_layer_order
 "#;
 
-// TODO: Take table limit_record into consideration
-
 impl LayerDao {
     /// Creates a new LayerDao from database configuration.
     ///

@@ -7,7 +7,7 @@ use rand::{
 use scheduler::{
     cluster::Cluster,
     cluster_key::{ClusterKey, Tag, TagType},
-    config::{Config, DatabaseConfig, LoggingConfig, QueueConfig, RqdConfig},
+    config::{Config, DatabaseConfig, HostBookingStrategy, LoggingConfig, QueueConfig, RqdConfig},
 };
 use std::time::Duration;
 use uuid::Uuid;
@@ -80,6 +80,10 @@ pub fn create_test_config() -> Config {
             mem_reserved_min: bytesize::ByteSize::mb(250),
             allocation_refresh_interval: Duration::from_secs(3),
             selfish_services: Vec::new(),
+            host_booking_strategy: HostBookingStrategy {
+                core_saturation: true,
+                memory_saturation: false,
+            },
         },
         database: DatabaseConfig {
             pool_size: 20,
