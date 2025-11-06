@@ -55,7 +55,7 @@ class LayerType(type):
     can be added to the current outline.
     """
     def __call__(cls, *args, **kwargs):
-        r = super(LayerType, cls).__call__(*args, **kwargs)
+        r = super().__call__(*args, **kwargs)
         if outline.current_outline() and r.get_arg("register"):
             outline.current_outline().add_layer(r)
 
