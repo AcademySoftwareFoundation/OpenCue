@@ -978,7 +978,7 @@ class Layer(metaclass=LayerType):
         """
         try:
             return self.__input[name]
-        except:
+        except KeyError:
             msg = f"An input by the name {name} does not exist."
             raise outline.exception.LayerException(msg)
 
@@ -991,7 +991,7 @@ class Layer(metaclass=LayerType):
         """
         try:
             return self.__output[name]
-        except:
+        except KeyError:
             msg = f"An output by the name {name} does not exist."
             raise outline.exception.LayerException(msg)
 
