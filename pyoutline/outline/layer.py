@@ -103,7 +103,11 @@ class Layer(metaclass=LayerType):
         # Default the layer type to the Render type as
         # defined in the constants module
         self.__type = None
-        self.set_type(outline.constants.LayerType(args.get("type", outline.constants.LayerType.RENDER)))
+        self.set_type(
+            outline.constants.LayerType(
+                args.get("type", outline.constants.LayerType.RENDER)
+            )
+        )
 
         # A set of arguments that is required before
         # the Layer can be launched.
@@ -149,7 +153,21 @@ class Layer(metaclass=LayerType):
         self.__preprocess_layers = []
 
         logger.debug(
-            "module %s loaded from %s", self.__class__.__name__, os.path.realpath(__file__))
+            "module %s loaded from %s",
+            self.__class__.__name__,
+            os.path.realpath(__file__),
+        )
+
+    def __str__(self) -> str:
+        return self.get_name()
+
+    def __repr__(self) -> str:
+        return (
+            f"<{self.__class__.__name__} "
+            f"name='{self.get_name()}' "
+            f"type='{self.get_type()}' "
+            f"at {hex(id(self))}>"
+        )
 
     def _after_init(self, ol):
         """
