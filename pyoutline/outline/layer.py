@@ -36,14 +36,10 @@ from typing import (
     Set,
 )
 
-if sys.version_info >= (3, 8):
-    from typing import Unpack
-else:
-    from typing_extensions import Unpack
 if sys.version_info >= (3, 12):
-    from typing import override
+    from typing import override, Unpack
 else:
-    from typing_extensions import override
+    from typing_extensions import override, Unpack
 
 import FileSequence
 
