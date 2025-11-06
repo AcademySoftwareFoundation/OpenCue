@@ -24,6 +24,12 @@ import os
 import sys
 import logging
 import tempfile
+from typing import TypedDict, List
+
+if sys.version_info >= (3, 8):
+    from typing import Unpack
+else:
+    from typing_extensions import Unpack
 
 import FileSequence
 
@@ -69,21 +75,35 @@ class LayerType(type):
         return r
 
 
+class _LayerArgs(TypedDict, total=False):
+    """A typed dict to help annotate layer args."""
+
+    chunk: int
+    command: List[str]
+    env: dict
+    range: str
+    register: bool
+    limits: list
+    type: outline.constants.LayerType
+    service: str
+    shell: str
+
+
 class Layer(metaclass=LayerType):
     """The base class for all outline modules."""
 
-    def __init__(self, name, **args):
+    def __init__(self, name: str, **args: Unpack[_LayerArgs]) -> None:
         super().__init__()
 
         self.__name = name
 
         # Contains the args hash.
-        self.__args = self.get_default_args(args)
+        self.__args = self.get_default_args(merge=args)
 
         # Default the layer type to the Render type as
         # defined in the constants module
         self.__type = None
-        self.set_type(args.get("type", outline.constants.LayerType.RENDER))
+        self.set_type(outline.constants.LayerType(args.get("type", outline.constants.LayerType.RENDER)))
 
         # A set of arguments that is required before
         # the Layer can be launched.
@@ -1103,9 +1123,6 @@ class Frame(Layer):
     A frame is a layer with a single frame.  The frame number
     defaults to the first frame of the job.
     """
-    def __init__(self, name, **args):
-        super().__init__(name, **args)
-
     def get_frame_range(self):
         """
         Return the frame's number.  This overrides the
@@ -1137,7 +1154,7 @@ class LayerPreProcess(Frame):
     "parent_preprocess".  A dependency is automatically setup between
     the preprocess and its parent.
     """
-    def __init__(self, creator, **args):
+    def __init__(self, creator, **args: Unpack[_LayerArgs]):
         super().__init__(f"{creator.get_name()}_{args.get('suffix','preprocess')}", **args)
 
         self.__creator = creator
@@ -1199,7 +1216,7 @@ class LayerPostProcess(Frame):
     "parent_postprocess".  A dependency is automatically setup between
     the parent and the post process.
     """
-    def __init__(self, creator, propigate=True, **args):
+    def __init__(self, creator, propigate=True, **args: Unpack[_LayerArgs]):
         super().__init__(f"{creator.get_name()}_postprocess", **args)
 
         self.__creator = creator
@@ -1217,7 +1234,7 @@ class OutlinePostCommand(Frame):
     A post command is a special frame that kicks off after the
     outline is complete, even if the outline has failed.
     """
-    def __init__(self, name, **args):
+    def __init__(self, name, **args: Unpack[_LayerArgs]):
         super().__init__(name, **args)
         self.set_type(outline.constants.LayerType.POST)
         self.set_service("postprocess")
