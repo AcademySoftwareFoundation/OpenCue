@@ -10,6 +10,9 @@ description = "OpenCue Server Side Job Queueing Service"
 path = "src/main.rs"
 name = "cue-scheduler"
 
+[profile.bench]
+debug = true
+
 [dependencies]
 # Internal Dependencies
 opencue-proto = { path = "../opencue-proto" }

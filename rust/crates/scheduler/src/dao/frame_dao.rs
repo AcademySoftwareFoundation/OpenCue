@@ -150,6 +150,7 @@ impl FrameDao {
     ///
     /// * `Ok(())` - Lock acquired successfully
     /// * `Err(FrameDaoError::FailedToLockForUpdate)` - Lock unavailable or frame changed
+    #[allow(dead_code)]
     pub async fn lock_for_update(
         &self,
         transaction: &mut Transaction<'_, Postgres>,
@@ -194,8 +195,10 @@ impl FrameDao {
         transaction: &mut Transaction<'_, Postgres>,
         virtual_proc: &VirtualProc,
     ) -> Result<(), FrameDaoError> {
-        self.lock_for_update(transaction, &virtual_proc.frame)
-            .await?;
+        // Lock for update is a good practive to avoid locking when trying to update rows, but
+        // stress tests proved that the query is prohibitively expensive.
+        // self.lock_for_update(transaction, &virtual_proc.frame)
+        //     .await?;
 
         let result = sqlx::query(
             r#"
