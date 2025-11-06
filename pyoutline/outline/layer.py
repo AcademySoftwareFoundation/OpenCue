@@ -303,7 +303,7 @@ class Layer(metaclass=LayerType):
     def get_name(self):
         """Return the layer name."""
         if self.__parent:
-            return "%s.%s" % (self.__parent.get_name(), self.__name)
+            return f"{self.__parent.get_name()}.{self.__name}"
         return self.__name
 
     def set_name(self, name):
@@ -334,8 +334,9 @@ class Layer(metaclass=LayerType):
         Sets the general scope/purpose of this layer.
         """
         if t not in outline.constants.LAYER_TYPES:
-            raise outline.exception.LayerException("%s is not a valid layer type: %s" % (
-                t, outline.constants.LAYER_TYPES))
+            raise outline.exception.LayerException(
+                f"{t} is not a valid layer type: {outline.constants.LAYER_TYPES}"
+            )
         self.__type = t
 
     def get_outline(self):
@@ -482,10 +483,11 @@ class Layer(metaclass=LayerType):
         for arg, rtype in self.__req_args:
             if arg == key and rtype:
                 if not isinstance(value, rtype):
-                    msg = "The arg %s for the %s module must be a %s"
-                    raise outline.exception.LayerException(msg % (arg,
-                                                self.__class__.__name__,
-                                                rtype))
+                    msg = (
+                        f"The arg {arg} for the {self.__class__.__name__} "
+                        f"module must be a {rtype}"
+                    )
+                    raise outline.exception.LayerException(msg)
                 break
         self.__args[key] = value
 
@@ -739,8 +741,8 @@ class Layer(metaclass=LayerType):
             except IndexError:
                 break
         if not local_frame_set:
-            raise outline.exception.LayerException(
-                "Frame %d is outside of the frame range." % start_frame)
+            msg = f"Frame {start_frame} is outside of the frame range."
+            raise outline.exception.LayerException(msg)
         return outline.util.make_frame_set(local_frame_set)
 
     def set_chunk_size(self, size):
@@ -897,7 +899,7 @@ class Layer(metaclass=LayerType):
             if not inpt.get_attribute("checked"):
                 continue
             if not inpt.exists(frame_set):
-                msg = "Check input failed (%s), the path %s does not exist."
+                msg = f"Check input failed ({name}), the path {inpt.get_path()} does not exist."
                 raise outline.exception.LayerException(msg % (name, inpt.get_path()))
 
     def check_output(self, frame_set=None):
@@ -911,19 +913,22 @@ class Layer(metaclass=LayerType):
             if not output.get_attribute("checked"):
                 continue
             if not output.exists(frame_set):
-                msg = "Check output failed (%s), the path %s does not exist."
-                raise outline.exception.LayerException(msg % (name, output.get_path()))
+                msg = (
+                    f"Check output failed ({name}), "
+                   f"the path {output.get_path()} does not exist."
+                )
+                raise outline.exception.LayerException(msg)
 
     def add_input(self, name, inpt):
         """
         Add an input to this layer.
         """
         if not name:
-            name = "input%d" % len(self.__input)
+            name = f"input{len(self.__input)}"
         name = str(name)
         if name in self.__input:
-            msg = "An input with the name %s has already been created."
-            raise outline.exception.LayerException(msg % name)
+            msg = f"An input with the name {name} has already been created."
+            raise outline.exception.LayerException(msg)
 
         if not isinstance(inpt, outline.io.Path):
             inpt = outline.io.Path(inpt)
@@ -938,8 +943,8 @@ class Layer(metaclass=LayerType):
             name = "output%d" % len(self.__output)
         name = str(name)
         if name in self.__output:
-            msg = "An output with the name %s has already been created."
-            raise outline.exception.LayerException(msg % name)
+            msg = f"An output with the name {name} has already been created."
+            raise outline.exception.LayerException(msg)
 
         if not isinstance(output, outline.io.Path):
             output = outline.io.Path(output)
@@ -974,8 +979,8 @@ class Layer(metaclass=LayerType):
         try:
             return self.__input[name]
         except:
-            raise outline.exception.LayerException(
-                "An input by the name %s does not exist." % name)
+            msg = f"An input by the name {name} does not exist."
+            raise outline.exception.LayerException(msg)
 
     def get_output(self, name):
         """
@@ -987,8 +992,8 @@ class Layer(metaclass=LayerType):
         try:
             return self.__output[name]
         except:
-            raise outline.exception.LayerException(
-                "An output by the name %s does not exist." % name)
+            msg = f"An output by the name {name} does not exist."
+            raise outline.exception.LayerException(msg)
 
     def set_output_attribute(self, name, value):
         """
@@ -1020,12 +1025,12 @@ class Layer(metaclass=LayerType):
         """
         for key, rtype in self.__req_args:
             if key not in self.__args:
-                msg = "The %s layer requires the %s property to be set."
-                raise outline.exception.LayerException(msg % (self, key))
+                msg = f"The {self} layer requires the {key} property to be set."
+                raise outline.exception.LayerException(msg)
             if rtype:
                 if not isinstance(self.__args[key], rtype):
-                    msg = "The %s layer requires %s to be of the type %s"
-                    raise outline.exception.LayerException(msg % (self, key, rtype))
+                    msg = f"The {self} layer requires {key} to be of the type {rtype}"
+                    raise outline.exception.LayerException(msg)
 
     def get_preprocess_layers(self):
         """
@@ -1131,9 +1136,7 @@ class LayerPreProcess(Frame):
     the preprocess and its parent.
     """
     def __init__(self, creator, **args):
-        super().__init__("%s_%s"
-                       % (creator.get_name(),
-                          args.get("suffix","preprocess")), **args)
+        super().__init__(f"{creator.get_name()}_{args.get('suffix','preprocess')}", **args)
 
         self.__creator = creator
         self.__creator.depend_on(self, outline.depend.DependType.LayerOnLayer, propigate=False)
@@ -1195,7 +1198,7 @@ class LayerPostProcess(Frame):
     the parent and the post process.
     """
     def __init__(self, creator, propigate=True, **args):
-        super().__init__("%s_postprocess" % creator.get_name(), **args)
+        super().__init__(f"{creator.get_name()}_postprocess", **args)
 
         self.__creator = creator
         self.depend_on(creator, outline.depend.DependType.LayerOnLayer, propigate=propigate)
