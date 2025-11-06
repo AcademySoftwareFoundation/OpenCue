@@ -83,7 +83,7 @@ class Layer(metaclass=LayerType):
         # Default the layer type to the Render type as
         # defined in the constants module
         self.__type = None
-        self.set_type(args.get("type", outline.constants.LAYER_TYPES[0]))
+        self.set_type(args.get("type", outline.constants.LayerType.RENDER))
 
         # A set of arguments that is required before
         # the Layer can be launched.
@@ -318,7 +318,7 @@ class Layer(metaclass=LayerType):
             raise outline.exception.LayerException(msg)
         self.__name = name
 
-    def get_type(self):
+    def get_type(self) -> outline.constants.LayerType:
         """
         Returns the general scope or purpose of the Layer.  Allowed
         types are:
@@ -329,15 +329,17 @@ class Layer(metaclass=LayerType):
         """
         return self.__type
 
-    def set_type(self, t):
+    def set_type(self, t: outline.constants.LayerType) -> None:
         """
         Sets the general scope/purpose of this layer.
         """
-        if t not in outline.constants.LAYER_TYPES:
+        try:
+            typ = outline.constants.LayerType(t)
+        except ValueError:
             raise outline.exception.LayerException(
-                f"{t} is not a valid layer type: {outline.constants.LAYER_TYPES}"
+                f"{t} is not a valid layer type: {list(outline.constants.LayerType)}"
             )
-        self.__type = t
+        self.__type = typ
 
     def get_outline(self):
         """Return the parent outline object."""
@@ -1142,7 +1144,7 @@ class LayerPreProcess(Frame):
         self.__creator.depend_on(self, outline.depend.DependType.LayerOnLayer, propigate=False)
         self.__creator.add_preprocess_layer(self)
 
-        self.set_type("Util")
+        self.set_type(outline.constants.LayerType.UTIL)
         self.set_service("preprocess")
 
     def get_creator(self):
@@ -1203,7 +1205,7 @@ class LayerPostProcess(Frame):
         self.__creator = creator
         self.depend_on(creator, outline.depend.DependType.LayerOnLayer, propigate=propigate)
 
-        self.set_type("Util")
+        self.set_type(outline.constants.LayerType.UTIL)
 
     def get_creator(self):
         """Return the layer that creeated this Postprocess."""
@@ -1217,5 +1219,5 @@ class OutlinePostCommand(Frame):
     """
     def __init__(self, name, **args):
         super().__init__(name, **args)
-        self.set_type("Post")
+        self.set_type(outline.constants.LayerType.POST)
         self.set_service("postprocess")
