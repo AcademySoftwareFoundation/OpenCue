@@ -22,8 +22,6 @@ from __future__ import division
 
 from builtins import str
 from builtins import range
-from builtins import object
-from future.utils import with_metaclass
 import os
 import sys
 import logging
@@ -73,12 +71,11 @@ class LayerType(type):
         return r
 
 
-class Layer(with_metaclass(LayerType, object)):
+class Layer(metaclass=LayerType):
     """The base class for all outline modules."""
 
     def __init__(self, name, **args):
-        # pylint: disable=non-parent-init-called
-        object.__init__(self)
+        super().__init__()
 
         self.__name = name
 
@@ -1102,7 +1099,7 @@ class Frame(Layer):
     defaults to the first frame of the job.
     """
     def __init__(self, name, **args):
-        Layer.__init__(self, name, **args)
+        super().__init__(name, **args)
 
     def get_frame_range(self):
         """
