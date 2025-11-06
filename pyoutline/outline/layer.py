@@ -24,7 +24,7 @@ import os
 import sys
 import logging
 import tempfile
-from typing import TypedDict, List, Optional, Callable, Dict, Any, Union
+from typing import TypedDict, List, Optional, Callable, Dict, Any, Union, Tuple, Set
 
 from overrides import override
 
@@ -107,7 +107,7 @@ class Layer(metaclass=LayerType):
 
         # Default the layer type to the Render type as
         # defined in the constants module
-        self.__type = None
+        self.__type: Optional[outline.constants.LayerType] = None
         self.set_type(
             outline.constants.LayerType(
                 args.get("type", outline.constants.LayerType.RENDER)
@@ -116,20 +116,20 @@ class Layer(metaclass=LayerType):
 
         # A set of arguments that is required before
         # the Layer can be launched.
-        self.__req_args = set()
+        self.__req_args: Set[Tuple[str, Any]] = set()
 
         # A list to store what this layer depends on.
-        self.__depends = []
+        self.__depends: List[outline.depend.Depend] = []
 
         # If this layer is embedded within another layer
         # the parent value will point to that layer.
-        self.__parent = None
+        self.__parent: Optional[Layer] = None
 
         # Contains IO objects that are considered input.
-        self.__input = {}
+        self.__input: Dict[str, Any] = {}
 
         # Contains IO objects that are considered output.
-        self.__output = {}
+        self.__output: Dict[str, Any] = {}
 
         # A dictionary of environment variables to apply before execute.
         self.__env = {}
@@ -137,7 +137,7 @@ class Layer(metaclass=LayerType):
 
         # Children are unregistered layers that are executed
         # after the parent layer.
-        self.__children = []
+        self.__children: List[Layer] = []
 
         # The default name of the service.
         self.__service = self.__args.get("service", "shell")
@@ -146,16 +146,16 @@ class Layer(metaclass=LayerType):
         self.__limits = self.__args.get("limits")
 
         # The current frame number.
-        self.__frame = None
+        self.__frame: Optional[int] = None
 
         # Initialize the outline instance.
-        self.__outline = None
+        self.__outline: Optional[outline.Outline] = None
 
         # Register an event handler.
         self.__evh = outline.event.EventHandler(self)
 
         # Keep an array of all pre-process frames.
-        self.__preprocess_layers = []
+        self.__preprocess_layers: List[LayerPreProcess] = []
 
         logger.debug(
             "module %s loaded from %s",
@@ -259,20 +259,18 @@ class Layer(metaclass=LayerType):
         # would be defined within the relevant backend module or in
         # the outline configuration file.
 
-        defaults = {}
-
-        # By default all layers are registered. Registered layers show up
-        # as discrete layers. Unregistered layers are generally embedded
-        # in registered layers.
-        defaults["register"] = True
-
-        # The default chunk size.
-        defaults["chunk"] = 1
-
-        # A null frame range indicates the event
-        # will default to the overall frame range
-        # defined in the parent outline.
-        defaults["range"] = None
+        defaults: Dict[str, Any] = {
+            # By default, all layers are registered. Registered layers show up
+            # as discrete layers. Unregistered layers are generally embedded
+            # in registered layers.
+            "register" : True,
+            # The default chunk size.
+            "chunk" : 1,
+            # A null frame range indicates the event
+            # will default to the overall frame range
+            # defined in the parent outline.
+            "range" : None,
+        }
 
         # Now apply any settings found in the configuration file.
         # These settings override the procedural defaults set in
