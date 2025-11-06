@@ -436,7 +436,7 @@ impl RqdDispatcherService {
 
         // When running on dry_run_mode, just log the outcome
         if self.dry_run_mode {
-            info!("(DRY_RUN) Dispatching {} on {}", virtual_proc, &host);
+            debug!("(DRY_RUN) Dispatching {} on {}", virtual_proc, &host);
         } else {
             self.launch_on_rqd(&virtual_proc, &host, true)
                 .await

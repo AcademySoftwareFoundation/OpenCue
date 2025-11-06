@@ -20,7 +20,7 @@ use crate::{
             messages::{DispatchLayerMessage, DispatchResult},
             rqd_dispatcher_service, RqdDispatcherService,
         },
-        layer_permit::{layer_permit_service, LayerPermitService, Request},
+        layer_permit::{layer_permit_service, LayerPermitService, Release, Request},
     },
 };
 use actix::Addr;
@@ -127,8 +127,15 @@ impl MatchingService {
                         .expect("Layer permit service is not available");
 
                     if layer_permit {
+                        let layer_id = layer.id.clone();
                         self.process_layer(layer, cluster).await;
                         debug!("{}: Processed layer", layer_disp);
+
+                        self.layer_permit_service
+                            .send(Release { id: layer_id })
+                            .await
+                            .expect("Layer permit service is not available");
+
                         processed_layers.fetch_add(1, Ordering::Relaxed);
                     } else {
                         debug!(

@@ -30,6 +30,21 @@ pub struct Request {
     pub duration: Duration,
 }
 
+/// Actor message to release a permit for a layer.
+///
+/// # Fields
+///
+/// * `id` - Unique identifier for the layer
+///
+/// # Returns
+///
+/// * `bool` - true if permit was release, false if there wasn't a valid permit
+#[derive(Message)]
+#[rtype(result = "bool")]
+pub struct Release {
+    pub id: String,
+}
+
 /// Internal representation of a layer permit.
 ///
 /// Tracks when a permit was issued and how long it's valid for.
@@ -115,6 +130,28 @@ impl Handler<Request> for LayerPermitService {
                 let _ = self.permits.insert_sync(id.clone(), new_permit);
                 debug!("Granted permit for layer {} (duration: {:?})", id, duration);
                 true
+            }
+        }
+    }
+}
+
+impl Handler<Release> for LayerPermitService {
+    type Result = bool;
+
+    fn handle(&mut self, msg: Release, _ctx: &mut Self::Context) -> Self::Result {
+        let Release { id } = msg;
+
+        // Check if there's an existing permit
+        let existing = self.permits.remove_sync(&id);
+
+        match existing {
+            Some((_, permit)) if !permit.expired() => {
+                // Valid permit removed
+                true
+            }
+            _ => {
+                // No valid permit found
+                false
             }
         }
     }
