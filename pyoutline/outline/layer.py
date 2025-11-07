@@ -94,12 +94,16 @@ class _LayerArgs(TypedDict, total=False):
 
     chunk: int
     command: List[str]
+    cores: int
     env: Dict[str, str]
+    limits: list
+    memory: str
     range: str
     register: bool
-    limits: list
-    type: outline.constants.LayerType
     service: str
+    timeout: int
+    timeout_llu: int
+    type: outline.constants.LayerType
 
 
 class Layer(metaclass=LayerType):
