@@ -60,8 +60,8 @@ mod stress_test {
     async fn test_stress_small() {
         let desc = TestDescription {
             test_name: "sts".to_string(),
-            job_count: 200,
-            host_count: 800,
+            job_count: 2000,
+            host_count: 8000,
             layer_count: 4,
             frames_per_layer_count: 2,
             tag_count: 4,

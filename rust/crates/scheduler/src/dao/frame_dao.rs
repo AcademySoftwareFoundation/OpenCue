@@ -61,7 +61,7 @@ pub struct DispatchFrameModel {
     pub int_layer_cores_max: i32,
     pub int_version: i32,
     pub str_loki_url: Option<String>,
-    pub ts_updated: DateTime<Utc>,
+    pub ts_updated: Option<DateTime<Utc>>,
 }
 
 impl From<DispatchFrameModel> for DispatchFrame {
@@ -81,7 +81,10 @@ impl From<DispatchFrameModel> for DispatchFrame {
                 .any(|item| services.contains(item))
         };
         // Convert to SystemTime
-        let updated_at = SystemTime::from(val.ts_updated);
+        let updated_at = match val.ts_updated {
+            Some(t) => SystemTime::from(t),
+            None => SystemTime::now(),
+        };
 
         DispatchFrame {
             id: val.pk_frame,

@@ -13,6 +13,7 @@ use crate::{
     allocation::allocation_service,
     config::CONFIG,
     dao::{FrameDao, FrameDaoError, HostDao, LayerDao, ProcDao},
+    metrics,
     models::{CoreSize, DispatchFrame, DispatchLayer, Host, VirtualProc},
     pgpool::begin_transaction,
     pipeline::dispatcher::{
@@ -291,6 +292,15 @@ impl RqdDispatcherService {
                         .commit()
                         .await
                         .map_err(DispatchError::DbFailure)?;
+
+                    // Track successful frame dispatch
+                    metrics::increment_frames_dispatched();
+
+                    // Track time from frame updated_at to dispatch
+                    if let Ok(elapsed) = frame.updated_at.elapsed() {
+                        metrics::observe_time_to_book(elapsed);
+                    }
+
                     non_retrieable_frames.push(frame.id.clone());
                     allocation_capacity = new_allocation_capacity;
                     last_host_version = new_host;

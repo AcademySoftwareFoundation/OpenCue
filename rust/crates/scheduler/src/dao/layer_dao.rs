@@ -87,7 +87,7 @@ pub struct LayerWithFramesModel {
     pub int_layer_cores_max: Option<i32>,
     pub int_version: Option<i32>,
     pub str_loki_url: Option<String>,
-    pub ts_updated: DateTime<Utc>,
+    pub ts_updated: Option<DateTime<Utc>>,
 }
 
 impl DispatchLayer {

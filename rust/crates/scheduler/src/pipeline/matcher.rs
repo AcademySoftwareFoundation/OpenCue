@@ -13,6 +13,7 @@ use crate::{
     config::CONFIG,
     dao::LayerDao,
     host_cache::{host_cache_service, messages::*, HostCacheService},
+    metrics,
     models::{CoreSize, DispatchJob, DispatchLayer, Host},
     pipeline::{
         dispatcher::{
@@ -26,7 +27,7 @@ use crate::{
 use actix::Addr;
 use miette::{Context, Result};
 use tokio::sync::Semaphore;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, trace};
 
 pub static HOSTS_ATTEMPTED: AtomicUsize = AtomicUsize::new(0);
 pub static WASTED_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
@@ -245,6 +246,7 @@ impl MatchingService {
     async fn process_layer(&self, dispatch_layer: DispatchLayer, cluster: Arc<Cluster>) {
         let mut try_again = true;
         let mut attempts = CONFIG.queue.host_candidate_attemps_per_layer;
+        let initial_attempts = attempts;
 
         // Use Option to handle ownership transfer cleanly
         let mut current_layer_version = Some(dispatch_layer);
@@ -324,6 +326,9 @@ impl MatchingService {
                             if updated_layer.frames.is_empty() {
                                 // Stop on the first successful attempt
                                 debug!("Layer {} fully consumed.", updated_layer,);
+                                // Track how many candidates were needed to fully consume this layer
+                                let candidates_used = initial_attempts - attempts + 1;
+                                metrics::observe_candidates_per_layer(candidates_used);
                                 try_again = false;
                             } else {
                                 debug!(
@@ -363,6 +368,7 @@ impl MatchingService {
                                 "No host candidate available for layer {}",
                                 current_layer_version.as_ref().unwrap()
                             );
+                            metrics::increment_no_candidate_iterations();
                             try_again = false;
                         }
                         crate::host_cache::HostCacheError::FailedToQueryHostCache(err) => {

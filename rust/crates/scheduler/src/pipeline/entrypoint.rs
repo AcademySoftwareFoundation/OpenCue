@@ -10,6 +10,7 @@ use tracing::{debug, error, info};
 use crate::cluster::{Cluster, ClusterFeed, FeedMessage};
 use crate::config::CONFIG;
 use crate::dao::JobDao;
+use crate::metrics;
 use crate::models::DispatchJob;
 use crate::pipeline::MatchingService;
 
@@ -65,12 +66,16 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
 
                 match jobs {
                     Ok(jobs) => {
+                        // Track number of jobs queried
+                        metrics::increment_jobs_queried(jobs.len());
+
                         let processed_jobs = AtomicUsize::new(0);
                         stream::iter(jobs)
                             .for_each_concurrent(
                                 CONFIG.queue.stream.job_buffer_size,
                                 |job_model| async {
                                     processed_jobs.fetch_add(1, Ordering::Relaxed);
+                                    metrics::increment_jobs_processed();
                                     let job = DispatchJob::new(job_model, cluster.clone());
                                     debug!("Found job: {}", job);
                                     matcher.process(job).await;
