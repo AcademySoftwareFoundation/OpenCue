@@ -96,7 +96,7 @@ class _LayerArgs(TypedDict, total=False):
     command: List[str]
     cores: int
     env: Dict[str, str]
-    limits: list
+    limits: List[str]
     memory: str
     range: str
     register: bool
