@@ -969,7 +969,7 @@ async fn create_job_scenario(
         for frame_num in 1..=frames_per_layer_count as i32 {
             let frame_id = Uuid::new_v4();
             sqlx::query(
-                    "INSERT INTO frame (pk_frame, pk_layer, pk_job, str_name, str_state, int_number, int_layer_order, int_dispatch_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
+                    "INSERT INTO frame (pk_frame, pk_layer, pk_job, str_name, str_state, int_number, int_layer_order, int_dispatch_order, ts_updated) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)"
                 )
                 .bind(frame_id.to_string())
                 .bind(layer_id.to_string())

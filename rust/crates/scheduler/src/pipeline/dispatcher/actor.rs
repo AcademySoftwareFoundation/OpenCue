@@ -904,6 +904,8 @@ impl RqdDispatcherService {
 
 #[cfg(test)]
 mod tests {
+    use std::time::SystemTime;
+
     use super::*;
     use crate::models::{CoreSize, DispatchFrame, Host};
     use bytesize::ByteSize;
@@ -958,6 +960,7 @@ mod tests {
             os: Some("linux".to_string()),
             loki_url: None,
             version: 1,
+            updated_at: SystemTime::now(),
         }
     }
 

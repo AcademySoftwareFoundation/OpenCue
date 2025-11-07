@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use bytesize::ByteSize;
+use chrono::{DateTime, Utc};
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres, Transaction};
@@ -49,7 +50,7 @@ pub struct DispatchLayerModel {
 /// This model contains both layer and frame data in a single row,
 /// allowing us to fetch layers with their frames in one database call
 /// instead of making nested queries.
-#[derive(sqlx::FromRow, Serialize, Deserialize)]
+#[derive(sqlx::FromRow)]
 pub struct LayerWithFramesModel {
     // Layer fields
     pub pk_layer: String,
@@ -86,6 +87,7 @@ pub struct LayerWithFramesModel {
     pub int_layer_cores_max: Option<i32>,
     pub int_version: Option<i32>,
     pub str_loki_url: Option<String>,
+    pub ts_updated: DateTime<Utc>,
 }
 
 impl DispatchLayer {
@@ -159,6 +161,7 @@ WITH dispatch_frames AS (
         f.int_dispatch_order,
         f.int_layer_order,
         f.int_version,
+        f.ts_updated,
         -- Accumulate the number of cores that would be consumed
         SUM(l.int_cores_min) OVER (
             PARTITION BY l.pk_layer
@@ -225,7 +228,8 @@ SELECT DISTINCT
     lf.int_version,
     lf.int_dispatch_order,
     lf.int_layer_order,
-    lf.str_loki_url
+    lf.str_loki_url,
+    lf.ts_updated
 FROM job j
     INNER JOIN layer l ON j.pk_job = l.pk_job
     INNER JOIN layer_stat ls on l.pk_layer = ls.pk_layer
@@ -352,6 +356,7 @@ impl LayerDao {
                     int_layer_cores_max: model.int_layer_cores_max.unwrap_or(0),
                     int_version: model.int_version.unwrap_or(1),
                     str_loki_url: model.str_loki_url,
+                    ts_updated: model.ts_updated,
                 })
             } else {
                 None

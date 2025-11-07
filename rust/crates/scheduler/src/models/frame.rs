@@ -1,6 +1,7 @@
-use std::fmt::Display;
+use std::{fmt::Display, time::SystemTime};
 
 use bytesize::ByteSize;
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
 use crate::models::{core_size::CoreSize, fmt_uuid};
@@ -45,6 +46,7 @@ pub struct DispatchFrame {
     pub os: Option<String>,
     pub loki_url: Option<String>,
     pub version: u32,
+    pub updated_at: SystemTime,
 }
 
 impl Display for DispatchFrame {

@@ -1,6 +1,8 @@
+use std::time::SystemTime;
+
 use bytesize::{ByteSize, KB};
+use chrono::{DateTime, Utc};
 use miette::{Diagnostic, Result};
-use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Transaction};
 use thiserror::Error;
 
@@ -21,7 +23,7 @@ pub struct FrameDao {}
 /// including resource requirements, job metadata, and execution parameters.
 /// This model maps directly to the database query results and is converted
 /// to `DispatchFrame` for business logic processing.
-#[derive(sqlx::FromRow, Serialize, Deserialize)]
+#[derive(sqlx::FromRow)]
 pub struct DispatchFrameModel {
     // Entity fields
     pub pk_frame: String,
@@ -59,6 +61,7 @@ pub struct DispatchFrameModel {
     pub int_layer_cores_max: i32,
     pub int_version: i32,
     pub str_loki_url: Option<String>,
+    pub ts_updated: DateTime<Utc>,
 }
 
 impl From<DispatchFrameModel> for DispatchFrame {
@@ -77,6 +80,8 @@ impl From<DispatchFrameModel> for DispatchFrame {
                 .iter()
                 .any(|item| services.contains(item))
         };
+        // Convert to SystemTime
+        let updated_at = SystemTime::from(val.ts_updated);
 
         DispatchFrame {
             id: val.pk_frame,
@@ -119,6 +124,7 @@ impl From<DispatchFrameModel> for DispatchFrame {
                     .unwrap_or_default(),
             ),
             version: val.int_version as u32,
+            updated_at,
         }
     }
 }
