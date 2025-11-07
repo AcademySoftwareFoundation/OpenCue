@@ -3,7 +3,7 @@ use std::sync::Arc;
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
-use tracing::debug;
+use tracing::trace;
 
 use crate::{cluster::Cluster, config::CONFIG, models::DispatchJob, pgpool::connection_pool};
 
@@ -181,11 +181,11 @@ impl JobDao {
         facility_id: String,
         tag: String,
     ) -> Result<Vec<JobModel>, sqlx::Error> {
-        debug!(
+        trace!(
             "QUERY_PENDING_BY_SHOW_FACILITY_TAG= {}",
             QUERY_PENDING_BY_SHOW_FACILITY_TAG
         );
-        debug!(
+        trace!(
             "QUERY_PENDING_BY_SHOW_FACILITY_TAG query args: show_id={}, core_multi={}, tag={}, facility_id={}",
             show_id, CONFIG.queue.core_multiplier, tag, facility_id
         );

@@ -29,7 +29,7 @@ use std::{
 
 use bytesize::ByteSize;
 use miette::Result;
-use tracing::debug;
+use tracing::trace;
 
 use crate::{
     config::{HostBookingStrategy, CONFIG},
@@ -331,7 +331,7 @@ impl HostCache {
     where
         F: Fn(&Host) -> bool,
     {
-        debug!("Initialized actual check_out");
+        trace!("Initialized actual check_out");
         self.ping_query();
 
         let host = self
@@ -339,7 +339,7 @@ impl HostCache {
             .ok_or(HostCacheError::NoCandidateAvailable)?;
 
         self.host_keys_by_host_id.remove(&host.id);
-        debug!("Finalized actual check_out");
+        trace!("Finalized actual check_out");
 
         Ok(host)
     }

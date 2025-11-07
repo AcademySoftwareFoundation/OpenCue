@@ -5,7 +5,7 @@ use std::time::Duration;
 use futures::{stream, StreamExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, trace};
 
 use crate::cluster::{Cluster, ClusterFeed, FeedMessage};
 use crate::config::CONFIG;

@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use miette::Result;
-use sqlx::{Pool, Postgres, Transaction, postgres::PgPoolOptions};
+use sqlx::{postgres::PgPoolOptions, Pool, Postgres, Transaction};
 use tokio::sync::OnceCell;
 
 use crate::config::CONFIG;

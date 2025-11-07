@@ -2,7 +2,10 @@ use std::str::FromStr;
 
 use miette::{miette, Context, IntoDiagnostic};
 use structopt::StructOpt;
+use tokio::signal::unix::{signal, SignalKind};
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
+use tracing_subscriber::{layer::SubscriberExt, reload};
+use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
     cluster::{Cluster, ClusterFeed},
@@ -128,14 +131,16 @@ fn main() -> miette::Result<()> {
 }
 
 async fn async_main() -> miette::Result<()> {
-    let log_level =
-        tracing::Level::from_str(CONFIG.logging.level.as_str()).expect("Invalid log level");
-    let log_builder = tracing_subscriber::fmt()
-        .with_timer(tracing_subscriber::fmt::time::SystemTime)
-        .pretty()
-        .with_ansi(true)
-        .with_max_level(log_level);
-    if CONFIG.logging.file_appender {
+    let log_level = CONFIG.logging.level.as_str().to_lowercase();
+
+    // Use EnvFilter to suppress sqlx logs (set to warn so only warnings/errors show)
+    let filter = EnvFilter::new(log_level);
+    let (filter, reload_handle) = reload::Layer::new(filter);
+
+    let stdout_log = tracing_subscriber::fmt::layer().pretty();
+    let subs = Registry::default().with(stdout_log).with(filter);
+
+    let file_appender_layer = if CONFIG.logging.file_appender {
         let file_appender = RollingFileAppenderBase::new(
             CONFIG.logging.path.clone(),
             RollingConditionBase::new().max_size(1024 * 1024),
@@ -143,10 +148,36 @@ async fn async_main() -> miette::Result<()> {
         )
         .expect("Failed to create appender");
         let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-        log_builder.with_writer(non_blocking).init();
+        Some(tracing_subscriber::fmt::layer().with_writer(non_blocking))
     } else {
-        log_builder.init();
-    }
+        None
+    };
+    let subs = subs.with(file_appender_layer);
+
+    tracing::subscriber::set_global_default(subs).expect("Unable to set global subscriber");
+
+    // Watch for sigusr1, when received toggle between info/debug levels
+    tokio::spawn(async move {
+        let mut sigusr1 =
+            signal(SignalKind::user_defined1()).expect("Failed to register signal listener");
+        let mut is_info = CONFIG.logging.level.to_lowercase() == "info";
+        loop {
+            sigusr1.recv().await;
+
+            // Toggle log between info and DEBUG (keep sqlx at info so it doesn't show up)
+            is_info = !is_info;
+            let new_filter = if is_info {
+                EnvFilter::new("info,sqlx=info")
+            } else {
+                EnvFilter::new("debug,sqlx=info")
+            };
+            reload_handle
+                .modify(|filter| {
+                    *filter = new_filter;
+                })
+                .ok();
+        }
+    });
 
     let opts = JobQueueCli::from_args();
     let result = opts.run().await;

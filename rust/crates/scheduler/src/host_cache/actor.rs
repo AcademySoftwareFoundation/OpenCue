@@ -16,7 +16,7 @@ use std::{
 use futures::{stream, StreamExt};
 use miette::Result;
 use tokio::sync::Semaphore;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, trace};
 
 use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
@@ -276,7 +276,7 @@ impl HostCacheService {
     /// * `cluster_key` - The cluster key identifying the cache group
     /// * `host` - Host to return to the cache
     fn check_in(&self, cluster_key: ClusterKey, host: Host) {
-        debug!("{}: Attempting to checkin", cluster_key);
+        trace!("{}: Attempting to checkin", cluster_key);
         let _ = self.reserved_hosts.remove_sync(&host.id);
 
         match self.groups.get_sync(&cluster_key) {
@@ -287,7 +287,7 @@ impl HostCacheService {
                 // Noop. The group might have expired and will be updated on demand
             }
         }
-        debug!("{}: Done checkin", cluster_key);
+        trace!("{}: Done checkin", cluster_key);
     }
 
     /// Calculates the cache hit ratio as a percentage.

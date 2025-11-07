@@ -26,7 +26,7 @@ use crate::{
 use actix::Addr;
 use miette::{Context, Result};
 use tokio::sync::Semaphore;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 pub static HOSTS_ATTEMPTED: AtomicUsize = AtomicUsize::new(0);
 pub static WASTED_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
@@ -264,9 +264,11 @@ impl MatchingService {
                 !tags.is_empty(),
                 "Layer shouldn't be here if it doesn't contain at least one matching tag"
             );
-            debug!(
+            trace!(
                 "{}: Getting a host candidate for {}, {}",
-                layer, layer.facility_id, layer.show_id
+                layer,
+                layer.facility_id,
+                layer.show_id
             );
 
             let layer_id = layer.id.clone();
@@ -357,7 +359,7 @@ impl MatchingService {
 
                     match err {
                         crate::host_cache::HostCacheError::NoCandidateAvailable => {
-                            warn!(
+                            info!(
                                 "No host candidate available for layer {}",
                                 current_layer_version.as_ref().unwrap()
                             );

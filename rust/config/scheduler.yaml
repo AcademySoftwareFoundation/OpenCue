@@ -3,9 +3,9 @@
 # =============================================================================
 logging:
   # Logging level for RQD output
-  # Options: debug, info, warning, error
-  # Default: debug
-  level: debug
+  # uses tracing EnvFilter format.
+  # See https://docs.rs/tracing-subscriber/0.2.19/tracing_subscriber/filter/struct.EnvFilter.html
+  level: info,sqlx=warn
 
 database:
   connection_url: "postgresql://cuebot:cuebot_password@localhost:5432/cuebot"

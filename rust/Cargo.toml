@@ -33,5 +33,5 @@ regex = "1.5.4"
 tracing = "0.1.40"
 tracing-appender = "0.2.3"
 tracing-rolling-file = "0.1.2"
-tracing-subscriber = { version = "0.3.18", features = ["ansi"] }
+tracing-subscriber = { version = "0.3.18", features = ["ansi", "env-filter"] }
 structopt = "0.3.26"

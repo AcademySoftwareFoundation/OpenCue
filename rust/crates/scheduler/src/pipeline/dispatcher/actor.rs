@@ -360,7 +360,7 @@ impl RqdDispatcherService {
                 layer
             );
             for proc in &non_retrieable_frames {
-                debug!("{}", proc);
+                trace!("{}", proc);
             }
         }
 
@@ -401,7 +401,7 @@ impl RqdDispatcherService {
         is_subscription_bookable: &impl Fn(CoreSize) -> bool,
         allocation_capacity: CoreSize,
     ) -> Result<(Host, CoreSize), DispatchVirtualProcError> {
-        debug!("Built virtual proc {}", virtual_proc);
+        trace!("Built virtual proc {}", virtual_proc);
         let cores_reserved_without_multiplier: CoreSize = virtual_proc.cores_reserved.into();
 
         // Check allocation capacity in two ways

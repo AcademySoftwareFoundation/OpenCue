@@ -45,7 +45,7 @@ pub struct LoggingConfig {
 impl Default for LoggingConfig {
     fn default() -> Self {
         Self {
-            level: "debug".to_string(),
+            level: "debug:sqlx=info".to_string(),
             path: "/opt/rqd/logs/scheduler.log".to_string(),
             file_appender: false,
         }
