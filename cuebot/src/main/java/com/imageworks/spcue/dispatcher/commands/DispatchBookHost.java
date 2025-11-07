@@ -35,6 +35,7 @@ public class DispatchBookHost extends KeyRunnable {
     private ShowInterface show = null;
     private DispatchHost host;
     private Dispatcher dispatcher;
+    private Boolean host_lock_active = false;
 
     public DispatchHost getDispatchHost() {
         this.setKey(host.getId());
@@ -46,6 +47,7 @@ public class DispatchBookHost extends KeyRunnable {
         this.host = host;
         this.dispatcher = d;
         this.env = env;
+        this.host_lock_active = env.getProperty("dispatch.advisory_lock_hosts", Boolean.class, false);
     }
 
     public DispatchBookHost(DispatchHost host, ShowInterface show, Dispatcher d, Environment env) {
@@ -54,6 +56,7 @@ public class DispatchBookHost extends KeyRunnable {
         this.show = show;
         this.dispatcher = d;
         this.env = env;
+        this.host_lock_active = env.getProperty("dispatch.advisory_lock_hosts", Boolean.class, false);
     }
 
     public void run() {
@@ -83,12 +86,16 @@ public class DispatchBookHost extends KeyRunnable {
 
 			@Override
 			public void lockCommand() {
-			    dispatcher.lockHostForDispatching(host.id);
+			    if (host_lock_active) {
+			        dispatcher.lockHostForDispatching(host.id);
+				}
 			}
 
 			@Override
 			public void unlockCommand() {
-				dispatcher.unlockHostForDispatching(host.id);
+                if (host_lock_active) {
+                    dispatcher.unlockHostForDispatching(host.id);
+                }
 			}
         }.execute();
     }
