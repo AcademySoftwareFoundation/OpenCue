@@ -40,13 +40,16 @@ RQD NIMBY runs as part of the RQD process and requires no user interaction. It's
 
 ### CueNIMBY (Manual Control + Notifications)
 
-CueNIMBY is a system tray application that provides user control and feedback:
+CueNIMBY is a Qt-based system tray application that provides user control and feedback:
 
-* **Visual State Indicator**: Color-coded tray icon showing current availability
+* **Visual State Indicator**: Professional icons with OpenCue logo showing current availability
+* **Enhanced Status Detection**: Monitors CueBot connectivity, host registration, and ping times
 * **Manual Control**: Users can toggle availability on/off via menu
-* **Desktop Notifications**: Alerts when jobs start or NIMBY state changes
+* **Desktop Notifications**: Alerts with emoji hints (🔒❌⚠️🔧) for quick status recognition
 * **Time-based Scheduling**: Automatic state changes based on schedule
-* **Cross-platform**: Works on macOS, Windows, and Linux
+* **Launch CueGUI**: Direct access to CueGUI from the tray menu
+* **Resilient Connection**: Starts even when CueBot is unreachable, reconnects automatically
+* **Cross-platform**: Works on macOS, Windows, and Linux with native look and feel
 
 CueNIMBY runs independently of RQD and communicates with Cuebot via the OpenCue API.
 
@@ -88,14 +91,37 @@ Both NIMBY components can run simultaneously on the same workstation:
 
 ## NIMBY States
 
-Workstations can be in one of several states:
+Workstations can be in one of several states. CueNIMBY displays these with professional icons featuring the OpenCue logo:
 
-| State | Color | Description |
-|-------|-------|-------------|
-| **AVAILABLE** | 🟢 Green | Host is unlocked and idle, ready to accept jobs |
-| **WORKING** | 🔵 Blue | Host is unlocked and actively running frames |
-| **DISABLED** | 🔴 Red | Host is manually locked (via CueGUI or CueNIMBY) |
-| **NIMBY_LOCKED** | 🟠 Orange | Host is locked by NIMBY due to user activity |
+| State | Icon | Emoji | Description |
+|-------|------|-------|-------------|
+| **STARTING** | `opencue-starting.png` | 🔄 | Application is initializing |
+| **AVAILABLE** | `opencue-available.png` | 🟢 | Host is unlocked and idle, ready to accept jobs |
+| **WORKING** | `opencue-working.png` | 🔴 | Host is unlocked and actively running frames (red dot in center) |
+| **DISABLED** | `opencue-disabled.png` | 🔴 | Host is manually locked (via CueGUI or CueNIMBY) |
+| **NIMBY_LOCKED** | `opencue-disabled.png` | 🔒 | Host is locked by NIMBY due to user activity |
+| **HOST_DOWN** | `opencue-disabled.png` | ❌ | RQD is not running on the host |
+| **NO_HOST** | `opencue-error.png` | ❌ | Machine not found on CueBot, check if RQD is running |
+| **HOST_LAGGING** | `opencue-warning.png` | ⚠️ | Host ping above 60 second limit, check if RQD is running |
+| **CUEBOT_UNREACHABLE** | `opencue-error.png` | ❌ | Cannot connect to CueBot server |
+| **REPAIR** | `opencue-repair.png` | 🔧 | Host is under repair, check with tech team |
+| **UNKNOWN** | `opencue-unknown.png` | ❓ | Unknown status |
+
+### Icon Gallery
+
+All CueNIMBY icons feature the OpenCue logo for professional appearance:
+
+| Icon | File | Description |
+|------|------|-------------|
+| ![Available](/assets/images/cuenimby/icons/opencue-available.png) | `opencue-available.png` | Green - Ready for rendering |
+| ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Icon with red dot in center - Currently rendering |
+| ![Disabled](/assets/images/cuenimby/icons/opencue-disabled.png) | `opencue-disabled.png` | Red - Locked/disabled |
+| ![Error](/assets/images/cuenimby/icons/opencue-error.png) | `opencue-error.png` | Red X - Error/unreachable |
+| ![Warning](/assets/images/cuenimby/icons/opencue-warning.png) | `opencue-warning.png` | Yellow - Warning/lagging |
+| ![Repair](/assets/images/cuenimby/icons/opencue-repair.png) | `opencue-repair.png` | Orange - Under repair |
+| ![Starting](/assets/images/cuenimby/icons/opencue-starting.png) | `opencue-starting.png` | Gray - Initializing |
+| ![Unknown](/assets/images/cuenimby/icons/opencue-unknown.png) | `opencue-unknown.png` | Gray ? - Unknown |
+| ![Default](/assets/images/cuenimby/icons/opencue-default.png) | `opencue-default.png` | Default fallback |
 
 ## NIMBY Configuration
 
@@ -270,13 +296,49 @@ Use cases for `ignore_nimby=true`:
 
 ### CueNIMBY Connection Issues
 
-**Symptoms**: CueNIMBY can't connect to Cuebot
+**Symptoms**: CueNIMBY shows ❌ error icon or "CueBot unreachable" message
+
+**Improved Behavior**: CueNIMBY now starts even when CueBot is unreachable and automatically reconnects when available.
 
 **Solutions**:
-1. Verify Cuebot hostname and port in configuration
-2. Check network connectivity and firewall rules
-3. Ensure OpenCue client libraries are installed
-4. Run with `--verbose` to see detailed errors
+1. Check the tray icon tooltip for specific error message
+2. Verify CueBot hostname and port in `~/.opencue/cuenimby.json`
+3. Check network connectivity and firewall rules
+4. Ensure OpenCue client libraries are installed
+5. Run with `--verbose` to see detailed errors
+6. CueNIMBY will show clear visual feedback and automatically reconnect
+
+### Host Not Found
+
+**Symptoms**: CueNIMBY shows ❌ "Machine not found on CueBot"
+
+**Solutions**:
+1. Verify RQD is running on the machine
+2. Check RQD logs for connection errors
+3. Verify hostname matches in CueBot (check CueGUI > Monitor Hosts)
+4. Use `--hostname` flag to specify exact hostname
+5. Ensure RQD successfully registered with CueBot
+
+### Host Lagging
+
+**Symptoms**: CueNIMBY shows ⚠️ "Host ping above limit" warning
+
+**Solutions**:
+1. Check if RQD is still running
+2. Verify network connection stability
+3. Review RQD logs for connection issues
+4. Consider restarting RQD if problem persists
+5. Check CueBot server load
+
+### Host Under Repair
+
+**Symptoms**: CueNIMBY shows 🔧 "Under Repair" status
+
+**Solutions**:
+1. Contact your technical team for repair status
+2. Host has been administratively marked for maintenance
+3. No rendering will occur until repair state is cleared
+4. Check with system administrators for estimated resolution
 
 ## Related guides
 

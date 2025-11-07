@@ -42,12 +42,37 @@ When a host is **locked**, it becomes unavailable for rendering jobs in OpenCue.
 
 ### Lock states
 
-| State | Icon | Lock Type | Description |
-|-------|------|-----------|-------------|
-| **AVAILABLE** | 🟢 Green | Not locked | Host is idle and ready to accept jobs |
-| **WORKING** | 🔵 Blue | Not locked | Host is actively running frames |
-| **DISABLED** | 🔴 Red | Manual lock | User manually disabled rendering via CueGUI or CueNIMBY |
-| **NIMBY_LOCKED** | 🟠 Orange | Automatic lock | RQD locked the host due to user activity (keyboard/mouse) |
+CueNIMBY displays these states with professional icons featuring the OpenCue logo:
+
+| State | Icon File | Emoji | Lock Type | Description |
+|-------|-----------|-------|-----------|-------------|
+| **STARTING** | `opencue-starting.png` | 🔄 | N/A | Application is initializing |
+| **AVAILABLE** | `opencue-available.png` | 🟢 | Not locked | Host is idle and ready to accept jobs |
+| **WORKING** | `opencue-working.png` | 🔴 | Not locked | Host is actively running frames (red dot in center) |
+| **DISABLED** | `opencue-disabled.png` | 🔴 | Manual lock | User manually disabled rendering via CueGUI or CueNIMBY |
+| **NIMBY_LOCKED** | `opencue-disabled.png` | 🔒 | Automatic lock | RQD locked the host due to user activity (keyboard/mouse) |
+| **HOST_DOWN** | `opencue-disabled.png` | ❌ | System issue | RQD is not running on the host |
+| **NO_HOST** | `opencue-error.png` | ❌ | System issue | Machine not found on CueBot, check if RQD is running |
+| **HOST_LAGGING** | `opencue-warning.png` | ⚠️ | Connection issue | Host ping above 60 second limit |
+| **CUEBOT_UNREACHABLE** | `opencue-error.png` | ❌ | Connection issue | Cannot connect to CueBot server |
+| **REPAIR** | `opencue-repair.png` | 🔧 | Administrative | Host is under repair, check with tech team |
+| **UNKNOWN** | `opencue-unknown.png` | ❓ | Unknown | Unknown status |
+
+#### Icon Gallery
+
+All CueNIMBY icons feature the OpenCue logo:
+
+| Icon | File | Description |
+|------|------|-------------|
+| ![Available](/assets/images/cuenimby/icons/opencue-available.png) | `opencue-available.png` | Green - Ready for rendering |
+| ![Working](/assets/images/cuenimby/icons/opencue-working.png) | `opencue-working.png` | Icon with red dot in center - Currently rendering |
+| ![Disabled](/assets/images/cuenimby/icons/opencue-disabled.png) | `opencue-disabled.png` | Red - Locked/disabled |
+| ![Error](/assets/images/cuenimby/icons/opencue-error.png) | `opencue-error.png` | Red X - Error/unreachable |
+| ![Warning](/assets/images/cuenimby/icons/opencue-warning.png) | `opencue-warning.png` | Yellow - Warning/lagging |
+| ![Repair](/assets/images/cuenimby/icons/opencue-repair.png) | `opencue-repair.png` | Orange - Under repair |
+| ![Starting](/assets/images/cuenimby/icons/opencue-starting.png) | `opencue-starting.png` | Gray - Initializing |
+| ![Unknown](/assets/images/cuenimby/icons/opencue-unknown.png) | `opencue-unknown.png` | Gray ? - Unknown |
+| ![Default](/assets/images/cuenimby/icons/opencue-default.png) | `opencue-default.png` | Default fallback |
 
 ### Lock behavior
 
@@ -419,8 +444,11 @@ Desktop rendering works in conjunction with NIMBY for user control:
 
 **Layer 2: NIMBY States** (User/automatic control)
 * Controls whether individual hosts accept jobs
-* Provides user visibility and control
+* Provides user visibility and control with professional icons
 * Managed via RQD automatic detection and CueNIMBY manual control
+* CueNIMBY provides enhanced status detection (connection issues, host registration, ping monitoring)
+* Clear visual feedback with emoji hints (🔒❌⚠️🔧) for quick status recognition
+* Resilient connection - CueNIMBY starts even when CueBot is unreachable
 
 ### Combined behavior
 
@@ -659,12 +687,22 @@ cueadmin -burst myshow local.desktop 0
 **Immediate action**:
 1. Tell users to open CueNIMBY and uncheck "Available"
 2. Or manually lock via CueGUI: Right-click host > Lock
+3. Users will see clear visual feedback with professional icons and emoji status
 
 **Long-term solution**:
-1. Deploy CueNIMBY to all workstations
+1. Deploy CueNIMBY to all workstations for enhanced visibility
 2. Enable RQD NIMBY for automatic protection
-3. Configure appropriate schedules
+3. Configure appropriate schedules in CueNIMBY
 4. Communicate desktop rendering policy clearly
+5. Leverage CueNIMBY's enhanced notifications for better user awareness
+
+**CueNIMBY Benefits**:
+* Professional icons with OpenCue logo for clear status
+* Enhanced status detection shows connection issues proactively
+* Emoji hints (🔒❌⚠️🔧) for quick recognition
+* "Launch CueGUI" option for easy access to full controls
+* Starts even when CueBot is unreachable
+* Helpful notifications with troubleshooting guidance
 
 ## Best practices
 
@@ -690,11 +728,16 @@ cueadmin -burst myshow local.desktop 0
 
 ### For users/artists
 
-1. **Use CueNIMBY**: Install and run for visibility and control
-2. **Configure schedules**: Match your work hours
+1. **Use CueNIMBY**: Install and run for enhanced visibility and control
+   - Professional icons show status at a glance
+   - Emoji hints (🔒❌⚠️🔧) for quick status recognition
+   - Receive helpful notifications with troubleshooting guidance
+2. **Configure schedules**: Match your work hours for automatic control
 3. **Manual override**: Lock machine before intensive local work
-4. **Report issues**: Help improve the system
-5. **Be considerate**: Unlock when not actively working
+4. **Use Launch CueGUI**: Quick access to full OpenCue controls from tray menu
+5. **Monitor connection status**: CueNIMBY shows when CueBot is unreachable or host is not registered
+6. **Report issues**: Help improve the system
+7. **Be considerate**: Unlock when not actively working
 
 ## Related documentation
 
