@@ -133,7 +133,11 @@ impl Default for HostBookingStrategy {
 #[serde(default)]
 pub struct DatabaseConfig {
     pub pool_size: u32,
-    pub connection_url: String,
+    pub db_host: String,
+    pub db_name: String,
+    pub db_user: String,
+    pub db_pass: String,
+    pub db_port: u16,
     pub core_multiplier: u32,
 }
 
@@ -141,9 +145,22 @@ impl Default for DatabaseConfig {
     fn default() -> DatabaseConfig {
         DatabaseConfig {
             pool_size: 20,
-            connection_url: "postgres://postgres:password@localhost/test".to_string(),
             core_multiplier: 100,
+            db_host: "localhost".to_string(),
+            db_name: "test".to_string(),
+            db_user: "postgres".to_string(),
+            db_pass: "password".to_string(),
+            db_port: 5432,
         }
+    }
+}
+
+impl DatabaseConfig {
+    pub fn connection_url(&self) -> String {
+        format!(
+            "postgresql://{}:{}@{}:{}/{}",
+            self.db_user, self.db_pass, self.db_host, self.db_port, self.db_name
+        )
     }
 }
 
@@ -245,7 +262,7 @@ impl Config {
 
         let config = ConfigBase::builder()
             .add_source(File::with_name(&config_file).required(required))
-            .add_source(Environment::with_prefix("OPENSCHEDULER").separator("_"))
+            .add_source(Environment::with_prefix("OPENSCHEDULER"))
             .build()
             .map_err(|err| {
                 JobQueueConfigError::LoadConfigError(format!(

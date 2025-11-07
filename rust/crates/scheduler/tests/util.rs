@@ -87,8 +87,12 @@ pub fn create_test_config() -> Config {
         },
         database: DatabaseConfig {
             pool_size: 20,
-            connection_url,
             core_multiplier: 100,
+            db_host: TEST_DB_HOST.to_string(),
+            db_name: TEST_DB_NAME.to_string(),
+            db_user: TEST_DB_USER.to_string(),
+            db_pass: TEST_DB_PASSWORD.to_string(),
+            db_port: TEST_DB_PORT,
         },
         rqd: RqdConfig {
             grpc_port: 8444,
