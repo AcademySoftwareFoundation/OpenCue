@@ -7,7 +7,10 @@ use rand::{
 use scheduler::{
     cluster::Cluster,
     cluster_key::{ClusterKey, Tag, TagType},
-    config::{Config, DatabaseConfig, HostBookingStrategy, LoggingConfig, QueueConfig, RqdConfig},
+    config::{
+        Config, DatabaseConfig, HostBookingStrategy, LoggingConfig, QueueConfig, RqdConfig,
+        SchedulerConfig,
+    },
 };
 use std::time::Duration;
 use uuid::Uuid;
@@ -99,6 +102,7 @@ pub fn create_test_config() -> Config {
             dry_run_mode: true, // Always run in dry mode for tests
         },
         host_cache: scheduler::config::HostCacheConfig::default(),
+        scheduler: SchedulerConfig::default(),
     }
 }
 

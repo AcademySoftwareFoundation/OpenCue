@@ -5,7 +5,7 @@ use structopt::StructOpt;
 use tokio::signal::unix::{signal, SignalKind};
 use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 use tracing_subscriber::{layer::SubscriberExt, reload};
-use tracing_subscriber::{prelude::*, EnvFilter, Registry};
+use tracing_subscriber::{EnvFilter, Registry};
 
 use crate::{
     cluster::{Cluster, ClusterFeed},

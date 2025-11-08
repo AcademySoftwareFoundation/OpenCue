@@ -1,7 +1,6 @@
 use std::{fmt::Display, time::SystemTime};
 
 use bytesize::ByteSize;
-use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
 use crate::models::{core_size::CoreSize, fmt_uuid};
