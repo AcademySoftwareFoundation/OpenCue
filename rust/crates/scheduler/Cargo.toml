@@ -54,6 +54,7 @@ moka = { version = "0.12.10", features = ["future"] }
 prometheus = "0.13"
 axum = "0.7"
 tower-http = { version = "0.5", features = ["trace"] }
+urlencoding = "2.1"
 
 [features]
 default = []
