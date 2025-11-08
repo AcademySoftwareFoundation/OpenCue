@@ -2,13 +2,188 @@
 # LOGGING CONFIGURATION
 # =============================================================================
 logging:
-  # Logging level for RQD output
-  # uses tracing EnvFilter format.
+  # Logging level for scheduler output
+  # Uses tracing EnvFilter format.
   # See https://docs.rs/tracing-subscriber/0.2.19/tracing_subscriber/filter/struct.EnvFilter.html
+  # Default: "debug:sqlx=info"
   level: info,sqlx=warn
 
-database:
-  connection_url: "postgresql://cuebot:cuebot_password@localhost:5432/cuebot"
+  # Path to the log file if file_appender is enabled
+  # Default: "/opt/rqd/logs/scheduler.log"
+  # path: /opt/rqd/logs/scheduler.log
 
+  # Log to file if true, stdout if false
+  # Default: false
+  # file_appender: false
+
+# =============================================================================
+# DATABASE CONFIGURATION
+# =============================================================================
+database:
+  # Database connection pool size
+  # Default: 20
+  # pool_size: 20
+
+  # Database host
+  # Default: "localhost"
+  db_host: localhost
+
+  # Database name
+  # Default: "test"
+  db_name: cuebot
+
+  # Database user
+  # Default: "postgres"
+  db_user: cuebot
+
+  # Database password
+  # Default: "password"
+  db_pass: cuebot_password
+
+  # Database port
+  # Default: 5432
+  db_port: 5432
+
+  # Core multiplier for resource calculations
+  # Default: 100
+  # core_multiplier: 100
+
+# =============================================================================
+# RQD CONFIGURATION
+# =============================================================================
 rqd:
+  # gRPC port for RQD communication
+  # Default: 8444
+  # grpc_port: 8444
+
+  # If true, runs in dry-run mode without executing actual frame dispatches
+  # Default: false
   dry_run_mode: true
+
+# =============================================================================
+# QUEUE CONFIGURATION
+# =============================================================================
+queue:
+  # Interval between queue monitoring cycles
+  # Default: 5s
+  # monitor_interval: 5s
+
+  # Number of worker threads for processing
+  # Default: 4
+  # worker_threads: 4
+
+  # Maximum number of frames to dispatch per layer per cycle
+  # Default: 20
+  # dispatch_frames_per_layer_limit: 20
+
+  # Core multiplier for resource calculations
+  # Default: 100
+  # core_multiplier: 100
+
+  # Memory threshold below which a host is considered stranded
+  # Default: 2GiB
+  # memory_stranded_threshold: 2GiB
+
+  # Duration to back off a job after dispatch failures
+  # Default: 300s (5 minutes)
+  # job_back_off_duration: 300s
+
+  # Chunk size for processing manual tags
+  # Default: 100
+  # manual_tags_chunk_size: 100
+
+  # Chunk size for processing hostname tags
+  # Default: 300
+  # hostname_tags_chunk_size: 300
+
+  # Maximum number of host candidate attempts per layer
+  # Default: 10
+  # host_candidate_attemps_per_layer: 10
+
+  # Number of empty job cycles before scheduler quits (None = run forever)
+  # Default: None
+  # empty_job_cycles_before_quiting: 10
+
+  # Minimum memory reserved per host
+  # Default: 250MiB
+  # mem_reserved_min: 250MiB
+
+  # Interval to refresh allocation data
+  # Default: 3s
+  # allocation_refresh_interval: 3s
+
+  # List of services that are selfish (require exclusive host access)
+  # Default: []
+  # selfish_services:
+  #   - service1
+  #   - service2
+
+  # Stream configuration
+  # stream:
+  #   # Buffer size for cluster stream processing
+  #   # Default: 3
+  #   cluster_buffer_size: 3
+  #
+  #   # Buffer size for job stream processing
+  #   # Default: 3
+  #   job_buffer_size: 3
+
+  # Host booking strategy configuration
+  # host_booking_strategy:
+  #   # Enable core saturation booking
+  #   # Default: true
+  #   core_saturation: true
+  #
+  #   # Enable memory saturation booking
+  #   # Default: false
+  #   memory_saturation: false
+
+# =============================================================================
+# HOST CACHE CONFIGURATION
+# =============================================================================
+host_cache:
+  # Number of concurrent host groups to process
+  # Default: 3
+  # concurrent_groups: 3
+
+  # Memory divisor for grouping hosts by memory size
+  # Default: 2GiB
+  # memory_key_divisor: 2GiB
+
+  # Timeout for checking out hosts from cache
+  # Default: 12s
+  # checkout_timeout: 12s
+
+  # Interval for monitoring host cache
+  # Default: 1s
+  # monitoring_interval: 1s
+
+  # Idle timeout before a group is evicted from cache
+  # Default: 10800s (3 hours)
+  # group_idle_timeout: 10800s
+
+  # Number of concurrent fetch permits
+  # Default: 4
+  # concurrent_fetch_permit: 4
+
+# =============================================================================
+# SCHEDULER CONFIGURATION
+# =============================================================================
+scheduler:
+  # Optional facility code to run on (can be overridden with --facility flag)
+  # Default: None
+  # facility: eat
+
+  # List of allocation tags in show:tag format (can be overridden with --alloc_tags flag)
+  # Default: []
+  # alloc_tags:
+  #   - show: show1
+  #     tag: general
+  #   - show: show2
+  #     tag: priority
+
+  # List of manual tags not associated with an allocation (can be overridden with --manual_tags flag)
+  # Default: []
+  # manual_tags:
+  #   - tag1
+  #   - tag2

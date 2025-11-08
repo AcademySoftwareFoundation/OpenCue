@@ -65,8 +65,36 @@ impl FromStr for ColonSeparatedList {
 
 impl JobQueueCli {
     async fn run(&self) -> miette::Result<()> {
+        // Merge CLI args with config, CLI takes precedence
+        let facility = if self.facility.is_some() {
+            self.facility.clone()
+        } else {
+            CONFIG.scheduler.facility.clone()
+        };
+
+        let alloc_tags = if !self.alloc_tags.is_empty() {
+            // CLI args provided, use them
+            self.alloc_tags.clone()
+        } else {
+            // Use config values
+            CONFIG
+                .scheduler
+                .alloc_tags
+                .iter()
+                .map(|at| ColonSeparatedList(at.show.clone(), at.tag.clone()))
+                .collect()
+        };
+
+        let manual_tags = if !self.manual_tags.is_empty() {
+            // CLI args provided, use them
+            self.manual_tags.clone()
+        } else {
+            // Use config values
+            CONFIG.scheduler.manual_tags.clone()
+        };
+
         // Lookup facility_id from facility name
-        let facility_id = match &self.facility {
+        let facility_id = match &facility {
             Some(facility) => Some(
                 cluster::get_facility_id(facility)
                     .await
@@ -79,7 +107,7 @@ impl JobQueueCli {
 
         if let Some(facility_id) = facility_id {
             // Build Cluster::ComposedKey for each alloc_tag (show:tag format)
-            for alloc_tag in &self.alloc_tags {
+            for alloc_tag in &alloc_tags {
                 let show_id = cluster::get_show_id(&alloc_tag.0)
                     .await
                     .wrap_err("Could not find show {}.")?;
@@ -92,14 +120,14 @@ impl JobQueueCli {
                     },
                 }));
             }
-        } else if !self.alloc_tags.is_empty() {
+        } else if !alloc_tags.is_empty() {
             Err(miette!("Alloc tag requires a valid facility"))?
         }
 
         // Build Cluster::TagsKey for manual_tags
-        if !self.manual_tags.is_empty() {
+        if !manual_tags.is_empty() {
             clusters.push(Cluster::TagsKey(
-                self.manual_tags
+                manual_tags
                     .iter()
                     .map(|name| Tag {
                         name: name.clone(),
@@ -108,8 +136,8 @@ impl JobQueueCli {
                     .collect(),
             ));
         }
-        let cluster_feed = if self.alloc_tags.is_empty() && self.manual_tags.is_empty() {
-            ClusterFeed::load_all(&self.facility).await?
+        let cluster_feed = if alloc_tags.is_empty() && manual_tags.is_empty() {
+            ClusterFeed::load_all(&facility).await?
         } else {
             ClusterFeed::load_from_clusters(clusters)
         };

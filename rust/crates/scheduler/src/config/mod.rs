@@ -29,6 +29,7 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub rqd: RqdConfig,
     pub host_cache: HostCacheConfig,
+    pub scheduler: SchedulerConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -226,6 +227,20 @@ impl Default for HostCacheConfig {
             concurrent_fetch_permit: 4,
         }
     }
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+#[serde(default)]
+pub struct SchedulerConfig {
+    pub facility: Option<String>,
+    pub alloc_tags: Vec<AllocTag>,
+    pub manual_tags: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct AllocTag {
+    pub show: String,
+    pub tag: String,
 }
 
 //===Config Loader===
