@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use tracing::trace;
 
-use crate::{cluster::Cluster, config::CONFIG, models::DispatchJob, pgpool::connection_pool};
+use crate::{
+    cluster::Cluster, config::CONFIG, metrics::observe_job_query_duration, models::DispatchJob,
+    pgpool::connection_pool,
+};
 
 /// Data Access Object for job operations in the job dispatch system.
 ///
@@ -190,13 +193,16 @@ impl JobDao {
             show_id, CONFIG.queue.core_multiplier, tag, facility_id
         );
 
-        sqlx::query_as::<_, JobModel>(QUERY_PENDING_BY_SHOW_FACILITY_TAG)
+        let start = std::time::Instant::now();
+        let result = sqlx::query_as::<_, JobModel>(QUERY_PENDING_BY_SHOW_FACILITY_TAG)
             .bind(show_id)
             .bind(CONFIG.queue.core_multiplier as i32)
             .bind(tag)
             .bind(facility_id)
             .fetch_all(&*self.connection_pool)
-            .await
+            .await;
+        observe_job_query_duration(start.elapsed());
+        result
     }
 
     /// Queries for pending jobs matching any of the specified tags.
@@ -217,10 +223,13 @@ impl JobDao {
         &self,
         tags: Vec<String>,
     ) -> Result<Vec<JobModel>, sqlx::Error> {
-        sqlx::query_as::<_, JobModel>(QUERY_PENDING_BY_TAGS)
+        let start = std::time::Instant::now();
+        let result = sqlx::query_as::<_, JobModel>(QUERY_PENDING_BY_TAGS)
             .bind(CONFIG.queue.core_multiplier as i32)
             .bind(tags.join(" | ").to_string())
             .fetch_all(&*self.connection_pool)
-            .await
+            .await;
+        observe_job_query_duration(start.elapsed());
+        result
     }
 }

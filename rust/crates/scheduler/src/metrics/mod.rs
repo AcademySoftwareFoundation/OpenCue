@@ -45,6 +45,14 @@ lazy_static! {
         vec![0.1, 0.5, 1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0]
     )
     .expect("Failed to register time_to_book_seconds histogram");
+
+    // Job query metrics from dao/job_dao.rs
+    pub static ref JOB_QUERY_DURATION_SECONDS: Histogram = register_histogram!(
+        "scheduler_job_query_duration_seconds",
+        "Duration of job query operations",
+        vec![0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]
+    )
+    .expect("Failed to register job_query_duration_seconds histogram");
 }
 
 /// Handler for the /metrics endpoint
@@ -132,4 +140,10 @@ pub fn increment_frames_dispatched() {
 #[inline]
 pub fn observe_time_to_book(duration: Duration) {
     TIME_TO_BOOK_SECONDS.observe(duration.as_secs_f64());
+}
+
+/// Helper function to observe job query duration
+#[inline]
+pub fn observe_job_query_duration(duration: Duration) {
+    JOB_QUERY_DURATION_SECONDS.observe(duration.as_secs_f64());
 }
