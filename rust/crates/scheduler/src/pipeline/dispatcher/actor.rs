@@ -247,7 +247,7 @@ impl RqdDispatcherService {
             {
                 Ok((virtual_proc, updated_host)) => (virtual_proc, updated_host),
                 Err(VirtualProcError::HostResourcesExtinguished(msg)) => {
-                    info!(
+                    debug!(
                         "Host resourse extinguished for {}. {}",
                         last_host_version, msg
                     );
@@ -503,8 +503,9 @@ impl RqdDispatcherService {
                     | tonic::Code::Aborted
                     | tonic::Code::PermissionDenied
                     | tonic::Code::DeadlineExceeded
+                    | tonic::Code::Internal
                     | tonic::Code::Unknown => {
-                        warn!("Failed to launch on rqd. {}", status);
+                        warn!("Failed to launch on rqd. {}", status.message());
                         // Invalidate entry to force a new connection on the next interaction
                         self.rqd_connection_cache.invalidate(&host.name).await;
 
@@ -515,7 +516,13 @@ impl RqdDispatcherService {
                             Err(DispatchError::GrpcFailure(status))
                         }
                     }
-                    _ => Err(DispatchError::GrpcFailure(status)),
+                    _ => {
+                        warn!("Unretrieable failure on rqd launch. {:?}", status.message());
+                        // Invalidate entry to force a new connection
+                        self.rqd_connection_cache.invalidate(&host.name).await;
+
+                        Err(DispatchError::GrpcFailure(status))
+                    }
                 }
             }
         }

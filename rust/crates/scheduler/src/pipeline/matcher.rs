@@ -456,7 +456,7 @@ impl MatchingService {
             }
             DispatchError::GrpcFailure(status) => {
                 error!(
-                    "{} failed to create execute grpc command on {}. {}",
+                    "{} failed to create execute grpc command on {}. {:?}",
                     layer_display, host, status
                 );
             }

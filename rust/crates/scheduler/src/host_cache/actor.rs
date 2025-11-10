@@ -98,7 +98,9 @@ where
                 let out = service
                     .check_out(facility_id, show_id, tags, cores, memory, validation)
                     .await;
-                debug!("Checked out {}", out.as_ref().expect("found host").1);
+                if let Ok(host) = &out {
+                    debug!("Checked out {}", host.1);
+                }
                 out
             }
             .into_actor(self)
