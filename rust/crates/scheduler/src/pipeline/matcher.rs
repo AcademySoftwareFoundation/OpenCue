@@ -185,13 +185,19 @@ impl MatchingService {
     /// * `bool` - True if the match is valid
     fn validate_match(
         host: &Host,
-        _layer_id: String,
-        show_id: String,
+        _layer_id: &str,
+        show_id: &str,
         cores_requested: CoreSize,
-        allocation_service: Arc<AllocationService>,
+        allocation_service: &AllocationService,
+        os: Option<&str>,
     ) -> bool {
+        // Check OS compatibility
+        if host.str_os.as_deref() != os {
+            return false;
+        }
+
         if let Some(subscription) =
-            allocation_service.get_subscription(&host.allocation_name, &show_id)
+            allocation_service.get_subscription(&host.allocation_name, &show_id.to_string())
         {
             if !subscription.bookable(&cores_requested) {
                 return false;
@@ -273,25 +279,30 @@ impl MatchingService {
                 layer.show_id
             );
 
+            // Clone only the minimal data needed for the validation closure
+            // These are needed because the closure must have 'static lifetime for actor messaging
             let layer_id = layer.id.clone();
             let show_id = layer.show_id.clone();
             let cores_requested = layer.cores_min;
             let allocation_service = self.allocation_service.clone();
+            let os = layer.str_os.clone();
+
             let host_candidate = self
                 .host_service
                 .send(CheckOut {
                     facility_id: layer.facility_id.clone(),
                     show_id: layer.show_id.clone(),
                     tags,
-                    cores: layer.cores_min,
+                    cores: cores_requested,
                     memory: layer.mem_min,
                     validation: move |host| {
                         Self::validate_match(
                             host,
-                            layer_id.clone(),
-                            show_id.clone(),
+                            &layer_id,
+                            &show_id,
                             cores_requested,
-                            allocation_service.clone(),
+                            &allocation_service,
+                            os.as_deref(),
                         )
                     },
                 })

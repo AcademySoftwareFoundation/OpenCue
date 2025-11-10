@@ -100,7 +100,7 @@ FROM host h
 WHERE a.pk_facility = $2
     AND (hs.str_os ILIKE $3 OR hs.str_os = '' and $4 = '') -- review
     AND h.str_lock_state = 'OPEN'
-    --AND hs.str_state = 'UP'
+    AND hs.str_state = 'UP'
     AND h.int_cores_idle >= $5
     AND h.int_mem_idle >= $6
     AND string_to_array($7, ' | ') && string_to_array(h.str_tags, ' ')
