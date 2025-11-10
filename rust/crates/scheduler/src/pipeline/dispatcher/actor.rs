@@ -124,10 +124,10 @@ impl RqdDispatcherService {
     ) -> Result<Self> {
         let rqd_connection_cache = Cache::builder()
             .max_capacity(100)
-            // 10 min. (from_hours is still an experimental feature)
-            .time_to_idle(Duration::from_secs(10 * 60))
+            // 5 min. (from_hours is still an experimental feature)
+            .time_to_idle(Duration::from_secs(5 * 60))
             // 2 hours. (from_hours is still an experimental feature)
-            .time_to_live(Duration::from_secs(3 * 60 * 60))
+            .time_to_live(Duration::from_secs(2 * 60 * 60))
             .build();
 
         Ok(RqdDispatcherService {
@@ -901,7 +901,21 @@ impl RqdDispatcherService {
         self.rqd_connection_cache
             .entry(hostname.to_string())
             .or_optionally_insert_with(async {
-                RqdInterfaceClient::connect(format!("http://{}:{}", hostname, port))
+                // Build endpoint with timeout and keep-alive settings
+                let endpoint = Channel::from_shared(format!("http://{}:{}", hostname, port))
+                    .into_diagnostic()
+                    .ok()?
+                    // Connection timeout - how long to wait when establishing connection
+                    .connect_timeout(Duration::from_secs(10))
+                    // Request timeout - maximum time for a single request
+                    .timeout(Duration::from_secs(30))
+                    // Keep-alive configuration
+                    .http2_keep_alive_interval(Duration::from_secs(30))
+                    .keep_alive_timeout(Duration::from_secs(10))
+                    // Send keep-alive ping even when no active streams
+                    .keep_alive_while_idle(true);
+
+                RqdInterfaceClient::connect(endpoint)
                     .await
                     .into_diagnostic()
                     .ok()
