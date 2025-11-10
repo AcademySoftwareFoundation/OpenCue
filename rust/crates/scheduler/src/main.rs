@@ -105,7 +105,7 @@ impl JobQueueCli {
 
         let mut clusters = Vec::new();
 
-        if let Some(facility_id) = facility_id {
+        if let Some(facility_id) = &facility_id {
             // Build Cluster::ComposedKey for each alloc_tag (show:tag format)
             for alloc_tag in &alloc_tags {
                 let show_id = cluster::get_show_id(&alloc_tag.0)
@@ -137,7 +137,7 @@ impl JobQueueCli {
             ));
         }
         let cluster_feed = if alloc_tags.is_empty() && manual_tags.is_empty() {
-            ClusterFeed::load_all(&facility).await?
+            ClusterFeed::load_all(&facility_id).await?
         } else {
             ClusterFeed::load_from_clusters(clusters)
         };
