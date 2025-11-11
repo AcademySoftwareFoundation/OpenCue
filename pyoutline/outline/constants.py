@@ -24,7 +24,7 @@ from enum import Enum
 # Init mode is during the parsing of the outline
 # script.  Nothing can really be done in this phase
 # besides adding layers or frames.
-OUTLINE_MODE_INIT = 1
+OUTLINE_MODE_INIT =  1
 
 # Setup mode is the phase when the outline is being setup
 # to launch.  This phase runs in serial on the machine
@@ -48,20 +48,4 @@ FRAME_RANGE_LAST = 2
 # Render = a general rendering layer
 # Util = setup or cleanup layer
 # Post = A post job layer
-class LayerType(str, Enum):
-    """Enumeration of layer types."""
-
-    def __str__(self):
-        return self.value
-
-    RENDER = "Render"
-    UTIL = "Util"
-    POST = "Post"
-
-
-# Backward compatibility
-LAYER_TYPES = (
-    LayerType.RENDER.value,
-    LayerType.UTIL.value,
-    LayerType.POST.value,
-)
+LAYER_TYPES = ("Render", "Util", "Post")

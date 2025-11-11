@@ -46,11 +46,17 @@ import outline.exception
 import outline.io
 import outline.util
 
+if sys.version_info >= (3, 10, 1):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
+
 if sys.version_info >= (3, 12):
     from typing import override, Unpack
 else:
     from typing_extensions import override, Unpack
 
+_LayerT = Literal["Render", "Util", "Post"]
 
 __all__ = [
     "Layer",
@@ -103,7 +109,7 @@ class _LayerArgs(TypedDict, total=False):
     service: str
     timeout: int
     timeout_llu: int
-    type: outline.constants.LayerType
+    type: _LayerT
 
 
 class Layer(metaclass=LayerType):
@@ -119,12 +125,8 @@ class Layer(metaclass=LayerType):
 
         # Default the layer type to the Render type as
         # defined in the constants module
-        self.__type: Optional[outline.constants.LayerType] = None
-        self.set_type(
-            outline.constants.LayerType(
-                args.get("type", outline.constants.LayerType.RENDER)
-            )
-        )
+        self.__type: Optional[_LayerT] = None
+        self.set_type(args.get("type", outline.constants.LAYER_TYPES[0]))
 
         # A set of arguments that is required before
         # the Layer can be launched.
@@ -376,7 +378,7 @@ class Layer(metaclass=LayerType):
             raise outline.exception.LayerException(msg)
         self.__name = name
 
-    def get_type(self) -> outline.constants.LayerType:
+    def get_type(self) -> _LayerT:
         """
         Return the general scope or purpose of the Layer. Allowed
         types are:
@@ -387,17 +389,15 @@ class Layer(metaclass=LayerType):
         """
         return self.__type
 
-    def set_type(self, t: outline.constants.LayerType) -> None:
+    def set_type(self, t: _LayerT) -> None:
         """
         Set the general scope/purpose of this layer.
         """
-        try:
-            typ = outline.constants.LayerType(t)
-        except ValueError:
+        if t not in outline.constants.LAYER_TYPES:
             raise outline.exception.LayerException(
-                f"{t} is not a valid layer type: {list(outline.constants.LayerType)}"
+                f"{t} is not a valid layer type: {outline.constants.LAYER_TYPES}"
             )
-        self.__type = typ
+        self.__type = t
 
     def get_outline(self) -> Optional[outline.Outline]:
         """Return the parent outline object."""
@@ -1227,7 +1227,7 @@ class LayerPreProcess(Frame):
         )
         self.__creator.add_preprocess_layer(self)
 
-        self.set_type(outline.constants.LayerType.UTIL)
+        self.set_type("Util")
         self.set_service("preprocess")
 
     def get_creator(self) -> Layer:
@@ -1289,7 +1289,7 @@ class LayerPostProcess(Frame):
         self.__creator = creator
         self.depend_on(creator, outline.depend.DependType.LayerOnLayer, propigate=propigate)
 
-        self.set_type(outline.constants.LayerType.UTIL)
+        self.set_type("Util")
 
     def get_creator(self) -> Layer:
         """Return the layer that created this post-process."""
@@ -1304,5 +1304,5 @@ class OutlinePostCommand(Frame):
 
     def __init__(self, name: str, **args: Unpack[_LayerArgs]):
         super().__init__(name, **args)
-        self.set_type(outline.constants.LayerType.POST)
+        self.set_type("Post")
         self.set_service("postprocess")
