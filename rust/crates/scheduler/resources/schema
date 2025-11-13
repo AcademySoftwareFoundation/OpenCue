@@ -439,6 +439,7 @@ CREATE TABLE public.host (
     str_lock_state character varying(36) NOT NULL,
     b_nimby boolean DEFAULT false NOT NULL,
     ts_created timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    ts_last_updated timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     int_cores bigint DEFAULT 0 NOT NULL,
     int_procs bigint DEFAULT 0 NOT NULL,
     int_cores_idle bigint DEFAULT 0 NOT NULL,

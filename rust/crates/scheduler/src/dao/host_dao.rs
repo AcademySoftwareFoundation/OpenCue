@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use bytesize::{ByteSize, KB};
+use chrono::NaiveDateTime;
 use miette::{Context, IntoDiagnostic, Result};
 use opencue_proto::host::ThreadMode;
-use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres, Transaction};
 use tracing::{info, trace};
+use uuid::Uuid;
 
 use crate::{
     models::{CoreSize, Host, VirtualProc},
@@ -27,7 +28,7 @@ pub struct HostDao {
 /// Contains host metadata, resource information, and allocation details
 /// needed for dispatch matching. This model is converted to the business
 /// logic `Host` type for processing.
-#[derive(sqlx::FromRow, Serialize, Deserialize)]
+#[derive(sqlx::FromRow)]
 pub struct HostModel {
     pk_host: String,
     str_name: String,
@@ -44,6 +45,7 @@ pub struct HostModel {
     str_alloc_name: String,
     // Number of cores available at the subscription of the show this host has been queried on
     int_alloc_available_cores: i64,
+    ts_last_updated: NaiveDateTime,
 }
 
 impl From<HostModel> for Host {
@@ -77,6 +79,7 @@ impl From<HostModel> for Host {
             ),
             alloc_id: val.pk_alloc,
             alloc_name: val.str_alloc_name,
+            last_updated: val.ts_last_updated.and_utc(),
         }
     }
 }
@@ -94,7 +97,9 @@ SELECT
     h.int_mem,
     h.int_thread_mode,
     s.int_burst - s.int_cores as int_alloc_available_cores,
-    a.str_name as str_alloc_name
+    a.pk_alloc,
+    a.str_name as str_alloc_name,
+    h.ts_last_updated
 FROM host h
     INNER JOIN host_stat hs ON h.pk_host = hs.pk_host
     INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
@@ -129,7 +134,8 @@ SELECT DISTINCT
     h.int_thread_mode,
     s.int_burst - s.int_cores as int_alloc_available_cores,
     a.pk_alloc,
-    a.str_name as str_alloc_name
+    a.str_name as str_alloc_name,
+    h.ts_last_updated
 FROM host h
     INNER JOIN host_stat hs ON h.pk_host = hs.pk_host
     INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
@@ -146,9 +152,10 @@ UPDATE host
 SET int_cores_idle = int_cores_idle - $1,
     int_mem_idle = int_mem_idle - $2,
     int_gpus_idle = int_gpus_idle - $3,
-    int_gpu_mem_idle = int_gpu_mem_idle - $4
+    int_gpu_mem_idle = int_gpu_mem_idle - $4,
+    ts_last_updated = CURRENT_TIMESTAMP
 WHERE pk_host = $5
-RETURNING int_cores_idle, int_mem_idle, int_gpus_idle, int_gpu_mem_idle
+RETURNING int_cores_idle, int_mem_idle, int_gpus_idle, int_gpu_mem_idle, ts_last_updated
 "#;
 
 static UPDATE_SUBSCRIPTION: &str = r#"
@@ -308,14 +315,16 @@ impl HostDao {
     /// * `virtual_proc` - Virtual proc containing resource reservations
     ///
     /// # Returns
-    /// * `Ok((i64, i64, i64, i64))` - Tuple of (cores_idle, mem_idle, gpus_idle, gpu_mem_idle) after update
+    /// * `Ok((i64, i64, i64, i64, DateTime<Utc>))` - Tuple of (cores_idle, mem_idle, gpus_idle, gpu_mem_idle, last_updated) after update
     /// * `Err(miette::Error)` - Database update failed
     pub async fn update_resources(
         &self,
         transaction: &mut Transaction<'_, Postgres>,
         host_id: &str,
         virtual_proc: &VirtualProc,
-    ) -> Result<(i64, i64, i64, i64)> {
+        dispatch_id: Uuid,
+    ) -> Result<(i64, i64, i64, i64, NaiveDateTime)> {
+        // TODO: Remove
         let n_cores_db: (i64,) =
             sqlx::query_as("SELECT int_cores_idle from host where pk_host = $1")
                 .bind(host_id)
@@ -324,22 +333,23 @@ impl HostDao {
                 .expect("Should get one");
 
         info!(
-            "---Updating {}: {} -{} cores",
+            "---({dispatch_id}) Updating {}: {} -{} cores",
             host_id,
             n_cores_db.0,
             virtual_proc.cores_reserved.value()
         );
 
-        let updated_resources: (i64, i64, i64, i64) = sqlx::query_as(UPDATE_HOST_RESOURCES)
-            .bind(virtual_proc.cores_reserved.value())
-            .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
-            .bind(virtual_proc.gpus_reserved as i32)
-            .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
-            .bind(host_id.to_string())
-            .fetch_one(&mut **transaction)
-            .await
-            .into_diagnostic()
-            .wrap_err("Failed to update host resources")?;
+        let updated_resources: (i64, i64, i64, i64, NaiveDateTime) =
+            sqlx::query_as(UPDATE_HOST_RESOURCES)
+                .bind(virtual_proc.cores_reserved.value())
+                .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
+                .bind(virtual_proc.gpus_reserved as i32)
+                .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
+                .bind(host_id.to_string())
+                .fetch_one(&mut **transaction)
+                .await
+                .into_diagnostic()
+                .wrap_err(format!("({dispatch_id}) Failed to update host resources"))?;
 
         sqlx::query(UPDATE_SUBSCRIPTION)
             .bind(virtual_proc.cores_reserved.value())

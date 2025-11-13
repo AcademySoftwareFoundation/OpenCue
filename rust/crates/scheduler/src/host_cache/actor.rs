@@ -113,11 +113,20 @@ impl Handler<CheckIn> for HostCacheService {
     type Result = ();
 
     fn handle(&mut self, msg: CheckIn, _ctx: &mut Self::Context) -> Self::Result {
-        let CheckIn(cluster_key, host) = msg;
-        let host_str = format!("{}", host);
-        self.check_in(cluster_key, host);
+        let CheckIn(cluster_key, payload) = msg;
+        match payload {
+            CheckInPayload::Host(host) => {
+                let host_str = format!("{}", host);
+                self.check_in(cluster_key, host);
 
-        debug!("Checked in {}", &host_str);
+                debug!("Checked in {}", &host_str);
+            }
+            CheckInPayload::Invalidate(host_id) => {
+                let _ = self.reserved_hosts.remove_sync(&host_id);
+
+                debug!("Checked in {} (invalid)", &host_id);
+            }
+        }
     }
 }
 
@@ -283,11 +292,11 @@ impl HostCacheService {
             "--{}: Attempting to checkin with {} cores",
             host.id, host.idle_cores
         );
-        let _ = self.reserved_hosts.remove_sync(&host.id);
+        let host_id = host.id.clone();
 
         match self.groups.get_sync(&cluster_key) {
             Some(group) => {
-                group.check_in(host);
+                group.check_in(host, false);
             }
             None => {
                 info!(
@@ -297,6 +306,8 @@ impl HostCacheService {
                 // Noop. The group might have expired and will be updated on demand
             }
         }
+        let _ = self.reserved_hosts.remove_sync(&host_id);
+
         trace!("{}: Done checkin", cluster_key);
     }
 
@@ -427,8 +438,10 @@ impl HostCacheService {
             .into_diagnostic()?;
 
         let cache = self.groups.entry_sync(key.clone()).or_default();
-        for host_model in hosts {
-            cache.check_in(host_model.into());
+        for host in hosts {
+            let h: Host = host.into();
+            info!("---Fetch {} with {} cores", h.id, h.idle_cores);
+            cache.check_in(h, false);
         }
         cache.ping_fetch();
         Ok(cache)

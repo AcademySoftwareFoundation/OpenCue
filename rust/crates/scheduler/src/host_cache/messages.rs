@@ -58,23 +58,38 @@ where
     pub validation: F,
 }
 
-/// Actor message to return a host to the cache after use.
+/// Payload for checking in a host or invalidating a host in the cache.
 ///
-/// Returns a host back to its cache group, updating it with the current resource
-/// state. The host is removed from the reservation list and becomes available
-/// for checkout again. If the cache group has expired, the host is dropped.
+/// Allows either returning a host with updated resources to the cache or
+/// invalidating a host by its id, removing it from the cache entirely.
+///
+/// # Variants
+///
+/// * `Host(Host)` - Return a host with updated idle resource counts
+/// * `Invalidate(String)` - Invalidate and remove a host by id
+pub enum CheckInPayload {
+    Host(Host),
+    Invalidate(String),
+}
+
+/// Actor message to return a host to the cache or invalidate it.
+///
+/// Returns a host back to its cache group with updated resource state, or
+/// invalidates a host by id, removing it from the cache. When returning
+/// a host, it is removed from the reservation list and becomes available for
+/// checkout again. If the cache group has expired, the host is dropped.
 ///
 /// # Fields
 ///
-/// * `0` - ClusterKey identifying which cache group to return the host to
-/// * `1` - Host to return with updated idle resource counts
+/// * `0` - ClusterKey identifying which cache group the host belongs to
+/// * `1` - CheckInPayload specifying whether to return a host or invalidate by id
 ///
 /// # Returns
 ///
-/// * `()` - Host returned successfully (or cache group expired)
+/// * `()` - Operation completed successfully (host returned/invalidated or cache group expired)
 #[derive(Message)]
 #[rtype(result = "()")]
-pub struct CheckIn(pub ClusterKey, pub Host);
+pub struct CheckIn(pub ClusterKey, pub CheckInPayload);
 
 /// Actor message to retrieve cache performance metrics.
 ///

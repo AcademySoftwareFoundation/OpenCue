@@ -337,7 +337,7 @@ impl MatchingService {
                             updated_layer,
                         }) => {
                             self.host_service
-                                .send(CheckIn(cluster_key, updated_host))
+                                .send(CheckIn(cluster_key, CheckInPayload::Host(updated_host)))
                                 .await
                                 .expect("Host Cache actor is unresponsive");
 
@@ -369,7 +369,10 @@ impl MatchingService {
                                 &host_before_dispatch,
                             );
                             self.host_service
-                                .send(CheckIn(cluster_key, host_before_dispatch))
+                                .send(CheckIn(
+                                    cluster_key,
+                                    CheckInPayload::Invalidate(host_before_dispatch.id),
+                                ))
                                 .await
                                 .expect("Host Cache actor is unresponsive");
                             try_again = false; // Can't continue without the layer

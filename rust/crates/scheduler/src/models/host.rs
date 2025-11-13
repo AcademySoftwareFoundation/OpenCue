@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use bytesize::ByteSize;
+use chrono::{DateTime, Local, Utc};
 use opencue_proto::host::ThreadMode;
 
 use crate::models::{core_size::CoreSize, fmt_uuid};
@@ -21,6 +22,7 @@ pub struct Host {
     pub(crate) alloc_available_cores: CoreSize,
     pub(crate) alloc_id: String,
     pub(crate) alloc_name: String,
+    pub(crate) last_updated: DateTime<Utc>,
 }
 
 impl Host {
@@ -75,6 +77,7 @@ impl Host {
             alloc_available_cores,
             alloc_id,
             alloc_name,
+            last_updated: Local::now().with_timezone(&Utc),
         }
     }
 }

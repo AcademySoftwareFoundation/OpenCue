@@ -1,5 +1,6 @@
 use actix::{Actor, ActorFutureExt, Handler, ResponseActFuture, WrapFuture};
 use bytesize::{ByteSize, MIB};
+use chrono::Utc;
 use futures::FutureExt;
 use miette::{miette, Context, IntoDiagnostic, Result};
 use moka::future::Cache;
@@ -235,8 +236,11 @@ impl RqdDispatcherService {
         let mut last_error = None;
         let mut non_retrieable_frames = Vec::new();
 
+        // Use an unique id for all logs on this dispatch
+        let dispatch_id = Uuid::new_v4();
+
         info!(
-            "---Host before frame loop {} had {} cores available",
+            "---({dispatch_id}) Host before frame loop {} had {} cores available",
             last_host_version.id, last_host_version.idle_cores
         );
 
@@ -244,7 +248,7 @@ impl RqdDispatcherService {
             let frame_str = format!("{}", frame);
 
             info!(
-                "---Host {} had {} cores available",
+                "---({dispatch_id}) Host {} had {} cores available",
                 last_host_version.id, last_host_version.idle_cores
             );
             let (virtual_proc, updated_host) = match Self::consume_host_virtual_resources(
@@ -257,12 +261,17 @@ impl RqdDispatcherService {
                 Ok(result) => result,
                 Err(VirtualProcError::HostResourcesExtinguished(msg)) => {
                     debug!(
-                        "Host resourse extinguished for {}. {}",
+                        "({dispatch_id}) Host resourse extinguished for {}. {}",
                         last_host_version, msg
                     );
                     break;
                 }
             };
+
+            info!(
+                "---({dispatch_id}) Host {} will have {} cores available after update",
+                updated_host.id, updated_host.idle_cores
+            );
 
             // Each proc should run on its own transaction
             let mut proc_transaction = begin_transaction()
@@ -280,18 +289,15 @@ impl RqdDispatcherService {
                     .rollback()
                     .await
                     .map_err(DispatchError::DbFailure)?;
-                info!("Skiping layer {}, reached limits", layer);
+                info!("({dispatch_id}) Skiping layer {}, reached limits", layer);
 
                 // Skip the entire layer
                 break;
             }
 
-            info!(
-                "---Host {} has {} cores available",
-                updated_host.id, updated_host.idle_cores
-            );
             match self
                 .dispatch_virtual_proc(
+                    dispatch_id,
                     virtual_proc,
                     updated_host,
                     &mut proc_transaction,
@@ -326,7 +332,7 @@ impl RqdDispatcherService {
 
                     match err {
                         DispatchVirtualProcError::AllocationOverBurst(err) => {
-                            info!("{frame_str} {err}");
+                            info!("({dispatch_id}) {frame_str} {err}");
 
                             last_error = Some(err);
                             break;
@@ -338,7 +344,10 @@ impl RqdDispatcherService {
                             if last_error.is_some() {
                                 break;
                             }
-                            warn!("Failed to start frame {} on Db. {}", frame_str, err);
+                            warn!(
+                                "({dispatch_id}) Failed to start frame {} on Db. {}",
+                                frame_str, err
+                            );
                             last_error = Some(err);
                             // IMPORTANT: Do NOT update last_host_version here since the transaction
                             // rolled back and we didn't actually consume any resources from the database.
@@ -348,7 +357,7 @@ impl RqdDispatcherService {
                         DispatchVirtualProcError::FailedToLockForUpdate(err) => {
                             // The entire transaction is probably compromised, stop working on this layer
                             info!(
-                                "Frame {} couldn't be locked on the database. {}",
+                                "({dispatch_id}) Frame {} couldn't be locked on the database. {}",
                                 frame_str, err
                             );
                             non_retrieable_frames.push(frame.id.clone());
@@ -358,16 +367,19 @@ impl RqdDispatcherService {
                             // An error here means connection with this host is probably broken,
                             // there's no reason to attempt the next frame
                             warn!(
-                                "Failed to connect to rqd on {} to launch frame. {:?}",
+                                "({dispatch_id}) Failed to connect to rqd on {} to launch frame. {:?}",
                                 host, error
                             );
 
                             break;
                         }
                         DispatchVirtualProcError::FailureAfterDispatch { host, error } => {
-                            warn!("Failed after dispatch {}. {:?}", host, error);
+                            warn!(
+                                "({dispatch_id}) Failed after dispatch {}. {:?}",
+                                host, error
+                            );
                             non_retrieable_frames.push(frame.id.clone());
-                            return Err(error);
+                            break;
                         }
                     }
                 }
@@ -421,13 +433,14 @@ impl RqdDispatcherService {
     /// On failure, returns a `DispatchVirtualProcError` indicating the specific failure mode.
     async fn dispatch_virtual_proc(
         &self,
+        dispatch_id: Uuid,
         virtual_proc: VirtualProc,
         host: Host,
         transaction: &mut Transaction<'_, Postgres>,
         is_subscription_bookable: &impl Fn(CoreSize) -> bool,
         allocation_capacity: CoreSize,
     ) -> Result<(Host, CoreSize), DispatchVirtualProcError> {
-        trace!("Built virtual proc {}", virtual_proc);
+        trace!("({dispatch_id}) Built virtual proc {}", virtual_proc);
         let cores_reserved_without_multiplier: CoreSize = virtual_proc.cores_reserved.into();
 
         // Check allocation capacity in two ways
@@ -462,7 +475,10 @@ impl RqdDispatcherService {
 
         // When running on dry_run_mode, just log the outcome
         if self.dry_run_mode {
-            debug!("(DRY_RUN) Dispatching {} on {}", virtual_proc, &host);
+            debug!(
+                "(DRY_RUN) ({dispatch_id}) Dispatching {} on {}",
+                virtual_proc, &host
+            );
         } else {
             self.launch_on_rqd(&virtual_proc, &host, true)
                 .await
@@ -481,9 +497,9 @@ impl RqdDispatcherService {
                 error: err,
             })?;
 
-        let (db_cores_idle, db_mem_idle, db_gpus_idle, db_gpu_mem_idle) = self
+        let (db_cores_idle, db_mem_idle, db_gpus_idle, db_gpu_mem_idle, db_last_updated) = self
             .host_dao
-            .update_resources(transaction, &host.id, &virtual_proc)
+            .update_resources(transaction, &host.id, &virtual_proc, dispatch_id)
             .await
             .map_err(DispatchError::FailureAfterDispatch)
             .map_err(|err| DispatchVirtualProcError::FailureAfterDispatch {
@@ -504,6 +520,7 @@ impl RqdDispatcherService {
             .try_into()
             .expect("db_gpus_idle should fit in u32");
         updated_host.idle_gpu_memory = ByteSize::kb(db_gpu_mem_idle as u64);
+        updated_host.last_updated = db_last_updated.and_utc();
 
         Ok((updated_host, new_allocation_capacity))
     }
@@ -610,24 +627,20 @@ impl RqdDispatcherService {
         host: &Host,
         frame: &DispatchFrame,
         memory_stranded_threshold: ByteSize,
-    ) -> Result<CoreSize, VirtualProcError> {
+    ) -> CoreSize {
         let cores_requested = Self::calculate_cores_requested(frame.min_cores, host.total_cores);
 
-        if host.idle_memory.as_u64() < frame.min_memory.as_u64() {
-            Err(VirtualProcError::HostResourcesExtinguished(format!(
-                "Not enough memory: {} < {}",
-                host.idle_memory, frame.min_memory
-            )))?
-        }
-
-        let cores_reserved = match (host.thread_mode, frame.threadable) {
+        match (host.thread_mode, frame.threadable) {
             (ThreadMode::All, _) => host.idle_cores,
             // Limit Variable booking to at least 2 cores
             (ThreadMode::Variable, true) if cores_requested.value() <= 2 => CoreSize(2),
             (ThreadMode::Auto, true) | (ThreadMode::Variable, true) => {
                 // Book whatever is left for hosts with selfish services or memory stranded
                 if frame.has_selfish_service
-                    || host.idle_memory.as_u64() - frame.min_memory.as_u64()
+                    || host
+                        .idle_memory
+                        .as_u64()
+                        .saturating_sub(frame.min_memory.as_u64())
                         <= memory_stranded_threshold.as_u64()
                 {
                     host.idle_cores
@@ -636,16 +649,6 @@ impl RqdDispatcherService {
                 }
             }
             _ => cores_requested,
-        };
-
-        // Sanity check
-        if cores_reserved > host.total_cores || cores_reserved > host.idle_cores {
-            Err(VirtualProcError::HostResourcesExtinguished(format!(
-                "Not enough cores: {} < {}",
-                host.idle_cores, cores_reserved
-            )))
-        } else {
-            Ok(cores_reserved)
         }
     }
 
@@ -655,13 +658,20 @@ impl RqdDispatcherService {
     ///     -> VirtualProc(1core, 10GB) + HostModel(1 core, 10GB)
     async fn consume_host_virtual_resources(
         frame: &DispatchFrame,
-        original_host: &Host,
+        host: &Host,
         memory_stranded_threshold: ByteSize,
     ) -> Result<(VirtualProc, Host), VirtualProcError> {
-        let mut host = original_host.clone();
+        let mut host = host.clone();
 
         let cores_reserved =
-            Self::calculate_core_reservation(&host, frame, memory_stranded_threshold)?;
+            Self::calculate_core_reservation(&host, frame, memory_stranded_threshold);
+
+        if cores_reserved > host.total_cores || cores_reserved > host.idle_cores {
+            Err(VirtualProcError::HostResourcesExtinguished(format!(
+                "Not enough cores: {} < {}",
+                host.idle_cores, cores_reserved
+            )))?
+        }
 
         if host.idle_memory < frame.min_memory {
             Err(VirtualProcError::HostResourcesExtinguished(format!(
@@ -696,6 +706,8 @@ impl RqdDispatcherService {
         host.idle_gpus -= gpus_reserved;
         host.idle_gpu_memory =
             ByteSize(host.idle_gpu_memory.as_u64() - gpu_memory_reserved.as_u64());
+        // Field will be overwritten with database values as soon as the changes are committed
+        host.last_updated = Utc::now();
 
         Ok((
             VirtualProc {
@@ -1062,8 +1074,7 @@ mod tests {
 
         let result =
             RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), CoreSize(6)); // Should return idle_cores
+        assert_eq!(result, CoreSize(6)); // Should return idle_cores
     }
 
     #[tokio::test]
@@ -1079,8 +1090,7 @@ mod tests {
 
         let result =
             RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), CoreSize(2)); // Should return 2 cores minimum
+        assert_eq!(result, CoreSize(2)); // Should return 2 cores minimum
     }
 
     #[tokio::test]
@@ -1094,8 +1104,7 @@ mod tests {
 
         let result =
             RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), CoreSize(3)); // Should return cores_requested
+        assert_eq!(result, CoreSize(3)); // Should return cores_requested
     }
 
     #[tokio::test]
@@ -1110,11 +1119,7 @@ mod tests {
 
         let result =
             RqdDispatcherService::calculate_core_reservation(&host, &frame, memory_threshold);
-        assert!(result.is_err());
-        assert!(matches!(
-            result,
-            Err(VirtualProcError::HostResourcesExtinguished(_))
-        ));
+        assert_eq!(result, CoreSize(-8));
     }
 
     #[test]
