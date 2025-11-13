@@ -22,14 +22,13 @@
 /// ...
 use std::{
     collections::{BTreeMap, HashMap},
-    ops::RangeBounds,
     sync::RwLock,
     time::{Duration, SystemTime},
 };
 
 use bytesize::ByteSize;
 use miette::Result;
-use tracing::trace;
+use tracing::{info, trace};
 
 use crate::{
     config::{HostBookingStrategy, CONFIG},
@@ -41,9 +40,34 @@ type HostId = String;
 type CoreKey = u32;
 type MemoryKey = u64;
 
+/// A B-Tree of Hosts ordered by memory
+pub type MemoryBTree = BTreeMap<MemoryKey, HashMap<HostId, Host>>;
+
+/// Combined data structure that holds both mappings under a single lock.
+/// This ensures atomic updates across both data structures, preventing race conditions
+/// where check_in and check_out operations could see inconsistent state.
+struct HostCacheData {
+    // TODO: This cache structure is a mess. Redesign it to have a central repository for all hosts
+    // key'ed by id. Add last_updated to Host entries to ensure a host check_in doesn't race a cache refresh
+    //
+    /// HashMap of cache keys belonging to a host
+    host_keys_by_host_id: HashMap<HostId, (CoreKey, MemoryKey)>,
+    /// B-Tree of host groups ordered by their number of available cores
+    hosts_by_core_and_memory: BTreeMap<CoreKey, MemoryBTree>,
+}
+
+impl HostCacheData {
+    fn new() -> Self {
+        Self {
+            host_keys_by_host_id: HashMap::new(),
+            hosts_by_core_and_memory: BTreeMap::new(),
+        }
+    }
+}
+
 pub struct HostCache {
-    host_keys_by_host_id: HostKeysByHostId,
-    hosts_by_core_and_memory: HostsByCoreAndMemory,
+    /// Single lock protecting both data structures to ensure atomic operations
+    data: RwLock<HostCacheData>,
     /// If a cache stops being queried for a certain amount of time, stop keeping it up to date
     last_queried: RwLock<SystemTime>,
     /// Marks if the data on this cache have expired
@@ -51,194 +75,10 @@ pub struct HostCache {
     strategy: HostBookingStrategy,
 }
 
-/// Wrapper around a RwLock to prevent interleaving locks
-/// A HashMap of cache keys belonging to a host
-struct HostKeysByHostId {
-    map: RwLock<HashMap<HostId, (CoreKey, MemoryKey)>>,
-}
-
-impl HostKeysByHostId {
-    fn new() -> Self {
-        Self {
-            map: RwLock::new(HashMap::new()),
-        }
-    }
-
-    fn remove(&self, host_id: &str) -> Option<(CoreKey, MemoryKey)> {
-        let mut lock = self
-            .map
-            .write()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        lock.remove(host_id)
-    }
-
-    fn insert(
-        &self,
-        host_id: String,
-        core_key: CoreKey,
-        memory_key: MemoryKey,
-    ) -> Option<(CoreKey, MemoryKey)> {
-        let mut lock = self
-            .map
-            .write()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        lock.insert(host_id, (core_key, memory_key))
-    }
-
-    #[allow(dead_code)]
-    fn contains_key(&self, host_id: &String) -> bool {
-        let lock = self
-            .map
-            .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        lock.contains_key(host_id)
-    }
-
-    #[allow(dead_code)]
-    fn is_empty(&self) -> bool {
-        let lock = self
-            .map
-            .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        lock.is_empty()
-    }
-
-    #[allow(dead_code)]
-    fn len(&self) -> usize {
-        let lock = self
-            .map
-            .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        lock.len()
-    }
-
-    #[allow(dead_code)]
-    fn get(&self, host_id: &str) -> Option<(CoreKey, MemoryKey)> {
-        let lock = self
-            .map
-            .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        lock.get(host_id).cloned()
-    }
-}
-
-/// A B-Tree of Hosts ordered by memory
-pub type MemoryBTree = BTreeMap<MemoryKey, HashMap<HostId, Host>>;
-
-/// Wrapper around a RwLock to prevent interleaving locks
-/// A B-Tree of host groups ordered by their number of available cores
-struct HostsByCoreAndMemory {
-    map: RwLock<BTreeMap<CoreKey, MemoryBTree>>,
-}
-
-impl HostsByCoreAndMemory {
-    fn new() -> Self {
-        Self {
-            map: RwLock::new(BTreeMap::new()),
-        }
-    }
-
-    fn find_map_in_range<R, F>(
-        &self,
-        range: R,
-        reverse: bool,
-        f: F,
-    ) -> Option<(CoreKey, MemoryKey, String)>
-    where
-        Self: Sized,
-        F: FnMut(
-            (&u32, &BTreeMap<MemoryKey, HashMap<HostId, Host>>),
-        ) -> Option<(CoreKey, MemoryKey, String)>,
-        R: RangeBounds<CoreKey>,
-    {
-        let lock = self
-            .map
-            .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-
-        if reverse {
-            lock.range(range).rev().find_map(f)
-        } else {
-            lock.range(range).find_map(f)
-        }
-    }
-
-    fn remove(&self, core_key: &CoreKey, memory_key: &MemoryKey, host_key: String) -> Option<Host> {
-        let mut write_lock = self
-            .map
-            .write()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-
-        if let Some(hosts_by_memory) = write_lock.get_mut(core_key) {
-            if let Some(hosts) = hosts_by_memory.get_mut(memory_key) {
-                return hosts.remove(&host_key);
-            }
-        }
-        None
-    }
-
-    fn insert(
-        &self,
-        core_key: CoreKey,
-        memory_key: MemoryKey,
-        host_id: String,
-        host: Host,
-    ) -> Option<Host> {
-        let mut write_lock = self
-            .map
-            .write()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-
-        write_lock
-            .entry(core_key)
-            .or_default()
-            .entry(memory_key)
-            .or_default()
-            .insert(host_id.clone(), host)
-    }
-
-    #[allow(dead_code)]
-    fn is_empty(&self) -> bool {
-        let lock = self
-            .map
-            .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        lock.is_empty()
-    }
-
-    #[allow(dead_code)]
-    fn len(&self) -> usize {
-        let lock = self
-            .map
-            .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        lock.len()
-    }
-
-    #[allow(dead_code)]
-    fn get(&self, core_key: &CoreKey, memory_key: &MemoryKey, host_id: &String) -> Option<Host> {
-        let lock = self
-            .map
-            .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-
-        lock.get(core_key)
-            .map(|hosts_by_memory| {
-                hosts_by_memory
-                    .get(memory_key)
-                    .map(|hosts| hosts.get(host_id))
-            })
-            .unwrap_or_default()
-            .unwrap_or_default()
-            .cloned()
-    }
-}
-
 impl Default for HostCache {
     fn default() -> Self {
         HostCache {
-            host_keys_by_host_id: HostKeysByHostId::new(),
-            hosts_by_core_and_memory: HostsByCoreAndMemory::new(),
+            data: RwLock::new(HostCacheData::new()),
             last_queried: RwLock::new(SystemTime::now()),
             last_fetched: RwLock::new(None),
             strategy: CONFIG.queue.host_booking_strategy,
@@ -331,15 +171,11 @@ impl HostCache {
     where
         F: Fn(&Host) -> bool,
     {
-        trace!("Initialized actual check_out");
         self.ping_query();
 
         let host = self
             .remove_host(cores, memory, validation)
             .ok_or(HostCacheError::NoCandidateAvailable)?;
-
-        self.host_keys_by_host_id.remove(&host.id);
-        trace!("Finalized actual check_out");
 
         Ok(host)
     }
@@ -349,6 +185,10 @@ impl HostCache {
     /// Searches for a host with at least the requested cores and memory that
     /// passes the validation function. Uses a range-based search for efficient
     /// resource matching.
+    ///
+    /// This method now acquires a single write lock for the entire operation,
+    /// ensuring atomicity between finding the host and removing it from both
+    /// data structures.
     ///
     /// # Arguments
     ///
@@ -364,46 +204,58 @@ impl HostCache {
     where
         F: Fn(&Host) -> bool,
     {
-        // Takes checked_out_hosts into consideration
         let core_key = cores.value() as u32;
         let memory_key = Self::gen_memory_key(memory);
 
-        // First find the host we want to remove without borrowing mutably
+        let mut data = self
+            .data
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        // Find and remove the host atomically under a single lock
         let found_keys = {
-            // Start searching from the core_key
-            self.hosts_by_core_and_memory.find_map_in_range(
-                core_key..,
-                // If core saturation is false, start searching at reverse order to find hosts with the
-                // max amount of cores available
-                !self.strategy.core_saturation,
-                |(by_core_key, hosts_by_memory)| {
-                    let find_fn = |(by_memory_key, hosts): (&u64, &HashMap<String, _>)| {
-                        let found_host = hosts.iter().find(|(_, host)|
-                                // Only select a host that pass the validation function.
-                                // Check memory capacity as a memory key groups a range of
-                                // different memory values
-                                validation(host) && host.idle_memory >= memory);
-                        found_host
-                            .map(|(host_key, _)| (*by_core_key, *by_memory_key, host_key.clone()))
-                    };
-                    if self.strategy.memory_saturation {
-                        // Search for hosts with at least the same amount of memory requested
-                        hosts_by_memory.range(memory_key..).find_map(find_fn)
-                    } else {
-                        // Search for hosts with the most amount of memory available
-                        hosts_by_memory.range(memory_key..).rev().find_map(find_fn)
-                    }
-                },
-            )
+            let mut iter: Box<dyn Iterator<Item = (&CoreKey, &MemoryBTree)>> =
+                if !self.strategy.core_saturation {
+                    // Reverse order to find hosts with max amount of cores available
+                    Box::new(data.hosts_by_core_and_memory.range(core_key..).rev())
+                } else {
+                    Box::new(data.hosts_by_core_and_memory.range(core_key..))
+                };
+
+            iter.find_map(|(by_core_key, hosts_by_memory)| {
+                let find_fn = |(by_memory_key, hosts): (&u64, &HashMap<String, _>)| {
+                    let found_host = hosts.iter().find(|(_, host)| {
+                        // Only select a host that pass the validation function.
+                        // Check memory capacity as a memory key groups a range of
+                        // different memory values
+                        validation(host) && host.idle_memory >= memory
+                    });
+                    found_host.map(|(host_key, _)| (*by_core_key, *by_memory_key, host_key.clone()))
+                };
+
+                if self.strategy.memory_saturation {
+                    // Search for hosts with at least the same amount of memory requested
+                    hosts_by_memory.range(memory_key..).find_map(find_fn)
+                } else {
+                    // Search for hosts with the most amount of memory available
+                    hosts_by_memory.range(memory_key..).rev().find_map(find_fn)
+                }
+            })
         };
 
-        // Now remove the host using the found keys
+        // Now remove the host using the found keys, all under the same write lock
         if let Some((by_core_key, by_memory_key, host_key)) = found_keys {
-            let removed =
-                self.hosts_by_core_and_memory
-                    .remove(&by_core_key, &by_memory_key, host_key);
-            if removed.is_some() {
-                return removed;
+            // Remove from hosts_by_core_and_memory
+            let removed = data
+                .hosts_by_core_and_memory
+                .get_mut(&by_core_key)
+                .and_then(|hosts_by_memory| hosts_by_memory.get_mut(&by_memory_key))
+                .and_then(|hosts| hosts.remove(&host_key));
+
+            if let Some(host) = removed {
+                // Remove from host_keys_by_host_id
+                data.host_keys_by_host_id.remove(&host_key);
+                return Some(host);
             }
         }
         None
@@ -415,26 +267,46 @@ impl HostCache {
     /// already exists in the cache, it's updated with the new values. The host
     /// is indexed by its current idle cores and memory for efficient lookup.
     ///
+    /// This method now performs all updates atomically under a single write lock,
+    /// preventing race conditions with concurrent check_out operations.
+    ///
     /// # Arguments
     ///
     /// * `host` - Host to return to the cache
     pub fn check_in(&self, host: Host) {
-        // First clear the old version of the host from memory
-        if let Some((old_core_key, old_memory_key)) = self.host_keys_by_host_id.remove(&host.id) {
-            self.hosts_by_core_and_memory
-                .remove(&old_core_key, &old_memory_key, host.id.clone());
-        }
-
         let core_key = host.idle_cores.value() as CoreKey;
         let memory_key = Self::gen_memory_key(host.idle_memory);
         let host_id = host.id.clone();
 
-        self.hosts_by_core_and_memory
-            .insert(core_key, memory_key, host_id.clone(), host);
+        let mut data = self
+            .data
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        // Atomically: remove old entry (if exists) and insert new entry
+        // This prevents race conditions where check_out could see partial state
+        if let Some((old_core_key, old_memory_key)) = data.host_keys_by_host_id.remove(&host_id) {
+            // Remove from the old location in hosts_by_core_and_memory
+            if let Some(hosts_by_memory) = data.hosts_by_core_and_memory.get_mut(&old_core_key) {
+                if let Some(hosts) = hosts_by_memory.get_mut(&old_memory_key) {
+                    hosts.remove(&host_id);
+                }
+            }
+        } else {
+            info!("---Failed to find key to remove {}", host.id);
+        }
+
+        // Insert at the new location
+        data.hosts_by_core_and_memory
+            .entry(core_key)
+            .or_default()
+            .entry(memory_key)
+            .or_default()
+            .insert(host_id.clone(), host);
 
         // Update the host_keys_by_host_id mapping
-        self.host_keys_by_host_id
-            .insert(host_id, core_key, memory_key);
+        data.host_keys_by_host_id
+            .insert(host_id, (core_key, memory_key));
     }
 
     /// Generates a memory key for cache indexing by bucketing memory values.
@@ -476,15 +348,18 @@ mod tests {
             idle_gpu_memory: ByteSize::kb(0),
             thread_mode: ThreadMode::Auto,
             alloc_available_cores: CoreSize(idle_cores),
-            allocation_name: "test".to_string(),
+            alloc_id: Uuid::new_v4().to_string(),
+            alloc_name: "test".to_string(),
         }
     }
 
     #[test]
     fn test_new_host_cache() {
         let cache = HostCache::default();
-        assert!(cache.host_keys_by_host_id.is_empty());
-        assert!(cache.hosts_by_core_and_memory.is_empty());
+        let data = cache.data.read().unwrap();
+        assert!(data.host_keys_by_host_id.is_empty());
+        assert!(data.hosts_by_core_and_memory.is_empty());
+        drop(data);
         assert!(!cache.expired());
     }
 
@@ -538,10 +413,9 @@ mod tests {
 
         cache.check_in(host.clone());
 
-        assert!(cache
-            .host_keys_by_host_id
-            .contains_key(&host_id.to_string()));
-        assert!(!cache.hosts_by_core_and_memory.is_empty());
+        let data = cache.data.read().unwrap();
+        assert!(data.host_keys_by_host_id.contains_key(&host_id.to_string()));
+        assert!(!data.hosts_by_core_and_memory.is_empty());
     }
 
     #[test]
@@ -556,15 +430,13 @@ mod tests {
         cache.check_in(host2.clone());
 
         // Should still have only one entry for this host ID
-        assert_eq!(cache.host_keys_by_host_id.len(), 1);
+        let data = cache.data.read().unwrap();
+        assert_eq!(data.host_keys_by_host_id.len(), 1);
 
         // The host should be updated with new resources
-        let (core_key, memory_key) = cache
-            .host_keys_by_host_id
-            .get(&host_id.to_string())
-            .unwrap();
-        assert_eq!(core_key, 8);
-        assert!(memory_key > 0);
+        let (core_key, memory_key) = data.host_keys_by_host_id.get(&host_id.to_string()).unwrap();
+        assert_eq!(*core_key, 8);
+        assert!(*memory_key > 0);
     }
 
     #[test]
@@ -586,14 +458,15 @@ mod tests {
         let core_key = checked_out_host.idle_cores.value() as u32;
 
         assert_eq!(checked_out_host.id, host_id.to_string());
-        assert!(!cache
-            .host_keys_by_host_id
-            .contains_key(&host_id.to_string()));
 
-        let left_over_host =
-            cache
-                .hosts_by_core_and_memory
-                .get(&core_key, &memory_key, &checked_out_host.id);
+        let data = cache.data.read().unwrap();
+        assert!(!data.host_keys_by_host_id.contains_key(&host_id.to_string()));
+
+        let left_over_host = data
+            .hosts_by_core_and_memory
+            .get(&core_key)
+            .and_then(|hosts_by_memory| hosts_by_memory.get(&memory_key))
+            .and_then(|hosts| hosts.get(&checked_out_host.id));
         assert!(left_over_host.is_none())
     }
 

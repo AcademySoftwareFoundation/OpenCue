@@ -5,10 +5,10 @@ use miette::{Context, IntoDiagnostic, Result};
 use opencue_proto::host::ThreadMode;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres, Transaction};
-use tracing::trace;
+use tracing::{info, trace};
 
 use crate::{
-    models::{CoreSize, Host},
+    models::{CoreSize, Host, VirtualProc},
     pgpool::connection_pool,
 };
 
@@ -39,6 +39,7 @@ pub struct HostModel {
     int_cores: i64,
     int_mem: i64,
     int_thread_mode: i32,
+    pk_alloc: String,
     // Name of the allocation the host is subscribed to for a given show
     str_alloc_name: String,
     // Number of cores available at the subscription of the show this host has been queried on
@@ -74,7 +75,8 @@ impl From<HostModel> for Host {
                     .try_into()
                     .expect("alloc_available_cores should fit on a i32"),
             ),
-            allocation_name: val.str_alloc_name,
+            alloc_id: val.pk_alloc,
+            alloc_name: val.str_alloc_name,
         }
     }
 }
@@ -126,6 +128,7 @@ SELECT DISTINCT
     h.int_mem,
     h.int_thread_mode,
     s.int_burst - s.int_cores as int_alloc_available_cores,
+    a.pk_alloc,
     a.str_name as str_alloc_name
 FROM host h
     INNER JOIN host_stat hs ON h.pk_host = hs.pk_host
@@ -136,6 +139,53 @@ WHERE a.pk_facility = $2
     AND h.str_lock_state = 'OPEN'
     AND hs.str_state = 'UP'
     AND ht.str_tag = $3
+"#;
+
+static UPDATE_HOST_RESOURCES: &str = r#"
+UPDATE host
+SET int_cores_idle = int_cores_idle - $1,
+    int_mem_idle = int_mem_idle - $2,
+    int_gpus_idle = int_gpus_idle - $3,
+    int_gpu_mem_idle = int_gpu_mem_idle - $4
+WHERE pk_host = $5
+RETURNING int_cores_idle, int_mem_idle, int_gpus_idle, int_gpu_mem_idle
+"#;
+
+static UPDATE_SUBSCRIPTION: &str = r#"
+UPDATE subscription
+SET int_cores = int_cores + $1,
+    int_gpus = int_gpus + $2
+WHERE pk_show = $3
+    AND pk_alloc = $4
+"#;
+
+static UPDATE_LAYER_RESOURCE: &str = r#"
+UPDATE layer_resource
+SET int_cores = int_cores + $1,
+    int_gpus = int_gpus + $2
+WHERE pk_layer = $3
+"#;
+
+static UPDATE_JOB_RESOURCE: &str = r#"
+UPDATE job_resource
+SET int_cores = int_cores + $1,
+    int_gpus = int_gpus + $2
+WHERE pk_job = $3
+"#;
+
+static UPDATE_FOLDER_RESOURCE: &str = r#"
+UPDATE folder_resource
+SET int_cores = int_cores + $1,
+    int_gpus = int_gpus + $2
+WHERE pk_folder = (SELECT pk_folder FROM job WHERE pk_job = $3)
+"#;
+
+static UPDATE_POINT: &str = r#"
+UPDATE point
+SET int_cores = int_cores + $1,
+    int_gpus = int_gpus + $2
+WHERE pk_dept = (SELECT pk_dept FROM job WHERE pk_job = $3)
+    AND pk_show = $4
 "#;
 
 impl HostDao {
@@ -178,12 +228,18 @@ impl HostDao {
         facility_id: String,
         tag: &'a str,
     ) -> Result<Vec<HostModel>, sqlx::Error> {
-        sqlx::query_as::<_, HostModel>(QUERY_HOST_BY_SHOW_FACILITY_AND_TAG)
+        let out = sqlx::query_as::<_, HostModel>(QUERY_HOST_BY_SHOW_FACILITY_AND_TAG)
             .bind(show_id)
             .bind(facility_id)
             .bind(tag)
             .fetch_all(&*self.connection_pool)
-            .await
+            .await;
+
+        // TODO: Remove
+        // for h in out.as_ref().expect("?") {
+        //     info!("CacheFetch: {} with {} cores", h.pk_host, h.int_cores_idle);
+        // }
+        out
     }
 
     /// Acquires an advisory lock on a host to prevent concurrent dispatch.
@@ -247,36 +303,91 @@ impl HostDao {
     /// tracking for subsequent dispatch decisions.
     ///
     /// # Arguments
-    /// * `updated_host` - Host with updated idle resource values
+    /// * `transaction` - Database transaction
+    /// * `host_id` - ID of the host to update
+    /// * `virtual_proc` - Virtual proc containing resource reservations
     ///
     /// # Returns
-    /// * `Ok(())` - Resources successfully updated
+    /// * `Ok((i64, i64, i64, i64))` - Tuple of (cores_idle, mem_idle, gpus_idle, gpu_mem_idle) after update
     /// * `Err(miette::Error)` - Database update failed
     pub async fn update_resources(
         &self,
         transaction: &mut Transaction<'_, Postgres>,
-        updated_host: &Host,
-    ) -> Result<()> {
-        sqlx::query(
-            r#"
-            UPDATE host
-            SET int_cores_idle = $1,
-                int_mem_idle = $2,
-                int_gpus_idle = $3,
-                int_gpu_mem_idle = $4
-            WHERE pk_host = $5
-            "#,
-        )
-        .bind(updated_host.idle_cores.with_multiplier().value())
-        .bind((updated_host.idle_memory.as_u64() / KB) as i64)
-        .bind(updated_host.idle_gpus as i32)
-        .bind(updated_host.idle_gpu_memory.as_u64() as i64)
-        .bind(updated_host.id.to_string())
-        .execute(&mut **transaction)
-        .await
-        .into_diagnostic()
-        .wrap_err("Failed to update host resources")?;
+        host_id: &str,
+        virtual_proc: &VirtualProc,
+    ) -> Result<(i64, i64, i64, i64)> {
+        let n_cores_db: (i64,) =
+            sqlx::query_as("SELECT int_cores_idle from host where pk_host = $1")
+                .bind(host_id)
+                .fetch_one(&mut **transaction)
+                .await
+                .expect("Should get one");
 
-        Ok(())
+        info!(
+            "---Updating {}: {} -{} cores",
+            host_id,
+            n_cores_db.0,
+            virtual_proc.cores_reserved.value()
+        );
+
+        let updated_resources: (i64, i64, i64, i64) = sqlx::query_as(UPDATE_HOST_RESOURCES)
+            .bind(virtual_proc.cores_reserved.value())
+            .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
+            .bind(virtual_proc.gpus_reserved as i32)
+            .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
+            .bind(host_id.to_string())
+            .fetch_one(&mut **transaction)
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to update host resources")?;
+
+        sqlx::query(UPDATE_SUBSCRIPTION)
+            .bind(virtual_proc.cores_reserved.value())
+            .bind(virtual_proc.gpus_reserved as i32)
+            .bind(&virtual_proc.show_id)
+            .bind(&virtual_proc.alloc_id)
+            .execute(&mut **transaction)
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to update subscription resources")?;
+
+        sqlx::query(UPDATE_LAYER_RESOURCE)
+            .bind(virtual_proc.cores_reserved.value())
+            .bind(virtual_proc.gpus_reserved as i32)
+            .bind(&virtual_proc.layer_id)
+            .execute(&mut **transaction)
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to update layer resources")?;
+
+        sqlx::query(UPDATE_JOB_RESOURCE)
+            .bind(virtual_proc.cores_reserved.value())
+            .bind(virtual_proc.gpus_reserved as i32)
+            .bind(&virtual_proc.job_id)
+            .execute(&mut **transaction)
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to update job resources")?;
+
+        sqlx::query(UPDATE_FOLDER_RESOURCE)
+            .bind(virtual_proc.cores_reserved.value())
+            .bind(virtual_proc.gpus_reserved as i32)
+            .bind(&virtual_proc.job_id)
+            .execute(&mut **transaction)
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to update folder resources")?;
+
+        sqlx::query(UPDATE_POINT)
+            .bind(virtual_proc.cores_reserved.value())
+            .bind(virtual_proc.gpus_reserved as i32)
+            .bind(&virtual_proc.job_id)
+            .bind(&virtual_proc.show_id)
+            .execute(&mut **transaction)
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to update point resources")?;
+
+        Ok(updated_resources)
     }
 }

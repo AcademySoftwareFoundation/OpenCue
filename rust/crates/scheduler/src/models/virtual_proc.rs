@@ -3,7 +3,7 @@ use std::fmt::Display;
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
 
-use crate::models::{CoreSizeWithMultiplier, DispatchFrame, fmt_uuid};
+use crate::models::{fmt_uuid, CoreSizeWithMultiplier, DispatchFrame};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VirtualProc {
@@ -13,6 +13,7 @@ pub struct VirtualProc {
     pub layer_id: String,
     pub job_id: String,
     pub frame_id: String,
+    pub alloc_id: String,
     pub host_name: String,
     pub cores_reserved: CoreSizeWithMultiplier,
     pub memory_reserved: ByteSize,

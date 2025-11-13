@@ -16,7 +16,7 @@ use std::{
 use futures::{stream, StreamExt};
 use miette::Result;
 use tokio::sync::Semaphore;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
@@ -279,6 +279,10 @@ impl HostCacheService {
     /// * `host` - Host to return to the cache
     fn check_in(&self, cluster_key: ClusterKey, host: Host) {
         trace!("{}: Attempting to checkin", cluster_key);
+        info!(
+            "--{}: Attempting to checkin with {} cores",
+            host.id, host.idle_cores
+        );
         let _ = self.reserved_hosts.remove_sync(&host.id);
 
         match self.groups.get_sync(&cluster_key) {
@@ -286,6 +290,10 @@ impl HostCacheService {
                 group.check_in(host);
             }
             None => {
+                info!(
+                    "{} checking in on unexisting group ({}).",
+                    host.id, cluster_key
+                );
                 // Noop. The group might have expired and will be updated on demand
             }
         }

@@ -19,7 +19,8 @@ pub struct Host {
     pub(crate) idle_gpu_memory: ByteSize,
     pub(crate) thread_mode: ThreadMode,
     pub(crate) alloc_available_cores: CoreSize,
-    pub(crate) allocation_name: String,
+    pub(crate) alloc_id: String,
+    pub(crate) alloc_name: String,
 }
 
 impl Host {
@@ -57,7 +58,8 @@ impl Host {
         idle_gpu_memory: ByteSize,
         thread_mode: ThreadMode,
         alloc_available_cores: CoreSize,
-        allocation_name: String,
+        alloc_id: String,
+        alloc_name: String,
     ) -> Self {
         Self {
             id,
@@ -71,7 +73,8 @@ impl Host {
             idle_gpu_memory,
             thread_mode,
             alloc_available_cores,
-            allocation_name,
+            alloc_id,
+            alloc_name,
         }
     }
 }

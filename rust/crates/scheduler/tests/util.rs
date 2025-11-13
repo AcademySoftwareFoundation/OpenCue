@@ -831,7 +831,7 @@ async fn create_job_scenario(
 
     // Create job
     sqlx::query(
-            "INSERT INTO job (pk_job, pk_folder, pk_show, pk_facility, pk_dept, str_name, str_visible_name, str_shot, str_user, str_state) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+            "INSERT INTO job (pk_job, pk_folder, pk_show, pk_facility, pk_dept, str_name, str_visible_name, str_shot, str_user, str_state, str_os) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
         )
         .bind(job_id.to_string())
         .bind(folder_id.to_string())
@@ -843,6 +843,7 @@ async fn create_job_scenario(
         .bind(format!("integ_test_shot_{}", job_name.split('_').next_back().unwrap_or("default")))
         .bind(format!("integ_test_user_{}", job_name.split('_').next_back().unwrap_or("default")))
         .bind("PENDING")
+        .bind("linux")
         .execute(&mut *tx)
         .await?;
 
@@ -888,7 +889,7 @@ async fn create_job_scenario(
         .bind(Uuid::new_v4().to_string())
         .bind(job_id.to_string())
         .bind(1)
-        .bind(10001)
+        .bind(100000)
         .execute(&mut *tx)
         .await?;
     } else {
@@ -897,7 +898,7 @@ async fn create_job_scenario(
             "UPDATE job_resource SET int_priority = $1, int_max_cores = $2 WHERE pk_job = $3",
         )
         .bind(1)
-        .bind(10001)
+        .bind(100000)
         .bind(job_id.to_string())
         .execute(&mut *tx)
         .await?;

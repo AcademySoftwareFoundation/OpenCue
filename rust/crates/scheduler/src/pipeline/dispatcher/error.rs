@@ -49,5 +49,5 @@ pub enum DispatchVirtualProcError {
     RqdConnectionFailed { host: String, error: Error },
 
     #[error("Failure after dispatch")]
-    FailureAfterDispatch(DispatchError),
+    FailureAfterDispatch { host: String, error: DispatchError },
 }

@@ -197,7 +197,7 @@ impl MatchingService {
         }
 
         if let Some(subscription) =
-            allocation_service.get_subscription(&host.allocation_name, &show_id.to_string())
+            allocation_service.get_subscription(&host.alloc_name, &show_id.to_string())
         {
             if !subscription.bookable(&cores_requested) {
                 return false;
@@ -308,6 +308,13 @@ impl MatchingService {
                 })
                 .await
                 .expect("Host Cache actor is unresponsive");
+
+            if let Ok(host_candidate) = &host_candidate {
+                info!(
+                    "---Checked out host {} - {} cores",
+                    host_candidate.1.id, host_candidate.1.idle_cores
+                );
+            }
 
             match host_candidate {
                 Ok(CheckedOutHost(cluster_key, host)) => {

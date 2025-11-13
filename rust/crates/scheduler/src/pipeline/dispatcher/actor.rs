@@ -216,7 +216,7 @@ impl RqdDispatcherService {
         // a great margin as each loop only runs for a limited number of frames
         // (see config queue.dispatch_frames_per_layer_limit)
         let mut allocation_capacity = host.alloc_available_cores;
-        let allocation_name = host.allocation_name.clone();
+        let allocation_name = host.alloc_name.clone();
         let mut last_host_version = host;
 
         let allocation_service = allocation_service().await.map_err(|err| {
@@ -235,9 +235,18 @@ impl RqdDispatcherService {
         let mut last_error = None;
         let mut non_retrieable_frames = Vec::new();
 
+        info!(
+            "---Host before frame loop {} had {} cores available",
+            last_host_version.id, last_host_version.idle_cores
+        );
+
         for frame in &layer.frames {
             let frame_str = format!("{}", frame);
 
+            info!(
+                "---Host {} had {} cores available",
+                last_host_version.id, last_host_version.idle_cores
+            );
             let (virtual_proc, updated_host) = match Self::consume_host_virtual_resources(
                 frame,
                 &last_host_version,
@@ -245,7 +254,7 @@ impl RqdDispatcherService {
             )
             .await
             {
-                Ok((virtual_proc, updated_host)) => (virtual_proc, updated_host),
+                Ok(result) => result,
                 Err(VirtualProcError::HostResourcesExtinguished(msg)) => {
                     debug!(
                         "Host resourse extinguished for {}. {}",
@@ -277,6 +286,10 @@ impl RqdDispatcherService {
                 break;
             }
 
+            info!(
+                "---Host {} has {} cores available",
+                updated_host.id, updated_host.idle_cores
+            );
             match self
                 .dispatch_virtual_proc(
                     virtual_proc,
@@ -327,6 +340,9 @@ impl RqdDispatcherService {
                             }
                             warn!("Failed to start frame {} on Db. {}", frame_str, err);
                             last_error = Some(err);
+                            // IMPORTANT: Do NOT update last_host_version here since the transaction
+                            // rolled back and we didn't actually consume any resources from the database.
+                            // The next iteration should use the same host state as before.
                             continue;
                         }
                         DispatchVirtualProcError::FailedToLockForUpdate(err) => {
@@ -348,10 +364,10 @@ impl RqdDispatcherService {
 
                             break;
                         }
-                        DispatchVirtualProcError::FailureAfterDispatch(report) => {
-                            warn!("Failed after dispatch. {:?}", report);
+                        DispatchVirtualProcError::FailureAfterDispatch { host, error } => {
+                            warn!("Failed after dispatch {}. {:?}", host, error);
                             non_retrieable_frames.push(frame.id.clone());
-                            return Err(report);
+                            return Err(error);
                         }
                     }
                 }
@@ -421,7 +437,7 @@ impl RqdDispatcherService {
             || cores_reserved_without_multiplier > allocation_capacity
         {
             return Err(DispatchVirtualProcError::AllocationOverBurst(
-                DispatchError::AllocationOverBurst(host.allocation_name.clone()),
+                DispatchError::AllocationOverBurst(host.alloc_name.clone()),
             ));
         }
         let new_allocation_capacity = allocation_capacity - virtual_proc.cores_reserved.into();
@@ -456,20 +472,40 @@ impl RqdDispatcherService {
                 })?;
         }
 
-        // Update database resources
-        self.host_dao
-            .update_resources(transaction, &host)
-            .await
-            .map_err(DispatchError::FailureAfterDispatch)
-            .map_err(DispatchVirtualProcError::FailureAfterDispatch)?;
-
         self.proc_dao
             .insert(transaction, &virtual_proc)
             .await
             .map_err(DispatchError::FailureAfterDispatch)
-            .map_err(DispatchVirtualProcError::FailureAfterDispatch)?;
+            .map_err(|err| DispatchVirtualProcError::FailureAfterDispatch {
+                host: host.to_string(),
+                error: err,
+            })?;
 
-        Ok((host, new_allocation_capacity))
+        let (db_cores_idle, db_mem_idle, db_gpus_idle, db_gpu_mem_idle) = self
+            .host_dao
+            .update_resources(transaction, &host.id, &virtual_proc)
+            .await
+            .map_err(DispatchError::FailureAfterDispatch)
+            .map_err(|err| DispatchVirtualProcError::FailureAfterDispatch {
+                host: host.to_string(),
+                error: err,
+            })?;
+
+        // Update the host struct with the actual database values after the update
+        // to ensure cache and database stay in sync
+        let mut updated_host = host;
+        updated_host.idle_cores = CoreSize::from_multiplied(
+            db_cores_idle
+                .try_into()
+                .expect("db_cores_idle should fit in i32"),
+        );
+        updated_host.idle_memory = ByteSize::kb(db_mem_idle as u64);
+        updated_host.idle_gpus = db_gpus_idle
+            .try_into()
+            .expect("db_gpus_idle should fit in u32");
+        updated_host.idle_gpu_memory = ByteSize::kb(db_gpu_mem_idle as u64);
+
+        Ok((updated_host, new_allocation_capacity))
     }
 
     async fn launch_on_rqd(
@@ -669,6 +705,7 @@ impl RqdDispatcherService {
                 layer_id: frame.layer_id.clone(),
                 job_id: frame.job_id.clone(),
                 frame_id: frame.id.clone(),
+                alloc_id: host.alloc_id.clone(),
                 cores_reserved: cores_reserved.into(),
                 memory_reserved,
                 gpus_reserved,
@@ -957,6 +994,7 @@ mod tests {
             ByteSize::gib(4),
             ThreadMode::Variable,
             CoreSize(4),
+            Uuid::new_v4().to_string(),
             "test-alloc".to_string(),
         )
     }
@@ -1094,6 +1132,7 @@ mod tests {
             ByteSize::gib(4),
             ThreadMode::Variable,
             CoreSize(4),
+            Uuid::new_v4().to_string(),
             "test-alloc".to_string(),
         );
 
@@ -1129,6 +1168,7 @@ mod tests {
             ByteSize::gib(4),
             ThreadMode::Variable,
             CoreSize(4),
+            Uuid::new_v4().to_string(),
             "test-alloc".to_string(),
         );
 
@@ -1164,6 +1204,7 @@ mod tests {
             ByteSize::gib(16),
             ThreadMode::Variable,
             CoreSize(8),
+            Uuid::new_v4().to_string(),
             "test-alloc".to_string(),
         );
 
@@ -1198,6 +1239,7 @@ mod tests {
             ByteSize::gib(8),
             ThreadMode::Variable,
             CoreSize(8),
+            Uuid::new_v4().to_string(),
             "test-alloc".to_string(),
         );
 
@@ -1366,6 +1408,7 @@ mod tests {
             layer_id: Uuid::new_v4().to_string(),
             job_id: Uuid::new_v4().to_string(),
             frame_id: Uuid::new_v4().to_string(),
+            alloc_id: Uuid::new_v4().to_string(),
             cores_reserved: CoreSize(2).with_multiplier(),
             memory_reserved: ByteSize::gib(4),
             gpus_reserved: 1,
@@ -1441,6 +1484,7 @@ mod tests {
             layer_id: Uuid::new_v4().to_string(),
             job_id: Uuid::new_v4().to_string(),
             frame_id: Uuid::new_v4().to_string(),
+            alloc_id: Uuid::new_v4().to_string(),
             cores_reserved: CoreSize(1).with_multiplier(),
             memory_reserved: ByteSize::gib(2),
             gpus_reserved: 0,
@@ -1476,6 +1520,7 @@ mod tests {
             layer_id: Uuid::new_v4().to_string(),
             job_id: Uuid::new_v4().to_string(),
             frame_id: Uuid::new_v4().to_string(),
+            alloc_id: Uuid::new_v4().to_string(),
             cores_reserved: CoreSize(1).with_multiplier(),
             memory_reserved: ByteSize::gib(2),
             gpus_reserved: 0,
