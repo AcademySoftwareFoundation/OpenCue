@@ -25,6 +25,7 @@ import sys
 import logging
 import tempfile
 from typing import (
+    TYPE_CHECKING,
     TypedDict,
     List,
     Optional,
@@ -46,17 +47,13 @@ import outline.exception
 import outline.io
 import outline.util
 
-if sys.version_info >= (3, 10, 1):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
+if TYPE_CHECKING:
+    from outline.constants import LayerT
 
 if sys.version_info >= (3, 12):
     from typing import override, Unpack
 else:
     from typing_extensions import override, Unpack
-
-_LayerT = Literal["Render", "Util", "Post"]
 
 __all__ = [
     "Layer",
@@ -109,7 +106,7 @@ class _LayerArgs(TypedDict, total=False):
     service: str
     timeout: int
     timeout_llu: int
-    type: _LayerT
+    type: LayerT
 
 
 class Layer(metaclass=LayerType):
@@ -125,7 +122,7 @@ class Layer(metaclass=LayerType):
 
         # Default the layer type to the Render type as
         # defined in the constants module
-        self.__type: Optional[_LayerT] = None
+        self.__type: Optional[LayerT] = None
         self.set_type(args.get("type", outline.constants.LAYER_TYPES[0]))
 
         # A set of arguments that is required before
@@ -378,7 +375,7 @@ class Layer(metaclass=LayerType):
             raise outline.exception.LayerException(msg)
         self.__name = name
 
-    def get_type(self) -> _LayerT:
+    def get_type(self) -> LayerT:
         """
         Return the general scope or purpose of the Layer. Allowed
         types are:
@@ -389,7 +386,7 @@ class Layer(metaclass=LayerType):
         """
         return self.__type
 
-    def set_type(self, t: _LayerT) -> None:
+    def set_type(self, t: LayerT) -> None:
         """
         Set the general scope/purpose of this layer.
         """
