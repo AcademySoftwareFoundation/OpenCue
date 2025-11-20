@@ -225,6 +225,26 @@ enum ThreadMode {
 
 // -------- Primary Message Types --------]
 
+// GPU device information for detailed GPU inventory
+message GpuDevice {
+    string id = 1;                      // Device ID (e.g., "0", "1")
+    string vendor = 2;                  // "NVIDIA", "AMD", "Apple", "Intel"
+    string model = 3;                   // "Tesla V100", "Apple M3 Max", etc.
+    uint64 memory_bytes = 4;            // Total memory in bytes
+    string pci_bus = 5;                 // PCI bus ID (e.g., "0000:01:00.0") or "integrated"
+    string driver_version = 6;          // Driver version
+    string cuda_version = 7;            // CUDA compute capability (e.g., "7.0") or Metal version
+    map<string, string> attributes = 8; // Extensible metadata
+}
+
+// Per-GPU utilization telemetry
+message GpuUsage {
+    string device_id = 1;               // Matches GpuDevice.id
+    uint32 utilization_pct = 2;         // 0-100
+    uint64 memory_used_bytes = 3;       // Current memory usage in bytes
+    uint32 temperature_c = 4;           // Temperature in Celsius (optional)
+}
+
 message Deed {
     string id = 1;
     string host = 2;
@@ -274,6 +294,7 @@ message Host {
     ThreadMode thread_mode = 27;
     float gpus = 28;
     float idle_gpus = 29;
+    repeated GpuDevice gpu_devices = 30;  // Detailed GPU inventory (backward compatible)
 }
 
 message HostSearchCriteria {
@@ -321,6 +342,7 @@ message NestedHost {
     NestedProcSeq procs = 28;
     float gpus = 29;
     float idle_gpus = 30;
+    repeated GpuDevice gpu_devices = 31;  // Detailed GPU inventory (backward compatible)
 }
 
 message NestedHostSeq {
