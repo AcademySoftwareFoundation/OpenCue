@@ -46,6 +46,7 @@ impl CoreSize {
     /// # Returns
     ///
     /// * `CoreSizeWithMultiplier` - Core count with multiplier applied
+    #[allow(dead_code)]
     pub fn with_multiplier(self) -> CoreSizeWithMultiplier {
         self.into()
     }

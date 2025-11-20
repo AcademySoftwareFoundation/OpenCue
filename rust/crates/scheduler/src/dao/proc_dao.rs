@@ -1,4 +1,5 @@
-use miette::{Context, IntoDiagnostic, Result};
+use futures::TryFutureExt;
+use miette::{IntoDiagnostic, Result};
 use sqlx::{Pool, Postgres, Transaction};
 use std::sync::Arc;
 
@@ -134,7 +135,7 @@ impl ProcDao {
         &self,
         transaction: &mut Transaction<'_, Postgres>,
         virtual_proc: &VirtualProc,
-    ) -> Result<()> {
+    ) -> Result<(), (sqlx::Error, String, String)> {
         sqlx::query(INSERT_PROC)
             .bind(&virtual_proc.proc_id)
             .bind(&virtual_proc.host_id)
@@ -153,14 +154,14 @@ impl ProcDao {
             .bind(0)
             .bind(virtual_proc.is_local_dispatch)
             .execute(&mut **transaction)
-            .await
-            .into_diagnostic()
-            .wrap_err_with(|| {
-                format!(
-                    "Failed to insert proc record: proc_id={}, host_id={}, frame_id={}",
-                    virtual_proc.proc_id, virtual_proc.host_id, virtual_proc.frame_id
+            .map_err(|err| {
+                (
+                    err,
+                    virtual_proc.frame_id.clone(),
+                    virtual_proc.host_id.clone(),
                 )
-            })?;
+            })
+            .await?;
 
         Ok(())
     }

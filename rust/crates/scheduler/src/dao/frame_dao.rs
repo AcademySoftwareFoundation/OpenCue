@@ -144,46 +144,6 @@ impl FrameDao {
         Ok(FrameDao {})
     }
 
-    /// Acquires an exclusive lock on a frame for update operations.
-    ///
-    /// Uses PostgreSQL's `FOR UPDATE NOWAIT` to immediately fail if the frame
-    /// is already locked by another transaction. This prevents dispatcher race
-    /// conditions when multiple workers try to book the same frame.
-    ///
-    /// # Arguments
-    ///
-    /// * `transaction` - Active database transaction
-    /// * `frame` - Frame to lock (must be in WAITING state with matching version)
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(())` - Lock acquired successfully
-    /// * `Err(FrameDaoError::FailedToLockForUpdate)` - Lock unavailable or frame changed
-    #[allow(dead_code)]
-    pub async fn lock_for_update(
-        &self,
-        transaction: &mut Transaction<'_, Postgres>,
-        frame: &DispatchFrame,
-    ) -> Result<(), FrameDaoError> {
-        sqlx::query(
-            r#"
-        SELECT pk_frame
-          FROM frame
-         WHERE pk_frame = $1
-           AND str_state = 'WAITING'
-           AND int_version = $2
-        FOR UPDATE NOWAIT
-        "#,
-        )
-        .bind(frame.id.clone())
-        .bind(frame.version as i32)
-        .fetch_one(&mut **transaction)
-        .await
-        .map_err(FrameDaoError::FailedToLockForUpdate)?;
-
-        Ok(())
-    }
-
     /// Updates a frame's state to RUNNING and assigns it to a host.
     ///
     /// Atomically transitions a frame from WAITING to RUNNING state, recording
@@ -204,11 +164,6 @@ impl FrameDao {
         transaction: &mut Transaction<'_, Postgres>,
         virtual_proc: &VirtualProc,
     ) -> Result<(), FrameDaoError> {
-        // Lock for update is a good practive to avoid locking when trying to update rows, but
-        // stress tests proved that the query is prohibitively expensive.
-        // self.lock_for_update(transaction, &virtual_proc.frame)
-        //     .await?;
-
         let result = sqlx::query(
             r#"
             UPDATE frame SET
@@ -240,7 +195,7 @@ impl FrameDao {
 
         // Check if the update actually modified a row
         if result.rows_affected() == 0 {
-            return Err(FrameDaoError::FrameNoLongerAvailable);
+            return Err(FrameDaoError::FrameCouldNotBeUpdated);
         }
 
         Ok(())
@@ -250,10 +205,7 @@ impl FrameDao {
 #[derive(Debug, Error, Diagnostic)]
 pub enum FrameDaoError {
     #[error("Failed to lock frame for update. Frame possibly changed before being dispatched")]
-    FailedToLockForUpdate(sqlx::Error),
-
-    #[error("Frame no longer available for dispatch (already assigned or state changed)")]
-    FrameNoLongerAvailable,
+    FrameCouldNotBeUpdated,
 
     #[error("Failed to execute query")]
     DbFailure(sqlx::Error),

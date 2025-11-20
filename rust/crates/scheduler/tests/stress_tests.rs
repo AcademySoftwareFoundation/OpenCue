@@ -1,6 +1,7 @@
 mod util;
 
 // #[cfg(all(test, feature = "smoke-tests"))]
+#[allow(unused_imports)]
 mod stress_test {
     use crate::util::WaitingFrameClause;
     use std::{sync::atomic::Ordering, time::SystemTime};
@@ -60,11 +61,11 @@ mod stress_test {
     async fn test_stress_small() {
         let desc = TestDescription {
             test_name: "sts".to_string(),
-            job_count: 20,
-            host_count: 80,
+            job_count: 200,
+            host_count: 800,
             layer_count: 4,
             frames_per_layer_count: 2,
-            tag_count: 4,
+            tag_count: 0,
         };
         let _ = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::INFO)

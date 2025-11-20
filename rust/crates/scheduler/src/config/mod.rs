@@ -214,8 +214,12 @@ pub struct HostCacheConfig {
     #[serde(with = "humantime_serde")]
     pub monitoring_interval: Duration,
     #[serde(with = "humantime_serde")]
+    pub clean_up_interval: Duration,
+    #[serde(with = "humantime_serde")]
     pub group_idle_timeout: Duration,
     pub concurrent_fetch_permit: usize,
+    #[serde(with = "humantime_serde")]
+    pub host_staleness_threshold: Duration,
 }
 
 impl Default for HostCacheConfig {
@@ -225,8 +229,10 @@ impl Default for HostCacheConfig {
             memory_key_divisor: ByteSize::gib(2),
             checkout_timeout: Duration::from_secs(12),
             monitoring_interval: Duration::from_secs(1),
+            clean_up_interval: Duration::from_secs(5 * 60),
             group_idle_timeout: Duration::from_secs(3 * 60 * 60),
             concurrent_fetch_permit: 4,
+            host_staleness_threshold: Duration::from_secs(2 * 60), // 2 minutes
         }
     }
 }

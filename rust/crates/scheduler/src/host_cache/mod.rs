@@ -1,6 +1,7 @@
 mod actor;
 mod cache;
 pub mod messages;
+mod store;
 
 use actix::{Actor, Addr};
 pub use cache::HostCache;
@@ -15,6 +16,8 @@ use tracing::error;
 use crate::host_cache::messages::CacheRatio;
 
 pub use actor::HostCacheService;
+
+pub type HostId = String;
 
 static HOST_CACHE: OnceCell<Addr<HostCacheService>> = OnceCell::const_new();
 

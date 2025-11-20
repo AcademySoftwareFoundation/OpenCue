@@ -21,11 +21,18 @@ pub enum DispatchError {
     #[error("DispatchError: Allocation over burst")]
     AllocationOverBurst(String),
 
-    #[error("DispatchError: Dispatch happened but something failed after that")]
-    FailureAfterDispatch(Error),
-
     #[error("DispatchError: Failed to update frame on the database")]
     FailedToStartOnDb(sqlx::Error),
+
+    #[error("DispatchError: Failed to create proc on database for frame={frame_id}, host={host_id}. {error:?}")]
+    FailedToCreateProc {
+        error: sqlx::Error,
+        frame_id: String,
+        host_id: String,
+    },
+
+    #[error("DispatchError: Failed to update proc resources on database")]
+    FailedToUpdateResources(Error),
 
     #[error("DispatchError: Failed to open a GRPC connection")]
     FailureGrpcConnection(String, Error),
@@ -43,11 +50,8 @@ pub enum DispatchVirtualProcError {
     FailedToStartOnDb(DispatchError),
 
     #[error("Failed to lock frame on database")]
-    FailedToLockForUpdate(sqlx::Error),
+    FrameCouldNotBeUpdated,
 
     #[error("Failed to connect to RQD on host {host}")]
     RqdConnectionFailed { host: String, error: Error },
-
-    #[error("Failure after dispatch")]
-    FailureAfterDispatch { host: String, error: DispatchError },
 }

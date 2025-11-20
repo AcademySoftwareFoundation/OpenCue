@@ -16,22 +16,22 @@ use std::{
 use futures::{stream, StreamExt};
 use miette::Result;
 use tokio::sync::Semaphore;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, trace};
 
 use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
     config::CONFIG,
     dao::HostDao,
-    host_cache::messages::*,
     host_cache::*,
+    host_cache::{messages::*, store},
     models::{CoreSize, Host},
 };
 
 #[derive(Clone)]
 pub struct HostCacheService {
     host_dao: Arc<HostDao>,
-    groups: Arc<HashMap<ClusterKey, HostCache>>,
-    reserved_hosts: Arc<HashMap<String, HostReservation>>,
+    cluster_index: Arc<HashMap<ClusterKey, HostCache>>,
+    reserved_hosts: Arc<HashMap<HostId, HostReservation>>,
     cache_hit: Arc<AtomicU64>,
     cache_miss: Arc<AtomicU64>,
     concurrency_semaphore: Arc<Semaphore>,
@@ -59,12 +59,20 @@ impl Actor for HostCacheService {
     type Context = actix::Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        let service = self.clone();
+        let service_for_monitor = self.clone();
+        let service_for_clean_up = self.clone();
 
         ctx.run_interval(CONFIG.host_cache.monitoring_interval, move |_act, ctx| {
-            let service = service.clone();
+            let service = service_for_monitor.clone();
             let actor_clone = service.clone();
             ctx.spawn(async move { service.refresh_cache().await }.into_actor(&actor_clone));
+        });
+
+        ctx.run_interval(CONFIG.host_cache.clean_up_interval, move |_act, _ctx| {
+            let service = service_for_clean_up.clone();
+
+            // Clean up stale hosts from the host store
+            service.cleanup_stale_hosts();
         });
 
         info!("HostCacheService actor started");
@@ -155,7 +163,7 @@ impl HostCacheService {
     pub(in crate::host_cache) async fn new() -> Result<Self> {
         Ok(HostCacheService {
             host_dao: Arc::new(HostDao::new().await?),
-            groups: Arc::new(HashMap::new()),
+            cluster_index: Arc::new(HashMap::new()),
             cache_hit: Arc::new(AtomicU64::new(0)),
             cache_miss: Arc::new(AtomicU64::new(0)),
             concurrency_semaphore: Arc::new(Semaphore::new(
@@ -210,7 +218,7 @@ impl HostCacheService {
         for cache_key in cache_keys {
             // Attempt to read from the cache
             let cached_candidate = self
-                .groups
+                .cluster_index
                 // Using the async counterpart here to prevent blocking during checkout.
                 // As the number of groups is not very large, consumers are eventually going to
                 // fight for the same rows.
@@ -287,14 +295,15 @@ impl HostCacheService {
     /// * `cluster_key` - The cluster key identifying the cache group
     /// * `host` - Host to return to the cache
     fn check_in(&self, cluster_key: ClusterKey, host: Host) {
-        trace!("{}: Attempting to checkin", cluster_key);
-        info!(
-            "--{}: Attempting to checkin with {} cores",
-            host.id, host.idle_cores
+        trace!(
+            "{}: Attempting to checkin ({}, {})",
+            cluster_key,
+            host.id,
+            host.idle_cores
         );
         let host_id = host.id.clone();
 
-        match self.groups.get_sync(&cluster_key) {
+        match self.cluster_index.get_sync(&cluster_key) {
             Some(group) => {
                 group.check_in(host, false);
             }
@@ -367,11 +376,11 @@ impl HostCacheService {
     /// Runs on a timer to update active cache groups from the database and
     /// remove groups that haven't been queried recently.
     async fn refresh_cache(&self) {
-        let caches = Arc::new(&self.groups);
+        let caches = Arc::new(&self.cluster_index);
 
         // Clone list of groups keys to avoid keeping a lock through the stream lifetime
         let mut cloned_keys = Vec::new();
-        self.groups.iter_sync(|key, value| {
+        self.cluster_index.iter_sync(|key, value| {
             cloned_keys.push((key.clone(), value.is_idle()));
             true
         });
@@ -407,6 +416,18 @@ impl HostCacheService {
         });
     }
 
+    /// Removes stale hosts from the global host store.
+    ///
+    /// This method triggers cleanup of hosts that haven't been updated within
+    /// the configured `host_staleness_threshold` duration. It logs the number
+    /// of hosts removed for monitoring purposes.
+    fn cleanup_stale_hosts(&self) {
+        let removed_count = store::HOST_STORE.cleanup_stale_hosts();
+        if removed_count > 0 {
+            info!("Cleaned up {} stale hosts from store", removed_count);
+        }
+    }
+
     /// Fetches host data from the database and populates a cache group.
     ///
     /// Queries the database for hosts matching the cluster key and adds them
@@ -437,10 +458,9 @@ impl HostCacheService {
             .await
             .into_diagnostic()?;
 
-        let cache = self.groups.entry_sync(key.clone()).or_default();
+        let cache = self.cluster_index.entry_sync(key.clone()).or_default();
         for host in hosts {
             let h: Host = host.into();
-            info!("---Fetch {} with {} cores", h.id, h.idle_cores);
             cache.check_in(h, false);
         }
         cache.ping_fetch();

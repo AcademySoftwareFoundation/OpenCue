@@ -13,7 +13,7 @@ use uuid::Uuid;
 use crate::{
     allocation::allocation_service,
     config::CONFIG,
-    dao::{FrameDao, FrameDaoError, HostDao, LayerDao, ProcDao},
+    dao::{FrameDao, FrameDaoError, HostDao, LayerDao, ProcDao, UpdatedHostResources},
     metrics,
     models::{CoreSize, DispatchFrame, DispatchLayer, Host, VirtualProc},
     pgpool::begin_transaction,
@@ -239,18 +239,9 @@ impl RqdDispatcherService {
         // Use an unique id for all logs on this dispatch
         let dispatch_id = Uuid::new_v4();
 
-        info!(
-            "---({dispatch_id}) Host before frame loop {} had {} cores available",
-            last_host_version.id, last_host_version.idle_cores
-        );
-
         for frame in &layer.frames {
             let frame_str = format!("{}", frame);
 
-            info!(
-                "---({dispatch_id}) Host {} had {} cores available",
-                last_host_version.id, last_host_version.idle_cores
-            );
             let (virtual_proc, updated_host) = match Self::consume_host_virtual_resources(
                 frame,
                 &last_host_version,
@@ -268,8 +259,8 @@ impl RqdDispatcherService {
                 }
             };
 
-            info!(
-                "---({dispatch_id}) Host {} will have {} cores available after update",
+            debug!(
+                "({dispatch_id}) Host {} will have {} cores available after update",
                 updated_host.id, updated_host.idle_cores
             );
 
@@ -354,11 +345,11 @@ impl RqdDispatcherService {
                             // The next iteration should use the same host state as before.
                             continue;
                         }
-                        DispatchVirtualProcError::FailedToLockForUpdate(err) => {
+                        DispatchVirtualProcError::FrameCouldNotBeUpdated => {
                             // The entire transaction is probably compromised, stop working on this layer
                             info!(
-                                "({dispatch_id}) Frame {} couldn't be locked on the database. {}",
-                                frame_str, err
+                                "({dispatch_id}) Frame {} couldn't be updated on the database. Version has changed.",
+                                frame_str
                             );
                             non_retrieable_frames.push(frame.id.clone());
                             break;
@@ -371,14 +362,6 @@ impl RqdDispatcherService {
                                 host, error
                             );
 
-                            break;
-                        }
-                        DispatchVirtualProcError::FailureAfterDispatch { host, error } => {
-                            warn!(
-                                "({dispatch_id}) Failed after dispatch {}. {:?}",
-                                host, error
-                            );
-                            non_retrieable_frames.push(frame.id.clone());
                             break;
                         }
                     }
@@ -456,22 +439,9 @@ impl RqdDispatcherService {
         let new_allocation_capacity = allocation_capacity - virtual_proc.cores_reserved.into();
 
         // Update database
-        self.frame_dao
-            .update_frame_started(transaction, &virtual_proc)
-            .await
-            .map_err(|err| match err {
-                FrameDaoError::FailedToLockForUpdate(err) => {
-                    DispatchVirtualProcError::FailedToLockForUpdate(err)
-                }
-                FrameDaoError::FrameNoLongerAvailable => {
-                    // Frame was locked successfully but UPDATE found it was already dispatched
-                    // or state changed. Treat this as a lock conflict.
-                    DispatchVirtualProcError::FailedToLockForUpdate(sqlx::Error::RowNotFound)
-                }
-                FrameDaoError::DbFailure(err) => DispatchVirtualProcError::FailedToStartOnDb(
-                    DispatchError::FailedToStartOnDb(err),
-                ),
-            })?;
+        let updated_resources = self
+            .update_database_for_dispatch(transaction, &virtual_proc, &host.id, dispatch_id)
+            .await?;
 
         // When running on dry_run_mode, just log the outcome
         if self.dry_run_mode {
@@ -488,41 +458,83 @@ impl RqdDispatcherService {
                 })?;
         }
 
-        self.proc_dao
-            .insert(transaction, &virtual_proc)
-            .await
-            .map_err(DispatchError::FailureAfterDispatch)
-            .map_err(|err| DispatchVirtualProcError::FailureAfterDispatch {
-                host: host.to_string(),
-                error: err,
-            })?;
-
-        let (db_cores_idle, db_mem_idle, db_gpus_idle, db_gpu_mem_idle, db_last_updated) = self
-            .host_dao
-            .update_resources(transaction, &host.id, &virtual_proc, dispatch_id)
-            .await
-            .map_err(DispatchError::FailureAfterDispatch)
-            .map_err(|err| DispatchVirtualProcError::FailureAfterDispatch {
-                host: host.to_string(),
-                error: err,
-            })?;
-
         // Update the host struct with the actual database values after the update
         // to ensure cache and database stay in sync
         let mut updated_host = host;
         updated_host.idle_cores = CoreSize::from_multiplied(
-            db_cores_idle
+            updated_resources
+                .cores_idle
                 .try_into()
                 .expect("db_cores_idle should fit in i32"),
         );
-        updated_host.idle_memory = ByteSize::kb(db_mem_idle as u64);
-        updated_host.idle_gpus = db_gpus_idle
+        updated_host.idle_memory = ByteSize::kb(updated_resources.mem_idle as u64);
+        updated_host.idle_gpus = updated_resources
+            .gpus_idle
             .try_into()
             .expect("db_gpus_idle should fit in u32");
-        updated_host.idle_gpu_memory = ByteSize::kb(db_gpu_mem_idle as u64);
-        updated_host.last_updated = db_last_updated.and_utc();
+        updated_host.idle_gpu_memory = ByteSize::kb(updated_resources.gpu_mem_idle as u64);
+        updated_host.last_updated = updated_resources.last_updated.and_utc();
 
         Ok((updated_host, new_allocation_capacity))
+    }
+
+    /// Updates database records for frame dispatch.
+    ///
+    /// This function performs three database operations atomically:
+    /// 1. Updates the frame status to "started"
+    /// 2. Inserts the virtual proc record
+    /// 3. Updates host resource allocations
+    ///
+    /// # Arguments
+    /// * `transaction` - Database transaction for atomic updates
+    /// * `virtual_proc` - The virtual proc being dispatched
+    /// * `host_id` - ID of the host receiving the dispatch
+    /// * `dispatch_id` - Unique identifier for this dispatch operation
+    ///
+    /// # Returns
+    /// On success, returns the updated host resources from the database.
+    /// On failure, returns a `DispatchVirtualProcError` indicating the specific failure mode.
+    async fn update_database_for_dispatch(
+        &self,
+        transaction: &mut Transaction<'_, Postgres>,
+        virtual_proc: &VirtualProc,
+        host_id: &str,
+        dispatch_id: Uuid,
+    ) -> Result<UpdatedHostResources, DispatchVirtualProcError> {
+        self.frame_dao
+            .update_frame_started(transaction, virtual_proc)
+            .await
+            .map_err(|err| match err {
+                FrameDaoError::FrameCouldNotBeUpdated => {
+                    DispatchVirtualProcError::FrameCouldNotBeUpdated
+                }
+                FrameDaoError::DbFailure(err) => DispatchVirtualProcError::FailedToStartOnDb(
+                    DispatchError::FailedToStartOnDb(err),
+                ),
+            })?;
+
+        self.proc_dao
+            .insert(transaction, virtual_proc)
+            .await
+            .map_err(|(error, frame_id, host_id)| {
+                DispatchVirtualProcError::FailedToStartOnDb(DispatchError::FailedToCreateProc {
+                    error,
+                    frame_id,
+                    host_id,
+                })
+            })?;
+
+        let updated_resources = self
+            .host_dao
+            .update_resources(transaction, host_id, virtual_proc, dispatch_id)
+            .await
+            .map_err(|err| {
+                DispatchVirtualProcError::FailedToStartOnDb(DispatchError::FailedToUpdateResources(
+                    err,
+                ))
+            })?;
+
+        Ok(updated_resources)
     }
 
     async fn launch_on_rqd(

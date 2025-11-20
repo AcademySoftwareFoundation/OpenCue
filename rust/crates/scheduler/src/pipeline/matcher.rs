@@ -309,13 +309,6 @@ impl MatchingService {
                 .await
                 .expect("Host Cache actor is unresponsive");
 
-            if let Ok(host_candidate) = &host_candidate {
-                info!(
-                    "---Checked out host {} - {} cores",
-                    host_candidate.1.id, host_candidate.1.idle_cores
-                );
-            }
-
             match host_candidate {
                 Ok(CheckedOutHost(cluster_key, host)) => {
                     let host_before_dispatch = host.clone();
@@ -435,14 +428,6 @@ impl MatchingService {
                 );
                 info!(msg);
             }
-            DispatchError::FailureAfterDispatch(report) => {
-                // TODO: Implement a recovery logic for when a frame got dispatched
-                // but its status hasn't been updated on the database
-                error!(
-                    "{:?}",
-                    report.wrap_err(format!("Failed to dispatch {} on {}.", layer_display, host))
-                );
-            }
             DispatchError::FailedToStartOnDb(sqlx_error) => {
                 error!(
                     "Failed to Start frame on Database when dispatching {} on {}. {:?}",
@@ -468,6 +453,25 @@ impl MatchingService {
                 error!(
                     "{} failed to create execute grpc command on {}. {:?}",
                     layer_display, host, status
+                );
+            }
+            DispatchError::FailedToCreateProc {
+                error,
+                frame_id,
+                host_id,
+            } => {
+                error!(
+                    "Failed to create proc for frame {} on host {}. {:?}",
+                    frame_id, host_id, error
+                );
+            }
+            DispatchError::FailedToUpdateResources(report) => {
+                error!(
+                    "{:?}",
+                    report.wrap_err(format!(
+                        "Failed to update resources for dispatching {} on {}.",
+                        layer_display, host
+                    ))
                 );
             }
         }

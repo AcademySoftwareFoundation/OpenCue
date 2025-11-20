@@ -52,10 +52,10 @@ pub async fn test_connection_pool() -> Result<Arc<Pool<Postgres>>, sqlx::Error> 
 
 #[allow(dead_code)]
 pub fn create_test_config() -> Config {
-    let connection_url = format!(
-        "postgresql://{}:{}@{}:{}/{}",
-        TEST_DB_USER, TEST_DB_PASSWORD, TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME
-    );
+    // let connection_url = format!(
+    //     "postgresql://{}:{}@{}:{}/{}",
+    //     TEST_DB_USER, TEST_DB_PASSWORD, TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME
+    // );
 
     Config {
         logging: LoggingConfig {
@@ -526,7 +526,7 @@ pub async fn create_test_data(
     frames_per_layer_count: usize,
     tag_count: usize,
 ) -> Result<TestData, sqlx::Error> {
-    assert!(tag_count >= 4, "Minimum tag_count is 4");
+    // assert!(tag_count >= 4, "Minimum tag_count is 4");
 
     // Create basic entities
     let facility_id = Uuid::new_v4();
@@ -560,31 +560,46 @@ pub async fn create_test_data(
 
     // Manual Tags
     let mut tags = Vec::new();
-    for i in 1..=tag_count {
-        tags.push(format!("{}_{}", test_prefix, i));
-    }
+    let mut clusters = Vec::new();
+    let mut tag_chunks: Vec<Vec<(String, &str)>> = Vec::new();
+    if tag_count > 0 {
+        for i in 1..=tag_count {
+            tags.push(format!("{}_{}", test_prefix, i));
+        }
 
+        // Clusters. Chunk manual tags in approximatelly 4 groups
+        for chunk in tags.chunks(tags.len() / 4) {
+            let cluster = Cluster::TagsKey(
+                chunk
+                    .iter()
+                    .map(|tag_name| Tag {
+                        name: tag_name.clone(),
+                        ttype: TagType::Manual,
+                    })
+                    .collect(),
+            );
+            clusters.push(cluster);
+        }
+
+        // Chunck tags to the number of hosts
+        let tags_per_chunk = tags.len().div_ceil(host_count);
+        tag_chunks = tags
+            .chunks(tags_per_chunk)
+            .map(|chunk| chunk.iter().map(|tag| (tag.clone(), "MANUAL")).collect())
+            .collect();
+    }
     // Create allocations for different tag types
+    let alloc_tags = vec![
+        format!("{}_a1", test_prefix),
+        format!("{}_a2", test_prefix),
+        format!("{}_a3", test_prefix),
+    ];
     let allocs = [
         create_allocation(&mut tx, facility_id, &format!("{}_a1", test_prefix)).await?,
         create_allocation(&mut tx, facility_id, &format!("{}_a2", test_prefix)).await?,
         create_allocation(&mut tx, facility_id, &format!("{}_a3", test_prefix)).await?,
     ];
 
-    // Clusters. Chunk manual tags in approximatelly 4 groups
-    let mut clusters = Vec::new();
-    for chunk in tags.chunks(tags.len() / 4) {
-        let cluster = Cluster::TagsKey(
-            chunk
-                .iter()
-                .map(|tag_name| Tag {
-                    name: tag_name.clone(),
-                    ttype: TagType::Manual,
-                })
-                .collect(),
-        );
-        clusters.push(cluster);
-    }
     for (alloc_id, alloc_name) in allocs.iter() {
         let cluster = Cluster::ComposedKey(ClusterKey {
             facility_id: facility_id.to_string(),
@@ -595,7 +610,7 @@ pub async fn create_test_data(
             },
         });
         clusters.push(cluster);
-        create_subscription(&mut tx, *alloc_id, show_id, 10000 * 100, 12000 * 100).await?;
+        create_subscription(&mut tx, *alloc_id, show_id, 10000 * 100, 990000 * 100).await?;
     }
 
     // Create folder
@@ -611,18 +626,12 @@ pub async fn create_test_data(
 
     let mut rng = StdRng::from_seed(SEED);
 
-    // Chunck tags to the number of hosts
-    let tags_per_chunk = tags.len().div_ceil(host_count);
-    let tag_chunks: Vec<Vec<(String, &str)>> = tags
-        .chunks(tags_per_chunk)
-        .map(|chunk| chunk.iter().map(|tag| (tag.clone(), "MANUAL")).collect())
-        .collect();
     // Create hosts
     let mut hosts = Vec::new();
     for i in 0..host_count {
         let (curr_alloc_id, curr_alloc_tag) = allocs.choose(&mut rng).unwrap();
 
-        let mut host_tags: Vec<_> = {
+        let mut host_tags: Vec<_> = if !tag_chunks.is_empty() {
             // Ensure each tag exist in at least one host
             if i < tag_chunks.len() {
                 tag_chunks[i].clone()
@@ -635,6 +644,8 @@ pub async fn create_test_data(
                     .map(|tag| (tag.clone(), "MANUAL"))
                     .collect()
             }
+        } else {
+            Vec::new()
         };
         // Each host shall have a single ALLOC tag
         host_tags.push((curr_alloc_tag.clone(), "ALLOC"));
@@ -658,6 +669,7 @@ pub async fn create_test_data(
 
     // Create Jobs
     let mut jobs = Vec::new();
+    tags.extend(alloc_tags);
     for i in 0..job_count {
         let job = create_job_scenario(
             &format!("{}_{}", test_prefix, i),
@@ -889,7 +901,7 @@ async fn create_job_scenario(
         .bind(Uuid::new_v4().to_string())
         .bind(job_id.to_string())
         .bind(1)
-        .bind(100000)
+        .bind(90000)
         .execute(&mut *tx)
         .await?;
     } else {
@@ -898,7 +910,7 @@ async fn create_job_scenario(
             "UPDATE job_resource SET int_priority = $1, int_max_cores = $2 WHERE pk_job = $3",
         )
         .bind(1)
-        .bind(100000)
+        .bind(90000)
         .bind(job_id.to_string())
         .execute(&mut *tx)
         .await?;
@@ -913,7 +925,7 @@ async fn create_job_scenario(
 
         let num_tags = rng.gen_range(1..=3);
         let layer_tags: Vec<_> = tags.choose_multiple(&mut rng, num_tags).cloned().collect();
-        let cores_range: Vec<usize> = (8..=128).step_by(4).collect();
+        let cores_range: Vec<usize> = (4..=56).step_by(4).collect();
         let min_cores: usize = *cores_range.choose(&mut rng).unwrap();
         let memory = rng.gen_range(4..=32);
 

@@ -5,7 +5,7 @@ use chrono::NaiveDateTime;
 use miette::{Context, IntoDiagnostic, Result};
 use opencue_proto::host::ThreadMode;
 use sqlx::{Pool, Postgres, Transaction};
-use tracing::{info, trace};
+use tracing::trace;
 use uuid::Uuid;
 
 use crate::{
@@ -22,6 +22,16 @@ use crate::{
 pub struct HostDao {
     connection_pool: Arc<Pool<Postgres>>,
 }
+/// Updated resource counts after a host resource update operation.
+///
+/// Contains the remaining idle resources on a host after dispatch.
+pub struct UpdatedHostResources {
+    pub cores_idle: i64,
+    pub mem_idle: i64,
+    pub gpus_idle: i64,
+    pub gpu_mem_idle: i64,
+    pub last_updated: NaiveDateTime,
+}
 
 /// Database model representing a host with its current resource availability.
 ///
@@ -36,6 +46,7 @@ pub struct HostModel {
     int_cores_idle: i64,
     int_mem_idle: i64,
     int_gpus_idle: i64,
+    #[allow(dead_code)]
     int_gpu_mem_idle: i64,
     int_cores: i64,
     int_mem: i64,
@@ -315,7 +326,7 @@ impl HostDao {
     /// * `virtual_proc` - Virtual proc containing resource reservations
     ///
     /// # Returns
-    /// * `Ok((i64, i64, i64, i64, DateTime<Utc>))` - Tuple of (cores_idle, mem_idle, gpus_idle, gpu_mem_idle, last_updated) after update
+    /// * `Ok(UpdatedHostResources)` - Updated idle resource counts after dispatch
     /// * `Err(miette::Error)` - Database update failed
     pub async fn update_resources(
         &self,
@@ -323,33 +334,23 @@ impl HostDao {
         host_id: &str,
         virtual_proc: &VirtualProc,
         dispatch_id: Uuid,
-    ) -> Result<(i64, i64, i64, i64, NaiveDateTime)> {
-        // TODO: Remove
-        let n_cores_db: (i64,) =
-            sqlx::query_as("SELECT int_cores_idle from host where pk_host = $1")
-                .bind(host_id)
-                .fetch_one(&mut **transaction)
-                .await
-                .expect("Should get one");
-
-        info!(
-            "---({dispatch_id}) Updating {}: {} -{} cores",
-            host_id,
-            n_cores_db.0,
-            virtual_proc.cores_reserved.value()
-        );
-
-        let updated_resources: (i64, i64, i64, i64, NaiveDateTime) =
-            sqlx::query_as(UPDATE_HOST_RESOURCES)
-                .bind(virtual_proc.cores_reserved.value())
-                .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
-                .bind(virtual_proc.gpus_reserved as i32)
-                .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
-                .bind(host_id.to_string())
-                .fetch_one(&mut **transaction)
-                .await
-                .into_diagnostic()
-                .wrap_err(format!("({dispatch_id}) Failed to update host resources"))?;
+    ) -> Result<UpdatedHostResources> {
+        let (cores_idle, mem_idle, gpus_idle, gpu_mem_idle, last_updated): (
+            i64,
+            i64,
+            i64,
+            i64,
+            NaiveDateTime,
+        ) = sqlx::query_as(UPDATE_HOST_RESOURCES)
+            .bind(virtual_proc.cores_reserved.value())
+            .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
+            .bind(virtual_proc.gpus_reserved as i32)
+            .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
+            .bind(host_id.to_string())
+            .fetch_one(&mut **transaction)
+            .await
+            .into_diagnostic()
+            .wrap_err(format!("({dispatch_id}) Failed to update host resources"))?;
 
         sqlx::query(UPDATE_SUBSCRIPTION)
             .bind(virtual_proc.cores_reserved.value())
@@ -398,6 +399,12 @@ impl HostDao {
             .into_diagnostic()
             .wrap_err("Failed to update point resources")?;
 
-        Ok(updated_resources)
+        Ok(UpdatedHostResources {
+            cores_idle,
+            mem_idle,
+            gpus_idle,
+            gpu_mem_idle,
+            last_updated,
+        })
     }
 }
