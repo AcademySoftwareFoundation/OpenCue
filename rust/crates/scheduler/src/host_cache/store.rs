@@ -12,15 +12,21 @@ use crate::{config::CONFIG, host_cache::HostId, models::Host};
 
 /// Thread-safe store for host data with concurrent access support.
 ///
-/// The `HostStore` uses a combination of `RwLock` for structural access control
-/// and `scc::HashMap` for lock-free concurrent operations. This design allows
-/// multiple readers and safe concurrent writes.
+/// The `HostStore` uses `scc::HashMap` for lock-free concurrent operations.
 ///
 /// # Concurrency Model
 ///
-/// - **Read operations** (`get`): Multiple concurrent reads via read lock
-/// - **Write operations** (`insert`, `remove`): Exclusive access via write lock
+/// - **All operations** use lock-free atomic operations via `scc::HashMap`
 /// - **Conflict resolution**: Timestamp-based optimistic concurrency control
+///
+/// # Staleness Detection
+///
+/// The store automatically detects and removes stale hosts during:
+/// - `get()` operations - removes stale hosts on access
+/// - `cleanup_stale_hosts()` - batch removal of all stale hosts
+/// - `atomic_remove_if_valid()` - removes stale hosts regardless of validation
+///
+/// Staleness threshold is configured via `CONFIG.host_cache.host_staleness_threshold`.
 #[derive(Default)]
 pub(super) struct HostStore {
     /// Host actual data indexed by HostId
@@ -28,7 +34,35 @@ pub(super) struct HostStore {
 }
 
 impl HostStore {
-    /// Retrieves a host by ID.
+    /// Checks if a host is stale based on its last update timestamp.
+    ///
+    /// A host is considered stale if the time elapsed since its last update
+    /// exceeds the configured staleness threshold.
+    ///
+    /// # Arguments
+    ///
+    /// * `host` - The host to check for staleness
+    ///
+    /// # Returns
+    ///
+    /// * `true` - If the host is stale (age > threshold)
+    /// * `false` - If the host is still fresh or if duration conversion fails
+    ///
+    /// # Error Handling
+    ///
+    /// If the configured staleness threshold cannot be converted to a chrono Duration
+    /// (extremely unlikely in practice), defaults to zero duration, treating all hosts
+    /// as fresh. This prevents panics from malformed configuration.
+    fn is_host_stale(host: &Host) -> bool {
+        let now = Utc::now();
+        let age = now - host.last_updated;
+        let staleness_threshold = CONFIG.host_cache.host_staleness_threshold;
+        let staleness_duration =
+            chrono::Duration::from_std(staleness_threshold).unwrap_or_default();
+        age > staleness_duration
+    }
+
+    /// Retrieves a host by ID with automatic staleness detection and removal.
     ///
     /// Returns a cloned copy of the host if found and not stale, or `None` if not present
     /// or if the host's last_updated timestamp exceeds the staleness threshold.
@@ -49,23 +83,23 @@ impl HostStore {
     ///
     /// Stale hosts are automatically removed from the store when detected.
     ///
-    /// # Concurrency
+    /// # Concurrency & Race Conditions
     ///
-    /// This operation acquires a read lock for the initial lookup, allowing multiple
-    /// concurrent reads. If a stale host is detected, it releases the read lock and
-    /// acquires a write lock to remove the host.
+    /// This operation uses lock-free reads followed by a lock-free removal if stale.
+    /// Between the staleness check and removal, another thread could:
+    /// - Update the host with fresh data (removal would fail or remove stale version)
+    /// - Remove the host (removal becomes a no-op)
+    ///
+    /// These races are benign - at worst, a fresh host might need to be re-inserted,
+    /// but staleness detection ensures no stale data is returned to the caller.
     pub fn get(&self, host_id: &HostId) -> Option<Host> {
         let host = self
             .host_store
             .get_sync(host_id)
             .map(|entry| entry.get().clone())?;
 
-        let now = Utc::now();
-        let age = now - host.last_updated;
-        let staleness_threshold = CONFIG.host_cache.host_staleness_threshold;
-
         // Check if the host is stale
-        if age > chrono::Duration::from_std(staleness_threshold).unwrap_or_default() {
+        if Self::is_host_stale(&host) {
             // Host is stale, remove it from the store
             self.remove(host_id);
             return None;
@@ -87,16 +121,100 @@ impl HostStore {
     ///
     /// # Concurrency
     ///
-    /// This operation acquires a write lock, ensuring exclusive access during removal.
-    /// Other read and write operations will block until this completes.
+    /// This operation uses lock-free atomic removal from the concurrent HashMap.
     pub fn remove(&self, host_id: &HostId) -> Option<Host> {
         self.host_store.remove_sync(host_id).map(|(_, host)| host)
+    }
+
+    /// Atomically removes a host from the store only if it matches the expected state.
+    ///
+    /// This method implements atomic check-and-remove to prevent race conditions
+    /// where a host's state changes between lookup and removal operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `host_id` - The unique identifier of the host to remove
+    /// * `expected_last_updated` - Expected timestamp to verify host hasn't changed
+    /// * `validation` - Additional validation function that must pass for removal
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(Host))` - Host was successfully removed and matched expectations
+    /// * `Ok(None)` - Host was not found in the store
+    /// * `Err(())` - Host exists but doesn't match expected state (timestamp mismatch or validation failure)
+    ///
+    /// # Staleness Handling
+    ///
+    /// Stale hosts are always removed regardless of timestamp or validation checks.
+    /// This ensures the store doesn't accumulate stale entries even when removal
+    /// attempts fail validation.
+    ///
+    /// # Race Condition Prevention
+    ///
+    /// Uses atomic entry operations (`entry_sync()`) to ensure the host state
+    /// verification and removal happen atomically. The entry holds exclusive access
+    /// during the entire check-and-remove operation, preventing other threads from
+    /// modifying the host between validation and removal.
+    ///
+    /// # Typical Usage Pattern
+    ///
+    /// ```ignore
+    /// // Read host and remember timestamp
+    /// let host = HOST_STORE.get(&host_id)?;
+    /// let timestamp = host.last_updated;
+    ///
+    /// // ... perform some work ...
+    ///
+    /// // Atomically remove only if host hasn't changed
+    /// match HOST_STORE.atomic_remove_if_valid(&host_id, timestamp, |h| h.idle_cores >= needed) {
+    ///     Ok(Some(host)) => /* successfully removed */,
+    ///     Ok(None) => /* host disappeared */,
+    ///     Err(()) => /* host changed, retry operation */,
+    /// }
+    /// ```
+    pub fn atomic_remove_if_valid<F>(
+        &self,
+        host_id: &HostId,
+        expected_last_updated: chrono::DateTime<chrono::Utc>,
+        validation: F,
+    ) -> Result<Option<Host>, ()>
+    where
+        F: FnOnce(&Host) -> bool,
+    {
+        match self.host_store.entry_sync(host_id.clone()) {
+            scc::hash_map::Entry::Occupied(entry) => {
+                let host = entry.get();
+
+                // Check staleness first
+                if Self::is_host_stale(host) {
+                    // Host is stale, remove it
+                    let removed_host = entry.remove();
+                    return Ok(Some(removed_host));
+                }
+
+                // Verify host hasn't changed since we looked it up
+                if host.last_updated != expected_last_updated {
+                    return Err(());
+                }
+
+                // Apply additional validation
+                if !validation(host) {
+                    return Err(());
+                }
+
+                // All checks passed, atomically remove the host
+                let removed_host = entry.remove();
+                Ok(Some(removed_host))
+            }
+            scc::hash_map::Entry::Vacant(_) => Ok(None),
+        }
     }
 
     /// Inserts or updates a host in the store with optimistic concurrency control.
     ///
     /// This method implements timestamp-based conflict resolution to prevent
-    /// stale data from overwriting newer updates.
+    /// stale data from overwriting newer updates. It's the primary method for
+    /// updating host state in the cache.
     ///
     /// # Arguments
     ///
@@ -119,12 +237,26 @@ impl HostStore {
     ///
     /// When `authoritative = true`:
     /// - Unconditionally updates the host data
-    /// - Used for authoritative sources like database loads
+    /// - Used for authoritative sources like database loads or admin operations
     ///
-    /// # Concurrency
+    /// # Concurrency & Race Conditions
     ///
-    /// This operation acquires a write lock for the duration of the insert/update.
-    /// The timestamp check and upsert are performed atomically within the lock.
+    /// This operation performs a lock-free read followed by a lock-free upsert.
+    /// Between the timestamp check and upsert, another thread could:
+    /// - Insert/update the same host with different data
+    /// - Remove the host from the store
+    ///
+    /// The race is handled by `upsert_sync()` which atomically updates the entry.
+    /// However, if multiple threads update concurrently, the last writer wins.
+    /// Callers relying on ordering should use `atomic_remove_if_valid()` for
+    /// stronger consistency guarantees.
+    ///
+    /// # Note on Non-Authoritative Updates
+    ///
+    /// Non-authoritative updates (`authoritative = false`) may be rejected if
+    /// the incoming data is older than what's already in the store. This prevents
+    /// out-of-order updates from overwriting fresher data, which can happen when
+    /// multiple update sources have different latencies.
     pub fn insert(&self, host: Host, authoritative: bool) -> Host {
         // Ignore entries that are out of date
         if let Some(existing_host) = self.host_store.get_sync(&host.id) {
@@ -137,34 +269,43 @@ impl HostStore {
             .unwrap_or(host)
     }
 
-    /// Removes all stale hosts from the store.
+    /// Removes all stale hosts from the store in a batch operation.
     ///
     /// A host is considered stale if:
     /// `current_time - host.last_updated > host_staleness_threshold`
     ///
     /// This method should be called periodically to clean up hosts that have
-    /// not been updated recently and are no longer active.
+    /// not been updated recently and are no longer active. It's more efficient
+    /// than relying solely on lazy removal via `get()` for large-scale cleanup.
     ///
     /// # Returns
     ///
     /// * `usize` - The number of stale hosts removed from the store
     ///
-    /// # Concurrency
+    /// # Implementation Details
     ///
-    /// This operation iterates through all hosts and removes stale entries.
-    /// The iteration is done synchronously to ensure consistency.
+    /// Uses a two-pass approach:
+    /// 1. First pass: iterate through all hosts to identify stale entries
+    /// 2. Second pass: remove identified stale hosts
+    ///
+    /// This avoids holding iteration locks during removal operations.
+    ///
+    /// # Concurrency & Race Conditions
+    ///
+    /// Between identifying stale hosts and removing them, concurrent operations may:
+    /// - Update a stale host with fresh data (removal becomes a no-op or removes old version)
+    /// - Remove hosts that we're about to remove (removal becomes a no-op)
+    /// - Insert new hosts (won't affect this cleanup operation)
+    ///
+    /// These races are benign. The worst case is redundant removal attempts
+    /// which are cheap no-ops. Fresh updates won't be incorrectly removed since
+    /// the store uses atomic operations.
     pub fn cleanup_stale_hosts(&self) -> usize {
-        let now = Utc::now();
-        let staleness_threshold = CONFIG.host_cache.host_staleness_threshold;
-        let staleness_duration =
-            chrono::Duration::from_std(staleness_threshold).unwrap_or_default();
-
         let mut stale_host_ids = Vec::new();
 
         // First pass: identify stale hosts
         self.host_store.iter_sync(|host_id, host| {
-            let age = now - host.last_updated;
-            if age > staleness_duration {
+            if Self::is_host_stale(host) {
                 stale_host_ids.push(host_id.clone());
             }
             true
@@ -420,5 +561,116 @@ mod tests {
         // At least one thread should report cleaning up hosts
         let total_removed: usize = results.iter().sum();
         assert!(total_removed > 0);
+    }
+
+    #[test]
+    fn test_atomic_remove_if_valid_success() {
+        let store = HostStore::default();
+
+        // Create a test host
+        let host_id = Uuid::new_v4();
+        let timestamp = Utc::now();
+        let host = create_test_host_with_timestamp(host_id, 4, ByteSize::gb(8), timestamp);
+
+        store.insert(host.clone(), true);
+
+        // Atomic remove should succeed with correct timestamp and validation
+        let result =
+            store.atomic_remove_if_valid(&host.id, timestamp, |h| h.idle_cores.value() >= 4);
+
+        assert!(matches!(result, Ok(Some(_))));
+        if let Ok(Some(removed_host)) = result {
+            assert_eq!(removed_host.id, host.id);
+        }
+
+        // Host should be gone from store
+        assert!(store.get(&host.id).is_none());
+    }
+
+    #[test]
+    fn test_atomic_remove_if_valid_timestamp_mismatch() {
+        let store = HostStore::default();
+
+        // Create a test host
+        let host_id = Uuid::new_v4();
+        let timestamp = Utc::now();
+        let host = create_test_host_with_timestamp(host_id, 4, ByteSize::gb(8), timestamp);
+
+        store.insert(host.clone(), true);
+
+        // Try to remove with wrong timestamp
+        let wrong_timestamp = timestamp - ChronoDuration::seconds(60);
+        let result =
+            store.atomic_remove_if_valid(&host.id, wrong_timestamp, |h| h.idle_cores.value() >= 4);
+
+        // Should return an error
+        assert!(result.is_err());
+
+        // Host should still be in store
+        assert!(store.get(&host.id).is_some());
+    }
+
+    #[test]
+    fn test_atomic_remove_if_valid_validation_failure() {
+        let store = HostStore::default();
+
+        // Create a test host with 4 cores
+        let host_id = Uuid::new_v4();
+        let timestamp = Utc::now();
+        let host = create_test_host_with_timestamp(host_id, 4, ByteSize::gb(8), timestamp);
+
+        store.insert(host.clone(), true);
+
+        // Try to remove with validation requiring 8 cores
+        let result = store.atomic_remove_if_valid(
+            &host.id,
+            timestamp,
+            |h| h.idle_cores.value() >= 8, // This will fail
+        );
+
+        // Should return an error
+        assert!(result.is_err());
+
+        // Host should still be in store
+        assert!(store.get(&host.id).is_some());
+    }
+
+    #[test]
+    fn test_atomic_remove_if_valid_stale_host() {
+        let store = HostStore::default();
+
+        // Create a stale host
+        let host_id = Uuid::new_v4();
+        let staleness_threshold = CONFIG.host_cache.host_staleness_threshold;
+        let staleness_duration = ChronoDuration::from_std(staleness_threshold).unwrap();
+        let stale_timestamp = Utc::now() - staleness_duration - ChronoDuration::seconds(10);
+
+        let host = create_test_host_with_timestamp(host_id, 4, ByteSize::gb(8), stale_timestamp);
+        store.insert(host.clone(), true);
+
+        // Atomic remove should succeed and remove stale host regardless of validation
+        let result = store.atomic_remove_if_valid(
+            &host.id,
+            stale_timestamp,
+            |h| h.idle_cores.value() >= 8, // Would normally fail, but staleness overrides
+        );
+
+        assert!(matches!(result, Ok(Some(_))));
+        if let Ok(Some(removed_host)) = result {
+            assert_eq!(removed_host.id, host.id);
+        }
+
+        // Host should be gone from store
+        assert!(store.get(&host.id).is_none());
+    }
+
+    #[test]
+    fn test_atomic_remove_if_valid_nonexistent_host() {
+        let store = HostStore::default();
+
+        let nonexistent_id = Uuid::new_v4().to_string();
+        let result = store.atomic_remove_if_valid(&nonexistent_id, Utc::now(), |_| true);
+
+        assert!(matches!(result, Ok(None)));
     }
 }

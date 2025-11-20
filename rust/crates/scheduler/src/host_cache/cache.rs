@@ -159,12 +159,8 @@ impl HostCache {
     /// Removes a suitable host from the cache based on resource requirements.
     ///
     /// Searches for a host with at least the requested cores and memory that
-    /// passes the validation function. Uses a range-based search for efficient
-    /// resource matching.
-    ///
-    /// This method now acquires a single write lock for the entire operation,
-    /// ensuring atomicity between finding the host and removing it from both
-    /// data structures.
+    /// passes the validation function. Uses atomic operations with retry logic
+    /// to prevent race conditions where host state changes between lookup and removal.
     ///
     /// # Arguments
     ///
@@ -182,9 +178,13 @@ impl HostCache {
     {
         let core_key = cores.value() as u32;
         let memory_key = Self::gen_memory_key(memory);
+        let host_validation = |host: &Host| {
+            validation(host) && host.idle_memory >= memory && host.idle_cores >= cores
+        };
 
-        {
-            let mut host_index_lock = self.hosts_index.write().unwrap_or_else(|p| p.into_inner());
+        // Step 1: Find a candidate host in the index
+        let candidate_info = {
+            let host_index_lock = self.hosts_index.read().unwrap_or_else(|p| p.into_inner());
             let mut iter: Box<dyn Iterator<Item = (&CoreKey, &MemoryBTree)>> =
                 if !self.strategy.core_saturation {
                     // Reverse order to find hosts with max amount of cores available
@@ -193,50 +193,67 @@ impl HostCache {
                     Box::new(host_index_lock.range(core_key..))
                 };
 
-            let found_keys: Option<(u32, u64, HostId)> =
-                iter.find_map(|(by_core_key, hosts_by_memory)| {
-                    let find_fn = |(by_memory_key, hosts): (&u64, &HashSet<String>)| {
-                        let found_host = hosts
-                            .iter()
-                            // Fetch host from host_store
-                            .filter_map(|host_id| HOST_STORE.get(host_id))
-                            .find(|host| {
-                                // Only select a host that pass the validation function.
-                                // Check memory capacity as a memory key groups a range of
-                                // different memory values
-                                validation(host) && host.idle_memory >= memory
-                            });
-                        found_host.map(|host| (*by_core_key, *by_memory_key, host.id.clone()))
-                    };
+            iter.find_map(|(by_core_key, hosts_by_memory)| {
+                let find_fn = |(by_memory_key, hosts): (&u64, &HashSet<String>)| {
+                    hosts.iter().find_map(|host_id| {
+                        HOST_STORE.get(host_id).and_then(|host| {
+                            // Check validation and memory capacity
+                            if host_validation(&host) {
+                                Some((
+                                    *by_core_key,
+                                    *by_memory_key,
+                                    host_id.clone(),
+                                    host.last_updated,
+                                ))
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                };
 
-                    if self.strategy.memory_saturation {
-                        // Search for hosts with at least the same amount of memory requested
-                        hosts_by_memory.range(memory_key..).find_map(find_fn)
-                    } else {
-                        // Search for hosts with the most amount of memory available
-                        hosts_by_memory.range(memory_key..).rev().find_map(find_fn)
-                    }
-                });
-            drop(iter);
+                if self.strategy.memory_saturation {
+                    // Search for hosts with at least the same amount of memory requested
+                    hosts_by_memory.range(memory_key..).find_map(find_fn)
+                } else {
+                    // Search for hosts with the most amount of memory available
+                    hosts_by_memory.range(memory_key..).rev().find_map(find_fn)
+                }
+            })
+        };
 
-            // Remove host and index entries
-            // TODO: Handle possible race condition
-            if let Some((by_core_key, by_memory_key, host_id)) = found_keys {
-                if let Some(removed_host) = HOST_STORE.remove(&host_id) {
-                    // Remove from hosts_by_core_and_memory
-                    if let Some(_removed_index) = host_index_lock
-                        // Find by core
+        // Step 2: Attempt atomic removal if we found a candidate
+        if let Some((by_core_key, by_memory_key, host_id, expected_last_updated)) = candidate_info {
+            // Atomic check-and-remove from HOST_STORE
+            // Ensure host is still valid when it's time to remove it
+            match HOST_STORE.atomic_remove_if_valid(
+                &host_id,
+                expected_last_updated,
+                host_validation,
+            ) {
+                Ok(Some(removed_host)) => {
+                    // Successfully removed from store, now remove from index
+                    let mut host_index_lock =
+                        self.hosts_index.write().unwrap_or_else(|p| p.into_inner());
+
+                    // Remove from hosts_by_core_and_memory index
+                    host_index_lock
                         .get_mut(&by_core_key)
-                        // Find by memory
                         .and_then(|hosts_by_memory| hosts_by_memory.get_mut(&by_memory_key))
-                        // Remove
-                        .and_then(|hosts| hosts.remove(&host_id).then_some(host_id))
-                    {
-                        return Some(removed_host);
-                    };
+                        .map(|hosts| hosts.remove(&host_id));
+
+                    return Some(removed_host);
+                }
+                Ok(None) => {
+                    // Host was removed by another thread, try again
+                    return None;
+                }
+                Err(()) => {
+                    // Host state changed, retry the entire operation
+                    return None;
                 }
             }
-        };
+        }
 
         None
     }

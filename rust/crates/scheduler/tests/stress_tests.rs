@@ -65,7 +65,7 @@ mod stress_test {
             host_count: 800,
             layer_count: 4,
             frames_per_layer_count: 2,
-            tag_count: 0,
+            tag_count: 4,
         };
         let _ = tracing_subscriber::fmt()
             .with_max_level(tracing::Level::INFO)
