@@ -193,26 +193,48 @@ async fn async_main() -> miette::Result<()> {
         }
     });
 
-    // Watch for sigusr1, when received toggle between info/debug levels
+    // Watch for sigusr1 and sigusr2, when received toggle between info/debug levels
     tokio::spawn(async move {
         let mut sigusr1 =
             signal(SignalKind::user_defined1()).expect("Failed to register signal listener");
+        let mut sigusr2 =
+            signal(SignalKind::user_defined2()).expect("Failed to register signal listener");
         let mut is_info = CONFIG.logging.level.to_lowercase() == "info";
         loop {
-            sigusr1.recv().await;
+            tokio::select! {
+                _ =
+                sigusr1.recv() => {
 
-            // Toggle log between info and DEBUG (keep sqlx at info so it doesn't show up)
-            is_info = !is_info;
-            let new_filter = if is_info {
-                EnvFilter::new("info,sqlx=info")
-            } else {
-                EnvFilter::new("debug,sqlx=info")
-            };
-            reload_handle
-                .modify(|filter| {
-                    *filter = new_filter;
-                })
-                .ok();
+                    // Toggle log between info and DEBUG (keep sqlx at info so it doesn't show up)
+                    is_info = !is_info;
+                    let new_filter = if is_info {
+                        EnvFilter::new("info,sqlx=info")
+                    } else {
+                        EnvFilter::new("debug,sqlx=info")
+                    };
+                    reload_handle
+                        .modify(|filter| {
+                            *filter = new_filter;
+                        })
+                        .ok();
+                }
+                _ =
+                sigusr2.recv() => {
+
+                    // Toggle log between info and DEBUG (keep sqlx at info so it doesn't show up)
+                    is_info = !is_info;
+                    let new_filter = if is_info {
+                        EnvFilter::new("info,sqlx=info")
+                    } else {
+                        EnvFilter::new("debug,sqlx=debug")
+                    };
+                    reload_handle
+                        .modify(|filter| {
+                            *filter = new_filter;
+                        })
+                        .ok();
+                }
+            }
         }
     });
 

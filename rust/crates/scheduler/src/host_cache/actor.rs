@@ -250,13 +250,17 @@ impl HostCacheService {
                     let checked_out_host = group
                         // Checkout host from a group
                         .check_out(cores, memory, validation)
-                        .map(|host| CheckedOutHost(cache_key, host.clone()));
+                        .map(|host| CheckedOutHost(cache_key.clone(), host.clone()));
 
-                    // If a valid host couldn't not be found in this group, try the next tag_key
                     if let Ok(checked_out_host) = checked_out_host {
                         self.reserve_host(checked_out_host.1.id.clone(), false);
                         // Only count as a cache miss if there was a host candidate available
                         return Ok(checked_out_host);
+                    } else {
+                        debug!(
+                            "Wasn't able to find suitable hosts for group {:?}",
+                            &cache_key
+                        );
                     }
                 }
             }
@@ -459,6 +463,14 @@ impl HostCacheService {
             .into_diagnostic()?;
 
         let cache = self.cluster_index.entry_sync(key.clone()).or_default();
+
+        if hosts.is_empty() {
+            debug!(
+                "Found no suitable hosts on the database for the cluster key {:?}",
+                key
+            );
+        }
+
         for host in hosts {
             let h: Host = host.into();
             cache.check_in(h, false);

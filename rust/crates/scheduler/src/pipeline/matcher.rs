@@ -379,8 +379,9 @@ impl MatchingService {
                     match err {
                         crate::host_cache::HostCacheError::NoCandidateAvailable => {
                             debug!(
-                                "No host candidate available for layer {}",
-                                current_layer_version.as_ref().unwrap()
+                                "No host candidate available for layer {}. {:?}",
+                                current_layer_version.as_ref().unwrap(),
+                                err
                             );
                             metrics::increment_no_candidate_iterations();
                             try_again = false;
