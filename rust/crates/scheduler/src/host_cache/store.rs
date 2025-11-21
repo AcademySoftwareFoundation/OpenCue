@@ -7,6 +7,7 @@ use chrono::Utc;
 use lazy_static::lazy_static;
 
 use scc::HashMap;
+use tracing::debug;
 
 use crate::{config::CONFIG, host_cache::HostId, models::Host};
 
@@ -59,7 +60,12 @@ impl HostStore {
         let staleness_threshold = CONFIG.host_cache.host_staleness_threshold;
         let staleness_duration =
             chrono::Duration::from_std(staleness_threshold).unwrap_or_default();
-        age > staleness_duration
+
+        let stale = age > staleness_duration;
+        if stale {
+            debug!("Host {} on the cache store is stale", host);
+        }
+        stale
     }
 
     /// Retrieves a host by ID with automatic staleness detection and removal.
