@@ -27,6 +27,7 @@ import math
 from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
+import grpc
 
 import FileSequence
 from opencue_proto import job_pb2
@@ -131,31 +132,44 @@ class FrameMonitor(QtWidgets.QWidget):
         if not self.frameMonitorTree.getJob():
             self.frameRangeSelection.setFrameRange(["1", str(self.frameSearchLimit)])
         else:
-            layers = self.frameMonitorTree.getJob().getLayers()
+            try:
+                layers = self.frameMonitorTree.getJob().getLayers()
 
-            _min = None
-            _max = None
+                _min = None
+                _max = None
 
-            for layer in layers:
-                seq = FileSequence.FrameSet(layer.range())
-                seq.normalize()
-                frameList = seq.getAll()
-                if _min is not None:
-                    _min = min(_min, int(frameList[0]))
+                for layer in layers:
+                    seq = FileSequence.FrameSet(layer.range())
+                    seq.normalize()
+                    frameList = seq.getAll()
+                    if _min is not None:
+                        _min = min(_min, int(frameList[0]))
+                    else:
+                        _min = int(frameList[0])
+
+                    if _max is not None:
+                        _max = max(_max, int(frameList[-1]))
+                    else:
+                        _max = int(frameList[-1])
+
+                if _min == _max:
+                    _max += 1
+
+                self.frameRangeSelection.default_select_size = self.frameSearchLimit // len(layers)
+
+                self.frameRangeSelection.setFrameRange([str(_min), str(_max)])
+            except grpc.RpcError as e:
+                # Handle gRPC connection errors gracefully
+                # pylint: disable=no-member
+                if hasattr(e, 'code') and e.code() in [grpc.StatusCode.CANCELLED,
+                                                         grpc.StatusCode.UNAVAILABLE]:
+                    log.warning(
+                        "gRPC connection interrupted while updating frame range filter, will retry")
                 else:
-                    _min = int(frameList[0])
-
-                if _max is not None:
-                    _max = max(_max, int(frameList[-1]))
-                else:
-                    _max = int(frameList[-1])
-
-            if _min == _max:
-                _max += 1
-
-            self.frameRangeSelection.default_select_size = self.frameSearchLimit // len(layers)
-
-            self.frameRangeSelection.setFrameRange([str(_min), str(_max)])
+                    log.error("gRPC error in _frameRangeSelectionFilterUpdate: %s", e)
+                # pylint: enable=no-member
+                # Set a default range if we can't get layers
+                self.frameRangeSelection.setFrameRange(["1", str(self.frameSearchLimit)])
 
     def _frameRangeSelectionFilterHandle(self, start, end):
         self.frameMonitorTree.frameSearch.options['range'] = "%s-%s" % (start, end)
@@ -354,7 +368,19 @@ class FrameMonitor(QtWidgets.QWidget):
             menu.triggered[QtWidgets.QAction].connect(self._filterLayersHandle)  # pylint: disable=unsubscriptable-object
 
         if self.frameMonitorTree.getJob():
-            layers = [x.data.name for x in self.frameMonitorTree.getJob().getLayers()]
+            try:
+                layers = [x.data.name for x in self.frameMonitorTree.getJob().getLayers()]
+            except grpc.RpcError as e:
+                # Handle gRPC connection errors gracefully
+                # pylint: disable=no-member
+                if hasattr(e, 'code') and e.code() in [grpc.StatusCode.CANCELLED,
+                                                         grpc.StatusCode.UNAVAILABLE]:
+                    log.warning(
+                        "gRPC connection interrupted while updating layer filter, will retry")
+                else:
+                    log.error("gRPC error in _filterLayersUpdate: %s", e)
+                # pylint: enable=no-member
+                layers = []
         else:
             layers = []
 
