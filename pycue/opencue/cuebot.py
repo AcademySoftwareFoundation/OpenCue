@@ -154,44 +154,20 @@ class CuebotConnectionManager:
 
     def __init__(self, config=None):
         """Initialize the CuebotConnectionManager instance."""
+        print("CONSTRUCTOR INIT")
         if self._initialized:
             return
 
         self.rpc_channel = None
         self.hosts = []
         self.stubs = {}
-        self._config = None
-        self._timeout = None
+        self.config = opencue.config.load_config_from_file()
+        self.timeout = self.config.get("cuebot.timeout", _DEFAULT_TIMEOUT_MS)
 
         self.initialize(config)
 
         # Mark as initialized to prevent re-initialization
         self.__class__._initialized = True
-
-    # Lazy property getters to prevent premature loading of configuration
-    @property
-    def config(self):
-        """Lazy getter for config."""
-        if self._config is None:
-            self._config = opencue.config.load_config_from_file()
-        return self._config
-
-    @config.setter
-    def config(self, value):
-        """Setter for config."""
-        self._config = value
-
-    @property
-    def timeout(self):
-        """Lazy getter for timeout."""
-        if self._timeout is None:
-            self._timeout = self._config.get("cuebot.timeout", _DEFAULT_TIMEOUT_MS)
-        return self._timeout
-
-    @timeout.setter
-    def timeout(self, value):
-        """Setter for timeout."""
-        self._timeout = value
 
     def initialize(self, config=None):
         """Main init method for setting up the Cuebot object.
@@ -200,6 +176,7 @@ class CuebotConnectionManager:
         :type config: dict
         :param config: config dictionary, this will override the config read from disk
         """
+        print("Initializing CuebotConnectionManager...", config)
         hosts_env = os.getenv("CUEBOT_HOSTS")
 
         if config:
@@ -220,6 +197,8 @@ class CuebotConnectionManager:
 
     def set_channel(self):
         """Sets the gRPC channel connection"""
+        print("Setting gRPC channel...")
+        logger.debug("setting gRPC channel to hosts: %s", self.hosts)
         # gRPC must specify a single host. Randomize host list to balance load across cuebots.
         hosts = list(self.hosts)
         shuffle(hosts)
@@ -247,7 +226,7 @@ class CuebotConnectionManager:
                     host,
                     self.config.get("cuebot.grpc_port", DEFAULT_GRPC_PORT),
                 )
-            logger.debug("connecting to gRPC at %s", connect_str)
+            logger.debug("connecting to gRPC at %s" % connect_str)
             # TODO(bcipriano) Configure gRPC TLS. (Issue #150)
             try:
                 self.rpc_channel = grpc.intercept_channel(
@@ -260,6 +239,7 @@ class CuebotConnectionManager:
                     ),
                     *interceptors,
                 )
+                print("GRPC channel set to:", self.rpc_channel)
                 # Test the connection
                 self.get_stub("cue").GetSystemStats(
                     cue_pb2.CueGetSystemStatsRequest(), timeout=self.timeout
@@ -285,6 +265,7 @@ class CuebotConnectionManager:
 
     def reset_channel(self):
         """Close and reopen the gRPC channel."""
+        print("Resetting gRPC channel...")
         self.close_channel()
         self.set_channel()
 
@@ -310,6 +291,7 @@ class CuebotConnectionManager:
 
         :param hosts: a list of hosts or a host
         :type hosts: list<str> or str"""
+        print("Setting Cuebot hosts to:", hosts)
         if isinstance(hosts, str):
             hosts = [hosts]
         logger.debug("setting new server hosts to: %s", hosts)
@@ -347,6 +329,8 @@ class CuebotConnectionManager:
 
         :param name: name of stub key for SERVICE_MAP
         :type name: str"""
+        print("Getting stub for service:", name)
+        print("Current rpc_channel:", self.rpc_channel)
         if self.rpc_channel is None:
             self.initialize()
 
@@ -354,122 +338,124 @@ class CuebotConnectionManager:
         return service(self.rpc_channel)
 
 
-# Cuebot backward compatibility class
-class _CuebotAdapter(CuebotConnectionManager):
-    """Backward compatibility class for Cuebot Connection Manager.
+# Lazy proxy class for backward compatibility
+class _CuebotLazyProxy:
+    """Lazy proxy for backward compatibility with the old Cuebot interface.
 
-    Remap historical static methods and attributes to singleton instance methods.
+    This class acts as a proxy that only instantiates the actual CuebotConnectionManager
+    when methods or properties are first accessed, avoiding premature initialization
+    during module import.
     """
+    # Class attributes for backward compatibility
+    PROTO_MAP = CuebotConnectionManager.PROTO_MAP
+    SERVICE_MAP = CuebotConnectionManager.SERVICE_MAP
 
-    # Backward compatibility static methods
+    # Backward compatibility static methods with original signatures
     @staticmethod
     def init(config=None):
         """Legacy static init method for backward compatibility."""
-        instance = CuebotConnectionManager()
-        return instance.initialize(config)
+        return CuebotConnectionManager().initialize(config)
 
     @staticmethod
     def setChannel():
         """Legacy static method for backward compatibility."""
-        instance = CuebotConnectionManager()
-        return instance.set_channel()
+        return CuebotConnectionManager().set_channel()
 
     @staticmethod
     def setTimeout(timeout):
         """Legacy static method for backward compatibility."""
-        instance = CuebotConnectionManager()
-        return instance.set_timeout(timeout)
+        return CuebotConnectionManager().set_timeout(timeout)
 
     @staticmethod
     def setHostWithFacility(facility):
         """Legacy static method for backward compatibility."""
-        instance = CuebotConnectionManager()
-        return instance.set_host_with_facility(facility)
+        return CuebotConnectionManager().set_host_with_facility(facility)
 
     @staticmethod
     def setHosts(hosts):
         """Legacy static method for backward compatibility."""
-        instance = CuebotConnectionManager()
-        return instance.set_hosts(hosts)
+        return CuebotConnectionManager().set_hosts(hosts)
 
     @staticmethod
-    def getStub(name: str):
+    def getStub(name):
         """Legacy static method for backward compatibility."""
-        instance = CuebotConnectionManager()
-        return instance.get_stub(name)
+        return CuebotConnectionManager().get_stub(name)
 
     @staticmethod
     def closeChannel():
         """Legacy static method for backward compatibility."""
-        instance = CuebotConnectionManager()
-        return instance.close_channel()
+        return CuebotConnectionManager().close_channel()
 
     @staticmethod
     def resetChannel():
         """Legacy static method for backward compatibility."""
-        instance = CuebotConnectionManager()
-        return instance.reset_channel()
+        return CuebotConnectionManager().reset_channel()
 
     @staticmethod
     def getConfig():
-        """Legacy instance method for backward compatibility."""
-        instance = CuebotConnectionManager()
-        return instance.config
+        """Legacy static method for backward compatibility."""
+        return CuebotConnectionManager().config
 
-    # Direct classmethod mappings
-    getService = CuebotConnectionManager.get_service
-    getProto = CuebotConnectionManager.get_proto
+    @classmethod
+    def getService(cls, name):
+        """Legacy class method for backward compatibility."""
+        return CuebotConnectionManager.get_service(name)
+
+    @classmethod
+    def getProto(cls, name):
+        """Legacy class method for backward compatibility."""
+        return CuebotConnectionManager.get_proto(name)
 
     # Backward compatibility properties for old attribute access
     @property
     def RpcChannel(self):
         """Backward compatibility property for RpcChannel."""
-        return self.rpc_channel
+        return CuebotConnectionManager().rpc_channel
 
     @RpcChannel.setter
     def RpcChannel(self, value):
         """Backward compatibility setter for RpcChannel."""
-        self.rpc_channel = value
+        CuebotConnectionManager().rpc_channel = value
 
     @property
     def Hosts(self):
         """Backward compatibility property for Hosts."""
-        return self.hosts
+        return CuebotConnectionManager().hosts
 
     @Hosts.setter
     def Hosts(self, value):
         """Backward compatibility setter for Hosts."""
-        self.hosts = value
+        CuebotConnectionManager().hosts = value
 
     @property
     def Stubs(self):
         """Backward compatibility property for Stubs."""
-        return self.stubs
+        return CuebotConnectionManager().stubs
 
     @Stubs.setter
     def Stubs(self, value):
         """Backward compatibility setter for Stubs."""
-        self.stubs = value
+        CuebotConnectionManager().stubs = value
 
     @property
     def Config(self):
         """Backward compatibility property for Config."""
-        return self.config
+        return CuebotConnectionManager().config
 
     @Config.setter
     def Config(self, value):
         """Backward compatibility setter for Config."""
-        self.config = value
+        CuebotConnectionManager().config = value
 
     @property
     def Timeout(self):
         """Backward compatibility property for Timeout."""
-        return self.timeout
+        return CuebotConnectionManager().timeout
 
     @Timeout.setter
     def Timeout(self, value):
         """Backward compatibility setter for Timeout."""
-        self.timeout = value
+        CuebotConnectionManager().timeout = value
 
     def __call__(self, *args, **kwargs):
         """Noop to support old `Cuebot()` calls.
@@ -571,5 +557,5 @@ class RetryOnRpcErrorClientInterceptor(
                                     request_iterator)
 
 
-# Backward compatibility namespace as a singleton
-Cuebot = _CuebotAdapter()
+# Backward compatibility namespace as a lazy proxy
+Cuebot = _CuebotLazyProxy()
