@@ -15,16 +15,24 @@
 
 """Outline constants and enumerations."""
 
-
+from __future__ import annotations
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
+
+import sys
+from typing import Final, Tuple
+
+if sys.version_info >= (3, 10):
+    from typing import Literal, TypeAlias
+else:
+    from typing_extensions import Literal, TypeAlias
 
 
 # Init mode is during the parsing of the outline
 # script.  Nothing can really be done in this phase
 # besides adding layers or frames.
-OUTLINE_MODE_INIT =  1
+OUTLINE_MODE_INIT = 1
 
 # Setup mode is the phase when the outline is being setup
 # to launch.  This phase runs in serial on the machine
@@ -48,4 +56,13 @@ FRAME_RANGE_LAST = 2
 # Render = a general rendering layer
 # Util = setup or cleanup layer
 # Post = A post job layer
-LAYER_TYPES = ("Render", "Util", "Post")
+LAYER_TYPES: Final[
+    Tuple[
+        Literal["Render"],
+        Literal["Util"],
+        Literal["Post"],
+    ]
+] = ("Render", "Util", "Post")
+
+# Layer type type alias, to help with static type checking.
+LayerT: TypeAlias = Literal["Render", "Util", "Post"]
