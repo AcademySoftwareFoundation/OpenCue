@@ -33,10 +33,9 @@ public class DispatchBookHost extends KeyRunnable {
 
     private Environment env;
     private ShowInterface show = null;
-    private GroupInterface group = null;
-    private JobInterface job = null;
     private DispatchHost host;
     private Dispatcher dispatcher;
+    private Boolean host_lock_active = false;
 
     public DispatchHost getDispatchHost() {
         this.setKey(host.getId());
@@ -48,23 +47,7 @@ public class DispatchBookHost extends KeyRunnable {
         this.host = host;
         this.dispatcher = d;
         this.env = env;
-    }
-
-    public DispatchBookHost(DispatchHost host, JobInterface job, Dispatcher d, Environment env) {
-        super(host.getId() + "_job_" + job.getJobId());
-        this.host = host;
-        this.job = job;
-        this.dispatcher = d;
-        this.env = env;
-    }
-
-    public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d,
-            Environment env) {
-        super(host.getId() + "_group_" + group.getGroupId());
-        this.host = host;
-        this.group = group;
-        this.dispatcher = d;
-        this.env = env;
+        this.host_lock_active = env.getProperty("dispatch.advisory_lock_hosts", Boolean.class, false);
     }
 
     public DispatchBookHost(DispatchHost host, ShowInterface show, Dispatcher d, Environment env) {
@@ -73,18 +56,16 @@ public class DispatchBookHost extends KeyRunnable {
         this.show = show;
         this.dispatcher = d;
         this.env = env;
+        this.host_lock_active = env.getProperty("dispatch.advisory_lock_hosts", Boolean.class, false);
     }
 
     public void run() {
-        new DispatchCommandTemplate() {
+        new DispatchWithHostLockTemplate() {
             public void wrapDispatchCommand() {
                 if (show != null) {
                     dispatcher.dispatchHost(host, show);
-                } else if (group != null) {
-                    dispatcher.dispatchHost(host, group);
-                } else if (job != null) {
-                    dispatcher.dispatchHost(host, job);
                 }
+
                 long memReservedMin =
                         env.getRequiredProperty("dispatcher.memory.mem_reserved_min", Long.class);
                 long memGpuReservedMin = env
@@ -101,6 +82,21 @@ public class DispatchBookHost extends KeyRunnable {
                     dispatcher.dispatchHostToAllShows(host);
                 }
             }
+
+
+			@Override
+			public void lockCommand() {
+			    if (host_lock_active) {
+			        dispatcher.lockHostForDispatching(host.id);
+				}
+			}
+
+			@Override
+			public void unlockCommand() {
+                if (host_lock_active) {
+                    dispatcher.unlockHostForDispatching(host.id);
+                }
+			}
         }.execute();
     }
 

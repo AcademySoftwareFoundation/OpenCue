@@ -30,6 +30,7 @@ public class DispatchHost extends Entity
 
     public String facilityId;
     public String allocationId;
+    public String allocationName;
     public LockState lockState;
     public HardwareState hardwareState;
 

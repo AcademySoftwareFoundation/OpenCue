@@ -213,4 +213,7 @@ public interface Dispatcher {
      * @return
      */
     List<VirtualProc> dispatchHost(DispatchHost host, ShowInterface show);
+
+    void lockHostForDispatching(String host_id);
+    void unlockHostForDispatching(String host_id);
 }

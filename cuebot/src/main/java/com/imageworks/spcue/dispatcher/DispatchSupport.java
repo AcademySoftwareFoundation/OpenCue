@@ -518,4 +518,18 @@ public interface DispatchSupport {
      */
     void clearCache();
 
+
+    /**
+     * Lock a host for dispatching
+     *
+     * @param host_id
+     */
+    void lockHostForDispatching(String host_id);
+
+    /**
+     * Unlock a host for dispatching
+     *
+     * @param host_id
+     */
+    void unlockHostForDispatching(String host_id);
 }
