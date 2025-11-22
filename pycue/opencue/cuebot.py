@@ -154,7 +154,6 @@ class CuebotConnectionManager:
 
     def __init__(self, config=None):
         """Initialize the CuebotConnectionManager instance."""
-        print("CONSTRUCTOR INIT")
         if self._initialized:
             return
 
@@ -176,7 +175,6 @@ class CuebotConnectionManager:
         :type config: dict
         :param config: config dictionary, this will override the config read from disk
         """
-        print("Initializing CuebotConnectionManager...", config)
         hosts_env = os.getenv("CUEBOT_HOSTS")
 
         if config:
@@ -197,8 +195,6 @@ class CuebotConnectionManager:
 
     def set_channel(self):
         """Sets the gRPC channel connection"""
-        print("Setting gRPC channel...")
-        logger.debug("setting gRPC channel to hosts: %s", self.hosts)
         # gRPC must specify a single host. Randomize host list to balance load across cuebots.
         hosts = list(self.hosts)
         shuffle(hosts)
@@ -239,7 +235,6 @@ class CuebotConnectionManager:
                     ),
                     *interceptors,
                 )
-                print("GRPC channel set to:", self.rpc_channel)
                 # Test the connection
                 self.get_stub("cue").GetSystemStats(
                     cue_pb2.CueGetSystemStatsRequest(), timeout=self.timeout
@@ -265,7 +260,6 @@ class CuebotConnectionManager:
 
     def reset_channel(self):
         """Close and reopen the gRPC channel."""
-        print("Resetting gRPC channel...")
         self.close_channel()
         self.set_channel()
 
@@ -291,7 +285,6 @@ class CuebotConnectionManager:
 
         :param hosts: a list of hosts or a host
         :type hosts: list<str> or str"""
-        print("Setting Cuebot hosts to:", hosts)
         if isinstance(hosts, str):
             hosts = [hosts]
         logger.debug("setting new server hosts to: %s", hosts)
@@ -329,8 +322,6 @@ class CuebotConnectionManager:
 
         :param name: name of stub key for SERVICE_MAP
         :type name: str"""
-        print("Getting stub for service:", name)
-        print("Current rpc_channel:", self.rpc_channel)
         if self.rpc_channel is None:
             self.initialize()
 
