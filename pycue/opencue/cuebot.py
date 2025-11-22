@@ -18,7 +18,6 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from builtins import object
 from random import shuffle
 import abc
 import time
@@ -456,11 +455,7 @@ class _CuebotLazyProxy:
         return self
 
 
-# Python 2/3 compatible implementation of ABC
-ABC = abc.ABCMeta('ABC', (object,), {'__slots__': ()})
-
-
-class SleepingPolicy(ABC):
+class SleepingPolicy(abc.ABC):
     """
     Implement policy for sleeping between API retries
     """
