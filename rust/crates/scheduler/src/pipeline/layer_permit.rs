@@ -6,6 +6,7 @@ use std::{
 };
 use tokio::sync::OnceCell;
 use tracing::{debug, info};
+use uuid::Uuid;
 
 use miette::Result;
 
@@ -26,7 +27,7 @@ use miette::Result;
 #[derive(Message)]
 #[rtype(result = "bool")]
 pub struct Request {
-    pub id: String,
+    pub id: Uuid,
     pub duration: Duration,
 }
 
@@ -42,7 +43,7 @@ pub struct Request {
 #[derive(Message)]
 #[rtype(result = "bool")]
 pub struct Release {
-    pub id: String,
+    pub id: Uuid,
 }
 
 /// Internal representation of a layer permit.
@@ -75,7 +76,7 @@ impl LayerPermit {
 /// permit at a time.
 #[derive(Clone)]
 pub struct LayerPermitService {
-    permits: Arc<HashMap<String, LayerPermit>>,
+    permits: Arc<HashMap<Uuid, LayerPermit>>,
 }
 
 impl Actor for LayerPermitService {

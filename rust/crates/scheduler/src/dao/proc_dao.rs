@@ -137,12 +137,12 @@ impl ProcDao {
         virtual_proc: &VirtualProc,
     ) -> Result<(), (sqlx::Error, String, String)> {
         sqlx::query(INSERT_PROC)
-            .bind(&virtual_proc.proc_id)
-            .bind(&virtual_proc.host_id)
-            .bind(&virtual_proc.show_id)
-            .bind(&virtual_proc.layer_id)
-            .bind(&virtual_proc.job_id)
-            .bind(&virtual_proc.frame_id)
+            .bind(virtual_proc.proc_id.to_string())
+            .bind(virtual_proc.host_id.to_string())
+            .bind(virtual_proc.show_id.to_string())
+            .bind(virtual_proc.layer_id.to_string())
+            .bind(virtual_proc.job_id.to_string())
+            .bind(virtual_proc.frame_id.to_string())
             .bind(virtual_proc.cores_reserved.value())
             // Memory is represented as KB on the database
             .bind(virtual_proc.memory_reserved.0 as i64 / 1024)
@@ -157,8 +157,8 @@ impl ProcDao {
             .map_err(|err| {
                 (
                     err,
-                    virtual_proc.frame_id.clone(),
-                    virtual_proc.host_id.clone(),
+                    virtual_proc.frame_id.to_string(),
+                    virtual_proc.host_id.to_string(),
                 )
             })
             .await?;

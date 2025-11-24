@@ -602,8 +602,8 @@ pub async fn create_test_data(
 
     for (alloc_id, alloc_name) in allocs.iter() {
         let cluster = Cluster::ComposedKey(ClusterKey {
-            facility_id: facility_id.to_string(),
-            show_id: show_id.to_string(),
+            facility_id: facility_id,
+            show_id: show_id,
             tag: Tag {
                 name: alloc_name.clone(),
                 ttype: TagType::Alloc,

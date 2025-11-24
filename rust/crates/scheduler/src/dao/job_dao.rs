@@ -4,10 +4,11 @@ use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use tracing::trace;
+use uuid::Uuid;
 
 use crate::{
-    cluster::Cluster, config::CONFIG, metrics::observe_job_query_duration, models::DispatchJob,
-    pgpool::connection_pool,
+    cluster::Cluster, config::CONFIG, dao::helpers::parse_uuid,
+    metrics::observe_job_query_duration, models::DispatchJob, pgpool::connection_pool,
 };
 
 /// Data Access Object for job operations in the job dispatch system.
@@ -43,7 +44,7 @@ impl DispatchJob {
     /// * `DispatchJob` - New dispatch job instance
     pub fn new(model: JobModel, cluster: Cluster) -> Self {
         DispatchJob {
-            id: model.pk_job,
+            id: parse_uuid(&model.pk_job),
             int_priority: model.int_priority,
             source_cluster: cluster,
         }
@@ -180,8 +181,8 @@ impl JobDao {
     /// ```
     pub async fn query_pending_jobs_by_show_facility_tag(
         &self,
-        show_id: String,
-        facility_id: String,
+        show_id: Uuid,
+        facility_id: Uuid,
         tag: String,
     ) -> Result<Vec<JobModel>, sqlx::Error> {
         trace!(
@@ -195,10 +196,10 @@ impl JobDao {
 
         let start = std::time::Instant::now();
         let result = sqlx::query_as::<_, JobModel>(QUERY_PENDING_BY_SHOW_FACILITY_TAG)
-            .bind(show_id)
+            .bind(show_id.to_string())
             .bind(CONFIG.queue.core_multiplier as i32)
             .bind(tag)
-            .bind(facility_id)
+            .bind(facility_id.to_string())
             .fetch_all(&*self.connection_pool)
             .await;
         observe_job_query_duration(start.elapsed());

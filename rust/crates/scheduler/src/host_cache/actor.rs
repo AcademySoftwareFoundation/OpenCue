@@ -194,8 +194,8 @@ impl HostCacheService {
     /// * `Err(HostCacheError)` - No suitable host found or database error
     async fn check_out<F>(
         &self,
-        facility_id: String,
-        show_id: String,
+        facility_id: Uuid,
+        show_id: Uuid,
         tags: Vec<Tag>,
         cores: CoreSize,
         memory: ByteSize,
@@ -239,7 +239,7 @@ impl HostCacheService {
             // Fetch form the database if not found on cache
             match cached_candidate {
                 Some(cached) => {
-                    self.reserve_host(cached.1.id.clone(), true);
+                    self.reserve_host(cached.1.id, true);
                     return Ok(CheckedOutHost(cached.0, cached.1));
                 }
                 None => {
@@ -253,7 +253,7 @@ impl HostCacheService {
                         .map(|host| CheckedOutHost(cache_key.clone(), host.clone()));
 
                     if let Ok(checked_out_host) = checked_out_host {
-                        self.reserve_host(checked_out_host.1.id.clone(), false);
+                        self.reserve_host(checked_out_host.1.id, false);
                         // Only count as a cache miss if there was a host candidate available
                         return Ok(checked_out_host);
                     } else {
@@ -277,7 +277,7 @@ impl HostCacheService {
     ///
     /// * `host_id` - ID of the host to reserve
     /// * `cache_hit` - Whether this was a cache hit (true) or miss (false)
-    fn reserve_host(&self, host_id: String, cache_hit: bool) {
+    fn reserve_host(&self, host_id: HostId, cache_hit: bool) {
         if cache_hit {
             self.cache_hit.fetch_add(1, atomic::Ordering::Relaxed);
         } else {
@@ -354,14 +354,14 @@ impl HostCacheService {
     #[allow(clippy::map_entry)]
     fn gen_cache_keys(
         &self,
-        facility_id: String,
-        show_id: String,
+        facility_id: Uuid,
+        show_id: Uuid,
         tags: Vec<Tag>,
     ) -> impl IntoIterator<Item = ClusterKey> {
         tags.into_iter()
             .map(|tag| ClusterKey {
-                facility_id: facility_id.clone(),
-                show_id: show_id.clone(),
+                facility_id,
+                show_id,
                 tag,
             })
             // Make sure tags are evaluated in this order: MANUAL -> HOSTNAME -> ALLOC
@@ -458,7 +458,7 @@ impl HostCacheService {
         let tag = key.tag.to_string();
         let hosts = self
             .host_dao
-            .fetch_hosts_by_show_facility_tag(key.show_id.clone(), key.facility_id.clone(), &tag)
+            .fetch_hosts_by_show_facility_tag(key.show_id, key.facility_id, &tag)
             .await
             .into_diagnostic()?;
 

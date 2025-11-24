@@ -5,6 +5,7 @@ use std::{
 
 use miette::Result;
 use tokio::{sync::OnceCell, time};
+use uuid::Uuid;
 
 use crate::{
     config::CONFIG, dao::AllocationDao, dao::AllocationName, dao::ShowId, models::Subscription,
@@ -70,7 +71,7 @@ impl AllocationService {
     pub fn get_subscription(
         &self,
         allocation_name: &String,
-        show_id: &String,
+        show_id: &Uuid,
     ) -> Option<Subscription> {
         self.cache
             .read()

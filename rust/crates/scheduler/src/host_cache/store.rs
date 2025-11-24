@@ -374,7 +374,7 @@ mod tests {
         last_updated: chrono::DateTime<Utc>,
     ) -> Host {
         Host {
-            id: id.to_string(),
+            id: id,
             name: format!("test-host-{}", id),
             str_os: Some("Linux".to_string()),
             total_cores: CoreSize(idle_cores),
@@ -385,7 +385,7 @@ mod tests {
             idle_gpu_memory: ByteSize::kb(0),
             thread_mode: ThreadMode::Auto,
             alloc_available_cores: CoreSize(idle_cores),
-            alloc_id: Uuid::new_v4().to_string(),
+            alloc_id: Uuid::new_v4(),
             alloc_name: "test".to_string(),
             last_updated,
         }
@@ -433,7 +433,7 @@ mod tests {
         store.insert(very_stale_host.clone(), true);
 
         // Verify fresh host is present (doesn't trigger removal via get)
-        assert!(store.get(&fresh_host_id.to_string()).is_some());
+        assert!(store.get(&fresh_host_id).is_some());
 
         // Note: We don't call get() on stale hosts because get() automatically removes them.
         // Instead, we directly verify the store contains them by checking the internal state.
@@ -446,11 +446,11 @@ mod tests {
         assert_eq!(removed_count, 2);
 
         // Fresh host should still be present
-        assert!(store.get(&fresh_host_id.to_string()).is_some());
+        assert!(store.get(&fresh_host_id).is_some());
 
         // Stale hosts should be removed
-        assert!(store.get(&stale_host_id.to_string()).is_none());
-        assert!(store.get(&very_stale_host_id.to_string()).is_none());
+        assert!(store.get(&stale_host_id).is_none());
+        assert!(store.get(&very_stale_host_id).is_none());
     }
 
     #[test]
@@ -486,8 +486,8 @@ mod tests {
         assert_eq!(removed_count, 0);
 
         // All hosts should still be present
-        assert!(store.get(&host1_id.to_string()).is_some());
-        assert!(store.get(&host2_id.to_string()).is_some());
+        assert!(store.get(&host1_id).is_some());
+        assert!(store.get(&host2_id).is_some());
     }
 
     #[test]
@@ -521,11 +521,11 @@ mod tests {
         store.insert(stale_host, true);
 
         // First get should detect staleness and remove the host
-        let result = store.get(&stale_host_id.to_string());
+        let result = store.get(&stale_host_id);
         assert!(result.is_none());
 
         // Second get should also return None
-        let result2 = store.get(&stale_host_id.to_string());
+        let result2 = store.get(&stale_host_id);
         assert!(result2.is_none());
     }
 
@@ -674,7 +674,7 @@ mod tests {
     fn test_atomic_remove_if_valid_nonexistent_host() {
         let store = HostStore::default();
 
-        let nonexistent_id = Uuid::new_v4().to_string();
+        let nonexistent_id = Uuid::new_v4();
         let result = store.atomic_remove_if_valid(&nonexistent_id, Utc::now(), |_| true);
 
         assert!(matches!(result, Ok(None)));

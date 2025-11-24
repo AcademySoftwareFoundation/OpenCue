@@ -7,10 +7,12 @@ use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres, Transaction};
 use tracing::debug;
+use uuid::Uuid;
 
 use crate::{
     config::CONFIG,
     dao::frame_dao::DispatchFrameModel,
+    dao::helpers::parse_uuid,
     models::{CoreSize, DispatchLayer},
     pgpool::connection_pool,
 };
@@ -103,10 +105,10 @@ impl DispatchLayer {
     /// * `DispatchLayer` - New layer instance with converted frames
     pub fn new(layer: DispatchLayerModel, frames: Vec<DispatchFrameModel>) -> Self {
         DispatchLayer {
-            id: layer.pk_layer,
-            job_id: layer.pk_job,
-            facility_id: layer.pk_facility,
-            show_id: layer.pk_show,
+            id: parse_uuid(&layer.pk_layer),
+            job_id: parse_uuid(&layer.pk_job),
+            facility_id: parse_uuid(&layer.pk_facility),
+            show_id: parse_uuid(&layer.pk_show),
             job_name: layer.str_job_name,
             layer_name: layer.str_name,
             str_os: layer.str_os,
@@ -279,11 +281,11 @@ impl LayerDao {
     /// * `Err(sqlx::Error)` - Database query failed
     pub async fn query_layers(
         &self,
-        pk_job: String,
+        pk_job: Uuid,
         tags: Vec<String>,
     ) -> Result<Vec<DispatchLayer>, sqlx::Error> {
         let combined_models = sqlx::query_as::<_, LayerWithFramesModel>(QUERY_LAYERS_WITH_FRAMES)
-            .bind(&pk_job)
+            .bind(pk_job.to_string())
             .bind(tags.join(" | ").to_string())
             .bind(CONFIG.queue.dispatch_frames_per_layer_limit as i32)
             .fetch_all(&*self.connection_pool)
@@ -419,7 +421,7 @@ impl LayerDao {
                     OR sum_running.int_sum_running IS NULL
         "#,
         )
-        .bind(layer.id.clone())
+        .bind(layer.id.to_string())
         .fetch_one(&mut **transaction)
         .await;
         // Only return false if the query returns no row, which means the layer queried is at limit

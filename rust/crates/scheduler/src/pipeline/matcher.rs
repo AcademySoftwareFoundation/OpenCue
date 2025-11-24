@@ -6,6 +6,8 @@ use std::{
     time::Duration,
 };
 
+use uuid::Uuid;
+
 use crate::{
     allocation::{allocation_service, AllocationService},
     cluster::Cluster,
@@ -135,7 +137,7 @@ impl MatchingService {
                     let layer_permit = self
                         .layer_permit_service
                         .send(Request {
-                            id: layer.id.clone(),
+                            id: layer.id,
                             duration: Duration::from_secs(2 * layer.frames.len() as u64),
                         })
                         .await
@@ -185,8 +187,8 @@ impl MatchingService {
     /// * `bool` - True if the match is valid
     fn validate_match(
         host: &Host,
-        _layer_id: &str,
-        show_id: &str,
+        _layer_id: &Uuid,
+        show_id: &Uuid,
         cores_requested: CoreSize,
         allocation_service: &AllocationService,
         os: Option<&str>,
@@ -196,8 +198,7 @@ impl MatchingService {
             return false;
         }
 
-        if let Some(subscription) =
-            allocation_service.get_subscription(&host.alloc_name, &show_id.to_string())
+        if let Some(subscription) = allocation_service.get_subscription(&host.alloc_name, &show_id)
         {
             if !subscription.bookable(&cores_requested) {
                 return false;
@@ -290,8 +291,8 @@ impl MatchingService {
             let host_candidate = self
                 .host_service
                 .send(CheckOut {
-                    facility_id: layer.facility_id.clone(),
-                    show_id: layer.show_id.clone(),
+                    facility_id: layer.facility_id,
+                    show_id: layer.show_id,
                     tags,
                     cores: cores_requested,
                     memory: layer.mem_min,
@@ -409,7 +410,7 @@ impl MatchingService {
     fn log_dispatch_error_with_info(
         error: DispatchError,
         layer_display: &str,
-        layer_job_id: &str,
+        layer_job_id: &Uuid,
         host: &Host,
     ) {
         match error {

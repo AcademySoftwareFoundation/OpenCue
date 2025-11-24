@@ -8,6 +8,7 @@ use thiserror::Error;
 
 use crate::{
     config::CONFIG,
+    dao::helpers::parse_uuid,
     models::{CoreSize, DispatchFrame, VirtualProc},
 };
 
@@ -87,12 +88,12 @@ impl From<DispatchFrameModel> for DispatchFrame {
         };
 
         DispatchFrame {
-            id: val.pk_frame,
+            id: parse_uuid(&val.pk_frame),
             frame_name: val.str_frame_name,
-            show_id: val.pk_show,
-            facility_id: val.pk_facility,
-            job_id: val.pk_job,
-            layer_id: val.pk_layer,
+            show_id: parse_uuid(&val.pk_show),
+            facility_id: parse_uuid(&val.pk_facility),
+            job_id: parse_uuid(&val.pk_job),
+            layer_id: parse_uuid(&val.pk_layer),
             command: val.str_cmd,
             range: val.str_range,
             chunk_size: val
@@ -187,7 +188,7 @@ impl FrameDao {
         .bind((virtual_proc.memory_reserved.as_u64() / KB) as i32)
         .bind(virtual_proc.gpus_reserved as i32)
         .bind((virtual_proc.gpu_memory_reserved.as_u64() / KB) as i32)
-        .bind(virtual_proc.frame.id.clone())
+        .bind(virtual_proc.frame.id.to_string())
         .bind(virtual_proc.frame.version as i32)
         .execute(&mut **transaction)
         .await

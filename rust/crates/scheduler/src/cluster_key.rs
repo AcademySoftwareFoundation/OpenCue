@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub enum TagType {
@@ -41,8 +42,8 @@ impl std::borrow::Borrow<str> for Tag {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ClusterKey {
-    pub facility_id: String,
-    pub show_id: String,
+    pub facility_id: Uuid,
+    pub show_id: Uuid,
     pub tag: Tag,
 }
 

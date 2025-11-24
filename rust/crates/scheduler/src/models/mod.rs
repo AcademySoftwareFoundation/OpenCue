@@ -14,18 +14,19 @@ pub use layer::DispatchLayer;
 pub use subscription::{Allocation, Subscription};
 pub use virtual_proc::VirtualProc;
 
+use uuid::Uuid;
+
 /// Formats a UUID by returning only the first segment before the first hyphen.
 ///
 /// # Arguments
 ///
-/// * `id` - Full UUID string
+/// * `id` - UUID reference
 ///
 /// # Returns
 ///
-/// * `String` - First segment of the UUID, or the full string if no hyphen exists
-pub fn fmt_uuid(id: &String) -> String {
-    id.split_once("-")
-        .unwrap_or((&id.to_string(), ""))
-        .0
-        .to_string()
+/// * `String` - First segment of the UUID (8 characters)
+pub fn fmt_uuid(id: &Uuid) -> String {
+    // Uuid::simple() returns a 32-character hex string without hyphens
+    // We take the first 8 characters which corresponds to the first segment
+    id.simple().to_string()[..8].to_string()
 }

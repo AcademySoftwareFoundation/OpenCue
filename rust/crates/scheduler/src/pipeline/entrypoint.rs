@@ -49,8 +49,8 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                     Cluster::ComposedKey(cluster_key) => {
                         job_fetcher
                             .query_pending_jobs_by_show_facility_tag(
-                                cluster_key.show_id.clone(),
-                                cluster_key.facility_id.clone(),
+                                cluster_key.show_id,
+                                cluster_key.facility_id,
                                 cluster_key.tag.to_string(),
                             )
                             .await

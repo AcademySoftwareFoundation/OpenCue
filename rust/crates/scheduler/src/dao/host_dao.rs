@@ -9,6 +9,7 @@ use tracing::trace;
 use uuid::Uuid;
 
 use crate::{
+    dao::helpers::parse_uuid,
     models::{CoreSize, Host, VirtualProc},
     pgpool::connection_pool,
 };
@@ -62,7 +63,7 @@ pub struct HostModel {
 impl From<HostModel> for Host {
     fn from(val: HostModel) -> Self {
         Host {
-            id: val.pk_host,
+            id: parse_uuid(&val.pk_host),
             name: val.str_name,
             str_os: val.str_os,
             idle_cores: CoreSize::from_multiplied(
@@ -88,7 +89,7 @@ impl From<HostModel> for Host {
                     .try_into()
                     .expect("alloc_available_cores should fit on a i32"),
             ),
-            alloc_id: val.pk_alloc,
+            alloc_id: parse_uuid(&val.pk_alloc),
             alloc_name: val.str_alloc_name,
             last_updated: val.ts_last_updated.and_utc(),
         }
@@ -242,13 +243,13 @@ impl HostDao {
     /// * `Err(sqlx::Error)` - Database query failed
     pub async fn fetch_hosts_by_show_facility_tag<'a>(
         &'a self,
-        show_id: String,
-        facility_id: String,
+        show_id: Uuid,
+        facility_id: Uuid,
         tag: &'a str,
     ) -> Result<Vec<HostModel>, sqlx::Error> {
         let out = sqlx::query_as::<_, HostModel>(QUERY_HOST_BY_SHOW_FACILITY_AND_TAG)
-            .bind(show_id)
-            .bind(facility_id)
+            .bind(show_id.to_string())
+            .bind(facility_id.to_string())
             .bind(tag)
             .fetch_all(&*self.connection_pool)
             .await;
@@ -276,11 +277,11 @@ impl HostDao {
     pub async fn lock(
         &self,
         transaction: &mut Transaction<'_, Postgres>,
-        host_id: &str,
+        host_id: &Uuid,
     ) -> Result<bool> {
         trace!("Locking {}", host_id);
         sqlx::query_scalar::<_, bool>("SELECT pg_try_advisory_lock(hashtext($1))")
-            .bind(host_id)
+            .bind(host_id.to_string())
             .fetch_one(&mut **transaction)
             .await
             .into_diagnostic()
@@ -302,12 +303,11 @@ impl HostDao {
     pub async fn unlock(
         &self,
         transaction: &mut Transaction<'_, Postgres>,
-        host_id: &str,
+        host_id: &Uuid,
     ) -> Result<bool> {
-        let host_id_str = host_id.to_string();
-        trace!("Unlocking {}", host_id_str);
+        trace!("Unlocking {}", host_id);
         sqlx::query_scalar::<_, bool>("SELECT pg_advisory_unlock(hashtext($1))")
-            .bind(&host_id_str)
+            .bind(host_id.to_string())
             .fetch_one(&mut **transaction)
             .await
             .into_diagnostic()
@@ -331,7 +331,7 @@ impl HostDao {
     pub async fn update_resources(
         &self,
         transaction: &mut Transaction<'_, Postgres>,
-        host_id: &str,
+        host_id: &Uuid,
         virtual_proc: &VirtualProc,
         dispatch_id: Uuid,
     ) -> Result<UpdatedHostResources> {
@@ -355,8 +355,8 @@ impl HostDao {
         sqlx::query(UPDATE_SUBSCRIPTION)
             .bind(virtual_proc.cores_reserved.value())
             .bind(virtual_proc.gpus_reserved as i32)
-            .bind(&virtual_proc.show_id)
-            .bind(&virtual_proc.alloc_id)
+            .bind(virtual_proc.show_id.to_string())
+            .bind(virtual_proc.alloc_id.to_string())
             .execute(&mut **transaction)
             .await
             .into_diagnostic()
@@ -365,7 +365,7 @@ impl HostDao {
         sqlx::query(UPDATE_LAYER_RESOURCE)
             .bind(virtual_proc.cores_reserved.value())
             .bind(virtual_proc.gpus_reserved as i32)
-            .bind(&virtual_proc.layer_id)
+            .bind(virtual_proc.layer_id.to_string())
             .execute(&mut **transaction)
             .await
             .into_diagnostic()
@@ -374,7 +374,7 @@ impl HostDao {
         sqlx::query(UPDATE_JOB_RESOURCE)
             .bind(virtual_proc.cores_reserved.value())
             .bind(virtual_proc.gpus_reserved as i32)
-            .bind(&virtual_proc.job_id)
+            .bind(virtual_proc.job_id.to_string())
             .execute(&mut **transaction)
             .await
             .into_diagnostic()
@@ -383,7 +383,7 @@ impl HostDao {
         sqlx::query(UPDATE_FOLDER_RESOURCE)
             .bind(virtual_proc.cores_reserved.value())
             .bind(virtual_proc.gpus_reserved as i32)
-            .bind(&virtual_proc.job_id)
+            .bind(virtual_proc.job_id.to_string())
             .execute(&mut **transaction)
             .await
             .into_diagnostic()
@@ -392,8 +392,8 @@ impl HostDao {
         sqlx::query(UPDATE_POINT)
             .bind(virtual_proc.cores_reserved.value())
             .bind(virtual_proc.gpus_reserved as i32)
-            .bind(&virtual_proc.job_id)
-            .bind(&virtual_proc.show_id)
+            .bind(virtual_proc.job_id.to_string())
+            .bind(virtual_proc.show_id.to_string())
             .execute(&mut **transaction)
             .await
             .into_diagnostic()

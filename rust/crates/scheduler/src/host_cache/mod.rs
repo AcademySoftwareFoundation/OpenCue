@@ -8,6 +8,7 @@ pub use cache::HostCache;
 
 use miette::Diagnostic;
 use thiserror::Error;
+use uuid::Uuid;
 
 use miette::Result;
 use tokio::sync::OnceCell;
@@ -17,7 +18,7 @@ use crate::host_cache::messages::CacheRatio;
 
 pub use actor::HostCacheService;
 
-pub type HostId = String;
+pub type HostId = Uuid;
 
 static HOST_CACHE: OnceCell<Addr<HostCacheService>> = OnceCell::const_new();
 

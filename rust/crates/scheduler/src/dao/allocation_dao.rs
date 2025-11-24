@@ -2,13 +2,15 @@ use miette::{Context, IntoDiagnostic, Result};
 use sqlx::{Pool, Postgres};
 use std::sync::Arc;
 use std::{cmp, collections::HashMap};
+use uuid::Uuid;
 
 use crate::{
+    dao::helpers::parse_uuid,
     models::{Allocation, CoreSize, Subscription},
     pgpool::connection_pool,
 };
 
-pub type ShowId = String;
+pub type ShowId = Uuid;
 pub type AllocationName = String;
 
 /// Database model for a subscription.
@@ -34,10 +36,10 @@ impl From<SubscriptionModel> for Subscription {
         let booked_cores = cmp::max(val.int_cores, 0);
 
         Subscription {
-            id: val.pk_subscription,
-            allocation_id: val.pk_alloc,
+            id: parse_uuid(&val.pk_subscription),
+            allocation_id: parse_uuid(&val.pk_alloc),
             allocation_name: val.str_alloc_name,
-            show_id: val.pk_show,
+            show_id: parse_uuid(&val.pk_show),
             size: val.int_size,
             burst: CoreSize::from_multiplied(
                 val.int_burst.try_into().expect("int_burst should fit i32"),
@@ -67,13 +69,13 @@ pub struct AllocationModel {
 impl From<AllocationModel> for Allocation {
     fn from(val: AllocationModel) -> Self {
         Allocation {
-            id: val.pk_alloc,
+            id: parse_uuid(&val.pk_alloc),
             name: val.str_name,
             allow_edit: val.b_allow_edit,
             is_default: val.b_default,
             tag: val.str_tag,
             billable: val.b_billable,
-            facility_id: val.pk_facility,
+            facility_id: parse_uuid(&val.pk_facility),
             enabled: val.b_enabled.unwrap_or(true),
         }
     }
@@ -177,11 +179,11 @@ impl AllocationDao {
             .wrap_err("Failed to fetch subscriptions")?;
 
         // Organize subscriptions by show_id and allocation_name, converting models to business objects
-        let mut subscriptions_by_show: HashMap<String, HashMap<String, Subscription>> =
+        let mut subscriptions_by_show: HashMap<Uuid, HashMap<String, Subscription>> =
             HashMap::new();
 
         for subs_model in subscription_models {
-            let show_id = subs_model.pk_show.clone();
+            let show_id = parse_uuid(&subs_model.pk_show);
             let allocation_name = subs_model.str_alloc_name.clone();
             let subscription = Subscription::from(subs_model);
             subscriptions_by_show
@@ -206,7 +208,6 @@ mod tests {
 
         // Verify the structure is correct
         for (show_id, allocation_map) in subscriptions.iter() {
-            assert!(!show_id.is_empty(), "Show ID should not be empty");
             assert!(
                 !allocation_map.is_empty(),
                 "Should have at least one subscription"
@@ -218,7 +219,8 @@ mod tests {
                     "Subscription show_id should match the outer HashMap key"
                 );
                 assert_eq!(
-                    &subscription.allocation_id, allocation_name,
+                    &subscription.allocation_id.to_string(),
+                    allocation_name,
                     "Subscription allocation_id should match the inner HashMap key"
                 );
             }

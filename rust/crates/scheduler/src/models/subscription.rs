@@ -1,3 +1,5 @@
+use uuid::Uuid;
+
 use crate::models::CoreSize;
 
 /// Represents a subscription linking an allocation to a show with resource limits.
@@ -11,16 +13,16 @@ use crate::models::CoreSize;
 #[derive(Debug, Clone)]
 pub struct Subscription {
     /// Unique subscription identifier
-    pub id: String,
+    pub id: Uuid,
 
     /// Allocation ID that provides the resources
-    pub allocation_id: String,
+    pub allocation_id: Uuid,
 
     /// Allocation Name that provides the resources
     pub allocation_name: String,
 
     /// Show ID that can use the resources
-    pub show_id: String,
+    pub show_id: Uuid,
 
     /// Base resource allocation size
     pub size: i64,
@@ -46,7 +48,7 @@ pub struct Subscription {
 #[derive(Debug, Clone)]
 pub struct Allocation {
     /// Unique allocation identifier
-    pub id: String,
+    pub id: Uuid,
 
     /// Allocation name
     pub name: String,
@@ -64,7 +66,7 @@ pub struct Allocation {
     pub billable: bool,
 
     /// Facility ID that owns this allocation
-    pub facility_id: String,
+    pub facility_id: Uuid,
 
     /// Whether this allocation is enabled
     pub enabled: bool,

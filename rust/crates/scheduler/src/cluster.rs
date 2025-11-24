@@ -13,11 +13,12 @@ use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tracing::{debug, error, warn};
+use uuid::Uuid;
 
 use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
     config::CONFIG,
-    dao::ClusterDao,
+    dao::{helpers::parse_uuid, ClusterDao},
 };
 
 pub static CLUSTER_ROUNDS: AtomicUsize = AtomicUsize::new(0);
@@ -79,7 +80,7 @@ impl ClusterFeed {
     ///
     /// * `Ok(ClusterFeed)` - Successfully loaded cluster feed
     /// * `Err(miette::Error)` - Failed to load clusters from database
-    pub async fn load_all(facility_id: &Option<String>) -> Result<Self> {
+    pub async fn load_all(facility_id: &Option<Uuid>) -> Result<Self> {
         let cluster_dao = ClusterDao::new().await?;
 
         // Fetch clusters for both facilitys+shows+tags and just tags
@@ -97,14 +98,15 @@ impl ClusterFeed {
                     match cluster.ttype.as_str() {
                         // Each alloc tag becomes its own cluster
                         "ALLOC" => {
+                            let cluster_facility_id = parse_uuid(&cluster.facility_id);
                             if facility_id
                                 .as_ref()
-                                .map(|fid| fid == &cluster.facility_id)
+                                .map(|fid| fid == &cluster_facility_id)
                                 .unwrap_or(true)
                             {
                                 clusters.push(Cluster::ComposedKey(ClusterKey {
-                                    facility_id: cluster.facility_id,
-                                    show_id: cluster.show_id,
+                                    facility_id: cluster_facility_id,
+                                    show_id: parse_uuid(&cluster.show_id),
                                     tag: Tag {
                                         name: cluster.tag,
                                         ttype: TagType::Alloc,
@@ -331,9 +333,9 @@ impl ClusterFeed {
 ///
 /// # Returns
 ///
-/// * `Ok(String)` - The facility ID
+/// * `Ok(Uuid)` - The facility ID
 /// * `Err(miette::Error)` - If facility not found or database error
-pub async fn get_facility_id(facility_name: &str) -> Result<String> {
+pub async fn get_facility_id(facility_name: &str) -> Result<Uuid> {
     let cluster_dao = ClusterDao::new().await?;
     cluster_dao
         .get_facility_id(facility_name)
@@ -349,9 +351,9 @@ pub async fn get_facility_id(facility_name: &str) -> Result<String> {
 ///
 /// # Returns
 ///
-/// * `Ok(String)` - The show ID
+/// * `Ok(Uuid)` - The show ID
 /// * `Err(miette::Error)` - If show not found or database error
-pub async fn get_show_id(show_name: &str) -> Result<String> {
+pub async fn get_show_id(show_name: &str) -> Result<Uuid> {
     let cluster_dao = ClusterDao::new().await?;
     cluster_dao.get_show_id(show_name).await.into_diagnostic()
 }

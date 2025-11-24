@@ -2,22 +2,23 @@ use std::{fmt::Display, time::SystemTime};
 
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::models::{core_size::CoreSize, fmt_uuid};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DispatchFrame {
     // Entity fields
-    pub id: String,
+    pub id: Uuid,
     pub frame_name: String,
 
     // LayerEntity fields
-    pub show_id: String,
-    pub facility_id: String,
-    pub job_id: String,
+    pub show_id: Uuid,
+    pub facility_id: Uuid,
+    pub job_id: Uuid,
 
     // FrameEntity fields
-    pub layer_id: String,
+    pub layer_id: Uuid,
 
     // DispatchFrame specific fields
     pub command: String,

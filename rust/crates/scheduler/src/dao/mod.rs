@@ -1,6 +1,7 @@
 mod allocation_dao;
 mod cluster_dao;
 mod frame_dao;
+pub mod helpers;
 mod host_dao;
 mod job_dao;
 mod layer_dao;

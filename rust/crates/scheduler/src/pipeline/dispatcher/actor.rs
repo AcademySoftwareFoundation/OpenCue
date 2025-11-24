@@ -161,7 +161,7 @@ impl RqdDispatcherService {
         host: Host,
         transaction: &mut Transaction<'_, Postgres>,
     ) -> Result<(Host, DispatchLayer), DispatchError> {
-        let host_id = host.id.clone();
+        let host_id = host.id;
         let host_disp = format!("{}", &host);
         let layer_disp = format!("{}", &layer);
 
@@ -311,7 +311,7 @@ impl RqdDispatcherService {
                         metrics::observe_time_to_book(elapsed);
                     }
 
-                    non_retrieable_frames.push(frame.id.clone());
+                    non_retrieable_frames.push(frame.id);
                     allocation_capacity = new_allocation_capacity;
                     last_host_version = new_host;
                 }
@@ -351,7 +351,7 @@ impl RqdDispatcherService {
                                 "({dispatch_id}) Frame {} couldn't be updated on the database. Version has changed.",
                                 frame_str
                             );
-                            non_retrieable_frames.push(frame.id.clone());
+                            non_retrieable_frames.push(frame.id);
                             break;
                         }
                         DispatchVirtualProcError::RqdConnectionFailed { host, error } => {
@@ -440,7 +440,7 @@ impl RqdDispatcherService {
 
         // Update database
         let updated_resources = self
-            .update_database_for_dispatch(transaction, &virtual_proc, &host.id, dispatch_id)
+            .update_database_for_dispatch(transaction, &virtual_proc, host.id, dispatch_id)
             .await?;
 
         // When running on dry_run_mode, just log the outcome
@@ -498,7 +498,7 @@ impl RqdDispatcherService {
         &self,
         transaction: &mut Transaction<'_, Postgres>,
         virtual_proc: &VirtualProc,
-        host_id: &str,
+        host_id: Uuid,
         dispatch_id: Uuid,
     ) -> Result<UpdatedHostResources, DispatchVirtualProcError> {
         self.frame_dao
@@ -526,7 +526,7 @@ impl RqdDispatcherService {
 
         let updated_resources = self
             .host_dao
-            .update_resources(transaction, host_id, virtual_proc, dispatch_id)
+            .update_resources(transaction, &host_id, virtual_proc, dispatch_id)
             .await
             .map_err(|err| {
                 DispatchVirtualProcError::FailedToStartOnDb(DispatchError::FailedToUpdateResources(
@@ -723,13 +723,13 @@ impl RqdDispatcherService {
 
         Ok((
             VirtualProc {
-                proc_id: Uuid::new_v4().to_string(),
-                host_id: host.id.clone(),
-                show_id: frame.show_id.clone(),
-                layer_id: frame.layer_id.clone(),
-                job_id: frame.job_id.clone(),
-                frame_id: frame.id.clone(),
-                alloc_id: host.alloc_id.clone(),
+                proc_id: Uuid::new_v4(),
+                host_id: host.id,
+                show_id: frame.show_id,
+                layer_id: frame.layer_id,
+                job_id: frame.job_id,
+                frame_id: frame.id,
+                alloc_id: host.alloc_id,
                 cores_reserved: cores_reserved.into(),
                 memory_reserved,
                 gpus_reserved,
@@ -1007,7 +1007,7 @@ mod tests {
     // Helper function to create a test host
     fn create_test_host() -> Host {
         Host::new_for_test(
-            Uuid::new_v4().to_string(),
+            Uuid::new_v4(),
             "test-host".to_string(),
             Some("linux".to_string()),
             CoreSize(8),
@@ -1018,7 +1018,7 @@ mod tests {
             ByteSize::gib(4),
             ThreadMode::Variable,
             CoreSize(4),
-            Uuid::new_v4().to_string(),
+            Uuid::new_v4(),
             "test-alloc".to_string(),
         )
     }
@@ -1026,12 +1026,12 @@ mod tests {
     // Helper function to create a test dispatch frame
     fn create_test_dispatch_frame() -> DispatchFrame {
         DispatchFrame {
-            id: Uuid::new_v4().to_string(),
+            id: Uuid::new_v4(),
             frame_name: "0001-test_frame".to_string(),
-            show_id: Uuid::new_v4().to_string(),
-            facility_id: Uuid::new_v4().to_string(),
-            job_id: Uuid::new_v4().to_string(),
-            layer_id: Uuid::new_v4().to_string(),
+            show_id: Uuid::new_v4(),
+            facility_id: Uuid::new_v4(),
+            job_id: Uuid::new_v4(),
+            layer_id: Uuid::new_v4(),
             command: "echo 'test command'".to_string(),
             range: "1-10".to_string(),
             chunk_size: 1,
@@ -1138,7 +1138,7 @@ mod tests {
     fn test_calculate_memory_balanced_core_count_exact_calculation() {
         // Create a host with precise values to test the calculation
         let host = Host::new_for_test(
-            Uuid::new_v4().to_string(),
+            Uuid::new_v4(),
             "test-host".to_string(),
             Some("linux".to_string()),
             CoreSize(8),       // 8 cores
@@ -1149,7 +1149,7 @@ mod tests {
             ByteSize::gib(4),
             ThreadMode::Variable,
             CoreSize(4),
-            Uuid::new_v4().to_string(),
+            Uuid::new_v4(),
             "test-alloc".to_string(),
         );
 
@@ -1174,7 +1174,7 @@ mod tests {
     fn test_calculate_memory_balanced_core_count_high_memory_frame() {
         // Create a host with precise values
         let host = Host::new_for_test(
-            Uuid::new_v4().to_string(),
+            Uuid::new_v4(),
             "test-host".to_string(),
             Some("linux".to_string()),
             CoreSize(4),      // 4 cores
@@ -1185,7 +1185,7 @@ mod tests {
             ByteSize::gib(4),
             ThreadMode::Variable,
             CoreSize(4),
-            Uuid::new_v4().to_string(),
+            Uuid::new_v4(),
             "test-alloc".to_string(),
         );
 
@@ -1210,7 +1210,7 @@ mod tests {
     fn test_calculate_memory_balanced_core_count_low_memory_frame() {
         // Create a host with precise values
         let host = Host::new_for_test(
-            Uuid::new_v4().to_string(),
+            Uuid::new_v4(),
             "test-host".to_string(),
             Some("linux".to_string()),
             CoreSize(8),       // 8 cores
@@ -1221,7 +1221,7 @@ mod tests {
             ByteSize::gib(16),
             ThreadMode::Variable,
             CoreSize(8),
-            Uuid::new_v4().to_string(),
+            Uuid::new_v4(),
             "test-alloc".to_string(),
         );
 
@@ -1245,7 +1245,7 @@ mod tests {
     #[test]
     fn test_calculate_memory_balanced_core_count_with_layer_limit() {
         let host = Host::new_for_test(
-            Uuid::new_v4().to_string(),
+            Uuid::new_v4(),
             "test-host".to_string(),
             Some("linux".to_string()),
             CoreSize(8),
@@ -1256,7 +1256,7 @@ mod tests {
             ByteSize::gib(8),
             ThreadMode::Variable,
             CoreSize(8),
-            Uuid::new_v4().to_string(),
+            Uuid::new_v4(),
             "test-alloc".to_string(),
         );
 
@@ -1330,7 +1330,8 @@ mod tests {
         assert_eq!(virtual_proc.gpus_reserved, frame.min_gpus);
         assert_eq!(virtual_proc.gpu_memory_reserved, frame.min_gpu_memory);
         assert_eq!(virtual_proc.frame.id, frame.id);
-        assert!(!virtual_proc.proc_id.is_empty());
+        // proc_id should be a valid UUID (non-nil)
+        assert_ne!(virtual_proc.proc_id, Uuid::nil());
 
         // Check host resource consumption
         assert!(updated_host.idle_cores < host.idle_cores);
@@ -1419,13 +1420,13 @@ mod tests {
     fn test_prepare_rqd_run_frame_basic() {
         let frame = create_test_dispatch_frame();
         let virtual_proc = VirtualProc {
-            proc_id: Uuid::new_v4().to_string(),
-            host_id: Uuid::new_v4().to_string(),
-            show_id: Uuid::new_v4().to_string(),
-            layer_id: Uuid::new_v4().to_string(),
-            job_id: Uuid::new_v4().to_string(),
-            frame_id: Uuid::new_v4().to_string(),
-            alloc_id: Uuid::new_v4().to_string(),
+            proc_id: Uuid::new_v4(),
+            host_id: Uuid::new_v4(),
+            show_id: Uuid::new_v4(),
+            layer_id: Uuid::new_v4(),
+            job_id: Uuid::new_v4(),
+            frame_id: Uuid::new_v4(),
+            alloc_id: Uuid::new_v4(),
             cores_reserved: CoreSize(2).with_multiplier(),
             memory_reserved: ByteSize::gib(4),
             gpus_reserved: 1,
@@ -1442,11 +1443,11 @@ mod tests {
         let run_frame = result.unwrap();
 
         // Check basic fields
-        assert_eq!(run_frame.frame_id, virtual_proc.frame.id);
+        assert_eq!(run_frame.frame_id, virtual_proc.frame.id.to_string());
         assert_eq!(run_frame.frame_name, virtual_proc.frame.frame_name);
         assert_eq!(run_frame.job_name, virtual_proc.frame.job_name);
-        assert_eq!(run_frame.layer_id, virtual_proc.frame.layer_id);
-        assert_eq!(run_frame.resource_id, virtual_proc.proc_id);
+        assert_eq!(run_frame.layer_id, virtual_proc.frame.layer_id.to_string());
+        assert_eq!(run_frame.resource_id, virtual_proc.proc_id.to_string());
         assert_eq!(run_frame.num_cores, virtual_proc.cores_reserved.value());
         assert_eq!(run_frame.num_gpus, virtual_proc.gpus_reserved as i32);
         assert_eq!(run_frame.os, virtual_proc.os);
@@ -1495,13 +1496,13 @@ mod tests {
         frame.range = "1-10".to_string(); // Ensure frame 5 is in range
 
         let virtual_proc = VirtualProc {
-            proc_id: Uuid::new_v4().to_string(),
-            host_id: Uuid::new_v4().to_string(),
-            show_id: Uuid::new_v4().to_string(),
-            layer_id: Uuid::new_v4().to_string(),
-            job_id: Uuid::new_v4().to_string(),
-            frame_id: Uuid::new_v4().to_string(),
-            alloc_id: Uuid::new_v4().to_string(),
+            proc_id: Uuid::new_v4(),
+            host_id: Uuid::new_v4(),
+            show_id: Uuid::new_v4(),
+            layer_id: Uuid::new_v4(),
+            job_id: Uuid::new_v4(),
+            frame_id: Uuid::new_v4(),
+            alloc_id: Uuid::new_v4(),
             cores_reserved: CoreSize(1).with_multiplier(),
             memory_reserved: ByteSize::gib(2),
             gpus_reserved: 0,
@@ -1531,13 +1532,13 @@ mod tests {
         frame.frame_name = "invalid-frame-name".to_string();
 
         let virtual_proc = VirtualProc {
-            proc_id: Uuid::new_v4().to_string(),
-            host_id: Uuid::new_v4().to_string(),
-            show_id: Uuid::new_v4().to_string(),
-            layer_id: Uuid::new_v4().to_string(),
-            job_id: Uuid::new_v4().to_string(),
-            frame_id: Uuid::new_v4().to_string(),
-            alloc_id: Uuid::new_v4().to_string(),
+            proc_id: Uuid::new_v4(),
+            host_id: Uuid::new_v4(),
+            show_id: Uuid::new_v4(),
+            layer_id: Uuid::new_v4(),
+            job_id: Uuid::new_v4(),
+            frame_id: Uuid::new_v4(),
+            alloc_id: Uuid::new_v4(),
             cores_reserved: CoreSize(1).with_multiplier(),
             memory_reserved: ByteSize::gib(2),
             gpus_reserved: 0,

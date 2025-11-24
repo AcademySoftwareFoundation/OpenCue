@@ -28,6 +28,7 @@ use std::{
 
 use bytesize::ByteSize;
 use miette::Result;
+use uuid::Uuid;
 
 use crate::{
     config::{HostBookingStrategy, CONFIG},
@@ -194,7 +195,7 @@ impl HostCache {
                 };
 
             iter.find_map(|(by_core_key, hosts_by_memory)| {
-                let find_fn = |(by_memory_key, hosts): (&u64, &HashSet<String>)| {
+                let find_fn = |(by_memory_key, hosts): (&u64, &HashSet<Uuid>)| {
                     hosts.iter().find_map(|host_id| {
                         HOST_STORE.get(host_id).and_then(|host| {
                             // Check validation and memory capacity
@@ -322,7 +323,7 @@ mod tests {
 
     fn create_test_host(id: Uuid, idle_cores: i32, idle_memory: ByteSize) -> Host {
         Host {
-            id: id.to_string(),
+            id: id,
             name: format!("test-host-{}", id),
             str_os: Some("Linux".to_string()),
             total_cores: CoreSize(idle_cores),
@@ -333,7 +334,7 @@ mod tests {
             idle_gpu_memory: ByteSize::kb(0),
             thread_mode: ThreadMode::Auto,
             alloc_available_cores: CoreSize(idle_cores),
-            alloc_id: Uuid::new_v4().to_string(),
+            alloc_id: Uuid::new_v4(),
             alloc_name: "test".to_string(),
             last_updated: Utc::now(),
         }
@@ -398,7 +399,7 @@ mod tests {
 
         cache.check_in(host.clone(), false);
 
-        assert!(HOST_STORE.get(&host_id.to_string()).is_some());
+        assert!(HOST_STORE.get(&host_id).is_some());
         let hosts_index = cache.hosts_index.read().unwrap();
         assert!(!hosts_index.is_empty());
     }
@@ -415,7 +416,7 @@ mod tests {
         cache.check_in(host2.clone(), false);
 
         // The host should be updated with new resources
-        let stored_host = HOST_STORE.get(&host_id.to_string()).unwrap();
+        let stored_host = HOST_STORE.get(&host_id).unwrap();
         assert_eq!(stored_host.idle_cores.value(), 8);
         assert_eq!(stored_host.idle_memory, ByteSize::gb(16));
         assert_eq!(stored_host.name, "updated-host");
@@ -439,9 +440,9 @@ mod tests {
         let memory_key = HostCache::gen_memory_key(checked_out_host.idle_memory);
         let core_key = checked_out_host.idle_cores.value() as u32;
 
-        assert_eq!(checked_out_host.id, host_id.to_string());
+        assert_eq!(checked_out_host.id, host_id);
 
-        assert!(HOST_STORE.get(&host_id.to_string()).is_none());
+        assert!(HOST_STORE.get(&host_id).is_none());
 
         let hosts_index = cache.hosts_index.read().unwrap();
         let left_over_host = hosts_index

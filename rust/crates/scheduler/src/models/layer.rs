@@ -3,15 +3,16 @@ use std::collections::HashSet;
 
 use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::models::{core_size::CoreSize, fmt_uuid, DispatchFrame};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DispatchLayer {
-    pub id: String,
-    pub job_id: String,
-    pub facility_id: String,
-    pub show_id: String,
+    pub id: Uuid,
+    pub job_id: Uuid,
+    pub facility_id: Uuid,
+    pub show_id: Uuid,
     pub job_name: String,
     pub layer_name: String,
     pub str_os: Option<String>,
@@ -45,7 +46,7 @@ impl DispatchLayer {
     /// # Arguments
     ///
     /// * `frame_ids` - Vector of frame IDs to remove from the layer
-    pub fn drain_frames(&mut self, frame_ids: Vec<String>) {
+    pub fn drain_frames(&mut self, frame_ids: Vec<Uuid>) {
         self.frames.retain(|f| !frame_ids.contains(&f.id))
     }
 }

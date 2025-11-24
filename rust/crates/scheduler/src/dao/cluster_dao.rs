@@ -4,8 +4,9 @@ use futures::Stream;
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
+use uuid::Uuid;
 
-use crate::pgpool::connection_pool;
+use crate::{dao::helpers::parse_uuid, pgpool::connection_pool};
 
 /// Data Access Object for host operations in the job dispatch system.
 ///
@@ -118,14 +119,14 @@ impl ClusterDao {
     ///
     /// # Returns
     ///
-    /// * `Ok(String)` - The facility ID
+    /// * `Ok(Uuid)` - The facility ID
     /// * `Err(sqlx::Error)` - If facility not found or database error
-    pub async fn get_facility_id(&self, facility_name: &str) -> Result<String, sqlx::Error> {
+    pub async fn get_facility_id(&self, facility_name: &str) -> Result<Uuid, sqlx::Error> {
         let row: (String,) = sqlx::query_as(QUERY_FACILITY_ID)
             .bind(facility_name)
             .fetch_one(&*self.connection_pool)
             .await?;
-        Ok(row.0)
+        Ok(parse_uuid(&row.0))
     }
 
     /// Looks up a show ID by show name.
@@ -136,13 +137,13 @@ impl ClusterDao {
     ///
     /// # Returns
     ///
-    /// * `Ok(String)` - The show ID
+    /// * `Ok(Uuid)` - The show ID
     /// * `Err(sqlx::Error)` - If show not found or database error
-    pub async fn get_show_id(&self, show_name: &str) -> Result<String, sqlx::Error> {
+    pub async fn get_show_id(&self, show_name: &str) -> Result<Uuid, sqlx::Error> {
         let row: (String,) = sqlx::query_as(QUERY_SHOW_ID)
             .bind(show_name)
             .fetch_one(&*self.connection_pool)
             .await?;
-        Ok(row.0)
+        Ok(parse_uuid(&row.0))
     }
 }

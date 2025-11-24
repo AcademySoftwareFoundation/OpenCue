@@ -2,6 +2,7 @@ use actix::{Message, MessageResponse};
 
 use bytesize::ByteSize;
 use miette::Result;
+use uuid::Uuid;
 
 use crate::{
     cluster_key::{ClusterKey, Tag},
@@ -50,8 +51,8 @@ pub struct CheckOut<F>
 where
     F: Fn(&Host) -> bool,
 {
-    pub facility_id: String,
-    pub show_id: String,
+    pub facility_id: Uuid,
+    pub show_id: Uuid,
     pub tags: Vec<Tag>,
     pub cores: CoreSize,
     pub memory: ByteSize,
@@ -66,10 +67,10 @@ where
 /// # Variants
 ///
 /// * `Host(Host)` - Return a host with updated idle resource counts
-/// * `Invalidate(String)` - Invalidate and remove a host by id
+/// * `Invalidate(Uuid)` - Invalidate and remove a host by id
 pub enum CheckInPayload {
     Host(Host),
-    Invalidate(String),
+    Invalidate(Uuid),
 }
 
 /// Actor message to return a host to the cache or invalidate it.
