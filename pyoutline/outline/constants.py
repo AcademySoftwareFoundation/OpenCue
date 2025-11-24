@@ -21,12 +21,13 @@ from __future__ import division
 from __future__ import absolute_import
 
 import sys
+from enum import Enum
 from typing import Final, Tuple
 
 if sys.version_info >= (3, 10):
-    from typing import Literal, TypeAlias
+    from typing import Literal
 else:
-    from typing_extensions import Literal, TypeAlias
+    from typing_extensions import Literal
 
 
 # Init mode is during the parsing of the outline
@@ -52,10 +53,20 @@ FRAME_RANGE_FIRST = 1
 # Default to the last frame in the frame range.
 FRAME_RANGE_LAST = 2
 
+
 # The allowed layer types.
-# Render = a general rendering layer
-# Util = setup or cleanup layer
-# Post = A post job layer
+class LayerType(str, Enum):
+    """Enumeration of layer types."""
+
+    def __str__(self) -> str:
+        return self.value
+
+    RENDER = "Render"  # A general rendering layer
+    UTIL = "Util"  # A setup or cleanup layer
+    POST = "Post"  # A post job layer
+
+
+# DEPRECATED: for backward compatibility only
 LAYER_TYPES: Final[
     Tuple[
         Literal["Render"],
@@ -63,6 +74,3 @@ LAYER_TYPES: Final[
         Literal["Post"],
     ]
 ] = ("Render", "Util", "Post")
-
-# Layer type type alias, to help with static type checking.
-LayerT: TypeAlias = Literal["Render", "Util", "Post"]
