@@ -93,6 +93,7 @@ class _LayerArgs(TypedDict, total=False):
 
     This list is most likely incomplete. Add more args as needed.
     """
+
     chunk: int  # Size of frame chunks
     command: List[str]  # Command to execute
     cores: int  # Minimum number of CPU cores required
@@ -277,13 +278,13 @@ class Layer(metaclass=LayerType):
             # By default, all layers are registered. Registered layers show up
             # as discrete layers. Unregistered layers are generally embedded
             # in registered layers.
-            "register" : True,
+            "register": True,
             # The default chunk size.
-            "chunk" : 1,
+            "chunk": 1,
             # A null frame range indicates the event
             # will default to the overall frame range
             # defined in the parent outline.
-            "range" : None,
+            "range": None,
         }
 
         # Now apply any settings found in the configuration file.
@@ -348,7 +349,10 @@ class Layer(metaclass=LayerType):
         """Set an environment variable to be applied before execute."""
         if key in self.__env:
             logger.warning(
-                "Overwriting outline env var: %s, from %s to %s", key, self.__env[key], value
+                "Overwriting outline env var: %s, from %s to %s",
+                key,
+                self.__env[key],
+                value,
             )
         self.__env[str(key)] = str(value)
 
@@ -738,7 +742,6 @@ class Layer(metaclass=LayerType):
             rng = None
 
         if self.__outline:
-
             # If there is a layer range and an outline range, return
             # the intersection. If the intersection cannot be
             # made then a LayerException is thrown.
@@ -846,7 +849,9 @@ class Layer(metaclass=LayerType):
         """
         self.depend_on(on_layer, outline.depend.DependType.PreviousFrame)
 
-    def depend_all(self, on_layer: Layer, propigate: bool = False, any_frame: bool = False) -> None:
+    def depend_all(
+        self, on_layer: Layer, propigate: bool = False, any_frame: bool = False
+    ) -> None:
         """
         Setup a layer-on-layer dependency on the given layer.
 
@@ -922,7 +927,9 @@ class Layer(metaclass=LayerType):
                         any_frame=True,
                     )
 
-        depend = outline.depend.Depend(self, on_layer, depend_type, propigate, any_frame)
+        depend = outline.depend.Depend(
+            self, on_layer, depend_type, propigate, any_frame
+        )
         self.__depends.append(depend)
 
         # Setup pre-process dependencies
@@ -1221,7 +1228,9 @@ class LayerPreProcess(Frame):
     """
 
     def __init__(self, creator, **args: Unpack[_LayerArgs]):
-        super().__init__(f"{creator.get_name()}_{args.get('suffix', 'preprocess')}", **args)
+        super().__init__(
+            f"{creator.get_name()}_{args.get('suffix', 'preprocess')}", **args
+        )
 
         self.__creator = creator
         self.__creator.depend_on(
