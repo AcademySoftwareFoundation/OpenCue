@@ -15,16 +15,25 @@
 
 """Outline constants and enumerations."""
 
-
+from __future__ import annotations
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
+
+import sys
+from enum import Enum
+from typing import Final, Tuple
+
+if sys.version_info >= (3, 10):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
 
 
 # Init mode is during the parsing of the outline
 # script.  Nothing can really be done in this phase
 # besides adding layers or frames.
-OUTLINE_MODE_INIT =  1
+OUTLINE_MODE_INIT = 1
 
 # Setup mode is the phase when the outline is being setup
 # to launch.  This phase runs in serial on the machine
@@ -44,8 +53,24 @@ FRAME_RANGE_FIRST = 1
 # Default to the last frame in the frame range.
 FRAME_RANGE_LAST = 2
 
+
 # The allowed layer types.
-# Render = a general rendering layer
-# Util = setup or cleanup layer
-# Post = A post job layer
-LAYER_TYPES = ("Render", "Util", "Post")
+class LayerType(str, Enum):
+    """Enumeration of layer types."""
+
+    def __str__(self) -> str:
+        return self.value
+
+    RENDER = "Render"  # A general rendering layer
+    UTIL = "Util"  # A setup or cleanup layer
+    POST = "Post"  # A post job layer
+
+
+# DEPRECATED: for backward compatibility only
+LAYER_TYPES: Final[
+    Tuple[
+        Literal["Render"],
+        Literal["Util"],
+        Literal["Post"],
+    ]
+] = ("Render", "Util", "Post")
