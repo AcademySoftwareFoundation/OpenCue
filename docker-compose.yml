@@ -48,7 +48,7 @@ services:
     command: --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot --datasource.cue-data-source.username=cuebot --datasource.cue-data-source.password=cuebot_password
 
   rqd:
-    image: opencue/rqd
+    image: ${RQD_IMAGE:-opencue/rqd}
     environment:
       - PYTHONUNBUFFERED=1
       - CUEBOT_HOSTNAME=cuebot
