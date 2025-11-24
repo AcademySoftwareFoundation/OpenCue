@@ -25,7 +25,6 @@ import sys
 import logging
 import tempfile
 from typing import (
-    TYPE_CHECKING,
     TypedDict,
     List,
     Optional,
@@ -90,20 +89,27 @@ class LayerType(type):
 
 
 class _LayerArgs(TypedDict, total=False):
-    """Typed dict to annotate layer argument names and types."""
+    """Typed dict to annotate layer argument names and types.
 
-    chunk: int
-    command: List[str]
-    cores: int
-    env: Dict[str, str]
-    limits: List[str]
-    memory: str
-    range: str
+    This list is most likely incomplete. Add more args as needed.
+    """
+    chunk: int  # Size of frame chunks
+    command: List[str]  # Command to execute
+    cores: int  # Minimum number of CPU cores required
+    env: Dict[str, str]  # Environment variables to set
+    limits: List[str]  # List of limit names
+    memory: str  # Minimum memory required
+    range: str  # Frame range
+    # register: Whether to automatically add the layer
+    # to the current outline (default: True)
     register: bool
-    service: str
-    timeout: int
+    service: str  # Name of the service used by the layer
+    tags: List[str]  # List of tags to set on the layer
+    timeout: int  # Timeout in seconds before considering a frame hung
+    # timeout_llu: Timeout for long last update in seconds
+    # before considering a frame hung
     timeout_llu: int
-    type: outline.constants.LayerType
+    type: outline.constants.LayerType  # The layer type (Render, Util, Post)
 
 
 class Layer(metaclass=LayerType):
