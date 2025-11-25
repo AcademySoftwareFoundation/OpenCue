@@ -229,7 +229,7 @@ impl Default for HostCacheConfig {
             concurrent_groups: 3,
             memory_key_divisor: ByteSize::gib(2),
             checkout_timeout: Duration::from_secs(12),
-            monitoring_interval: Duration::from_secs(1),
+            monitoring_interval: Duration::from_secs(10),
             clean_up_interval: Duration::from_secs(5 * 60),
             group_idle_timeout: Duration::from_secs(3 * 60 * 60),
             concurrent_fetch_permit: 4,

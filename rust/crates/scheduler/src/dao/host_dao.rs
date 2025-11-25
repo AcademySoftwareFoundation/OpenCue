@@ -117,7 +117,7 @@ FROM host h
     INNER JOIN host_stat hs ON h.pk_host = hs.pk_host
     INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
     INNER JOIN subscription s ON s.pk_alloc = a.pk_alloc AND s.pk_show = $1
-WHERE a.pk_facility = $2
+WHERE LOWER(a.pk_facility) = LOWER($2)
     AND (hs.str_os ILIKE $3 OR hs.str_os = '' and $4 = '') -- review
     AND h.str_lock_state = 'OPEN'
     AND hs.str_state = 'UP'
