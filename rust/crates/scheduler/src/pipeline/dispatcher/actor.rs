@@ -391,7 +391,7 @@ impl RqdDispatcherService {
         }
 
         if let Some(error) = last_error {
-            warn!("Wasn't able to dispatch all frames: {}", error)
+            warn!("Wasn't able to dispatch all frames: {:?}", error)
         }
         Ok((last_host_version, layer))
     }
@@ -473,7 +473,7 @@ impl RqdDispatcherService {
             .try_into()
             .expect("db_gpus_idle should fit in u32");
         updated_host.idle_gpu_memory = ByteSize::kb(updated_resources.gpu_mem_idle as u64);
-        updated_host.last_updated = updated_resources.last_updated.and_utc();
+        updated_host.last_updated = updated_resources.last_updated;
 
         Ok((updated_host, new_allocation_capacity))
     }

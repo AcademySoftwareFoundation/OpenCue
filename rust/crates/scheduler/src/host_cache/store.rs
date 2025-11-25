@@ -187,7 +187,7 @@ impl HostStore {
     where
         F: FnOnce(&Host) -> bool,
     {
-        match self.host_store.entry_sync(host_id.clone()) {
+        match self.host_store.entry_sync(*host_id) {
             scc::hash_map::Entry::Occupied(entry) => {
                 let host = entry.get();
 
@@ -271,7 +271,7 @@ impl HostStore {
             }
         }
         self.host_store
-            .upsert_sync(host.id.clone(), host.clone())
+            .upsert_sync(host.id, host.clone())
             .unwrap_or(host)
     }
 
@@ -312,7 +312,7 @@ impl HostStore {
         // First pass: identify stale hosts
         self.host_store.iter_sync(|host_id, host| {
             if Self::is_host_stale(host) {
-                stale_host_ids.push(host_id.clone());
+                stale_host_ids.push(*host_id);
             }
             true
         });
@@ -374,7 +374,7 @@ mod tests {
         last_updated: chrono::DateTime<Utc>,
     ) -> Host {
         Host {
-            id: id,
+            id,
             name: format!("test-host-{}", id),
             str_os: Some("Linux".to_string()),
             total_cores: CoreSize(idle_cores),

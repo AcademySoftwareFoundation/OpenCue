@@ -112,7 +112,7 @@ impl JobQueueCli {
                     .await
                     .wrap_err("Could not find show {}.")?;
                 clusters.push(Cluster::ComposedKey(ClusterKey {
-                    facility_id: facility_id.clone(),
+                    facility_id: *facility_id,
                     show_id,
                     tag: Tag {
                         name: alloc_tag.1.clone(),

@@ -220,6 +220,7 @@ pub struct HostCacheConfig {
     pub concurrent_fetch_permit: usize,
     #[serde(with = "humantime_serde")]
     pub host_staleness_threshold: Duration,
+    pub update_stat_on_book: bool,
 }
 
 impl Default for HostCacheConfig {
@@ -233,6 +234,7 @@ impl Default for HostCacheConfig {
             group_idle_timeout: Duration::from_secs(3 * 60 * 60),
             concurrent_fetch_permit: 4,
             host_staleness_threshold: Duration::from_secs(2 * 60), // 2 minutes
+            update_stat_on_book: false,
         }
     }
 }

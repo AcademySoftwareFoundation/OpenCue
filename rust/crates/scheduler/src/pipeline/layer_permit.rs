@@ -128,7 +128,7 @@ impl Handler<Request> for LayerPermitService {
             _ => {
                 // No valid permit exists - grant new permit
                 let new_permit = LayerPermit::new(duration);
-                let _ = self.permits.insert_sync(id.clone(), new_permit);
+                let _ = self.permits.insert_sync(id, new_permit);
                 debug!("Granted permit for layer {} (duration: {:?})", id, duration);
                 true
             }
@@ -175,7 +175,7 @@ impl LayerPermitService {
         // Collect expired permit IDs
         self.permits.iter_sync(|id, permit| {
             if permit.expired() {
-                expired_keys.push(id.clone());
+                expired_keys.push(*id);
             }
             true
         });

@@ -144,7 +144,7 @@ impl MatchingService {
                         .expect("Layer permit service is not available");
 
                     if layer_permit {
-                        let layer_id = layer.id.clone();
+                        let layer_id = layer.id;
                         self.process_layer(layer, cluster).await;
                         debug!("{}: Processed layer", layer_disp);
 
@@ -198,8 +198,7 @@ impl MatchingService {
             return false;
         }
 
-        if let Some(subscription) = allocation_service.get_subscription(&host.alloc_name, &show_id)
-        {
+        if let Some(subscription) = allocation_service.get_subscription(&host.alloc_name, show_id) {
             if !subscription.bookable(&cores_requested) {
                 return false;
             }
@@ -282,8 +281,8 @@ impl MatchingService {
 
             // Clone only the minimal data needed for the validation closure
             // These are needed because the closure must have 'static lifetime for actor messaging
-            let layer_id = layer.id.clone();
-            let show_id = layer.show_id.clone();
+            let layer_id = layer.id;
+            let show_id = layer.show_id;
             let cores_requested = layer.cores_min;
             let allocation_service = self.allocation_service.clone();
             let os = layer.str_os.clone();
@@ -315,7 +314,7 @@ impl MatchingService {
                     let host_before_dispatch = host.clone();
                     // Store layer info for error logging before moving ownership
                     let layer_display = format!("{}", layer);
-                    let layer_job_id = layer.job_id.clone();
+                    let layer_job_id = layer.job_id;
 
                     match self
                         .dispatcher_service

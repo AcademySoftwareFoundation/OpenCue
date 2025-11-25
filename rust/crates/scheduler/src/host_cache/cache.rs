@@ -200,12 +200,7 @@ impl HostCache {
                         HOST_STORE.get(host_id).and_then(|host| {
                             // Check validation and memory capacity
                             if host_validation(&host) {
-                                Some((
-                                    *by_core_key,
-                                    *by_memory_key,
-                                    host_id.clone(),
-                                    host.last_updated,
-                                ))
+                                Some((*by_core_key, *by_memory_key, *host_id, host.last_updated))
                             } else {
                                 None
                             }
@@ -272,7 +267,7 @@ impl HostCache {
     ///
     /// * `host` - Host to return to the cache
     pub fn check_in(&self, host: Host, authoritative: bool) {
-        let host_id = host.id.clone();
+        let host_id = host.id;
 
         // Update the data_store with new version
         let last_host_version = HOST_STORE.insert(host, authoritative);
@@ -291,7 +286,7 @@ impl HostCache {
             .or_default()
             .entry(memory_key)
             .or_default()
-            .insert(host_id.clone());
+            .insert(host_id);
     }
 
     /// Generates a memory key for cache indexing by bucketing memory values.
@@ -323,7 +318,7 @@ mod tests {
 
     fn create_test_host(id: Uuid, idle_cores: i32, idle_memory: ByteSize) -> Host {
         Host {
-            id: id,
+            id,
             name: format!("test-host-{}", id),
             str_os: Some("Linux".to_string()),
             total_cores: CoreSize(idle_cores),

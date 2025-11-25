@@ -8,8 +8,8 @@ use scheduler::{
     cluster::Cluster,
     cluster_key::{ClusterKey, Tag, TagType},
     config::{
-        Config, DatabaseConfig, HostBookingStrategy, LoggingConfig, QueueConfig, RqdConfig,
-        SchedulerConfig,
+        Config, DatabaseConfig, HostBookingStrategy, HostCacheConfig, LoggingConfig, QueueConfig,
+        RqdConfig, SchedulerConfig,
     },
 };
 use std::time::Duration;
@@ -57,6 +57,11 @@ pub fn create_test_config() -> Config {
     //     TEST_DB_USER, TEST_DB_PASSWORD, TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME
     // );
 
+    let host_cache_config = HostCacheConfig {
+        update_stat_on_book: true,
+        ..Default::default()
+    };
+
     Config {
         logging: LoggingConfig {
             level: "debug".to_string(),
@@ -101,7 +106,7 @@ pub fn create_test_config() -> Config {
             grpc_port: 8444,
             dry_run_mode: true, // Always run in dry mode for tests
         },
-        host_cache: scheduler::config::HostCacheConfig::default(),
+        host_cache: host_cache_config,
         scheduler: SchedulerConfig::default(),
     }
 }
@@ -602,8 +607,8 @@ pub async fn create_test_data(
 
     for (alloc_id, alloc_name) in allocs.iter() {
         let cluster = Cluster::ComposedKey(ClusterKey {
-            facility_id: facility_id,
-            show_id: show_id,
+            facility_id,
+            show_id,
             tag: Tag {
                 name: alloc_name.clone(),
                 ttype: TagType::Alloc,
@@ -774,12 +779,14 @@ async fn create_host(
     // Create host_stat
     let host_stat_id = Uuid::new_v4();
     sqlx::query(
-        "INSERT INTO host_stat (pk_host_stat, pk_host, str_state, str_os, int_gpu_mem_total, int_gpu_mem_free) VALUES ($1, $2, $3, $4, $5, $6)"
+        "INSERT INTO host_stat (pk_host_stat, pk_host, str_state, str_os, int_mem_total, int_mem_free, int_gpu_mem_total, int_gpu_mem_free) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
     )
     .bind(host_stat_id.to_string())
     .bind(host_id.to_string())
     .bind("UP")
     .bind("linux")
+    .bind(memory_kb)
+    .bind(memory_kb)
     .bind(gpu_memory_kb)
     .bind(gpu_memory_kb)
     .execute(&*pool)

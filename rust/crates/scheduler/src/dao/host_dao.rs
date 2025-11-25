@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bytesize::{ByteSize, KB};
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use miette::{Context, IntoDiagnostic, Result};
 use opencue_proto::host::ThreadMode;
 use sqlx::{Pool, Postgres, Transaction};
@@ -9,6 +9,7 @@ use tracing::trace;
 use uuid::Uuid;
 
 use crate::{
+    config::CONFIG,
     dao::helpers::parse_uuid,
     models::{CoreSize, Host, VirtualProc},
     pgpool::connection_pool,
@@ -31,7 +32,7 @@ pub struct UpdatedHostResources {
     pub mem_idle: i64,
     pub gpus_idle: i64,
     pub gpu_mem_idle: i64,
-    pub last_updated: NaiveDateTime,
+    pub last_updated: DateTime<Utc>,
 }
 
 /// Database model representing a host with its current resource availability.
@@ -45,19 +46,19 @@ pub struct HostModel {
     str_name: String,
     str_os: Option<String>,
     int_cores_idle: i64,
-    int_mem_idle: i64,
+    int_mem_free: i64,
     int_gpus_idle: i64,
     #[allow(dead_code)]
-    int_gpu_mem_idle: i64,
+    int_gpu_mem_free: i64,
     int_cores: i64,
-    int_mem: i64,
+    int_mem_total: i64,
     int_thread_mode: i32,
     pk_alloc: String,
     // Name of the allocation the host is subscribed to for a given show
     str_alloc_name: String,
     // Number of cores available at the subscription of the show this host has been queried on
     int_alloc_available_cores: i64,
-    ts_last_updated: NaiveDateTime,
+    ts_ping: DateTime<Utc>,
 }
 
 impl From<HostModel> for Host {
@@ -71,7 +72,7 @@ impl From<HostModel> for Host {
                     .try_into()
                     .expect("int_cores_min/multiplier should fit on a i32"),
             ),
-            idle_memory: ByteSize::kb(val.int_mem_idle as u64),
+            idle_memory: ByteSize::kb(val.int_mem_free as u64),
             idle_gpus: val
                 .int_gpus_idle
                 .try_into()
@@ -82,7 +83,7 @@ impl From<HostModel> for Host {
                     .try_into()
                     .expect("total_cores should fit on a i32"),
             ),
-            total_memory: ByteSize::kb(val.int_mem as u64),
+            total_memory: ByteSize::kb(val.int_mem_total as u64),
             thread_mode: ThreadMode::try_from(val.int_thread_mode).unwrap_or_default(),
             alloc_available_cores: CoreSize::from_multiplied(
                 val.int_alloc_available_cores
@@ -91,7 +92,7 @@ impl From<HostModel> for Host {
             ),
             alloc_id: parse_uuid(&val.pk_alloc),
             alloc_name: val.str_alloc_name,
-            last_updated: val.ts_last_updated.and_utc(),
+            last_updated: val.ts_ping,
         }
     }
 }
@@ -132,22 +133,28 @@ ORDER BY
 LIMIT $10
 "#;
 
+// Host memory, cores and gpu values are stored at host and host_stat tables and are updated
+// by different flows:
+//  - memory and core fields on table host are only updated when booking procs (update_host_resources)
+//  - the table host_stat contains memory fields that are updated by cuebot on HostReportHandler
+//
+// In summary, use host_stat for most up to date memory stats
 static QUERY_HOST_BY_SHOW_FACILITY_AND_TAG: &str = r#"
 SELECT DISTINCT
     h.pk_host,
     h.str_name,
     hs.str_os,
     h.int_cores_idle,
-    h.int_mem_idle,
+    hs.int_mem_free,
     h.int_gpus_idle,
-    h.int_gpu_mem_idle,
+    hs.int_gpu_mem_free,
     h.int_cores,
-    h.int_mem,
+    hs.int_mem_total,
     h.int_thread_mode,
     s.int_burst - s.int_cores as int_alloc_available_cores,
     a.pk_alloc,
     a.str_name as str_alloc_name,
-    h.ts_last_updated
+    hs.ts_ping
 FROM host h
     INNER JOIN host_stat hs ON h.pk_host = hs.pk_host
     INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
@@ -164,10 +171,18 @@ UPDATE host
 SET int_cores_idle = int_cores_idle - $1,
     int_mem_idle = int_mem_idle - $2,
     int_gpus_idle = int_gpus_idle - $3,
-    int_gpu_mem_idle = int_gpu_mem_idle - $4,
-    ts_last_updated = CURRENT_TIMESTAMP
+    int_gpu_mem_idle = int_gpu_mem_idle - $4
 WHERE pk_host = $5
-RETURNING int_cores_idle, int_mem_idle, int_gpus_idle, int_gpu_mem_idle, ts_last_updated
+RETURNING int_cores_idle, int_mem_idle, int_gpus_idle, int_gpu_mem_idle, NOW()
+"#;
+
+// This update is meant for testing environments where rqd is not constantly reporting
+// host reports to Cuebot to get host_stats properly updated.
+static UPDATE_HOST_STAT: &str = r#"
+UPDATE host_stat
+SET int_mem_free = int_mem_free - $1,
+    int_gpu_mem_free = int_gpu_mem_free - $2
+WHERE pk_host = $3
 "#;
 
 static UPDATE_SUBSCRIPTION: &str = r#"
@@ -340,7 +355,7 @@ impl HostDao {
             i64,
             i64,
             i64,
-            NaiveDateTime,
+            DateTime<Utc>,
         ) = sqlx::query_as(UPDATE_HOST_RESOURCES)
             .bind(virtual_proc.cores_reserved.value())
             .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
@@ -351,6 +366,17 @@ impl HostDao {
             .await
             .into_diagnostic()
             .wrap_err(format!("({dispatch_id}) Failed to update host resources"))?;
+
+        if CONFIG.host_cache.update_stat_on_book {
+            sqlx::query(UPDATE_HOST_STAT)
+                .bind((virtual_proc.memory_reserved.as_u64() / KB) as i64)
+                .bind(virtual_proc.gpu_memory_reserved.as_u64() as i64)
+                .bind(host_id.to_string())
+                .execute(&mut **transaction)
+                .await
+                .into_diagnostic()
+                .wrap_err("Failed to update host stat")?;
+        }
 
         sqlx::query(UPDATE_SUBSCRIPTION)
             .bind(virtual_proc.cores_reserved.value())

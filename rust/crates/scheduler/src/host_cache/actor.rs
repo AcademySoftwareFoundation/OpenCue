@@ -305,7 +305,7 @@ impl HostCacheService {
             host.id,
             host.idle_cores
         );
-        let host_id = host.id.clone();
+        let host_id = host.id;
 
         match self.cluster_index.get_sync(&cluster_key) {
             Some(group) => {

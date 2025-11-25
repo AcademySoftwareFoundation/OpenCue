@@ -166,6 +166,15 @@ host_cache:
   # Default: 4
   # concurrent_fetch_permit: 4
 
+  # Enable host stats update.
+  # On a production environment, cuebot is responsible for updating the
+  # host_stats table.
+  # On tests environmnts, not updating the table would lead to invalid
+  # memory information. Currently this toggle should only be enabled on
+  # test environments (stress_tests.rs)
+  # Default: false
+  # update_stat_on_book: false
+
 # =============================================================================
 # SCHEDULER CONFIGURATION
 # =============================================================================
