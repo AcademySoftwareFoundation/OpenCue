@@ -76,7 +76,7 @@ class _LayerArgs(TypedDict, total=False):
     env: Dict[str, str]  # Environment variables to set
     limits: List[str]  # List of limit names
     memory: str  # Minimum memory required
-    range: str  # Frame range
+    range: Optional[str]  # Frame range
     # register: Whether to automatically add the layer
     # to the current outline (default: True)
     register: bool
@@ -262,7 +262,7 @@ class Layer:
         """
         outline.io.system(cmd, ignore_error, frame)
 
-    def get_default_args(self, merge: Optional[Unpack[_LayerArgs]] = None):
+    def get_default_args(self, merge: Optional[_LayerArgs] = None):
         """
         Create and return a default argument hash. Optionally merge
         the specified dictionary into the result.
