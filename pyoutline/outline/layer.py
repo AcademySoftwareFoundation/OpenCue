@@ -64,30 +64,6 @@ logger = logging.getLogger("outline.layer")
 DEFAULT_FRAME_RANGE = "1000-1000"
 
 
-class LayerType(type):
-    """
-    A metaclass that wraps the creation of Layer objects so they
-    can be added to the current outline.
-    """
-
-    def __call__(cls, *args, **kwargs):
-        layer = super().__call__(*args, **kwargs)
-        if outline.current_outline() and layer.get_arg("register"):
-            outline.current_outline().add_layer(layer)
-
-        # Initialize with plugin system. This import is done here to avoid
-        # a circular dependency.
-        # pylint: disable=import-outside-toplevel
-        from outline.plugins import PluginManager
-
-        for plugin in PluginManager.get_plugins():
-            try:
-                plugin.init(layer)
-            except AttributeError:
-                pass
-        return layer
-
-
 class _LayerArgs(TypedDict, total=False):
     """Typed dict to annotate layer argument names and types.
 
@@ -113,7 +89,7 @@ class _LayerArgs(TypedDict, total=False):
     type: outline.constants.LayerType  # The layer type (Render, Util, Post)
 
 
-class Layer(metaclass=LayerType):
+class Layer:
     """Base class for all outline modules."""
 
     def __init__(self, name: str, **args: Unpack[_LayerArgs]) -> None:
@@ -178,6 +154,10 @@ class Layer(metaclass=LayerType):
             os.path.realpath(__file__),
         )
 
+        self._register()
+        self._init_plugins()
+
+
     @override
     def __str__(self) -> str:
         return self.get_name()
@@ -190,6 +170,23 @@ class Layer(metaclass=LayerType):
             f"type='{self.get_type()}' "
             f"at {hex(id(self))}>"
         )
+
+    def _register(self):
+        if outline.current_outline():
+            outline.current_outline().add_layer(self)
+
+    def _init_plugins(self):
+        """Initialize all plugins for this layer."""
+        # Prevent a circular dependency.
+        # pylint: disable=import-outside-toplevel
+        from outline.plugins import PluginManager
+
+        for plugin in PluginManager.get_plugins():
+            try:
+                plugin.init(self)
+            except AttributeError:
+                pass
+        return self
 
     def _after_init(self, ol: outline.Outline) -> None:
         """
