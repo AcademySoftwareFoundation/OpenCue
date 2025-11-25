@@ -18,6 +18,12 @@ package com.imageworks.spcue.dao;
 import java.util.List;
 
 import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.monitoring.HistoricalFrame;
+import com.imageworks.spcue.grpc.monitoring.HistoricalJob;
+import com.imageworks.spcue.grpc.monitoring.HistoricalLayer;
+import com.imageworks.spcue.grpc.monitoring.LayerMemoryRecord;
 
 public interface HistoricalDao {
 
@@ -35,5 +41,30 @@ public interface HistoricalDao {
      * @param job
      */
     void transferJob(JobInterface job);
+
+    /**
+     * Query historical job records from the job_history table.
+     */
+    List<HistoricalJob> getJobHistory(List<String> shows, List<String> users, List<String> shots,
+            List<String> jobNameRegex, List<JobState> states, long startTime, long endTime,
+            int page, int pageSize, int maxResults);
+
+    /**
+     * Query historical frame records from the frame_history table.
+     */
+    List<HistoricalFrame> getFrameHistory(String jobId, String jobName, List<String> layerNames,
+            List<FrameState> states, long startTime, long endTime, int page, int pageSize);
+
+    /**
+     * Query historical layer records from the layer_history table.
+     */
+    List<HistoricalLayer> getLayerHistory(String jobId, String jobName, long startTime,
+            long endTime, int page, int pageSize);
+
+    /**
+     * Query historical memory usage for a layer type.
+     */
+    List<LayerMemoryRecord> getLayerMemoryHistory(String layerName, List<String> shows,
+            long startTime, long endTime, int maxResults);
 
 }

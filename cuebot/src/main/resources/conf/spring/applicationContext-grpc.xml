@@ -198,4 +198,8 @@
         <property name="hostReportHandler" ref="hostReportHandler" />
     </bean>
 
+    <bean scope="prototype" id="manageMonitoring" class="com.imageworks.spcue.servant.ManageMonitoring">
+        <property name="historicalManager" ref="historicalManager" />
+    </bean>
+
 </beans>

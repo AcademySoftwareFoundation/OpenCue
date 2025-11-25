@@ -26,6 +26,8 @@ repositories {
 def grpcVersion = '1.47.0'
 def protobufVersion = '3.21.2'
 def activemqVersion = '5.12.0'
+def kafkaVersion = '3.4.0'
+def elasticsearchVersion = '8.8.0'
 
 // Spring dependency versions are managed by the io.spring.dependency-management plugin.
 // Appropriate versions will be pulled based on the spring boot version specified in the
@@ -51,6 +53,14 @@ dependencies {
     implementation group: 'io.sentry', name: 'sentry-log4j2', version: '7.11.0'
     implementation group: 'io.prometheus', name: 'simpleclient', version: '0.16.0'
     implementation group: 'io.prometheus', name: 'simpleclient_servlet', version: '0.16.0'
+
+    // Kafka for event publishing
+    implementation group: 'org.apache.kafka', name: 'kafka-clients', version: "${kafkaVersion}"
+    implementation group: 'org.springframework.kafka', name: 'spring-kafka', version: '2.9.0'
+
+    // Elasticsearch for historical data storage
+    implementation group: 'co.elastic.clients', name: 'elasticsearch-java', version: "${elasticsearchVersion}"
+    implementation group: 'jakarta.json', name: 'jakarta.json-api', version: '2.1.1'
 
     protobuf files("../proto/src/")
 

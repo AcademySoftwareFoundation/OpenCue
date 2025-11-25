@@ -119,6 +119,52 @@ public class PrometheusMetricsCollector {
             .labelNames("env", "cuebot_host", "render_node", "job_name", "frame_name", "frame_id")
             .register();
 
+    // Monitoring event metrics
+    private static final Counter monitoringEventsPublishedCounter =
+            Counter.build().name("cue_monitoring_events_published_total")
+                    .help("Total number of monitoring events published to Kafka")
+                    .labelNames("env", "cuebot_host", "event_type").register();
+
+    private static final Counter monitoringEventsDroppedCounter =
+            Counter.build().name("cue_monitoring_events_dropped_total")
+                    .help("Total number of monitoring events dropped due to queue overflow")
+                    .labelNames("env", "cuebot_host", "event_type").register();
+
+    private static final Gauge monitoringEventQueueSize =
+            Gauge.build().name("cue_monitoring_event_queue_size")
+                    .help("Current size of the monitoring event publishing queue")
+                    .labelNames("env", "cuebot_host").register();
+
+    private static final Gauge elasticsearchIndexQueueSize =
+            Gauge.build().name("cue_elasticsearch_index_queue_size")
+                    .help("Current size of the Elasticsearch indexing queue")
+                    .labelNames("env", "cuebot_host").register();
+
+    private static final Counter frameCompletedCounter = Counter.build()
+            .name("cue_frames_completed_total").help("Total number of frames completed")
+            .labelNames("env", "cuebot_host", "state", "show").register();
+
+    private static final Counter jobCompletedCounter =
+            Counter.build().name("cue_jobs_completed_total").help("Total number of jobs completed")
+                    .labelNames("env", "cuebot_host", "state", "show").register();
+
+    private static final Histogram frameRuntimeHistogram = Histogram.build()
+            .name("cue_frame_runtime_seconds").help("Histogram of frame runtimes in seconds")
+            .labelNames("env", "cuebot_host", "show", "layer_type")
+            .buckets(60, 300, 600, 1800, 3600, 7200, 14400, 28800, 86400).register();
+
+    private static final Histogram frameMemoryHistogram = Histogram.build()
+            .name("cue_frame_memory_bytes").help("Histogram of frame peak memory usage in bytes")
+            .labelNames("env", "cuebot_host", "show", "layer_type")
+            .buckets(256L * 1024 * 1024, 512L * 1024 * 1024, 1024L * 1024 * 1024,
+                    2048L * 1024 * 1024, 4096L * 1024 * 1024, 8192L * 1024 * 1024,
+                    16384L * 1024 * 1024, 32768L * 1024 * 1024)
+            .register();
+
+    private static final Counter hostReportsReceivedCounter = Counter.build()
+            .name("cue_host_reports_received_total").help("Total number of host reports received")
+            .labelNames("env", "cuebot_host", "facility").register();
+
     private String deployment_environment;
     private String cuebot_host;
 
@@ -267,6 +313,100 @@ public class PrometheusMetricsCollector {
             String frameId) {
         frameKillFailureCounter.labels(this.deployment_environment, this.cuebot_host, hostname,
                 jobName, frameName, frameId).inc();
+    }
+
+    /**
+     * Increment the monitoring event published counter
+     *
+     * @param eventType type of event that was published
+     */
+    public void incrementMonitoringEventPublished(String eventType) {
+        monitoringEventsPublishedCounter
+                .labels(this.deployment_environment, this.cuebot_host, eventType).inc();
+    }
+
+    /**
+     * Increment the monitoring event dropped counter
+     *
+     * @param eventType type of event that was dropped
+     */
+    public void incrementMonitoringEventDropped(String eventType) {
+        monitoringEventsDroppedCounter
+                .labels(this.deployment_environment, this.cuebot_host, eventType).inc();
+    }
+
+    /**
+     * Set the monitoring event queue size
+     *
+     * @param size current queue size
+     */
+    public void setMonitoringEventQueueSize(int size) {
+        monitoringEventQueueSize.labels(this.deployment_environment, this.cuebot_host).set(size);
+    }
+
+    /**
+     * Set the Elasticsearch indexing queue size
+     *
+     * @param size current queue size
+     */
+    public void setElasticsearchIndexQueueSize(int size) {
+        elasticsearchIndexQueueSize.labels(this.deployment_environment, this.cuebot_host).set(size);
+    }
+
+    /**
+     * Record a frame completion
+     *
+     * @param state final state of the frame
+     * @param show show name
+     */
+    public void recordFrameCompleted(String state, String show) {
+        frameCompletedCounter.labels(this.deployment_environment, this.cuebot_host, state, show)
+                .inc();
+    }
+
+    /**
+     * Record a job completion
+     *
+     * @param state final state of the job
+     * @param show show name
+     */
+    public void recordJobCompleted(String state, String show) {
+        jobCompletedCounter.labels(this.deployment_environment, this.cuebot_host, state, show)
+                .inc();
+    }
+
+    /**
+     * Record frame runtime for histogramming
+     *
+     * @param runtimeSeconds runtime in seconds
+     * @param show show name
+     * @param layerType layer type
+     */
+    public void recordFrameRuntime(double runtimeSeconds, String show, String layerType) {
+        frameRuntimeHistogram.labels(this.deployment_environment, this.cuebot_host, show, layerType)
+                .observe(runtimeSeconds);
+    }
+
+    /**
+     * Record frame peak memory usage for histogramming
+     *
+     * @param memoryBytes peak memory in bytes
+     * @param show show name
+     * @param layerType layer type
+     */
+    public void recordFrameMemory(double memoryBytes, String show, String layerType) {
+        frameMemoryHistogram.labels(this.deployment_environment, this.cuebot_host, show, layerType)
+                .observe(memoryBytes);
+    }
+
+    /**
+     * Record a host report received
+     *
+     * @param facility facility name
+     */
+    public void recordHostReport(String facility) {
+        hostReportsReceivedCounter.labels(this.deployment_environment, this.cuebot_host, facility)
+                .inc();
     }
 
     // Setters used for dependency injection

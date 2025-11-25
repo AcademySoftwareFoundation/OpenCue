@@ -56,6 +56,11 @@ import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.ServiceDao;
 import com.imageworks.spcue.grpc.service.Service;
 import com.imageworks.spcue.grpc.service.ServiceOverride;
+import com.imageworks.spcue.monitoring.KafkaEventPublisher;
+import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
+import com.imageworks.spcue.grpc.monitoring.EventType;
+import com.imageworks.spcue.grpc.monitoring.FrameEvent;
+import com.imageworks.spcue.grpc.monitoring.JobEvent;
 
 /**
  * The FrameCompleteHandler encapsulates all logic necessary for processing FrameComplete reports
@@ -83,6 +88,8 @@ public class FrameCompleteHandler {
     private ServiceDao serviceDao;
     private ShowDao showDao;
     private Environment env;
+    private KafkaEventPublisher kafkaEventPublisher;
+    private MonitoringEventBuilder monitoringEventBuilder;
 
     /*
      * The last time a proc was unbooked for subscription or job balancing. Since there are so many
@@ -254,6 +261,11 @@ public class FrameCompleteHandler {
             DispatchJob job, DispatchFrame frame, FrameState newFrameState,
             FrameDetail frameDetail) {
         try {
+
+            /*
+             * Publish frame complete event to Kafka for monitoring
+             */
+            publishFrameCompleteEvent(report, frame, frameDetail, newFrameState, proc);
 
             /*
              * The default behavior is to keep the proc on the same job.
@@ -719,6 +731,36 @@ public class FrameCompleteHandler {
 
     public void setShowDao(ShowDao showDao) {
         this.showDao = showDao;
+    }
+
+    public KafkaEventPublisher getKafkaEventPublisher() {
+        return kafkaEventPublisher;
+    }
+
+    public void setKafkaEventPublisher(KafkaEventPublisher kafkaEventPublisher) {
+        this.kafkaEventPublisher = kafkaEventPublisher;
+        if (kafkaEventPublisher != null) {
+            this.monitoringEventBuilder = new MonitoringEventBuilder(kafkaEventPublisher);
+        }
+    }
+
+    /**
+     * Publishes a frame complete event to Kafka for monitoring purposes. This method is called
+     * asynchronously to avoid blocking the dispatch thread.
+     */
+    private void publishFrameCompleteEvent(FrameCompleteReport report, DispatchFrame frame,
+            FrameDetail frameDetail, FrameState newFrameState, VirtualProc proc) {
+        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
+            return;
+        }
+
+        try {
+            FrameEvent event = monitoringEventBuilder.buildFrameCompleteEvent(report, newFrameState,
+                    frameDetail.state, frame, proc);
+            kafkaEventPublisher.publishFrameEvent(event);
+        } catch (Exception e) {
+            logger.trace("Failed to publish frame complete event: {}", e.getMessage());
+        }
     }
 
 }

@@ -379,6 +379,7 @@
     <property name="whiteboardDao" ref="whiteboardDao" />
     <property name="serviceDao" ref="serviceDao" />
     <property name="showDao" ref="showDao" />
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
   </bean>
 
   <bean id="hostReportHandler" class="com.imageworks.spcue.dispatcher.HostReportHandler" destroy-method="shutdown">
@@ -394,6 +395,7 @@
     <property name="jobDao" ref="jobDao" />
     <property name="layerDao" ref="layerDao" />
     <property name="killQueue" ref="killQueue"/>
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
   </bean>
 
   <!-- ##################################################################################### -->

@@ -68,6 +68,10 @@ import org.springframework.core.task.TaskRejectedException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
+import com.imageworks.spcue.monitoring.KafkaEventPublisher;
+import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
+import com.imageworks.spcue.grpc.monitoring.HostReportEvent;
+
 public class HostReportHandler {
 
     private static final Logger logger = LogManager.getLogger(HostReportHandler.class);
@@ -84,6 +88,8 @@ public class HostReportHandler {
     private JobManager jobManager;
     private JobDao jobDao;
     private LayerDao layerDao;
+    private KafkaEventPublisher kafkaEventPublisher;
+    private MonitoringEventBuilder monitoringEventBuilder;
 
     @Autowired
     private Environment env;
@@ -162,6 +168,9 @@ public class HostReportHandler {
     public void handleHostReport(HostReport report, boolean isBoot) {
         long startTime = System.currentTimeMillis();
         try {
+            // Publish host report event to Kafka for monitoring
+            publishHostReportEvent(report, isBoot);
+
             long swapOut = 0;
             if (report.getHost().getAttributesMap().containsKey("swapout")) {
                 swapOut = Integer.parseInt(report.getHost().getAttributesMap().get("swapout"));
@@ -1083,5 +1092,33 @@ public class HostReportHandler {
 
     public void setKillQueue(ThreadPoolExecutor killQueue) {
         this.killQueue = killQueue;
+    }
+
+    public KafkaEventPublisher getKafkaEventPublisher() {
+        return kafkaEventPublisher;
+    }
+
+    public void setKafkaEventPublisher(KafkaEventPublisher kafkaEventPublisher) {
+        this.kafkaEventPublisher = kafkaEventPublisher;
+        if (kafkaEventPublisher != null) {
+            this.monitoringEventBuilder = new MonitoringEventBuilder(kafkaEventPublisher);
+        }
+    }
+
+    /**
+     * Publishes a host report event to Kafka for monitoring purposes. This method is called
+     * asynchronously to avoid blocking the report queue.
+     */
+    private void publishHostReportEvent(HostReport report, boolean isBoot) {
+        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
+            return;
+        }
+
+        try {
+            HostReportEvent event = monitoringEventBuilder.buildHostReportEvent(report, isBoot);
+            kafkaEventPublisher.publishHostReportEvent(event);
+        } catch (Exception e) {
+            logger.trace("Failed to publish host report event: {}", e.getMessage());
+        }
     }
 }
