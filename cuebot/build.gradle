@@ -60,6 +60,7 @@ dependencies {
 
     // Elasticsearch for historical data storage
     implementation group: 'co.elastic.clients', name: 'elasticsearch-java', version: "${elasticsearchVersion}"
+    implementation group: 'org.elasticsearch.client', name: 'elasticsearch-rest-client', version: "${elasticsearchVersion}"
     implementation group: 'jakarta.json', name: 'jakarta.json-api', version: '2.1.1'
 
     protobuf files("../proto/src/")
