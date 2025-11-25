@@ -508,14 +508,4 @@ public class CoreUnitDispatcher implements Dispatcher {
             return true;
         }
     }
-
-	@Override
-	public void lockHostForDispatching(String host_id) {
-        dispatchSupport.lockHostForDispatching(host_id);
-	}
-
-	@Override
-	public void unlockHostForDispatching(String host_id) {
-	    dispatchSupport.unlockHostForDispatching(host_id);
-	}
 }

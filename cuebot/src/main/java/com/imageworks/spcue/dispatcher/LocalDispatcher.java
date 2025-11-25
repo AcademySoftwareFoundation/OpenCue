@@ -409,14 +409,4 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
     public void setHostManager(HostManager hostManager) {
         this.hostManager = hostManager;
     }
-
-	@Override
-	public void lockHostForDispatching(String host_id) {
-	    dispatchSupport.lockHostForDispatching(host_id);
-	}
-
-	@Override
-	public void unlockHostForDispatching(String host_id) {
-        dispatchSupport.unlockHostForDispatching(host_id);
-	}
 }

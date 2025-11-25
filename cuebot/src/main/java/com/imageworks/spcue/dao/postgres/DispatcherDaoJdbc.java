@@ -72,11 +72,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
 
     private static final RowMapper<SortableShow> SHOW_MAPPER = new RowMapper<SortableShow>() {
         public SortableShow mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return new SortableShow(
-                rs.getString("pk_show"),
-                rs.getString("str_show_name"),
-                rs.getFloat("float_tier")
-            );
+            return new SortableShow(rs.getString("pk_show"), rs.getFloat("float_tier"));
         }
     };
 
@@ -124,25 +120,11 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
      * Choose between different scheduling strategies
      */
     private SchedulingMode schedulingMode;
-    private Set<String> exclusionList;
 
     @Autowired
     public DispatcherDaoJdbc(Environment env) {
         this.schedulingMode = SchedulingMode.valueOf(
                 env.getProperty("dispatcher.scheduling_mode", String.class, "PRIORITY_ONLY"));
-
-        // Parse the exclusion list from environment variable
-        // Expected format: "show1:allocation1,show2:allocation2"
-        String exclusionListStr = env.getProperty("dispatcher.exclusion_list", String.class, "");
-        this.exclusionList = new LinkedHashSet<String>();
-        if (!exclusionListStr.isEmpty()) {
-            for (String item : exclusionListStr.split(",")) {
-                String trimmedItem = item.trim();
-                if (!trimmedItem.isEmpty()) {
-                    this.exclusionList.add(trimmedItem);
-                }
-            }
-        }
     }
 
     @Override
@@ -196,23 +178,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         }
 
         long loopTime = System.currentTimeMillis();
-        // Filter out shows/allocs that are being dispatched by the new scheduler
-        // A list of show_name:alloc_name is read from the env to define which jobs
-        // should not be dispatched by Cuebot's dispatcher
         for (SortableShow s : shows) {
             long lastTime = System.currentTimeMillis();
-
-            // Check if this show:allocation combination is in the exclusion list
-            if (!exclusionList.isEmpty()) {
-                String showName = s.getShowName();
-                String exclusionKey = showName + ":" + host.allocationName;
-                if (exclusionList.contains(exclusionKey)) {
-                    logger.info("skipping show " + showName + " on allocation " +
-                            host.allocationName + " due to exclusion list");
-                    continue;
-                }
-            }
-
             if (s.isSkipped(host.tags, (long) host.cores, host.memory)) {
                 logger.info("skipping show " + s.getShowId());
                 continue;

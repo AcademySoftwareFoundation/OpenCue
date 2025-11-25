@@ -1244,16 +1244,12 @@ public class DispatchQuery {
         "SELECT " +
             "vs_waiting.pk_show, " +
             "s.float_tier, " +
-            "s.int_burst, " +
-            "show.str_name as str_show_name " +
+            "s.int_burst " +
         "FROM " +
             "subscription s, " +
-            "vs_waiting, " +
-            "show " +
+            "vs_waiting " +
         "WHERE " +
             "vs_waiting.pk_show = s.pk_show " +
-        "AND " +
-            "s.pk_show = show.pk_show " +
         "AND " +
             "s.pk_alloc = ? " +
         "AND " +
