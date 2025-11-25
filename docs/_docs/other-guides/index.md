@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Other Guides
-nav_order: 40
+nav_order: 44
 has_children: true
 permalink: /docs/other-guides
 ---

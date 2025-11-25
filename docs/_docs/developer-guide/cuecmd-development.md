@@ -1,6 +1,6 @@
 ---
 title: "Cuecmd Development Guide"
-nav_order: 85
+nav_order: 91
 parent: "Developer Guide"
 layout: default
 date: 2025-10-02

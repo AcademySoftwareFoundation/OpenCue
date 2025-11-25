@@ -1,6 +1,6 @@
 ---
 title: "Render farm monitoring"
-nav_order: 25
+nav_order: 18
 parent: Concepts
 layout: default
 linkTitle: "Render farm monitoring"

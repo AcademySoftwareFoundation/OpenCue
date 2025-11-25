@@ -2,7 +2,7 @@
 layout: default
 title: CueWeb User Guide
 parent: User Guides
-nav_order: 39
+nav_order: 42
 ---
 
 # CueWeb User Guide

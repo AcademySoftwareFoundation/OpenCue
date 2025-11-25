@@ -1,6 +1,6 @@
 ---
 title: "OpenCue Sony Pictures Imageworks case study"
-nav_order: 17
+nav_order: 19
 parent: Concepts
 layout: default
 linkTitle: "OpenCue Sony Pictures Imageworks case study"

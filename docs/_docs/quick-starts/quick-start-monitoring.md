@@ -1,6 +1,6 @@
 ---
 title: "Quick start for OpenCue monitoring stack"
-nav_order: 8
+nav_order: 9
 parent: Quick Starts
 layout: default
 linkTitle: "Quick start for monitoring"

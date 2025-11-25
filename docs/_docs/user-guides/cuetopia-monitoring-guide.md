@@ -2,7 +2,7 @@
 title: "CueGUI: Cuetopia Monitoring System"
 layout: default
 parent: User Guides
-nav_order: 33
+nav_order: 36
 linkTitle: "Cuetopia Monitoring Guide"
 date: 2025-01-07
 description: >
