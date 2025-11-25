@@ -166,9 +166,7 @@ async fn async_main() -> miette::Result<()> {
     let filter = EnvFilter::new(log_level);
     let (filter, reload_handle) = reload::Layer::new(filter);
 
-    let stdout_log = tracing_subscriber::fmt::layer()
-        .pretty()
-        .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339());
+    let stdout_log = tracing_subscriber::fmt::layer().pretty();
     let subs = Registry::default().with(stdout_log).with(filter);
 
     let file_appender_layer = if CONFIG.logging.file_appender {
@@ -179,11 +177,7 @@ async fn async_main() -> miette::Result<()> {
         )
         .expect("Failed to create appender");
         let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-        Some(
-            tracing_subscriber::fmt::layer()
-                .with_writer(non_blocking)
-                .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339()),
-        )
+        Some(tracing_subscriber::fmt::layer().with_writer(non_blocking))
     } else {
         None
     };

@@ -161,7 +161,7 @@ impl DatabaseConfig {
         let encoded_user = urlencoding::encode(&self.db_user);
         let encoded_pass = urlencoding::encode(&self.db_pass);
         format!(
-            "postgresql://{}:{}@{}:{}/{}?timezone=UTC",
+            "postgresql://{}:{}@{}:{}/{}?options=-c%20timezone%3DUTC",
             encoded_user, encoded_pass, self.db_host, self.db_port, self.db_name
         )
     }
