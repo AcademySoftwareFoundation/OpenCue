@@ -53,6 +53,7 @@ import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
+// spotless:off
 public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
     @Autowired
@@ -115,14 +116,34 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         }
     };
 
-    private static final String GET_HOST_DETAIL = "SELECT " + "host.pk_host, " + "host.pk_alloc,"
-            + "host.str_lock_state," + "host.b_nimby," + "host.b_unlock_boot," + "host.int_cores,"
-            + "host.int_cores_idle," + "host.int_mem," + "host.int_mem_idle," + "host.int_gpus,"
-            + "host.int_gpus_idle," + "host.int_gpu_mem," + "host.int_gpu_mem_idle,"
-            + "host.ts_created," + "host.str_name, " + "host_stat.str_state," + "host_stat.ts_ping,"
-            + "host_stat.ts_booted, " + "alloc.pk_facility " + "FROM " + "host, " + "alloc, "
-            + "host_stat " + "WHERE " + "host.pk_host = host_stat.pk_host " + "AND "
-            + "host.pk_alloc = alloc.pk_alloc ";
+    private static final String GET_HOST_DETAIL =
+            "SELECT "
+            + "  host.pk_host, "
+            + "  host.pk_alloc, "
+            + "  host.str_lock_state, "
+            + "  host.b_nimby, "
+            + "  host.b_unlock_boot, "
+            + "  host.int_cores, "
+            + "  host.int_cores_idle, "
+            + "  host.int_mem, "
+            + "  host.int_mem_idle, "
+            + "  host.int_gpus, "
+            + "  host.int_gpus_idle, "
+            + "  host.int_gpu_mem, "
+            + "  host.int_gpu_mem_idle, "
+            + "  host.ts_created, "
+            + "  host.str_name, "
+            + "  host_stat.str_state, "
+            + "  host_stat.ts_ping, "
+            + "  host_stat.ts_booted, "
+            + "  alloc.pk_facility "
+            + "FROM "
+            + "  host, "
+            + "  alloc, "
+            + "  host_stat "
+            + "WHERE "
+            + "  host.pk_host = host_stat.pk_host "
+            + "  AND host.pk_alloc = alloc.pk_alloc ";
 
     @Override
     public void lockForUpdate(HostInterface host) {
@@ -154,9 +175,17 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 HOST_DETAIL_MAPPER, name);
     }
 
-    private static final String GET_HOST = "SELECT " + "host.pk_host, " + "host.pk_alloc,"
-            + "host.str_name, " + "alloc.pk_facility " + "FROM " + "host," + "alloc " + "WHERE "
-            + "host.pk_alloc = alloc.pk_alloc ";
+    private static final String GET_HOST =
+            "SELECT "
+            + "  host.pk_host, "
+            + "  host.pk_alloc, "
+            + "  host.str_name, "
+            + "  alloc.pk_facility "
+            + "FROM "
+            + "  host, "
+            + "  alloc "
+            + "WHERE "
+            + "  host.pk_alloc = alloc.pk_alloc ";
 
     @Override
     public HostInterface getHost(String id) {
@@ -183,6 +212,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                     DispatchHost host = new DispatchHost();
                     host.id = rs.getString("pk_host");
                     host.allocationId = rs.getString("pk_alloc");
+                    host.allocationName = rs.getString("str_alloc_name");
                     host.facilityId = rs.getString("pk_facility");
                     host.name = rs.getString("str_name");
                     host.lockState = LockState.valueOf(rs.getString("str_lock_state"));
@@ -203,14 +233,33 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 }
             };
 
-    public static final String GET_DISPATCH_HOST = "SELECT " + "host.pk_host," + "host.pk_alloc,"
-            + "host.str_name," + "host.str_lock_state, " + "host.int_cores, "
-            + "host.int_cores_idle, " + "host.int_mem," + "host.int_mem_idle, " + "host.int_gpus, "
-            + "host.int_gpus_idle, " + "host.int_gpu_mem," + "host.int_gpu_mem_idle, "
-            + "host.b_nimby, " + "host.int_thread_mode, " + "host.str_tags, " + "host_stat.str_os, "
-            + "host_stat.str_state, " + "alloc.pk_facility " + "FROM " + "host "
-            + "INNER JOIN host_stat " + "ON (host.pk_host = host_stat.pk_host) "
-            + "INNER JOIN alloc " + "ON (host.pk_alloc = alloc.pk_alloc) ";
+    public static final String GET_DISPATCH_HOST =
+            "SELECT "
+            + "  host.pk_host, "
+            + "  host.pk_alloc, "
+            + "  alloc.str_name as str_alloc_name, "
+            + "  host.str_name, "
+            + "  host.str_lock_state, "
+            + "  host.int_cores, "
+            + "  host.int_cores_idle, "
+            + "  host.int_mem, "
+            + "  host.int_mem_idle, "
+            + "  host.int_gpus, "
+            + "  host.int_gpus_idle, "
+            + "  host.int_gpu_mem, "
+            + "  host.int_gpu_mem_idle, "
+            + "  host.b_nimby, "
+            + "  host.int_thread_mode, "
+            + "  host.str_tags, "
+            + "  host_stat.str_os, "
+            + "  host_stat.str_state, "
+            + "  alloc.pk_facility "
+            + "FROM "
+            + "  host "
+            + "INNER JOIN host_stat "
+            + "  ON (host.pk_host = host_stat.pk_host) "
+            + "INNER JOIN alloc "
+            + "  ON (host.pk_alloc = alloc.pk_alloc) ";
 
     @Override
     public DispatchHost findDispatchHost(String name) {
@@ -230,18 +279,41 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     private static final String[] INSERT_HOST_DETAIL = {
-            "INSERT INTO " + "host " + "(" + "pk_host, " + "pk_alloc, " + "str_name, " + "b_nimby, "
-                    + "str_lock_state, " + "int_procs," + "int_cores, " + "int_cores_idle, "
-                    + "int_mem," + "int_mem_idle," + "int_gpus, " + "int_gpus_idle, "
-                    + "int_gpu_mem," + "int_gpu_mem_idle," + "str_fqdn, " + "int_thread_mode "
-                    + ") " + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO host ("
+            + "  pk_host, "
+            + "  pk_alloc, "
+            + "  str_name, "
+            + "  b_nimby, "
+            + "  str_lock_state, "
+            + "  int_procs, "
+            + "  int_cores, "
+            + "  int_cores_idle, "
+            + "  int_mem, "
+            + "  int_mem_idle, "
+            + "  int_gpus, "
+            + "  int_gpus_idle, "
+            + "  int_gpu_mem, "
+            + "  int_gpu_mem_idle, "
+            + "  str_fqdn, "
+            + "  int_thread_mode "
+            + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
 
-            "INSERT INTO " + "host_stat " + "(" + "pk_host_stat," + "pk_host," + "int_mem_total, "
-                    + "int_mem_free," + "int_gpu_mem_total, " + "int_gpu_mem_free,"
-                    + "int_swap_total, " + "int_swap_free," + "int_mcp_total, " + "int_mcp_free,"
-                    + "int_load, " + "ts_booted, " + "str_state, " + "str_os " + ") "
-                    + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-
+            "INSERT INTO host_stat ("
+            + "  pk_host_stat, "
+            + "  pk_host, "
+            + "  int_mem_total, "
+            + "  int_mem_free, "
+            + "  int_gpu_mem_total, "
+            + "  int_gpu_mem_free, "
+            + "  int_swap_total, "
+            + "  int_swap_free, "
+            + "  int_mcp_total, "
+            + "  int_mcp_free, "
+            + "  int_load, "
+            + "  ts_booted, "
+            + "  str_state, "
+            + "  str_os "
+            + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
     };
 
     @Override
@@ -310,11 +382,22 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     private static final String UPDATE_RENDER_HOST =
-            "UPDATE " + "host_stat " + "SET " + "int_mem_total = ?, " + "int_mem_free = ?, "
-                    + "int_swap_total = ?, " + "int_swap_free = ?, " + "int_mcp_total = ?, "
-                    + "int_mcp_free = ?, " + "int_gpu_mem_total = ?, " + "int_gpu_mem_free = ?, "
-                    + "int_load = ?," + "ts_booted = ?,  " + "ts_ping = current_timestamp, "
-                    + "str_os = ? " + "WHERE " + "pk_host = ?";
+            "UPDATE host_stat "
+            + "SET "
+            + "  int_mem_total = ?, "
+            + "  int_mem_free = ?, "
+            + "  int_swap_total = ?, "
+            + "  int_swap_free = ?, "
+            + "  int_mcp_total = ?, "
+            + "  int_mcp_free = ?, "
+            + "  int_gpu_mem_total = ?, "
+            + "  int_gpu_mem_free = ?, "
+            + "  int_load = ?, "
+            + "  ts_booted = ?, "
+            + "  ts_ping = current_timestamp, "
+            + "  str_os = ? "
+            + "WHERE "
+            + "  pk_host = ?";
 
     @Override
     public void updateHostStats(HostInterface host, long totalMemory, long freeMemory,
@@ -379,12 +462,18 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     private static final String DELETE_DOWN_HOST_COMMENTS =
-            "DELETE " + "FROM " + "comments " + "USING " + "host_stat " + "WHERE "
-                    + "comments.pk_host = host_stat.pk_host " + "AND " + "host_stat.str_state = ?";
+            "DELETE FROM comments "
+            + "USING host_stat "
+            + "WHERE "
+            + "  comments.pk_host = host_stat.pk_host "
+            + "  AND host_stat.str_state = ?";
 
     private static final String DELETE_DOWN_HOSTS =
-            "DELETE " + "FROM " + "host " + "USING " + "host_stat " + "WHERE "
-                    + "host.pk_host = host_stat.pk_host " + "AND " + "host_stat.str_state=?";
+            "DELETE FROM host "
+            + "USING host_stat "
+            + "WHERE "
+            + "  host.pk_host = host_stat.pk_host "
+            + "  AND host_stat.str_state = ?";
 
     @Override
     public void deleteDownHosts() {
@@ -423,8 +512,14 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 host.getHostId(), LockState.OPEN.toString()) > 0;
     }
 
-    private static final String INSERT_TAG = "INSERT INTO " + "host_tag " + "(" + "pk_host_tag,"
-            + "pk_host," + "str_tag," + "str_tag_type, " + "b_constant " + ") VALUES (?,?,?,?,?)";
+    private static final String INSERT_TAG =
+            "INSERT INTO host_tag ("
+            + "  pk_host_tag, "
+            + "  pk_host, "
+            + "  str_tag, "
+            + "  str_tag_type, "
+            + "  b_constant "
+            + ") VALUES (?,?,?,?,?)";
 
     @Override
     public void tagHost(String id, String tag, HostTagType type) {
@@ -497,8 +592,12 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         }
     }
 
-    private static final String IS_HOST_UP = "SELECT " + "COUNT(1) " + "FROM " + "host_stat "
-            + "WHERE " + "host_stat.str_state = ? " + "AND " + "host_stat.pk_host = ? ";
+    private static final String IS_HOST_UP =
+            "SELECT COUNT(1) "
+            + "FROM host_stat "
+            + "WHERE "
+            + "  host_stat.str_state = ? "
+            + "  AND host_stat.pk_host = ?";
 
     @Override
     public boolean isHostUp(HostInterface host) {
@@ -506,9 +605,16 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 HardwareState.UP.toString(), host.getHostId()) == 1;
     }
 
-    private static final String IS_PREFER_SHOW = "SELECT " + "COUNT(1) " + "FROM " + "host,"
-            + "owner," + "deed " + "WHERE " + "host.pk_host = deed.pk_host " + "AND "
-            + "deed.pk_owner = owner.pk_owner " + "AND " + "host.pk_host = ?";
+    private static final String IS_PREFER_SHOW =
+            "SELECT COUNT(1) "
+            + "FROM "
+            + "  host, "
+            + "  owner, "
+            + "  deed "
+            + "WHERE "
+            + "  host.pk_host = deed.pk_host "
+            + "  AND deed.pk_owner = owner.pk_owner "
+            + "  AND host.pk_host = ?";
 
     @Override
     public boolean isPreferShow(HostInterface h) {
@@ -582,3 +688,5 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
 }
+
+// spotless:on
