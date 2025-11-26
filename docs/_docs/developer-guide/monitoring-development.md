@@ -22,30 +22,44 @@ This guide explains how to extend, customize, and develop against the OpenCue mo
 The monitoring system is implemented in Cuebot and consists of:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Cuebot                                  │
-│  ┌─────────────┐    ┌──────────────────┐    ┌────────────────┐  │
-│  │   Service   │───>│ MonitoringManager│───>│ KafkaPublisher │──┬──> Kafka
-│  │   Layer     │    └──────────────────┘    └────────────────┘  │
-│  └─────────────┘              │              ┌────────────────┐ │
-│                               │              │  ESClient      │─┼──> Elasticsearch
-│  ┌─────────────┐              │              └────────────────┘ │
-│  │ Prometheus  │<─────────────┤              ┌────────────────┐ │
-│  │  Metrics    │              └─────────────>│ KafkaConsumer  │─┤
-│  └─────────────┘                             └────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                Cuebot                                      │
+│                                                                            │
+│  ┌─────────────┐     ┌─────────────────────┐                               │
+│  │   Service   │────>│ KafkaEventPublisher │───────> Kafka                 │
+│  │   Layer     │     └─────────────────────┘            │                  │
+│  └─────────────┘              │                         │                  │
+│        │                      │                         v                  │
+│        │                      v                 ┌───────────────────┐      │
+│        │              ┌──────────────┐          │ KafkaEventConsumer│      │
+│        └─────────────>│  Prometheus  │          └───────────────────┘      │
+│                       │   Metrics    │                  │                  │
+│                       └──────────────┘                  v                  │
+│                                                 ┌───────────────────┐      │
+│                                                 │ ElasticsearchClient│     │
+│                                                 └───────────────────┘      │
+│                                                         │                  │
+└─────────────────────────────────────────────────────────│──────────────────┘
+                                                          v
+                                                    Elasticsearch
 ```
+
+**Data flow:**
+1. **Service Layer** (e.g., FrameCompleteHandler, HostReportHandler) generates events and calls KafkaEventPublisher
+2. **KafkaEventPublisher** serializes events as JSON and publishes them to Kafka topics
+3. **KafkaEventConsumer** subscribes to Kafka topics and receives published events
+4. **KafkaEventConsumer** uses **ElasticsearchClient** to index events into Elasticsearch for historical storage
+5. **Prometheus Metrics** are updated directly by the Service Layer and KafkaEventPublisher (for queue metrics)
 
 ### Key classes
 
 | Class | Location | Purpose |
 |-------|----------|---------|
-| `MonitoringManager` | `com.imageworks.spcue.monitoring` | Coordinates event publishing |
 | `KafkaEventPublisher` | `com.imageworks.spcue.monitoring` | Publishes events to Kafka |
-| `KafkaEventConsumer` | `com.imageworks.spcue.monitoring` | Consumes events for ES indexing |
-| `ElasticsearchClient` | `com.imageworks.spcue.monitoring` | Indexes events in Elasticsearch |
+| `KafkaEventConsumer` | `com.imageworks.spcue.monitoring` | Consumes events from Kafka for ES indexing |
+| `ElasticsearchClient` | `com.imageworks.spcue.monitoring` | Writes events to Elasticsearch |
 | `MonitoringEventBuilder` | `com.imageworks.spcue.monitoring` | Builds event payloads |
-| `PrometheusMetrics` | `com.imageworks.spcue.servant` | Exposes Prometheus metrics |
+| `PrometheusMetricsCollector` | `com.imageworks.spcue` | Exposes Prometheus metrics |
 
 ## Adding new event types
 
@@ -92,20 +106,28 @@ public static MonitoringEvent buildJobPriorityChangedEvent(
 
 ### Step 3: Publish the event
 
-Call the monitoring manager from the service layer:
+Call the Kafka publisher from the service layer:
 
 ```java
 // JobManagerService.java
+@Autowired
+private KafkaEventPublisher kafkaEventPublisher;
+
+@Autowired
+private MonitoringEventBuilder monitoringEventBuilder;
+
 public void setJobPriority(JobInterface job, int priority) {
     int oldPriority = jobDao.getJobPriority(job);
     jobDao.updatePriority(job, priority);
 
     // Publish monitoring event
-    if (monitoringManager != null) {
+    try {
         JobDetail detail = jobDao.getJobDetail(job.getJobId());
-        monitoringManager.publishEvent(
-            MonitoringEventBuilder.buildJobPriorityChangedEvent(
-                detail, oldPriority, priority));
+        JobEvent event = monitoringEventBuilder.buildJobPriorityChangedEvent(
+            detail, oldPriority, priority);
+        kafkaEventPublisher.publishJobEvent(event);
+    } catch (Exception e) {
+        logger.trace("Failed to publish job priority event: {}", e.getMessage());
     }
 }
 ```
