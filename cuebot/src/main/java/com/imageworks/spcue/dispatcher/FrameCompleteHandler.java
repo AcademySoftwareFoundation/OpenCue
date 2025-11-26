@@ -61,6 +61,7 @@ import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
 import com.imageworks.spcue.grpc.monitoring.EventType;
 import com.imageworks.spcue.grpc.monitoring.FrameEvent;
 import com.imageworks.spcue.grpc.monitoring.JobEvent;
+import com.imageworks.spcue.PrometheusMetricsCollector;
 
 /**
  * The FrameCompleteHandler encapsulates all logic necessary for processing FrameComplete reports
@@ -90,6 +91,7 @@ public class FrameCompleteHandler {
     private Environment env;
     private KafkaEventPublisher kafkaEventPublisher;
     private MonitoringEventBuilder monitoringEventBuilder;
+    private PrometheusMetricsCollector prometheusMetrics;
 
     /*
      * The last time a proc was unbooked for subscription or job balancing. Since there are so many
@@ -744,12 +746,35 @@ public class FrameCompleteHandler {
         }
     }
 
+    public PrometheusMetricsCollector getPrometheusMetrics() {
+        return prometheusMetrics;
+    }
+
+    public void setPrometheusMetrics(PrometheusMetricsCollector prometheusMetrics) {
+        this.prometheusMetrics = prometheusMetrics;
+    }
+
     /**
      * Publishes a frame complete event to Kafka for monitoring purposes. This method is called
      * asynchronously to avoid blocking the dispatch thread.
      */
     private void publishFrameCompleteEvent(FrameCompleteReport report, DispatchFrame frame,
             FrameDetail frameDetail, FrameState newFrameState, VirtualProc proc) {
+        // Record Prometheus metrics for frame completion
+        if (prometheusMetrics != null) {
+            try {
+                prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show);
+                prometheusMetrics.recordFrameRuntime(report.getRunTime(), frame.show, "render");
+                if (report.getFrame().getMaxRss() > 0) {
+                    prometheusMetrics.recordFrameMemory(report.getFrame().getMaxRss() * 1024L,
+                            frame.show, "render");
+                }
+            } catch (Exception e) {
+                logger.trace("Failed to record Prometheus metrics: {}", e.getMessage());
+            }
+        }
+
+        // Publish to Kafka if enabled
         if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
             return;
         }

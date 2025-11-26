@@ -248,6 +248,8 @@
     <property name="redirectManager" ref="redirectManager" />
     <property name="emailSupport" ref="emailSupport"/>
     <property name="frameSearchFactory" ref="frameSearchFactory" />
+    <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
+    <property name="showDao" ref="showDao" />
   </bean>
 
   <bean id="jobLauncher" class="com.imageworks.spcue.service.JobLauncher">
@@ -380,6 +382,7 @@
     <property name="serviceDao" ref="serviceDao" />
     <property name="showDao" ref="showDao" />
     <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
   </bean>
 
   <bean id="hostReportHandler" class="com.imageworks.spcue.dispatcher.HostReportHandler" destroy-method="shutdown">

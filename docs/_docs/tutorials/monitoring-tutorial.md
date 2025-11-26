@@ -23,6 +23,38 @@ This tutorial walks you through setting up monitoring for your OpenCue render fa
 - Monitoring stack deployed (see [Quick start for monitoring](/docs/quick-starts/quick-start-monitoring/))
 - Basic familiarity with Prometheus and Grafana
 
+## Monitoring stack components
+
+| Component | Purpose | URL | Port |
+|-----------|---------|-----|------|
+| **Grafana** | Dashboards and visualization | [http://localhost:3000](http://localhost:3000) | 3000 |
+| **Prometheus** | Metrics collection | [http://localhost:9090](http://localhost:9090) | 9090 |
+| **Kafka UI** | Event stream browser | [http://localhost:8090](http://localhost:8090) | 8090 |
+| **Kibana** | Elasticsearch visualization | [http://localhost:5601](http://localhost:5601) | 5601 |
+| **Elasticsearch** | Historical data storage | [http://localhost:9200](http://localhost:9200) | 9200 |
+| **Kafka** | Event streaming | localhost:9092 | 9092 |
+| **Zookeeper** | Kafka coordination | localhost:2181 | 2181 |
+
+### Grafana: OpenCue Monitoring Grafana Dashboard
+
+![OpenCue Monitoring Grafana Dashboard](/assets/images/opencue_monitoring/opencue_monitoring_grafana_chart.png)
+
+### Prometheus Metrics Interface
+
+![Prometheus Metrics Interface](/assets/images/opencue_monitoring/opencue_monitoring_prometheus.png)
+
+### UI for Apache Kafka
+
+![UI for Apache Kafka](/assets/images/opencue_monitoring/opencue_monitoring_ui_for_apache_kafka.png)
+
+### Elasticsearch Kibana - Dev Tools
+
+![Kibana](/assets/images/opencue_monitoring/opencue_monitoring_elasticsearch_kibana_dev_tools.png)
+
+### Elasticsearch
+
+![Elasticsearch](/assets/images/opencue_monitoring/opencue_monitoring_elasticsearch.png)
+
 ## Tutorial goals
 
 By the end of this tutorial, you will:
@@ -52,11 +84,11 @@ Create a time series panel showing frame completions:
 
 1. In the Query tab, enter:
    ```promql
-   sum(rate(cue_frames_completed_total[5m])) by (state)
+   sum(increase(cue_frames_completed_total[5m])) by (state)
    ```
 
 2. Configure the panel:
-   - Title: "Frame Completions by State"
+   - Title: "Frames Completed by State (5m)"
    - Legend: `{{state}}`
    - Unit: `short`
 
@@ -87,7 +119,7 @@ Create a panel showing host activity:
 1. Click **Add** > **Visualization**
 2. Enter the query:
    ```promql
-   sum(rate(cue_host_reports_received_total[5m])) by (facility)
+   sum(increase(cue_host_reports_received_total[5m])) by (facility)
    ```
 
 3. Configure:
@@ -159,12 +191,13 @@ import json
 from datetime import datetime
 
 # Connect to Kafka
+# Note: The cuebot producer uses lz4 compression, so the lz4 library must be installed
 consumer = KafkaConsumer(
     'opencue.frame.events',
     'opencue.job.events',
     bootstrap_servers=['localhost:9092'],
     value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-    auto_offset_reset='latest',
+    auto_offset_reset='earliest',
     group_id='tutorial-consumer'
 )
 
@@ -173,35 +206,50 @@ print("-" * 60)
 
 for message in consumer:
     event = message.value
-    event_type = event.get('eventType', 'UNKNOWN')
-    timestamp = event.get('timestamp', '')
+
+    # Events have a 'header' field containing event metadata
+    header = event.get('header', {})
+    event_type = header.get('event_type', 'UNKNOWN')
+    timestamp = header.get('timestamp', '')
+
+    # Convert timestamp from milliseconds to readable format
+    if timestamp:
+        try:
+            dt = datetime.fromtimestamp(int(timestamp) / 1000)
+            timestamp = dt.strftime('%Y-%m-%d %H:%M:%S')
+        except (ValueError, OSError):
+            pass
 
     # Format output based on event type
     if event_type.startswith('FRAME_'):
-        payload = event.get('payload', {})
+        job_name = event.get('job_name', 'N/A')
+        frame_name = event.get('frame_name', 'N/A')
+        state = event.get('state', 'N/A')
         print(f"[{timestamp}] {event_type}")
-        print(f"  Job: {payload.get('jobName', 'N/A')}")
-        print(f"  Frame: {payload.get('frameName', 'N/A')}")
+        print(f"  Job: {job_name}")
+        print(f"  Frame: {frame_name}")
+        print(f"  State: {state}")
         if event_type == 'FRAME_COMPLETED':
-            runtime = payload.get('runtime', 0)
+            runtime = event.get('run_time', 0)
             print(f"  Runtime: {runtime}s")
         elif event_type == 'FRAME_FAILED':
-            exit_status = payload.get('exitStatus', -1)
+            exit_status = event.get('exit_status', -1)
             print(f"  Exit Status: {exit_status}")
         print()
 
     elif event_type.startswith('JOB_'):
-        payload = event.get('payload', {})
+        job_name = event.get('job_name', 'N/A')
+        show_name = event.get('show', 'N/A')
         print(f"[{timestamp}] {event_type}")
-        print(f"  Job: {payload.get('jobName', 'N/A')}")
-        print(f"  Show: {payload.get('showName', 'N/A')}")
+        print(f"  Job: {job_name}")
+        print(f"  Show: {show_name}")
         print()
 ```
 
 ### Step 2: Install dependencies
 
 ```bash
-pip install kafka-python
+pip install kafka-python lz4
 ```
 
 ### Step 3: Run the consumer
@@ -242,6 +290,8 @@ Watch the consumer output as events flow through Kafka.
 
 ## Part 4: Querying Elasticsearch
 
+![Kibana Dashboard](/assets/images/opencue_monitoring/opencue_monitoring_elasticsearch_kibana_dashboard1.png)
+
 ### Step 1: Access Kibana
 
 1. Open Kibana at [http://localhost:5601](http://localhost:5601)
@@ -251,7 +301,7 @@ Watch the consumer output as events flow through Kafka.
 
 1. Click **Create index pattern**
 2. Enter pattern: `opencue-*`
-3. Select `timestamp` as the time field
+3. Select `header.timestamp` as the time field (format: epoch_millis)
 4. Click **Create index pattern**
 
 ### Step 3: Explore events
@@ -262,20 +312,22 @@ Watch the consumer output as events flow through Kafka.
 
 ### Step 4: Run KQL queries
 
+![Kibana Dev Tools](/assets/images/opencue_monitoring/opencue_monitoring_elasticsearch_kibana_dev_tools.png)
+
 Try these example queries:
 
 ```
 # Find all failed frames
-eventType: "FRAME_FAILED"
+header.event_type: "FRAME_FAILED"
 
 # Find events for a specific job
-payload.jobName: "test*"
+job_name: "test*"
 
 # Find frames that took longer than 1 hour
-eventType: "FRAME_COMPLETED" AND payload.runtime > 3600
+header.event_type: "FRAME_COMPLETED" AND run_time > 3600
 
 # Find host down events
-eventType: "HOST_DOWN"
+header.event_type: "HOST_DOWN"
 ```
 
 ### Step 5: Create a visualization

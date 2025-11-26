@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 #  Copyright Contributors to the OpenCue Project
 #
@@ -14,9 +14,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-#!/usr/bin/env python3
 """
 Simple Kafka consumer for OpenCue monitoring events.
+
+Requirements:
+    pip install kafka-python lz4
+
+Usage:
+    python monitor_events.py
 """
 
 from kafka import KafkaConsumer
@@ -24,12 +29,13 @@ import json
 from datetime import datetime
 
 # Connect to Kafka
+# Note: The cuebot producer uses lz4 compression, so the lz4 library must be installed
 consumer = KafkaConsumer(
     'opencue.frame.events',
     'opencue.job.events',
     bootstrap_servers=['localhost:9092'],
     value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-    auto_offset_reset='latest',
+    auto_offset_reset='earliest',
     group_id='tutorial-consumer'
 )
 
@@ -38,26 +44,41 @@ print("-" * 60)
 
 for message in consumer:
     event = message.value
-    event_type = event.get('eventType', 'UNKNOWN')
-    timestamp = event.get('timestamp', '')
+
+    # Events have a 'header' field containing event metadata
+    header = event.get('header', {})
+    event_type = header.get('event_type', 'UNKNOWN')
+    timestamp = header.get('timestamp', '')
+
+    # Convert timestamp from milliseconds to readable format
+    if timestamp:
+        try:
+            dt = datetime.fromtimestamp(int(timestamp) / 1000)
+            timestamp = dt.strftime('%Y-%m-%d %H:%M:%S')
+        except (ValueError, OSError):
+            pass
 
     # Format output based on event type
     if event_type.startswith('FRAME_'):
-        payload = event.get('payload', {})
+        job_name = event.get('job_name', 'N/A')
+        frame_name = event.get('frame_name', 'N/A')
+        state = event.get('state', 'N/A')
         print(f"[{timestamp}] {event_type}")
-        print(f"  Job: {payload.get('jobName', 'N/A')}")
-        print(f"  Frame: {payload.get('frameName', 'N/A')}")
+        print(f"  Job: {job_name}")
+        print(f"  Frame: {frame_name}")
+        print(f"  State: {state}")
         if event_type == 'FRAME_COMPLETED':
-            runtime = payload.get('runtime', 0)
+            runtime = event.get('run_time', 0)
             print(f"  Runtime: {runtime}s")
         elif event_type == 'FRAME_FAILED':
-            exit_status = payload.get('exitStatus', -1)
+            exit_status = event.get('exit_status', -1)
             print(f"  Exit Status: {exit_status}")
         print()
 
     elif event_type.startswith('JOB_'):
-        payload = event.get('payload', {})
+        job_name = event.get('job_name', 'N/A')
+        show_name = event.get('show', 'N/A')
         print(f"[{timestamp}] {event_type}")
-        print(f"  Job: {payload.get('jobName', 'N/A')}")
-        print(f"  Show: {payload.get('showName', 'N/A')}")
+        print(f"  Job: {job_name}")
+        print(f"  Show: {show_name}")
         print()

@@ -263,8 +263,10 @@ Open Prometheus at `http://prometheus-host:9090/targets` and verify the Cuebot t
 ### Check Cuebot metrics
 
 ```bash
-curl http://cuebot-host:8080/metrics | grep cue_
+curl -s http://localhost:8080/metrics | grep -E "^cue_"
 ```
+
+**Note:** Replace localhost with the Cuebot hostname or IP.
 
 You should see metrics like:
 ```

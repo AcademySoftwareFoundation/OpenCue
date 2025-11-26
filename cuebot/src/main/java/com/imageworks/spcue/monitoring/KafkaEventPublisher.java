@@ -46,6 +46,7 @@ import com.imageworks.spcue.grpc.monitoring.JobEvent;
 import com.imageworks.spcue.grpc.monitoring.LayerEvent;
 import com.imageworks.spcue.grpc.monitoring.ProcEvent;
 import com.imageworks.spcue.util.CueExceptionUtil;
+import com.imageworks.spcue.PrometheusMetricsCollector;
 
 /**
  * KafkaEventPublisher publishes monitoring events to Kafka topics for downstream processing. Events
@@ -77,6 +78,7 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     private JsonFormat.Printer jsonPrinter;
     private String sourceCuebot;
     private boolean enabled = false;
+    private PrometheusMetricsCollector prometheusMetrics;
 
     public KafkaEventPublisher() {
         super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10, TimeUnit.SECONDS,
@@ -171,7 +173,8 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     public void publishJobEvent(JobEvent event) {
         if (!enabled)
             return;
-        publishEvent(TOPIC_JOB_EVENTS, event.getJobId(), event);
+        publishEvent(TOPIC_JOB_EVENTS, event.getJobId(), event,
+                event.getHeader().getEventType().name());
     }
 
     /**
@@ -180,7 +183,8 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     public void publishLayerEvent(LayerEvent event) {
         if (!enabled)
             return;
-        publishEvent(TOPIC_LAYER_EVENTS, event.getLayerId(), event);
+        publishEvent(TOPIC_LAYER_EVENTS, event.getLayerId(), event,
+                event.getHeader().getEventType().name());
     }
 
     /**
@@ -189,7 +193,8 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     public void publishFrameEvent(FrameEvent event) {
         if (!enabled)
             return;
-        publishEvent(TOPIC_FRAME_EVENTS, event.getFrameId(), event);
+        publishEvent(TOPIC_FRAME_EVENTS, event.getFrameId(), event,
+                event.getHeader().getEventType().name());
     }
 
     /**
@@ -198,7 +203,8 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     public void publishHostEvent(HostEvent event) {
         if (!enabled)
             return;
-        publishEvent(TOPIC_HOST_EVENTS, event.getHostName(), event);
+        publishEvent(TOPIC_HOST_EVENTS, event.getHostName(), event,
+                event.getHeader().getEventType().name());
     }
 
     /**
@@ -207,7 +213,8 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     public void publishHostReportEvent(HostReportEvent event) {
         if (!enabled)
             return;
-        publishEvent(TOPIC_HOST_REPORTS, event.getHostName(), event);
+        publishEvent(TOPIC_HOST_REPORTS, event.getHostName(), event,
+                event.getHeader().getEventType().name());
     }
 
     /**
@@ -216,13 +223,19 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     public void publishProcEvent(ProcEvent event) {
         if (!enabled)
             return;
-        publishEvent(TOPIC_PROC_EVENTS, event.getProcId(), event);
+        publishEvent(TOPIC_PROC_EVENTS, event.getProcId(), event,
+                event.getHeader().getEventType().name());
     }
 
     /**
      * Internal method to publish any protobuf message to a Kafka topic.
      */
-    private void publishEvent(String topic, String key, Message event) {
+    private void publishEvent(String topic, String key, Message event, String eventType) {
+        // Update queue size metric
+        if (prometheusMetrics != null) {
+            prometheusMetrics.setMonitoringEventQueueSize(getQueue().size());
+        }
+
         try {
             execute(() -> {
                 try {
@@ -237,6 +250,10 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
                         } else {
                             logger.trace("Published event to {}, partition={}, offset={}", topic,
                                     metadata.partition(), metadata.offset());
+                            // Record successful publish
+                            if (prometheusMetrics != null) {
+                                prometheusMetrics.incrementMonitoringEventPublished(eventType);
+                            }
                         }
                     });
                 } catch (Exception e) {
@@ -246,6 +263,10 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
             });
         } catch (RejectedExecutionException e) {
             logger.warn("Event queue is full, dropping event for topic {}", topic);
+            // Record dropped event
+            if (prometheusMetrics != null) {
+                prometheusMetrics.incrementMonitoringEventDropped(eventType);
+            }
         }
     }
 
@@ -268,5 +289,12 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
      */
     public int getPendingEventCount() {
         return getQueue().size();
+    }
+
+    /**
+     * Sets the Prometheus metrics collector for recording monitoring metrics.
+     */
+    public void setPrometheusMetrics(PrometheusMetricsCollector prometheusMetrics) {
+        this.prometheusMetrics = prometheusMetrics;
     }
 }

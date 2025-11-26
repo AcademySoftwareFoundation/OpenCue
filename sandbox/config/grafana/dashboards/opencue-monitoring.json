@@ -59,12 +59,77 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(cue_frames_completed_total[5m])) by (state)",
+          "expr": "sum(increase(cue_frames_completed_total[5m])) by (state)",
           "legendFormat": "{{state}}",
           "refId": "A"
         }
       ],
-      "title": "Frame Completion Rate (per 5m)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "DEAD"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SUCCEEDED"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "WAITING"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "title": "Frames Completed (5m)",
       "type": "stat"
     },
     {
@@ -147,12 +212,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(cue_jobs_completed_total[5m])) by (show)",
+          "expr": "sum(increase(cue_jobs_completed_total[5m])) by (show)",
           "legendFormat": "{{show}}",
           "refId": "A"
         }
       ],
-      "title": "Job Completion Rate by Show",
+      "title": "Jobs Completed by Show (5m)",
       "type": "timeseries"
     },
     {
@@ -465,12 +530,127 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(cue_monitoring_events_published_total[5m])) by (event_type)",
+          "expr": "sum(increase(cue_monitoring_events_published_total[5m])) by (event_type)",
           "legendFormat": "{{event_type}}",
           "refId": "A"
         }
       ],
-      "title": "Events Published (per 5m)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "FRAME_COMPLETED"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Frame Completed"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "FRAME_FAILED"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Frame Failed"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "FRAME_RETRIED"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Frame Retried"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "HOST_BOOT"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Host Boot"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "HOST_REPORT"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Host Report"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "title": "Events Published (5m)",
       "type": "stat"
     },
     {
@@ -527,12 +707,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(cue_monitoring_events_dropped_total[5m])) by (event_type)",
+          "expr": "sum(increase(cue_monitoring_events_dropped_total[5m])) by (event_type)",
           "legendFormat": "{{event_type}}",
           "refId": "A"
         }
       ],
-      "title": "Events Dropped (per 5m)",
+      "title": "Events Dropped (5m)",
       "type": "stat"
     },
     {
@@ -615,12 +795,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(cue_host_reports_received_total[5m])) by (facility)",
+          "expr": "sum(increase(cue_host_reports_received_total[5m])) by (facility)",
           "legendFormat": "{{facility}}",
           "refId": "A"
         }
       ],
-      "title": "Host Reports Received by Facility",
+      "title": "Host Reports Received (5m)",
       "type": "timeseries"
     }
   ],

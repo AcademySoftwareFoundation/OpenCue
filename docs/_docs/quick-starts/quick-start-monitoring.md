@@ -86,11 +86,15 @@ opencue.proc.events
    - Password: `admin`
 3. Navigate to **Dashboards** to find the pre-configured OpenCue monitoring dashboard
 
+![OpenCue Monitoring Grafana Dashboard](/assets/images/opencue_monitoring/opencue_monitoring_grafana_chart.png)
+
 ### Step 4: Verify Prometheus metrics
 
 1. Open Prometheus at [http://localhost:9090](http://localhost:9090)
 2. Navigate to **Status** > **Targets**
 3. Verify that the `cuebot` target shows status `UP`
+
+![Prometheus Metrics Interface](/assets/images/opencue_monitoring/opencue_monitoring_prometheus.png)
 
 You can also query metrics directly:
 
@@ -103,6 +107,8 @@ curl -s http://localhost:8080/metrics | grep cue_
 1. Open Kafka UI at [http://localhost:8090](http://localhost:8090)
 2. Click on the `opencue` cluster
 3. Browse topics to see events as they are published
+
+![Kafka UI for Apache Kafka](/assets/images/opencue_monitoring/opencue_monitoring_ui_for_apache_kafka.png)
 
 ## Testing the monitoring system
 
@@ -145,8 +151,15 @@ Watch Kafka events as jobs execute:
 ```bash
 docker exec opencue-kafka kafka-console-consumer \
   --bootstrap-server localhost:29092 \
-  --topic opencue.job.events \
+  --topic opencue.frame.events \
   --from-beginning
+```
+
+Or use the Python consumer script (requires lz4 for decompression):
+
+```bash
+pip install kafka-python lz4
+python sandbox/monitor_events.py
 ```
 
 ### Query Prometheus metrics
@@ -161,13 +174,103 @@ Open Prometheus at [http://localhost:9090](http://localhost:9090) and try these 
 
 The pre-configured dashboard includes:
 
-- **Frame Completion Rate**: Real-time frame completion by state
-- **Job Completion Rate by Show**: Jobs completed per show
+- **Frames Completed (5m)**: Real-time frame completion by state (DEAD, SUCCEEDED, WAITING)
+- **Jobs Completed by Show (5m)**: Jobs completed per show
 - **Frame Runtime Distribution**: P50 and P95 frame execution times
-- **Frame Memory Usage**: Memory consumption distribution
-- **Event Queue Size**: Monitoring system queue depth
-- **Events Published/Dropped**: Event publishing health
-- **Host Reports by Facility**: Host reporting activity
+- **Frame Memory Usage Distribution**: Memory consumption distribution
+- **Monitoring Event Queue Size**: Event publishing queue depth
+- **Events Published (5m)**: Frame Completed, Frame Failed, Frame Retried, Host Boot, Host Report
+- **Events Dropped (5m)**: Dropped events (should be 0)
+- **Host Reports Received (5m)**: Host reporting activity by facility
+
+## Accessing monitoring components
+
+### Grafana - Dashboards and Visualization
+
+**URL:** [http://localhost:3000](http://localhost:3000)
+
+**Login:** admin / admin
+
+Grafana provides pre-configured dashboards for monitoring your render farm:
+
+1. Navigate to **Dashboards** > **OpenCue Monitoring Dashboard**
+2. View real-time metrics for frames, jobs, and hosts
+3. Create custom dashboards using Prometheus as the data source
+
+### Prometheus - Metrics Collection
+
+**URL:** [http://localhost:9090](http://localhost:9090)
+
+Prometheus collects and stores time-series metrics from Cuebot:
+
+1. Navigate to **Status** > **Targets** to verify Cuebot is being scraped
+2. Use the **Graph** tab to query metrics:
+   - `cue_frames_completed_total` - Frames by state
+   - `cue_jobs_completed_total` - Jobs by show
+   - `cue_monitoring_events_published_total` - Published events
+3. Navigate to **Status** > **Configuration** to view scrape settings
+
+### Kafka UI - Event Stream Browser
+
+**URL:** [http://localhost:8090](http://localhost:8090)
+
+Kafka UI allows you to browse event topics and messages:
+
+1. Click on the **opencue** cluster
+2. Navigate to **Topics** to see all event topics:
+   - `opencue.frame.events` - Frame lifecycle events
+   - `opencue.job.events` - Job lifecycle events
+   - `opencue.host.events` - Host status events
+   - `opencue.host.reports` - Host report events
+   - `opencue.proc.events` - Proc allocation events
+3. Click on a topic and select **Messages** to view events in real-time
+
+### Elasticsearch - Historical Data Storage
+
+**URL:** [http://localhost:9200](http://localhost:9200)
+
+Elasticsearch stores historical event data for analysis:
+
+```bash
+# Check cluster health
+curl http://localhost:9200/_cluster/health?pretty
+
+# List indices
+curl http://localhost:9200/_cat/indices?v
+
+# Count events
+curl http://localhost:9200/opencue-*/_count
+
+# Search for failed frames
+curl -X GET "http://localhost:9200/opencue-*/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "match": {
+      "header.event_type": "FRAME_FAILED"
+    }
+  },
+  "size": 5
+}'
+```
+
+### Kibana - Elasticsearch Visualization
+
+**URL:** [http://localhost:5601](http://localhost:5601)
+
+Kibana provides a UI for exploring Elasticsearch data:
+
+1. Navigate to **Management** > **Stack Management** > **Index Patterns**
+2. Create an index pattern: `opencue-*`
+3. Select `header.timestamp` as the time field (format: epoch_millis)
+4. Navigate to **Discover** to explore events
+5. Use KQL queries:
+   - `header.event_type: "FRAME_FAILED"` - Find failed frames
+   - `job_name: "test*"` - Find events for jobs matching pattern
+   - `header.event_type: "FRAME_COMPLETED" AND run_time > 3600` - Long-running frames
+
+![Kibana Dashboard](/assets/images/opencue_monitoring/opencue_monitoring_elasticsearch_kibana_dashboard1.png)
+
+![Kibana Dev Tools](/assets/images/opencue_monitoring/opencue_monitoring_elasticsearch_kibana_dev_tools.png)
 
 ## Stopping the monitoring stack
 

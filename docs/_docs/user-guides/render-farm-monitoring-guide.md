@@ -25,6 +25,39 @@ The OpenCue monitoring system provides three ways to observe your render farm:
 2. **Event streaming** via Kafka
 3. **Historical analysis** via Elasticsearch and Kibana
 
+## Monitoring stack components
+
+| Component | Purpose | URL |
+|-----------|---------|-----|
+| **Grafana** | Dashboards and visualization | [http://localhost:3000](http://localhost:3000) |
+| **Prometheus** | Metrics collection | [http://localhost:9090](http://localhost:9090) |
+| **Kafka UI** | Event stream browser | [http://localhost:8090](http://localhost:8090) |
+| **Elasticsearch** | Historical data storage | [http://localhost:9200](http://localhost:9200) |
+| **Kibana** | Elasticsearch visualization | [http://localhost:5601](http://localhost:5601) |
+| **Kafka** | Event streaming (internal) | localhost:9092 |
+| **Zookeeper** | Kafka coordination (internal) | localhost:2181 |
+
+
+### Grafana: OpenCue Monitoring Grafana Dashboard
+
+![OpenCue Monitoring Grafana Dashboard](/assets/images/opencue_monitoring/opencue_monitoring_grafana_chart.png)
+
+### Prometheus Metrics Interface
+
+![Prometheus Metrics Interface](/assets/images/opencue_monitoring/opencue_monitoring_prometheus.png)
+
+### UI for Apache Kafka
+
+![UI for Apache Kafka](/assets/images/opencue_monitoring/opencue_monitoring_ui_for_apache_kafka.png)
+
+### Elasticsearch Kibana - Dev Tools
+
+![Kibana](/assets/images/opencue_monitoring/opencue_monitoring_elasticsearch_kibana_dev_tools.png)
+
+### Elasticsearch
+
+![Elasticsearch](/assets/images/opencue_monitoring/opencue_monitoring_elasticsearch.png)
+
 ## Configuring Cuebot for monitoring
 
 ### Enabling Kafka event publishing
@@ -82,24 +115,24 @@ The pre-configured dashboard includes:
 
 | Panel | Description | Metric |
 |-------|-------------|--------|
-| Frame Completion Rate | Frames completed per 5 minutes by state | `rate(cue_frames_completed_total[5m])` |
+| Frames Completed (5m) | Frames completed in 5 minutes by state | `increase(cue_frames_completed_total[5m])` |
 | Frame Runtime Distribution | P50 and P95 frame execution times | `histogram_quantile(0.95, cue_frame_runtime_seconds_bucket)` |
-| Frame Memory Usage | Memory consumption distribution | `histogram_quantile(0.95, cue_frame_memory_bytes_bucket)` |
+| Frame Memory Usage Distribution | Memory consumption distribution | `histogram_quantile(0.95, cue_frame_memory_bytes_bucket)` |
 
 #### Job metrics
 
 | Panel | Description | Metric |
 |-------|-------------|--------|
-| Job Completion Rate | Jobs completed per show | `rate(cue_jobs_completed_total[5m])` |
+| Jobs Completed by Show (5m) | Jobs completed per show in 5 minutes | `increase(cue_jobs_completed_total[5m])` |
 
 #### System health
 
 | Panel | Description | Metric |
 |-------|-------------|--------|
-| Event Queue Size | Pending events in publish queue | `cue_monitoring_event_queue_size` |
-| Events Published | Events successfully sent to Kafka | `rate(cue_monitoring_events_published_total[5m])` |
-| Events Dropped | Events lost due to queue overflow | `rate(cue_monitoring_events_dropped_total[5m])` |
-| Host Reports | Reports received from render hosts | `rate(cue_host_reports_received_total[5m])` |
+| Monitoring Event Queue Size | Pending events in publish queue | `cue_monitoring_event_queue_size` |
+| Events Published (5m) | Events sent to Kafka in 5 minutes | `increase(cue_monitoring_events_published_total[5m])` |
+| Events Dropped (5m) | Events lost due to queue overflow | `increase(cue_monitoring_events_dropped_total[5m])` |
+| Host Reports Received (5m) | Reports received from render hosts | `increase(cue_host_reports_received_total[5m])` |
 
 ### Creating custom panels
 
@@ -152,6 +185,8 @@ Message: "Cuebot is not responding to Prometheus scrapes."
 
 ## Using Kafka for event streaming
 
+![Kafka UI for Apache Kafka](/assets/images/opencue_monitoring/opencue_monitoring_ui_for_apache_kafka.png)
+
 ### Viewing events
 
 Use the Kafka console consumer to view events:
@@ -168,26 +203,33 @@ kafka-console-consumer --bootstrap-server kafka:9092 \
 
 ### Event format
 
-Events are published as JSON messages:
+Events are published as JSON messages with a header containing metadata and fields at the top level:
 
 ```json
 {
-  "eventType": "FRAME_COMPLETED",
-  "timestamp": "2024-11-24T10:30:00Z",
-  "source": "cuebot-01",
-  "payload": {
-    "jobId": "job-uuid",
-    "jobName": "show-shot-user_render",
-    "layerId": "layer-uuid",
-    "layerName": "render",
-    "frameId": "frame-uuid",
-    "frameName": "0001-render",
-    "frameNumber": 1,
-    "exitStatus": 0,
-    "runtime": 3600,
-    "maxRss": 8589934592,
-    "host": "render-node-01"
-  }
+  "header": {
+    "event_id": "f533d84a-1586-4980-8c5e-3443376425c9",
+    "event_type": "FRAME_COMPLETED",
+    "timestamp": "1764097486229",
+    "source_cuebot": "cuebot-01",
+    "correlation_id": "fa7bbb9a-cae1-4f6b-a50a-88a9ac349d24"
+  },
+  "frame_id": "fa18c460-0e92-49e1-8d6a-e26473ac2708",
+  "frame_name": "0001-render",
+  "frame_number": 1,
+  "layer_id": "53ec9034-b16b-4cc2-9eec-05f68b1848bf",
+  "layer_name": "render",
+  "job_id": "fa7bbb9a-cae1-4f6b-a50a-88a9ac349d24",
+  "job_name": "show-shot-user_render",
+  "show": "show",
+  "state": "SUCCEEDED",
+  "previous_state": "RUNNING",
+  "exit_status": 0,
+  "run_time": 3600,
+  "max_rss": "8589934592",
+  "host_name": "render-node-01",
+  "num_cores": 8,
+  "num_gpus": 0
 }
 ```
 
@@ -206,6 +248,7 @@ Example Python consumer:
 from kafka import KafkaConsumer
 import json
 
+# Note: lz4 library required for decompression (pip install kafka-python lz4)
 consumer = KafkaConsumer(
     'opencue.frame.events',
     bootstrap_servers=['kafka:9092'],
@@ -214,12 +257,15 @@ consumer = KafkaConsumer(
 
 for message in consumer:
     event = message.value
-    if event['eventType'] == 'FRAME_FAILED':
-        print(f"Frame failed: {event['payload']['frameName']}")
+    header = event.get('header', {})
+    if header.get('event_type') == 'FRAME_FAILED':
+        print(f"Frame failed: {event.get('frame_name')}")
         # Send alert, update database, etc.
 ```
 
 ## Using Elasticsearch for historical analysis
+
+![Kibana Dashboard](/assets/images/opencue_monitoring/opencue_monitoring_elasticsearch_kibana_dashboard1.png)
 
 ### Querying events in Kibana
 
@@ -232,14 +278,19 @@ Example queries:
 
 ```
 # Find all failed frames for a job
-eventType: "FRAME_FAILED" AND payload.jobName: "myshow*"
+header.event_type: "FRAME_FAILED" AND job_name: "myshow*"
 
-# Find jobs that took longer than 1 hour
-eventType: "JOB_FINISHED" AND payload.runtime > 3600
+# Find frames that took longer than 1 hour
+header.event_type: "FRAME_COMPLETED" AND run_time > 3600
 
 # Find host down events
-eventType: "HOST_DOWN" AND payload.host: "render-*"
+header.event_type: "HOST_DOWN" AND host_name: "render-*"
+
+# Find all events for a specific show
+show: "testing"
 ```
+
+![Kibana Dev Tools](/assets/images/opencue_monitoring/opencue_monitoring_elasticsearch_kibana_dev_tools.png)
 
 ### Creating visualizations
 

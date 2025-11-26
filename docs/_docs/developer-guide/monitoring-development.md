@@ -31,8 +31,8 @@ The monitoring system is implemented in Cuebot and consists of:
 │                               │              │  ESClient      │─┼──> Elasticsearch
 │  ┌─────────────┐              │              └────────────────┘ │
 │  │ Prometheus  │<─────────────┤              ┌────────────────┐ │
-│  │  Metrics    │              └─────────────>│ KafkaConsumer  │─┘
-│  └─────────────┘                             └────────────────┘
+│  │  Metrics    │              └─────────────>│ KafkaConsumer  │─┤
+│  └─────────────┘                             └────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -181,7 +181,7 @@ public static void setActiveJobs(String show, String state, int count) {
 
 ### Index templates
 
-Create custom index templates for new event types:
+Create custom index templates for new event types. Note that events use snake_case field names and include a `header` object:
 
 ```json
 {
@@ -192,13 +192,20 @@ Create custom index templates for new event types:
   },
   "mappings": {
     "properties": {
-      "eventType": { "type": "keyword" },
-      "timestamp": { "type": "date" },
-      "jobId": { "type": "keyword" },
-      "jobName": { "type": "keyword" },
-      "showName": { "type": "keyword" },
-      "oldPriority": { "type": "integer" },
-      "newPriority": { "type": "integer" },
+      "header": {
+        "properties": {
+          "event_id": { "type": "keyword" },
+          "event_type": { "type": "keyword" },
+          "timestamp": { "type": "date", "format": "epoch_millis" },
+          "source_cuebot": { "type": "keyword" },
+          "correlation_id": { "type": "keyword" }
+        }
+      },
+      "job_id": { "type": "keyword" },
+      "job_name": { "type": "keyword" },
+      "show": { "type": "keyword" },
+      "old_priority": { "type": "integer" },
+      "new_priority": { "type": "integer" },
       "user": { "type": "keyword" }
     }
   }

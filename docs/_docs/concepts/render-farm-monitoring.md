@@ -21,6 +21,8 @@ OpenCue provides a comprehensive monitoring system for tracking render farm oper
 
 The monitoring system is built on an event-driven architecture that captures lifecycle events from jobs, layers, frames, hosts, and processes. These events can be:
 
+![OpenCue Monitoring Grafana Dashboard](/assets/images/opencue_monitoring/opencue_monitoring_grafana_chart.png)
+
 - **Published to Kafka** for real-time streaming and integration with external systems
 - **Stored in Elasticsearch** for historical analysis and querying
 - **Exposed as Prometheus metrics** for real-time dashboards and alerting
@@ -44,6 +46,8 @@ Cuebot publishes events to Apache Kafka topics when significant state changes oc
 
 Events are published asynchronously to avoid impacting render farm performance. A bounded queue ensures the system remains responsive even under high load.
 
+![UI for Apache Kafka](/assets/images/opencue_monitoring/opencue_monitoring_ui_for_apache_kafka.png)
+
 ### Historical storage (Elasticsearch)
 
 The Kafka event consumer indexes events into Elasticsearch for long-term storage and analysis. This enables:
@@ -55,9 +59,13 @@ The Kafka event consumer indexes events into Elasticsearch for long-term storage
 
 Elasticsearch indices are organized by event type and time-based partitioning for efficient querying.
 
+![Elasticsearch](/assets/images/opencue_monitoring/opencue_monitoring_elasticsearch.png)
+
 ### Metrics collection (Prometheus)
 
 Cuebot exposes a `/metrics` endpoint compatible with Prometheus. Key metrics include:
+
+![Prometheus Metrics Interface](/assets/images/opencue_monitoring/opencue_monitoring_prometheus.png)
 
 **Job and frame metrics:**
 - `cue_frames_completed_total` - Counter of completed frames by state

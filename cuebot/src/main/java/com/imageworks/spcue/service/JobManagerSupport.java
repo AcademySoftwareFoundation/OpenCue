@@ -49,6 +49,8 @@ import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.FrameSet;
+import com.imageworks.spcue.PrometheusMetricsCollector;
+import com.imageworks.spcue.dao.ShowDao;
 
 /**
  * A non-transaction support class for managing jobs.
@@ -66,6 +68,8 @@ public class JobManagerSupport {
     private RedirectManager redirectManager;
     private EmailSupport emailSupport;
     private FrameSearchFactory frameSearchFactory;
+    private PrometheusMetricsCollector prometheusMetrics;
+    private ShowDao showDao;
 
     public void queueShutdownJob(JobInterface job, Source source, boolean isManualKill) {
         manageQueue.execute(new DispatchJobComplete(job, source, isManualKill, this));
@@ -149,6 +153,17 @@ public class JobManagerSupport {
                  * inaccurate numbers.
                  */
                 emailSupport.sendShutdownEmail(job);
+
+                // Record job completion metric
+                if (prometheusMetrics != null && showDao != null) {
+                    try {
+                        String showName = showDao.getShowDetail(job.getShowId()).getName();
+                        String state = isManualKill ? "KILLED" : "FINISHED";
+                        prometheusMetrics.recordJobCompleted(state, showName);
+                    } catch (Exception e) {
+                        logger.warn("Failed to record job completion metric: " + e.getMessage());
+                    }
+                }
 
                 return true;
             }
@@ -592,5 +607,21 @@ public class JobManagerSupport {
 
     public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
         this.frameSearchFactory = frameSearchFactory;
+    }
+
+    public PrometheusMetricsCollector getPrometheusMetrics() {
+        return prometheusMetrics;
+    }
+
+    public void setPrometheusMetrics(PrometheusMetricsCollector prometheusMetrics) {
+        this.prometheusMetrics = prometheusMetrics;
+    }
+
+    public ShowDao getShowDao() {
+        return showDao;
+    }
+
+    public void setShowDao(ShowDao showDao) {
+        this.showDao = showDao;
     }
 }

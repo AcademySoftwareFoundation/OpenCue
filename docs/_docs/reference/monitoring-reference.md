@@ -17,6 +17,28 @@ description: >
 
 This reference provides comprehensive documentation for all monitoring system components, configuration options, and APIs.
 
+## Component access
+
+| Component | Purpose | URL | Port |
+|-----------|---------|-----|------|
+| **Grafana** | Dashboards and visualization | [http://localhost:3000](http://localhost:3000) | 3000 |
+| **Prometheus** | Metrics collection and querying | [http://localhost:9090](http://localhost:9090) | 9090 |
+| **Kafka UI** | Event stream browser | [http://localhost:8090](http://localhost:8090) | 8090 |
+| **Kibana** | Elasticsearch visualization | [http://localhost:5601](http://localhost:5601) | 5601 |
+| **Elasticsearch** | Historical data storage | [http://localhost:9200](http://localhost:9200) | 9200 |
+| **Kafka** | Event streaming broker | localhost:9092 | 9092 |
+| **Zookeeper** | Kafka coordination | localhost:2181 | 2181 |
+| **Cuebot Metrics** | Prometheus metrics endpoint | [http://localhost:8080/metrics](http://localhost:8080/metrics) | 8080 |
+
+### Prometheus Metrics Interface
+
+![Prometheus Metrics Interface](/assets/images/opencue_monitoring/opencue_monitoring_prometheus.png)
+
+### OpenCue Monitoring Grafana Dashboard
+
+![OpenCue Monitoring Grafana Dashboard](/assets/images/opencue_monitoring/opencue_monitoring_grafana_chart.png)
+
+
 ## Kafka topics
 
 ### Topic specifications
@@ -29,6 +51,8 @@ This reference provides comprehensive documentation for all monitoring system co
 | `opencue.host.events` | `hostId` | Host state changes |
 | `opencue.host.reports` | `hostId` | Periodic host status reports |
 | `opencue.proc.events` | `procId` | Process allocation events |
+
+![Kafka UI for Apache Kafka](/assets/images/opencue_monitoring/opencue_monitoring_ui_for_apache_kafka.png)
 
 ### Event types
 
@@ -80,31 +104,59 @@ This reference provides comprehensive documentation for all monitoring system co
 
 ## Event payload schemas
 
+All events include a `header` field with common metadata, plus event-specific fields at the top level.
+
+### Event header
+
+```json
+{
+  "header": {
+    "event_id": "f533d84a-1586-4980-8c5e-3443376425c9",
+    "event_type": "FRAME_COMPLETED",
+    "timestamp": "1764097486229",
+    "source_cuebot": "cuebot-01",
+    "correlation_id": "fa7bbb9a-cae1-4f6b-a50a-88a9ac349d24"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event_id` | string | Unique identifier for this event |
+| `event_type` | string | Type of event (e.g., FRAME_COMPLETED, JOB_FINISHED) |
+| `timestamp` | string | Unix timestamp in milliseconds |
+| `source_cuebot` | string | Hostname of the Cuebot that generated the event |
+| `correlation_id` | string | ID linking related events (typically the job ID) |
+
 ### Job event payload
 
 ```json
 {
-  "eventType": "JOB_FINISHED",
-  "timestamp": "2024-11-24T10:30:00.000Z",
-  "source": "cuebot-01",
-  "jobId": "550e8400-e29b-41d4-a716-446655440000",
-  "jobName": "show-shot-user_render_v001",
-  "showName": "show",
-  "showId": "550e8400-e29b-41d4-a716-446655440001",
-  "facilityName": "cloud",
-  "groupName": "render",
-  "userName": "artist",
+  "header": {
+    "event_id": "550e8400-e29b-41d4-a716-446655440000",
+    "event_type": "JOB_FINISHED",
+    "timestamp": "1732446600000",
+    "source_cuebot": "cuebot-01",
+    "correlation_id": "550e8400-e29b-41d4-a716-446655440000"
+  },
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "job_name": "show-shot-user_render_v001",
+  "show": "show",
+  "show_id": "550e8400-e29b-41d4-a716-446655440001",
+  "facility": "cloud",
+  "group_name": "render",
+  "user": "artist",
   "state": "FINISHED",
-  "isPaused": false,
-  "isAutoEat": false,
-  "startTime": "2024-11-24T09:00:00.000Z",
-  "stopTime": "2024-11-24T10:30:00.000Z",
-  "frameCount": 100,
-  "layerCount": 2,
-  "pendingFrames": 0,
-  "runningFrames": 0,
-  "deadFrames": 0,
-  "succeededFrames": 100
+  "is_paused": false,
+  "is_auto_eat": false,
+  "start_time": "1732443000000",
+  "stop_time": "1732446600000",
+  "frame_count": 100,
+  "layer_count": 2,
+  "pending_frames": 0,
+  "running_frames": 0,
+  "dead_frames": 0,
+  "succeeded_frames": 100
 }
 ```
 
@@ -112,27 +164,47 @@ This reference provides comprehensive documentation for all monitoring system co
 
 ```json
 {
-  "eventType": "FRAME_COMPLETED",
-  "timestamp": "2024-11-24T10:30:00.000Z",
-  "source": "cuebot-01",
-  "frameId": "550e8400-e29b-41d4-a716-446655440002",
-  "frameName": "0001-render",
-  "frameNumber": 1,
-  "jobId": "550e8400-e29b-41d4-a716-446655440000",
-  "jobName": "show-shot-user_render_v001",
-  "layerId": "550e8400-e29b-41d4-a716-446655440003",
-  "layerName": "render",
-  "showName": "show",
+  "header": {
+    "event_id": "f533d84a-1586-4980-8c5e-3443376425c9",
+    "event_type": "FRAME_COMPLETED",
+    "timestamp": "1764097486229",
+    "source_cuebot": "cuebot-01",
+    "correlation_id": "fa7bbb9a-cae1-4f6b-a50a-88a9ac349d24"
+  },
+  "frame_id": "fa18c460-0e92-49e1-8d6a-e26473ac2708",
+  "frame_name": "0001-render",
+  "frame_number": 1,
+  "layer_id": "53ec9034-b16b-4cc2-9eec-05f68b1848bf",
+  "layer_name": "render",
+  "job_id": "fa7bbb9a-cae1-4f6b-a50a-88a9ac349d24",
+  "job_name": "show-shot-user_render_v001",
+  "show": "show",
   "state": "SUCCEEDED",
-  "exitStatus": 0,
-  "retryCount": 0,
-  "runtime": 3600,
-  "llTime": 3500,
-  "maxRss": 8589934592,
-  "usedGpuMemory": 0,
-  "host": "render-node-01",
-  "coresUsed": 8,
-  "gpusUsed": 0
+  "previous_state": "RUNNING",
+  "exit_status": 0,
+  "exit_signal": 0,
+  "retry_count": 0,
+  "dispatch_order": 0,
+  "start_time": "1764097475839",
+  "stop_time": "1764097486233",
+  "run_time": 3600,
+  "llu_time": "1764097476",
+  "max_rss": "8589934592",
+  "used_memory": "8589934592",
+  "reserved_memory": "262144",
+  "max_gpu_memory": "0",
+  "used_gpu_memory": "0",
+  "reserved_gpu_memory": "0",
+  "num_cores": 8,
+  "num_gpus": 0,
+  "host_name": "render-node-01",
+  "resource_id": "357516fe-4d34-447f-b1cd-41779102b6e3",
+  "checkpoint_state": "DISABLED",
+  "checkpoint_count": 0,
+  "total_core_time": 0,
+  "total_gpu_time": 0,
+  "reason": "",
+  "killed_by": ""
 }
 ```
 
@@ -140,27 +212,31 @@ This reference provides comprehensive documentation for all monitoring system co
 
 ```json
 {
-  "eventType": "HOST_REPORT",
-  "timestamp": "2024-11-24T10:30:00.000Z",
-  "source": "cuebot-01",
-  "hostId": "550e8400-e29b-41d4-a716-446655440004",
-  "hostName": "render-node-01",
-  "facilityName": "cloud",
-  "allocName": "render.general",
+  "header": {
+    "event_id": "550e8400-e29b-41d4-a716-446655440004",
+    "event_type": "HOST_REPORT",
+    "timestamp": "1732446600000",
+    "source_cuebot": "cuebot-01",
+    "correlation_id": ""
+  },
+  "host_id": "550e8400-e29b-41d4-a716-446655440004",
+  "host_name": "render-node-01",
+  "facility": "cloud",
+  "alloc_name": "render.general",
   "state": "UP",
-  "lockState": "OPEN",
-  "nimbyEnabled": false,
-  "totalCores": 64,
-  "idleCores": 32,
-  "totalMemory": 137438953472,
-  "freeMemory": 68719476736,
-  "totalGpuMemory": 25769803776,
-  "freeGpuMemory": 25769803776,
+  "lock_state": "OPEN",
+  "nimby_enabled": false,
+  "total_cores": 64,
+  "idle_cores": 32,
+  "total_memory": "137438953472",
+  "free_memory": "68719476736",
+  "total_gpu_memory": "25769803776",
+  "free_gpu_memory": "25769803776",
   "load": 1250,
-  "pingTime": 1732443000000,
-  "bootTime": 1732300000000,
+  "ping_time": "1732443000000",
+  "boot_time": "1732300000000",
   "os": "Linux",
-  "runningProcs": 4
+  "running_procs": 4
 }
 ```
 

@@ -171,6 +171,12 @@ public class HostReportHandler {
             // Publish host report event to Kafka for monitoring
             publishHostReportEvent(report, isBoot);
 
+            // Record Prometheus metric for host report
+            if (prometheusMetrics != null) {
+                String facility = report.getHost().getFacility();
+                prometheusMetrics.recordHostReport(facility != null ? facility : "unknown");
+            }
+
             long swapOut = 0;
             if (report.getHost().getAttributesMap().containsKey("swapout")) {
                 swapOut = Integer.parseInt(report.getHost().getAttributesMap().get("swapout"));

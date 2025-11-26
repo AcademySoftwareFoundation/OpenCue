@@ -32,7 +32,9 @@
   <bean id="kafkaEventPublisher"
         class="com.imageworks.spcue.monitoring.KafkaEventPublisher"
         init-method="initialize"
-        destroy-method="shutdown"/>
+        destroy-method="shutdown">
+    <property name="prometheusMetrics" ref="prometheusMetricsCollector"/>
+  </bean>
 
   <!--
     Monitoring Event Builder helper for creating event messages from domain objects.
