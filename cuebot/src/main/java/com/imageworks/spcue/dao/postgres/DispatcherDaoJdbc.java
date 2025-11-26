@@ -73,7 +73,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     private static final RowMapper<SortableShow> SHOW_MAPPER = new RowMapper<SortableShow>() {
         public SortableShow mapRow(ResultSet rs, int rowNum) throws SQLException {
             return new SortableShow(rs.getString("pk_show"), rs.getString("str_show_name"),
-                rs.getFloat("float_tier")
+                    rs.getFloat("float_tier")
             );
         }
     };
@@ -206,7 +206,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 String exclusionKey = showName + ":" + host.allocationName;
                 if (exclusionList.contains(exclusionKey)) {
                     logger.info("skipping show " + showName + " on allocation "
-                        + host.allocationName + " due to exclusion list");
+                            + host.allocationName + " due to exclusion list");
                     continue;
                 }
             }
