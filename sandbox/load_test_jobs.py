@@ -15,25 +15,33 @@
 #  limitations under the License.
 
 """
-Load test script to submit NUM_JOBS jobs to OpenCue for monitoring testing.
+Load test script to submit jobs to OpenCue for monitoring testing.
+
+Usage:
+    python load_test_jobs.py                    # Uses defaults: 1000 jobs, batch size 50
+    python load_test_jobs.py -n 100             # Submit 100 jobs
+    python load_test_jobs.py -n 500 -b 25       # Submit 500 jobs in batches of 25
+    python load_test_jobs.py --num-jobs 100 --batch-size 10
 """
 
+import argparse
 import time
 
 import outline
 from outline.modules.shell import Shell
 
-NUM_JOBS = 1000
-BATCH_SIZE = 50  # Submit in batches to avoid overwhelming the system
+DEFAULT_NUM_JOBS = 1000
+DEFAULT_BATCH_SIZE = 50
 
-def submit_jobs():
-    print(f"Submitting {NUM_JOBS} jobs to OpenCue...")
+
+def submit_jobs(num_jobs, batch_size):
+    print(f"Submitting {num_jobs} jobs to OpenCue (batch size: {batch_size})...")
     print("-" * 60)
 
     submitted = 0
     failed = 0
 
-    for i in range(NUM_JOBS):
+    for i in range(num_jobs):
         job_name = f'load_test_job_{i:04d}'
         try:
             ol = outline.Outline(job_name, shot='testshot', show='testing')
@@ -48,10 +56,10 @@ def submit_jobs():
 
             # Progress indicator
             if (i + 1) % 10 == 0:
-                print(f"Submitted {i + 1}/{NUM_JOBS} jobs ({submitted} successful, {failed} failed)")
+                print(f"Submitted {i + 1}/{num_jobs} jobs ({submitted} successful, {failed} failed)")
 
             # Small delay between batches to avoid overwhelming the system
-            if (i + 1) % BATCH_SIZE == 0:
+            if (i + 1) % batch_size == 0:
                 print(f"  Batch complete, pausing briefly...")
                 time.sleep(1)
 
@@ -67,5 +75,27 @@ def submit_jobs():
 
     return submitted, failed
 
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Load test script to submit jobs to OpenCue for monitoring testing.'
+    )
+    parser.add_argument(
+        '-n', '--num-jobs',
+        type=int,
+        default=DEFAULT_NUM_JOBS,
+        help=f'Number of jobs to submit (default: {DEFAULT_NUM_JOBS})'
+    )
+    parser.add_argument(
+        '-b', '--batch-size',
+        type=int,
+        default=DEFAULT_BATCH_SIZE,
+        help=f'Batch size for submission pauses (default: {DEFAULT_BATCH_SIZE})'
+    )
+
+    args = parser.parse_args()
+    submit_jobs(args.num_jobs, args.batch_size)
+
+
 if __name__ == '__main__':
-    submit_jobs()
+    main()
