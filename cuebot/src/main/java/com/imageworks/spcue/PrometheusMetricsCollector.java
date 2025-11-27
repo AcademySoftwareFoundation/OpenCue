@@ -8,7 +8,6 @@ import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.HostReportHandler;
 import com.imageworks.spcue.dispatcher.HostReportQueue;
-import com.imageworks.spcue.monitoring.ElasticsearchClient;
 
 import io.prometheus.client.Counter;
 import io.prometheus.client.Gauge;
@@ -26,9 +25,6 @@ public class PrometheusMetricsCollector {
     private DispatchQueue dispatchQueue;
 
     private HostReportQueue reportQueue;
-
-    @Autowired(required = false)
-    private ElasticsearchClient elasticsearchClient;
 
     private boolean enabled;
 
@@ -122,12 +118,6 @@ public class PrometheusMetricsCollector {
             .help("Number of frames that failed to be killed after FRAME_KILL_RETRY_LIMIT tries")
             .labelNames("env", "cuebot_host", "render_node", "job_name", "frame_name", "frame_id")
             .register();
-
-    // Single metric for monitoring the monitoring system (Elasticsearch queue)
-    private static final Gauge elasticsearchIndexQueueSize =
-            Gauge.build().name("cue_elasticsearch_index_queue_size")
-                    .help("Current size of the Elasticsearch indexing queue")
-                    .labelNames("env", "cuebot_host").register();
 
     private static final Counter frameCompletedCounter = Counter.build()
             .name("cue_frames_completed_total").help("Total number of frames completed")
@@ -254,12 +244,6 @@ public class PrometheusMetricsCollector {
                     .set(reportQueue.getTaskCount());
             reportQueueRejectedTotal.labels(this.deployment_environment, this.cuebot_host)
                     .set(reportQueue.getRejectedTaskCount());
-
-            // ElasticsearchClient queue
-            if (elasticsearchClient != null) {
-                elasticsearchIndexQueueSize.labels(this.deployment_environment, this.cuebot_host)
-                        .set(elasticsearchClient.getPendingIndexCount());
-            }
         }
     }
 
@@ -308,15 +292,6 @@ public class PrometheusMetricsCollector {
             String frameId) {
         frameKillFailureCounter.labels(this.deployment_environment, this.cuebot_host, hostname,
                 jobName, frameName, frameId).inc();
-    }
-
-    /**
-     * Set the Elasticsearch indexing queue size
-     *
-     * @param size current queue size
-     */
-    public void setElasticsearchIndexQueueSize(int size) {
-        elasticsearchIndexQueueSize.labels(this.deployment_environment, this.cuebot_host).set(size);
     }
 
     /**
@@ -390,9 +365,5 @@ public class PrometheusMetricsCollector {
 
     public void setReportQueue(HostReportQueue reportQueue) {
         this.reportQueue = reportQueue;
-    }
-
-    public void setElasticsearchClient(ElasticsearchClient elasticsearchClient) {
-        this.elasticsearchClient = elasticsearchClient;
     }
 }
