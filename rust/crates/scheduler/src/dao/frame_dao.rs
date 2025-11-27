@@ -3,6 +3,7 @@ use std::time::SystemTime;
 use bytesize::{ByteSize, KB};
 use chrono::{DateTime, Utc};
 use miette::{Diagnostic, Result};
+use opencue_proto::job::FrameExitStatus;
 use sqlx::{Postgres, Transaction};
 use thiserror::Error;
 
@@ -133,6 +134,30 @@ impl From<DispatchFrameModel> for DispatchFrame {
     }
 }
 
+static UPDATE_FRAME_STARTED: &str = r#"
+UPDATE frame SET
+    str_state = 'RUNNING',
+    str_host = $1,
+    int_cores = $2,
+    int_mem_reserved = $3,
+    int_gpus = $4,
+    int_gpu_mem_reserved = $5,
+    ts_updated = current_timestamp,
+    ts_started = current_timestamp,
+    ts_stopped = null,
+    int_version = int_version + 1
+WHERE pk_frame = $6
+    AND str_state = 'WAITING'
+    AND int_version = $7
+"#;
+
+static UPDATE_RETRY_COUNT: &str = r#"
+UPDATE frame SET
+    int_retries = int_retries + 1
+WHERE pk_frame = $1
+    AND int_exit_status != ALL($2)
+"#;
+
 impl FrameDao {
     /// Creates a new FrameDao instance.
     ///
@@ -165,39 +190,40 @@ impl FrameDao {
         transaction: &mut Transaction<'_, Postgres>,
         virtual_proc: &VirtualProc,
     ) -> Result<(), FrameDaoError> {
-        let result = sqlx::query(
-            r#"
-            UPDATE frame SET
-                str_state = 'RUNNING',
-                str_host = $1,
-                int_cores = $2,
-                int_mem_reserved = $3,
-                int_gpus = $4,
-                int_gpu_mem_reserved = $5,
-                ts_updated = current_timestamp,
-                ts_started = current_timestamp,
-                ts_stopped = null,
-                int_version = int_version + 1
-            WHERE pk_frame = $6
-                AND str_state = 'WAITING'
-                AND int_version = $7
-            "#,
-        )
-        .bind(virtual_proc.host_name.clone())
-        .bind(virtual_proc.cores_reserved.value())
-        .bind((virtual_proc.memory_reserved.as_u64() / KB) as i32)
-        .bind(virtual_proc.gpus_reserved as i32)
-        .bind((virtual_proc.gpu_memory_reserved.as_u64() / KB) as i32)
-        .bind(virtual_proc.frame.id.to_string())
-        .bind(virtual_proc.frame.version as i32)
-        .execute(&mut **transaction)
-        .await
-        .map_err(FrameDaoError::DbFailure)?;
+        let result = sqlx::query(UPDATE_FRAME_STARTED)
+            .bind(virtual_proc.host_name.clone())
+            .bind(virtual_proc.cores_reserved.value())
+            .bind((virtual_proc.memory_reserved.as_u64() / KB) as i32)
+            .bind(virtual_proc.gpus_reserved as i32)
+            .bind((virtual_proc.gpu_memory_reserved.as_u64() / KB) as i32)
+            .bind(virtual_proc.frame.id.to_string())
+            .bind(virtual_proc.frame.version as i32)
+            .execute(&mut **transaction)
+            .await
+            .map_err(FrameDaoError::DbFailure)?;
 
         // Check if the update actually modified a row
         if result.rows_affected() == 0 {
             return Err(FrameDaoError::FrameCouldNotBeUpdated);
         }
+
+        // Update retry count for frames that have been previously executed
+        let non_retriable_codes = &[
+            FrameExitStatus::SkipRetry as i32,
+            FrameExitStatus::FailedLaunch as i32,
+            // Values predefined at Cuebot on Dispatcher.java
+            299, // EXIT_STATUS_FRAME_CLEARED
+            301, // EXIT_STATUS_FRAME_ORPHAN
+            302, // EXIT_STATUS_FAILED_KILL
+            399, // EXIT_STATUS_DOWN_HOST
+            -1,  // Not set (This will skip frames that have never ran)
+        ];
+        let _ = sqlx::query(UPDATE_RETRY_COUNT)
+            .bind(virtual_proc.frame.id.to_string())
+            .bind(non_retriable_codes)
+            .execute(&mut **transaction)
+            .await
+            .map_err(FrameDaoError::DbFailure)?;
 
         Ok(())
     }
