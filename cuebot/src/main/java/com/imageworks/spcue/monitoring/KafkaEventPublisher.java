@@ -46,7 +46,6 @@ import com.imageworks.spcue.grpc.monitoring.JobEvent;
 import com.imageworks.spcue.grpc.monitoring.LayerEvent;
 import com.imageworks.spcue.grpc.monitoring.ProcEvent;
 import com.imageworks.spcue.util.CueExceptionUtil;
-import com.imageworks.spcue.PrometheusMetricsCollector;
 
 /**
  * KafkaEventPublisher publishes monitoring events to Kafka topics for downstream processing. Events
@@ -78,7 +77,6 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     private JsonFormat.Printer jsonPrinter;
     private String sourceCuebot;
     private boolean enabled = false;
-    private PrometheusMetricsCollector prometheusMetrics;
 
     public KafkaEventPublisher() {
         super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10, TimeUnit.SECONDS,
@@ -231,11 +229,6 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
      * Internal method to publish any protobuf message to a Kafka topic.
      */
     private void publishEvent(String topic, String key, Message event, String eventType) {
-        // Update queue size metric
-        if (prometheusMetrics != null) {
-            prometheusMetrics.setMonitoringEventQueueSize(getQueue().size());
-        }
-
         try {
             execute(() -> {
                 try {
@@ -250,10 +243,6 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
                         } else {
                             logger.trace("Published event to {}, partition={}, offset={}", topic,
                                     metadata.partition(), metadata.offset());
-                            // Record successful publish
-                            if (prometheusMetrics != null) {
-                                prometheusMetrics.incrementMonitoringEventPublished(eventType);
-                            }
                         }
                     });
                 } catch (Exception e) {
@@ -263,10 +252,6 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
             });
         } catch (RejectedExecutionException e) {
             logger.warn("Event queue is full, dropping event for topic {}", topic);
-            // Record dropped event
-            if (prometheusMetrics != null) {
-                prometheusMetrics.incrementMonitoringEventDropped(eventType);
-            }
         }
     }
 
@@ -289,12 +274,5 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
      */
     public int getPendingEventCount() {
         return getQueue().size();
-    }
-
-    /**
-     * Sets the Prometheus metrics collector for recording monitoring metrics.
-     */
-    public void setPrometheusMetrics(PrometheusMetricsCollector prometheusMetrics) {
-        this.prometheusMetrics = prometheusMetrics;
     }
 }

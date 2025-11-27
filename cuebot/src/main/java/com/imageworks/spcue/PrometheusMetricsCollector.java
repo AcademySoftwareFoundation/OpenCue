@@ -123,22 +123,7 @@ public class PrometheusMetricsCollector {
             .labelNames("env", "cuebot_host", "render_node", "job_name", "frame_name", "frame_id")
             .register();
 
-    // Monitoring event metrics
-    private static final Counter monitoringEventsPublishedCounter =
-            Counter.build().name("cue_monitoring_events_published_total")
-                    .help("Total number of monitoring events published to Kafka")
-                    .labelNames("env", "cuebot_host", "event_type").register();
-
-    private static final Counter monitoringEventsDroppedCounter =
-            Counter.build().name("cue_monitoring_events_dropped_total")
-                    .help("Total number of monitoring events dropped due to queue overflow")
-                    .labelNames("env", "cuebot_host", "event_type").register();
-
-    private static final Gauge monitoringEventQueueSize =
-            Gauge.build().name("cue_monitoring_event_queue_size")
-                    .help("Current size of the monitoring event publishing queue")
-                    .labelNames("env", "cuebot_host").register();
-
+    // Single metric for monitoring the monitoring system (Elasticsearch queue)
     private static final Gauge elasticsearchIndexQueueSize =
             Gauge.build().name("cue_elasticsearch_index_queue_size")
                     .help("Current size of the Elasticsearch indexing queue")
@@ -323,35 +308,6 @@ public class PrometheusMetricsCollector {
             String frameId) {
         frameKillFailureCounter.labels(this.deployment_environment, this.cuebot_host, hostname,
                 jobName, frameName, frameId).inc();
-    }
-
-    /**
-     * Increment the monitoring event published counter
-     *
-     * @param eventType type of event that was published
-     */
-    public void incrementMonitoringEventPublished(String eventType) {
-        monitoringEventsPublishedCounter
-                .labels(this.deployment_environment, this.cuebot_host, eventType).inc();
-    }
-
-    /**
-     * Increment the monitoring event dropped counter
-     *
-     * @param eventType type of event that was dropped
-     */
-    public void incrementMonitoringEventDropped(String eventType) {
-        monitoringEventsDroppedCounter
-                .labels(this.deployment_environment, this.cuebot_host, eventType).inc();
-    }
-
-    /**
-     * Set the monitoring event queue size
-     *
-     * @param size current queue size
-     */
-    public void setMonitoringEventQueueSize(int size) {
-        monitoringEventQueueSize.labels(this.deployment_environment, this.cuebot_host).set(size);
     }
 
     /**
