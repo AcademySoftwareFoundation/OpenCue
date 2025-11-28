@@ -289,33 +289,25 @@ public class FrameCompleteHandler {
 
                     // Record layer max runtime and memory metrics
                     if (prometheusMetrics != null) {
-                        try {
-                            ExecutionSummary layerSummary =
-                                    jobManager.getExecutionSummary((LayerInterface) frame);
-                            LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
-                            prometheusMetrics.recordLayerMaxRuntime(layerSummary.highFrameSec,
-                                    frame.show, frame.shot, layerDetail.type.toString());
-                            if (layerSummary.highMemoryKb > 0) {
-                                prometheusMetrics.recordLayerMaxMemory(
-                                        layerSummary.highMemoryKb * 1024L, frame.show, frame.shot,
-                                        layerDetail.type.toString());
-                            }
-                        } catch (Exception e) {
-                            logger.trace("Failed to record layer metrics: {}", e.getMessage());
+                        ExecutionSummary layerSummary =
+                                jobManager.getExecutionSummary((LayerInterface) frame);
+                        LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+                        prometheusMetrics.recordLayerMaxRuntime(layerSummary.highFrameSec,
+                                frame.show, frame.shot, layerDetail.type.toString());
+                        if (layerSummary.highMemoryKb > 0) {
+                            prometheusMetrics.recordLayerMaxMemory(
+                                    layerSummary.highMemoryKb * 1024L, frame.show, frame.shot,
+                                    layerDetail.type.toString());
                         }
                     }
 
                     // Publish layer completed event to Kafka
                     if (kafkaEventPublisher != null && kafkaEventPublisher.isEnabled()) {
-                        try {
-                            LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
-                            LayerEvent layerEvent = monitoringEventBuilder.buildLayerEvent(
-                                    EventType.LAYER_COMPLETED, layerDetail, frame.getName(),
-                                    frame.show);
-                            kafkaEventPublisher.publishLayerEvent(layerEvent);
-                        } catch (Exception e) {
-                            logger.trace("Failed to publish layer event: {}", e.getMessage());
-                        }
+                        LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+                        LayerEvent layerEvent =
+                                monitoringEventBuilder.buildLayerEvent(EventType.LAYER_COMPLETED,
+                                        layerDetail, frame.getName(), frame.show);
+                        kafkaEventPublisher.publishLayerEvent(layerEvent);
                     }
                 }
             }
@@ -795,12 +787,7 @@ public class FrameCompleteHandler {
             FrameDetail frameDetail, FrameState newFrameState, VirtualProc proc) {
         // Record Prometheus metrics for frame completion
         if (prometheusMetrics != null) {
-            try {
-                prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show,
-                        frame.shot);
-            } catch (Exception e) {
-                logger.trace("Failed to record Prometheus metrics: {}", e.getMessage());
-            }
+            prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show, frame.shot);
         }
 
         // Publish to Kafka if enabled
@@ -808,13 +795,9 @@ public class FrameCompleteHandler {
             return;
         }
 
-        try {
-            FrameEvent event = monitoringEventBuilder.buildFrameCompleteEvent(report, newFrameState,
-                    frameDetail.state, frame, proc);
-            kafkaEventPublisher.publishFrameEvent(event);
-        } catch (Exception e) {
-            logger.trace("Failed to publish frame complete event: {}", e.getMessage());
-        }
+        FrameEvent event = monitoringEventBuilder.buildFrameCompleteEvent(report, newFrameState,
+                frameDetail.state, frame, proc);
+        kafkaEventPublisher.publishFrameEvent(event);
     }
 
 }
