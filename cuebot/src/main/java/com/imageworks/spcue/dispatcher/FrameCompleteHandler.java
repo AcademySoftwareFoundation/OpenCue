@@ -29,6 +29,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.DispatchJob;
+import com.imageworks.spcue.ExecutionSummary;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
@@ -284,6 +285,24 @@ public class FrameCompleteHandler {
                 isLayerComplete = jobManager.isLayerComplete(frame);
                 if (isLayerComplete) {
                     jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame);
+
+                    // Record layer max runtime and memory metrics
+                    if (prometheusMetrics != null) {
+                        try {
+                            ExecutionSummary layerSummary =
+                                    jobManager.getExecutionSummary((LayerInterface) frame);
+                            LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+                            prometheusMetrics.recordLayerMaxRuntime(layerSummary.highFrameSec,
+                                    frame.show, frame.shot, layerDetail.type.toString());
+                            if (layerSummary.highMemoryKb > 0) {
+                                prometheusMetrics.recordLayerMaxMemory(
+                                        layerSummary.highMemoryKb * 1024L, frame.show, frame.shot,
+                                        layerDetail.type.toString());
+                            }
+                        } catch (Exception e) {
+                            logger.trace("Failed to record layer metrics: {}", e.getMessage());
+                        }
+                    }
                 }
             }
 
@@ -765,11 +784,6 @@ public class FrameCompleteHandler {
             try {
                 prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show,
                         frame.shot);
-                prometheusMetrics.recordFrameRuntime(report.getRunTime(), frame.show, "render");
-                if (report.getFrame().getMaxRss() > 0) {
-                    prometheusMetrics.recordFrameMemory(report.getFrame().getMaxRss() * 1024L,
-                            frame.show, "render");
-                }
             } catch (Exception e) {
                 logger.trace("Failed to record Prometheus metrics: {}", e.getMessage());
             }

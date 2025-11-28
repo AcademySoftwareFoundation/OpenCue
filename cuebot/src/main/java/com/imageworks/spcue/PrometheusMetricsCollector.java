@@ -132,18 +132,20 @@ public class PrometheusMetricsCollector {
             .labelNames("env", "cuebot_host", "show", "shot")
             .buckets(3600, 36000, 360000, 3600000, 36000000).register();
 
-    private static final Histogram frameRuntimeHistogram = Histogram.build()
-            .name("cue_frame_runtime_seconds").help("Histogram of frame runtimes in seconds")
-            .labelNames("env", "cuebot_host", "show", "layer_type")
-            .buckets(60, 300, 600, 1800, 3600, 7200, 14400, 28800, 86400).register();
+    private static final Histogram layerMaxRuntimeHistogram =
+            Histogram.build().name("cue_layer_max_runtime_seconds")
+                    .help("Histogram of max frame runtime per layer in seconds")
+                    .labelNames("env", "cuebot_host", "show", "shot", "layer_type")
+                    .buckets(60, 300, 600, 1800, 3600, 7200, 14400, 28800, 86400).register();
 
-    private static final Histogram frameMemoryHistogram = Histogram.build()
-            .name("cue_frame_memory_bytes").help("Histogram of frame peak memory usage in bytes")
-            .labelNames("env", "cuebot_host", "show", "layer_type")
-            .buckets(256L * 1024 * 1024, 512L * 1024 * 1024, 1024L * 1024 * 1024,
-                    2048L * 1024 * 1024, 4096L * 1024 * 1024, 8192L * 1024 * 1024,
-                    16384L * 1024 * 1024, 32768L * 1024 * 1024)
-            .register();
+    private static final Histogram layerMaxMemoryHistogram =
+            Histogram.build().name("cue_layer_max_memory_bytes")
+                    .help("Histogram of max frame memory usage per layer in bytes")
+                    .labelNames("env", "cuebot_host", "show", "shot", "layer_type")
+                    .buckets(256L * 1024 * 1024, 512L * 1024 * 1024, 1024L * 1024 * 1024,
+                            2048L * 1024 * 1024, 4096L * 1024 * 1024, 8192L * 1024 * 1024,
+                            16384L * 1024 * 1024, 32768L * 1024 * 1024)
+                    .register();
 
     private static final Counter hostReportsReceivedCounter = Counter.build()
             .name("cue_host_reports_received_total").help("Total number of host reports received")
@@ -336,26 +338,32 @@ public class PrometheusMetricsCollector {
     }
 
     /**
-     * Record frame runtime for histogramming
+     * Record layer max runtime for histogramming
      *
-     * @param runtimeSeconds runtime in seconds
+     * @param runtimeSeconds max runtime in seconds for the layer
      * @param show show name
+     * @param shot shot name
      * @param layerType layer type
      */
-    public void recordFrameRuntime(double runtimeSeconds, String show, String layerType) {
-        frameRuntimeHistogram.labels(this.deployment_environment, this.cuebot_host, show, layerType)
+    public void recordLayerMaxRuntime(double runtimeSeconds, String show, String shot,
+            String layerType) {
+        layerMaxRuntimeHistogram
+                .labels(this.deployment_environment, this.cuebot_host, show, shot, layerType)
                 .observe(runtimeSeconds);
     }
 
     /**
-     * Record frame peak memory usage for histogramming
+     * Record layer max memory usage for histogramming
      *
-     * @param memoryBytes peak memory in bytes
+     * @param memoryBytes max memory in bytes for the layer
      * @param show show name
+     * @param shot shot name
      * @param layerType layer type
      */
-    public void recordFrameMemory(double memoryBytes, String show, String layerType) {
-        frameMemoryHistogram.labels(this.deployment_environment, this.cuebot_host, show, layerType)
+    public void recordLayerMaxMemory(double memoryBytes, String show, String shot,
+            String layerType) {
+        layerMaxMemoryHistogram
+                .labels(this.deployment_environment, this.cuebot_host, show, shot, layerType)
                 .observe(memoryBytes);
     }
 
