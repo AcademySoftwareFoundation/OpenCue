@@ -196,3 +196,10 @@ scheduler:
   # manual_tags:
   #   - tag1
   #   - tag2
+
+  # List of tags to ignore when loading clusters (can be overridden with --ignore_tags flag)
+  # These tags will be filtered out from all cluster types (manual, hostname, and alloc)
+  # Default: []
+  # ignore_tags:
+  #   - tag_to_ignore1
+  #   - tag_to_ignore2

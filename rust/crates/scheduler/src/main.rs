@@ -43,6 +43,13 @@ pub struct JobQueueCli {
         long_help = "A list of tags not associated with an allocation."
     )]
     manual_tags: Vec<String>,
+
+    #[structopt(
+        long,
+        short = "i",
+        long_help = "A list of tags to ignore when loading clusters."
+    )]
+    ignore_tags: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -93,6 +100,14 @@ impl JobQueueCli {
             CONFIG.scheduler.manual_tags.clone()
         };
 
+        let ignore_tags = if !self.ignore_tags.is_empty() {
+            // CLI args provided, use them
+            self.ignore_tags.clone()
+        } else {
+            // Use config values
+            CONFIG.scheduler.ignore_tags.clone()
+        };
+
         // Lookup facility_id from facility name
         let facility_id = match &facility {
             Some(facility) => Some(
@@ -137,9 +152,9 @@ impl JobQueueCli {
             ));
         }
         let cluster_feed = if alloc_tags.is_empty() && manual_tags.is_empty() {
-            ClusterFeed::load_all(&facility_id).await?
+            ClusterFeed::load_all(&facility_id, &ignore_tags).await?
         } else {
-            ClusterFeed::load_from_clusters(clusters)
+            ClusterFeed::load_from_clusters(clusters, &ignore_tags)
         };
 
         pipeline::run(cluster_feed).await

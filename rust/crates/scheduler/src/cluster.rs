@@ -76,11 +76,14 @@ impl ClusterFeed {
     ///
     /// # Arguments
     ///
+    /// * `facility_id` - Optional facility ID to filter clusters
+    /// * `ignore_tags` - List of tag names to ignore when loading clusters
+    ///
     /// # Returns
     ///
     /// * `Ok(ClusterFeed)` - Successfully loaded cluster feed
     /// * `Err(miette::Error)` - Failed to load clusters from database
-    pub async fn load_all(facility_id: &Option<Uuid>) -> Result<Self> {
+    pub async fn load_all(facility_id: &Option<Uuid>, ignore_tags: &[String]) -> Result<Self> {
         let cluster_dao = ClusterDao::new().await?;
 
         // Fetch clusters for both facilitys+shows+tags and just tags
@@ -95,6 +98,11 @@ impl ClusterFeed {
         while let Some(record) = clusters_stream.next().await {
             match record {
                 Ok(cluster) => {
+                    // Skip tags that are in the ignore list
+                    if ignore_tags.contains(&cluster.tag) {
+                        continue;
+                    }
+
                     match cluster.ttype.as_str() {
                         // Each alloc tag becomes its own cluster
                         "ALLOC" => {
@@ -165,15 +173,44 @@ impl ClusterFeed {
     ///
     /// # Arguments
     ///
-    /// * `keys` - List of clusters to iterate over
+    /// * `clusters` - List of clusters to iterate over
+    /// * `ignore_tags` - List of tag names to ignore when loading clusters
     ///
     /// # Returns
     ///
     /// * `ClusterFeed` - Feed configured to run once through the provided clusters
     #[allow(dead_code)]
-    pub fn load_from_clusters(clusters: Vec<Cluster>) -> Self {
+    pub fn load_from_clusters(clusters: Vec<Cluster>, ignore_tags: &[String]) -> Self {
+        // Filter out ignored tags from clusters
+        let filtered_clusters: Vec<Cluster> = clusters
+            .into_iter()
+            .filter_map(|cluster| match cluster {
+                // For ComposedKey, remove the entire cluster if its tag is ignored
+                Cluster::ComposedKey(key) => {
+                    if ignore_tags.contains(&key.tag.name) {
+                        None
+                    } else {
+                        Some(Cluster::ComposedKey(key))
+                    }
+                }
+                // For TagsKey, filter out ignored tags from the list
+                Cluster::TagsKey(tags) => {
+                    let filtered_tags: Vec<Tag> = tags
+                        .into_iter()
+                        .filter(|tag| !ignore_tags.contains(&tag.name))
+                        .collect();
+                    // Only keep the cluster if it still has tags after filtering
+                    if filtered_tags.is_empty() {
+                        None
+                    } else {
+                        Some(Cluster::TagsKey(filtered_tags))
+                    }
+                }
+            })
+            .collect();
+
         ClusterFeed {
-            clusters: Arc::new(RwLock::new(clusters)),
+            clusters: Arc::new(RwLock::new(filtered_clusters)),
             current_index: Arc::new(AtomicUsize::new(0)),
             stop_flag: Arc::new(AtomicBool::new(false)),
             sleep_map: Arc::new(Mutex::new(HashMap::new())),

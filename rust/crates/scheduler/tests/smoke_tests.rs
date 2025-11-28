@@ -828,7 +828,7 @@ mod scheduler_smoke_test {
             },
         });
 
-        let cluster_feed = ClusterFeed::load_from_clusters(vec![hostname_cluster]);
+        let cluster_feed = ClusterFeed::load_from_clusters(vec![hostname_cluster], &[]);
 
         info!("Starting HOSTNAME tag integration test...");
 
@@ -884,7 +884,7 @@ mod scheduler_smoke_test {
             },
         });
 
-        let cluster_feed = ClusterFeed::load_from_clusters(vec![alloc_cluster]);
+        let cluster_feed = ClusterFeed::load_from_clusters(vec![alloc_cluster], &[]);
 
         info!("Starting ALLOC tag integration test...");
 
@@ -927,7 +927,7 @@ mod scheduler_smoke_test {
             ttype: TagType::Manual,
         }]);
 
-        let cluster_feed = ClusterFeed::load_from_clusters(vec![manual_cluster]);
+        let cluster_feed = ClusterFeed::load_from_clusters(vec![manual_cluster], &[]);
 
         info!("Starting MANUAL tag integration test...");
         let frame_count = test_data.num_frames();
@@ -987,7 +987,7 @@ mod scheduler_smoke_test {
             }]),
         ];
 
-        let cluster_feed = ClusterFeed::load_from_clusters(clusters);
+        let cluster_feed = ClusterFeed::load_from_clusters(clusters, &[]);
 
         info!("Starting mixed job scenario integration test...");
 
@@ -1037,7 +1037,7 @@ mod scheduler_smoke_test {
             ttype: TagType::Manual,
         }]);
 
-        let cluster_feed = ClusterFeed::load_from_clusters(vec![non_matching_cluster]);
+        let cluster_feed = ClusterFeed::load_from_clusters(vec![non_matching_cluster], &[]);
 
         info!("Starting no matching hosts integration test...");
 

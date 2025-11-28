@@ -77,7 +77,7 @@ mod stress_test {
         let test_data = assert_ok!(setup(&desc).await);
 
         let cluster_len = test_data.clusters.len();
-        let cluster_feed = ClusterFeed::load_from_clusters(test_data.clusters);
+        let cluster_feed = ClusterFeed::load_from_clusters(test_data.clusters, &[]);
         info!(
             "Starting Small stress test {} - cluster size: {:?}",
             test_data.test_prefix, cluster_len

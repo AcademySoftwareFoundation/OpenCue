@@ -245,6 +245,7 @@ pub struct SchedulerConfig {
     pub facility: Option<String>,
     pub alloc_tags: Vec<AllocTag>,
     pub manual_tags: Vec<String>,
+    pub ignore_tags: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
