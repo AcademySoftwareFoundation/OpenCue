@@ -1,0 +1,67 @@
+[package]
+name = "scheduler"
+authors = { workspace = true }
+edition = { workspace = true }
+version = { workspace = true }
+license = "Apache-2.0"
+description = "OpenCue Server Side Job Queueing Service"
+
+[[bin]]
+path = "src/main.rs"
+name = "cue-scheduler"
+
+[profile.bench]
+debug = true
+
+[dependencies]
+# Internal Dependencies
+opencue-proto = { path = "../opencue-proto" }
+
+# External Dependencies
+actix = "0.13"
+chrono = "0.4.38"
+futures = { workspace = true }
+scc = "3.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_derive = "1.0"
+serde_json = "1.0"
+async-trait = { workspace = true }
+async-stream = { workspace = true }
+config = { workspace = true }
+thiserror = { workspace = true }
+miette = { workspace = true }
+tracing = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-rolling-file = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["time"] }
+uuid = { workspace = true, features = ["serde"] }
+prost = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tokio-util = { version = "0.7" , feature = ["sync"]}
+tonic = { workspace = true }
+itertools = "0.13.0"
+humantime = "2.2.0"
+humantime-serde = "1.1.1"
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono"] }
+structopt = { workspace = true }
+once_cell = "1.13"
+bytesize = { version = "1.2.0", features = ["serde"] }
+regex = "1.0"
+indexmap = "2.0"
+lazy_static = "1.5"
+moka = { version = "0.12.10", features = ["future"] }
+prometheus = "0.13"
+axum = "0.7"
+tower-http = { version = "0.5", features = ["trace"] }
+urlencoding = "2.1"
+
+[features]
+default = []
+smoke-tests = []
+
+[dev-dependencies]
+tokio-test = "0.4"
+tracing-test = "0.2"
+serial_test = "3.0"
+rand = "0.8"

@@ -1,0 +1,14 @@
+build:
+    cargo build
+
+rqd_local:
+    env OPENCUE_RQD_CONFIG=/Users/dtavares/dev/OpenCue/rust/config/rqd.local.cuebot.yaml target/release/openrqd
+
+rqd_dummy:
+    env OPENCUE_RQD_CONFIG=/Users/dtavares/dev/OpenCue/rust/config/rqd.dummy.cuebot.yaml target/release/openrqd
+
+scheduler MODE="job-dispatcher": build
+    env OPENCUE_JOB_QUEUE_CONFIG=/Users/dtavares/dev/OpenCue/rust/config/scheduler.yaml target/debug/cue-scheduler {{MODE}}
+
+profile:
+    samply record cargo test --test stress_tests --release -- --nocapture
