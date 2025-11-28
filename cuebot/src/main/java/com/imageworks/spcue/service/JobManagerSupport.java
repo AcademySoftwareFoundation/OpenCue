@@ -659,14 +659,9 @@ public class JobManagerSupport {
     }
 
     public void setKafkaEventPublisher(KafkaEventPublisher kafkaEventPublisher) {
-        this.kafkaEventPublisher = kafkaEventPublisher;
-    }
-
-    public MonitoringEventBuilder getMonitoringEventBuilder() {
-        return monitoringEventBuilder;
-    }
-
-    public void setMonitoringEventBuilder(MonitoringEventBuilder monitoringEventBuilder) {
-        this.monitoringEventBuilder = monitoringEventBuilder;
+        if (kafkaEventPublisher != null) {
+            this.kafkaEventPublisher = kafkaEventPublisher;
+            this.monitoringEventBuilder = new MonitoringEventBuilder(kafkaEventPublisher);
+        }
     }
 }

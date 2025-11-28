@@ -773,8 +773,8 @@ public class FrameCompleteHandler {
     }
 
     public void setKafkaEventPublisher(KafkaEventPublisher kafkaEventPublisher) {
-        this.kafkaEventPublisher = kafkaEventPublisher;
         if (kafkaEventPublisher != null) {
+            this.kafkaEventPublisher = kafkaEventPublisher;
             this.monitoringEventBuilder = new MonitoringEventBuilder(kafkaEventPublisher);
         }
     }

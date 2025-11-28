@@ -252,7 +252,6 @@
     <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
     <property name="showDao" ref="showDao" />
     <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
-    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <bean id="jobLauncher" class="com.imageworks.spcue.service.JobLauncher">
