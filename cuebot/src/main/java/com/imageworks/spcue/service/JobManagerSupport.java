@@ -53,6 +53,10 @@ import com.imageworks.spcue.util.FrameSet;
 import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.ExecutionSummary;
 import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.monitoring.KafkaEventPublisher;
+import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
+import com.imageworks.spcue.grpc.monitoring.EventType;
+import com.imageworks.spcue.grpc.monitoring.JobEvent;
 
 /**
  * A non-transaction support class for managing jobs.
@@ -72,6 +76,8 @@ public class JobManagerSupport {
     private FrameSearchFactory frameSearchFactory;
     private PrometheusMetricsCollector prometheusMetrics;
     private ShowDao showDao;
+    private KafkaEventPublisher kafkaEventPublisher;
+    private MonitoringEventBuilder monitoringEventBuilder;
 
     public void queueShutdownJob(JobInterface job, Source source, boolean isManualKill) {
         manageQueue.execute(new DispatchJobComplete(job, source, isManualKill, this));
@@ -170,6 +176,21 @@ public class JobManagerSupport {
                                 jobDetail.shot);
                     } catch (Exception e) {
                         logger.warn("Failed to record job completion metric: " + e.getMessage());
+                    }
+                }
+
+                // Publish job completed/killed event to Kafka
+                if (kafkaEventPublisher != null && kafkaEventPublisher.isEnabled()) {
+                    try {
+                        JobDetail jobDetail = jobManager.getJobDetail(job.getId());
+                        EventType eventType =
+                                isManualKill ? EventType.JOB_KILLED : EventType.JOB_FINISHED;
+                        JobState previousState = JobState.PENDING;
+                        JobEvent jobEvent = monitoringEventBuilder.buildJobEvent(eventType,
+                                jobDetail, previousState, null, null);
+                        kafkaEventPublisher.publishJobEvent(jobEvent);
+                    } catch (Exception e) {
+                        logger.warn("Failed to publish job event: " + e.getMessage());
                     }
                 }
 
@@ -631,5 +652,21 @@ public class JobManagerSupport {
 
     public void setShowDao(ShowDao showDao) {
         this.showDao = showDao;
+    }
+
+    public KafkaEventPublisher getKafkaEventPublisher() {
+        return kafkaEventPublisher;
+    }
+
+    public void setKafkaEventPublisher(KafkaEventPublisher kafkaEventPublisher) {
+        this.kafkaEventPublisher = kafkaEventPublisher;
+    }
+
+    public MonitoringEventBuilder getMonitoringEventBuilder() {
+        return monitoringEventBuilder;
+    }
+
+    public void setMonitoringEventBuilder(MonitoringEventBuilder monitoringEventBuilder) {
+        this.monitoringEventBuilder = monitoringEventBuilder;
     }
 }

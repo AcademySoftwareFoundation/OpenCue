@@ -195,6 +195,7 @@
     <property name="redirectManager" ref="redirectManager" />
     <property name="bookingManager" ref="bookingManager" />
     <property name="bookingDao" ref="bookingDao" />
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
   </bean>
 
   <bean id="filterManager" class="com.imageworks.spcue.service.FilterManagerService">
@@ -250,6 +251,8 @@
     <property name="frameSearchFactory" ref="frameSearchFactory" />
     <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
     <property name="showDao" ref="showDao" />
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <bean id="jobLauncher" class="com.imageworks.spcue.service.JobLauncher">

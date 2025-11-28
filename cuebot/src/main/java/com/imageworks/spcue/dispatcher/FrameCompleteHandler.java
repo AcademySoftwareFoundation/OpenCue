@@ -62,6 +62,7 @@ import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
 import com.imageworks.spcue.grpc.monitoring.EventType;
 import com.imageworks.spcue.grpc.monitoring.FrameEvent;
 import com.imageworks.spcue.grpc.monitoring.JobEvent;
+import com.imageworks.spcue.grpc.monitoring.LayerEvent;
 import com.imageworks.spcue.PrometheusMetricsCollector;
 
 /**
@@ -301,6 +302,19 @@ public class FrameCompleteHandler {
                             }
                         } catch (Exception e) {
                             logger.trace("Failed to record layer metrics: {}", e.getMessage());
+                        }
+                    }
+
+                    // Publish layer completed event to Kafka
+                    if (kafkaEventPublisher != null && kafkaEventPublisher.isEnabled()) {
+                        try {
+                            LayerDetail layerDetail = jobManager.getLayerDetail(frame.getLayerId());
+                            LayerEvent layerEvent = monitoringEventBuilder.buildLayerEvent(
+                                    EventType.LAYER_COMPLETED, layerDetail, frame.getName(),
+                                    frame.show);
+                            kafkaEventPublisher.publishLayerEvent(layerEvent);
+                        } catch (Exception e) {
+                            logger.trace("Failed to publish layer event: {}", e.getMessage());
                         }
                     }
                 }

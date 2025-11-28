@@ -70,6 +70,8 @@ import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.monitoring.KafkaEventPublisher;
 import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
+import com.imageworks.spcue.grpc.monitoring.EventType;
+import com.imageworks.spcue.grpc.monitoring.HostEvent;
 import com.imageworks.spcue.grpc.monitoring.HostReportEvent;
 
 public class HostReportHandler {
@@ -376,10 +378,14 @@ public class HostReportHandler {
             return;
         }
 
+        HardwareState previousState = host.hardwareState;
+        boolean stateChanged = false;
+
         switch (host.hardwareState) {
             case DOWN:
                 hostManager.setHostState(host, HardwareState.UP);
                 host.hardwareState = HardwareState.UP;
+                stateChanged = true;
                 break;
             case REBOOTING:
             case REBOOT_WHEN_IDLE:
@@ -387,6 +393,7 @@ public class HostReportHandler {
                 if (isBoot) {
                     hostManager.setHostState(host, HardwareState.UP);
                     host.hardwareState = HardwareState.UP;
+                    stateChanged = true;
                 }
                 break;
             case REPAIR:
@@ -395,7 +402,13 @@ public class HostReportHandler {
             default:
                 hostManager.setHostState(host, reportState);
                 host.hardwareState = reportState;
+                stateChanged = true;
                 break;
+        }
+
+        // Publish host state change event
+        if (stateChanged) {
+            publishHostEvent(host, previousState, null);
         }
     }
 
@@ -1125,6 +1138,23 @@ public class HostReportHandler {
             kafkaEventPublisher.publishHostReportEvent(event);
         } catch (Exception e) {
             logger.trace("Failed to publish host report event: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Publishes a host state change event to Kafka for monitoring purposes.
+     */
+    private void publishHostEvent(DispatchHost host, HardwareState previousState, String reason) {
+        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
+            return;
+        }
+
+        try {
+            HostEvent event = monitoringEventBuilder.buildHostEvent(EventType.HOST_STATE_CHANGED,
+                    host, previousState, host.lockState, reason);
+            kafkaEventPublisher.publishHostEvent(event);
+        } catch (Exception e) {
+            logger.trace("Failed to publish host event: {}", e.getMessage());
         }
     }
 }

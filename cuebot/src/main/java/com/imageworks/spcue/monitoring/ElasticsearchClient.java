@@ -16,8 +16,14 @@ package com.imageworks.spcue.monitoring;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -32,8 +38,23 @@ import org.elasticsearch.client.RestClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.job.LayerType;
+import com.imageworks.spcue.grpc.monitoring.HistoricalFrame;
+import com.imageworks.spcue.grpc.monitoring.HistoricalJob;
+import com.imageworks.spcue.grpc.monitoring.HistoricalLayer;
+import com.imageworks.spcue.grpc.monitoring.LayerMemoryRecord;
+
+import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.elasticsearch.core.IndexResponse;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.json.JsonData;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
@@ -217,6 +238,480 @@ public class ElasticsearchClient {
         });
     }
 
+    // -------- Query Methods --------
+
+    /**
+     * Searches for historical job events.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public List<HistoricalJob> searchJobHistory(List<String> shows, List<String> users,
+            List<String> shots, List<String> jobNameRegex, List<JobState> states, long startTime,
+            long endTime, int page, int pageSize, int maxResults) {
+        if (!enabled || esClient == null) {
+            return Collections.emptyList();
+        }
+
+        try {
+            BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+
+            // Filter by event type (job finished/killed)
+            boolQuery.must(Query.of(q -> q.terms(t -> t.field("header.eventType").terms(v -> v
+                    .value(List.of(FieldValue.of("JOB_FINISHED"), FieldValue.of("JOB_KILLED")))))));
+
+            // Time range filter
+            if (startTime > 0 || endTime > 0) {
+                boolQuery.must(Query.of(q -> q.range(r -> {
+                    r.field("header.timestamp");
+                    if (startTime > 0)
+                        r.gte(JsonData.of(startTime));
+                    if (endTime > 0)
+                        r.lte(JsonData.of(endTime));
+                    return r;
+                })));
+            }
+
+            // Filter by shows
+            if (shows != null && !shows.isEmpty()) {
+                List<FieldValue> showValues = shows.stream().map(FieldValue::of)
+                        .collect(java.util.stream.Collectors.toList());
+                boolQuery.must(Query
+                        .of(q -> q.terms(t -> t.field("show").terms(v -> v.value(showValues)))));
+            }
+
+            // Filter by users
+            if (users != null && !users.isEmpty()) {
+                List<FieldValue> userValues = users.stream().map(FieldValue::of)
+                        .collect(java.util.stream.Collectors.toList());
+                boolQuery.must(Query
+                        .of(q -> q.terms(t -> t.field("user").terms(v -> v.value(userValues)))));
+            }
+
+            // Filter by shots
+            if (shots != null && !shots.isEmpty()) {
+                List<FieldValue> shotValues = shots.stream().map(FieldValue::of)
+                        .collect(java.util.stream.Collectors.toList());
+                boolQuery.must(Query
+                        .of(q -> q.terms(t -> t.field("shot").terms(v -> v.value(shotValues)))));
+            }
+
+            // Filter by job name regex
+            if (jobNameRegex != null && !jobNameRegex.isEmpty()) {
+                for (String regex : jobNameRegex) {
+                    boolQuery.must(Query.of(q -> q.regexp(r -> r.field("jobName").value(regex))));
+                }
+            }
+
+            // Filter by states
+            if (states != null && !states.isEmpty()) {
+                List<FieldValue> stateValues = states.stream().map(s -> FieldValue.of(s.name()))
+                        .collect(java.util.stream.Collectors.toList());
+                boolQuery.must(Query
+                        .of(q -> q.terms(t -> t.field("state").terms(v -> v.value(stateValues)))));
+            }
+
+            int size = Math.min(pageSize > 0 ? pageSize : 100, maxResults > 0 ? maxResults : 1000);
+            int from = page > 0 ? (page - 1) * size : 0;
+
+            SearchRequest request = SearchRequest.of(s -> s.index(INDEX_JOB_EVENTS + "-*")
+                    .query(Query.of(q -> q.bool(boolQuery.build()))).from(from).size(size)
+                    .sort(sort -> sort
+                            .field(f -> f.field("header.timestamp").order(SortOrder.Desc))));
+
+            SearchResponse<Map> response = esClient.search(request, Map.class);
+
+            List<HistoricalJob> results = new ArrayList<>();
+            for (Hit<Map> hit : response.hits().hits()) {
+                Map<String, Object> source = hit.source();
+                if (source != null) {
+                    results.add(mapToHistoricalJob(source));
+                }
+            }
+
+            return results;
+        } catch (Exception e) {
+            logger.warn("Failed to search job history: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Searches for historical frame events.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public List<HistoricalFrame> searchFrameHistory(String jobId, String jobName,
+            List<String> layerNames, List<FrameState> states, long startTime, long endTime,
+            int page, int pageSize) {
+        if (!enabled || esClient == null) {
+            return Collections.emptyList();
+        }
+
+        try {
+            BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+
+            // Filter by event type (frame completed/failed/eaten)
+            boolQuery
+                    .must(Query.of(q -> q.terms(t -> t.field("header.eventType")
+                            .terms(v -> v.value(List.of(FieldValue.of("FRAME_COMPLETED"),
+                                    FieldValue.of("FRAME_FAILED"),
+                                    FieldValue.of("FRAME_EATEN")))))));
+
+            // Filter by job
+            if (jobId != null && !jobId.isEmpty()) {
+                boolQuery.must(Query.of(q -> q.term(t -> t.field("jobId").value(jobId))));
+            }
+            if (jobName != null && !jobName.isEmpty()) {
+                boolQuery.must(Query.of(q -> q.term(t -> t.field("jobName").value(jobName))));
+            }
+
+            // Time range filter
+            if (startTime > 0 || endTime > 0) {
+                boolQuery.must(Query.of(q -> q.range(r -> {
+                    r.field("header.timestamp");
+                    if (startTime > 0)
+                        r.gte(JsonData.of(startTime));
+                    if (endTime > 0)
+                        r.lte(JsonData.of(endTime));
+                    return r;
+                })));
+            }
+
+            // Filter by layer names
+            if (layerNames != null && !layerNames.isEmpty()) {
+                List<FieldValue> layerValues = layerNames.stream().map(FieldValue::of)
+                        .collect(java.util.stream.Collectors.toList());
+                boolQuery.must(Query.of(
+                        q -> q.terms(t -> t.field("layerName").terms(v -> v.value(layerValues)))));
+            }
+
+            // Filter by states
+            if (states != null && !states.isEmpty()) {
+                List<FieldValue> stateValues = states.stream().map(s -> FieldValue.of(s.name()))
+                        .collect(java.util.stream.Collectors.toList());
+                boolQuery.must(Query
+                        .of(q -> q.terms(t -> t.field("state").terms(v -> v.value(stateValues)))));
+            }
+
+            int size = pageSize > 0 ? pageSize : 100;
+            int from = page > 0 ? (page - 1) * size : 0;
+
+            SearchRequest request = SearchRequest.of(s -> s.index(INDEX_FRAME_EVENTS + "-*")
+                    .query(Query.of(q -> q.bool(boolQuery.build()))).from(from).size(size)
+                    .sort(sort -> sort
+                            .field(f -> f.field("header.timestamp").order(SortOrder.Desc))));
+
+            SearchResponse<Map> response = esClient.search(request, Map.class);
+
+            List<HistoricalFrame> results = new ArrayList<>();
+            for (Hit<Map> hit : response.hits().hits()) {
+                Map<String, Object> source = hit.source();
+                if (source != null) {
+                    results.add(mapToHistoricalFrame(source));
+                }
+            }
+
+            return results;
+        } catch (Exception e) {
+            logger.warn("Failed to search frame history: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Searches for historical layer events.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public List<HistoricalLayer> searchLayerHistory(String jobId, String jobName, long startTime,
+            long endTime, int page, int pageSize) {
+        if (!enabled || esClient == null) {
+            return Collections.emptyList();
+        }
+
+        try {
+            BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+
+            // Filter by event type
+            boolQuery.must(Query
+                    .of(q -> q.term(t -> t.field("header.eventType").value("LAYER_COMPLETED"))));
+
+            // Filter by job
+            if (jobId != null && !jobId.isEmpty()) {
+                boolQuery.must(Query.of(q -> q.term(t -> t.field("jobId").value(jobId))));
+            }
+            if (jobName != null && !jobName.isEmpty()) {
+                boolQuery.must(Query.of(q -> q.term(t -> t.field("jobName").value(jobName))));
+            }
+
+            // Time range filter
+            if (startTime > 0 || endTime > 0) {
+                boolQuery.must(Query.of(q -> q.range(r -> {
+                    r.field("header.timestamp");
+                    if (startTime > 0)
+                        r.gte(JsonData.of(startTime));
+                    if (endTime > 0)
+                        r.lte(JsonData.of(endTime));
+                    return r;
+                })));
+            }
+
+            int size = pageSize > 0 ? pageSize : 100;
+            int from = page > 0 ? (page - 1) * size : 0;
+
+            SearchRequest request = SearchRequest.of(s -> s.index(INDEX_LAYER_EVENTS + "-*")
+                    .query(Query.of(q -> q.bool(boolQuery.build()))).from(from).size(size)
+                    .sort(sort -> sort
+                            .field(f -> f.field("header.timestamp").order(SortOrder.Desc))));
+
+            SearchResponse<Map> response = esClient.search(request, Map.class);
+
+            List<HistoricalLayer> results = new ArrayList<>();
+            for (Hit<Map> hit : response.hits().hits()) {
+                Map<String, Object> source = hit.source();
+                if (source != null) {
+                    results.add(mapToHistoricalLayer(source));
+                }
+            }
+
+            return results;
+        } catch (Exception e) {
+            logger.warn("Failed to search layer history: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Searches for layer memory history records.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public List<LayerMemoryRecord> searchLayerMemoryHistory(String layerName, List<String> shows,
+            long startTime, long endTime, int maxResults) {
+        if (!enabled || esClient == null) {
+            return Collections.emptyList();
+        }
+
+        try {
+            BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+
+            // Filter by event type (frame completed to get memory data)
+            boolQuery.must(Query
+                    .of(q -> q.term(t -> t.field("header.eventType").value("FRAME_COMPLETED"))));
+
+            // Filter by layer name
+            if (layerName != null && !layerName.isEmpty()) {
+                boolQuery.must(Query.of(q -> q.term(t -> t.field("layerName").value(layerName))));
+            }
+
+            // Filter by shows
+            if (shows != null && !shows.isEmpty()) {
+                List<FieldValue> showValues = shows.stream().map(FieldValue::of)
+                        .collect(java.util.stream.Collectors.toList());
+                boolQuery.must(Query
+                        .of(q -> q.terms(t -> t.field("show").terms(v -> v.value(showValues)))));
+            }
+
+            // Time range filter
+            if (startTime > 0 || endTime > 0) {
+                boolQuery.must(Query.of(q -> q.range(r -> {
+                    r.field("header.timestamp");
+                    if (startTime > 0)
+                        r.gte(JsonData.of(startTime));
+                    if (endTime > 0)
+                        r.lte(JsonData.of(endTime));
+                    return r;
+                })));
+            }
+
+            int size = maxResults > 0 ? maxResults : 1000;
+
+            SearchRequest request = SearchRequest.of(s -> s.index(INDEX_FRAME_EVENTS + "-*")
+                    .query(Query.of(q -> q.bool(boolQuery.build()))).size(size).sort(sort -> sort
+                            .field(f -> f.field("header.timestamp").order(SortOrder.Desc))));
+
+            SearchResponse<Map> response = esClient.search(request, Map.class);
+
+            List<LayerMemoryRecord> results = new ArrayList<>();
+            for (Hit<Map> hit : response.hits().hits()) {
+                Map<String, Object> source = hit.source();
+                if (source != null) {
+                    results.add(mapToLayerMemoryRecord(source));
+                }
+            }
+
+            return results;
+        } catch (Exception e) {
+            logger.warn("Failed to search layer memory history: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    // -------- Helper Methods for Mapping --------
+
+    @SuppressWarnings("unchecked")
+    private HistoricalJob mapToHistoricalJob(Map<String, Object> source) {
+        HistoricalJob.Builder builder = HistoricalJob.newBuilder();
+
+        builder.setId(getStringValue(source, "jobId"));
+        builder.setName(getStringValue(source, "jobName"));
+        builder.setShow(getStringValue(source, "show"));
+        builder.setShot(getStringValue(source, "shot"));
+        builder.setUser(getStringValue(source, "user"));
+        builder.setFacility(getStringValue(source, "facility"));
+
+        String stateStr = getStringValue(source, "state");
+        if (!stateStr.isEmpty()) {
+            try {
+                builder.setFinalState(JobState.valueOf(stateStr));
+            } catch (IllegalArgumentException e) {
+                builder.setFinalState(JobState.FINISHED);
+            }
+        }
+
+        builder.setStartTime(getIntValue(source, "startTime"));
+        builder.setStopTime(getIntValue(source, "stopTime"));
+        builder.setPriority(getIntValue(source, "priority"));
+
+        // Stats from nested object
+        Map<String, Object> stats = (Map<String, Object>) source.get("stats");
+        if (stats != null) {
+            builder.setTotalFrames(getIntValue(stats, "totalFrames"));
+            builder.setSucceededFrames(getIntValue(stats, "succeededFrames"));
+            builder.setFailedFrames(getIntValue(stats, "deadFrames"));
+            builder.setTotalCoreSeconds(getLongValue(stats, "renderedCoreSeconds"));
+            builder.setTotalGpuSeconds(getLongValue(stats, "renderedGpuSeconds"));
+            builder.setMaxRss(getLongValue(stats, "maxRss"));
+        }
+
+        return builder.build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private HistoricalFrame mapToHistoricalFrame(Map<String, Object> source) {
+        HistoricalFrame.Builder builder = HistoricalFrame.newBuilder();
+
+        builder.setId(getStringValue(source, "frameId"));
+        builder.setName(getStringValue(source, "frameName"));
+        builder.setLayerName(getStringValue(source, "layerName"));
+        builder.setJobName(getStringValue(source, "jobName"));
+        builder.setShow(getStringValue(source, "show"));
+        builder.setFrameNumber(getIntValue(source, "frameNumber"));
+
+        String stateStr = getStringValue(source, "state");
+        if (!stateStr.isEmpty()) {
+            try {
+                builder.setFinalState(FrameState.valueOf(stateStr));
+            } catch (IllegalArgumentException e) {
+                builder.setFinalState(FrameState.SUCCEEDED);
+            }
+        }
+
+        builder.setExitStatus(getIntValue(source, "exitStatus"));
+        builder.setRetryCount(getIntValue(source, "retryCount"));
+        builder.setStartTime(getIntValue(source, "startTime"));
+        builder.setStopTime(getIntValue(source, "stopTime"));
+        builder.setMaxRss(getLongValue(source, "maxRss"));
+        builder.setLastHost(getStringValue(source, "hostName"));
+        builder.setTotalCoreTime(getIntValue(source, "totalCoreTime"));
+        builder.setTotalGpuTime(getIntValue(source, "totalGpuTime"));
+
+        return builder.build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private HistoricalLayer mapToHistoricalLayer(Map<String, Object> source) {
+        HistoricalLayer.Builder builder = HistoricalLayer.newBuilder();
+
+        builder.setId(getStringValue(source, "layerId"));
+        builder.setName(getStringValue(source, "layerName"));
+        builder.setJobName(getStringValue(source, "jobName"));
+        builder.setShow(getStringValue(source, "show"));
+
+        String typeStr = getStringValue(source, "type");
+        if (!typeStr.isEmpty()) {
+            try {
+                builder.setType(LayerType.valueOf(typeStr));
+            } catch (IllegalArgumentException e) {
+                builder.setType(LayerType.RENDER);
+            }
+        }
+
+        List<String> tags = (List<String>) source.get("tags");
+        if (tags != null) {
+            builder.addAllTags(tags);
+        }
+
+        List<String> services = (List<String>) source.get("services");
+        if (services != null) {
+            builder.addAllServices(services);
+        }
+
+        // Stats from nested object
+        Map<String, Object> stats = (Map<String, Object>) source.get("stats");
+        if (stats != null) {
+            builder.setTotalFrames(getIntValue(stats, "totalFrames"));
+            builder.setSucceededFrames(getIntValue(stats, "succeededFrames"));
+            builder.setFailedFrames(getIntValue(stats, "deadFrames"));
+            builder.setTotalCoreSeconds(getLongValue(stats, "totalCoreSeconds"));
+            builder.setTotalGpuSeconds(getLongValue(stats, "totalGpuSeconds"));
+            builder.setMaxRss(getLongValue(stats, "maxRss"));
+            builder.setAvgFrameSeconds(getLongValue(stats, "avgFrameSec"));
+        }
+
+        return builder.build();
+    }
+
+    private LayerMemoryRecord mapToLayerMemoryRecord(Map<String, Object> source) {
+        LayerMemoryRecord.Builder builder = LayerMemoryRecord.newBuilder();
+
+        builder.setJobName(getStringValue(source, "jobName"));
+        builder.setLayerName(getStringValue(source, "layerName"));
+        builder.setShow(getStringValue(source, "show"));
+
+        // Get timestamp from header
+        @SuppressWarnings("unchecked")
+        Map<String, Object> header = (Map<String, Object>) source.get("header");
+        if (header != null) {
+            builder.setTimestamp((int) (getLongValue(header, "timestamp") / 1000));
+        }
+
+        builder.setMaxRss(getLongValue(source, "maxRss"));
+        builder.setReservedMemory(getLongValue(source, "reservedMemory"));
+
+        return builder.build();
+    }
+
+    private String getStringValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        return value != null ? value.toString() : "";
+    }
+
+    private int getIntValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        return 0;
+    }
+
+    private long getLongValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        return 0L;
+    }
+
+    /**
+     * Generates the index pattern for a time range.
+     */
+    private String getIndexPattern(String prefix, long startTime, long endTime) {
+        if (startTime <= 0 && endTime <= 0) {
+            return prefix + "-*";
+        }
+
+        // For simplicity, use wildcard pattern
+        // In production, could optimize to specific date ranges
+        return prefix + "-*";
+    }
+
     /**
      * Returns true if Elasticsearch storage is enabled.
      */
@@ -229,5 +724,12 @@ public class ElasticsearchClient {
      */
     public int getPendingIndexCount() {
         return indexingPool != null ? indexingPool.getQueue().size() : 0;
+    }
+
+    /**
+     * Returns the native Elasticsearch client for advanced queries.
+     */
+    public co.elastic.clients.elasticsearch.ElasticsearchClient getNativeClient() {
+        return esClient;
     }
 }
