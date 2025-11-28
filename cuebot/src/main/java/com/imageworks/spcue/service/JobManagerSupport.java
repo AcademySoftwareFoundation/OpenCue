@@ -27,6 +27,7 @@ import io.sentry.Sentry;
 
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
@@ -157,9 +158,10 @@ public class JobManagerSupport {
                 // Record job completion metric
                 if (prometheusMetrics != null && showDao != null) {
                     try {
+                        JobDetail jobDetail = jobManager.getJobDetail(job.getId());
                         String showName = showDao.getShowDetail(job.getShowId()).getName();
                         String state = isManualKill ? "KILLED" : "FINISHED";
-                        prometheusMetrics.recordJobCompleted(state, showName);
+                        prometheusMetrics.recordJobCompleted(state, showName, jobDetail.shot);
                     } catch (Exception e) {
                         logger.warn("Failed to record job completion metric: " + e.getMessage());
                     }

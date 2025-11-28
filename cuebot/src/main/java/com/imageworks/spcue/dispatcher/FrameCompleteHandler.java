@@ -763,7 +763,8 @@ public class FrameCompleteHandler {
         // Record Prometheus metrics for frame completion
         if (prometheusMetrics != null) {
             try {
-                prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show);
+                prometheusMetrics.recordFrameCompleted(newFrameState.name(), frame.show,
+                        frame.shot);
                 prometheusMetrics.recordFrameRuntime(report.getRunTime(), frame.show, "render");
                 if (report.getFrame().getMaxRss() > 0) {
                     prometheusMetrics.recordFrameMemory(report.getFrame().getMaxRss() * 1024L,

@@ -121,11 +121,11 @@ public class PrometheusMetricsCollector {
 
     private static final Counter frameCompletedCounter = Counter.build()
             .name("cue_frames_completed_total").help("Total number of frames completed")
-            .labelNames("env", "cuebot_host", "state", "show").register();
+            .labelNames("env", "cuebot_host", "state", "show", "shot").register();
 
     private static final Counter jobCompletedCounter =
             Counter.build().name("cue_jobs_completed_total").help("Total number of jobs completed")
-                    .labelNames("env", "cuebot_host", "state", "show").register();
+                    .labelNames("env", "cuebot_host", "state", "show", "shot").register();
 
     private static final Histogram frameRuntimeHistogram = Histogram.build()
             .name("cue_frame_runtime_seconds").help("Histogram of frame runtimes in seconds")
@@ -299,10 +299,11 @@ public class PrometheusMetricsCollector {
      *
      * @param state final state of the frame
      * @param show show name
+     * @param shot shot name
      */
-    public void recordFrameCompleted(String state, String show) {
-        frameCompletedCounter.labels(this.deployment_environment, this.cuebot_host, state, show)
-                .inc();
+    public void recordFrameCompleted(String state, String show, String shot) {
+        frameCompletedCounter
+                .labels(this.deployment_environment, this.cuebot_host, state, show, shot).inc();
     }
 
     /**
@@ -310,9 +311,10 @@ public class PrometheusMetricsCollector {
      *
      * @param state final state of the job
      * @param show show name
+     * @param shot shot name
      */
-    public void recordJobCompleted(String state, String show) {
-        jobCompletedCounter.labels(this.deployment_environment, this.cuebot_host, state, show)
+    public void recordJobCompleted(String state, String show, String shot) {
+        jobCompletedCounter.labels(this.deployment_environment, this.cuebot_host, state, show, shot)
                 .inc();
     }
 
