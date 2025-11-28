@@ -51,6 +51,7 @@ import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.FrameSet;
 import com.imageworks.spcue.PrometheusMetricsCollector;
+import com.imageworks.spcue.ExecutionSummary;
 import com.imageworks.spcue.dao.ShowDao;
 
 /**
@@ -162,6 +163,11 @@ public class JobManagerSupport {
                         String showName = showDao.getShowDetail(job.getShowId()).getName();
                         String state = isManualKill ? "KILLED" : "FINISHED";
                         prometheusMetrics.recordJobCompleted(state, showName, jobDetail.shot);
+
+                        // Record job core seconds histogram
+                        ExecutionSummary execSummary = jobManager.getExecutionSummary(job);
+                        prometheusMetrics.recordJobCoreSeconds(execSummary.coreTime, showName,
+                                jobDetail.shot);
                     } catch (Exception e) {
                         logger.warn("Failed to record job completion metric: " + e.getMessage());
                     }

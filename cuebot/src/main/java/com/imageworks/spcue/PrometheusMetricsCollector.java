@@ -127,6 +127,11 @@ public class PrometheusMetricsCollector {
             Counter.build().name("cue_jobs_completed_total").help("Total number of jobs completed")
                     .labelNames("env", "cuebot_host", "state", "show", "shot").register();
 
+    private static final Histogram jobCoreSecondsHistogram = Histogram.build()
+            .name("cue_job_core_seconds").help("Histogram of total core seconds per job")
+            .labelNames("env", "cuebot_host", "show", "shot")
+            .buckets(3600, 36000, 360000, 3600000, 36000000).register();
+
     private static final Histogram frameRuntimeHistogram = Histogram.build()
             .name("cue_frame_runtime_seconds").help("Histogram of frame runtimes in seconds")
             .labelNames("env", "cuebot_host", "show", "layer_type")
@@ -316,6 +321,18 @@ public class PrometheusMetricsCollector {
     public void recordJobCompleted(String state, String show, String shot) {
         jobCompletedCounter.labels(this.deployment_environment, this.cuebot_host, state, show, shot)
                 .inc();
+    }
+
+    /**
+     * Record job total core seconds for histogramming
+     *
+     * @param coreSeconds total core seconds consumed by the job
+     * @param show show name
+     * @param shot shot name
+     */
+    public void recordJobCoreSeconds(double coreSeconds, String show, String shot) {
+        jobCoreSecondsHistogram.labels(this.deployment_environment, this.cuebot_host, show, shot)
+                .observe(coreSeconds);
     }
 
     /**
