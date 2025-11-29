@@ -164,19 +164,15 @@ public class JobManagerSupport {
 
                 // Record job completion metric
                 if (prometheusMetrics != null && showDao != null) {
-                    try {
-                        JobDetail jobDetail = jobManager.getJobDetail(job.getId());
-                        String showName = showDao.getShowDetail(job.getShowId()).getName();
-                        String state = isManualKill ? "KILLED" : "FINISHED";
-                        prometheusMetrics.recordJobCompleted(state, showName, jobDetail.shot);
+                    JobDetail jobDetail = jobManager.getJobDetail(job.getId());
+                    String showName = showDao.getShowDetail(job.getShowId()).getName();
+                    String state = isManualKill ? "KILLED" : "FINISHED";
+                    prometheusMetrics.recordJobCompleted(state, showName, jobDetail.shot);
 
-                        // Record job core seconds histogram
-                        ExecutionSummary execSummary = jobManager.getExecutionSummary(job);
-                        prometheusMetrics.recordJobCoreSeconds(execSummary.coreTime, showName,
-                                jobDetail.shot);
-                    } catch (Exception e) {
-                        logger.warn("Failed to record job completion metric: " + e.getMessage());
-                    }
+                    // Record job core seconds histogram
+                    ExecutionSummary execSummary = jobManager.getExecutionSummary(job);
+                    prometheusMetrics.recordJobCoreSeconds(execSummary.coreTime, showName,
+                            jobDetail.shot);
                 }
 
                 // Publish job completed/killed event to Kafka
@@ -190,7 +186,7 @@ public class JobManagerSupport {
                                 jobDetail, previousState, null, null);
                         kafkaEventPublisher.publishJobEvent(jobEvent);
                     } catch (Exception e) {
-                        logger.warn("Failed to publish job event: " + e.getMessage());
+                        logger.warn("Failed to publish job event", e);
                     }
                 }
 
