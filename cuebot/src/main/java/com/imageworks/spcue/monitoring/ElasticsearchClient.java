@@ -99,6 +99,7 @@ public class ElasticsearchClient {
 
         initializeClient();
         initializeThreadPool();
+        createIndexTemplates();
 
         logger.info("Elasticsearch client initialized");
     }
@@ -116,6 +117,59 @@ public class ElasticsearchClient {
     private void initializeThreadPool() {
         indexingPool = new ThreadPoolExecutor(THREAD_POOL_SIZE, THREAD_POOL_SIZE, 60L,
                 TimeUnit.SECONDS, new LinkedBlockingQueue<>(QUEUE_SIZE));
+    }
+
+    /**
+     * Creates index templates with proper field mappings to ensure timestamp fields are mapped as
+     * date type instead of text.
+     */
+    private void createIndexTemplates() {
+        String[] indexPrefixes = {INDEX_JOB_EVENTS, INDEX_LAYER_EVENTS, INDEX_FRAME_EVENTS,
+                INDEX_HOST_EVENTS, INDEX_HOST_REPORTS, INDEX_PROC_EVENTS};
+
+        for (String prefix : indexPrefixes) {
+            try {
+                String templateName = prefix.replace("-", "_") + "_template";
+
+                // Check if template already exists
+                boolean templateExists =
+                        esClient.indices().existsIndexTemplate(r -> r.name(templateName)).value();
+
+                if (!templateExists) {
+                    esClient.indices().putIndexTemplate(t -> t.name(templateName)
+                            .indexPatterns(List.of(prefix + "-*")).priority(100)
+                            .template(template -> template.mappings(m -> m
+                                    // Map header.timestamp as date with epoch_millis format
+                                    .properties("header",
+                                            p -> p.object(o -> o
+                                                    .properties("timestamp",
+                                                            tp -> tp.date(
+                                                                    d -> d.format("epoch_millis")))
+                                                    .properties("event_type",
+                                                            ep -> ep.keyword(k -> k))
+                                                    .properties("event_id",
+                                                            ep -> ep.keyword(k -> k))
+                                                    .properties("source_cuebot",
+                                                            ep -> ep.keyword(k -> k))
+                                                    .properties("correlation_id",
+                                                            ep -> ep.keyword(k -> k))))
+                                    // Map common fields as keywords for proper aggregation
+                                    .properties("job_id", p -> p.keyword(k -> k))
+                                    .properties("job_name", p -> p.keyword(k -> k))
+                                    .properties("layer_id", p -> p.keyword(k -> k))
+                                    .properties("layer_name", p -> p.keyword(k -> k))
+                                    .properties("show", p -> p.keyword(k -> k))
+                                    .properties("host_name", p -> p.keyword(k -> k))
+                                    .properties("previous_state", p -> p.keyword(k -> k)))));
+
+                    logger.info("Created index template: {}", templateName);
+                } else {
+                    logger.debug("Index template already exists: {}", templateName);
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to create index template for {}: {}", prefix, e.getMessage());
+            }
+        }
     }
 
     @PreDestroy

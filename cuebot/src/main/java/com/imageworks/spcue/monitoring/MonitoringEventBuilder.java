@@ -22,11 +22,15 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.grpc.job.CheckpointState;
+import com.imageworks.spcue.grpc.job.Frame;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.job.Layer;
 import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.grpc.monitoring.EventHeader;
 import com.imageworks.spcue.grpc.monitoring.EventType;
@@ -65,22 +69,27 @@ public class MonitoringEventBuilder {
             String reason, String killedBy) {
         EventHeader header = publisher.createEventHeader(eventType, job.getJobId()).build();
 
-        JobEvent.Builder builder = JobEvent.newBuilder().setHeader(header).setJobId(job.getJobId())
-                .setJobName(job.getName()).setShow(job.showName != null ? job.showName : "")
-                .setShot(job.shot).setUser(job.user).setFacility(job.facilityName)
+        // Build the embedded Job message
+        Job.Builder jobBuilder = Job.newBuilder().setId(job.getJobId()).setName(job.getName())
+                .setShow(job.showName != null ? job.showName : "").setShot(job.shot)
+                .setUser(job.user).setFacility(job.facilityName)
                 .setGroup(job.groupId != null ? job.groupId : "").setState(job.state)
-                .setPreviousState(previousState).setPriority(job.priority)
-                .setMinCores(job.minCoreUnits / 100.0f).setMaxCores(job.maxCoreUnits / 100.0f)
-                .setMinGpus(job.minGpuUnits).setMaxGpus(job.maxGpuUnits).setIsPaused(job.isPaused)
-                .setAutoEat(job.isAutoEat).setLogDir(job.logDir != null ? job.logDir : "")
+                .setPriority(job.priority).setMinCores(job.minCoreUnits / 100.0f)
+                .setMaxCores(job.maxCoreUnits / 100.0f).setMinGpus(job.minGpuUnits)
+                .setMaxGpus(job.maxGpuUnits).setIsPaused(job.isPaused).setAutoEat(job.isAutoEat)
+                .setLogDir(job.logDir != null ? job.logDir : "")
                 .setOs(job.os != null ? job.os : "");
 
         if (job.startTime > 0) {
-            builder.setStartTime(job.startTime);
+            jobBuilder.setStartTime(job.startTime);
         }
         if (job.stopTime > 0) {
-            builder.setStopTime(job.stopTime);
+            jobBuilder.setStopTime(job.stopTime);
         }
+
+        JobEvent.Builder builder = JobEvent.newBuilder().setHeader(header)
+                .setJob(jobBuilder.build()).setPreviousState(previousState);
+
         if (reason != null) {
             builder.setReason(reason);
         }
@@ -97,9 +106,12 @@ public class MonitoringEventBuilder {
     public JobEvent buildJobEvent(EventType eventType, DispatchJob job, JobState previousState) {
         EventHeader header = publisher.createEventHeader(eventType, job.getJobId()).build();
 
-        return JobEvent.newBuilder().setHeader(header).setJobId(job.getJobId())
-                .setJobName(job.getName()).setState(job.state).setPreviousState(previousState)
-                .setIsPaused(job.paused).setAutoEat(job.autoEat).build();
+        // Build the embedded Job message (minimal fields)
+        Job jobProto = Job.newBuilder().setId(job.getJobId()).setName(job.getName())
+                .setState(job.state).setIsPaused(job.paused).setAutoEat(job.autoEat).build();
+
+        return JobEvent.newBuilder().setHeader(header).setJob(jobProto)
+                .setPreviousState(previousState).build();
     }
 
     /**
@@ -109,26 +121,28 @@ public class MonitoringEventBuilder {
             String show) {
         EventHeader header = publisher.createEventHeader(eventType, layer.getJobId()).build();
 
-        LayerEvent.Builder builder = LayerEvent.newBuilder().setHeader(header)
-                .setLayerId(layer.getLayerId()).setLayerName(layer.getName())
-                .setJobId(layer.getJobId()).setJobName(jobName).setShow(show).setType(layer.type)
-                .setMinCores(layer.minimumCores / 100.0f).setMaxCores(layer.maximumCores / 100.0f)
-                .setMinGpus(layer.minimumGpus).setMaxGpus(layer.maximumGpus)
-                .setMinMemory(layer.minimumMemory).setMinGpuMemory(layer.minimumGpuMemory)
-                .setIsThreadable(layer.isThreadable).setChunkSize(layer.chunkSize)
-                .setTimeout(layer.timeout).setTimeoutLlu(layer.timeout_llu);
+        // Build the embedded Layer message
+        Layer.Builder layerBuilder =
+                Layer.newBuilder().setId(layer.getLayerId()).setName(layer.getName())
+                        .setType(layer.type).setMinCores(layer.minimumCores / 100.0f)
+                        .setMaxCores(layer.maximumCores / 100.0f).setMinGpus(layer.minimumGpus)
+                        .setMaxGpus(layer.maximumGpus).setMinMemory(layer.minimumMemory)
+                        .setMinGpuMemory(layer.minimumGpuMemory).setIsThreadable(layer.isThreadable)
+                        .setChunkSize(layer.chunkSize).setTimeout(layer.timeout)
+                        .setTimeoutLlu(layer.timeout_llu).setParentId(layer.getJobId());
 
         if (layer.tags != null && !layer.tags.isEmpty()) {
-            builder.addAllTags(layer.tags);
+            layerBuilder.addAllTags(layer.tags);
         }
         if (layer.services != null && !layer.services.isEmpty()) {
-            builder.addAllServices(layer.services);
+            layerBuilder.addAllServices(layer.services);
         }
         if (layer.command != null) {
-            builder.setCommand(layer.command);
+            layerBuilder.setCommand(layer.command);
         }
 
-        return builder.build();
+        return LayerEvent.newBuilder().setHeader(header).setLayer(layerBuilder.build())
+                .setJobId(layer.getJobId()).setJobName(jobName).setShow(show).build();
     }
 
     /**
@@ -139,25 +153,26 @@ public class MonitoringEventBuilder {
         EventType eventType = determineFrameEventType(newState);
         EventHeader header = publisher.createEventHeader(eventType, frame.getJobId()).build();
 
-        FrameEvent.Builder builder = FrameEvent.newBuilder().setHeader(header)
-                .setFrameId(frame.getFrameId()).setFrameName(frame.getName())
-                .setLayerId(frame.getLayerId()).setLayerName(frame.layerName)
-                .setJobId(frame.getJobId()).setJobName(report.getFrame().getJobName())
-                .setShow(frame.show).setState(newState).setPreviousState(previousState)
-                .setRetryCount(frame.retries).setExitStatus(report.getExitStatus())
-                .setExitSignal(report.getExitSignal())
-                .setStartTime(report.getFrame().getStartTime())
-                .setStopTime(System.currentTimeMillis()).setRunTime(report.getRunTime())
-                .setLluTime(report.getFrame().getLluTime()).setMaxRss(report.getFrame().getMaxRss())
-                .setUsedMemory(report.getFrame().getRss()).setReservedMemory(proc.memoryReserved)
+        // Build the embedded Frame message
+        Frame frameProto = Frame.newBuilder().setId(frame.getFrameId()).setName(frame.getName())
+                .setLayerName(frame.layerName).setState(newState).setRetryCount(frame.retries)
+                .setExitStatus(report.getExitStatus())
+                .setStartTime((int) report.getFrame().getStartTime())
+                .setStopTime((int) (System.currentTimeMillis() / 1000))
+                .setMaxRss(report.getFrame().getMaxRss()).setUsedMemory(report.getFrame().getRss())
+                .setReservedMemory(proc.memoryReserved).setReservedGpuMemory(proc.gpuMemoryReserved)
+                .setLluTime((int) report.getFrame().getLluTime())
                 .setMaxGpuMemory(report.getFrame().getMaxUsedGpuMemory())
                 .setUsedGpuMemory(report.getFrame().getUsedGpuMemory())
-                .setReservedGpuMemory(proc.gpuMemoryReserved)
-                .setNumCores(report.getFrame().getNumCores())
-                .setNumGpus(report.getFrame().getNumGpus()).setHostName(report.getHost().getName())
-                .setResourceId(report.getFrame().getResourceId());
+                .setLastResource(report.getFrame().getResourceId()).build();
 
-        return builder.build();
+        return FrameEvent.newBuilder().setHeader(header).setFrame(frameProto)
+                .setLayerId(frame.getLayerId()).setJobId(frame.getJobId())
+                .setJobName(report.getFrame().getJobName()).setShow(frame.show)
+                .setPreviousState(previousState).setExitSignal(report.getExitSignal())
+                .setRunTime(report.getRunTime()).setNumCores(report.getFrame().getNumCores())
+                .setNumGpus(report.getFrame().getNumGpus()).setHostName(report.getHost().getName())
+                .setResourceId(report.getFrame().getResourceId()).build();
     }
 
     /**
@@ -167,14 +182,14 @@ public class MonitoringEventBuilder {
         EventHeader header =
                 publisher.createEventHeader(EventType.FRAME_DISPATCHED, frame.getJobId()).build();
 
-        FrameEvent.Builder builder =
-                FrameEvent.newBuilder().setHeader(header).setFrameId(frame.getFrameId())
-                        .setFrameName(frame.getName()).setFrameNumber(frame.number)
-                        .setLayerId(frame.getLayerId()).setJobId(frame.getJobId())
-                        .setState(FrameState.WAITING).setPreviousState(FrameState.DEPEND)
-                        .setRetryCount(frame.retryCount).setDispatchOrder(frame.dispatchOrder);
+        // Build the embedded Frame message
+        Frame frameProto = Frame.newBuilder().setId(frame.getFrameId()).setName(frame.getName())
+                .setNumber(frame.number).setState(FrameState.WAITING)
+                .setRetryCount(frame.retryCount).setDispatchOrder(frame.dispatchOrder).build();
 
-        return builder.build();
+        return FrameEvent.newBuilder().setHeader(header).setFrame(frameProto)
+                .setLayerId(frame.getLayerId()).setJobId(frame.getJobId())
+                .setPreviousState(FrameState.DEPEND).build();
     }
 
     /**
@@ -184,17 +199,19 @@ public class MonitoringEventBuilder {
         EventHeader header =
                 publisher.createEventHeader(EventType.FRAME_STARTED, frame.getJobId()).build();
 
-        FrameEvent.Builder builder = FrameEvent.newBuilder().setHeader(header)
-                .setFrameId(frame.getFrameId()).setFrameName(frame.getName())
-                .setLayerId(frame.getLayerId()).setLayerName(frame.layerName)
-                .setJobId(frame.getJobId()).setJobName(frame.jobName).setShow(frame.show)
-                .setState(FrameState.RUNNING).setPreviousState(frame.state)
-                .setRetryCount(frame.retries).setStartTime(System.currentTimeMillis())
+        // Build the embedded Frame message
+        Frame frameProto = Frame.newBuilder().setId(frame.getFrameId()).setName(frame.getName())
+                .setLayerName(frame.layerName).setState(FrameState.RUNNING)
+                .setRetryCount(frame.retries)
+                .setStartTime((int) (System.currentTimeMillis() / 1000))
                 .setReservedMemory(proc.memoryReserved).setReservedGpuMemory(proc.gpuMemoryReserved)
-                .setNumCores((int) (proc.coresReserved / 100.0f)).setNumGpus(proc.gpusReserved)
-                .setHostName(proc.hostName);
+                .build();
 
-        return builder.build();
+        return FrameEvent.newBuilder().setHeader(header).setFrame(frameProto)
+                .setLayerId(frame.getLayerId()).setJobId(frame.getJobId()).setJobName(frame.jobName)
+                .setShow(frame.show).setPreviousState(frame.state)
+                .setNumCores((int) (proc.coresReserved / 100.0f)).setNumGpus(proc.gpusReserved)
+                .setHostName(proc.hostName).build();
     }
 
     /**
@@ -205,22 +222,30 @@ public class MonitoringEventBuilder {
             String killedBy) {
         EventHeader header = publisher.createEventHeader(eventType, frame.getJobId()).build();
 
-        FrameEvent.Builder builder = FrameEvent.newBuilder().setHeader(header)
-                .setFrameId(frame.getFrameId()).setFrameName(frame.getName())
-                .setFrameNumber(frame.number).setLayerId(frame.getLayerId()).setLayerName(layerName)
-                .setJobId(frame.getJobId()).setJobName(jobName).setShow(show).setState(frame.state)
-                .setPreviousState(previousState).setRetryCount(frame.retryCount)
+        // Build the embedded Frame message
+        Frame.Builder frameBuilder = Frame.newBuilder().setId(frame.getFrameId())
+                .setName(frame.getName()).setLayerName(layerName).setNumber(frame.number)
+                .setState(frame.state).setRetryCount(frame.retryCount)
                 .setExitStatus(frame.exitStatus).setDispatchOrder(frame.dispatchOrder);
 
         if (frame.dateStarted != null) {
-            builder.setStartTime(frame.dateStarted.getTime());
+            frameBuilder.setStartTime((int) (frame.dateStarted.getTime() / 1000));
         }
         if (frame.dateStopped != null) {
-            builder.setStopTime(frame.dateStopped.getTime());
+            frameBuilder.setStopTime((int) (frame.dateStopped.getTime() / 1000));
         }
         if (frame.maxRss > 0) {
-            builder.setMaxRss(frame.maxRss);
+            frameBuilder.setMaxRss(frame.maxRss);
         }
+        if (frame.lastResource != null) {
+            frameBuilder.setLastResource(frame.lastResource);
+        }
+
+        FrameEvent.Builder builder =
+                FrameEvent.newBuilder().setHeader(header).setFrame(frameBuilder.build())
+                        .setLayerId(frame.getLayerId()).setJobId(frame.getJobId())
+                        .setJobName(jobName).setShow(show).setPreviousState(previousState);
+
         if (frame.lastResource != null) {
             builder.setHostName(frame.lastResource);
         }
@@ -244,25 +269,30 @@ public class MonitoringEventBuilder {
         // Convert int threadMode to ThreadMode enum
         ThreadMode threadMode = host.threadMode == 0 ? ThreadMode.AUTO : ThreadMode.ALL;
 
-        HostEvent.Builder builder = HostEvent.newBuilder().setHeader(header)
-                .setHostId(host.getHostId()).setHostName(host.getName())
-                .setFacility(host.getFacilityId() != null ? host.getFacilityId() : "")
-                .setAllocation(host.getAllocationId() != null ? host.getAllocationId() : "")
-                .setState(host.hardwareState).setPreviousState(previousState)
-                .setLockState(host.lockState).setPreviousLockState(previousLockState)
-                .setNimbyEnabled(host.isNimby).setThreadMode(threadMode)
-                .setTotalCores(host.cores / 100.0f).setIdleCores(host.idleCores / 100.0f)
-                .setTotalMemory(host.memory).setIdleMemory(host.idleMemory).setTotalGpus(host.gpus)
-                .setIdleGpus(host.idleGpus).setTotalGpuMemory(host.gpuMemory)
-                .setIdleGpuMemory(host.idleGpuMemory);
+        // Build the embedded Host message
+        Host.Builder hostBuilder = Host.newBuilder().setId(host.getHostId()).setName(host.getName())
+                .setAllocName(host.getAllocationId() != null ? host.getAllocationId() : "")
+                .setNimbyEnabled(host.isNimby).setCores(host.cores / 100.0f)
+                .setIdleCores(host.idleCores / 100.0f).setMemory(host.memory)
+                .setIdleMemory(host.idleMemory).setTotalMemory(host.memory).setGpus(host.gpus)
+                .setIdleGpus(host.idleGpus).setGpuMemory(host.gpuMemory)
+                .setIdleGpuMemory(host.idleGpuMemory).setTotalGpuMemory(host.gpuMemory)
+                .setState(host.hardwareState).setLockState(host.lockState)
+                .setThreadMode(threadMode);
 
         String[] osArray = host.getOs();
         if (osArray != null && osArray.length > 0) {
-            builder.setOs(String.join(",", osArray));
+            hostBuilder.setOs(String.join(",", osArray));
         }
         if (host.tags != null) {
-            builder.addAllTags(Arrays.asList(host.tags.split("\\|")));
+            hostBuilder.addAllTags(Arrays.asList(host.tags.split("\\|")));
         }
+
+        HostEvent.Builder builder =
+                HostEvent.newBuilder().setHeader(header).setHost(hostBuilder.build())
+                        .setFacility(host.getFacilityId() != null ? host.getFacilityId() : "")
+                        .setPreviousState(previousState).setPreviousLockState(previousLockState);
+
         if (reason != null) {
             builder.setReason(reason);
         }

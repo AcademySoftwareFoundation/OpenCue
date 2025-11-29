@@ -78,12 +78,14 @@ dependencies {
 
 compileJava {
     dependsOn generateProto
-    options.compilerArgs << "-Xlint:all" << "-Werror"
+    // Exclude serial warning due to protobuf-generated code warnings
+    options.compilerArgs << "-Xlint:all,-serial" << "-Werror"
 }
 
 compileTestJava {
     dependsOn generateProto
-    options.compilerArgs << "-Xlint:all" << "-Werror"
+    // Exclude serial warning due to protobuf-generated code warnings
+    options.compilerArgs << "-Xlint:all,-serial" << "-Werror"
 }
 
 protobuf {

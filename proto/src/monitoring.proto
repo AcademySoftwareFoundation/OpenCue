@@ -81,42 +81,15 @@ message EventHeader {
 message JobEvent {
     EventHeader header = 1;
 
-    // Job identification
-    string job_id = 2;
-    string job_name = 3;
-    string show = 4;
-    string shot = 5;
-    string user = 6;
-    string facility = 7;
-    string group = 8;
+    // Embedded job data (uses composition instead of duplicating fields)
+    job.Job job = 2;
 
-    // Job state
-    job.JobState state = 9;
-    job.JobState previous_state = 10;
-
-    // Job configuration
-    int32 priority = 11;
-    float min_cores = 12;
-    float max_cores = 13;
-    float min_gpus = 14;
-    float max_gpus = 15;
-    bool is_paused = 16;
-    bool auto_eat = 17;
-
-    // Statistics at time of event
-    job.JobStats stats = 18;
-
-    // Timing information
-    int32 start_time = 19;
-    int32 stop_time = 20;
-
-    // Additional context
-    string log_dir = 21;
-    string os = 22;
+    // Event-specific fields
+    job.JobState previous_state = 3;
 
     // Kill/finish reason if applicable
-    string reason = 23;
-    string killed_by = 24;
+    string reason = 4;
+    string killed_by = 5;
 }
 
 // -------- Layer Events --------
@@ -124,33 +97,13 @@ message JobEvent {
 message LayerEvent {
     EventHeader header = 1;
 
-    // Layer identification
-    string layer_id = 2;
-    string layer_name = 3;
-    string job_id = 4;
-    string job_name = 5;
-    string show = 6;
+    // Embedded layer data
+    job.Layer layer = 2;
 
-    // Layer configuration
-    job.LayerType type = 7;
-    repeated string tags = 8;
-    repeated string services = 9;
-    float min_cores = 10;
-    float max_cores = 11;
-    float min_gpus = 12;
-    float max_gpus = 13;
-    int64 min_memory = 14;
-    int64 min_gpu_memory = 15;
-    bool is_threadable = 16;
-    int32 chunk_size = 17;
-    int32 timeout = 18;
-    int32 timeout_llu = 19;
-
-    // Statistics at time of event
-    job.LayerStats stats = 20;
-
-    // Command being executed
-    string command = 21;
+    // Context fields (not in Layer message)
+    string job_id = 3;
+    string job_name = 4;
+    string show = 5;
 }
 
 // -------- Frame Events --------
@@ -158,57 +111,31 @@ message LayerEvent {
 message FrameEvent {
     EventHeader header = 1;
 
-    // Frame identification
-    string frame_id = 2;
-    string frame_name = 3;
-    int32 frame_number = 4;
-    string layer_id = 5;
-    string layer_name = 6;
-    string job_id = 7;
-    string job_name = 8;
-    string show = 9;
+    // Embedded frame data
+    job.Frame frame = 2;
 
-    // Frame state
-    job.FrameState state = 10;
-    job.FrameState previous_state = 11;
+    // Context fields (not in Frame message)
+    string layer_id = 3;
+    string job_id = 4;
+    string job_name = 5;
+    string show = 6;
 
-    // Execution details
-    int32 retry_count = 12;
-    int32 exit_status = 13;
-    int32 exit_signal = 14;
-    int32 dispatch_order = 15;
+    // Event-specific fields
+    job.FrameState previous_state = 7;
+    int32 exit_signal = 8;
+    int32 run_time = 9;
 
-    // Timing information
-    int64 start_time = 16;
-    int64 stop_time = 17;
-    int32 run_time = 18;
-    int64 llu_time = 19;
-
-    // Resource usage
-    int64 max_rss = 20;
-    int64 used_memory = 21;
-    int64 reserved_memory = 22;
-    int64 max_gpu_memory = 23;
-    int64 used_gpu_memory = 24;
-    int64 reserved_gpu_memory = 25;
-    int32 num_cores = 26;
-    int32 num_gpus = 27;
+    // Resource allocation (not in Frame message)
+    int32 num_cores = 10;
+    int32 num_gpus = 11;
 
     // Host information
-    string host_name = 28;
-    string resource_id = 29;
-
-    // Checkpoint state
-    job.CheckpointState checkpoint_state = 30;
-    int32 checkpoint_count = 31;
-
-    // Cumulative time
-    int32 total_core_time = 32;
-    int32 total_gpu_time = 33;
+    string host_name = 12;
+    string resource_id = 13;
 
     // Kill reason if applicable
-    string reason = 34;
-    string killed_by = 35;
+    string reason = 14;
+    string killed_by = 15;
 }
 
 // -------- Host Events --------
@@ -216,50 +143,19 @@ message FrameEvent {
 message HostEvent {
     EventHeader header = 1;
 
-    // Host identification
-    string host_id = 2;
-    string host_name = 3;
-    string facility = 4;
-    string allocation = 5;
+    // Embedded host data
+    host.Host host = 2;
 
-    // Hardware state
-    host.HardwareState state = 6;
-    host.HardwareState previous_state = 7;
-    host.LockState lock_state = 8;
-    host.LockState previous_lock_state = 9;
+    // Context fields (not in Host message)
+    string facility = 3;
 
-    // Host configuration
-    repeated string tags = 10;
-    string os = 11;
-    bool nimby_enabled = 12;
-    bool nimby_locked = 13;
-    host.ThreadMode thread_mode = 14;
-
-    // Resource capacity
-    float total_cores = 15;
-    float idle_cores = 16;
-    int64 total_memory = 17;
-    int64 idle_memory = 18;
-    int64 free_memory = 19;
-    float total_gpus = 20;
-    float idle_gpus = 21;
-    int64 total_gpu_memory = 22;
-    int64 idle_gpu_memory = 23;
-    int64 free_gpu_memory = 24;
-
-    // Storage
-    int64 total_mcp = 25;
-    int64 free_mcp = 26;
-    int64 total_swap = 27;
-    int64 free_swap = 28;
-
-    // System metrics
-    int32 load = 29;
-    int32 boot_time = 30;
-    int32 ping_time = 31;
+    // Event-specific fields
+    host.HardwareState previous_state = 4;
+    host.LockState previous_lock_state = 5;
+    bool nimby_locked = 6;
 
     // Reason for state change if applicable
-    string reason = 32;
+    string reason = 7;
 }
 
 // -------- Host Report Event --------

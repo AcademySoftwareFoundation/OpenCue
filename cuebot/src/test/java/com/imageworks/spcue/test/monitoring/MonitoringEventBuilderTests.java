@@ -90,17 +90,20 @@ public class MonitoringEventBuilderTests {
         assertEquals("Event type should be FRAME_STARTED", EventType.FRAME_STARTED,
                 event.getHeader().getEventType());
 
-        // Verify frame fields
-        assertEquals("test-frame-id", event.getFrameId());
-        assertEquals("0001-test_layer", event.getFrameName());
+        // Verify embedded frame fields (now using composition)
+        assertNotNull("Embedded frame should not be null", event.getFrame());
+        assertEquals("test-frame-id", event.getFrame().getId());
+        assertEquals("0001-test_layer", event.getFrame().getName());
+        assertEquals("test_layer", event.getFrame().getLayerName());
+
+        // Verify context fields (still on event level)
         assertEquals("test-layer-id", event.getLayerId());
-        assertEquals("test_layer", event.getLayerName());
         assertEquals("test-job-id", event.getJobId());
         assertEquals("test-job-name", event.getJobName());
         assertEquals("testing", event.getShow());
 
         // Verify state transition
-        assertEquals("State should be RUNNING", FrameState.RUNNING, event.getState());
+        assertEquals("State should be RUNNING", FrameState.RUNNING, event.getFrame().getState());
         assertEquals("Previous state should be WAITING", FrameState.WAITING,
                 event.getPreviousState());
 
@@ -108,7 +111,7 @@ public class MonitoringEventBuilderTests {
         assertEquals("test-host", event.getHostName());
         assertEquals(1, event.getNumCores());
         assertEquals(0, event.getNumGpus());
-        assertTrue("Start time should be set", event.getStartTime() > 0);
+        assertTrue("Start time should be set", event.getFrame().getStartTime() > 0);
     }
 
     /**
@@ -129,21 +132,24 @@ public class MonitoringEventBuilderTests {
         assertEquals("Event type should be FRAME_DISPATCHED", EventType.FRAME_DISPATCHED,
                 event.getHeader().getEventType());
 
-        // Verify frame fields
-        assertEquals("test-frame-id", event.getFrameId());
-        assertEquals("0001-test_layer", event.getFrameName());
-        assertEquals(1, event.getFrameNumber());
+        // Verify embedded frame fields (now using composition)
+        assertNotNull("Embedded frame should not be null", event.getFrame());
+        assertEquals("test-frame-id", event.getFrame().getId());
+        assertEquals("0001-test_layer", event.getFrame().getName());
+        assertEquals(1, event.getFrame().getNumber());
+
+        // Verify context fields (still on event level)
         assertEquals("test-layer-id", event.getLayerId());
         assertEquals("test-job-id", event.getJobId());
 
         // Verify state transition
-        assertEquals("State should be WAITING", FrameState.WAITING, event.getState());
+        assertEquals("State should be WAITING", FrameState.WAITING, event.getFrame().getState());
         assertEquals("Previous state should be DEPEND", FrameState.DEPEND,
                 event.getPreviousState());
 
-        // Verify other fields
-        assertEquals(0, event.getRetryCount());
-        assertEquals(1, event.getDispatchOrder());
+        // Verify other fields (now in embedded frame)
+        assertEquals(0, event.getFrame().getRetryCount());
+        assertEquals(1, event.getFrame().getDispatchOrder());
     }
 
     /**
@@ -160,8 +166,11 @@ public class MonitoringEventBuilderTests {
 
         FrameEvent event = eventBuilder.buildFrameStartedEvent(frame, proc);
 
-        assertEquals("Reserved memory should match", 4194304, event.getReservedMemory());
-        assertEquals("Reserved GPU memory should match", 2097152, event.getReservedGpuMemory());
+        // Reserved memory is now in the embedded Frame
+        assertEquals("Reserved memory should match", 4194304, event.getFrame().getReservedMemory());
+        assertEquals("Reserved GPU memory should match", 2097152,
+                event.getFrame().getReservedGpuMemory());
+        // Num cores and GPUs are still on event level (resource allocation info)
         assertEquals("Num cores should be calculated from coresReserved/100", 2,
                 event.getNumCores());
         assertEquals("Num GPUs should match", 1, event.getNumGpus());
@@ -192,7 +201,8 @@ public class MonitoringEventBuilderTests {
 
         FrameEvent event = eventBuilder.buildFrameStartedEvent(frame, proc);
 
-        assertEquals("Retry count should be included", 3, event.getRetryCount());
+        // Retry count is now in the embedded Frame
+        assertEquals("Retry count should be included", 3, event.getFrame().getRetryCount());
     }
 
     // Helper methods to create test objects

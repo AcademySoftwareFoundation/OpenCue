@@ -171,7 +171,7 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     public void publishJobEvent(JobEvent event) {
         if (!enabled)
             return;
-        publishEvent(TOPIC_JOB_EVENTS, event.getJobId(), event,
+        publishEvent(TOPIC_JOB_EVENTS, event.getJob().getId(), event,
                 event.getHeader().getEventType().name());
     }
 
@@ -181,7 +181,7 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     public void publishLayerEvent(LayerEvent event) {
         if (!enabled)
             return;
-        publishEvent(TOPIC_LAYER_EVENTS, event.getLayerId(), event,
+        publishEvent(TOPIC_LAYER_EVENTS, event.getLayer().getId(), event,
                 event.getHeader().getEventType().name());
     }
 
@@ -191,7 +191,7 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     public void publishFrameEvent(FrameEvent event) {
         if (!enabled)
             return;
-        publishEvent(TOPIC_FRAME_EVENTS, event.getFrameId(), event,
+        publishEvent(TOPIC_FRAME_EVENTS, event.getFrame().getId(), event,
                 event.getHeader().getEventType().name());
     }
 
@@ -201,7 +201,7 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     public void publishHostEvent(HostEvent event) {
         if (!enabled)
             return;
-        publishEvent(TOPIC_HOST_EVENTS, event.getHostName(), event,
+        publishEvent(TOPIC_HOST_EVENTS, event.getHost().getName(), event,
                 event.getHeader().getEventType().name());
     }
 
