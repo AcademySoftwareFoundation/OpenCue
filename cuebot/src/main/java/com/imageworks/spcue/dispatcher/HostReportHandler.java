@@ -1118,10 +1118,11 @@ public class HostReportHandler {
     }
 
     public void setKafkaEventPublisher(KafkaEventPublisher kafkaEventPublisher) {
-        if (kafkaEventPublisher != null) {
-            this.kafkaEventPublisher = kafkaEventPublisher;
-            this.monitoringEventBuilder = new MonitoringEventBuilder(kafkaEventPublisher);
-        }
+        this.kafkaEventPublisher = kafkaEventPublisher;
+    }
+
+    public void setMonitoringEventBuilder(MonitoringEventBuilder monitoringEventBuilder) {
+        this.monitoringEventBuilder = monitoringEventBuilder;
     }
 
     /**
