@@ -36,15 +36,10 @@ import com.imageworks.spcue.grpc.monitoring.EventHeader;
 import com.imageworks.spcue.grpc.monitoring.EventType;
 import com.imageworks.spcue.grpc.monitoring.FrameEvent;
 import com.imageworks.spcue.grpc.monitoring.HostEvent;
-import com.imageworks.spcue.grpc.monitoring.HostReportEvent;
 import com.imageworks.spcue.grpc.monitoring.JobEvent;
 import com.imageworks.spcue.grpc.monitoring.LayerEvent;
 import com.imageworks.spcue.grpc.monitoring.ProcEvent;
-import com.imageworks.spcue.grpc.monitoring.RunningFrameSummary;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
-import com.imageworks.spcue.grpc.report.HostReport;
-import com.imageworks.spcue.grpc.report.RenderHost;
-import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 
 import java.util.Arrays;
 import java.util.List;
@@ -298,42 +293,6 @@ public class MonitoringEventBuilder {
         }
 
         return builder.build();
-    }
-
-    /**
-     * Builds a HostReportEvent from a host report.
-     */
-    public HostReportEvent buildHostReportEvent(HostReport report, boolean isBoot) {
-        EventType eventType = isBoot ? EventType.HOST_BOOT : EventType.HOST_REPORT;
-        EventHeader header = publisher.createEventHeader(eventType).build();
-
-        RenderHost rhost = report.getHost();
-
-        HostReportEvent.Builder builder = HostReportEvent.newBuilder().setHeader(header)
-                .setHostName(rhost.getName()).setFacility(rhost.getFacility()).setHostData(rhost)
-                .setCoreInfo(report.getCoreInfo()).setIsBootReport(isBoot);
-
-        // Add running frame summaries
-        List<RunningFrameSummary> frameSummaries = report.getFramesList().stream()
-                .map(this::buildRunningFrameSummary).collect(Collectors.toList());
-        builder.addAllRunningFrames(frameSummaries);
-
-        return builder.build();
-    }
-
-    /**
-     * Builds a running frame summary from RunningFrameInfo.
-     */
-    private RunningFrameSummary buildRunningFrameSummary(RunningFrameInfo frame) {
-        return RunningFrameSummary.newBuilder().setFrameId(frame.getFrameId())
-                .setFrameName(frame.getFrameName()).setJobId(frame.getJobId())
-                .setJobName(frame.getJobName()).setLayerId(frame.getLayerId())
-                .setNumCores(frame.getNumCores()).setStartTime(frame.getStartTime())
-                .setRss(frame.getRss()).setMaxRss(frame.getMaxRss()).setVsize(frame.getVsize())
-                .setMaxVsize(frame.getMaxVsize()).setUsedGpuMemory(frame.getUsedGpuMemory())
-                .setMaxUsedGpuMemory(frame.getMaxUsedGpuMemory())
-                .setUsedSwapMemory(frame.getUsedSwapMemory()).setLluTime(frame.getLluTime())
-                .build();
     }
 
     /**

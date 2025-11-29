@@ -41,7 +41,6 @@ Cuebot publishes events to Apache Kafka topics when significant state changes oc
 | `opencue.layer.events` | Layer state changes |
 | `opencue.frame.events` | Frame execution events (started, completed, failed, retried) |
 | `opencue.host.events` | Host state changes (up, down, locked, nimby) |
-| `opencue.host.reports` | Periodic host status reports with resource utilization |
 | `opencue.proc.events` | Process allocation and deallocation events |
 
 Events are published asynchronously to avoid impacting render farm performance. A bounded queue ensures the system remains responsive even under high load.

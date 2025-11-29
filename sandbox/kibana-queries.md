@@ -16,7 +16,6 @@ GET /opencue-job-events-*/_count
 GET /opencue-layer-events-*/_count
 GET /opencue-proc-events-*/_count
 GET /opencue-host-events-*/_count
-GET /opencue-host-reports-*/_count
 ```
 
 ## Pickup Time Tracking
@@ -478,23 +477,11 @@ GET /opencue-layer-events-*/_search
 }
 ```
 
-## Host Events and Reports
+## Host Events
 
 ```json
 # Recent host events
 GET /opencue-host-events-*/_search
-{
-  "query": {
-    "match_all": {}
-  },
-  "sort": [
-    { "header.timestamp": { "order": "desc" } }
-  ],
-  "size": 10
-}
-
-# Recent host reports
-GET /opencue-host-reports-*/_search
 {
   "query": {
     "match_all": {}

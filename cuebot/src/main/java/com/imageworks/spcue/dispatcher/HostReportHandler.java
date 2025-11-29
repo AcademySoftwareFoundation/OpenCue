@@ -72,7 +72,6 @@ import com.imageworks.spcue.monitoring.KafkaEventPublisher;
 import com.imageworks.spcue.monitoring.MonitoringEventBuilder;
 import com.imageworks.spcue.grpc.monitoring.EventType;
 import com.imageworks.spcue.grpc.monitoring.HostEvent;
-import com.imageworks.spcue.grpc.monitoring.HostReportEvent;
 
 public class HostReportHandler {
 
@@ -170,9 +169,6 @@ public class HostReportHandler {
     public void handleHostReport(HostReport report, boolean isBoot) {
         long startTime = System.currentTimeMillis();
         try {
-            // Publish host report event to Kafka for monitoring
-            publishHostReportEvent(report, isBoot);
-
             // Record Prometheus metric for host report
             if (prometheusMetrics != null) {
                 String facility = report.getHost().getFacility();
@@ -1123,23 +1119,6 @@ public class HostReportHandler {
 
     public void setMonitoringEventBuilder(MonitoringEventBuilder monitoringEventBuilder) {
         this.monitoringEventBuilder = monitoringEventBuilder;
-    }
-
-    /**
-     * Publishes a host report event to Kafka for monitoring purposes. This method is called
-     * asynchronously to avoid blocking the report queue.
-     */
-    private void publishHostReportEvent(HostReport report, boolean isBoot) {
-        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
-            return;
-        }
-
-        try {
-            HostReportEvent event = monitoringEventBuilder.buildHostReportEvent(report, isBoot);
-            kafkaEventPublisher.publishHostReportEvent(event);
-        } catch (Exception e) {
-            logger.trace("Failed to publish host report event: {}", e.getMessage());
-        }
     }
 
     /**

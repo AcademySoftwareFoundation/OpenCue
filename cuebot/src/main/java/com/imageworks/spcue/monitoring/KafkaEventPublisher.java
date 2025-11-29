@@ -41,7 +41,6 @@ import com.imageworks.spcue.grpc.monitoring.EventHeader;
 import com.imageworks.spcue.grpc.monitoring.EventType;
 import com.imageworks.spcue.grpc.monitoring.FrameEvent;
 import com.imageworks.spcue.grpc.monitoring.HostEvent;
-import com.imageworks.spcue.grpc.monitoring.HostReportEvent;
 import com.imageworks.spcue.grpc.monitoring.JobEvent;
 import com.imageworks.spcue.grpc.monitoring.LayerEvent;
 import com.imageworks.spcue.grpc.monitoring.ProcEvent;
@@ -67,7 +66,6 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     private static final String TOPIC_LAYER_EVENTS = "opencue.layer.events";
     private static final String TOPIC_FRAME_EVENTS = "opencue.frame.events";
     private static final String TOPIC_HOST_EVENTS = "opencue.host.events";
-    private static final String TOPIC_HOST_REPORTS = "opencue.host.reports";
     private static final String TOPIC_PROC_EVENTS = "opencue.proc.events";
 
     @Autowired
@@ -202,16 +200,6 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
         if (!enabled)
             return;
         publishEvent(TOPIC_HOST_EVENTS, event.getHost().getName(), event,
-                event.getHeader().getEventType().name());
-    }
-
-    /**
-     * Publishes a host report event to Kafka.
-     */
-    public void publishHostReportEvent(HostReportEvent event) {
-        if (!enabled)
-            return;
-        publishEvent(TOPIC_HOST_REPORTS, event.getHostName(), event,
                 event.getHeader().getEventType().name());
     }
 

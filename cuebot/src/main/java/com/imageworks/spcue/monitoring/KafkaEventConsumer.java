@@ -47,7 +47,6 @@ public class KafkaEventConsumer {
     private static final String TOPIC_LAYER_EVENTS = "opencue.layer.events";
     private static final String TOPIC_FRAME_EVENTS = "opencue.frame.events";
     private static final String TOPIC_HOST_EVENTS = "opencue.host.events";
-    private static final String TOPIC_HOST_REPORTS = "opencue.host.reports";
     private static final String TOPIC_PROC_EVENTS = "opencue.proc.events";
 
     @Autowired
@@ -108,7 +107,7 @@ public class KafkaEventConsumer {
 
         // Subscribe to all event topics
         consumer.subscribe(Arrays.asList(TOPIC_JOB_EVENTS, TOPIC_LAYER_EVENTS, TOPIC_FRAME_EVENTS,
-                TOPIC_HOST_EVENTS, TOPIC_HOST_REPORTS, TOPIC_PROC_EVENTS));
+                TOPIC_HOST_EVENTS, TOPIC_PROC_EVENTS));
     }
 
     private void startConsumerThread() {
@@ -164,9 +163,6 @@ public class KafkaEventConsumer {
                 break;
             case TOPIC_HOST_EVENTS:
                 elasticsearchClient.indexHostEvent(eventId, value);
-                break;
-            case TOPIC_HOST_REPORTS:
-                elasticsearchClient.indexHostReport(eventId, value);
                 break;
             case TOPIC_PROC_EVENTS:
                 elasticsearchClient.indexProcEvent(eventId, value);

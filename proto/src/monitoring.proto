@@ -44,7 +44,6 @@ enum EventType {
     FRAME_CHECKPOINT = 27;
 
     // Host events
-    HOST_REPORT = 30;
     HOST_BOOT = 31;
     HOST_STATE_CHANGED = 32;
     HOST_LOCKED = 33;
@@ -156,44 +155,6 @@ message HostEvent {
 
     // Reason for state change if applicable
     string reason = 7;
-}
-
-// -------- Host Report Event --------
-
-message HostReportEvent {
-    EventHeader header = 1;
-
-    // Host information
-    string host_name = 2;
-    string facility = 3;
-
-    // Full host report data
-    report.RenderHost host_data = 4;
-    report.CoreDetail core_info = 5;
-
-    // Running frame summaries
-    repeated RunningFrameSummary running_frames = 6;
-
-    // Whether this is a boot report
-    bool is_boot_report = 7;
-}
-
-message RunningFrameSummary {
-    string frame_id = 1;
-    string frame_name = 2;
-    string job_id = 3;
-    string job_name = 4;
-    string layer_id = 5;
-    int32 num_cores = 6;
-    int64 start_time = 7;
-    int64 rss = 8;
-    int64 max_rss = 9;
-    int64 vsize = 10;
-    int64 max_vsize = 11;
-    int64 used_gpu_memory = 12;
-    int64 max_used_gpu_memory = 13;
-    int64 used_swap_memory = 14;
-    int64 llu_time = 15;
 }
 
 // -------- Proc Events --------

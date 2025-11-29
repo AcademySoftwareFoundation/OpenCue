@@ -49,7 +49,6 @@ This reference provides comprehensive documentation for all monitoring system co
 | `opencue.layer.events` | `layerId` | Layer state changes |
 | `opencue.frame.events` | `frameId` | Frame execution events |
 | `opencue.host.events` | `hostId` | Host state changes |
-| `opencue.host.reports` | `hostId` | Periodic host status reports |
 | `opencue.proc.events` | `procId` | Process allocation events |
 
 ![Kafka UI for Apache Kafka](/assets/images/opencue_monitoring/opencue_monitoring_ui_for_apache_kafka.png)
@@ -208,38 +207,6 @@ All events include a `header` field with common metadata, plus event-specific fi
 }
 ```
 
-### Host report payload
-
-```json
-{
-  "header": {
-    "event_id": "550e8400-e29b-41d4-a716-446655440004",
-    "event_type": "HOST_REPORT",
-    "timestamp": "1732446600000",
-    "source_cuebot": "cuebot-01",
-    "correlation_id": ""
-  },
-  "host_id": "550e8400-e29b-41d4-a716-446655440004",
-  "host_name": "render-node-01",
-  "facility": "cloud",
-  "alloc_name": "render.general",
-  "state": "UP",
-  "lock_state": "OPEN",
-  "nimby_enabled": false,
-  "total_cores": 64,
-  "idle_cores": 32,
-  "total_memory": "137438953472",
-  "free_memory": "68719476736",
-  "total_gpu_memory": "25769803776",
-  "free_gpu_memory": "25769803776",
-  "load": 1250,
-  "ping_time": "1732443000000",
-  "boot_time": "1732300000000",
-  "os": "Linux",
-  "running_procs": 4
-}
-```
-
 ## Prometheus metrics
 
 ### Job and frame metrics
@@ -357,7 +324,7 @@ metrics.prometheus.frame.memory.buckets=1073741824,2147483648,4294967296,8589934
 Examples:
 - `opencue-job-events-2024.11.24`
 - `opencue-frame-events-2024.11.24`
-- `opencue-host-reports-2024.11.24`
+- `opencue-host-events-2024.11.24`
 
 ### Index mappings
 

@@ -75,7 +75,6 @@ public class ElasticsearchClient {
     private static final String INDEX_LAYER_EVENTS = "opencue-layer-events";
     private static final String INDEX_FRAME_EVENTS = "opencue-frame-events";
     private static final String INDEX_HOST_EVENTS = "opencue-host-events";
-    private static final String INDEX_HOST_REPORTS = "opencue-host-reports";
     private static final String INDEX_PROC_EVENTS = "opencue-proc-events";
 
     @Autowired
@@ -125,7 +124,7 @@ public class ElasticsearchClient {
      */
     private void createIndexTemplates() {
         String[] indexPrefixes = {INDEX_JOB_EVENTS, INDEX_LAYER_EVENTS, INDEX_FRAME_EVENTS,
-                INDEX_HOST_EVENTS, INDEX_HOST_REPORTS, INDEX_PROC_EVENTS};
+                INDEX_HOST_EVENTS, INDEX_PROC_EVENTS};
 
         for (String prefix : indexPrefixes) {
             try {
@@ -239,15 +238,6 @@ public class ElasticsearchClient {
         if (!enabled)
             return;
         indexDocument(INDEX_HOST_EVENTS, eventId, jsonDocument);
-    }
-
-    /**
-     * Indexes a host report document.
-     */
-    public void indexHostReport(String eventId, String jsonDocument) {
-        if (!enabled)
-            return;
-        indexDocument(INDEX_HOST_REPORTS, eventId, jsonDocument);
     }
 
     /**
