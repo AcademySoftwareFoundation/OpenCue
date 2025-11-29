@@ -55,6 +55,7 @@ import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.monitoring.EventType;
+import com.imageworks.spcue.grpc.monitoring.FrameEvent;
 import com.imageworks.spcue.grpc.monitoring.ProcEvent;
 import com.imageworks.spcue.grpc.rqd.RunFrame;
 import com.imageworks.spcue.monitoring.KafkaEventPublisher;
@@ -222,9 +223,15 @@ public class DispatchSupportService implements DispatchSupport {
     public void startFrameAndProc(VirtualProc proc, DispatchFrame frame) {
         logger.trace("starting frame: " + frame);
 
+        // Capture previous state before update for event publishing
+        FrameState previousState = frame.state;
+
         frameDao.updateFrameStarted(proc, frame);
 
         reserveProc(proc, frame);
+
+        // Publish FRAME_STARTED event (WAITING -> RUNNING transition)
+        publishFrameStartedEvent(frame, proc, previousState);
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
@@ -709,11 +716,21 @@ public class DispatchSupportService implements DispatchSupport {
             return;
         }
 
-        try {
-            ProcEvent event = monitoringEventBuilder.buildProcEvent(eventType, proc);
-            kafkaEventPublisher.publishProcEvent(event);
-        } catch (Exception e) {
-            logger.trace("Failed to publish proc event: {}", e.getMessage());
+        ProcEvent event = monitoringEventBuilder.buildProcEvent(eventType, proc);
+        kafkaEventPublisher.publishProcEvent(event);
+    }
+
+    /**
+     * Publishes a frame started event to Kafka for monitoring purposes. This captures the WAITING
+     * -> RUNNING transition for pickup time analysis.
+     */
+    private void publishFrameStartedEvent(DispatchFrame frame, VirtualProc proc,
+            FrameState previousState) {
+        if (kafkaEventPublisher == null || !kafkaEventPublisher.isEnabled()) {
+            return;
         }
+
+        FrameEvent event = monitoringEventBuilder.buildFrameStartedEvent(frame, proc);
+        kafkaEventPublisher.publishFrameEvent(event);
     }
 }

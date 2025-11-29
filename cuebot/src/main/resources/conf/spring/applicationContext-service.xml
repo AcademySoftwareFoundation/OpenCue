@@ -179,6 +179,8 @@
     <property name="layerDao" ref="layerDao" />
     <property name="frameDao" ref="frameDao" />
     <property name="frameSearchFactory" ref="frameSearchFactory" />
+    <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
+    <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
   </bean>
 
   <bean id="dispatchSupport" class="com.imageworks.spcue.dispatcher.DispatchSupportService">

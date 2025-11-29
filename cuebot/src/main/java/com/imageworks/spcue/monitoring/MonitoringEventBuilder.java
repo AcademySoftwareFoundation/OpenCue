@@ -161,6 +161,43 @@ public class MonitoringEventBuilder {
     }
 
     /**
+     * Builds a FrameEvent for a frame becoming dispatchable (DEPEND -> WAITING transition).
+     */
+    public FrameEvent buildFrameDispatchableEvent(FrameDetail frame) {
+        EventHeader header =
+                publisher.createEventHeader(EventType.FRAME_DISPATCHED, frame.getJobId()).build();
+
+        FrameEvent.Builder builder =
+                FrameEvent.newBuilder().setHeader(header).setFrameId(frame.getFrameId())
+                        .setFrameName(frame.getName()).setFrameNumber(frame.number)
+                        .setLayerId(frame.getLayerId()).setJobId(frame.getJobId())
+                        .setState(FrameState.WAITING).setPreviousState(FrameState.DEPEND)
+                        .setRetryCount(frame.retryCount).setDispatchOrder(frame.dispatchOrder);
+
+        return builder.build();
+    }
+
+    /**
+     * Builds a FrameEvent for a frame being started (WAITING -> RUNNING transition).
+     */
+    public FrameEvent buildFrameStartedEvent(DispatchFrame frame, VirtualProc proc) {
+        EventHeader header =
+                publisher.createEventHeader(EventType.FRAME_STARTED, frame.getJobId()).build();
+
+        FrameEvent.Builder builder = FrameEvent.newBuilder().setHeader(header)
+                .setFrameId(frame.getFrameId()).setFrameName(frame.getName())
+                .setLayerId(frame.getLayerId()).setLayerName(frame.layerName)
+                .setJobId(frame.getJobId()).setJobName(frame.jobName).setShow(frame.show)
+                .setState(FrameState.RUNNING).setPreviousState(frame.state)
+                .setRetryCount(frame.retries).setStartTime(System.currentTimeMillis())
+                .setReservedMemory(proc.memoryReserved).setReservedGpuMemory(proc.gpuMemoryReserved)
+                .setNumCores((int) (proc.coresReserved / 100.0f)).setNumGpus(proc.gpusReserved)
+                .setHostName(proc.hostName);
+
+        return builder.build();
+    }
+
+    /**
      * Builds a FrameEvent for a frame state change (not completion).
      */
     public FrameEvent buildFrameEvent(EventType eventType, FrameDetail frame, String jobName,
