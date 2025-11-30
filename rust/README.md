@@ -6,6 +6,7 @@ Project crates:
  * rqd: rewrite of [OpenCue/rqd](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/rqd)
  * dummy-cuebot: A cli tool to interact with rqd's gRPC interface
  * opencue_proto: Wrapper around grpc's generated code for the project protobuf modules
+ * kafka-es-indexer: Kafka to Elasticsearch indexer for OpenCue monitoring events
 
 ## Build Instructions
 

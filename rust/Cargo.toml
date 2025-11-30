@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/opencue-proto", "crates/rqd", "crates/dummy-cuebot"]
+members = ["crates/opencue-proto", "crates/rqd", "crates/dummy-cuebot", "crates/kafka-es-indexer"]
 resolver = "3"
 
 [workspace.package]

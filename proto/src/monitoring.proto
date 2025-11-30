@@ -1,0 +1,454 @@
+
+syntax = "proto3";
+package monitoring;
+
+option java_package = "com.imageworks.spcue.grpc.monitoring";
+option java_multiple_files = true;
+
+option go_package = "opencue_gateway/gen/go";
+
+import "job.proto";
+import "host.proto";
+import "report.proto";
+
+// Monitoring Events for Render Farm Statistics
+// These events are published to Kafka for downstream processing
+
+// -------- Enums --------
+
+// Types of lifecycle events
+enum EventType {
+    EVENT_TYPE_UNKNOWN = 0;
+
+    // Job events
+    JOB_CREATED = 1;
+    JOB_STARTED = 2;
+    JOB_PAUSED = 3;
+    JOB_RESUMED = 4;
+    JOB_FINISHED = 5;
+    JOB_KILLED = 6;
+
+    // Layer events
+    LAYER_CREATED = 10;
+    LAYER_STARTED = 11;
+    LAYER_COMPLETED = 12;
+
+    // Frame events
+    FRAME_DISPATCHED = 20;
+    FRAME_STARTED = 21;
+    FRAME_COMPLETED = 22;
+    FRAME_FAILED = 23;
+    FRAME_RETRIED = 24;
+    FRAME_KILLED = 25;
+    FRAME_EATEN = 26;
+    FRAME_CHECKPOINT = 27;
+
+    // Host events
+    HOST_BOOT = 31;
+    HOST_STATE_CHANGED = 32;
+    HOST_LOCKED = 33;
+    HOST_UNLOCKED = 34;
+
+    // Proc events
+    PROC_BOOKED = 40;
+    PROC_UNBOOKED = 41;
+    PROC_REDIRECTED = 42;
+}
+
+// -------- Base Event Message --------
+
+// Common header for all monitoring events
+message EventHeader {
+    // Unique event ID (UUID)
+    string event_id = 1;
+
+    // Event type
+    EventType event_type = 2;
+
+    // Timestamp when event occurred (Unix epoch milliseconds)
+    int64 timestamp = 3;
+
+    // Source cuebot instance that generated the event
+    string source_cuebot = 4;
+
+    // Optional correlation ID for tracing related events
+    string correlation_id = 5;
+}
+
+// -------- Job Events --------
+
+message JobEvent {
+    EventHeader header = 1;
+
+    // Embedded job data (uses composition instead of duplicating fields)
+    job.Job job = 2;
+
+    // Event-specific fields
+    job.JobState previous_state = 3;
+
+    // Kill/finish reason if applicable
+    string reason = 4;
+    string killed_by = 5;
+}
+
+// -------- Layer Events --------
+
+message LayerEvent {
+    EventHeader header = 1;
+
+    // Embedded layer data
+    job.Layer layer = 2;
+
+    // Context fields (not in Layer message)
+    string job_id = 3;
+    string job_name = 4;
+    string show = 5;
+}
+
+// -------- Frame Events --------
+
+message FrameEvent {
+    EventHeader header = 1;
+
+    // Embedded frame data
+    job.Frame frame = 2;
+
+    // Context fields (not in Frame message)
+    string layer_id = 3;
+    string job_id = 4;
+    string job_name = 5;
+    string show = 6;
+
+    // Event-specific fields
+    job.FrameState previous_state = 7;
+    int32 exit_signal = 8;
+    int32 run_time = 9;
+
+    // Resource allocation (not in Frame message)
+    int32 num_cores = 10;
+    int32 num_gpus = 11;
+
+    // Host information
+    string host_name = 12;
+    string resource_id = 13;
+
+    // Kill reason if applicable
+    string reason = 14;
+    string killed_by = 15;
+}
+
+// -------- Host Events --------
+
+message HostEvent {
+    EventHeader header = 1;
+
+    // Embedded host data
+    host.Host host = 2;
+
+    // Context fields (not in Host message)
+    string facility = 3;
+
+    // Event-specific fields
+    host.HardwareState previous_state = 4;
+    host.LockState previous_lock_state = 5;
+    bool nimby_locked = 6;
+
+    // Reason for state change if applicable
+    string reason = 7;
+}
+
+// -------- Proc Events --------
+
+message ProcEvent {
+    EventHeader header = 1;
+
+    // Proc identification
+    string proc_id = 2;
+    string proc_name = 3;
+    string host_id = 4;
+    string host_name = 5;
+
+    // Assignment information
+    string job_id = 6;
+    string job_name = 7;
+    string layer_id = 8;
+    string layer_name = 9;
+    string frame_id = 10;
+    string frame_name = 11;
+    string show = 12;
+    string group_name = 13;
+
+    // Resource reservation
+    float reserved_cores = 14;
+    float reserved_gpus = 15;
+    int64 reserved_memory = 16;
+    int64 reserved_gpu_memory = 17;
+
+    // Booking information
+    int32 dispatch_time = 18;
+    int32 booked_time = 19;
+    bool is_local_dispatch = 20;
+    bool is_unbooked = 21;
+
+    // Redirect target if applicable
+    string redirect_target = 22;
+
+    // Services
+    repeated string services = 23;
+}
+
+// -------- Aggregate Statistics Event --------
+
+// Periodic snapshot of farm-wide statistics
+message FarmStatisticsEvent {
+    EventHeader header = 1;
+
+    // Snapshot time
+    int64 snapshot_time = 2;
+
+    // Job statistics
+    int32 total_jobs = 3;
+    int32 pending_jobs = 4;
+    int32 finished_jobs = 5;
+
+    // Frame statistics
+    int64 total_frames = 6;
+    int64 waiting_frames = 7;
+    int64 running_frames = 8;
+    int64 succeeded_frames = 9;
+    int64 dead_frames = 10;
+    int64 eaten_frames = 11;
+    int64 depend_frames = 12;
+
+    // Host statistics
+    int32 total_hosts = 13;
+    int32 up_hosts = 14;
+    int32 down_hosts = 15;
+    int32 repair_hosts = 16;
+    int32 nimby_locked_hosts = 17;
+
+    // Resource utilization
+    float total_cores = 18;
+    float running_cores = 19;
+    float idle_cores = 20;
+    float total_gpus = 21;
+    float running_gpus = 22;
+    float idle_gpus = 23;
+    int64 total_memory = 24;
+    int64 used_memory = 25;
+
+    // Per-show breakdown
+    repeated ShowStatistics show_stats = 26;
+}
+
+message ShowStatistics {
+    string show = 1;
+    int32 pending_jobs = 2;
+    int64 running_frames = 3;
+    int64 waiting_frames = 4;
+    float reserved_cores = 5;
+    float reserved_gpus = 6;
+}
+
+// -------- Services --------
+
+// Service for querying historical monitoring data
+service MonitoringInterface {
+    // Get historical job events
+    rpc GetJobHistory(GetJobHistoryRequest) returns (GetJobHistoryResponse);
+
+    // Get historical frame events for a job
+    rpc GetFrameHistory(GetFrameHistoryRequest) returns (GetFrameHistoryResponse);
+
+    // Get historical layer events for a job
+    rpc GetLayerHistory(GetLayerHistoryRequest) returns (GetLayerHistoryResponse);
+
+    // Get historical host events
+    rpc GetHostHistory(GetHostHistoryRequest) returns (GetHostHistoryResponse);
+
+    // Get aggregated statistics over a time range
+    rpc GetFarmStatistics(GetFarmStatisticsRequest) returns (GetFarmStatisticsResponse);
+
+    // Get memory usage history for a layer
+    rpc GetLayerMemoryHistory(GetLayerMemoryHistoryRequest) returns (GetLayerMemoryHistoryResponse);
+}
+
+// -------- Requests & Responses --------
+
+// Time range for historical queries
+message TimeRange {
+    int64 start_time = 1;  // Unix epoch milliseconds
+    int64 end_time = 2;    // Unix epoch milliseconds
+}
+
+// Pagination for results
+message Pagination {
+    int32 page = 1;
+    int32 page_size = 2;
+    int32 total_pages = 3;
+    int64 total_records = 4;
+}
+
+// GetJobHistory
+message GetJobHistoryRequest {
+    // Filter criteria
+    repeated string shows = 1;
+    repeated string users = 2;
+    repeated string shots = 3;
+    repeated string job_name_regex = 4;
+    repeated job.JobState states = 5;
+    TimeRange time_range = 6;
+
+    // Pagination
+    int32 page = 7;
+    int32 page_size = 8;
+    int32 max_results = 9;
+}
+
+message GetJobHistoryResponse {
+    repeated HistoricalJob jobs = 1;
+    Pagination pagination = 2;
+}
+
+message HistoricalJob {
+    string id = 1;
+    string name = 2;
+    string show = 3;
+    string shot = 4;
+    string user = 5;
+    string facility = 6;
+    job.JobState final_state = 7;
+    int32 start_time = 8;
+    int32 stop_time = 9;
+    int32 priority = 10;
+
+    // Final statistics
+    int32 total_frames = 11;
+    int32 succeeded_frames = 12;
+    int32 failed_frames = 13;
+    int64 total_core_seconds = 14;
+    int64 total_gpu_seconds = 15;
+    int64 max_rss = 16;
+}
+
+// GetFrameHistory
+message GetFrameHistoryRequest {
+    string job_id = 1;
+    string job_name = 2;
+    repeated string layer_names = 3;
+    repeated job.FrameState states = 4;
+    TimeRange time_range = 5;
+
+    // Pagination
+    int32 page = 6;
+    int32 page_size = 7;
+}
+
+message GetFrameHistoryResponse {
+    repeated HistoricalFrame frames = 1;
+    Pagination pagination = 2;
+}
+
+message HistoricalFrame {
+    string id = 1;
+    string name = 2;
+    string layer_name = 3;
+    string job_name = 4;
+    string show = 5;
+    int32 frame_number = 6;
+    job.FrameState final_state = 7;
+    int32 exit_status = 8;
+    int32 retry_count = 9;
+    int32 start_time = 10;
+    int32 stop_time = 11;
+    int64 max_rss = 12;
+    string last_host = 13;
+    int32 total_core_time = 14;
+    int32 total_gpu_time = 15;
+}
+
+// GetLayerHistory
+message GetLayerHistoryRequest {
+    string job_id = 1;
+    string job_name = 2;
+    TimeRange time_range = 3;
+
+    // Pagination
+    int32 page = 4;
+    int32 page_size = 5;
+}
+
+message GetLayerHistoryResponse {
+    repeated HistoricalLayer layers = 1;
+    Pagination pagination = 2;
+}
+
+message HistoricalLayer {
+    string id = 1;
+    string name = 2;
+    string job_name = 3;
+    string show = 4;
+    job.LayerType type = 5;
+    repeated string tags = 6;
+    repeated string services = 7;
+    int32 total_frames = 8;
+    int32 succeeded_frames = 9;
+    int32 failed_frames = 10;
+    int64 total_core_seconds = 11;
+    int64 total_gpu_seconds = 12;
+    int64 max_rss = 13;
+    int64 avg_frame_seconds = 14;
+}
+
+// GetHostHistory
+message GetHostHistoryRequest {
+    repeated string host_names = 1;
+    repeated string facilities = 2;
+    repeated string allocations = 3;
+    repeated host.HardwareState states = 4;
+    TimeRange time_range = 5;
+
+    // Pagination
+    int32 page = 6;
+    int32 page_size = 7;
+}
+
+message GetHostHistoryResponse {
+    repeated HostEvent events = 1;
+    Pagination pagination = 2;
+}
+
+// GetFarmStatistics
+message GetFarmStatisticsRequest {
+    TimeRange time_range = 1;
+    int32 interval_minutes = 2;  // Aggregation interval
+    repeated string shows = 3;   // Filter by shows
+}
+
+message GetFarmStatisticsResponse {
+    repeated FarmStatisticsEvent statistics = 1;
+}
+
+// GetLayerMemoryHistory
+message GetLayerMemoryHistoryRequest {
+    string layer_name = 1;
+    repeated string shows = 2;
+    TimeRange time_range = 3;
+    int32 max_results = 4;
+}
+
+message GetLayerMemoryHistoryResponse {
+    repeated LayerMemoryRecord records = 1;
+}
+
+message LayerMemoryRecord {
+    string job_name = 1;
+    string layer_name = 2;
+    string show = 3;
+    int32 timestamp = 4;
+    int64 max_rss = 5;
+    int64 reserved_memory = 6;
+    int32 frame_count = 7;
+    int64 avg_frame_memory = 8;
+    int64 p95_frame_memory = 9;
+}

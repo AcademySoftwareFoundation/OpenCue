@@ -24,8 +24,9 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
 
-@SpringBootApplication
+@SpringBootApplication(exclude = {KafkaAutoConfiguration.class})
 public class CuebotApplication extends SpringApplication {
     private static String[] checkArgs(String[] args) {
         Optional<String> deprecatedFlag = Arrays.stream(args)

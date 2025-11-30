@@ -195,6 +195,14 @@ public interface DependDao {
     boolean decrementDependCount(FrameInterface f);
 
     /**
+     * Check if a frame is dispatchable (has depend_count = 0).
+     *
+     * @param f the frame to check
+     * @return true if the frame's depend_count is 0
+     */
+    boolean isFrameDispatchable(FrameInterface f);
+
+    /**
      * Returns true if this is the thread that set the depend to inactive.
      *
      * @param depend
