@@ -19,47 +19,62 @@ This guide explains how to extend, customize, and develop against the OpenCue mo
 
 ## Architecture overview
 
-The monitoring system is implemented in Cuebot and consists of:
+The monitoring system uses a decoupled architecture with Cuebot publishing events to Kafka and a standalone Rust-based indexer consuming events for Elasticsearch storage:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                                Cuebot                                      │
 │                                                                            │
 │  ┌─────────────┐     ┌─────────────────────┐                               │
-│  │   Service   │────>│ KafkaEventPublisher │───────> Kafka                 │
-│  │   Layer     │     └─────────────────────┘            │                  │
-│  └─────────────┘              │                         │                  │
-│        │                      │                         v                  │
-│        │                      v                 ┌───────────────────┐      │
-│        │              ┌──────────────┐          │ KafkaEventConsumer│      │
-│        └─────────────>│  Prometheus  │          └───────────────────┘      │
-│                       │   Metrics    │                  │                  │
-│                       └──────────────┘                  v                  │
-│                                                 ┌───────────────────┐      │
-│                                                 │ ElasticsearchClient│     │
-│                                                 └───────────────────┘      │
-│                                                         │                  │
-└─────────────────────────────────────────────────────────│──────────────────┘
-                                                          v
-                                                    Elasticsearch
+│  │   Service   │────>│ KafkaEventPublisher │──────────> Kafka              │
+│  │   Layer     │     └─────────────────────┘               │               │
+│  └─────────────┘              │                            │               │
+│        │                      v                            │               │
+│        └─────────────>┌──────────────┐                     │               │
+│                       │  Prometheus  │                     │               │
+│                       │   Metrics    │                     │               │
+│                       └──────────────┘                     │               │
+└────────────────────────────────────────────────────────────│───────────────┘
+                                                             │
+                                                             v
+┌────────────────────────────────────────────────────────────────────────────┐
+│                      kafka-es-indexer (Rust)                               │
+│                                                                            │
+│  ┌───────────────────┐         ┌─────────────────────────┐                 │
+│  │   Kafka Consumer  │────────>│   Elasticsearch Client  │                 │
+│  │     (rdkafka)     │         │     (bulk indexing)     │                 │
+│  └───────────────────┘         └─────────────────────────┘                 │
+│                                            │                               │
+└────────────────────────────────────────────│───────────────────────────────┘
+                                             v
+                                       Elasticsearch
 ```
 
 **Data flow:**
 1. **Service Layer** (e.g., FrameCompleteHandler, HostReportHandler) generates events and calls KafkaEventPublisher
 2. **KafkaEventPublisher** serializes events as JSON and publishes them to Kafka topics
-3. **KafkaEventConsumer** subscribes to Kafka topics and receives published events
-4. **KafkaEventConsumer** uses **ElasticsearchClient** to index events into Elasticsearch for historical storage
+3. **kafka-es-indexer** (standalone Rust service) consumes events from Kafka topics
+4. **kafka-es-indexer** bulk indexes events into Elasticsearch for historical storage
 5. **Prometheus Metrics** are updated directly by the Service Layer and KafkaEventPublisher (for queue metrics)
 
-### Key classes
+### Key components
 
-| Class | Location | Purpose |
-|-------|----------|---------|
+| Component | Location | Purpose |
+|-----------|----------|---------|
 | `KafkaEventPublisher` | `com.imageworks.spcue.monitoring` | Publishes events to Kafka |
-| `KafkaEventConsumer` | `com.imageworks.spcue.monitoring` | Consumes events from Kafka for ES indexing |
-| `ElasticsearchClient` | `com.imageworks.spcue.monitoring` | Writes events to Elasticsearch |
 | `MonitoringEventBuilder` | `com.imageworks.spcue.monitoring` | Builds event payloads |
 | `PrometheusMetricsCollector` | `com.imageworks.spcue` | Exposes Prometheus metrics |
+| `kafka-es-indexer` | `rust/crates/kafka-es-indexer/` | Consumes Kafka, indexes to Elasticsearch |
+
+### Why a separate indexer?
+
+The Kafka-to-Elasticsearch indexer is implemented as a standalone Rust service rather than within Cuebot for several reasons:
+
+- **Decoupling**: Cuebot focuses on core scheduling; indexing is a separate concern
+- **Scalability**: The indexer can be scaled independently from Cuebot
+- **Reliability**: Kafka buffering ensures events are not lost if Elasticsearch is temporarily unavailable
+- **Performance**: Rust provides efficient resource usage for high-throughput event processing
+- **Operational flexibility**: The indexer can be updated, restarted, or replayed without affecting Cuebot
 
 ## Adding new event types
 
@@ -201,6 +216,8 @@ public static void setActiveJobs(String show, String state, int count) {
 
 ## Customizing Elasticsearch indexing
 
+The `kafka-es-indexer` service handles all Elasticsearch indexing. It automatically routes events to indices based on the Kafka topic name.
+
 ### Index templates
 
 Create custom index templates for new event types. Note that events use snake_case field names and include a `header` object:
@@ -234,26 +251,17 @@ Create custom index templates for new event types. Note that events use snake_ca
 }
 ```
 
-### Custom indexing logic
+### Index naming convention
 
-Extend `ElasticsearchClient` to add custom indexing:
+The kafka-es-indexer creates daily indices using the pattern:
 
-```java
-// ElasticsearchClient.java
-public void indexJobAdminEvent(MonitoringEvent event) {
-    String indexName = "opencue-job-admin-" +
-        LocalDate.now().format(DateTimeFormatter.ISO_DATE);
-
-    Map<String, Object> document = new HashMap<>();
-    document.put("eventType", event.getEventType().name());
-    document.put("timestamp", event.getTimestamp());
-    document.put("jobId", event.getJobId());
-    document.put("jobName", event.getJobName());
-    document.putAll(event.getMetadataMap());
-
-    indexDocument(indexName, document);
-}
 ```
+{topic-name-converted}-YYYY-MM-DD
+```
+
+For example:
+- `opencue.job.events` → `opencue-job-events-2024-11-29`
+- `opencue.frame.events` → `opencue-frame-events-2024-11-29`
 
 ## Testing
 
@@ -312,15 +320,46 @@ public class KafkaEventPublisherIntegrationTest {
 | `monitoring.kafka.linger.ms` | `100` | Time to wait before sending batch |
 | `monitoring.kafka.acks` | `1` | Required acknowledgments |
 
-### Elasticsearch configuration
+### kafka-es-indexer configuration
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `monitoring.elasticsearch.enabled` | `false` | Enable ES storage |
-| `monitoring.elasticsearch.host` | `localhost` | ES host |
-| `monitoring.elasticsearch.port` | `9200` | ES port |
-| `monitoring.elasticsearch.scheme` | `http` | Connection scheme |
-| `monitoring.elasticsearch.index.prefix` | `opencue` | Index name prefix |
+The kafka-es-indexer is configured via command-line arguments, environment variables, or a YAML config file:
+
+| CLI Argument | Env Variable | Default | Description |
+|--------------|--------------|---------|-------------|
+| `--kafka-servers` | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker addresses |
+| `--kafka-group-id` | `KAFKA_GROUP_ID` | `opencue-elasticsearch-indexer` | Consumer group ID |
+| `--elasticsearch-url` | `ELASTICSEARCH_URL` | `http://localhost:9200` | Elasticsearch URL |
+| `--index-prefix` | `ELASTICSEARCH_INDEX_PREFIX` | `opencue` | Elasticsearch index prefix |
+| `--log-level` | `LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
+| `--config` | - | - | Path to YAML config file |
+
+The indexer automatically subscribes to all OpenCue Kafka topics:
+- `opencue.job.events`
+- `opencue.layer.events`
+- `opencue.frame.events`
+- `opencue.host.events`
+- `opencue.proc.events`
+
+Example with CLI arguments:
+
+```bash
+kafka-es-indexer \
+  --kafka-servers kafka:9092 \
+  --kafka-group-id opencue-elasticsearch-indexer \
+  --elasticsearch-url http://elasticsearch:9200 \
+  --index-prefix opencue \
+  --log-level info
+```
+
+Example with environment variables:
+
+```bash
+export KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+export KAFKA_GROUP_ID=opencue-elasticsearch-indexer
+export ELASTICSEARCH_URL=http://elasticsearch:9200
+export ELASTICSEARCH_INDEX_PREFIX=opencue
+kafka-es-indexer
+```
 
 ### Prometheus configuration
 
@@ -331,21 +370,12 @@ public class KafkaEventPublisherIntegrationTest {
 
 ## Debugging
 
-### Enable debug logging
+### Enable debug logging in Cuebot
 
 Add to `log4j2.xml`:
 
 ```xml
 <Logger name="com.imageworks.spcue.monitoring" level="DEBUG"/>
-```
-
-### Check event queue status
-
-Monitor the event queue via metrics:
-
-```promql
-cue_monitoring_event_queue_size
-cue_monitoring_events_dropped_total
 ```
 
 ### Verify Kafka connectivity
@@ -358,6 +388,23 @@ kafka-console-consumer --bootstrap-server kafka:9092 \
 # Check consumer group lag
 kafka-consumer-groups --bootstrap-server kafka:9092 \
   --group opencue-elasticsearch-indexer --describe
+```
+
+### Debugging kafka-es-indexer
+
+```bash
+# View indexer logs
+docker logs opencue-kafka-es-indexer
+
+# Check indexer help
+docker exec opencue-kafka-es-indexer kafka-es-indexer --help
+
+# Verify Elasticsearch indices are being created
+curl -s "http://localhost:9200/_cat/indices/opencue-*?v"
+
+# Check event counts in Elasticsearch
+curl -s "http://localhost:9200/opencue-job-events-*/_count"
+curl -s "http://localhost:9200/opencue-frame-events-*/_count"
 ```
 
 ## Best practices

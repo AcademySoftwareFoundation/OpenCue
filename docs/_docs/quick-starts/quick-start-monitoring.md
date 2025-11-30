@@ -33,6 +33,7 @@ The monitoring stack includes:
 |-----------|---------|------|
 | **Kafka** | Event streaming | 9092 |
 | **Zookeeper** | Kafka coordination | 2181 |
+| **kafka-es-indexer** | Kafka to Elasticsearch indexer (Rust) | - |
 | **Elasticsearch** | Historical data storage | 9200 |
 | **Prometheus** | Metrics collection | 9090 |
 | **Grafana** | Dashboards and visualization | 3000 |
@@ -72,7 +73,6 @@ You should see:
 ```
 opencue.frame.events
 opencue.host.events
-opencue.host.reports
 opencue.job.events
 opencue.layer.events
 opencue.proc.events
@@ -166,8 +166,8 @@ python sandbox/monitor_events.py
 
 Open Prometheus at [http://localhost:9090](http://localhost:9090) and try these queries:
 
-- `cue_monitoring_events_published_total` - Total events published
 - `cue_frames_completed_total` - Completed frames by state
+- `cue_jobs_completed_total` - Completed jobs by show
 - `rate(cue_host_reports_received_total[5m])` - Host report rate
 
 ## Grafana dashboard panels
@@ -178,9 +178,6 @@ The pre-configured dashboard includes:
 - **Jobs Completed by Show (5m)**: Jobs completed per show
 - **Frame Runtime Distribution**: P50 and P95 frame execution times
 - **Frame Memory Usage Distribution**: Memory consumption distribution
-- **Monitoring Event Queue Size**: Event publishing queue depth
-- **Events Published (5m)**: Frame Completed, Frame Failed, Frame Retried, Host Boot, Host Report
-- **Events Dropped (5m)**: Dropped events (should be 0)
 - **Host Reports Received (5m)**: Host reporting activity by facility
 
 ## Accessing monitoring components
@@ -207,7 +204,7 @@ Prometheus collects and stores time-series metrics from Cuebot:
 2. Use the **Graph** tab to query metrics:
    - `cue_frames_completed_total` - Frames by state
    - `cue_jobs_completed_total` - Jobs by show
-   - `cue_monitoring_events_published_total` - Published events
+   - `cue_host_reports_received_total` - Host reports received
 3. Navigate to **Status** > **Configuration** to view scrape settings
 
 ### Kafka UI - Event Stream Browser
@@ -220,8 +217,8 @@ Kafka UI allows you to browse event topics and messages:
 2. Navigate to **Topics** to see all event topics:
    - `opencue.frame.events` - Frame lifecycle events
    - `opencue.job.events` - Job lifecycle events
+   - `opencue.layer.events` - Layer lifecycle events
    - `opencue.host.events` - Host status events
-   - `opencue.host.reports` - Host report events
    - `opencue.proc.events` - Proc allocation events
 3. Click on a topic and select **Messages** to view events in real-time
 

@@ -29,7 +29,36 @@ The monitoring system is built on an event-driven architecture that captures lif
 
 ## Architecture
 
-The monitoring system consists of three main components:
+The monitoring system uses a decoupled architecture:
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                Cuebot                                      │
+│                                                                            │
+│  ┌─────────────┐     ┌─────────────────────┐                               │
+│  │   Service   │────>│ KafkaEventPublisher │──────────> Kafka              │
+│  │   Layer     │     └─────────────────────┘               │               │
+│  └─────────────┘              │                            │               │
+│        │                      v                            │               │
+│        └─────────────>┌──────────────┐                     │               │
+│                       │  Prometheus  │                     │               │
+│                       │   Metrics    │                     │               │
+│                       └──────────────┘                     │               │
+└────────────────────────────────────────────────────────────│───────────────┘
+                                                             │
+                                                             v
+┌────────────────────────────────────────────────────────────────────────────┐
+│                      kafka-es-indexer (Rust)                               │
+│                                                                            │
+│  ┌───────────────────┐         ┌─────────────────────────┐                 │
+│  │   Kafka Consumer  │────────>│   Elasticsearch Client  │                 │
+│  │     (rdkafka)     │         │     (bulk indexing)     │                 │
+│  └───────────────────┘         └─────────────────────────┘                 │
+│                                            │                               │
+└────────────────────────────────────────────│───────────────────────────────┘
+                                             v
+                                       Elasticsearch
+```
 
 ### Event publishing (Kafka)
 
@@ -49,7 +78,7 @@ Events are published asynchronously to avoid impacting render farm performance. 
 
 ### Historical storage (Elasticsearch)
 
-The Kafka event consumer indexes events into Elasticsearch for long-term storage and analysis. This enables:
+A standalone Rust-based service (`kafka-es-indexer`) consumes events from Kafka and indexes them into Elasticsearch for long-term storage and analysis. This decoupled architecture enables:
 
 - **Historical queries**: Search for jobs, frames, or hosts by any attribute
 - **Trend analysis**: Track metrics over time (job completion rates, failure patterns)
@@ -76,11 +105,6 @@ Cuebot exposes a `/metrics` endpoint compatible with Prometheus. Key metrics inc
 - `cue_dispatch_waiting_total` - Tasks waiting in dispatch queue
 - `cue_booking_waiting_total` - Tasks waiting in booking queue
 - `cue_report_executed_total` - Host reports processed
-
-**Monitoring system metrics:**
-- `cue_monitoring_events_published_total` - Events published to Kafka
-- `cue_monitoring_events_dropped_total` - Events dropped due to queue overflow
-- `cue_monitoring_event_queue_size` - Current event queue size
 
 ## Event types
 
@@ -118,20 +142,34 @@ Host events monitor render node status:
 
 ## Configuration
 
-The monitoring system is configured through Cuebot properties:
+### Cuebot configuration
+
+Enable Kafka and Prometheus through Cuebot properties:
 
 ```properties
 # Kafka event publishing
 monitoring.kafka.enabled=true
 monitoring.kafka.bootstrap.servers=kafka:9092
 
-# Elasticsearch storage
-monitoring.elasticsearch.enabled=true
-monitoring.elasticsearch.host=elasticsearch
-monitoring.elasticsearch.port=9200
-
 # Prometheus metrics
 metrics.prometheus.collector=true
+```
+
+### kafka-es-indexer configuration
+
+The standalone Rust indexer (`rust/crates/kafka-es-indexer/`) is configured via environment variables or CLI arguments:
+
+```bash
+# Using environment variables
+export KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+export ELASTICSEARCH_URL=http://elasticsearch:9200
+kafka-es-indexer
+
+# Or using CLI arguments
+kafka-es-indexer \
+  --kafka-servers kafka:9092 \
+  --elasticsearch-url http://elasticsearch:9200 \
+  --index-prefix opencue
 ```
 
 Each component can be enabled or disabled independently based on your infrastructure needs.

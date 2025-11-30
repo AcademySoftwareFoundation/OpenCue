@@ -157,8 +157,27 @@ cuesubmit &
 
 ## Monitoring
 
-To get started with monitoring there is also an additional Docker compose file which sets up
-monitoring for key services.
+### Event Streaming Monitoring Stack (Recommended)
 
-To learn how to run the sandbox environment with monitoring,
-see https://www.opencue.io/docs/other-guides/monitoring-with-prometheus-loki-and-grafana/.
+The full monitoring stack provides real-time event streaming and historical analysis:
+
+```bash
+docker compose -f sandbox/docker-compose.monitoring-full.yml up -d
+```
+
+This starts:
+- **Kafka** + **Zookeeper** - Event streaming (localhost:9092)
+- **kafka-es-indexer** - Rust service that indexes events to Elasticsearch
+- **Elasticsearch** - Historical event storage (http://localhost:9200)
+- **Kibana** - Elasticsearch visualization (http://localhost:5601)
+- **Prometheus** - Metrics collection (http://localhost:9090)
+- **Grafana** - Dashboards and visualization (http://localhost:3000)
+- **Kafka UI** - Event stream browser (http://localhost:8090)
+
+For sample Kibana queries, see [kibana-queries.md](kibana-queries.md).
+
+For more information, see https://www.opencue.io/docs/quick-starts/quick-start-monitoring/.
+
+### Legacy Prometheus/Loki Monitoring
+
+For the legacy Prometheus/Loki monitoring setup, see https://www.opencue.io/docs/other-guides/monitoring-with-prometheus-loki-and-grafana/.

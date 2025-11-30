@@ -35,6 +35,7 @@ The OpenCue monitoring system provides three ways to observe your render farm:
 | **Elasticsearch** | Historical data storage | [http://localhost:9200](http://localhost:9200) |
 | **Kibana** | Elasticsearch visualization | [http://localhost:5601](http://localhost:5601) |
 | **Kafka** | Event streaming (internal) | localhost:9092 |
+| **kafka-es-indexer** | Kafka to Elasticsearch indexer (Rust) | - |
 | **Zookeeper** | Kafka coordination (internal) | localhost:2181 |
 
 
@@ -84,11 +85,23 @@ java -jar cuebot.jar \
 
 ### Enabling Elasticsearch storage
 
-```properties
-# Enable Elasticsearch historical storage
-monitoring.elasticsearch.enabled=true
-monitoring.elasticsearch.host=your-elasticsearch-host
-monitoring.elasticsearch.port=9200
+Elasticsearch indexing is handled by the standalone `kafka-es-indexer` service (located in `rust/crates/kafka-es-indexer/`), not Cuebot. The indexer consumes events from Kafka and bulk indexes them into Elasticsearch.
+
+Using environment variables:
+
+```bash
+export KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+export ELASTICSEARCH_URL=http://elasticsearch:9200
+kafka-es-indexer
+```
+
+Or using CLI arguments:
+
+```bash
+kafka-es-indexer \
+  --kafka-servers kafka:9092 \
+  --elasticsearch-url http://elasticsearch:9200 \
+  --index-prefix opencue
 ```
 
 ### Enabling Prometheus metrics
@@ -129,9 +142,6 @@ The pre-configured dashboard includes:
 
 | Panel | Description | Metric |
 |-------|-------------|--------|
-| Monitoring Event Queue Size | Pending events in publish queue | `cue_monitoring_event_queue_size` |
-| Events Published (5m) | Events sent to Kafka in 5 minutes | `increase(cue_monitoring_events_published_total[5m])` |
-| Events Dropped (5m) | Events lost due to queue overflow | `increase(cue_monitoring_events_dropped_total[5m])` |
 | Host Reports Received (5m) | Reports received from render hosts | `increase(cue_host_reports_received_total[5m])` |
 
 ### Creating custom panels
@@ -165,13 +175,13 @@ To create an alert in Grafana:
 2. Click the **Alert** tab
 3. Configure alert conditions
 
-Example alert: High event drop rate
+Example alert: High frame failure rate
 
 ```yaml
-Alert name: High Event Drop Rate
-Condition: rate(cue_monitoring_events_dropped_total[5m]) > 10
+Alert name: High Frame Failure Rate
+Condition: rate(cue_frames_completed_total{state="DEAD"}[5m]) > 0.1
 For: 5m
-Message: "Monitoring events are being dropped. Check Kafka connectivity."
+Message: "Frame failure rate is elevated. Check job configurations and host health."
 ```
 
 Example alert: Cuebot down
@@ -348,13 +358,10 @@ Configure Elasticsearch index lifecycle management (ILM) to manage data retentio
 | `cue_booking_waiting_total` | Gauge | - | Booking queue size |
 | `cue_report_executed_total` | Gauge | - | Host reports processed |
 
-### Monitoring system metrics
+### Host metrics
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `cue_monitoring_events_published_total` | Counter | event_type | Events published to Kafka |
-| `cue_monitoring_events_dropped_total` | Counter | event_type | Events dropped |
-| `cue_monitoring_event_queue_size` | Gauge | - | Current queue size |
 | `cue_host_reports_received_total` | Counter | facility | Host reports received |
 
 ## Best practices

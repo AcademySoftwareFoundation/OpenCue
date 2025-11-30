@@ -19,11 +19,12 @@ This guide explains how to deploy the OpenCue monitoring stack components for pr
 
 ## Overview
 
-The OpenCue monitoring system consists of three main components:
+The OpenCue monitoring system consists of:
 
 | Component | Purpose | Required |
 |-----------|---------|----------|
 | **Kafka** | Event streaming for job, frame, and host events | Optional |
+| **kafka-es-indexer** | Standalone Rust service that indexes Kafka events to Elasticsearch | Optional (required for ES) |
 | **Elasticsearch** | Historical event storage and analysis | Optional |
 | **Prometheus** | Real-time metrics collection | Optional |
 
@@ -103,9 +104,6 @@ For production environments, deploy each component separately with appropriate c
      --topic opencue.host.events --partitions 3 --replication-factor 1
 
    kafka-topics --bootstrap-server kafka:9092 --create \
-     --topic opencue.host.reports --partitions 3 --replication-factor 1
-
-   kafka-topics --bootstrap-server kafka:9092 --create \
      --topic opencue.layer.events --partitions 3 --replication-factor 1
 
    kafka-topics --bootstrap-server kafka:9092 --create \
@@ -150,6 +148,49 @@ For production environments, deploy each component separately with appropriate c
      }'
    ```
 
+#### Deploying kafka-es-indexer
+
+The `kafka-es-indexer` is a standalone Rust service that consumes events from Kafka and indexes them into Elasticsearch. It runs separately from Cuebot.
+
+1. Build the Docker image (from OpenCue repository root):
+
+   ```bash
+   cd rust
+   docker build -f crates/kafka-es-indexer/Dockerfile -t opencue/kafka-es-indexer .
+   ```
+
+2. Run the indexer:
+
+   ```bash
+   docker run -d --name kafka-es-indexer \
+     --network your-network \
+     -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 \
+     -e KAFKA_GROUP_ID=opencue-elasticsearch-indexer \
+     -e ELASTICSEARCH_URL=http://elasticsearch:9200 \
+     -e ELASTICSEARCH_INDEX_PREFIX=opencue \
+     opencue/kafka-es-indexer
+   ```
+
+   Or with CLI arguments:
+
+   ```bash
+   docker run -d --name kafka-es-indexer \
+     --network your-network \
+     opencue/kafka-es-indexer \
+     --kafka-servers kafka:9092 \
+     --kafka-group-id opencue-elasticsearch-indexer \
+     --elasticsearch-url http://elasticsearch:9200 \
+     --index-prefix opencue
+   ```
+
+3. Verify the indexer is running:
+
+   ```bash
+   docker logs kafka-es-indexer
+   ```
+
+   You should see log messages indicating successful connection to Kafka and Elasticsearch.
+
 #### Deploying Prometheus
 
 1. Create a Prometheus configuration file (`prometheus.yml`):
@@ -192,7 +233,7 @@ For production environments, deploy each component separately with appropriate c
 
 ## Configuring Cuebot
 
-Enable monitoring in Cuebot by adding configuration properties.
+Enable monitoring in Cuebot by adding configuration properties. Note that Elasticsearch indexing is handled by the standalone `kafka-es-indexer` service, not Cuebot.
 
 ### Using command-line arguments
 
@@ -203,9 +244,6 @@ java -jar cuebot.jar \
   --datasource.cue-data-source.password=<password> \
   --monitoring.kafka.enabled=true \
   --monitoring.kafka.bootstrap.servers=kafka-host:9092 \
-  --monitoring.elasticsearch.enabled=true \
-  --monitoring.elasticsearch.host=elasticsearch-host \
-  --monitoring.elasticsearch.port=9200 \
   --metrics.prometheus.collector=true
 ```
 
@@ -214,9 +252,6 @@ java -jar cuebot.jar \
 ```bash
 export MONITORING_KAFKA_ENABLED=true
 export MONITORING_KAFKA_BOOTSTRAP_SERVERS=kafka-host:9092
-export MONITORING_ELASTICSEARCH_ENABLED=true
-export MONITORING_ELASTICSEARCH_HOST=elasticsearch-host
-export MONITORING_ELASTICSEARCH_PORT=9200
 export METRICS_PROMETHEUS_COLLECTOR=true
 ```
 
@@ -228,11 +263,6 @@ Add to `application.properties` or `opencue.properties`:
 # Kafka event publishing
 monitoring.kafka.enabled=true
 monitoring.kafka.bootstrap.servers=kafka-host:9092
-
-# Elasticsearch storage
-monitoring.elasticsearch.enabled=true
-monitoring.elasticsearch.host=elasticsearch-host
-monitoring.elasticsearch.port=9200
 
 # Prometheus metrics
 metrics.prometheus.collector=true
@@ -250,7 +280,6 @@ Expected output includes:
 ```
 opencue.frame.events
 opencue.host.events
-opencue.host.reports
 opencue.job.events
 opencue.layer.events
 opencue.proc.events
@@ -270,9 +299,9 @@ curl -s http://localhost:8080/metrics | grep -E "^cue_"
 
 You should see metrics like:
 ```
-cue_monitoring_events_published_total
 cue_frames_completed_total
 cue_dispatch_waiting_total
+cue_host_reports_received_total
 ```
 
 ### Check Elasticsearch indices
@@ -315,9 +344,10 @@ Enable X-Pack security features:
 
 ### Events not appearing in Elasticsearch
 
-1. Check Cuebot logs for Elasticsearch connection errors
+1. Check kafka-es-indexer logs: `docker logs kafka-es-indexer`
 2. Verify Elasticsearch is healthy: `curl http://elasticsearch-host:9200/_cluster/health`
-3. Ensure the Kafka consumer is running (check for `KafkaEventConsumer` in logs)
+3. Verify kafka-es-indexer is connected to Kafka and consuming messages
+4. Check that indices are being created: `curl http://elasticsearch-host:9200/_cat/indices/opencue-*`
 
 ### Prometheus not scraping metrics
 

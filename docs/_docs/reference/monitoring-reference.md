@@ -235,13 +235,10 @@ All events include a `header` field with common metadata, plus event-specific fi
 | `cue_report_executed_total` | Gauge | - | Host reports processed |
 | `cue_report_rejected_total` | Gauge | - | Host reports rejected |
 
-### Monitoring system metrics
+### Host metrics
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `cue_monitoring_events_published_total` | Counter | `event_type` | Events published to Kafka |
-| `cue_monitoring_events_dropped_total` | Counter | `event_type` | Events dropped due to queue overflow |
-| `cue_monitoring_event_queue_size` | Gauge | - | Current event queue size |
 | `cue_host_reports_received_total` | Counter | `facility` | Host reports received |
 
 ### Query metrics
@@ -277,29 +274,34 @@ monitoring.kafka.retry.backoff.ms=100
 monitoring.kafka.compression.type=lz4
 ```
 
-### Elasticsearch configuration
+### kafka-es-indexer configuration
 
-```properties
-# Enable/disable Elasticsearch storage
-monitoring.elasticsearch.enabled=false
+Elasticsearch indexing is handled by the standalone `kafka-es-indexer` service (located at `rust/crates/kafka-es-indexer/`). It can be configured via environment variables or CLI arguments:
 
-# Connection settings
-monitoring.elasticsearch.host=localhost
-monitoring.elasticsearch.port=9200
-monitoring.elasticsearch.scheme=http
+| CLI Argument | Env Variable | Default | Description |
+|--------------|--------------|---------|-------------|
+| `--kafka-servers` | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker addresses |
+| `--kafka-group-id` | `KAFKA_GROUP_ID` | `opencue-elasticsearch-indexer` | Consumer group ID |
+| `--elasticsearch-url` | `ELASTICSEARCH_URL` | `http://localhost:9200` | Elasticsearch URL |
+| `--index-prefix` | `ELASTICSEARCH_INDEX_PREFIX` | `opencue` | Elasticsearch index prefix |
+| `--log-level` | `LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
 
-# Authentication (optional)
-monitoring.elasticsearch.username=
-monitoring.elasticsearch.password=
+Example using environment variables:
 
-# Index settings
-monitoring.elasticsearch.index.prefix=opencue
-monitoring.elasticsearch.index.shards=1
-monitoring.elasticsearch.index.replicas=0
+```bash
+export KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+export ELASTICSEARCH_URL=http://elasticsearch:9200
+export ELASTICSEARCH_INDEX_PREFIX=opencue
+kafka-es-indexer
+```
 
-# Bulk indexing
-monitoring.elasticsearch.bulk.size=100
-monitoring.elasticsearch.bulk.flush.interval=5000
+Example using CLI arguments:
+
+```bash
+kafka-es-indexer \
+  --kafka-servers kafka:9092 \
+  --elasticsearch-url http://elasticsearch:9200 \
+  --index-prefix opencue
 ```
 
 ### Prometheus configuration
@@ -442,6 +444,7 @@ The `docker-compose.monitoring-full.yml` includes:
 | zookeeper | confluentinc/cp-zookeeper:7.4.0 | 2181 |
 | kafka | confluentinc/cp-kafka:7.4.0 | 9092, 29092 |
 | kafka-ui | provectuslabs/kafka-ui:latest | 8090 |
+| kafka-es-indexer | opencue/kafka-es-indexer | - |
 | elasticsearch | elasticsearch:8.8.0 | 9200, 9300 |
 | kibana | kibana:8.8.0 | 5601 |
 | prometheus | prom/prometheus:v2.45.0 | 9090 |
@@ -454,6 +457,9 @@ The `docker-compose.monitoring-full.yml` includes:
 | `KAFKA_BROKER_ID` | kafka | Unique broker identifier |
 | `KAFKA_ZOOKEEPER_CONNECT` | kafka | Zookeeper connection string |
 | `KAFKA_AUTO_CREATE_TOPICS_ENABLE` | kafka | Enable automatic topic creation |
+| `KAFKA_BOOTSTRAP_SERVERS` | kafka-es-indexer | Kafka broker addresses |
+| `ELASTICSEARCH_URL` | kafka-es-indexer | Elasticsearch URL |
+| `ELASTICSEARCH_INDEX_PREFIX` | kafka-es-indexer | Elasticsearch index prefix |
 | `ES_JAVA_OPTS` | elasticsearch | JVM options |
 | `GF_SECURITY_ADMIN_USER` | grafana | Admin username |
 | `GF_SECURITY_ADMIN_PASSWORD` | grafana | Admin password |
