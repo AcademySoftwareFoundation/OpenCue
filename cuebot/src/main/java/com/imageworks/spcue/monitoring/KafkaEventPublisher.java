@@ -152,12 +152,11 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
                 DEFAULT_NUM_PARTITIONS);
         short replicationFactor = env.getProperty("monitoring.kafka.topic.replication.factor",
                 Short.class, DEFAULT_REPLICATION_FACTOR);
-        String retentionMs = env.getProperty("monitoring.kafka.topic.retention.ms",
-                DEFAULT_RETENTION_MS);
-        String cleanupPolicy = env.getProperty("monitoring.kafka.topic.cleanup.policy",
-                DEFAULT_CLEANUP_POLICY);
-        String segmentMs =
-                env.getProperty("monitoring.kafka.topic.segment.ms", DEFAULT_SEGMENT_MS);
+        String retentionMs =
+                env.getProperty("monitoring.kafka.topic.retention.ms", DEFAULT_RETENTION_MS);
+        String cleanupPolicy =
+                env.getProperty("monitoring.kafka.topic.cleanup.policy", DEFAULT_CLEANUP_POLICY);
+        String segmentMs = env.getProperty("monitoring.kafka.topic.segment.ms", DEFAULT_SEGMENT_MS);
         String segmentBytes =
                 env.getProperty("monitoring.kafka.topic.segment.bytes", DEFAULT_SEGMENT_BYTES);
 

@@ -42,24 +42,4 @@
     <constructor-arg ref="kafkaEventPublisher"/>
   </bean>
 
-  <!--
-    Elasticsearch client for historical data storage.
-    Disabled by default - enable with monitoring.elasticsearch.enabled=true
-  -->
-  <bean id="elasticsearchClient"
-        class="com.imageworks.spcue.monitoring.ElasticsearchClient"
-        init-method="initialize"
-        destroy-method="shutdown"/>
-
-  <!--
-    Kafka consumer for ingesting events into Elasticsearch.
-    Disabled by default - enable with monitoring.elasticsearch.enabled=true
-  -->
-  <bean id="kafkaEventConsumer"
-        class="com.imageworks.spcue.monitoring.KafkaEventConsumer"
-        init-method="initialize"
-        destroy-method="shutdown">
-    <property name="elasticsearchClient" ref="elasticsearchClient"/>
-  </bean>
-
 </beans>

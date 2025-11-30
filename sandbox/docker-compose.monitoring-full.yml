@@ -171,8 +171,6 @@ services:
         condition: service_completed_successfully
       kafka:
         condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
     ports:
       - "8443:8443"
       - "8080:8080"
@@ -190,15 +188,31 @@ services:
       - --datasource.cue-data-source.password=cuebot_password
       - --monitoring.kafka.enabled=true
       - --monitoring.kafka.bootstrap.servers=kafka:29092
-      - --monitoring.elasticsearch.enabled=true
-      - --monitoring.elasticsearch.host=elasticsearch
-      - --monitoring.elasticsearch.port=9200
       - --metrics.prometheus.collector=true
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 10
+
+  # Kafka to Elasticsearch indexer (Rust service)
+  kafka-es-indexer:
+    build:
+      context: ../rust
+      dockerfile: ./crates/kafka-es-indexer/Dockerfile
+    container_name: opencue-kafka-es-indexer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - KAFKA_GROUP_ID=opencue-elasticsearch-indexer
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_INDEX_PREFIX=opencue
+      - LOG_LEVEL=info
+    restart: unless-stopped
 
   # RQD (render queue daemon)
   rqd:

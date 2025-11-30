@@ -14,10 +14,6 @@
 
 package com.imageworks.spcue.servant;
 
-import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
-
 import com.imageworks.spcue.grpc.monitoring.GetFarmStatisticsRequest;
 import com.imageworks.spcue.grpc.monitoring.GetFarmStatisticsResponse;
 import com.imageworks.spcue.grpc.monitoring.GetFrameHistoryRequest;
@@ -30,168 +26,74 @@ import com.imageworks.spcue.grpc.monitoring.GetLayerHistoryRequest;
 import com.imageworks.spcue.grpc.monitoring.GetLayerHistoryResponse;
 import com.imageworks.spcue.grpc.monitoring.GetLayerMemoryHistoryRequest;
 import com.imageworks.spcue.grpc.monitoring.GetLayerMemoryHistoryResponse;
-import com.imageworks.spcue.grpc.monitoring.HistoricalFrame;
-import com.imageworks.spcue.grpc.monitoring.HistoricalJob;
-import com.imageworks.spcue.grpc.monitoring.HistoricalLayer;
-import com.imageworks.spcue.grpc.monitoring.LayerMemoryRecord;
 import com.imageworks.spcue.grpc.monitoring.MonitoringInterfaceGrpc;
-import com.imageworks.spcue.grpc.monitoring.Pagination;
-import com.imageworks.spcue.service.HistoricalManager;
 
 import io.grpc.stub.StreamObserver;
 
 /**
- * gRPC servant for the MonitoringInterface service. Provides access to historical render farm
- * statistics.
+ * gRPC servant for the MonitoringInterface service.
+ *
+ * Historical data queries are not implemented here - historical event data is indexed to
+ * Elasticsearch by the external kafka-es-indexer service and should be queried directly via the
+ * Elasticsearch HTTP API or Kibana.
  */
 public class ManageMonitoring extends MonitoringInterfaceGrpc.MonitoringInterfaceImplBase {
-
-    @Autowired
-    private HistoricalManager historicalManager;
 
     @Override
     public void getJobHistory(GetJobHistoryRequest request,
             StreamObserver<GetJobHistoryResponse> responseObserver) {
-        try {
-            List<HistoricalJob> jobs = historicalManager.getJobHistory(request.getShowsList(),
-                    request.getUsersList(), request.getShotsList(), request.getJobNameRegexList(),
-                    request.getStatesList(),
-                    request.hasTimeRange() ? request.getTimeRange().getStartTime() : 0,
-                    request.hasTimeRange() ? request.getTimeRange().getEndTime() : 0,
-                    request.getPage(), request.getPageSize(), request.getMaxResults());
-
-            GetJobHistoryResponse response = GetJobHistoryResponse.newBuilder().addAllJobs(jobs)
-                    .setPagination(Pagination.newBuilder().setPage(request.getPage())
-                            .setPageSize(request.getPageSize()).setTotalRecords(jobs.size())
-                            .build())
-                    .build();
-
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
-        } catch (Exception e) {
-            responseObserver.onError(io.grpc.Status.INTERNAL
-                    .withDescription("Error fetching job history: " + e.getMessage())
-                    .asRuntimeException());
-        }
+        responseObserver
+                .onError(io.grpc.Status.UNIMPLEMENTED
+                        .withDescription("Historical data is indexed to Elasticsearch. "
+                                + "Query via Elasticsearch HTTP API or Kibana.")
+                        .asRuntimeException());
     }
 
     @Override
     public void getFrameHistory(GetFrameHistoryRequest request,
             StreamObserver<GetFrameHistoryResponse> responseObserver) {
-        try {
-            List<HistoricalFrame> frames = historicalManager.getFrameHistory(request.getJobId(),
-                    request.getJobName(), request.getLayerNamesList(), request.getStatesList(),
-                    request.hasTimeRange() ? request.getTimeRange().getStartTime() : 0,
-                    request.hasTimeRange() ? request.getTimeRange().getEndTime() : 0,
-                    request.getPage(), request.getPageSize());
-
-            GetFrameHistoryResponse response =
-                    GetFrameHistoryResponse.newBuilder().addAllFrames(frames)
-                            .setPagination(Pagination.newBuilder().setPage(request.getPage())
-                                    .setPageSize(request.getPageSize())
-                                    .setTotalRecords(frames.size()).build())
-                            .build();
-
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
-        } catch (Exception e) {
-            responseObserver.onError(io.grpc.Status.INTERNAL
-                    .withDescription("Error fetching frame history: " + e.getMessage())
-                    .asRuntimeException());
-        }
+        responseObserver
+                .onError(io.grpc.Status.UNIMPLEMENTED
+                        .withDescription("Historical data is indexed to Elasticsearch. "
+                                + "Query via Elasticsearch HTTP API or Kibana.")
+                        .asRuntimeException());
     }
 
     @Override
     public void getLayerHistory(GetLayerHistoryRequest request,
             StreamObserver<GetLayerHistoryResponse> responseObserver) {
-        try {
-            List<HistoricalLayer> layers =
-                    historicalManager.getLayerHistory(request.getJobId(), request.getJobName(),
-                            request.hasTimeRange() ? request.getTimeRange().getStartTime() : 0,
-                            request.hasTimeRange() ? request.getTimeRange().getEndTime() : 0,
-                            request.getPage(), request.getPageSize());
-
-            GetLayerHistoryResponse response =
-                    GetLayerHistoryResponse.newBuilder().addAllLayers(layers)
-                            .setPagination(Pagination.newBuilder().setPage(request.getPage())
-                                    .setPageSize(request.getPageSize())
-                                    .setTotalRecords(layers.size()).build())
-                            .build();
-
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
-        } catch (Exception e) {
-            responseObserver.onError(io.grpc.Status.INTERNAL
-                    .withDescription("Error fetching layer history: " + e.getMessage())
-                    .asRuntimeException());
-        }
+        responseObserver
+                .onError(io.grpc.Status.UNIMPLEMENTED
+                        .withDescription("Historical data is indexed to Elasticsearch. "
+                                + "Query via Elasticsearch HTTP API or Kibana.")
+                        .asRuntimeException());
     }
 
     @Override
     public void getHostHistory(GetHostHistoryRequest request,
             StreamObserver<GetHostHistoryResponse> responseObserver) {
-        try {
-            // Host history is typically fetched from Elasticsearch
-            // For now, return an empty response
-            GetHostHistoryResponse response =
-                    GetHostHistoryResponse.newBuilder()
-                            .setPagination(Pagination.newBuilder().setPage(request.getPage())
-                                    .setPageSize(request.getPageSize()).setTotalRecords(0).build())
-                            .build();
-
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
-        } catch (Exception e) {
-            responseObserver.onError(io.grpc.Status.INTERNAL
-                    .withDescription("Error fetching host history: " + e.getMessage())
-                    .asRuntimeException());
-        }
+        responseObserver
+                .onError(io.grpc.Status.UNIMPLEMENTED
+                        .withDescription("Historical data is indexed to Elasticsearch. "
+                                + "Query via Elasticsearch HTTP API or Kibana.")
+                        .asRuntimeException());
     }
 
     @Override
     public void getFarmStatistics(GetFarmStatisticsRequest request,
             StreamObserver<GetFarmStatisticsResponse> responseObserver) {
-        try {
-            // Farm statistics are typically fetched from Prometheus/Elasticsearch
-            // For now, return an empty response
-            GetFarmStatisticsResponse response = GetFarmStatisticsResponse.newBuilder().build();
-
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
-        } catch (Exception e) {
-            responseObserver.onError(io.grpc.Status.INTERNAL
-                    .withDescription("Error fetching farm statistics: " + e.getMessage())
-                    .asRuntimeException());
-        }
+        responseObserver.onError(io.grpc.Status.UNIMPLEMENTED
+                .withDescription("Farm statistics should be queried from Prometheus/Elasticsearch.")
+                .asRuntimeException());
     }
 
     @Override
     public void getLayerMemoryHistory(GetLayerMemoryHistoryRequest request,
             StreamObserver<GetLayerMemoryHistoryResponse> responseObserver) {
-        try {
-            List<LayerMemoryRecord> records = historicalManager.getLayerMemoryHistory(
-                    request.getLayerName(), request.getShowsList(),
-                    request.hasTimeRange() ? request.getTimeRange().getStartTime() : 0,
-                    request.hasTimeRange() ? request.getTimeRange().getEndTime() : 0,
-                    request.getMaxResults());
-
-            GetLayerMemoryHistoryResponse response =
-                    GetLayerMemoryHistoryResponse.newBuilder().addAllRecords(records).build();
-
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
-        } catch (Exception e) {
-            responseObserver.onError(io.grpc.Status.INTERNAL
-                    .withDescription("Error fetching layer memory history: " + e.getMessage())
-                    .asRuntimeException());
-        }
-    }
-
-    public HistoricalManager getHistoricalManager() {
-        return historicalManager;
-    }
-
-    public void setHistoricalManager(HistoricalManager historicalManager) {
-        this.historicalManager = historicalManager;
+        responseObserver
+                .onError(io.grpc.Status.UNIMPLEMENTED
+                        .withDescription("Historical data is indexed to Elasticsearch. "
+                                + "Query via Elasticsearch HTTP API or Kibana.")
+                        .asRuntimeException());
     }
 }

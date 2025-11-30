@@ -1,0 +1,55 @@
+# Build stage
+FROM rust:1.83-bookworm AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    cmake \
+    libssl-dev \
+    pkg-config \
+    libsasl2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy only the Cargo.toml first for dependency caching
+COPY crates/kafka-es-indexer/Cargo.toml ./Cargo.toml
+
+# Create dummy main.rs and build dependencies (for caching)
+RUN mkdir -p src && \
+    echo "fn main() {}" > src/main.rs && \
+    cargo build --release 2>/dev/null || true && \
+    rm -rf src && \
+    rm -f target/release/kafka-es-indexer
+
+# Copy actual source and build
+COPY crates/kafka-es-indexer/src ./src
+RUN touch src/main.rs && cargo build --release
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    libsasl2-2 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the binary
+COPY --from=builder /app/target/release/kafka-es-indexer /usr/local/bin/
+
+# Create non-root user
+RUN useradd -r -s /bin/false indexer
+USER indexer
+
+# Default environment variables
+ENV KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+ENV KAFKA_GROUP_ID=opencue-elasticsearch-indexer
+ENV ELASTICSEARCH_URL=http://elasticsearch:9200
+ENV ELASTICSEARCH_INDEX_PREFIX=opencue
+ENV LOG_LEVEL=info
+ENV RUST_BACKTRACE=1
+
+ENTRYPOINT ["kafka-es-indexer"]
