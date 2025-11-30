@@ -16,8 +16,14 @@ package com.imageworks.spcue.monitoring;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -26,9 +32,14 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.CreateTopicsResult;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -68,12 +79,26 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
     private static final String TOPIC_HOST_EVENTS = "opencue.host.events";
     private static final String TOPIC_PROC_EVENTS = "opencue.proc.events";
 
+    // All topics managed by this publisher
+    private static final List<String> ALL_TOPICS = Arrays.asList(TOPIC_JOB_EVENTS,
+            TOPIC_LAYER_EVENTS, TOPIC_FRAME_EVENTS, TOPIC_HOST_EVENTS, TOPIC_PROC_EVENTS);
+
+    // Default topic configuration
+    private static final int DEFAULT_NUM_PARTITIONS = 3;
+    private static final short DEFAULT_REPLICATION_FACTOR = 1;
+    private static final String DEFAULT_RETENTION_MS = "604800000"; // 7 days
+    private static final String DEFAULT_CLEANUP_POLICY = "delete";
+    private static final String DEFAULT_SEGMENT_MS = "86400000"; // 1 day
+    private static final String DEFAULT_SEGMENT_BYTES = "1073741824"; // 1GB
+
     @Autowired
     private Environment env;
 
     private KafkaProducer<String, String> producer;
+    private AdminClient adminClient;
     private JsonFormat.Printer jsonPrinter;
     private String sourceCuebot;
+    private String bootstrapServers;
     private boolean enabled = false;
 
     public KafkaEventPublisher() {
@@ -96,20 +121,88 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
             sourceCuebot = "unknown";
         }
 
+        bootstrapServers = env.getProperty("monitoring.kafka.bootstrap.servers", "localhost:9092");
+
         jsonPrinter =
                 JsonFormat.printer().includingDefaultValueFields().preservingProtoFieldNames();
 
+        // Initialize admin client and create topics before starting the producer
+        initializeAdminClient();
+        createTopics();
         initializeKafkaProducer();
 
         logger.info("Kafka event publishing initialized, source cuebot: {}", sourceCuebot);
+    }
+
+    private void initializeAdminClient() {
+        Properties props = new Properties();
+        props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG,
+                env.getProperty("monitoring.kafka.admin.timeout.ms", Integer.class, 30000));
+        adminClient = AdminClient.create(props);
+        logger.info("Kafka AdminClient initialized");
+    }
+
+    /**
+     * Creates all monitoring topics with proper configuration. Topics that already exist are
+     * skipped.
+     */
+    private void createTopics() {
+        int numPartitions = env.getProperty("monitoring.kafka.topic.partitions", Integer.class,
+                DEFAULT_NUM_PARTITIONS);
+        short replicationFactor = env.getProperty("monitoring.kafka.topic.replication.factor",
+                Short.class, DEFAULT_REPLICATION_FACTOR);
+        String retentionMs = env.getProperty("monitoring.kafka.topic.retention.ms",
+                DEFAULT_RETENTION_MS);
+        String cleanupPolicy = env.getProperty("monitoring.kafka.topic.cleanup.policy",
+                DEFAULT_CLEANUP_POLICY);
+        String segmentMs =
+                env.getProperty("monitoring.kafka.topic.segment.ms", DEFAULT_SEGMENT_MS);
+        String segmentBytes =
+                env.getProperty("monitoring.kafka.topic.segment.bytes", DEFAULT_SEGMENT_BYTES);
+
+        // Topic configuration
+        Map<String, String> topicConfig = new HashMap<>();
+        topicConfig.put("retention.ms", retentionMs);
+        topicConfig.put("cleanup.policy", cleanupPolicy);
+        topicConfig.put("segment.ms", segmentMs);
+        topicConfig.put("segment.bytes", segmentBytes);
+
+        for (String topicName : ALL_TOPICS) {
+            createTopic(topicName, numPartitions, replicationFactor, topicConfig);
+        }
+    }
+
+    /**
+     * Creates a single topic with the specified configuration.
+     */
+    private void createTopic(String topicName, int numPartitions, short replicationFactor,
+            Map<String, String> config) {
+        NewTopic newTopic = new NewTopic(topicName, numPartitions, replicationFactor);
+        newTopic.configs(config);
+
+        CreateTopicsResult result = adminClient.createTopics(Collections.singletonList(newTopic));
+
+        try {
+            result.values().get(topicName).get();
+            logger.info("Topic '{}' created successfully with {} partitions, replication={}",
+                    topicName, numPartitions, replicationFactor);
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof TopicExistsException) {
+                logger.info("Topic '{}' already exists", topicName);
+            } else {
+                logger.error("Failed to create topic '{}': {}", topicName, e.getMessage());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while creating topic '{}': {}", topicName, e.getMessage());
+        }
     }
 
     private void initializeKafkaProducer() {
         Properties props = new Properties();
 
         // Kafka broker configuration
-        String bootstrapServers =
-                env.getProperty("monitoring.kafka.bootstrap.servers", "localhost:9092");
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
 
         // Serialization
@@ -142,6 +235,9 @@ public class KafkaEventPublisher extends ThreadPoolExecutor {
         if (producer != null) {
             producer.flush();
             producer.close();
+        }
+        if (adminClient != null) {
+            adminClient.close();
         }
         shutdownNow();
         logger.info("Kafka event publisher shut down");
