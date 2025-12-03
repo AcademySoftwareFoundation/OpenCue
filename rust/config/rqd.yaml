@@ -140,6 +140,24 @@ machine:
   #   # Override the operating system reported to Cuebot
   #   os: "Rocky Linux 9"
 
+  # Memory metric to use for process memory measurement
+  # Options: "rss" (default) or "pss"
+  #
+  # RSS (Resident Set Size): Total physical memory used by a process, including
+  #   shared libraries counted fully. This can overreport memory usage when
+  #   multiple processes share the same libraries.
+  #
+  # PSS (Proportional Set Size): Divides shared memory proportionally among
+  #   processes using it, providing more accurate memory accounting. For example,
+  #   if three processes share a 30MB library, each process reports 10MB instead
+  #   of 30MB.
+  #
+  # Note: PSS requires Linux kernel 4.14+ and reads from /proc/[pid]/smaps_rollup.
+  #       If PSS is unavailable, RQD will automatically fall back to RSS.
+  #
+  # Default: rss
+  # memory_metric: "rss"
+
 # =============================================================================
 # RUNNER CONFIGURATION
 # =============================================================================
