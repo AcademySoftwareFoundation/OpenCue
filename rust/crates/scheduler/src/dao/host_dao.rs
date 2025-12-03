@@ -160,7 +160,7 @@ FROM host h
     INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
     INNER JOIN subscription s ON s.pk_alloc = a.pk_alloc AND s.pk_show = $1
     INNER JOIN host_tag ht ON h.pk_host = ht.pk_host
-WHERE a.pk_facility = $2
+WHERE LOWER(a.pk_facility) = LOWER($2)
     AND h.str_lock_state = 'OPEN'
     AND hs.str_state = 'UP'
     AND ht.str_tag = $3

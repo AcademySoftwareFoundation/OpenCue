@@ -82,7 +82,7 @@ filtered_jobs AS (
         AND (fr.int_max_gpus = -1 OR fr.int_gpus + l.int_gpus_min < fr.int_max_gpus)
         -- Match tags: jobs with at least one layer that contains the queried tag
         AND string_to_array($3, ' | ') && string_to_array(l.str_tags, ' | ')
-        AND j.pk_facility = $4
+        AND LOWER(j.pk_facility) = LOWER($4)
 )
 SELECT DISTINCT
     fj.pk_job,
@@ -121,7 +121,7 @@ filtered_jobs AS(
         AND (fr.int_max_gpus = -1 OR fr.int_gpus + l.int_gpus_min < fr.int_max_gpus)
         AND string_to_array($2, ' | ') && string_to_array(l.str_tags, ' | ')
         --TODO: Add facility to this query. ClusterType::Tags will have to contain facility
-        --AND j.pk_facility = 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA1'
+        --AND LOWER(j.pk_facility) = LOWER('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA1')
 )
 SELECT DISTINCT
     fj.pk_job,
