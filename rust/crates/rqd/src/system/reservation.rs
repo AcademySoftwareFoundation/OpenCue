@@ -165,19 +165,20 @@ impl CoreStateManager {
     }
 
     /// Get a list of all cores booked for this phys_id
-    fn get_bookings(&self, phys_id: &PhysId) -> impl Iterator<Item = CoreId> {
-        self.bookings.values().flat_map(|booking| {
+    fn get_bookings(&self, phys_id: &PhysId) -> impl Iterator<Item = CoreId> + '_ {
+        let phys_id = *phys_id;
+        self.bookings.values().flat_map(move |booking| {
             let cores: Vec<CoreId> = booking
                 .cores
                 .iter()
-                .filter(|&(phys_id_all, _)| *phys_id == *phys_id_all)
+                .filter(|&(phys_id_all, _)| phys_id == *phys_id_all)
                 .map(|(_, core_id)| *core_id)
                 .collect();
             cores
         })
     }
 
-    fn calculate_available_cores(&self) -> impl Iterator<Item = (PhysId, Vec<CoreId>)> {
+    fn calculate_available_cores(&self) -> impl Iterator<Item = (PhysId, Vec<CoreId>)> + '_ {
         self.processor_structure
             .cores_by_phys_id
             .iter()
