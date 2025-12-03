@@ -2423,8 +2423,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
-  // Add theme toggle button as floating button
-  function addThemeToggleToMainArea() {
+  // Add theme toggle button to auxiliary navigation
+  function addThemeToggleToAuxNav() {
     if (!document.getElementById('main-theme-toggle')) {
       const themeButton = document.createElement('button');
       themeButton.id = 'main-theme-toggle';
@@ -2434,10 +2434,6 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Style the button to be clearly visible
       themeButton.style.cssText = `
-        position: fixed !important;
-        top: 80px !important;
-        right: calc(50% - 440px) !important;
-        z-index: 9999 !important;
         background: #6b7280 !important;
         color: white !important;
         border: none !important;
@@ -2446,9 +2442,6 @@ document.addEventListener('DOMContentLoaded', function() {
         font-size: 16px !important;
         cursor: pointer !important;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 8px !important;
         font-weight: 500 !important;
         transition: all 0.2s ease !important;
         white-space: nowrap !important;
@@ -2481,8 +2474,19 @@ document.addEventListener('DOMContentLoaded', function() {
         updateMainThemeButton();
         updateNavigationThemeLink();
       });
-      
-      document.body.appendChild(themeButton);
+
+
+      const auxNavList = document.querySelector('.aux-nav-list');
+      const auxNavList = document.querySelector('.aux-nav-list');
+      if (!auxNavList) {
+        console.warn('aux-nav-list not found, cannot add theme toggle');
+        return;
+      }
+      // Create a list item to wrap the themeButton
+      const listItem = document.createElement('li');
+      listItem.className = 'aux-nav-list-item';
+      listItem.appendChild(themeButton);
+      auxNavList.appendChild(listItem);
       updateMainThemeButton();
     }
   }
@@ -2506,7 +2510,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   // Add main theme button after page loads
-  setTimeout(addThemeToggleToMainArea, 200);
+  setTimeout(addThemeToggleToAuxNav, 200);
   
   // Function to update navigation theme link
   function updateNavigationThemeLink() {
