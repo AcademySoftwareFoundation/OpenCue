@@ -2477,11 +2477,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
       const auxNavList = document.querySelector('.aux-nav-list');
-      // Creat a list item to wrap teh themeButton with 
+      const auxNavList = document.querySelector('.aux-nav-list');
+      if (!auxNavList) {
+        console.warn('aux-nav-list not found, cannot add theme toggle');
+        return;
+      }
+      // Create a list item to wrap the themeButton
       const listItem = document.createElement('li');
       listItem.className = 'aux-nav-list-item';
       listItem.appendChild(themeButton);
-      // Append to aux navigation
       auxNavList.appendChild(listItem);
       updateMainThemeButton();
     }
