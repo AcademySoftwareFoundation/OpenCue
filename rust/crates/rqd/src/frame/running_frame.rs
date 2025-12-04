@@ -11,6 +11,7 @@ use std::{
     fmt::Display,
     path::Path,
     process::ExitStatus,
+    sync::atomic::{AtomicBool, Ordering},
     sync::{Arc, RwLock},
 };
 use std::{process::Stdio, thread};
@@ -59,6 +60,9 @@ pub struct RunningFrame {
     pub entrypoint_file_path: String,
     state: RwLock<FrameState>,
     should_remove_from_cache: RwLock<bool>,
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    stats_frozen: AtomicBool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -177,6 +181,7 @@ impl RunningFrame {
                 launch_thread_handle: None,
             })),
             should_remove_from_cache: RwLock::new(false),
+            stats_frozen: AtomicBool::new(false),
         }
     }
 
@@ -226,6 +231,11 @@ impl RunningFrame {
     }
 
     pub fn update_frame_stats(&self, proc_stats: ProcessStats) {
+        // Don't update stats if they've been frozen (e.g., when frame is being killed for OOM)
+        if self.stats_frozen.load(Ordering::SeqCst) {
+            return;
+        }
+
         self.frame_stats
             .write()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -1041,6 +1051,8 @@ impl RunningFrame {
 
         // Replace snapshot config with the new config:
         frame.config = config;
+        // Initialize stats_frozen (skipped during deserialization)
+        frame.stats_frozen = AtomicBool::new(false);
 
         let pid = frame.pid();
 
@@ -1257,6 +1269,17 @@ Render Frame Completed
             .should_remove_from_cache
             .read()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// Freezes the frame statistics to prevent further updates.
+    ///
+    /// This is typically called when a frame is being killed for OOM (out of memory),
+    /// to capture the accurate memory measurement at the moment of kill detection
+    /// and prevent corruption from reading zombie/dying processes.
+    ///
+    /// Once frozen, calls to `update_frame_stats()` will be ignored.
+    pub fn freeze_stats(&self) {
+        self.stats_frozen.store(true, Ordering::SeqCst);
     }
 }
 

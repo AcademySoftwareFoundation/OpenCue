@@ -276,11 +276,15 @@ public class HostReportHandler {
                 msg = "The cue has no pending jobs";
             }
 
+            boolean bookingOff =
+                    env.getProperty("dispatcher.turn_off_booking", Boolean.class, false);
             /*
              * If a message was set, the host is not bookable. Log the message and move on.
              */
             if (msg != null) {
                 logger.trace(msg);
+            } else if (bookingOff) {
+                logger.debug("Booking has been turned off on Cuebot's configuration");
             } else {
                 // check again. The dangling local host assignment could be removed.
                 hasLocalJob = bookingManager.hasLocalHostAssignment(host);
