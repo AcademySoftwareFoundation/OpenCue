@@ -1,5 +1,5 @@
 use actix::{Actor, ActorFutureExt, Handler, ResponseActFuture, WrapFuture};
-use bytesize::{ByteSize, MIB};
+use bytesize::{ByteSize, KIB, MIB};
 use chrono::Utc;
 use futures::FutureExt;
 use miette::{miette, Context, IntoDiagnostic, Result};
@@ -905,6 +905,14 @@ impl RqdDispatcherService {
             .replace("#FRAMESPEC#", &frame_spec)
             .replace("#FRAME#", &frame.frame_name);
 
+        // Calculate memory limits on Kb
+        let soft_memory_limit = ((frame.min_memory.as_u64() / KIB) as f64
+            * CONFIG.queue.frame_memory_soft_limit)
+            .round() as i64;
+        let hard_memory_limit = ((frame.min_memory.as_u64() / KIB) as f64
+            * CONFIG.queue.frame_memory_hard_limit)
+            .round() as i64;
+
         // Build RunFrame
         let run_frame = RunFrame {
             shot: frame.shot.clone(),
@@ -925,9 +933,8 @@ impl RqdDispatcherService {
                 .unwrap_or(0),
             ignore_nimby: proc.is_local_dispatch,
             os: proc.os.clone(),
-            // TODO: Get soft/hard limits from config
-            soft_memory_limit: -1,
-            hard_memory_limit: -1,
+            soft_memory_limit,
+            hard_memory_limit,
             loki_url: frame.loki_url.as_ref().unwrap_or(&String::new()).clone(),
             environment,
             command: processed_command,

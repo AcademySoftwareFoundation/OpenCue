@@ -74,6 +74,8 @@ pub struct QueueConfig {
     pub allocation_refresh_interval: Duration,
     pub selfish_services: Vec<String>,
     pub host_booking_strategy: HostBookingStrategy,
+    pub frame_memory_soft_limit: f64,
+    pub frame_memory_hard_limit: f64,
 }
 
 impl Default for QueueConfig {
@@ -94,6 +96,8 @@ impl Default for QueueConfig {
             allocation_refresh_interval: Duration::from_secs(3),
             selfish_services: Vec::new(),
             host_booking_strategy: HostBookingStrategy::default(),
+            frame_memory_soft_limit: 1.6,
+            frame_memory_hard_limit: 2.0,
         }
     }
 }

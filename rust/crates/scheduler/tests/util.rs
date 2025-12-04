@@ -92,6 +92,8 @@ pub fn create_test_config() -> Config {
                 core_saturation: true,
                 memory_saturation: false,
             },
+            frame_memory_soft_limit: 1.6,
+            frame_memory_hard_limit: 2.0,
         },
         database: DatabaseConfig {
             pool_size: 20,

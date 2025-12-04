@@ -138,6 +138,18 @@ queue:
   #   # Default: false
   #   memory_saturation: false
 
+  # Soft memory limit multiplier for frame memory requirements
+  # Used as a threshold to determine if a frame can be dispatched based on available memory
+  # Multiplied by the frame's memory requirement to calculate the soft limit
+  # Default: 1.6
+  # frame_memory_soft_limit: 1.6
+
+  # Hard memory limit multiplier for frame memory requirements
+  # Used as a maximum threshold for frame memory allocation
+  # Multiplied by the frame's memory requirement to calculate the hard limit
+  # Default: 2.0
+  # frame_memory_hard_limit: 2.0
+
 # =============================================================================
 # HOST CACHE CONFIGURATION
 # =============================================================================
