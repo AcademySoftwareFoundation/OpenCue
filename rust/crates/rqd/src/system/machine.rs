@@ -408,6 +408,10 @@ impl MachineMonitor {
                 // Attempt to kill selected frames.
                 // Logic will ignore kill errors and try again on the next iteration
                 for frame in frames_to_kill {
+                    // Freeze stats before killing to capture accurate memory measurement.
+                    // This prevents corruption from reading zombie/dying processes after kill signal.
+                    frame.freeze_stats();
+
                     if let Ok(manager) = manager::instance().await {
                         info!("Requesting a kill for {}", &frame);
                         let kill_result = manager
