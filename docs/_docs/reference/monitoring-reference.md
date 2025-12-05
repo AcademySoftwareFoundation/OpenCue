@@ -304,6 +304,14 @@ kafka-es-indexer \
   --index-prefix opencue
 ```
 
+Example using a configuration file:
+
+```bash
+kafka-es-indexer --config /path/to/kafka-es-indexer.yaml
+```
+
+A sample configuration file with complete documentation of all options is available at `rust/config/kafka-es-indexer.yaml`.
+
 ### Prometheus configuration
 
 ```properties

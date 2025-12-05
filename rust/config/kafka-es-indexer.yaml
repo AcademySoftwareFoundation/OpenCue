@@ -1,0 +1,132 @@
+# Kafka-Elasticsearch Indexer Configuration File
+#
+# This file configures the kafka-es-indexer service that consumes OpenCue
+# monitoring events from Kafka and indexes them into Elasticsearch for
+# historical analysis and querying.
+#
+# Data Flow: Cuebot (Producer) -> Kafka -> kafka-es-indexer (Consumer) -> Elasticsearch
+
+# =============================================================================
+# KAFKA CONFIGURATION
+# =============================================================================
+kafka:
+  # Kafka bootstrap servers (comma-separated list)
+  # Multiple brokers can be specified for high availability
+  # Default: localhost:9092
+  bootstrap_servers: "localhost:9092"
+
+  # Consumer group ID
+  # All indexer instances with the same group_id will share partition
+  # assignments and coordinate offset commits. Use a unique ID per cluster.
+  # Default: opencue-elasticsearch-indexer
+  group_id: "opencue-elasticsearch-indexer"
+
+  # What to do when there is no initial offset in Kafka
+  # Options:
+  #   earliest - Start from the oldest available message
+  #   latest   - Start from the newest message (skip historical)
+  # Default: earliest
+  auto_offset_reset: "earliest"
+
+  # Enable automatic offset commits
+  # When true, offsets are committed periodically based on auto_commit_interval_ms
+  # When false, offsets are committed manually after each message is processed
+  # Default: true
+  enable_auto_commit: true
+
+  # Interval between automatic offset commits (in milliseconds)
+  # Only used when enable_auto_commit is true
+  # Lower values reduce duplicate processing on restart but increase overhead
+  # Default: 5000 (5 seconds)
+  auto_commit_interval_ms: 5000
+
+  # Maximum number of records to fetch per poll
+  # Higher values improve throughput but increase memory usage
+  # Default: 500
+  max_poll_records: 500
+
+  # Kafka session timeout (in milliseconds)
+  # If the consumer doesn't send heartbeats within this interval,
+  # it will be removed from the consumer group and partitions will be rebalanced
+  # Default: 30000 (30 seconds)
+  session_timeout_ms: 30000
+
+  # Kafka topics to subscribe to
+  # These are the event topics published by Cuebot
+  # Default: all OpenCue event topics
+  topics:
+    - "opencue.job.events"
+    - "opencue.layer.events"
+    - "opencue.frame.events"
+    - "opencue.host.events"
+    - "opencue.proc.events"
+
+# =============================================================================
+# ELASTICSEARCH CONFIGURATION
+# =============================================================================
+elasticsearch:
+  # Elasticsearch URL
+  # Can be a single node or a load balancer in front of a cluster
+  # Default: http://localhost:9200
+  url: "http://localhost:9200"
+
+  # Username for Elasticsearch authentication (optional)
+  # Required when Elasticsearch has security features enabled
+  # Can also be set via ELASTICSEARCH_USERNAME environment variable
+  # username: "elastic"
+
+  # Password for Elasticsearch authentication (optional)
+  # Required when Elasticsearch has security features enabled
+  # Can also be set via ELASTICSEARCH_PASSWORD environment variable
+  # password: "changeme"
+
+  # Index name prefix for all OpenCue event indices
+  # Indices are created with pattern: {prefix}-{event-type}-{date}
+  # Example: opencue-frame-events-2024.11.29
+  # Default: opencue
+  index_prefix: "opencue"
+
+  # Number of primary shards for event indices
+  # More shards allow parallel indexing and searching
+  # For small deployments, 1 shard is sufficient
+  # For large deployments with many events, consider 3-5 shards
+  # Default: 1
+  num_shards: 1
+
+  # Number of replica shards for event indices
+  # Replicas provide redundancy and improve read throughput
+  # Set to 0 for development/testing, 1+ for production
+  # Default: 0
+  num_replicas: 0
+
+  # Maximum number of events to batch before sending to Elasticsearch
+  # Higher values improve throughput but increase latency and memory usage
+  # Events are also flushed based on flush_interval_ms
+  # Default: 100
+  bulk_size: 100
+
+  # Maximum time to wait before flushing events to Elasticsearch (in milliseconds)
+  # Events are flushed when either bulk_size is reached or this interval elapses
+  # Lower values reduce latency but increase indexing overhead
+  # Default: 5000 (5 seconds)
+  flush_interval_ms: 5000
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+#
+# Logging is configured via the LOG_LEVEL environment variable or --log-level
+# CLI argument. This section documents the available options.
+#
+# Options: trace, debug, info, warn, error
+# Default: info
+#
+# Examples:
+#   - trace: Very verbose, includes all debug info (development only)
+#   - debug: Detailed info including each received event
+#   - info: Standard operation logs (recommended for production)
+#   - warn: Only warnings and errors
+#   - error: Only errors
+#
+# Can also use RUST_LOG env var for fine-grained control:
+#   RUST_LOG=kafka_es_indexer=debug,rdkafka=info

@@ -50,27 +50,13 @@ kafka-es-indexer
 
 ### Configuration File
 
-```yaml
-# config.yaml
-kafka:
-  bootstrap_servers: "localhost:9092"
-  group_id: "opencue-elasticsearch-indexer"
-  auto_offset_reset: "earliest"
-  enable_auto_commit: true
-  auto_commit_interval_ms: 5000
-
-elasticsearch:
-  url: "http://localhost:9200"
-  index_prefix: "opencue"
-  num_shards: 1
-  num_replicas: 0
-  bulk_size: 100
-  flush_interval_ms: 5000
-```
+A sample configuration file with complete documentation is available at `rust/config/kafka-es-indexer.yaml`.
 
 ```bash
-kafka-es-indexer --config config.yaml
+kafka-es-indexer --config /path/to/kafka-es-indexer.yaml
 ```
+
+See the [sample config](../../config/kafka-es-indexer.yaml) for all available options and their descriptions.
 
 ## Docker
 

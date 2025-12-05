@@ -361,6 +361,14 @@ export ELASTICSEARCH_INDEX_PREFIX=opencue
 kafka-es-indexer
 ```
 
+Example with a config file:
+
+```bash
+kafka-es-indexer --config /path/to/kafka-es-indexer.yaml
+```
+
+A sample configuration file with complete documentation of all options is available at `rust/config/kafka-es-indexer.yaml`.
+
 ### Prometheus configuration
 
 | Property | Default | Description |

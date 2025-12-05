@@ -183,6 +183,18 @@ The `kafka-es-indexer` is a standalone Rust service that consumes events from Ka
      --index-prefix opencue
    ```
 
+   Or with a configuration file (mount the config file into the container):
+
+   ```bash
+   docker run -d --name kafka-es-indexer \
+     --network your-network \
+     -v /path/to/kafka-es-indexer.yaml:/etc/opencue/kafka-es-indexer.yaml \
+     opencue/kafka-es-indexer \
+     --config /etc/opencue/kafka-es-indexer.yaml
+   ```
+
+   A sample configuration file with complete documentation is available at `rust/config/kafka-es-indexer.yaml`.
+
 3. Verify the indexer is running:
 
    ```bash
