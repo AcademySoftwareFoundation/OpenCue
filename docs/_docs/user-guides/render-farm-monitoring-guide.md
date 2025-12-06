@@ -35,7 +35,7 @@ The OpenCue monitoring system provides three ways to observe your render farm:
 | **Elasticsearch** | Historical data storage | [http://localhost:9200](http://localhost:9200) |
 | **Kibana** | Elasticsearch visualization | [http://localhost:5601](http://localhost:5601) |
 | **Kafka** | Event streaming (internal) | localhost:9092 |
-| **kafka-es-indexer** | Kafka to Elasticsearch indexer (Rust) | - |
+| **monitoring-indexer** | Kafka to Elasticsearch indexer (Rust) | - |
 | **Zookeeper** | Kafka coordination (internal) | localhost:2181 |
 
 
@@ -85,20 +85,20 @@ java -jar cuebot.jar \
 
 ### Enabling Elasticsearch storage
 
-Elasticsearch indexing is handled by the standalone `kafka-es-indexer` service (located in `rust/crates/kafka-es-indexer/`), not Cuebot. The indexer consumes events from Kafka and bulk indexes them into Elasticsearch.
+Elasticsearch indexing is handled by the standalone `monitoring-indexer` service (located in `rust/crates/monitoring-indexer/`), not Cuebot. The indexer consumes events from Kafka and bulk indexes them into Elasticsearch.
 
 Using environment variables:
 
 ```bash
 export KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 export ELASTICSEARCH_URL=http://elasticsearch:9200
-kafka-es-indexer
+monitoring-indexer
 ```
 
 Or using CLI arguments:
 
 ```bash
-kafka-es-indexer \
+monitoring-indexer \
   --kafka-servers kafka:9092 \
   --elasticsearch-url http://elasticsearch:9200 \
   --index-prefix opencue

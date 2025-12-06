@@ -1,12 +1,12 @@
 [package]
-name = "kafka-es-indexer"
-description = "OpenCue Kafka to Elasticsearch event indexer"
+name = "monitoring-indexer"
+description = "OpenCue monitoring event indexer - indexes events from Kafka to Elasticsearch"
 authors = ["OpenCue Contributors"]
 edition = "2021"
 version = "0.1.0"
 
 [[bin]]
-name = "kafka-es-indexer"
+name = "monitoring-indexer"
 path = "src/main.rs"
 
 [dependencies]

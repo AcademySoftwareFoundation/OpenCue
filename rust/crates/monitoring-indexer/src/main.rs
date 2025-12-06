@@ -10,7 +10,7 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-//! OpenCue Kafka to Elasticsearch Event Indexer
+//! OpenCue Monitoring Indexer
 //!
 //! This service consumes monitoring events from Kafka topics and indexes them
 //! into Elasticsearch for historical analysis and querying.
@@ -29,8 +29,8 @@ use crate::consumer::EventConsumer;
 use crate::elasticsearch::ElasticsearchClient;
 
 #[derive(Parser, Debug)]
-#[command(name = "kafka-es-indexer")]
-#[command(about = "OpenCue Kafka to Elasticsearch event indexer")]
+#[command(name = "monitoring-indexer")]
+#[command(about = "OpenCue monitoring event indexer - indexes events from Kafka to Elasticsearch")]
 #[command(version)]
 struct Args {
     /// Path to configuration file
@@ -42,7 +42,7 @@ struct Args {
     kafka_servers: String,
 
     /// Kafka consumer group ID
-    #[arg(long, env = "KAFKA_GROUP_ID", default_value = "opencue-elasticsearch-indexer")]
+    #[arg(long, env = "KAFKA_GROUP_ID", default_value = "opencue-monitoring-indexer")]
     kafka_group_id: String,
 
     /// Elasticsearch URL
@@ -71,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
         .with(filter)
         .init();
 
-    info!("Starting OpenCue Kafka-Elasticsearch Indexer");
+    info!("Starting OpenCue Monitoring Indexer");
 
     // Load configuration
     let config = if let Some(config_path) = &args.config {

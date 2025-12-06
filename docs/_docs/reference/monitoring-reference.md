@@ -274,9 +274,9 @@ monitoring.kafka.retry.backoff.ms=100
 monitoring.kafka.compression.type=lz4
 ```
 
-### kafka-es-indexer configuration
+### monitoring-indexer configuration
 
-Elasticsearch indexing is handled by the standalone `kafka-es-indexer` service (located at `rust/crates/kafka-es-indexer/`). It can be configured via environment variables or CLI arguments:
+Elasticsearch indexing is handled by the standalone `monitoring-indexer` service (located at `rust/crates/monitoring-indexer/`). It can be configured via environment variables or CLI arguments:
 
 | CLI Argument | Env Variable | Default | Description |
 |--------------|--------------|---------|-------------|
@@ -292,13 +292,13 @@ Example using environment variables:
 export KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 export ELASTICSEARCH_URL=http://elasticsearch:9200
 export ELASTICSEARCH_INDEX_PREFIX=opencue
-kafka-es-indexer
+monitoring-indexer
 ```
 
 Example using CLI arguments:
 
 ```bash
-kafka-es-indexer \
+monitoring-indexer \
   --kafka-servers kafka:9092 \
   --elasticsearch-url http://elasticsearch:9200 \
   --index-prefix opencue
@@ -307,10 +307,10 @@ kafka-es-indexer \
 Example using a configuration file:
 
 ```bash
-kafka-es-indexer --config /path/to/kafka-es-indexer.yaml
+monitoring-indexer --config /path/to/monitoring-indexer.yaml
 ```
 
-A sample configuration file with complete documentation of all options is available at `rust/config/kafka-es-indexer.yaml`.
+A sample configuration file with complete documentation of all options is available at `rust/config/monitoring-indexer.yaml`.
 
 ### Prometheus configuration
 
@@ -452,7 +452,7 @@ The `docker-compose.monitoring-full.yml` includes:
 | zookeeper | confluentinc/cp-zookeeper:7.4.0 | 2181 |
 | kafka | confluentinc/cp-kafka:7.4.0 | 9092, 29092 |
 | kafka-ui | provectuslabs/kafka-ui:latest | 8090 |
-| kafka-es-indexer | opencue/kafka-es-indexer | - |
+| monitoring-indexer | opencue/monitoring-indexer | - |
 | elasticsearch | elasticsearch:8.8.0 | 9200, 9300 |
 | kibana | kibana:8.8.0 | 5601 |
 | prometheus | prom/prometheus:v2.45.0 | 9090 |
@@ -465,9 +465,9 @@ The `docker-compose.monitoring-full.yml` includes:
 | `KAFKA_BROKER_ID` | kafka | Unique broker identifier |
 | `KAFKA_ZOOKEEPER_CONNECT` | kafka | Zookeeper connection string |
 | `KAFKA_AUTO_CREATE_TOPICS_ENABLE` | kafka | Enable automatic topic creation |
-| `KAFKA_BOOTSTRAP_SERVERS` | kafka-es-indexer | Kafka broker addresses |
-| `ELASTICSEARCH_URL` | kafka-es-indexer | Elasticsearch URL |
-| `ELASTICSEARCH_INDEX_PREFIX` | kafka-es-indexer | Elasticsearch index prefix |
+| `KAFKA_BOOTSTRAP_SERVERS` | monitoring-indexer | Kafka broker addresses |
+| `ELASTICSEARCH_URL` | monitoring-indexer | Elasticsearch URL |
+| `ELASTICSEARCH_INDEX_PREFIX` | monitoring-indexer | Elasticsearch index prefix |
 | `ES_JAVA_OPTS` | elasticsearch | JVM options |
 | `GF_SECURITY_ADMIN_USER` | grafana | Admin username |
 | `GF_SECURITY_ADMIN_PASSWORD` | grafana | Admin password |

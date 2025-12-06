@@ -12,17 +12,17 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy only the Cargo.toml first for dependency caching
-COPY crates/kafka-es-indexer/Cargo.toml ./Cargo.toml
+COPY crates/monitoring-indexer/Cargo.toml ./Cargo.toml
 
 # Create dummy main.rs and build dependencies (for caching)
 RUN mkdir -p src && \
     echo "fn main() {}" > src/main.rs && \
     cargo build --release 2>/dev/null || true && \
     rm -rf src && \
-    rm -f target/release/kafka-es-indexer
+    rm -f target/release/monitoring-indexer
 
 # Copy actual source and build
-COPY crates/kafka-es-indexer/src ./src
+COPY crates/monitoring-indexer/src ./src
 RUN touch src/main.rs && cargo build --release
 
 # Runtime stage
@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy the binary
-COPY --from=builder /app/target/release/kafka-es-indexer /usr/local/bin/
+COPY --from=builder /app/target/release/monitoring-indexer /usr/local/bin/
 
 # Create non-root user
 RUN useradd -r -s /bin/false indexer
@@ -46,10 +46,10 @@ USER indexer
 
 # Default environment variables
 ENV KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-ENV KAFKA_GROUP_ID=opencue-elasticsearch-indexer
+ENV KAFKA_GROUP_ID=opencue-monitoring-indexer
 ENV ELASTICSEARCH_URL=http://elasticsearch:9200
 ENV ELASTICSEARCH_INDEX_PREFIX=opencue
 ENV LOG_LEVEL=info
 ENV RUST_BACKTRACE=1
 
-ENTRYPOINT ["kafka-es-indexer"]
+ENTRYPOINT ["monitoring-indexer"]

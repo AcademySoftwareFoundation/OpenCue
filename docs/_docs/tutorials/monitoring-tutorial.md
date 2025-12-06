@@ -33,7 +33,7 @@ This tutorial walks you through setting up monitoring for your OpenCue render fa
 | **Kibana** | Elasticsearch visualization | [http://localhost:5601](http://localhost:5601) | 5601 |
 | **Elasticsearch** | Historical data storage | [http://localhost:9200](http://localhost:9200) | 9200 |
 | **Kafka** | Event streaming | localhost:9092 | 9092 |
-| **kafka-es-indexer** | Kafka to Elasticsearch indexer | - | - |
+| **monitoring-indexer** | Kafka to Elasticsearch indexer | - | - |
 | **Zookeeper** | Kafka coordination | localhost:2181 | 2181 |
 
 ### Grafana: OpenCue Monitoring Grafana Dashboard

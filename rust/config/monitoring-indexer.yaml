@@ -1,10 +1,10 @@
-# Kafka-Elasticsearch Indexer Configuration File
+# OpenCue Monitoring Indexer Configuration File
 #
-# This file configures the kafka-es-indexer service that consumes OpenCue
+# This file configures the monitoring-indexer service that consumes OpenCue
 # monitoring events from Kafka and indexes them into Elasticsearch for
 # historical analysis and querying.
 #
-# Data Flow: Cuebot (Producer) -> Kafka -> kafka-es-indexer (Consumer) -> Elasticsearch
+# Data Flow: Cuebot (Producer) -> Kafka -> monitoring-indexer (Consumer) -> Elasticsearch
 
 # =============================================================================
 # KAFKA CONFIGURATION
@@ -18,8 +18,8 @@ kafka:
   # Consumer group ID
   # All indexer instances with the same group_id will share partition
   # assignments and coordinate offset commits. Use a unique ID per cluster.
-  # Default: opencue-elasticsearch-indexer
-  group_id: "opencue-elasticsearch-indexer"
+  # Default: opencue-monitoring-indexer
+  group_id: "opencue-monitoring-indexer"
 
   # What to do when there is no initial offset in Kafka
   # Options:
@@ -129,4 +129,4 @@ elasticsearch:
 #   - error: Only errors
 #
 # Can also use RUST_LOG env var for fine-grained control:
-#   RUST_LOG=kafka_es_indexer=debug,rdkafka=info
+#   RUST_LOG=monitoring_indexer=debug,rdkafka=info

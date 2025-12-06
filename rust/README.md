@@ -6,12 +6,12 @@ Project crates:
  * rqd: rewrite of [OpenCue/rqd](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/rqd)
  * dummy-cuebot: A cli tool to interact with rqd's gRPC interface
  * opencue_proto: Wrapper around grpc's generated code for the project protobuf modules
- * kafka-es-indexer: Kafka to Elasticsearch indexer for OpenCue monitoring events
+ * monitoring-indexer: OpenCue monitoring event indexer (Kafka to Elasticsearch)
 
 Sample configuration files are available in the `config/` directory:
  * `config/rqd.yaml` - RQD configuration
  * `config/rqd.fake_linux.yaml` - RQD configuration for simulating Linux on macOS
- * `config/kafka-es-indexer.yaml` - Kafka-Elasticsearch indexer configuration
+ * `config/monitoring-indexer.yaml` - Monitoring indexer configuration
 
 ## Build Instructions
 

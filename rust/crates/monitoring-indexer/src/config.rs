@@ -10,7 +10,7 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-//! Configuration for the Kafka-Elasticsearch indexer.
+//! Configuration for the OpenCue monitoring indexer.
 
 use serde::Deserialize;
 
@@ -99,7 +99,7 @@ fn default_bootstrap_servers() -> String {
 }
 
 fn default_group_id() -> String {
-    "opencue-elasticsearch-indexer".to_string()
+    "opencue-monitoring-indexer".to_string()
 }
 
 fn default_auto_offset_reset() -> String {

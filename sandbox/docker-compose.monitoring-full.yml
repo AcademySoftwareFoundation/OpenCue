@@ -195,12 +195,12 @@ services:
       timeout: 5s
       retries: 10
 
-  # Kafka to Elasticsearch indexer (Rust service)
-  kafka-es-indexer:
+  # Monitoring indexer - indexes OpenCue events from Kafka to Elasticsearch
+  monitoring-indexer:
     build:
       context: ../rust
-      dockerfile: Dockerfile.kafka-es-indexer
-    container_name: opencue-kafka-es-indexer
+      dockerfile: Dockerfile.monitoring-indexer
+    container_name: opencue-monitoring-indexer
     depends_on:
       kafka:
         condition: service_healthy
@@ -208,7 +208,7 @@ services:
         condition: service_healthy
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - KAFKA_GROUP_ID=opencue-elasticsearch-indexer
+      - KAFKA_GROUP_ID=opencue-monitoring-indexer
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - ELASTICSEARCH_INDEX_PREFIX=opencue
       - LOG_LEVEL=info

@@ -1,4 +1,4 @@
-# OpenCue Kafka-Elasticsearch Indexer
+# OpenCue Monitoring Indexer
 
 A Rust service that consumes OpenCue monitoring events from Kafka and indexes them into Elasticsearch for historical analysis.
 
@@ -7,7 +7,7 @@ A Rust service that consumes OpenCue monitoring events from Kafka and indexes th
 This service is the consumer side of the OpenCue monitoring pipeline:
 
 ```
-Cuebot (Producer) -> Kafka -> kafka-es-indexer (Consumer) -> Elasticsearch
+Cuebot (Producer) -> Kafka -> monitoring-indexer (Consumer) -> Elasticsearch
 ```
 
 ## Features
@@ -28,9 +28,9 @@ Cuebot (Producer) -> Kafka -> kafka-es-indexer (Consumer) -> Elasticsearch
 ### Command Line
 
 ```bash
-kafka-es-indexer \
+monitoring-indexer \
   --kafka-servers localhost:9092 \
-  --kafka-group-id opencue-elasticsearch-indexer \
+  --kafka-group-id opencue-monitoring-indexer \
   --elasticsearch-url http://localhost:9200 \
   --index-prefix opencue \
   --log-level info
@@ -40,23 +40,23 @@ kafka-es-indexer \
 
 ```bash
 export KAFKA_BOOTSTRAP_SERVERS=localhost:9092
-export KAFKA_GROUP_ID=opencue-elasticsearch-indexer
+export KAFKA_GROUP_ID=opencue-monitoring-indexer
 export ELASTICSEARCH_URL=http://localhost:9200
 export ELASTICSEARCH_INDEX_PREFIX=opencue
 export LOG_LEVEL=info
 
-kafka-es-indexer
+monitoring-indexer
 ```
 
 ### Configuration File
 
-A sample configuration file with complete documentation is available at `rust/config/kafka-es-indexer.yaml`.
+A sample configuration file with complete documentation is available at `rust/config/monitoring-indexer.yaml`.
 
 ```bash
-kafka-es-indexer --config /path/to/kafka-es-indexer.yaml
+monitoring-indexer --config /path/to/monitoring-indexer.yaml
 ```
 
-See the [sample config](../../config/kafka-es-indexer.yaml) for all available options and their descriptions.
+See the [sample config](../../config/monitoring-indexer.yaml) for all available options and their descriptions.
 
 ## Docker
 
@@ -64,7 +64,7 @@ Build the Docker image:
 
 ```bash
 cd rust
-docker build -f Dockerfile.kafka-es-indexer -t opencue/kafka-es-indexer .
+docker build -f Dockerfile.monitoring-indexer -t opencue/monitoring-indexer .
 ```
 
 Run with Docker:
@@ -73,17 +73,17 @@ Run with Docker:
 docker run -d \
   -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 \
   -e ELASTICSEARCH_URL=http://elasticsearch:9200 \
-  opencue/kafka-es-indexer
+  opencue/monitoring-indexer
 ```
 
 ## Building
 
 ```bash
 cd rust
-cargo build --release --package kafka-es-indexer
+cargo build --release --package monitoring-indexer
 ```
 
-The binary will be at `target/release/kafka-es-indexer`.
+The binary will be at `target/release/monitoring-indexer`.
 
 ## Index Structure
 

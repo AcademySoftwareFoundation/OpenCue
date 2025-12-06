@@ -34,7 +34,7 @@ import io.grpc.stub.StreamObserver;
  * gRPC servant for the MonitoringInterface service.
  *
  * Historical data queries are not implemented here - historical event data is indexed to
- * Elasticsearch by the external kafka-es-indexer service and should be queried directly via the
+ * Elasticsearch by the external monitoring-indexer service and should be queried directly via the
  * Elasticsearch HTTP API or Kibana.
  */
 public class ManageMonitoring extends MonitoringInterfaceGrpc.MonitoringInterfaceImplBase {

@@ -48,7 +48,7 @@ The monitoring system uses a decoupled architecture:
                                                              │
                                                              v
 ┌────────────────────────────────────────────────────────────────────────────┐
-│                      kafka-es-indexer (Rust)                               │
+│                      monitoring-indexer (Rust)                               │
 │                                                                            │
 │  ┌───────────────────┐         ┌─────────────────────────┐                 │
 │  │   Kafka Consumer  │────────>│   Elasticsearch Client  │                 │
@@ -78,7 +78,7 @@ Events are published asynchronously to avoid impacting render farm performance. 
 
 ### Historical storage (Elasticsearch)
 
-A standalone Rust-based service (`kafka-es-indexer`) consumes events from Kafka and indexes them into Elasticsearch for long-term storage and analysis. This decoupled architecture enables:
+A standalone Rust-based service (`monitoring-indexer`) consumes events from Kafka and indexes them into Elasticsearch for long-term storage and analysis. This decoupled architecture enables:
 
 - **Historical queries**: Search for jobs, frames, or hosts by any attribute
 - **Trend analysis**: Track metrics over time (job completion rates, failure patterns)
@@ -155,18 +155,18 @@ monitoring.kafka.bootstrap.servers=kafka:9092
 metrics.prometheus.collector=true
 ```
 
-### kafka-es-indexer configuration
+### monitoring-indexer configuration
 
-The standalone Rust indexer (`rust/crates/kafka-es-indexer/`) is configured via environment variables or CLI arguments:
+The standalone Rust indexer (`rust/crates/monitoring-indexer/`) is configured via environment variables or CLI arguments:
 
 ```bash
 # Using environment variables
 export KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 export ELASTICSEARCH_URL=http://elasticsearch:9200
-kafka-es-indexer
+monitoring-indexer
 
 # Or using CLI arguments
-kafka-es-indexer \
+monitoring-indexer \
   --kafka-servers kafka:9092 \
   --elasticsearch-url http://elasticsearch:9200 \
   --index-prefix opencue

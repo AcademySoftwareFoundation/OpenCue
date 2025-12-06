@@ -167,7 +167,7 @@ docker compose -f sandbox/docker-compose.monitoring-full.yml up -d
 
 This starts:
 - **Kafka** + **Zookeeper** - Event streaming (localhost:9092)
-- **kafka-es-indexer** - Rust service that indexes events to Elasticsearch
+- **monitoring-indexer** - Rust service that indexes monitoring events to Elasticsearch
 - **Elasticsearch** - Historical event storage (http://localhost:9200)
 - **Kibana** - Elasticsearch visualization (http://localhost:5601)
 - **Prometheus** - Metrics collection (http://localhost:9090)

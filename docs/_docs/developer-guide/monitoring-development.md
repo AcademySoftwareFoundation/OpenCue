@@ -38,7 +38,7 @@ The monitoring system uses a decoupled architecture with Cuebot publishing event
                                                              │
                                                              v
 ┌────────────────────────────────────────────────────────────────────────────┐
-│                      kafka-es-indexer (Rust)                               │
+│                      monitoring-indexer (Rust)                             │
 │                                                                            │
 │  ┌───────────────────┐         ┌─────────────────────────┐                 │
 │  │   Kafka Consumer  │────────>│   Elasticsearch Client  │                 │
@@ -53,8 +53,8 @@ The monitoring system uses a decoupled architecture with Cuebot publishing event
 **Data flow:**
 1. **Service Layer** (e.g., FrameCompleteHandler, HostReportHandler) generates events and calls KafkaEventPublisher
 2. **KafkaEventPublisher** serializes events as JSON and publishes them to Kafka topics
-3. **kafka-es-indexer** (standalone Rust service) consumes events from Kafka topics
-4. **kafka-es-indexer** bulk indexes events into Elasticsearch for historical storage
+3. **monitoring-indexer** (standalone Rust service) consumes events from Kafka topics
+4. **monitoring-indexer** bulk indexes events into Elasticsearch for historical storage
 5. **Prometheus Metrics** are updated directly by the Service Layer and KafkaEventPublisher (for queue metrics)
 
 ### Key components
@@ -64,7 +64,7 @@ The monitoring system uses a decoupled architecture with Cuebot publishing event
 | `KafkaEventPublisher` | `com.imageworks.spcue.monitoring` | Publishes events to Kafka |
 | `MonitoringEventBuilder` | `com.imageworks.spcue.monitoring` | Builds event payloads |
 | `PrometheusMetricsCollector` | `com.imageworks.spcue` | Exposes Prometheus metrics |
-| `kafka-es-indexer` | `rust/crates/kafka-es-indexer/` | Consumes Kafka, indexes to Elasticsearch |
+| `monitoring-indexer` | `rust/crates/monitoring-indexer/` | Consumes Kafka, indexes to Elasticsearch |
 
 ### Why a separate indexer?
 
@@ -216,7 +216,7 @@ public static void setActiveJobs(String show, String state, int count) {
 
 ## Customizing Elasticsearch indexing
 
-The `kafka-es-indexer` service handles all Elasticsearch indexing. It automatically routes events to indices based on the Kafka topic name.
+The `monitoring-indexer` service handles all Elasticsearch indexing. It automatically routes events to indices based on the Kafka topic name.
 
 ### Index templates
 
@@ -253,7 +253,7 @@ Create custom index templates for new event types. Note that events use snake_ca
 
 ### Index naming convention
 
-The kafka-es-indexer creates daily indices using the pattern:
+The monitoring-indexer creates daily indices using the pattern:
 
 ```
 {topic-name-converted}-YYYY-MM-DD
@@ -320,9 +320,9 @@ public class KafkaEventPublisherIntegrationTest {
 | `monitoring.kafka.linger.ms` | `100` | Time to wait before sending batch |
 | `monitoring.kafka.acks` | `1` | Required acknowledgments |
 
-### kafka-es-indexer configuration
+### monitoring-indexer configuration
 
-The kafka-es-indexer is configured via command-line arguments, environment variables, or a YAML config file:
+The monitoring-indexer is configured via command-line arguments, environment variables, or a YAML config file:
 
 | CLI Argument | Env Variable | Default | Description |
 |--------------|--------------|---------|-------------|
@@ -343,7 +343,7 @@ The indexer automatically subscribes to all OpenCue Kafka topics:
 Example with CLI arguments:
 
 ```bash
-kafka-es-indexer \
+monitoring-indexer \
   --kafka-servers kafka:9092 \
   --kafka-group-id opencue-elasticsearch-indexer \
   --elasticsearch-url http://elasticsearch:9200 \
@@ -358,16 +358,16 @@ export KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 export KAFKA_GROUP_ID=opencue-elasticsearch-indexer
 export ELASTICSEARCH_URL=http://elasticsearch:9200
 export ELASTICSEARCH_INDEX_PREFIX=opencue
-kafka-es-indexer
+monitoring-indexer
 ```
 
 Example with a config file:
 
 ```bash
-kafka-es-indexer --config /path/to/kafka-es-indexer.yaml
+monitoring-indexer --config /path/to/monitoring-indexer.yaml
 ```
 
-A sample configuration file with complete documentation of all options is available at `rust/config/kafka-es-indexer.yaml`.
+A sample configuration file with complete documentation of all options is available at `rust/config/monitoring-indexer.yaml`.
 
 ### Prometheus configuration
 
@@ -398,14 +398,14 @@ kafka-consumer-groups --bootstrap-server kafka:9092 \
   --group opencue-elasticsearch-indexer --describe
 ```
 
-### Debugging kafka-es-indexer
+### Debugging monitoring-indexer
 
 ```bash
 # View indexer logs
-docker logs opencue-kafka-es-indexer
+docker logs opencue-monitoring-indexer
 
 # Check indexer help
-docker exec opencue-kafka-es-indexer kafka-es-indexer --help
+docker exec opencue-monitoring-indexer monitoring-indexer --help
 
 # Verify Elasticsearch indices are being created
 curl -s "http://localhost:9200/_cat/indices/opencue-*?v"

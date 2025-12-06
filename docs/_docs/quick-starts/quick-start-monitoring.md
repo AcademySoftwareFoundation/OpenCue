@@ -33,7 +33,7 @@ The monitoring stack includes:
 |-----------|---------|------|
 | **Kafka** | Event streaming | 9092 |
 | **Zookeeper** | Kafka coordination | 2181 |
-| **kafka-es-indexer** | Kafka to Elasticsearch indexer (Rust) | - |
+| **monitoring-indexer** | Kafka to Elasticsearch indexer (Rust) | - |
 | **Elasticsearch** | Historical data storage | 9200 |
 | **Prometheus** | Metrics collection | 9090 |
 | **Grafana** | Dashboards and visualization | 3000 |

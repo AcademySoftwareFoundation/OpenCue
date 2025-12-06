@@ -24,7 +24,7 @@ The OpenCue monitoring system consists of:
 | Component | Purpose | Required |
 |-----------|---------|----------|
 | **Kafka** | Event streaming for job, frame, and host events | Optional |
-| **kafka-es-indexer** | Standalone Rust service that indexes Kafka events to Elasticsearch | Optional (required for ES) |
+| **monitoring-indexer** | Standalone Rust service that indexes Kafka events to Elasticsearch | Optional (required for ES) |
 | **Elasticsearch** | Historical event storage and analysis | Optional |
 | **Prometheus** | Real-time metrics collection | Optional |
 
@@ -148,35 +148,35 @@ For production environments, deploy each component separately with appropriate c
      }'
    ```
 
-#### Deploying kafka-es-indexer
+#### Deploying monitoring-indexer
 
-The `kafka-es-indexer` is a standalone Rust service that consumes events from Kafka and indexes them into Elasticsearch. It runs separately from Cuebot.
+The `monitoring-indexer` is a standalone Rust service that consumes events from Kafka and indexes them into Elasticsearch. It runs separately from Cuebot.
 
 1. Build the Docker image (from OpenCue repository root):
 
    ```bash
    cd rust
-   docker build -f Dockerfile.kafka-es-indexer -t opencue/kafka-es-indexer .
+   docker build -f Dockerfile.monitoring-indexer -t opencue/monitoring-indexer .
    ```
 
 2. Run the indexer:
 
    ```bash
-   docker run -d --name kafka-es-indexer \
+   docker run -d --name monitoring-indexer \
      --network your-network \
      -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 \
      -e KAFKA_GROUP_ID=opencue-elasticsearch-indexer \
      -e ELASTICSEARCH_URL=http://elasticsearch:9200 \
      -e ELASTICSEARCH_INDEX_PREFIX=opencue \
-     opencue/kafka-es-indexer
+     opencue/monitoring-indexer
    ```
 
    Or with CLI arguments:
 
    ```bash
-   docker run -d --name kafka-es-indexer \
+   docker run -d --name monitoring-indexer \
      --network your-network \
-     opencue/kafka-es-indexer \
+     opencue/monitoring-indexer \
      --kafka-servers kafka:9092 \
      --kafka-group-id opencue-elasticsearch-indexer \
      --elasticsearch-url http://elasticsearch:9200 \
@@ -186,19 +186,19 @@ The `kafka-es-indexer` is a standalone Rust service that consumes events from Ka
    Or with a configuration file (mount the config file into the container):
 
    ```bash
-   docker run -d --name kafka-es-indexer \
+   docker run -d --name monitoring-indexer \
      --network your-network \
-     -v /path/to/kafka-es-indexer.yaml:/etc/opencue/kafka-es-indexer.yaml \
-     opencue/kafka-es-indexer \
-     --config /etc/opencue/kafka-es-indexer.yaml
+     -v /path/to/monitoring-indexer.yaml:/etc/opencue/monitoring-indexer.yaml \
+     opencue/monitoring-indexer \
+     --config /etc/opencue/monitoring-indexer.yaml
    ```
 
-   A sample configuration file with complete documentation is available at `rust/config/kafka-es-indexer.yaml`.
+   A sample configuration file with complete documentation is available at `rust/config/monitoring-indexer.yaml`.
 
 3. Verify the indexer is running:
 
    ```bash
-   docker logs kafka-es-indexer
+   docker logs monitoring-indexer
    ```
 
    You should see log messages indicating successful connection to Kafka and Elasticsearch.
@@ -245,7 +245,7 @@ The `kafka-es-indexer` is a standalone Rust service that consumes events from Ka
 
 ## Configuring Cuebot
 
-Enable monitoring in Cuebot by adding configuration properties. Note that Elasticsearch indexing is handled by the standalone `kafka-es-indexer` service, not Cuebot.
+Enable monitoring in Cuebot by adding configuration properties. Note that Elasticsearch indexing is handled by the standalone `monitoring-indexer` service, not Cuebot.
 
 ### Using command-line arguments
 
@@ -356,9 +356,9 @@ Enable X-Pack security features:
 
 ### Events not appearing in Elasticsearch
 
-1. Check kafka-es-indexer logs: `docker logs kafka-es-indexer`
+1. Check monitoring-indexer logs: `docker logs monitoring-indexer`
 2. Verify Elasticsearch is healthy: `curl http://elasticsearch-host:9200/_cluster/health`
-3. Verify kafka-es-indexer is connected to Kafka and consuming messages
+3. Verify monitoring-indexer is connected to Kafka and consuming messages
 4. Check that indices are being created: `curl http://elasticsearch-host:9200/_cat/indices/opencue-*`
 
 ### Prometheus not scraping metrics
