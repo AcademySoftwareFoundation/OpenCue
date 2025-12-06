@@ -1622,26 +1622,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kafka-es-indexer"
-version = "0.1.5"
-dependencies = [
- "anyhow",
- "chrono",
- "clap 4.5.53",
- "config",
- "elasticsearch",
- "futures",
- "rdkafka",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "url",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1800,6 +1780,26 @@ dependencies = [
  "libc",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "monitoring-indexer"
+version = "0.1.5"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap 4.5.53",
+ "config",
+ "elasticsearch",
+ "futures",
+ "rdkafka",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "url",
 ]
 
 [[package]]

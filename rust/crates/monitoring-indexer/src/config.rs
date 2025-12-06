@@ -16,6 +16,17 @@ use serde::Deserialize;
 
 use crate::error::IndexerError;
 
+/// Kafka topic for job events
+pub const TOPIC_JOB_EVENTS: &str = "opencue.job.events";
+/// Kafka topic for layer events
+pub const TOPIC_LAYER_EVENTS: &str = "opencue.layer.events";
+/// Kafka topic for frame events
+pub const TOPIC_FRAME_EVENTS: &str = "opencue.frame.events";
+/// Kafka topic for host events
+pub const TOPIC_HOST_EVENTS: &str = "opencue.host.events";
+/// Kafka topic for proc events
+pub const TOPIC_PROC_EVENTS: &str = "opencue.proc.events";
+
 /// Top-level configuration
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
@@ -25,135 +36,46 @@ pub struct Config {
 
 /// Kafka consumer configuration
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct KafkaConfig {
     /// Kafka bootstrap servers (comma-separated)
-    #[serde(default = "default_bootstrap_servers")]
     pub bootstrap_servers: String,
-
     /// Consumer group ID
-    #[serde(default = "default_group_id")]
     pub group_id: String,
-
     /// Auto offset reset policy
-    #[serde(default = "default_auto_offset_reset")]
     pub auto_offset_reset: String,
-
     /// Enable auto commit
-    #[serde(default = "default_enable_auto_commit")]
     pub enable_auto_commit: bool,
-
     /// Auto commit interval in milliseconds
-    #[serde(default = "default_auto_commit_interval")]
     pub auto_commit_interval_ms: u32,
-
     /// Maximum poll records
-    #[serde(default = "default_max_poll_records")]
     pub max_poll_records: u32,
-
     /// Session timeout in milliseconds
-    #[serde(default = "default_session_timeout")]
     pub session_timeout_ms: u32,
-
     /// Topics to subscribe to
-    #[serde(default = "default_topics")]
     pub topics: Vec<String>,
 }
 
 /// Elasticsearch client configuration
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct ElasticsearchConfig {
     /// Elasticsearch URL
-    #[serde(default = "default_elasticsearch_url")]
     pub url: String,
-
     /// Username for authentication (optional)
     pub username: Option<String>,
-
     /// Password for authentication (optional)
     pub password: Option<String>,
-
     /// Index prefix
-    #[serde(default = "default_index_prefix")]
     pub index_prefix: String,
-
     /// Number of shards for indices
-    #[serde(default = "default_num_shards")]
     pub num_shards: u32,
-
     /// Number of replicas for indices
-    #[serde(default = "default_num_replicas")]
     pub num_replicas: u32,
-
     /// Bulk indexing batch size
-    #[serde(default = "default_bulk_size")]
     pub bulk_size: usize,
-
     /// Bulk indexing flush interval in milliseconds
-    #[serde(default = "default_flush_interval")]
     pub flush_interval_ms: u64,
-}
-
-// Default value functions
-fn default_bootstrap_servers() -> String {
-    "localhost:9092".to_string()
-}
-
-fn default_group_id() -> String {
-    "opencue-monitoring-indexer".to_string()
-}
-
-fn default_auto_offset_reset() -> String {
-    "earliest".to_string()
-}
-
-fn default_enable_auto_commit() -> bool {
-    true
-}
-
-fn default_auto_commit_interval() -> u32 {
-    5000
-}
-
-fn default_max_poll_records() -> u32 {
-    500
-}
-
-fn default_session_timeout() -> u32 {
-    30000
-}
-
-fn default_topics() -> Vec<String> {
-    vec![
-        "opencue.job.events".to_string(),
-        "opencue.layer.events".to_string(),
-        "opencue.frame.events".to_string(),
-        "opencue.host.events".to_string(),
-        "opencue.proc.events".to_string(),
-    ]
-}
-
-fn default_elasticsearch_url() -> String {
-    "http://localhost:9200".to_string()
-}
-
-fn default_index_prefix() -> String {
-    "opencue".to_string()
-}
-
-fn default_num_shards() -> u32 {
-    1
-}
-
-fn default_num_replicas() -> u32 {
-    0
-}
-
-fn default_bulk_size() -> usize {
-    100
-}
-
-fn default_flush_interval() -> u64 {
-    5000
 }
 
 impl Config {
@@ -176,22 +98,14 @@ impl Config {
             kafka: KafkaConfig {
                 bootstrap_servers: args.kafka_servers.clone(),
                 group_id: args.kafka_group_id.clone(),
-                auto_offset_reset: default_auto_offset_reset(),
-                enable_auto_commit: default_enable_auto_commit(),
-                auto_commit_interval_ms: default_auto_commit_interval(),
-                max_poll_records: default_max_poll_records(),
-                session_timeout_ms: default_session_timeout(),
-                topics: default_topics(),
+                ..Default::default()
             },
             elasticsearch: ElasticsearchConfig {
                 url: args.elasticsearch_url.clone(),
-                username: None,
-                password: None,
+                username: args.elasticsearch_username.clone(),
+                password: args.elasticsearch_password.clone(),
                 index_prefix: args.index_prefix.clone(),
-                num_shards: default_num_shards(),
-                num_replicas: default_num_replicas(),
-                bulk_size: default_bulk_size(),
-                flush_interval_ms: default_flush_interval(),
+                ..Default::default()
             },
         }
     }
@@ -200,14 +114,20 @@ impl Config {
 impl Default for KafkaConfig {
     fn default() -> Self {
         Self {
-            bootstrap_servers: default_bootstrap_servers(),
-            group_id: default_group_id(),
-            auto_offset_reset: default_auto_offset_reset(),
-            enable_auto_commit: default_enable_auto_commit(),
-            auto_commit_interval_ms: default_auto_commit_interval(),
-            max_poll_records: default_max_poll_records(),
-            session_timeout_ms: default_session_timeout(),
-            topics: default_topics(),
+            bootstrap_servers: "localhost:9092".to_string(),
+            group_id: "opencue-monitoring-indexer".to_string(),
+            auto_offset_reset: "earliest".to_string(),
+            enable_auto_commit: true,
+            auto_commit_interval_ms: 5000,
+            max_poll_records: 500,
+            session_timeout_ms: 30000,
+            topics: vec![
+                TOPIC_JOB_EVENTS.to_string(),
+                TOPIC_LAYER_EVENTS.to_string(),
+                TOPIC_FRAME_EVENTS.to_string(),
+                TOPIC_HOST_EVENTS.to_string(),
+                TOPIC_PROC_EVENTS.to_string(),
+            ],
         }
     }
 }
@@ -215,14 +135,14 @@ impl Default for KafkaConfig {
 impl Default for ElasticsearchConfig {
     fn default() -> Self {
         Self {
-            url: default_elasticsearch_url(),
+            url: "http://localhost:9200".to_string(),
             username: None,
             password: None,
-            index_prefix: default_index_prefix(),
-            num_shards: default_num_shards(),
-            num_replicas: default_num_replicas(),
-            bulk_size: default_bulk_size(),
-            flush_interval_ms: default_flush_interval(),
+            index_prefix: "opencue".to_string(),
+            num_shards: 1,
+            num_replicas: 0,
+            bulk_size: 100,
+            flush_interval_ms: 5000,
         }
     }
 }

@@ -21,7 +21,7 @@ mod elasticsearch;
 mod error;
 
 use clap::Parser;
-use tracing::{info, Level};
+use tracing::info;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 use crate::config::Config;
@@ -48,6 +48,14 @@ struct Args {
     /// Elasticsearch URL
     #[arg(long, env = "ELASTICSEARCH_URL", default_value = "http://localhost:9200")]
     elasticsearch_url: String,
+
+    /// Elasticsearch username (optional)
+    #[arg(long, env = "ELASTICSEARCH_USERNAME")]
+    elasticsearch_username: Option<String>,
+
+    /// Elasticsearch password (optional)
+    #[arg(long, env = "ELASTICSEARCH_PASSWORD")]
+    elasticsearch_password: Option<String>,
 
     /// Elasticsearch index prefix
     #[arg(long, env = "ELASTICSEARCH_INDEX_PREFIX", default_value = "opencue")]

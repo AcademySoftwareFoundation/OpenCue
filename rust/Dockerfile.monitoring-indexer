@@ -1,5 +1,5 @@
 # Build stage
-FROM rust:1.83-bookworm AS builder
+FROM rust:1.88-bookworm AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -11,19 +11,12 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy only the Cargo.toml first for dependency caching
-COPY crates/monitoring-indexer/Cargo.toml ./Cargo.toml
+# Copy workspace files and all crate sources
+COPY Cargo.toml Cargo.lock ./
+COPY crates ./crates
 
-# Create dummy main.rs and build dependencies (for caching)
-RUN mkdir -p src && \
-    echo "fn main() {}" > src/main.rs && \
-    cargo build --release 2>/dev/null || true && \
-    rm -rf src && \
-    rm -f target/release/monitoring-indexer
-
-# Copy actual source and build
-COPY crates/monitoring-indexer/src ./src
-RUN touch src/main.rs && cargo build --release
+# Build the monitoring-indexer package
+RUN cargo build --release --package monitoring-indexer
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -52,4 +45,4 @@ ENV ELASTICSEARCH_INDEX_PREFIX=opencue
 ENV LOG_LEVEL=info
 ENV RUST_BACKTRACE=1
 
-ENTRYPOINT ["monitoring-indexer"]
+ENTRYPOINT ["/usr/local/bin/monitoring-indexer"]

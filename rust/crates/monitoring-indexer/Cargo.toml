@@ -1,9 +1,10 @@
 [package]
 name = "monitoring-indexer"
 description = "OpenCue monitoring event indexer - indexes events from Kafka to Elasticsearch"
-authors = ["OpenCue Contributors"]
-edition = "2021"
-version = "0.1.0"
+authors = ["Ramon Figueiredo <rfigueiredo@imageworks.com>"]
+edition.workspace = true
+version.workspace = true
+license = "Apache-2.0"
 
 [[bin]]
 name = "monitoring-indexer"
@@ -11,8 +12,8 @@ path = "src/main.rs"
 
 [dependencies]
 # Async runtime
-tokio = { version = "1.45", features = ["full"] }
-futures = "0.3"
+tokio.workspace = true
+futures.workspace = true
 
 # Kafka
 rdkafka = { version = "0.36", features = ["cmake-build", "ssl-vendored"] }
@@ -25,15 +26,15 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # Configuration
-config = "0.14.0"
+config.workspace = true
 clap = { version = "4.5", features = ["derive", "env"] }
 
 # Logging
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
 
 # Error handling
-thiserror = "1.0"
+thiserror.workspace = true
 anyhow = "1.0"
 
 # Time

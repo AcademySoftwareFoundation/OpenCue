@@ -17,20 +17,18 @@ use std::time::Duration;
 
 use rdkafka::config::ClientConfig;
 use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
+use rdkafka::error::KafkaError;
 use rdkafka::message::Message;
+use rdkafka::types::RDKafkaErrorCode;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
-use crate::config::KafkaConfig;
+use crate::config::{
+    KafkaConfig, TOPIC_FRAME_EVENTS, TOPIC_HOST_EVENTS, TOPIC_JOB_EVENTS, TOPIC_LAYER_EVENTS,
+    TOPIC_PROC_EVENTS,
+};
 use crate::elasticsearch::ElasticsearchClient;
 use crate::error::IndexerError;
-
-/// Kafka topic names for OpenCue events
-pub const TOPIC_JOB_EVENTS: &str = "opencue.job.events";
-pub const TOPIC_LAYER_EVENTS: &str = "opencue.layer.events";
-pub const TOPIC_FRAME_EVENTS: &str = "opencue.frame.events";
-pub const TOPIC_HOST_EVENTS: &str = "opencue.host.events";
-pub const TOPIC_PROC_EVENTS: &str = "opencue.proc.events";
 
 /// Event types for routing to appropriate indices
 #[derive(Debug, Clone)]
@@ -111,54 +109,23 @@ impl EventConsumer {
 
     /// Run the consumer loop
     pub async fn run(self) -> Result<(), IndexerError> {
-        let (tx, mut rx) = mpsc::channel::<ConsumedEvent>(1000);
+        let (tx, rx) = mpsc::channel::<ConsumedEvent>(1000);
         let es_client = self.es_client.clone();
 
         // Spawn indexer task
-        let indexer_handle = tokio::spawn(async move {
-            let mut batch: Vec<ConsumedEvent> = Vec::with_capacity(100);
-            let mut last_flush = std::time::Instant::now();
-            let flush_interval = Duration::from_secs(5);
+        let indexer_handle = tokio::spawn(run_indexer_loop(rx, es_client));
 
-            loop {
-                tokio::select! {
-                    event = rx.recv() => {
-                        match event {
-                            Some(e) => {
-                                batch.push(e);
-                                if batch.len() >= 100 || last_flush.elapsed() > flush_interval {
-                                    if let Err(e) = es_client.bulk_index(&batch).await {
-                                        error!(error = %e, "Failed to bulk index events");
-                                    }
-                                    batch.clear();
-                                    last_flush = std::time::Instant::now();
-                                }
-                            }
-                            None => {
-                                // Channel closed, flush remaining
-                                if !batch.is_empty() {
-                                    if let Err(e) = es_client.bulk_index(&batch).await {
-                                        error!(error = %e, "Failed to flush remaining events");
-                                    }
-                                }
-                                break;
-                            }
-                        }
-                    }
-                    _ = tokio::time::sleep(flush_interval) => {
-                        if !batch.is_empty() {
-                            if let Err(e) = es_client.bulk_index(&batch).await {
-                                error!(error = %e, "Failed to flush events on interval");
-                            }
-                            batch.clear();
-                            last_flush = std::time::Instant::now();
-                        }
-                    }
-                }
-            }
-        });
+        // Run consumer loop
+        self.consume_messages(tx).await;
 
-        // Consumer loop
+        // Wait for indexer to finish
+        indexer_handle.await.ok();
+
+        Ok(())
+    }
+
+    /// Consume messages from Kafka and send them to the indexer
+    async fn consume_messages(&self, tx: mpsc::Sender<ConsumedEvent>) {
         loop {
             match self.consumer.recv().await {
                 Ok(message) => {
@@ -214,18 +181,80 @@ impl EventConsumer {
                     }
                 }
                 Err(e) => {
-                    error!(error = %e, "Error receiving message from Kafka");
-                    // Sleep briefly before retrying
-                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    // Check if this is an expected "topic not found" error during startup
+                    if is_topic_not_found_error(&e) {
+                        debug!(error = %e, "Waiting for Kafka topics to be created");
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                    } else {
+                        error!(error = %e, "Error receiving message from Kafka");
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
                 }
             }
         }
+    }
+}
 
-        // Wait for indexer to finish
-        drop(tx);
-        indexer_handle.await.ok();
+/// Run the indexer loop that batches events and sends them to Elasticsearch
+async fn run_indexer_loop(
+    mut rx: mpsc::Receiver<ConsumedEvent>,
+    es_client: Arc<ElasticsearchClient>,
+) {
+    let mut batch: Vec<ConsumedEvent> = Vec::with_capacity(100);
+    let mut interval = tokio::time::interval(Duration::from_secs(5));
 
-        Ok(())
+    loop {
+        tokio::select! {
+            event = rx.recv() => {
+                match event {
+                    Some(e) => {
+                        batch.push(e);
+                        if batch.len() >= 100 {
+                            match es_client.bulk_index(&batch).await {
+                                Ok(_) => {
+                                    batch.clear();
+                                    interval.reset();
+                                }
+                                Err(e) => {
+                                    error!(error = %e, "Failed to bulk index events");
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        // Channel closed, flush remaining
+                        if !batch.is_empty() {
+                            if let Err(e) = es_client.bulk_index(&batch).await {
+                                error!(error = %e, "Failed to flush remaining events");
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            _ = interval.tick() => {
+                if !batch.is_empty() {
+                    match es_client.bulk_index(&batch).await {
+                        Ok(_) => {
+                            batch.clear();
+                        }
+                        Err(e) => {
+                            error!(error = %e, "Failed to flush events on interval");
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Check if a Kafka error is due to topic not existing yet
+fn is_topic_not_found_error(e: &KafkaError) -> bool {
+    match e {
+        KafkaError::MessageConsumption(code) => {
+            matches!(code, RDKafkaErrorCode::UnknownTopicOrPartition)
+        }
+        _ => false,
     }
 }
 
