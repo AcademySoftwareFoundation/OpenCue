@@ -156,7 +156,7 @@ The `kafka-es-indexer` is a standalone Rust service that consumes events from Ka
 
    ```bash
    cd rust
-   docker build -f crates/kafka-es-indexer/Dockerfile -t opencue/kafka-es-indexer .
+   docker build -f Dockerfile.kafka-es-indexer -t opencue/kafka-es-indexer .
    ```
 
 2. Run the indexer:

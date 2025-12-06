@@ -199,7 +199,7 @@ services:
   kafka-es-indexer:
     build:
       context: ../rust
-      dockerfile: ./crates/kafka-es-indexer/Dockerfile
+      dockerfile: Dockerfile.kafka-es-indexer
     container_name: opencue-kafka-es-indexer
     depends_on:
       kafka:

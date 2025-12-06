@@ -64,7 +64,7 @@ Build the Docker image:
 
 ```bash
 cd rust
-docker build -f crates/kafka-es-indexer/Dockerfile -t opencue/kafka-es-indexer .
+docker build -f Dockerfile.kafka-es-indexer -t opencue/kafka-es-indexer .
 ```
 
 Run with Docker:
