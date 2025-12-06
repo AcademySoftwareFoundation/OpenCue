@@ -281,8 +281,10 @@ Elasticsearch indexing is handled by the standalone `monitoring-indexer` service
 | CLI Argument | Env Variable | Default | Description |
 |--------------|--------------|---------|-------------|
 | `--kafka-servers` | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker addresses |
-| `--kafka-group-id` | `KAFKA_GROUP_ID` | `opencue-elasticsearch-indexer` | Consumer group ID |
+| `--kafka-group-id` | `KAFKA_GROUP_ID` | `opencue-monitoring-indexer` | Consumer group ID |
 | `--elasticsearch-url` | `ELASTICSEARCH_URL` | `http://localhost:9200` | Elasticsearch URL |
+| `--elasticsearch-username` | `ELASTICSEARCH_USERNAME` | - | Elasticsearch username (optional) |
+| `--elasticsearch-password` | `ELASTICSEARCH_PASSWORD` | - | Elasticsearch password (optional) |
 | `--index-prefix` | `ELASTICSEARCH_INDEX_PREFIX` | `opencue` | Elasticsearch index prefix |
 | `--log-level` | `LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
 
@@ -467,6 +469,8 @@ The `docker-compose.monitoring-full.yml` includes:
 | `KAFKA_AUTO_CREATE_TOPICS_ENABLE` | kafka | Enable automatic topic creation |
 | `KAFKA_BOOTSTRAP_SERVERS` | monitoring-indexer | Kafka broker addresses |
 | `ELASTICSEARCH_URL` | monitoring-indexer | Elasticsearch URL |
+| `ELASTICSEARCH_USERNAME` | monitoring-indexer | Elasticsearch username (optional) |
+| `ELASTICSEARCH_PASSWORD` | monitoring-indexer | Elasticsearch password (optional) |
 | `ELASTICSEARCH_INDEX_PREFIX` | monitoring-indexer | Elasticsearch index prefix |
 | `ES_JAVA_OPTS` | elasticsearch | JVM options |
 | `GF_SECURITY_ADMIN_USER` | grafana | Admin username |

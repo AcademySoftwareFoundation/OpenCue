@@ -327,8 +327,10 @@ The monitoring-indexer is configured via command-line arguments, environment var
 | CLI Argument | Env Variable | Default | Description |
 |--------------|--------------|---------|-------------|
 | `--kafka-servers` | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker addresses |
-| `--kafka-group-id` | `KAFKA_GROUP_ID` | `opencue-elasticsearch-indexer` | Consumer group ID |
+| `--kafka-group-id` | `KAFKA_GROUP_ID` | `opencue-monitoring-indexer` | Consumer group ID |
 | `--elasticsearch-url` | `ELASTICSEARCH_URL` | `http://localhost:9200` | Elasticsearch URL |
+| `--elasticsearch-username` | `ELASTICSEARCH_USERNAME` | - | Elasticsearch username (optional) |
+| `--elasticsearch-password` | `ELASTICSEARCH_PASSWORD` | - | Elasticsearch password (optional) |
 | `--index-prefix` | `ELASTICSEARCH_INDEX_PREFIX` | `opencue` | Elasticsearch index prefix |
 | `--log-level` | `LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
 | `--config` | - | - | Path to YAML config file |
@@ -345,7 +347,7 @@ Example with CLI arguments:
 ```bash
 monitoring-indexer \
   --kafka-servers kafka:9092 \
-  --kafka-group-id opencue-elasticsearch-indexer \
+  --kafka-group-id opencue-monitoring-indexer \
   --elasticsearch-url http://elasticsearch:9200 \
   --index-prefix opencue \
   --log-level info
@@ -355,7 +357,7 @@ Example with environment variables:
 
 ```bash
 export KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-export KAFKA_GROUP_ID=opencue-elasticsearch-indexer
+export KAFKA_GROUP_ID=opencue-monitoring-indexer
 export ELASTICSEARCH_URL=http://elasticsearch:9200
 export ELASTICSEARCH_INDEX_PREFIX=opencue
 monitoring-indexer
@@ -395,7 +397,7 @@ kafka-console-consumer --bootstrap-server kafka:9092 \
 
 # Check consumer group lag
 kafka-consumer-groups --bootstrap-server kafka:9092 \
-  --group opencue-elasticsearch-indexer --describe
+  --group opencue-monitoring-indexer --describe
 ```
 
 ### Debugging monitoring-indexer

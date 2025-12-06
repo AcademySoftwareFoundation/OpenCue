@@ -165,7 +165,7 @@ The `monitoring-indexer` is a standalone Rust service that consumes events from 
    docker run -d --name monitoring-indexer \
      --network your-network \
      -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 \
-     -e KAFKA_GROUP_ID=opencue-elasticsearch-indexer \
+     -e KAFKA_GROUP_ID=opencue-monitoring-indexer \
      -e ELASTICSEARCH_URL=http://elasticsearch:9200 \
      -e ELASTICSEARCH_INDEX_PREFIX=opencue \
      opencue/monitoring-indexer
@@ -178,7 +178,7 @@ The `monitoring-indexer` is a standalone Rust service that consumes events from 
      --network your-network \
      opencue/monitoring-indexer \
      --kafka-servers kafka:9092 \
-     --kafka-group-id opencue-elasticsearch-indexer \
+     --kafka-group-id opencue-monitoring-indexer \
      --elasticsearch-url http://elasticsearch:9200 \
      --index-prefix opencue
    ```
