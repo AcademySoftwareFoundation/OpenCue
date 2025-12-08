@@ -229,7 +229,7 @@ impl MatchingService {
                     vec![]
                 }
             }
-            Cluster::TagsKey(cluster_tags) => cluster_tags
+            Cluster::TagsKey(_facility_id, cluster_tags) => cluster_tags
                 .iter()
                 .filter(|tag| dispatch_layer.tags.contains(tag.name.as_str()))
                 .cloned()

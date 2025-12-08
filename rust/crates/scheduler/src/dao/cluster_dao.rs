@@ -47,11 +47,14 @@ WHERE str_tag_type = 'ALLOC'
 
 static QUERY_NON_ALLOC_CLUSTERS: &str = r#"
 SELECT DISTINCT
-    str_tag as tag,
-    '' as show_id,
-    '' as facility_id,
+    host_tag.str_tag as tag,
+    s.pk_show as show_id,
+    a.pk_facility as facility_id,
     str_tag_type as ttype
 FROM host_tag
+JOIN host h on h.pk_host = host_tag.pk_host
+JOIN alloc a ON a.pk_alloc = h.pk_alloc
+JOIN subscription s ON a.pk_alloc = s.pk_alloc
 WHERE str_tag_type <> 'ALLOC'
 "#;
 

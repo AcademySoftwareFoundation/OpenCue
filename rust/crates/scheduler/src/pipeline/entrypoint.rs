@@ -55,10 +55,11 @@ pub async fn run(cluster_feed: ClusterFeed) -> miette::Result<()> {
                             )
                             .await
                     }
-                    Cluster::TagsKey(tags) => {
+                    Cluster::TagsKey(facility_id, tags) => {
                         job_fetcher
                             .query_pending_jobs_by_tags(
                                 tags.iter().map(|v| v.to_string()).collect(),
+                                *facility_id,
                             )
                             .await
                     }

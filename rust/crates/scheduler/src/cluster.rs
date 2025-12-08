@@ -26,7 +26,9 @@ pub static CLUSTER_ROUNDS: AtomicUsize = AtomicUsize::new(0);
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Cluster {
     ComposedKey(ClusterKey),
-    TagsKey(Vec<Tag>),
+    /// facility_id: Uuid,
+    /// tags: Vec<Tag>
+    TagsKey(Uuid, Vec<Tag>),
 }
 
 #[derive(Debug)]
@@ -62,7 +64,7 @@ impl Cluster {
     pub fn tags(&self) -> Box<dyn Iterator<Item = &Tag> + '_> {
         match self {
             Cluster::ComposedKey(cluster_key) => Box::new(std::iter::once(&cluster_key.tag)),
-            Cluster::TagsKey(tags) => Box::new(tags.iter()),
+            Cluster::TagsKey(_facility_id, tags) => Box::new(tags.iter()),
         }
     }
 }
@@ -91,8 +93,8 @@ impl ClusterFeed {
             .fetch_alloc_clusters()
             .chain(cluster_dao.fetch_non_alloc_clusters());
         let mut clusters = Vec::new();
-        let mut manual_tags = Vec::new();
-        let mut hostname_tags = Vec::new();
+        let mut manual_tags: HashMap<Uuid, Vec<String>> = HashMap::new();
+        let mut hostname_tags: HashMap<Uuid, Vec<String>> = HashMap::new();
 
         // Collect all tags
         while let Some(record) = clusters_stream.next().await {
@@ -123,8 +125,18 @@ impl ClusterFeed {
                             }
                         }
                         // Manual and hostname tags are collected to be chunked
-                        "MANUAL" => manual_tags.push(cluster.tag),
-                        "HOSTNAME" => hostname_tags.push(cluster.tag),
+                        "MANUAL" => {
+                            manual_tags
+                                .entry(parse_uuid(&cluster.facility_id))
+                                .or_default()
+                                .push(cluster.tag);
+                        }
+                        "HOSTNAME" => {
+                            hostname_tags
+                                .entry(parse_uuid(&cluster.facility_id))
+                                .or_default()
+                                .push(cluster.tag);
+                        }
                         _ => (),
                     };
                 }
@@ -133,34 +145,38 @@ impl ClusterFeed {
         }
 
         // Chunk Manual tags
-        for chunk in &manual_tags
-            .into_iter()
-            .chunks(CONFIG.queue.manual_tags_chunk_size)
-        {
-            clusters.push(Cluster::TagsKey(
-                chunk
-                    .map(|name| Tag {
-                        name,
-                        ttype: TagType::Manual,
-                    })
-                    .collect(),
-            ))
+        for (facility_id, tags) in manual_tags.into_iter() {
+            for chunk in &tags.into_iter().chunks(CONFIG.queue.manual_tags_chunk_size) {
+                clusters.push(Cluster::TagsKey(
+                    facility_id,
+                    chunk
+                        .map(|name| Tag {
+                            name,
+                            ttype: TagType::Manual,
+                        })
+                        .collect(),
+                ))
+            }
         }
 
         // Chunk Hostname tags
-        for chunk in &hostname_tags
-            .into_iter()
-            .chunks(CONFIG.queue.hostname_tags_chunk_size)
-        {
-            clusters.push(Cluster::TagsKey(
-                chunk
-                    .map(|name| Tag {
-                        name,
-                        ttype: TagType::HostName,
-                    })
-                    .collect(),
-            ))
+        for (facility_id, tags) in hostname_tags.into_iter() {
+            for chunk in &tags
+                .into_iter()
+                .chunks(CONFIG.queue.hostname_tags_chunk_size)
+            {
+                clusters.push(Cluster::TagsKey(
+                    facility_id,
+                    chunk
+                        .map(|name| Tag {
+                            name,
+                            ttype: TagType::HostName,
+                        })
+                        .collect(),
+                ))
+            }
         }
+
         Ok(ClusterFeed {
             clusters: Arc::new(RwLock::new(clusters)),
             current_index: Arc::new(AtomicUsize::new(0)),
@@ -194,7 +210,7 @@ impl ClusterFeed {
                     }
                 }
                 // For TagsKey, filter out ignored tags from the list
-                Cluster::TagsKey(tags) => {
+                Cluster::TagsKey(facility_id, tags) => {
                     let filtered_tags: Vec<Tag> = tags
                         .into_iter()
                         .filter(|tag| !ignore_tags.contains(&tag.name))
@@ -203,7 +219,7 @@ impl ClusterFeed {
                     if filtered_tags.is_empty() {
                         None
                     } else {
-                        Some(Cluster::TagsKey(filtered_tags))
+                        Some(Cluster::TagsKey(facility_id, filtered_tags))
                     }
                 }
             })

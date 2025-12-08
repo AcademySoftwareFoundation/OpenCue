@@ -120,8 +120,7 @@ filtered_jobs AS(
         AND (fr.int_max_cores = -1 OR fr.int_cores + l.int_cores_min < fr.int_max_cores)
         AND (fr.int_max_gpus = -1 OR fr.int_gpus + l.int_gpus_min < fr.int_max_gpus)
         AND string_to_array($2, ' | ') && string_to_array(l.str_tags, ' | ')
-        --TODO: Add facility to this query. ClusterType::Tags will have to contain facility
-        --AND LOWER(j.pk_facility) = LOWER('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA1')
+        AND LOWER(j.pk_facility) = LOWER($3)
 )
 SELECT DISTINCT
     fj.pk_job,
@@ -223,11 +222,13 @@ impl JobDao {
     pub async fn query_pending_jobs_by_tags(
         &self,
         tags: Vec<String>,
+        facility: Uuid,
     ) -> Result<Vec<JobModel>, sqlx::Error> {
         let start = std::time::Instant::now();
         let result = sqlx::query_as::<_, JobModel>(QUERY_PENDING_BY_TAGS)
             .bind(CONFIG.queue.core_multiplier as i32)
             .bind(tags.join(" | ").to_string())
+            .bind(facility.to_string())
             .fetch_all(&*self.connection_pool)
             .await;
         observe_job_query_duration(start.elapsed());

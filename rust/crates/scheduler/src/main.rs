@@ -135,22 +135,24 @@ impl JobQueueCli {
                     },
                 }));
             }
+
+            // Build Cluster::TagsKey for manual_tags
+            if !manual_tags.is_empty() {
+                clusters.push(Cluster::TagsKey(
+                    *facility_id,
+                    manual_tags
+                        .iter()
+                        .map(|name| Tag {
+                            name: name.clone(),
+                            ttype: TagType::Manual,
+                        })
+                        .collect(),
+                ));
+            }
         } else if !alloc_tags.is_empty() {
             Err(miette!("Alloc tag requires a valid facility"))?
         }
 
-        // Build Cluster::TagsKey for manual_tags
-        if !manual_tags.is_empty() {
-            clusters.push(Cluster::TagsKey(
-                manual_tags
-                    .iter()
-                    .map(|name| Tag {
-                        name: name.clone(),
-                        ttype: TagType::Manual,
-                    })
-                    .collect(),
-            ));
-        }
         let cluster_feed = if alloc_tags.is_empty() && manual_tags.is_empty() {
             ClusterFeed::load_all(&facility_id, &ignore_tags).await?
         } else {
