@@ -57,12 +57,15 @@ ENV SENTRY_PROJECT=tobeoverriden
 ENV SENTRY_URL=tobeoverriden
 ENV SENTRY_ORG=tobeoverriden
 ENV SENTRY_DSN=tobeoverriden
+ENV LDAP_LOGIN_DN = tobeoverriden
+ENV LDAP_CERTIFICATE = tobeoverriden
+ENV LDAP_URI=tobeoverriden
 
 # The following environment variables need to be accurately defined during production or dev builds as their
 # values cannot be changed after build time
 ENV NEXT_PUBLIC_URL=tobeoverriden
 ENV NEXT_PUBLIC_OPENCUE_ENDPOINT=tobeoverriden
-ENV NEXT_PUBLIC_AUTH_PROVIDER=google,okta,github
+ENV NEXT_PUBLIC_AUTH_PROVIDER=google,okta,github,ldap
 
 RUN npm run build
 CMD ["npm", "run", "start"]
