@@ -820,7 +820,11 @@ class FrameAttendantThread(threading.Thread):
 
         # Add GPU's to use all assigned GPU cores
         if 'GPU_LIST' in self.runFrame.attributes:
-            self.frameEnv['CUE_GPU_CORES'] = self.runFrame.attributes['GPU_LIST']
+            gpu_list = self.runFrame.attributes['GPU_LIST']
+            self.frameEnv['CUE_GPU_CORES'] = gpu_list
+            # Set CUDA_VISIBLE_DEVICES and NVIDIA_VISIBLE_DEVICES for GPU isolation
+            self.frameEnv['CUDA_VISIBLE_DEVICES'] = gpu_list
+            self.frameEnv['NVIDIA_VISIBLE_DEVICES'] = gpu_list
 
     # pylint: disable=inconsistent-return-statements
     def _createCommandFile(self, command):

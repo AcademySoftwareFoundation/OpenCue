@@ -9,8 +9,11 @@ option go_package = "opencue_gateway/gen/go";
 
 import "comment.proto";
 import "depend.proto";
+import "host.proto";
 import "limit.proto";
 import "renderPartition.proto";
+
+// Note: GpuUsage is defined in host.proto
 
 // Job related messages and services
 // This includes Job, Layer, Frame, and Group objects
@@ -520,6 +523,7 @@ message Frame {
     int64 max_gpu_memory = 21;
     int64 used_gpu_memory = 22;
     FrameStateDisplayOverride frame_state_display_override = 23;
+    repeated host.GpuUsage gpu_usage = 24; // Per-device GPU usage snapshot
 }
 
 // Object for frame searching
@@ -566,6 +570,7 @@ message UpdatedFrame {
     int64 max_gpu_memory = 11;
     int64 used_gpu_memory = 12;
     FrameStateDisplayOverride frame_state_display_override = 13;
+    repeated host.GpuUsage gpu_usage = 14; // Per-device GPU usage snapshot
 }
 
 message UpdatedFrameSeq {
@@ -714,6 +719,9 @@ message Layer {
     float min_gpus = 20;
     float max_gpus = 21;
     string command = 22;
+    string gpu_vendor = 23;               // GPU vendor filter: "NVIDIA", "AMD", "Apple", "" (any)
+    repeated string gpu_models_allowed = 24; // GPU model whitelist: ["Tesla V100", "A100"], empty = any
+    uint64 min_gpu_memory_bytes = 25;     // Minimum GPU memory per device in bytes (more precise than min_gpu_memory)
 }
 
 message LayerSeq {

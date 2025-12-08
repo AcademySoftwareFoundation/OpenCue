@@ -546,6 +546,7 @@ impl MachineMonitor {
             num_gpus: gpu_stats.count as i32,
             free_gpu_mem: gpu_stats.free_memory as i64,
             total_gpu_mem: gpu_stats.total_memory as i64,
+            gpu_devices: gpu_stats.gpu_devices,
         })
     }
 }

@@ -821,12 +821,48 @@ impl SystemManager for LinuxSystem {
     }
 
     fn collect_gpu_stats(&self) -> MachineGpuStats {
-        // TODO: missing implementation, returning dummy val
-        MachineGpuStats {
-            count: 0,
-            total_memory: 0,
-            free_memory: 0,
-            _used_memory_by_unit: HashMap::default(),
+        use crate::system::gpu;
+
+        // Create GPU discovery backend
+        let gpu_discovery = gpu::create_gpu_discovery();
+
+        if let Some(discovery) = gpu::create_gpu_discovery() {
+            // Detect GPU devices
+            match discovery.detect_devices() {
+                Ok(devices) => {
+                    let count = devices.len() as u32;
+                    let total_memory: u64 = devices.iter().map(|d| d.memory_bytes).sum();
+
+                    // Note: free_memory calculation would require querying each device
+                    // For now, we'll set it to 0 and let the detailed gpu_devices provide the info
+                    MachineGpuStats {
+                        count,
+                        total_memory,
+                        free_memory: 0, // Legacy field, use gpu_devices for detailed info
+                        _used_memory_by_unit: HashMap::default(),
+                        gpu_devices: devices,
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to detect GPU devices: {}", e);
+                    MachineGpuStats {
+                        count: 0,
+                        total_memory: 0,
+                        free_memory: 0,
+                        _used_memory_by_unit: HashMap::default(),
+                        gpu_devices: Vec::new(),
+                    }
+                }
+            }
+        } else {
+            // No GPU discovery available for this platform
+            MachineGpuStats {
+                count: 0,
+                total_memory: 0,
+                free_memory: 0,
+                _used_memory_by_unit: HashMap::default(),
+                gpu_devices: Vec::new(),
+            }
         }
     }
     fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32> {
