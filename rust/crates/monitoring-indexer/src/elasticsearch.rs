@@ -17,6 +17,7 @@ use elasticsearch::http::request::JsonBody;
 use elasticsearch::http::transport::{SingleNodeConnectionPool, TransportBuilder};
 use elasticsearch::indices::IndicesPutIndexTemplateParts;
 use elasticsearch::{BulkParts, Elasticsearch};
+use rayon::prelude::*;
 use serde_json::json;
 use tracing::{debug, error, info, warn};
 use url::Url;
@@ -144,40 +145,47 @@ impl ElasticsearchClient {
         }
 
         let date_suffix = Utc::now().format("%Y.%m.%d").to_string();
+        let index_prefix = &self.config.index_prefix;
+
+        // Process events in parallel using rayon
+        let results: Vec<Result<Vec<JsonBody<serde_json::Value>>, IndexerError>> = events
+            .par_iter()
+            .map(|event| {
+                let index_name = format!(
+                    "{}-{}-{}",
+                    index_prefix,
+                    event.event_type.index_suffix(),
+                    date_suffix
+                );
+
+                // Index action
+                let action = if let Some(ref event_id) = event.event_id {
+                    json!({ "index": { "_index": index_name, "_id": event_id } })
+                } else {
+                    json!({ "index": { "_index": index_name } })
+                };
+
+                // Document
+                let doc: serde_json::Value = serde_json::from_str(&event.payload)?;
+
+                Ok(vec![action.into(), doc.into()])
+            })
+            .collect();
+
+        // Collect results and handle any errors
         let mut body: Vec<JsonBody<serde_json::Value>> = Vec::with_capacity(events.len() * 2);
-
-        for event in events {
-            let index_name = format!(
-                "{}-{}-{}",
-                self.config.index_prefix,
-                event.event_type.index_suffix(),
-                date_suffix
-            );
-
-            // Index action
-            let action = if let Some(ref event_id) = event.event_id {
-                json!({ "index": { "_index": index_name, "_id": event_id } })
-            } else {
-                json!({ "index": { "_index": index_name } })
-            };
-
-            body.push(action.into());
-
-            // Document
-            let doc: serde_json::Value = serde_json::from_str(&event.payload)?;
-            body.push(doc.into());
+        for result in results {
+            body.extend(result?);
         }
 
-        let response = self
-            .client
-            .bulk(BulkParts::None)
-            .body(body)
-            .send()
-            .await?;
+        let response = self.client.bulk(BulkParts::None).body(body).send().await?;
 
         if response.status_code().is_success() {
             let response_body: serde_json::Value = response.json().await?;
-            let errors = response_body.get("errors").and_then(|e| e.as_bool()).unwrap_or(false);
+            let errors = response_body
+                .get("errors")
+                .and_then(|e| e.as_bool())
+                .unwrap_or(false);
 
             if errors {
                 // Log individual errors

@@ -1792,6 +1792,7 @@ dependencies = [
  "config",
  "elasticsearch",
  "futures",
+ "rayon",
  "rdkafka",
  "serde",
  "serde_json",

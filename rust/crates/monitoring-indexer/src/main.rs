@@ -22,7 +22,7 @@ mod error;
 
 use clap::Parser;
 use tracing::info;
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 use crate::config::Config;
 use crate::consumer::EventConsumer;
@@ -38,15 +38,27 @@ struct Args {
     config: Option<String>,
 
     /// Kafka bootstrap servers
-    #[arg(long, env = "KAFKA_BOOTSTRAP_SERVERS", default_value = "localhost:9092")]
+    #[arg(
+        long,
+        env = "KAFKA_BOOTSTRAP_SERVERS",
+        default_value = "localhost:9092"
+    )]
     kafka_servers: String,
 
     /// Kafka consumer group ID
-    #[arg(long, env = "KAFKA_GROUP_ID", default_value = "opencue-monitoring-indexer")]
+    #[arg(
+        long,
+        env = "KAFKA_GROUP_ID",
+        default_value = "opencue-monitoring-indexer"
+    )]
     kafka_group_id: String,
 
     /// Elasticsearch URL
-    #[arg(long, env = "ELASTICSEARCH_URL", default_value = "http://localhost:9200")]
+    #[arg(
+        long,
+        env = "ELASTICSEARCH_URL",
+        default_value = "http://localhost:9200"
+    )]
     elasticsearch_url: String,
 
     /// Elasticsearch username (optional)
@@ -71,8 +83,8 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     // Initialize logging
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&args.log_level));
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&args.log_level));
 
     tracing_subscriber::registry()
         .with(fmt::layer())

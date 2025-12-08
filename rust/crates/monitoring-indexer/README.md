@@ -18,6 +18,7 @@ Cuebot (Producer) -> Kafka -> monitoring-indexer (Consumer) -> Elasticsearch
   - `opencue.frame.events`
   - `opencue.host.events`
   - `opencue.proc.events`
+- Parallel event processing using rayon for CPU-bound operations
 - Bulk indexing to Elasticsearch for efficiency
 - Automatic index template creation with proper mappings
 - Configurable via CLI arguments, environment variables, or config file
