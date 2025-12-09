@@ -59,6 +59,7 @@ pub struct HostModel {
     // Number of cores available at the subscription of the show this host has been queried on
     int_alloc_available_cores: i64,
     ts_ping: DateTime<Utc>,
+    int_concurrent_frames_limit: i64,
 }
 
 impl From<HostModel> for Host {
@@ -93,45 +94,11 @@ impl From<HostModel> for Host {
             alloc_id: parse_uuid(&val.pk_alloc),
             alloc_name: val.str_alloc_name,
             last_updated: val.ts_ping,
+            concurrent_frames_limit: (val.int_concurrent_frames_limit >= 0)
+                .then_some(val.int_concurrent_frames_limit as u32),
         }
     }
 }
-
-static _QUERY_DISPATCH_HOST: &str = r#"
-SELECT
-    h.pk_host,
-    h.str_name,
-    hs.str_os,
-    h.int_cores_idle,
-    h.int_mem_idle,
-    h.int_gpus_idle,
-    h.int_gpu_mem_idle,
-    h.int_cores,
-    h.int_mem,
-    h.int_thread_mode,
-    s.int_burst - s.int_cores as int_alloc_available_cores,
-    a.pk_alloc,
-    a.str_name as str_alloc_name,
-    h.ts_last_updated
-FROM host h
-    INNER JOIN host_stat hs ON h.pk_host = hs.pk_host
-    INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
-    INNER JOIN subscription s ON s.pk_alloc = a.pk_alloc AND s.pk_show = $1
-WHERE LOWER(a.pk_facility) = LOWER($2)
-    AND (hs.str_os ILIKE $3 OR hs.str_os = '' and $4 = '') -- review
-    AND h.str_lock_state = 'OPEN'
-    AND hs.str_state = 'UP'
-    AND h.int_cores_idle >= $5
-    AND h.int_mem_idle >= $6
-    AND string_to_array($7, ' | ') && string_to_array(h.str_tags, ' ')
-    AND h.int_gpus_idle >= $8
-    AND h.int_gpu_mem_idle >= $9
-ORDER BY
-    -- Hosts with least resources available come first in an attempt to fully book them
-    h.int_cores_idle::float / h.int_cores,
-    h.int_mem_idle::float / h.int_mem
-LIMIT $10
-"#;
 
 // Host memory, cores and gpu values are stored at host and host_stat tables and are updated
 // by different flows:
@@ -154,7 +121,8 @@ SELECT DISTINCT
     s.int_burst - s.int_cores as int_alloc_available_cores,
     a.pk_alloc,
     a.str_name as str_alloc_name,
-    hs.ts_ping
+    hs.ts_ping,
+    h.int_concurrent_frames_limit
 FROM host h
     INNER JOIN host_stat hs ON h.pk_host = hs.pk_host
     INNER JOIN alloc a ON h.pk_alloc = a.pk_alloc
