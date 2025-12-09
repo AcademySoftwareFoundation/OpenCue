@@ -24,6 +24,7 @@ pub struct Host {
     pub(crate) alloc_id: Uuid,
     pub(crate) alloc_name: String,
     pub(crate) last_updated: DateTime<Utc>,
+    pub(crate) concurrent_frames_limit: Option<u32>,
 }
 
 impl Host {
@@ -63,6 +64,7 @@ impl Host {
         alloc_available_cores: CoreSize,
         alloc_id: Uuid,
         alloc_name: String,
+        concurrent_frames_limit: Option<u32>,
     ) -> Self {
         Self {
             id,
@@ -79,6 +81,7 @@ impl Host {
             alloc_id,
             alloc_name,
             last_updated: Local::now().with_timezone(&Utc),
+            concurrent_frames_limit,
         }
     }
 }

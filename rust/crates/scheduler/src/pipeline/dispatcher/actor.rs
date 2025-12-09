@@ -1027,6 +1027,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         )
     }
 
@@ -1158,6 +1159,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1194,6 +1196,7 @@ mod tests {
             CoreSize(4),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1230,6 +1233,7 @@ mod tests {
             CoreSize(8),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
@@ -1265,6 +1269,7 @@ mod tests {
             CoreSize(8),
             Uuid::new_v4(),
             "test-alloc".to_string(),
+            None,
         );
 
         let mut frame = create_test_dispatch_frame();
