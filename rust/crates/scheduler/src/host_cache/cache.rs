@@ -355,6 +355,7 @@ mod tests {
             alloc_id: Uuid::new_v4(),
             alloc_name: "test".to_string(),
             last_updated: Utc::now(),
+            concurrent_frames_limit: None,
         }
     }
 
