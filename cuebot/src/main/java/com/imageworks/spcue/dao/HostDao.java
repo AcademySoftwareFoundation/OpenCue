@@ -260,7 +260,7 @@ public interface HostDao {
      */
     void updateHostStats(HostInterface host, long totalMemory, long freeMemory, long totalSwap,
             long freeSwap, long totalMcp, long freeMcp, long totalGpuMemory, long freeGpuMemory,
-            int load, Timestamp bootTime, String os);
+            int load, Timestamp bootTime, String os, int runningProcs);
 
     /**
      * Return true if the HardwareState is Up, false if it is anything else.
