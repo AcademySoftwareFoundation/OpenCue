@@ -391,3 +391,46 @@ jobs:
         with:
           name: rest-gateway-coverage
           path: rest_gateway/opencue_gateway/coverage.out
+
+  build_cueweb:
+    name: Build CueWeb Docker Image
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Mark repository as safe
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build CueWeb Docker image
+        working-directory: cueweb
+        run: |
+          docker buildx build . -f Dockerfile -t opencue/cueweb:test --load
+          echo "CueWeb Docker image built successfully"
+
+  build_rest_gateway:
+    name: Build REST Gateway Docker Image
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Mark repository as safe
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build REST Gateway Docker image
+        run: |
+          docker buildx build . -f rest_gateway/Dockerfile -t opencue/rest-gateway:test --load
+          echo "REST Gateway Docker image built successfully"
