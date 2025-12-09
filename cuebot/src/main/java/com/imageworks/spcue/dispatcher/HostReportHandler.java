@@ -178,7 +178,7 @@ public class HostReportHandler {
                         rhost.getTotalSwap(), rhost.getFreeSwap(), rhost.getTotalMcp(),
                         rhost.getFreeMcp(), rhost.getTotalGpuMem(), rhost.getFreeGpuMem(),
                         rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
-                        rhost.getAttributesMap().get("SP_OS"));
+                        rhost.getAttributesMap().get("SP_OS"), report.getFramesCount());
 
                 // Both logics are conflicting, only change hardware state if
                 // there was no need for a tempDirStorage state change
