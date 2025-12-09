@@ -4,8 +4,16 @@ import OktaProvider from "next-auth/providers/okta";
 import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
 import CredentialsProvider from "next-auth/providers/credentials";
-const ldap = require("ldapjs");
-const fs = require("fs");
+import ldap from "ldapjs";
+import fs from "fs";
+
+/**
+ * Escapes special characters in LDAP DN components to prevent injection attacks.
+ * Characters that have special meaning in DNs: , = + < > # ; \ "
+ */
+function escapeLdapDn(str: string): string {
+    return str.replace(/[,=+<>#;\\"\x00]/g, (char) => `\\${char}`);
+}
 
 const providerConfigs = [
     {
@@ -68,7 +76,7 @@ function buildLdapProvider(settings: Settings) {
         },
 
         async authorize(credentials, req) {
-            if (!credentials)
+            if (!credentials || !credentials.name || !credentials.password)
                 return null;
 
             // Configure TLS options if certificate is provided
@@ -89,11 +97,15 @@ function buildLdapProvider(settings: Settings) {
 
 
             return new Promise((resolve, reject) => {
-                const dn = settings.login_dn.replace("{login}", credentials.name)
+                const dn = settings.login_dn.replace("{login}", escapeLdapDn(credentials.name))
                 client.bind(dn, credentials.password, (error: Error | null) => {
-                    client.unbind()
+                    client.unbind((unbindErr: Error | null) => {
+                        if (unbindErr) {
+                            console.error(`LDAP unbind error: ${unbindErr.message}`)
+                        }
+                    })
                     if (error) {
-                        console.error(`LDAP bind Failed with ${dn}`)
+                        console.error(`LDAP bind failed for user: ${error.message}`)
                         resolve(null)
                     } else {
                         resolve({

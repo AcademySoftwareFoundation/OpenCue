@@ -19,24 +19,24 @@ export default function Page() {
         e.preventDefault();
         let res = null;
 
-    try {
-        res = await signIn("credentials", {
-            redirect: false,
-            name,
-            password,
-        });
-    } catch(error) {
-        handleError(error, "An error occured on server side")
-        return;
-    }
+        try {
+            res = await signIn("credentials", {
+                redirect: false,
+                name,
+                password,
+            });
+        } catch(error) {
+            handleError(error, "An error occured on server side")
+            return;
+        }
 
-    if (res?.error){
-        handleError(res?.error, "Authentication Failed")
-        return;
-    }
+        if (res?.error){
+            handleError(res?.error, "Authentication Failed")
+            return;
+        }
 
-    // Redirect on success
-    router.push("/");
+        // Redirect on success
+        router.push("/");
     };
 
 
@@ -55,7 +55,7 @@ export default function Page() {
                             <input type="text" name="name" placeholder="Login" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border rounded" required />
                         </div>
                         <div className="mb-4">
-                            <input type="password" name="password" placeholder="Passsword" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 border rounded" required />
+                            <input type="password" name="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 border rounded" required />
                         </div>
                         <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition" > Sign In </button>    
                     </div>

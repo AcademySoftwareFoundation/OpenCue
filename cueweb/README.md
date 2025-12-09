@@ -226,7 +226,7 @@ Go back to [Contents](#contents).
 ### Configuration
 
 To enable Okta, Google, Github or LDAP authentication, simply set the environment variable
-`NEXT_PUBLIC_AUTH_PROVIDER` to either `google`, `okta`,`github`, `ldap`or all of them combined seperated by comma
+`NEXT_PUBLIC_AUTH_PROVIDER` to either `google`, `okta`, `github`, `ldap` or all of them combined separated by comma
 (e.g. `google,okta,github,ldap`) along with  the OAuth 2.0 secrets listed in `lib/auth.ts`. 
 For example, providing the `GOOGLE_CLIENT_ID`, 
 `GOOGLE_CLIENT_SECRET` Google OAuth 2.0 environment variables and setting `NEXT_PUBLIC_AUTH_PROVIDER=google`
