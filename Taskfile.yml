@@ -1,0 +1,147 @@
+version: "3"
+
+tasks:
+  .sync-repo:
+    desc: "Fetch full git history for versioning"
+    cmds:
+      - git fetch --no-tags origin master:refs/remotes/origin/master --unshallow || true
+      - git fetch --all --prune
+
+  .swap-helix-version:
+    desc: "Swap in helix version generator"
+    deps:
+      - .sync-repo
+    cmds:
+      - echo "Swapping in helix version generator..."
+      - cp -v ci/generate_helix_version.py ci/generate_version_number.py
+
+  compute-version:
+    desc: Compute next version automatically
+    deps:
+      - .swap-helix-version
+    cmds:
+      - python3 ci/generate_helix_version.py > VERSION
+      - echo "New version:" $(cat VERSION)
+
+  build-opencue-packages:
+    desc: Generate package paths for OpenCue components
+    deps:
+      - .swap-helix-version
+    cmds:
+      - pip install build wheel
+      - mkdir -p packages
+      - python -m build --outdir packages -w ./proto
+      - python -m build --outdir packages -w ./pycue
+      - python -m build --outdir packages -w ./pyoutline
+      - python -m build --outdir packages -w ./cueadmin
+      - python -m build --outdir packages -w ./cueman
+      - python -m build --outdir packages -w ./cuecmd
+      - python -m build --outdir packages -w ./cuesubmit
+      - python -m build --outdir packages -w ./cuegui
+      - python -m build --outdir packages -w ./rqd
+      - python -m build --outdir packages -w ./cuenimby
+      - echo "OPENCUE_PROTO_PACKAGE_PATH=$(find ./packages -name 'opencue_proto-*.whl' -print -quit)" > package_paths.env
+      - echo "OPENCUE_PYCUE_PACKAGE_PATH=$(find ./packages -name 'opencue_pycue-*.whl' -print -quit)" >> package_paths.env
+      - echo "OPENCUE_PYOUTLINE_PACKAGE_PATH=$(find ./packages -name 'opencue_pyoutline-*.whl' -print -quit)" >> package_paths.env
+      - echo "OPENCUE_CUEADMIN_PACKAGE_PATH=$(find ./packages -name 'opencue_cueadmin-*.whl' -print -quit)" >> package_paths.env
+      - echo "OPENCUE_CUEMAN_PACKAGE_PATH=$(find ./packages -name 'opencue_cueman-*.whl' -print -quit)" >> package_paths.env
+      - echo "OPENCUE_CUECMD_PACKAGE_PATH=$(find ./packages -name 'opencue_cuecmd-*.whl' -print -quit)" >> package_paths.env
+      - echo "OPENCUE_CUESUBMIT_PACKAGE_PATH=$(find ./packages -name 'opencue_cuesubmit-*.whl' -print -quit)" >> package_paths.env
+      - echo "OPENCUE_CUEGUI_PACKAGE_PATH=$(find ./packages -name 'opencue_cuegui-*.whl' -print -quit)" >> package_paths.env
+      - echo "OPENCUE_RQD_PACKAGE_PATH=$(find ./packages -name 'opencue_rqd-*.whl' -print -quit)" >> package_paths.env
+      - echo "OPENCUE_CUENIMBY_PACKAGE_PATH=$(find ./packages -name 'opencue_cuenimby-*.whl' -print -quit)" >> package_paths.env
+
+  .install-rust:
+    desc: Install Rust toolchain
+    cmds:
+      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+
+  .install-deps-for-rust-build:
+    desc: Install dependencies for Rust build
+    deps:
+      - .install-rust
+    cmds:
+      - apt-get update
+      - apt-get install -y build-essential libx11-dev protobuf-compiler pkg-config
+      - if [ "$TARGET" = "x86_64-unknown-linux-musl" ]; then apt-get install -y musl-tools; fi
+
+  build-rust-binary:
+    desc: Build Rust binaries for specified target
+    deps:
+      - .install-deps-for-rust-build
+    cmds:
+      - |
+        . $HOME/.cargo/env
+        rustup target add "$TARGET"
+        if [ "$TARGET" = "x86_64-unknown-linux-musl" ]; then 
+          export PKG_CONFIG_SYSROOT_DIR=/usr/x86_64-linux-musl
+          export PKG_CONFIG_PATH=/usr/x86_64-linux-musl/lib/pkgconfig
+          export PKG_CONFIG_ALLOW_CROSS=1
+        fi
+        cd rust
+        cargo build --release --target "$TARGET" --no-default-features
+        if [ ! -d ../release ]; then mkdir -p ../release; fi
+        cp target/$TARGET/release/openrqd ../release/openrqd-$TARGET
+
+  test-python:
+    desc: Run Python tests for OpenCue packages
+    deps:
+      - .swap-helix-version
+    cmds:
+      - |
+        source package_paths.env  # from build-opencue-packages
+        ci/run_python_tests.sh
+
+  test-rust:
+    desc: Run Rust tests
+    deps:
+      - .install-deps-for-rust-build
+    cmds:
+      - |
+        . $HOME/.cargo/env
+        cd rust
+        cargo build --release --verbose
+        cargo test --verbose -- --skip test_frame_run_as_user
+
+  .install-go:
+    desc: Install Go toolchain
+    cmds:
+      - apt-get update && apt-get install -y protobuf-compiler
+      - go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
+      - go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
+      - go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+      - go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+  test-rest-gateway:
+    desc: Test REST Gateway (Go)
+    deps:
+      - .install-go
+    cmds:
+      - |
+        cd rest_gateway/opencue_gateway
+        mkdir -p gen/go
+        protoc -I ../../proto/src/ --go_out ./gen/go/ --go_opt paths=source_relative --go-grpc_out ./gen/go/ --go-grpc_opt paths=source_relative ../../proto/src/*.proto
+        protoc -I ../../proto/src/ --grpc-gateway_out ./gen/go --grpc-gateway_opt paths=source_relative --grpc-gateway_opt generate_unbound_methods=true ../../proto/src/*.proto
+        if [ ! -f go.mod ]; then go mod init opencue_gateway; fi
+        go mod tidy
+        go test -v -coverprofile=coverage.out -covermode=atomic .
+        go tool cover -func=coverage.out
+
+  lint-python:
+    desc: Run Python linting
+    deps:
+      - .swap-helix-version
+    cmds:
+      - |
+        source package_paths.env  # from build-opencue-packages
+        ci/run_python_lint.sh
+
+  lint-rust:
+    desc: Run Rust clippy linting
+    deps:
+      - .install-deps-for-rust-build
+    cmds:
+      - |
+        . $HOME/.cargo/env
+        cd rust
+        cargo clippy --verbose
