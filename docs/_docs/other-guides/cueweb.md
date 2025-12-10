@@ -25,8 +25,8 @@ This guide provides an introduction to the CueWeb system, the web-based version 
 
 CueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/docs/reference/cuegui-app/) (Cuetopia and Cuecommander) in a web-accessible format, enhancing usability while maintaining the familiar interface that users appreciate. This adaptation supports essential operations such as:
 
-1. **Secure user authentication:** 
-   - Authentication through Github, Google, [Okta](https://www.okta.com/), Apple, GitLab, Amazon, Microsoft Azure, LinkedIn, Atlassian, Auth0, etc. Other providers and login options can be easily configured and enabled in the CueWeb. See [NextAuth.js](https://next-auth.js.org/) authentication using email, credentials and providers: https://next-auth.js.org/providers/
+1. **Secure user authentication:**
+   - Authentication through Github, Google, [Okta](https://www.okta.com/), LDAP, Apple, GitLab, Amazon, Microsoft Azure, LinkedIn, Atlassian, Auth0, etc. Other providers and login options can be easily configured and enabled in the CueWeb. LDAP authentication is particularly useful for intranet deployments using company directory credentials. See [NextAuth.js](https://next-auth.js.org/) authentication using email, credentials and providers: https://next-auth.js.org/providers/
 2. **Customizable job management dashboard:** 
    - Manage jobs with a customizable table where users can select visible columns and filter jobs based on their state (active, paused, completed).
 3. **Flexible monitoring controls:** 
@@ -58,13 +58,19 @@ Job actions: Unmonitor, Pause, Retry dead frames, Eat dead frames, Kill.
 
 ## CueWeb's user interface
 
-Upon logging in through Okta/Google/GitHub or another authentication method configured using [NextAuth.js](https://next-auth.js.org/) (Figures 1 or 2), users are welcomed by CueWeb's main dashboard, as shown in Figure 3 (light mode) or Figure 4 (dark mode).  The CueWeb main page contains a paginated table that is populated with the OpenCue jobs. 
+Upon logging in through Okta/Google/GitHub/LDAP or another authentication method configured using [NextAuth.js](https://next-auth.js.org/) (Figures 1 or 2), users are welcomed by CueWeb's main dashboard, as shown in Figure 3 (light mode) or Figure 4 (dark mode).  The CueWeb main page contains a paginated table that is populated with the OpenCue jobs. 
 
 #### Figure 1: CueWeb authentication page (light mode)
 ![CueWeb authentication page (light mode)](/assets/images/cueweb/figure1-auth-light.png)
 
 #### Figure 2: CueWeb authentication page (dark mode)
 ![CueWeb authentication page (dark mode)](/assets/images/cueweb/figure2-auth-dark.png)
+
+#### Figure 2b: CueWeb LDAP authentication button
+![CueWeb LDAP authentication button](/assets/images/cueweb/cueweb-ldap-button.png)
+
+#### Figure 2c: CueWeb LDAP login page
+![CueWeb LDAP login page](/assets/images/cueweb/cueweb-ldap-login-password-page.png)
 
 **Note:** If the CueWeb login is disabled, the image below displays the initial CueWeb page. This page includes a button labelled "CueWeb Home", which opens the main CueWeb interface. For instructions on how to disable the CueWeb login, refer to the [cueweb/README.md](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/cueweb/README.md) file.
 

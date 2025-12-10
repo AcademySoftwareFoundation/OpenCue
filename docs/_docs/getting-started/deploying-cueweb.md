@@ -94,7 +94,7 @@ NODE_ENV=production
 NEXT_TELEMETRY_DISABLED=1
 
 # Authentication (optional)
-NEXT_PUBLIC_AUTH_PROVIDER=okta,google
+NEXT_PUBLIC_AUTH_PROVIDER=okta,google,ldap
 NEXTAUTH_URL=https://cueweb.company.com
 NEXTAUTH_SECRET=nextauth-production-secret
 
@@ -105,6 +105,11 @@ OKTA_ISSUER=https://company.okta.com
 
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# LDAP Configuration (optional)
+LDAP_URI=ldaps://ldap.company.com:636
+LDAP_LOGIN_DN=uid={login},cn=users,cn=accounts,dc=company,dc=com
+LDAP_CERTIFICATE=/etc/ssl/certs/ldap-ca.crt
 
 # Monitoring (optional)
 SENTRY_DSN=https://your-sentry-dsn
@@ -353,6 +358,41 @@ spec:
 2. Create a new OAuth App
 3. Set Authorization callback URL:
    - `https://cueweb.company.com/api/auth/callback/github`
+
+#### LDAP Setup (Optional)
+
+LDAP authentication allows users to authenticate using their company directory credentials. This is useful for intranet deployments where OAuth providers may not be available.
+
+![CueWeb LDAP login button](/assets/images/cueweb/cueweb-ldap-button.png)
+
+![CueWeb LDAP login page](/assets/images/cueweb/cueweb-ldap-login-password-page.png)
+
+1. Configure the LDAP environment variables:
+   ```bash
+   # LDAP server URI (use ldaps:// for TLS)
+   LDAP_URI=ldaps://ldap.company.com:636
+
+   # Distinguished Name template ({login} will be replaced with username)
+   LDAP_LOGIN_DN=uid={login},cn=users,cn=accounts,dc=company,dc=com
+
+   # Path to CA certificate for TLS verification (optional)
+   LDAP_CERTIFICATE=/etc/ssl/certs/ldap-ca.crt
+   ```
+
+2. Add `ldap` to `NEXT_PUBLIC_AUTH_PROVIDER`:
+   ```bash
+   NEXT_PUBLIC_AUTH_PROVIDER=google,okta,ldap
+   ```
+
+3. For Docker deployments, mount the CA certificate:
+   ```bash
+   docker run -v /path/to/ca.crt:/etc/ssl/certs/ldap-ca.crt:ro ...
+   ```
+
+**Security Notes:**
+- Always use `ldaps://` (LDAP over TLS) in production
+- Provide a CA certificate for proper TLS verification
+- The `{login}` placeholder in `LDAP_LOGIN_DN` is replaced with the username at authentication time
 
 ### Disable Authentication (Development)
 
