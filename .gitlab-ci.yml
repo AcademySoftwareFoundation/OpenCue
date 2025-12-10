@@ -229,6 +229,9 @@ tag:
   image: $HELIX_DOCKER_IMAGE_LINUX_39
   needs:
     - compute_version
+  before_script:
+    - git config --global user.name "${GITLAB_USER_NAME}"
+    - git config --global user.email "${GITLAB_USER_EMAIL}"
   script:
     - |
       VERSION=$(cat VERSION)
