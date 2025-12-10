@@ -144,28 +144,26 @@ def compute_base_master_version_for_ref(
     return major, minor, patch
 
 
-def compute_next_post_from_tags(base_version: str, tag_namespace: str = "helix") -> int:
+def compute_next_post_from_tags(base_version: str, tag_namespace: str = "") -> int:
     """
     Determine next post number for base_version by inspecting git tags:
-      <tag_namespace>-<base_version>.post<N>
-      <tag_namespace>-<base_version>-post<N>
+      <tag_namespace><base_version>.post<N>
     """
-    pattern1 = f"{tag_namespace}-{base_version}.post*"
-    pattern2 = f"{tag_namespace}-{base_version}-post*"
-    tags = list_git_tags_matching(pattern1) + list_git_tags_matching(pattern2)
+    pattern = f"{tag_namespace}{base_version}.post*"
+    tags = list_git_tags_matching(pattern)
     max_post = 0
     regex = re.compile(
-        rf"{re.escape(tag_namespace)}-{re.escape(base_version)}(?:\.post|-post)(\d+)$"
+        rf"{re.escape(tag_namespace)}{re.escape(base_version)}\.post(\d+)$"
     )
-    for t in tags:
-        m = regex.search(t)
-        if m:
+    for tag in tags:
+        match = regex.search(tag)
+        if match:
             try:
-                n = int(m.group(1))
+                n_post = int(match.group(1))
             except ValueError:
                 continue
-            if n > max_post:
-                max_post = n
+            if n_post > max_post:
+                max_post = n_post
     return max_post + 1
 
 
@@ -185,7 +183,7 @@ def get_short_sha(ref: str = "HEAD") -> str:
 
 def get_full_version() -> str:
     """Generate and return the full helix version string."""
-    tag_ns = "helix"
+    tag_ns = "v"
     version_in = get_version_in_path()
     current_branch = get_current_branch()
 
