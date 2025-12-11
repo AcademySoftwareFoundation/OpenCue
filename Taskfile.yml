@@ -145,3 +145,9 @@ tasks:
         . $HOME/.cargo/env
         cd rust
         cargo clippy --verbose
+
+  deploy-etc-to-nas:
+    desc: Deploy etc configuration files to NAS
+    cmds:
+      - python ci/deploy_etc_to_nas.py
+
