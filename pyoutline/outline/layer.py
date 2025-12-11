@@ -15,25 +15,22 @@
 
 """Base classes for all outline modules."""
 
-from __future__ import annotations
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import division
+from __future__ import absolute_import, annotations, division, print_function
 
+import logging
 import os
 import sys
-import logging
 import tempfile
 from typing import (
-    TypedDict,
-    List,
-    Optional,
+    Any,
     Callable,
     Dict,
-    Any,
-    Union,
-    Tuple,
+    List,
+    Optional,
     Set,
+    Tuple,
+    TypedDict,
+    Union,
 )
 
 import FileSequence
@@ -47,9 +44,9 @@ import outline.io
 import outline.util
 
 if sys.version_info >= (3, 12):
-    from typing import override, Unpack
+    from typing import Unpack, override
 else:
-    from typing_extensions import override, Unpack
+    from typing_extensions import Unpack, override
 
 __all__ = [
     "Layer",
@@ -110,6 +107,8 @@ class _LayerArgs(TypedDict, total=False):
     # timeout_llu: Timeout for long last update in seconds
     # before considering a frame hung
     timeout_llu: int
+    # slots_required: Number of slots required per frame (<=0 means not slot-based)
+    slots_required: int
     type: outline.constants.LayerType  # The layer type (Render, Util, Post)
 
 
@@ -1294,11 +1293,15 @@ class LayerPostProcess(Frame):
     the parent and the post process.
     """
 
-    def __init__(self, creator: Layer, propigate: bool = True, **args: Unpack[_LayerArgs]) -> None:
+    def __init__(
+        self, creator: Layer, propigate: bool = True, **args: Unpack[_LayerArgs]
+    ) -> None:
         super().__init__(f"{creator.get_name()}_postprocess", **args)
 
         self.__creator = creator
-        self.depend_on(creator, outline.depend.DependType.LayerOnLayer, propigate=propigate)
+        self.depend_on(
+            creator, outline.depend.DependType.LayerOnLayer, propigate=propigate
+        )
 
         self.set_type(outline.constants.LayerType.UTIL)
 
