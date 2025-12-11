@@ -21,9 +21,8 @@ use crate::{
     cluster_key::{ClusterKey, Tag, TagType},
     config::CONFIG,
     dao::HostDao,
-    host_cache::*,
-    host_cache::{messages::*, store},
-    models::Host,
+    host_cache::{messages::*, store, *},
+    models::{Host, ResourceRequest},
 };
 
 #[derive(Clone)]

@@ -290,10 +290,7 @@ impl MatchingService {
                     facility_id: layer.facility_id,
                     show_id: layer.show_id,
                     tags,
-                    resource_request: ResourceRequest::CoresAndMemory {
-                        cores: cores_requested,
-                        memory: layer.mem_min,
-                    },
+                    resource_request: layer.resource_request(),
                     validation: move |host| {
                         Self::validate_match(
                             host,
