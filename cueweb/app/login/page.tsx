@@ -4,7 +4,7 @@
 import { signIn } from "next-auth/react";
 import React from "react";
 import { useRouter } from "next/navigation";
-import { GmailSignInButton, OktaSignInButton, GithubSignInButton, CuewebRedirectButton } from "@/components/ui/auth-button"
+import { GmailSignInButton, OktaSignInButton, GithubSignInButton, LdapSignInButton, CuewebRedirectButton } from "@/components/ui/auth-button"
 import CueWebIcon from "../../components/ui/cuewebicon";
 
 export default function Page() {
@@ -20,6 +20,10 @@ export default function Page() {
 
     const githubLogin = async () => {
         signIn("github", { callbackUrl: "/"});
+    };
+
+    const ldapLogin = async () => {
+        router.push('/login/ldap');
     };
 
     const cuewebRedirect = () => {
@@ -50,6 +54,9 @@ export default function Page() {
                         }
                         {process.env.NEXT_PUBLIC_AUTH_PROVIDER && process.env.NEXT_PUBLIC_AUTH_PROVIDER.indexOf('github') >= 0 && 
                             <GithubSignInButton onClick={githubLogin} /> 
+                        }
+                        {process.env.NEXT_PUBLIC_AUTH_PROVIDER && process.env.NEXT_PUBLIC_AUTH_PROVIDER.indexOf('ldap') >= 0 && 
+                            <LdapSignInButton onClick={ldapLogin} /> 
                         }
                     </div>
                 </div>
