@@ -35,8 +35,8 @@ use uuid::Uuid;
 
 use crate::{
     config::{HostBookingStrategy, CONFIG},
-    host_cache::{messages::ResourceRequest, store::HOST_STORE, HostCacheError, HostId},
-    models::{CoreSize, Host},
+    host_cache::{store::HOST_STORE, HostCacheError, HostId},
+    models::{CoreSize, Host, ResourceRequest},
 };
 
 type CoreKey = u32;
@@ -155,7 +155,9 @@ impl HostCache {
             ResourceRequest::CoresAndMemory { cores, memory } => self
                 .remove_host(cores, memory, 1, validation)
                 .ok_or(HostCacheError::NoCandidateAvailable)?,
-            ResourceRequest::Gpu(_core_size) => todo!("GPU host search is not yet implemented"),
+            ResourceRequest::Gpu { cores, memory } => {
+                todo!("GPU host search is not yet implemented. Request: {cores}, {memory}")
+            }
             ResourceRequest::Slots(slots) => self
                 // Request a host with minimum requirements as the remove logic already accounts for
                 // limiting slots
